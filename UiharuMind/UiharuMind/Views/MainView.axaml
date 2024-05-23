@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 			 xmlns:u="https://irihi.tech/ursa"
              xmlns:vm="clr-namespace:UiharuMind.ViewModels"
+             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.MainView"
              x:DataType="vm:MainViewModel">
@@ -32,7 +33,7 @@
                 Grid.RowSpan="2"
                 VerticalAlignment="Stretch"
                 Theme="{DynamicResource CardBorder}">
-				<u:NavMenu Name="menu" ItemsSource="{Binding Menus.MenuItems}"
+				<u:NavMenu ItemsSource="{Binding Menus.MenuItems}"
                            ExpandWidth="300"
                            CommandBinding="{Binding ActivateCommand}"
 						   IsHorizontalCollapsed="True"
@@ -40,7 +41,7 @@
                            IconBinding="{Binding MenuHeader}">
 					<!--显示分割线-->
 					<u:NavMenu.Styles>
-						<Style Selector="u|NavMenuItem">
+						<Style Selector="u|NavMenuItem" x:DataType="vm:MenuItemViewData">
 							<Setter Property="IsSeparator" Value="{Binding IsSeparator}"></Setter>
 						</Style>
 					</u:NavMenu.Styles>
@@ -101,7 +102,7 @@
                 Margin="12"
                 Content="{Binding Content}">
 				<ContentControl.ContentTemplate>
-					<vm:ViewLocator />
+					<converters:ViewLocator />
 				</ContentControl.ContentTemplate>
 			</ContentControl>
 		</Grid>

@@ -1,24 +1,20 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using UiharuMind.ViewModels.Interfaces;
 
-namespace UiharuMind.ViewModels;
+namespace UiharuMind.ViewModels.Converters;
 
-public class ViewLocator: IDataTemplate
+/// <summary>
+/// Control 制造者，要求目标实现 IViewControl
+/// </summary>
+public class ViewLocator : IDataTemplate
 {
     public Control? Build(object? param)
     {
+        if (param is IViewControl vc) return vc.View;
         if (param is null) return null;
-        var name = param.GetType().Name!.Replace("ViewModel", "");
-        var type = Type.GetType("UiharuMind.Views.Pages." + name);
-        if (type != null)
-        {
-            return (Control)Activator.CreateInstance(type)!;
-        }
-        else
-        {
-            return new TextBlock { Text = "Not Found: " + name };
-        }
+        return new TextBlock { Text = "ViewControl Not Found : " + param.GetType().Name };
     }
 
     public bool Match(object? data)

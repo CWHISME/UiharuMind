@@ -5,13 +5,6 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace UiharuMind.ViewModels;
 
-public enum ControlStatus
-{
-    New,
-    Beta,
-    Stable,
-}
-
 public class MenuItemViewData : ViewModelBase
 {
     public string? MenuHeader { get; set; }
@@ -20,6 +13,7 @@ public class MenuItemViewData : ViewModelBase
     public string? Status { get; set; }
 
     public bool IsSeparator { get; set; }
+
     public ObservableCollection<MenuItemViewData> Children { get; set; } = new();
 
     public ICommand ActivateCommand { get; set; }
@@ -32,6 +26,7 @@ public class MenuItemViewData : ViewModelBase
     private void OnActivate()
     {
         if (IsSeparator || Key == null) return;
-        WeakReferenceMessenger.Default.Send<string>(Key);
+        Messenger.Send(Key);
+        // WeakReferenceMessenger.Default.Send<string>(Key);
     }
 }

@@ -2,6 +2,12 @@
 
 namespace UiharuMind.ViewModels;
 
-public class ViewModelBase : ObservableObject
+public class ViewModelBase : ObservableRecipient
 {
+    protected ViewModelBase()
+    {
+        IsActive = true;
+    }
+
+    // protected virtual bool AutoActive => true;
 }

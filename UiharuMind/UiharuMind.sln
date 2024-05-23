@@ -11,6 +11,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UiharuMind.Desktop", "Uihar
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UiharuMind.Browser", "UiharuMind.Browser\UiharuMind.Browser.csproj", "{3C4D9AD7-9145-47A7-8253-8E07D9553718}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Core", "UiharuMind.Core\UiharuMind.Core.csproj", "{0D493F48-BBB0-442A-93CC-AC11AA8DA75A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.CLI", "UiharuMind.CLI\UiharuMind.CLI.csproj", "{35257060-675B-4145-B0E9-4F438D751D2B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{3C4D9AD7-9145-47A7-8253-8E07D9553718}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3C4D9AD7-9145-47A7-8253-8E07D9553718}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3C4D9AD7-9145-47A7-8253-8E07D9553718}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D493F48-BBB0-442A-93CC-AC11AA8DA75A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D493F48-BBB0-442A-93CC-AC11AA8DA75A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D493F48-BBB0-442A-93CC-AC11AA8DA75A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D493F48-BBB0-442A-93CC-AC11AA8DA75A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35257060-675B-4145-B0E9-4F438D751D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35257060-675B-4145-B0E9-4F438D751D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35257060-675B-4145-B0E9-4F438D751D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35257060-675B-4145-B0E9-4F438D751D2B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

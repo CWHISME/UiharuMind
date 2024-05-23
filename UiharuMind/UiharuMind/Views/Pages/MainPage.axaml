@@ -4,11 +4,16 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.MainPage"
-			 xmlns:vm="clr-namespace:UiharuMind.ViewModels"
-	         x:DataType="vm:MainPage">
+             xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             x:DataType="pages:MainPageData">
 
-	<StackPanel>
-		<TextBlock Text="{Binding Title}" FontSize="30" Margin="10" />
-		<Button Click="Button_Click">Click me</Button>
-	</StackPanel>
+    <Design.DataContext>
+        <pages:MainPageData/>
+    </Design.DataContext>
+
+    <StackPanel>
+        <TextBlock Text="{Binding Title}" FontSize="30" Margin="10" />
+        <TextBlock Text="{Binding Count, Mode=TwoWay}"></TextBlock>
+        <Button Command="{Binding IncrementCountCommand}">Click me</Button>
+    </StackPanel>
 </UserControl>
