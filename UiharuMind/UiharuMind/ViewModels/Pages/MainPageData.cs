@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.LLamaCpp;
 using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;
@@ -15,6 +16,7 @@ public partial class MainPageData : PageDataBase
     private void IncrementCount()
     {
         Count++;
+        // LLamaCppManager.Instance.ScanModels();
     }
 
     protected override Control CreateView => new MainPage();

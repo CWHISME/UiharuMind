@@ -8,9 +8,5 @@ namespace UiharuMind.Views.Pages
         {
             InitializeComponent();
         }
-
-        private void Button_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-        {
-        }
     }
 }

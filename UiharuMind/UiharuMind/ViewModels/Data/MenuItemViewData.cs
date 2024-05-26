@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace UiharuMind.ViewModels;
 
-public class MenuItemViewData : ViewModelBase
+public class MenuItemViewData
 {
     public string? MenuHeader { get; set; }
     public string? MenuIconName { get; set; }
@@ -13,6 +13,7 @@ public class MenuItemViewData : ViewModelBase
     public string? Status { get; set; }
 
     public bool IsSeparator { get; set; }
+    public bool IsSelected { get; set; }
 
     public ObservableCollection<MenuItemViewData> Children { get; set; } = new();
 
@@ -26,7 +27,7 @@ public class MenuItemViewData : ViewModelBase
     private void OnActivate()
     {
         if (IsSeparator || Key == null) return;
-        Messenger.Send(Key);
-        // WeakReferenceMessenger.Default.Send<string>(Key);
+        // Messenger.Send(Key);
+        WeakReferenceMessenger.Default.Send(Key);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using UiharuMind.ViewModels.Controls;
 using UiharuMind.ViewModels.Pages;
 
 namespace UiharuMind.ViewModels;
@@ -9,14 +10,17 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 {
     public MenuViewData Menus { get; set; } = new MenuViewData();
 
+    public Footer Footers { get; set; } = new Footer();
+
     [ObservableProperty] private object? _content;
 
     private readonly Dictionary<string, ViewModelBase> _viewModels = new Dictionary<string, ViewModelBase>();
 
-    // public MainViewModel()
-    // {
-    //     IsActive = true;
-    // }
+    public MainViewModel()
+    {
+        Receive(MenuKeys.MenuMainPage);
+        Menus.MenuItems[0].IsSelected = true;
+    }
 
     public void Receive(string message)
     {
@@ -31,6 +35,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
             _viewModels.Add(message, vmPage);
         }
 
+        // Menus.MenuItems[0].MenuHeader =  message;
         Content = vmPage;
     }
 }

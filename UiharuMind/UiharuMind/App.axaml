@@ -4,10 +4,11 @@
              x:Class="UiharuMind.App"
 			RequestedThemeVariant="Default">
 	<!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
-
+	
 	<Application.Styles>
 		<!--<FluentTheme />-->
 		<StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
+		<StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude>
 		<u-semi:SemiTheme Locale="zh-CN"/>
 	</Application.Styles>
 </Application>
