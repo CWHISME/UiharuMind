@@ -1,4 +1,4 @@
-namespace UiharuMind.Core.Core.Singleton
+namespace UiharuMind.Core.Core.Singletons
 {
     public interface IInitialize
     {

@@ -1,4 +1,4 @@
-namespace UiharuMind.Core.Core.Singleton
+namespace UiharuMind.Core.Core.Singletons
 {
     public class Singleton<T> where T : new()
     {
