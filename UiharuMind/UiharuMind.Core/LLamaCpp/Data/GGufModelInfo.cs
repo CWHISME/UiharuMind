@@ -4,6 +4,10 @@ namespace UiharuMind.Core.LLamaCpp.Data;
 
 public class GGufModelInfo
 {
+    public string ModelName { get; set; }
+
+    [JsonIgnore] public string ModelPath { get; set; }
+
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 
     public void UpdateValue(string lineInfo)

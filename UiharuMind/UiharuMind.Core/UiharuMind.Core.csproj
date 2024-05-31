@@ -10,8 +10,4 @@
       <PackageReference Include="CliWrap" Version="3.6.6" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Core\Process\" />
-    </ItemGroup>
-
 </Project>
