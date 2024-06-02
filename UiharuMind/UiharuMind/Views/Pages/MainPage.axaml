@@ -11,7 +11,7 @@
     <Design.DataContext>
         <pages:MainPageData />
     </Design.DataContext>
-    
+
     <DockPanel>
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="{Binding Title}" FontSize="24" />
@@ -23,19 +23,37 @@
             </StackPanel>
             <TextBlock Margin="0 5" DockPanel.Dock="Top">Choose an animal:</TextBlock>
         </StackPanel>
-        <ListBox DockPanel.Dock="Bottom"
+        <ListBox
             u:ScrollTo.Direction="Top"
-            u:ScrollTo.ButtonTheme="{DynamicResource PrimaryScrollToButton}"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ScrollViewer.VerticalScrollBarVisibility="Auto"
             ItemsSource="{Binding ModelSources}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Border BorderBrush="Gray" BorderThickness="1">
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="{Binding ModelName}" />
-                            <TextBlock Text="{Binding ModelPath}" FontSize="12" />
-                        </StackPanel>
+                    <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="30" ClipToBounds="True"
+                            BorderThickness="1" Padding="5">
+                        <DockPanel>
+                            <StackPanel Orientation="Vertical" DockPanel.Dock="Left">
+                                <TextBlock Text="{Binding ModelName}" />
+                                <TextBlock Text="{Binding ModelPath}" FontSize="12" />
+                            </StackPanel>
+                            <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" Orientation="Horizontal">
+                                <u:IconButton CornerRadius="20"
+                                              CommandParameter="{Binding ModelPath}"
+                                              Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                    <u:IconButton.Icon>
+                                        <PathIcon Data="{StaticResource OpenFolderRegular}" />
+                                    </u:IconButton.Icon>
+                                </u:IconButton>
+                                <u:IconButton CornerRadius="20"
+                                              CommandParameter="{Binding ModelPath}"
+                                              Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                    <u:IconButton.Icon>
+                                        <PathIcon Data="{StaticResource InfoRegular}" />
+                                    </u:IconButton.Icon>
+                                </u:IconButton>
+                            </StackPanel>
+                        </DockPanel>
                     </Border>
                 </DataTemplate>
             </ListBox.ItemTemplate>

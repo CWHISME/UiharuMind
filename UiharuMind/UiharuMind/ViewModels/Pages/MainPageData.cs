@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,7 +30,19 @@ public partial class MainPageData : PageDataBase
     [RelayCommand]
     private void OpenModelFolder()
     {
-        FilesService.OpenFolderAsync(LLamaConfig.LocalModelPath);
+        FilesService.OpenFolder(LLamaConfig.LocalModelPath);
+    }
+
+    [RelayCommand]
+    private void OpenSelectModelFolder(string path)
+    {
+        FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path);
+    }
+    
+    [RelayCommand]
+    private void OpenSelectModelInfo(string path)
+    {
+        ShowNotification("OpenSelectModelInfo.");
     }
 
     partial void OnModelPathChanged(string? value)

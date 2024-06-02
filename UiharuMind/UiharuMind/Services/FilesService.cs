@@ -30,7 +30,7 @@ public class FilesService //: IStorageFolder
         return result.FirstOrDefault()?.TryGetLocalPath() ?? defaultPath;
     }
 
-    public async void OpenFolderAsync(string path)
+    public void OpenFolder(string path)
     {
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
