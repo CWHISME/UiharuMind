@@ -1,8 +1,9 @@
 ﻿using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Notifications;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
-
+using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.Views;
 
@@ -27,6 +28,7 @@ public partial class App : Application
             {
                 DataContext = new MainViewModel()
             };
+            FilesService = new FilesService(desktop.MainWindow);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -38,4 +40,9 @@ public partial class App : Application
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    public new static App? Current => Application.Current as App;
+
+    public FilesService? FilesService { get; private set; }
+    public WindowNotificationManager? NotificationManager { get; set; }
 }

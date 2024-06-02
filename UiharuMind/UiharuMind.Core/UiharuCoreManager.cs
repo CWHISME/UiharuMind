@@ -20,13 +20,21 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     {
         Setting = SaveUtility.Load<SettingConfig>(typeof(SettingConfig));
         LLamaCppServer = new LLamaCppServerKernal();
-        
-        SetupTest();
+
+        SetupTestWin();
     }
 
     public void Log(object message)
     {
         Console.WriteLine(message);
+    }
+
+    private void SetupTestWin()
+    {
+        LLamaCppServer.Config.LLamaCppPath =
+            "D:\\Solfware\\AI\\llama-b3058-bin-win-vulkan-x64";
+        if (!Directory.Exists(LLamaCppServer.Config.LocalModelPath))
+            LLamaCppServer.Config.LocalModelPath = "D:\\Solfware\\AI\\LLM_Models";
     }
 
     private void SetupTest()

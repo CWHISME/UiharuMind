@@ -10,22 +10,24 @@ namespace UiharuMind.Core.LLamaCpp;
 
 public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLamaCppSettingConfig>
 {
+    private List<GGufModelInfo> _modelInfos = new List<GGufModelInfo>();
+
     public async Task StartServer(string modelFilePath)
     {
         await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath}", (line, cts) => { Log.Debug(line); });
     }
 
-    public async Task<GGufModelInfo[]> GetModelList()
+    public async Task<IReadOnlyList<GGufModelInfo>> GetModelList()
     {
-        await ScanLocalModels();
-        return Config.ModelInfos.Values.ToArray();
+        return await ScanLocalModels();
     }
 
-    public async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(bool force = false)
+    public async Task<List<GGufModelInfo>> ScanLocalModels(bool force = false)
     {
         string lookupExe = Config.ExeLookupStats;
-
-        string[] files = Directory.GetFiles(Config.LocalModelPath, "*.gguf", SearchOption.AllDirectories);
+        _modelInfos.Clear();
+        string[] files = Directory.GetFiles(Config.LocalModelPath!, "*.gguf", SearchOption.AllDirectories);
+        bool isChanged = false;
         foreach (var file in files)
         {
             string fileName = Path.GetFileNameWithoutExtension(file);
@@ -34,19 +36,22 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
                 // if (Config.ModelInfos.ContainsKey(fileName))
             {
                 info.ModelPath = file;
+                _modelInfos.Add(info);
                 continue;
             }
 
+            if (!isChanged) isChanged = true;
             info = await GetModelStateInfo(lookupExe, file);
             info.ModelName = fileName;
             info.ModelPath = file;
+            _modelInfos.Add(info);
 
             Config.ModelInfos[fileName] = info;
             // break;
         }
 
-        Config.Save();
-        return Config.ModelInfos;
+        if (isChanged) Config.Save();
+        return _modelInfos;
         // return null;
     }
 

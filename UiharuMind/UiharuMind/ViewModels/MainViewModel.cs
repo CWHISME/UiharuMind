@@ -1,4 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using UiharuMind.ViewModels.Controls;
@@ -12,7 +15,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     public Footer Footers { get; set; } = new Footer();
 
-    [ObservableProperty] private object? _content;
+    [ObservableProperty] private ViewModelBase? _content;
 
     private readonly Dictionary<string, ViewModelBase> _viewModels = new Dictionary<string, ViewModelBase>();
 
@@ -20,6 +23,12 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     {
         Receive(MenuKeys.MenuMainPage);
         Menus.MenuItems[0].IsSelected = true;
+    }
+
+    partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)
+    {
+        oldValue?.OnDisable();
+        newValue?.OnEnable();
     }
 
     public void Receive(string message)

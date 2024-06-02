@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 
@@ -11,5 +12,4 @@ public partial class MainView : UserControl
     {
         InitializeComponent();
     }
-
 }

@@ -5,15 +5,41 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.MainPage"
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             xmlns:u="https://irihi.tech/ursa"
              x:DataType="pages:MainPageData">
 
     <Design.DataContext>
-        <pages:MainPageData/>
+        <pages:MainPageData />
     </Design.DataContext>
+    
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="{Binding Title}" FontSize="24" />
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding ModelPrefix}" VerticalAlignment="Center"></TextBlock>
+                <TextBox IsEnabled="False" Text="{Binding ModelPath}" VerticalAlignment="Center"></TextBox>
+                <Button Content="Change" Command="{Binding OpenChangeModelPathCommand}"></Button>
+                <Button Content="Show in Explorer" Command="{Binding OpenModelFolderCommand}"></Button>
+            </StackPanel>
+            <TextBlock Margin="0 5" DockPanel.Dock="Top">Choose an animal:</TextBlock>
+        </StackPanel>
+        <ListBox DockPanel.Dock="Bottom"
+            u:ScrollTo.Direction="Top"
+            u:ScrollTo.ButtonTheme="{DynamicResource PrimaryScrollToButton}"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Auto"
+            ItemsSource="{Binding ModelSources}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border BorderBrush="Gray" BorderThickness="1">
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="{Binding ModelName}" />
+                            <TextBlock Text="{Binding ModelPath}" FontSize="12" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
 
-    <StackPanel>
-        <TextBlock Text="{Binding Title}" FontSize="30" Margin="10" />
-        <TextBlock Text="{Binding Count, Mode=TwoWay}"></TextBlock>
-        <Button Command="{Binding IncrementCountCommand}">Click me</Button>
-    </StackPanel>
 </UserControl>

@@ -9,5 +9,15 @@ public class ViewModelBase : ObservableRecipient
         IsActive = true;
     }
 
+    public virtual void OnEnable()
+    {
+        IsActive = true;
+    }
+
+    public virtual void OnDisable()
+    {
+        IsActive = false;
+    }
+
     // protected virtual bool AutoActive => true;
 }
