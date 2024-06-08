@@ -38,7 +38,13 @@ public partial class MainPageData : PageDataBase
     {
         FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path);
     }
-    
+
+    [RelayCommand]
+    private void RefreshSelectModelInfo(string path)
+    {
+        _ = LlamaService.ScanLocalModel(path);
+    }
+
     [RelayCommand]
     private void OpenSelectModelInfo(string path)
     {

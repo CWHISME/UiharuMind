@@ -6,12 +6,19 @@ public class GGufModelInfo
 {
     public string ModelName { get; set; }
 
+    //质量降级的：GENERATION QUALITY WILL BE DEGRADED! CONSIDER REGENERATING THE MODEL
+    public bool IsDegraded { get; set; }
+
     [JsonIgnore] public string ModelPath { get; set; }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 
+
     public void UpdateValue(string lineInfo)
     {
+        //check DEGRADED
+        if (lineInfo.Contains("DEGRADED", StringComparison.Ordinal)) IsDegraded = true;
+
         var input = lineInfo.AsSpan();
 
         int colonIndex = input.LastIndexOf(':');

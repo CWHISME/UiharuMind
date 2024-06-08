@@ -40,6 +40,13 @@
                             <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" Orientation="Horizontal">
                                 <u:IconButton CornerRadius="20"
                                               CommandParameter="{Binding ModelPath}"
+                                              Command="{Binding DataContext.RefreshModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                    <u:IconButton.Icon>
+                                        <PathIcon Data="{StaticResource OpenFolderRegular}" />
+                                    </u:IconButton.Icon>
+                                </u:IconButton>
+                                <u:IconButton CornerRadius="20"
+                                              CommandParameter="{Binding ModelPath}"
                                               Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                     <u:IconButton.Icon>
                                         <PathIcon Data="{StaticResource OpenFolderRegular}" />

@@ -21,7 +21,8 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
         Setting = SaveUtility.Load<SettingConfig>(typeof(SettingConfig));
         LLamaCppServer = new LLamaCppServerKernal();
 
-        SetupTestWin();
+        SetupTest();
+        // SetupTestWin();
     }
 
     public void Log(object message)

@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using CliWrap;
-using CliWrap.EventStream;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
@@ -10,11 +7,13 @@ namespace UiharuMind.Core.LLamaCpp;
 
 public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLamaCppSettingConfig>
 {
+    private LLamaCppVersion _llamaCppVersion = new LLamaCppVersion();
     private List<GGufModelInfo> _modelInfos = new List<GGufModelInfo>();
 
-    public async Task StartServer(string modelFilePath)
+    public async Task StartServer(string modelFilePath, int port)
     {
-        await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath}", (line, cts) => { Log.Debug(line); });
+        await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath} --port {port}",
+            (line, cts) => { Log.Debug(line); });
     }
 
     public async Task<IReadOnlyList<GGufModelInfo>> GetModelList()
@@ -59,6 +58,11 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     {
         var info = await GetModelStateInfo(Config.ExeLookupStats, modelFilePath);
         Config.ModelInfos[Path.GetFileName(modelFilePath)] = info;
+    }
+
+    public async Task<LLamaCppVersionItem> PullLastestVersion()
+    {
+        return await _llamaCppVersion.GetLatestVersion();
     }
 
     private async Task<GGufModelInfo> GetModelStateInfo(string lookupExe, string file)
