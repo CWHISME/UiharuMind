@@ -40,9 +40,10 @@ public partial class MainPageData : PageDataBase
     }
 
     [RelayCommand]
-    private void RefreshSelectModelInfo(string path)
+    private async Task RefreshSelectModelInfo(string path)
     {
-        _ = LlamaService.ScanLocalModel(path);
+        await LlamaService.ScanLocalModel(path);
+        ShowNotification("Reload Info：" + path);
     }
 
     [RelayCommand]

@@ -7,7 +7,7 @@ namespace UiharuMind.Core.LLamaCpp;
 
 public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLamaCppSettingConfig>
 {
-    private LLamaCppVersion _llamaCppVersion = new LLamaCppVersion();
+    private LLamaCppVersionManager _llamaCppVersionManager = new LLamaCppVersionManager();
     private List<GGufModelInfo> _modelInfos = new List<GGufModelInfo>();
 
     public async Task StartServer(string modelFilePath, int port)
@@ -62,7 +62,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
 
     public async Task<LLamaCppVersionItem> PullLastestVersion()
     {
-        return await _llamaCppVersion.GetLatestVersion();
+        return await _llamaCppVersionManager.GetLatestVersion();
     }
 
     private async Task<GGufModelInfo> GetModelStateInfo(string lookupExe, string file)
