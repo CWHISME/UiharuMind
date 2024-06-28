@@ -9,7 +9,7 @@ using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;
 
-public partial class MainPageData : PageDataBase
+public partial class ModelPageData : PageDataBase
 {
     public string? Title { get; set; } = "Model Viewer";
     public string? ModelPrefix { get; set; } = "Local models folder: ";
@@ -63,7 +63,7 @@ public partial class MainPageData : PageDataBase
         LoadModels();
     }
 
-    protected override Control CreateView => new MainPage();
+    protected override Control CreateView => new ModelPage();
 
     private async void LoadModels()
     {

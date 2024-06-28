@@ -3,13 +3,13 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.Pages.MainPage"
+             x:Class="UiharuMind.Views.Pages.ModelPage"
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:u="https://irihi.tech/ursa"
-             x:DataType="pages:MainPageData">
+             x:DataType="pages:ModelPageData">
 
     <Design.DataContext>
-        <pages:MainPageData />
+        <pages:ModelPageData />
     </Design.DataContext>
 
     <DockPanel>

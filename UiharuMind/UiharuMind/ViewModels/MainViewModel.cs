@@ -21,7 +21,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     public MainViewModel()
     {
-        Receive(MenuKeys.MenuMainPage);
+        Receive(MenuKeys.MenuMainKey);
         Menus.MenuItems[0].IsSelected = true;
     }
 
@@ -38,8 +38,12 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
         {
             vmPage = message switch
             {
-                MenuKeys.MenuMainPage => new MainPageData() { Title = message },
-                _ => new MainPageData() { Title = message + "   Null Page" },
+                MenuKeys.MenuMainKey => new HomePageData(),
+                MenuKeys.MenuChatKey => new ChatPageData(),
+                MenuKeys.MenuTranslateKey => new TranslatePageData(),
+                MenuKeys.MenuModelKey => new ModelPageData() { Title = message },
+                MenuKeys.MenuSettingKey => new SettingPageData(),
+                _ => new ModelPageData() { Title = message + "   Null Page" },
             };
             _viewModels.Add(message, vmPage);
         }

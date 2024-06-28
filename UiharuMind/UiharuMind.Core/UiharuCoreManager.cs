@@ -1,6 +1,8 @@
 ﻿using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.Input;
 using UiharuMind.Core.LLamaCpp;
+using UiharuMind.Core.ScreenCapture;
 
 namespace UiharuMind.Core;
 
@@ -15,12 +17,15 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     public LLamaCppServerKernal LLamaCppServer { get; private set; }
 
     // public ILocalLM LocalLM { get; private set; }
+    private InputManager _input;
 
     public void OnInitialize()
     {
         Setting = SaveUtility.Load<SettingConfig>(typeof(SettingConfig));
         LLamaCppServer = new LLamaCppServerKernal();
-
+        _input = new InputManager();
+        _input.Start();
+        
         SetupTest();
         // SetupTestWin();
     }
@@ -28,6 +33,11 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     public void Log(object message)
     {
         Console.WriteLine(message);
+    }
+
+    public async Task CaptureScreen()
+    {
+        await ScreenCaptureMac.Capture();
     }
 
     private void SetupTestWin()

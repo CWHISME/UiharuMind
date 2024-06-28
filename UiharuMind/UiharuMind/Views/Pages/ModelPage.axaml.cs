@@ -4,9 +4,9 @@ using Avalonia.Platform.Storage;
 
 namespace UiharuMind.Views.Pages
 {
-    public partial class MainPage : UserControl
+    public partial class ModelPage : UserControl
     {
-        public MainPage()
+        public ModelPage()
         {
             InitializeComponent();
         }

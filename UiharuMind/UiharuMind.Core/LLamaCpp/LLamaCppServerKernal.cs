@@ -60,7 +60,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         Config.ModelInfos[Path.GetFileName(modelFilePath)] = info;
     }
 
-    public async Task<LLamaCppVersionItem> PullLastestVersion()
+    public async Task<bool> PullLastestVersion()
     {
         return await _llamaCppVersionManager.GetLatestVersion();
     }
