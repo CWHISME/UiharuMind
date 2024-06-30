@@ -60,7 +60,7 @@ public partial class ModelPageData : PageDataBase
     public override void OnEnable()
     {
         base.OnEnable();
-        LoadModels();
+        ModelPath = LLamaConfig.LocalModelPath;
     }
 
     protected override Control CreateView => new ModelPage();
@@ -68,7 +68,6 @@ public partial class ModelPageData : PageDataBase
     private async void LoadModels()
     {
         IsBusy = true;
-        ModelPath = LLamaConfig.LocalModelPath;
         var modelList = await LlamaService.GetModelList();
         ModelSources.Clear();
         foreach (var model in modelList)

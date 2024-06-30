@@ -8,26 +8,33 @@ public class InputManager
 {
     public static MouseEventData MouseData;
 
+    private TaskPoolGlobalHook _hook;
+
     public async void Start()
     {
-        var hook = new TaskPoolGlobalHook();
+        _hook = new TaskPoolGlobalHook();
 
-        hook.HookEnabled += OnHookEnabled; // EventHandler<HookEventArgs>
-        hook.HookDisabled += OnHookDisabled; // EventHandler<HookEventArgs>
+        _hook.HookEnabled += OnHookEnabled; // EventHandler<HookEventArgs>
+        _hook.HookDisabled += OnHookDisabled; // EventHandler<HookEventArgs>
 
         // hook.KeyTyped += OnKeyTyped; // EventHandler<KeyboardHookEventArgs>
         // hook.KeyPressed += OnKeyPressed; // EventHandler<KeyboardHookEventArgs>
         // hook.KeyReleased += OnKeyReleased; // EventHandler<KeyboardHookEventArgs>
 
-        hook.MouseClicked += OnMouseClicked; // EventHandler<MouseHookEventArgs>
-        hook.MousePressed += OnMousePressed; // EventHandler<MouseHookEventArgs>
-        hook.MouseReleased += OnMouseReleased; // EventHandler<MouseHookEventArgs>
-        hook.MouseMoved += OnMouseMoved; // EventHandler<MouseHookEventArgs>
-        hook.MouseDragged += OnMouseDragged; // EventHandler<MouseHookEventArgs>
+        _hook.MouseClicked += OnMouseClicked; // EventHandler<MouseHookEventArgs>
+        _hook.MousePressed += OnMousePressed; // EventHandler<MouseHookEventArgs>
+        _hook.MouseReleased += OnMouseReleased; // EventHandler<MouseHookEventArgs>
+        _hook.MouseMoved += OnMouseMoved; // EventHandler<MouseHookEventArgs>
+        _hook.MouseDragged += OnMouseDragged; // EventHandler<MouseHookEventArgs>
 
-        hook.MouseWheel += OnMouseWheel; // EventHandler<MouseWheelHookEventArgs>
+        _hook.MouseWheel += OnMouseWheel; // EventHandler<MouseWheelHookEventArgs>
 
-        await hook.RunAsync();
+        await _hook.RunAsync();
+    }
+
+    ~InputManager()
+    {
+        _hook.Dispose();
     }
 
     private void OnMouseClicked(object? sender, MouseHookEventArgs e)
