@@ -32,7 +32,7 @@ public class InputManager
         await _hook.RunAsync();
     }
 
-    ~InputManager()
+    public void Stop()
     {
         _hook.Dispose();
     }

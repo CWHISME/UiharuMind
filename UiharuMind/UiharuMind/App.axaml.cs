@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using UiharuMind.Core;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.Views;
@@ -24,6 +25,7 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            desktop.Exit += (sender, e) => { UiharuCoreManager.Instance.Dispose(); };
             desktop.MainWindow = new MainWindow
             {
                 DataContext = new MainViewModel()

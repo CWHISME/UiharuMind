@@ -29,6 +29,11 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
         SetupTest();
         // SetupTestWin();
     }
+    
+    public void Dispose()
+    {
+        _input.Stop();
+    }
 
     public void Log(object message)
     {
