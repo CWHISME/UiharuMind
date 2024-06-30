@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="UiharuMind.Views.Capture.ScreenCaptureWindow"
+        Background="Transparent"
+        Title="ScreenCaptureWindow">
+    <Panel>
+        <Canvas Name="ScreenshotCanvas">
+            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" Stroke="Black" StrokeThickness="2" />
+        </Canvas>
+        <StackPanel Name="InfoPanel" HorizontalAlignment="Left" VerticalAlignment="Top" Height="100" Width="100">
+            <TextBlock Name="ResolutionText" Text="xxx" Foreground="White"/>
+            <TextBlock Name="ColorText" Text="xxx" Foreground="White"/>
+            <TextBlock Name="TipsText" Text="xxx" Foreground="White"/>
+        </StackPanel>
+    </Panel>
+</Window>

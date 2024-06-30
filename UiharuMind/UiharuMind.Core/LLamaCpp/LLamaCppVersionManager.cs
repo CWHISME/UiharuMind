@@ -2,6 +2,7 @@ using System.Dynamic;
 using AngleSharp;
 using AngleSharp.Dom;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Logs;
 using UiharuMind.Core.LLamaCpp.Versions;
 
 namespace UiharuMind.Core.LLamaCpp;

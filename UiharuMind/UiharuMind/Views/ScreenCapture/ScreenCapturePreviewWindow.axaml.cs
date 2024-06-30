@@ -8,12 +8,12 @@ using UiharuMind.Core.Input;
 
 namespace UiharuMind.Views.Capture;
 
-public partial class ScreenCaptureWindow : Window
+public partial class ScreenCapturePreviewWindow : Window
 {
     private Point _dragStartPoint;
     private bool _isDragging;
 
-    public ScreenCaptureWindow()
+    public ScreenCapturePreviewWindow()
     {
         InitializeComponent();
 
@@ -43,7 +43,7 @@ public partial class ScreenCaptureWindow : Window
     /// <param name="image"></param>
     public static void ShowWindowAtMousePosition(Bitmap image)
     {
-        var window = new ScreenCaptureWindow();
+        var window = new ScreenCapturePreviewWindow();
         window.SetImage(image);
         window.Show();
     }
@@ -60,7 +60,7 @@ public partial class ScreenCaptureWindow : Window
             (int)(pos.Y - Height));
     }
 
-    private void OnPointerWheelChangedEvent(object sender, PointerWheelEventArgs e)
+    private void OnPointerWheelChangedEvent(object? sender, PointerWheelEventArgs e)
     {
         const float scale = 1.1f;
         const float minScale = 0.5f; // 最小缩放比例

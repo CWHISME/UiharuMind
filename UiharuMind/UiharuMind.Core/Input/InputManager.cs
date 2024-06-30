@@ -1,55 +1,123 @@
 using SharpHook;
 using SharpHook.Native;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Logs;
 
 namespace UiharuMind.Core.Input;
 
 public class InputManager
 {
+    /// <summary>
+    /// 当前鼠标信息
+    /// </summary>
     public static MouseEventData MouseData;
 
+    /// <summary>
+    /// 功能是否启用
+    /// </summary>
+    public bool IsRunning => _hook.IsRunning;
+
     private TaskPoolGlobalHook _hook;
+
+    private HashSet<KeyCode> _pressedKeys = new HashSet<KeyCode>();
+
+    /// <summary>
+    /// 组合键组合数据
+    /// </summary>
+    private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
 
     public async void Start()
     {
         _hook = new TaskPoolGlobalHook();
 
-        _hook.HookEnabled += OnHookEnabled; // EventHandler<HookEventArgs>
-        _hook.HookDisabled += OnHookDisabled; // EventHandler<HookEventArgs>
+        _hook.HookEnabled += OnHookEnabled;
+        _hook.HookDisabled += OnHookDisabled;
 
-        // hook.KeyTyped += OnKeyTyped; // EventHandler<KeyboardHookEventArgs>
-        // hook.KeyPressed += OnKeyPressed; // EventHandler<KeyboardHookEventArgs>
-        // hook.KeyReleased += OnKeyReleased; // EventHandler<KeyboardHookEventArgs>
+        _hook.KeyTyped += OnKeyTyped;
+        _hook.KeyPressed += OnKeyPressed;
+        _hook.KeyReleased += OnKeyReleased;
 
-        _hook.MouseClicked += OnMouseClicked; // EventHandler<MouseHookEventArgs>
-        _hook.MousePressed += OnMousePressed; // EventHandler<MouseHookEventArgs>
-        _hook.MouseReleased += OnMouseReleased; // EventHandler<MouseHookEventArgs>
-        _hook.MouseMoved += OnMouseMoved; // EventHandler<MouseHookEventArgs>
-        _hook.MouseDragged += OnMouseDragged; // EventHandler<MouseHookEventArgs>
+        _hook.MouseClicked += OnMouseClicked;
+        _hook.MousePressed += OnMousePressed;
+        _hook.MouseReleased += OnMouseReleased;
+        _hook.MouseMoved += OnMouseMoved;
+        _hook.MouseDragged += OnMouseDragged;
 
-        _hook.MouseWheel += OnMouseWheel; // EventHandler<MouseWheelHookEventArgs>
+        _hook.MouseWheel += OnMouseWheel;
 
-        await _hook.RunAsync();
+        try
+        {
+            await _hook.RunAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            Stop();
+        }
     }
 
     public void Stop()
     {
-        _hook.Dispose();
+        if (_hook.IsDisposed) return;
+        try
+        {
+            _hook.Dispose();
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
+    }
+
+    public bool IsPressed(KeyCode keyCode)
+    {
+        return _pressedKeys.Contains(keyCode);
+    }
+
+    public void RegisterKey(KeyCombinationData keyCombination)
+    {
+        _keyCombinations.Add(keyCombination);
+    }
+
+    //=========Event Handler=========
+
+    private void OnKeyTyped(object? sender, KeyboardHookEventArgs e)
+    {
+        // if (e.Data.KeyCode == (KeyCode.VcA) && IsPressed(KeyCode.VcLeftShift) && IsPressed(KeyCode.VcLeftAlt))
+        // {
+        //     Console.WriteLine("Ctrl + Alt + F 被按下");
+        // }
+
+        foreach (var keyCombination in _keyCombinations)
+        {
+            if (keyCombination.MainKeyCode != e.Data.KeyCode) continue;
+            if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
+            keyCombination.OnTrigger?.Invoke();
+        }
+    }
+
+    private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
+    {
+        _pressedKeys.Add(e.Data.KeyCode);
+    }
+
+    private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
+    {
+        _pressedKeys.Remove(e.Data.KeyCode);
     }
 
     private void OnMouseClicked(object? sender, MouseHookEventArgs e)
     {
-        Log.Debug(sender + "  OnMouseClicked " + e);
+        // Log.Debug(sender + "  OnMouseClicked " + e);
     }
 
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
-        Log.Debug("OnMousePressed");
+        // Log.Debug("OnMousePressed");
     }
 
     private void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
-        Log.Debug("OnMouseReleased");
+        // Log.Debug("OnMouseReleased");
     }
 
     private void OnMouseMoved(object? sender, MouseHookEventArgs e)
@@ -60,7 +128,7 @@ public class InputManager
 
     private void OnMouseDragged(object? sender, MouseHookEventArgs e)
     {
-        Log.Debug("OnMouseDragged");
+        // Log.Debug("OnMouseDragged");
     }
 
     private void OnMouseWheel(object? sender, MouseWheelHookEventArgs e)

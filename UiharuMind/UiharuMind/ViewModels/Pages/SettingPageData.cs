@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core;
 using UiharuMind.Core.Input;
+using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Capture;
 using UiharuMind.Views.Pages;
 
@@ -26,26 +27,7 @@ public partial class SettingPageData : PageDataBase
     [RelayCommand]
     private async Task Click()
     {
-        await UiharuCoreManager.Instance.CaptureScreen();
-
-        var topLevel = TopLevel.GetTopLevel(View);
-        // var clipboard = await topLevel.Clipboard.GetTextAsync();
-        // var formats = await topLevel.Clipboard.GetFormatsAsync();
-
-        // var image = await topLevel.Clipboard.GetDataAsync(formats[0]);
-        var data = await topLevel.Clipboard.GetDataAsync("public.png");
-        if (data is byte[] pngBytes)
-        {
-            using (var stream = new MemoryStream(pngBytes))
-            {
-                var bitmap = new Bitmap(stream);
-                ScreenCaptureWindow.ShowWindowAtMousePosition(bitmap);
-            }
-        }
-        else
-        {
-            Console.WriteLine("No PNG image found in clipboard.");
-        }
+        ScreenCaptureManager.GetScreenCaptureFromClipboard();
     }
 
     protected override Control CreateView => new SettingPage();

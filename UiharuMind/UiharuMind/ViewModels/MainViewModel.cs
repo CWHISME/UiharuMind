@@ -4,8 +4,13 @@ using Avalonia;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
+using SharpHook.Native;
+using UiharuMind.Core;
+using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.Controls;
 using UiharuMind.ViewModels.Pages;
+using UiharuMind.ViewModels.ScreenCaptures;
+using UiharuMind.Views.Capture;
 
 namespace UiharuMind.ViewModels;
 
@@ -23,6 +28,13 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     {
         Receive(MenuKeys.MenuMainKey);
         Menus.MenuItems[0].IsSelected = true;
+
+        UiharuCoreManager.Instance.Input.RegisterKey(new KeyCombinationData(KeyCode.VcZ,
+            ScreenCaptureManager.CaptureScreen, new List<KeyCode>()
+            {
+                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
+            },
+            "Capture Screen"));
     }
 
     partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)

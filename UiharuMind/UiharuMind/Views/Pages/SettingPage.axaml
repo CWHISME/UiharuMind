@@ -12,5 +12,7 @@
         <pages:SettingPageData />
     </Design.DataContext>
 
-    <Button Command="{Binding ClickCommand}"></Button>
+    <StackPanel>
+        <Button Content="截图" Command="{Binding ClickCommand}"></Button>
+    </StackPanel>
 </UserControl>

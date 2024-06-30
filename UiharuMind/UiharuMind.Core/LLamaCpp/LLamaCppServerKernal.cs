@@ -1,4 +1,5 @@
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Logs;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.LLamaCpp.Data;
@@ -70,16 +71,17 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         // Stopwatch stopwatch = new Stopwatch();
         // stopwatch.Start();
         GGufModelInfo info = new GGufModelInfo();
-        await ProcessHelper.StartProcess(lookupExe, $"-m {file}",
-            async (line, cts) => await ParseModelInfo(line, info, cts));
+        // await ProcessHelper.StartProcess(lookupExe, $"-m {file}",
+        //     async (line, cts) => await ParseModelInfo(line, info, cts));
+        await ProcessHelper.StartProcess(lookupExe, $"-m {file}", (line, cts) => ParseModelInfo(line, info, cts));
         // stopwatch.Stop();
         // Log.Debug($"Scan Model {file} {stopwatch.ElapsedMilliseconds}");
         return info;
     }
 
-    private async ValueTask ParseModelInfo(string line, GGufModelInfo info, CancellationTokenSource cts)
+    private void ParseModelInfo(string line, GGufModelInfo info, CancellationTokenSource cts)
     {
-        if (line.StartsWith("llm_load_tensors", StringComparison.Ordinal)) await cts.CancelAsync();
+        if (line.StartsWith("llm_load_tensors", StringComparison.Ordinal)) cts.Cancel();
         info.UpdateValue(line);
     }
 }
