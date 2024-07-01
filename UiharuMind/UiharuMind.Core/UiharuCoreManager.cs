@@ -1,5 +1,5 @@
 ﻿using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Logs;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.Input;
 using UiharuMind.Core.LLamaCpp;

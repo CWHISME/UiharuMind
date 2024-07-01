@@ -4,8 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Core;
-using UiharuMind.Core.Core.Logs;
 using UiharuMind.Core.Core.Process;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Views.Capture;
 
 namespace UiharuMind.ViewModels.ScreenCaptures;

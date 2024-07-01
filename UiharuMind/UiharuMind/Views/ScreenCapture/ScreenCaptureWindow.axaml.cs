@@ -4,7 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using UiharuMind.Core.Core.Logs;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Views.Capture;
 

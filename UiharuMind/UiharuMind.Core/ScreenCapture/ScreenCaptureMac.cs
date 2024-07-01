@@ -1,8 +1,8 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
 using CliWrap;
-using UiharuMind.Core.Core.Logs;
 using UiharuMind.Core.Core.Process;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.ScreenCapture;
 

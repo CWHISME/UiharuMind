@@ -1,7 +1,7 @@
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Logs;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.LLamaCpp.Data;
 
 namespace UiharuMind.Core.LLamaCpp;

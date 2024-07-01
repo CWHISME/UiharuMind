@@ -1,7 +1,7 @@
 using SharpHook;
 using SharpHook.Native;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Logs;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Input;
 

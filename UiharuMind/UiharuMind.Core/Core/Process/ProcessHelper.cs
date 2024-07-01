@@ -1,6 +1,6 @@
 using CliWrap;
 using CliWrap.EventStream;
-using UiharuMind.Core.Core.Logs;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Process;
 

@@ -7,7 +7,7 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core;
-using UiharuMind.Core.Core.Logs;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.Views;
