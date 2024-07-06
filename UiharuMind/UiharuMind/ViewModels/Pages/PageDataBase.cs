@@ -20,7 +20,7 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
     }
 
 
-    public FilesService FilesService => App.Current?.FilesService!;
+    public FilesService FilesService => App.FilesService;
     public LLamaCppServerKernal LlamaService => UiharuCoreManager.Instance.LLamaCppServer;
 
     public LLamaCppSettingConfig LLamaConfig => UiharuCoreManager.Instance.LLamaCppServer.Config;
@@ -33,7 +33,7 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
 
     public void ShowNotification(string title, string message, NotificationType type)
     {
-        App.Current?.NotificationManager?.Show(new Notification(title, message, type));
+        App.NotificationManager.Show(new Notification(title, message, type));
     }
 
     protected abstract Control CreateView { get; }

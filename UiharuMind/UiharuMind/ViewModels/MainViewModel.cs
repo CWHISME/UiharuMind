@@ -36,6 +36,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
             },
             "Capture Screen"));
     }
+    
 
     partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)
     {

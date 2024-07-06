@@ -43,13 +43,18 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     /// <param name="logger"></param>
     public void Init(ILogger? logger)
     {
-        Log.Logger = logger ?? new DefaultLogger();
+        // Log.Logger = logger ?? new DefaultLogger();
         Log.Debug("UiharuCoreManager initialized");
     }
 
     public async Task CaptureScreen()
     {
         await ScreenCaptureMac.Capture();
+    }
+
+    public async Task CaptureScreen(int screenId)
+    {
+        await ScreenCaptureMac.Capture(screenId);
     }
 
     private void CheckPlatform()

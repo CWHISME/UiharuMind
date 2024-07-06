@@ -27,7 +27,8 @@ public partial class SettingPageData : PageDataBase
     [RelayCommand]
     private async Task Click()
     {
-        ScreenCaptureManager.GetScreenCaptureFromClipboard();
+        // ScreenCaptureManager.CaptureScreen();
+        await ScreenCaptureManager.GetScreenCaptureFromClipboard();
     }
 
     protected override Control CreateView => new SettingPage();

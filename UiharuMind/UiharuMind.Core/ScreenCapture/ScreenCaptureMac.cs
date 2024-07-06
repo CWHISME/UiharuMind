@@ -21,6 +21,18 @@ public class ScreenCaptureMac
         }
     }
 
+    public static async Task Capture(int screenId)
+    {
+        try
+        {
+            await ProcessHelper.StartProcess("screencapture", $"-x -c -D {screenId} capturecache");
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+    }
+    
     public static async Task CaptureWindow()
     {
         //窗口

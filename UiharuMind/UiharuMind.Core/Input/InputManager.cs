@@ -17,7 +17,7 @@ public class InputManager
     /// </summary>
     public bool IsRunning => _hook.IsRunning;
 
-    private TaskPoolGlobalHook _hook;
+    private GlobalHookBase _hook;
 
     private HashSet<KeyCode> _pressedKeys = new HashSet<KeyCode>();
 
@@ -26,9 +26,9 @@ public class InputManager
     /// </summary>
     private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
 
-    public async void Start()
+    public async Task Start()
     {
-        _hook = new TaskPoolGlobalHook();
+        _hook = new SimpleGlobalHook(GlobalHookType.All); //new TaskPoolGlobalHook();
 
         _hook.HookEnabled += OnHookEnabled;
         _hook.HookDisabled += OnHookDisabled;
@@ -47,7 +47,7 @@ public class InputManager
 
         try
         {
-            await _hook.RunAsync().ConfigureAwait(false);
+            await _hook.RunAsync();//.ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -82,21 +82,19 @@ public class InputManager
 
     private void OnKeyTyped(object? sender, KeyboardHookEventArgs e)
     {
-        // if (e.Data.KeyCode == (KeyCode.VcA) && IsPressed(KeyCode.VcLeftShift) && IsPressed(KeyCode.VcLeftAlt))
-        // {
-        //     Console.WriteLine("Ctrl + Alt + F 被按下");
-        // }
+    }
 
+    private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
+    {
         foreach (var keyCombination in _keyCombinations)
         {
             if (keyCombination.MainKeyCode != e.Data.KeyCode) continue;
             if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
             keyCombination.OnTrigger?.Invoke();
+            // e.SuppressEvent = true;
+            return;
         }
-    }
 
-    private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
-    {
         _pressedKeys.Add(e.Data.KeyCode);
     }
 

@@ -4,7 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Capture;
 
@@ -26,7 +29,8 @@ public partial class ScreenCapturePreviewWindow : Window
     public void SetImage(Bitmap image)
     {
         Topmost = true;
-        Content = new Image { Source = image };
+        // Content = new Image { Source = image };
+        ImageContent.Source = image;
         Width = image.Size.Width;
         Height = image.Size.Height;
         WindowState = WindowState.Normal;
@@ -41,11 +45,20 @@ public partial class ScreenCapturePreviewWindow : Window
     /// 在屏幕显示一张图(当前鼠标位置)
     /// </summary>
     /// <param name="image"></param>
-    public static void ShowWindowAtMousePosition(Bitmap image)
+    public static void ShowWindowAtMousePosition(Bitmap? image)
     {
-        var window = new ScreenCapturePreviewWindow();
-        window.SetImage(image);
-        window.Show();
+        if (image == null)
+        {
+            Log.Error("image is null");
+            return;
+        }
+
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var window = new ScreenCapturePreviewWindow();
+            window.SetImage(image);
+            window.Show();
+        });
     }
 
     private void SetLocation()
@@ -122,4 +135,9 @@ public partial class ScreenCapturePreviewWindow : Window
     {
         _isDragging = false;
     }
+
+    // protected override void OnClosing(WindowClosingEventArgs e)
+    // {
+    //     e.Cancel = true;
+    // }
 }

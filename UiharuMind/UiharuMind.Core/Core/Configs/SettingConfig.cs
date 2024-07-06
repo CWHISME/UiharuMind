@@ -5,6 +5,7 @@ namespace UiharuMind.Core.Core;
 public class SettingConfig : ConfigBase
 {
     public const string SaveDataPath = "./SaveData/";
+    public const string LogDataPath = "./SaveLog/";
 
     /// <summary>
     /// 后端路径

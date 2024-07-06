@@ -4,6 +4,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform;
+using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Views.Capture;
@@ -14,6 +16,8 @@ public partial class ScreenCaptureWindow : Window
     private bool _isSelecting;
     private int _screenWidth;
     private int _screenHeight;
+
+    private bool _error = false;
 
     public ScreenCaptureWindow()
     {
@@ -31,18 +35,26 @@ public partial class ScreenCaptureWindow : Window
 
     private void InitializeWindow()
     {
+        CaptureScreen();
+        var bounds = App.ScreensService.MouseScreen.Bounds;
+        this.Width = bounds.Width;
+        this.Height = bounds.Height;
+        // this.Position = bounds.Position;
+
+        ShowActivated = false;
         SystemDecorations = SystemDecorations.None;
-        Background = Brushes.Transparent;
+        // Background = Brushes.Transparent;
         CanResize = false;
         Topmost = true; // 确保窗口在最顶层
-        // ExtendClientAreaToDecorationsHint = true; // 扩展客户端区域以包括装饰
-        // WindowState = WindowState.Maximized; // 最大化窗口
+        ExtendClientAreaToDecorationsHint = true; // 扩展客户端区¸域以包括装饰
+        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
+        WindowState = WindowState.FullScreen; // 最大化窗口
 
         IntPtr hWnd = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         if (hWnd == IntPtr.Zero)
         {
             Log.Error("Failed to get window handle");
-            Close();
+            _error = true;
             return;
         }
 
@@ -65,13 +77,20 @@ public partial class ScreenCaptureWindow : Window
                 catch (Exception e)
                 {
                     Log.Error(e.Message);
-                    Close();
+                    // _error = true;
                 }
             }
         }
 
         InfoPanel.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0));
         // InfoPanel.IsVisible = false;
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        if (_error) Close();
+        // CaptureScreen();
     }
 
     private void Canvas_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -90,7 +109,7 @@ public partial class ScreenCaptureWindow : Window
 
     private void Canvas_PointerMoved(object? sender, PointerEventArgs e)
     {
-        if (!_isSelecting) return;
+        // if (!_isSelecting) return;
         var currentPosition = e.GetPosition(ScreenshotCanvas);
         var width = Math.Ceiling(Math.Abs(currentPosition.X - _startPoint.X));
         var height = Math.Ceiling(Math.Abs(currentPosition.Y - _startPoint.Y));
@@ -115,9 +134,17 @@ public partial class ScreenCaptureWindow : Window
         InfoPanel.Margin = new Thickness(x, y, 0, 0);
     }
 
-    private void Canvas_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    private async void Canvas_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _isSelecting = false;
+        // ScreenCapturePreviewWindow.ShowWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
         Close();
+    }
+
+    private async void CaptureScreen()
+    {
+        await UiharuCoreManager.Instance.CaptureScreen(App.ScreensService.MouseScreenId);
+        var image = await App.Clipboard.GetImageFromClipboard();
+        ScreenshotImage.Source = image;
     }
 }

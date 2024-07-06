@@ -19,6 +19,7 @@ public partial class App : Application, ILogger
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        InitTray();
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -32,8 +33,9 @@ public partial class App : Application, ILogger
             {
                 DataContext = new MainViewModel()
             };
+            Clipboard = new ClipboardService(desktop.MainWindow); //desktop.MainWindow.Clipboard;
             FilesService = new FilesService(desktop.MainWindow);
-            Clipboard = desktop.MainWindow.Clipboard;
+            ScreensService = new ScreensService(desktop.MainWindow);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -48,11 +50,11 @@ public partial class App : Application, ILogger
         UiharuCoreManager.Instance.Init(this);
     }
 
-    public new static App? Current => Application.Current as App;
-
-    public IClipboard? Clipboard { get; private set; }
-    public FilesService? FilesService { get; private set; }
-    public WindowNotificationManager? NotificationManager { get; set; }
+    public new static App Current => (App)Application.Current!;
+    public static ClipboardService Clipboard { get; private set; }
+    public static FilesService FilesService { get; private set; }
+    public static ScreensService ScreensService { get; private set; }
+    public static WindowNotificationManager NotificationManager { get; set; }
 
     public void Debug(string message)
     {
@@ -62,5 +64,10 @@ public partial class App : Application, ILogger
     public void Error(string message)
     {
         Console.WriteLine(message);
+    }
+
+    private void InitTray()
+    {
+        
     }
 }
