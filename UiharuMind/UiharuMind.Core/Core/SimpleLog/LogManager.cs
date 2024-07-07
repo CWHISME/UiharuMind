@@ -74,5 +74,6 @@ public class LogManager
         _logItems.Add(item);
         OnLogChange?.Invoke(item);
         _spinLocker.Exit();
+        Console.WriteLine(item.ToString());
     }
 }

@@ -21,4 +21,9 @@ public class LogItem
         _logStr = DateTime.Now.ToString("[yyyy-MM-dd HH:mm:ss]") + str;
         _logType = type;
     }
+
+    public override string ToString()
+    {
+        return LogString;
+    }
 }

@@ -8,13 +8,22 @@
         Title="ScreenCaptureWindow">
     <Panel>
         <Image Name="ScreenshotImage" Stretch="UniformToFill" />
-        <Canvas Name="ScreenshotCanvas">
-            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" />
-        </Canvas>
-        <StackPanel Name="InfoPanel" HorizontalAlignment="Left" VerticalAlignment="Top" Height="100" Width="100">
+        <StackPanel Name="InfoPanel" Background="#66000000" HorizontalAlignment="Left" VerticalAlignment="Top" Height="100" Width="100">
+            <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
             <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
             <TextBlock Name="ColorText" Text="xxx" Foreground="White" />
             <TextBlock Name="TipsText" Text="xxx" Foreground="White" />
         </StackPanel>
+        <Canvas Name="ScreenshotCanvas" Background="#22000000">
+            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue" />
+            <!-- <Rectangle Width="400" -->
+            <!--            Height="400" -->
+            <!--            Fill="Red"> -->
+            <!--     <Rectangle.OpacityMask> -->
+            <!--         <VisualBrush Visual="{Binding #SelectionRectangle}" Opacity="0.5"/> -->
+            <!--     </Rectangle.OpacityMask> -->
+            <!-- </Rectangle> -->
+        </Canvas>
+
     </Panel>
 </Window>

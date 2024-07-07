@@ -7,7 +7,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Capture;
 

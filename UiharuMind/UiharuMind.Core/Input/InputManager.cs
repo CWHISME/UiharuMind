@@ -33,11 +33,11 @@ public class InputManager
         _hook.HookEnabled += OnHookEnabled;
         _hook.HookDisabled += OnHookDisabled;
 
-        _hook.KeyTyped += OnKeyTyped;
+        // _hook.KeyTyped += OnKeyTyped;
         _hook.KeyPressed += OnKeyPressed;
         _hook.KeyReleased += OnKeyReleased;
 
-        _hook.MouseClicked += OnMouseClicked;
+        // _hook.MouseClicked += OnMouseClicked;
         _hook.MousePressed += OnMousePressed;
         _hook.MouseReleased += OnMouseReleased;
         _hook.MouseMoved += OnMouseMoved;
@@ -47,7 +47,7 @@ public class InputManager
 
         try
         {
-            await _hook.RunAsync();//.ConfigureAwait(false);
+            await _hook.RunAsync().ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -91,7 +91,7 @@ public class InputManager
             if (keyCombination.MainKeyCode != e.Data.KeyCode) continue;
             if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
             keyCombination.OnTrigger?.Invoke();
-            // e.SuppressEvent = true;
+            e.SuppressEvent = true;
             return;
         }
 
@@ -110,11 +110,13 @@ public class InputManager
 
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
+        MouseData = e.Data;
         // Log.Debug("OnMousePressed");
     }
 
     private void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
+        MouseData = e.Data;
         // Log.Debug("OnMouseReleased");
     }
 
@@ -126,6 +128,7 @@ public class InputManager
 
     private void OnMouseDragged(object? sender, MouseHookEventArgs e)
     {
+        MouseData = e.Data;
         // Log.Debug("OnMouseDragged");
     }
 

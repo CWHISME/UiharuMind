@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SharpHook.Native;
 using UiharuMind.Core;
@@ -36,7 +37,13 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
             },
             "Capture Screen"));
     }
-    
+
+    [RelayCommand]
+    private void OpenSetting()
+    {
+        Receive(MenuKeys.MenuSettingKey);
+    }
+
 
     partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)
     {

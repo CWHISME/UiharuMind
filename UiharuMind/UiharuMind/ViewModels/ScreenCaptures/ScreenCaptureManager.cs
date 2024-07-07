@@ -17,9 +17,10 @@ public static class ScreenCaptureManager
     {
         if (UiharuCoreManager.Instance.IsWindows)
         {
-            await Dispatcher.UIThread.InvokeAsync(() => { new ScreenCaptureWindow().Show(); });
+            Dispatcher.UIThread.InvokeAsync(() => { new ScreenCaptureWindow().Show(); });
             return;
         }
+
         await GetScreenCaptureFromClipboard();
     }
 

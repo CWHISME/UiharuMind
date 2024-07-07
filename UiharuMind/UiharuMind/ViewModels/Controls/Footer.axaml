@@ -14,12 +14,12 @@
     </UserControl.Styles>
 
     <StackPanel Orientation="Vertical">
-        <u:IconButton Content="关于" IconPlacement="Top" HorizontalAlignment="Center">
+        <u:IconButton Content="设置" IconPlacement="Top" HorizontalAlignment="Center" Command="{Binding OpenSettingCommand}">
             <u:IconButton.Icon>
                 <!-- <TextBlock -->
                 <!--     HorizontalAlignment="Center" -->
                 <!--     Text="🌱" /> -->
-                <PathIcon Data="{StaticResource Sticker}" />
+                <PathIcon Data="{StaticResource Setting}" Width="20" Height="20" />
             </u:IconButton.Icon>
         </u:IconButton>
         <!-- <TextBlock Text="0.0.1" HorizontalAlignment="Center" /> -->

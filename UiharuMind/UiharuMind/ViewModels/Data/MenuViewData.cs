@@ -13,7 +13,7 @@ public class MenuViewData
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
         new() { MenuHeader = "模型", MenuIconName = "Folder", Key = MenuKeys.MenuModelKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
-        new() { MenuHeader = "设置", MenuIconName = "Setting", Key = MenuKeys.MenuSettingKey },
+        // new() { MenuHeader = "设置", MenuIconName = "Setting", Key = MenuKeys.MenuSettingKey },
     };
 }
 
