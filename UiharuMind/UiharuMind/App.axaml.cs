@@ -19,7 +19,6 @@ public partial class App : Application, ILogger
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-        InitTray();
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -29,10 +28,12 @@ public partial class App : Application, ILogger
         BindingPlugins.DataValidators.RemoveAt(0);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainViewModel()
-            };
+            // desktop.MainWindow = new MainWindow
+            // {
+            //     DataContext = new MainViewModel()
+            // };
+            DummyWindow = new DummyWindow();
+            desktop.MainWindow = DummyWindow;
             Clipboard = new ClipboardService(desktop.MainWindow); //desktop.MainWindow.Clipboard;
             FilesService = new FilesService(desktop.MainWindow);
             ScreensService = new ScreensService(desktop.MainWindow);
@@ -50,7 +51,8 @@ public partial class App : Application, ILogger
         UiharuCoreManager.Instance.Init(this);
     }
 
-    public new static App Current => (App)Application.Current!;
+    // public new static App Current => (App)Application.Current!;
+    public static DummyWindow DummyWindow { get; private set; }
     public static ClipboardService Clipboard { get; private set; }
     public static FilesService FilesService { get; private set; }
     public static ScreensService ScreensService { get; private set; }
@@ -66,8 +68,16 @@ public partial class App : Application, ILogger
         Console.WriteLine(message);
     }
 
-    private void InitTray()
+    private void OnQuitClick(object? sender, EventArgs e)
     {
-        
+    }
+
+    private void OnAboutClick(object? sender, EventArgs e)
+    {
+    }
+
+    private void OnOpenClick(object? sender, EventArgs e)
+    {
+        DummyWindow.MainWindow.Show();
     }
 }

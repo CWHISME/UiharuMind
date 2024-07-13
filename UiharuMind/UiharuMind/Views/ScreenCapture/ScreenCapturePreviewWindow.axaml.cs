@@ -4,9 +4,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.ViewModels.ScreenCaptures;
 
 namespace UiharuMind.Views.Capture;
 
@@ -14,6 +16,8 @@ public partial class ScreenCapturePreviewWindow : Window
 {
     private Point _dragStartPoint;
     private bool _isDragging;
+    private PixelSize _originSize;
+    private float _minScale;
 
     public ScreenCapturePreviewWindow()
     {
@@ -23,19 +27,37 @@ public partial class ScreenCapturePreviewWindow : Window
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
         PointerWheelChanged += OnPointerWheelChangedEvent;
+        PointerEntered += OnMouseEnter;
+        // PointerExited += OnMouseLeave;
     }
+
+    private void OnMouseEnter(object? sender, PointerEventArgs e)
+    {
+        ScreenCaptureManager.SyncDockWindow(this);
+    }
+    
+    // private void OnMouseLeave(object? sender, PointerEventArgs e)
+    // {
+    //     ScreenCaptureManager.SyncBreakDockWindow(this);
+    // }
 
     public void SetImage(Bitmap image)
     {
         Topmost = true;
         // Content = new Image { Source = image };
+        _originSize = image.PixelSize;
+        _minScale = Math.Min(100.0f / _originSize.Width, 100.0f / _originSize.Height);
+
         ImageContent.Source = image;
         Width = image.Size.Width;
         Height = image.Size.Height;
         WindowState = WindowState.Normal;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        // CanResize = false;
+        CanResize = false;
         SystemDecorations = SystemDecorations.BorderOnly;
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
+        ExtendClientAreaTitleBarHeightHint = -1;
 
         SetLocation();
     }
@@ -75,8 +97,8 @@ public partial class ScreenCapturePreviewWindow : Window
     private void OnPointerWheelChangedEvent(object? sender, PointerWheelEventArgs e)
     {
         const float scale = 1.1f;
-        const float minScale = 0.5f; // 最小缩放比例
-        var windowSize = this.ClientSize;
+        // const float minScale = 0.5f; // 最小缩放比例
+        var windowSize = new Size(this.Width, this.Height);
         var windowPosition = this.Position;
         var mousePosition = e.GetPosition(this);
 
@@ -84,21 +106,45 @@ public partial class ScreenCapturePreviewWindow : Window
         {
             var scaleFactor = e.Delta.Y > 0 ? scale : 1 / scale;
 
-            // 确保新大小不会小于最小值
-            var newWidth = Math.Max(windowSize.Width * scaleFactor, windowSize.Width * minScale);
-            var newHeight = Math.Max(windowSize.Height * scaleFactor, windowSize.Height * minScale);
+            // 计算当前的缩放比例
+            var currentScale = Math.Min((float)windowSize.Width / _originSize.Width,
+                (float)windowSize.Height / _originSize.Height);
 
-            this.Position = new PixelPoint(
-                (int)(windowPosition.X - (mousePosition.X * scaleFactor - mousePosition.X)),
-                (int)(windowPosition.Y - (mousePosition.Y * scaleFactor - mousePosition.Y))
-            );
+            // 如果当前缩放比例已经小于或等于最小缩放比例，并且正在尝试缩小，则不进行缩放
+            if (currentScale <= _minScale && e.Delta.Y < 0)
+            {
+                return;
+            }
 
-            this.ClientSize = new Size(newWidth, newHeight);
+            // 计算新的窗口尺寸
+            var newWidth = (int)(windowSize.Width * scaleFactor);
+            var newHeight = (int)(windowSize.Height * scaleFactor);
+            // 确保新的尺寸保持原始宽高比例
+            var aspectRatio = _originSize.Width / (float)_originSize.Height;
+            if (newWidth / aspectRatio < newHeight)
+            {
+                newHeight = (int)(newWidth / aspectRatio);
+            }
+            else
+            {
+                newWidth = (int)(newHeight * aspectRatio);
+            }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                // 设置新的窗口尺寸
+                this.Width = newWidth;
+                this.Height = newHeight;
+                // 调整窗口位置以保持鼠标位置不变
+                this.Position = new PixelPoint(
+                    (int)(windowPosition.X - (mousePosition.X * scaleFactor - mousePosition.X)),
+                    (int)(windowPosition.Y - (mousePosition.Y * scaleFactor - mousePosition.Y))
+                );
+            });
 
             e.Handled = true;
         }
     }
-
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -126,6 +172,7 @@ public partial class ScreenCapturePreviewWindow : Window
                 (int)Math.Round(windowPosition.X + diff.X),
                 (int)Math.Round(windowPosition.Y + diff.Y)
             );
+            // Log.Debug($"windowPosition: {windowPosition}");
             this.Position = windowPosition;
         }
     }

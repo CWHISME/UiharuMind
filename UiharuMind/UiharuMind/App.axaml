@@ -15,17 +15,15 @@
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/avalonia-logo.ico"
-                      ToolTipText="Avalonia Tray Icon ToolTip">
+                      ToolTipText="提示信息 ToolTip">
                 <TrayIcon.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="Settings">
-                            <NativeMenu>
-                                <NativeMenuItem Header="Option 1" />
-                                <NativeMenuItem Header="Option 2" />
-                                <NativeMenuItemSeparator />
-                                <NativeMenuItem Header="Option 3" />
-                            </NativeMenu>
-                        </NativeMenuItem>
+                        <NativeMenuItem Header="About" ToolTip="关于" Click="OnAboutClick" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="打开主界面" ToolTip="打开主界面" Click="OnOpenClick" />
+                        <NativeMenuItem Header="Settings" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="Quit" ToolTip="退出" Click="OnQuitClick" />
                     </NativeMenu>
                 </TrayIcon.Menu>
             </TrayIcon>

@@ -18,9 +18,18 @@ public partial class MainWindow : Window
         App.NotificationManager = new WindowNotificationManager(this);
     }
 
+    public override void Show()
+    {
+        base.Show();
+        ShowInTaskbar = true;
+    }
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        UiharuCoreManager.Instance.Input.Stop();
+        // UiharuCoreManager.Instance.Input.Stop();
         base.OnClosing(e);
+        ShowInTaskbar = false;
+        Hide();
+        e.Cancel = true;
     }
 }

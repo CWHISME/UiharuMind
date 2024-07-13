@@ -8,11 +8,28 @@ using UiharuMind.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Views.Capture;
+using UiharuMind.Views.ScreenCapture;
 
 namespace UiharuMind.ViewModels.ScreenCaptures;
 
 public static class ScreenCaptureManager
 {
+    private static ScreenCaptureDockWindow? _dockWindow;
+
+    private static ScreenCaptureDockWindow DockWindow
+    {
+        get
+        {
+            if (_dockWindow == null)
+            {
+                _dockWindow = new ScreenCaptureDockWindow();
+                // Dispatcher.UIThread.InvokeAsync(() => { DockWindow.Show(); });
+            }
+
+            return _dockWindow;
+        }
+    }
+
     public static async void CaptureScreen()
     {
         if (UiharuCoreManager.Instance.IsWindows)
@@ -23,6 +40,16 @@ public static class ScreenCaptureManager
 
         await GetScreenCaptureFromClipboard();
     }
+
+    public static void SyncDockWindow(Window window)
+    {
+        DockWindow.SetMainWindow(window);
+    }
+
+    // public static void SyncBreakDockWindow(Window window)
+    // {
+    //     DockWindow.SetMainWindow(null);
+    // }
 
     public static async Task GetScreenCaptureFromClipboard()
     {
