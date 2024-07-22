@@ -61,7 +61,9 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     {
         var os = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
         IsWindows = os.Contains("Windows");
-        IsMacOS = os.Contains("macOS") || os.Contains("OS X");
+        IsMacOS = !IsWindows && (os.Contains("macOS", StringComparison.Ordinal) ||
+                                 os.Contains("OS X", StringComparison.Ordinal) ||
+                                 os.Contains("Darwin", StringComparison.Ordinal));
     }
 
     private void SetupTestWin()

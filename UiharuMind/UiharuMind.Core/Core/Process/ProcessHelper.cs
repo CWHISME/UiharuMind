@@ -1,4 +1,5 @@
 using CliWrap;
+using CliWrap.Buffered;
 using CliWrap.EventStream;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -90,7 +91,16 @@ public static class ProcessHelper
         {
             if (callback == null)
             {
-                await cmd.ExecuteAsync();
+                var result = await cmd.ExecuteBufferedAsync();
+                if (result.ExitCode == 0)
+                {
+                    Log.Debug($"Process {exePath} excuted successfully.");
+                }
+                else
+                {
+                    Log.Error($"Process {exePath} excuted failed: {result.StandardError}");
+                }
+
                 return;
             }
 

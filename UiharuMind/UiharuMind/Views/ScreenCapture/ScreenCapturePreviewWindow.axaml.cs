@@ -19,6 +19,8 @@ public partial class ScreenCapturePreviewWindow : Window
     private PixelSize _originSize;
     private float _minScale;
 
+    public Bitmap ImageSource;
+
     public ScreenCapturePreviewWindow()
     {
         InitializeComponent();
@@ -35,7 +37,7 @@ public partial class ScreenCapturePreviewWindow : Window
     {
         ScreenCaptureManager.SyncDockWindow(this);
     }
-    
+
     // private void OnMouseLeave(object? sender, PointerEventArgs e)
     // {
     //     ScreenCaptureManager.SyncBreakDockWindow(this);
@@ -48,6 +50,7 @@ public partial class ScreenCapturePreviewWindow : Window
         _originSize = image.PixelSize;
         _minScale = Math.Min(100.0f / _originSize.Width, 100.0f / _originSize.Height);
 
+        ImageSource = image;
         ImageContent.Source = image;
         Width = image.Size.Width;
         Height = image.Size.Height;

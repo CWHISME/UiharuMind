@@ -9,9 +9,11 @@
         Title="ScreenCaptureDockWindow">
     <StackPanel Orientation="Horizontal">
         <Button Click="OnOcrBtnClock">
-            <PathIcon Data="{StaticResource Setting}" Width="20" Height="20" />
+            <PathIcon Data="{StaticResource TextFieldRegular}" Width="20" Height="20" />
         </Button>
-        <TextBlock Text="Hello World!"></TextBlock>
+        <Button Click="OnCopyBtnClock">
+            <PathIcon Data="{StaticResource CopyRegular}" Width="20" Height="20" />
+        </Button>
     </StackPanel>
 
 </Window>

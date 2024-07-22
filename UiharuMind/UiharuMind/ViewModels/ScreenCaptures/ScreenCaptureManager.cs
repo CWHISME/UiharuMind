@@ -16,7 +16,7 @@ public static class ScreenCaptureManager
 {
     private static ScreenCaptureDockWindow? _dockWindow;
 
-    private static ScreenCaptureDockWindow DockWindow
+    private static ScreenCaptureDockWindow ScreenCaptureDocker
     {
         get
         {
@@ -41,9 +41,9 @@ public static class ScreenCaptureManager
         await GetScreenCaptureFromClipboard();
     }
 
-    public static void SyncDockWindow(Window window)
+    public static void SyncDockWindow(ScreenCapturePreviewWindow window)
     {
-        DockWindow.SetMainWindow(window);
+        ScreenCaptureDocker.SetMainWindow(window);
     }
 
     // public static void SyncBreakDockWindow(Window window)
@@ -62,20 +62,42 @@ public static class ScreenCaptureManager
         ScreenCapturePreviewWindow.ShowWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
     }
 
-    const string OcrScriptMac = @"
-            tell application ""Preview""
-                activate
-                set theFilePath to ""{0}""
-                set theDocument to open theFilePath
-                set read only of theDocument to true
-            end tell
-        ";
 
-    public static async void OpenOcr(string filePath)
+    public static async void OpenOcr(string filePath, int width, int height)
     {
         if (UiharuCoreManager.Instance.IsMacOS)
         {
-            await ProcessHelper.StartProcess("osascript", $"-e '{string.Format(OcrScriptMac, filePath)}'", null);
+            var mousePos = App.ScreensService.MousePosition;
+            // await ProcessHelper.StartProcess("open", $"-a Preview {filePath}", null);
+            string appleScript = $@"
+            set theFilePath to POSIX file ""{filePath}""
+
+            tell application ""System Events""
+                set previewRunning to (count of (every process whose name is ""Preview"")) > 0
+            end tell
+
+            if previewRunning then
+                tell application ""Preview""
+                    close (every window)
+                end tell
+            end if
+
+            tell application ""Preview""
+                activate
+                open theFilePath
+            end tell
+
+            tell application ""System Events""
+                repeat until (exists window 1 of process ""Preview"")
+                    delay 0.01 -- 等待窗口存在
+                end repeat
+            end tell
+
+            tell application ""Preview""
+                set bounds of window 1 to {{{mousePos.X}, {mousePos.Y + 10}, {mousePos.X + width}, {mousePos.Y + height}}}
+                -- set visible of window 1 to true
+            end tell";
+            await ProcessHelper.StartProcess("osascript", $"-e \"{appleScript.Replace("\"", "\\\"")}\"");
         }
         else Log.Error("OpenOCR is only available on macOS.");
     }

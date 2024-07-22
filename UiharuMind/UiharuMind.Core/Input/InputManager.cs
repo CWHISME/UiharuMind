@@ -123,7 +123,7 @@ public class InputManager
     private void OnMouseMoved(object? sender, MouseHookEventArgs e)
     {
         MouseData = e.Data;
-        // Log.Debug("OnMouseMoved");
+        // Log.Debug($"鼠标位置 {e.Data.X},{e.Data.Y}");
     }
 
     private void OnMouseDragged(object? sender, MouseHookEventArgs e)
