@@ -120,17 +120,17 @@ public partial class ScreenCapturePreviewWindow : Window
             }
 
             // 计算新的窗口尺寸
-            var newWidth = (int)(windowSize.Width * scaleFactor);
-            var newHeight = (int)(windowSize.Height * scaleFactor);
+            var newWidth = (windowSize.Width * scaleFactor);
+            var newHeight = (windowSize.Height * scaleFactor);
             // 确保新的尺寸保持原始宽高比例
             var aspectRatio = _originSize.Width / (float)_originSize.Height;
             if (newWidth / aspectRatio < newHeight)
             {
-                newHeight = (int)(newWidth / aspectRatio);
+                newHeight = (newWidth / aspectRatio);
             }
             else
             {
-                newWidth = (int)(newHeight * aspectRatio);
+                newWidth = (newHeight * aspectRatio);
             }
 
             Dispatcher.UIThread.Post(() =>

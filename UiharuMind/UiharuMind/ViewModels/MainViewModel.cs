@@ -62,6 +62,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
                 MenuKeys.MenuChatKey => new ChatPageData(),
                 MenuKeys.MenuTranslateKey => new TranslatePageData(),
                 MenuKeys.MenuModelKey => new ModelPageData() { Title = message },
+                MenuKeys.MenuLogKey => new LogPageData(),
                 MenuKeys.MenuSettingKey => new SettingPageData(),
                 _ => new ModelPageData() { Title = message + "   Null Page" },
             };
