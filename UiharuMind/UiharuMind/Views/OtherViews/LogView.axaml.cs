@@ -1,15 +1,17 @@
 using System.Collections.ObjectModel;
-using Avalonia;
+using System.Collections.Specialized;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-using CommunityToolkit.Mvvm.ComponentModel;
+using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Views.OtherViews;
 
 public partial class LogView : UserControl
 {
-    public ObservableCollection<string> Items { get; } = new();
+    public ObservableCollection<LogItem> Items { get; } = new();
+
+    //记录是否在底部
+    private bool _isAtBottom = true;
 
     public LogView()
     {
@@ -22,10 +24,25 @@ public partial class LogView : UserControl
         }
 
         LogManager.Instance.OnLogChange += OnLogChange;
+        Items.CollectionChanged += OnLogsCollectionChanged;
+        Viewer.ScrollChanged += OnScrollChanged;
+    }
+
+    private void OnLogsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Add && _isAtBottom)
+        {
+            Dispatcher.UIThread.Post(() => { Viewer.ScrollToEnd(); }, DispatcherPriority.Background);
+        }
+    }
+
+    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        _isAtBottom = Viewer.Offset.Y + Viewer.Viewport.Height >= Viewer.Extent.Height;
     }
 
     private void OnLogChange(LogItem obj)
     {
-        Items.Add(obj.ToString());
+        Items.Add(obj);
     }
 }
