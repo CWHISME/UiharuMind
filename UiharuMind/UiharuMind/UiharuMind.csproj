@@ -11,18 +11,18 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="11.0.10" />
+		<PackageReference Include="Avalonia" Version="11.1.1" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.10" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.1.1" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
 		<!--主题包-->
-		<PackageReference Include="Irihi.Ursa" Version="0.3.0-beta20240518" />
-		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="0.3.0-beta20240518" />
-		<PackageReference Include="Semi.Avalonia" Version="11.0.7.3" />
+		<PackageReference Include="Irihi.Ursa" Version="1.0.0" />
 
 		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10" />
-		<PackageReference Include="SharpHook" Version="5.3.6" />
+		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.1.1" />
+		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.0.0" />
+		<PackageReference Include="Semi.Avalonia" Version="11.1.0" />
+		<PackageReference Include="SharpHook" Version="5.3.7" />
 		<PackageReference Include="SkiaSharp" Version="2.88.7" />
 	</ItemGroup>
 

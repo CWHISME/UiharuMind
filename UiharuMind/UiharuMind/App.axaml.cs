@@ -78,6 +78,6 @@ public partial class App : Application, ILogger
 
     private void OnOpenClick(object? sender, EventArgs e)
     {
-        DummyWindow.MainWindow.Show();
+        DummyWindow.LaunchMainWindow();
     }
 }

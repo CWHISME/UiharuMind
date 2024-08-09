@@ -2,7 +2,32 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.ChatPage">
-    Welcome to Avalonia!
+
+    <Design.DataContext>
+        <pages:ChatPageData />
+    </Design.DataContext>
+
+    <StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左边的按钮或文字 -->
+            <TextBlock Grid.Column="0" Text="Models" Margin="5" VerticalAlignment="Center"/>
+
+            <!-- 中间的 ComboBox，独占剩余空间 -->
+            <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" />
+
+            <!-- 右边的按钮或文字 -->
+            <Button Grid.Column="2" Content="Eject Model" Margin="5" />
+        </Grid>
+    </StackPanel>
+
 </UserControl>

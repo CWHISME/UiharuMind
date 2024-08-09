@@ -26,6 +26,11 @@ public partial class LogView : UserControl
         LogManager.Instance.OnLogChange += OnLogChange;
         Items.CollectionChanged += OnLogsCollectionChanged;
         Viewer.ScrollChanged += OnScrollChanged;
+        
+        // for (int i = 0; i < 100; i++)
+        // {
+        //     Log.Debug("测试日志" + i);
+        // }
     }
 
     private void OnLogsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

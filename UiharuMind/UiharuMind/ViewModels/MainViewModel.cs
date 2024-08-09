@@ -29,13 +29,6 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     {
         Receive(MenuKeys.MenuMainKey);
         Menus.MenuItems[0].IsSelected = true;
-
-        UiharuCoreManager.Instance.Input.RegisterKey(new KeyCombinationData(KeyCode.VcZ,
-            ScreenCaptureManager.CaptureScreen, new List<KeyCode>()
-            {
-                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
-            },
-            "Capture Screen"));
     }
 
     [RelayCommand]
@@ -53,6 +46,12 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     public void Receive(string message)
     {
+        // Menus.MenuItems[0].MenuHeader =  message;
+        Content = GetPage(message);
+    }
+
+    public ViewModelBase GetPage(string message)
+    {
         _viewModels.TryGetValue(message, out var vmPage);
         if (vmPage == null)
         {
@@ -69,7 +68,6 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
             _viewModels.Add(message, vmPage);
         }
 
-        // Menus.MenuItems[0].MenuHeader =  message;
-        Content = vmPage;
+        return vmPage;
     }
 }

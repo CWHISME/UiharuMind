@@ -77,6 +77,12 @@ public partial class ScreenCapturePreviewWindow : Window
             return;
         }
 
+        if (image.PixelSize.Width < 5 || image.PixelSize.Height < 5)
+        {
+            Log.Error("image PixelSize is too small");
+            return;
+        }
+
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             var window = new ScreenCapturePreviewWindow();

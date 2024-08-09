@@ -55,6 +55,7 @@ public partial class ModelPageData : PageDataBase
     partial void OnModelPathChanged(string? value)
     {
         LoadModels();
+        ShowNotification("Model list updated.");
     }
 
     public override void OnEnable()
@@ -65,7 +66,7 @@ public partial class ModelPageData : PageDataBase
 
     protected override Control CreateView => new ModelPage();
 
-    private async void LoadModels()
+    public async void LoadModels()
     {
         IsBusy = true;
         var modelList = await LlamaService.GetModelList();
@@ -75,7 +76,6 @@ public partial class ModelPageData : PageDataBase
             ModelSources.Add(model);
         }
 
-        ShowNotification("Model list updated.");
         IsBusy = false;
     }
 }

@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+             xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.LogView">
 
@@ -12,44 +13,44 @@
     <UserControl.Styles>
         <!-- 移除 ListBoxItem 的悬停效果 -->
         <Style Selector="ListBoxItem:pointerover">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
 
         <!-- 移除 ListBoxItem 的选中效果 -->
         <Style Selector="ListBoxItem:selected">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
 
         <!-- 移除 ListBoxItem 的焦点效果 -->
         <Style Selector="ListBoxItem:focus">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
-        
+
         <!-- 移除 TextBox 的悬停效果 -->
         <Style Selector="ListBoxItem TextBox:pointerover">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
 
         <!-- 移除 TextBox 的选中效果 -->
         <Style Selector="ListBoxItem TextBox:selected">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
         </Style>
 
         <!-- 确保覆盖默认样式 -->
         <Style Selector="ListBoxItem TextBox">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CaretBrush" Value="{DynamicResource ThemeForegroundBrush}"/>
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CaretBrush" Value="{DynamicResource ThemeForegroundBrush}" />
         </Style>
     </UserControl.Styles>
 
-    <ScrollViewer Name="Viewer">
+    <ScrollViewer Name="Viewer" u:ScrollTo.Direction="Bottom">
         <ListBox ItemsSource="{Binding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>

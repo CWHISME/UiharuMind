@@ -1,16 +1,22 @@
 using System;
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
+using SharpHook.Native;
+using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Input;
 using UiharuMind.ViewModels;
+using UiharuMind.ViewModels.ScreenCaptures;
 
 namespace UiharuMind.Views;
 
 public class DummyWindow : Window
 {
-    public MainWindow MainWindow { get; private set; }
+    public MainWindow? MainWindow { get; private set; }
+    public MainViewModel MainViewModel => (MainViewModel)MainWindow!.DataContext!;
 
     public DummyWindow()
     {
@@ -20,26 +26,37 @@ public class DummyWindow : Window
         this.ShowInTaskbar = false;
         // this.WindowState = WindowState.Minimized;
 
-        KeyDown += OnKeyDown;
+        // KeyDown += OnKeyDown;
 
-        MainWindow = LaunchMainWindow();
+        // MainWindow = LaunchMainWindow();
     }
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        RegistryShortcut();
         Hide();
     }
 
-    private void OnKeyDown(object? sender, KeyEventArgs e)
-    {
-        Log.Debug("按下：" + e.Key);
-    }
+    // private void OnKeyDown(object? sender, KeyEventArgs e)
+    // {
+    //     Log.Debug("按下：" + e.Key);
+    // }
 
-    private MainWindow LaunchMainWindow()
+    private void RegistryShortcut()
     {
-        var mainWindow = new MainWindow() { DataContext = new MainViewModel() };
+        UiharuCoreManager.Instance.Input.RegisterKey(new KeyCombinationData(KeyCode.VcZ,
+            ScreenCaptureManager.CaptureScreen, new List<KeyCode>()
+            {
+                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
+            },
+            "Capture Screen"));
+    }
+    
+    public void LaunchMainWindow()
+    {
+        if (MainWindow == null) MainWindow = new MainWindow() { DataContext = new MainViewModel() };
         // Dispatcher.UIThread.Post(mainWindow.Show);
-        return mainWindow;
+        MainWindow.Show();
     }
 }
