@@ -2,24 +2,43 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             xmlns:services="clr-namespace:UiharuMind.Services"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ModelSelectComboBoxView">
 
     <Design.DataContext>
-        <pages:ModelPageData />
+        <services:ModelService />
     </Design.DataContext>
 
-    <ComboBox Name="ModelComboBox" ItemsSource="{Binding ModelSources}" SelectionChanged="OnModelSelectionChanged"
-              HorizontalAlignment="Stretch" PlaceholderText="Select a model to load">
-        <ComboBox.ItemTemplate>
-            <DataTemplate>
-                <StackPanel Orientation="Horizontal">
-                    <PathIcon Data="{StaticResource InfoRegular}" />
-                    <TextBlock Text="7B"></TextBlock>
-                    <TextBlock Text="{Binding ModelName}" />
-                </StackPanel>
-            </DataTemplate>
-        </ComboBox.ItemTemplate>
-    </ComboBox>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 左边的按钮或文字 -->
+        <TextBlock Grid.Column="0" Text="Models" Margin="5" VerticalAlignment="Center" />
+
+        <!-- 中间的 ComboBox，独占剩余空间 -->
+        <!-- <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" /> -->
+        <ComboBox Grid.Column="1" Margin="5" Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
+                  SelectedItem="{Binding CurModelRunningData}"
+                  SelectionChanged="OnModelSelectionChanged"
+                  HorizontalAlignment="Stretch" PlaceholderText="Select a model to load">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <PathIcon Data="{StaticResource InfoRegular}" />
+                        <TextBlock Text="7B"></TextBlock>
+                        <TextBlock Text="{Binding ModelName}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <!-- 右边的按钮或文字 -->
+        <Button Grid.Column="2" Content="Eject Model" Margin="5" Command="{Binding EjectCurrentModel}" />
+    </Grid>
+
 </UserControl>

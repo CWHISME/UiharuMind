@@ -12,22 +12,24 @@
     </Design.DataContext>
 
     <StackPanel>
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <!-- 左边的按钮或文字 -->
-            <TextBlock Grid.Column="0" Text="Models" Margin="5" VerticalAlignment="Center"/>
-
-            <!-- 中间的 ComboBox，独占剩余空间 -->
-            <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" />
-
-            <!-- 右边的按钮或文字 -->
-            <Button Grid.Column="2" Content="Eject Model" Margin="5" />
-        </Grid>
+        <!-- <Grid> -->
+        <!--     <Grid.ColumnDefinitions> -->
+        <!--         <ColumnDefinition Width="Auto" /> -->
+        <!--         <ColumnDefinition Width="*" /> -->
+        <!--         <ColumnDefinition Width="Auto" /> -->
+        <!--     </Grid.ColumnDefinitions> -->
+        <!-- -->
+        <!--     ~1~ 左边的按钮或文字 @1@ -->
+        <!--     <TextBlock Grid.Column="0" Text="Models" Margin="5" VerticalAlignment="Center"/> -->
+        <!-- -->
+        <!--     ~1~ 中间的 ComboBox，独占剩余空间 @1@ -->
+        <!--     <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" /> -->
+        <!-- -->
+        <!--     ~1~ 右边的按钮或文字 @1@ -->
+        <!--     <Button Grid.Column="2" Content="Eject Model" Margin="5" /> -->
+        <!-- </Grid> -->
+        <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" />
+        <Button Grid.Column="2" Content="Eject Model" Margin="5" />
     </StackPanel>
 
 </UserControl>

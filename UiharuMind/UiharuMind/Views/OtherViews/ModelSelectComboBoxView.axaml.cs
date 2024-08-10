@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.Pages;
 
@@ -11,13 +13,12 @@ public partial class ModelSelectComboBoxView : UserControl
     public ModelSelectComboBoxView()
     {
         InitializeComponent();
-        var data = App.DummyWindow.MainViewModel.GetPage(MenuKeys.MenuModelKey) as ModelPageData;
-        data?.LoadModels();
-        DataContext = data;
+        DataContext = App.ModelService;
     }
-
+    
     private void OnModelSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        
+        Log.Debug(e.AddedItems.Count > 0 ? e.AddedItems[0] : 0);
+        // App.ModelService.LoadModel()
     }
 }

@@ -17,7 +17,7 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
 
-    public ObservableCollection<GGufModelInfo> ModelSources { get; set; } = new ObservableCollection<GGufModelInfo>();
+    public ObservableCollection<GGufModelInfo> ModelSources => App.ModelService.ModelSources;
 
     [RelayCommand]
     private async Task OpenChangeModelPath()
@@ -69,13 +69,7 @@ public partial class ModelPageData : PageDataBase
     public async void LoadModels()
     {
         IsBusy = true;
-        var modelList = await LlamaService.GetModelList();
-        ModelSources.Clear();
-        foreach (var model in modelList)
-        {
-            ModelSources.Add(model);
-        }
-
+        await App.ModelService.LoadModelList();
         IsBusy = false;
     }
 }

@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
 using Avalonia.Data.Core.Plugins;
-using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -37,6 +35,7 @@ public partial class App : Application, ILogger
             Clipboard = new ClipboardService(desktop.MainWindow); //desktop.MainWindow.Clipboard;
             FilesService = new FilesService(desktop.MainWindow);
             ScreensService = new ScreensService(desktop.MainWindow);
+            ModelService = new ModelService();
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -56,6 +55,8 @@ public partial class App : Application, ILogger
     public static ClipboardService Clipboard { get; private set; }
     public static FilesService FilesService { get; private set; }
     public static ScreensService ScreensService { get; private set; }
+    public static ModelService ModelService { get; private set; }
+
     public static WindowNotificationManager NotificationManager { get; set; }
 
     public void Debug(string message)
