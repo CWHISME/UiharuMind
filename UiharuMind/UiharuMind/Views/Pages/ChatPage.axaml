@@ -29,7 +29,6 @@
         <!--     <Button Grid.Column="2" Content="Eject Model" Margin="5" /> -->
         <!-- </Grid> -->
         <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" />
-        <Button Grid.Column="2" Content="Eject Model" Margin="5" />
     </StackPanel>
 
 </UserControl>

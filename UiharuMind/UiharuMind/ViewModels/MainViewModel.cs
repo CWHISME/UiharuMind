@@ -37,7 +37,6 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
         Receive(MenuKeys.MenuSettingKey);
     }
 
-
     partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)
     {
         oldValue?.OnDisable();

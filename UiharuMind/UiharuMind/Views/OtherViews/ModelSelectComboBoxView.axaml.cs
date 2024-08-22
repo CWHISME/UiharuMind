@@ -15,10 +15,11 @@ public partial class ModelSelectComboBoxView : UserControl
         InitializeComponent();
         DataContext = App.ModelService;
     }
-    
-    private void OnModelSelectionChanged(object? sender, SelectionChangedEventArgs e)
+
+    private async void OnModelSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        Log.Debug(e.AddedItems.Count > 0 ? e.AddedItems[0] : 0);
-        // App.ModelService.LoadModel()
+        // Log.Debug("Select Model: " + (e.AddedItems.Count > 0 ? e.AddedItems[0] : 0));
+        // await App.ModelService.LoadModel((e.AddedItems.Count > 0 ? e.AddedItems[0] : null) as ModelRunningData);
+        App.ModelService.CurModelRunningData = (e.AddedItems.Count > 0 ? e.AddedItems[0] : null) as ModelRunningData;
     }
 }

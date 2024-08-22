@@ -23,7 +23,7 @@ public class ScanModelCommand : ICommand
         int i = 1;
         foreach (var model in infos)
         {
-            await console.Output.WriteLineAsync($"{i++}. {model.ModelName}");
+            await console.Output.WriteLineAsync($"{i++}. {model.Key}");
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
@@ -26,7 +27,7 @@ public partial class LogView : UserControl
         LogManager.Instance.OnLogChange += OnLogChange;
         Items.CollectionChanged += OnLogsCollectionChanged;
         Viewer.ScrollChanged += OnScrollChanged;
-        
+
         // for (int i = 0; i < 100; i++)
         // {
         //     Log.Debug("测试日志" + i);
@@ -37,13 +38,20 @@ public partial class LogView : UserControl
     {
         if (e.Action == NotifyCollectionChangedAction.Add && _isAtBottom)
         {
-            Dispatcher.UIThread.Post(() => { Viewer.ScrollToEnd(); }, DispatcherPriority.Background);
+            Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                // 等待UI更新
+                await Task.Delay(100);
+                Viewer.ScrollToEnd();
+                _isAtBottom = true;
+            }, DispatcherPriority.Background);
         }
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        _isAtBottom = Viewer.Offset.Y + Viewer.Viewport.Height >= Viewer.Extent.Height;
+        _isAtBottom = Viewer.Offset.Y >= Viewer.ScrollBarMaximum.Y - Viewer.Viewport.Height;
+        //+ Viewer.Viewport.Height + 20 >= Viewer.Extent.Height;
     }
 
     private void OnLogChange(LogItem obj)

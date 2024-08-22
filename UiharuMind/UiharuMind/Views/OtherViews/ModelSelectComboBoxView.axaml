@@ -18,17 +18,18 @@
         </Grid.ColumnDefinitions>
 
         <!-- 左边的按钮或文字 -->
-        <TextBlock Grid.Column="0" Text="Models" Margin="5" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="0" Text="Models" VerticalAlignment="Center" />
 
         <!-- 中间的 ComboBox，独占剩余空间 -->
         <!-- <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" /> -->
-        <ComboBox Grid.Column="1" Margin="5" Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
+        <ComboBox Grid.Column="1" Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
                   SelectedItem="{Binding CurModelRunningData}"
                   SelectionChanged="OnModelSelectionChanged"
-                  HorizontalAlignment="Stretch" PlaceholderText="Select a model to load">
+                  HorizontalAlignment="Stretch" VerticalAlignment="Center" PlaceholderText="Select a model to load">
             <ComboBox.ItemTemplate>
                 <DataTemplate>
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal"
+                                IsVisible="{Binding DataContext.CurIsRunning,RelativeSource={RelativeSource AncestorType=ComboBox}}">
                         <PathIcon Data="{StaticResource InfoRegular}" />
                         <TextBlock Text="7B"></TextBlock>
                         <TextBlock Text="{Binding ModelName}" />
@@ -38,7 +39,8 @@
         </ComboBox>
 
         <!-- 右边的按钮或文字 -->
-        <Button Grid.Column="2" Content="Eject Model" Margin="5" Command="{Binding EjectCurrentModel}" />
+        <Button Grid.Column="2" Content="Eject Model" VerticalAlignment="Center" Command="{Binding EjectCurrentModel}"
+                IsEnabled="{Binding CurIsRunning}" />
     </Grid>
 
 </UserControl>

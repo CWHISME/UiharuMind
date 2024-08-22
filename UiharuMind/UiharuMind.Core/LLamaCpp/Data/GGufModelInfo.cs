@@ -1,8 +1,9 @@
 using System.Text.Json.Serialization;
+using UiharuMind.Core.Core.Interfaces;
 
 namespace UiharuMind.Core.LLamaCpp.Data;
 
-public class GGufModelInfo
+public class GGufModelInfo : ILLMModel
 {
     public string ModelName { get; set; }
 

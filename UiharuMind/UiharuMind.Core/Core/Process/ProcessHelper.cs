@@ -13,11 +13,13 @@ public static class ProcessHelper
     /// <param name="dirPath"></param>
     /// <param name="exeName"></param>
     /// <param name="args"></param>
-    /// <param name="callback"></param>
+    /// <param name="onInitCallback"></param>
+    /// <param name="onLogCallback"></param>
     public static async Task StartProcess(string dirPath, string exeName, string args,
-        Action<string, CancellationTokenSource>? callback = null)
+        Action<CancellationTokenSource>? onInitCallback = null,
+        Action<string, CancellationTokenSource>? onLogCallback = null)
     {
-        await StartProcess(Path.Combine(dirPath, exeName), args, callback);
+        await StartProcess(Path.Combine(dirPath, exeName), args, onInitCallback, onLogCallback);
     }
 
     // /// <summary>
@@ -81,15 +83,30 @@ public static class ProcessHelper
     /// </summary>
     /// <param name="exePath"></param>
     /// <param name="args"></param>
-    /// <param name="callback"></param>
+    /// <param name="onLogCallback"></param>
     public static async Task StartProcess(string exePath, string args,
-        Action<string, CancellationTokenSource>? callback = null)
+        Action<string, CancellationTokenSource>? onLogCallback)
+    {
+        await StartProcess(exePath, args, null, onLogCallback);
+    }
+
+    /// <summary>
+    /// 执行指定可执行文件
+    /// </summary>
+    /// <param name="exePath"></param>
+    /// <param name="args"></param>
+    /// <param name="onInitCallback"></param>
+    /// <param name="onLogCallback"></param>
+    public static async Task StartProcess(string exePath, string args,
+        Action<CancellationTokenSource>? onInitCallback = null,
+        Action<string, CancellationTokenSource>? onLogCallback = null)
     {
         using var cts = new CancellationTokenSource();
         var cmd = Cli.Wrap(exePath).WithArguments(args).WithValidation(CommandResultValidation.None);
         try
         {
-            if (callback == null)
+            onInitCallback?.Invoke(cts);
+            if (onLogCallback == null)
             {
                 var result = await cmd.ExecuteBufferedAsync();
                 if (result.ExitCode == 0)
@@ -112,10 +129,10 @@ public static class ProcessHelper
                     //     Log.Debug($"Process started; ID: {started.ProcessId}");
                     //     break;
                     case StandardOutputCommandEvent stdOut:
-                        callback.Invoke(stdOut.Text, cts);
+                        onLogCallback.Invoke(stdOut.Text, cts);
                         break;
                     case StandardErrorCommandEvent stdErr:
-                        callback.Invoke(stdErr.Text, cts);
+                        onLogCallback.Invoke(stdErr.Text, cts);
                         break;
                     case ExitedCommandEvent exited:
                         Log.Debug($"Process exited; Code: {exited.ExitCode}");
@@ -125,6 +142,10 @@ public static class ProcessHelper
         }
         catch (OperationCanceledException)
         {
+        }
+        finally
+        {
+            await cts.CancelAsync();
         }
     }
 }

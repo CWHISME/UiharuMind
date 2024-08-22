@@ -9,20 +9,21 @@ namespace UiharuMind.Core.LLamaCpp;
 public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLamaCppSettingConfig>
 {
     private LLamaCppVersionManager _llamaCppVersionManager = new LLamaCppVersionManager();
-    private List<GGufModelInfo> _modelInfos = new List<GGufModelInfo>();
+    private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
 
-    public async Task StartServer(string modelFilePath, int port)
+    public async Task StartServer(string modelFilePath, int port,
+        Action<CancellationTokenSource>? onInitCallback = null)
     {
-        await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath} --port {port}",
+        await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath} --port {port}", onInitCallback,
             (line, cts) => { Log.Debug(line); });
     }
 
-    public async Task<IReadOnlyList<GGufModelInfo>> GetModelList()
+    public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList()
     {
         return await ScanLocalModels();
     }
 
-    public async Task<List<GGufModelInfo>> ScanLocalModels(bool force = false)
+    public async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(bool force = false)
     {
         string lookupExe = Config.ExeLookupStats;
         _modelInfos.Clear();
@@ -36,7 +37,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
                 // if (Config.ModelInfos.ContainsKey(fileName))
             {
                 info.ModelPath = file;
-                _modelInfos.Add(info);
+                _modelInfos.Add(fileName, info);
                 continue;
             }
 
@@ -44,7 +45,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             info = await GetModelStateInfo(lookupExe, file);
             info.ModelName = fileName;
             info.ModelPath = file;
-            _modelInfos.Add(info);
+            _modelInfos.Add(fileName, info);
 
             Config.ModelInfos[fileName] = info;
             // break;

@@ -14,7 +14,7 @@ public class ListModelCommand : ICommand
         int i = 1;
         foreach (var model in list)
         {
-            await console.Output.WriteLineAsync($"{i++}. {model.ModelName}");
+            await console.Output.WriteLineAsync($"{i++}. {model.Key}");
         }
     }
 }

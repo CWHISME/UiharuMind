@@ -17,7 +17,7 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
 
-    public ObservableCollection<GGufModelInfo> ModelSources => App.ModelService.ModelSources;
+    public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
     [RelayCommand]
     private async Task OpenChangeModelPath()
