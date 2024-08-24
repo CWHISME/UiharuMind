@@ -15,6 +15,6 @@ public class LLamaCppSettingConfig : ConfigBase
 
     public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();
 
-    public string ExeLookupStats => Path.Combine(LLamaCppPath!, "lookup-stats");
-    public string ExeServer => Path.Combine(LLamaCppPath!, "server");
+    public string ExeLookupStats => Path.Combine(LLamaCppPath!, "llama-lookup-stats");
+    public string ExeServer => Path.Combine(LLamaCppPath!, "llama-server");
 }

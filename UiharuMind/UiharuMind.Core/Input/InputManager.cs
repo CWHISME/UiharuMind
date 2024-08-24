@@ -26,7 +26,7 @@ public class InputManager
     /// </summary>
     private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
 
-    public async Task Start()
+    public async void Start()
     {
         _hook = new SimpleGlobalHook(GlobalHookType.All); //new TaskPoolGlobalHook();
 

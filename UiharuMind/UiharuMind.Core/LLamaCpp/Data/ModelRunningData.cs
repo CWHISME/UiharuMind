@@ -1,4 +1,5 @@
 using UiharuMind.Core.Core.Interfaces;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.LLamaCpp.Data;
 
@@ -15,9 +16,19 @@ public class ModelRunningData
     public string ModelName => _modelInfo.ModelName;
 
     /// <summary>
+    /// 模型路径
+    /// </summary>
+    public string ModelPath => _modelInfo.ModelPath;
+
+    /// <summary>
     /// 是否处于运行中
     /// </summary>
     public bool IsRunning => _cts?.IsCancellationRequested ?? false;
+
+    /// <summary>
+    /// 0~100,100表示加载完成 100%
+    /// </summary>
+    public int LoadingCount { get; private set; } = 0;
 
     public ModelRunningData(ILLMModel modelInfo)
     {
@@ -32,7 +43,8 @@ public class ModelRunningData
     public async Task Load(int port)
     {
         if (_cts != null) return;
-        await UiharuCoreManager.Instance.LLamaCppServer.StartServer(_modelInfo.ModelPath, port, OnInitLoad);
+        await UiharuCoreManager.Instance.LLamaCppServer.StartServer(_modelInfo.ModelPath, port, OnInitLoad,
+            OnMessageUpdate);
     }
 
     /// <summary>
@@ -47,5 +59,11 @@ public class ModelRunningData
     private void OnInitLoad(CancellationTokenSource cts)
     {
         _cts = cts;
+    }
+
+    private void OnMessageUpdate(string msg)
+    {
+        Log.Debug(msg);
+        if (LoadingCount < 100 && msg.StartsWith('.')) LoadingCount++;
     }
 }

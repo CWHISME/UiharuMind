@@ -77,7 +77,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     private void SetupTest()
     {
         LLamaCppServer.Config.LLamaCppPath =
-            "/Users/dragonplus/Documents/Studys/llamacpp/llama-b2865-bin-macos-arm64/bin";
+            "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3617-bin-macos-arm64/bin";
         LLamaCppServer.Config.LocalModelPath = "/Users/dragonplus/Documents/Studys/LLMModels";
     }
 }

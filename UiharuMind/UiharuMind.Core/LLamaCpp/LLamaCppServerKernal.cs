@@ -12,10 +12,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
 
     public async Task StartServer(string modelFilePath, int port,
-        Action<CancellationTokenSource>? onInitCallback = null)
+        Action<CancellationTokenSource>? onInitCallback = null, Action<string>? onMessageUpdate = null)
     {
         await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath} --port {port}", onInitCallback,
-            (line, cts) => { Log.Debug(line); });
+            (line, cts) => { onMessageUpdate?.Invoke(line); });
     }
 
     public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList()

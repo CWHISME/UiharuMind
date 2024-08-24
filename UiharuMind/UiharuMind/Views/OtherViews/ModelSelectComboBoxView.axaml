@@ -22,21 +22,24 @@
 
         <!-- 中间的 ComboBox，独占剩余空间 -->
         <!-- <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" /> -->
-        <ComboBox Grid.Column="1" Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
-                  SelectedItem="{Binding CurModelRunningData}"
-                  SelectionChanged="OnModelSelectionChanged"
-                  HorizontalAlignment="Stretch" VerticalAlignment="Center" PlaceholderText="Select a model to load">
-            <ComboBox.ItemTemplate>
-                <DataTemplate>
-                    <StackPanel Orientation="Horizontal"
-                                IsVisible="{Binding DataContext.CurIsRunning,RelativeSource={RelativeSource AncestorType=ComboBox}}">
-                        <PathIcon Data="{StaticResource InfoRegular}" />
-                        <TextBlock Text="7B"></TextBlock>
-                        <TextBlock Text="{Binding ModelName}" />
-                    </StackPanel>
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
+        <StackPanel Grid.Column="1">
+            <ComboBox Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
+                      SelectedItem="{Binding CurModelRunningData}"
+                      SelectionChanged="OnModelSelectionChanged"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Center" PlaceholderText="Select a model to load">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal"
+                                    IsVisible="{Binding DataContext.CurIsRunning,RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                            <PathIcon Data="{StaticResource InfoRegular}" />
+                            <TextBlock Text="7B"></TextBlock>
+                            <TextBlock Text="{Binding ModelName}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ProgressBar Name="ProgressBar" Minimum="0" Maximum="100" Value="{Binding CurModelRunningData.IsRunning}" />
+        </StackPanel>
 
         <!-- 右边的按钮或文字 -->
         <Button Grid.Column="2" Content="Eject Model" VerticalAlignment="Center" Command="{Binding EjectCurrentModel}"
