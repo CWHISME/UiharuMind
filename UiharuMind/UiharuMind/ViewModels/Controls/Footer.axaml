@@ -13,15 +13,19 @@
         </Style>
     </UserControl.Styles>
 
-    <StackPanel Orientation="Vertical">
-        <u:IconButton Content="设置" IconPlacement="Top" HorizontalAlignment="Center" Command="{Binding OpenSettingCommand}">
+    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+        <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
+                      Command="{Binding OpenSettingCommand}">
             <u:IconButton.Icon>
                 <!-- <TextBlock -->
                 <!--     HorizontalAlignment="Center" -->
                 <!--     Text="🌱" /> -->
-                <PathIcon Data="{StaticResource Setting}" Width="20" Height="20" />
+                <PathIcon Data="{StaticResource Setting}" />
             </u:IconButton.Icon>
+            <ToolTip.Tip>
+                <TextBlock Text="设置" />
+            </ToolTip.Tip>
         </u:IconButton>
-        <!-- <TextBlock Text="0.0.1" HorizontalAlignment="Center" /> -->
+        <TextBlock Text="0.0.1" HorizontalAlignment="Center" />
     </StackPanel>
 </UserControl>

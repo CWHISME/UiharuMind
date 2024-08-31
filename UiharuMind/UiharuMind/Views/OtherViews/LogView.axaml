@@ -54,10 +54,9 @@
         <ListBox ItemsSource="{Binding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <TextBox Text="{Binding LogString}"
-                             Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap" />
+                    <SelectableTextBlock Text="{Binding LogString}"
+                                         Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}"
+                                         TextWrapping="Wrap" />
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

@@ -30,6 +30,8 @@ public class ModelRunningData
     /// </summary>
     public int LoadingCount { get; private set; } = 0;
 
+    private Action<float> _onLoading;
+
     public ModelRunningData(ILLMModel modelInfo)
     {
         _modelInfo = modelInfo;
@@ -40,9 +42,10 @@ public class ModelRunningData
         _modelInfo = modelInfo;
     }
 
-    public async Task Load(int port)
+    public async Task Load(int port, Action<float> onLoading)
     {
         if (_cts != null) return;
+        _onLoading = onLoading;
         await UiharuCoreManager.Instance.LLamaCppServer.StartServer(_modelInfo.ModelPath, port, OnInitLoad,
             OnMessageUpdate);
     }

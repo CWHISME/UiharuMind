@@ -38,7 +38,7 @@
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-            <ProgressBar Name="ProgressBar" Minimum="0" Maximum="100" Value="{Binding CurModelRunningData.IsRunning}" />
+            <ProgressBar Name="ProgressBar" Minimum="0" Maximum="100" Value="{Binding CurModelRunningData.LoadingCount}" />
         </StackPanel>
 
         <!-- 右边的按钮或文字 -->

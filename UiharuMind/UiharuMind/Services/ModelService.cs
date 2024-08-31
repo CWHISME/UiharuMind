@@ -91,9 +91,14 @@ public partial class ModelService : ObservableObject
         {
             CurModelRunningData = runningInfo;
             RefreshUI();
-            await CurModelRunningData.Load(UiharuCoreManager.Instance.LLamaCppServer.Config.DefautPort);
+            await CurModelRunningData.Load(UiharuCoreManager.Instance.LLamaCppServer.Config.DefautPort,OnModelLoading);
         }
         else Log.Error($"不存在 {modelInfo.ModelName}");
+    }
+
+    private void OnModelLoading(float obj)
+    {
+        OnPropertyChanged(nameof(CurModelRunningData.LoadingCount));
     }
 
     private ModelRunningData? FindIsRunningModel()

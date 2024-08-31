@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using SharpHook.Native;
 using UiharuMind.Core;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.Controls;
 using UiharuMind.ViewModels.Pages;
@@ -20,6 +21,8 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     public MenuViewData Menus { get; set; } = new MenuViewData();
 
     public Footer Footers { get; set; } = new Footer();
+
+    [ObservableProperty] private bool _isMenuVisible = true;
 
     [ObservableProperty] private ViewModelBase? _content;
 
@@ -35,6 +38,12 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     private void OpenSetting()
     {
         Receive(MenuKeys.MenuSettingKey);
+    }
+
+    [RelayCommand]
+    private void ChangeMenuVisible()
+    {
+        IsMenuVisible = !IsMenuVisible;
     }
 
     partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)

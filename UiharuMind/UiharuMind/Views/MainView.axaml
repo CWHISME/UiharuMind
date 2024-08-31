@@ -27,13 +27,16 @@
                 <Setter Property="Effect" Value="blur(20)" />
             </Style>
         </Grid.Styles>
+
         <Border
+            IsVisible="{Binding IsMenuVisible}"
             Padding="8 4"
             Grid.RowSpan="2"
             VerticalAlignment="Stretch"
             Theme="{DynamicResource CardBorder}">
+            <!-- ExpandWidth="300" -->
             <u:NavMenu ItemsSource="{Binding Menus.MenuItems}"
-                       ExpandWidth="300"
+                       MaxWidth="50"
                        CommandBinding="{Binding ActivateCommand}"
                        IsHorizontalCollapsed="True"
                        HeaderBinding="{Binding}"
@@ -50,8 +53,7 @@
                     <DataTemplate>
                         <StackPanel Orientation="Vertical">
                             <u:TwoTonePathIcon
-                                Width="16"
-                                Height="48"
+                                Margin="10"
                                 ActiveForeground="{DynamicResource SemiBlue5}"
                                 ActiveStrokeBrush="{DynamicResource SemiBlue5}"
                                 Data="{Binding Converter={StaticResource IconConverter}}"
@@ -80,16 +82,16 @@
                 <u:NavMenu.Header>
                     <DockPanel HorizontalAlignment="Center" Margin="8">
                         <Image
-                            Width="48"
-                            Height="48"
                             VerticalAlignment="Center"
                             DockPanel.Dock="Left"
+                            Tapped="OnTapedMenuIcon"
                             RenderOptions.BitmapInterpolationMode="HighQuality"
                             Source="../Assets/avalonia-logo.ico" />
                     </DockPanel>
                 </u:NavMenu.Header>
             </u:NavMenu>
         </Border>
+
         <ContentControl
             Grid.Row="1"
             Grid.Column="1"
@@ -99,6 +101,19 @@
                 <converters:ViewLocator />
             </ContentControl.ContentTemplate>
         </ContentControl>
+
+        <!-- 隐藏菜单后的Icon -->
+        <Image
+            Grid.Row="0" Grid.Column="1"
+            IsVisible="{Binding !IsMenuVisible}"
+            MaxWidth="15"
+            Margin="5"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Left"
+            Tapped="OnTapedMenuIcon"
+            RenderOptions.BitmapInterpolationMode="HighQuality"
+            Source="../Assets/avalonia-logo.ico" />
+
         <u:ThemeToggleButton
             Grid.Row="0"
             Grid.Column="1"
