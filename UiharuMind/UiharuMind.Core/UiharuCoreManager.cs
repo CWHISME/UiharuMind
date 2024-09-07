@@ -9,10 +9,6 @@ namespace UiharuMind.Core;
 
 public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
 {
-    // Kernel kernel = Kernel.CreateBuilder()
-    //     .AddOpenAIChatCompletion("m", "k", httpClient: new HttpClient(new MyHandler()))
-    //     .Build();
-// Console.WriteLine(await kernel.InvokePromptAsync("What color is the sky?"));
     public bool IsWindows { get; set; }
     public bool IsMacOS { get; set; }
 

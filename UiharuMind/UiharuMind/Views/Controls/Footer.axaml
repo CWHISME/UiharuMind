@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.ViewModels.Controls.Footer">
+             x:Class="UiharuMind.Views.Controls.Footer">
 
     <UserControl.Styles>
         <Style Selector="u|IconButton">

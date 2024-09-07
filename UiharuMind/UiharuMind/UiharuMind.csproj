@@ -29,4 +29,12 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\UiharuMind.Core\UiharuMind.Core.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+	  <UpToDateCheckInput Remove="ViewModels\Controls\Footer.axaml" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <AdditionalFiles Include="Views\Controls\Footer.axaml" />
+	</ItemGroup>
 </Project>

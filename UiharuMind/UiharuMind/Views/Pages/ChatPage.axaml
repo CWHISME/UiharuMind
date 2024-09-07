@@ -11,24 +11,16 @@
         <pages:ChatPageData />
     </Design.DataContext>
 
-    <StackPanel>
-        <!-- <Grid> -->
-        <!--     <Grid.ColumnDefinitions> -->
-        <!--         <ColumnDefinition Width="Auto" /> -->
-        <!--         <ColumnDefinition Width="*" /> -->
-        <!--         <ColumnDefinition Width="Auto" /> -->
-        <!--     </Grid.ColumnDefinitions> -->
-        <!-- -->
-        <!--     ~1~ 左边的按钮或文字 @1@ -->
-        <!--     <TextBlock Grid.Column="0" Text="Models" Margin="5" VerticalAlignment="Center"/> -->
-        <!-- -->
-        <!--     ~1~ 中间的 ComboBox，独占剩余空间 @1@ -->
-        <!--     <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" /> -->
-        <!-- -->
-        <!--     ~1~ 右边的按钮或文字 @1@ -->
-        <!--     <Button Grid.Column="2" Content="Eject Model" Margin="5" /> -->
-        <!-- </Grid> -->
-        <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" />
-    </StackPanel>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" />
+        <otherViews:ChatView Name="ChatView" DataContext="{Binding ChatViewModel}" Grid.Row="1" />
+    </Grid>
+
+    <!-- </StackPanel> -->
 
 </UserControl>

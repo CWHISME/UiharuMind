@@ -9,6 +9,7 @@
     <ItemGroup>
       <PackageReference Include="AngleSharp" Version="1.1.2" />
       <PackageReference Include="CliWrap" Version="3.6.6" />
+      <PackageReference Include="Microsoft.SemanticKernel" Version="1.18.2" />
       <PackageReference Include="SharpHook" Version="5.3.7" />
     </ItemGroup>
 

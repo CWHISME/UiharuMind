@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.OtherViews.ChatView">
+
+    <Design.DataContext>
+        <viewData:ChatViewModel />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+            <!-- <Setter Property="Foreground" Value="Transparent"/> -->
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="Transparent" />
+            <!-- <Setter Property="Foreground" Value="Transparent"/> -->
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+        <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 聊天信息显示区域 -->
+        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom">
+            <ListBox ItemsSource="{Binding ChatItems}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" Padding="5,0,5,0"
+                                CornerRadius="5,0,0,5">
+                            <StackPanel>
+                                <StackPanel Orientation="Vertical" Background="Aqua">
+                                    <Image Source="{Binding SenderIcon}" Width="30" Height="30"
+                                           VerticalAlignment="Center">
+                                    </Image>
+                                    <TextBlock Text="{Binding SenderName}" FontSize="14"></TextBlock>
+                                </StackPanel>
+                                <TextBox IsReadOnly="True" Text="{Binding Message}" TextWrapping="Wrap"
+                                         Margin="5,10,5,0" />
+                                <TextBlock Text="{Binding Timestamp}" FontSize="12" Margin="5,5,5,0" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </ScrollViewer>
+
+        <!-- 输入区域 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Content="{Binding SenderMode}"
+                    Command="{Binding ChangeSendModeCommand}">
+                <ToolTip.Tip>
+                    <TextBlock
+                        Text="在用户与机器人的对话中，选择发送者身份。如果是 Assistant，则相当于插入机器人回复；如果是 User，则相当于输入自己的消息。因此，只有在 User 模式下，才会触发推理。" />
+                </ToolTip.Tip>
+            </Button>
+
+            <TextBox Grid.Column="1" Name="InputBox" Margin="5,0,5,0" Text="{Binding InputText, Mode=TwoWay}"
+                     AcceptsReturn="True"
+                     HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                <TextBox.KeyBindings>
+                    <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Enter" />
+                </TextBox.KeyBindings>
+            </TextBox>
+
+            <Button Grid.Column="2" Content="Send"
+                    Command="{Binding SendMessageCommand}" />
+
+        </Grid>
+    </Grid>
+
+</UserControl>

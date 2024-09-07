@@ -9,10 +9,10 @@ using SharpHook.Native;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.ViewModels.Controls;
 using UiharuMind.ViewModels.Pages;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Capture;
+using UiharuMind.Views.Controls;
 
 namespace UiharuMind.ViewModels;
 
