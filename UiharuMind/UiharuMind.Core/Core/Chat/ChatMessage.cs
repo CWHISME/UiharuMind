@@ -20,7 +20,7 @@ public struct ChatMessage
         {
             DateTime utcTime = new DateTime(Timestamp, DateTimeKind.Utc);
             DateTime localTime = utcTime.ToLocalTime();
-            return localTime.ToString("yyyy-MM-dd HH:mm:ss");
+            return localTime.ToString("yyyy/MM/dd HH:mm:ss");
         }
     }
 }

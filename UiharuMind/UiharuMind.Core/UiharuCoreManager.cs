@@ -1,4 +1,5 @@
 ﻿using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.Input;
@@ -9,28 +10,25 @@ namespace UiharuMind.Core;
 
 public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
 {
-    public bool IsWindows { get; set; }
-    public bool IsMacOS { get; set; }
+    public bool IsWindows { get; private set; }
+    public bool IsMacOs { get; private set; }
 
     public SettingConfig Setting { get; private set; }
+    public LLamaCppServerKernal LLamaCppServer { get; private set; } = new LLamaCppServerKernal();
+    public InputManager Input { get; private set; } = new InputManager();
+    // public ChatManager Chat { get; private set; } = new ChatManager();
 
-    public LLamaCppServerKernal LLamaCppServer { get; private set; }
-    public InputManager Input => _input;
-
-    // public ILocalLM LocalLM { get; private set; }
-    private InputManager _input;
-
-    public void OnInitialize()
+    public UiharuCoreManager()
     {
         CheckPlatform();
         Setting = SaveUtility.Load<SettingConfig>(typeof(SettingConfig));
-        LLamaCppServer = new LLamaCppServerKernal();
-        _input = new InputManager();
-        _input.Start();
+    }
 
+    public void OnInitialize()
+    {
+        Input.Start();
         if (IsWindows) SetupTestWin();
         else SetupTest();
-        // SetupTestWin();
     }
 
     /// <summary>
@@ -39,7 +37,6 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     /// <param name="logger"></param>
     public void Init(ILogger? logger)
     {
-        // Log.Logger = logger ?? new DefaultLogger();
         Log.Debug("UiharuCoreManager initialized");
     }
 
@@ -57,7 +54,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     {
         var os = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
         IsWindows = os.Contains("Windows");
-        IsMacOS = !IsWindows && (os.Contains("macOS", StringComparison.Ordinal) ||
+        IsMacOs = !IsWindows && (os.Contains("macOS", StringComparison.Ordinal) ||
                                  os.Contains("OS X", StringComparison.Ordinal) ||
                                  os.Contains("Darwin", StringComparison.Ordinal));
     }

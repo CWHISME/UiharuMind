@@ -65,7 +65,7 @@ public static class ScreenCaptureManager
 
     public static async void OpenOcr(string filePath, int width, int height)
     {
-        if (UiharuCoreManager.Instance.IsMacOS)
+        if (UiharuCoreManager.Instance.IsMacOs)
         {
             var mousePos = App.ScreensService.MousePosition;
             // await ProcessHelper.StartProcess("open", $"-a Preview {filePath}", null);

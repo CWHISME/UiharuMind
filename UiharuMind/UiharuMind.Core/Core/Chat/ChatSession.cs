@@ -9,28 +9,56 @@ namespace UiharuMind.Core.Core.Chat;
 /// </summary>
 public class ChatSession //: IEnumerable<ChatMessage>
 {
-    [JsonInclude] private ChatHistory _history { get; set; } = new ChatHistory();
-    [JsonInclude] private List<long> _timeStamps { get; set; } = new List<long>();
+    /// <summary>
+    /// 本条对话名字
+    /// </summary>
+    [JsonInclude]
+    public string Name { get; set; }
 
-    private SessionEnumerator _enumerator;
+    /// <summary>
+    /// 本条对话描述
+    /// </summary>
+    [JsonInclude]
+    public string Description { get; set; }
+
+    /// <summary>
+    /// 对应的角色 ID
+    /// </summary>
+    [JsonInclude]
+    public long CharaterId { get; set; }
+
+    [JsonInclude] private ChatHistory History { get; set; } = new ChatHistory();
+
+    //以 UTC 格式存储的时间戳
+    [JsonInclude] private List<long> TimeStamps { get; set; } = new List<long>();
+
+    public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
+    public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;
+
+    private readonly SessionEnumerator _enumerator;
 
     public ChatSession()
     {
         _enumerator = new SessionEnumerator(this);
     }
 
-    public int Count => _history.Count;
+    public int Count => History.Count;
 
     public ChatMessage this[int index] => new ChatMessage()
     {
-        Message = _history[index],
-        Timestamp = _timeStamps[index]
+        Message = History[index],
+        Timestamp = TimeStamps[index]
     };
 
     public void AddMessage(AuthorRole authorRole, string message)
     {
-        _history.AddMessage(authorRole, message);
-        _timeStamps.Add(DateTime.Now.Ticks);
+        History.AddMessage(authorRole, message);
+        TimeStamps.Add(DateTime.UtcNow.Ticks);
+    }
+
+    public void Save()
+    {
+        SaveUtility.SaveChat(this);
     }
 
     public IEnumerator<ChatMessage> GetEnumerator()

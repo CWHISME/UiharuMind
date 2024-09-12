@@ -4,8 +4,13 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
+
+    <!-- ================================================ -->
+    <!-- 一个对话框，用于显示聊天信息，并提供输入框，用于发送消息。 -->
+    <!-- ================================================ -->
 
     <Design.DataContext>
         <viewData:ChatViewModel />
@@ -22,32 +27,38 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid>
-        <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
+    <Grid RowDefinitions="*,Auto">
 
         <!-- 聊天信息显示区域 -->
-        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom">
+        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom" DataContext="{Binding ChatSession}">
             <ListBox ItemsSource="{Binding ChatItems}">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" Padding="5,0,5,0"
-                                CornerRadius="5,0,0,5">
-                            <StackPanel>
-                                <StackPanel Orientation="Vertical" Background="Aqua">
-                                    <Image Source="{Binding SenderIcon}" Width="30" Height="30"
-                                           VerticalAlignment="Center">
-                                    </Image>
-                                    <TextBlock Text="{Binding SenderName}" FontSize="14"></TextBlock>
-                                </StackPanel>
-                                <TextBox IsReadOnly="True" Text="{Binding Message}" TextWrapping="Wrap"
-                                         Margin="5,10,5,0" />
-                                <TextBlock Text="{Binding Timestamp}" FontSize="12" Margin="5,5,5,0" />
+                        <Grid ColumnDefinitions="Auto,*">
+
+                            <!-- 头像 -->
+                            <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top">
+                                <Ellipse.Fill>
+                                    <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0" MinHeight="30" Orientation="Vertical">
+                                <SelectableTextBlock Text="{Binding SenderName}" />
+                                <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5">
+                                    <!-- 内容 -->
+                                    <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+                                    <!-- </Grid> -->
+                                </Border>
+
+                                <!-- 时间 -->
+                                <TextBlock Text="{Binding Timestamp}" HorizontalAlignment="Left"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
-                        </Border>
+
+                        </Grid>
+
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
@@ -77,7 +88,7 @@
                 </TextBox.KeyBindings>
             </TextBox>
 
-            <Button Grid.Column="2" Content="Send"
+            <Button Grid.Column="2" Content="{x:Static  lang:Lang.Send}"
                     Command="{Binding SendMessageCommand}" />
 
         </Grid>

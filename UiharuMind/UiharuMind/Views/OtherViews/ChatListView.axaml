@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.OtherViews.ChatListView">
+
+    <!-- ================================================ -->
+    <!-- =================== 对话列表 ==================== -->
+    <!-- ================================================ -->
+
+    <Design.DataContext>
+        <viewData:ChatListViewModel />
+    </Design.DataContext>
+
+    <Panel>
+        <ListBox ItemsSource="{Binding ChatSessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,*">
+
+                        <!-- 圆形图片 -->
+                        <Ellipse Grid.Column="0" Width="30" Height="30" Stroke="MediumPurple" StrokeThickness="1">
+                            <Ellipse.Fill>
+                                <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                            </Ellipse.Fill>
+                        </Ellipse>
+
+                        <!-- 文本内容 -->
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <!-- 名称 -->
+                                <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
+
+                                <!-- 时间 -->
+                                <TextBlock Text="{Binding TimeString}" Grid.Column="1" FontSize="12"
+                                           HorizontalAlignment="Right" />
+                            </Grid>
+
+                            <!-- 描述 -->
+                            <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Panel>
+
+</UserControl>

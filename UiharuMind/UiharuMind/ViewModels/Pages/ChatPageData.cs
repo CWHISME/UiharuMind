@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.ViewModels.ViewData;
@@ -11,15 +12,22 @@ public partial class ChatPageData : PageDataBase
 {
     protected override Control CreateView => new ChatPage();
 
-    public ChatViewModel ChatViewModel { get; private set; }
+    private ChatViewModel ChatViewModel { get; set; }
+    private ChatListViewModel ChatListViewModel { get; set; }
 
-    private List<ChatSession> _chatSessions = new List<ChatSession>();
+    [ObservableProperty] private float _paneWidth = 200;
+    [ObservableProperty] private float _rightPaneWidth = 200;
+
+    // private List<ChatSession> _chatSessions = new List<ChatSession>();
 
     public ChatPageData()
     {
-        ChatViewModel = new ChatViewModel();
-        _chatSessions.Add(new ChatSession());
-        ChatViewModel.ChatSession = _chatSessions[0];
+        // ChatViewModel = new ChatViewModel();
+        // // _chatSessions.Add(new ChatSession());
+        ChatViewModel = App.ViewModel.GetViewModel<ChatViewModel>();
+        ChatListViewModel = App.ViewModel.GetViewModel<ChatListViewModel>();
+        ChatViewModel.ChatSession = ChatListViewModel.SelectedSession;
+        // ChatViewModel.ChatSession = _chatSessions[0];
     }
 
     [RelayCommand]

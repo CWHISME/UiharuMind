@@ -12,6 +12,8 @@
         <u-semi:SemiTheme Locale="zh-CN" />
     </Application.Styles>
 
+
+    
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/avalonia-logo.ico"

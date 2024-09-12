@@ -11,16 +11,75 @@
         <pages:ChatPageData />
     </Design.DataContext>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <!-- <Grid RowDefinitions="Auto,*"> -->
+    <!--     <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" /> -->
+    <!--     <Grid Grid.Row="1" ColumnDefinitions="Auto,*"> -->
+    <!--         <otherViews:ChatListView /> -->
+    <!--         <otherViews:ChatView Name="ChatView" Grid.Column="1" /> -->
+    <!--     </Grid> -->
+    <!-- </Grid> -->
 
+    <!-- <Grid RowDefinitions="Auto,*"> -->
+    <!--     <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" /> -->
+    <!--     <SplitView Grid.Row="1" Margin="0,12,0,5" IsPaneOpen="True" DisplayMode="Inline" OpenPaneLength="200" CompactPaneLength="50"> -->
+    <!--         ~1~ Pane (Sidebar) @1@ -->
+    <!--         <SplitView.Pane> -->
+    <!--             <StackPanel Background="LightGray"> -->
+    <!--                 <Button Content="Home" Margin="10" /> -->
+    <!--                 <Button Content="Settings" Margin="10" /> -->
+    <!--                 <Button Content="About" Margin="10" /> -->
+    <!--             </StackPanel> -->
+    <!--         </SplitView.Pane> -->
+    <!-- -->
+    <!--         ~1~ Content @1@ -->
+    <!--         <SplitView.Content> -->
+    <!--             <Grid ColumnDefinitions="Auto,*"> -->
+    <!--                 <otherViews:ChatListView /> -->
+    <!--                 <otherViews:ChatView Name="ChatView" Grid.Column="1" /> -->
+    <!--             </Grid> -->
+    <!--         </SplitView.Content> -->
+    <!--     </SplitView> -->
+    <!-- </Grid> -->
+
+    <Grid RowDefinitions="Auto,*">
         <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" />
-        <otherViews:ChatView Name="ChatView" DataContext="{Binding ChatViewModel}" Grid.Row="1" />
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,12,0,5">
+
+            <!-- Pane (Sidebar) -->
+            <Border Grid.Column="0" Width="{Binding PaneWidth, Mode=TwoWay}">
+                <otherViews:ChatListView />
+            </Border>
+
+            <!-- Thumb for resizing left pane -->
+            <!-- Cursor StandardCursorType -->
+            <Thumb Grid.Column="1" Width="5" Background="Gray" DragDelta="OnLeftThumbDragDelta" Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <Border Background="Gray" Width="5" />
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <!-- Content -->
+            <Border Grid.Column="2" Margin="5,0,5,0">
+                <otherViews:ChatView Name="ChatView" Grid.Column="1" />
+            </Border>
+
+            <!-- Thumb for resizing right pane -->
+            <Thumb Grid.Column="3" Width="5" DragDelta="OnRightThumbDragDelta" Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <Border Background="Gray" Width="5" />
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <!-- Right Pane (Content) -->
+            <Border Grid.Column="4" Width="{Binding RightPaneWidth, Mode=TwoWay}">
+                <TextBlock Text="Right Content" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24" />
+            </Border>
+        </Grid>
     </Grid>
 
-    <!-- </StackPanel> -->
 
 </UserControl>

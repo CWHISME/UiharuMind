@@ -5,11 +5,11 @@ using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.OtherViews;
 
-public partial class ChatView : UserControl
+public partial class ChatListView : UserControl
 {
-    public ChatView()
+    public ChatListView()
     {
         InitializeComponent();
-        DataContext = App.ViewModel.GetViewModel<ChatViewModel>();
+        DataContext = App.ViewModel.GetViewModel<ChatListViewModel>();
     }
 }

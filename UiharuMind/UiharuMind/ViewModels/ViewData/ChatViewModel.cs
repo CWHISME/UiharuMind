@@ -1,14 +1,14 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.ViewModels.ViewData;
 
+/// <summary>
+/// 用于显示聊天信息，并提供输入框，用于发送消息
+/// </summary>
 public partial class ChatViewModel : ViewModelBase
 {
     public enum SendMode
@@ -21,9 +21,8 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private string _titleName = "";
     [ObservableProperty] private string _inputText = "";
-    [ObservableProperty] private ChatSession _chatSession;
+    [ObservableProperty] private ChatSessionViewData _chatSession;
 
-    public ObservableCollection<ChatViewItemData> ChatItems { get; } = new();
 
     [RelayCommand]
     public void ChangeSendMode()
@@ -38,45 +37,12 @@ public partial class ChatViewModel : ViewModelBase
         Log.Debug("SendMessageCommand:" + InputText);
         AddMessage(InputText);
         InputText = "";
-        SaveUtility.Save("chat_history.json", _chatSession);
+        SaveUtility.Save("chat_history.json", ChatSession);
+        // Lang.Culture = CultureInfo.GetCultureInfo("mmm");
     }
-    //
-    // [RelayCommand]
-    // public void EnterKey()
-    // {
-    //     SendMessage();
-    // }
 
     private void AddMessage(string message)
     {
         ChatSession.AddMessage(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant, message);
-        AddMessage(ChatSession[^1]);
-    }
-
-    private void AddMessage(ChatMessage chatItem)
-    {
-        var chatViewItemData = SimpleObjectPool<ChatViewItemData>.Get();
-        chatViewItemData.SetChatItem(chatItem);
-        ChatItems.Add(chatViewItemData);
-    }
-
-    partial void OnChatSessionChanged(ChatSession? value)
-    {
-        foreach (var item in ChatItems)
-        {
-            SimpleObjectPool<ChatViewItemData>.Release(item);
-        }
-
-        ChatItems.Clear();
-
-        if (value == null)
-        {
-            return;
-        }
-
-        foreach (var item in value)
-        {
-            AddMessage(item);
-        }
     }
 }

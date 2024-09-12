@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,7 +27,8 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     [ObservableProperty] private ViewModelBase? _content;
 
-    private readonly Dictionary<string, ViewModelBase> _viewModels = new Dictionary<string, ViewModelBase>();
+    private readonly Dictionary<string, ViewModelBase> _viewPageModels = new Dictionary<string, ViewModelBase>();
+    private readonly Dictionary<Type, ViewModelBase> _viewModels = new Dictionary<Type, ViewModelBase>();
 
     public MainViewModel()
     {
@@ -60,7 +62,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     public ViewModelBase GetPage(string message)
     {
-        _viewModels.TryGetValue(message, out var vmPage);
+        _viewPageModels.TryGetValue(message, out var vmPage);
         if (vmPage == null)
         {
             vmPage = message switch
@@ -73,9 +75,26 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
                 MenuKeys.MenuSettingKey => new SettingPageData(),
                 _ => new ModelPageData() { Title = message + "   Null Page" },
             };
-            _viewModels.Add(message, vmPage);
+            _viewPageModels.Add(message, vmPage);
         }
 
         return vmPage;
+    }
+
+    /// <summary>
+    /// 获取缓存的 ViewModel
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public T GetViewModel<T>() where T : ViewModelBase, new()
+    {
+        _viewModels.TryGetValue(typeof(T), out var vm);
+        if (vm == null)
+        {
+            vm = new T();
+            _viewModels.Add(typeof(T), vm);
+        }
+
+        return (T)vm;
     }
 }

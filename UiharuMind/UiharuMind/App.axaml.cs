@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Notifications;
@@ -6,6 +7,7 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.Views;
@@ -47,6 +49,7 @@ public partial class App : Application, ILogger
 
         base.OnFrameworkInitializationCompleted();
 
+        Lang.Culture = CultureInfo.CurrentCulture;
         UiharuCoreManager.Instance.Init(this);
     }
 
@@ -56,6 +59,10 @@ public partial class App : Application, ILogger
     public static FilesService FilesService { get; private set; }
     public static ScreensService ScreensService { get; private set; }
     public static ModelService ModelService { get; private set; }
+    public static MainViewModel ViewModel => DummyWindow.MainViewModel;
+
+    // public static TranslationService TranslationService { get; private set; } =
+    //     new TranslationService("UiharuMind.Resources.Lang.Lang", CultureInfo.CurrentCulture);
 
     public static WindowNotificationManager NotificationManager { get; set; }
 
