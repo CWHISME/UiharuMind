@@ -2,6 +2,7 @@ using CliFx;
 using CliFx.Attributes;
 using CliFx.Infrastructure;
 using UiharuMind.Core;
+using UiharuMind.Core.AI;
 
 namespace UiharuMind.CLI.Commands;
 
@@ -19,7 +20,7 @@ public class ScanModelCommand : ICommand
 
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var infos = await UiharuCoreManager.Instance.LLamaCppServer.ScanLocalModels(true);
+        var infos = await LlmManager.Instance.LLamaCppServer.ScanLocalModels(true);
         int i = 1;
         foreach (var model in infos)
         {

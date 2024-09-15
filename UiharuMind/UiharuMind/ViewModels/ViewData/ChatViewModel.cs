@@ -21,7 +21,11 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private string _titleName = "";
     [ObservableProperty] private string _inputText = "";
+
     [ObservableProperty] private ChatSessionViewData _chatSession;
+
+    //处于生成状态
+    [ObservableProperty] private bool _isGenerating;
 
 
     [RelayCommand]

@@ -7,17 +7,17 @@ public static class Log
     public static void Debug(object? message)
     {
         // Logger?.Debug(message.ToString() ?? $"{message} Null message");
-        LogManager.Instance.Log(message?.ToString() ?? $"{message} Null message");
+        LogManager.Instance.Log(message?.ToString() ?? "Log Print Error: Null message");
     }
 
     public static void Warning(object? message)
     {
-        LogManager.Instance.LogWarning(message?.ToString() ?? $"{message} Null message");
+        LogManager.Instance.LogWarning(message?.ToString() ?? "Log Print Error: Null message");
     }
 
     public static void Error(object? message)
     {
-        LogManager.Instance.LogError(message?.ToString() ?? $"{message} Null message");
+        LogManager.Instance.LogError(message?.ToString() ?? "Log Print Error: Null message");
     }
 
     public static void CloseAndFlush()

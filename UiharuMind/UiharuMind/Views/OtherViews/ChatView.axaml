@@ -5,12 +5,18 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
 
     <!-- ================================================ -->
     <!-- 一个对话框，用于显示聊天信息，并提供输入框，用于发送消息。 -->
     <!-- ================================================ -->
+
+    <UserControl.Resources>
+        <converters:UserColumIndexConverter x:Key="UserColumIndexConverter" />
+        <converters:UserLeftRightConverter x:Key="UserLeftRightConverter" />
+    </UserControl.Resources>
 
     <Design.DataContext>
         <viewData:ChatViewModel />
@@ -35,30 +41,29 @@
             <ListBox ItemsSource="{Binding ChatItems}">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Grid ColumnDefinitions="Auto,*">
-
+                        <Grid ColumnDefinitions="Auto,*,Auto">
                             <!-- 头像 -->
-                            <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top">
+                            <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top"
+                                     Grid.Column="{Binding Role, Converter={StaticResource UserColumIndexConverter},ConverterParameter=3}">
                                 <Ellipse.Fill>
                                     <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
                                 </Ellipse.Fill>
                             </Ellipse>
 
                             <StackPanel Grid.Column="1" Margin="10,0,0,0" MinHeight="30" Orientation="Vertical">
-                                <SelectableTextBlock Text="{Binding SenderName}" />
-                                <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5">
+                                <SelectableTextBlock Text="{Binding SenderName}"
+                                                     HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
+                                <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
+                                        HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
                                     <!-- 内容 -->
-                                    <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap" />
-                                    <!-- </Grid> -->
+                                    <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="5" />
                                 </Border>
 
                                 <!-- 时间 -->
-                                <TextBlock Text="{Binding Timestamp}" HorizontalAlignment="Left"
-                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Timestamp}"
+                                           HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
                             </StackPanel>
-
                         </Grid>
-
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
@@ -73,15 +78,17 @@
             </Grid.ColumnDefinitions>
 
             <Button Content="{Binding SenderMode}"
-                    Command="{Binding ChangeSendModeCommand}">
+                    Command="{Binding ChangeSendModeCommand}" VerticalAlignment="Bottom">
                 <ToolTip.Tip>
                     <TextBlock
-                        Text="在用户与机器人的对话中，选择发送者身份。如果是 Assistant，则相当于插入机器人回复；如果是 User，则相当于输入自己的消息。因此，只有在 User 模式下，才会触发推理。" />
+                        Text="{x:Static lang:Lang.SendUserDesc}" />
                 </ToolTip.Tip>
             </Button>
 
             <TextBox Grid.Column="1" Name="InputBox" Margin="5,0,5,0" Text="{Binding InputText, Mode=TwoWay}"
+                     TextWrapping="Wrap"
                      AcceptsReturn="True"
+                     Watermark="{x:Static lang:Lang.ChatInputTips}"
                      HorizontalAlignment="Stretch" VerticalAlignment="Center">
                 <TextBox.KeyBindings>
                     <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Enter" />
@@ -89,7 +96,7 @@
             </TextBox>
 
             <Button Grid.Column="2" Content="{x:Static  lang:Lang.Send}"
-                    Command="{Binding SendMessageCommand}" />
+                    Command="{Binding SendMessageCommand}" VerticalAlignment="Bottom" />
 
         </Grid>
     </Grid>

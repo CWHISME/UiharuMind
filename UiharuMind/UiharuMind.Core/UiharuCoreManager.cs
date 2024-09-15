@@ -14,8 +14,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     public bool IsMacOs { get; private set; }
 
     public SettingConfig Setting { get; private set; }
-    public LLamaCppServerKernal LLamaCppServer { get; private set; } = new LLamaCppServerKernal();
-    public InputManager Input { get; private set; } = new InputManager();
+    // public InputManager Input { get; private set; } = new InputManager();
     // public ChatManager Chat { get; private set; } = new ChatManager();
 
     public UiharuCoreManager()
@@ -26,9 +25,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
 
     public void OnInitialize()
     {
-        Input.Start();
-        if (IsWindows) SetupTestWin();
-        else SetupTest();
+        // Input.Start();
     }
 
     /// <summary>
@@ -57,20 +54,5 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
         IsMacOs = !IsWindows && (os.Contains("macOS", StringComparison.Ordinal) ||
                                  os.Contains("OS X", StringComparison.Ordinal) ||
                                  os.Contains("Darwin", StringComparison.Ordinal));
-    }
-
-    private void SetupTestWin()
-    {
-        LLamaCppServer.Config.LLamaCppPath =
-            "D:\\Solfware\\AI\\llama-b3058-bin-win-vulkan-x64";
-        if (!Directory.Exists(LLamaCppServer.Config.LocalModelPath))
-            LLamaCppServer.Config.LocalModelPath = "D:\\Solfware\\AI\\LLM_Models";
-    }
-
-    private void SetupTest()
-    {
-        LLamaCppServer.Config.LLamaCppPath =
-            "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3617-bin-macos-arm64/bin";
-        LLamaCppServer.Config.LocalModelPath = "/Users/dragonplus/Documents/Studys/LLMModels";
     }
 }

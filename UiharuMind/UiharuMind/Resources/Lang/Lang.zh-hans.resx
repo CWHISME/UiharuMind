@@ -14,4 +14,10 @@
     <data name="Send" xml:space="preserve">
         <value>发送</value>
     </data>
+    <data name="SendUserDesc" xml:space="preserve">
+        <value>在用户与机器人的对话中，选择发送者身份。如果是 Assistant，则相当于插入机器人回复；如果是 User，则相当于输入自己的消息。因此，只有在 User 模式下，才会触发推理。</value>
+    </data>
+    <data name="ChatInputTips" xml:space="preserve">
+        <value>Shift+Enter 换行</value>
+    </data>
 </root>

@@ -50,5 +50,17 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("Send", resourceCulture);
             }
         }
+        
+        public static string SendUserDesc {
+            get {
+                return ResourceManager.GetString("SendUserDesc", resourceCulture);
+            }
+        }
+        
+        public static string ChatInputTips {
+            get {
+                return ResourceManager.GetString("ChatInputTips", resourceCulture);
+            }
+        }
     }
 }

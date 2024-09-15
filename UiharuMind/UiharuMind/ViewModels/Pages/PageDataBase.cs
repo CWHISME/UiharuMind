@@ -3,6 +3,7 @@ using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.LLamaCpp;
 using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Services;
@@ -21,9 +22,9 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
 
 
     public FilesService FilesService => App.FilesService;
-    public LLamaCppServerKernal LlamaService => UiharuCoreManager.Instance.LLamaCppServer;
+    public LLamaCppServerKernal LlamaService => LlmManager.Instance.LLamaCppServer;
 
-    public LLamaCppSettingConfig LLamaConfig => UiharuCoreManager.Instance.LLamaCppServer.Config;
+    public LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.LLamaCppServer.Config;
 
 
     public void ShowNotification(string message)

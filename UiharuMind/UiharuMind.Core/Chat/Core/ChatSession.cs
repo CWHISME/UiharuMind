@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel.ChatCompletion;
+using UiharuMind.Core.AI;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Chat;
 
@@ -35,6 +37,8 @@ public class ChatSession //: IEnumerable<ChatMessage>
     public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
     public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;
 
+    private bool _isFinished=true;
+    
     private readonly SessionEnumerator _enumerator;
 
     public ChatSession()
@@ -50,10 +54,52 @@ public class ChatSession //: IEnumerable<ChatMessage>
         Timestamp = TimeStamps[index]
     };
 
+    /// <summary>
+    /// 添加一条消息
+    /// </summary>
+    /// <param name="authorRole"></param>
+    /// <param name="message"></param>
     public void AddMessage(AuthorRole authorRole, string message)
     {
         History.AddMessage(authorRole, message);
         TimeStamps.Add(DateTime.UtcNow.Ticks);
+    }
+
+    /// <summary>
+    /// 执行生成
+    /// 如果当前最后一条消息不是 AI 回复，则生成 AI 回复
+    /// 若当前最后一条消息是 AI 回复，则删除最后一条消息，并重新生成 AI 回复
+    /// </summary>
+    public void GenerateCompletion(Action<ChatMessage> onStartCallback, Action<string> onStepCallback,
+        Action<string> onCompletionCallback)
+    {
+        if (History.Count == 0)
+        {
+            Log.Warning("No message in chat session");
+            return;
+        }
+
+        // if (History[History.Count - 1].Role ==AuthorRole.Assistant )
+        // {
+        //     History.RemoveAt(History.Count - 1);
+        //     TimeStamps.RemoveAt(TimeStamps.Count - 1);
+        // }
+        // if (History.Count == 0) return;
+        LlmManager.Instance.CurrentRunningModel?.SendMessage(History, x =>
+        {
+            if (_isFinished)
+            {
+                _isFinished = false;
+                AddMessage(AuthorRole.Assistant, x);
+                onStartCallback?.Invoke(this[^1]);
+            }
+            onStepCallback?.Invoke(x);
+        }, (x) =>
+        {
+            _isFinished = true;
+            History[^1].Content = x;
+            onCompletionCallback(x);
+        });
     }
 
     public void Save()

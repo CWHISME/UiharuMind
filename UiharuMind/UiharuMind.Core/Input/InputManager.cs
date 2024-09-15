@@ -2,10 +2,11 @@ using SharpHook;
 using SharpHook.Native;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Singletons;
 
 namespace UiharuMind.Core.Input;
 
-public class InputManager
+public class InputManager : Singleton<InputManager>, IInitialize
 {
     /// <summary>
     /// 当前鼠标信息
@@ -25,6 +26,11 @@ public class InputManager
     /// 组合键组合数据
     /// </summary>
     private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
+
+    public void OnInitialize()
+    {
+        Start();
+    }
 
     public async void Start()
     {

@@ -8,7 +8,7 @@ namespace UiharuMind.ViewModels.ViewData;
 
 public partial class ChatViewItemData : ViewModelBase, IPoolAble
 {
-    [ObservableProperty] private AuthorRole _role;
+    [ObservableProperty] private ECharacter _role;
     [ObservableProperty] private string? _message;
     [ObservableProperty] private string? _timestamp;
 
@@ -18,10 +18,10 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     {
         get
         {
-            if (Role == AuthorRole.System) return "System";
-            if (Role == AuthorRole.User) return "User";
-            if (Role == AuthorRole.Assistant) return "Assistant";
-            if (Role == AuthorRole.Tool) return "Tool";
+            if (Role == ECharacter.System) return "System";
+            if (Role == ECharacter.User) return "User";
+            if (Role == ECharacter.Assistant) return "Assistant";
+            if (Role == ECharacter.Tool) return "Tool";
             return "Unknown";
         }
     }
@@ -30,17 +30,17 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     {
         get
         {
-            if (Role == AuthorRole.System) return Brushes.Gray;
-            if (Role == AuthorRole.User) return Brushes.LightGreen;
-            if (Role == AuthorRole.Assistant) return Brushes.DeepSkyBlue;
-            if (Role == AuthorRole.Tool) return Brushes.MediumPurple;
+            if (Role == ECharacter.System) return Brushes.Gray;
+            if (Role == ECharacter.User) return Brushes.LightGreen;
+            if (Role == ECharacter.Assistant) return Brushes.DeepSkyBlue;
+            if (Role == ECharacter.Tool) return Brushes.MediumPurple;
             return Brushes.Black;
         }
     }
 
     public void SetChatItem(ChatMessage item)
     {
-        Role = item.Message.Role;
+        Role = item.Character;
         Message = item.Message.Content;
         Timestamp = item.LocalTimeString;
     }

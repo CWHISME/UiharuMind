@@ -45,14 +45,14 @@ public class DummyWindow : Window
 
     private void RegistryShortcut()
     {
-        UiharuCoreManager.Instance.Input.RegisterKey(new KeyCombinationData(KeyCode.VcZ,
+        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcZ,
             ScreenCaptureManager.CaptureScreen, new List<KeyCode>()
             {
                 KeyCode.VcLeftAlt, KeyCode.VcLeftShift
             },
             "Capture Screen"));
     }
-    
+
     public void LaunchMainWindow()
     {
         if (MainWindow == null) MainWindow = new MainWindow() { DataContext = new MainViewModel() };
