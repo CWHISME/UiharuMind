@@ -1,7 +1,8 @@
-﻿using Avalonia.Controls;
-using Avalonia.Controls.Notifications;
+﻿using System;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
-using UiharuMind.Core;
+using UiharuMind.Core.Core.SimpleLog;
+using Ursa.Controls;
 
 namespace UiharuMind.Views;
 
@@ -10,12 +11,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-    }
-
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
-        App.NotificationManager = new WindowNotificationManager(this);
     }
 
     public override void Show()
@@ -28,8 +23,13 @@ public partial class MainWindow : Window
     {
         // UiharuCoreManager.Instance.Input.Stop();
         base.OnClosing(e);
-        ShowInTaskbar = false;
         Hide();
         e.Cancel = true;
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        ShowInTaskbar = false;
     }
 }

@@ -31,8 +31,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     /// <summary>
     /// 主动初始化
     /// </summary>
-    /// <param name="logger"></param>
-    public void Init(ILogger? logger)
+    public void Init()
     {
         Log.Debug("UiharuCoreManager initialized");
     }

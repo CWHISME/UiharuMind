@@ -20,4 +20,13 @@
     <data name="ChatInputTips" xml:space="preserve">
         <value>Shift+Enter 换行</value>
     </data>
+    <data name="EjectModel" xml:space="preserve">
+        <value>卸载</value>
+    </data>
+    <data name="MessageInfoTitle" xml:space="preserve">
+        <value>提示</value>
+    </data>
+    <data name="MessageErrorTitle" xml:space="preserve">
+        <value>错误</value>
+    </data>
 </root>

@@ -140,12 +140,13 @@ public static class ProcessHelper
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (Exception ex)
         {
+            Log.Error("Execution error: " + ex.Message);
         }
         finally
         {
-            await cts.CancelAsync();
+            if (!cts.IsCancellationRequested) await cts.CancelAsync();
         }
     }
 }

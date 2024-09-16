@@ -35,19 +35,24 @@ public class LogManager
     /// </summary>
     public event Action<LogItem>? OnLogChange;
 
+    public ILogger? Logger;
+
     public void Log(string str)
     {
         AddLog(ELogType.Log, str);
+        Logger?.Debug(str);
     }
 
     public void LogWarning(string str)
     {
         AddLog(ELogType.Warning, str);
+        Logger?.Warning(str);
     }
 
     public void LogError(string str)
     {
         AddLog(ELogType.Error, str);
+        Logger?.Error(str);
     }
 
     public void SaveLog(string path)

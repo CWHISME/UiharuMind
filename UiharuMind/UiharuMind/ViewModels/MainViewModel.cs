@@ -10,6 +10,7 @@ using SharpHook.Native;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Services;
 using UiharuMind.ViewModels.Pages;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Capture;
@@ -26,6 +27,8 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     [ObservableProperty] private bool _isMenuVisible = true;
 
     [ObservableProperty] private ViewModelBase? _content;
+
+    public MessageService MessageService => App.MessageService;
 
     private readonly Dictionary<string, ViewModelBase> _viewPageModels = new Dictionary<string, ViewModelBase>();
     private readonly Dictionary<Type, ViewModelBase> _viewModels = new Dictionary<Type, ViewModelBase>();

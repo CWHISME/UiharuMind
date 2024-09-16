@@ -17,113 +17,115 @@
         <vm:IconNameToPathConverter x:Key="IconConverter" />
     </UserControl.Resources>
 
-    <Grid
-        Classes.Blur="{Binding #host.HasModal}"
-        ColumnDefinitions="Auto, *"
-        RowDefinitions="Auto, *">
-        <!--模糊-->
-        <Grid.Styles>
-            <Style Selector="Grid.Blur">
-                <Setter Property="Effect" Value="blur(20)" />
-            </Style>
-        </Grid.Styles>
+    <Panel>
+        <Grid
+            Classes.Blur="{Binding MessageService.IsBusy}"
+            ColumnDefinitions="Auto, *"
+            RowDefinitions="Auto, *">
+            <!--模糊-->
+            <Grid.Styles>
+                <Style Selector="Grid.Blur">
+                    <Setter Property="Effect" Value="blur(20)" />
+                </Style>
+            </Grid.Styles>
 
-        <Border
-            IsVisible="{Binding IsMenuVisible}"
-            Padding="8 4"
-            Grid.RowSpan="2"
-            VerticalAlignment="Stretch"
-            Theme="{DynamicResource CardBorder}">
-            <!-- ExpandWidth="300" -->
-            <u:NavMenu ItemsSource="{Binding Menus.MenuItems}"
-                       MaxWidth="50"
-                       CommandBinding="{Binding ActivateCommand}"
-                       IsHorizontalCollapsed="True"
-                       HeaderBinding="{Binding}"
-                       Footer="{Binding Footers}"
-                       IconBinding="{Binding MenuIconName}">
-                <!--显示分割线-->
-                <u:NavMenu.Styles>
-                    <Style Selector="u|NavMenuItem" x:DataType="vm:MenuItemViewData">
-                        <Setter Property="IsSeparator" Value="{Binding IsSeparator}"></Setter>
-                        <Setter Property="IsSelected" Value="{Binding IsSelected}"></Setter>
-                    </Style>
-                </u:NavMenu.Styles>
-                <u:NavMenu.IconTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Vertical">
-                            <u:TwoTonePathIcon
-                                Margin="10"
-                                ActiveForeground="{DynamicResource SemiBlue5}"
-                                ActiveStrokeBrush="{DynamicResource SemiBlue5}"
-                                Data="{Binding Converter={StaticResource IconConverter}}"
-                                Foreground="{DynamicResource SemiGrey5}"
-                                IsActive="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=u:NavMenuItem}, Path=IsHighlighted, Mode=TwoWay}"
-                                StrokeBrush="{DynamicResource SemiGrey5}" />
-                            <!--<u:Badge Header="XXX"/>-->
-                            <!-- <TextBlock HorizontalAlignment="Center" Text="M" /> -->
-                        </StackPanel>
-                    </DataTemplate>
-                </u:NavMenu.IconTemplate>
-                <u:NavMenu.HeaderTemplate>
-                    <DataTemplate x:DataType="vm:MenuItemViewData">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock HorizontalAlignment="Left" Text="{Binding MenuHeader}" />
-                            <u:Badge
-                                Margin="8,0,0,0"
-                                HorizontalAlignment="Left"
-                                IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                Header="{Binding Status}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </u:NavMenu.HeaderTemplate>
+            <Border
+                IsVisible="{Binding IsMenuVisible}"
+                Padding="8 4"
+                Grid.RowSpan="2"
+                VerticalAlignment="Stretch"
+                Theme="{DynamicResource CardBorder}">
+                <!-- ExpandWidth="300" -->
+                <u:NavMenu ItemsSource="{Binding Menus.MenuItems}"
+                           MaxWidth="50"
+                           CommandBinding="{Binding ActivateCommand}"
+                           IsHorizontalCollapsed="True"
+                           HeaderBinding="{Binding}"
+                           Footer="{Binding Footers}"
+                           IconBinding="{Binding MenuIconName}">
+                    <!--显示分割线-->
+                    <u:NavMenu.Styles>
+                        <Style Selector="u|NavMenuItem" x:DataType="vm:MenuItemViewData">
+                            <Setter Property="IsSeparator" Value="{Binding IsSeparator}"></Setter>
+                            <Setter Property="IsSelected" Value="{Binding IsSelected}"></Setter>
+                        </Style>
+                    </u:NavMenu.Styles>
+                    <u:NavMenu.IconTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Vertical">
+                                <u:TwoTonePathIcon
+                                    Margin="10"
+                                    ActiveForeground="{DynamicResource SemiBlue5}"
+                                    ActiveStrokeBrush="{DynamicResource SemiBlue5}"
+                                    Data="{Binding Converter={StaticResource IconConverter}}"
+                                    Foreground="{DynamicResource SemiGrey5}"
+                                    IsActive="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=u:NavMenuItem}, Path=IsHighlighted, Mode=TwoWay}"
+                                    StrokeBrush="{DynamicResource SemiGrey5}" />
+                                <!--<u:Badge Header="XXX"/>-->
+                                <!-- <TextBlock HorizontalAlignment="Center" Text="M" /> -->
+                            </StackPanel>
+                        </DataTemplate>
+                    </u:NavMenu.IconTemplate>
+                    <u:NavMenu.HeaderTemplate>
+                        <DataTemplate x:DataType="vm:MenuItemViewData">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock HorizontalAlignment="Left" Text="{Binding MenuHeader}" />
+                                <u:Badge
+                                    Margin="8,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    Header="{Binding Status}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </u:NavMenu.HeaderTemplate>
 
-                <!--u:NavMenu.CanToggle="True"-->
-                <u:NavMenu.Header>
-                    <DockPanel HorizontalAlignment="Center" Margin="8">
-                        <Image
-                            VerticalAlignment="Center"
-                            DockPanel.Dock="Left"
-                            Tapped="OnTapedMenuIcon"
-                            RenderOptions.BitmapInterpolationMode="HighQuality"
-                            Source="../Assets/avalonia-logo.ico" />
-                    </DockPanel>
-                </u:NavMenu.Header>
-            </u:NavMenu>
-        </Border>
+                    <!--u:NavMenu.CanToggle="True"-->
+                    <u:NavMenu.Header>
+                        <DockPanel HorizontalAlignment="Center" Margin="8">
+                            <Image
+                                VerticalAlignment="Center"
+                                DockPanel.Dock="Left"
+                                Tapped="OnTapedMenuIcon"
+                                RenderOptions.BitmapInterpolationMode="HighQuality"
+                                Source="../Assets/avalonia-logo.ico" />
+                        </DockPanel>
+                    </u:NavMenu.Header>
+                </u:NavMenu>
+            </Border>
 
-        <ContentControl
-            Grid.Row="1"
-            Grid.Column="1"
-            Margin="12,0,12,0"
-            Content="{Binding Content}">
-            <ContentControl.ContentTemplate>
-                <converters:ViewLocator />
-            </ContentControl.ContentTemplate>
-        </ContentControl>
+            <ContentControl
+                Grid.Row="1"
+                Grid.Column="1"
+                Margin="12,0,12,0"
+                Content="{Binding Content}">
+                <ContentControl.ContentTemplate>
+                    <converters:ViewLocator />
+                </ContentControl.ContentTemplate>
+            </ContentControl>
 
-        <!-- 隐藏菜单后的Icon -->
-        <Image
-            Grid.Row="0" Grid.Column="1"
-            IsVisible="{Binding !IsMenuVisible}"
-            MaxWidth="15"
-            Margin="5"
-            VerticalAlignment="Top"
-            HorizontalAlignment="Left"
-            Tapped="OnTapedMenuIcon"
-            RenderOptions.BitmapInterpolationMode="HighQuality"
-            Source="../Assets/avalonia-logo.ico" />
+            <!-- 隐藏菜单后的Icon -->
+            <Image
+                Grid.Row="0" Grid.Column="1"
+                IsVisible="{Binding !IsMenuVisible}"
+                MaxWidth="15"
+                Margin="5"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left"
+                Tapped="OnTapedMenuIcon"
+                RenderOptions.BitmapInterpolationMode="HighQuality"
+                Source="../Assets/avalonia-logo.ico" />
 
-        <u:ThemeToggleButton
-            Grid.Row="0"
-            Grid.Column="1"
-            IsThreeState="True"
-            Mode="Controller"
-            VerticalAlignment="Top"
-            HorizontalAlignment="Right" />
-        <!-- <u:ToolBarPanel Grid.Row="1" Grid.Column="1"></u:ToolBarPanel> -->
+            <u:ThemeToggleButton
+                Grid.Row="0"
+                Grid.Column="1"
+                IsThreeState="True"
+                Mode="Controller"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Right" />
 
-    </Grid>
-    <!--<u:OverlayDialogHost Name="host" SnapThickness="20" />-->
+            <!-- <u:ToolBarPanel Grid.Row="1" Grid.Column="1"></u:ToolBarPanel> -->
+        </Grid>
+        <u:OverlayDialogHost Name="Host" SnapThickness="20" />
+    </Panel>
 
 </UserControl>

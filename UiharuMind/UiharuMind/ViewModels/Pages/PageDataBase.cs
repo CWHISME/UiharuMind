@@ -19,23 +19,18 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
     {
         get { return _view ??= CreateView; }
     }
+    
+    // public LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.LLamaCppServer.Config;
+    
+    // public void ShowNotification(string message)
+    // {
+    //     ShowNotification("Information", message, NotificationType.Information);
+    // }
 
-
-    public FilesService FilesService => App.FilesService;
-    public LLamaCppServerKernal LlamaService => LlmManager.Instance.LLamaCppServer;
-
-    public LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.LLamaCppServer.Config;
-
-
-    public void ShowNotification(string message)
-    {
-        ShowNotification("Information", message, NotificationType.Information);
-    }
-
-    public void ShowNotification(string title, string message, NotificationType type)
-    {
-        App.NotificationManager.Show(new Notification(title, message, type));
-    }
+    // public void ShowNotification(string title, string message, NotificationType type)
+    // {
+    //     App.MessageService.Show(new Notification(title, message, type));
+    // }
 
     protected abstract Control CreateView { get; }
 }

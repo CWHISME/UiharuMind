@@ -26,7 +26,7 @@ public partial class ModelService : ObservableObject
     /// <summary>
     /// 当前是否有运行中的模型
     /// </summary>
-    public bool CurIsRunning => CurModelRunningData != null;
+    public bool CurIsRunning => CurModelRunningData?.IsRunning ?? false;
 
     /// <summary>
     /// 当前处于运行中的模型数量

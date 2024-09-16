@@ -22,7 +22,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Log.Error("应用程序崩溃: " + ex.Message);
+            Log.Error("应用程序崩溃: " + ex.StackTrace);
         }
         finally
         {

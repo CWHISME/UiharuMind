@@ -65,11 +65,12 @@ public class ModelRunningData
     /// </summary>
     public void StopRunning()
     {
-        _cts?.Cancel();
+        if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
         _cts = null;
     }
 
-    public async void SendMessage(ChatHistory chatHistory,Action<string> onMessageReceived, Action<string> onMessageComplete)
+    public async void SendMessage(ChatHistory chatHistory, Action<string> onMessageReceived,
+        Action<string> onMessageComplete)
     {
         if (!IsRunning)
         {

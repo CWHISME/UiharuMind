@@ -73,6 +73,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             if (_chacheModels.TryGetValue(model.Key, out var runningData))
             {
                 runningData.ForceUpdateModelInfo(model.Value);
+                _modelList.Add(runningData);
                 continue;
             }
 

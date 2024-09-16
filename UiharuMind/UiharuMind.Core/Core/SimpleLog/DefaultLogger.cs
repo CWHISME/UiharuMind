@@ -7,6 +7,11 @@ public class DefaultLogger : ILogger
         Console.WriteLine(message);
     }
 
+    public void Warning(string message)
+    {
+        Console.WriteLine(message);
+    }
+
     public void Error(string message)
     {
         Console.WriteLine(message);

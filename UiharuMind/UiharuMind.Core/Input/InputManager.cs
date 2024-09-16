@@ -29,6 +29,9 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     public void OnInitialize()
     {
+        //Test
+        if(UiharuCoreManager.Instance.IsWindows) return;
+        
         Start();
     }
 

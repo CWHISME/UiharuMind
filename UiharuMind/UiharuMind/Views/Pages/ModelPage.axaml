@@ -43,8 +43,8 @@
                             BorderThickness="1" Padding="5">
                         <DockPanel>
                             <StackPanel Orientation="Vertical" DockPanel.Dock="Left">
-                                <TextBlock Text="{Binding ModelName}" />
-                                <TextBlock Text="{Binding ModelPath}" FontSize="12" />
+                                <SelectableTextBlock Text="{Binding ModelName}" />
+                                <SelectableTextBlock Text="{Binding ModelPath}" FontSize="12" />
                             </StackPanel>
                             <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" Orientation="Horizontal">
                                 <u:IconButton CornerRadius="20"

@@ -27,4 +27,13 @@
     <data name="ChatInputTips" xml:space="preserve">
         <value />
     </data>
+    <data name="EjectModel" xml:space="preserve">
+        <value>Eject Model</value>
+    </data>
+    <data name="MessageInfoTitle" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MessageErrorTitle" xml:space="preserve">
+        <value />
+    </data>
 </root>

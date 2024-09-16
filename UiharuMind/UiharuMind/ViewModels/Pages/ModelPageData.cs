@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Views.Pages;
 
@@ -19,10 +20,12 @@ public partial class ModelPageData : PageDataBase
 
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
+    private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.LLamaCppServer.Config;
+
     [RelayCommand]
     private async Task OpenChangeModelPath()
     {
-        LLamaConfig.LocalModelPath = await FilesService.OpenSelectFolderAsync(LLamaConfig.LocalModelPath)!;
+        LLamaConfig.LocalModelPath = await App.FilesService.OpenSelectFolderAsync(LLamaConfig.LocalModelPath)!;
         ModelPath = LLamaConfig.LocalModelPath;
         LLamaConfig.Save();
     }
@@ -30,32 +33,32 @@ public partial class ModelPageData : PageDataBase
     [RelayCommand]
     private void OpenModelFolder()
     {
-        FilesService.OpenFolder(LLamaConfig.LocalModelPath);
+        App.FilesService.OpenFolder(LLamaConfig.LocalModelPath);
     }
 
     [RelayCommand]
     private void OpenSelectModelFolder(string path)
     {
-        FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path);
+        App.FilesService.OpenFolder(Path.GetDirectoryName(path) ?? path);
     }
 
     [RelayCommand]
     private async Task RefreshSelectModelInfo(string path)
     {
-        await LlamaService.ScanLocalModel(path);
-        ShowNotification("Reload Info：" + path);
+        await App.ModelService.LoadModelList();
+        App.MessageService.ShowNotification("Reload Info：" + path);
     }
 
     [RelayCommand]
     private void OpenSelectModelInfo(string path)
     {
-        ShowNotification("OpenSelectModelInfo.");
+        App.MessageService.ShowNotification("OpenSelectModelInfo.");
     }
 
     partial void OnModelPathChanged(string? value)
     {
         LoadModels();
-        ShowNotification("Model list updated.");
+        App.MessageService.ShowNotification("Model list updated.");
     }
 
     public override void OnEnable()

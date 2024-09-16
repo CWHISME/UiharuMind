@@ -2,7 +2,6 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Notifications;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core;
@@ -11,6 +10,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.Views;
+using Ursa.Controls;
 
 namespace UiharuMind;
 
@@ -33,11 +33,14 @@ public partial class App : Application, ILogger
             //     DataContext = new MainViewModel()
             // };
             DummyWindow = new DummyWindow();
-            desktop.MainWindow = DummyWindow;
-            Clipboard = new ClipboardService(desktop.MainWindow); //desktop.MainWindow.Clipboard;
-            FilesService = new FilesService(desktop.MainWindow);
-            ScreensService = new ScreensService(desktop.MainWindow);
+
+            Clipboard = new ClipboardService(DummyWindow);
+            FilesService = new FilesService(DummyWindow);
+            ScreensService = new ScreensService(DummyWindow);
+            MessageService = new MessageService(DummyWindow);
             ModelService = new ModelService();
+
+            desktop.MainWindow = DummyWindow;
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -49,8 +52,9 @@ public partial class App : Application, ILogger
 
         base.OnFrameworkInitializationCompleted();
 
+        LogManager.Instance.Logger = this;
         Lang.Culture = CultureInfo.CurrentCulture;
-        UiharuCoreManager.Instance.Init(this);
+        UiharuCoreManager.Instance.Init();
     }
 
     // public new static App Current => (App)Application.Current!;
@@ -60,13 +64,14 @@ public partial class App : Application, ILogger
     public static ScreensService ScreensService { get; private set; }
     public static ModelService ModelService { get; private set; }
     public static MainViewModel ViewModel => DummyWindow.MainViewModel;
-
-    // public static TranslationService TranslationService { get; private set; } =
-    //     new TranslationService("UiharuMind.Resources.Lang.Lang", CultureInfo.CurrentCulture);
-
-    public static WindowNotificationManager NotificationManager { get; set; }
+    public static MessageService MessageService { get; private set; }
 
     public void Debug(string message)
+    {
+        Console.WriteLine(message);
+    }
+
+    public void Warning(string message)
     {
         Console.WriteLine(message);
     }
@@ -74,6 +79,7 @@ public partial class App : Application, ILogger
     public void Error(string message)
     {
         Console.WriteLine(message);
+        MessageService.ShowErrorMessage(message);
     }
 
     private void OnQuitClick(object? sender, EventArgs e)
