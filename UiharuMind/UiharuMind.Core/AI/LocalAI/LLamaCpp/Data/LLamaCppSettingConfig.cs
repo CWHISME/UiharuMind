@@ -17,4 +17,6 @@ public class LLamaCppSettingConfig : ConfigBase
 
     public string ExeLookupStats => Path.Combine(LLamaCppPath!, "llama-lookup-stats");
     public string ExeServer => Path.Combine(LLamaCppPath!, "llama-server");
+
+    public LLamaCppServerConfig ServerConfig { get; set; } = new();
 }

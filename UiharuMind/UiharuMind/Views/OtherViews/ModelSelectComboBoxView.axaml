@@ -31,20 +31,21 @@
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal"
-                                    IsVisible="{Binding DataContext.CurIsRunning,RelativeSource={RelativeSource AncestorType=ComboBox}}">
+                                    IsVisible="{Binding DataContext.CurModelRunningData,RelativeSource={RelativeSource AncestorType=ComboBox},FallbackValue=True, TargetNullValue=False}">
                             <PathIcon Data="{StaticResource InfoRegular}" />
                             <TextBlock Text="7B"></TextBlock>
-                            <TextBlock Text="{Binding ModelName}" />
+                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" />
                         </StackPanel>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-            <ProgressBar Name="ProgressBar" Minimum="0" Maximum="100"
-                         Value="{Binding CurModelRunningData.LoadingCount}" />
+            <ProgressBar Name="ProgressBar" Minimum="0" Maximum="1"
+                         Value="{Binding LoadingProgress}" IsVisible="{Binding IsLoading}" />
         </StackPanel>
 
         <!-- 右边的按钮或文字 -->
-        <Button Grid.Column="2" Content="{x:Static lang:Lang.EjectModel}" VerticalAlignment="Center" Command="{Binding EjectCurrentModel}"
+        <Button Grid.Column="2" Content="{x:Static lang:Lang.EjectModel}" VerticalAlignment="Center"
+                Command="{Binding EjectCurrentModel}"
                 IsEnabled="{Binding CurIsRunning}" />
     </Grid>
 

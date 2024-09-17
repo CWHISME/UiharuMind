@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
@@ -41,6 +43,8 @@ public partial class App : Application, ILogger
             ModelService = new ModelService();
 
             desktop.MainWindow = DummyWindow;
+
+            desktop.Exit += OnExit;
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
@@ -56,6 +60,7 @@ public partial class App : Application, ILogger
         Lang.Culture = CultureInfo.CurrentCulture;
         UiharuCoreManager.Instance.Init();
     }
+
 
     // public new static App Current => (App)Application.Current!;
     public static DummyWindow DummyWindow { get; private set; }
@@ -93,5 +98,10 @@ public partial class App : Application, ILogger
     private void OnOpenClick(object? sender, EventArgs e)
     {
         DummyWindow.LaunchMainWindow();
+    }
+
+    private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    {
+        ProcessHelper.CancelAll();
     }
 }

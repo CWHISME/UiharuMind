@@ -30,11 +30,13 @@ public class ModelRunningData
     public bool IsRunning => !((_cts?.IsCancellationRequested) ?? true);
 
     /// <summary>
-    /// 0~100,100表示加载完成 100%
+    /// 0~1,1表示加载完成 100%
     /// </summary>
-    public int LoadingCount { get; private set; } = 0;
+    public float LoadingPercent { get; private set; } = 0;
 
-    private Action<float> _onLoading;
+    private int _loadingCount = 0;
+    private Action<float>? _onLoading;
+    private Action? _onLoaded;
 
     public ModelRunningData(ILLMModel modelInfo)
     {
@@ -51,10 +53,13 @@ public class ModelRunningData
     /// </summary>
     /// <param name="port"></param>
     /// <param name="onLoading"></param>
-    public async Task StartLoad(int port, Action<float> onLoading)
+    /// <param name="onLoaded"></param>
+    public async Task StartLoad(int port, Action<float>? onLoading, Action? onLoaded)
     {
         if (_cts != null) return;
+        _loadingCount = 0;
         _onLoading = onLoading;
+        _onLoaded = onLoaded;
         await LlmManager.Instance.LLamaCppServer.StartServer(_modelInfo.ModelPath, port, OnInitLoad,
             OnMessageUpdate);
         StopRunning();
@@ -67,6 +72,7 @@ public class ModelRunningData
     {
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
         _cts = null;
+        EndLoadCheck();
     }
 
     public async void SendMessage(ChatHistory chatHistory, Action<string> onMessageReceived,
@@ -91,6 +97,21 @@ public class ModelRunningData
     private void OnMessageUpdate(string msg)
     {
         Log.Debug(msg);
-        if (LoadingCount < 100 && msg.StartsWith('.')) LoadingCount++;
+        if (_loadingCount < 128 && !msg.StartsWith("'main: server is listening"))
+        {
+            _loadingCount++;
+            LoadingPercent = _loadingCount / 128f;
+            _onLoading?.Invoke(LoadingPercent);
+        }
+        else EndLoadCheck();
+    }
+
+    private void EndLoadCheck()
+    {
+        if (_onLoaded != null)
+        {
+            _onLoaded();
+            _onLoaded = null;
+        }
     }
 }

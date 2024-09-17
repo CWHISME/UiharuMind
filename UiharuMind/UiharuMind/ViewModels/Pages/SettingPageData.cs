@@ -10,8 +10,10 @@ using Avalonia.Platform;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.ScreenCaptures;
+using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Capture;
 using UiharuMind.Views.Pages;
 
@@ -19,9 +21,11 @@ namespace UiharuMind.ViewModels.Pages;
 
 public partial class SettingPageData : PageDataBase
 {
+    public LLamaCppSettingModel LlamaSettingModel { get; set; } = new LLamaCppSettingModel();
+
     public SettingPageData()
     {
-        HotKeyManager.SetHotKey(View, new KeyGesture(Key.A, KeyModifiers.Alt | KeyModifiers.Shift));
+        LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config.ServerConfig;
     }
 
     [RelayCommand]
@@ -29,6 +33,12 @@ public partial class SettingPageData : PageDataBase
     {
         // ScreenCaptureManager.CaptureScreen();
         await ScreenCaptureManager.GetScreenCaptureFromClipboard();
+    }
+
+    public override void OnDisable()
+    {
+        base.OnDisable();
+        LlmManager.Instance.LLamaCppServer.SaveConfig();
     }
 
     protected override Control CreateView => new SettingPage();

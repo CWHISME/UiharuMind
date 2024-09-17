@@ -1,10 +1,15 @@
 using System;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
+using UiharuMind.ViewModels.Pages;
 using UiharuMind.Views;
+using Ursa.Common;
 using Ursa.Controls;
+using Ursa.Controls.Options;
 using Notification = Avalonia.Controls.Notifications.Notification;
 using WindowNotificationManager = Avalonia.Controls.Notifications.WindowNotificationManager;
 
@@ -45,16 +50,26 @@ public partial class MessageService : ObservableObject
         _target = target;
     }
 
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
+    /// <param name="message"></param>
     public async void ShowMessage(string message)
     {
         await ShowMessage(message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK);
     }
 
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
     public async void ShowErrorMessage(string message)
     {
         await ShowMessage(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
     }
 
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
     public async Task ShowMessage(string message, string title, MessageBoxIcon icon, MessageBoxButton button)
     {
         if (IsBusy || _target.MainWindow == null) return;
@@ -75,17 +90,66 @@ public partial class MessageService : ObservableObject
         }
     }
 
+    //==================================================================================================
 
+    /// <summary>
+    /// 显示一个滑出的页面
+    /// </summary>
+    /// <param name="page"></param>
+    /// <param name="position"></param>
+    /// <param name="buttons"></param>
+    /// <param name="canLightDismiss"></param>
+    /// <param name="isCloseButtonVisible"></param>
+    public async Task ShowPageDrawer(PageDataBase page, Position position = Position.Right,
+        DialogButton buttons = DialogButton.None, bool canLightDismiss = true, bool isCloseButtonVisible = true)
+    {
+        var options = new DrawerOptions()
+        {
+            Position = position,
+            Buttons = buttons,
+            CanLightDismiss = canLightDismiss,
+            IsCloseButtonVisible = isCloseButtonVisible,
+            MinWidth = App.DummyWindow.MainWindow!.Width * 0.66,
+        };
+        IsBusy = true;
+        try
+        {
+            if (page.View.Parent is ContentControl parent) parent.Content = null;
+            await Drawer.ShowCustomModal<object?>(page.View, page, null, options);
+        }
+        catch (Exception e)
+        {
+            // ignored
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    //==================================================================================================
+
+    /// <summary>
+    /// 显示从界面右上方弹出的提示条信息
+    /// </summary>
     public void ShowNotification(string message)
     {
         ShowNotification(Lang.MessageInfoTitle, message, NotificationType.Information);
     }
 
+    /// <summary>
+    /// 显示从界面右上方弹出的提示条信息
+    /// </summary>
     public void ShowNotification(string title, string message, NotificationType type)
     {
         NotificationManager.Show(new Notification(title, message, type));
     }
 
+    //==================================================================================================
+
+    /// <summary>
+    /// 显示从界面正上方弹出的提示条信息
+    /// </summary>
     public void ShowToast(string message, NotificationType type = NotificationType.Information)
     {
         ToastManager.Show(message, type: type);

@@ -29,4 +29,34 @@
     <data name="MessageErrorTitle" xml:space="preserve">
         <value>错误</value>
     </data>
+    <data name="MenuMainKey" xml:space="preserve">
+        <value>主页</value>
+    </data>
+    <data name="MenuChatKey" xml:space="preserve">
+        <value>聊天</value>
+    </data>
+    <data name="MenuLogKey" xml:space="preserve">
+        <value>日志</value>
+    </data>
+    <data name="MenuModelKey" xml:space="preserve">
+        <value>模型</value>
+    </data>
+    <data name="MenuSettingKey" xml:space="preserve">
+        <value>设置</value>
+    </data>
+    <data name="MenuTranslateKey" xml:space="preserve">
+        <value>翻译</value>
+    </data>
+    <data name="MenuAboutKey" xml:space="preserve">
+        <value>关于</value>
+    </data>
+    <data name="SettingDebug" xml:space="preserve">
+        <value>调试</value>
+    </data>
+    <data name="SettingLogDetail" xml:space="preserve">
+        <value>记录所有服务日志</value>
+    </data>
+    <data name="SettingLogEnable" xml:space="preserve">
+        <value>记录服务日志</value>
+    </data>
 </root>

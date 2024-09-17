@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.ViewModels;
 
@@ -6,15 +7,15 @@ public class MenuViewData
 {
     public ObservableCollection<MenuItemViewData> MenuItems { get; set; } = new()
     {
-        new() { MenuHeader = "主页", MenuIconName = "Home", Key = MenuKeys.MenuMainKey },
+        new() { MenuHeader = Lang.MenuMainKey, MenuIconName = "Home", Key = MenuKeys.MenuMainKey },
         new() { MenuHeader = "Separator", IsSeparator = true },
-        new() { MenuHeader = "聊天", MenuIconName = "Chat", Key = MenuKeys.MenuChatKey },
-        // new() { MenuHeader = "翻译", MenuIconName = "Translate", Key = MenuKeys.MenuTranslateKey },
+        new() { MenuHeader = Lang.MenuChatKey, MenuIconName = "Chat", Key = MenuKeys.MenuChatKey },
+        // new() { MenuHeader = "翻译", MenuIconName =Lang.MenuTranslateKey, Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
-        new() { MenuHeader = "模型", MenuIconName = "Folder", Key = MenuKeys.MenuModelKey },
-        new() { MenuHeader = "日志", MenuIconName = "BookInformationRegular", Key = MenuKeys.MenuLogKey },
+        new() { MenuHeader = Lang.MenuModelKey, MenuIconName = "Folder", Key = MenuKeys.MenuModelKey },
+        new() { MenuHeader = Lang.MenuLogKey, MenuIconName = "BookInformationRegular", Key = MenuKeys.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
-        // new() { MenuHeader = "设置", MenuIconName = "Setting", Key = MenuKeys.MenuSettingKey },
+        new() { MenuHeader = Lang.MenuSettingKey, MenuIconName = "Setting", Key = MenuKeys.MenuSettingKey },
     };
 }
 
@@ -28,4 +29,5 @@ public static class MenuKeys
     public const string MenuPaintKey = "PaintKey";
     public const string MenuLogKey = "LogKey";
     public const string MenuSettingKey = "SettingKey";
+    public const string MenuAboutKey = "AboutKey";
 }

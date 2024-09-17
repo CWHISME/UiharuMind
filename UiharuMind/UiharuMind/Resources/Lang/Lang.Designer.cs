@@ -80,6 +80,69 @@ namespace UiharuMind.Resources.Lang {
         /// <summary>
         ///   Looks up a localized string similar to .
         /// </summary>
+        public static string MenuAboutKey {
+            get {
+                return ResourceManager.GetString("MenuAboutKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string MenuChatKey {
+            get {
+                return ResourceManager.GetString("MenuChatKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string MenuLogKey {
+            get {
+                return ResourceManager.GetString("MenuLogKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string MenuMainKey {
+            get {
+                return ResourceManager.GetString("MenuMainKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string MenuModelKey {
+            get {
+                return ResourceManager.GetString("MenuModelKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string MenuSettingKey {
+            get {
+                return ResourceManager.GetString("MenuSettingKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string MenuTranslateKey {
+            get {
+                return ResourceManager.GetString("MenuTranslateKey", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
         public static string MessageErrorTitle {
             get {
                 return ResourceManager.GetString("MessageErrorTitle", resourceCulture);
@@ -110,6 +173,34 @@ namespace UiharuMind.Resources.Lang {
         public static string SendUserDesc {
             get {
                 return ResourceManager.GetString("SendUserDesc", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string SettingDebug {
+            get {
+                return ResourceManager.GetString("SettingDebug", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Set verbosity level to infinity (i.e. log all messages, useful for debugging)
+        ///.
+        /// </summary>
+        public static string SettingLogDetail {
+            get {
+                return ResourceManager.GetString("SettingLogDetail", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Enable log messages.
+        /// </summary>
+        public static string SettingLogEnable {
+            get {
+                return ResourceManager.GetString("SettingLogEnable", resourceCulture);
             }
         }
     }

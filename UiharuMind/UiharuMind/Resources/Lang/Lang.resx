@@ -36,4 +36,35 @@
     <data name="MessageErrorTitle" xml:space="preserve">
         <value />
     </data>
+    <data name="MenuMainKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MenuModelKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MenuChatKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MenuTranslateKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MenuLogKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MenuSettingKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MenuAboutKey" xml:space="preserve">
+        <value />
+    </data>
+    <data name="SettingDebug" xml:space="preserve">
+        <value />
+    </data>
+    <data name="SettingLogDetail" xml:space="preserve">
+        <value>Set verbosity level to infinity (i.e. log all messages, useful for debugging)
+</value>
+    </data>
+    <data name="SettingLogEnable" xml:space="preserve">
+        <value>Enable log messages</value>
+    </data>
 </root>

@@ -2,6 +2,7 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Data;
 
 namespace UiharuMind.Core.LLamaCpp;
@@ -11,10 +12,14 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     private LLamaCppVersionManager _llamaCppVersionManager = new LLamaCppVersionManager();
     private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
 
+
     public async Task StartServer(string modelFilePath, int port,
-        Action<CancellationTokenSource>? onInitCallback = null, Action<string>? onMessageUpdate = null)
+        Action<CancellationTokenSource>? onInitCallback = null, Action<string>? onMessageUpdate = null,
+        LLamaCppServerConfig? config = null)
     {
-        await ProcessHelper.StartProcess(Config.ExeServer, $"-m {modelFilePath} --port {port}", onInitCallback,
+        if (config == null) config = Config.ServerConfig;
+        await ProcessHelper.StartProcess(Config.ExeServer,
+            $"-m {modelFilePath} --port {port} {CommandLineHelper.GenerateCommandLineArgs(config)}", onInitCallback,
             (line, cts) => { onMessageUpdate?.Invoke(line); });
     }
 
@@ -74,7 +79,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         GGufModelInfo info = new GGufModelInfo();
         // await ProcessHelper.StartProcess(lookupExe, $"-m {file}",
         //     async (line, cts) => await ParseModelInfo(line, info, cts));
-        await ProcessHelper.StartProcess(lookupExe, $"-m {file}", (line, cts) => ParseModelInfo(line, info, cts));
+        await ProcessHelper.StartProcess(lookupExe, $"-m {file} -v", (line, cts) => ParseModelInfo(line, info, cts));
         // stopwatch.Stop();
         // Log.Debug($"Scan Model {file} {stopwatch.ElapsedMilliseconds}");
         return info;

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -5,6 +6,7 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Chat;
 
@@ -16,7 +18,6 @@ public class ChatThread
     private Kernel? _kernel;
 
     // private ChatHistory _chatHistory;
-    private StringBuilder _resultStringBuilder = new StringBuilder();
 
     private Kernel GetKernel
     {
@@ -25,7 +26,8 @@ public class ChatThread
             if (_kernel == null)
             {
                 _kernel = Kernel.CreateBuilder()
-                    .AddOpenAIChatCompletion("UiharuMind", "Empty", httpClient: new HttpClient(new SKernelHttpDelegatingHandler()))
+                    .AddOpenAIChatCompletion("UiharuMind", "Empty",
+                        httpClient: new HttpClient(new SKernelHttpDelegatingHandler()))
                     .Build();
             }
 
@@ -47,23 +49,28 @@ public class ChatThread
         // var response = await GetKernel.InvokePromptAsync("promptTemplate", _chatHistory);
         // IChatCompletionService
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
+        var builder = StringBuilderPool.Get();
         string result = "";
         try
         {
             await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
                                GetOpenAiRequestSettings()))
             {
-                _resultStringBuilder.Append(content.Content);
-                result = _resultStringBuilder.ToString();
+                builder.Append(content.Content);
+                result = builder.ToString();
                 onMessageReceived?.Invoke(result);
                 //onMessageReceived?.Invoke(_resultStringBuilder.ToString());
             }
         }
+        catch (IOException)
+        {
+        }
         catch (Exception e)
         {
-            Log.Error("Error in ChatThread.SendMessageStreamingAsync: "+e.Message);
+            Log.Error("Error in ChatThread.SendMessageStreamingAsync: " + e.Message);
         }
 
+        StringBuilderPool.Release(builder);
         // return _resultStringBuilder.ToString();
         //chatHistory.AddMessage(AuthorRole.Assistant, result);
 

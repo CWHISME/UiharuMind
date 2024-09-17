@@ -24,6 +24,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         set
         {
             if (value == _curModelRunningData) return;
+            if (_curModelRunningData?.IsRunning == true) _curModelRunningData.StopRunning();
             _curModelRunningData = value;
             OnCurrentModelChanged?.Invoke(value);
             LoadCurrentModel();
@@ -47,12 +48,27 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// <summary>
     /// 当前运行的模型改变回调
     /// </summary>
-    public Action<ModelRunningData?>? OnCurrentModelChanged;
+    public event Action<ModelRunningData?>? OnCurrentModelChanged;
 
     /// <summary>
     /// 当任何模型的状态改变时回调
     /// </summary>
-    public Action<ModelRunningData?>? OnAnyModelStateChanged;
+    public event Action<ModelRunningData?>? OnAnyModelStateChanged;
+
+    /// <summary>
+    /// 当前模型开始加载
+    /// </summary>
+    public event Action? OnCurrentModelStartLoading;
+
+    /// <summary>
+    /// 当的模型加载进度回调
+    /// </summary>
+    public event Action<float>? OnCurrentModelLoading;
+
+    /// <summary>
+    /// 当前运行的模型加载完成回调
+    /// </summary>
+    public event Action? OnCurrentModelLoaded;
 
     public void OnInitialize()
     {
@@ -103,11 +119,14 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (_chacheModels.TryGetValue(modelName, out var runningInfo))
         {
             CurrentRunningModel = runningInfo;
-            await CurrentRunningModel.StartLoad(LLamaCppServer.Config.DefautPort, null);
+            // 通知当前运行的模型开始加载
+            OnCurrentModelStartLoading?.Invoke();
+            await CurrentRunningModel.StartLoad(LLamaCppServer.Config.DefautPort, OnCurrentModelLoading,
+                OnCurrentModelLoaded);
             // 通知当前运行的模型改变
-            if (runningInfo == CurrentRunningModel) OnCurrentModelChanged?.Invoke(runningInfo);
+            if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
             // 通知有任意模型状态改变
-            OnAnyModelStateChanged?.Invoke(runningInfo);
+            //OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"load model error， {modelName} not found in cache.");
     }
@@ -135,12 +154,10 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         else Log.Error($"unload model error， {modelName} not found in cache.");
     }
 
-
     //======================test=========================
     private void SetupTestWin()
     {
-        LLamaCppServer.Config.LLamaCppPath =
-            "D:\\Solfware\\AI\\llama-b3058-bin-win-vulkan-x64";
+        LLamaCppServer.Config.LLamaCppPath = "D:\\Solfware\\AI\\llama-b3772-bin-win-vulkan-x64";
         if (!Directory.Exists(LLamaCppServer.Config.LocalModelPath))
             LLamaCppServer.Config.LocalModelPath = "D:\\Solfware\\AI\\LLM_Models";
     }

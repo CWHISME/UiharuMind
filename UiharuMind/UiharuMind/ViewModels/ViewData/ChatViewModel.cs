@@ -1,8 +1,11 @@
+using Avalonia.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel.ChatCompletion;
+using SharpHook.Native;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Input;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -21,6 +24,7 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private string _titleName = "";
     [ObservableProperty] private string _inputText = "";
+    [ObservableProperty] private KeyGesture _sendGesture = new KeyGesture(Key.Enter);
 
     [ObservableProperty] private ChatSessionViewData _chatSession;
 
@@ -38,6 +42,8 @@ public partial class ChatViewModel : ViewModelBase
     [RelayCommand]
     public void SendMessage()
     {
+        // if (!InputManager.Instance.IsPressed(KeyCode.VcLeftControl)) return;
+        if (string.IsNullOrEmpty(InputText)) return;
         Log.Debug("SendMessageCommand:" + InputText);
         AddMessage(InputText);
         InputText = "";

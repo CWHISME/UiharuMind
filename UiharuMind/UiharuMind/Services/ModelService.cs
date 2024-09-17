@@ -23,6 +23,9 @@ public partial class ModelService : ObservableObject
         set => LlmManager.Instance.CurrentRunningModel = value;
     }
 
+    [ObservableProperty] private bool _isLoading;
+    [ObservableProperty] private float _loadingProgress;
+
     /// <summary>
     /// 当前是否有运行中的模型
     /// </summary>
@@ -37,7 +40,28 @@ public partial class ModelService : ObservableObject
     {
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelStateChanged;
         LlmManager.Instance.OnAnyModelStateChanged += OnAnyModelStateChanged;
+        LlmManager.Instance.OnCurrentModelStartLoading += OnCurrentModelStartLoading;
+        LlmManager.Instance.OnCurrentModelLoading += OnCurrentModelLoading;
+        LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
         LoadModelListSync();
+    }
+
+    private void OnCurrentModelStartLoading()
+    {
+        LoadingProgress = 0;
+        IsLoading = true;
+        Refresh();
+    }
+
+    private void OnCurrentModelLoading(float obj)
+    {
+        LoadingProgress = obj;
+    }
+
+    private void OnCurrentModelLoaded()
+    {
+        IsLoading = false;
+        Refresh();
     }
 
     [RelayCommand]
@@ -75,8 +99,7 @@ public partial class ModelService : ObservableObject
 
     private void OnCurrentModelStateChanged(ModelRunningData? model)
     {
-        OnPropertyChanged(nameof(CurIsRunning));
-        OnPropertyChanged(nameof(CurModelRunningData));
+        Refresh();
     }
 
     private void OnAnyModelStateChanged(ModelRunningData? model)

@@ -91,7 +91,7 @@
                      Watermark="{x:Static lang:Lang.ChatInputTips}"
                      HorizontalAlignment="Stretch" VerticalAlignment="Center">
                 <TextBox.KeyBindings>
-                    <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Enter" />
+                    <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
                 </TextBox.KeyBindings>
             </TextBox>
 

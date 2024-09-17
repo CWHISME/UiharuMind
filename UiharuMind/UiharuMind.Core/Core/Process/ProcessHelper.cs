@@ -7,6 +7,18 @@ namespace UiharuMind.Core.Core.Process;
 
 public static class ProcessHelper
 {
+    private static readonly HashSet<CancellationTokenSource> _cancellationTokenSources = new();
+
+    public static void CancelAll()
+    {
+        foreach (var cts in _cancellationTokenSources)
+        {
+            if (!cts.IsCancellationRequested) cts.Cancel();
+        }
+
+        _cancellationTokenSources.Clear();
+    }
+
     /// <summary>
     /// 执行指定目录下的某个可执行文件
     /// </summary>
@@ -21,62 +33,6 @@ public static class ProcessHelper
     {
         await StartProcess(Path.Combine(dirPath, exeName), args, onInitCallback, onLogCallback);
     }
-
-    // /// <summary>
-    // /// 执行指定可执行文件，允许通过异步取消操作
-    // /// </summary>
-    // /// <param name="exePath"></param>
-    // /// <param name="args"></param>
-    // /// <param name="callback"></param>
-    // public static async Task StartProcess(string exePath, string args,
-    //     Func<string, CancellationTokenSource, Task>? callback)
-    // {
-    //     using var cts = new CancellationTokenSource();
-    //     var cmd = Cli.Wrap(exePath).WithArguments(args).WithValidation(CommandResultValidation.None);
-    //
-    //     try
-    //     {
-    //         if (callback == null)
-    //         {
-    //             await cmd.ExecuteAsync();
-    //             return;
-    //         }
-    //
-    //         await foreach (var cmdEvent in cmd.ListenAsync(cancellationToken: cts.Token))
-    //         {
-    //             switch (cmdEvent)
-    //             {
-    //                 // case StartedCommandEvent started:
-    //                 //     Log.Debug($"Process started; ID: {started.ProcessId}");
-    //                 //     break;
-    //                 case StandardOutputCommandEvent stdOut:
-    //                     // Log.Debug($"Out> {stdOut.Text}");
-    //                     // if (stdOut.Text.StartsWith("llm_load_tensors")) await cts.CancelAsync();
-    //                     // info.UpdateValue(stdOut.Text);
-    //                     // await ParseModelInfo(stdOut.Text, info, cts);
-    //                     await callback.Invoke(stdOut.Text, cts);
-    //                     break;
-    //                 case StandardErrorCommandEvent stdErr:
-    //                     // Log.Debug($"Err> {stdErr.Text}");
-    //                     // if (stdErr.Text.StartsWith("llm_load_tensors")) await cts.CancelAsync();
-    //                     // info.UpdateValue(stdErr.Text);
-    //                     // await ParseModelInfo(stdErr.Text, info, cts);
-    //                     await callback.Invoke(stdErr.Text, cts);
-    //                     break;
-    //                 case ExitedCommandEvent exited:
-    //                     Log.Debug($"Process exited; Code: {exited.ExitCode}");
-    //                     break;
-    //             }
-    //         }
-    //     }
-    //     catch (OperationCanceledException)
-    //     {
-    //         // Log.Debug("Scan Canceled");
-    //     }
-    //
-    //     // onEnd?.Invoke();
-    //     // return info;
-    // }
 
     /// <summary>
     /// 执行指定可执行文件
@@ -102,6 +58,7 @@ public static class ProcessHelper
         Action<string, CancellationTokenSource>? onLogCallback = null)
     {
         using var cts = new CancellationTokenSource();
+        _cancellationTokenSources.Add(cts);
         var cmd = Cli.Wrap(exePath).WithArguments(args).WithValidation(CommandResultValidation.None);
         try
         {
@@ -121,6 +78,7 @@ public static class ProcessHelper
                 return;
             }
 
+            string lastLine = "";
             await foreach (var cmdEvent in cmd.ListenAsync(cancellationToken: cts.Token))
             {
                 switch (cmdEvent)
@@ -129,16 +87,21 @@ public static class ProcessHelper
                     //     Log.Debug($"Process started; ID: {started.ProcessId}");
                     //     break;
                     case StandardOutputCommandEvent stdOut:
-                        onLogCallback.Invoke(stdOut.Text, cts);
+                        lastLine = stdOut.Text;
+                        onLogCallback.Invoke(lastLine, cts);
                         break;
                     case StandardErrorCommandEvent stdErr:
-                        onLogCallback.Invoke(stdErr.Text, cts);
+                        lastLine = stdErr.Text;
+                        onLogCallback.Invoke(lastLine, cts);
                         break;
                     case ExitedCommandEvent exited:
-                        Log.Debug($"Process exited; Code: {exited.ExitCode}");
+                        if (exited.ExitCode != 0) Log.Error(lastLine);
                         break;
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
@@ -147,6 +110,7 @@ public static class ProcessHelper
         finally
         {
             if (!cts.IsCancellationRequested) await cts.CancelAsync();
+            _cancellationTokenSources.Remove(cts);
         }
     }
 }

@@ -1,19 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Avalonia;
-using Avalonia.Controls;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using SharpHook.Native;
-using UiharuMind.Core;
-using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Input;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Pages;
-using UiharuMind.ViewModels.ScreenCaptures;
-using UiharuMind.Views.Capture;
 using UiharuMind.Views.Controls;
 
 namespace UiharuMind.ViewModels;
@@ -30,19 +22,21 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     public MessageService MessageService => App.MessageService;
 
-    private readonly Dictionary<string, ViewModelBase> _viewPageModels = new Dictionary<string, ViewModelBase>();
+    private readonly Dictionary<string, PageDataBase> _viewPageModels = new Dictionary<string, PageDataBase>();
     private readonly Dictionary<Type, ViewModelBase> _viewModels = new Dictionary<Type, ViewModelBase>();
 
     public MainViewModel()
     {
         Receive(MenuKeys.MenuMainKey);
         Menus.MenuItems[0].IsSelected = true;
+        OnPropertyChanged();
     }
 
     [RelayCommand]
-    private void OpenSetting()
+    private async Task OpenSetting()
     {
-        Receive(MenuKeys.MenuSettingKey);
+        // Receive(MenuKeys.MenuSettingKey);
+        await MessageService.ShowPageDrawer(GetPage(MenuKeys.MenuAboutKey));
     }
 
     [RelayCommand]
@@ -63,7 +57,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
         Content = GetPage(message);
     }
 
-    public ViewModelBase GetPage(string message)
+    public PageDataBase GetPage(string message)
     {
         _viewPageModels.TryGetValue(message, out var vmPage);
         if (vmPage == null)
@@ -76,6 +70,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
                 MenuKeys.MenuModelKey => new ModelPageData() { Title = message },
                 MenuKeys.MenuLogKey => new LogPageData(),
                 MenuKeys.MenuSettingKey => new SettingPageData(),
+                MenuKeys.MenuAboutKey => new AboutPageData(),
                 _ => new ModelPageData() { Title = message + "   Null Page" },
             };
             _viewPageModels.Add(message, vmPage);
