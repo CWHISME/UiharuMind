@@ -2,17 +2,17 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Microsoft.SemanticKernel;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.ScreenCaptures;
 
-namespace UiharuMind.Views.Capture;
+namespace UiharuMind.Views.Windows.ScreenCapture;
 
-public partial class ScreenCapturePreviewWindow : Window
+public partial class ScreenCapturePreviewWindow : Avalonia.Controls.Window
 {
     private Point _dragStartPoint;
     private bool _isDragging;

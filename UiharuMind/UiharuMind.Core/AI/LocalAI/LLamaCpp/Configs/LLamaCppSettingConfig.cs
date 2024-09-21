@@ -1,6 +1,7 @@
 using UiharuMind.Core.Core.Configs;
+using UiharuMind.Core.LLamaCpp.Data;
 
-namespace UiharuMind.Core.LLamaCpp.Data;
+namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 
 public class LLamaCppSettingConfig : ConfigBase
 {
@@ -19,4 +20,5 @@ public class LLamaCppSettingConfig : ConfigBase
     public string ExeServer => Path.Combine(LLamaCppPath!, "llama-server");
 
     public LLamaCppServerConfig ServerConfig { get; set; } = new();
+    public LLamaCppSamplingStrategiesConfig SamplingStrategiesConfig { get; set; } = new();
 }

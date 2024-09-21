@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.LLamaCpp.Data;
 
 namespace UiharuMind.ViewModels.ViewData;
@@ -7,10 +8,16 @@ public class LLamaCppSettingModel : ObservableObject
 {
     private LLamaCppServerConfig _data;
 
-    public LLamaCppServerConfig ServerSettingData
+    private LLamaCppSettingConfig _settingData;
+
+    public LLamaCppSettingConfig ServerSettingData
     {
-        get => _data;
-        set => _data = value;
+        get => _settingData;
+        set
+        {
+            _settingData = value;
+            _data = _settingData.ServerConfig;
+        }
     }
 
     //==================常规设置==================================
@@ -18,7 +25,7 @@ public class LLamaCppSettingModel : ObservableObject
     {
         get => _data.LogVerbose;
         set
-        {   
+        {
             if (_data.LogVerbose != value)
             {
                 _data.LogVerbose = value;
@@ -26,7 +33,7 @@ public class LLamaCppSettingModel : ObservableObject
             }
         }
     }
-    
+
     public bool LogPrefix
     {
         get => _data.LogPrefix;
@@ -39,7 +46,7 @@ public class LLamaCppSettingModel : ObservableObject
             }
         }
     }
-    
+
     //=========================================================
 
 

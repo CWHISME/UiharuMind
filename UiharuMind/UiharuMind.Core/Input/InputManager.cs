@@ -100,7 +100,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
             if (keyCombination.MainKeyCode != e.Data.KeyCode) continue;
             if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
             keyCombination.OnTrigger?.Invoke();
-            e.SuppressEvent = true;
+            // e.SuppressEvent = true;
             return;
         }
 

@@ -7,8 +7,7 @@ using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Views.Capture;
-using UiharuMind.Views.ScreenCapture;
+using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.ViewModels.ScreenCaptures;
 

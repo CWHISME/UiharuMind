@@ -36,6 +36,9 @@
 
 	<ItemGroup>
 	  <AdditionalFiles Include="Views\Controls\Footer.axaml" />
+	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCaptureDockWindow.axaml" />
+	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCapturePreviewWindow.axaml" />
+	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCaptureWindow.axaml" />
 	</ItemGroup>
 
 	<ItemGroup>

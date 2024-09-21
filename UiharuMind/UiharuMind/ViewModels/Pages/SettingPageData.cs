@@ -14,7 +14,6 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.ViewModels.ViewData;
-using UiharuMind.Views.Capture;
 using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;
@@ -25,7 +24,7 @@ public partial class SettingPageData : PageDataBase
 
     public SettingPageData()
     {
-        LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config.ServerConfig;
+        LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config;
     }
 
     [RelayCommand]

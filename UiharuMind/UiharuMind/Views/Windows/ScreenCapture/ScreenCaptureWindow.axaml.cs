@@ -3,12 +3,10 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Media;
 using Avalonia.Platform;
 using UiharuMind.Core;
-using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Views.Capture;
+namespace UiharuMind.Views.Windows.ScreenCapture;
 
 public partial class ScreenCaptureWindow : Window
 {

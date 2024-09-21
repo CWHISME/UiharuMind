@@ -102,6 +102,7 @@ public partial class App : Application, ILogger
 
     private void OnExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
     {
+        Clipboard.Dispose();
         ProcessHelper.CancelAll();
     }
 }

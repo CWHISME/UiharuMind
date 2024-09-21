@@ -15,7 +15,7 @@ public partial class ModelSelectComboBoxView : UserControl
         InitializeComponent();
         DataContext = App.ModelService;
     }
-
+    
     private async void OnModelSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         // Log.Debug("Select Model: " + (e.AddedItems.Count > 0 ? e.AddedItems[0] : 0));

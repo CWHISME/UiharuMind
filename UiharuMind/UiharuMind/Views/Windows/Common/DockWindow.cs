@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Views.Common;
 

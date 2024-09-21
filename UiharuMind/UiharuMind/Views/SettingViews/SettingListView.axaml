@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.SettingViews.SettingListView">
+
+    <Design.DataContext>
+        <settingViews:SettingListView />
+    </Design.DataContext>
+
+    <StackPanel Name="SettingContent">
+        <!-- <TextBlock Text="Number of Threads" Margin="0,0,0,5"> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="Number of threads to use during generation." /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </TextBlock> -->
+        <!-- <NumericUpDown Value="{Binding LlamaSettingModel.Threads}" Width="200" HorizontalAlignment="Left" -->
+        <!--                Margin="0,0,0,10" /> -->
+        <!-- -->
+        <!-- <settingViews:SettingListItem Value="{Binding LlamaSettingModel.Threads}" /> -->
+        <!-- -->
+        <!-- <TextBlock Text="CPU Affinity Mask" Margin="0,0,0,5"> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="CPU affinity mask for thread placement." /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </TextBlock> -->
+        <!-- <TextBox Text="{Binding LlamaSettingModel.CpuMask}" Width="200" HorizontalAlignment="Left" -->
+        <!--          Margin="0,0,0,10" /> -->
+        <!-- <TextBlock Text="CPU Range" Margin="0,0,0,5"> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="Range of CPUs for affinity." /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </TextBlock> -->
+        <!-- <TextBox Text="{Binding LlamaSettingModel.CpuRange}" Width="200" HorizontalAlignment="Left" -->
+        <!--          Margin="0,0,0,10" /> -->
+        <!-- <CheckBox Content="Use Strict CPU Placement" -->
+        <!--           IsChecked="{Binding LlamaSettingModel.UseStrictCpuPlacement}" -->
+        <!--           Margin="0,0,0,10"> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="Use strict CPU placement for threads." /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </CheckBox> -->
+        <!-- <TextBlock Text="Process/Thread Priority" Margin="0,0,0,5"> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="Set the priority level for threads." /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </TextBlock> -->
+        <!-- <ComboBox SelectedIndex="{Binding LlamaSettingModel.Priority}" Width="200" HorizontalAlignment="Left" -->
+        <!--           Margin="0,0,0,10"> -->
+        <!--     <ComboBoxItem>Normal</ComboBoxItem> -->
+        <!--     <ComboBoxItem>Medium</ComboBoxItem> -->
+        <!--     <ComboBoxItem>High</ComboBoxItem> -->
+        <!--     <ComboBoxItem>Realtime</ComboBoxItem> -->
+        <!-- </ComboBox> -->
+    </StackPanel>
+
+</UserControl>

@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;

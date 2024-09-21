@@ -7,15 +7,18 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Views.Capture;
+using UiharuMind.Utils;
 
 namespace UiharuMind.Services;
 
-public class ClipboardService
+public class ClipboardService : IDisposable
 {
     private readonly Window _target;
 
     private IClipboard Clipboard => _target.Clipboard!;
+    private readonly ClipboardMonitor _clipboardMonitor;
+
+    public Action<string>? OnClipboardStringChanged;
 
     public const string ImageTypePngWin = "image/png";
     public const string ImageTypePngMac = "public.png";
@@ -23,6 +26,10 @@ public class ClipboardService
     public ClipboardService(Window target)
     {
         _target = target;
+
+        //初始化剪切板监控
+        _clipboardMonitor = new ClipboardMonitor();
+        _clipboardMonitor.ClipboardChanged += OnClipboardChanged;
     }
 
     public void CopyToClipboard(string text)
@@ -67,7 +74,7 @@ public class ClipboardService
                 }
             }
 
-            Console.WriteLine("No PNG image found in clipboard.");
+            Log.Warning("No PNG image found in clipboard.");
         }
         catch (Exception e)
         {
@@ -75,5 +82,17 @@ public class ClipboardService
         }
 
         return null;
+    }
+
+    private async void OnClipboardChanged()
+    {
+        var clipboardContent = await Clipboard.GetTextAsync();
+        if (string.IsNullOrEmpty(clipboardContent)) return;
+        OnClipboardStringChanged?.Invoke(clipboardContent);
+    }
+
+    public void Dispose()
+    {
+        _clipboardMonitor.Dispose();
     }
 }

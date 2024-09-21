@@ -1,6 +1,6 @@
 using UiharuMind.Core.Core.Configs;
 
-namespace UiharuMind.Core.LLamaCpp.Data;
+namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 
 public class LLamaCppServerConfig : ConfigBase
 {

@@ -7,6 +7,7 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              x:DataType="pages:SettingPageData">
 
     <Design.DataContext>
@@ -37,23 +38,29 @@
 
         <!-- Model Parameters Tab -->
         <TabItem Header="Model Settings">
-            
+
             <ScrollViewer>
 
                 <StackPanel Margin="10">
 
                     <!-- debug settings -->
-                    <TextBlock Text="{x:Static lang:Lang.SettingDebug}" FontSize="16" FontWeight="Bold" Margin="0,0,0,10" />
+                    <TextBlock Text="{x:Static lang:Lang.SettingDebug}" FontSize="16" FontWeight="Bold"
+                               Margin="0,0,0,10" />
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
                         <StackPanel>
-                            <CheckBox Content="{x:Static lang:Lang.SettingLogDetail}" IsChecked="{Binding LlamaSettingModel.LogVerbose}"
+                            <CheckBox Content="{x:Static lang:Lang.SettingLogDetail}"
+                                      IsChecked="{Binding LlamaSettingModel.LogVerbose}"
                                       Margin="0,0,0,10">
                             </CheckBox>
-                            <CheckBox Content="{x:Static lang:Lang.SettingLogEnable}" IsChecked="{Binding LlamaSettingModel.LogEnable}"
+                            <CheckBox Content="{x:Static lang:Lang.SettingLogEnable}"
+                                      IsChecked="{Binding LlamaSettingModel.LogEnable}"
                                       Margin="0,0,0,10">
                             </CheckBox>
                         </StackPanel>
                     </Border>
+
+                    <settingViews:SettingPanelView
+                        SettingConfig="{Binding LlamaSettingModel.ServerSettingData.SamplingStrategiesConfig}" />
 
                     <!-- Threads and CPU Settings -->
                     <TextBlock Text="Threads and CPU Settings" FontSize="16" FontWeight="Bold" Margin="0,0,0,10" />
@@ -64,21 +71,25 @@
                                     <TextBlock Text="Number of threads to use during generation." />
                                 </ToolTip.Tip>
                             </TextBlock>
-                            <NumericUpDown Value="{Binding LlamaSettingModel.Threads}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.Threads}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="CPU Affinity Mask" Margin="0,0,0,5">
                                 <ToolTip.Tip>
                                     <TextBlock Text="CPU affinity mask for thread placement." />
                                 </ToolTip.Tip>
                             </TextBlock>
-                            <TextBox Text="{Binding LlamaSettingModel.CpuMask}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10" />
+                            <TextBox Text="{Binding LlamaSettingModel.CpuMask}" Width="200" HorizontalAlignment="Left"
+                                     Margin="0,0,0,10" />
                             <TextBlock Text="CPU Range" Margin="0,0,0,5">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Range of CPUs for affinity." />
                                 </ToolTip.Tip>
                             </TextBlock>
-                            <TextBox Text="{Binding LlamaSettingModel.CpuRange}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,10" />
-                            <CheckBox Content="Use Strict CPU Placement" IsChecked="{Binding LlamaSettingModel.UseStrictCpuPlacement}"
+                            <TextBox Text="{Binding LlamaSettingModel.CpuRange}" Width="200" HorizontalAlignment="Left"
+                                     Margin="0,0,0,10" />
+                            <CheckBox Content="Use Strict CPU Placement"
+                                      IsChecked="{Binding LlamaSettingModel.UseStrictCpuPlacement}"
                                       Margin="0,0,0,10">
                                 <ToolTip.Tip>
                                     <TextBlock Text="Use strict CPU placement for threads." />
@@ -89,7 +100,8 @@
                                     <TextBlock Text="Set the priority level for threads." />
                                 </ToolTip.Tip>
                             </TextBlock>
-                            <ComboBox SelectedIndex="{Binding LlamaSettingModel.Priority}" Width="200" HorizontalAlignment="Left"
+                            <ComboBox SelectedIndex="{Binding LlamaSettingModel.Priority}" Width="200"
+                                      HorizontalAlignment="Left"
                                       Margin="0,0,0,10">
                                 <ComboBoxItem>Normal</ComboBoxItem>
                                 <ComboBoxItem>Medium</ComboBoxItem>
@@ -104,18 +116,23 @@
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="Context Size" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.ContextSize}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.ContextSize}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="Number of Tokens to Predict" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.TokensToPredict}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.TokensToPredict}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="Batch Size" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.BatchSize}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.BatchSize}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="Physical Batch Size" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.PhysicalBatchSize}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.PhysicalBatchSize}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
-                            <CheckBox Content="Enable Flash Attention" IsChecked="{Binding LlamaSettingModel.EnableFlashAttention}"
+                            <CheckBox Content="Enable Flash Attention"
+                                      IsChecked="{Binding LlamaSettingModel.EnableFlashAttention}"
                                       Margin="0,0,0,10" />
                         </StackPanel>
                     </Border>
@@ -135,7 +152,8 @@
                             <NumericUpDown Value="{Binding LlamaSettingModel.RoPEContextScalingFactor}" Width="200"
                                            HorizontalAlignment="Left" Margin="0,0,0,10" />
                             <TextBlock Text="RoPE Base Frequency" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.RoPEBaseFrequency}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.RoPEBaseFrequency}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="YaRN Original Context Size" Margin="0,0,0,5" />
                             <NumericUpDown Value="{Binding LlamaSettingModel.YaRNOriginalContextSize}" Width="200"
@@ -144,13 +162,16 @@
                             <NumericUpDown Value="{Binding LlamaSettingModel.YaRNextrapolationMixFactor}" Width="200"
                                            HorizontalAlignment="Left" Margin="0,0,0,10" />
                             <TextBlock Text="YaRN Attention Factor" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.YaRNAttentionFactor}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.YaRNAttentionFactor}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="YaRN Beta Slow" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.YaRNBetaSlow}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.YaRNBetaSlow}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="YaRN Beta Fast" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.YaRNBetaFast}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.YaRNBetaFast}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                         </StackPanel>
                     </Border>
@@ -160,22 +181,27 @@
                     <Border BorderBrush="Gray" BorderThickness="1" Padding="10" Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="Number of GPU Layers" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.GpuLayers}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.GpuLayers}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
                             <TextBlock Text="Split Mode" Margin="0,0,0,5" />
-                            <ComboBox SelectedIndex="{Binding LlamaSettingModel.SplitMode}" Width="200" HorizontalAlignment="Left"
+                            <ComboBox SelectedIndex="{Binding LlamaSettingModel.SplitMode}" Width="200"
+                                      HorizontalAlignment="Left"
                                       Margin="0,0,0,10">
                                 <ComboBoxItem>None</ComboBoxItem>
                                 <ComboBoxItem>Layer</ComboBoxItem>
                                 <ComboBoxItem>Row</ComboBoxItem>
                             </ComboBox>
                             <TextBlock Text="Tensor Split" Margin="0,0,0,5" />
-                            <TextBox Text="{Binding LlamaSettingModel.TensorSplit}" Width="200" HorizontalAlignment="Left"
+                            <TextBox Text="{Binding LlamaSettingModel.TensorSplit}" Width="200"
+                                     HorizontalAlignment="Left"
                                      Margin="0,0,0,10" />
                             <TextBlock Text="Main GPU Index" Margin="0,0,0,5" />
-                            <NumericUpDown Value="{Binding LlamaSettingModel.MainGpuIndex}" Width="200" HorizontalAlignment="Left"
+                            <NumericUpDown Value="{Binding LlamaSettingModel.MainGpuIndex}" Width="200"
+                                           HorizontalAlignment="Left"
                                            Margin="0,0,0,10" />
-                            <CheckBox Content="Check Model Tensors" IsChecked="{Binding LlamaSettingModel.CheckModelTensors}"
+                            <CheckBox Content="Check Model Tensors"
+                                      IsChecked="{Binding LlamaSettingModel.CheckModelTensors}"
                                       Margin="0,0,0,10" />
                         </StackPanel>
                     </Border>

@@ -12,6 +12,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
+using UiharuMind.Views.Windows;
 using Ursa.Controls;
 
 namespace UiharuMind.Views;
@@ -20,6 +21,9 @@ public class DummyWindow : Window
 {
     public MainWindow? MainWindow { get; private set; }
     public MainViewModel MainViewModel => (MainViewModel)MainWindow!.DataContext!;
+
+    public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
+    public QuickToolWindow? QuickToolWindow { get; private set; }
 
     public DummyWindow()
     {
@@ -45,6 +49,7 @@ public class DummyWindow : Window
     {
         base.OnOpened(e);
         RegistryShortcut();
+        RegistryClipboardTool();
         Hide();
     }
 
@@ -61,12 +66,58 @@ public class DummyWindow : Window
                 KeyCode.VcLeftAlt, KeyCode.VcLeftShift
             },
             "Capture Screen"));
+
+        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcA,
+            LanchQuickStartChatWindow, new List<KeyCode>()
+            {
+                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
+            },
+            "Quick Start Chat"));
+
+        // RegistryShortcutQuickTool(KeyCode.VcLeftControl);
+        // RegistryShortcutQuickTool(KeyCode.VcLeftAlt);
+        // RegistryShortcutQuickTool(KeyCode.VcLeftMeta);
     }
+
+    private void RegistryClipboardTool()
+    {
+        App.Clipboard.OnClipboardStringChanged += LanchQuickToolWindow;
+    }
+
+    // private void RegistryShortcutQuickTool(KeyCode decorateKeyCode)
+    // {
+    //     InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcC,
+    //         LanchQuickToolWindow, new List<KeyCode>()
+    //         {
+    //             decorateKeyCode
+    //         },
+    //         "Quick Tool"));
+    // }
 
     public void LaunchMainWindow()
     {
-        if (MainWindow == null) MainWindow = new MainWindow() { DataContext = new MainViewModel() };
+        MainWindow ??= new MainWindow() { DataContext = new MainViewModel() };
         // Dispatcher.UIThread.Post(mainWindow.Show);
         MainWindow.Show();
+    }
+
+    public void LanchQuickStartChatWindow()
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            QuickStartChatWindow ??= new QuickStartChatWindow();
+            QuickStartChatWindow.Show();
+            QuickStartChatWindow.Activate();
+        });
+    }
+
+    public void LanchQuickToolWindow(string answerStr)
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            QuickToolWindow ??= new QuickToolWindow();
+            QuickToolWindow.SetAnswerString(answerStr);
+            QuickToolWindow.Show();
+        });
     }
 }

@@ -2,10 +2,9 @@ using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using UiharuMind.ViewModels.ScreenCaptures;
-using UiharuMind.Views.Capture;
 using UiharuMind.Views.Common;
 
-namespace UiharuMind.Views.ScreenCapture;
+namespace UiharuMind.Views.Windows.ScreenCapture;
 
 public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWindow>
 {
