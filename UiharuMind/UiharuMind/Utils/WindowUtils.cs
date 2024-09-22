@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using UiharuMind.Core.Input;
 
 namespace UiharuMind.Utils;
@@ -12,35 +13,38 @@ public static class WindowUtils
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment verticalAlignment = VerticalAlignment.Top, int offsetX = 0, int offsetY = 0)
     {
-        double posX = InputManager.MouseData.X;
-        double posY = InputManager.MouseData.Y;
-        switch (horizontalAlignment)
+        Dispatcher.UIThread.InvokeAsync(() =>
         {
-            case HorizontalAlignment.Left:
-                posX -= window.Width;
-                break;
-            case HorizontalAlignment.Center:
-                posX -= window.Width / 2;
-                break;
-            case HorizontalAlignment.Right:
-                break;
-        }
+            var pos = App.ScreensService.MousePosition;
+            var scaling = App.ScreensService.Scaling;
+            double posX = pos.X;
+            double posY = pos.Y;
+            switch (horizontalAlignment)
+            {
+                case HorizontalAlignment.Left:
+                    posX -= window.Width * scaling;
+                    break;
+                case HorizontalAlignment.Center:
+                    posX -= window.Width / 2 * scaling;
+                    break;
+                case HorizontalAlignment.Right:
+                    break;
+            }
 
-        switch (verticalAlignment)
-        {
-            case VerticalAlignment.Top:
-                posY -= window.Height;
-                break;
-            case VerticalAlignment.Center:
-                posY -= window.Height / 2;
-                break;
-            case VerticalAlignment.Bottom:
-                break;
-        }
+            switch (verticalAlignment)
+            {
+                case VerticalAlignment.Top:
+                    posY -= window.Height * scaling;
+                    break;
+                case VerticalAlignment.Center:
+                    posY -= window.Height / 2 * scaling;
+                    break;
+                case VerticalAlignment.Bottom:
+                    break;
+            }
 
-        var scaling = App.ScreensService.MouseScreen?.Scaling ?? 1;
-
-        window.Position = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
+            window.Position = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
+        });
     }
 
     public static void SetSimpledecorationWindow(this Window window, bool isTopmost = true)

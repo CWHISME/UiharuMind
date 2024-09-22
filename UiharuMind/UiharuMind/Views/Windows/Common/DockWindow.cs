@@ -4,22 +4,25 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
 
-public class DockWindow<T> : Window where T : Window
+public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 {
     protected T? CurrentSnapWindow;
 
     public DockWindow()
     {
         CanResize = false;
-        Topmost = true;
-        Background = Brushes.Transparent;
-        SystemDecorations = SystemDecorations.BorderOnly;
-        ExtendClientAreaToDecorationsHint = true; // 扩展客户端区域到装饰（标题栏）
-        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome; // 禁用标题栏
-        ExtendClientAreaTitleBarHeightHint = 0; // 隐藏标题栏
+
+        this.SetSimpledecorationWindow();
+        // Topmost = true;
+        // Background = Brushes.Transparent;
+        // SystemDecorations = SystemDecorations.BorderOnly;
+        // ExtendClientAreaToDecorationsHint = true; // 扩展客户端区域到装饰（标题栏）
+        // ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome; // 禁用标题栏
+        // ExtendClientAreaTitleBarHeightHint = 0; // 隐藏标题栏
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
@@ -147,6 +150,7 @@ public class DockWindow<T> : Window where T : Window
 
     protected virtual void OnFollowTarget(PixelPoint targetPosition, Size targetSize)
     {
+        targetSize *= App.ScreensService.Scaling;
         Position = new PixelPoint(targetPosition.X, targetPosition.Y + (int)targetSize.Height + 5);
     }
 }

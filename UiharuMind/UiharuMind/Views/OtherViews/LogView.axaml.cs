@@ -33,7 +33,7 @@ public partial class LogView : UserControl
         //     Log.Debug("测试日志" + i);
         // }
     }
-
+    
     private void OnLogsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action == NotifyCollectionChangedAction.Add && _isAtBottom)

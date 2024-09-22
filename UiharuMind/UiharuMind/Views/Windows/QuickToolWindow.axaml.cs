@@ -7,13 +7,14 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
+using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
 
 /// <summary>
 /// 当复制操作发生后，显示在复制位置的工具
 /// </summary>
-public partial class QuickToolWindow : Window
+public partial class QuickToolWindow : QuickWindowBase
 {
     public QuickToolWindow()
     {
@@ -34,7 +35,7 @@ public partial class QuickToolWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 5, offsetY: -5);
+        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -10);
     }
 
     private void OnLostFocus(object? sender, EventArgs e)

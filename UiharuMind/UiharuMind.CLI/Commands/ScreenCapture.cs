@@ -10,7 +10,7 @@ public class ScreenCaptureCommand : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        await UiharuCoreManager.Instance.CaptureScreen();
-        await console.Output.WriteLineAsync("Capture Screen.");
+        // await UiharuCoreManager.Instance.CaptureScreen();
+        // await console.Output.WriteLineAsync("Capture Screen.");
     }
 }

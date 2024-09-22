@@ -1,14 +1,20 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
+using HPPH;
 using UiharuMind.Core;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.UiharuScreenCapture;
+using UiharuMind.Utils;
+using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
 
-public partial class ScreenCaptureWindow : Window
+public partial class ScreenCaptureWindow : UiharuWindowBase
 {
     private Point _startPoint;
 
@@ -17,8 +23,9 @@ public partial class ScreenCaptureWindow : Window
     // private int _screenWidth;
     // private int _screenHeight;
     private Screen? _currentScreen;
+    private IImage? _image;
 
-    private bool _error = false;
+    // private bool _error = false;
 
     public ScreenCaptureWindow()
     {
@@ -27,30 +34,19 @@ public partial class ScreenCaptureWindow : Window
 
         // SelectionRectangle.Fill =new SolidColorBrush(Color.FromArgb(200,200 ,200, 100));
         // InfoPanel.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0));
-
-        PointerPressed += Canvas_PointerPressed;
-        PointerMoved += Canvas_PointerMoved;
-        PointerReleased += Canvas_PointerReleased;
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy,
-        int uFlags);
+    // [DllImport("user32.dll")]
+    // private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy,
+    //     int uFlags);
 
     private void InitializeWindow()
     {
-        CaptureScreen();
-        UpdateCaptureScreen();
-        if (_currentScreen == null)
-        {
-            _error = true;
-            return;
-        }
-
         SystemDecorations = SystemDecorations.None;
         // Background = Brushes.Transparent;
         CanResize = false;
         // Topmost = true; // 确保窗口在最顶层
+        ShowInTaskbar = false;
         ExtendClientAreaToDecorationsHint = true; // 扩展客户端区¸域以包括装饰
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         WindowState = WindowState.FullScreen; // 最大化窗口
@@ -90,12 +86,17 @@ public partial class ScreenCaptureWindow : Window
         // InfoPanel.IsVisible = false;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override void OnPreShow()
     {
-        base.OnOpened(e);
-        if (_error) Close();
-        // CaptureScreen();
+        UpdateCaptureScreen();
     }
+
+    // protected override void OnOpened(EventArgs e)
+    // {
+    //     base.OnOpened(e);
+    //     UpdateCaptureScreen();
+    //     // CaptureScreen();
+    // }
 
     protected override void OnKeyUp(KeyEventArgs e)
     {
@@ -106,7 +107,23 @@ public partial class ScreenCaptureWindow : Window
         }
     }
 
-    private void Canvas_PointerPressed(object? sender, PointerPressedEventArgs e)
+    protected override void OnPreClose()
+    {
+        _currentScreen = null;
+        ClearData();
+    }
+
+    // private void InitCapture()
+    // {
+    //     CaptureScreen();
+    //     UpdateCaptureScreen();
+    //     if (_currentScreen == null)
+    //     {
+    //         Close();
+    //     }
+    // }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(ScreenshotCanvas).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
         {
@@ -120,13 +137,15 @@ public partial class ScreenCaptureWindow : Window
         }
     }
 
-    private void Canvas_PointerMoved(object? sender, PointerEventArgs e)
+    protected override void OnPointerMoved(PointerEventArgs e)
     {
         if (!_isSelecting)
         {
             UpdateExtraInfo();
             return;
         }
+
+        if (_currentScreen == null) return;
 
         UpdateCaptureScreen();
 
@@ -144,11 +163,10 @@ public partial class ScreenCaptureWindow : Window
         UpdateExtraInfo((int)width, (int)height, true);
     }
 
-    private void Canvas_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
-        _isSelecting = false;
-        // ScreenCapturePreviewWindow.ShowWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
-        Close();
+        // App.ScreensService.MousePosition = PixelPoint.FromPoint(e.GetPosition(this), App.ScreensService.Scaling);
+        DoAreaCapture();
     }
 
     private void UpdateExtraInfo()
@@ -159,61 +177,125 @@ public partial class ScreenCaptureWindow : Window
 
     private void UpdateExtraInfo(int width, int height, bool correct = false)
     {
-        // var screenBounds = this.Screens.ScreenFromWindow(this).Bounds;
         if (_currentScreen == null) return;
         try
         {
-            var currentPosition = App.ScreensService.MousePosition;
-            var controlSize = InfoPanel.Bounds.Size;
-            int posX = Math.Clamp((int)(currentPosition.X), _currentScreen.Bounds.Position.X,
-                _currentScreen.Bounds.Position.X + _currentScreen.Bounds.Width);
-            int posY = Math.Clamp((int)(currentPosition.Y), _currentScreen.Bounds.Position.Y,
-                _currentScreen.Bounds.Position.Y + _currentScreen.Bounds.Height);
-            // 确保控件在屏幕内
-            var x = Math.Max(0,
-                Math.Min(posX / _currentScreen.Scaling,
-                    _currentScreen.Bounds.Width / _currentScreen.Scaling - controlSize.Width));
-            var y = Math.Max(0,
-                Math.Min(posY / _currentScreen.Scaling + 20,
-                    _currentScreen.Bounds.Height / _currentScreen.Scaling - controlSize.Height));
-            // Log.Debug("SelectionRectangle: " + left + ", " + top + ", " + width + ", " + height + " x: " + x + " y: " + y +
-            //           "screenBounds.Width" + _screenWidth + " screenBounds.Height" + _screenHeight +
-            //           "controlSize.Width" + controlSize.Width + "controlSize.Height" + controlSize.Height);
+            var point = UiUtils.CalculatePositionWithinScreen(_currentScreen, InfoPanel.Bounds.Size);
+
             if (correct)
             {
                 width = (int)Math.Ceiling(width * _currentScreen.Scaling);
                 height = (int)Math.Ceiling(height * _currentScreen.Scaling);
             }
 
-            PositionText.Text = "X: " + posX + " Y: " + posY;
-            ResolutionText.Text = width + "x" + height;
-            // Log.Debug("x: " + x + " y: " + y + "   currentPosition:" + currentPosition);
-            InfoPanel.Margin = new Thickness(x, y, 0, 0);
+            PixelPoint pixelPoint = PixelPoint.FromPoint(point, _currentScreen.Scaling);
+            PositionText.Text = $"position:({pixelPoint.X},{pixelPoint.Y})";
+            ResolutionText.Text = $"resolution:({width}x{height})";
+            TipsText.Text = $"{point.X} {point.Y}";
+            InfoPanel.Margin = new Thickness(point.X, point.Y, 0, 0);
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Error(e.StackTrace);
         }
     }
 
     /// <summary>
     /// 动态切换了多屏，更新截图区域
     /// </summary>
-    private void UpdateCaptureScreen()
+    private async void UpdateCaptureScreen()
     {
         var currentScreen = App.ScreensService.MouseScreen;
         if (currentScreen == _currentScreen || currentScreen == null) return;
+        //清理当前数据
+        ClearData();
+        //截屏
+        await CaptureScreen();
+        //更新截图数据
         _currentScreen = currentScreen;
         var bounds = _currentScreen.Bounds;
         this.Width = bounds.Width;
         this.Height = bounds.Height;
         this.Position = bounds.Position;
+        //展示截图
+        DisplayCapture();
     }
 
-    private async void CaptureScreen()
+    private void ClearData()
     {
-        await UiharuCoreManager.Instance.CaptureScreen(App.ScreensService.MouseScreenId);
-        var image = await App.Clipboard.GetImageFromClipboard();
+        // PointerPressed -= Canvas_PointerPressed;
+        // PointerMoved -= Canvas_PointerMoved;
+        // PointerReleased -= Canvas_PointerReleased;
+
+        SelectionRectangle.Width = 0;
+        SelectionRectangle.Height = 0;
+        Canvas.SetLeft(SelectionRectangle, 0);
+        Canvas.SetTop(SelectionRectangle, 0);
+        InfoPanel.IsVisible = false;
+        // MainPanel.IsVisible = false;
+        ScreenshotImage.Source = null;
+        _startPoint = new Point(0, 0);
+        _isSelecting = false;
+        _currentScreen = null;
+    }
+
+    private void DisplayCapture()
+    {
+        MainPanel.IsVisible = true;
+        InfoPanel.IsVisible = true;
+        UpdateExtraInfo();
+    }
+
+    /// <summary>
+    /// 执行全屏截图
+    /// </summary>
+    private async Task CaptureScreen()
+    {
+        ScreenshotImage.Source = null;
+
+        _image = await ScreenCaptureWin.CaptureAsync(App.ScreensService.MouseScreenIndex);
+        if (_image == null)
+        {
+            Log.Error("Failed to capture screen");
+            Close();
+            return;
+        }
+
+        var image = await _image.ImageToBitmap(); //await App.Clipboard.GetImageFromClipboard();
+        if (image == null)
+        {
+            Log.Error("Failed to convert capture screen image to bitmap");
+            Close();
+            return;
+        }
+
         ScreenshotImage.Source = image;
+    }
+
+    /// <summary>
+    /// 执行区域截图，完毕后关闭界面，并弹出预览窗口
+    /// </summary>
+    private async void DoAreaCapture()
+    {
+        _isSelecting = false;
+        if (_image is { Width: > 0, Height: > 0 } && _currentScreen != null)
+        {
+            try
+            {
+                PixelPoint startPixelPoint = PixelPoint.FromPoint(_startPoint, _currentScreen.Scaling);
+                var childImage = _image[startPixelPoint.X, startPixelPoint.Y,
+                    (int)(SelectionRectangle.Width * _currentScreen.Scaling),
+                    (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
+                var image = await childImage.ImageToBitmap();
+                // image.dp = new Size(SelectionRectangle.Width, SelectionRectangle.Height);
+                ScreenCapturePreviewWindow.ShowWindowAtMousePosition(image,new Size(SelectionRectangle.Width, SelectionRectangle.Height));
+            }
+            catch (Exception e)
+            {
+                Log.Error(e.StackTrace);
+            }
+        }
+
+        Close();
     }
 }

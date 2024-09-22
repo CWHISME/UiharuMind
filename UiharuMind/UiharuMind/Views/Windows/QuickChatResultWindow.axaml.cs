@@ -6,10 +6,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
 
-public partial class QuickChatResultWindow : Window
+public partial class QuickChatResultWindow : QuickWindowBase
 {
     public QuickChatResultWindow()
     {

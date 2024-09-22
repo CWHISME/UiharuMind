@@ -1,10 +1,7 @@
-using System.Drawing;
-using System.Runtime.InteropServices;
-using CliWrap;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.ScreenCapture;
+namespace UiharuMind.Core.Core.UiharuScreenCapture;
 
 public class ScreenCaptureMac
 {
@@ -32,7 +29,7 @@ public class ScreenCaptureMac
             Log.Error(e.Message);
         }
     }
-    
+
     public static async Task CaptureWindow()
     {
         //窗口

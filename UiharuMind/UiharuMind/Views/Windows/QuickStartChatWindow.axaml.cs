@@ -7,13 +7,14 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
+using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
 
 /// <summary>
 /// 通过快捷键快速打开的一个准备聊天的窗口，含有一个输入框和一个确认按钮
 /// </summary>
-public partial class QuickStartChatWindow : Window
+public partial class QuickStartChatWindow : QuickWindowBase
 {
     public QuickStartChatWindow()
     {

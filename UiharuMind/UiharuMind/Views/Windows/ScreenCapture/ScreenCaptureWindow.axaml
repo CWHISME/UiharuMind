@@ -6,14 +6,21 @@
         x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureWindow"
         Background="Transparent"
         Title="ScreenCaptureWindow">
-    <Panel>
+    <Panel Name="MainPanel">
         <Image Name="ScreenshotImage" Stretch="UniformToFill" />
-        <StackPanel Name="InfoPanel" Background="#66000000" HorizontalAlignment="Left" VerticalAlignment="Top" Height="100" Width="100">
-            <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
-            <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
-            <TextBlock Name="ColorText" Text="xxx" Foreground="White" />
-            <TextBlock Name="TipsText" Text="xxx" Foreground="White" />
-        </StackPanel>
+
+        <Border Name="InfoPanel" HorizontalAlignment="Left" VerticalAlignment="Top" BorderThickness="1"
+                BorderBrush="Silver"
+                Background="#333333"
+                Height="100" MinWidth="100" Padding="10">
+            <StackPanel>
+                <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
+                <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
+                <TextBlock Name="ColorText" Text="xxx" Foreground="White" />
+                <TextBlock Name="TipsText" Text="xxx" Foreground="White" />
+            </StackPanel>
+        </Border>
+
         <Canvas Name="ScreenshotCanvas" Background="#22000000">
             <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue" />
             <!-- <Rectangle Width="400" -->

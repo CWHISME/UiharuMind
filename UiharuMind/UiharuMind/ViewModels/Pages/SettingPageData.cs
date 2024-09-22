@@ -27,13 +27,6 @@ public partial class SettingPageData : PageDataBase
         LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config;
     }
 
-    [RelayCommand]
-    private async Task Click()
-    {
-        // ScreenCaptureManager.CaptureScreen();
-        await ScreenCaptureManager.GetScreenCaptureFromClipboard();
-    }
-
     public override void OnDisable()
     {
         base.OnDisable();

@@ -7,6 +7,8 @@ using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.UiharuScreenCapture;
+using UiharuMind.Views;
 using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.ViewModels.ScreenCaptures;
@@ -14,6 +16,7 @@ namespace UiharuMind.ViewModels.ScreenCaptures;
 public static class ScreenCaptureManager
 {
     private static ScreenCaptureDockWindow? _dockWindow;
+    // private static ScreenCaptureWindow? _activeScreenCaptureWindow;
 
     private static ScreenCaptureDockWindow ScreenCaptureDocker
     {
@@ -33,11 +36,11 @@ public static class ScreenCaptureManager
     {
         if (UiharuCoreManager.Instance.IsWindows)
         {
-            Dispatcher.UIThread.InvokeAsync(() => { new ScreenCaptureWindow().Show(); });
+            UIManager.ShowWindow<ScreenCaptureWindow>();
             return;
         }
 
-        await GetScreenCaptureFromClipboard();
+        await GetMacScreenCaptureFromClipboard();
     }
 
     public static void SyncDockWindow(ScreenCapturePreviewWindow window)
@@ -50,17 +53,14 @@ public static class ScreenCaptureManager
     //     DockWindow.SetMainWindow(null);
     // }
 
-    public static async Task GetScreenCaptureFromClipboard()
+    /// <summary>
+    /// Mac专用，调用系统截屏至剪贴板再获取截图显示
+    /// </summary>
+    public static async Task GetMacScreenCaptureFromClipboard()
     {
-        await UiharuCoreManager.Instance.CaptureScreen();
-
-        // var topLevel = TopLevel.GetTopLevel(View);
-        // var clipboard = await topLevel.Clipboard.GetTextAsync();
-        // var formats = await App.Current?.Clipboard?.GetFormatsAsync()!;
-        // var image = await topLevel.Clipboard.GetDataAsync(formats[0]);
+        await ScreenCaptureMac.Capture();
         ScreenCapturePreviewWindow.ShowWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
     }
-
 
     public static async void OpenOcr(string filePath, int width, int height)
     {

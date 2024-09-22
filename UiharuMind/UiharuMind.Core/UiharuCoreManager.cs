@@ -1,10 +1,11 @@
-﻿using UiharuMind.Core.Core;
+﻿using System.Runtime.InteropServices;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Core.Input;
 using UiharuMind.Core.LLamaCpp;
-using UiharuMind.Core.ScreenCapture;
 
 namespace UiharuMind.Core;
 
@@ -36,22 +37,26 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
         Log.Debug("UiharuCoreManager initialized");
     }
 
-    public async Task CaptureScreen()
-    {
-        await ScreenCaptureMac.Capture();
-    }
-
-    public async Task CaptureScreen(int screenId)
-    {
-        await ScreenCaptureMac.Capture(screenId);
-    }
+    // public async Task CaptureScreen()
+    // {
+    //     await ScreenCaptureMac.Capture();
+    // }
+    //
+    // /// <summary>
+    // /// 对指定屏幕进行全屏截图
+    // /// </summary>
+    // /// <param name="screenId"></param>
+    // public async Task CaptureScreen(int screenId)
+    // {
+    //     await ScreenCaptureMac.Capture(screenId);
+    // }
 
     private void CheckPlatform()
     {
-        var os = System.Runtime.InteropServices.RuntimeInformation.OSDescription;
-        IsWindows = os.Contains("Windows");
-        IsMacOs = !IsWindows && (os.Contains("macOS", StringComparison.Ordinal) ||
-                                 os.Contains("OS X", StringComparison.Ordinal) ||
-                                 os.Contains("Darwin", StringComparison.Ordinal));
+        IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows); //os.Contains("Windows");
+        IsMacOs = !IsWindows && RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        //&& (os.Contains("macOS", StringComparison.Ordinal) ||
+        //  os.Contains("OS X", StringComparison.Ordinal) ||
+        //os.Contains("Darwin", StringComparison.Ordinal));
     }
 }

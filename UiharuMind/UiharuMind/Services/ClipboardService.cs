@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +9,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
+using UiharuMind.Utils.Clipboard;
 
 namespace UiharuMind.Services;
 
@@ -16,7 +18,7 @@ public class ClipboardService : IDisposable
     private readonly Window _target;
 
     private IClipboard Clipboard => _target.Clipboard!;
-    private readonly ClipboardMonitor _clipboardMonitor;
+    private readonly IClipboardMonitor? _clipboardMonitor;
 
     public Action<string>? OnClipboardStringChanged;
 
@@ -28,8 +30,8 @@ public class ClipboardService : IDisposable
         _target = target;
 
         //初始化剪切板监控
-        _clipboardMonitor = new ClipboardMonitor();
-        _clipboardMonitor.ClipboardChanged += OnClipboardChanged;
+        _clipboardMonitor = CreateClipboardMonitor();
+        if (_clipboardMonitor != null) _clipboardMonitor.OnClipboardChanged += OnSystemClipboardChanged;
     }
 
     public void CopyToClipboard(string text)
@@ -84,7 +86,7 @@ public class ClipboardService : IDisposable
         return null;
     }
 
-    private async void OnClipboardChanged()
+    private async void OnSystemClipboardChanged()
     {
         var clipboardContent = await Clipboard.GetTextAsync();
         if (string.IsNullOrEmpty(clipboardContent)) return;
@@ -93,6 +95,25 @@ public class ClipboardService : IDisposable
 
     public void Dispose()
     {
-        _clipboardMonitor.Dispose();
+        _clipboardMonitor?.Dispose();
+    }
+
+
+    //==========================================================
+
+    static IClipboardMonitor? CreateClipboardMonitor()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return new MacClipboardMonitor();
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return new WindowsClipboardMonitor();
+        }
+
+        Log.Error("This platform is not supported for clipboard monitoring.");
+        return null;
     }
 }
