@@ -6,6 +6,8 @@ namespace UiharuMind.Core.Core;
 
 public static class SaveUtility
 {
+    private static readonly JsonSerializerOptions _options = new() { WriteIndented = true };
+
     public static void Save()
     {
         // File.WriteAllText("./SaveData/Setting.cfg", JsonSerializer.Serialize(Setting));
@@ -20,7 +22,8 @@ public static class SaveUtility
     public static void Save(string fileName, object target)
     {
         if (!Directory.Exists(SettingConfig.SaveDataPath)) Directory.CreateDirectory(SettingConfig.SaveDataPath);
-        File.WriteAllText(Path.Combine(SettingConfig.SaveDataPath, fileName), JsonSerializer.Serialize(target));
+        File.WriteAllText(Path.Combine(SettingConfig.SaveDataPath, fileName),
+            JsonSerializer.Serialize(target, _options));
     }
 
     public static T Load<T>(Type t) where T : new()

@@ -18,6 +18,11 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// </summary>
     public bool IsRunning => _hook.IsRunning;
 
+    public event Action<KeyCode>? EventOnKeyDown;
+    public event Action<KeyCode>? EventOnKeyUp;
+    public event Action<MouseEventData>? EventOnMouseClicked;
+    public event Action<MouseWheelEventData>? EventOnMouseWheel;
+
     private GlobalHookBase _hook;
 
     private HashSet<KeyCode> _pressedKeys = new HashSet<KeyCode>();
@@ -31,7 +36,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
     {
         //Test
         // if(UiharuCoreManager.Instance.IsWindows) return;
-        
+
         Start();
     }
 
@@ -95,6 +100,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
     {
+        EventOnKeyDown?.Invoke(e.Data.KeyCode);
         foreach (var keyCombination in _keyCombinations)
         {
             if (keyCombination.MainKeyCode != e.Data.KeyCode) continue;
@@ -109,6 +115,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
     {
+        EventOnKeyUp?.Invoke(e.Data.KeyCode);
         _pressedKeys.Remove(e.Data.KeyCode);
     }
 
@@ -119,6 +126,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
+        EventOnMouseClicked?.Invoke(e.Data);
         MouseData = e.Data;
         // Log.Debug("OnMousePressed");
     }
@@ -143,7 +151,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnMouseWheel(object? sender, MouseWheelHookEventArgs e)
     {
-        // Log.Debug("OnMouseWheel");
+        EventOnMouseWheel?.Invoke(e.Data);
     }
 
     private void OnHookEnabled(object? sender, HookEventArgs e)

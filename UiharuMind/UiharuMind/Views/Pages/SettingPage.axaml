@@ -210,6 +210,10 @@
             </ScrollViewer>
         </TabItem>
 
+        <TabItem Header="Runtime Engine Settings">
+            <settingViews:RuntimeEngineSettingView />
+        </TabItem>
+
     </TabControl>
 
 </UserControl>

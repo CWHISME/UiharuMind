@@ -2,27 +2,28 @@ namespace UiharuMind.Core.LLamaCpp.Versions;
 
 public class VersionManager
 {
-    private List<VersionInfo> _versionsList = new List<VersionInfo>();
+    public string? ReleaseDate { get; set; }
+    public readonly List<VersionInfo> VersionsList = new List<VersionInfo>();
 
     public void AddVersion(VersionInfo versionInfo, bool withSort = true)
     {
-        _versionsList.Add(versionInfo);
+        VersionsList.Add(versionInfo);
         if (withSort) Sort();
     }
 
     public void RemoveVersion(string versionNumber)
     {
-        _versionsList.RemoveAll(x => x.VersionNumber == versionNumber);
+        VersionsList.RemoveAll(x => x.VersionNumber == versionNumber);
     }
 
     public VersionInfo? GetVersion(string versionNumber)
     {
-        return _versionsList.FirstOrDefault(x => x.VersionNumber == versionNumber);
+        return VersionsList.FirstOrDefault(x => x.VersionNumber == versionNumber);
     }
 
     public VersionInfo GetOrCreateVersion(string versionNumber)
     {
-        var versionInfo = _versionsList.FirstOrDefault(x => x.VersionNumber == versionNumber);
+        var versionInfo = VersionsList.FirstOrDefault(x => x.VersionNumber == versionNumber);
         if (versionInfo == null)
         {
             versionInfo = new VersionInfo(versionNumber);
@@ -32,8 +33,21 @@ public class VersionManager
         return versionInfo;
     }
 
+    /// <summary>
+    /// 删除所有未下载的版本
+    /// </summary>
+    public void RemoveAllNotLoadedVersions()
+    {
+        VersionsList.RemoveAll(x => !x.IsDownloaded);
+    }
+
     public void Sort()
     {
-        _versionsList.Sort();
+        VersionsList.Sort();
+    }
+
+    public void RemoveAllVersions()
+    {
+        VersionsList.Clear();
     }
 }

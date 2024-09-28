@@ -1,0 +1,77 @@
+﻿using System.IO.Compression;
+using UiharuMind.Core.Core.SimpleLog;
+
+namespace UiharuMind.Core.Core.Utils;
+
+public static class SimpleZipHelper
+{
+    public static async Task ExtractZipFile(string zipFilePath, string extractPath, bool isDeleteFile = false)
+    {
+        string fileName = Path.GetFileName(zipFilePath);
+        if (!Directory.Exists(extractPath))
+        {
+            Directory.CreateDirectory(extractPath);
+        }
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                using (ZipArchive archive = ZipFile.OpenRead(zipFilePath))
+                {
+                    long totalEntries = archive.Entries.Count;
+                    long currentEntry = 0;
+
+                    foreach (ZipArchiveEntry entry in archive.Entries)
+                    {
+                        string destinationPath = Path.Combine(extractPath, entry.FullName);
+                        if (string.IsNullOrEmpty(entry.Name))
+                        {
+                            // 是目录
+                            Directory.CreateDirectory(destinationPath);
+                        }
+                        else
+                        {
+                            // 是文件
+                            entry.ExtractToFile(destinationPath, overwrite: true);
+                        }
+
+                        currentEntry++;
+                        Log.Debug(
+                            $"{fileName} 解压中... {currentEntry}/{totalEntries} ({(double)currentEntry / totalEntries:P})");
+                    }
+                }
+
+                if (isDeleteFile) DeleteFile(zipFilePath);
+            });
+        }
+        catch (IOException ioEx)
+        {
+            Log.Error($"解压过程中发生 IO 错误: {ioEx.Message}");
+        }
+        catch (UnauthorizedAccessException uaEx)
+        {
+            Log.Error($"解压过程中发生权限错误: {uaEx.Message}");
+        }
+    }
+
+    public static void DeleteFile(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+                Log.Debug("原 ZIP 文件已删除。");
+            }
+        }
+        catch (IOException ioEx)
+        {
+            Log.Error($"删除文件过程中发生 IO 错误: {ioEx.Message}");
+        }
+        catch (UnauthorizedAccessException uaEx)
+        {
+            Log.Error($"删除文件过程中发生权限错误: {uaEx.Message}");
+        }
+    }
+}

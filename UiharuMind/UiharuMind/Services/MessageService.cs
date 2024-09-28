@@ -31,7 +31,8 @@ public partial class MessageService : ObservableObject
         get
         {
             if (_notificationManager == null)
-                _notificationManager = new WindowNotificationManager(_target.MainWindow) { MaxItems = 6 };
+                _notificationManager = new WindowNotificationManager(UIManager.GetWindow<MainWindow>())
+                    { MaxItems = 6 };
             return _notificationManager;
         }
     }
@@ -40,7 +41,8 @@ public partial class MessageService : ObservableObject
     {
         get
         {
-            if (_toastManager == null) _toastManager = new WindowToastManager(_target.MainWindow) { MaxItems = 3 };
+            if (_toastManager == null)
+                _toastManager = new WindowToastManager(UIManager.GetWindow<MainWindow>()) { MaxItems = 3 };
             return _toastManager;
         }
     }
@@ -62,21 +64,33 @@ public partial class MessageService : ObservableObject
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async void ShowErrorMessage(string message)
+    public async Task ShowErrorMessage(string message)
     {
         await ShowMessage(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
     }
 
     /// <summary>
+    /// 显示一个确认弹窗，可选择是、否
+    /// </summary>
+    /// <param name="message"></param>
+    /// <returns></returns>
+    public async Task<MessageBoxResult> ShowConfirmMessage(string message)
+    {
+        return await ShowMessage(message, Lang.MessageInfoTitle, MessageBoxIcon.Question, MessageBoxButton.YesNo);
+    }
+
+    /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async Task ShowMessage(string message, string title, MessageBoxIcon icon, MessageBoxButton button)
+    public async Task<MessageBoxResult> ShowMessage(string message, string title, MessageBoxIcon icon,
+        MessageBoxButton button)
     {
-        if (IsBusy || _target.MainWindow == null) return;
+        var mainWindow = UIManager.GetWindow<MainWindow>();
+        if (IsBusy || mainWindow == null) return MessageBoxResult.None;
         IsBusy = true;
         try
         {
-            await MessageBox.ShowAsync(_target.MainWindow, message, title, icon, button);
+            return await MessageBox.ShowAsync(mainWindow, message, title, icon, button);
             //模态弹窗会闪，感觉是窗体渲染的问题，所以这里用非模态弹窗代替了
             // await MessageBox.ShowOverlayAsync(message, "Error", icon: MessageBoxIcon.Error,button: MessageBoxButton.OK);
         }
@@ -88,6 +102,8 @@ public partial class MessageService : ObservableObject
         {
             IsBusy = false;
         }
+
+        return MessageBoxResult.None;
     }
 
     //==================================================================================================
@@ -109,7 +125,7 @@ public partial class MessageService : ObservableObject
             Buttons = buttons,
             CanLightDismiss = canLightDismiss,
             IsCloseButtonVisible = isCloseButtonVisible,
-            MinWidth = App.DummyWindow.MainWindow!.Width * 0.66,
+            MinWidth = UIManager.GetWindow<MainWindow>()!.Width * 0.66,
         };
         IsBusy = true;
         try

@@ -5,6 +5,8 @@ namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 
 public class LLamaCppSettingConfig : ConfigBase
 {
+    public const string ServerExeName = "llama-server";
+
     /// <summary>
     /// 默认运行端口
     /// </summary>
@@ -17,7 +19,7 @@ public class LLamaCppSettingConfig : ConfigBase
     public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();
 
     public string ExeLookupStats => Path.Combine(LLamaCppPath!, "llama-lookup-stats");
-    public string ExeServer => Path.Combine(LLamaCppPath!, "llama-server");
+    public string ExeServer => Path.Combine(LLamaCppPath!, ServerExeName);
 
     public LLamaCppServerConfig ServerConfig { get; set; } = new();
     public LLamaCppSamplingStrategiesConfig SamplingStrategiesConfig { get; set; } = new();

@@ -20,7 +20,7 @@ public class LoadModelCommand : ICommand
 
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var list = await LlmManager.Instance.LLamaCppServer.GetModelList();
+        var list = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.GetModelList();
         if (list == null) throw new CommandException("model list not found.");
         GGufModelInfo? model = null;
         if (int.TryParse(OrderOrName, out var order))
@@ -45,6 +45,6 @@ public class LoadModelCommand : ICommand
             list.TryGetValue(OrderOrName, out model);
 
         if (model == null) throw new CommandException($"model:{OrderOrName} not found.");
-        await LlmManager.Instance.LLamaCppServer.StartServer(model.ModelPath, Port);
+        await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(model.ModelPath, Port);
     }
 }

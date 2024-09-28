@@ -105,7 +105,7 @@ public class ClipboardService : IDisposable
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return new MacClipboardMonitor();
+            return new MacClipboardMonitor(500);
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

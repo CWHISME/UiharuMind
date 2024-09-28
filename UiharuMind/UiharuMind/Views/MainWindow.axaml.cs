@@ -2,11 +2,12 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Views.Common;
 using Ursa.Controls;
 
 namespace UiharuMind.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow : UiharuWindowBase
 {
     public MainWindow()
     {

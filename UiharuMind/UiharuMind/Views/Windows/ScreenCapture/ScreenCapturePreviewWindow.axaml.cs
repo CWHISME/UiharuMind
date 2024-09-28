@@ -30,7 +30,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     {
         InitializeComponent();
 
-        SizeToContent = SizeToContent.WidthAndHeight;
+        //SizeToContent = SizeToContent.WidthAndHeight;
 
         Topmost = true;
         WindowState = WindowState.Normal;
@@ -41,8 +41,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         ExtendClientAreaTitleBarHeightHint = -1;
 
-        this.MinWidth = 50;
-        this.MinHeight = 50;
+        this.MinWidth = 30;
+        this.MinHeight = 30;
 
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
@@ -120,11 +120,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     private void OnPointerWheelChangedEvent(object? sender, PointerWheelEventArgs e)
     {
         var mousePosition = e.GetPosition(ImageContent);
-        
+        var curPos = Position;
+
         if (e.Delta.Y != 0)
         {
             // 计算新的缩放比例
-            float sign = Math.Sign(e.Delta.Y);
+            // float sign = Math.Sign(e.Delta.Y);
             var newScale = (float)(_currentScale * (1 + e.Delta.Y * ScaleStep));
 
             // 限制缩放比例在最小和最大值之间
@@ -134,10 +135,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             }
 
             if ((_currentSize.Width > Width || _currentSize.Height > Height) && newScale > _currentScale) return;
+            if ((_currentSize.Width < MinWidth || _currentSize.Height < MinHeight) && newScale < _currentScale) return;
 
             // 计算缩放前后鼠标位置的变化
-            var oldMousePos = new Point(mousePosition.X / _currentScale, mousePosition.Y / _currentScale);
-            var newMousePos = new Point(mousePosition.X / newScale, mousePosition.Y / newScale);
+            // var oldMousePos = new Point(mousePosition.X / _currentScale, mousePosition.Y / _currentScale);
+            // var newMousePos = new Point(mousePosition.X / newScale, mousePosition.Y / newScale);
 
             // 更新当前缩放比例
             _currentScale = newScale;
@@ -148,11 +150,30 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
                 var newWidth = _originSize.Width * _currentScale;
                 var newHeight = _originSize.Height * _currentScale;
 
-                // 计算图像宽度和高度的变化量
-                var widthChange = newWidth - _currentSize.Width;
-                var heightChange = newHeight - _currentSize.Height;
+                // // 计算图像宽度和高度的变化量
+                // var widthChange = newWidth - _currentSize.Width;
+                // var heightChange = newHeight - _currentSize.Height;
+                // // if (sign > 0)
+                // {
+                //     widthChange *= 0.5f;
+                //     heightChange *= 0.5f;
+                // }
 
-                SetImageSize(new Size(newWidth, newHeight));
+                // 计算新的窗口位置
+                double zoomX = newWidth / _currentSize.Width;
+                double zoomY = newHeight / _currentSize.Height;
+
+                //调整窗口位置
+                int newPosX = (int)(curPos.X - (mousePosition.X * (zoomX - 1)));
+                int newPosY = (int)(curPos.Y - (mousePosition.Y * (zoomY - 1)));
+
+                var pos = new PixelPoint(newPosX, newPosY);
+                var size = new Size((int)newWidth, (int)newHeight);
+
+                //确保鼠标位置在缩放后不超出界面
+                pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, size);
+
+                this.Position = pos;
 
                 // 确保鼠标位置在缩放后保持一致
                 // var offsetX = sign * (newMousePos.X - oldMousePos.X) +
@@ -161,24 +182,22 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
                 //               (sign < 0 ? heightChange * 0.4f : (heightChange));
                 // var offsetX = sign * ((newMousePos.X - oldMousePos.X) + Math.Abs(widthChange));
                 // var offsetY = sign * ((newMousePos.Y - oldMousePos.Y) + Math.Abs(heightChange));
-                var offsetX = (newMousePos.X - oldMousePos.X);
-                var offsetY = (newMousePos.Y - oldMousePos.Y);
-                if (sign > 0)
-                {
-                    offsetX += widthChange;
-                    offsetY += heightChange;
-                }
-                else
-                {
-                    offsetX += widthChange;
-                    offsetY += heightChange;
-                }
+                // var scaling = App.ScreensService.Scaling;
+                // var plus = Math.Max(0, sign);
+                // var offsetX = (newMousePos.X - oldMousePos.X) * plus;
+                // var offsetY = (newMousePos.Y - oldMousePos.Y) * plus;
+                // offsetX += widthChange * scaling;
+                // offsetY += heightChange * scaling;
+                //
+                // // 更新界面的位置
+                // _currentPixelPoint=new PixelPoint(
+                //     (int)(this.Position.X - offsetX),
+                //     (int)(this.Position.Y - offsetY)
+                // );
+                // this.Position = pos;
+                // // this.SetWindowToMousePosition();
 
-                // 更新界面的位置
-                this.Position = new PixelPoint(
-                    (int)(this.Position.X - offsetX),
-                    (int)(this.Position.Y - offsetY)
-                );
+                SetImageSize(size);
                 // this.Position = _currentPixelPoint;
             });
 
@@ -189,8 +208,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     private void SetImageSize(Size newSize)
     {
         _currentSize = newSize;
-        ImageContent.Width = newSize.Width;
-        ImageContent.Height = newSize.Height;
+        this.Width = newSize.Width;
+        this.Height = newSize.Height;
     }
 
 

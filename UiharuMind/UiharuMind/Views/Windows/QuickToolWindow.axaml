@@ -4,17 +4,43 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.Windows.QuickToolWindow"
-        Height="30"
-        Width="300"
+        Background="Transparent"
+        Foreground="Transparent"
         Title="QuickToolWindow">
 
-        <StackPanel Orientation="Horizontal">
-                <Button Click="OnOcrBtnClock">
-                        <PathIcon Data="{StaticResource TextFieldRegular}" Width="20" Height="20" />
-                </Button>
-                <Button Click="OnCopyBtnClock">
-                        <PathIcon Data="{StaticResource CopyRegular}" Width="20" Height="20" />
-                </Button>
-        </StackPanel>
-        
+    <StackPanel Orientation="Horizontal" Background="Transparent" Height="50">
+        <Button Name="MainButton" Click="OnMainButtonClock" Background="Transparent">
+            <Button.Styles>
+                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+                <Style Selector="Button:pressed /template/ ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+            </Button.Styles>
+            <PathIcon Data="{StaticResource InfoRegular}" Width="20" Height="20" />
+        </Button>
+
+        <!-- 隐藏的菜单 -->
+        <Border Name="MainMenu" IsVisible="False" CornerRadius="5" Margin="5">
+            <!-- <Border.Transitions> -->
+            <!--     <Transitions> -->
+            <!--         <DoubleTransition Duration="0:0:1" /> -->
+            <!--     </Transitions> -->
+            <!-- </Border.Transitions> -->
+            <StackPanel Orientation="Horizontal">
+                <!-- <StackPanel.Transitions> -->
+                <!--     <DoubleTransition Property="Opacity" Duration="0:0:0.5" /> -->
+                <!-- </StackPanel.Transitions> -->
+                <Button Content="Option 1" />
+                <Button Content="Option 2" />
+                <!-- <ComboBox Name="SubMenuComboBox" VerticalAlignment="Center"> -->
+                <!--     <ComboBoxItem Content="Choice 1" /> -->
+                <!--     <ComboBoxItem Content="Choice 2" /> -->
+                <!-- </ComboBox> -->
+            </StackPanel>
+        </Border>
+
+    </StackPanel>
+
 </Window>

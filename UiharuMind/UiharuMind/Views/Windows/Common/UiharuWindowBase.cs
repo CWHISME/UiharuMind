@@ -36,11 +36,12 @@ public abstract class UiharuWindowBase : Window
     protected virtual void SafeClose()
     {
         OnPreClose();
-        InvalidateMeasure();
-        Task.Run(() =>
-        {
-            Task.Delay(100);
-            Dispatcher.UIThread.InvokeAsync(Hide);
-        });
+        // InvalidateMeasure();
+        Dispatcher.UIThread.InvokeAsync(Hide);
+        // Task.Run(() =>
+        // {
+        //     Task.Delay(100);
+        //     Dispatcher.UIThread.InvokeAsync(Hide);
+        // });
     }
 }

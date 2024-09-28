@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Services;
 
@@ -30,9 +32,27 @@ public class FilesService //: IStorageFolder
         return result.FirstOrDefault()?.TryGetLocalPath() ?? defaultPath;
     }
 
-    public void OpenFolder(string path)
+    public void OpenFolder(string? path)
     {
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        if (string.IsNullOrEmpty(path))
+        {
+            Log.Error("Path is null or empty");
+            return;
+        }
+
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(Path.GetFullPath(path)) { UseShellExecute = true });
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
     }
 
     public async Task<IStorageFile?> OpenFileAsync()

@@ -15,7 +15,7 @@ public class LogLevelToColorConverter : IValueConverter
             return level switch
             {
                 ELogType.Error => Brushes.Red,
-                ELogType.Warning => Brushes.Yellow,
+                ELogType.Warning => Brushes.DarkOrange,
                 ELogType.Log => Brushes.Gray,
                 _ => Brushes.Black,
             };

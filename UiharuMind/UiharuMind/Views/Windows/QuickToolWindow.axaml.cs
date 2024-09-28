@@ -1,11 +1,16 @@
 using System;
-using Avalonia;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
+using SharpHook.Native;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
 
@@ -21,11 +26,42 @@ public partial class QuickToolWindow : QuickWindowBase
         InitializeComponent();
 
         SizeToContent = SizeToContent.WidthAndHeight;
-        this.SetSimpledecorationWindow();
+        this.SetSimpledecorationPureWindow();
 
-        this.LostFocus += OnLostFocus;
-        this.Activated += OnOpened;
-        this.Deactivated += OnLostFocus;
+        // SubMenuComboBox.SelectionChanged += OnSubMenuComboBoxSelectionChanged;
+    }
+
+    private void OnSubMenuComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // CloseSelf();
+        if (sender == null) return;
+        var comboBox = (ComboBox)sender;
+        var newItem = comboBox.SelectedItem;
+        if (newItem != null)
+        {
+            comboBox.SelectedItem = null;
+            PlayAnimation(false, SafeClose);
+        }
+
+        // e.Handled = true;
+    }
+
+
+    protected override void OnPreShow()
+    {
+        InputManager.Instance.EventOnKeyDown += OnKeyDown;
+        InputManager.Instance.EventOnMouseClicked += OnMouseClicked;
+        InputManager.Instance.EventOnMouseWheel += OnMouseWheel;
+
+        ShowActivated = false;
+        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
+    }
+
+    protected override void OnPreClose()
+    {
+        InputManager.Instance.EventOnKeyDown -= OnKeyDown;
+        InputManager.Instance.EventOnMouseClicked -= OnMouseClicked;
+        InputManager.Instance.EventOnMouseWheel -= OnMouseWheel;
     }
 
     public void SetAnswerString(string text)
@@ -33,23 +69,42 @@ public partial class QuickToolWindow : QuickWindowBase
         Log.Debug("Set answer string: " + text);
     }
 
-    private void OnOpened(object? sender, EventArgs e)
+    private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -10);
+        UIManager.ShowWindow<QuickChatResultWindow>();
+        PlayAnimation(false, SafeClose);
     }
 
-    private void OnLostFocus(object? sender, EventArgs e)
+    private void OnMouseClicked(MouseEventData obj)
     {
-        Dispatcher.UIThread.InvokeAsync(Hide);
+        // if (SubMenuComboBox.IsFocused) return;
+        this.CheckMouseOutsideWindow(SafeClose);
     }
 
-    private void OnOcrBtnClock(object? sender, RoutedEventArgs e)
+    private void OnMouseWheel(MouseWheelEventData obj)
     {
-        new QuickChatResultWindow().Show();
+        SafeClose();
     }
 
-    private void OnCopyBtnClock(object? sender, RoutedEventArgs e)
+    private void OnKeyDown(KeyCode obj)
     {
-        Log.Debug("Copy button clicked");
+        SafeClose();
+    }
+
+    protected override void OnPointerEntered(PointerEventArgs e)
+    {
+        if (MainMenu.IsVisible) return;
+        PlayAnimation(true);
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        // if (SubMenuComboBox.IsDropDownOpen) return;
+        PlayAnimation(false);
+    }
+
+    private void PlayAnimation(bool isShowed, Action? onCompleted = null)
+    {
+        UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
     }
 }

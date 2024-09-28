@@ -1,0 +1,67 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:download="clr-namespace:UiharuMind.ViewModels.ViewData.Download"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.Common.DownloadListView">
+
+    <Design.DataContext>
+        <download:DownloadListViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <ListBox ItemsSource="{Binding RemoteVersions}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <DockPanel>
+                        <DockPanel>
+                            <!-- 名称 -->
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding Name}" VerticalAlignment="Center"
+                                       Width="300"
+                                       TextWrapping="Wrap" Margin="0,0,10,0" />
+                            <!-- 下载按钮 -->
+                            <Button Margin="10,0,0,0" DockPanel.Dock="Right" Content="{x:Static lang:Lang.Download}"
+                                    IsEnabled="{Binding !IsDownloading}"
+                                    IsVisible="{Binding !IsDownloaded}"
+                                    CommandParameter="{Binding .}"
+                                    Command="{Binding DataContext.DownloadVersionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <!-- 删除按钮 -->
+                            <Button Margin="10,0,0,0" DockPanel.Dock="Right" Content="{x:Static lang:Lang.Delete}"
+                                    IsVisible="{Binding IsDownloaded}"
+                                    CommandParameter="{Binding .}"
+                                    Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <!-- 打开目录按钮 -->
+                            <Button Margin="10,0,0,0" DockPanel.Dock="Right"
+                                    Content="{x:Static lang:Lang.OpenDirectory}"
+                                    IsVisible="{Binding IsDownloaded}"
+                                    CommandParameter="{Binding .}"
+                                    Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <!-- 文件总大小 -->
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding TotalSizeInfo}"
+                                       Width="80"
+                                       TextAlignment="Center"
+                                       VerticalAlignment="Center" />
+                            <!-- 错误信息(如果有) -->
+                            <SelectableTextBlock Text="{Binding ErrorMessage}" VerticalAlignment="Center"
+                                                 Foreground="Red"
+                                                 IsVisible="{Binding ErrorMessage,FallbackValue=True, TargetNullValue=False}">
+                            </SelectableTextBlock>
+                            <!-- 下载进度条 -->
+                            <Panel IsVisible="{Binding IsDownloading}">
+                                <ProgressBar Value="{Binding DownloadProgress}" Minimum="0" Maximum="100"
+                                             Height="25"
+                                             Margin="10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding DownloadInfo}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Panel>
+                        </DockPanel>
+                    </DockPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </ScrollViewer>
+
+</UserControl>

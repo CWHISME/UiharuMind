@@ -11,7 +11,7 @@ public class ListModelCommand : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var list = await LlmManager.Instance.LLamaCppServer.GetModelList();
+        var list = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.GetModelList();
         int i = 1;
         foreach (var model in list)
         {

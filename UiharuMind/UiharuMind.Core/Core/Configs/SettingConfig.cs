@@ -9,9 +9,9 @@ public class SettingConfig : ConfigBase
     public const string LogDataPath = "./SaveLog/";
 
     /// <summary>
-    /// 后端路径
+    /// 本地服务引擎目录
     /// </summary>
-    public const string BakendPath = "./Bakend/";
+    public const string BackendRuntimeEnginePath = "./BackendRuntimeEngine/";
 
     /// <summary>
     /// 是否是本地服务模式

@@ -27,10 +27,20 @@ public partial class QuickStartChatWindow : QuickWindowBase
         this.Deactivated += OnLostFocus;
     }
 
+    protected override void OnPreShow()
+    {
+        InputBox.Text = "";
+        InitPosition();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        InitPosition();
+    }
+
     private void OnOpened(object? sender, EventArgs e)
     {
-        InitPosition();
-        InputBox.Text = "";
         InputBox.Focus();
     }
 

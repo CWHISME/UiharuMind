@@ -3,7 +3,7 @@ using UiharuMind.Core.Core.Interfaces;
 
 namespace UiharuMind.Core.LLamaCpp.Data;
 
-public class GGufModelInfo : ILLMModel
+public class GGufModelInfo : ILlmModel
 {
     public string ModelName { get; set; }
 
@@ -11,6 +11,8 @@ public class GGufModelInfo : ILLMModel
     public bool IsDegraded { get; set; }
 
     [JsonIgnore] public string ModelPath { get; set; }
+    public string ModelDescription { get; }
+    public string Port { get; set; }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 

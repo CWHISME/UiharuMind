@@ -20,7 +20,7 @@ public class ScanModelCommand : ICommand
 
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var infos = await LlmManager.Instance.LLamaCppServer.ScanLocalModels(true);
+        var infos = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.ScanLocalModels(true);
         int i = 1;
         foreach (var model in infos)
         {

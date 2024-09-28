@@ -19,11 +19,11 @@ namespace UiharuMind.Views;
 
 public class DummyWindow : Window
 {
-    public MainWindow? MainWindow { get; private set; }
-    public MainViewModel MainViewModel => (MainViewModel)MainWindow!.DataContext!;
+    // public MainWindow? MainWindow { get; private set; }
+    public MainViewModel? MainViewModel { get; private set; } //=> (MainViewModel)MainWindow!.DataContext!;
 
-    public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
-    public QuickToolWindow? QuickToolWindow { get; private set; }
+    // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
+    // public QuickToolWindow? QuickToolWindow { get; private set; }
 
     public DummyWindow()
     {
@@ -51,6 +51,8 @@ public class DummyWindow : Window
         RegistryShortcut();
         RegistryClipboardTool();
         Hide();
+        
+        if(UiharuCoreManager.Instance.IsWindows) LaunchMainWindow();
     }
 
     // private void OnKeyDown(object? sender, KeyEventArgs e)
@@ -68,7 +70,7 @@ public class DummyWindow : Window
             "Capture Screen"));
 
         InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcA,
-            LanchQuickStartChatWindow, new List<KeyCode>()
+            LaunchQuickStartChatWindow, new List<KeyCode>()
             {
                 KeyCode.VcLeftAlt, KeyCode.VcLeftShift
             },
@@ -81,7 +83,7 @@ public class DummyWindow : Window
 
     private void RegistryClipboardTool()
     {
-        App.Clipboard.OnClipboardStringChanged += LanchQuickToolWindow;
+        App.Clipboard.OnClipboardStringChanged += LaunchQuickToolWindow;
     }
 
     // private void RegistryShortcutQuickTool(KeyCode decorateKeyCode)
@@ -96,28 +98,17 @@ public class DummyWindow : Window
 
     public void LaunchMainWindow()
     {
-        MainWindow ??= new MainWindow() { DataContext = new MainViewModel() };
-        // Dispatcher.UIThread.Post(mainWindow.Show);
-        MainWindow.Show();
+        MainViewModel ??= new MainViewModel();
+        UIManager.ShowWindow<MainWindow>(null, x => x.DataContext = MainViewModel);
     }
 
-    public void LanchQuickStartChatWindow()
+    public void LaunchQuickStartChatWindow()
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            QuickStartChatWindow ??= new QuickStartChatWindow();
-            QuickStartChatWindow.Show();
-            QuickStartChatWindow.Activate();
-        });
+        UIManager.ShowWindow<QuickStartChatWindow>();
     }
 
-    public void LanchQuickToolWindow(string answerStr)
+    public void LaunchQuickToolWindow(string answerStr)
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            QuickToolWindow ??= new QuickToolWindow();
-            QuickToolWindow.SetAnswerString(answerStr);
-            QuickToolWindow.Show();
-        });
+        UIManager.ShowWindow<QuickToolWindow>(x => x.SetAnswerString(answerStr));
     }
 }

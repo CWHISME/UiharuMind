@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.LocalAI;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.LLamaCpp;
@@ -11,9 +12,11 @@ namespace UiharuMind.Core.AI;
 public class LlmManager : Singleton<LlmManager>, IInitialize
 {
     /// <summary>
-    /// llamacpp 服务
+    /// 本地模型运行管理
     /// </summary>
-    public LLamaCppServerKernal LLamaCppServer { get; private set; } = new LLamaCppServerKernal();
+    public RuntimeEngineManager RuntimeEngineManager { get; private set; } = new RuntimeEngineManager();
+
+    public LLamaCppServerKernal LLamaCppServer => RuntimeEngineManager.LLamaCppServer;
 
     /// <summary>
     /// 当前运行(/选择)的模型
@@ -83,7 +86,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     {
         _modelList.Clear();
 
-        var modelList = await LLamaCppServer.GetModelList().ConfigureAwait(false);
+        var modelList = await RuntimeEngineManager.LLamaCppServer.GetModelList().ConfigureAwait(false);
         foreach (var model in modelList)
         {
             if (_chacheModels.TryGetValue(model.Key, out var runningData))
@@ -93,7 +96,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
                 continue;
             }
 
-            runningData = new ModelRunningData(model.Value);
+            runningData = new ModelRunningData(LLamaCppServer, model.Value);
             _chacheModels[model.Key] = runningData;
             _modelList.Add(runningData);
         }
@@ -121,12 +124,11 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             CurrentRunningModel = runningInfo;
             // 通知当前运行的模型开始加载
             OnCurrentModelStartLoading?.Invoke();
-            await CurrentRunningModel.StartLoad(LLamaCppServer.Config.DefautPort, OnCurrentModelLoading,
-                OnCurrentModelLoaded);
+            await CurrentRunningModel.StartLoad(OnCurrentModelLoading, OnCurrentModelLoaded);
             // 通知当前运行的模型改变
             if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
             // 通知有任意模型状态改变
-            //OnAnyModelStateChanged?.Invoke(runningInfo);
+            OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"load model error， {modelName} not found in cache.");
     }
@@ -165,7 +167,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     private void SetupTest()
     {
         LLamaCppServer.Config.LLamaCppPath =
-            "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3617-bin-macos-arm64/bin";
+            "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3828-bin-macos-arm64/bin";
         LLamaCppServer.Config.LocalModelPath = "/Users/dragonplus/Documents/Studys/LLMModels";
     }
 }

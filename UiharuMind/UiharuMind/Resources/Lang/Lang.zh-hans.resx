@@ -59,4 +59,31 @@
     <data name="SettingLogEnable" xml:space="preserve">
         <value>记录服务日志</value>
     </data>
+    <data name="OpenDirectory" xml:space="preserve">
+        <value>打开目录</value>
+    </data>
+    <data name="CheckUpdate" xml:space="preserve">
+        <value>检查更新</value>
+    </data>
+    <data name="Download" xml:space="preserve">
+        <value>下载</value>
+    </data>
+    <data name="Delete" xml:space="preserve">
+        <value>删除</value>
+    </data>
+    <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
+        <value>是否确认删除这个版本的运行程序？</value>
+    </data>
+    <data name="Decompressing" xml:space="preserve">
+        <value>[解压中...]</value>
+    </data>
+    <data name="RuntimeEngineSetting" xml:space="preserve">
+        <value>本地引擎设置</value>
+    </data>
+    <data name="CurrentEngineTypeSetting" xml:space="preserve">
+        <value>当前执行引擎：</value>
+    </data>
+    <data name="CheckingForUpdates" xml:space="preserve">
+        <value>正在检查更新...</value>
+    </data>
 </root>

@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -57,5 +60,57 @@ public static class WindowUtils
         window.ExtendClientAreaToDecorationsHint = true;
         window.ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         window.ExtendClientAreaTitleBarHeightHint = -1;
+    }
+
+
+    public static void SetSimpledecorationPureWindow(this Window window, bool isTopmost = true)
+    {
+        //连背景边框也没有的窗口
+        SetSimpledecorationWindow(window, isTopmost);
+        window.SystemDecorations = SystemDecorations.None;
+        window.TransparencyLevelHint = new List<WindowTransparencyLevel>()
+            { WindowTransparencyLevel.Transparent, WindowTransparencyLevel.AcrylicBlur };
+    }
+
+    /// <summary>
+    /// 鼠标是否在窗口内
+    /// </summary>
+    /// <param name="window"></param>
+    /// <returns></returns>
+    public static bool IsMouseOverWindow(this Window window)
+    {
+        return UiUtils.IsMouseInRange(window.Position, new Size(window.Width, window.Height));
+    }
+
+    /// <summary>
+    /// 鼠标是否在窗口内？如果检测通过，则执行回调
+    /// </summary>
+    /// <param name="window"></param>
+    /// <param name="callback"></param>
+    public static void CheckMouseOverWindow(this Window window, Action callback)
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (IsMouseOverWindow(window))
+            {
+                callback();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 鼠标是否在窗口外？如果检测通过，则执行回调
+    /// </summary>
+    /// <param name="window"></param>
+    /// <param name="callback"></param>
+    public static void CheckMouseOutsideWindow(this Window window, Action callback)
+    {
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!IsMouseOverWindow(window))
+            {
+                callback();
+            }
+        });
     }
 }

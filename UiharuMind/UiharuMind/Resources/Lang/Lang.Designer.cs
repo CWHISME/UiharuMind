@@ -69,6 +69,69 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Checking for updates....
+        /// </summary>
+        public static string CheckingForUpdates {
+            get {
+                return ResourceManager.GetString("CheckingForUpdates", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Check Update.
+        /// </summary>
+        public static string CheckUpdate {
+            get {
+                return ResourceManager.GetString("CheckUpdate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Are you sure?.
+        /// </summary>
+        public static string ConfirmDeleteRuntimeEngine {
+            get {
+                return ResourceManager.GetString("ConfirmDeleteRuntimeEngine", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Current Engine Type:.
+        /// </summary>
+        public static string CurrentEngineTypeSetting {
+            get {
+                return ResourceManager.GetString("CurrentEngineTypeSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Decompressing.
+        /// </summary>
+        public static string Decompressing {
+            get {
+                return ResourceManager.GetString("Decompressing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Delete.
+        /// </summary>
+        public static string Delete {
+            get {
+                return ResourceManager.GetString("Delete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Download.
+        /// </summary>
+        public static string Download {
+            get {
+                return ResourceManager.GetString("Download", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Eject Model.
         /// </summary>
         public static string EjectModel {
@@ -78,7 +141,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to About.
         /// </summary>
         public static string MenuAboutKey {
             get {
@@ -87,7 +150,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Chat.
         /// </summary>
         public static string MenuChatKey {
             get {
@@ -96,7 +159,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Log.
         /// </summary>
         public static string MenuLogKey {
             get {
@@ -105,7 +168,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Main.
         /// </summary>
         public static string MenuMainKey {
             get {
@@ -114,7 +177,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Model.
         /// </summary>
         public static string MenuModelKey {
             get {
@@ -123,7 +186,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Setting.
         /// </summary>
         public static string MenuSettingKey {
             get {
@@ -132,7 +195,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Translate.
         /// </summary>
         public static string MenuTranslateKey {
             get {
@@ -141,7 +204,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Error.
         /// </summary>
         public static string MessageErrorTitle {
             get {
@@ -150,11 +213,29 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Info.
         /// </summary>
         public static string MessageInfoTitle {
             get {
                 return ResourceManager.GetString("MessageInfoTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open Directory.
+        /// </summary>
+        public static string OpenDirectory {
+            get {
+                return ResourceManager.GetString("OpenDirectory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Runtime Engine Setting.
+        /// </summary>
+        public static string RuntimeEngineSetting {
+            get {
+                return ResourceManager.GetString("RuntimeEngineSetting", resourceCulture);
             }
         }
         
@@ -177,7 +258,7 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Debug.
         /// </summary>
         public static string SettingDebug {
             get {

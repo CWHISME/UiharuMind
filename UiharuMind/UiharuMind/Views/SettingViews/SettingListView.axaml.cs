@@ -11,6 +11,10 @@ using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Views.SettingViews;
 
+/// <summary>
+/// 自动根据类的字段生成设置项
+/// 建议代码创建使用
+/// </summary>
 public partial class SettingListView : UserControl
 {
     public SettingListView()

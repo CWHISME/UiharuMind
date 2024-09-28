@@ -23,7 +23,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     public MessageService MessageService => App.MessageService;
 
     private readonly Dictionary<string, PageDataBase> _viewPageModels = new Dictionary<string, PageDataBase>();
-    private readonly Dictionary<Type, ViewModelBase> _viewModels = new Dictionary<Type, ViewModelBase>();
+    private readonly Dictionary<Type, ObservableObject> _viewModels = new Dictionary<Type, ObservableObject>();
 
     public MainViewModel()
     {
@@ -84,7 +84,7 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
-    public T GetViewModel<T>() where T : ViewModelBase, new()
+    public T GetViewModel<T>() where T : ObservableObject, new()
     {
         _viewModels.TryGetValue(typeof(T), out var vm);
         if (vm == null)

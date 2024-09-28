@@ -104,6 +104,6 @@ public partial class ModelService : ObservableObject
 
     private void OnAnyModelStateChanged(ModelRunningData? model)
     {
-        OnPropertyChanged(nameof(CurRunningCount));
+        Refresh();
     }
 }

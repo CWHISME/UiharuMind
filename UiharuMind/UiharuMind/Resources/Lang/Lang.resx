@@ -31,34 +31,34 @@
         <value>Eject Model</value>
     </data>
     <data name="MessageInfoTitle" xml:space="preserve">
-        <value />
+        <value>Info</value>
     </data>
     <data name="MessageErrorTitle" xml:space="preserve">
-        <value />
+        <value>Error</value>
     </data>
     <data name="MenuMainKey" xml:space="preserve">
-        <value />
+        <value>Main</value>
     </data>
     <data name="MenuModelKey" xml:space="preserve">
-        <value />
+        <value>Model</value>
     </data>
     <data name="MenuChatKey" xml:space="preserve">
-        <value />
+        <value>Chat</value>
     </data>
     <data name="MenuTranslateKey" xml:space="preserve">
-        <value />
+        <value>Translate</value>
     </data>
     <data name="MenuLogKey" xml:space="preserve">
-        <value />
+        <value>Log</value>
     </data>
     <data name="MenuSettingKey" xml:space="preserve">
-        <value />
+        <value>Setting</value>
     </data>
     <data name="MenuAboutKey" xml:space="preserve">
-        <value />
+        <value>About</value>
     </data>
     <data name="SettingDebug" xml:space="preserve">
-        <value />
+        <value>Debug</value>
     </data>
     <data name="SettingLogDetail" xml:space="preserve">
         <value>Set verbosity level to infinity (i.e. log all messages, useful for debugging)
@@ -66,5 +66,32 @@
     </data>
     <data name="SettingLogEnable" xml:space="preserve">
         <value>Enable log messages</value>
+    </data>
+    <data name="OpenDirectory" xml:space="preserve">
+        <value>Open Directory</value>
+    </data>
+    <data name="CheckUpdate" xml:space="preserve">
+        <value>Check Update</value>
+    </data>
+    <data name="Download" xml:space="preserve">
+        <value>Download</value>
+    </data>
+    <data name="Delete" xml:space="preserve">
+        <value>Delete</value>
+    </data>
+    <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+    <data name="Decompressing" xml:space="preserve">
+        <value>Decompressing</value>
+    </data>
+    <data name="RuntimeEngineSetting" xml:space="preserve">
+        <value>Runtime Engine Setting</value>
+    </data>
+    <data name="CurrentEngineTypeSetting" xml:space="preserve">
+        <value>Current Engine Type:</value>
+    </data>
+    <data name="CheckingForUpdates" xml:space="preserve">
+        <value>Checking for updates...</value>
     </data>
 </root>

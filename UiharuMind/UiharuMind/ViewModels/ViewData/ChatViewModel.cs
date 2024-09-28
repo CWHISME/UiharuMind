@@ -12,7 +12,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// <summary>
 /// 用于显示聊天信息，并提供输入框，用于发送消息
 /// </summary>
-public partial class ChatViewModel : ViewModelBase
+public partial class ChatViewModel : ObservableObject
 {
     public enum SendMode
     {

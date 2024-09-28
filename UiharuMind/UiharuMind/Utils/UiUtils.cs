@@ -42,13 +42,13 @@ public static class UiUtils
     }
 
     /// <summary>
-    /// 计算控件在屏幕内的位置，防止其超出屏幕范围
+    /// 计算在屏幕内的位置，防止其超出屏幕范围
     /// </summary>
     /// <param name="controlSize"></param>
     /// <returns></returns>
-    public static Point CalculatePositionWithinScreen(Size controlSize)
+    public static PixelPoint EnsureMousePositionWithinScreen(Size controlSize)
     {
-        return CalculatePositionWithinScreen(App.ScreensService.MouseScreen, controlSize);
+        return EnsureMousePositionWithinScreen(App.ScreensService.MouseScreen, controlSize);
     }
 
     /// <summary>
@@ -57,9 +57,9 @@ public static class UiUtils
     /// <param name="screen"></param>
     /// <param name="controlSize"></param>
     /// <returns></returns>
-    public static Point CalculatePositionWithinScreen(Screen? screen, Size controlSize)
+    public static PixelPoint EnsureMousePositionWithinScreen(Screen? screen, Size controlSize)
     {
-        if (screen == null) return new Point(0, 0);
+        if (screen == null) return new PixelPoint(0, 0);
         // 计算鼠标位置在屏幕内的有效范围
         PixelPoint mousePixelPoint = App.ScreensService.MousePosition;
         //PixelPoint.FromPoint(, App.ScreensService.Scaling);
@@ -70,12 +70,96 @@ public static class UiUtils
 
         // 计算控件在屏幕内的位置
         double x = Math.Max(0,
-            Math.Min(posX / screen.Scaling,
-                screen.Bounds.Width / screen.Scaling - controlSize.Width));
+            Math.Min(posX,
+                screen.Bounds.Width - controlSize.Width * screen.Scaling));
         double y = Math.Max(0,
-            Math.Min(posY / screen.Scaling + 20,
-                screen.Bounds.Height / screen.Scaling - controlSize.Height));
+            Math.Min(posY + 20,
+                screen.Bounds.Height - controlSize.Height * screen.Scaling));
 
-        return new Point(x, y);
+        return new PixelPoint((int)x, (int)y);
+    }
+
+    /// <summary>
+    /// 计算鼠标位置在控件内的位置,并返回相对于目标校正后(使其不越界)的位置需要的偏移
+    /// </summary>
+    /// <param name="contentPosition"></param>
+    /// <param name="contentSize"></param>
+    /// <returns></returns>
+    public static PixelPoint EnsureMousePositionWithinTargetOffset(PixelPoint contentPosition, Size contentSize)
+    {
+        var mousePos = App.ScreensService.MousePosition;
+        var correctionPos = EnsurePositionWithinTarget(contentPosition, contentSize, mousePos,
+            new Size(1, 1));
+        return mousePos - correctionPos;
+    }
+
+    /// <summary>
+    /// 计算鼠标位置在控件内的位置,并返回相对于目标校正后(使其不越界)的位置
+    /// </summary>
+    /// <param name="contentPosition"></param>
+    /// <param name="contentSize"></param>
+    /// <returns></returns>
+    public static PixelPoint EnsureMousePositionWithinTarget(PixelPoint contentPosition, Size contentSize)
+    {
+        return EnsurePositionWithinTarget(contentPosition, contentSize, App.ScreensService.MousePosition,
+            new Size(1, 1));
+    }
+
+    /// <summary>
+    /// 计算指定对象在容器内的位置，并返回对象相对于容器校正后(使其不越界)的位置
+    /// </summary>
+    /// <param name="contentPosition">容器坐标</param>
+    /// <param name="contentSize"></param>
+    /// <param name="targetPosition">目标坐标</param>
+    /// <param name="targetSize"></param>
+    /// <returns>屏幕坐标</returns>
+    public static PixelPoint EnsurePositionWithinTarget(PixelPoint contentPosition, Size contentSize,
+        PixelPoint targetPosition, Size targetSize)
+    {
+        double scaling = App.ScreensService.Scaling;
+
+        // 计算控件和目标容器的最大边界
+        double contentMaxX = contentPosition.X + contentSize.Width * scaling;
+        double contentMaxY = contentPosition.Y + contentSize.Height * scaling;
+        // double targetMaxX = targetPosition.X + targetSize.Width * scaling;
+        // double targetMaxY = targetPosition.Y + targetSize.Height * scaling;
+
+        // 确保坐标不会比容器小
+        double posX = Math.Max(contentPosition.X, targetPosition.X);
+        double posY = Math.Max(contentPosition.Y, targetPosition.Y);
+
+        // 确保坐标不会比容器大
+        posX = Math.Min(posX, contentMaxX - targetSize.Width * scaling);
+        posY = Math.Min(posY, contentMaxY - targetSize.Height * scaling);
+
+        // // 计算控件在容器内的位置
+        // double x = Math.Max(contentPosition.X, Math.Min(targetPosition.X, maxX));
+        // double y = Math.Max(contentPosition.Y, Math.Min(targetPosition.Y, maxY));
+
+        // 返回最终位置
+        return new PixelPoint((int)posX, (int)posY);
+    }
+
+
+    //     int posX = Math.Clamp(targetPosition.X, contentPosition.X,
+    //         contentPosition.X + (int)(contentSize.Width * scaling));
+    //     int posY = Math.Clamp(targetPosition.Y, contentPosition.Y,
+    //         contentPosition.Y + (int)(contentSize.Height * scaling));
+    //
+    //     // 计算控件在屏幕内的位置
+    //     double x = Math.Max(0, Math.Min(posX, screen.Bounds.Width - controlSize.Width * screen.Scaling));
+    //     double y = Math.Max(0, Math.Min(posY + 20, screen.Bounds.Height - controlSize.Height * screen.Scaling));
+    //
+    //     return new PixelPoint((int)x, (int)y);
+    // }
+
+    public static bool IsMouseInRange(PixelPoint controlPosition, Size controlSize)
+    {
+        PixelPoint mousePos = App.ScreensService.MousePosition;
+        var scaling = App.ScreensService.Scaling;
+        var controlMaxPos = new PixelPoint((int)(controlPosition.X + controlSize.Width * scaling),
+            (int)(controlPosition.Y + controlSize.Height * scaling));
+        return mousePos.X >= controlPosition.X && mousePos.X <= controlMaxPos.X &&
+               mousePos.Y >= controlPosition.Y && mousePos.Y <= controlMaxPos.Y;
     }
 }

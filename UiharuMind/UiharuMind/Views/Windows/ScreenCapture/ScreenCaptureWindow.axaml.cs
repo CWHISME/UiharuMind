@@ -180,7 +180,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         if (_currentScreen == null) return;
         try
         {
-            var point = UiUtils.CalculatePositionWithinScreen(_currentScreen, InfoPanel.Bounds.Size);
+            var point = UiUtils.EnsureMousePositionWithinScreen(_currentScreen, InfoPanel.Bounds.Size);
 
             if (correct)
             {
@@ -188,8 +188,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                 height = (int)Math.Ceiling(height * _currentScreen.Scaling);
             }
 
-            PixelPoint pixelPoint = PixelPoint.FromPoint(point, _currentScreen.Scaling);
-            PositionText.Text = $"position:({pixelPoint.X},{pixelPoint.Y})";
+            // PixelPoint pixelPoint = PixelPoint.FromPoint(point, _currentScreen.Scaling);
+            PositionText.Text = $"position:({point.X},{point.Y})";
             ResolutionText.Text = $"resolution:({width}x{height})";
             TipsText.Text = $"{point.X} {point.Y}";
             InfoPanel.Margin = new Thickness(point.X, point.Y, 0, 0);

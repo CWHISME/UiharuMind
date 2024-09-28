@@ -8,11 +8,12 @@ namespace UiharuMind.Core.LLamaCpp.Data;
 
 public class ModelRunningData
 {
-    private ILLMModel _modelInfo;
+    private ILlmRuntimeEngine _runtimeEngine;
+    private ILlmModel _modelInfo;
     private ChatThread? _chatThread;
     private CancellationTokenSource? _cts;
 
-    public ILLMModel ModelInfo => _modelInfo;
+    public ILlmModel ModelInfo => _modelInfo;
 
     /// <summary>
     /// 当前运行的模型名称
@@ -34,16 +35,17 @@ public class ModelRunningData
     /// </summary>
     public float LoadingPercent { get; private set; } = 0;
 
-    private int _loadingCount = 0;
-    private Action<float>? _onLoading;
-    private Action? _onLoaded;
+    // private int _loadingCount = 0;
+    // private Action<float>? _onLoading;
+    // private Action? _onLoaded;
 
-    public ModelRunningData(ILLMModel modelInfo)
+    public ModelRunningData(ILlmRuntimeEngine runtimeEngine, ILlmModel modelInfo)
     {
+        _runtimeEngine = runtimeEngine;
         _modelInfo = modelInfo;
     }
 
-    public void ForceUpdateModelInfo(ILLMModel modelInfo)
+    public void ForceUpdateModelInfo(ILlmModel modelInfo)
     {
         _modelInfo = modelInfo;
     }
@@ -51,17 +53,23 @@ public class ModelRunningData
     /// <summary>
     /// 加载模型，如果模型已经处于运行中，则不进行任何操作
     /// </summary>
-    /// <param name="port"></param>
     /// <param name="onLoading"></param>
     /// <param name="onLoaded"></param>
-    public async Task StartLoad(int port, Action<float>? onLoading, Action? onLoaded)
+    public async Task StartLoad(Action<float>? onLoading, Action? onLoaded)
     {
         if (_cts != null) return;
-        _loadingCount = 0;
-        _onLoading = onLoading;
-        _onLoaded = onLoaded;
-        await LlmManager.Instance.LLamaCppServer.StartServer(_modelInfo.ModelPath, port, OnInitLoad,
-            OnMessageUpdate);
+        // _loadingCount = 0;
+        LoadingPercent = 0;
+        // _onLoading = onLoading;
+        // _onLoaded = onLoaded;
+        await _runtimeEngine.Run(_modelInfo, OnInitLoad, (x) =>
+        {
+            LoadingPercent = x;
+            onLoading?.Invoke(x);
+        }, onLoaded);
+        // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(_modelInfo.ModelPath, Port,
+        //     OnInitLoad,
+        //     OnMessageUpdate);
         StopRunning();
     }
 
@@ -72,7 +80,9 @@ public class ModelRunningData
     {
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
         _cts = null;
-        EndLoadCheck();
+        // EndLoadCheck();
+        // _onLoaded?.Invoke();
+        // _onLoaded = null;
     }
 
     public async void SendMessage(ChatHistory chatHistory, Action<string> onMessageReceived,
@@ -94,24 +104,12 @@ public class ModelRunningData
         _cts = cts;
     }
 
-    private void OnMessageUpdate(string msg)
-    {
-        Log.Debug(msg);
-        if (_loadingCount < 128 && !msg.StartsWith("'main: server is listening"))
-        {
-            _loadingCount++;
-            LoadingPercent = _loadingCount / 128f;
-            _onLoading?.Invoke(LoadingPercent);
-        }
-        else EndLoadCheck();
-    }
-
-    private void EndLoadCheck()
-    {
-        if (_onLoaded != null)
-        {
-            _onLoaded();
-            _onLoaded = null;
-        }
-    }
+    // private void EndLoadCheck()
+    // {
+    //     if (_onLoaded != null)
+    //     {
+    //         _onLoaded();
+    //         _onLoaded = null;
+    //     }
+    // }
 }

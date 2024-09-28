@@ -11,7 +11,7 @@ public class PullLlamacppVersion : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var version = await LlmManager.Instance.LLamaCppServer.PullLastestVersion();
+        // var version = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.PullLastestVersion();
         
     }
 }

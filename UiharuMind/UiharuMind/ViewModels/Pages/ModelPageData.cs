@@ -21,7 +21,7 @@ public partial class ModelPageData : PageDataBase
 
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
-    private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.LLamaCppServer.Config;
+    private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.Config;
 
     [RelayCommand]
     private async Task OpenChangeModelPath()

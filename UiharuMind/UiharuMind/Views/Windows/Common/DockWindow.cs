@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -14,15 +16,13 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
     public DockWindow()
     {
-        CanResize = false;
-
         this.SetSimpledecorationWindow();
-        // Topmost = true;
-        // Background = Brushes.Transparent;
-        // SystemDecorations = SystemDecorations.BorderOnly;
-        // ExtendClientAreaToDecorationsHint = true; // 扩展客户端区域到装饰（标题栏）
-        // ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome; // 禁用标题栏
-        // ExtendClientAreaTitleBarHeightHint = 0; // 隐藏标题栏
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], true);
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
@@ -33,15 +33,16 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
     public void SetMainWindow(T? mainWindow)
     {
-        if (mainWindow == null)
+        if (mainWindow is not { IsVisible: true })
         {
-            Hide();
+            // SafeClose();
+            UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], false, SafeClose);
             return;
         }
 
         if (ReferenceEquals(mainWindow, CurrentSnapWindow))
         {
-            Show();
+            RequestShow();
             UpdateFollowerWindowPosition();
             return;
         }
@@ -61,7 +62,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         CurrentSnapWindow.PointerExited += MainWindow_OnMouseLeave;
         CurrentSnapWindow.Closing += MainWindow_OnClose;
 
-        Show();
+        RequestShow();
         UpdateFollowerWindowPosition();
     }
 
@@ -124,27 +125,13 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
     private void UpdateFollowerWindowPosition()
     {
-        if (!IsVisible) return;
+        if (!IsVisible || CurrentSnapWindow == null) return;
         Dispatcher.UIThread.Post(() =>
         {
             if (CurrentSnapWindow == null)
                 return;
 
-            // var mainWindowPosition = _currentMainWindow.Position;
-            // var mainWindowSize = _currentMainWindow.ClientSize;
-
-            // Update the position of the dock window itself
             OnFollowTarget(CurrentSnapWindow.Position, CurrentSnapWindow.ClientSize);
-            // Width = mainWindowSize.Width + 100;
-            // Height = mainWindowSize.Height + 100;
-
-            // Update the bottom panel position and size
-            // BottomPanel.Width = mainWindowSize.Width;
-            // BottomPanel.Margin = new Thickness(0, 0, 0, 0);
-
-            // Update the right panel position and size
-            // RightPanel.Height = mainWindowSize.Height;
-            // RightPanel.Margin = new Thickness(mainWindowSize.Width, 0, 0, 0);
         });
     }
 

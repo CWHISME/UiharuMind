@@ -1,14 +1,16 @@
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Interfaces;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.LLamaCpp.Versions;
 
 namespace UiharuMind.Core.LLamaCpp;
 
-public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLamaCppSettingConfig>
+public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLamaCppSettingConfig>, ILlmRuntimeEngine
 {
     private LLamaCppVersionManager _llamaCppVersionManager = new LLamaCppVersionManager();
     private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
@@ -22,6 +24,27 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         await ProcessHelper.StartProcess(Config.ExeServer,
             $"-m {modelFilePath} --port {port} {CommandLineHelper.GenerateCommandLineArgs(config)}", onInitCallback,
             (line, cts) => { onMessageUpdate?.Invoke(line); });
+    }
+
+    public async Task Run(ILlmModel model, Action<CancellationTokenSource> onStartLoad, Action<float>? onLoading = null,
+        Action? onLoadOver = null)
+    {
+        int loadingCount = 0;
+        float LoadingPercent = 0;
+
+        void OnMessageUpdate(string msg)
+        {
+            Log.Debug(msg);
+            if (loadingCount < 128 && !msg.StartsWith("main: server is listening"))
+            {
+                loadingCount++;
+                LoadingPercent = Math.Min(1, loadingCount / 128f);
+                onLoading?.Invoke(LoadingPercent);
+            }
+            else onLoadOver?.Invoke();
+        }
+
+        await StartServer(model.ModelPath, Config.DefautPort, onStartLoad, OnMessageUpdate);
     }
 
     public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList()
@@ -68,9 +91,28 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         Config.ModelInfos[Path.GetFileName(modelFilePath)] = info;
     }
 
-    public async Task<bool> PullLastestVersion()
+
+    /// <summary>
+    /// 获取本地版本列表
+    /// </summary>
+    /// <param name="enginePath"></param>
+    /// <returns></returns>
+    public async Task<VersionManager> GetLocalVersions(string enginePath)
     {
-        return await _llamaCppVersionManager.GetLatestVersion();
+        string path = Path.Combine(enginePath, "LLamaCpp");
+        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        return await _llamaCppVersionManager.GetLocalVersions(path);
+    }
+
+    /// <summary>
+    /// 拉取最新版本列表
+    /// </summary>
+    /// <returns></returns>
+    public async Task<VersionManager> PullLastestVersion(string enginePath)
+    {
+        string path = Path.Combine(enginePath, "LLamaCpp");
+        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        return await _llamaCppVersionManager.GetLatestVersion(path);
     }
 
     private async Task<GGufModelInfo> GetModelStateInfo(string lookupExe, string file)

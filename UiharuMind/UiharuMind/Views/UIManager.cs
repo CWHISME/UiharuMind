@@ -11,20 +11,42 @@ public class UIManager
 {
     private static Dictionary<Type, UiharuWindowBase> _windows = new Dictionary<Type, UiharuWindowBase>();
 
-    public static void ShowWindow<T>() where T : UiharuWindowBase, new()
+    /// <summary>
+    /// 开启一个界面
+    /// </summary>
+    /// <param name="action">每次开启后都会调用</param>
+    /// <param name="onCreateCallback">仅当处于第一次创建时才会调用，后续打开时只会调用 action</param>
+    /// <typeparam name="T"></typeparam>
+    public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null)
+        where T : UiharuWindowBase, new()
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (_windows.ContainsKey(typeof(T)))
             {
-                _windows[typeof(T)].RequestShow();
+                var window = _windows[typeof(T)];
+                action?.Invoke((T)window);
+                window.RequestShow();
             }
             else
             {
-                T window = new T();
+                var window = new T();
                 _windows.Add(typeof(T), window);
+                onCreateCallback?.Invoke(window);
+                action?.Invoke(window);
                 window.RequestShow();
             }
         });
+    }
+
+    public static T? GetWindow<T>()
+        where T : UiharuWindowBase
+    {
+        if (_windows.ContainsKey(typeof(T)))
+        {
+            return (T)_windows[typeof(T)];
+        }
+
+        return null;
     }
 }
