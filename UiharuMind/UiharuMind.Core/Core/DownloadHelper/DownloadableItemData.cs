@@ -161,7 +161,18 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         }
 
         IsDownloading = true;
-        await _downloadService.DownloadFileTaskAsync(_target.DownloadUrl, DownloadFilePath);
+        await Task.Run(async () =>
+        {
+            await _downloadService.DownloadFileTaskAsync(DownloadUrl, DownloadFilePath).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+        // await Task.Run(async () =>
+        // {
+        //     while (true)
+        //     {
+        //         await Task.Delay(10);
+        //         OnDownloadProgressChanged(this, new DownloadProgressChangedEventArgs("1"));
+        //     }
+        // });
         IsDownloading = false;
     }
 
@@ -191,7 +202,13 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
 
     private DownloadService CreateDownloadOpt(bool useDefaultProxy, DownloadConfiguration? configuration = null)
     {
-        var downloadOpt = configuration ?? new DownloadConfiguration();
+        var downloadOpt = configuration ?? new DownloadConfiguration()
+        {
+            BufferBlockSize = 10240,
+            ParallelDownload = true,
+            ParallelCount = Environment.ProcessorCount / 2,
+            MaximumMemoryBufferBytes = 1024 * 1024 * 100,
+        };
 
         if (useDefaultProxy)
         {

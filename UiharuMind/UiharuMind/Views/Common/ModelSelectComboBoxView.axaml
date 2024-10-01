@@ -26,7 +26,6 @@
         <StackPanel Grid.Column="1" Margin="5,0,5,0">
             <ComboBox Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
                       SelectedItem="{Binding CurModelRunningData}"
-                      SelectionChanged="OnModelSelectionChanged"
                       HorizontalAlignment="Stretch" VerticalAlignment="Center" PlaceholderText="Select a model to load">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>

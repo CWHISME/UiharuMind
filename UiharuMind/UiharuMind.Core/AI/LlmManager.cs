@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -82,28 +83,32 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// <summary>
     /// 重新加载模型列表
     /// </summary>
-    public async Task<List<ModelRunningData>> GetModelList()
+    /// <returns></returns>
+    public async Task<List<ModelRunningData>> ReloadModelList()
     {
         _modelList.Clear();
-
-        var modelList = await RuntimeEngineManager.LLamaCppServer.GetModelList().ConfigureAwait(false);
+        _chacheModels.Clear();
+        var modelList = await Task.Run(RuntimeEngineManager.GetModelList).ConfigureAwait(false);
         foreach (var model in modelList)
         {
-            if (_chacheModels.TryGetValue(model.Key, out var runningData))
-            {
-                runningData.ForceUpdateModelInfo(model.Value);
-                _modelList.Add(runningData);
-                continue;
-            }
-
-            runningData = new ModelRunningData(LLamaCppServer, model.Value);
-            _chacheModels[model.Key] = runningData;
-            _modelList.Add(runningData);
+            _chacheModels.Add(model.Key, model.Value);
+            _modelList.Add(model.Value);
         }
 
         return _modelList;
     }
 
+    /// <summary>
+    /// 获取模型列表，请确保已经加载完毕
+    /// </summary>
+    public List<ModelRunningData> GetModelList()
+    {
+        return _modelList;
+    }
+
+    /// <summary>
+    /// 运行当前选择的模型
+    /// </summary>
     public async void LoadCurrentModel()
     {
         await LoadModel(CurrentRunningModel?.ModelName);

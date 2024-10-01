@@ -20,7 +20,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
     {
         InitializeComponent();
 
-        this.SetSimpledecorationWindow();
+        // this.SetSimpledecorationWindow();
 
         this.LostFocus += OnLostFocus;
         this.Activated += OnOpened;

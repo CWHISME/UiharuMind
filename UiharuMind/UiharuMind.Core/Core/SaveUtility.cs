@@ -34,7 +34,15 @@ public static class SaveUtility
     public static T Load<T>(string fileName) where T : new()
     {
         string path = Path.Combine(SettingConfig.SaveDataPath, fileName);
-        if (File.Exists(path)) return JsonSerializer.Deserialize<T>(File.ReadAllText(path)) ?? new T();
+        try
+        {
+            if (File.Exists(path)) return JsonSerializer.Deserialize<T>(File.ReadAllText(path)) ?? new T();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+
         return new T();
     }
 

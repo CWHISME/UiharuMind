@@ -1,14 +1,11 @@
-using System.Collections.Concurrent;
-using System.Text;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using OpenAI.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
-namespace UiharuMind.Core.Core.Chat;
+namespace UiharuMind.Core.AI.Core;
 
 public class ChatThread
 {
@@ -35,31 +32,36 @@ public class ChatThread
         }
     }
 
-    // public ChatThread()
-    // {
-    //     Messages = new List<ChatMessage>();
-    // }
-
-    public async Task<string> SendMessageStreamingAsync(ChatHistory chatHistory, Action<string> onMessageReceived)
+    public async IAsyncEnumerable<string> SendMessageStreamingAsync(ChatHistory chatHistory, CancellationToken token)
     {
-        // _chatHistory.AddMessage(AuthorRole.User, message);
-        //
-        // var args = new KernelArguments();
-        // args.Add();
-        // var response = await GetKernel.InvokePromptAsync("promptTemplate", _chatHistory);
-        // IChatCompletionService
+        var chat = GetKernel.GetRequiredService<IChatCompletionService>();
+        var builder = StringBuilderPool.Get();
+        await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
+                           GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
+        {
+            builder.Append(content.Content);
+            yield return builder.ToString();
+            if (token.IsCancellationRequested) break;
+        }
+
+        StringBuilderPool.Release(builder);
+    }
+
+
+    public async void SendMessageStreaming(ChatHistory chatHistory,
+        Action<string> onMessageReceived, Action<string> onMessageStopped, CancellationToken token)
+    {
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
         var builder = StringBuilderPool.Get();
         string result = "";
         try
         {
             await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
-                               GetOpenAiRequestSettings()))
+                               GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
             {
                 builder.Append(content.Content);
                 result = builder.ToString();
                 onMessageReceived?.Invoke(result);
-                //onMessageReceived?.Invoke(_resultStringBuilder.ToString());
             }
         }
         catch (IOException)
@@ -71,11 +73,7 @@ public class ChatThread
         }
 
         StringBuilderPool.Release(builder);
-        // return _resultStringBuilder.ToString();
-        //chatHistory.AddMessage(AuthorRole.Assistant, result);
-
-        // return str;
-        return result;
+        onMessageStopped?.Invoke(result);
     }
 
     private OpenAIPromptExecutionSettings GetOpenAiRequestSettings()

@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.ViewModels.ViewData;
@@ -20,13 +21,13 @@ namespace UiharuMind.ViewModels.Pages;
 
 public partial class SettingPageData : PageDataBase
 {
-    public LLamaCppSettingModel LlamaSettingModel { get; set; } = new LLamaCppSettingModel();
-
+    // public LLamaCppSettingModel LlamaSettingModel { get; set; } = new LLamaCppSettingModel();
+    
     public SettingPageData()
     {
-        LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config;
+        // LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config;
     }
-
+    
     public override void OnDisable()
     {
         base.OnDisable();

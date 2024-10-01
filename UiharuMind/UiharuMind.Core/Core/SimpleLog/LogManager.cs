@@ -39,20 +39,17 @@ public class LogManager
 
     public void Log(string str)
     {
-        AddLog(ELogType.Log, str);
-        Logger?.Debug(str);
+        Logger?.Debug(str, AddLog(ELogType.Log, str));
     }
 
     public void LogWarning(string str)
     {
-        AddLog(ELogType.Warning, str);
-        Logger?.Warning(str);
+        Logger?.Warning(str, AddLog(ELogType.Warning, str));
     }
 
     public void LogError(string str)
     {
-        AddLog(ELogType.Error, str);
-        Logger?.Error(str);
+        Logger?.Error(str, AddLog(ELogType.Error, str));
     }
 
     public void SaveLog(string path)
@@ -71,7 +68,7 @@ public class LogManager
         _spinLocker.Exit();
     }
 
-    private void AddLog(ELogType type, string str)
+    private LogItem AddLog(ELogType type, string str)
     {
         bool islock = false;
         _spinLocker.Enter(ref islock);
@@ -79,6 +76,7 @@ public class LogManager
         _logItems.Add(item);
         OnLogChange?.Invoke(item);
         _spinLocker.Exit();
-        Console.WriteLine(item.ToString());
+        // Console.WriteLine(item.ToString());
+        return item;
     }
 }

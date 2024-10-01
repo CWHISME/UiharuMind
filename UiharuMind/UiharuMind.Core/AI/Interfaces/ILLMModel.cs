@@ -1,4 +1,4 @@
-namespace UiharuMind.Core.Core.Interfaces;
+namespace UiharuMind.Core.AI.Interfaces;
 
 public interface ILlmModel
 {

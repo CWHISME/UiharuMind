@@ -1,10 +1,12 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Views.Pages;
@@ -19,7 +21,7 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
 
-    public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
+    public List<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
     private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.Config;
 
@@ -74,6 +76,7 @@ public partial class ModelPageData : PageDataBase
     {
         IsBusy = true;
         await App.ModelService.LoadModelList();
+        OnPropertyChanged(nameof(ModelSources));
         IsBusy = false;
     }
 }

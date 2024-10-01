@@ -28,20 +28,9 @@ public abstract class UiharuWindowBase : Window
         SafeClose();
     }
 
-    // public override void Hide()
-    // {
-    //     base.Hide();
-    // }
-
     protected virtual void SafeClose()
     {
         OnPreClose();
-        // InvalidateMeasure();
-        Dispatcher.UIThread.InvokeAsync(Hide);
-        // Task.Run(() =>
-        // {
-        //     Task.Delay(100);
-        //     Dispatcher.UIThread.InvokeAsync(Hide);
-        // });
+        Dispatcher.UIThread.Post(Hide);
     }
 }

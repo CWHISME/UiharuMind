@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using Avalonia;
@@ -8,6 +9,8 @@ using Avalonia.Markup.Xaml;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
+using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Views.SettingViews;
 
@@ -48,44 +51,57 @@ public partial class SettingListView : UserControl
     // }
 
     /// <summary>
+    /// 通知重载数值
+    /// </summary>
+    public void RequestReloadValues()
+    {
+        foreach (var action in _changeActions)
+        {
+            action();
+        }
+    }
+
+    private List<Action> _changeActions = new List<Action>();
+
+    /// <summary>
     /// 刷新所有设置状态
     /// </summary>
     private void RefreshResetView()
     {
         SettingContent.Children.Clear();
+        _changeActions.Clear();
         if (SettingConfig is ConfigBase)
         {
             foreach (var property in SettingConfig.GetType().GetProperties())
             {
-                var value = property.GetValue(SettingConfig);
-
-                CreateControlForType(property.PropertyType, value, property);
+                // var value = property.GetValue(SettingConfig);
+                CreateControlForType(property.PropertyType, property);
             }
         }
     }
 
-    private void CreateControlForType(Type type, object? value, PropertyInfo property)
+    private void CreateControlForType(Type type, PropertyInfo property)
     {
         Control control;
         switch (type)
         {
             case not null when type == typeof(int):
-                control = CreateNumericUpDownControl(type, Convert.ToDecimal(value), property, NumberStyles.Integer);
+                control = CreateNumericControl(type, property, NumberStyles.Integer);
                 break;
             case not null when type == typeof(long):
-                control = CreateNumericUpDownControl(type, Convert.ToDecimal(value), property, NumberStyles.Integer);
+                control = CreateNumericControl(type, property, NumberStyles.Integer);
                 break;
             case not null when type == typeof(double):
-                control = CreateNumericUpDownControl(type, Convert.ToDecimal(value), property, NumberStyles.Float);
+                control = CreateNumericControl(type, property, NumberStyles.Float);
                 break;
             case not null when type == typeof(float):
-                control = CreateNumericUpDownControl(type, Convert.ToDecimal(value), property, NumberStyles.Float);
+                control = CreateNumericControl(type, property, NumberStyles.Float);
                 break;
             case not null when type == typeof(string):
-                control = CreateTextBoxControl(value as string, property);
+                control = CreateTextBoxControl(property);
                 break;
             case not null when type == typeof(bool):
-                control = CreateCheckBoxControl(value as bool?, property);
+                control = CreateCheckBoxControl(property);
                 break;
             // 其他类型处理
             default:
@@ -96,24 +112,73 @@ public partial class SettingListView : UserControl
         AddSettingControl(property, control);
     }
 
-    private Control CreateCheckBoxControl(bool? value, PropertyInfo property)
+    //================基础组件 start=========================
+
+    private Control CreateCheckBoxControl(PropertyInfo property)
     {
         var checkbox = new CheckBox
         {
             Content = property.Name,
-            IsChecked = value
+            IsChecked = property.GetValue(SettingConfig) as bool?,
         };
 
-        checkbox.IsCheckedChanged += (sender, e) => { property.SetValue(SettingConfig, true); };
+        checkbox.IsCheckedChanged += (sender, e) => { property.SetValue(SettingConfig, checkbox.IsChecked); };
+        _changeActions.Add(() => checkbox.IsChecked = property.GetValue(SettingConfig) as bool?);
         return checkbox;
     }
 
-    private NumericUpDown CreateNumericUpDownControl(Type type, object? initialValue, PropertyInfo property,
+    /// <summary>
+    /// 数值设置，如果有设置范围，则使用滑块，否则使用数字输入框
+    /// </summary>
+    /// <param name="type"></param>
+    /// <param name="property"></param>
+    /// <param name="numberStyles"></param>
+    /// <returns></returns>
+    private Control CreateNumericControl(Type type, PropertyInfo property,
         NumberStyles numberStyles)
     {
+        //设置过范围，使用 Slider
+        SettingConfigRangeAttribute? range = property.GetCustomAttribute<SettingConfigRangeAttribute>();
+        if (range != null)
+        {
+            DockPanel panel = new DockPanel() { LastChildFill = true };
+
+            Slider slider = new Slider
+            {
+                Minimum = Convert.ToDouble(range.MinValue),
+                Maximum = Convert.ToDouble(range.MaxValue),
+                Value = Convert.ToDouble(property.GetValue(SettingConfig)),
+                TickFrequency = Convert.ToDouble(range.Step),
+                IsSnapToTickEnabled = true,
+            };
+            TextBlock title = new TextBlock
+            {
+                Text = slider.Value.ToString(CultureInfo.CurrentCulture),
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+
+            panel.Children.Add(title);
+            panel.Children.Add(slider);
+            DockPanel.SetDock(title, Dock.Right);
+            DockPanel.SetDock(slider, Dock.Left);
+
+            slider.ValueChanged += (sender, e) =>
+            {
+                property.SetValue(SettingConfig, Convert.ChangeType(slider.Value, type));
+                title.Text = slider.Value.ToString(CultureInfo.CurrentCulture);
+            };
+
+            _changeActions.Add(() => slider.Value = Convert.ToDouble(property.GetValue(SettingConfig)));
+
+            return panel;
+        }
+
+
+        //没有设置范围，使用数字输入框
         var intbox = new NumericUpDown
         {
-            Value = initialValue as decimal?,
+            Value = Convert.ToDecimal(property.GetValue(SettingConfig)),
             ParsingNumberStyle = numberStyles,
         };
 
@@ -121,21 +186,49 @@ public partial class SettingListView : UserControl
         {
             property.SetValue(SettingConfig, Convert.ChangeType(intbox.Value, type));
         };
+        _changeActions.Add(() => intbox.Value = Convert.ToDecimal(property.GetValue(SettingConfig)));
 
         return intbox;
     }
 
-    private TextBox CreateTextBoxControl(string? initialValue, PropertyInfo property)
+    /// <summary>
+    /// 文本输入框，如果有选项，则使用 ComboBox，否则使用普通输入框
+    /// </summary>
+    /// <param name="property"></param>
+    /// <returns></returns>
+    private Control CreateTextBoxControl(PropertyInfo property)
     {
+        //设置选项
+        SettingConfigOptionsAttribute? options = property.GetCustomAttribute<SettingConfigOptionsAttribute>();
+        if (options != null)
+        {
+            ComboBox comboBox = new ComboBox();
+            foreach (var option in options.Options)
+            {
+                comboBox.Items.Add(option);
+            }
+
+            comboBox.SelectedIndex = Array.IndexOf(options.Options, property.GetValue(SettingConfig)?.ToString());
+            comboBox.SelectionChanged += (sender, e) => { property.SetValue(SettingConfig, comboBox.SelectedItem); };
+            _changeActions.Add(() =>
+                comboBox.SelectedIndex = Array.IndexOf(options.Options, property.GetValue(SettingConfig)?.ToString()));
+
+            return comboBox;
+        }
+
+        //没有设置选项，使用普通输入框
         var textbox = new TextBox
         {
-            Text = initialValue
+            Text = property.GetValue(SettingConfig)?.ToString()
         };
 
         textbox.TextChanged += (sender, e) => { property.SetValue(SettingConfig, textbox.Text); };
+        _changeActions.Add(() => textbox.Text = property.GetValue(SettingConfig)?.ToString());
 
         return textbox;
     }
+
+    //================基础组件 end========================
 
     private void AddSettingControl(PropertyInfo property, Control control)
     {
@@ -168,11 +261,26 @@ public partial class SettingListView : UserControl
 
     private void AddTooltip(Control control, PropertyInfo property)
     {
-        string? tooltip = property.GetCustomAttribute<SettingConfigDescAttribute>()?.Description;
-        if (tooltip == null) return;
+        var attributes = property.GetCustomAttributes<SettingConfigDescAttribute>();
+        SettingConfigDescAttribute? selected = null;
+        foreach (var attribute in attributes)
+        {
+            //多语言支持，如果没有找到匹配的语言，则使用英文
+            if (attribute.LanguageCode == Lang.Culture.Name)
+            {
+                selected = attribute;
+                break;
+            }
 
-        ToolTip tip = new ToolTip();
-        tip.Content = tooltip;
+            if (attribute.LanguageCode == LanguageUtils.EnglishUnitedStates && selected == null) selected = attribute;
+        }
+
+        if (selected == null) return;
+
+        ToolTip tip = new ToolTip
+        {
+            Content = selected.Description
+        };
         ToolTip.SetTip(control, tip);
     }
 

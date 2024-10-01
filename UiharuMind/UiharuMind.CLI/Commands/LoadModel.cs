@@ -20,31 +20,31 @@ public class LoadModelCommand : ICommand
 
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var list = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.GetModelList();
-        if (list == null) throw new CommandException("model list not found.");
-        GGufModelInfo? model = null;
-        if (int.TryParse(OrderOrName, out var order))
-        {
-            int index = order - 1;
-            if (index < 0 || index >= list.Count) throw new CommandException($"order:{OrderOrName} invalid!");
-            // model = list.fi//list[index];
-            int numIndex = 0;
-            foreach (var item in list)
-            {
-                if (numIndex == index)
-                {
-                    model = item.Value;
-                    break;
-                }
-
-                numIndex++;
-            }
-        }
-        // else model = list.FirstOrDefault(x => x.ModelName == OrderOrName);
-        else
-            list.TryGetValue(OrderOrName, out model);
-
-        if (model == null) throw new CommandException($"model:{OrderOrName} not found.");
-        await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(model.ModelPath, Port);
+        // var list = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.GetModelList();
+        // if (list == null) throw new CommandException("model list not found.");
+        // GGufModelInfo? model = null;
+        // if (int.TryParse(OrderOrName, out var order))
+        // {
+        //     int index = order - 1;
+        //     if (index < 0 || index >= list.Count) throw new CommandException($"order:{OrderOrName} invalid!");
+        //     // model = list.fi//list[index];
+        //     int numIndex = 0;
+        //     foreach (var item in list)
+        //     {
+        //         if (numIndex == index)
+        //         {
+        //             model = item.Value;
+        //             break;
+        //         }
+        //
+        //         numIndex++;
+        //     }
+        // }
+        // // else model = list.FirstOrDefault(x => x.ModelName == OrderOrName);
+        // else
+        //     list.TryGetValue(OrderOrName, out model);
+        //
+        // if (model == null) throw new CommandException($"model:{OrderOrName} not found.");
+        // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(model.ModelPath, Port);
     }
 }

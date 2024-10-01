@@ -1,3 +1,4 @@
+using System.Threading;
 using Avalonia.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -31,6 +32,7 @@ public partial class ChatViewModel : ObservableObject
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
 
+    private CancellationTokenSource _cancelTokenSource;
 
     [RelayCommand]
     public void ChangeSendMode()
@@ -51,8 +53,12 @@ public partial class ChatViewModel : ObservableObject
         // Lang.Culture = CultureInfo.GetCultureInfo("mmm");
     }
 
-    private void AddMessage(string message)
+    private async void AddMessage(string message)
     {
-        ChatSession.AddMessage(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant, message);
+        IsGenerating = true;
+        _cancelTokenSource = new CancellationTokenSource();
+        await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant,
+            message, _cancelTokenSource.Token);
+        IsGenerating = false;
     }
 }

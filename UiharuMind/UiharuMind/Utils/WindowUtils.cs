@@ -46,7 +46,8 @@ public static class WindowUtils
                     break;
             }
 
-            window.Position = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
+            var finalPos = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
+            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, window.FrameSize!.Value);
         });
     }
 
@@ -60,6 +61,8 @@ public static class WindowUtils
         window.ExtendClientAreaToDecorationsHint = true;
         window.ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         window.ExtendClientAreaTitleBarHeightHint = -1;
+        //不需要任务栏显示
+        window.ShowInTaskbar = false;
     }
 
 

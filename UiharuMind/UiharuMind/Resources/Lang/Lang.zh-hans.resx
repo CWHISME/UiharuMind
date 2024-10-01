@@ -86,4 +86,10 @@
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>正在检查更新...</value>
     </data>
+    <data name="LLamaCppSetting" xml:space="preserve">
+        <value>LLamaCpp 设置</value>
+    </data>
+    <data name="InAnswer" xml:space="preserve">
+        <value>计算中...</value>
+    </data>
 </root>

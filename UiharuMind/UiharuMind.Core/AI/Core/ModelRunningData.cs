@@ -1,14 +1,13 @@
 using Microsoft.SemanticKernel.ChatCompletion;
-using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Core.Chat;
-using UiharuMind.Core.Core.Interfaces;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.LLamaCpp.Data;
+namespace UiharuMind.Core.AI.Core;
 
 public class ModelRunningData
 {
-    private ILlmRuntimeEngine _runtimeEngine;
+    private ILlmRuntime _runtime;
     private ILlmModel _modelInfo;
     private ChatThread? _chatThread;
     private CancellationTokenSource? _cts;
@@ -39,9 +38,9 @@ public class ModelRunningData
     // private Action<float>? _onLoading;
     // private Action? _onLoaded;
 
-    public ModelRunningData(ILlmRuntimeEngine runtimeEngine, ILlmModel modelInfo)
+    public ModelRunningData(ILlmRuntime runtime, ILlmModel modelInfo)
     {
-        _runtimeEngine = runtimeEngine;
+        _runtime = runtime;
         _modelInfo = modelInfo;
     }
 
@@ -62,11 +61,12 @@ public class ModelRunningData
         LoadingPercent = 0;
         // _onLoading = onLoading;
         // _onLoaded = onLoaded;
-        await _runtimeEngine.Run(_modelInfo, OnInitLoad, (x) =>
+        _cts = new CancellationTokenSource();
+        await _runtime.Run(_modelInfo, (x) =>
         {
             LoadingPercent = x;
             onLoading?.Invoke(x);
-        }, onLoaded);
+        }, onLoaded, _cts.Token);
         // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(_modelInfo.ModelPath, Port,
         //     OnInitLoad,
         //     OnMessageUpdate);
@@ -80,36 +80,22 @@ public class ModelRunningData
     {
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
         _cts = null;
-        // EndLoadCheck();
-        // _onLoaded?.Invoke();
-        // _onLoaded = null;
     }
 
-    public async void SendMessage(ChatHistory chatHistory, Action<string> onMessageReceived,
-        Action<string> onMessageComplete)
+    public IAsyncEnumerable<string> SendMessageAsync(ChatHistory chatHistory, CancellationToken token)
     {
-        if (!IsRunning)
-        {
-            Log.Error($"{ModelName} is not running");
-            return;
-        }
+        // if (!IsRunning)
+        // {
+        //     onMessageReceived.Invoke($"{ModelName} is not running");
+        //     yield break;
+        // }
 
-        if (_chatThread == null) _chatThread = new ChatThread();
-        var result = await _chatThread.SendMessageStreamingAsync(chatHistory, onMessageReceived);
-        onMessageComplete.Invoke(result);
+        _chatThread ??= new ChatThread();
+        return _chatThread.SendMessageStreamingAsync(chatHistory, token);
     }
 
     private void OnInitLoad(CancellationTokenSource cts)
     {
         _cts = cts;
     }
-
-    // private void EndLoadCheck()
-    // {
-    //     if (_onLoaded != null)
-    //     {
-    //         _onLoaded();
-    //         _onLoaded = null;
-    //     }
-    // }
 }

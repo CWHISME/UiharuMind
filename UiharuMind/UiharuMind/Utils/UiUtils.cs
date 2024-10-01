@@ -42,30 +42,44 @@ public static class UiUtils
     }
 
     /// <summary>
-    /// 计算在屏幕内的位置，防止其超出屏幕范围
+    /// 计算指定大小的控件在屏幕内鼠标处的位置，防止其超出屏幕范围
     /// </summary>
     /// <param name="controlSize"></param>
     /// <returns></returns>
-    public static PixelPoint EnsureMousePositionWithinScreen(Size controlSize)
+    public static PixelPoint EnsurePositionWithinScreen(Size controlSize)
     {
-        return EnsureMousePositionWithinScreen(App.ScreensService.MouseScreen, controlSize);
+        return EnsurePositionWithinScreen(App.ScreensService.MouseScreen, App.ScreensService.MousePosition,
+            controlSize);
+    }
+
+    /// <summary>
+    /// 计算在屏幕内的位置，防止其超出屏幕范围
+    /// </summary>
+    /// <param name="onScreenPosition"></param>
+    /// <param name="controlSize"></param>
+    /// <returns></returns>
+    public static PixelPoint EnsurePositionWithinScreen(PixelPoint onScreenPosition, Size controlSize)
+    {
+        return EnsurePositionWithinScreen(App.ScreensService.MouseScreen, onScreenPosition, controlSize);
     }
 
     /// <summary>
     /// 计算控件在屏幕内的位置，防止其超出屏幕范围
     /// </summary>
     /// <param name="screen"></param>
+    /// <param name="onScreenPosition"></param>
     /// <param name="controlSize"></param>
     /// <returns></returns>
-    public static PixelPoint EnsureMousePositionWithinScreen(Screen? screen, Size controlSize)
+    public static PixelPoint EnsurePositionWithinScreen(Screen? screen, PixelPoint onScreenPosition,
+        Size controlSize)
     {
         if (screen == null) return new PixelPoint(0, 0);
-        // 计算鼠标位置在屏幕内的有效范围
-        PixelPoint mousePixelPoint = App.ScreensService.MousePosition;
+        // PixelPoint mousePixelPoint = App.ScreensService.MousePosition;
         //PixelPoint.FromPoint(, App.ScreensService.Scaling);
-        int posX = Math.Clamp(mousePixelPoint.X, screen.Bounds.Position.X,
+        // 计算对象位置在屏幕内的有效范围，确保位置初始值一定在屏幕范围内
+        int posX = Math.Clamp(onScreenPosition.X, screen.Bounds.Position.X,
             screen.Bounds.Position.X + screen.Bounds.Width);
-        int posY = Math.Clamp(mousePixelPoint.Y, screen.Bounds.Position.Y,
+        int posY = Math.Clamp(onScreenPosition.Y, screen.Bounds.Position.Y,
             screen.Bounds.Position.Y + screen.Bounds.Height);
 
         // 计算控件在屏幕内的位置

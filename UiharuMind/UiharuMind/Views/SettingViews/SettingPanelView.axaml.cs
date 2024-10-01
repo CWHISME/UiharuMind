@@ -28,34 +28,34 @@ public partial class SettingPanelView : UserControl
         SettingConfig = SettingConfig;
     }
 
-    // public static readonly StyledProperty<object?> SettingConfigProperty =
-    //     AvaloniaProperty.Register<SettingPanelView, object?>(nameof(SettingConfig),
-    //         defaultBindingMode: BindingMode.TwoWay);
-    //
-    // public object? SettingConfig
-    // {
-    //     get => GetValue(SettingConfigProperty);
-    //     set
-    //     {
-    //         SetValue(SettingConfigProperty, value);
-    //
-    //         var actualValue = SettingConfig;
-    //         Title.Text = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
-    //                      actualValue?.GetType().Name;
-    //         SettingListView.SettingConfig = actualValue;
-    //     }
-    // }
-    private object? _settingConfig;
+    public static readonly StyledProperty<object?> SettingConfigProperty =
+        AvaloniaProperty.Register<SettingPanelView, object?>(nameof(SettingConfig),
+            defaultBindingMode: BindingMode.TwoWay);
 
     public object? SettingConfig
     {
-        get => _settingConfig;
+        get => GetValue(SettingConfigProperty);
         set
         {
-            _settingConfig = value;
-            Title.Text = _settingConfig?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
-                         _settingConfig?.GetType().Name;
-            SettingListView.SettingConfig = _settingConfig;
+            SetValue(SettingConfigProperty, value);
+
+            var actualValue = SettingConfig;
+            Title.Text = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
+                         actualValue?.GetType().Name;
+            SettingListView.SettingConfig = actualValue;
         }
     }
+    // private object? _settingConfig;
+    //
+    // public object? SettingConfig
+    // {
+    //     get => _settingConfig;
+    //     set
+    //     {
+    //         _settingConfig = value;
+    //         Title.Text = _settingConfig?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
+    //                      _settingConfig?.GetType().Name;
+    //         SettingListView.SettingConfig = _settingConfig;
+    //     }
+    // }
 }

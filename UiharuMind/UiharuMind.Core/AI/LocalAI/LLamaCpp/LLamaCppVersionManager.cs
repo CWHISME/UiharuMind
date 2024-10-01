@@ -4,6 +4,7 @@ using AngleSharp.Dom;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Versions;
 
 namespace UiharuMind.Core.LLamaCpp;
@@ -44,7 +45,7 @@ public class LLamaCppVersionManager
 
             _versionManager.RemoveAllNotLoadedVersions();
             _versionManager.Sort();
-        });
+        }).ConfigureAwait(false);
 
         return _versionManager;
     }
@@ -71,23 +72,7 @@ public class LLamaCppVersionManager
         // string assetCount = document.QuerySelector(".Box-footer .Counter").TextContent;
         // _versionManager.GetOrCreateVersion(versionName);
 
-        if (releaseDate != null)
-        {
-            try
-            {
-                DateTimeOffset dateTimeOffset = DateTimeOffset.Parse(releaseDate);
-
-                // 转换为本地时间
-                DateTime dateTime = dateTimeOffset.LocalDateTime;
-
-                // 格式化日期
-                releaseDate = dateTime.ToString("yyyy-MM-dd HH:mm:ss");
-            }
-            catch (Exception e)
-            {
-                Log.Error(e.Message);
-            }
-        }
+        if (releaseDate != null) releaseDate = TimeUtils.TimeStringToLocalTimeString(releaseDate);
 
         _versionManager.ReleaseDate = $"Release Date: {releaseDate} \n\n{updateDesc}";
 
@@ -100,6 +85,10 @@ public class LLamaCppVersionManager
             var link = detailList[0].QuerySelector("a");
             var name = link?.TextContent.Trim();
             if (name == null || !name.StartsWith("llama-")) continue;
+            //筛选掉非该平台的版本
+            if (PlatformUtils.IsWindows && !name.Contains("win", StringComparison.OrdinalIgnoreCase)) continue;
+            if (PlatformUtils.IsMacOS && !name.Contains("macos", StringComparison.OrdinalIgnoreCase)) continue;
+            if (PlatformUtils.IsLinux && !name.Contains("linux", StringComparison.OrdinalIgnoreCase)) continue;
             var linkHref = "https://github.com" + link?.GetAttribute("href");
             // var size = detailList[1].QuerySelector("span")?.TextContent;
             // Log.Debug($"{name} {size} {linkHref}");

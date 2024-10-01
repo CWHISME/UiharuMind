@@ -58,7 +58,7 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
-        if (msg == WM_CLIPBOARDUPDATE)
+        if (msg == WM_CLIPBOARDUPDATE && _running)
         {
             OnClipboardChanged?.Invoke();
         }
@@ -70,7 +70,12 @@ public class WindowsClipboardMonitor : IClipboardMonitor
     {
         _running = false;
         PostThreadMessage(_monitorThread.ManagedThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+        // 发送一个剪切板事件，确保 GetMessage 能够接收到这个事件
+        PostMessage(_windowHandle, WM_CLIPBOARDUPDATE, IntPtr.Zero, IntPtr.Zero);
         _monitorThread.Join();
+
+        //直接销毁似乎其实也可以
+        // DestroyWindow(_windowHandle);
         GC.SuppressFinalize(this);
     }
 
@@ -98,6 +103,9 @@ public class WindowsClipboardMonitor : IClipboardMonitor
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool GetMessage(out Msg lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);

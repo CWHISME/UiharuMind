@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.LLamaCpp.Data;
 
 namespace UiharuMind.Services;
@@ -14,8 +16,7 @@ namespace UiharuMind.Services;
 /// </summary>
 public partial class ModelService : ObservableObject
 {
-    public ObservableCollection<ModelRunningData> ModelSources { get; set; } =
-        new ObservableCollection<ModelRunningData>();
+    public List<ModelRunningData> ModelSources { get; set; } = new List<ModelRunningData>();
 
     public ModelRunningData? CurModelRunningData
     {
@@ -43,7 +44,7 @@ public partial class ModelService : ObservableObject
         LlmManager.Instance.OnCurrentModelStartLoading += OnCurrentModelStartLoading;
         LlmManager.Instance.OnCurrentModelLoading += OnCurrentModelLoading;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
-        LoadModelListSync();
+        LoadModelListAsync();
     }
 
     private void OnCurrentModelStartLoading()
@@ -71,14 +72,14 @@ public partial class ModelService : ObservableObject
         // CurModelRunningData = FindIsRunningModel();
     }
 
-    public async void LoadModelListSync()
+    public async void LoadModelListAsync()
     {
         await LoadModelList();
     }
 
     public async Task LoadModelList()
     {
-        var list = await LlmManager.Instance.GetModelList();
+        var list = await LlmManager.Instance.ReloadModelList().ConfigureAwait(false);
         ModelSources.Clear();
         foreach (var model in list)
         {
@@ -93,6 +94,7 @@ public partial class ModelService : ObservableObject
         OnPropertyChanged(nameof(CurIsRunning));
         OnPropertyChanged(nameof(CurRunningCount));
         OnPropertyChanged(nameof(CurModelRunningData));
+        OnPropertyChanged(nameof(ModelSources));
     }
 
     // ======= event =======

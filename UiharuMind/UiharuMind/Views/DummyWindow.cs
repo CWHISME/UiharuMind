@@ -52,7 +52,8 @@ public class DummyWindow : Window
         RegistryClipboardTool();
         Hide();
         
-        if(UiharuCoreManager.Instance.IsWindows) LaunchMainWindow();
+        //if(UiharuCoreManager.Instance.IsWindows) 
+            LaunchMainWindow();
     }
 
     // private void OnKeyDown(object? sender, KeyEventArgs e)

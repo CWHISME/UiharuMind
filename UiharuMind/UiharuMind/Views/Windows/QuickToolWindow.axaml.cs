@@ -26,7 +26,7 @@ public partial class QuickToolWindow : QuickWindowBase
         InitializeComponent();
 
         SizeToContent = SizeToContent.WidthAndHeight;
-        this.SetSimpledecorationPureWindow();
+        // this.SetSimpledecorationPureWindow();
 
         // SubMenuComboBox.SelectionChanged += OnSubMenuComboBoxSelectionChanged;
     }
@@ -46,6 +46,7 @@ public partial class QuickToolWindow : QuickWindowBase
         // e.Handled = true;
     }
 
+    private string? _answerString;
 
     protected override void OnPreShow()
     {
@@ -66,12 +67,13 @@ public partial class QuickToolWindow : QuickWindowBase
 
     public void SetAnswerString(string text)
     {
-        Log.Debug("Set answer string: " + text);
+        _answerString = text;
+        // Log.Debug("Set answer string: " + text);
     }
 
     private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
-        UIManager.ShowWindow<QuickChatResultWindow>();
+        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString));
         PlayAnimation(false, SafeClose);
     }
 

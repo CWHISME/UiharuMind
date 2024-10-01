@@ -2,6 +2,7 @@ using System.Collections;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Chat;
@@ -37,8 +38,8 @@ public class ChatSession //: IEnumerable<ChatMessage>
     public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
     public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;
 
-    private bool _isFinished=true;
-    
+    private bool _isFinished = true;
+
     private readonly SessionEnumerator _enumerator;
 
     public ChatSession()
@@ -65,18 +66,21 @@ public class ChatSession //: IEnumerable<ChatMessage>
         TimeStamps.Add(DateTime.UtcNow.Ticks);
     }
 
+    // public IAsyncEnumerable<string> GenerateCompletionAsync(Action<ChatMessage> onStartCallback,
+    //     Action<string> onStepCallback,
+    //     Action<string> onCompletionCallback, CancellationToken token)
+
     /// <summary>
     /// 执行生成
     /// 如果当前最后一条消息不是 AI 回复，则生成 AI 回复
     /// 若当前最后一条消息是 AI 回复，则删除最后一条消息，并重新生成 AI 回复
     /// </summary>
-    public void GenerateCompletion(Action<ChatMessage> onStartCallback, Action<string> onStepCallback,
-        Action<string> onCompletionCallback)
+    public IAsyncEnumerable<string> GenerateCompletionAsync(CancellationToken token)
     {
         if (History.Count == 0)
         {
-            Log.Warning("No message in chat session");
-            return;
+            // Log.Warning("No message in chat session");
+            return new AsyncEnumerableWithMessage("No message in chat session");
         }
 
         // if (History[History.Count - 1].Role ==AuthorRole.Assistant )
@@ -85,21 +89,51 @@ public class ChatSession //: IEnumerable<ChatMessage>
         //     TimeStamps.RemoveAt(TimeStamps.Count - 1);
         // }
         // if (History.Count == 0) return;
-        LlmManager.Instance.CurrentRunningModel?.SendMessage(History, x =>
+
+        // LlmManager.Instance.CurrentRunningModel?.SendMessage(History, x =>
+        // {
+        //     if (_isFinished)
+        //     {
+        //         _isFinished = false;
+        //         AddMessage(AuthorRole.Assistant, x);
+        //         onStartCallback?.Invoke(this[^1]);
+        //     }
+        //     onStepCallback?.Invoke(x);
+        // }, (x) =>
+        // {
+        //     _isFinished = true;
+        //     History[^1].Content = x;
+        //     onCompletionCallback(x);
+        // }, token);
+
+        if (LlmManager.Instance.CurrentRunningModel == null || !LlmManager.Instance.CurrentRunningModel.IsRunning)
         {
-            if (_isFinished)
-            {
-                _isFinished = false;
-                AddMessage(AuthorRole.Assistant, x);
-                onStartCallback?.Invoke(this[^1]);
-            }
-            onStepCallback?.Invoke(x);
-        }, (x) =>
-        {
-            _isFinished = true;
-            History[^1].Content = x;
-            onCompletionCallback(x);
-        });
+            return new AsyncEnumerableWithMessage("No running model");
+        }
+
+        // await foreach (string x in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(History, token))
+        // {
+        //     yield return x;
+        // }
+        return LlmManager.Instance.CurrentRunningModel.SendMessageAsync(History, token);
+
+
+        // LlmManager.Instance.CurrentRunningModel.SendMessage(History, x =>
+        // {
+        //     if (_isFinished)
+        //     {
+        //         _isFinished = false;
+        //         AddMessage(AuthorRole.Assistant, x);
+        //         onStartCallback?.Invoke(this[^1]);
+        //     }
+        //
+        //     onStepCallback?.Invoke(x);
+        // }, (x) =>
+        // {
+        //     _isFinished = true;
+        //     History[^1].Content = x;
+        //     onCompletionCallback(x);
+        // }, token);
     }
 
     public void Save()

@@ -1,6 +1,5 @@
+using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
-using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Interfaces;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.SimpleLog;
@@ -16,45 +15,80 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
 
 
-    public async Task StartServer(string modelFilePath, int port,
-        Action<CancellationTokenSource>? onInitCallback = null, Action<string>? onMessageUpdate = null,
-        LLamaCppServerConfig? config = null)
+    public async Task StartServer(string executablePath, string modelFilePath, int port,
+        Action<string>? onMessageUpdate = null, CancellationToken token = default)
     {
-        if (config == null) config = Config.ServerConfig;
-        await ProcessHelper.StartProcess(Config.ExeServer,
-            $"-m {modelFilePath} --port {port} {CommandLineHelper.GenerateCommandLineArgs(config)}", onInitCallback,
-            (line, cts) => { onMessageUpdate?.Invoke(line); });
+        // var exePath = Config.GetExeServerPath(executablePath);
+        // if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+        // {
+        //     Log.Error($"Can't find server executable {exePath}");
+        //     return;
+        // }
+
+        // config ??= Config.ServerConfig;
+        string paramsStr = Config.GetExeParams();
+        Log.Debug("Start sever:" + paramsStr);
+        await ProcessHelper.StartProcess(Config.GetExeServerPath(executablePath),
+                $"-m {modelFilePath} --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {paramsStr}",
+                onMessageUpdate, token)
+            .ConfigureAwait(false);
     }
 
-    public async Task Run(ILlmModel model, Action<CancellationTokenSource> onStartLoad, Action<float>? onLoading = null,
-        Action? onLoadOver = null)
+    public async Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null, Action? onLoadOver = null,
+        CancellationToken token = default)
     {
         int loadingCount = 0;
-        float LoadingPercent = 0;
+        var loadOver = false;
 
         void OnMessageUpdate(string msg)
         {
-            Log.Debug(msg);
+            if (!loadOver || Config.DebugConfig.LogRunningInfo) Log.Debug(msg);
+            if (loadOver) return;
             if (loadingCount < 128 && !msg.StartsWith("main: server is listening"))
             {
                 loadingCount++;
-                LoadingPercent = Math.Min(1, loadingCount / 128f);
-                onLoading?.Invoke(LoadingPercent);
+                var loadingPercent = Math.Min(1, loadingCount / 128f);
+                onLoading?.Invoke(loadingPercent);
             }
-            else onLoadOver?.Invoke();
+            else
+            {
+                loadOver = true;
+                onLoadOver?.Invoke();
+            }
         }
 
-        await StartServer(model.ModelPath, Config.DefautPort, onStartLoad, OnMessageUpdate);
+        await StartServer(info.ExecutablePath, model.ModelPath, Config.DefautPort, OnMessageUpdate, token)
+            .ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList()
+    // public async Task Run(ILlmModel model, Action<CancellationTokenSource> onStartLoad, Action<float>? onLoading = null,
+    //     Action? onLoadOver = null)
+    // {
+    //     int loadingCount = 0;
+    //
+    //     void OnMessageUpdate(string msg)
+    //     {
+    //         Log.Debug(msg);
+    //         if (loadingCount < 128 && !msg.StartsWith("main: server is listening"))
+    //         {
+    //             loadingCount++;
+    //             var loadingPercent = Math.Min(1, loadingCount / 128f);
+    //             onLoading?.Invoke(loadingPercent);
+    //         }
+    //         else onLoadOver?.Invoke();
+    //     }
+    //
+    //     await StartServer(model.ModelPath, Config.DefautPort, onStartLoad, OnMessageUpdate);
+    // }
+
+    public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList(VersionInfo? versionInfo)
     {
-        return await ScanLocalModels();
+        return await ScanLocalModels(versionInfo).ConfigureAwait(false);
     }
 
-    public async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(bool force = false)
+    public async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(VersionInfo? versionInfo, bool force = false)
     {
-        string lookupExe = Config.ExeLookupStats;
+        string? executablePath = Config.GetExeLookupStatsPath(versionInfo?.ExecutablePath);
         _modelInfos.Clear();
         string[] files = Directory.GetFiles(Config.LocalModelPath!, "*.gguf", SearchOption.AllDirectories);
         bool isChanged = false;
@@ -66,31 +100,33 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
                 // if (Config.ModelInfos.ContainsKey(fileName))
             {
                 info.ModelPath = file;
-                _modelInfos.Add(fileName, info);
+                _modelInfos[fileName] = info;
                 continue;
             }
 
+            if (executablePath == null) continue;
+
             if (!isChanged) isChanged = true;
-            info = await GetModelStateInfo(lookupExe, file);
+            info = await GetModelStateInfo(executablePath, file);
             info.ModelName = fileName;
             info.ModelPath = file;
-            _modelInfos.Add(fileName, info);
 
+            _modelInfos[fileName] = info;
             Config.ModelInfos[fileName] = info;
             // break;
         }
 
         if (isChanged) Config.Save();
+        //缓存一次时因为可能出现更换目录，配置设置还在但是模型已经不在的情况
         return _modelInfos;
         // return null;
     }
 
-    public async Task ScanLocalModel(string modelFilePath)
-    {
-        var info = await GetModelStateInfo(Config.ExeLookupStats, modelFilePath);
-        Config.ModelInfos[Path.GetFileName(modelFilePath)] = info;
-    }
-
+    // public async Task ScanLocalModel(string modelFilePath)
+    // {
+    //     var info = await GetModelStateInfo(Config.ExeLookupStats, modelFilePath);
+    //     Config.ModelInfos[Path.GetFileName(modelFilePath)] = info;
+    // }
 
     /// <summary>
     /// 获取本地版本列表
@@ -101,7 +137,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     {
         string path = Path.Combine(enginePath, "LLamaCpp");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-        return await _llamaCppVersionManager.GetLocalVersions(path);
+        return await _llamaCppVersionManager.GetLocalVersions(path).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -115,14 +151,17 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         return await _llamaCppVersionManager.GetLatestVersion(path);
     }
 
-    private async Task<GGufModelInfo> GetModelStateInfo(string lookupExe, string file)
+    private async Task<GGufModelInfo> GetModelStateInfo(string exec, string file)
     {
         // Stopwatch stopwatch = new Stopwatch();
         // stopwatch.Start();
         GGufModelInfo info = new GGufModelInfo();
         // await ProcessHelper.StartProcess(lookupExe, $"-m {file}",
         //     async (line, cts) => await ParseModelInfo(line, info, cts));
-        await ProcessHelper.StartProcess(lookupExe, $"-m {file} -v", (line, cts) => ParseModelInfo(line, info, cts));
+        CancellationTokenSource cts = new CancellationTokenSource();
+        await ProcessHelper.StartProcess(exec, $"-m {file} -v",
+            (line) => ParseModelInfo(line, info, cts),
+            cts.Token);
         // stopwatch.Stop();
         // Log.Debug($"Scan Model {file} {stopwatch.ElapsedMilliseconds}");
         return info;

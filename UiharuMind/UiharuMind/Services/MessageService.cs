@@ -64,7 +64,7 @@ public partial class MessageService : ObservableObject
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async Task ShowErrorMessage(string message)
+    public async void ShowErrorMessage(string message)
     {
         await ShowMessage(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
     }

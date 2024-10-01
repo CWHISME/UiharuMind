@@ -180,7 +180,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         if (_currentScreen == null) return;
         try
         {
-            var point = UiUtils.EnsureMousePositionWithinScreen(_currentScreen, InfoPanel.Bounds.Size);
+            var point = UiUtils.EnsurePositionWithinScreen(_currentScreen, App.ScreensService.MousePosition,
+                InfoPanel.Bounds.Size);
 
             if (correct)
             {
@@ -288,7 +289,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                     (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
                 var image = await childImage.ImageToBitmap();
                 // image.dp = new Size(SelectionRectangle.Width, SelectionRectangle.Height);
-                ScreenCapturePreviewWindow.ShowWindowAtMousePosition(image,new Size(SelectionRectangle.Width, SelectionRectangle.Height));
+                ScreenCapturePreviewWindow.ShowWindowAtMousePosition(image,
+                    new Size(SelectionRectangle.Width, SelectionRectangle.Height));
             }
             catch (Exception e)
             {

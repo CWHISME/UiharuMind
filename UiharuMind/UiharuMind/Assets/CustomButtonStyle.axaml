@@ -1,0 +1,28 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <Border Padding="20">
+            <!-- Add Controls for Previewer Here -->
+        </Border>
+    </Design.PreviewWith>
+
+    <!-- Add Styles Here -->
+    
+    <!-- SimpleSolidButton -->
+    <!-- 移除 Button 的悬停效果 -->
+    <Style Selector="Button.SimpleSolidButton:pointerover /template/ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- 移除 Button 的选中效果 -->
+    <Style Selector="Button.SimpleSolidButton:pressed /template/ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+        
+    <!-- 确保覆盖 Button 默认样式 -->
+    <Style Selector="Button.SimpleSolidButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+</Styles>

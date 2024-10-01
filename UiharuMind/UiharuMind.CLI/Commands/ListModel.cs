@@ -11,11 +11,11 @@ public class ListModelCommand : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        var list = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.GetModelList();
-        int i = 1;
-        foreach (var model in list)
-        {
-            await console.Output.WriteLineAsync($"{i++}. {model.Key}");
-        }
+        // var list = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.GetModelList();
+        // int i = 1;
+        // foreach (var model in list)
+        // {
+        //     await console.Output.WriteLineAsync($"{i++}. {model.Key}");
+        // }
     }
 }

@@ -14,15 +14,13 @@ class Program
     {
         try
         {
-            // 捕获未处理的异常
-            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)
         {
-            Log.Error("应用程序崩溃: " + ex.StackTrace);
+            Console.WriteLine(@"应用程序崩溃: " + ex.StackTrace);
         }
         finally
         {

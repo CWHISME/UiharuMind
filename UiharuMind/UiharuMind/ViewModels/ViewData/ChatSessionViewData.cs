@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -45,12 +47,38 @@ public partial class ChatSessionViewData : ViewModelBase
         TimeString = CalcTimeString();
     }
 
-    public void AddMessage(AuthorRole role, string message)
+    public async Task AddMessageWithGenerate(AuthorRole role, string message, CancellationToken token)
+    {
+        // _chatSession.AddMessage(role, message);
+        // //添加用户消息
+        // AddMessage(_chatSession[^1]);
+        AddMessage(role, message);
+        //生成AI回复
+        CurrentChatItem = AddMessage(AuthorRole.Assistant, "");
+        // _chatSession.GenerateCompletion(OnStartGenerate,OnStepGenerated,OnCompletionGenerated,new CancellationToken());
+        await GenerateMessage(token);
+    }
+
+    public async Task GenerateMessage(CancellationToken token)
+    {
+        await foreach (var item in _chatSession.GenerateCompletionAsync(token))
+        {
+            if (CurrentChatItem == null)
+            {
+                Log.Error("CurrentChatItem is null");
+                break;
+            }
+
+            CurrentChatItem.Message = item;
+        }
+
+        _chatSession[^1].Message.Content = CurrentChatItem?.Message;
+    }
+
+    private ChatViewItemData AddMessage(AuthorRole role, string message)
     {
         _chatSession.AddMessage(role, message);
-        AddMessage(_chatSession[^1]);
-        CurrentChatItem = null;
-        _chatSession.GenerateCompletion(OnStartGenerate,OnStepGenerated,OnCompletionGenerated);
+        return AddMessage(_chatSession[^1]);
     }
 
     private void OnStartGenerate(ChatMessage obj)
@@ -62,16 +90,15 @@ public partial class ChatSessionViewData : ViewModelBase
     {
         if (CurrentChatItem == null)
         {
-            Log.Warning("CurrentChatItem is null, step generated: "+obj);
+            Log.Warning("CurrentChatItem is null, step generated: " + obj);
             return;
         }
 
         CurrentChatItem.Message = obj;
     }
-    
+
     private void OnCompletionGenerated(string obj)
     {
-     
     }
 
     private ChatViewItemData AddMessage(ChatMessage chatItem)

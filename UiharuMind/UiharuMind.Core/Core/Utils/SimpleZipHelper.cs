@@ -25,6 +25,14 @@ public static class SimpleZipHelper
                     foreach (ZipArchiveEntry entry in archive.Entries)
                     {
                         string destinationPath = Path.Combine(extractPath, entry.FullName);
+
+                        // 确保父目录存在
+                        string? directoryPath = Path.GetDirectoryName(destinationPath);
+                        if (!string.IsNullOrEmpty(directoryPath) && !Directory.Exists(directoryPath))
+                        {
+                            Directory.CreateDirectory(directoryPath);
+                        }
+
                         if (string.IsNullOrEmpty(entry.Name))
                         {
                             // 是目录
@@ -43,7 +51,7 @@ public static class SimpleZipHelper
                 }
 
                 if (isDeleteFile) DeleteFile(zipFilePath);
-            });
+            }).ConfigureAwait(false);
         }
         catch (IOException ioEx)
         {
@@ -52,6 +60,10 @@ public static class SimpleZipHelper
         catch (UnauthorizedAccessException uaEx)
         {
             Log.Error($"解压过程中发生权限错误: {uaEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"解压过程中发生未知错误: {ex.Message}");
         }
     }
 

@@ -15,8 +15,6 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     public bool IsMacOs { get; private set; }
 
     public SettingConfig Setting { get; private set; }
-    // public InputManager Input { get; private set; } = new InputManager();
-    // public ChatManager Chat { get; private set; } = new ChatManager();
 
     public UiharuCoreManager()
     {
@@ -36,20 +34,6 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     {
         Log.Debug("UiharuCoreManager initialized");
     }
-
-    // public async Task CaptureScreen()
-    // {
-    //     await ScreenCaptureMac.Capture();
-    // }
-    //
-    // /// <summary>
-    // /// 对指定屏幕进行全屏截图
-    // /// </summary>
-    // /// <param name="screenId"></param>
-    // public async Task CaptureScreen(int screenId)
-    // {
-    //     await ScreenCaptureMac.Capture(screenId);
-    // }
 
     private void CheckPlatform()
     {

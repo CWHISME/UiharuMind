@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using Avalonia;
@@ -9,6 +10,10 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Microsoft.SemanticKernel.ChatCompletion;
+using UiharuMind.Core.AI;
+using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.UIHolder;
@@ -21,22 +26,44 @@ public partial class QuickChatResultWindow : QuickWindowBase
     public QuickChatResultWindow()
     {
         InitializeComponent();
-        this.SetSimpledecorationWindow();
         // SizeToContent = SizeToContent.WidthAndHeight;
-        
+
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
+        _uiUpdater = new UiUpdater<string>(SetContent);
     }
 
-    private ScrollViewerAutoScrollHolder _autoScrollHolder; 
+    private ScrollViewerAutoScrollHolder _autoScrollHolder;
+    private CancellationTokenSource? _cts;
+    private readonly UiUpdater<string> _uiUpdater;
 
-    public void SeRequestInfo()
+    public bool IsFinished
     {
+        get => !InAnswerPanel.IsVisible;
+        private set => InAnswerPanel.IsVisible = !value;
     }
 
-    protected override void OnOpened(EventArgs e)
+    public async void SetRequestInfo(string info)
     {
-        base.OnOpened(e);
-        Test();
+        TitleTextBlock.Text = "解释";
+        if (LlmManager.Instance.CurrentRunningModel == null)
+        {
+            SetContent("current model is not loaded");
+            IsFinished = true;
+            return;
+        }
+
+        IsFinished = false;
+        SetContent("");
+        ChatHistory history = new ChatHistory();
+        history.AddSystemMessage($"请使用中文详细解释：{info}。");
+        _cts = new CancellationTokenSource();
+
+        await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
+        {
+            await _uiUpdater.UpdateValue(result);
+        }
+
+        IsFinished = true;
     }
 
     protected override void OnPreShow()
@@ -44,71 +71,14 @@ public partial class QuickChatResultWindow : QuickWindowBase
         this.SetWindowToMousePosition(HorizontalAlignment.Center);
     }
 
-    // private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
-    // {
-    //     var scrollViewer = e.Source as ScrollViewer;
-    //     if (scrollViewer == null) return;
-    //     if (e.OffsetDelta.Y > 0)
-    //     {
-    //         // 用户向下滚动
-    //         _isAutoScrolling = false;
-    //     }
-    //     else if (e.OffsetDelta.Y < 0)
-    //     {
-    //         // 用户向上滚动
-    //         _isAutoScrolling = false;
-    //     }
-    //     else if (scrollViewer.Offset.Y>= scrollViewer.ScrollBarMaximum.Y-e.ExtentDelta.Y )
-    //     {
-    //         // 用户手动滚动到底部，恢复自动滚动
-    //         _isAutoScrolling = true;
-    //     }
-    //     //Log.Debug($"scrollViewer.ScrollBarMaximum.Y: {scrollViewer.ScrollBarMaximum.Y}, scrollViewer.Offset.Y: {scrollViewer.Offset.Y}, e.ExtentDelta.Y: {e.ExtentDelta.Y}");
-    //
-    //     // 如果需要自动滚动到底部
-    //     if (_isAutoScrolling)
-    //     {
-    //         scrollViewer.ScrollToEnd();
-    //     }
-    // }
+    protected override void OnPreClose()
+    {
+        if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
+    }
 
-    // protected override void OnPointerPressed(PointerPressedEventArgs e)
-    // {
-    //     if (e.ClickCount == 2)
-    //     {
-    //         SafeClose();
-    //     }
-    // }
-    private void AddContent(string str)
+    private void SetContent(string str)
     {
         ResultTextBlock.Text = str;
-        // if (_isAutoScrolling)
-        // {
-        //     ScrollViewer.ScrollToEnd();
-        // }
-    }
-
-    private StringBuilder sb = new StringBuilder();
-    private Random random = new Random();
-
-    private async void Test()
-    {
-        await RadomCharGenerator();
-    }
-
-    private async Task RadomCharGenerator()
-    {
-        while (IsVisible)
-        {
-            await Task.Delay(10);
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                // 随机生成一个字符（假设为ASCII字符）
-                char randomChar = (char)random.Next(32, 127);
-                sb.Append(randomChar);
-                AddContent(sb.ToString());
-            });
-        }
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -119,5 +89,11 @@ public partial class QuickChatResultWindow : QuickWindowBase
     private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         SafeClose();
+    }
+
+    private void OnStopButtonClick(object? sender, RoutedEventArgs e)
+    {
+        _cts.SafeStop();
+        IsFinished = true;
     }
 }

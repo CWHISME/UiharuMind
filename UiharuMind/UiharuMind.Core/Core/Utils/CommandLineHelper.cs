@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using UiharuMind.Core.Core.Attributes;
 
 namespace UiharuMind.Core.Core.Utils;
 
@@ -31,7 +32,7 @@ public class CommandLineHelper
 
             // 生成命令行参数
             var argName = GetArgName(property.Name);
-            var argValue = GetArgValue(value);
+            var argValue = GetArgValue(property, value);
 
             args.Add($"--{argName} {argValue}");
         }
@@ -42,6 +43,8 @@ public class CommandLineHelper
     private static bool IsDefaultValue(PropertyInfo property, object? value)
     {
         if (value == null) return true;
+        // 设置了忽略标记
+        if (property.GetCustomAttribute<SettingConfigIgnoreAttribute>() != null) return true;
         Type propertyType = property.PropertyType;
         bool isValueType = propertyType.IsValueType;
         if (isValueType)
@@ -55,6 +58,7 @@ public class CommandLineHelper
             if (propertyType == typeof(DateTime)) return value.Equals(DefaultDateTime);
         }
 
+        if (propertyType == typeof(string)) return string.IsNullOrEmpty(value.ToString());
         return Equals(value, null);
     }
 
@@ -64,11 +68,14 @@ public class CommandLineHelper
         return ConvertToLowerCaseDashed(propertyName);
     }
 
-    private static string GetArgValue(object? value)
+    private static string GetArgValue(PropertyInfo property, object? value)
     {
         // 将值转换为字符串
         if (value is bool boolValue)
         {
+            if (property.GetCustomAttribute<SettingConfigNoneValueAttribute>() == null)
+                return boolValue ? "1" : "0";
+            //没有具体值，只要有这个参数就行
             return "";
         }
 

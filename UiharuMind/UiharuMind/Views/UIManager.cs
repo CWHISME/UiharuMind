@@ -20,7 +20,7 @@ public class UIManager
     public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null)
         where T : UiharuWindowBase, new()
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             if (_windows.ContainsKey(typeof(T)))
             {

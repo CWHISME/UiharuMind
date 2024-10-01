@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using UiharuMind.Core.Core.Interfaces;
+using UiharuMind.Core.AI.Interfaces;
 
 namespace UiharuMind.Core.LLamaCpp.Data;
 
