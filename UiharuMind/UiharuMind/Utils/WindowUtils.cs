@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using UiharuMind.Core.Input;
@@ -73,6 +74,10 @@ public static class WindowUtils
         window.SystemDecorations = SystemDecorations.None;
         window.TransparencyLevelHint = new List<WindowTransparencyLevel>()
             { WindowTransparencyLevel.Transparent, WindowTransparencyLevel.AcrylicBlur };
+        window.ExtendClientAreaToDecorationsHint = false;
+        window.Background = Brushes.Transparent;
+        window.Foreground = Brushes.Transparent;
+        window.BorderThickness = new Thickness(0);
     }
 
     /// <summary>

@@ -13,6 +13,10 @@ public abstract class UiharuWindowBase : Window
         Show();
     }
 
+    public virtual void Awake()
+    {
+    }
+
     protected virtual void OnPreShow()
     {
     }

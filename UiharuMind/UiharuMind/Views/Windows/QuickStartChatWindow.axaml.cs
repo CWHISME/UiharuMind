@@ -1,10 +1,12 @@
 using System;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
@@ -20,11 +22,24 @@ public partial class QuickStartChatWindow : QuickWindowBase
     {
         InitializeComponent();
 
-        // this.SetSimpledecorationWindow();
+        SendMessageCommand = new RelayCommand(SendInputMessage);
+
+        DataContext = this;
 
         this.LostFocus += OnLostFocus;
         this.Activated += OnOpened;
         this.Deactivated += OnLostFocus;
+    }
+
+    public ICommand SendMessageCommand { get; set; }
+
+    public override void Awake()
+    {
+        // this.SetSimpledecorationPureWindow();
+        base.Awake();
+        this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        this.SizeToContent = SizeToContent.Height;
+        // this.Opacity = 0;
     }
 
     protected override void OnPreShow()
@@ -42,19 +57,33 @@ public partial class QuickStartChatWindow : QuickWindowBase
     private void OnOpened(object? sender, EventArgs e)
     {
         InputBox.Focus();
+        PlayOpenAnimation();
     }
 
     private void OnConfirmButtonClick(object sender, RoutedEventArgs e)
     {
-        var inputText = InputBox.Text;
-        Log.Warning($"Quick chat: {inputText}");
-        Hide();
+        SendInputMessage();
     }
 
     private void OnLostFocus(object? sender, EventArgs e)
     {
         // 当窗口失去焦点时自动关闭
-        Dispatcher.UIThread.InvokeAsync(Hide);
+        // Dispatcher.UIThread.InvokeAsync(Hide);
+        CloseByAnimation();
+    }
+
+    private void SendInputMessage()
+    {
+        var inputText = InputBox.Text;
+        if (string.IsNullOrEmpty(inputText))
+        {
+            App.MessageService.ShowMessage("请输入内容！");
+            return;
+        }
+
+        // Log.Warning($"Quick chat: {inputText}");
+        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(inputText));
+        CloseByAnimation();
     }
 
     public void InitPosition()

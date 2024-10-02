@@ -7,13 +7,14 @@
         Title="ScreenCaptureDockWindow">
     <StackPanel Orientation="Horizontal">
         <Button Click="OnOcrBtnClick">
-            <PathIcon Data="{StaticResource TextFieldRegular}" Width="20" Height="20" Padding="5" />
+            <PathIcon Data="{StaticResource TextFieldRegular}" Background="Transparent" Width="20" Height="20"
+                      Padding="5" />
         </Button>
         <Button Click="OnCopyBtnClick">
-            <PathIcon Data="{StaticResource CopyRegular}" Width="20" Height="20" Padding="5" />
+            <PathIcon Data="{StaticResource CopyRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
         </Button>
         <Button Click="OnSaveBtnClick">
-            <PathIcon Data="{StaticResource InfoRegular}" Width="20" Height="20" Padding="5" />
+            <PathIcon Data="{StaticResource InfoRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
         </Button>
     </StackPanel>
 

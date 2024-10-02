@@ -35,44 +35,44 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         // SelectionRectangle.Fill =new SolidColorBrush(Color.FromArgb(200,200 ,200, 100));
         // InfoPanel.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0));
 
-        this.GetObservable(IsVisibleProperty).Subscribe(new VisibilityObserver(this));
+        // this.GetObservable(IsVisibleProperty).Subscribe(new VisibilityObserver(this));
     }
 
-    private class VisibilityObserver : IObserver<bool>
-    {
-        private readonly ScreenCaptureWindow _control;
-
-        public VisibilityObserver(ScreenCaptureWindow control)
-        {
-            _control = control;
-        }
-
-        public void OnNext(bool value)
-        {
-            if (value)
-            {
-                // 当 UserControl 变为可见时执行的代码
-                Log.Debug("UserControl is now visible.");
-                _control.ClearData();
-                
-            }
-            else
-            {
-                // 当 UserControl 变为不可见时执行的代码
-                Log.Debug("UserControl is no longer visible.");
-            }
-        }
-
-        public void OnError(Exception error)
-        {
-            Log.Error($"An error occurred: {error.Message}");
-        }
-
-        public void OnCompleted()
-        {
-            Log.Debug("Observation completed.");
-        }
-    }
+    // private class VisibilityObserver : IObserver<bool>
+    // {
+    //     private readonly ScreenCaptureWindow _control;
+    //
+    //     public VisibilityObserver(ScreenCaptureWindow control)
+    //     {
+    //         _control = control;
+    //     }
+    //
+    //     public void OnNext(bool value)
+    //     {
+    //         if (value)
+    //         {
+    //             // 当 UserControl 变为可见时执行的代码
+    //             Log.Debug("UserControl is now visible.");
+    //             _control.ClearData();
+    //             
+    //         }
+    //         else
+    //         {
+    //             // 当 UserControl 变为不可见时执行的代码
+    //             Log.Debug("UserControl is no longer visible.");
+    //         }
+    //     }
+    //
+    //     public void OnError(Exception error)
+    //     {
+    //         Log.Error($"An error occurred: {error.Message}");
+    //     }
+    //
+    //     public void OnCompleted()
+    //     {
+    //         Log.Debug("Observation completed.");
+    //     }
+    // }
 
 
     // [DllImport("user32.dll")]
@@ -127,17 +127,16 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     protected override void OnPreShow()
     {
-        Log.Debug("OnPreShow.");
         UpdateCaptureScreen();
     }
 
-    protected override void OnOpened(EventArgs e)
-    {
-        base.OnOpened(e);
-        // UpdateCaptureScreen();
-        // CaptureScreen();
-        Log.Debug("OnOpened.");
-    }
+    // protected override void OnOpened(EventArgs e)
+    // {
+    //     base.OnOpened(e);
+    //     // UpdateCaptureScreen();
+    //     // CaptureScreen();
+    //     Log.Debug("OnOpened.");
+    // }
 
     protected override void OnKeyUp(KeyEventArgs e)
     {
@@ -154,19 +153,10 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         ClearData();
     }
 
-    // private void InitCapture()
-    // {
-    //     CaptureScreen();
-    //     UpdateCaptureScreen();
-    //     if (_currentScreen == null)
-    //     {
-    //         Close();
-    //     }
-    // }
-
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(ScreenshotCanvas).Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
+        PointerUpdateKind pointerUpdateKind = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
+        if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
         {
             _isSelecting = true;
             _startPoint = e.GetPosition(ScreenshotCanvas);
@@ -175,6 +165,10 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             // InfoPanel.IsVisible = true;
             Canvas.SetLeft(SelectionRectangle, _startPoint.X);
             Canvas.SetTop(SelectionRectangle, _startPoint.Y);
+        }
+        else if (pointerUpdateKind == PointerUpdateKind.RightButtonPressed)
+        {
+            Close();
         }
     }
 
@@ -254,12 +248,12 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         var currentScreen = App.ScreensService.MouseScreen;
         if (currentScreen == _currentScreen || currentScreen == null) return;
         //清理当前数据
-        Log.Debug("清理当前数据");
+        // Log.Debug("清理当前数据");
         ClearData();
-        Log.Debug("更新截图");
+        // Log.Debug("更新截图");
         //截屏
         await CaptureScreen();
-        Log.Debug("截图完成");
+        // Log.Debug("截图完成");
         //更新截图数据
         _currentScreen = currentScreen;
         var bounds = _currentScreen.Bounds;
@@ -267,7 +261,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         this.Height = bounds.Height;
         this.Position = bounds.Position;
         //展示截图
-        Log.Debug("展示截图");
+        // Log.Debug("展示截图");
         DisplayCapture();
     }
 

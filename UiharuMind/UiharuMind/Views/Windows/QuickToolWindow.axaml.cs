@@ -25,10 +25,14 @@ public partial class QuickToolWindow : QuickWindowBase
     {
         InitializeComponent();
 
-        SizeToContent = SizeToContent.WidthAndHeight;
-        // this.SetSimpledecorationPureWindow();
 
         // SubMenuComboBox.SelectionChanged += OnSubMenuComboBoxSelectionChanged;
+    }
+
+    public override void Awake()
+    {
+        SizeToContent = SizeToContent.WidthAndHeight;
+        this.SetSimpledecorationPureWindow();
     }
 
     private void OnSubMenuComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)

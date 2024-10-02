@@ -22,7 +22,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     private Point _dragStartPoint;
     private bool _isDragging;
     private Size _originSize;
-    private double _minScale;
+    // private double _minScale;
 
     public Bitmap ImageSource;
 
@@ -59,7 +59,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     {
         // Content = new Image { Source = image };
         _originSize = size ?? image.PixelSize.ToSize(App.ScreensService.Scaling);
-        _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
+        // _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
 
         ImageSource = image;
         ImageContent.Source = image;
@@ -145,62 +145,44 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             // 更新当前缩放比例
             _currentScale = newScale;
 
-            Dispatcher.UIThread.Post(() =>
+            // Dispatcher.UIThread.Post(() =>
+            // {
+            // 调整窗口大小以适应新的内容大小
+            var newWidth = _originSize.Width * _currentScale;
+            var newHeight = _originSize.Height * _currentScale;
+
+            // // 计算图像宽度和高度的变化量
+            // var widthChange = newWidth - _currentSize.Width;
+            // var heightChange = newHeight - _currentSize.Height;
+            // // if (sign > 0)
+            // {
+            //     widthChange *= 0.5f;
+            //     heightChange *= 0.5f;
+            // }
+
+            // 计算新的窗口位置
+            double zoomX = newWidth / _currentSize.Width;
+            double zoomY = newHeight / _currentSize.Height;
+
+            //调整窗口位置
+            int newPosX = (int)(curPos.X - (mousePosition.X * (zoomX - 1)));
+            int newPosY = (int)(curPos.Y - (mousePosition.Y * (zoomY - 1)));
+
+            var pos = new PixelPoint(newPosX, newPosY);
+            var size = new Size((int)newWidth, (int)newHeight);
+
+            //确保鼠标位置在缩放后不超出界面
+            pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, size);
+
+            Dispatcher.UIThread.Invoke(() =>
             {
-                // 调整窗口大小以适应新的内容大小
-                var newWidth = _originSize.Width * _currentScale;
-                var newHeight = _originSize.Height * _currentScale;
-
-                // // 计算图像宽度和高度的变化量
-                // var widthChange = newWidth - _currentSize.Width;
-                // var heightChange = newHeight - _currentSize.Height;
-                // // if (sign > 0)
-                // {
-                //     widthChange *= 0.5f;
-                //     heightChange *= 0.5f;
-                // }
-
-                // 计算新的窗口位置
-                double zoomX = newWidth / _currentSize.Width;
-                double zoomY = newHeight / _currentSize.Height;
-
-                //调整窗口位置
-                int newPosX = (int)(curPos.X - (mousePosition.X * (zoomX - 1)));
-                int newPosY = (int)(curPos.Y - (mousePosition.Y * (zoomY - 1)));
-
-                var pos = new PixelPoint(newPosX, newPosY);
-                var size = new Size((int)newWidth, (int)newHeight);
-
-                //确保鼠标位置在缩放后不超出界面
-                pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, size);
-
+                // StopRendering();
                 this.Position = pos;
-
-                // 确保鼠标位置在缩放后保持一致
-                // var offsetX = sign * (newMousePos.X - oldMousePos.X) +
-                //               (sign < 0 ? widthChange * 0.4f : (widthChange));
-                // var offsetY = sign * (newMousePos.Y - oldMousePos.Y) +
-                //               (sign < 0 ? heightChange * 0.4f : (heightChange));
-                // var offsetX = sign * ((newMousePos.X - oldMousePos.X) + Math.Abs(widthChange));
-                // var offsetY = sign * ((newMousePos.Y - oldMousePos.Y) + Math.Abs(heightChange));
-                // var scaling = App.ScreensService.Scaling;
-                // var plus = Math.Max(0, sign);
-                // var offsetX = (newMousePos.X - oldMousePos.X) * plus;
-                // var offsetY = (newMousePos.Y - oldMousePos.Y) * plus;
-                // offsetX += widthChange * scaling;
-                // offsetY += heightChange * scaling;
-                //
-                // // 更新界面的位置
-                // _currentPixelPoint=new PixelPoint(
-                //     (int)(this.Position.X - offsetX),
-                //     (int)(this.Position.Y - offsetY)
-                // );
-                // this.Position = pos;
-                // // this.SetWindowToMousePosition();
-
                 SetImageSize(size);
-                // this.Position = _currentPixelPoint;
-            });
+                // StartRendering();
+                InvalidateMeasure();
+            }, DispatcherPriority.Render);
+            // });
 
             e.Handled = true;
         }

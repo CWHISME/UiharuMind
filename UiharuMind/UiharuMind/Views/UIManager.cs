@@ -34,6 +34,7 @@ public class UIManager
                 _windows.Add(typeof(T), window);
                 onCreateCallback?.Invoke(window);
                 action?.Invoke(window);
+                window.Awake();
                 window.RequestShow();
             }
         });
