@@ -27,6 +27,7 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty] private string _titleName = "";
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private KeyGesture _sendGesture = new KeyGesture(Key.Enter);
+    [ObservableProperty] private bool _scrollToEnd;
 
     [ObservableProperty] private ChatSessionViewData _chatSession;
 
@@ -50,6 +51,7 @@ public partial class ChatViewModel : ObservableObject
         Log.Debug("SendMessageCommand:" + InputText);
         AddMessage(InputText);
         InputText = "";
+        ScrollToEnd = true;
         SaveUtility.Save("chat_history.json", ChatSession);
         // Lang.Culture = CultureInfo.GetCultureInfo("mmm");
     }

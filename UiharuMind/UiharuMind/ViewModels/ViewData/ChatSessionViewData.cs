@@ -65,7 +65,7 @@ public partial class ChatSessionViewData : ViewModelBase
         {
             if (CurrentChatItem == null)
             {
-                Log.Error("CurrentChatItem is null");
+                Log.Error("Error: CurrentChatItem is null");
                 break;
             }
 

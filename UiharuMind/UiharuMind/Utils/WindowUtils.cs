@@ -74,6 +74,7 @@ public static class WindowUtils
         window.SystemDecorations = SystemDecorations.None;
         window.TransparencyLevelHint = new List<WindowTransparencyLevel>()
             { WindowTransparencyLevel.Transparent, WindowTransparencyLevel.AcrylicBlur };
+        //如果开启这个，会导致窗口边缘像 Border 的东西显示出来，无法做到纯透明
         window.ExtendClientAreaToDecorationsHint = false;
         window.Background = Brushes.Transparent;
         window.Foreground = Brushes.Transparent;

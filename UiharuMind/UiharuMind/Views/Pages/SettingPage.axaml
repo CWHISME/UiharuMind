@@ -16,18 +16,19 @@
 
 
     <TabControl>
-        <!-- Model Parameters Tab -->
-        <TabItem Header="{x:Static lang:Lang.LLamaCppSetting}">
-            <DockPanel Margin="0,10,0,0">
-                <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.LLamaCppSetting}" FontSize="24" />
-                <settingViews:LLamaCppSettingView />
-            </DockPanel>
-        </TabItem>
 
         <TabItem Header="{x:Static lang:Lang.RuntimeEngineSetting}">
             <DockPanel Margin="0,10,0,0">
                 <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.RuntimeEngineSetting}" FontSize="24" />
                 <settingViews:RuntimeEngineSettingView />
+            </DockPanel>
+        </TabItem>
+
+        <!-- Model Parameters Tab -->
+        <TabItem Header="{x:Static lang:Lang.LLamaCppSetting}">
+            <DockPanel Margin="0,10,0,0">
+                <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.LLamaCppSetting}" FontSize="24" />
+                <settingViews:LLamaCppSettingView />
             </DockPanel>
         </TabItem>
 

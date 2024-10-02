@@ -6,6 +6,7 @@
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+             xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
 
@@ -16,6 +17,7 @@
     <UserControl.Resources>
         <converters:UserColumIndexConverter x:Key="UserColumIndexConverter" />
         <converters:UserLeftRightConverter x:Key="UserLeftRightConverter" />
+        <converters:TwoValueToBooleanConverter x:Key="TwoValueToBooleanConverter" />
     </UserControl.Resources>
 
     <Design.DataContext>
@@ -37,11 +39,18 @@
     <Grid RowDefinitions="*,Auto">
 
         <!-- 聊天信息显示区域 -->
-        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom" DataContext="{Binding ChatSession}">
-            <ListBox ItemsSource="{Binding ChatItems}">
-                <ListBox.ItemTemplate>
+        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom"
+                      HorizontalScrollBarVisibility="Disabled"
+                      uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
+            <ItemsControl DataContext="{Binding ChatSession}" ItemsSource="{Binding ChatItems}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="15,0">
                             <!-- 头像 -->
                             <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top"
                                      Grid.Column="{Binding Role, Converter={StaticResource UserColumIndexConverter},ConverterParameter=3}">
@@ -56,8 +65,25 @@
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
                                     <!-- 内容 -->
-                                    <Panel>
-                                        <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="5" />
+                                    <Panel Margin="5">
+                                        <ScrollViewer Name="InnerScrollViewer" MaxHeight="666"
+                                                      HorizontalScrollBarVisibility="Disabled">
+                                            <SelectableTextBlock Text="{Binding Message}" Background="Transparent"
+                                                                 TextWrapping="Wrap"
+                                                                 IsHitTestVisible="{Binding IsEnabled,RelativeSource={RelativeSource Self}}">
+                                                <!-- 当设置为 IsEnabled 为 false，反而得把 IsHitTestVisible 也关掉才能触发 Scroll 的滚动 -->
+                                                <!-- 当 ScrollView 生效时，禁用选择复制功能(因为性能不行，很卡) -->
+                                                <SelectableTextBlock.IsEnabled>
+                                                    <MultiBinding
+                                                        Converter="{StaticResource TwoValueToBooleanConverter}">
+                                                        <Binding ElementName="InnerScrollViewer"
+                                                                 Path="MaxHeight" />
+                                                        <Binding ElementName="InnerScrollViewer"
+                                                                 Path="ScrollBarMaximum.Y" />
+                                                    </MultiBinding>
+                                                </SelectableTextBlock.IsEnabled>
+                                            </SelectableTextBlock>
+                                        </ScrollViewer>
                                         <u:LoadingIcon
                                             IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
                                     </Panel>
@@ -69,44 +95,48 @@
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </ScrollViewer>
 
         <!-- 输入区域 -->
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto">
+            <!-- 工具区域 -->
+            <StackPanel Orientation="Horizontal" Margin="5,5,5,0">
+                <Button Content="{Binding SenderMode}"
+                        Command="{Binding ChangeSendModeCommand}">
+                    <ToolTip.Tip>
+                        <TextBlock
+                            Text="{x:Static lang:Lang.SendUserDesc}" />
+                    </ToolTip.Tip>
+                </Button>
+            </StackPanel>
 
-            <Button Content="{Binding SenderMode}"
-                    Command="{Binding ChangeSendModeCommand}" VerticalAlignment="Bottom">
-                <ToolTip.Tip>
-                    <TextBlock
-                        Text="{x:Static lang:Lang.SendUserDesc}" />
-                </ToolTip.Tip>
-            </Button>
-
-            <TextBox Grid.Column="1" Name="InputBox" Margin="5,0,5,0" Text="{Binding InputText, Mode=TwoWay}"
+            <!-- 输入区域 -->
+            <TextBox Grid.Row="1" Name="InputBox" Margin="5" Padding="5,5,5,50" Text="{Binding InputText, Mode=TwoWay}"
+                     MinHeight="80"
+                     MaxHeight="200"
                      TextWrapping="Wrap"
                      AcceptsReturn="True"
                      Watermark="{x:Static lang:Lang.ChatInputTips}"
-                     HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch">
                 <TextBox.KeyBindings>
                     <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
                 </TextBox.KeyBindings>
             </TextBox>
 
-            <!-- 发送按钮 -->
-            <Button Grid.Column="2" IsVisible="{Binding !IsGenerating}" Content="{x:Static  lang:Lang.Send}"
-                    Command="{Binding SendMessageCommand}" VerticalAlignment="Bottom" />
-            <!-- 计算中显示的取消按钮 -->
-            <StackPanel Grid.Column="2" IsVisible="{Binding IsGenerating}" Orientation="Horizontal">
-                <u:LoadingIcon />
-                <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
-                        Command="{Binding StopSendingCommand}" />
+            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+                <!-- 发送按钮 -->
+                <Button IsVisible="{Binding !IsGenerating}"
+                        IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Content="{x:Static  lang:Lang.Send}"
+                        Command="{Binding SendMessageCommand}" VerticalAlignment="Center" />
+                <!-- 计算中显示的取消按钮 -->
+                <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" VerticalAlignment="Center">
+                    <u:LoadingIcon />
+                    <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
+                            Command="{Binding StopSendingCommand}" />
+                </StackPanel>
             </StackPanel>
 
         </Grid>

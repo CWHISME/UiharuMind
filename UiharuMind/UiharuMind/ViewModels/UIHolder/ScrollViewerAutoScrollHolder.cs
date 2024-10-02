@@ -19,19 +19,20 @@ public class ScrollViewerAutoScrollHolder
     {
         var scrollViewer = e.Source as ScrollViewer;
         if (scrollViewer == null) return;
-        if (e.OffsetDelta.Y > 0)
+        bool isManualScroll = e.ExtentDelta.Y == 0;
+        if (isManualScroll && e.OffsetDelta.Y > 0)
         {
             // 用户向下滚动
             _isAutoScrolling = false;
         }
-        else if (e.OffsetDelta.Y < 0)
+        else if (isManualScroll && e.OffsetDelta.Y < 0)
         {
             // 用户向上滚动
             _isAutoScrolling = false;
         }
         else if (scrollViewer.Offset.Y >= scrollViewer.ScrollBarMaximum.Y - e.ExtentDelta.Y)
         {
-            // 用户手动滚动到底部，恢复自动滚动
+            // 用户手动或自动滚动到了底部，继续自动滚动
             _isAutoScrolling = true;
         }
         //Log.Debug($"scrollViewer.ScrollBarMaximum.Y: {scrollViewer.ScrollBarMaximum.Y}, scrollViewer.Offset.Y: {scrollViewer.Offset.Y}, e.ExtentDelta.Y: {e.ExtentDelta.Y}");

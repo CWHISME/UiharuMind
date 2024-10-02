@@ -40,16 +40,27 @@ public class ChatThread
     {
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
         var builder = StringBuilderPool.Get();
+        var delayUpdater = SimpleObjectPool<EmptyDelayUpdater>.Get();
+        delayUpdater.SetDelay(50);
         await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
                            GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
         {
             builder.Append(content.Content);
-            Log.Debug($"Received message: {content.Content}");
-            yield return builder.ToString();
+
+            // ReSharper disable once MethodHasAsyncOverload
+            if (delayUpdater.UpdateDelay())
+            {
+                yield return builder.ToString();
+            }
+
+            // Log.Debug($"Received message: {content.Content}");
             if (token.IsCancellationRequested) break;
         }
 
+        yield return builder.ToString();
+
         StringBuilderPool.Release(builder);
+        SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);
     }
 
 

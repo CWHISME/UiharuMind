@@ -54,10 +54,12 @@
 
             <!-- Thumb for resizing left pane -->
             <!-- Cursor StandardCursorType -->
-            <Thumb Grid.Column="1" Width="5" Background="Gray" DragDelta="OnLeftThumbDragDelta" Cursor="SizeWestEast">
+            <Thumb Grid.Column="1" Width="5" Margin="0,-10,0,0" DragDelta="OnLeftThumbDragDelta" Cursor="SizeWestEast">
                 <Thumb.Template>
                     <ControlTemplate>
-                        <Border Background="Gray" Width="5" />
+                        <!-- <Border Background="Gray" Width="1" /> -->
+                        <u:Divider Orientation="Vertical"
+                                   Height="{Binding Height, RelativeSource={RelativeSource TemplatedParent}}" />
                     </ControlTemplate>
                 </Thumb.Template>
             </Thumb>
@@ -68,10 +70,12 @@
             </Border>
 
             <!-- Thumb for resizing right pane -->
-            <Thumb Grid.Column="3" Width="5" DragDelta="OnRightThumbDragDelta" Cursor="SizeWestEast">
+            <Thumb Grid.Column="3" Width="5" Margin="0,-10,0,0" DragDelta="OnRightThumbDragDelta" Cursor="SizeWestEast">
                 <Thumb.Template>
                     <ControlTemplate>
-                        <Border Background="Gray" Width="5" />
+                        <!-- <Border Background="Gray" Width="1" /> -->
+                        <u:Divider Orientation="Vertical"
+                                   Height="{Binding Height, RelativeSource={RelativeSource TemplatedParent}}" />
                     </ControlTemplate>
                 </Thumb.Template>
             </Thumb>

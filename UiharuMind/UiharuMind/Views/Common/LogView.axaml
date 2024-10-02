@@ -1,4 +1,3 @@
-
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -12,7 +11,7 @@
     <Design.DataContext>
         <viewData:LogViewModel />
     </Design.DataContext>
-    
+
     <UserControl.Resources>
         <converters:LogLevelToColorConverter x:Key="LogLevelToColorConverter" />
     </UserControl.Resources>
@@ -57,15 +56,20 @@
     </UserControl.Styles>
 
     <ScrollViewer Name="Viewer" u:ScrollTo.Direction="Bottom">
-        <ListBox ItemsSource="{Binding Items}">
-            <ListBox.ItemTemplate>
+        <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <SelectableTextBlock Text="{Binding LogString}"
                                          Background="Transparent"
                                          Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}"
                                          TextWrapping="Wrap" />
                 </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </ScrollViewer>
 </UserControl>

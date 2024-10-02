@@ -31,11 +31,11 @@ public partial class QuickChatResultWindow : QuickWindowBase
         // SizeToContent = SizeToContent.WidthAndHeight;
 
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
-        _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
+        // _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
     }
 
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
-    private readonly ValueUiDelayUpdater<string> _uiUpdater;
+    // private readonly ValueUiDelayUpdater<string> _uiUpdater;
 
     private CancellationTokenSource? _cts;
 
@@ -63,7 +63,8 @@ public partial class QuickChatResultWindow : QuickWindowBase
 
         await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
         {
-            await _uiUpdater.UpdateValue(result);
+            // await _uiUpdater.UpdateValue(result);
+            Dispatcher.UIThread.Post(() => SetContent(result));
         }
 
         IsFinished = true;

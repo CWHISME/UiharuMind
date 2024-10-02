@@ -1,5 +1,33 @@
 namespace UiharuMind.Core.Core.Utils.Tools;
 
+public class EmptyDelayUpdater
+{
+    private int _delay = 50;
+    private bool _isProcessing;
+
+    public void SetDelay(int delay)
+    {
+        _delay = delay;
+    }
+
+    public bool UpdateDelay()
+    {
+        if (_isProcessing) return false;
+        _isProcessing = true;
+        Task.Delay(_delay).ContinueWith(t => _isProcessing = false);
+        return true;
+    }
+
+    public async ValueTask<bool> UpdateDelayAsync()
+    {
+        if (_isProcessing) return false;
+        _isProcessing = true;
+        await Task.Delay(_delay);
+        _isProcessing = false;
+        return true;
+    }
+}
+
 public class ValueDelayUpdater<T, TScheduler> where TScheduler : IScheduler, new()
 {
     private readonly Action<T> _action;

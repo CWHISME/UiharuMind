@@ -145,7 +145,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         DownloadConfiguration? configuration = null)
     {
         _delayUpdater ??=
-            new ValueBackgroundDelayUpdater<DownloadProgressChangedEventArgs>(UpdateDownloadProgress, 500);
+            new ValueBackgroundDelayUpdater<DownloadProgressChangedEventArgs>(UpdateDownloadProgress, 200);
 
         _onDownloadCompleted = onDownloadFileCompleted;
         _downloadService = CreateDownloadOpt(true, configuration);
