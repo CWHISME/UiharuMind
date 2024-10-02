@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel.ChatCompletion;
 using SharpHook.Native;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 
@@ -32,7 +33,7 @@ public partial class ChatViewModel : ObservableObject
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
 
-    private CancellationTokenSource _cancelTokenSource;
+    private CancellationTokenSource? _cancelTokenSource;
 
     [RelayCommand]
     public void ChangeSendMode()
@@ -51,6 +52,13 @@ public partial class ChatViewModel : ObservableObject
         InputText = "";
         SaveUtility.Save("chat_history.json", ChatSession);
         // Lang.Culture = CultureInfo.GetCultureInfo("mmm");
+    }
+
+    [RelayCommand]
+    public void StopSending()
+    {
+        _cancelTokenSource.SafeStop();
+        _cancelTokenSource = null;
     }
 
     private async void AddMessage(string message)

@@ -55,6 +55,7 @@ public class LogManager
     public void SaveLog(string path)
     {
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
+        SaveUtility.Save();
         File.WriteAllText(Path.Combine(path, "Log.txt"),
             JsonSerializer.Serialize(LogItems, new JsonSerializerOptions() { WriteIndented = true }));
     }

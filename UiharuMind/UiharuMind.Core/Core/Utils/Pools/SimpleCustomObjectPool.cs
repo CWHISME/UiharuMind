@@ -1,38 +1,38 @@
 namespace UiharuMind.Core.Core.Utils
 {
-    public class SimpleCustomObjectPool<T> where T : new()
+    public static class SimpleCustomObjectPool<T> where T : IPoolAble, new()
     {
-        private readonly Stack<T> Pool = new Stack<T>(10);
-        private readonly Func<T> CreateFunc;
+        private static readonly Stack<T> Pool = new Stack<T>(10);
 
-        public SimpleCustomObjectPool(Func<T> createFunc)
-        {
-            CreateFunc = createFunc;
-        }
-
-        public T Get()
+        public static T Get()
         {
             if (!Pool.TryPop(out var obj))
             {
-                obj = CreateFunc();
+                obj = new T();
             }
 
             return obj;
         }
 
-        public void Release(T obj)
+        public static void Release(T obj)
         {
             if (obj == null)
             {
                 throw new ArgumentNullException(nameof(obj), "Cannot release a null object.");
             }
 
+            obj.Reset();
             Pool.Push(obj);
         }
 
-        public void ClearAll()
+        public static void ClearAll()
         {
             Pool.Clear();
         }
+    }
+
+    public interface IPoolAble
+    {
+        void Reset();
     }
 }

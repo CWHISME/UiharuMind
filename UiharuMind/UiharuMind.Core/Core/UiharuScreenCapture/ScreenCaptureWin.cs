@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using HPPH;
 using ScreenCapture.NET;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.UiharuScreenCapture;
 
@@ -17,6 +18,7 @@ public static class ScreenCaptureWin
 
     public static async Task<IImage?> CaptureAsync(int screenId)
     {
+        Log.Debug("开始截图");
         return await Task.Run<IImage?>(() => Capture(screenId));
     }
 
@@ -27,6 +29,7 @@ public static class ScreenCaptureWin
     /// <returns></returns>
     public static IImage? Capture(int screenId)
     {
+        Log.Debug("查找屏幕");
         IEnumerable<Display> displays = ScreenCaptureService.GetDisplays(GraphicsCard);
         foreach (var display in displays)
         {
@@ -34,14 +37,17 @@ public static class ScreenCaptureWin
             {
                 ScreenCapture.NET.IScreenCapture screenCapture = ScreenCaptureService.GetScreenCapture(display);
 
+                Log.Debug($"注册全屏截图 {screenCapture.Display.Width}x{screenCapture.Display.Height}");
                 ICaptureZone fullscreen = screenCapture.RegisterCaptureZone(0, 0, screenCapture.Display.Width,
                     screenCapture.Display.Height);
 
+                Log.Debug("真的开始截图");
                 if (!screenCapture.CaptureScreen())
                 {
                     return null;
                 }
 
+                Log.Debug("锁定屏幕并获取截图");
                 using (fullscreen.Lock())
                 {
                     IImage image = fullscreen.Image;

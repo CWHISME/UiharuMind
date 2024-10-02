@@ -18,7 +18,7 @@
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
             </Button.Styles>
-            <PathIcon Data="{StaticResource InfoRegular}" Width="20" Height="20" />
+            <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="20" Height="20" />
         </Button>
 
         <!-- 隐藏的菜单 -->

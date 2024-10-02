@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
@@ -19,11 +20,11 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         this.SetSimpledecorationWindow();
     }
 
-    protected override void OnOpened(EventArgs e)
-    {
-        base.OnOpened(e);
-        UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], true);
-    }
+    // protected override void OnOpened(EventArgs e)
+    // {
+    //     base.OnOpened(e);
+    //     UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], true);
+    // }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
@@ -33,15 +34,19 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
     public void SetMainWindow(T? mainWindow)
     {
+        // Log.Debug($"SetMainWindow {mainWindow}");
         if (mainWindow is not { IsVisible: true })
         {
-            // SafeClose();
-            UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], false, SafeClose);
+            SafeClose();
+            // UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], false, SafeClose);
             return;
         }
 
+        // if (this.VisualChildren.Count > 0) UiAnimationUtils.StopAnimation(this.VisualChildren[0]);
+
         if (ReferenceEquals(mainWindow, CurrentSnapWindow))
         {
+            // Log.Debug($"SetMainWindow {mainWindow} ReferenceEquals");
             RequestShow();
             UpdateFollowerWindowPosition();
             return;
@@ -55,6 +60,8 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
             CurrentSnapWindow.Closing -= MainWindow_OnClose;
         }
 
+        // Log.Debug($"SetMainWindow {mainWindow} set");
+
         CurrentSnapWindow = mainWindow;
 
         CurrentSnapWindow.PositionChanged += MainWindow_PositionChanged;
@@ -64,6 +71,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
         RequestShow();
         UpdateFollowerWindowPosition();
+        // Log.Debug($"SetMainWindow {mainWindow} UpdateFollowerWindowPosition");
     }
 
     private void MainWindow_OnClose(object? sender, WindowClosingEventArgs e)
@@ -83,6 +91,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
     private void MainWindow_OnMouseLeave(object? sender, PointerEventArgs e)
     {
+        // Log.Debug($"MainWindow_OnMouseLeave {sender} {e}");
         if (!CheckInValidBounds()) SetMainWindow(null);
     }
 
@@ -95,10 +104,13 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         if (CurrentSnapWindow == null) return false;
 
         var mousePos = App.ScreensService.MousePosition;
+        var scaling = App.ScreensService.Scaling;
         //检测是否处于组合区域内
-        var selfWindowBounds = new Rect(this.Position.X, this.Position.Y, this.Width, this.Height);
-        var targetWindowBounds = new Rect(CurrentSnapWindow.Position.X, CurrentSnapWindow.Position.Y,
-            CurrentSnapWindow.Width, CurrentSnapWindow.Height);
+        double offset = 10f * scaling;
+        var selfWindowBounds = new Rect(this.Position.X + offset, this.Position.Y + offset,
+            this.Width * scaling - offset, this.Height * scaling - offset);
+        var targetWindowBounds = new Rect(CurrentSnapWindow.Position.X + offset, CurrentSnapWindow.Position.Y + offset,
+            CurrentSnapWindow.Width * scaling - offset, CurrentSnapWindow.Height * scaling - offset);
         // 计算组合区域，包括两个窗口之间的间距
         var combinedBounds = selfWindowBounds.Union(targetWindowBounds);
         if (!combinedBounds.Contains(new Point(mousePos.X, mousePos.Y))) return false;
@@ -108,14 +120,14 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
         // 根据高度决定检测 mainWindowBounds 还是 bottomWindowBounds 的宽度
         //注：靠下才这样额外检测
-        if (mousePos.Y < targetWindowBounds.Bottom && mousePos.X < targetWindowBounds.Right)
+        if (mousePos.Y < (targetWindowBounds.Bottom - offset) && mousePos.X < (targetWindowBounds.Right - offset))
         {
             // 位于目标(上方)窗口高度内，且处于其宽度内
             return true;
         }
 
         //位于底部窗口高度内，且处于其宽度内
-        if (mousePos.Y < selfWindowBounds.Bottom && mousePos.X < selfWindowBounds.Right)
+        if (mousePos.Y < (selfWindowBounds.Bottom - offset) && mousePos.X < (selfWindowBounds.Right - offset))
         {
             return true;
         }
@@ -125,6 +137,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 
     private void UpdateFollowerWindowPosition()
     {
+        // Log.Debug($"UpdateFollowerWindowPosition {CurrentSnapWindow} is now {CurrentSnapWindow?.GetType()}");
         if (!IsVisible || CurrentSnapWindow == null) return;
         Dispatcher.UIThread.Post(() =>
         {

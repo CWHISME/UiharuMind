@@ -8,6 +8,9 @@
 
     <!-- Add Styles Here -->
     
+    <!-- pointerover 之类的效果想修改必须通过设置模板实现 -->
+    <!-- https://github.com/AvaloniaUI/Avalonia/discussions/8382 -->
+    
     <!-- SimpleSolidButton -->
     <!-- 移除 Button 的悬停效果 -->
     <Style Selector="Button.SimpleSolidButton:pointerover /template/ContentPresenter">

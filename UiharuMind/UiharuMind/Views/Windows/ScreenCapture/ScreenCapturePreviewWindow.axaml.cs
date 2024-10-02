@@ -32,14 +32,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
 
         //SizeToContent = SizeToContent.WidthAndHeight;
 
-        Topmost = true;
-        WindowState = WindowState.Normal;
-        WindowStartupLocation = WindowStartupLocation.Manual;
-        CanResize = false;
-        SystemDecorations = SystemDecorations.BorderOnly;
-        ExtendClientAreaToDecorationsHint = true;
-        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
-        ExtendClientAreaTitleBarHeightHint = -1;
+        this.SetSimpledecorationWindow();
 
         this.MinWidth = 30;
         this.MinHeight = 30;
@@ -70,6 +63,13 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
 
         ImageSource = image;
         ImageContent.Source = image;
+
+        var bounds = App.ScreensService.MouseScreen?.Bounds;
+        if (bounds != null)
+        {
+            MaxWidth = bounds.Value.Width * 0.9;
+            MaxHeight = bounds.Value.Height * 0.9;
+        }
 
         SetImageSize(_originSize);
 
@@ -129,13 +129,14 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             var newScale = (float)(_currentScale * (1 + e.Delta.Y * ScaleStep));
 
             // 限制缩放比例在最小和最大值之间
-            if (newScale < MinScale || newScale > MaxScale)
+            if (newScale < MinScale || newScale > MaxScale ||
+                newScale > _currentScale && (this.Width > MaxWidth || this.Height > MaxHeight))
             {
                 return;
             }
 
-            if ((_currentSize.Width > Width || _currentSize.Height > Height) && newScale > _currentScale) return;
-            if ((_currentSize.Width < MinWidth || _currentSize.Height < MinHeight) && newScale < _currentScale) return;
+            // if ((_currentSize.Width > Width || _currentSize.Height > Height) && newScale > _currentScale) return;
+            // if ((_currentSize.Width < MinWidth || _currentSize.Height < MinHeight) && newScale < _currentScale) return;
 
             // 计算缩放前后鼠标位置的变化
             // var oldMousePos = new Point(mousePosition.X / _currentScale, mousePosition.Y / _currentScale);

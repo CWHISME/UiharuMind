@@ -7,7 +7,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
+using Clowd.Clipboard;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Utils;
 using UiharuMind.Utils.Clipboard;
 
@@ -24,6 +26,7 @@ public class ClipboardService : IDisposable
 
     public const string ImageTypePngWin = "image/png";
     public const string ImageTypePngMac = "public.png";
+    // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
 
     public ClipboardService(Window target)
     {
@@ -47,12 +50,20 @@ public class ClipboardService : IDisposable
 
     public void CopyImageToClipboard(Bitmap bitmap)
     {
+        if (PlatformUtils.IsWindows)
+        {
+            //window 剪切板似乎很麻烦，直接分离实现了
+#pragma warning disable CA1416
+            ClipboardAvaloniaCustom.SetImage(bitmap);
+#pragma warning restore CA1416
+            return;
+        }
+
         var dataObject = new DataObject();
         using var memoryStream = new MemoryStream();
         bitmap.Save(memoryStream);
         memoryStream.Position = 0;
         var bytes = memoryStream.ToArray();
-        dataObject.Set(ImageTypePngWin, bytes);
         dataObject.Set(ImageTypePngMac, bytes);
 
         Clipboard.SetDataObjectAsync(dataObject);
@@ -60,6 +71,13 @@ public class ClipboardService : IDisposable
 
     public async Task<Bitmap?> GetImageFromClipboard()
     {
+        if (PlatformUtils.IsWindows)
+        {
+#pragma warning disable CA1416
+            return await ClipboardAvaloniaCustom.GetImageAsync().ConfigureAwait(false);
+#pragma warning restore CA1416
+        }
+
         try
         {
             var types = await Clipboard.GetFormatsAsync();

@@ -15,7 +15,9 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils.Tools;
 using UiharuMind.Utils;
+using UiharuMind.Utils.Tools;
 using UiharuMind.ViewModels.UIHolder;
 using UiharuMind.Views.Common;
 
@@ -29,12 +31,13 @@ public partial class QuickChatResultWindow : QuickWindowBase
         // SizeToContent = SizeToContent.WidthAndHeight;
 
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
-        _uiUpdater = new UiUpdater<string>(SetContent);
+        _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
     }
 
-    private ScrollViewerAutoScrollHolder _autoScrollHolder;
+    private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
+    private readonly ValueUiDelayUpdater<string> _uiUpdater;
+
     private CancellationTokenSource? _cts;
-    private readonly UiUpdater<string> _uiUpdater;
 
     public bool IsFinished
     {
@@ -47,7 +50,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
         TitleTextBlock.Text = "解释";
         if (LlmManager.Instance.CurrentRunningModel == null)
         {
-            SetContent("current model is not loaded");
+            SetContent("error: current model is not loaded");
             IsFinished = true;
             return;
         }

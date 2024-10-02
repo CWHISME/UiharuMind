@@ -134,6 +134,8 @@ public partial class App : Application, ILogger, IDisposable
             Dispose();
             Environment.Exit(1);
         }
+
+        Log.CloseAndFlush();
     }
 
     private void UIThread_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -142,6 +144,7 @@ public partial class App : Application, ILogger, IDisposable
         Log.Error(e.Exception);
         // 标记异常已处理
         e.Handled = true;
+        Log.CloseAndFlush();
     }
 
     public void Dispose()

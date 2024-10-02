@@ -33,6 +33,12 @@ public partial class SettingListView : UserControl
         get => _settingConfig;
         set
         {
+            if (_settingConfig == value)
+            {
+                RequestReloadValues();
+                return;
+            }
+
             _settingConfig = value;
             RefreshResetView();
         }

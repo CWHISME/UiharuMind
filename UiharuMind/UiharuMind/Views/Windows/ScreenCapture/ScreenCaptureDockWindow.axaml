@@ -4,15 +4,16 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="50"
         x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureDockWindow"
-        Height="30"
-        Width="300"
         Title="ScreenCaptureDockWindow">
     <StackPanel Orientation="Horizontal">
-        <Button Click="OnOcrBtnClock">
+        <Button Click="OnOcrBtnClick">
             <PathIcon Data="{StaticResource TextFieldRegular}" Width="20" Height="20" Padding="5" />
         </Button>
-        <Button Click="OnCopyBtnClock">
+        <Button Click="OnCopyBtnClick">
             <PathIcon Data="{StaticResource CopyRegular}" Width="20" Height="20" Padding="5" />
+        </Button>
+        <Button Click="OnSaveBtnClick">
+            <PathIcon Data="{StaticResource InfoRegular}" Width="20" Height="20" Padding="5" />
         </Button>
     </StackPanel>
 

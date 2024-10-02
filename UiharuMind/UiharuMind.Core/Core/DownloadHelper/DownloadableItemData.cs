@@ -3,6 +3,7 @@ using System.Net;
 using System.Runtime.CompilerServices;
 using Downloader;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils.Tools;
 using DownloadProgressChangedEventArgs = Downloader.DownloadProgressChangedEventArgs;
 
 namespace UiharuMind.Core.Core.Utils;
@@ -126,6 +127,8 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     /// </summary>
     public bool IsNeedDownloadInfo { get; set; } = true;
 
+    private ValueBackgroundDelayUpdater<DownloadProgressChangedEventArgs>? _delayUpdater;
+
     public DownloadableItemData(IDownloadable target, bool initDownloadSize = false)
     {
         _target = target;
@@ -141,10 +144,14 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     public async void StartDownload(Action<DownloadableItemData>? onDownloadFileCompleted,
         DownloadConfiguration? configuration = null)
     {
+        _delayUpdater ??=
+            new ValueBackgroundDelayUpdater<DownloadProgressChangedEventArgs>(UpdateDownloadProgress, 500);
+
         _onDownloadCompleted = onDownloadFileCompleted;
         _downloadService = CreateDownloadOpt(true, configuration);
         _downloadService.DownloadProgressChanged += OnDownloadProgressChanged;
         _downloadService.DownloadFileCompleted += OnDownloadFileCompleted;
+
 
         DownloadInfo = "Preparing to download...";
         ErrorMessage = null;
@@ -161,10 +168,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         }
 
         IsDownloading = true;
-        await Task.Run(async () =>
-        {
-            await _downloadService.DownloadFileTaskAsync(DownloadUrl, DownloadFilePath).ConfigureAwait(false);
-        }).ConfigureAwait(false);
+        await _downloadService.DownloadFileTaskAsync(DownloadUrl, DownloadFilePath).ConfigureAwait(false);
         // await Task.Run(async () =>
         // {
         //     while (true)
@@ -179,11 +183,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
 
     private void OnDownloadProgressChanged(object? sender, DownloadProgressChangedEventArgs e)
     {
-        DownloadProgress = e.ProgressPercentage;
-
-        if (!IsNeedDownloadInfo) return;
-        DownloadInfo =
-            $"{SimpleStringHelper.FormatBytes(e.ReceivedBytesSize)} / {SimpleStringHelper.FormatBytes(e.TotalBytesToReceive)} ({SimpleStringHelper.FormatBytesWithSpeed(e.BytesPerSecondSpeed)})";
+        _delayUpdater?.UpdateValue(e);
     }
 
     private void OnDownloadFileCompleted(object? sender, AsyncCompletedEventArgs e)
@@ -198,6 +198,17 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
             IsDownloaded = true;
             _onDownloadCompleted?.Invoke(this);
         }
+    }
+
+    private void UpdateDownloadProgress(DownloadProgressChangedEventArgs e)
+    {
+        if (IsDownloaded) return;
+
+        DownloadProgress = e.ProgressPercentage;
+
+        if (!IsNeedDownloadInfo) return;
+        DownloadInfo =
+            $"{SimpleStringHelper.FormatBytes(e.ReceivedBytesSize)} / {SimpleStringHelper.FormatBytes(e.TotalBytesToReceive)} ({SimpleStringHelper.FormatBytesWithSpeed(e.BytesPerSecondSpeed)})";
     }
 
     private DownloadService CreateDownloadOpt(bool useDefaultProxy, DownloadConfiguration? configuration = null)

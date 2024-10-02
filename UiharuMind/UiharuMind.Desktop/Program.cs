@@ -12,20 +12,8 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        try
-        {
-
-            BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(@"应用程序崩溃: " + ex.StackTrace);
-        }
-        finally
-        {
-            Log.CloseAndFlush();
-        }
+        BuildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(args);
     }
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

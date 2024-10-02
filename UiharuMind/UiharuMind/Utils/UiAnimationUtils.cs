@@ -55,6 +55,17 @@ public static class UiAnimationUtils
         PlayTransitionAnimation(HorizontalSlideTransition, visual, isShowed, onCompleted);
     }
 
+    /// <summary>
+    /// 停止动画
+    /// </summary>
+    /// <param name="visual"></param>
+    public static void StopAnimation(Visual? visual)
+    {
+        if (visual == null) return;
+        if (_animationCts.TryGetValue(visual, out var cts) && !cts.IsCancellationRequested)
+            cts.Cancel();
+    }
+
     private static async void PlayTransitionAnimation(IPageTransition transition, Visual? visual, bool isShowed,
         Action? onCompleted = null)
     {
@@ -65,7 +76,6 @@ public static class UiAnimationUtils
         await transition.Start(isShowed ? null : visual, isShowed ? visual : null, isShowed,
             cts.Token);
         onCompleted?.Invoke();
-        cts.Dispose();
         _animationCts.Remove(visual);
     }
 

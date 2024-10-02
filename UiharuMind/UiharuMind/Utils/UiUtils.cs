@@ -69,28 +69,21 @@ public static class UiUtils
     /// <param name="screen"></param>
     /// <param name="onScreenPosition"></param>
     /// <param name="controlSize"></param>
+    /// <param name="offset">计算时额外增加的偏移</param>
     /// <returns></returns>
     public static PixelPoint EnsurePositionWithinScreen(Screen? screen, PixelPoint onScreenPosition,
-        Size controlSize)
+        Size controlSize, Size offset = default)
     {
         if (screen == null) return new PixelPoint(0, 0);
-        // PixelPoint mousePixelPoint = App.ScreensService.MousePosition;
-        //PixelPoint.FromPoint(, App.ScreensService.Scaling);
-        // 计算对象位置在屏幕内的有效范围，确保位置初始值一定在屏幕范围内
+
+        // 计算对象位置在屏幕内的有效范围
         int posX = Math.Clamp(onScreenPosition.X, screen.Bounds.Position.X,
             screen.Bounds.Position.X + screen.Bounds.Width);
         int posY = Math.Clamp(onScreenPosition.Y, screen.Bounds.Position.Y,
             screen.Bounds.Position.Y + screen.Bounds.Height);
 
-        // 计算控件在屏幕内的位置
-        double x = Math.Max(0,
-            Math.Min(posX,
-                screen.Bounds.Width - controlSize.Width * screen.Scaling));
-        double y = Math.Max(0,
-            Math.Min(posY + 20,
-                screen.Bounds.Height - controlSize.Height * screen.Scaling));
-
-        return new PixelPoint((int)x, (int)y);
+        // 使用ClampToBounds计算控件在屏幕内的位置
+        return ClampToBounds(new PixelPoint(posX, posY), controlSize, screen.Bounds, screen.Scaling);
     }
 
     /// <summary>
@@ -135,23 +128,23 @@ public static class UiUtils
         // 计算控件和目标容器的最大边界
         double contentMaxX = contentPosition.X + contentSize.Width * scaling;
         double contentMaxY = contentPosition.Y + contentSize.Height * scaling;
-        // double targetMaxX = targetPosition.X + targetSize.Width * scaling;
-        // double targetMaxY = targetPosition.Y + targetSize.Height * scaling;
 
-        // 确保坐标不会比容器小
-        double posX = Math.Max(contentPosition.X, targetPosition.X);
-        double posY = Math.Max(contentPosition.Y, targetPosition.Y);
+        // 使用ClampToBounds计算控件在目标容器内的位置
+        return ClampToBounds(contentPosition, contentSize,
+            new PixelRect(targetPosition, PixelSize.FromSize(targetSize, scaling)), scaling);
+    }
 
-        // 确保坐标不会比容器大
-        posX = Math.Min(posX, contentMaxX - targetSize.Width * scaling);
-        posY = Math.Min(posY, contentMaxY - targetSize.Height * scaling);
+    public static PixelPoint ClampToBounds(PixelPoint position, Size size, PixelRect bounds, double scaling = 1.0)
+    {
+        // 计算控件在边界内的最大允许位置
+        double maxX = bounds.X + bounds.Width - size.Width * scaling;
+        double maxY = bounds.Y + bounds.Height - size.Height * scaling;
 
-        // // 计算控件在容器内的位置
-        // double x = Math.Max(contentPosition.X, Math.Min(targetPosition.X, maxX));
-        // double y = Math.Max(contentPosition.Y, Math.Min(targetPosition.Y, maxY));
+        // 确保坐标不会超出边界
+        double x = Math.Max(bounds.X, Math.Min(position.X, maxX));
+        double y = Math.Max(bounds.Y, Math.Min(position.Y, maxY));
 
-        // 返回最终位置
-        return new PixelPoint((int)posX, (int)posY);
+        return new PixelPoint((int)x, (int)y);
     }
 
 

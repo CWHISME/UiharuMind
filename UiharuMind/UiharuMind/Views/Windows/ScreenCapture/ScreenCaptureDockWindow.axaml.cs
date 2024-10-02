@@ -14,7 +14,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         InitializeComponent();
     }
 
-    private void OnOcrBtnClock(object? sender, RoutedEventArgs e)
+    private void OnOcrBtnClick(object? sender, RoutedEventArgs e)
     {
         if (CurrentSnapWindow == null) return;
         var path = Path.GetTempPath() + "ocr.png";
@@ -22,9 +22,14 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         ScreenCaptureManager.OpenOcr(path, (int)CurrentSnapWindow.Width, (int)CurrentSnapWindow.Height);
     }
 
-    private void OnCopyBtnClock(object? sender, RoutedEventArgs e)
+    private void OnCopyBtnClick(object? sender, RoutedEventArgs e)
     {
         if (CurrentSnapWindow == null) return;
         App.Clipboard.CopyImageToClipboard(CurrentSnapWindow.ImageSource);
+    }
+
+    private async void OnSaveBtnClick(object? sender, RoutedEventArgs e)
+    {
+        await App.Clipboard.GetImageFromClipboard();
     }
 }

@@ -1,6 +1,6 @@
 namespace UiharuMind.Core.Core.Utils
 {
-    public static class SimpleObjectPool<T> where T : IPoolAble, new()
+    public static class SimpleObjectPool<T> where T : new()
     {
         private static readonly Stack<T> Pool = new Stack<T>(10);
 
@@ -21,7 +21,6 @@ namespace UiharuMind.Core.Core.Utils
                 throw new ArgumentNullException(nameof(obj), "Cannot release a null object.");
             }
 
-            obj.Reset();
             Pool.Push(obj);
         }
 
@@ -29,10 +28,5 @@ namespace UiharuMind.Core.Core.Utils
         {
             Pool.Clear();
         }
-    }
-
-    public interface IPoolAble
-    {
-        void Reset();
     }
 }

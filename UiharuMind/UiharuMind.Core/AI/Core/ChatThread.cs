@@ -1,9 +1,12 @@
+using System.Runtime.CompilerServices;
+using System.Text;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Core.Utils.Tools;
 
 namespace UiharuMind.Core.AI.Core;
 
@@ -32,7 +35,8 @@ public class ChatThread
         }
     }
 
-    public async IAsyncEnumerable<string> SendMessageStreamingAsync(ChatHistory chatHistory, CancellationToken token)
+    public async IAsyncEnumerable<string> SendMessageStreamingAsync(ChatHistory chatHistory,
+        [EnumeratorCancellation] CancellationToken token)
     {
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
         var builder = StringBuilderPool.Get();
@@ -40,6 +44,7 @@ public class ChatThread
                            GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
         {
             builder.Append(content.Content);
+            Log.Debug($"Received message: {content.Content}");
             yield return builder.ToString();
             if (token.IsCancellationRequested) break;
         }
@@ -54,6 +59,7 @@ public class ChatThread
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
         var builder = StringBuilderPool.Get();
         string result = "";
+
         try
         {
             await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,

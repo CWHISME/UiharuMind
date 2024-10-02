@@ -56,7 +56,11 @@
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
                                     <!-- 内容 -->
-                                    <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="5" />
+                                    <Panel>
+                                        <SelectableTextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="5" />
+                                        <u:LoadingIcon
+                                            IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                                    </Panel>
                                 </Border>
 
                                 <!-- 时间 -->
@@ -95,8 +99,15 @@
                 </TextBox.KeyBindings>
             </TextBox>
 
-            <Button Grid.Column="2" Content="{x:Static  lang:Lang.Send}"
+            <!-- 发送按钮 -->
+            <Button Grid.Column="2" IsVisible="{Binding !IsGenerating}" Content="{x:Static  lang:Lang.Send}"
                     Command="{Binding SendMessageCommand}" VerticalAlignment="Bottom" />
+            <!-- 计算中显示的取消按钮 -->
+            <StackPanel Grid.Column="2" IsVisible="{Binding IsGenerating}" Orientation="Horizontal">
+                <u:LoadingIcon />
+                <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
+                        Command="{Binding StopSendingCommand}" />
+            </StackPanel>
 
         </Grid>
     </Grid>
