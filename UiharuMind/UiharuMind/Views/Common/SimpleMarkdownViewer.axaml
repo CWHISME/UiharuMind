@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:avedit="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.Common.SimpleMarkdownViewer">
+
+    <!-- <UserControl.Styles> -->
+    <!-- -->
+    <!--     ~1~ <FluentTheme /> @1@ -->
+    <!--     <SimpleTheme /> -->
+    <!--     <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" /> -->
+    <!--      -->
+    <!--     ~1~ <FluentTheme /> @1@ -->
+    <!--     ~1~ <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> @1@ -->
+    <!-- -->
+    <!--      -->
+    <!--     ~1~ @1@ -->
+    <!--     ~1~ <Style Selector="avedit|TextEditor"> @1@ -->
+    <!--     ~1~     <Style.Setters> @1@ -->
+    <!--     ~1~         <Setter Property="ShowLineNumbers" Value="True" /> @1@ -->
+    <!--     ~1~     </Style.Setters> @1@ -->
+    <!--     ~1~ </Style> @1@ -->
+    <!-- -->
+    <!--     ~1~ <Style Selector=".CodeBlock Button.CopyButton TextBlock"> @1@ -->
+    <!--     ~1~     <Setter Property="Text" Value="📋" /> @1@ -->
+    <!--     ~1~ </Style> @1@ -->
+    <!--     ~1~ <Style Selector="Button.CopyButton > TextBlock"> @1@ -->
+    <!--     ~1~     <Setter Property="Text" Value="📋" /> @1@ -->
+    <!--     ~1~ </Style> @1@ -->
+    <!-- -->
+    <!--     ~1~ <Style Selector="avalonia1|CTextBlock"> @1@ -->
+    <!--     ~1~     <Setter Property="SelectionBrush" Value="#ff0041c5" /> @1@ -->
+    <!--     ~1~     <Setter Property="Foreground" Value="White"></Setter> @1@ -->
+    <!--     ~1~ </Style> @1@ -->
+    <!-- </UserControl.Styles> -->
+
+    <!-- SaveScrollValueWhenContentUpdated="True" -->
+
+    <avalonia:MarkdownScrollViewer
+        SelectionEnabled="True"
+        MarkdownStyleName="FluentTheme"
+        Markdown="{Binding Markdown, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}">
+        <avalonia:MarkdownScrollViewer.Plugins>
+            <avalonia:MdAvPlugins>
+                <avalonia:ChatAISetup />
+            </avalonia:MdAvPlugins>
+        </avalonia:MarkdownScrollViewer.Plugins>
+        <avalonia:MarkdownScrollViewer.Styles>
+            <!-- <FluentTheme /> -->
+            <!-- <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> -->
+            <SimpleTheme />
+            <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
+            <Style Selector="Button.CopyButton TextBlock">
+                <Setter Property="Text" Value="📋" />
+            </Style>
+            <Style Selector=".CodeBlock avedit|TextEditor">
+                <Setter Property="ShowLineNumbers" Value="True" />
+                <!-- 强行写死C#，因为目前 MarkdownScrollViewer 有问题，使用 FluentTheme 代码高亮是有了，但是内容会丢失，而且闪烁 -->
+                <Setter Property="SyntaxHighlighting" Value="C#" />
+            </Style>
+        </avalonia:MarkdownScrollViewer.Styles>
+    </avalonia:MarkdownScrollViewer>
+
+</UserControl>

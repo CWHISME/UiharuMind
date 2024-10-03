@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.SemanticKernel;
@@ -41,7 +42,8 @@ public class ChatThread
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
         var builder = StringBuilderPool.Get();
         var delayUpdater = SimpleObjectPool<EmptyDelayUpdater>.Get();
-        delayUpdater.SetDelay(50);
+        delayUpdater.SetDelay(100);
+        Stopwatch stopwatch = Stopwatch.StartNew();
         await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
                            GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
         {
@@ -50,6 +52,9 @@ public class ChatThread
             // ReSharper disable once MethodHasAsyncOverload
             if (delayUpdater.UpdateDelay())
             {
+                // yield return MarkdownUtils.ToHtml(builder.ToString());
+                Log.Debug(stopwatch.ElapsedMilliseconds);
+                stopwatch.Restart();
                 yield return builder.ToString();
             }
 
@@ -58,6 +63,8 @@ public class ChatThread
         }
 
         yield return builder.ToString();
+        Log.Debug("end of chat thread " + stopwatch.ElapsedMilliseconds);
+        // yield return MarkdownUtils.ToHtml(builder.ToString());
 
         StringBuilderPool.Release(builder);
         SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);

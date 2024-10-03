@@ -30,9 +30,10 @@ public class ScrollViewerAutoScrollHolder
             // 用户向上滚动
             _isAutoScrolling = false;
         }
-        else if (scrollViewer.Offset.Y >= scrollViewer.ScrollBarMaximum.Y - e.ExtentDelta.Y)
+        else if (scrollViewer.ScrollBarMaximum.Y > 0 &&
+                 scrollViewer.Offset.Y >= scrollViewer.ScrollBarMaximum.Y - e.ExtentDelta.Y)
         {
-            // 用户手动或自动滚动到了底部，继续自动滚动
+            // 有进度条，且用户手动或自动滚动到了底部，继续自动滚动
             _isAutoScrolling = true;
         }
         //Log.Debug($"scrollViewer.ScrollBarMaximum.Y: {scrollViewer.ScrollBarMaximum.Y}, scrollViewer.Offset.Y: {scrollViewer.Offset.Y}, e.ExtentDelta.Y: {e.ExtentDelta.Y}");
@@ -42,5 +43,7 @@ public class ScrollViewerAutoScrollHolder
         {
             scrollViewer.ScrollToEnd();
         }
+
+        e.Handled = true;
     }
 }

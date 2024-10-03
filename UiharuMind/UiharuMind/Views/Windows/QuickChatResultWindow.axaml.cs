@@ -30,7 +30,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
         InitializeComponent();
         // SizeToContent = SizeToContent.WidthAndHeight;
 
-        _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
+        // _autoScrollHolder = new ScrollViewerAutoScrollHolder(ResultTextBlock.);
         // _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
     }
 
@@ -58,13 +58,13 @@ public partial class QuickChatResultWindow : QuickWindowBase
         IsFinished = false;
         SetContent("");
         ChatHistory history = new ChatHistory();
-        history.AddSystemMessage($"请使用中文详细解释：{info}。");
+        history.AddSystemMessage($"请使用中文解释：{info} 的意思，不要使用英文");
         _cts = new CancellationTokenSource();
 
         await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
         {
             // await _uiUpdater.UpdateValue(result);
-            Dispatcher.UIThread.Post(() => SetContent(result));
+            Dispatcher.UIThread.InvokeAsync(() => SetContent(result));
         }
 
         IsFinished = true;
@@ -82,7 +82,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
 
     private void SetContent(string str)
     {
-        ResultTextBlock.Text = str;
+        ResultTextBlock.Markdown = str;
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

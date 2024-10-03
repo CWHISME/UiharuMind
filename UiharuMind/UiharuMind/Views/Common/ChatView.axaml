@@ -7,6 +7,7 @@
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
 
@@ -33,6 +34,7 @@
             <Setter Property="Background" Value="Transparent" />
             <!-- <Setter Property="Foreground" Value="Transparent"/> -->
         </Style>
+
     </UserControl.Styles>
 
     <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
@@ -67,9 +69,11 @@
                                     <!-- 内容 -->
                                     <Panel Margin="5">
                                         <ScrollViewer Name="InnerScrollViewer" MaxHeight="666"
+                                                      IsVisible="{Binding IsUser}"
                                                       HorizontalScrollBarVisibility="Disabled">
                                             <SelectableTextBlock Text="{Binding Message}" Background="Transparent"
                                                                  TextWrapping="Wrap"
+                                                                 FontSize="12"
                                                                  IsHitTestVisible="{Binding IsEnabled,RelativeSource={RelativeSource Self}}">
                                                 <!-- 当设置为 IsEnabled 为 false，反而得把 IsHitTestVisible 也关掉才能触发 Scroll 的滚动 -->
                                                 <!-- 当 ScrollView 生效时，禁用选择复制功能(因为性能不行，很卡) -->
@@ -84,8 +88,12 @@
                                                 </SelectableTextBlock.IsEnabled>
                                             </SelectableTextBlock>
                                         </ScrollViewer>
-                                        <u:LoadingIcon
-                                            IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+
+                                        <!-- <avalonia:HtmlLabel Text="{Binding Message}" /> -->
+                                        <common:SimpleMarkdownViewer IsVisible="{Binding !IsUser}"
+                                                                     Markdown="{Binding Message}" MaxHeight="666" />
+                                        <!-- <u:LoadingIcon -->
+                                        <!--     IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" /> -->
                                     </Panel>
                                 </Border>
 
@@ -133,7 +141,7 @@
                         Command="{Binding SendMessageCommand}" VerticalAlignment="Center" />
                 <!-- 计算中显示的取消按钮 -->
                 <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" VerticalAlignment="Center">
-                    <u:LoadingIcon />
+                    <u:LoadingIcon IsVisible="{Binding IsGenerating}" />
                     <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
                             Command="{Binding StopSendingCommand}" />
                 </StackPanel>

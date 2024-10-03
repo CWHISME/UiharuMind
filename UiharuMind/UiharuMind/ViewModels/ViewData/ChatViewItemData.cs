@@ -14,6 +14,8 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
 
     public string SenderIcon => "None";
 
+    public bool IsUser => Role == ECharacter.User;
+
     public string SenderName
     {
         get

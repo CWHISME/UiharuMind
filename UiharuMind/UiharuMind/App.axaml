@@ -1,20 +1,22 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:u-semi="https://irihi.tech/ursa/themes/semi"
+             xmlns:u-Semi="https://irihi.tech/ursa/themes/semi"
              x:Class="UiharuMind.App"
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Styles>
-        <!--<FluentTheme />-->
         <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
         <StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude>
         <StyleInclude Source="avares://UiharuMind/Assets/CustomButtonStyle.axaml"></StyleInclude>
-        <u-semi:SemiTheme Locale="zh-CN" />
+        <u-Semi:SemiTheme Locale="zh-CN" />
+        <!-- TextEditor 渲染代码的语法高亮 -->
+        <!-- <FluentTheme /> -->
+        <!-- <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> -->
+        <!-- <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" /> -->
     </Application.Styles>
 
 
-    
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/avalonia-logo.ico"
