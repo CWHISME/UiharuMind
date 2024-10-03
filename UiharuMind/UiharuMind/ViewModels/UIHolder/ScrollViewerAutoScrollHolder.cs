@@ -30,7 +30,7 @@ public class ScrollViewerAutoScrollHolder
             // 用户向上滚动
             _isAutoScrolling = false;
         }
-        else if (scrollViewer.ScrollBarMaximum.Y > 0 &&
+        else if (e.ViewportDelta.Y == 0 && scrollViewer.ScrollBarMaximum.Y > 0 &&
                  scrollViewer.Offset.Y >= scrollViewer.ScrollBarMaximum.Y - e.ExtentDelta.Y)
         {
             // 有进度条，且用户手动或自动滚动到了底部，继续自动滚动

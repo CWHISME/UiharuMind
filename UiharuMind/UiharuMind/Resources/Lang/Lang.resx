@@ -100,4 +100,7 @@
     <data name="InAnswer" xml:space="preserve">
         <value>In Answer...</value>
     </data>
+    <data name="Plaintext" xml:space="preserve">
+        <value>Plaintext</value>
+    </data>
 </root>

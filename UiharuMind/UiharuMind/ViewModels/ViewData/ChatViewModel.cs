@@ -34,6 +34,9 @@ public partial class ChatViewModel : ObservableObject
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
 
+    //显示纯文本
+    [ObservableProperty] private bool _isPlaintext;
+
     private CancellationTokenSource? _cancelTokenSource;
 
     [RelayCommand]

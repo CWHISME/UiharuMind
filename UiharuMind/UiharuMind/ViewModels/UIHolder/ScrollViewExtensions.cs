@@ -8,7 +8,7 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.ViewModels.UIHolder;
 
 /// <summary>
-/// 用于绑定 Model 层控制 ScrollViewer 自动滚动到底部的属性，发送聊天使用
+/// 用于绑定 Model 层控制 ScrollViewer 自动滚动到底部的属性，发送聊天使用，发送后自动滚动到底部
 /// </summary>
 public static class ScrollViewExtensions
 {
@@ -45,7 +45,7 @@ public class ScrollViewPropertyObserver : IObserver<AvaloniaPropertyChangedEvent
                 scrollView.Offset = new Vector(scrollView.Offset.X,
                     scrollView.Extent.Height - scrollView.Viewport.Height);
                 ScrollViewExtensions.SetScrollToEnd(scrollView, false); // 重置属性
-                Log.Debug("Scroll to end");
+                // Log.Debug("Scroll to end");
             });
         }
     }

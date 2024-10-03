@@ -58,7 +58,8 @@ public partial class QuickChatResultWindow : QuickWindowBase
         IsFinished = false;
         SetContent("");
         ChatHistory history = new ChatHistory();
-        history.AddSystemMessage($"请使用中文解释：{info} 的意思，不要使用英文");
+        history.AddSystemMessage($"你是一位友善、机智、善解人意的机器人，会尽力帮助用户解决问题。请使用中文总结或解释以下文字");
+        history.AddUserMessage(info);
         _cts = new CancellationTokenSource();
 
         await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))

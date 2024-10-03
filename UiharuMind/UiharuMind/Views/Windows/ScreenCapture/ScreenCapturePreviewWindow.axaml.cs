@@ -58,7 +58,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     public void SetImage(Bitmap image, Size? size = null)
     {
         // Content = new Image { Source = image };
-        _originSize = size ?? image.PixelSize.ToSize(App.ScreensService.Scaling);
+        var scaling = App.ScreensService.Scaling;
+        _originSize = size ?? image.PixelSize.ToSize(scaling);
         // _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
 
         ImageSource = image;
@@ -67,8 +68,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         var bounds = App.ScreensService.MouseScreen?.Bounds;
         if (bounds != null)
         {
-            MaxWidth = bounds.Value.Width * 0.9;
-            MaxHeight = bounds.Value.Height * 0.9;
+            MaxWidth = bounds.Value.Width / scaling;
+            MaxHeight = bounds.Value.Height / scaling;
         }
 
         SetImageSize(_originSize);
@@ -130,7 +131,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
 
             // 限制缩放比例在最小和最大值之间
             if (newScale < MinScale || newScale > MaxScale ||
-                newScale > _currentScale && (this.Width > MaxWidth || this.Height > MaxHeight))
+                newScale > _currentScale &&
+                (this._currentSize.Width > MaxWidth || this._currentSize.Height > MaxHeight))
             {
                 return;
             }
@@ -148,8 +150,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             // Dispatcher.UIThread.Post(() =>
             // {
             // 调整窗口大小以适应新的内容大小
-            var newWidth = _originSize.Width * _currentScale;
-            var newHeight = _originSize.Height * _currentScale;
+            var newWidth = Math.Clamp(_originSize.Width * _currentScale, 0, MaxWidth);
+            var newHeight = Math.Clamp(_originSize.Height * _currentScale, 0, MaxHeight);
 
             // // 计算图像宽度和高度的变化量
             // var widthChange = newWidth - _currentSize.Width;
@@ -193,6 +195,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         _currentSize = newSize;
         this.Width = newSize.Width;
         this.Height = newSize.Height;
+        // ClientSize = newSize;
     }
 
 

@@ -19,6 +19,8 @@
         <converters:UserColumIndexConverter x:Key="UserColumIndexConverter" />
         <converters:UserLeftRightConverter x:Key="UserLeftRightConverter" />
         <converters:TwoValueToBooleanConverter x:Key="TwoValueToBooleanConverter" />
+        <converters:MultiConditionBoolAndConverter x:Key="MultiConditionBoolAndConverter" />
+        <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
     </UserControl.Resources>
 
     <Design.DataContext>
@@ -69,7 +71,6 @@
                                     <!-- 内容 -->
                                     <Panel Margin="5">
                                         <ScrollViewer Name="InnerScrollViewer" MaxHeight="666"
-                                                      IsVisible="{Binding IsUser}"
                                                       HorizontalScrollBarVisibility="Disabled">
                                             <SelectableTextBlock Text="{Binding Message}" Background="Transparent"
                                                                  TextWrapping="Wrap"
@@ -87,11 +88,28 @@
                                                     </MultiBinding>
                                                 </SelectableTextBlock.IsEnabled>
                                             </SelectableTextBlock>
+                                            <!-- 是用户、或者设置了显示原文，则显示纯文本 -->
+                                            <common:SimpleMarkdownViewer.IsVisible>
+                                                <MultiBinding
+                                                    Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                    <Binding Path="IsUser" />
+                                                    <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
+                                                </MultiBinding>
+                                            </common:SimpleMarkdownViewer.IsVisible>
                                         </ScrollViewer>
 
                                         <!-- <avalonia:HtmlLabel Text="{Binding Message}" /> -->
-                                        <common:SimpleMarkdownViewer IsVisible="{Binding !IsUser}"
-                                                                     Markdown="{Binding Message}" MaxHeight="666" />
+                                        <common:SimpleMarkdownViewer Markdown="{Binding Message}" MaxHeight="666">
+                                            <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
+                                            <common:SimpleMarkdownViewer.IsVisible>
+                                                <MultiBinding
+                                                    Converter="{StaticResource MultiConditionBoolAndConverter}">
+                                                    <Binding Path="!IsUser" />
+                                                    <Binding Path="!DataContext.IsPlaintext" ElementName="Viewer" />
+                                                </MultiBinding>
+                                            </common:SimpleMarkdownViewer.IsVisible>
+
+                                        </common:SimpleMarkdownViewer>
                                         <!-- <u:LoadingIcon -->
                                         <!--     IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" /> -->
                                     </Panel>
@@ -118,6 +136,7 @@
                             Text="{x:Static lang:Lang.SendUserDesc}" />
                     </ToolTip.Tip>
                 </Button>
+                <CheckBox Content="{x:Static lang:Lang.Plaintext}" IsChecked="{Binding IsPlaintext}" />
             </StackPanel>
 
             <!-- 输入区域 -->

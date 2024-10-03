@@ -92,4 +92,7 @@
     <data name="InAnswer" xml:space="preserve">
         <value>计算中...</value>
     </data>
+    <data name="Plaintext" xml:space="preserve">
+        <value>显示原文</value>
+    </data>
 </root>
