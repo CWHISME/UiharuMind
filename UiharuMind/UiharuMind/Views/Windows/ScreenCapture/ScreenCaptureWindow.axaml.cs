@@ -84,7 +84,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         SystemDecorations = SystemDecorations.None;
         // Background = Brushes.Transparent;
         CanResize = false;
-        // Topmost = true; // 确保窗口在最顶层
+        Topmost = true; // 确保窗口在最顶层
         ShowInTaskbar = false;
         ExtendClientAreaToDecorationsHint = true; // 扩展客户端区¸域以包括装饰
         ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
@@ -333,7 +333,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                     (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
                 var image = await childImage.ImageToBitmap();
                 // image.dp = new Size(SelectionRectangle.Width, SelectionRectangle.Height);
-                ScreenCapturePreviewWindow.ShowWindowAtMousePosition(image,
+                UIManager.ShowPreviewImageWindowAtMousePosition(image,
                     new Size(SelectionRectangle.Width, SelectionRectangle.Height));
             }
             catch (Exception e)

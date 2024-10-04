@@ -54,9 +54,10 @@ public partial class QuickToolWindow : QuickWindowBase
 
     protected override void OnPreShow()
     {
+        base.OnPreShow();
         InputManager.Instance.EventOnKeyDown += OnKeyDown;
-        InputManager.Instance.EventOnMouseClicked += OnMouseClicked;
         InputManager.Instance.EventOnMouseWheel += OnMouseWheel;
+        BindMouseClickCloseEvent();
 
         ShowActivated = false;
         this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
@@ -64,8 +65,8 @@ public partial class QuickToolWindow : QuickWindowBase
 
     protected override void OnPreClose()
     {
+        base.OnPreClose();
         InputManager.Instance.EventOnKeyDown -= OnKeyDown;
-        InputManager.Instance.EventOnMouseClicked -= OnMouseClicked;
         InputManager.Instance.EventOnMouseWheel -= OnMouseWheel;
     }
 
@@ -77,15 +78,10 @@ public partial class QuickToolWindow : QuickWindowBase
 
     private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
-        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString));
+        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString), null, true);
         PlayAnimation(false, SafeClose);
     }
 
-    private void OnMouseClicked(MouseEventData obj)
-    {
-        // if (SubMenuComboBox.IsFocused) return;
-        this.CheckMouseOutsideWindow(SafeClose);
-    }
 
     private void OnMouseWheel(MouseWheelEventData obj)
     {

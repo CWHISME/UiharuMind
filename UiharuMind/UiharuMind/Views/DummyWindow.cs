@@ -10,6 +10,7 @@ using SharpHook.Native;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Windows;
@@ -27,15 +28,22 @@ public class DummyWindow : Window
 
     public DummyWindow()
     {
-        SystemDecorations = SystemDecorations.None;
-        ExtendClientAreaToDecorationsHint = true;
-        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
-        Width = 1;
-        Height = 1;
-        Position = new PixelPoint(0, 0);
-        Background = Brushes.Transparent;
+        // SystemDecorations = SystemDecorations.None;
+        // ExtendClientAreaToDecorationsHint = true;
+        // ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
+        // var size = Screens.Primary.Bounds.Size.ToSize();
+        Width = 0;
+        Height = 0;
+        // Position = new PixelPoint(0, 0);
+        // Background = Brushes.Transparent;
         Focusable = false;
-        IsVisible = false;
+        // IsVisible = false;
+        // Opacity = 0;
+        ShowInTaskbar = false;
+        this.SetSimpledecorationPureWindow(false);
+        IsHitTestVisible = false;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        WindowState = WindowState.Minimized;
         // this.ShowInTaskbar = false;
 
         // this.WindowState = WindowState.Minimized;
@@ -50,10 +58,10 @@ public class DummyWindow : Window
         base.OnOpened(e);
         RegistryShortcut();
         RegistryClipboardTool();
-        Hide();
-        
+        // Hide();
+
         //if(UiharuCoreManager.Instance.IsWindows) 
-            LaunchMainWindow();
+        LaunchMainWindow();
     }
 
     // private void OnKeyDown(object? sender, KeyEventArgs e)
@@ -77,6 +85,12 @@ public class DummyWindow : Window
             },
             "Quick Start Chat"));
 
+        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcS,
+            LaunchQuickClipboardHistoryWindow, new List<KeyCode>()
+            {
+                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
+            },
+            "Quick Clipboard History"));
         // RegistryShortcutQuickTool(KeyCode.VcLeftControl);
         // RegistryShortcutQuickTool(KeyCode.VcLeftAlt);
         // RegistryShortcutQuickTool(KeyCode.VcLeftMeta);
@@ -111,5 +125,10 @@ public class DummyWindow : Window
     public void LaunchQuickToolWindow(string answerStr)
     {
         UIManager.ShowWindow<QuickToolWindow>(x => x.SetAnswerString(answerStr));
+    }
+
+    public void LaunchQuickClipboardHistoryWindow()
+    {
+        UIManager.ShowWindow<QuickClipboardHistoryWindow>();
     }
 }

@@ -85,7 +85,8 @@ public partial class MessageService : ObservableObject
     public async Task<MessageBoxResult> ShowMessage(string message, string title, MessageBoxIcon icon,
         MessageBoxButton button)
     {
-        var mainWindow = UIManager.GetWindow<MainWindow>();
+        Window? mainWindow = UIManager.GetWindow<MainWindow>();
+        if (mainWindow?.IsVisible == false) mainWindow = _target;
         if (IsBusy || mainWindow == null) return MessageBoxResult.None;
         IsBusy = true;
         try

@@ -10,8 +10,9 @@
         Height="350"
         Title="QuickChatResultWindow">
 
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" Margin="10">
-        <Border Height="30" Background="Transparent" PointerPressed="InputElement_OnPointerPressed">
+    <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*" Margin="10">
+        <Border Height="30" Background="Transparent"
+                PointerPressed="InputElement_OnPointerPressed">
             <DockPanel LastChildFill="False">
                 <TextBlock Name="TitleTextBlock" FontSize="20" Height="28" TextAlignment="Center" />
                 <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
@@ -23,10 +24,11 @@
                         Click="CloseButton_Click" />
             </DockPanel>
         </Border>
+        <!-- <TextBlock Grid.Row="1" Name="TokenTextBlock" TextAlignment="Left" /> -->
         <!-- <ScrollViewer Name="ScrollViewer" Grid.Row="1" Margin="0,10,0,10"> -->
         <!--     <SelectableTextBlock Name="ResultTextBlock" TextWrapping="Wrap" Background="Transparent" Margin="10,0,10,0"></SelectableTextBlock> -->
         <!-- </ScrollViewer> -->
-        <common:SimpleMarkdownViewer Grid.Row="1" Name="ResultTextBlock" Background="Transparent" Markdown="10" />
+        <common:SimpleMarkdownViewer Grid.Row="2" Name="ResultTextBlock" Background="Transparent" Markdown="10" />
     </Grid>
 
 </Window>

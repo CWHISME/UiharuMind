@@ -16,7 +16,6 @@
         <!-- <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" /> -->
     </Application.Styles>
 
-
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/avalonia-logo.ico"

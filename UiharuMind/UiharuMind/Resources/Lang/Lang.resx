@@ -103,4 +103,16 @@
     <data name="Plaintext" xml:space="preserve">
         <value>Plaintext</value>
     </data>
+    <data name="ChatPlaintextTooltip" xml:space="preserve">
+        <value />
+    </data>
+    <data name="ClipboardHistory" xml:space="preserve">
+        <value>Clipboard History</value>
+    </data>
+    <data name="CopiedToClipboardTips" xml:space="preserve">
+        <value>Copied to clipboard!</value>
+    </data>
+    <data name="ClipboardHistoryCount" xml:space="preserve">
+        <value>Count: {0}</value>
+    </data>
 </root>

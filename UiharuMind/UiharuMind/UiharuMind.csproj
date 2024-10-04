@@ -85,6 +85,10 @@
 	    <DependentUpon>Footer.axaml</DependentUpon>
 	    <SubType>Code</SubType>
 	  </Compile>
+	  <Compile Update="Views\ClipboardView\ClipboardSettingView.axaml.cs">
+	    <DependentUpon>ClipboardSettingView.axaml</DependentUpon>
+	    <SubType>Code</SubType>
+	  </Compile>
 	</ItemGroup>
 
 	<ItemGroup>

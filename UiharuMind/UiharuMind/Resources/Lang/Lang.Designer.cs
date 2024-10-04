@@ -69,6 +69,15 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        public static string ChatPlaintextTooltip {
+            get {
+                return ResourceManager.GetString("ChatPlaintextTooltip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Checking for updates....
         /// </summary>
         public static string CheckingForUpdates {
@@ -87,11 +96,38 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Clipboard History.
+        /// </summary>
+        public static string ClipboardHistory {
+            get {
+                return ResourceManager.GetString("ClipboardHistory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Count: {0}.
+        /// </summary>
+        public static string ClipboardHistoryCount {
+            get {
+                return ResourceManager.GetString("ClipboardHistoryCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Are you sure?.
         /// </summary>
         public static string ConfirmDeleteRuntimeEngine {
             get {
                 return ResourceManager.GetString("ConfirmDeleteRuntimeEngine", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Copied to clipboard!.
+        /// </summary>
+        public static string CopiedToClipboardTips {
+            get {
+                return ResourceManager.GetString("CopiedToClipboardTips", resourceCulture);
             }
         }
         

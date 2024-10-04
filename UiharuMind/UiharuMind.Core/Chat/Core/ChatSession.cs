@@ -1,7 +1,10 @@
 using System.Collections;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -10,7 +13,7 @@ namespace UiharuMind.Core.Core.Chat;
 /// <summary>
 /// 表示一个对话
 /// </summary>
-public class ChatSession //: IEnumerable<ChatMessage>
+public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
 {
     /// <summary>
     /// 本条对话名字
@@ -75,65 +78,39 @@ public class ChatSession //: IEnumerable<ChatMessage>
     /// 如果当前最后一条消息不是 AI 回复，则生成 AI 回复
     /// 若当前最后一条消息是 AI 回复，则删除最后一条消息，并重新生成 AI 回复
     /// </summary>
-    public IAsyncEnumerable<string> GenerateCompletionAsync(CancellationToken token)
+    public void GenerateCompletionStreaming(Action onMessageStart, Action<ChatStreamingMessageInfo> onMessageReceived,
+        Action onMessageStopped,
+        CancellationToken token)
     {
         if (History.Count == 0)
         {
             // Log.Warning("No message in chat session");
-            return new AsyncEnumerableWithMessage("No message in chat session");
+            // return new AsyncEnumerableWithMessage("Error: No message in chat session");
+            onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: No message in chat session"));
+            onMessageStopped.Invoke();
+            return;
         }
-
-        // if (History[History.Count - 1].Role ==AuthorRole.Assistant )
-        // {
-        //     History.RemoveAt(History.Count - 1);
-        //     TimeStamps.RemoveAt(TimeStamps.Count - 1);
-        // }
-        // if (History.Count == 0) return;
-
-        // LlmManager.Instance.CurrentRunningModel?.SendMessage(History, x =>
-        // {
-        //     if (_isFinished)
-        //     {
-        //         _isFinished = false;
-        //         AddMessage(AuthorRole.Assistant, x);
-        //         onStartCallback?.Invoke(this[^1]);
-        //     }
-        //     onStepCallback?.Invoke(x);
-        // }, (x) =>
-        // {
-        //     _isFinished = true;
-        //     History[^1].Content = x;
-        //     onCompletionCallback(x);
-        // }, token);
 
         if (LlmManager.Instance.CurrentRunningModel == null || !LlmManager.Instance.CurrentRunningModel.IsRunning)
         {
-            return new AsyncEnumerableWithMessage("No running model");
+            // return new AsyncEnumerableWithMessage("Error: No running model");
+            onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: No running model"));
+            onMessageStopped.Invoke();
+            return;
         }
 
-        // await foreach (string x in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(History, token))
-        // {
-        //     yield return x;
-        // }
-        return LlmManager.Instance.CurrentRunningModel.SendMessageAsync(History, token);
 
-
-        // LlmManager.Instance.CurrentRunningModel.SendMessage(History, x =>
-        // {
-        //     if (_isFinished)
-        //     {
-        //         _isFinished = false;
-        //         AddMessage(AuthorRole.Assistant, x);
-        //         onStartCallback?.Invoke(this[^1]);
-        //     }
-        //
-        //     onStepCallback?.Invoke(x);
-        // }, (x) =>
-        // {
-        //     _isFinished = true;
-        //     History[^1].Content = x;
-        //     onCompletionCallback(x);
-        // }, token);
+        LlmManager.Instance.CurrentRunningModel.SendMessageStreaming(History, (x) =>
+            {
+                TimeStamps[^1] = x.UtcTicks;
+                onMessageStart.Invoke();
+            },
+            onMessageReceived,
+            (x) =>
+            {
+                History[^1].Content = x.Message;
+                onMessageStopped.Invoke();
+            }, token);
     }
 
     public void Save()
@@ -149,6 +126,13 @@ public class ChatSession //: IEnumerable<ChatMessage>
     // IEnumerator IEnumerable.GetEnumerator()
     // {
     //     return GetEnumerator();
+    // }
+
+    // public event PropertyChangedEventHandler? PropertyChanged;
+    //
+    // protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    // {
+    //     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     // }
 
     private class SessionEnumerator(ChatSession session) : IEnumerator<ChatMessage>

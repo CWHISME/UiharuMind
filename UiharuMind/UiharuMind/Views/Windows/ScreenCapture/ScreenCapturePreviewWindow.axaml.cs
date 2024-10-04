@@ -34,8 +34,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
 
         this.SetSimpledecorationWindow();
 
-        this.MinWidth = 30;
-        this.MinHeight = 30;
+        this.MinWidth = 50;
+        this.MinHeight = 50;
 
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
@@ -45,15 +45,14 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         // PointerExited += OnMouseLeave;
     }
 
-    private void OnMouseEnter(object? sender, PointerEventArgs e)
-    {
-        ScreenCaptureManager.SyncDockWindow(this);
-    }
+    // private const double MinScale = 0.20f;
+    // private const double MaxScale = 12.0f;
+    private const double ScaleStep = 0.1f;
 
-    // private void OnMouseLeave(object? sender, PointerEventArgs e)
-    // {
-    //     ScreenCaptureManager.SyncBreakDockWindow(this);
-    // }
+    private double _aspectRatio = 1.0f;
+    private double _currentScale = 1.0f;
+    private Size _currentSize;
+    // private PixelPoint _currentPixelPoint;
 
     public void SetImage(Bitmap image, Size? size = null)
     {
@@ -61,6 +60,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         var scaling = App.ScreensService.Scaling;
         _originSize = size ?? image.PixelSize.ToSize(scaling);
         // _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
+        // 计算原始尺寸的比例
+        _aspectRatio = _originSize.Width / _originSize.Height;
 
         ImageSource = image;
         ImageContent.Source = image;
@@ -74,49 +75,26 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
 
         SetImageSize(_originSize);
 
-        SetLocation();
-    }
-
-    /// <summary>
-    /// 在屏幕显示一张图(当前鼠标位置)
-    /// </summary>
-    /// <param name="image"></param>
-    /// <param name="size">默认大小</param>
-    public static void ShowWindowAtMousePosition(Bitmap? image, Size? size = null)
-    {
-        if (image == null)
-        {
-            Log.Error("image is null");
-            return;
-        }
-
-        if (image.PixelSize.Width < 5 || image.PixelSize.Height < 5)
-        {
-            Log.Error("image PixelSize is too small");
-            return;
-        }
-
-        Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            var window = new ScreenCapturePreviewWindow();
-            window.SetImage(image, size);
-            window.Show();
-        });
-    }
-
-    private void SetLocation()
-    {
         this.SetWindowToMousePosition();
     }
 
+    private void SetImageSize(Size newSize)
+    {
+        _currentSize = newSize;
+        this.Width = newSize.Width;
+        this.Height = newSize.Height;
+        // ClientSize = newSize;
+    }
 
-    private const float MinScale = 0.20f;
-    private const float MaxScale = 12.0f;
-    private const float ScaleStep = 0.1f;
-    private float _currentScale = 1.0f;
+    private void OnMouseEnter(object? sender, PointerEventArgs e)
+    {
+        ScreenCaptureManager.SyncDockWindow(this);
+    }
 
-    private Size _currentSize;
-    // private PixelPoint _currentPixelPoint;
+    // private void OnMouseLeave(object? sender, PointerEventArgs e)
+    // {
+    //     ScreenCaptureManager.SyncBreakDockWindow(this);
+    // }
 
     private void OnPointerWheelChangedEvent(object? sender, PointerWheelEventArgs e)
     {
@@ -130,9 +108,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             var newScale = (float)(_currentScale * (1 + e.Delta.Y * ScaleStep));
 
             // 限制缩放比例在最小和最大值之间
-            if (newScale < MinScale || newScale > MaxScale ||
-                newScale > _currentScale &&
-                (this._currentSize.Width > MaxWidth || this._currentSize.Height > MaxHeight))
+            // newScale < MinScale || newScale > MaxScale ||
+            if (newScale > _currentScale &&
+                (this._currentSize.Width >= MaxWidth || this._currentSize.Height >= MaxHeight) ||
+                //限制最小缩放
+                newScale < _currentScale &&
+                (this._currentSize.Width <= MinWidth || this._currentSize.Height <= MinHeight))
             {
                 return;
             }
@@ -150,9 +131,13 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             // Dispatcher.UIThread.Post(() =>
             // {
             // 调整窗口大小以适应新的内容大小
-            var newWidth = Math.Clamp(_originSize.Width * _currentScale, 0, MaxWidth);
-            var newHeight = Math.Clamp(_originSize.Height * _currentScale, 0, MaxHeight);
+            // var newWidth = Math.Clamp(_originSize.Width * _currentScale, 0, MaxWidth);
+            // var newHeight = Math.Clamp(_originSize.Height * _currentScale, 0, MaxHeight);
+            // 计算新的宽度，并限制在上下限之间
+            // var newWidth = Math.Clamp(_originSize.Width * _currentScale, 0, MaxWidth);
 
+            var newSize =
+                _originSize.ScaleByWidth(_currentScale, _aspectRatio, MinWidth, MinHeight, MaxWidth, MaxHeight);
             // // 计算图像宽度和高度的变化量
             // var widthChange = newWidth - _currentSize.Width;
             // var heightChange = newHeight - _currentSize.Height;
@@ -163,41 +148,32 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
             // }
 
             // 计算新的窗口位置
-            double zoomX = newWidth / _currentSize.Width;
-            double zoomY = newHeight / _currentSize.Height;
+            double zoomX = newSize.Width / _currentSize.Width;
+            double zoomY = newSize.Height / _currentSize.Height;
 
             //调整窗口位置
             int newPosX = (int)(curPos.X - (mousePosition.X * (zoomX - 1)));
             int newPosY = (int)(curPos.Y - (mousePosition.Y * (zoomY - 1)));
 
             var pos = new PixelPoint(newPosX, newPosY);
-            var size = new Size((int)newWidth, (int)newHeight);
+            // var size = new Size((int)newWidth, (int)newHeight);
 
             //确保鼠标位置在缩放后不超出界面
-            pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, size);
+            pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, newSize);
 
-            Dispatcher.UIThread.Invoke(() =>
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
                 // StopRendering();
                 this.Position = pos;
-                SetImageSize(size);
+                SetImageSize(newSize);
                 // StartRendering();
-                InvalidateMeasure();
-            }, DispatcherPriority.Render);
+                // InvalidateMeasure();
+            }, DispatcherPriority.MaxValue);
             // });
 
             e.Handled = true;
         }
     }
-
-    private void SetImageSize(Size newSize)
-    {
-        _currentSize = newSize;
-        this.Width = newSize.Width;
-        this.Height = newSize.Height;
-        // ClientSize = newSize;
-    }
-
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {

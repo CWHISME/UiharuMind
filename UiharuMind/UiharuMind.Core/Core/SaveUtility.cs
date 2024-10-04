@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -6,7 +7,15 @@ namespace UiharuMind.Core.Core;
 
 public static class SaveUtility
 {
-    private static readonly JsonSerializerOptions _options = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions _options = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // 忽略 JSON 中的 null 值
+        AllowTrailingCommas = true, // 允许尾随逗号
+        ReadCommentHandling = JsonCommentHandling.Skip, // 忽略注释
+        PropertyNameCaseInsensitive = true, // 属性名称不区分大小写
+        UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode // 忽略未知类型
+    };
 
     public static void Save()
     {
@@ -36,7 +45,7 @@ public static class SaveUtility
         string path = Path.Combine(SettingConfig.SaveDataPath, fileName);
         try
         {
-            if (File.Exists(path)) return JsonSerializer.Deserialize<T>(File.ReadAllText(path)) ?? new T();
+            if (File.Exists(path)) return JsonSerializer.Deserialize<T>(File.ReadAllText(path), _options) ?? new T();
         }
         catch (Exception e)
         {

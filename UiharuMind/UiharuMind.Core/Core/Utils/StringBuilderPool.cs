@@ -12,7 +12,7 @@ namespace UiharuMind.Core.Core.Utils
         {
             if (!Pool.TryPop(out var obj))
             {
-                obj = new StringBuilder();
+                obj = new StringBuilder(8192);
             }
 
             return obj;

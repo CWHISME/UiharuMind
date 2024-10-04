@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +11,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Clowd.Clipboard;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Utils;
@@ -22,11 +26,22 @@ public class ClipboardService : IDisposable
     private IClipboard Clipboard => _target.Clipboard!;
     private readonly IClipboardMonitor? _clipboardMonitor;
 
+    /// <summary>
+    /// 历史记录
+    /// </summary>
+    public ObservableCollection<ClipboardItem> ClipboardHistoryItems { get; }
+
     public Action<string>? OnClipboardStringChanged;
 
     public const string ImageTypePngWin = "image/png";
+
     public const string ImageTypePngMac = "public.png";
+
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
+    public const string HistoryFileName = "clipboard_history.json";
+
+    private Timer _timer;
+    private bool _isHistoryDirty;
 
     public ClipboardService(Window target)
     {
@@ -35,6 +50,11 @@ public class ClipboardService : IDisposable
         //初始化剪切板监控
         _clipboardMonitor = CreateClipboardMonitor();
         if (_clipboardMonitor != null) _clipboardMonitor.OnClipboardChanged += OnSystemClipboardChanged;
+
+        ClipboardHistoryItems = SaveUtility.Load<ObservableCollection<ClipboardItem>>(HistoryFileName);
+
+        //初始化定时器，每隔100秒检测保存一次历史记录
+        _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromSeconds(100));
     }
 
     public void CopyToClipboard(string text)
@@ -108,12 +128,25 @@ public class ClipboardService : IDisposable
     {
         var clipboardContent = await Clipboard.GetTextAsync();
         if (string.IsNullOrEmpty(clipboardContent)) return;
+        //简单对比排除一下相同项
+        if (ClipboardHistoryItems.Count > 0 && clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
+            clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;
+        ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
         OnClipboardStringChanged?.Invoke(clipboardContent);
+        _isHistoryDirty = true;
+    }
+
+    private void OnTimerElapsed(object? state)
+    {
+        SaveUtility.Save(HistoryFileName, ClipboardHistoryItems);
+        _isHistoryDirty = false;
     }
 
     public void Dispose()
     {
+        SaveUtility.Save(HistoryFileName, ClipboardHistoryItems);
         _clipboardMonitor?.Dispose();
+        _timer.Dispose();
     }
 
 

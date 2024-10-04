@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:clipboardViewData="clr-namespace:UiharuMind.ViewModels.ViewData.ClipboardViewData"
+             xmlns:clipboardView="clr-namespace:UiharuMind.Views.ClipboardView"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.SettingViews.ClipboardSettingView">
+
+    <Design.DataContext>
+        <clipboardViewData:ClipboardSettingViewModel />
+    </Design.DataContext>
+
+
+    <Grid RowDefinitions="Auto,*">
+
+        <clipboardView:ClipboardHistoryView Grid.Row="0" />
+
+        <StackPanel Grid.Row="1" Orientation="Vertical">
+            <TextBox Watermark="Max Record Count" Text="{Binding MaxRecordCount}" />
+            <CheckBox Content="Save to Disk" IsChecked="{Binding SaveToDisk}" />
+            <Button Content="Clear All" Command="{Binding ClearAllCommand}" />
+        </StackPanel>
+    </Grid>
+
+</UserControl>

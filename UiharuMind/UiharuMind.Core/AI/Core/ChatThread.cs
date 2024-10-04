@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using OpenAI.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -48,7 +49,7 @@ public class ChatThread
                            GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
         {
             builder.Append(content.Content);
-
+            // var startTimestamp = (DateTimeOffset)content.Metadata["CreatedAt"];
             // ReSharper disable once MethodHasAsyncOverload
             if (delayUpdater.UpdateDelay())
             {
@@ -71,21 +72,54 @@ public class ChatThread
     }
 
 
+    // public async void SendMessageStreaming(ChatHistory chatHistory, Action callback)
+    // {
+    //     await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
+    //                        GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
+    //     {
+    //             await callback();
+    //     }
+    // }
+
     public async void SendMessageStreaming(ChatHistory chatHistory,
-        Action<string> onMessageReceived, Action<string> onMessageStopped, CancellationToken token)
+        Action<DateTimeOffset>? onMessageStart,
+        Action<ChatStreamingMessageInfo> onMessageReceived,
+        Action<ChatStreamingMessageInfo> onMessageStopped,
+        CancellationToken token)
     {
         var chat = GetKernel.GetRequiredService<IChatCompletionService>();
         var builder = StringBuilderPool.Get();
-        string result = "";
+        var delayUpdater = SimpleObjectPool<EmptyDelayUpdater>.Get();
+        delayUpdater.SetDelay(100);
 
+        ChatStreamingMessageInfo info = new ChatStreamingMessageInfo();
+        // DateTimeOffset? startTime = null;
+        // var startTimestamp = (DateTimeOffset)content.Metadata["CreatedAt"];
+        StreamingChatMessageContent? lastMessage = null;
         try
         {
             await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
                                GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
             {
+                if (onMessageStart != null)
+                {
+                    if (content.Metadata?.TryGetValue("CreatedAt", out object? value) == true &&
+                        value is DateTimeOffset dateTimeOffset)
+                        // startTime = value as DateTimeOffset?;
+                        onMessageStart(dateTimeOffset);
+                    else onMessageStart.Invoke(DateTimeOffset.Now);
+                    // startTime ??= DateTimeOffset.Now;
+                    onMessageStart = null;
+                }
+
+                lastMessage = content;
                 builder.Append(content.Content);
-                result = builder.ToString();
-                onMessageReceived?.Invoke(result);
+                // ReSharper disable once MethodHasAsyncOverload
+                if (delayUpdater.UpdateDelay())
+                {
+                    info.Message = builder.ToString();
+                    onMessageReceived?.Invoke(info);
+                }
             }
         }
         catch (IOException)
@@ -95,9 +129,18 @@ public class ChatThread
         {
             Log.Error("Error in ChatThread.SendMessageStreamingAsync: " + e.Message);
         }
+        finally
+        {
+            if (lastMessage?.InnerContent is StreamingChatCompletionUpdate cp)
+            {
+                info.TokenCount = cp.Usage?.TotalTokens ?? 0;
+            }
 
-        StringBuilderPool.Release(builder);
-        onMessageStopped?.Invoke(result);
+            StringBuilderPool.Release(builder);
+            SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);
+            Log.Debug("end of chat thread " + info.TokenCount);
+            onMessageStopped.Invoke(info);
+        }
     }
 
     private OpenAIPromptExecutionSettings GetOpenAiRequestSettings()

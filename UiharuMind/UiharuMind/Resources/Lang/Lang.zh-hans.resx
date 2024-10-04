@@ -95,4 +95,16 @@
     <data name="Plaintext" xml:space="preserve">
         <value>显示原文</value>
     </data>
+    <data name="ChatPlaintextTooltip" xml:space="preserve">
+        <value>是否渲染 Markdown 格式，勾选后直接显示原始文字。</value>
+    </data>
+    <data name="ClipboardHistory" xml:space="preserve">
+        <value>剪切板历史</value>
+    </data>
+    <data name="CopiedToClipboardTips" xml:space="preserve">
+        <value>已复制！</value>
+    </data>
+    <data name="ClipboardHistoryCount" xml:space="preserve">
+        <value>数量：{0}</value>
+    </data>
 </root>

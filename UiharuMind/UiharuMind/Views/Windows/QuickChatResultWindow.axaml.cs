@@ -1,10 +1,6 @@
 using System;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Timers;
-using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -12,6 +8,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -50,40 +47,54 @@ public partial class QuickChatResultWindow : QuickWindowBase
         TitleTextBlock.Text = "解释";
         if (LlmManager.Instance.CurrentRunningModel == null)
         {
-            SetContent("error: current model is not loaded");
+            SetContent(new ChatStreamingMessageInfo("error: current model is not loaded"));
             IsFinished = true;
             return;
         }
 
         IsFinished = false;
-        SetContent("");
+        SetContent(new ChatStreamingMessageInfo());
         ChatHistory history = new ChatHistory();
         history.AddSystemMessage($"你是一位友善、机智、善解人意的机器人，会尽力帮助用户解决问题。请使用中文总结或解释以下文字");
         history.AddUserMessage(info);
         _cts = new CancellationTokenSource();
 
-        await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
-        {
-            // await _uiUpdater.UpdateValue(result);
-            Dispatcher.UIThread.InvokeAsync(() => SetContent(result));
-        }
+        LlmManager.Instance.CurrentRunningModel.SendMessageStreaming(history, null,
+            (x) => { Dispatcher.UIThread.Post(() => SetContent(x)); },
+            (message) =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    SetContent(message);
+                    IsFinished = true;
+                });
+            }, _cts.Token);
+        // await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
+        // {
+        //     // await _uiUpdater.UpdateValue(result);
+        //     // Dispatcher.UIThread.InvokeAsync(() => SetContent(result));
+        //     SetContent(result);
+        // }
 
-        IsFinished = true;
+        // IsFinished = true;
     }
 
     protected override void OnPreShow()
     {
+        base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Center);
     }
 
     protected override void OnPreClose()
     {
+        base.OnPreClose();
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
     }
 
-    private void SetContent(string str)
+    private void SetContent(ChatStreamingMessageInfo info)
     {
-        ResultTextBlock.Markdown = str;
+        ResultTextBlock.Markdown = info.Message;
+        // TokenTextBlock.Text = $"(Tokens: {info.TokenCount})";
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

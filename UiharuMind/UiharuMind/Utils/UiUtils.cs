@@ -134,6 +134,14 @@ public static class UiUtils
             new PixelRect(targetPosition, PixelSize.FromSize(targetSize, scaling)), scaling);
     }
 
+    /// <summary>
+    /// 将坐标限制在边界内
+    /// </summary>
+    /// <param name="position"></param>
+    /// <param name="size"></param>
+    /// <param name="bounds"></param>
+    /// <param name="scaling"></param>
+    /// <returns></returns>
     public static PixelPoint ClampToBounds(PixelPoint position, Size size, PixelRect bounds, double scaling = 1.0)
     {
         // 计算控件在边界内的最大允许位置
@@ -147,19 +155,12 @@ public static class UiUtils
         return new PixelPoint((int)x, (int)y);
     }
 
-
-    //     int posX = Math.Clamp(targetPosition.X, contentPosition.X,
-    //         contentPosition.X + (int)(contentSize.Width * scaling));
-    //     int posY = Math.Clamp(targetPosition.Y, contentPosition.Y,
-    //         contentPosition.Y + (int)(contentSize.Height * scaling));
-    //
-    //     // 计算控件在屏幕内的位置
-    //     double x = Math.Max(0, Math.Min(posX, screen.Bounds.Width - controlSize.Width * screen.Scaling));
-    //     double y = Math.Max(0, Math.Min(posY + 20, screen.Bounds.Height - controlSize.Height * screen.Scaling));
-    //
-    //     return new PixelPoint((int)x, (int)y);
-    // }
-
+    /// <summary>
+    /// 判断鼠标是否在控件范围内
+    /// </summary>
+    /// <param name="controlPosition"></param>
+    /// <param name="controlSize"></param>
+    /// <returns></returns>
     public static bool IsMouseInRange(PixelPoint controlPosition, Size controlSize)
     {
         PixelPoint mousePos = App.ScreensService.MousePosition;
@@ -168,5 +169,100 @@ public static class UiUtils
             (int)(controlPosition.Y + controlSize.Height * scaling));
         return mousePos.X >= controlPosition.X && mousePos.X <= controlMaxPos.X &&
                mousePos.Y >= controlPosition.Y && mousePos.Y <= controlMaxPos.Y;
+    }
+
+
+    // /// <summary>
+    // /// 以宽度为基准比例缩放图片大小，并限制最大宽度和最大高度
+    // /// </summary>
+    // /// <param name="size"></param>
+    // /// <param name="scaleFactor"></param>
+    // /// <param name="aspectRatio">原始大小的 width / height 的值</param>
+    // /// <param name="limitMaxWidth">限制缩放后的最大宽度</param>
+    // /// <param name="limitMaxHeight">限制缩放后的最大高度</param>
+    // /// <param name="limitMinWidth">限制缩放后的最小宽度</param>
+    // /// <param name="limitMinHeight">限制缩放后的最小高度</param>
+    // /// <returns></returns>
+    // public static Size SafeScaleByWidth(this Size size, double scaleFactor, double aspectRatio, double limitMaxWidth,
+    //     double limitMaxHeight, double limitMinWidth = 0, double limitMinHeight = 0)
+    // {
+    //     // 计算新的宽度和高度
+    //     var newWidth = Math.Clamp(size.Width * scaleFactor, limitMinWidth, limitMaxWidth);
+    //     var newHeight = newWidth / aspectRatio;
+    //
+    //     // 如果新的高度超出上限，则重新计算宽度和高度
+    //     if (newHeight > limitMaxHeight || newHeight < limitMinHeight)
+    //     {
+    //         newHeight = limitMaxHeight;
+    //         newWidth = newHeight * aspectRatio;
+    //     }
+    //
+    //     return new Size(newWidth, newHeight);
+    // }
+
+    /// <summary>
+    /// 以高度为基准比例缩放图片大小，并限制最大宽度和最大高度
+    /// </summary>
+    /// <param name="size"></param>
+    /// <param name="scaleFactor"></param>
+    /// <param name="aspectRatio"></param>
+    /// <param name="limitMaxWidth"></param>
+    /// <param name="limitMaxHeight"></param>
+    /// <param name="limitMinWidth"></param>
+    /// <param name="limitMinHeight"></param>
+    /// <returns></returns>
+    public static Size ScaleByWidth(this Size size, double scaleFactor, double aspectRatio, double limitMinWidth,
+        double limitMinHeight, double limitMaxWidth,
+        double limitMaxHeight)
+    {
+        return ScaleDimension(size.Width, scaleFactor, aspectRatio, limitMinWidth, limitMinHeight, limitMaxWidth,
+            limitMaxHeight);
+    }
+
+    /// <summary>
+    /// 以高度为基准比例缩放图片大小，并限制最大宽度和最大高度
+    /// </summary>
+    /// <param name="size"></param>
+    /// <param name="scaleFactor"></param>
+    /// <param name="aspectRatio"></param>
+    /// <param name="limitMaxWidth"></param>
+    /// <param name="limitMaxHeight"></param>
+    /// <param name="limitMinWidth"></param>
+    /// <param name="limitMinHeight"></param>
+    /// <returns></returns>
+    public static Size ScaleByHeight(this Size size, double scaleFactor, double aspectRatio, double limitMinWidth,
+        double limitMinHeight, double limitMaxWidth,
+        double limitMaxHeight)
+    {
+        return ScaleDimension(size.Height, scaleFactor, aspectRatio, limitMinWidth, limitMinHeight, limitMaxWidth,
+            limitMaxHeight);
+    }
+
+    /// <summary>
+    /// 根据基准维度进行缩放，并限制最大和最小维度
+    /// </summary>
+    /// <param name="baseDimension">基准维度（宽度或高度）</param>
+    /// <param name="scaleFactor">缩放因子(1+缩放系数)</param>
+    /// <param name="aspectRatio">基准维度/另一个维度 的比例</param>
+    /// <param name="limitMaxBase">基准维度的最大限制</param>
+    /// <param name="limitMaxOther">另一个维度的最大限制</param>
+    /// <param name="limitMinBase">基准维度的最小限制</param>
+    /// <param name="limitMinOther">另一个维度的最小限制</param>
+    /// <returns>缩放后的图片大小</returns>
+    private static Size ScaleDimension(double baseDimension, double scaleFactor,
+        double aspectRatio,
+        double limitMinBase, double limitMinOther,
+        double limitMaxBase, double limitMaxOther)
+    {
+        double newBase = Math.Clamp(baseDimension * scaleFactor, limitMinBase, limitMaxBase);
+        double newOther = newBase / aspectRatio;
+
+        if (newOther > limitMaxOther || newOther < limitMinOther)
+        {
+            newOther = Math.Clamp(newOther, limitMinOther, limitMaxOther);
+            newBase = newOther * aspectRatio;
+        }
+
+        return new Size(newBase, newOther);
     }
 }

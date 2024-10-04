@@ -82,7 +82,7 @@ public class ModelRunningData
         _cts = null;
     }
 
-    public IAsyncEnumerable<string> SendMessageAsync(ChatHistory chatHistory, CancellationToken token)
+    public IAsyncEnumerable<string> SendMessageStreamingAsync(ChatHistory chatHistory, CancellationToken token)
     {
         // if (!IsRunning)
         // {
@@ -92,6 +92,16 @@ public class ModelRunningData
 
         _chatThread ??= new ChatThread();
         return _chatThread.SendMessageStreamingAsync(chatHistory, token);
+    }
+
+    public void SendMessageStreaming(ChatHistory chatHistory,
+        Action<DateTimeOffset>? onMessageStart,
+        Action<ChatStreamingMessageInfo> onMessageReceived,
+        Action<ChatStreamingMessageInfo> onMessageStopped,
+        CancellationToken token)
+    {
+        _chatThread ??= new ChatThread();
+        _chatThread.SendMessageStreaming(chatHistory, onMessageStart, onMessageReceived, onMessageStopped, token);
     }
 
     private void OnInitLoad(CancellationTokenSource cts)

@@ -10,6 +10,7 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
 {
     [ObservableProperty] private ECharacter _role;
     [ObservableProperty] private string? _message;
+    [ObservableProperty] private int? _tokenCount;
     [ObservableProperty] private string? _timestamp;
 
     public string SenderIcon => "None";

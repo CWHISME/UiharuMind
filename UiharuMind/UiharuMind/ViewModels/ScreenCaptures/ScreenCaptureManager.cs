@@ -59,7 +59,7 @@ public static class ScreenCaptureManager
     public static async Task GetMacScreenCaptureFromClipboard()
     {
         await ScreenCaptureMac.Capture();
-        ScreenCapturePreviewWindow.ShowWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
+        UIManager.ShowPreviewImageWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
     }
 
     public static async void OpenOcr(string filePath, int width, int height)

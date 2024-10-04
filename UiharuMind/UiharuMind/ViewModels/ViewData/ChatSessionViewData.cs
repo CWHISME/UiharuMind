@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
@@ -61,18 +62,39 @@ public partial class ChatSessionViewData : ViewModelBase
 
     public async Task GenerateMessage(CancellationToken token)
     {
-        await foreach (var item in _chatSession.GenerateCompletionAsync(token))
+        var lastMessage = _chatSession[^1];
+        if (lastMessage.Character == ECharacter.User)
         {
-            if (CurrentChatItem == null)
-            {
-                Log.Error("Error: CurrentChatItem is null");
-                break;
-            }
-
-            CurrentChatItem.Message = item;
+            Log.Warning("Error: User cannot generate message");
+            return;
         }
 
-        _chatSession[^1].Message.Content = CurrentChatItem?.Message;
+        var currentChatItem = CurrentChatItem;
+        if (currentChatItem == null)
+        {
+            Log.Error("Error: CurrentChatItem is null");
+            return;
+        }
+
+        _chatSession.GenerateCompletionStreaming(() => { currentChatItem.SetChatItem(_chatSession[^1]); }, (message) =>
+            {
+                currentChatItem.Message = message.Message;
+                currentChatItem.TokenCount = message.TokenCount;
+            },
+            () => { currentChatItem.SetChatItem(_chatSession[^1]); }, token);
+
+        // await foreach (var item in _chatSession.GenerateCompletionAsync(token))
+        // {
+        //     if (CurrentChatItem == null)
+        //     {
+        //         Log.Error("Error: CurrentChatItem is null");
+        //         break;
+        //     }
+        //
+        //     CurrentChatItem.Message = item;
+        // }
+
+        // _chatSession[^1].Message.Content = CurrentChatItem?.Message;
     }
 
     private ChatViewItemData AddMessage(AuthorRole role, string message)
