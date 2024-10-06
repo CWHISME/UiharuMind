@@ -3,8 +3,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:avedit="https://github.com/avaloniaui/avaloniaedit"
-             xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
+             xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
+             xmlns:avalonia1="clr-namespace:TheArtOfDev.HtmlRenderer.Avalonia;assembly=Avalonia.HtmlRenderer"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.SimpleMarkdownViewer">
 
@@ -40,29 +43,58 @@
 
     <!-- SaveScrollValueWhenContentUpdated="True" -->
 
-    <avalonia:MarkdownScrollViewer
-        SelectionEnabled="True"
-        MarkdownStyleName="FluentTheme"
-        Markdown="{Binding Markdown, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}">
-        <avalonia:MarkdownScrollViewer.Plugins>
-            <avalonia:MdAvPlugins>
-                <avalonia:ChatAISetup />
-            </avalonia:MdAvPlugins>
-        </avalonia:MarkdownScrollViewer.Plugins>
-        <avalonia:MarkdownScrollViewer.Styles>
-            <!-- <FluentTheme /> -->
-            <!-- <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> -->
-            <SimpleTheme />
-            <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
-            <Style Selector="Button.CopyButton TextBlock">
-                <Setter Property="Text" Value="📋" />
-            </Style>
-            <Style Selector=".CodeBlock avedit|TextEditor">
-                <Setter Property="ShowLineNumbers" Value="True" />
-                <!-- 强行写死C#，因为目前 MarkdownScrollViewer 有问题，使用 FluentTheme 代码高亮是有了，但是内容会丢失，而且闪烁 -->
-                <Setter Property="SyntaxHighlighting" Value="C#" />
-            </Style>
-        </avalonia:MarkdownScrollViewer.Styles>
-    </avalonia:MarkdownScrollViewer>
+
+    <Panel>
+        <!-- 普通文字显示 -->
+        <!-- IsVisible="{Binding IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
+        <!-- Text="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
+        <ScrollViewer
+            HorizontalScrollBarVisibility="Disabled">
+            <DockPanel>
+                <SelectableTextBlock Name="PlainTextBlock"
+                                     Background="Transparent"
+                                     TextWrapping="Wrap"
+                                     FontSize="14">
+                </SelectableTextBlock>
+                <avalonia1:HtmlLabel Name="MarkdownTextBlock" AutoSize="True" />
+            </DockPanel>
+        </ScrollViewer>
+
+        <!-- Avalonia.Markdown 渲染显示 -->
+        <!-- IsVisible="{Binding !IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
+        <!-- Markdown="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}"> -->
+
+        <!-- <mdxaml:MarkdownScrollViewer -->
+        <!--     Name="MarkdownScrollViewer" -->
+        <!--     MarkdownStyleName="FluentTheme" -->
+        <!--     SelectionEnabled="True"> -->
+        <!--     <mdxaml:MarkdownScrollViewer.Plugins> -->
+        <!--         <mdxaml:MdAvPlugins> -->
+        <!--             <avalonia:ChatAISetup /> -->
+        <!--         </mdxaml:MdAvPlugins> -->
+        <!--     </mdxaml:MarkdownScrollViewer.Plugins> -->
+        <!--     <mdxaml:MarkdownScrollViewer.Styles> -->
+        <!--         ~1~ <FluentTheme /> @1@ -->
+        <!--         ~1~ <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> @1@ -->
+        <!--         <SimpleTheme /> -->
+        <!--         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" /> -->
+        <!--         <Style Selector="Button.CopyButton TextBlock"> -->
+        <!--             <Setter Property="Text" Value="📋" /> -->
+        <!--         </Style> -->
+        <!--         <Style Selector=".CodeBlock avedit|TextEditor"> -->
+        <!--             <Setter Property="ShowLineNumbers" Value="True" /> -->
+        <!--             ~1~ 强行写死C#，因为目前 MarkdownScrollViewer 有问题，使用 FluentTheme 代码高亮是有了，但是内容会丢失，而且闪烁 @1@ -->
+        <!--             <Setter Property="SyntaxHighlighting" Value="C#" /> -->
+        <!--         </Style> -->
+        <!--     </mdxaml:MarkdownScrollViewer.Styles> -->
+        <!-- </mdxaml:MarkdownScrollViewer> -->
+
+        <!-- <avalonia1:HtmlPanel Name="MarkdownTextBlock" /> -->
+        <!-- Text="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
+        <!-- IsVisible="{Binding !IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" /> -->
+
+        <u:LoadingIcon Name="LoadingEffect" />
+    </Panel>
+
 
 </UserControl>

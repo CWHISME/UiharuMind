@@ -11,6 +11,7 @@ using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
+using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.Views;
 using Ursa.Controls;
@@ -42,9 +43,9 @@ public partial class App : Application, ILogger, IDisposable
             DummyWindow = new DummyWindow();
 
             Clipboard = new ClipboardService(DummyWindow);
-            FilesService = new FilesService(DummyWindow);
+            FilesService = new FilesService();
             ScreensService = new ScreensService(DummyWindow);
-            MessageService = new MessageService(DummyWindow);
+            MessageService = new MessageService();
             ModelService = new ModelService();
 
             desktop.MainWindow = DummyWindow;
@@ -70,6 +71,8 @@ public partial class App : Application, ILogger, IDisposable
 
         //强行清理可能残留的进程
         ProcessHelper.ForceClearAllProcesses();
+
+        // var name= FontUtils.GetFontFamilyName("F:\\项目\\个人\\UiharuMind\\UiharuMind\\UiharuMind\\Assets\\Fonts\\DreamHanSansCN-W12.ttf");
     }
 
     // public new static App Current => (App)Application.Current!;
@@ -128,12 +131,12 @@ public partial class App : Application, ILogger, IDisposable
         // 处理AppDomain级别的未处理异常
         var ex = (Exception)e.ExceptionObject;
         Log.Error(ex);
-        if (e.IsTerminating)
-        {
-            Log.Error("A critical error has occurred and the application will now close.");
-            Dispose();
-            Environment.Exit(1);
-        }
+        // if (e.IsTerminating)
+        // {
+        //     Log.Error("A critical error has occurred and the application will now close.");
+        //     Dispose();
+        //     Environment.Exit(1);
+        // }
 
         Log.CloseAndFlush();
     }

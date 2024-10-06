@@ -22,11 +22,11 @@ public partial class SettingPanelView : UserControl
         InitializeComponent();
     }
 
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
-        SettingConfig = SettingConfig;
-    }
+    // protected override void OnLoaded(RoutedEventArgs e)
+    // {
+    //     base.OnLoaded(e);
+    //     SettingConfig = SettingConfig;
+    // }
 
     public static readonly StyledProperty<object?> SettingConfigProperty =
         AvaloniaProperty.Register<SettingPanelView, object?>(nameof(SettingConfig),
@@ -35,14 +35,18 @@ public partial class SettingPanelView : UserControl
     public object? SettingConfig
     {
         get => GetValue(SettingConfigProperty);
-        set
-        {
-            SetValue(SettingConfigProperty, value);
+        set => SetValue(SettingConfigProperty, value);
+    }
 
-            var actualValue = SettingConfig;
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == SettingConfigProperty)
+        {
+            var actualValue = change.NewValue;
             Title.Text = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
                          actualValue?.GetType().Name;
-            SettingListView.SettingConfig = actualValue;
+            SettingListView.SettingConfig = change.NewValue;
         }
     }
     // private object? _settingConfig;

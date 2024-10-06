@@ -71,16 +71,6 @@ public class ChatThread
         SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);
     }
 
-
-    // public async void SendMessageStreaming(ChatHistory chatHistory, Action callback)
-    // {
-    //     await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
-    //                        GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
-    //     {
-    //             await callback();
-    //     }
-    // }
-
     public async void SendMessageStreaming(ChatHistory chatHistory,
         Action<DateTimeOffset>? onMessageStart,
         Action<ChatStreamingMessageInfo> onMessageReceived,
@@ -93,22 +83,18 @@ public class ChatThread
         delayUpdater.SetDelay(100);
 
         ChatStreamingMessageInfo info = new ChatStreamingMessageInfo();
-        // DateTimeOffset? startTime = null;
-        // var startTimestamp = (DateTimeOffset)content.Metadata["CreatedAt"];
         StreamingChatMessageContent? lastMessage = null;
         try
         {
             await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
-                               GetOpenAiRequestSettings(), cancellationToken: token).ConfigureAwait(false))
+                               GetOpenAiRequestSettings(), cancellationToken: token))
             {
                 if (onMessageStart != null)
                 {
                     if (content.Metadata?.TryGetValue("CreatedAt", out object? value) == true &&
                         value is DateTimeOffset dateTimeOffset)
-                        // startTime = value as DateTimeOffset?;
                         onMessageStart(dateTimeOffset);
                     else onMessageStart.Invoke(DateTimeOffset.Now);
-                    // startTime ??= DateTimeOffset.Now;
                     onMessageStart = null;
                 }
 
@@ -120,6 +106,8 @@ public class ChatThread
                     info.Message = builder.ToString();
                     onMessageReceived?.Invoke(info);
                 }
+
+                if (token.IsCancellationRequested) break;
             }
         }
         catch (IOException)
@@ -131,6 +119,8 @@ public class ChatThread
         }
         finally
         {
+            // info.Message = MarkdownUtils.ToHtml(builder.ToString());
+            info.Message = (builder.ToString());
             if (lastMessage?.InnerContent is StreamingChatCompletionUpdate cp)
             {
                 info.TokenCount = cp.Usage?.TotalTokens ?? 0;

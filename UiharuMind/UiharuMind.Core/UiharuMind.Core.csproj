@@ -10,7 +10,8 @@
     <ItemGroup>
       <PackageReference Include="AngleSharp" Version="1.1.2" />
       <PackageReference Include="CliWrap" Version="3.6.6" />
-      <PackageReference Include="Downloader" Version="3.2.0" />
+      <PackageReference Include="Downloader" Version="3.2.1" />
+      <PackageReference Include="Markdown.ColorCode.CSharpToColoredHtml" Version="2.3.0" />
       <PackageReference Include="Microsoft.SemanticKernel" Version="1.21.1" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpHook" Version="5.3.8" />

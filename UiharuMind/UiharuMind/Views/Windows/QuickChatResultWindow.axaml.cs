@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Microsoft.SemanticKernel.ChatCompletion;
+using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
@@ -39,7 +40,12 @@ public partial class QuickChatResultWindow : QuickWindowBase
     public bool IsFinished
     {
         get => !InAnswerPanel.IsVisible;
-        private set => InAnswerPanel.IsVisible = !value;
+        private set
+        {
+            InAnswerPanel.IsVisible = !value;
+            LoadingEffect.IsLoading = !value;
+            ResultTextBlock.IsPlaintext = !value || UiharuCoreManager.Instance.Setting.IsChatPlainText;
+        }
     }
 
     public async void SetRequestInfo(string info)
@@ -60,14 +66,11 @@ public partial class QuickChatResultWindow : QuickWindowBase
         _cts = new CancellationTokenSource();
 
         LlmManager.Instance.CurrentRunningModel.SendMessageStreaming(history, null,
-            (x) => { Dispatcher.UIThread.Post(() => SetContent(x)); },
+            SetContent,
             (message) =>
             {
-                Dispatcher.UIThread.Post(() =>
-                {
-                    SetContent(message);
-                    IsFinished = true;
-                });
+                SetContent(message);
+                IsFinished = true;
             }, _cts.Token);
         // await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
         // {
@@ -93,7 +96,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
 
     private void SetContent(ChatStreamingMessageInfo info)
     {
-        ResultTextBlock.Markdown = info.Message;
+        ResultTextBlock.MarkdownText = info.Message;
         // TokenTextBlock.Text = $"(Tokens: {info.TokenCount})";
     }
 

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 
 namespace UiharuMind.ViewModels.UIHolder;
 
@@ -13,19 +14,25 @@ public class ScrollViewerAutoScrollHolder
     {
         scrollViewer.ScrollToEnd();
         scrollViewer.ScrollChanged += OnScrollChanged;
+        scrollViewer.PointerWheelChanged += OnPointerWheelChanged;
+    }
+
+    private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        _isAutoScrolling = false;
     }
 
     private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         var scrollViewer = e.Source as ScrollViewer;
         if (scrollViewer == null) return;
-        bool isManualScroll = e.ExtentDelta.Y == 0;
-        if (isManualScroll && e.OffsetDelta.Y > 0)
+        // bool isManualScroll = e.ExtentDelta.Y == 0;
+        if (e.OffsetDelta.Y > 0)
         {
             // 用户向下滚动
             _isAutoScrolling = false;
         }
-        else if (isManualScroll && e.OffsetDelta.Y < 0)
+        else if (e.OffsetDelta.Y < 0)
         {
             // 用户向上滚动
             _isAutoScrolling = false;
@@ -36,7 +43,6 @@ public class ScrollViewerAutoScrollHolder
             // 有进度条，且用户手动或自动滚动到了底部，继续自动滚动
             _isAutoScrolling = true;
         }
-        //Log.Debug($"scrollViewer.ScrollBarMaximum.Y: {scrollViewer.ScrollBarMaximum.Y}, scrollViewer.Offset.Y: {scrollViewer.Offset.Y}, e.ExtentDelta.Y: {e.ExtentDelta.Y}");
 
         // 如果需要自动滚动到底部
         if (_isAutoScrolling)

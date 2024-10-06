@@ -31,7 +31,7 @@ public partial class ClipboardHistoryViewModel : ObservableObject
     private void OnClipboardStringChanged(string obj)
     {
         Refresh();
-        OnPropertyChanged(nameof(ClipboardHistoryItems));
+        // OnPropertyChanged(nameof(ClipboardHistoryItems));
     }
 
     private void Refresh()

@@ -8,10 +8,12 @@ namespace UiharuMind.ViewModels.ViewData;
 
 public partial class ChatViewItemData : ViewModelBase, IPoolAble
 {
+    // [ObservableProperty] private bool _isUser;
     [ObservableProperty] private ECharacter _role;
     [ObservableProperty] private string? _message;
     [ObservableProperty] private int? _tokenCount;
     [ObservableProperty] private string? _timestamp;
+    [ObservableProperty] private bool _isDone = true;
 
     public string SenderIcon => "None";
 
@@ -44,6 +46,7 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     public void SetChatItem(ChatMessage item)
     {
         Role = item.Character;
+        // IsUser = item.Character == ECharacter.User;
         Message = item.Message.Content;
         Timestamp = item.LocalTimeString;
     }

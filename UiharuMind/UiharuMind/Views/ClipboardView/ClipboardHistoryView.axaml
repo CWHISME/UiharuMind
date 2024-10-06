@@ -35,6 +35,9 @@
                             <TextBlock Grid.Row="1" Text="{Binding Text}" IsVisible="{Binding !IsImage}"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{Binding Text}" />
+                            </ToolTip.Tip>
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

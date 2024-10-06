@@ -17,4 +17,9 @@ public class SettingConfig : ConfigBase
     /// 是否是本地服务模式
     /// </summary>
     public bool IsLocalServer { get; set; } = true;
+
+    /// <summary>
+    /// 聊天是否显示纯文本
+    /// </summary>
+    public bool IsChatPlainText { get; set; } = false;
 }

@@ -8,6 +8,7 @@
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
+             xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
 
@@ -46,12 +47,12 @@
         <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom"
                       HorizontalScrollBarVisibility="Disabled"
                       uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
-            <ItemsControl DataContext="{Binding ChatSession}" ItemsSource="{Binding ChatItems}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <VirtualizingStackPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
+            <ItemsControl ItemsSource="{Binding ChatSession.ChatItems}">
+                <!-- <ItemsControl.ItemsPanel> -->
+                <!--     <ItemsPanelTemplate> -->
+                <!--         <VirtualizingStackPanel /> -->
+                <!--     </ItemsPanelTemplate> -->
+                <!-- </ItemsControl.ItemsPanel> -->
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="15,0">
@@ -69,50 +70,71 @@
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
                                     <!-- 内容 -->
-                                    <Panel Margin="5">
-                                        <ScrollViewer Name="InnerScrollViewer" MaxHeight="666"
-                                                      HorizontalScrollBarVisibility="Disabled">
-                                            <SelectableTextBlock Text="{Binding Message}" Background="Transparent"
-                                                                 TextWrapping="Wrap"
-                                                                 FontSize="12"
-                                                                 IsHitTestVisible="{Binding IsEnabled,RelativeSource={RelativeSource Self}}">
-                                                <!-- 当设置为 IsEnabled 为 false，反而得把 IsHitTestVisible 也关掉才能触发 Scroll 的滚动 -->
-                                                <!-- 当 ScrollView 生效时，禁用选择复制功能(因为性能不行，很卡) -->
-                                                <SelectableTextBlock.IsEnabled>
-                                                    <MultiBinding
-                                                        Converter="{StaticResource TwoValueToBooleanConverter}">
-                                                        <Binding ElementName="InnerScrollViewer"
-                                                                 Path="MaxHeight" />
-                                                        <Binding ElementName="InnerScrollViewer"
-                                                                 Path="ScrollBarMaximum.Y" />
-                                                    </MultiBinding>
-                                                </SelectableTextBlock.IsEnabled>
-                                            </SelectableTextBlock>
-                                            <!-- 是用户、或者设置了显示原文，则显示纯文本 -->
-                                            <common:SimpleMarkdownViewer.IsVisible>
-                                                <MultiBinding
-                                                    Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                                    <Binding Path="IsUser" />
-                                                    <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
-                                                </MultiBinding>
-                                            </common:SimpleMarkdownViewer.IsVisible>
-                                        </ScrollViewer>
+                                    <!-- <Panel Margin="5"> -->
+                                    <!--     <ScrollViewer Name="InnerScrollViewer" MaxHeight="666" -->
+                                    <!--                   HorizontalScrollBarVisibility="Disabled"> -->
+                                    <!--         <SelectableTextBlock Text="{Binding Message}" Background="Transparent" -->
+                                    <!--                              TextWrapping="Wrap" -->
+                                    <!--                              FontSize="12" -->
+                                    <!--                              IsHitTestVisible="{Binding IsEnabled,RelativeSource={RelativeSource Self}}"> -->
+                                    <!--             ~1~ 当设置为 IsEnabled 为 false，反而得把 IsHitTestVisible 也关掉才能触发 Scroll 的滚动 @1@ -->
+                                    <!--             ~1~ 当 ScrollView 生效时，禁用选择复制功能(因为性能不行，很卡) @1@ -->
+                                    <!--             <SelectableTextBlock.IsEnabled> -->
+                                    <!--                 <MultiBinding -->
+                                    <!--                     Converter="{StaticResource TwoValueToBooleanConverter}"> -->
+                                    <!--                     <Binding ElementName="InnerScrollViewer" -->
+                                    <!--                              Path="MaxHeight" /> -->
+                                    <!--                     <Binding ElementName="InnerScrollViewer" -->
+                                    <!--                              Path="ScrollBarMaximum.Y" /> -->
+                                    <!--                 </MultiBinding> -->
+                                    <!--             </SelectableTextBlock.IsEnabled> -->
+                                    <!--         </SelectableTextBlock> -->
+                                    <!--         ~1~ 是用户、或者设置了显示原文，则显示纯文本 @1@ -->
+                                    <!--         <common:SimpleMarkdownViewer.IsVisible> -->
+                                    <!--             <MultiBinding -->
+                                    <!--                 Converter="{StaticResource MultiConditionBoolOrConverter}"> -->
+                                    <!--                 <Binding Path="IsUser" /> -->
+                                    <!--                 <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" /> -->
+                                    <!--             </MultiBinding> -->
+                                    <!--         </common:SimpleMarkdownViewer.IsVisible> -->
+                                    <!--     </ScrollViewer> -->
+                                    <!-- -->
+                                    <!--     ~1~ <avalonia:HtmlLabel Text="{Binding Message}" /> @1@ -->
+                                    <!--     <common:SimpleMarkdownViewer -->
+                                    <!--         Markdown="{Binding Message}" MaxHeight="666"> -->
+                                    <!--         ~1~ 不是用户、并且没有设置显示原文，则以 Markdown 显示 @1@ -->
+                                    <!--         <common:SimpleMarkdownViewer.IsVisible> -->
+                                    <!--             <MultiBinding -->
+                                    <!--                 Converter="{StaticResource MultiConditionBoolAndConverter}"> -->
+                                    <!--                 <Binding Path="!IsUser" /> -->
+                                    <!--                 <Binding Path="!DataContext.IsPlaintext" ElementName="Viewer" /> -->
+                                    <!--             </MultiBinding> -->
+                                    <!--         </common:SimpleMarkdownViewer.IsVisible> -->
+                                    <!-- -->
+                                    <!--     </common:SimpleMarkdownViewer> -->
+                                    <!--     ~1~ <u:LoadingIcon @1@ -->
+                                    <!--     ~1~     IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" /> @1@ -->
+                                    <!-- </Panel> -->
 
-                                        <!-- <avalonia:HtmlLabel Text="{Binding Message}" /> -->
-                                        <common:SimpleMarkdownViewer Markdown="{Binding Message}" MaxHeight="666">
-                                            <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
-                                            <common:SimpleMarkdownViewer.IsVisible>
-                                                <MultiBinding
-                                                    Converter="{StaticResource MultiConditionBoolAndConverter}">
-                                                    <Binding Path="!IsUser" />
-                                                    <Binding Path="!DataContext.IsPlaintext" ElementName="Viewer" />
-                                                </MultiBinding>
-                                            </common:SimpleMarkdownViewer.IsVisible>
+                                    <common:SimpleMarkdownViewer MarkdownText="{Binding Message}"
+                                                                 Margin="5">
+                                        <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
+                                        <common:SimpleMarkdownViewer.IsPlaintext>
+                                            <MultiBinding
+                                                Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                <Binding Path="IsUser" />
+                                                <Binding Path="!IsDone" />
+                                                <!-- <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> -->
+                                                <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
+                                            </MultiBinding>
+                                        </common:SimpleMarkdownViewer.IsPlaintext>
+                                    </common:SimpleMarkdownViewer>
 
-                                        </common:SimpleMarkdownViewer>
-                                        <!-- <u:LoadingIcon -->
-                                        <!--     IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" /> -->
-                                    </Panel>
+                                    <!-- <mdxaml:MarkdownScrollViewer -->
+                                    <!--     SelectionEnabled="True" -->
+                                    <!--     Markdown="{Binding Message}"> -->
+                                    <!-- </mdxaml:MarkdownScrollViewer> -->
+
                                 </Border>
 
                                 <!-- 时间 -->
@@ -128,7 +150,7 @@
         <!-- 输入区域 -->
         <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto">
             <!-- 工具区域 -->
-            <StackPanel Orientation="Horizontal" Margin="5,5,5,0">
+            <DockPanel Margin="5,5,5,0">
                 <Button Content="{Binding SenderMode}"
                         Command="{Binding ChangeSendModeCommand}">
                     <ToolTip.Tip>
@@ -136,13 +158,20 @@
                             Text="{x:Static lang:Lang.SendUserDesc}" />
                     </ToolTip.Tip>
                 </Button>
-                <CheckBox Content="{x:Static lang:Lang.Plaintext}" IsChecked="{Binding IsPlaintext}" />
-            </StackPanel>
+                <CheckBox DockPanel.Dock="Right" Content="{x:Static lang:Lang.Plaintext}"
+                          IsChecked="{Binding IsPlaintext}"
+                          HorizontalAlignment="Right">
+                    <ToolTip.Tip>
+                        <TextBlock
+                            Text="{x:Static lang:Lang.ChatPlaintextTooltip}" />
+                    </ToolTip.Tip>
+                </CheckBox>
+            </DockPanel>
 
             <!-- 输入区域 -->
             <TextBox Grid.Row="1" Name="InputBox" Margin="5" Padding="5,5,5,50" Text="{Binding InputText, Mode=TwoWay}"
                      MinHeight="80"
-                     MaxHeight="200"
+                     MaxHeight="250"
                      TextWrapping="Wrap"
                      AcceptsReturn="True"
                      Watermark="{x:Static lang:Lang.ChatInputTips}"
@@ -155,12 +184,13 @@
             <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right">
                 <!-- 发送按钮 -->
                 <Button IsVisible="{Binding !IsGenerating}"
+                        IsHitTestVisible="{Binding IsVisible,RelativeSource={RelativeSource Self}}"
                         IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                         Content="{x:Static  lang:Lang.Send}"
                         Command="{Binding SendMessageCommand}" VerticalAlignment="Center" />
                 <!-- 计算中显示的取消按钮 -->
                 <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" VerticalAlignment="Center">
-                    <u:LoadingIcon IsVisible="{Binding IsGenerating}" />
+                    <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
                     <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
                             Command="{Binding StopSendingCommand}" />
                 </StackPanel>

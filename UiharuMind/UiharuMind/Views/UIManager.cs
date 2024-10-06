@@ -77,7 +77,6 @@ public class UIManager
         });
     }
 
-
     public static T? GetWindow<T>()
         where T : UiharuWindowBase
     {
@@ -87,6 +86,17 @@ public class UIManager
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 获取一个主口，优先查找 MainWindow，如果没有打开或处于隐藏状态则返回 DummyWindow
+    /// </summary>
+    /// <returns></returns>
+    public static Window GetRootWindow()
+    {
+        var mainWindow = GetWindow<MainWindow>();
+        if (mainWindow?.IsVisible == true) return mainWindow;
+        return App.DummyWindow;
     }
 
     public static void CloseWindow<T>()

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 using Avalonia;
@@ -17,6 +18,7 @@ namespace UiharuMind.Views.SettingViews;
 /// <summary>
 /// 自动根据类的字段生成设置项
 /// 建议代码创建使用
+/// 注：只支持 ConfigBase 子类
 /// </summary>
 public partial class SettingListView : UserControl
 {
@@ -26,7 +28,7 @@ public partial class SettingListView : UserControl
         InitializeComponent();
     }
 
-    private object? _settingConfig;
+    private ConfigBase? _settingConfig;
 
     public object? SettingConfig
     {
@@ -39,7 +41,7 @@ public partial class SettingListView : UserControl
                 return;
             }
 
-            _settingConfig = value;
+            _settingConfig = value as ConfigBase;
             RefreshResetView();
         }
     }
@@ -74,15 +76,13 @@ public partial class SettingListView : UserControl
     /// </summary>
     private void RefreshResetView()
     {
+        if (SettingConfig == null) return;
         SettingContent.Children.Clear();
         _changeActions.Clear();
-        if (SettingConfig is ConfigBase)
+        foreach (var property in SettingConfig.GetType().GetProperties())
         {
-            foreach (var property in SettingConfig.GetType().GetProperties())
-            {
-                // var value = property.GetValue(SettingConfig);
-                CreateControlForType(property.PropertyType, property);
-            }
+            // var value = property.GetValue(SettingConfig);
+            CreateControlForType(property.PropertyType, property);
         }
     }
 
@@ -128,7 +128,11 @@ public partial class SettingListView : UserControl
             IsChecked = property.GetValue(SettingConfig) as bool?,
         };
 
-        checkbox.IsCheckedChanged += (sender, e) => { property.SetValue(SettingConfig, checkbox.IsChecked); };
+        checkbox.IsCheckedChanged += (sender, e) =>
+        {
+            property.SetValue(SettingConfig, checkbox.IsChecked);
+            NotifyPropertyChanged(property);
+        };
         _changeActions.Add(() => checkbox.IsChecked = property.GetValue(SettingConfig) as bool?);
         return checkbox;
     }
@@ -173,6 +177,7 @@ public partial class SettingListView : UserControl
             {
                 property.SetValue(SettingConfig, Convert.ChangeType(slider.Value, type));
                 title.Text = slider.Value.ToString(CultureInfo.CurrentCulture);
+                NotifyPropertyChanged(property);
             };
 
             _changeActions.Add(() => slider.Value = Convert.ToDouble(property.GetValue(SettingConfig)));
@@ -191,6 +196,7 @@ public partial class SettingListView : UserControl
         intbox.ValueChanged += (sender, e) =>
         {
             property.SetValue(SettingConfig, Convert.ChangeType(intbox.Value, type));
+            NotifyPropertyChanged(property);
         };
         _changeActions.Add(() => intbox.Value = Convert.ToDecimal(property.GetValue(SettingConfig)));
 
@@ -215,7 +221,11 @@ public partial class SettingListView : UserControl
             }
 
             comboBox.SelectedIndex = Array.IndexOf(options.Options, property.GetValue(SettingConfig)?.ToString());
-            comboBox.SelectionChanged += (sender, e) => { property.SetValue(SettingConfig, comboBox.SelectedItem); };
+            comboBox.SelectionChanged += (sender, e) =>
+            {
+                property.SetValue(SettingConfig, comboBox.SelectedItem);
+                NotifyPropertyChanged(property);
+            };
             _changeActions.Add(() =>
                 comboBox.SelectedIndex = Array.IndexOf(options.Options, property.GetValue(SettingConfig)?.ToString()));
 
@@ -228,7 +238,11 @@ public partial class SettingListView : UserControl
             Text = property.GetValue(SettingConfig)?.ToString()
         };
 
-        textbox.TextChanged += (sender, e) => { property.SetValue(SettingConfig, textbox.Text); };
+        textbox.TextChanged += (sender, e) =>
+        {
+            property.SetValue(SettingConfig, textbox.Text);
+            NotifyPropertyChanged(property);
+        };
         _changeActions.Add(() => textbox.Text = property.GetValue(SettingConfig)?.ToString());
 
         return textbox;
@@ -294,5 +308,11 @@ public partial class SettingListView : UserControl
     {
         control.Margin = new Thickness(0, 5, 0, 5);
         SettingContent.Children.Add(control);
+    }
+
+    //NotifyPropertyChanged
+    private void NotifyPropertyChanged(PropertyInfo property)
+    {
+        _settingConfig?.OnPropertyChanged(property.Name);
     }
 }

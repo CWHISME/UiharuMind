@@ -22,7 +22,7 @@ public partial class MessageService : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
 
-    private readonly DummyWindow _target;
+    // private readonly DummyWindow _target;
     private WindowNotificationManager? _notificationManager;
     private WindowToastManager? _toastManager;
 
@@ -47,51 +47,55 @@ public partial class MessageService : ObservableObject
         }
     }
 
-    public MessageService(DummyWindow target)
-    {
-        _target = target;
-    }
+    // public MessageService(DummyWindow target)
+    // {
+    //     _target = target;
+    // }
 
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
+    /// <param name="owner"></param>
     /// <param name="message"></param>
-    public async void ShowMessage(string message)
+    public async void ShowMessage(string message, Window? owner = null)
     {
-        await ShowMessage(message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK);
+        await ShowMessage(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK);
     }
 
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async void ShowErrorMessage(string message)
+    public async void ShowErrorMessage(string message, Window? owner = null)
     {
-        await ShowMessage(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
+        await ShowMessage(owner, message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
     }
 
     /// <summary>
     /// 显示一个确认弹窗，可选择是、否
     /// </summary>
+    /// <param name="owner"></param>
     /// <param name="message"></param>
     /// <returns></returns>
-    public async Task<MessageBoxResult> ShowConfirmMessage(string message)
+    public async Task<MessageBoxResult> ShowConfirmMessage(string message, Window? owner = null)
     {
-        return await ShowMessage(message, Lang.MessageInfoTitle, MessageBoxIcon.Question, MessageBoxButton.YesNo);
+        return await ShowMessage(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
+            MessageBoxButton.YesNo);
     }
 
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async Task<MessageBoxResult> ShowMessage(string message, string title, MessageBoxIcon icon,
+    public async Task<MessageBoxResult> ShowMessage(Window? owner, string message, string title, MessageBoxIcon icon,
         MessageBoxButton button)
     {
-        Window? mainWindow = UIManager.GetWindow<MainWindow>();
-        if (mainWindow?.IsVisible == false) mainWindow = _target;
-        if (IsBusy || mainWindow == null) return MessageBoxResult.None;
+        // Window? mainWindow = UIManager.GetWindow<MainWindow>();
+        // if (mainWindow?.IsVisible == false) mainWindow = _target;
+        if (owner == null) owner = UIManager.GetRootWindow();
+        if (IsBusy) return MessageBoxResult.None;
         IsBusy = true;
         try
         {
-            return await MessageBox.ShowAsync(mainWindow, message, title, icon, button);
+            return await MessageBox.ShowAsync(owner, message, title, icon, button);
             //模态弹窗会闪，感觉是窗体渲染的问题，所以这里用非模态弹窗代替了
             // await MessageBox.ShowOverlayAsync(message, "Error", icon: MessageBoxIcon.Error,button: MessageBoxButton.OK);
         }

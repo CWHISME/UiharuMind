@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel.ChatCompletion;
 using SharpHook.Native;
+using UiharuMind.Core;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -35,7 +36,7 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty] private bool _isGenerating;
 
     //显示纯文本
-    [ObservableProperty] private bool _isPlaintext;
+    [ObservableProperty] public bool _isPlaintext;
 
     private CancellationTokenSource? _cancelTokenSource;
 
@@ -73,5 +74,10 @@ public partial class ChatViewModel : ObservableObject
         await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant,
             message, _cancelTokenSource.Token);
         IsGenerating = false;
+    }
+
+    partial void OnIsGeneratingChanged(bool value)
+    {
+        UiharuCoreManager.Instance.Setting.IsChatPlainText = value;
     }
 }

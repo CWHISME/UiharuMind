@@ -5,10 +5,16 @@
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+    <Application.Resources>
+        <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#Dream Han Sans CN</FontFamily>
+        <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
+    </Application.Resources>
+
     <Application.Styles>
         <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
         <StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude>
         <StyleInclude Source="avares://UiharuMind/Assets/CustomButtonStyle.axaml"></StyleInclude>
+        <StyleInclude Source="avares://UiharuMind/Assets/CustomFontStyle.axaml"></StyleInclude>
         <u-Semi:SemiTheme Locale="zh-CN" />
         <!-- TextEditor 渲染代码的语法高亮 -->
         <!-- <FluentTheme /> -->

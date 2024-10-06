@@ -76,12 +76,32 @@ public partial class ChatSessionViewData : ViewModelBase
             return;
         }
 
-        _chatSession.GenerateCompletionStreaming(() => { currentChatItem.SetChatItem(_chatSession[^1]); }, (message) =>
+        await Task.Run(() =>
+        {
+            bool isCompleted = false;
+            _chatSession.GenerateCompletionStreaming(() =>
+                {
+                    currentChatItem.IsDone = false;
+                    currentChatItem.SetChatItem(_chatSession[^1]);
+                },
+                (message) =>
+                {
+                    currentChatItem.Message = message.Message;
+                    currentChatItem.TokenCount = message.TokenCount;
+                },
+                (message) =>
+                {
+                    currentChatItem.Message = message.Message;
+                    currentChatItem.TokenCount = message.TokenCount;
+                    currentChatItem.IsDone = true;
+                    isCompleted = true;
+                }, token);
+            while (!isCompleted)
             {
-                currentChatItem.Message = message.Message;
-                currentChatItem.TokenCount = message.TokenCount;
-            },
-            () => { currentChatItem.SetChatItem(_chatSession[^1]); }, token);
+                Thread.Sleep(1000);
+            }
+        }, token);
+
 
         // await foreach (var item in _chatSession.GenerateCompletionAsync(token))
         // {

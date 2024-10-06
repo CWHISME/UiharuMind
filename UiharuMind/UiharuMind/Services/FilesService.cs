@@ -7,28 +7,30 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Views;
 
 namespace UiharuMind.Services;
 
 public class FilesService //: IStorageFolder
 {
-    private readonly Window _target;
+    // private readonly Window _target;
     private readonly FolderPickerOpenOptions _filePickerOption;
 
-    public FilesService(Window target)
+    public FilesService()
     {
-        _target = target;
+        // _target = target;
         _filePickerOption = new FolderPickerOpenOptions();
         // _filePickerOption.SuggestedStartLocation = this;
     }
 
-    public async Task<string> OpenSelectFolderAsync(string defaultPath)
+    public async Task<string> OpenSelectFolderAsync(string defaultPath, Window? owner = null)
     {
         // _filePickerOption.Title = "Select Folder";
         // _path = new Uri(defaultPath);
-        var folder = await _target.StorageProvider.TryGetFolderFromPathAsync(new Uri(defaultPath));
+        if (owner == null) owner = UIManager.GetRootWindow();
+        var folder = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(defaultPath));
         _filePickerOption.SuggestedStartLocation = folder;
-        var result = await _target.StorageProvider.OpenFolderPickerAsync(_filePickerOption);
+        var result = await owner.StorageProvider.OpenFolderPickerAsync(_filePickerOption);
         return result.FirstOrDefault()?.TryGetLocalPath() ?? defaultPath;
     }
 
@@ -55,9 +57,9 @@ public class FilesService //: IStorageFolder
         }
     }
 
-    public async Task<IStorageFile?> OpenFileAsync()
+    public async Task<IStorageFile?> OpenFileAsync(Window owner)
     {
-        var files = await _target.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
+        var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
         {
             Title = "Open File",
         });
@@ -65,9 +67,9 @@ public class FilesService //: IStorageFolder
         return files.Count >= 1 ? files[0] : null;
     }
 
-    public async Task<IStorageFile?> SaveFileAsync()
+    public async Task<IStorageFile?> SaveFileAsync(Window owner)
     {
-        return await _target.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()
+        return await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
             Title = "Save File"
         });

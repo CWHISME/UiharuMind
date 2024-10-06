@@ -79,27 +79,34 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// 若当前最后一条消息是 AI 回复，则删除最后一条消息，并重新生成 AI 回复
     /// </summary>
     public void GenerateCompletionStreaming(Action onMessageStart, Action<ChatStreamingMessageInfo> onMessageReceived,
-        Action onMessageStopped,
+        Action<ChatStreamingMessageInfo> onMessageStopped,
         CancellationToken token)
     {
         if (History.Count == 0)
         {
             // Log.Warning("No message in chat session");
             // return new AsyncEnumerableWithMessage("Error: No message in chat session");
-            onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: No message in chat session"));
-            onMessageStopped.Invoke();
+            // onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: No message in chat session"));
+            onMessageStopped.Invoke(new ChatStreamingMessageInfo("Error: No message in chat session"));
             return;
         }
 
         if (LlmManager.Instance.CurrentRunningModel == null || !LlmManager.Instance.CurrentRunningModel.IsRunning)
         {
             // return new AsyncEnumerableWithMessage("Error: No running model");
-            onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: No running model"));
-            onMessageStopped.Invoke();
+            // onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: No running model"));
+            onMessageStopped.Invoke(new ChatStreamingMessageInfo("Error: No running model"));
             return;
         }
 
+        if (!_isFinished)
+        {
+            // onMessageReceived.Invoke(new ChatStreamingMessageInfo("Error: Previous generation is not finished"));
+            onMessageStopped.Invoke(new ChatStreamingMessageInfo("Error: Previous generation is not finished"));
+            return;
+        }
 
+        _isFinished = false;
         LlmManager.Instance.CurrentRunningModel.SendMessageStreaming(History, (x) =>
             {
                 TimeStamps[^1] = x.UtcTicks;
@@ -109,7 +116,8 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             (x) =>
             {
                 History[^1].Content = x.Message;
-                onMessageStopped.Invoke();
+                onMessageStopped.Invoke(x);
+                _isFinished = true;
             }, token);
     }
 

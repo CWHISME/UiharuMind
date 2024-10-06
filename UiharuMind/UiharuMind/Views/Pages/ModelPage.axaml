@@ -17,9 +17,9 @@
             <TextBlock Text="{Binding Title}" FontSize="24" />
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{Binding ModelPrefix}" VerticalAlignment="Center"></TextBlock>
-                <TextBox IsEnabled="False" Text="{Binding ModelPath}" VerticalAlignment="Center"></TextBox>
-                <Button Content="Change" Command="{Binding OpenChangeModelPathCommand}"></Button>
-                <Button Content="Show in Explorer" Command="{Binding OpenModelFolderCommand}"></Button>
+                <TextBox IsEnabled="False" Text="{Binding ModelPath}" VerticalAlignment="Center" Margin="5,0,0,0"></TextBox>
+                <Button Content="Change" Command="{Binding OpenChangeModelPathCommand}" Margin="5,0,0,0"></Button>
+                <Button Content="Show in Explorer" Command="{Binding OpenModelFolderCommand}" Margin="5,0,0,0"></Button>
             </StackPanel>
             <TextBlock Margin="0 5" DockPanel.Dock="Top">Choose an animal:</TextBlock>
         </StackPanel>
@@ -42,7 +42,8 @@
                     <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="30" ClipToBounds="True"
                             BorderThickness="1" Padding="5">
                         <DockPanel>
-                            <StackPanel Orientation="Vertical" DockPanel.Dock="Left">
+                            <StackPanel Orientation="Vertical" DockPanel.Dock="Left" VerticalAlignment="Center"
+                                        Margin="10,0,0,0">
                                 <SelectableTextBlock Text="{Binding ModelName}" />
                                 <SelectableTextBlock Text="{Binding ModelPath}" FontSize="12" />
                             </StackPanel>

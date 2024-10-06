@@ -59,14 +59,23 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
         _hook.MouseWheel += OnMouseWheel;
 
+        Thread thread = new Thread(() => { _hook.Run(); });
         try
         {
-            await _hook.RunAsync().ConfigureAwait(false);
+            thread.Start();
         }
         catch (Exception)
         {
             Stop();
         }
+        // try
+        // {
+        //     await _hook.RunAsync().ConfigureAwait(false);
+        // }
+        // catch (Exception)
+        // {
+        //     Stop();
+        // }
     }
 
     public void Stop()
