@@ -41,7 +41,7 @@
     </UserControl.Styles>
 
     <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
-    <Grid RowDefinitions="*,Auto">
+    <Grid RowDefinitions="*,Auto,Auto">
 
         <!-- 聊天信息显示区域 -->
         <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom"
@@ -147,8 +147,17 @@
             </ItemsControl>
         </ScrollViewer>
 
+        <!-- 分页区域 -->
+        <u:Pagination
+            HorizontalAlignment="Center"
+            Grid.Row="1"
+            PageSize="20"
+            IsVisible="{Binding IsVisiblePagination}"
+            CurrentPage="{Binding CurrentPageIndex}"
+            TotalCount="{Binding ChatSession.ChatItems.Count}" />
+
         <!-- 输入区域 -->
-        <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto">
+        <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto">
             <!-- 工具区域 -->
             <DockPanel Margin="5,5,5,0">
                 <Button Content="{Binding SenderMode}"
@@ -182,6 +191,10 @@
             </TextBox>
 
             <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+                <!-- ~1~ 显示输入的 token @1@ -->
+                <!-- <TextBlock Text="{Binding InputToken}" -->
+                <!--            FontSize="12" -->
+                <!--            VerticalAlignment="Center" /> -->
                 <!-- 发送按钮 -->
                 <Button IsVisible="{Binding !IsGenerating}"
                         IsHitTestVisible="{Binding IsVisible,RelativeSource={RelativeSource Self}}"

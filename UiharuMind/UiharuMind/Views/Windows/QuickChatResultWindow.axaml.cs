@@ -21,6 +21,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -55,7 +56,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
         {
             InAnswerPanel.IsVisible = !value;
             LoadingEffect.IsLoading = !value;
-            ResultTextBlock.IsPlaintext = !value || UiharuCoreManager.Instance.Setting.IsChatPlainText;
+            ResultTextBlock.IsPlaintext = !value || ConfigManager.Instance.Setting.IsChatPlainText;
         }
     }
 

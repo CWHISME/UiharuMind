@@ -17,5 +17,5 @@ namespace UiharuMind.ViewModels.SettingViewData;
 
 public class QuickToolSettingViewModel : ObservableObject
 {
-    public QuickToolSetting SettingConfig => UiharuCoreManager.Instance.QuickToolSetting;
+    public QuickToolSetting SettingConfig => ConfigManager.Instance.QuickToolSetting;
 }

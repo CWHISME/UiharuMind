@@ -26,6 +26,9 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.ViewModels.ViewData;
 
+/// <summary>
+/// 表示一个对话
+/// </summary>
 public partial class ChatSessionViewData : ViewModelBase
 {
     private readonly ChatSession _chatSession;

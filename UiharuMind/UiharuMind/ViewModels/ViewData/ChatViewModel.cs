@@ -16,6 +16,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel.ChatCompletion;
 using SharpHook.Native;
 using UiharuMind.Core;
+using UiharuMind.Core.AI;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -37,7 +39,10 @@ public partial class ChatViewModel : ObservableObject
     //发送模式，用户/助手
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private string _titleName = "";
+
     [ObservableProperty] private string _inputText = "";
+
+    // [ObservableProperty] private string _inputToken = "";
     [ObservableProperty] private KeyGesture _sendGesture = new KeyGesture(Key.Enter);
     [ObservableProperty] private bool _scrollToEnd;
 
@@ -46,8 +51,17 @@ public partial class ChatViewModel : ObservableObject
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
 
-    //显示纯文本
-    [ObservableProperty] public bool _isPlaintext;
+    //显示纯文本选项
+    [ObservableProperty] private bool _isPlaintext;
+
+    //分页后的当前页索引
+    [ObservableProperty] private int _currentPageIndex;
+
+    //分页后的页面总数量
+    [ObservableProperty] private int _currentItemCount;
+
+    //是否显示分页，当超出一页之后才显示
+    [ObservableProperty] private bool _isVisiblePagination;
 
     private CancellationTokenSource? _cancelTokenSource;
 
@@ -89,6 +103,21 @@ public partial class ChatViewModel : ObservableObject
 
     partial void OnIsGeneratingChanged(bool value)
     {
-        UiharuCoreManager.Instance.Setting.IsChatPlainText = value;
+        ConfigManager.Instance.Setting.IsChatPlainText = value;
     }
+
+    partial void OnCurrentPageIndexChanged(int value)
+    {
+    }
+
+    // partial void OnInputTextChanged(string value)
+    // {
+    //     if (string.IsNullOrEmpty(value))
+    //     {
+    //         InputToken = "";
+    //         return;
+    //     }
+    //
+    //     InputToken = $"Token: {LlmTokenizer.GetInputTokenCount(value)}";
+    // }
 }
