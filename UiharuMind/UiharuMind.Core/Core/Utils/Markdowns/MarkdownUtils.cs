@@ -1,3 +1,14 @@
+/****************************************************************************
+ * Copyright (c) 2024 CWHISME
+ *
+ * UiharuMind v0.0.1
+ *
+ * https://wangjiaying.top
+ * https://github.com/CWHISME/UiharuMind
+ *
+ * Latest Update: 2024.10.07
+ ****************************************************************************/
+
 using Markdig;
 using Markdig.Renderers;
 using Markdig.Renderers.Html;
@@ -97,7 +108,8 @@ public static class MarkdownUtils
         {
             //去掉第一个和最后一个 p 标签的上下边距，避免不整齐
             return @$"<head><style>
-                         * {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
+                         p {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
+                         ol {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
                          pre {{ font-family: 'JetBrains Mono','Dream Han Sans CN' }}
                      </style></head>
                      <div style='color: #fff;'>
@@ -106,7 +118,8 @@ public static class MarkdownUtils
         }
 
         return @$"<head><style>
-                         * {{font-family: 'Dream Han Sans CN';font-size: 14px}}
+                         p {{font-family: 'Dream Han Sans CN';font-size: 14px}}
+                         ol {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
                          pre {{ font-family: 'JetBrains Mono','Dream Han Sans CN' }}
                      </style></head>
                      <div style='color: #000;'>

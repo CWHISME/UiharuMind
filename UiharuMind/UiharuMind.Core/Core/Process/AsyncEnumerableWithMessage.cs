@@ -1,4 +1,15 @@
-﻿namespace UiharuMind.Core.Core.Process;
+/****************************************************************************
+ * Copyright (c) 2024 CWHISME
+ *
+ * UiharuMind v0.0.1
+ *
+ * https://wangjiaying.top
+ * https://github.com/CWHISME/UiharuMind
+ *
+ * Latest Update: 2024.10.07
+ ****************************************************************************/
+
+namespace UiharuMind.Core.Core.Process;
 
 /// <summary>
 /// 用于在异步枚举器中出现错误，需要终止，传递错误信息的异步枚举器
