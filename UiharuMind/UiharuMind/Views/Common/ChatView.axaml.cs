@@ -12,6 +12,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.UIHolder;
 using UiharuMind.ViewModels.ViewData;
 

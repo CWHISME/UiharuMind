@@ -11,6 +11,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Input;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.ViewModels.UIHolder;
 
@@ -61,6 +62,7 @@ public class ScrollViewerAutoScrollHolder
             scrollViewer.ScrollToEnd();
         }
 
-        e.Handled = true;
+        // Log.Debug(
+        //     $"Scroll changed: ExtentHeight={e.ExtentDelta}, ViewportHeight={e.OffsetDelta}, VerticalOffset={e.ViewportDelta}");
     }
 }

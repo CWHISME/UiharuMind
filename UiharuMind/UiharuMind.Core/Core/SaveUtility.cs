@@ -41,9 +41,16 @@ public static class SaveUtility
 
     public static void Save(string fileName, object target)
     {
-        if (!Directory.Exists(SettingConfig.SaveDataPath)) Directory.CreateDirectory(SettingConfig.SaveDataPath);
-        File.WriteAllText(Path.Combine(SettingConfig.SaveDataPath, fileName),
-            JsonSerializer.Serialize(target, _options));
+        try
+        {
+            if (!Directory.Exists(SettingConfig.SaveDataPath)) Directory.CreateDirectory(SettingConfig.SaveDataPath);
+            File.WriteAllText(Path.Combine(SettingConfig.SaveDataPath, fileName),
+                JsonSerializer.Serialize(target, _options));
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
     }
 
     public static T Load<T>(Type t) where T : new()

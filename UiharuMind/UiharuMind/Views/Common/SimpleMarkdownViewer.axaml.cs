@@ -10,11 +10,15 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -65,11 +69,124 @@ public partial class SimpleMarkdownViewer : UserControl
     private bool _isPlaintextCache = true;
     private bool _isLoadingCache = true;
 
+    private bool _isLoaded = false;
+
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
+        _isLoaded = true;
         CheckUpdateValid();
     }
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        base.OnUnloaded(e);
+        _isLoaded = false;
+    }
+
+    //
+    // protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    // {
+    //     base.OnDetachedFromVisualTree(e);
+    //     Log.Debug("SimpleMarkdownViewer detached"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void OnMeasureInvalidated()
+    // {
+    //     base.OnMeasureInvalidated();
+    //     Log.Debug("SimpleMarkdownViewer measure invalidated"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void OnDataContextEndUpdate()
+    // {
+    //     base.OnDataContextEndUpdate();
+    //     Log.Debug("SimpleMarkdownViewer data context end update"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override Size ArrangeOverride(Size finalSize)
+    // {
+    //     Log.Debug("SimpleMarkdownViewer arranged via ArrangeOverride"+PlainTextBlock?.Text);
+    //     return base.ArrangeOverride(finalSize);
+    // }
+    //
+    // protected override void ArrangeCore(Rect finalRect)
+    // {
+    //     base.ArrangeCore(finalRect);
+    //     Log.Debug("SimpleMarkdownViewer arranged via ArrangeCore"+PlainTextBlock?.Text);
+    // }
+    //
+    // public override void EndInit()
+    // {
+    //     base.EndInit();
+    //     Log.Debug("SimpleMarkdownViewer end init"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override Size MeasureCore(Size availableSize)
+    // {
+    //     Log.Debug("SimpleMarkdownViewer measured"+PlainTextBlock?.Text);
+    //     return base.MeasureCore(availableSize);
+    // }
+    //
+    // protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    // {
+    //     base.OnApplyTemplate(e);
+    //     Log.Debug("SimpleMarkdownViewer applied template" + PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void UpdateDataValidation(AvaloniaProperty property, BindingValueType state, Exception? error)
+    // {
+    //     base.UpdateDataValidation(property, state, error);
+    //    Log.Debug("SimpleMarkdownViewer updated data validation"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void OnTemplateChanged(AvaloniaPropertyChangedEventArgs e)
+    // {
+    //     base.OnTemplateChanged(e);
+    //     Log.Debug("SimpleMarkdownViewer template changed"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override bool RegisterContentPresenter(ContentPresenter presenter)
+    // {
+    //     Log.Debug("SimpleMarkdownViewer content presenter registered"+PlainTextBlock?.Text);
+    //     return base.RegisterContentPresenter(presenter);
+    // }
+    //
+    // protected override void OnDataContextChanged(EventArgs e)
+    // {
+    //     base.OnDataContextChanged(e);
+    //     Log.Debug("SimpleMarkdownViewer data context changed"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void LogicalChildrenCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    // {
+    //     base.LogicalChildrenCollectionChanged(sender, e);
+    //     Log.Debug("SimpleMarkdownViewer logical children collection changed"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void OnDataContextBeginUpdate()
+    // {
+    //     base.OnDataContextBeginUpdate();
+    //     Log.Debug("SimpleMarkdownViewer data context begin update"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    // {
+    //     base.OnAttachedToVisualTree(e);
+    //     Log.Debug("SimpleMarkdownViewer attached to visual tree"+PlainTextBlock?.Text);
+    // }
+    //
+    // protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    // {
+    //     base.OnAttachedToLogicalTree(e);
+    //     Log.Debug("SimpleMarkdownViewer attached to logical tree"+PlainTextBlock?.Text);
+    // }
+    //
+    // public override void Render(DrawingContext context)
+    // {
+    //     base.Render(context);
+    //     Log.Debug("SimpleMarkdownViewer rendered"+PlainTextBlock?.Text);
+    // }
+
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -79,7 +196,7 @@ public partial class SimpleMarkdownViewer : UserControl
         {
             _textCache = change.GetNewValue<string>();
             // Log.Debug($"MarkdownText changed: {_textCache}");
-            if (IsInitialized) CheckUpdateValid();
+            CheckUpdateValid();
         }
         else if (change.Property == IsPlaintextProperty)
         {
@@ -92,8 +209,11 @@ public partial class SimpleMarkdownViewer : UserControl
             }
 
             _isPlaintextCache = isPlainText;
-            if (IsInitialized) CheckUpdateValid();
+            CheckUpdateValid();
         }
+
+        // Log.Debug(
+        //     $"SimpleMarkdownViewer property changed: {change.Property.Name}  PlainTextBlock.Text:{PlainTextBlock?.Text}");
         // else if (change.Property == IsLoadingProperty)
         // {
         //     SetLoadingState(change.GetNewValue<bool>());
@@ -102,6 +222,7 @@ public partial class SimpleMarkdownViewer : UserControl
 
     private void CheckUpdateValid()
     {
+        if (!_isLoaded) return;
         // if (_isPlaintextCache != null)
         // {
         if (_isPlaintextCache)
@@ -136,7 +257,9 @@ public partial class SimpleMarkdownViewer : UserControl
     //     get => MarkdownUtils.ToHtml(MarkdownText);
     // }
 
-    private ScrollViewerAutoScrollHolder _scrollViewerAutoScrollHolder;
+    // private ScrollViewerAutoScrollHolder _scrollViewerAutoScrollHolder;
+
+
     // private Stopwatch _stopwatch = new Stopwatch();
 
     static SimpleMarkdownViewer()
@@ -151,6 +274,7 @@ public partial class SimpleMarkdownViewer : UserControl
 
     public SimpleMarkdownViewer()
     {
+        Log.Debug("SimpleMarkdownViewer created");
         InitializeComponent();
 
         IsPlaintext = true;
@@ -169,8 +293,8 @@ public partial class SimpleMarkdownViewer : UserControl
 
 
         // _stopwatch.Start();
-        _scrollViewerAutoScrollHolder =
-            new ScrollViewerAutoScrollHolder((ScrollViewer)this.LogicalChildren[0].LogicalChildren[0]);
+        // _scrollViewerAutoScrollHolder =
+        //     new ScrollViewerAutoScrollHolder((ScrollViewer)this.LogicalChildren[0].LogicalChildren[0]);
 
         if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
     }

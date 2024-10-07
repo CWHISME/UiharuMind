@@ -48,17 +48,17 @@
         <!-- 普通文字显示 -->
         <!-- IsVisible="{Binding IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
         <!-- Text="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
-        <ScrollViewer
-            HorizontalScrollBarVisibility="Disabled">
-            <DockPanel>
-                <SelectableTextBlock Name="PlainTextBlock"
-                                     Background="Transparent"
-                                     TextWrapping="Wrap"
-                                     FontSize="14">
-                </SelectableTextBlock>
-                <avalonia1:HtmlLabel Name="MarkdownTextBlock" AutoSize="True" />
-            </DockPanel>
-        </ScrollViewer>
+        <!-- <ScrollViewer -->
+        <!--     HorizontalScrollBarVisibility="Disabled"> -->
+        <!--     <DockPanel> -->
+        <SelectableTextBlock Name="PlainTextBlock"
+                             Background="Transparent"
+                             TextWrapping="Wrap"
+                             FontSize="14">
+        </SelectableTextBlock>
+        <avalonia1:HtmlLabel Name="MarkdownTextBlock" AutoSize="True" />
+        <!--     </DockPanel> -->
+        <!-- </ScrollViewer> -->
 
         <!-- Avalonia.Markdown 渲染显示 -->
         <!-- IsVisible="{Binding !IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->

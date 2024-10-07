@@ -9,6 +9,7 @@
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
+             xmlns:extends="clr-namespace:UiharuMind.Extends"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
 
@@ -28,23 +29,24 @@
         <viewData:ChatViewModel />
     </Design.DataContext>
 
-    <UserControl.Styles>
-        <Style Selector="ListBoxItem:pointerover">
-            <Setter Property="Background" Value="Transparent" />
-            <!-- <Setter Property="Foreground" Value="Transparent"/> -->
-        </Style>
-        <Style Selector="ListBoxItem:selected">
-            <Setter Property="Background" Value="Transparent" />
-            <!-- <Setter Property="Foreground" Value="Transparent"/> -->
-        </Style>
-
-    </UserControl.Styles>
+    <!-- <UserControl.Styles> -->
+    <!--     <Style Selector="ListBoxItem:pointerover"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         ~1~ <Setter Property="Foreground" Value="Transparent"/> @1@ -->
+    <!--     </Style> -->
+    <!--     <Style Selector="ListBoxItem:selected"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         ~1~ <Setter Property="Foreground" Value="Transparent"/> @1@ -->
+    <!--     </Style> -->
+    <!-- -->
+    <!-- </UserControl.Styles> -->
 
     <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
     <Grid RowDefinitions="*,Auto,Auto">
 
         <!-- 聊天信息显示区域 -->
-        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom"
+        <!-- BringIntoViewOnFocusChange = "False" 用于取消自动滚动到点击对象处 -->
+        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom" BringIntoViewOnFocusChange="False"
                       HorizontalScrollBarVisibility="Disabled"
                       uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
             <ItemsControl ItemsSource="{Binding ChatSession.ChatItems}">
@@ -54,7 +56,7 @@
                 <!--     </ItemsPanelTemplate> -->
                 <!-- </ItemsControl.ItemsPanel> -->
                 <ItemsControl.ItemTemplate>
-                    <DataTemplate>
+                    <extends:ReuseDataTemplate>
                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="15,0">
                             <!-- 头像 -->
                             <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top"
@@ -69,72 +71,20 @@
                                                      HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
-                                    <!-- 内容 -->
-                                    <!-- <Panel Margin="5"> -->
-                                    <!--     <ScrollViewer Name="InnerScrollViewer" MaxHeight="666" -->
-                                    <!--                   HorizontalScrollBarVisibility="Disabled"> -->
-                                    <!--         <SelectableTextBlock Text="{Binding Message}" Background="Transparent" -->
-                                    <!--                              TextWrapping="Wrap" -->
-                                    <!--                              FontSize="12" -->
-                                    <!--                              IsHitTestVisible="{Binding IsEnabled,RelativeSource={RelativeSource Self}}"> -->
-                                    <!--             ~1~ 当设置为 IsEnabled 为 false，反而得把 IsHitTestVisible 也关掉才能触发 Scroll 的滚动 @1@ -->
-                                    <!--             ~1~ 当 ScrollView 生效时，禁用选择复制功能(因为性能不行，很卡) @1@ -->
-                                    <!--             <SelectableTextBlock.IsEnabled> -->
-                                    <!--                 <MultiBinding -->
-                                    <!--                     Converter="{StaticResource TwoValueToBooleanConverter}"> -->
-                                    <!--                     <Binding ElementName="InnerScrollViewer" -->
-                                    <!--                              Path="MaxHeight" /> -->
-                                    <!--                     <Binding ElementName="InnerScrollViewer" -->
-                                    <!--                              Path="ScrollBarMaximum.Y" /> -->
-                                    <!--                 </MultiBinding> -->
-                                    <!--             </SelectableTextBlock.IsEnabled> -->
-                                    <!--         </SelectableTextBlock> -->
-                                    <!--         ~1~ 是用户、或者设置了显示原文，则显示纯文本 @1@ -->
-                                    <!--         <common:SimpleMarkdownViewer.IsVisible> -->
-                                    <!--             <MultiBinding -->
-                                    <!--                 Converter="{StaticResource MultiConditionBoolOrConverter}"> -->
-                                    <!--                 <Binding Path="IsUser" /> -->
-                                    <!--                 <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" /> -->
-                                    <!--             </MultiBinding> -->
-                                    <!--         </common:SimpleMarkdownViewer.IsVisible> -->
-                                    <!--     </ScrollViewer> -->
-                                    <!-- -->
-                                    <!--     ~1~ <avalonia:HtmlLabel Text="{Binding Message}" /> @1@ -->
-                                    <!--     <common:SimpleMarkdownViewer -->
-                                    <!--         Markdown="{Binding Message}" MaxHeight="666"> -->
-                                    <!--         ~1~ 不是用户、并且没有设置显示原文，则以 Markdown 显示 @1@ -->
-                                    <!--         <common:SimpleMarkdownViewer.IsVisible> -->
-                                    <!--             <MultiBinding -->
-                                    <!--                 Converter="{StaticResource MultiConditionBoolAndConverter}"> -->
-                                    <!--                 <Binding Path="!IsUser" /> -->
-                                    <!--                 <Binding Path="!DataContext.IsPlaintext" ElementName="Viewer" /> -->
-                                    <!--             </MultiBinding> -->
-                                    <!--         </common:SimpleMarkdownViewer.IsVisible> -->
-                                    <!-- -->
-                                    <!--     </common:SimpleMarkdownViewer> -->
-                                    <!--     ~1~ <u:LoadingIcon @1@ -->
-                                    <!--     ~1~     IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNullOrEmpty}}" /> @1@ -->
-                                    <!-- </Panel> -->
 
                                     <common:SimpleMarkdownViewer MarkdownText="{Binding Message}"
                                                                  Margin="5">
                                         <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
-                                        <common:SimpleMarkdownViewer.IsPlaintext>
-                                            <MultiBinding
-                                                Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                                <Binding Path="IsUser" />
-                                                <Binding Path="!IsDone" />
-                                                <!-- <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> -->
-                                                <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
-                                            </MultiBinding>
-                                        </common:SimpleMarkdownViewer.IsPlaintext>
+                                        <!-- <common:SimpleMarkdownViewer.IsPlaintext> -->
+                                        <!--     <MultiBinding -->
+                                        <!--         Converter="{StaticResource MultiConditionBoolOrConverter}"> -->
+                                        <!--         <Binding Path="IsUser" /> -->
+                                        <!--         <Binding Path="!IsDone" /> -->
+                                        <!--         ~1~ <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> @1@ -->
+                                        <!--         <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" /> -->
+                                        <!--     </MultiBinding> -->
+                                        <!-- </common:SimpleMarkdownViewer.IsPlaintext> -->
                                     </common:SimpleMarkdownViewer>
-
-                                    <!-- <mdxaml:MarkdownScrollViewer -->
-                                    <!--     SelectionEnabled="True" -->
-                                    <!--     Markdown="{Binding Message}"> -->
-                                    <!-- </mdxaml:MarkdownScrollViewer> -->
-
                                 </Border>
 
                                 <!-- 时间 -->
@@ -142,7 +92,7 @@
                                            HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
                             </StackPanel>
                         </Grid>
-                    </DataTemplate>
+                    </extends:ReuseDataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
