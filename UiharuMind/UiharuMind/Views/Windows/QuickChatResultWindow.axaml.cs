@@ -17,6 +17,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
@@ -26,6 +27,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils.Tools;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
 using UiharuMind.Utils.Tools;
 using UiharuMind.ViewModels.UIHolder;
@@ -35,12 +37,19 @@ namespace UiharuMind.Views.Windows;
 
 public partial class QuickChatResultWindow : QuickWindowBase
 {
+    public static void Show(string? title, string? answer, string? prompt = null)
+    {
+        if (answer == null) return;
+        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, prompt), null,
+            ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
+    }
+
     public QuickChatResultWindow()
     {
         InitializeComponent();
         // SizeToContent = SizeToContent.WidthAndHeight;
 
-        // _autoScrollHolder = new ScrollViewerAutoScrollHolder(ResultTextBlock.);
+        _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
         // _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
     }
 
@@ -60,38 +69,33 @@ public partial class QuickChatResultWindow : QuickWindowBase
         }
     }
 
-    public async void SetRequestInfo(string info)
+    public async void SetRequestInfo(string? title, string content, string? prompt = null)
     {
-        TitleTextBlock.Text = "解释";
-        if (LlmManager.Instance.CurrentRunningModel == null)
+        TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+        SetContent("");
+        if (LlmManager.Instance.CurrentRunningModel?.IsRunning == null)
         {
-            SetContent(new ChatStreamingMessageInfo("error: current model is not loaded"));
+            SetContent(("error: current model is not loaded"));
             IsFinished = true;
             return;
         }
 
-        IsFinished = false;
-        SetContent(new ChatStreamingMessageInfo());
-        ChatHistory history = new ChatHistory();
-        history.AddSystemMessage($"你是一位友善、机智、善解人意的机器人，会尽力帮助用户解决问题。请使用中文总结或解释以下文字");
-        history.AddUserMessage(info);
         _cts = new CancellationTokenSource();
-
-        LlmManager.Instance.CurrentRunningModel.SendMessageStreaming(history, null,
-            SetContent,
-            (message) =>
+        IsFinished = false;
+        try
+        {
+            await foreach (var message in LlmManager.Instance.CurrentRunningModel.InvokeQuickToolPromptStreamingAsync(
+                               content, prompt, Lang.Culture, _cts.Token))
             {
-                SetContent(message);
-                IsFinished = true;
-            }, _cts.Token);
-        // await foreach (string result in LlmManager.Instance.CurrentRunningModel.SendMessageAsync(history, _cts.Token))
-        // {
-        //     // await _uiUpdater.UpdateValue(result);
-        //     // Dispatcher.UIThread.InvokeAsync(() => SetContent(result));
-        //     SetContent(result);
-        // }
+                AppendContent(message);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e.Message);
+        }
 
-        // IsFinished = true;
+        IsFinished = true;
     }
 
     protected override void OnPreShow()
@@ -106,10 +110,15 @@ public partial class QuickChatResultWindow : QuickWindowBase
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
     }
 
-    private void SetContent(ChatStreamingMessageInfo info)
+    private void SetContent(string info)
     {
-        ResultTextBlock.MarkdownText = info.Message;
+        ResultTextBlock.SimpleSetMarkdownText = info;
         // TokenTextBlock.Text = $"(Tokens: {info.TokenCount})";
+    }
+
+    private void AppendContent(string info)
+    {
+        ResultTextBlock.SimpleSetMarkdownText += (info);
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

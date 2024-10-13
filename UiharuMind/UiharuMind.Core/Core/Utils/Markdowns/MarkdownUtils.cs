@@ -9,20 +9,29 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using ColorCode.Styling;
 using Markdig;
-using Markdig.Renderers;
-using Markdig.Renderers.Html;
-using Markdig.Syntax;
 using Markdown.ColorCode;
-using Markdown.ColorCode.CSharpToColoredHtml;
 
 namespace UiharuMind.Core.Core.Utils;
 
 public static class MarkdownUtils
 {
-    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+    private static readonly MarkdownPipeline PipelineLight = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
-        .UseColorCodeWithCSharpToColoredHtml(HtmlFormatterType.Style)
+        .UseColorCode(HtmlFormatterType.Style, styleDictionary: StyleDictionary.DefaultLight,
+            defaultLanguageId: "csharp")
+        // 添加自定义处理器，第一是去掉段落的顶部和底部的空白
+        // 第二是增加额外的自定义样式
+        .Use<CustomParagraphExtension>()
+        // .Use<CustomHeaderExtension>()
+        // .Use<CustomFooterExtension>()
+        .Build();
+
+    private static readonly MarkdownPipeline PipelineDark = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .UseColorCode(HtmlFormatterType.Style, styleDictionary: StyleDictionary.DefaultDark,
+            defaultLanguageId: "csharp")
         // 添加自定义处理器，第一是去掉段落的顶部和底部的空白
         // 第二是增加额外的自定义样式
         .Use<CustomParagraphExtension>()
@@ -83,7 +92,9 @@ public static class MarkdownUtils
     {
         // IsDarkTheme = darkTheme;
         // return (markdown);
-        return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, Pipeline), darkTheme);
+        return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, darkTheme ? PipelineDark : PipelineLight),
+            darkTheme);
+
         // if (darkTheme)
         // {
         //     html = string.Format(HtmlBodyDarkStyle, html);
@@ -99,18 +110,24 @@ public static class MarkdownUtils
 
     public static string ToHtml(string markdown)
     {
-        return Markdig.Markdown.ToHtml(markdown, Pipeline);
+        return Markdig.Markdown.ToHtml(markdown, PipelineDark);
     }
 
     private static string GetThemeSpecificHtml(string text, bool isDarkTheme)
     {
         if (isDarkTheme)
         {
+            // p {{font-family: 'OPPO Sans';font-size: 14px}}
+            // ol {{font-family: 'OPPO Sans';font-size: 14px;}}
+            // pre {{ font-family: 'JetBrains Mono','OPPO Sans' }}
+            // code {{ font-family: 'JetBrains Mono','OPPO Sans' }}
+
+
             //去掉第一个和最后一个 p 标签的上下边距，避免不整齐
             return @$"<head><style>
-                         p {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
-                         ol {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
-                         pre {{ font-family: 'JetBrains Mono','Dream Han Sans CN' }}
+                         * {{font-family: 'HarmonyOS Sans';font-size: 14px;}}
+                         li p {{ margin-top: 0px; margin-bottom: 0px; }}
+                         pre {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
                      </style></head>
                      <div style='color: #fff;'>
                          {text}
@@ -118,9 +135,9 @@ public static class MarkdownUtils
         }
 
         return @$"<head><style>
-                         p {{font-family: 'Dream Han Sans CN';font-size: 14px}}
-                         ol {{font-family: 'Dream Han Sans CN';font-size: 14px;}}
-                         pre {{ font-family: 'JetBrains Mono','Dream Han Sans CN' }}
+                         * {{font-family: 'HarmonyOS Sans';font-size: 14px;}}
+                         li p {{ margin-top: 0px; margin-bottom: 0px; }}
+                         pre {{ font-family: 'HarmonyOS Sans'; }}
                      </style></head>
                      <div style='color: #000;'>
                          {text}

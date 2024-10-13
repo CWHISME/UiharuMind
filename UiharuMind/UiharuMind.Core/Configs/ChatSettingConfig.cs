@@ -21,4 +21,8 @@ public class ChatSettingConfig : ConfigBase
     [SettingConfigDesc("用于计算 Token 数量的模型", LanguageUtils.ChineseSimplified)]
     [SettingConfigOptions("gpt-4o", "gpt-4")]
     public string TokenForModelName { get; set; } = "gpt-4o";
+
+    [SettingConfigDesc("alowed multi answer window")]
+    [SettingConfigDesc("是否同时允许多个回答窗口存在(如果允许，每次都会开启新界面展示结果)", LanguageUtils.ChineseSimplified)]
+    public bool IsAllowMultiAnswerWindow { get; set; } = false;
 }

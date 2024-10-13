@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.Common.CharacterInfoView">
+
+    <Design.DataContext>
+        <viewData:CharacterInfoViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel>
+            <!-- 角色图片 -->
+            <Ellipse Width="30" Height="30" Stroke="MediumPurple" StrokeThickness="1">
+                <Ellipse.Fill>
+                    <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                </Ellipse.Fill>
+            </Ellipse>
+            <TextBlock Text="{Binding Name}" FontSize="24" Margin="10,0,0,10" />
+            <TextBlock Text="{Binding Description}" Margin="10,0,0,10" />
+            <TextBlock Text="{Binding ImageUrl}" Margin="10,0,0,10" />
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

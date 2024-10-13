@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -27,11 +28,13 @@ public partial class ChatPage : UserControl
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        (((ChatPageData)DataContext!)).PaneWidth += (float)e.Vector.X;
+        var data = (ChatPageData)DataContext!;
+        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 0, 300);
     }
-    
+
     private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        (((ChatPageData)DataContext!)).RightPaneWidth -= (float)e.Vector.X;
+        var data = (ChatPageData)DataContext!;
+        data.RightPaneWidth = Math.Clamp(data.RightPaneWidth - (float)e.Vector.X, 0, 300);
     }
 }

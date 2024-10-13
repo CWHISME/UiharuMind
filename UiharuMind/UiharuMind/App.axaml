@@ -6,7 +6,7 @@
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Resources>
-        <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#Dream Han Sans CN</FontFamily>
+        <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
         <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
     </Application.Resources>
 

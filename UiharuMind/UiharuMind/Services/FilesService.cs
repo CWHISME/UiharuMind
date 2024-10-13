@@ -16,6 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Views;
@@ -78,11 +79,28 @@ public class FilesService //: IStorageFolder
         return files.Count >= 1 ? files[0] : null;
     }
 
-    public async Task<IStorageFile?> SaveFileAsync(Window owner)
+    public async Task<Uri?> SaveFileAsync(Window owner, string defaultName)
     {
-        return await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
-            Title = "Save File"
+            Title = "Save File",
+            SuggestedFileName = defaultName,
         });
+        return file?.Path;
+    }
+
+    /// <summary>
+    /// 显示保存图片对话框，直接存保存图片
+    /// </summary>
+    /// <param name="bitmap"></param>
+    /// <param name="owner"></param>
+    /// <param name="defaultName"></param>
+    public async Task SaveImageAsync(Bitmap bitmap, Window? owner = null, string? defaultName = null)
+    {
+        if (owner == null) owner = UIManager.GetRootWindow();
+        var path = await App.FilesService.SaveFileAsync(owner,
+            defaultName ?? "Uiharu_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + ".png");
+        if (path == null) return;
+        bitmap.Save(path.AbsolutePath);
     }
 }

@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.ComponentModel;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UiharuMind.Core.Core.Attributes;
@@ -26,20 +27,35 @@ public class CommandLineHelper
     private static readonly char DefaultChar = default(char);
     private static readonly DateTime DefaultDateTime = default(DateTime);
 
+    private static readonly Dictionary<Type, object?> DefaultValues = new();
+
     public static string GenerateCommandLineArgs(object data)
     {
         var args = new List<string>();
 
         // 使用反射遍历 Data 类的属性
-        foreach (var property in data.GetType().GetProperties())
+        var type = data.GetType();
+        if (!DefaultValues.ContainsKey(type))
+        {
+            DefaultValues.Add(type, Activator.CreateInstance(type));
+        }
+
+        var defaultValueObj = DefaultValues[type];
+        if (defaultValueObj == null) return "";
+        foreach (var property in type.GetProperties())
         {
             var value = property.GetValue(data);
-
+            if (value == null) continue;
             // 如果属性值为默认值，则忽略该参数
             if (IsDefaultValue(property, value))
             {
                 continue;
             }
+
+            var defaultValueAttribute = property.GetCustomAttribute<DefaultValueAttribute>();
+            // 如果属性值和默认值相同，且额外设置的默认值与当前值相同，则忽略该参数，否则还是填充参数
+            if (value.Equals(property.GetValue(defaultValueObj)) &&
+                (defaultValueAttribute == null || value.Equals(defaultValueAttribute.Value))) continue;
 
             // 生成命令行参数
             var argName = GetArgName(property.Name);

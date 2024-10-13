@@ -135,6 +135,15 @@ public class ClipboardService : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// 清除剪切板历史记录
+    /// </summary>
+    public void ClearClipboardHistory()
+    {
+        ClipboardHistoryItems.Clear();
+        OnTimerElapsed(null);
+    }
+
     private async void OnSystemClipboardChanged()
     {
         var clipboardContent = await Clipboard.GetTextAsync();

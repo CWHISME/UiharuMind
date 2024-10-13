@@ -2,7 +2,44 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.HomePage">
-    Welcome to Avalonia!
+
+    <Design.DataContext>
+        <pages:HomePageData />
+    </Design.DataContext>
+
+    <Panel>
+        <u:Divider VerticalAlignment="Top" />
+        <Grid ColumnDefinitions="Auto,Auto,*">
+
+            <!-- Pane (Sidebar) -->
+            <Border Grid.Column="0" Width="{Binding LeftPaneWidth, Mode=TwoWay}">
+                <common:CharacterListView />
+            </Border>
+
+            <!-- Thumb for resizing left pane -->
+            <!-- Cursor StandardCursorType -->
+            <Thumb Grid.Column="1" Width="5" DragDelta="OnLeftThumbDragDelta" Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <!-- <Border Background="Gray" Width="1" /> -->
+                        <u:Divider Orientation="Vertical"
+                                   Height="{Binding Height, RelativeSource={RelativeSource TemplatedParent}}" />
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <!-- Content -->
+            <Border Grid.Column="2" Margin="5">
+                <common:CharacterInfoView Name="CharacterInfoView" />
+            </Border>
+
+        </Grid>
+    </Panel>
+
 </UserControl>

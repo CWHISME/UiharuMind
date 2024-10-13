@@ -15,16 +15,18 @@ using UiharuMind.Core.Core.Singletons;
 
 namespace UiharuMind.Core.Configs;
 
-public class ConfigManager : Singleton<ConfigManager>, IInitialize
+public class ConfigManager : Singleton<ConfigManager>
 {
     public SettingConfig Setting { get; private set; }
     public QuickToolSetting QuickToolSetting { get; private set; }
+    public QuickToolPromptSetting QuickToolPromptSetting { get; private set; }
     public ChatSettingConfig ChatSetting { get; private set; }
 
-    public void OnInitialize()
+    public ConfigManager()
     {
         Setting = SaveUtility.Load<SettingConfig>(typeof(SettingConfig));
         QuickToolSetting = SaveUtility.Load<QuickToolSetting>(typeof(QuickToolSetting));
+        QuickToolPromptSetting = SaveUtility.Load<QuickToolPromptSetting>(typeof(QuickToolPromptSetting));
         ChatSetting = SaveUtility.Load<ChatSettingConfig>(typeof(ChatSettingConfig));
     }
 

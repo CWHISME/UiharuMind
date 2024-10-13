@@ -11,21 +11,15 @@
 
 using System;
 using System.Collections.Generic;
-using Avalonia;
+using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Media;
-using Avalonia.Platform;
-using Avalonia.Threading;
 using SharpHook.Native;
-using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Windows;
-using Ursa.Controls;
 
 namespace UiharuMind.Views;
 
@@ -36,6 +30,8 @@ public class DummyWindow : Window
 
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
+
+    // private bool _active;
 
     public DummyWindow()
     {
@@ -50,18 +46,20 @@ public class DummyWindow : Window
         Focusable = false;
         // IsVisible = false;
         // Opacity = 0;
+        this.ShowActivated = false;
         ShowInTaskbar = false;
         this.SetSimpledecorationPureWindow(false);
         IsHitTestVisible = false;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         WindowState = WindowState.Minimized;
         // this.ShowInTaskbar = false;
-
         // this.WindowState = WindowState.Minimized;
 
         // KeyDown += OnKeyDown;
 
         // MainWindow = LaunchMainWindow();
+        this.Activated += OnActivated;
+        this.Deactivated += OnDeactivated;
     }
 
     protected override void OnOpened(EventArgs e)
@@ -73,6 +71,27 @@ public class DummyWindow : Window
 
         //if(UiharuCoreManager.Instance.IsWindows) 
         LaunchMainWindow();
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        e.Cancel = true;
+        base.OnClosing(e);
+    }
+
+    private void OnActivated(object? sender, EventArgs e)
+    {
+        // Log.Debug("活跃窗口" + WindowState);
+        // if (_active) LaunchMainWindow();
+        // _active = true;
+        if (WindowState == WindowState.Minimized) LaunchMainWindow();
+        WindowState = WindowState.Minimized;
+        // Task.Delay(30).ContinueWith((x) => { return _active = false; });
+    }
+
+    private void OnDeactivated(object? sender, EventArgs e)
+    {
+        // Log.Debug("失活窗口" + WindowState);
     }
 
     // private void OnKeyDown(object? sender, KeyEventArgs e)

@@ -107,4 +107,16 @@
     <data name="ClipboardHistoryCount" xml:space="preserve">
         <value>数量：{0}</value>
     </data>
+    <data name="DeleteAll" xml:space="preserve">
+        <value>删除所有</value>
+    </data>
+    <data name="DeleteAllClipboardHistoryTips" xml:space="preserve">
+        <value>是否确认删除所有历史记录？该操作不可逆。</value>
+    </data>
+    <data name="QuickChatQuateTitle" xml:space="preserve">
+        <value>引用：</value>
+    </data>
+    <data name="DefaultQuickChatTitle" xml:space="preserve">
+        <value>询问</value>
+    </data>
 </root>

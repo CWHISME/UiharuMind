@@ -23,6 +23,7 @@ public class LLamaCppServerGeneralConfig : ConfigBase
 
     [SettingConfigDesc("force system to keep model in RAM rather than swapping or compressing")]
     [SettingConfigNoneValue]
+    [DefaultValue(false)]
     public bool Mlock { get; set; } = true;
 
     [SettingConfigDesc("do not memory-map model (slower load but may reduce pageouts if not using mlock)")]

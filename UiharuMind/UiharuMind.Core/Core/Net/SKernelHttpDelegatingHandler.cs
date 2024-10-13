@@ -13,22 +13,26 @@ namespace UiharuMind.Core.Core.LLM;
 
 class SKernelHttpDelegatingHandler : DelegatingHandler
 {
-    public SKernelHttpDelegatingHandler()
+    private readonly Uri _baseUri;
+
+    public SKernelHttpDelegatingHandler(string host = "127.0.0.1", int port = 1369,
+        string absolutePath = "/v1/chat/completions")
         : base(new HttpClientHandler())
     {
+        var newUriBuilder = new UriBuilder()
+        {
+            Scheme = "http",
+            Host = host,
+            Port = port,
+            Path = absolutePath
+        };
+        _baseUri = newUriBuilder.Uri;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        var newUriBuilder = new UriBuilder(request.RequestUri!)
-        {
-            Scheme = "http",
-            Host = "127.0.0.1",
-            Port = 1369
-        };
-
-        request.RequestUri = newUriBuilder.Uri;
+        request.RequestUri = _baseUri;
         return base.SendAsync(request, cancellationToken);
     }
 }

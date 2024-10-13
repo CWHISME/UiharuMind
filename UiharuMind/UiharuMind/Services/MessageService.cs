@@ -18,6 +18,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 using UiharuMind.ViewModels.Pages;
 using UiharuMind.Views;
+using UiharuMind.Views.Common;
 using Ursa.Common;
 using Ursa.Controls;
 using Ursa.Controls.Options;
@@ -68,17 +69,17 @@ public partial class MessageService : ObservableObject
     /// </summary>
     /// <param name="owner"></param>
     /// <param name="message"></param>
-    public async void ShowMessage(string message, Window? owner = null)
+    public async void ShowMessageBox(string message, Window owner)
     {
-        await ShowMessage(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK);
+        await ShowMessageBox(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK);
     }
 
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async void ShowErrorMessage(string message, Window? owner = null)
+    public async void ShowErrorMessageBox(string message, Window owner)
     {
-        await ShowMessage(owner, message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
+        await ShowMessageBox(owner, message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
     }
 
     /// <summary>
@@ -87,26 +88,34 @@ public partial class MessageService : ObservableObject
     /// <param name="owner"></param>
     /// <param name="message"></param>
     /// <returns></returns>
-    public async Task<MessageBoxResult> ShowConfirmMessage(string message, Window? owner = null)
+    public async Task<MessageBoxResult> ShowConfirmMessageBox(string message, Window owner)
     {
-        return await ShowMessage(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
+        return await ShowMessageBox(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
             MessageBoxButton.YesNo);
     }
 
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
-    public async Task<MessageBoxResult> ShowMessage(Window? owner, string message, string title, MessageBoxIcon icon,
+    public async Task<MessageBoxResult> ShowMessageBox(Window owner, string message, string title, MessageBoxIcon icon,
         MessageBoxButton button)
     {
         // Window? mainWindow = UIManager.GetWindow<MainWindow>();
         // if (mainWindow?.IsVisible == false) mainWindow = _target;
-        if (owner == null) owner = UIManager.GetRootWindow();
+        // owner ??= UIManager.GetRootWindow();
         if (IsBusy) return MessageBoxResult.None;
         IsBusy = true;
+        MessageBoxResult result = MessageBoxResult.None;
         try
         {
-            return await MessageBox.ShowAsync(owner, message, title, icon, button);
+            var messageWindow = new MessageBoxWindow(button)
+            {
+                Content = message,
+                Title = title,
+                MessageIcon = icon
+            };
+            messageWindow.Topmost = true;
+            result = await messageWindow.ShowDialog<MessageBoxResult>(owner);
             //模态弹窗会闪，感觉是窗体渲染的问题，所以这里用非模态弹窗代替了
             // await MessageBox.ShowOverlayAsync(message, "Error", icon: MessageBoxIcon.Error,button: MessageBoxButton.OK);
         }
@@ -119,7 +128,52 @@ public partial class MessageService : ObservableObject
             IsBusy = false;
         }
 
-        return MessageBoxResult.None;
+        return result;
+    }
+
+    //===========================非模态弹窗===========================
+
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="callback"></param>
+    public void ShowMessageBox(string message, Action<MessageBoxResult> callback)
+    {
+        ShowMessageBox(message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK, callback);
+    }
+
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
+    public void ShowErrorMessageBox(string message)
+    {
+        ShowMessageBox(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK, null);
+    }
+
+    /// <summary>
+    /// 显示一个确认弹窗，可选择是、否
+    /// </summary>
+    /// <param name="message"></param>
+    /// <param name="callback"></param>
+    /// <returns></returns>
+    public void ShowConfirmMessageBox(string message, Action<MessageBoxResult> callback)
+    {
+        ShowMessageBox(message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
+            MessageBoxButton.YesNo, callback);
+    }
+
+    public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,
+        Action<MessageBoxResult>? callback)
+    {
+        var messageWindow = new UiharuMessageBoxWindow(button, callback)
+        {
+            Content = message,
+            Title = title,
+            MessageIcon = icon
+        };
+        messageWindow.Show();
+        messageWindow.Topmost = true;
     }
 
     //==================================================================================================
@@ -141,7 +195,7 @@ public partial class MessageService : ObservableObject
             Buttons = buttons,
             CanLightDismiss = canLightDismiss,
             IsCloseButtonVisible = isCloseButtonVisible,
-            MinWidth = UIManager.GetWindow<MainWindow>()!.Width * 0.66,
+            MinWidth = UIManager.GetWindow<MainWindow>()!.DesiredSize.Width * 0.66,
         };
         IsBusy = true;
         try

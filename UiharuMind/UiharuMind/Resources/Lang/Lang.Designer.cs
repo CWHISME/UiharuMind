@@ -150,11 +150,38 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Answer.
+        /// </summary>
+        public static string DefaultQuickChatTitle {
+            get {
+                return ResourceManager.GetString("DefaultQuickChatTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Delete.
         /// </summary>
         public static string Delete {
             get {
                 return ResourceManager.GetString("Delete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clear All.
+        /// </summary>
+        public static string DeleteAll {
+            get {
+                return ResourceManager.GetString("DeleteAll", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Are you sure?.
+        /// </summary>
+        public static string DeleteAllClipboardHistoryTips {
+            get {
+                return ResourceManager.GetString("DeleteAllClipboardHistoryTips", resourceCulture);
             }
         }
         
@@ -290,6 +317,15 @@ namespace UiharuMind.Resources.Lang {
         public static string Plaintext {
             get {
                 return ResourceManager.GetString("Plaintext", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Quate：.
+        /// </summary>
+        public static string QuickChatQuateTitle {
+            get {
+                return ResourceManager.GetString("QuickChatQuateTitle", resourceCulture);
             }
         }
         

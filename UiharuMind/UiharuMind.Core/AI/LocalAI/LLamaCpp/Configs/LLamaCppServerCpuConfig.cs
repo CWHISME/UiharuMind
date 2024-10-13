@@ -33,11 +33,11 @@ public class LLamaCppServerCpuConfig : ConfigBase
 
     [SettingConfigDesc("set process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0)")]
     [SettingConfigOptions("0", "1", "2", "3")]
-    public string Prio { get; set; } = "";
+    public string Prio { get; set; } = "0";
 
     [SettingConfigDesc("set process/thread priority : 0-normal, 1-medium, 2-high, 3-realtime (default: 0)")]
     [SettingConfigOptions("0", "1", "2", "3")]
-    public string PrioBatch { get; set; } = "";
+    public string PrioBatch { get; set; } = "0";
 
     [SettingConfigDesc("use polling level to wait for work (0 - no polling, default: 50)")]
     [SettingConfigRange(0, 100)]

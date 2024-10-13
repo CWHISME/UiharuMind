@@ -15,6 +15,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -44,10 +45,11 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     [JsonInclude]
     public long CharaterId { get; set; }
 
-    [JsonInclude] private ChatHistory History { get; set; } = new ChatHistory();
+    public ChatHistory History { get; set; } = new ChatHistory();
+    public CharacterData CharacterData { get; set; } = new CharacterData();
 
     //以 UTC 格式存储的时间戳
-    [JsonInclude] private List<long> TimeStamps { get; set; } = new List<long>();
+    public List<long> TimeStamps { get; set; } = new List<long>();
 
     public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
     public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;

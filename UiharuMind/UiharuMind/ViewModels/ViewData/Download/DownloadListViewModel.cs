@@ -19,6 +19,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Views;
 using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.ViewData.Download;
@@ -164,7 +165,9 @@ public partial class DownloadListViewModel : ObservableObject
     {
         try
         {
-            var result = await App.MessageService.ShowConfirmMessage(Lang.ConfirmDeleteRuntimeEngine);
+            var result =
+                await App.MessageService.ShowConfirmMessageBox(Lang.ConfirmDeleteRuntimeEngine,
+                    UIManager.GetRootWindow());
             if (result == MessageBoxResult.Yes)
             {
                 var path = GetDeleteFilePath(version);

@@ -11,17 +11,26 @@
 
 using System.ComponentModel;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
 
 public abstract class UiharuWindowBase : Window
 {
-    public void RequestShow()
+    public void RequestShow(bool isFirstShow = false)
     {
         OnPreShow();
+        // if (isFirstShow) 
         Show();
+        // else
+        // {
+        //     this.WindowState = WindowState.Normal;
+        //     Dispatcher.UIThread.Post(Show);
+        // }
     }
 
     public virtual void Awake()
@@ -46,6 +55,14 @@ public abstract class UiharuWindowBase : Window
     protected virtual void SafeClose()
     {
         OnPreClose();
-        Dispatcher.UIThread.Post(Hide);
+        // InvalidateMeasure();
+        // Log.Debug("Closing window: " + this.GetType().Name + "   " + this.IsMeasureValid);
+        Dispatcher.UIThread.Post(Hide, DispatcherPriority.ApplicationIdle);
+    }
+
+    //Tools
+    protected void ShowMessage(string message)
+    {
+        App.MessageService.ShowMessageBox(message, this.GetParentWindow());
     }
 }

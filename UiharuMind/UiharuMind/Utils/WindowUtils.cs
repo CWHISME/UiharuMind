@@ -18,6 +18,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using UiharuMind.Core.Input;
 
 namespace UiharuMind.Utils;
@@ -59,7 +60,7 @@ public static class WindowUtils
             }
 
             var finalPos = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
-            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, window.FrameSize!.Value);
+            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, window.ClientSize);
         });
     }
 
@@ -132,5 +133,16 @@ public static class WindowUtils
                 callback();
             }
         });
+    }
+
+    /// <summary>
+    /// 获取视觉树的根
+    /// </summary>
+    /// <param name="control"></param>
+    /// <returns></returns>
+    public static Window GetParentWindow(this Control control)
+    {
+        var parent = control.GetVisualRoot();
+        return (Window)parent!;
     }
 }

@@ -9,10 +9,12 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.LLamaCpp;
@@ -148,15 +150,15 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
         return _chacheModels;
     }
 
-    public Task Run(ILlmModel model, Action<float>? onLoading = null,
-        Action? onLoadOver = null, CancellationToken token = default)
+    public async Task Run(ILlmModel model, Action<float>? onLoading = null,
+        Action<Kernel>? onLoadOver = null, CancellationToken token = default)
     {
         if (CurrentSeletedVersion == null)
         {
-            Log.Error("当前没有选择本地运行时！");
-            return Task.CompletedTask;
+            Log.Error("Current Selected Local RuntimeEngine Version is null！");
+            return;
         }
 
-        return LLamaCppServer.Run(CurrentSeletedVersion, model, onLoading, onLoadOver, token);
+        await LLamaCppServer.Run(CurrentSeletedVersion, model, onLoading, onLoadOver, token);
     }
 }

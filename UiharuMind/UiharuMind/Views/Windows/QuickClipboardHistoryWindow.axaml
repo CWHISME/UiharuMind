@@ -13,7 +13,11 @@
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" Margin="10">
         <StackPanel>
-            <TextBlock Text="{x:Static  lang:Lang.ClipboardHistory}" FontSize="16" />
+            <DockPanel LastChildFill="False">
+                <TextBlock VerticalAlignment="Center" Text="{x:Static  lang:Lang.ClipboardHistory}" FontSize="20" />
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                        Click="CloseButton_Click" />
+            </DockPanel>
             <u:Divider Margin="0,3,0,5" />
         </StackPanel>
 

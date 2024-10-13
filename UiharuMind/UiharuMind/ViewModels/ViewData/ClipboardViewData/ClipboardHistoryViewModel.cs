@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
+using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.ViewData.ClipboardViewData;
 
@@ -37,6 +38,12 @@ public partial class ClipboardHistoryViewModel : ObservableObject
     public void Delete(ClipboardItem item)
     {
         ClipboardHistoryItems.Remove(item);
+    }
+
+    public void DeleteAll()
+    {
+        App.Clipboard.ClearClipboardHistory();
+        Refresh();
     }
 
     private void OnClipboardStringChanged(string obj)

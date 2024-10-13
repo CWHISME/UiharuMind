@@ -287,7 +287,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         Canvas.SetLeft(SelectionRectangle, 0);
         Canvas.SetTop(SelectionRectangle, 0);
         InfoPanel.IsVisible = false;
-        // MainPanel.IsVisible = false;
+        MainPanel.IsVisible = false;
         ScreenshotImage.Source = null;
         _startPoint = new Point(0, 0);
         _isSelecting = false;

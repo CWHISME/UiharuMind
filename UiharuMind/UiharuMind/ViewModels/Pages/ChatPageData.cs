@@ -26,7 +26,7 @@ public partial class ChatPageData : PageDataBase
     private ChatViewModel ChatViewModel { get; set; }
     private ChatListViewModel ChatListViewModel { get; set; }
 
-    [ObservableProperty] private float _paneWidth = 200;
+    [ObservableProperty] private float _leftPaneWidth = 200;
     [ObservableProperty] private float _rightPaneWidth = 200;
 
     // private List<ChatSession> _chatSessions = new List<ChatSession>();

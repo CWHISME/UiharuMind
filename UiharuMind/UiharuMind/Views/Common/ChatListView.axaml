@@ -14,37 +14,35 @@
         <viewData:ChatListViewModel />
     </Design.DataContext>
 
-    <Panel>
-        <ListBox ItemsSource="{Binding ChatSessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <Grid ColumnDefinitions="Auto,*">
+    <ListBox ItemsSource="{Binding ChatSessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}">
+        <ListBox.ItemTemplate>
+            <DataTemplate>
+                <Grid ColumnDefinitions="Auto,*" Height="60">
 
-                        <!-- 圆形图片 -->
-                        <Ellipse Grid.Column="0" Width="30" Height="30" Stroke="MediumPurple" StrokeThickness="1">
-                            <Ellipse.Fill>
-                                <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
-                            </Ellipse.Fill>
-                        </Ellipse>
+                    <!-- 圆形图片 -->
+                    <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple" StrokeThickness="1">
+                        <Ellipse.Fill>
+                            <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                        </Ellipse.Fill>
+                    </Ellipse>
 
-                        <!-- 文本内容 -->
-                        <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <!-- 名称 -->
-                                <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
+                    <!-- 文本内容 -->
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <!-- 名称 -->
+                            <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
 
-                                <!-- 时间 -->
-                                <TextBlock Text="{Binding TimeString}" Grid.Column="1" FontSize="12"
-                                           HorizontalAlignment="Right" />
-                            </Grid>
+                            <!-- 时间 -->
+                            <TextBlock Text="{Binding TimeString}" Grid.Column="1" FontSize="12"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
 
-                            <!-- 描述 -->
-                            <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />
-                        </StackPanel>
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
-    </Panel>
+                        <!-- 描述 -->
+                        <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
 
 </UserControl>

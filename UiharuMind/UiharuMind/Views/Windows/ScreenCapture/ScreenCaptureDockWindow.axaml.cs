@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -41,6 +42,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
 
     private async void OnSaveBtnClick(object? sender, RoutedEventArgs e)
     {
-        await App.Clipboard.GetImageFromClipboard();
+        if (CurrentSnapWindow == null) return;
+        await App.FilesService.SaveImageAsync(CurrentSnapWindow.ImageSource, CurrentSnapWindow);
     }
 }

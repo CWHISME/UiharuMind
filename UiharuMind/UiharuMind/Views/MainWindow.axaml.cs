@@ -25,23 +25,23 @@ public partial class MainWindow : UiharuWindowBase
         InitializeComponent();
     }
 
-    public override void Show()
-    {
-        base.Show();
-        ShowInTaskbar = true;
-    }
-
-    protected override void OnClosing(WindowClosingEventArgs e)
-    {
-        // UiharuCoreManager.Instance.Input.Stop();
-        base.OnClosing(e);
-        Hide();
-        e.Cancel = true;
-    }
-
-    protected override void OnClosed(EventArgs e)
-    {
-        base.OnClosed(e);
-        ShowInTaskbar = false;
-    }
+    // public override void Show()
+    // {
+    //     base.Show();
+    //     // ShowInTaskbar = true;
+    // }
+    //
+    // protected override void OnClosing(WindowClosingEventArgs e)
+    // {
+    //     // UiharuCoreManager.Instance.Input.Stop();
+    //     base.OnClosing(e);
+    //     Hide();
+    //     e.Cancel = true;
+    // }
+    //
+    // protected override void OnClosed(EventArgs e)
+    // {
+    //     base.OnClosed(e);
+    //     // ShowInTaskbar = false;
+    // }
 }

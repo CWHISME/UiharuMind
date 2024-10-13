@@ -106,6 +106,12 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         if (!CheckInValidBounds()) SetMainWindow(null);
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        UpdateFollowerWindowPosition();
+    }
+
     /// <summary>
     /// 是否处于合适区域
     /// </summary>

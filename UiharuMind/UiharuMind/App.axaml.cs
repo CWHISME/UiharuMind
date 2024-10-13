@@ -108,7 +108,7 @@ public partial class App : Application, ILogger, IDisposable
     public void Error(string rawStr, LogItem message)
     {
         Console.WriteLine(message);
-        Dispatcher.UIThread.Post(() => MessageService.ShowErrorMessage(rawStr));
+        Dispatcher.UIThread.Post(() => MessageService.ShowErrorMessageBox(rawStr));
     }
 
     private void OnQuitClick(object? sender, EventArgs e)

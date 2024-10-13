@@ -75,15 +75,15 @@
                                     <common:SimpleMarkdownViewer MarkdownText="{Binding Message}"
                                                                  Margin="5">
                                         <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
-                                        <!-- <common:SimpleMarkdownViewer.IsPlaintext> -->
-                                        <!--     <MultiBinding -->
-                                        <!--         Converter="{StaticResource MultiConditionBoolOrConverter}"> -->
-                                        <!--         <Binding Path="IsUser" /> -->
-                                        <!--         <Binding Path="!IsDone" /> -->
-                                        <!--         ~1~ <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> @1@ -->
-                                        <!--         <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" /> -->
-                                        <!--     </MultiBinding> -->
-                                        <!-- </common:SimpleMarkdownViewer.IsPlaintext> -->
+                                        <common:SimpleMarkdownViewer.IsPlaintext>
+                                            <MultiBinding
+                                                Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                <Binding Path="IsUser" />
+                                                <Binding Path="!IsDone" />
+                                                <!-- <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> -->
+                                                <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
+                                            </MultiBinding>
+                                        </common:SimpleMarkdownViewer.IsPlaintext>
                                     </common:SimpleMarkdownViewer>
                                 </Border>
 

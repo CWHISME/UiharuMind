@@ -11,6 +11,7 @@
 
 using System;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
@@ -28,7 +29,7 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
     {
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
-        BindMouseClickCloseEvent();
+        // BindMouseClickCloseEvent();
     }
 
     protected override void OnOpened(EventArgs e)
@@ -40,5 +41,10 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         this.BeginMoveDrag(e);
+    }
+
+    private void CloseButton_Click(object? sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }

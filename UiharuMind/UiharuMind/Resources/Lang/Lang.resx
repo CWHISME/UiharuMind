@@ -115,4 +115,16 @@
     <data name="ClipboardHistoryCount" xml:space="preserve">
         <value>Count: {0}</value>
     </data>
+    <data name="DeleteAll" xml:space="preserve">
+        <value>Clear All</value>
+    </data>
+    <data name="DeleteAllClipboardHistoryTips" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+    <data name="QuickChatQuateTitle" xml:space="preserve">
+        <value>Quate：</value>
+    </data>
+    <data name="DefaultQuickChatTitle" xml:space="preserve">
+        <value>Answer</value>
+    </data>
 </root>

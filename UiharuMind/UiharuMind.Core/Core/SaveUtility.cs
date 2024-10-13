@@ -41,11 +41,17 @@ public static class SaveUtility
 
     public static void Save(string fileName, object target)
     {
+        SaveToPath(Path.Combine(SettingConfig.SaveDataPath, fileName), target);
+    }
+
+    public static void SaveToPath(string filePath, object target)
+    {
         try
         {
-            if (!Directory.Exists(SettingConfig.SaveDataPath)) Directory.CreateDirectory(SettingConfig.SaveDataPath);
-            File.WriteAllText(Path.Combine(SettingConfig.SaveDataPath, fileName),
-                JsonSerializer.Serialize(target, _options));
+            string? dir = Path.GetDirectoryName(filePath);
+            if (dir == null) return;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            File.WriteAllText(filePath, JsonSerializer.Serialize(target, _options));
         }
         catch (Exception e)
         {
@@ -61,9 +67,15 @@ public static class SaveUtility
     public static T Load<T>(string fileName) where T : new()
     {
         string path = Path.Combine(SettingConfig.SaveDataPath, fileName);
+        if (File.Exists(path)) return LoadFromString<T>(File.ReadAllText(path));
+        return new T();
+    }
+
+    public static T LoadFromString<T>(string jsonString) where T : new()
+    {
         try
         {
-            if (File.Exists(path)) return JsonSerializer.Deserialize<T>(File.ReadAllText(path), _options) ?? new T();
+            return JsonSerializer.Deserialize<T>(jsonString, _options) ?? new T();
         }
         catch (Exception e)
         {

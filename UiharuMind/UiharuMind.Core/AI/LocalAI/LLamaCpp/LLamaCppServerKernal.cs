@@ -9,8 +9,11 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using Microsoft.Extensions.Logging;
+using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.SimpleLog;
@@ -45,7 +48,8 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             .ConfigureAwait(false);
     }
 
-    public async Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null, Action? onLoadOver = null,
+    public async Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null,
+        Action<Kernel>? onLoadOver = null,
         CancellationToken token = default)
     {
         int loadingCount = 0;
@@ -64,12 +68,20 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             else
             {
                 loadOver = true;
-                onLoadOver?.Invoke();
+                onLoadOver?.Invoke(CreateKernel());
             }
         }
 
         await StartServer(info.ExecutablePath, model.ModelPath, Config.DefautPort, OnMessageUpdate, token)
             .ConfigureAwait(false);
+    }
+
+    private Kernel CreateKernel()
+    {
+        var kernelBuilder = Kernel.CreateBuilder()
+            .AddOpenAIChatCompletion("UiharuMind", "Empty",
+                httpClient: new HttpClient(new SKernelHttpDelegatingHandler(port: Config.DefautPort)));
+        return kernelBuilder.Build();
     }
 
     // public async Task Run(ILlmModel model, Action<CancellationTokenSource> onStartLoad, Action<float>? onLoading = null,

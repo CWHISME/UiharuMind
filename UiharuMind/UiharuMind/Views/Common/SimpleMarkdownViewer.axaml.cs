@@ -26,6 +26,7 @@ using TheArtOfDev.HtmlRenderer.Avalonia;
 using TheArtOfDev.HtmlRenderer.Core.Entities;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Utils.Tools;
 using UiharuMind.ViewModels.UIHolder;
 
 namespace UiharuMind.Views.Common;
@@ -59,6 +60,19 @@ public partial class SimpleMarkdownViewer : UserControl
         set => SetValue(MarkdownTextProperty, value);
     }
 
+    /// <summary>
+    /// 更简单那的设置 MarkdownText，不走 avalonia 绑定机制
+    /// </summary>
+    public string? SimpleSetMarkdownText
+    {
+        set
+        {
+            _textCache = value;
+            DelayCheckUpdate();
+        }
+        get => _textCache;
+    }
+
     private string HtmlText =>
         MarkdownUtils.ToHtml(_textCache ?? "", Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
     // GetThemeSpecificHtml(Application.Current?.ActualThemeVariant, MarkdownUtils.ToHtml(_textCache));
@@ -70,6 +84,8 @@ public partial class SimpleMarkdownViewer : UserControl
     private bool _isLoadingCache = true;
 
     private bool _isLoaded = false;
+
+    private ValueUiDelayUpdater<string> _valueUiDelayUpdater;
 
     protected override void OnLoaded(RoutedEventArgs e)
     {
@@ -220,6 +236,16 @@ public partial class SimpleMarkdownViewer : UserControl
         // }
     }
 
+    private void SetText(string obj)
+    {
+        CheckUpdateValid();
+    }
+
+    private async void DelayCheckUpdate()
+    {
+        await _valueUiDelayUpdater.UpdateValue(_textCache);
+    }
+
     private void CheckUpdateValid()
     {
         if (!_isLoaded) return;
@@ -266,7 +292,7 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         HtmlRender.AddFontFamily(new FontFamily(
             new Uri("avares://UiharuMind/Assets/Fonts"),
-            "#Dream Han Sans CN"));
+            "#HarmonyOS Sans"));
         HtmlRender.AddFontFamily(new FontFamily(
             new Uri("avares://UiharuMind/Assets/Fonts"),
             "#JetBrains Mono"));
@@ -274,11 +300,12 @@ public partial class SimpleMarkdownViewer : UserControl
 
     public SimpleMarkdownViewer()
     {
-        Log.Debug("SimpleMarkdownViewer created");
+        // Log.Debug("SimpleMarkdownViewer created");
         InitializeComponent();
 
         IsPlaintext = true;
         SetLoadingState(false);
+        _valueUiDelayUpdater = new ValueUiDelayUpdater<string>(SetText, 100);
         // var currentTheme = Application.Current.ActualThemeVariant;
         // var fontFamily = currentTheme.<FontFamily>("FontFamily");
         // FontManager.Current.DefaultFontFamily

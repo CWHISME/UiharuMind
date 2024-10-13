@@ -28,4 +28,14 @@
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
+    
+    <!-- 变成圆形按钮 -->
+    <Style Selector="Button.CircleButton">
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+    </Style>
+    
 </Styles>

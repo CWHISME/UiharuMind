@@ -31,6 +31,6 @@ public class UiScheduler : IScheduler
 {
     public Task Schedule(Action action)
     {
-        return Dispatcher.UIThread.InvokeAsync(action).GetTask();
+        return Dispatcher.UIThread.InvokeAsync(action, DispatcherPriority.ApplicationIdle).GetTask();
     }
 }

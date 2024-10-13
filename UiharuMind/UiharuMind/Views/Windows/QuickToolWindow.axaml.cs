@@ -13,13 +13,16 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using CommunityToolkit.Mvvm.Input;
 using SharpHook.Native;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.Utils;
@@ -36,7 +39,7 @@ public partial class QuickToolWindow : QuickWindowBase
     {
         InitializeComponent();
 
-
+        InitFunctionMenu();
         // SubMenuComboBox.SelectionChanged += OnSubMenuComboBoxSelectionChanged;
     }
 
@@ -44,6 +47,7 @@ public partial class QuickToolWindow : QuickWindowBase
     {
         SizeToContent = SizeToContent.WidthAndHeight;
         this.SetSimpledecorationPureWindow();
+        this.CanResize = true;
     }
 
     private void OnSubMenuComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -89,7 +93,9 @@ public partial class QuickToolWindow : QuickWindowBase
 
     private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
-        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString), null, true);
+        // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString), null, true);
+        // QuickStartChatWindow.Show(_answerString);
+        QuickChatResultWindow.Show("解释", _answerString, ConfigManager.Instance.QuickToolPromptSetting.Explanation);
         PlayAnimation(false, SafeClose);
     }
 
@@ -119,5 +125,32 @@ public partial class QuickToolWindow : QuickWindowBase
     private void PlayAnimation(bool isShowed, Action? onCompleted = null)
     {
         UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
+    }
+
+    private void InitFunctionMenu()
+    {
+        FunctionMenu.Children.Clear();
+        AddFunctionMenu("翻译",
+            () =>
+            {
+                QuickChatResultWindow.Show("翻译", _answerString,
+                    ConfigManager.Instance.QuickToolPromptSetting.Translation);
+            });
+        AddFunctionMenu("询问",
+            () => { QuickStartChatWindow.Show(_answerString); });
+    }
+
+    private void AddFunctionMenu(string text, Action action, int xMargin = 5)
+    {
+        var btn = new Button
+        {
+            Content = text,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+            Command = new RelayCommand(action),
+            Margin = new Thickness(xMargin, 0, 0, 0),
+            MinHeight = 25,
+        };
+        FunctionMenu.Children.Add(btn);
     }
 }

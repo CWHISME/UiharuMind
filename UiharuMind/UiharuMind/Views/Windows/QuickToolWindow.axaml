@@ -16,22 +16,25 @@
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
             </Button.Styles>
-            <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="20" Height="20" />
+            <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="25" Height="25" />
+            <ToolTip.Tip>
+                <TextBlock Text="解释" />
+            </ToolTip.Tip>
         </Button>
 
         <!-- 隐藏的菜单 -->
-        <Border Name="MainMenu" IsVisible="False" CornerRadius="5" Margin="5">
+        <Border Name="MainMenu" IsVisible="False" CornerRadius="5">
             <!-- <Border.Transitions> -->
             <!--     <Transitions> -->
             <!--         <DoubleTransition Duration="0:0:1" /> -->
             <!--     </Transitions> -->
             <!-- </Border.Transitions> -->
-            <StackPanel Orientation="Horizontal">
+            <StackPanel Name="FunctionMenu" Orientation="Horizontal">
                 <!-- <StackPanel.Transitions> -->
                 <!--     <DoubleTransition Property="Opacity" Duration="0:0:0.5" /> -->
                 <!-- </StackPanel.Transitions> -->
-                <Button Content="Option 1" />
-                <Button Content="Option 2" />
+                <!-- <Button Content="解释" /> -->
+                <!-- <Button Content="翻译" /> -->
                 <!-- <ComboBox Name="SubMenuComboBox" VerticalAlignment="Center"> -->
                 <!--     <ComboBoxItem Content="Choice 1" /> -->
                 <!--     <ComboBoxItem Content="Choice 2" /> -->

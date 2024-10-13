@@ -68,7 +68,7 @@ public class UIManager
                 onCreateCallback?.Invoke(window);
                 action?.Invoke(window);
                 window.Awake();
-                window.RequestShow();
+                window.RequestShow(true);
             }
             // if (_multiWindows.ContainsKey(typeof(T)))
             // {

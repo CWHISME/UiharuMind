@@ -29,6 +29,16 @@ namespace UiharuMind.Views.Windows;
 /// </summary>
 public partial class QuickStartChatWindow : QuickWindowBase
 {
+    public static void Show(string? quoteStr = null)
+    {
+        UIManager.ShowWindow<QuickStartChatWindow>(x =>
+        {
+            x._quoteStr = quoteStr;
+            x.QuoteTextBlock.Text = quoteStr;
+            x.QuatePanel.IsVisible = !string.IsNullOrEmpty(quoteStr);
+        });
+    }
+
     public QuickStartChatWindow()
     {
         InitializeComponent();
@@ -42,14 +52,17 @@ public partial class QuickStartChatWindow : QuickWindowBase
         // this.Deactivated += OnLostFocus;
     }
 
+    //引用
+    private string? _quoteStr;
+
     public ICommand SendMessageCommand { get; set; }
 
     public override void Awake()
     {
-        // this.SetSimpledecorationPureWindow();
-        base.Awake();
-        this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        this.SizeToContent = SizeToContent.Height;
+        this.SetSimpledecorationPureWindow();
+        // base.Awake();
+        // this.WindowStartupLocation = WindowStartupLocation.Manual;
+        // this.SizeToContent = SizeToContent.Height;
         // this.Opacity = 0;
     }
 
@@ -58,7 +71,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
         base.OnPreShow();
         BindMouseClickCloseEvent();
         InputBox.Text = "";
-        // InitPosition();
+        InitPosition();
     }
 
     // protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -91,27 +104,28 @@ public partial class QuickStartChatWindow : QuickWindowBase
         var inputText = InputBox.Text;
         if (string.IsNullOrEmpty(inputText))
         {
-            App.MessageService.ShowMessage("请输入内容！");
+            ShowMessage("请输入内容！");
             return;
         }
 
         // Log.Warning($"Quick chat: {inputText}");
-        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(inputText));
+        // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(inputText));
+        QuickChatResultWindow.Show("询问", $"请根据内容 {_quoteStr} 进行回答：\n{inputText}");
         CloseByAnimation();
     }
 
-    // public void InitPosition()
-    // {
-    //     // 获取当前激活的屏幕
-    //     var screen = Screens.ScreenFromVisual(this);
-    //     if (screen != null)
-    //     {
-    //         // 计算窗口在屏幕中心的坐标
-    //         var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + Width) / 2;
-    //         var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height + Height) / 2;
-    //
-    //         // 设置窗口位置
-    //         Position = new PixelPoint((int)x, (int)y);
-    //     }
-    // }
+    public void InitPosition()
+    {
+        // 获取当前激活的屏幕
+        var screen = Screens.ScreenFromVisual(this);
+        if (screen != null)
+        {
+            // 计算窗口在屏幕中心的坐标
+            var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + Width) / 2;
+            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height + Height) / 2;
+
+            // 设置窗口位置
+            Position = new PixelPoint((int)x, (int)y);
+        }
+    }
 }

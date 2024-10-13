@@ -14,7 +14,7 @@
             <PathIcon Data="{StaticResource CopyRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
         </Button>
         <Button Click="OnSaveBtnClick">
-            <PathIcon Data="{StaticResource InfoRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
+            <PathIcon Data="{StaticResource SaveRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
         </Button>
     </StackPanel>
 

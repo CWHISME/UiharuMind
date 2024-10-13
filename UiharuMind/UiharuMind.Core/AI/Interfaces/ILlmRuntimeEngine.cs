@@ -9,12 +9,14 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using Microsoft.SemanticKernel;
 using UiharuMind.Core.LLamaCpp.Versions;
 
 namespace UiharuMind.Core.AI.Interfaces;
 
 public interface ILlmRuntimeEngine
 {
-    public Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null, Action? onLoadOver = null,
+    public Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null,
+        Action<Kernel>? onLoadOver = null,
         CancellationToken token = default);
 }

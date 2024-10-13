@@ -29,6 +29,7 @@
                             <Grid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="{x:Static  lang:Lang.Delete}" Click="MenuItemDelete_Click" />
+                                    <MenuItem Header="{x:Static  lang:Lang.DeleteAll}" Click="MenuItemDeleteAll_Click" />
                                 </ContextMenu>
                             </Grid.ContextMenu>
                             <Image Source="{Binding ImageSource}" IsVisible="{Binding IsImage}" />

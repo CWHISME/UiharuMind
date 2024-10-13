@@ -9,9 +9,13 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.Core.LLM;
+using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Core;
@@ -20,10 +24,18 @@ public class ModelRunningData
 {
     private ILlmRuntime _runtime;
     private ILlmModel _modelInfo;
-    private ChatThread? _chatThread;
+
+    private Kernel? _kernel;
+
+    // private ChatThread? _chatThread;
     private CancellationTokenSource? _cts;
 
     public ILlmModel ModelInfo => _modelInfo;
+
+    /// <summary>
+    /// 请先检测模型是否运行
+    /// </summary>
+    public Kernel Kernel => _kernel!;
 
     /// <summary>
     /// 当前运行的模型名称
@@ -38,13 +50,14 @@ public class ModelRunningData
     /// <summary>
     /// 是否处于运行中
     /// </summary>
-    public bool IsRunning => !((_cts?.IsCancellationRequested) ?? true);
+    public bool IsRunning => _isLoaded && _kernel != null && !((_cts?.IsCancellationRequested) ?? true);
 
     /// <summary>
     /// 0~1,1表示加载完成 100%
     /// </summary>
     public float LoadingPercent { get; private set; } = 0;
 
+    private bool _isLoaded = false;
     // private int _loadingCount = 0;
     // private Action<float>? _onLoading;
     // private Action? _onLoaded;
@@ -68,6 +81,7 @@ public class ModelRunningData
     public async Task StartLoad(Action<float>? onLoading, Action? onLoaded)
     {
         if (_cts != null) return;
+        _isLoaded = false;
         // _loadingCount = 0;
         LoadingPercent = 0;
         // _onLoading = onLoading;
@@ -77,7 +91,12 @@ public class ModelRunningData
         {
             LoadingPercent = x;
             onLoading?.Invoke(x);
-        }, onLoaded, _cts.Token);
+        }, (kernal) =>
+        {
+            _kernel = kernal;
+            _isLoaded = true;
+            onLoaded?.Invoke();
+        }, _cts.Token);
         // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(_modelInfo.ModelPath, Port,
         //     OnInitLoad,
         //     OnMessageUpdate);
@@ -93,30 +112,45 @@ public class ModelRunningData
         _cts = null;
     }
 
-    public IAsyncEnumerable<string> SendMessageStreamingAsync(ChatHistory chatHistory, CancellationToken token)
-    {
-        // if (!IsRunning)
-        // {
-        //     onMessageReceived.Invoke($"{ModelName} is not running");
-        //     yield break;
-        // }
+    //=========================================================================================================
 
-        _chatThread ??= new ChatThread();
-        return _chatThread.SendMessageStreamingAsync(chatHistory, token);
-    }
+    // public IAsyncEnumerable<string> SendMessageStreamingAsync(ChatHistory chatHistory, CancellationToken token)
+    // {
+    //     // if (!IsRunning)
+    //     // {
+    //     //     onMessageReceived.Invoke($"{ModelName} is not running");
+    //     //     yield break;
+    //     // }
+    //     if (_kernel == null) return new AsyncEnumerableWithMessage("Model is not loaded");
+    //
+    //     _chatThread ??= new ChatThread(_kernel);
+    //     return _chatThread.SendMessageStreamingAsync(chatHistory, token);
+    // }
 
-    public void SendMessageStreaming(ChatHistory chatHistory,
-        Action<DateTimeOffset>? onMessageStart,
-        Action<ChatStreamingMessageInfo> onMessageReceived,
-        Action<ChatStreamingMessageInfo> onMessageStopped,
-        CancellationToken token)
-    {
-        _chatThread ??= new ChatThread();
-        _chatThread.SendMessageStreaming(chatHistory, onMessageStart, onMessageReceived, onMessageStopped, token);
-    }
+    // public void SendMessageStreaming(ChatHistory chatHistory,
+    //     Action<DateTimeOffset>? onMessageStart,
+    //     Action<ChatStreamingMessageInfo> onMessageReceived,
+    //     Action<ChatStreamingMessageInfo> onMessageStopped,
+    //     CancellationToken token)
+    // {
+    //     if (_kernel == null)
+    //     {
+    //         Log.Error("Model is not loaded");
+    //         return;
+    //     }
+    //
+    //     _chatThread ??= new ChatThread(_kernel);
+    //     _chatThread.SendMessageStreaming(chatHistory, onMessageStart, onMessageReceived, onMessageStopped, token);
+    // }
 
-    private void OnInitLoad(CancellationTokenSource cts)
-    {
-        _cts = cts;
-    }
+
+    //For agent
+    // public async Task InvokeAgentStreamingAsync(ChatSession chatSession)
+    // {
+    // }
+
+    // private void OnInitLoad(CancellationTokenSource cts)
+    // {
+    //     _cts = cts;
+    // }
 }

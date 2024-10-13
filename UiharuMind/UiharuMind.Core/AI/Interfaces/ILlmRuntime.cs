@@ -9,9 +9,12 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using Microsoft.SemanticKernel;
+
 namespace UiharuMind.Core.AI.Interfaces;
 
 public interface ILlmRuntime
 {
-    public Task Run(ILlmModel model, Action<float>? onLoading = null, Action? onLoadOver = null,CancellationToken token = default);
+    public Task Run(ILlmModel model, Action<float>? onLoading = null, Action<Kernel>? onLoadOver = null,
+        CancellationToken token = default);
 }
