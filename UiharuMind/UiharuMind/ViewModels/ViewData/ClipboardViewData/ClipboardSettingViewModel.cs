@@ -14,7 +14,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace UiharuMind.ViewModels.ViewData.ClipboardViewData;
 
-public partial class ClipboardSettingViewModel : ObservableObject
+public partial class ClipboardSettingViewModel : ViewModelBase
 {
     private int _maxRecordCount;
     private bool _saveToDisk;

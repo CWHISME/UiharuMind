@@ -25,11 +25,12 @@ public abstract class UiharuWindowBase : Window
     {
         OnPreShow();
         // if (isFirstShow) 
-        Show();
+        this.WindowState = WindowState.Normal;
+        // Show();
         // else
         // {
         //     this.WindowState = WindowState.Normal;
-        //     Dispatcher.UIThread.Post(Show);
+        Dispatcher.UIThread.Post(Show, DispatcherPriority.ApplicationIdle);
         // }
     }
 

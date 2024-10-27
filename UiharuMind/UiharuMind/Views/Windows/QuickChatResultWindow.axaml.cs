@@ -21,6 +21,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Character.Skills;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Chat;
@@ -41,6 +42,13 @@ public partial class QuickChatResultWindow : QuickWindowBase
     {
         if (answer == null) return;
         UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, prompt), null,
+            ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
+    }
+
+    public static void Show(string? title, string? answer, AgentSkill agentSkill)
+    {
+        if (answer == null) return;
+        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, agentSkill), null,
             ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
     }
 
@@ -69,33 +77,63 @@ public partial class QuickChatResultWindow : QuickWindowBase
         }
     }
 
-    public async void SetRequestInfo(string? title, string content, string? prompt = null)
+    public void SetRequestInfo(string? title, string content, string? prompt = null)
     {
         TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
-        SetContent("");
-        if (LlmManager.Instance.CurrentRunningModel?.IsRunning == null)
-        {
-            SetContent(("error: current model is not loaded"));
-            IsFinished = true;
-            return;
-        }
 
         _cts = new CancellationTokenSource();
         IsFinished = false;
-        try
+
+        async void Action()
         {
-            await foreach (var message in LlmManager.Instance.CurrentRunningModel.InvokeQuickToolPromptStreamingAsync(
-                               content, prompt, Lang.Culture, _cts.Token))
+            try
             {
-                AppendContent(message);
+                //简单模式
+                await foreach (var message in LlmManager.Instance.CurrentRunningModel!
+                                   .InvokeQuickToolPromptStreamingAsync(
+                                       content, prompt, Lang.Culture, _cts.Token))
+                {
+                    AppendContent(message);
+                }
             }
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e.Message);
+            catch (Exception e)
+            {
+                Log.Warning(e.Message);
+            }
+
+            IsFinished = true;
         }
 
-        IsFinished = true;
+        Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
+    }
+
+    public void SetRequestInfo(string? title, string content, AgentSkill agentSkill)
+    {
+        TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+
+        _cts = new CancellationTokenSource();
+        IsFinished = false;
+
+        async void Action()
+        {
+            try
+            {
+                //讨论模式
+                await foreach (var message in agentSkill.DoSkill(LlmManager.Instance.CurrentRunningModel!, content,
+                                   _cts.Token))
+                {
+                    AppendContent(message);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning(e.Message);
+            }
+
+            IsFinished = true;
+        }
+
+        Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
     }
 
     protected override void OnPreShow()
@@ -107,6 +145,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
     protected override void OnPreClose()
     {
         base.OnPreClose();
+        SetContent("");
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
     }
 
@@ -118,7 +157,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
 
     private void AppendContent(string info)
     {
-        ResultTextBlock.SimpleSetMarkdownText += (info);
+        ResultTextBlock.SimpleSetMarkdownText = (info);
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

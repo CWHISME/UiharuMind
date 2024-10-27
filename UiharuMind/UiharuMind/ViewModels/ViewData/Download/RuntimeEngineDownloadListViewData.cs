@@ -16,7 +16,7 @@ using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.ViewModels.ViewData.Download;
 
-public class RuntimeEngineDownloadListViewModel : DownloadListViewModel
+public class RuntimeEngineDownloadListViewData : DownloadListViewData
 {
     protected override string GetDeleteFilePath(DownloadableItemData version)
     {

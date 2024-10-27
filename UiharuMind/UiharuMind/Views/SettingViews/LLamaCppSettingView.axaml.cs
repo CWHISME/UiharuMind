@@ -15,6 +15,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.SettingViewData;
+using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.SettingViews;
 
@@ -24,7 +25,7 @@ public partial class LLamaCppSettingView : UserControl
     {
         InitializeComponent();
 
-        DataContext = App.ViewModel.GetViewModel<LLamaCppSettingModel>();
+        DataContext = App.ViewModel.GetViewModel<SettingViewModel>().LLamaCppSettingConfig;
 
         // this.GetObservable(IsVisibleProperty).Subscribe(new VisibilityObserver(this));
     }

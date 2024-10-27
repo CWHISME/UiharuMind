@@ -20,7 +20,10 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Views;
 using UiharuMind.Views.Pages;
+using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.ViewModels.Pages;
 
@@ -32,7 +35,7 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
 
-    public List<ModelRunningData> ModelSources => App.ModelService.ModelSources;
+    public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
     private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.Config;
 
@@ -69,6 +72,19 @@ public partial class ModelPageData : PageDataBase
         App.MessageService.ShowNotification("OpenSelectModelInfo.");
     }
 
+    [RelayCommand]
+    private async Task CreateRemoteModel(string? name)
+    {
+        RemoteModelInfo? info = null;
+        if (name != null) LlmManager.Instance.RemoteModelManager.Config.ModelInfos.TryGetValue(name, out info);
+        var model = await CreateRemoteLlmModelWindow.ShowWindow(UIManager.GetRootWindow(), info);
+        if (model != null)
+        {
+            LlmManager.Instance.RemoteModelManager.AddRemoteModel(model);
+            LoadModels();
+        }
+    }
+
     partial void OnModelPathChanged(string? value)
     {
         LoadModels();
@@ -87,7 +103,7 @@ public partial class ModelPageData : PageDataBase
     {
         IsBusy = true;
         await App.ModelService.LoadModelList();
-        OnPropertyChanged(nameof(ModelSources));
+        // OnPropertyChanged(nameof(ModelSources));
         IsBusy = false;
     }
 }

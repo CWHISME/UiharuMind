@@ -119,4 +119,37 @@
     <data name="DefaultQuickChatTitle" xml:space="preserve">
         <value>询问</value>
     </data>
+    <data name="CreateRemoteModel" xml:space="preserve">
+        <value>添加远程模型：</value>
+    </data>
+    <data name="AddBtn" xml:space="preserve">
+        <value>添加</value>
+    </data>
+    <data name="ModifyBtn" xml:space="preserve">
+        <value>修改</value>
+    </data>
+    <data name="CreateBtn" xml:space="preserve">
+        <value>创建</value>
+    </data>
+    <data name="SureBtn" xml:space="preserve">
+        <value>确定</value>
+    </data>
+    <data name="ApiKey" xml:space="preserve">
+        <value>密钥</value>
+    </data>
+    <data name="CustomConfig" xml:space="preserve">
+        <value>自定义配置</value>
+    </data>
+    <data name="NotInputModelNameTips" xml:space="preserve">
+        <value>请输入模型名称！</value>
+    </data>
+    <data name="NotInputModelApiKey" xml:space="preserve">
+        <value>请输入API Key！</value>
+    </data>
+    <data name="ClearChatHistory" xml:space="preserve">
+        <value>清空对话历史</value>
+    </data>
+    <data name="Edit" xml:space="preserve">
+        <value>编辑</value>
+    </data>
 </root>

@@ -85,7 +85,7 @@ public class UIManager
             //     window.Awake();
             //     window.RequestShow();
             // }
-        });
+        }, DispatcherPriority.Render);
     }
 
     public static T? GetWindow<T>()
@@ -108,6 +108,13 @@ public class UIManager
         var mainWindow = GetWindow<MainWindow>();
         if (mainWindow?.IsVisible == true) return mainWindow;
         return App.DummyWindow;
+    }
+
+    public static MainWindow? GetMainWindow()
+    {
+        var mainWindow = GetWindow<MainWindow>();
+        if (mainWindow?.IsVisible == true) return mainWindow;
+        return null;
     }
 
     public static void CloseWindow<T>()

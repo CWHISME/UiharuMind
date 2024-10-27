@@ -13,9 +13,22 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Attributes;
 
-public class SettingConfigIgnoreAttribute : Attribute
+/// <summary>
+/// 不在自动生成的设置界面显示
+/// </summary>
+public class SettingConfigIgnoreDisplayAttribute : Attribute
 {
-    public SettingConfigIgnoreAttribute()
+    public SettingConfigIgnoreDisplayAttribute()
+    {
+    }
+}
+
+/// <summary>
+/// 自动取值时，忽略该属性
+/// </summary>
+public class SettingConfigIgnoreValueAttribute : Attribute
+{
+    public SettingConfigIgnoreValueAttribute()
     {
     }
 }

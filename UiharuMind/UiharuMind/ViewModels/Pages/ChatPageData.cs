@@ -14,6 +14,7 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Pages;
 
@@ -41,13 +42,19 @@ public partial class ChatPageData : PageDataBase
         // ChatViewModel.ChatSession = _chatSessions[0];
     }
 
-    [RelayCommand]
-    public void ClickModelSelectCommand()
-    {
-    }
+    // [RelayCommand]
+    // public void ClickModelSelectCommand()
+    // {
+    // }
+    //
+    // [RelayCommand]
+    // public void EjectModelCommand()
+    // {
+    // }
 
     [RelayCommand]
-    public void EjectModelCommand()
+    public void AddChat()
     {
+        Log.Debug("AddChat");
     }
 }

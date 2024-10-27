@@ -18,6 +18,7 @@ public class UiharuMessageBoxWindow : MessageBoxWindow
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        _callback?.Invoke(this.GetFieldValue<MessageBoxResult>("_dialogResult"));
+        MessageBoxResult? result = this.GetFieldValue<Object>("_dialogResult") as MessageBoxResult?;
+        _callback?.Invoke(result ?? MessageBoxResult.None);
     }
 }

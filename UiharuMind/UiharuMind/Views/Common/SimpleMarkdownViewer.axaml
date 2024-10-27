@@ -44,7 +44,7 @@
     <!-- SaveScrollValueWhenContentUpdated="True" -->
 
 
-    <Panel>
+    <Panel Name="MainPanel">
         <!-- 普通文字显示 -->
         <!-- IsVisible="{Binding IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
         <!-- Text="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->

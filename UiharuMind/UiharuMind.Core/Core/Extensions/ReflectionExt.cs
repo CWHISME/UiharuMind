@@ -176,5 +176,21 @@ namespace UiharuMind.Core.Core.Extensions
 
             return field;
         }
+
+        /// <summary>
+        /// 获取所有实现了某个接口的类型
+        /// </summary>
+        /// <param name="assembly"></param>
+        /// <param name="interfaceName"></param>
+        /// <returns></returns>
+        public static Type[] GetTypesOfInterface(this Assembly assembly, string interfaceName)
+        {
+            return assembly.GetTypes().Where(t => t.GetInterface(interfaceName) != null).ToArray();
+        }
+        
+        public static Type[] GetTypesOfSubclass(this Assembly assembly, Type baseType)
+        {
+            return assembly.GetTypes().Where(t => t.IsSubclassOf(baseType)).ToArray();
+        }
     }
 }

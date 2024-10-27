@@ -62,7 +62,7 @@ public class ClipboardService : IDisposable
         _clipboardMonitor = CreateClipboardMonitor();
         if (_clipboardMonitor != null) _clipboardMonitor.OnClipboardChanged += OnSystemClipboardChanged;
 
-        ClipboardHistoryItems = SaveUtility.Load<ObservableCollection<ClipboardItem>>(HistoryFileName);
+        ClipboardHistoryItems = SaveUtility.LoadRootFile<ObservableCollection<ClipboardItem>>(HistoryFileName);
 
         //初始化定时器，每隔100秒检测保存一次历史记录
         _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromSeconds(100));
@@ -158,13 +158,13 @@ public class ClipboardService : IDisposable
 
     private void OnTimerElapsed(object? state)
     {
-        SaveUtility.Save(HistoryFileName, ClipboardHistoryItems);
+        SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
         _isHistoryDirty = false;
     }
 
     public void Dispose()
     {
-        SaveUtility.Save(HistoryFileName, ClipboardHistoryItems);
+        SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
         _clipboardMonitor?.Dispose();
         _timer.Dispose();
     }

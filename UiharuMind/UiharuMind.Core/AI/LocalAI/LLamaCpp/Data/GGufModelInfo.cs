@@ -23,7 +23,9 @@ public class GGufModelInfo : ILlmModel
 
     [JsonIgnore] public string ModelPath { get; set; }
     public string ModelDescription { get; }
-    public string Port { get; set; }
+    public string ModelId { get; }
+    public int Port { get; set; }
+    public string ApiKey { get; }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 

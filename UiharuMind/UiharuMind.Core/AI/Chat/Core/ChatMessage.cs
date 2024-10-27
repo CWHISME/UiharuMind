@@ -12,6 +12,8 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
+#pragma warning disable SKEXP0001
+
 namespace UiharuMind.Core.Core.Chat;
 
 public struct ChatMessage
@@ -25,6 +27,11 @@ public struct ChatMessage
     /// 本条消息内容
     /// </summary>
     public ChatMessageContent Message;
+
+    /// <summary>
+    /// 消息角色名字
+    /// </summary>
+    public string CharactorName => Message.AuthorName ?? "系统";
 
     public ECharacter Character
     {

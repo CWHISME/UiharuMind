@@ -12,6 +12,7 @@
 using System.ComponentModel;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 
@@ -22,13 +23,16 @@ public class LLamaCppServerDebugConfig : ConfigBase
     // [SettingConfigNoneValue]
     // public bool LogDisable { get; set; } = true;
 
-    [SettingConfigIgnore] public bool LogRunningInfo { get; set; } = false;
+    [SettingConfigDesc("log running info (default: false)")]
+    [SettingConfigDesc("运行过程中是否打印日志信息", LanguageUtils.ChineseSimplified)]
+    [SettingConfigIgnoreValue]
+    public bool LogRunningInfo { get; set; } = false;
 
     [SettingConfigDesc("Set verbosity level to infinity (i.e. log all messages, useful for debugging)")]
     [SettingConfigNoneValue]
     public bool LogVerbose { get; set; }
 
-    [SettingConfigDesc("Enable prefx in log messages")]
-    [SettingConfigNoneValue]
-    public bool LogPrefix { get; set; }
+    // [SettingConfigDesc("Enable prefx in log messages")]
+    // [SettingConfigNoneValue]
+    // public bool LogPrefix { get; set; }
 }

@@ -3,16 +3,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
-             xmlns:settingViewData="clr-namespace:UiharuMind.ViewModels.SettingViewData"
+             xmlns:configs="clr-namespace:UiharuMind.Core.Configs;assembly=UiharuMind.Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.SettingViews.QuickToolSettingView">
 
     <Design.DataContext>
-        <settingViewData:QuickToolSettingViewModel />
+        <configs:QuickToolSetting />
     </Design.DataContext>
 
     <StackPanel>
-        <settingViews:SettingPanelView SettingConfig="{Binding SettingConfig}" />
+        <settingViews:SettingPanelView SettingConfig="{Binding }" />
     </StackPanel>
 
 </UserControl>

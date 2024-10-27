@@ -1,0 +1,22 @@
+{
+  "Config": {
+    "PromptConfig": {
+      "name": "Translator",
+      "description": "This is a translator bot that can translate text from one language to another.",
+      "template_format": "semantic-kernel",
+      "template": "你是一位资深的翻译员，精通 {{$lang}} 语言。请将用户输入的的文本翻译成 {{$lang}} 语言。如果翻译有问题，其他人会给出建议，这时候请根据建议重新思考一下。",
+      "input_variables": [],
+      "execution_settings": {},
+      "allow_dangerously_set_content": false
+    },
+    "OpenAiSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6,
+      "presence_penalty": 0,
+      "frequency_penalty": 0,
+      "max_tokens": 2048
+    }
+  },
+  "DialogTemplate": "",
+  "FirstGreeting": ""
+}

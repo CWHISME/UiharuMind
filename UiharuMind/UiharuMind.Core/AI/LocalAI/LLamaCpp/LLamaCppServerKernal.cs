@@ -53,20 +53,38 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         CancellationToken token = default)
     {
         int loadingCount = 0;
-        var loadOver = false;
+        bool loadOver = false;
+        
+        const float loadingMaxCount = 128f;
+        const int loadingMinCount = 16;
 
         void OnMessageUpdate(string msg)
         {
-            if (!loadOver || Config.DebugConfig.LogRunningInfo) Log.Debug(msg);
+            if (Config.DebugConfig.LogRunningInfo) Log.Debug(msg);
             if (loadOver) return;
-            if (loadingCount < 128 && !msg.StartsWith("main: server is listening"))
+
+            if (!msg.StartsWith("main: server is listening"))
             {
                 loadingCount++;
-                var loadingPercent = Math.Min(1, loadingCount / 128f);
-                onLoading?.Invoke(loadingPercent);
+
+                // 增加间隔，避免频繁调用
+                if (loadingCount % loadingMinCount == 0)
+                {
+                    float loadingPercent = Math.Min(1, loadingCount / loadingMaxCount);
+                    onLoading?.Invoke(loadingPercent);
+                }
+
+                // 如果 loadingCount 达到上限，直接当做完成加载
+                if (loadingCount >= loadingMaxCount)
+                {
+                    Log.Debug($"Loading over cout {loadingCount}");
+                    loadOver = true;
+                    onLoadOver?.Invoke(CreateKernel());
+                }
             }
             else
             {
+                Log.Debug($"Loading over {loadingCount}");
                 loadOver = true;
                 onLoadOver?.Invoke(CreateKernel());
             }

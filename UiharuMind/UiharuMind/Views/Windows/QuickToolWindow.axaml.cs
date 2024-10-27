@@ -22,9 +22,11 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using CommunityToolkit.Mvvm.Input;
 using SharpHook.Native;
+using UiharuMind.Core.AI.Character.Skills;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
 
@@ -133,8 +135,11 @@ public partial class QuickToolWindow : QuickWindowBase
         AddFunctionMenu("翻译",
             () =>
             {
-                QuickChatResultWindow.Show("翻译", _answerString,
-                    ConfigManager.Instance.QuickToolPromptSetting.Translation);
+                TeamTranslationAgentSkill skill = new TeamTranslationAgentSkill();
+                skill.AddParams("lang", Lang.Culture.Name);
+                // QuickChatResultWindow.Show("翻译", _answerString,
+                //     ConfigManager.Instance.QuickToolPromptSetting.Translation);
+                QuickChatResultWindow.Show("翻译", _answerString, skill);
             });
         AddFunctionMenu("询问",
             () => { QuickStartChatWindow.Show(_answerString); });

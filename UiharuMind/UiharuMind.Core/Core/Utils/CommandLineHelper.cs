@@ -71,7 +71,7 @@ public class CommandLineHelper
     {
         if (value == null) return true;
         // 设置了忽略标记
-        if (property.GetCustomAttribute<SettingConfigIgnoreAttribute>() != null) return true;
+        if (property.GetCustomAttribute<SettingConfigIgnoreValueAttribute>() != null) return true;
         Type propertyType = property.PropertyType;
         bool isValueType = propertyType.IsValueType;
         if (isValueType)

@@ -19,4 +19,13 @@
       <PackageReference Include="Tiktoken" Version="2.0.3" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="Resources\UiharuKazari.json" />
+      <EmbeddedResource Include="Resources\UiharuKazari.json" />
+      <None Remove="Resources\Translator.json" />
+      <EmbeddedResource Include="Resources\Translator.json" />
+      <None Remove="Resources\TranslateReviwer.json" />
+      <EmbeddedResource Include="Resources\TranslateReviwer.json" />
+    </ItemGroup>
+
 </Project>

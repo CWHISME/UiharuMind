@@ -28,7 +28,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// <summary>
 /// 用于显示聊天信息，并提供输入框，用于发送消息
 /// </summary>
-public partial class ChatViewModel : ObservableObject
+public partial class ChatViewModel : ViewModelBase
 {
     public enum SendMode
     {
@@ -76,20 +76,32 @@ public partial class ChatViewModel : ObservableObject
     public void SendMessage()
     {
         // if (!InputManager.Instance.IsPressed(KeyCode.VcLeftControl)) return;
-        if (string.IsNullOrEmpty(InputText)) return;
-        Log.Debug("SendMessageCommand:" + InputText);
+        if (string.IsNullOrEmpty(InputText) || IsGenerating) return;
+        // Log.Debug("SendMessageCommand:" + InputText);
         AddMessage(InputText);
         InputText = "";
         ScrollToEnd = true;
-        SaveUtility.Save("chat_history.json", ChatSession);
+        // SaveUtility.SaveRootFile("chat_history.json", ChatSession);
         // Lang.Culture = CultureInfo.GetCultureInfo("mmm");
     }
 
     [RelayCommand]
-    public void StopSending()
+    public void StopSending(ChatSessionViewData chatSession)
     {
         _cancelTokenSource.SafeStop();
         _cancelTokenSource = null;
+    }
+
+    [RelayCommand]
+    public void Edit()
+    {
+        Log.Debug("EditCommand");
+    }
+
+    [RelayCommand]
+    public void Delete()
+    {
+        Log.Debug("DeleteCommand");
     }
 
     private async void AddMessage(string message)

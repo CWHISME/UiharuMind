@@ -17,7 +17,7 @@ using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.ViewData.ClipboardViewData;
 
-public partial class ClipboardHistoryViewModel : ObservableObject
+public partial class ClipboardHistoryViewModel : ViewModelBase
 {
     public ObservableCollection<ClipboardItem> ClipboardHistoryItems => App.Clipboard.ClipboardHistoryItems;
 

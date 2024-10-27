@@ -8,6 +8,15 @@
     <Application.Resources>
         <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
         <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
+
+        <!-- <Styles.Resources> -->
+        <!-- <ResourceDictionary> -->
+        <!-- <ResourceDictionary.MergedDictionaries> -->
+        <!-- <ResourceInclude Source="/Assets/Colors.axaml" /> -->
+        <!-- </ResourceDictionary.MergedDictionaries> -->
+        <!-- </ResourceDictionary> -->
+        <!-- </Styles.Resources> -->
+        <!-- <SolidColorBrush x:Key="BorderBrush" Color="Lavender" /> -->
     </Application.Resources>
 
     <Application.Styles>
@@ -15,6 +24,7 @@
         <StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude>
         <StyleInclude Source="avares://UiharuMind/Assets/CustomButtonStyle.axaml"></StyleInclude>
         <StyleInclude Source="avares://UiharuMind/Assets/CustomFontStyle.axaml"></StyleInclude>
+        <StyleInclude Source="avares://UiharuMind/Assets/ThemeColors.axaml"></StyleInclude>
         <u-Semi:SemiTheme Locale="zh-CN" />
         <!-- TextEditor 渲染代码的语法高亮 -->
         <!-- <FluentTheme /> -->

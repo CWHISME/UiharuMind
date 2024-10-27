@@ -9,12 +9,28 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
+using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.Configs.RemoteAI;
+using UiharuMind.Core.Core.Utils;
+
 namespace UiharuMind.Core.RemoteOpenAI;
 
-public class RemoteModelInfo
+public class RemoteModelInfo : ILlmModel
 {
-    public string Name { get; set; }
-    public string Url { get; set; }
-    public string Port { get; set; }
-    public string ApiKey { get; set; }
+    public BaseRemoteModelConfig? Config { get; set; } = new RemoteModelConfig();
+
+    [JsonIgnore] public string ModelName => Config.ModelName;
+    [JsonIgnore] public string ModelPath => Config.ModelPath;
+    [JsonIgnore] public string ModelDescription => Config.ModelDescription;
+    [JsonIgnore] public string ModelId => Config.ModelId;
+    [JsonIgnore] public int Port => Config.Port;
+
+    private string _apiKey = "";
+
+    public string ApiKey
+    {
+        get => AesEncryptionUtils.DecryptString(_apiKey);
+        set => _apiKey = AesEncryptionUtils.EncryptString(value);
+    }
 }

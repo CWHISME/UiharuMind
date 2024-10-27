@@ -13,16 +13,22 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.Agents.Chat;
 using Microsoft.SemanticKernel.ChatCompletion;
 using OpenAI.Chat;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Core.Utils.Tools;
 using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
+
+#pragma warning disable SKEXP0110
 
 namespace UiharuMind.Core.AI.Core;
 
@@ -224,26 +230,96 @@ public static class ChatThread
 
     // =========================For agent=====================
 
-    [Experimental("SKEXP0110")]
-    public static async IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData modelRunning,
+    public static async IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
         ChatSession chatSession, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (!modelRunning.IsRunning)
+        if (modelRunning is not { IsRunning: true })
         {
             yield return "Model is not running.";
             yield break;
         }
 
-        await foreach (StreamingChatMessageContent response in chatSession.CharacterData.ChatAgent.InvokeStreamingAsync(
-                           chatSession.History, null, modelRunning.Kernel, cancellationToken))
+        ChatCompletionAgent agent = chatSession.CharacterData.ToAgent(modelRunning.Kernel);
+        StringBuilder builder = new StringBuilder(64);
+        EmptyDelayUpdater delayUpdater = new();
+        await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
+                           chatSession.History, null, modelRunning.Kernel, cancellationToken).ConfigureAwait(false))
         {
             if (string.IsNullOrEmpty(response.Content))
             {
                 continue;
             }
 
-            yield return response.ToString();
+            builder.Append(response);
+            // ReSharper disable once MethodHasAsyncOverload
+            if (delayUpdater.UpdateDelay())
+            {
+                yield return builder.ToString();
+            }
+
+            // var str = response.ToString();
+            // yield return str;
             if (cancellationToken.IsCancellationRequested) break;
         }
+
+        yield return builder.ToString();
+        // Log.Debug("end of chat thread " + builder);
+        chatSession.AddMessageInfo(DateTime.UtcNow.Ticks);
+    }
+
+    /// <summary>
+    /// 以 userInput 作为输入，要求 agent 讨论出一个结果
+    /// </summary>
+    /// <param name="modelRunning"></param>
+    /// <param name="userInput"></param>
+    /// <param name="terminationStrategy"></param>
+    /// <param name="cancellationToken"></param>
+    /// <param name="agents"></param>
+    /// <returns></returns>
+    public static async IAsyncEnumerable<string> InvokeAutoChatGroupPlanningStreamingAsync(
+        this ModelRunningData? modelRunning, string userInput,
+        TerminationStrategy terminationStrategy,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, params Agent[] agents)
+    {
+        if (modelRunning is not { IsRunning: true })
+        {
+            yield return "Model is not running.";
+            yield break;
+        }
+
+        AgentGroupChat chat = new(agents)
+        {
+            ExecutionSettings =
+                new()
+                {
+                    TerminationStrategy = terminationStrategy
+                }
+        };
+
+        ChatMessageContent input = new(AuthorRole.User, userInput);
+        chat.AddChatMessage(input);
+
+        StringBuilder builder = new StringBuilder(64);
+        EmptyDelayUpdater delayUpdater = new();
+        delayUpdater.SetDelay(100);
+        await foreach (StreamingChatMessageContent response in chat.InvokeStreamingAsync(cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            if (string.IsNullOrEmpty(response.Content))
+            {
+                continue;
+            }
+
+            builder.Append(response);
+            // ReSharper disable once MethodHasAsyncOverload
+            if (delayUpdater.UpdateDelay())
+            {
+                yield return builder.ToString();
+            }
+
+            // yield return response.ToString();
+            if (cancellationToken.IsCancellationRequested) break;
+        }
+        // Log.Debug(chat);
     }
 }

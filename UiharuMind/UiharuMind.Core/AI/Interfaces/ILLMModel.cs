@@ -16,5 +16,7 @@ public interface ILlmModel
     string ModelName { get; }
     string ModelPath { get; }
     string ModelDescription { get; }
-    string Port { get; }
+    string ModelId { get; }
+    int Port { get; }
+    string ApiKey { get; }
 }

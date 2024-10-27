@@ -20,6 +20,7 @@ using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Utils;
@@ -75,6 +76,7 @@ public partial class App : Application, ILogger, IDisposable
 
         LogManager.Instance.Logger = this;
         Lang.Culture = CultureInfo.CurrentCulture;
+        LanguageUtils.CurCultureInfo = CultureInfo.CurrentCulture;
         UiharuCoreManager.Instance.Init();
 
         // Process.GetCurrentProcess().Exited += OnExit;
@@ -142,14 +144,13 @@ public partial class App : Application, ILogger, IDisposable
         // 处理AppDomain级别的未处理异常
         var ex = (Exception)e.ExceptionObject;
         Log.Error(ex);
-        // if (e.IsTerminating)
-        // {
-        //     Log.Error("A critical error has occurred and the application will now close.");
-        //     Dispose();
-        //     Environment.Exit(1);
-        // }
-
         Log.CloseAndFlush();
+        if (e.IsTerminating)
+        {
+            Log.Error("A critical error has occurred and the application will now close.");
+            Dispose();
+            Environment.Exit(1);
+        }
     }
 
     private void UIThread_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
@@ -163,6 +164,7 @@ public partial class App : Application, ILogger, IDisposable
 
     public void Dispose()
     {
+        Log.CloseAndFlush();
         Clipboard.Dispose();
         ProcessHelper.CancelAllProcesses();
     }

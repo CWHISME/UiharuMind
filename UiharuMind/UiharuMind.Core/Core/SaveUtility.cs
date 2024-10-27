@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using UiharuMind.Core.Core.Chat;
@@ -25,7 +26,8 @@ public static class SaveUtility
         AllowTrailingCommas = true, // 允许尾随逗号
         ReadCommentHandling = JsonCommentHandling.Skip, // 忽略注释
         PropertyNameCaseInsensitive = true, // 属性名称不区分大小写
-        UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode // 忽略未知类型
+        UnknownTypeHandling = JsonUnknownTypeHandling.JsonNode, // 忽略未知类型
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     public static void Save()
@@ -36,15 +38,15 @@ public static class SaveUtility
 
     public static void Save(Type t, object target)
     {
-        Save(t.Name, target);
+        SaveRootFile(t.Name, target);
     }
 
-    public static void Save(string fileName, object target)
+    public static void SaveRootFile(string fileName, object target)
     {
-        SaveToPath(Path.Combine(SettingConfig.SaveDataPath, fileName), target);
+        Save(Path.Combine(SettingConfig.SaveDataPath, fileName), target);
     }
 
-    public static void SaveToPath(string filePath, object target)
+    public static void Save(string filePath, object target)
     {
         try
         {
@@ -59,16 +61,34 @@ public static class SaveUtility
         }
     }
 
-    public static T Load<T>(Type t) where T : new()
+    public static string SaveToString(object target)
     {
-        return Load<T>(t.Name);
+        // JsonSerializer.SerializeAsync(target, _options)
+        return JsonSerializer.Serialize(target, _options);
     }
 
-    public static T Load<T>(string fileName) where T : new()
+    //=========================Load=================================
+
+    public static T LoadOrNew<T>(Type t) where T : class, new()
+    {
+        return LoadRootFile<T>(t.Name) ?? new T();
+    }
+
+    public static T? Load<T>(Type t) where T : class, new()
+    {
+        return LoadRootFile<T>(t.Name);
+    }
+
+    public static T? LoadRootFile<T>(string fileName) where T : class, new()
     {
         string path = Path.Combine(SettingConfig.SaveDataPath, fileName);
-        if (File.Exists(path)) return LoadFromString<T>(File.ReadAllText(path));
-        return new T();
+        return Load<T>(path);
+    }
+
+    public static T? Load<T>(string filePath) where T : class, new()
+    {
+        if (File.Exists(filePath)) return LoadFromString<T>(File.ReadAllText(filePath));
+        return null;
     }
 
     public static T LoadFromString<T>(string jsonString) where T : new()
@@ -85,41 +105,18 @@ public static class SaveUtility
         return new T();
     }
 
-    /// <summary>
-    /// 保存聊天记录
-    /// </summary>
-    public static void SaveChat(ChatSession chatSession)
+    public static object? LoadFromString(string jsonString, Type? type)
     {
-        if (!Directory.Exists(SettingConfig.SaveChatDataPath))
-            Directory.CreateDirectory(SettingConfig.SaveChatDataPath);
-        string fileName = $"{chatSession.LastTime}.json";
-        //chatSession.LastTime.ToString("yyyy_MM_dd_HHmmss") + ".json";
-        Save(Path.Combine(SettingConfig.SaveChatDataPath, fileName), chatSession);
-    }
-
-    /// <summary>
-    /// 重新加载所有聊天记录
-    /// </summary>
-    /// <returns></returns>
-    public static List<ChatSession> LoadChatHistory()
-    {
-        List<ChatSession> chatSessions = new List<ChatSession>();
-        if (!Directory.Exists(SettingConfig.SaveChatDataPath))
-            Directory.CreateDirectory(SettingConfig.SaveChatDataPath);
-        foreach (string file in Directory.GetFiles(SettingConfig.SaveChatDataPath, "*.json"))
+        if (type == null) return null;
+        try
         {
-            string json = File.ReadAllText(file);
-            try
-            {
-                ChatSession? chatSession = JsonSerializer.Deserialize<ChatSession>(json);
-                if (chatSession != null) chatSessions.Add(chatSession);
-            }
-            catch (Exception e)
-            {
-                Log.Error(e.Message);
-            }
+            return JsonSerializer.Deserialize(jsonString, type, _options) ?? null;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
         }
 
-        return chatSessions;
+        return null;
     }
 }

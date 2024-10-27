@@ -13,6 +13,9 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Attributes;
 
+/// <summary>
+/// 放在 bool 变量上时，自动转化命令行参数时不会添加参数值(仅添加参数名字作为标记)
+/// </summary>
 public class SettingConfigNoneValueAttribute : Attribute
 {
     public SettingConfigNoneValueAttribute()

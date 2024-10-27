@@ -27,7 +27,7 @@ namespace UiharuMind.ViewModels.ViewData.Download;
 /// <summary>
 /// 下载列表视图模型基类
 /// </summary>
-public partial class DownloadListViewModel : ObservableObject
+public partial class DownloadListViewData : ObservableObject
 {
     /// <summary>
     /// 添加删除请不要直接调用列表的清理，而是调用Clear方法(或者自己挨个调用每个 DownloadableItemData 元素的 Dispose 方法)

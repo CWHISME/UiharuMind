@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.Core.SimpleLog;
@@ -17,15 +18,15 @@ using UiharuMind.Utils.Tools;
 
 namespace UiharuMind.ViewModels.ViewData;
 
-public class LogViewModel : ObservableObject
+public class LogViewModel : ViewModelBase
 {
-    public List<LogItem> Items { get; } = new();
+    public ObservableCollection<LogItem> Items { get; } = new();
 
-    private readonly ValueUiDelayUpdater<LogItem> _delayUpdater;
+    // private readonly ValueUiDelayUpdater<LogItem> _delayUpdater;
 
     public LogViewModel()
     {
-        _delayUpdater = new ValueUiDelayUpdater<LogItem>((_) => { OnPropertyChanged(nameof(Items)); }, 1000);
+        // _delayUpdater = new ValueUiDelayUpdater<LogItem>((_) => { OnPropertyChanged(nameof(Items)); }, 1000);
         InitializeAsync();
     }
 
@@ -41,12 +42,12 @@ public class LogViewModel : ObservableObject
             return Task.CompletedTask;
         });
         LogManager.Instance.OnLogChange += OnLogChange;
-        await _delayUpdater.UpdateValue(null);
+        // await _delayUpdater.UpdateValue(null);
     }
 
     private void OnLogChange(LogItem obj)
     {
         Items.Add(obj);
-        _delayUpdater.UpdateValue(obj).ConfigureAwait(false);
+        // _delayUpdater.UpdateValue(obj).ConfigureAwait(false);
     }
 }

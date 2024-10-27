@@ -166,13 +166,27 @@ public partial class MessageService : ObservableObject
     public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,
         Action<MessageBoxResult>? callback)
     {
-        var messageWindow = new UiharuMessageBoxWindow(button, callback)
+        if (IsBusy)
+        {
+            Log.Warning("MessageService is busy, can't show messagebox.");
+            return;
+        }
+
+        IsBusy = true;
+        var messageWindow = new UiharuMessageBoxWindow(button, (x) =>
+        {
+            IsBusy = false;
+            callback?.Invoke(x);
+        })
         {
             Content = message,
             Title = title,
             MessageIcon = icon
         };
-        messageWindow.Show();
+
+        var mainWindow = UIManager.GetMainWindow();
+        if (mainWindow == null) messageWindow.Show();
+        else messageWindow.ShowDialog(mainWindow);
         messageWindow.Topmost = true;
     }
 

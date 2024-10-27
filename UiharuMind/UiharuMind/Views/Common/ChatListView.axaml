@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ChatListView">
 
@@ -17,8 +18,14 @@
     <ListBox ItemsSource="{Binding ChatSessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}">
         <ListBox.ItemTemplate>
             <DataTemplate>
-                <Grid ColumnDefinitions="Auto,*" Height="60">
-
+                <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
+                    <Grid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{x:Static  lang:Lang.Delete}" Command="{Binding DeleteCommand}" />
+                            <MenuItem Header="{x:Static  lang:Lang.ClearChatHistory}" Command="{Binding ClearChatHistoryCommand}" />
+                        </ContextMenu>
+                    </Grid.ContextMenu>
+                    
                     <!-- 圆形图片 -->
                     <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple" StrokeThickness="1">
                         <Ellipse.Fill>

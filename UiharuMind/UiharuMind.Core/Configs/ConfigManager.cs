@@ -24,10 +24,10 @@ public class ConfigManager : Singleton<ConfigManager>
 
     public ConfigManager()
     {
-        Setting = SaveUtility.Load<SettingConfig>(typeof(SettingConfig));
-        QuickToolSetting = SaveUtility.Load<QuickToolSetting>(typeof(QuickToolSetting));
-        QuickToolPromptSetting = SaveUtility.Load<QuickToolPromptSetting>(typeof(QuickToolPromptSetting));
-        ChatSetting = SaveUtility.Load<ChatSettingConfig>(typeof(ChatSettingConfig));
+        Setting = SaveUtility.LoadOrNew<SettingConfig>(typeof(SettingConfig));
+        QuickToolSetting = SaveUtility.LoadOrNew<QuickToolSetting>(typeof(QuickToolSetting));
+        QuickToolPromptSetting = SaveUtility.LoadOrNew<QuickToolPromptSetting>(typeof(QuickToolPromptSetting));
+        ChatSetting = SaveUtility.LoadOrNew<ChatSettingConfig>(typeof(ChatSettingConfig));
     }
 
     /// <summary>

@@ -17,6 +17,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.AI.Core;
 
@@ -41,6 +42,11 @@ public class ModelRunningData
     /// 当前运行的模型名称
     /// </summary>
     public string ModelName => _modelInfo.ModelName;
+
+    /// <summary>
+    /// 是否是远程模型
+    /// </summary>
+    public bool IsRemoteModel => _modelInfo is RemoteModelInfo;
 
     /// <summary>
     /// 模型路径

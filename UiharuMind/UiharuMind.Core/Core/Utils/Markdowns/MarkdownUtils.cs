@@ -92,8 +92,8 @@ public static class MarkdownUtils
     {
         // IsDarkTheme = darkTheme;
         // return (markdown);
-        return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, darkTheme ? PipelineDark : PipelineLight),
-            darkTheme);
+        // return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, darkTheme ? PipelineDark : PipelineLight), darkTheme);
+        return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, PipelineDark), darkTheme);
 
         // if (darkTheme)
         // {
@@ -128,6 +128,7 @@ public static class MarkdownUtils
                          * {{font-family: 'HarmonyOS Sans';font-size: 14px;}}
                          li p {{ margin-top: 0px; margin-bottom: 0px; }}
                          pre {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
+                         code {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
                      </style></head>
                      <div style='color: #fff;'>
                          {text}
@@ -138,6 +139,7 @@ public static class MarkdownUtils
                          * {{font-family: 'HarmonyOS Sans';font-size: 14px;}}
                          li p {{ margin-top: 0px; margin-bottom: 0px; }}
                          pre {{ font-family: 'HarmonyOS Sans'; }}
+                         code {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
                      </style></head>
                      <div style='color: #000;'>
                          {text}

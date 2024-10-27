@@ -211,7 +211,7 @@ public partial class SimpleMarkdownViewer : UserControl
         if (change.Property == MarkdownTextProperty)
         {
             _textCache = change.GetNewValue<string>();
-            // Log.Debug($"MarkdownText changed: {_textCache}");
+            //Log.Debug($"MarkdownText changed: {_textCache}");
             CheckUpdateValid();
         }
         else if (change.Property == IsPlaintextProperty)
@@ -267,7 +267,9 @@ public partial class SimpleMarkdownViewer : UserControl
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        MarkdownTextBlock.MaxWidth = availableSize.Width - 20;
+        var maxWidth = availableSize.Width - 30;
+        MarkdownTextBlock.MaxWidth = maxWidth-1;
+        MainPanel.MaxWidth = maxWidth;
         return base.MeasureOverride(availableSize);
     }
 

@@ -1,0 +1,27 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <Border Padding="20">
+            <!-- Add Controls for Previewer Here -->
+        </Border>
+    </Design.PreviewWith>
+
+    <!-- Add Styles Here -->
+    <Styles.Resources>
+        <ResourceDictionary>
+            <SolidColorBrush x:Key="UiBorderBrush" Color="Lavender" />
+            <SolidColorBrush x:Key="UiRectangleLineBrush" Color="Lavender" />
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key='Light'>
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>White</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>Black</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key='Dark'>
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>Black</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>White</SolidColorBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Styles.Resources>
+</Styles>

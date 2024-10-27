@@ -10,7 +10,7 @@
              x:Class="UiharuMind.Views.SettingViews.RuntimeEngineSettingView">
 
     <Design.DataContext>
-        <settingViewData:RuntimeEngineSettingModel />
+        <settingViewData:RuntimeEngineSettingData />
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto,*">

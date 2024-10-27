@@ -5,6 +5,7 @@
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             xmlns:extends="clr-namespace:UiharuMind.Extends"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.LogView">
 
@@ -15,61 +16,106 @@
     <UserControl.Resources>
         <converters:LogLevelToColorConverter x:Key="LogLevelToColorConverter" />
     </UserControl.Resources>
-    <UserControl.Styles>
-        <!-- 移除 ListBoxItem 的悬停效果 -->
-        <Style Selector="ListBoxItem:pointerover">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
 
-        <!-- 移除 ListBoxItem 的选中效果 -->
-        <Style Selector="ListBoxItem:selected">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
+    <!-- <UserControl.Styles> -->
+    <!--     ~1~ 移除 TextBox 的选中效果 @1@ -->
+    <!--     <Style Selector="TextBox:selected"> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--     </Style> -->
+    <!-- </UserControl.Styles> -->
 
-        <!-- 移除 ListBoxItem 的焦点效果 -->
-        <Style Selector="ListBoxItem:focus">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
+    <!-- <UserControl.Styles> -->
+    <!--     ~1~ 移除 ListBoxItem 的悬停效果 @1@ -->
+    <!--     <Style Selector="ListBoxItem:pointerover"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--     </Style> -->
+    <!-- -->
+    <!--     ~1~ 移除 ListBoxItem 的选中效果 @1@ -->
+    <!--     <Style Selector="ListBoxItem:selected"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--     </Style> -->
+    <!-- -->
+    <!--     ~1~ 移除 ListBoxItem 的焦点效果 @1@ -->
+    <!--     <Style Selector="ListBoxItem:focus"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--     </Style> -->
+    <!-- -->
+    <!--     ~1~ 移除 TextBox 的悬停效果 @1@ -->
+    <!--     <Style Selector="ListBoxItem TextBox:pointerover"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--     </Style> -->
+    <!-- -->
+    <!--     ~1~ 移除 TextBox 的选中效果 @1@ -->
+    <!--     <Style Selector="ListBoxItem TextBox:selected"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--     </Style> -->
+    <!-- -->
+    <!--     ~1~ 确保覆盖默认样式 @1@ -->
+    <!--     <Style Selector="ListBoxItem TextBox"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderBrush" Value="Transparent" /> -->
+    <!--         <Setter Property="BorderThickness" Value="0" /> -->
+    <!--         <Setter Property="CaretBrush" Value="{DynamicResource ThemeForegroundBrush}" /> -->
+    <!--     </Style> -->
+    <!-- </UserControl.Styles> -->
 
-        <!-- 移除 TextBox 的悬停效果 -->
-        <Style Selector="ListBoxItem TextBox:pointerover">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
+    <!-- <ScrollViewer Name="Viewer" u:ScrollTo.Direction="Bottom"> -->
+    <!--     <ItemsControl ItemsSource="{Binding Items}"> -->
+    <!--         <ItemsControl.ItemsPanel> -->
+    <!--             <ItemsPanelTemplate> -->
+    <!--                 <VirtualizingStackPanel /> -->
+    <!--             </ItemsPanelTemplate> -->
+    <!--         </ItemsControl.ItemsPanel> -->
+    <!--         <ItemsControl.ItemTemplate> -->
+    <!--             <DataTemplate> -->
+    <!--                 <SelectableTextBlock Text="{Binding LogString}" -->
+    <!--                                      Background="Transparent" -->
+    <!--                                      Height="50" -->
+    <!--                                      Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" -->
+    <!--                                      TextWrapping="Wrap" /> -->
+    <!--             </DataTemplate> -->
+    <!--         </ItemsControl.ItemTemplate> -->
+    <!--     </ItemsControl> -->
+    <!-- </ScrollViewer> -->
 
-        <!-- 移除 TextBox 的选中效果 -->
-        <Style Selector="ListBoxItem TextBox:selected">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
+    <Grid RowDefinitions="*,Auto,200" Background="Transparent">
+        <!-- log items -->
+        <ScrollViewer Name="Viewer" Grid.Row="0" u:ScrollTo.Direction="Bottom">
+            <ItemsControl Name="LogList" ItemsSource="{Binding Items}" PointerPressed="ListBox_PointerPressed"
+                          IsHitTestVisible="True">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="Transparent" CornerRadius="10"
+                                Padding="10,3,10,3">
+                            <TextBlock IsHitTestVisible="False" Text="{Binding LogString}"
+                                       Background="Transparent"
+                                       MaxHeight="40"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
 
-        <!-- 确保覆盖默认样式 -->
-        <Style Selector="ListBoxItem TextBox">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CaretBrush" Value="{DynamicResource ThemeForegroundBrush}" />
-        </Style>
-    </UserControl.Styles>
+        <!-- for resizing -->
+        <GridSplitter Grid.Row="1" ResizeBehavior="PreviousAndNext" Height="5" HorizontalAlignment="Stretch" />
 
-    <ScrollViewer Name="Viewer" u:ScrollTo.Direction="Bottom">
-        <ItemsControl ItemsSource="{Binding Items}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <VirtualizingStackPanel />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <SelectableTextBlock Text="{Binding LogString}"
-                                         Background="Transparent"
-                                         Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}"
-                                         TextWrapping="Wrap" />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </ScrollViewer>
+        <!-- detail text -->
+        <ScrollViewer Grid.Row="2">
+            <TextBox Name="DetailText" VerticalAlignment="Stretch" VerticalContentAlignment="Top" IsReadOnly="True"
+                     Padding="5"
+                     BorderThickness="0" />
+        </ScrollViewer>
+    </Grid>
 </UserControl>

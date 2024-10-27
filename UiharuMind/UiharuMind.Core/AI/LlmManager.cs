@@ -12,9 +12,11 @@
 using Tiktoken;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.LLamaCpp;
+using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.AI;
 
@@ -26,7 +28,12 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// <summary>
     /// 本地模型运行管理
     /// </summary>
-    public RuntimeEngineManager RuntimeEngineManager { get; private set; } = new RuntimeEngineManager();
+    public RuntimeEngineManager RuntimeEngineManager { get; } = new RuntimeEngineManager();
+
+    /// <summary>
+    /// 远程模型
+    /// </summary>
+    public RemoteModelManager RemoteModelManager { get; } = new RemoteModelManager();
 
     public LLamaCppServerKernal LLamaCppServer => RuntimeEngineManager.LLamaCppServer;
 
@@ -46,6 +53,11 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         }
     }
 
+    /// <summary>
+    /// 当前模型列表的字典缓存
+    /// </summary>
+    public Dictionary<string, ModelRunningData> CacheModelDictionary => _chacheModels;
+
     private ModelRunningData? _curModelRunningData;
 
     /// <summary>
@@ -58,6 +70,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// </summary>
     private Dictionary<string, ModelRunningData> _chacheModels = new Dictionary<string, ModelRunningData>();
 
+    private List<ModelRunningData> _remoteModelList = new List<ModelRunningData>();
     //======================callbacks======================
 
     /// <summary>
@@ -99,6 +112,14 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     {
         _modelList.Clear();
         _chacheModels.Clear();
+
+        // 加载远程模型
+        foreach (var model in RemoteModelManager.RemoteListModels)
+        {
+            _chacheModels.Add(model.Key, model.Value);
+            _modelList.Add(model.Value);
+        }
+
         var modelList = await Task.Run(RuntimeEngineManager.GetModelList).ConfigureAwait(false);
         foreach (var model in modelList)
         {

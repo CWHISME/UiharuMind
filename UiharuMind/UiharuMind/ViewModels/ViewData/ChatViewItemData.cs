@@ -11,6 +11,7 @@
 
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Utils;
@@ -25,6 +26,9 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     [ObservableProperty] private int? _tokenCount;
     [ObservableProperty] private string? _timestamp;
     [ObservableProperty] private bool _isDone = true;
+
+    private ChatMessageContent? _cachedContent;
+    public ChatMessageContent? CachedContent => _cachedContent;
 
     public string SenderIcon => "None";
 
@@ -58,8 +62,9 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     {
         Role = item.Character;
         // IsUser = item.Character == ECharacter.User;
-        Message = item.Message.Content;
+        Message = item.Message?.Content;
         Timestamp = item.LocalTimeString;
+        _cachedContent = item.Message;
     }
 
     public void Reset()

@@ -3,25 +3,89 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
+             xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.CharacterInfoView">
 
     <Design.DataContext>
-        <viewData:CharacterInfoViewModel />
+        <viewData:CharacterInfoViewData />
     </Design.DataContext>
 
-    <ScrollViewer>
-        <StackPanel>
-            <!-- 角色图片 -->
-            <Ellipse Width="30" Height="30" Stroke="MediumPurple" StrokeThickness="1">
-                <Ellipse.Fill>
-                    <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
-                </Ellipse.Fill>
-            </Ellipse>
-            <TextBlock Text="{Binding Name}" FontSize="24" Margin="10,0,0,10" />
-            <TextBlock Text="{Binding Description}" Margin="10,0,0,10" />
-            <TextBlock Text="{Binding ImageUrl}" Margin="10,0,0,10" />
-        </StackPanel>
-    </ScrollViewer>
+    <UserControl.Styles>
+        <Style Selector="SelectableTextBlock">
+            <!-- <Setter Property="IsReadOnly" Value="True" /> -->
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <!-- <Setter Property="BorderThickness" Value="0" /> -->
+            <Setter Property="Padding" Value="10" />
+        </Style>
+        <Style Selector="u|Divider">
+            <Setter Property="FontSize" Value="24" />
+        </Style>
+        <Style Selector="common|SimpleMarkdownViewer">
+            <Setter Property="Margin" Value="0,10,0,10" />
+        </Style>
+    </UserControl.Styles>
 
+    <DockPanel>
+        <!-- 操作 -->
+        <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="20,10,20,10">
+            <Button Content="开始对话" DockPanel.Dock="Left" Command="{Binding StartChatCommand}" />
+            <Button Content="编辑角色" DockPanel.Dock="Right" Command="{Binding EditCharacterCommand}" />
+        </DockPanel>
+        <Rectangle DockPanel.Dock="Bottom" Fill="{StaticResource UiRectangleLineBrush}" Height="1"
+                   HorizontalAlignment="Stretch" />
+
+        <ScrollViewer BringIntoViewOnFocusChange="False">
+            <StackPanel Spacing="30" Margin="15">
+                <StackPanel>
+                    <!-- 角色图片 -->
+                    <Image Source="/Assets/avalonia-logo.ico" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
+                    <SelectableTextBlock HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
+                    <SelectableTextBlock Text="{Binding Description}" />
+                </StackPanel>
+
+                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                    <StackPanel>
+                        <u:Divider Content="角色描述" />
+                        <common:SimpleMarkdownViewer MarkdownText="{Binding TemplateReadonly}" IsPlaintext="False" />
+                    </StackPanel>
+                </Border>
+
+                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                    <StackPanel>
+                        <u:Divider Content="开场白" />
+                        <common:SimpleMarkdownViewer MarkdownText="{Binding FirstGreetingReadonly}" IsPlaintext="False" />
+                    </StackPanel>
+                </Border>
+
+                <Expander Margin="-8" IsExpanded="True">
+                    <Expander.Header>
+                        高级选项
+                    </Expander.Header>
+                    <StackPanel Spacing="25">
+                        <!-- <StackPanel> -->
+                        <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                            <StackPanel>
+                                <u:Divider Content="对话模板" />
+                                <common:SimpleMarkdownViewer MarkdownText="{Binding DialogTemplateReadonly}"
+                                                             IsPlaintext="False" />
+                            </StackPanel>
+                        </Border>
+                        <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                            <StackPanel>
+                                <u:Divider Content="参数设置" />
+                                <settingViews:SettingPanelView Padding="10,0,10,0"
+                                                               SettingConfig="{Binding ChatPromptExecutionSettings}"
+                                                               IsEnabled="False" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Expander>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
 </UserControl>

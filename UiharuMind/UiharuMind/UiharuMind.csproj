@@ -58,6 +58,7 @@
 	  <EmbeddedResource Update="Resources\Lang\Lang.zh-hans.resx">
 	    <DependentUpon>Lang.resx</DependentUpon>
 	  </EmbeddedResource>
+	  <None Remove="Resources\Characters\GenerateStory.yaml" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -90,9 +91,5 @@
 	    <DependentUpon>ClipboardSettingView.axaml</DependentUpon>
 	    <SubType>Code</SubType>
 	  </Compile>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="Resources\" />
 	</ItemGroup>
 </Project>

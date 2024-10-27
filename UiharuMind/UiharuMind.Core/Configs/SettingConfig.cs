@@ -17,7 +17,8 @@ public class SettingConfig : ConfigBase
 {
     public const string SaveDataPath = "./SaveData/";
     public const string SaveChatDataPath = SaveDataPath + "ChatData/";
-    public const string SaveCharacterDataPath = SaveDataPath + "ChatData/";
+    public const string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
+    public const string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
     public const string LogDataPath = "./SaveLog/";
 
     /// <summary>

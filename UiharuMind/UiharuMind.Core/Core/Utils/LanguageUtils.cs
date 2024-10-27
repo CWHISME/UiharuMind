@@ -15,6 +15,8 @@ namespace UiharuMind.Core.Core.Utils;
 
 public static class LanguageUtils
 {
+    public static CultureInfo CurCultureInfo = CultureInfo.CurrentCulture;
+
     public const string EnglishUnitedStates = "en-US";
     public const string ChineseSimplified = "zh-CN";
 

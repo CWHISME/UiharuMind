@@ -71,6 +71,17 @@
                                                      HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                    <!-- 菜单 -->
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="{x:Static  lang:Lang.Edit}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding DataContext.EditCommand,RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
+                                            <MenuItem Header="{x:Static  lang:Lang.Delete}"
+                                                      CommandParameter="{Binding}"
+                                                      Command="{Binding DataContext.DeleteCommand,RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
 
                                     <common:SimpleMarkdownViewer MarkdownText="{Binding Message}"
                                                                  Margin="5">
@@ -140,14 +151,13 @@
                 </TextBox.KeyBindings>
             </TextBox>
 
-            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right" IsHitTestVisible="{Binding $self.Children[0].IsEnabled}">
                 <!-- ~1~ 显示输入的 token @1@ -->
                 <!-- <TextBlock Text="{Binding InputToken}" -->
                 <!--            FontSize="12" -->
                 <!--            VerticalAlignment="Center" /> -->
                 <!-- 发送按钮 -->
                 <Button IsVisible="{Binding !IsGenerating}"
-                        IsHitTestVisible="{Binding IsVisible,RelativeSource={RelativeSource Self}}"
                         IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                         Content="{x:Static  lang:Lang.Send}"
                         Command="{Binding SendMessageCommand}" VerticalAlignment="Center" />

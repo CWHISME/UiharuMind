@@ -11,6 +11,8 @@
 
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 
 namespace UiharuMind.ViewModels.ViewData;
@@ -32,11 +34,7 @@ public partial class ChatListViewModel : ViewModelBase
         }
 
         if (ChatSessions.Count == 0)
-            ChatSessions.Add(new ChatSessionViewData(new ChatSession()
-            {
-                Name = "Uiharu",
-                Description = "Uiharu's chat session"
-            }));
+            ChatSessions.Add(new ChatSessionViewData(new ChatSession(CharacterManager.Instance.GetCharacterData(""))));
 
         SelectedSession = ChatSessions[0];
     }
@@ -44,5 +42,10 @@ public partial class ChatListViewModel : ViewModelBase
     partial void OnSelectedSessionChanged(ChatSessionViewData value)
     {
         value.Active();
+    }
+
+    [RelayCommand]
+    public void Delete()
+    {
     }
 }

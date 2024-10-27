@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:services="clr-namespace:UiharuMind.Services"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ModelSelectComboBoxView">
 
@@ -11,36 +12,34 @@
         <services:ModelService />
     </Design.DataContext>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
+    <Grid ColumnDefinitions="Auto,*,Auto">
 
         <!-- 左边的按钮或文字 -->
         <TextBlock Grid.Column="0" Text="Models" VerticalAlignment="Center" />
 
         <!-- 中间的 ComboBox，独占剩余空间 -->
         <!-- <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Column="1" Margin="5" /> -->
-        <StackPanel Grid.Column="1" Margin="5,0,5,0">
+        <Panel Grid.Column="1" Margin="5,0,5,0">
             <ComboBox Name="ModelComboBox" ItemsSource="{Binding ModelSources}"
                       SelectedItem="{Binding CurModelRunningData}"
                       HorizontalAlignment="Stretch" VerticalAlignment="Center" PlaceholderText="Select a model to load">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal"
+                                    Spacing="5"
                                     IsVisible="{Binding DataContext.CurModelRunningData,RelativeSource={RelativeSource AncestorType=ComboBox},FallbackValue=True, TargetNullValue=False}">
                             <PathIcon Data="{StaticResource InfoRegular}" />
-                            <TextBlock Text="7B"></TextBlock>
+                            <!-- <TextBlock Text="7B"></TextBlock> -->
+                            <u:Badge Header="远程" Background="Gold" IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
                             <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" />
                         </StackPanel>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
-            <ProgressBar Name="ProgressBar" Minimum="0" Maximum="1"
+            <ProgressBar VerticalAlignment="Bottom" Name="ProgressBar" Minimum="0" Maximum="1" CornerRadius="0"
                          Value="{Binding LoadingProgress}" IsVisible="{Binding IsLoading}" />
-        </StackPanel>
+            <!-- <ProgressBar VerticalAlignment="Bottom" CornerRadius="0" Margin="0,0,0,4" IsIndeterminate="True" IsVisible="{Binding IsLoading}" /> -->
+        </Panel>
 
         <!-- 右边的按钮或文字 -->
         <Button Grid.Column="2" Content="{x:Static lang:Lang.EjectModel}" VerticalAlignment="Center"

@@ -20,6 +20,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
+using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
@@ -99,19 +100,22 @@ public partial class SettingListView : UserControl
 
     private void CreateControlForType(Type type, PropertyInfo property)
     {
+        if (property.GetCustomAttribute<SettingConfigIgnoreDisplayAttribute>() != null) return;
         Control control;
         switch (type)
         {
             case not null when type == typeof(int):
+            case not null when type == typeof(int?):
                 control = CreateNumericControl(type, property, NumberStyles.Integer);
                 break;
             case not null when type == typeof(long):
+            case not null when type == typeof(long?):
                 control = CreateNumericControl(type, property, NumberStyles.Integer);
                 break;
             case not null when type == typeof(double):
-                control = CreateNumericControl(type, property, NumberStyles.Float);
-                break;
+            case not null when type == typeof(double?):
             case not null when type == typeof(float):
+            case not null when type == typeof(float?):
                 control = CreateNumericControl(type, property, NumberStyles.Float);
                 break;
             case not null when type == typeof(string):
@@ -272,16 +276,27 @@ public partial class SettingListView : UserControl
         }
 
         //设置输入排版
-        control.HorizontalAlignment = HorizontalAlignment.Left;
-        control.Width = 200;
+        control.HorizontalAlignment = HorizontalAlignment.Stretch;
+        // control.HorizontalAlignment = HorizontalAlignment.Stretch;
+        // control.Width = 300;
 
-        StackPanel panel = new StackPanel();
+        // StackPanel panel = new StackPanel()
+        // {
+        //     Orientation = Orientation.Horizontal,
+        //     HorizontalAlignment = HorizontalAlignment.Stretch,
+        //     VerticalAlignment = VerticalAlignment.Center,
+        //     Spacing = 10
+        // };
+        DockPanel panel = new DockPanel() { LastChildFill = true };
+
         //添加设置项标题
         TextBlock title = new TextBlock
         {
             Text = property.Name,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 120,
             // FontSize = 14,
-            Margin = new Thickness(0, 0, 0, 5)
+            Margin = new Thickness(0, 0, 10, 0)
         };
         AddTooltip(title, property);
         panel.Children.Add(title);
@@ -292,27 +307,12 @@ public partial class SettingListView : UserControl
 
     private void AddTooltip(Control control, PropertyInfo property)
     {
-        var attributes = property.GetCustomAttributes<SettingConfigDescAttribute>();
-        SettingConfigDescAttribute? selected = null;
-        foreach (var attribute in attributes)
-        {
-            //多语言支持，如果没有找到匹配的语言，则使用英文
-            if (attribute.LanguageCode == Lang.Culture.Name)
-            {
-                selected = attribute;
-                break;
-            }
-
-            if (attribute.LanguageCode == LanguageUtils.EnglishUnitedStates && selected == null) selected = attribute;
-        }
-
-        if (selected == null) return;
-
         ToolTip tip = new ToolTip
         {
-            Content = selected.Description
+            Content = property.GetDescription(),
         };
         ToolTip.SetTip(control, tip);
+        ToolTip.SetShowDelay(control, 0);
     }
 
     private void DoAddSetting(Control control)

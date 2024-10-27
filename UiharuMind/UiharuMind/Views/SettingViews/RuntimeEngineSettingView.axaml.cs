@@ -13,6 +13,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using UiharuMind.ViewModels.SettingViewData;
+using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.SettingViews;
 
@@ -25,6 +26,6 @@ public partial class RuntimeEngineSettingView : UserControl
     {
         InitializeComponent();
 
-        DataContext = App.ViewModel.GetViewModel<RuntimeEngineSettingModel>();
+        DataContext = App.ViewModel.GetViewModel<SettingViewModel>().RuntimeEngineSettingData;
     }
 }

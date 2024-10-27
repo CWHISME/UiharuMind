@@ -24,13 +24,13 @@ using UiharuMind.ViewModels.ViewData.Download;
 
 namespace UiharuMind.ViewModels.SettingViewData;
 
-public partial class RuntimeEngineSettingModel : ObservableObject
+public partial class RuntimeEngineSettingData : ObservableObject
 {
     public ObservableCollection<VersionInfo?> AvailableVersions { get; set; } =
         new ObservableCollection<VersionInfo?>();
 
-    public RuntimeEngineDownloadListViewModel RemoteDwnloadListViewModel { get; set; } =
-        new RuntimeEngineDownloadListViewModel();
+    public RuntimeEngineDownloadListViewData RemoteDwnloadListViewModel { get; set; } =
+        new RuntimeEngineDownloadListViewData();
 
     //上一次本地版本列表，用于更新时差分删除
     private List<VersionInfo> _lastAvailableVersions = new List<VersionInfo>();
@@ -39,7 +39,7 @@ public partial class RuntimeEngineSettingModel : ObservableObject
     [ObservableProperty] private bool _isCheckingForUpdate;
     [ObservableProperty] private string? _updatedResutInfo;
 
-    public RuntimeEngineSettingModel()
+    public RuntimeEngineSettingData()
     {
         InitializeAvailableVersions();
         RemoteDwnloadListViewModel.OnDownloadFileChange += InitializeAvailableVersions;

@@ -18,7 +18,7 @@ namespace UiharuMind.Core.Core.ServerKernal;
 /// </summary>
 public abstract class ServerKernalBase<T, TC> where TC : ConfigBase, new()
 {
-    public TC Config { get; } = SaveUtility.Load<TC>(typeof(TC));
+    public TC Config { get; } = SaveUtility.LoadOrNew<TC>(typeof(TC));
 
     public void SaveConfig()
     {

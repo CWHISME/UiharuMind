@@ -18,7 +18,7 @@ public class ConfigBase : INotifyPropertyChanged
 {
     public void Save()
     {
-        SaveUtility.Save(this.GetType().Name, this);
+        SaveUtility.SaveRootFile(this.GetType().Name, this);
     }
 
     // public void Load()

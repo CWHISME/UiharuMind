@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:u="https://irihi.tech/ursa"
+        xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+        xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
+        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        Width="500"
+        x:Class="UiharuMind.Views.Windows.Common.CreateRemoteLlmModelWindow"
+        Title="CreateRemoteLlmModelWindow">
+
+    <Design.DataContext>
+        <common:CreateRemoteLlmModelWindowViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <Panel Margin="10">
+            <!-- 选择列表 -->
+            <ListBox ItemsSource="{Binding ModelConfigTypes}" Name="SelectPanel"
+                     IsVisible="{Binding RemoteModelInfo, Converter={x:Static ObjectConverters.IsNull}}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel>
+                            <Button Content="{x:Static  lang:Lang.CreateBtn}" DockPanel.Dock="Right"
+                                    Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}" />
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel HorizontalAlignment="Center" Spacing="20" Margin="15"
+                        IsVisible="{Binding !#SelectPanel.IsVisible}">
+                <u:Divider Content="{x:Static  lang:Lang.ApiKey}" />
+                <TextBox VerticalContentAlignment="Center" Text="{Binding  RemoteModelInfo.ApiKey}"
+                         PasswordChar="*" />
+                <!-- <u:Divider Content="设置" /> -->
+                <settingViews:SettingPanelView SettingConfig="{Binding RemoteModelInfo.Config}" />
+                <Button Content="{x:Static  lang:Lang.SureBtn}" Theme="{DynamicResource SolidButton}"
+                        u:FormItem.NoLabel="True"
+                        HorizontalAlignment="Stretch" Click="Button_OnClick" />
+            </StackPanel>
+        </Panel>
+    </ScrollViewer>
+
+</Window>

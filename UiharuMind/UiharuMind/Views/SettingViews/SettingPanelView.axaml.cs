@@ -55,7 +55,7 @@ public partial class SettingPanelView : UserControl
         if (change.Property == SettingConfigProperty)
         {
             var actualValue = change.NewValue;
-            Title.Text = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
+            Title.Content = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
                          actualValue?.GetType().Name;
             SettingListView.SettingConfig = change.NewValue;
         }

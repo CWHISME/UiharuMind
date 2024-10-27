@@ -27,7 +27,8 @@ namespace UiharuMind.Services;
 /// </summary>
 public partial class ModelService : ObservableObject
 {
-    public List<ModelRunningData> ModelSources { get; set; } = new List<ModelRunningData>();
+    public ObservableCollection<ModelRunningData> ModelSources { get; set; } =
+        new ObservableCollection<ModelRunningData>();
 
     public ModelRunningData? CurModelRunningData
     {
@@ -91,10 +92,25 @@ public partial class ModelService : ObservableObject
     public async Task LoadModelList()
     {
         var list = await LlmManager.Instance.ReloadModelList().ConfigureAwait(false);
-        ModelSources.Clear();
+
+        //清理旧的
+        List<ModelRunningData> toDel = new List<ModelRunningData>();
+        foreach (var oldItem in ModelSources)
+        {
+            if (LlmManager.Instance.CacheModelDictionary.ContainsKey(oldItem.ModelName)) continue;
+            toDel.Add(oldItem);
+        }
+
+        foreach (var model in toDel)
+        {
+            ModelSources.Remove(model);
+        }
+
+        //添加新的
+        // ModelSources.Clear();
         foreach (var model in list)
         {
-            ModelSources.Add(model);
+            if (!ModelSources.Contains(model)) ModelSources.Add(model);
         }
 
         Refresh();
@@ -105,7 +121,7 @@ public partial class ModelService : ObservableObject
         OnPropertyChanged(nameof(CurIsRunning));
         OnPropertyChanged(nameof(CurRunningCount));
         OnPropertyChanged(nameof(CurModelRunningData));
-        OnPropertyChanged(nameof(ModelSources));
+        // OnPropertyChanged(nameof(ModelSources));
     }
 
     // ======= event =======

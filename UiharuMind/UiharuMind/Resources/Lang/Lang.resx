@@ -127,4 +127,37 @@
     <data name="DefaultQuickChatTitle" xml:space="preserve">
         <value>Answer</value>
     </data>
+    <data name="CreateRemoteModel" xml:space="preserve">
+        <value>Create Remote Model：</value>
+    </data>
+    <data name="AddBtn" xml:space="preserve">
+        <value>Add</value>
+    </data>
+    <data name="ModifyBtn" xml:space="preserve">
+        <value>Edit</value>
+    </data>
+    <data name="CreateBtn" xml:space="preserve">
+        <value>Create</value>
+    </data>
+    <data name="SureBtn" xml:space="preserve">
+        <value>Sure</value>
+    </data>
+    <data name="ApiKey" xml:space="preserve">
+        <value>ApiKey</value>
+    </data>
+    <data name="CustomConfig" xml:space="preserve">
+        <value>CustomConfig</value>
+    </data>
+    <data name="NotInputModelNameTips" xml:space="preserve">
+        <value>Please Input Model Name!</value>
+    </data>
+    <data name="NotInputModelApiKey" xml:space="preserve">
+        <value>Please input Api Key!</value>
+    </data>
+    <data name="ClearChatHistory" xml:space="preserve">
+        <value>Clear Chat History</value>
+    </data>
+    <data name="Edit" xml:space="preserve">
+        <value>Edit</value>
+    </data>
 </root>

@@ -4,24 +4,24 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViewData="clr-namespace:UiharuMind.ViewModels.SettingViewData"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+             xmlns:configs="clr-namespace:UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;assembly=UiharuMind.Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.SettingViews.LLamaCppSettingView">
 
-    
 
     <Design.DataContext>
-        <settingViewData:LLamaCppSettingModel />
+        <configs:LLamaCppSettingConfig />
     </Design.DataContext>
 
     <ScrollViewer Name="SettingScrollViewer">
 
         <StackPanel>
-            <settingViews:SettingPanelView SettingConfig="{Binding LLamaCppSettingConfig.DebugConfig}" />
-            <settingViews:SettingPanelView SettingConfig="{Binding LLamaCppSettingConfig.GeneralConfig}" />
-            <settingViews:SettingPanelView SettingConfig="{Binding LLamaCppSettingConfig.CpuConfig}" />
-            <settingViews:SettingPanelView SettingConfig="{Binding LLamaCppSettingConfig.ParamsConfig}" />
-            <settingViews:SettingPanelView SettingConfig="{Binding LLamaCppSettingConfig.SamplingStrategiesConfig}" />
-            <settingViews:SettingPanelView SettingConfig="{Binding LLamaCppSettingConfig.SpecialConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding DebugConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding GeneralConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding CpuConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding ParamsConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding SamplingStrategiesConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding SpecialConfig}" />
         </StackPanel>
 
     </ScrollViewer>
