@@ -9,17 +9,18 @@
              x:Class="UiharuMind.Views.Common.CharacterListView">
 
     <Design.DataContext>
-        <viewData:CharacterListViewModel />
+        <viewData:CharacterListViewData />
     </Design.DataContext>
 
     <DockPanel>
 
         <DockPanel DockPanel.Dock="Top">
-            <Button DockPanel.Dock="Left" Content="+" Command="{Binding AddCharacterCommand}"
+            <ToggleSwitch DockPanel.Dock="Left" IsChecked="{Binding IsPhotoListView}"
+                          OffContent="{x:Static  lang:Lang.ToggleIsListView}"
+                          OnContent="{x:Static  lang:Lang.ToggleIsPhotoListView}" />
+            <Button Name="AddButton" DockPanel.Dock="Left" Content="+" Command="{Binding AddCharacterCommand}"
                     Height="{Binding $parent[DockPanel].Height}"
                     Width="{Binding $self.Height}" />
-            <WrapPanel>
-            </WrapPanel>
             <!-- <Panel DockPanel.Dock="Left" Margin="0,0,5,0"> -->
             <!--     <TextBox Watermark="Search..." Text="{Binding SearchText}" AcceptsReturn="True"/> -->
             <!--     ~1~ <ProgressBar IsIndeterminate="True" CornerRadius="0" VerticalAlignment="Bottom" IsVisible="{Binding IsBusy}" /> @1@ -->
@@ -28,47 +29,65 @@
 
         <u:Divider Margin="0,10" DockPanel.Dock="Top" />
 
-        <ListBox ItemsSource="{Binding Characters}" SelectedItem="{Binding SelectedCharacter}">
-            <ListBox.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel />
-                </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <!-- <Grid ColumnDefinitions="Auto,*" Height="60"> -->
-                    <!-- -->
-                    <!--     ~1~ 圆形图片 @1@ -->
-                    <!--     <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple" StrokeThickness="1"> -->
-                    <!--         <Ellipse.Fill> -->
-                    <!--             <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" /> -->
-                    <!--         </Ellipse.Fill> -->
-                    <!--     </Ellipse> -->
-                    <!-- -->
-                    <!--     ~1~ 文本内容 @1@ -->
-                    <!--     <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical" VerticalAlignment="Center"> -->
-                    <!--         <Grid ColumnDefinitions="*,Auto"> -->
-                    <!--             ~1~ 名称 @1@ -->
-                    <!--             <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" /> -->
-                    <!--         </Grid> -->
-                    <!-- -->
-                    <!--         ~1~ 描述 @1@ -->
-                    <!--         <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" /> -->
-                    <!--     </StackPanel> -->
-                    <!-- </Grid> -->
-                    <Border BorderThickness="1" BorderBrush="Lavender">
-                        <StackPanel Width="120">
-                            <Image Source="/Assets/avalonia-logo.ico" Width="96" Height="144" VerticalAlignment="Top"></Image>
-                            <Rectangle Fill="Lavender" Height="1" HorizontalAlignment="Stretch" />
-                            <Panel Height="40">
-                                <TextBlock Text="{Binding Name}" TextAlignment="Center" VerticalAlignment="Center"
-                                           TextWrapping="Wrap" />
-                            </Panel>
-                        </StackPanel>
-                    </Border>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+        <Panel>
+            <!-- 相册模式 -->
+            <ListBox Name="PhotoListBox" IsVisible="{Binding IsPhotoListView}" ItemsSource="{Binding Characters}"
+                     SelectedItem="{Binding SelectedCharacter}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5">
+                            <StackPanel Width="120">
+                                <Image Source="/Assets/avalonia-logo.ico" Width="96" Height="144"
+                                       VerticalAlignment="Top">
+                                </Image>
+                                <Rectangle Fill="Lavender" Height="1" HorizontalAlignment="Stretch" />
+                                <Panel Height="40">
+                                    <TextBlock Text="{Binding Name}" TextAlignment="Center" VerticalAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                </Panel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- 列表模式 -->
+            <ListBox Name="NormalListBox" IsVisible="{Binding !IsPhotoListView}" ItemsSource="{Binding Characters}"
+                     SelectedItem="{Binding SelectedCharacter}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5" Padding="5,0,0,0">
+                            <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
+                                <!-- 圆形图片 -->
+                                <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple"
+                                         StrokeThickness="1">
+                                    <Ellipse.Fill>
+                                        <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                                    </Ellipse.Fill>
+                                </Ellipse>
+
+                                <!-- 文本内容 -->
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical"
+                                            VerticalAlignment="Center">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <!-- 名称 -->
+                                        <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
+                                    </Grid>
+
+                                    <!-- 描述 -->
+                                    <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Panel>
     </DockPanel>
 
 </UserControl>

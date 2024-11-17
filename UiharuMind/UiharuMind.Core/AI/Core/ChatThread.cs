@@ -217,21 +217,84 @@ public static class ChatThread
             yield break;
         }
 
-        // StringBuilder builder = new();
+        StringBuilder builder = new(64);
+        EmptyDelayUpdater delayUpdater = new();
         await foreach (var content in modelRunning.Kernel
                            .InvokePromptStreamingAsync(prompt, kernelArguments, cancellationToken: cancellationToken)
                            .ConfigureAwait(false))
         {
-            // builder.Append(content);
-            yield return content.ToString();
+            builder.Append(content);
+            // ReSharper disable once MethodHasAsyncOverload
+            if (delayUpdater.UpdateDelay())
+            {
+                yield return builder.ToString();
+            }
+
             if (cancellationToken.IsCancellationRequested) break;
         }
+
+        yield return builder.ToString();
     }
 
     // =========================For agent=====================
 
+    public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
+        ChatSession chatSession, CancellationToken cancellationToken = default)
+    {
+        // if (modelRunning is not { IsRunning: true })
+        // {
+        //     yield return "Model is not running.";
+        //     yield break;
+        // }
+        //
+        // ChatCompletionAgent agent = chatSession.CharacterData.ToAgent(modelRunning.Kernel);
+        // StringBuilder builder = new StringBuilder(64);
+        // EmptyDelayUpdater delayUpdater = new();
+        //
+        // await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
+        //                        chatSession.SafeGetHistory(), null, modelRunning.Kernel, cancellationToken)
+        //                    .ConfigureAwait(false))
+        // {
+        //     if (string.IsNullOrEmpty(response.Content))
+        //     {
+        //         continue;
+        //     }
+        //
+        //     builder.Append(response);
+        //     // ReSharper disable once MethodHasAsyncOverload
+        //     if (delayUpdater.UpdateDelay())
+        //     {
+        //         yield return builder.ToString();
+        //     }
+        //
+        //     // var str = response.ToString();
+        //     // yield return str;
+        //     if (cancellationToken.IsCancellationRequested) break;
+        // }
+        //
+        // yield return builder.ToString();
+        // // Log.Debug("end of chat thread " + builder);
+        return InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, chatSession.SafeGetHistory(),
+            cancellationToken, () => { chatSession.AddMessageInfo(DateTime.UtcNow.Ticks); });
+    }
+
+    public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
+        CharacterData characterData, ChatHistory? chatHistory = null,
+        CancellationToken cancellationToken = default, Action? end = null)
+    {
+        if (modelRunning is not { IsRunning: true })
+        {
+            return new AsyncEnumerableWithMessage("Model is not running.");
+        }
+
+        return InvokeAgentStreamingAsync(modelRunning, characterData.ToAgent(modelRunning.Kernel),
+            chatHistory,
+            cancellationToken, end);
+    }
+
     public static async IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
-        ChatSession chatSession, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        ChatCompletionAgent agent, ChatHistory? chatHistory = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default, Action? end = null)
     {
         if (modelRunning is not { IsRunning: true })
         {
@@ -239,11 +302,14 @@ public static class ChatThread
             yield break;
         }
 
-        ChatCompletionAgent agent = chatSession.CharacterData.ToAgent(modelRunning.Kernel);
+        // ChatCompletionAgent agent = characterData.ToAgent(modelRunning.Kernel);
         StringBuilder builder = new StringBuilder(64);
         EmptyDelayUpdater delayUpdater = new();
+
+        chatHistory ??= new ChatHistory();
         await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
-                           chatSession.History, null, modelRunning.Kernel, cancellationToken).ConfigureAwait(false))
+                               chatHistory, null, modelRunning.Kernel, cancellationToken)
+                           .ConfigureAwait(false))
         {
             if (string.IsNullOrEmpty(response.Content))
             {
@@ -264,7 +330,8 @@ public static class ChatThread
 
         yield return builder.ToString();
         // Log.Debug("end of chat thread " + builder);
-        chatSession.AddMessageInfo(DateTime.UtcNow.Ticks);
+        // chatSession.AddMessageInfo(DateTime.UtcNow.Ticks);
+        end?.Invoke();
     }
 
     /// <summary>

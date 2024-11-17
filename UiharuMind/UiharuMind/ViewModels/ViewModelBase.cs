@@ -13,21 +13,21 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace UiharuMind.ViewModels;
 
-public class ViewModelBase : ObservableRecipient
+public class ViewModelBase : ObservableObject
 {
     protected ViewModelBase()
     {
-        IsActive = true;
+        // IsActive = true;
     }
 
     public virtual void OnEnable()
     {
-        IsActive = true;
+        // IsActive = true;
     }
 
     public virtual void OnDisable()
     {
-        IsActive = false;
+        // IsActive = false;
     }
 
     // protected virtual bool AutoActive => true;

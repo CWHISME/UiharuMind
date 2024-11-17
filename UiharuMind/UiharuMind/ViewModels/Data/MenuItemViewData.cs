@@ -11,20 +11,27 @@
 
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CommunityToolkit.Mvvm.Messaging;
 
 namespace UiharuMind.ViewModels;
 
-public class MenuItemViewData
+public class MenuItemViewData : ObservableObject
 {
     public string? MenuHeader { get; set; }
     public string? MenuIconName { get; set; }
-    public string? Key { get; set; }
+    public MenuPages Key { get; set; }
     public string? Status { get; set; }
 
     public bool IsSeparator { get; set; }
-    public bool IsSelected { get; set; }
+
+    private bool _isSelected;
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
 
     public ObservableCollection<MenuItemViewData> Children { get; set; } = new();
 
@@ -37,8 +44,9 @@ public class MenuItemViewData
 
     private void OnActivate()
     {
-        if (IsSeparator || Key == null) return;
+        if (IsSeparator) return;
         // Messenger.Send(Key);
-        WeakReferenceMessenger.Default.Send(Key);
+        // WeakReferenceMessenger.Default.Send(Key);
+        App.JumpToPage(Key);
     }
 }

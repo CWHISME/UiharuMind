@@ -61,6 +61,18 @@ public static class SaveUtility
         }
     }
 
+    public static void Delete(string filePath)
+    {
+        try
+        {
+            if (File.Exists(filePath)) File.Delete(filePath);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+    }
+
     public static string SaveToString(object target)
     {
         // JsonSerializer.SerializeAsync(target, _options)

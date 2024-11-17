@@ -15,6 +15,19 @@ public class CharacterData
         Config.ToAgent(kernel, kernelArguments);
 
     /// <summary>
+    /// 是否是工具人
+    /// 当该值为 false 时，才会使用 MountCharacters
+    /// 当该值为 true 时，则只会使用 Template 作为系统提示，其它参数将会直接忽略
+    /// </summary>
+    public bool IsTool { get; set; }
+
+    /// <summary>
+    /// 额外挂载工具角色(只能挂载没有挂载过对象的角色、即纯工具角色)
+    /// 若挂载对象被挂载了额外角色，则该挂载对象将会失效
+    /// </summary>
+    public List<string> MountCharacters { get; set; } = new List<string>();
+
+    /// <summary>
     /// 角色名
     /// </summary>
     [JsonIgnore]
@@ -65,6 +78,11 @@ public class CharacterData
     {
         return template.Replace("{{$char}}", CharacterName)
             .Replace("{{$user}}", CharacterManager.Instance.UserCharacterName);
+    }
+
+    public void Save()
+    {
+        CharacterManager.Instance.SaveCharacterData(this);
     }
 
     public static implicit operator ChatCompletionAgent(CharacterData characterData)

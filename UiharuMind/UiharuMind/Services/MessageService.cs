@@ -77,6 +77,14 @@ public partial class MessageService : ObservableObject
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
+    public async void ShowWarningMessageBox(string message, Window owner)
+    {
+        await ShowMessageBox(owner, message, Lang.MessageWarningTitle, MessageBoxIcon.Warning, MessageBoxButton.OK);
+    }
+
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
     public async void ShowErrorMessageBox(string message, Window owner)
     {
         await ShowMessageBox(owner, message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
@@ -157,10 +165,10 @@ public partial class MessageService : ObservableObject
     /// <param name="message"></param>
     /// <param name="callback"></param>
     /// <returns></returns>
-    public void ShowConfirmMessageBox(string message, Action<MessageBoxResult> callback)
+    public void ShowConfirmMessageBox(string message, Action<bool> callback)
     {
         ShowMessageBox(message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
-            MessageBoxButton.YesNo, callback);
+            MessageBoxButton.YesNo, x => callback(x == MessageBoxResult.Yes));
     }
 
     public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,

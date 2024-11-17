@@ -25,7 +25,7 @@
         <value />
     </data>
     <data name="ChatInputTips" xml:space="preserve">
-        <value />
+        <value>Shift+Enter</value>
     </data>
     <data name="EjectModel" xml:space="preserve">
         <value>Eject Model</value>
@@ -159,5 +159,72 @@
     </data>
     <data name="Edit" xml:space="preserve">
         <value>Edit</value>
+    </data>
+    <data name="CharacterDesc" xml:space="preserve">
+        <value>Character Desciption</value>
+    </data>
+    <data name="CharacterFirstGreeting" xml:space="preserve">
+        <value>First Greeting</value>
+    </data>
+    <data name="CharacterDialogTemplate" xml:space="preserve">
+        <value>Dialog Template</value>
+    </data>
+    <data name="AdvancedOptions" xml:space="preserve">
+        <value>Advanced Options</value>
+    </data>
+    <data name="ParameterSettings" xml:space="preserve">
+        <value>Parameter settings</value>
+    </data>
+    <data name="CancelBtn" xml:space="preserve">
+        <value>Cancel</value>
+    </data>
+    <data name="SaveBtn" xml:space="preserve">
+        <value>Save</value>
+    </data>
+    <data name="DeleteTips" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+    <data name="ClearTips" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+    <data name="MountsTitle" xml:space="preserve">
+        <value>Mounts</value>
+    </data>
+    <data name="MountsDesc" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MountsNullTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="SystemPrompt" xml:space="preserve">
+        <value>SystemPrompt</value>
+    </data>
+    <data name="RoleplayCharacter" xml:space="preserve">
+        <value>Roleplay Character</value>
+    </data>
+    <data name="ToolCharacter" xml:space="preserve">
+        <value>Tool Character</value>
+    </data>
+    <data name="CharacterFuncType" xml:space="preserve">
+        <value>CharacterFuncType</value>
+    </data>
+    <data name="AddDuplicateCharacterTips" xml:space="preserve">
+        <value>Duplicate Character,Edit?</value>
+    </data>
+    <data name="OptionalPromptParams" xml:space="preserve">
+        <value>Optional Prompt Params</value>
+    </data>
+    <data name="OptionalPromptParamsDesc" xml:space="preserve">
+        <value>{{$user}}：replace by username。{
+{$char}}：replace by character name</value>
+    </data>
+    <data name="ToggleIsPhotoListView" xml:space="preserve">
+        <value>Photo View</value>
+    </data>
+    <data name="ToggleIsListView" xml:space="preserve">
+        <value>List View</value>
+    </data>
+    <data name="MessageWarningTitle" xml:space="preserve">
+        <value>Warning</value>
     </data>
 </root>

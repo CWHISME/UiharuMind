@@ -1,13 +1,39 @@
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Resources.Lang;
+using UiharuMind.Views;
+using UiharuMind.Views.Windows.Characters;
+using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.ViewData;
 
 public partial class CharacterInfoViewData : ObservableObject
 {
+    public ObservableCollection<string> MountCharacters { get; }
+
+    /// <summary>
+    /// 是否为普通角色，否则为工具人
+    /// </summary>
+    public bool IsRole
+    {
+        get => !_characterData.IsTool;
+        set
+        {
+            _characterData.IsTool = !value;
+            OnPropertyChanged();
+        }
+    }
+
     public string Name
     {
         get => _characterData.CharacterName;
@@ -35,6 +61,7 @@ public partial class CharacterInfoViewData : ObservableObject
         {
             _characterData.Template = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(TemplateReadonly));
         }
     }
 
@@ -45,6 +72,7 @@ public partial class CharacterInfoViewData : ObservableObject
         {
             _characterData.DialogTemplate = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(DialogTemplateReadonly));
         }
     }
 
@@ -55,6 +83,7 @@ public partial class CharacterInfoViewData : ObservableObject
         {
             _characterData.FirstGreeting = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(FirstGreetingReadonly));
         }
     }
 
@@ -154,17 +183,59 @@ public partial class CharacterInfoViewData : ObservableObject
         _characterData = characterData;
         Name = characterData.CharacterName;
         Description = characterData.Description;
+
+        MountCharacters = new ObservableCollection<string>(characterData.MountCharacters);
+        MountCharacters.CollectionChanged += (sender, args) =>
+        {
+            _characterData.MountCharacters = MountCharacters.ToList();
+        };
+    }
+
+    public void TryAddToNewCharacterData()
+    {
+        if (!CharacterManager.Instance.TryAddNewCharacterData(_characterData))
+        {
+            App.MessageService.ShowConfirmMessageBox(Lang.AddDuplicateCharacterTips,
+                (result) =>
+                {
+                    if (result) CharacterEditWindow.Show(this, x => TryAddToNewCharacterData());
+                });
+        }
     }
 
     [RelayCommand]
     public void StartChat()
     {
-        Log.Debug("Start chat with " + Name);
+        // Log.Debug("Start chat with " + Name);
+        // App.ViewModel.GetViewModel<ChatListViewModel>().StartNewSession(_characterData);
+        ChatManager.Instance.StartNewSession(_characterData);
+        App.JumpToPage(MenuPages.MenuChatKey);
+        // WeakReferenceMessenger.Default.Send(MenuKeys.MenuChatKey);
     }
 
     [RelayCommand]
     public void EditCharacter()
     {
-        Log.Debug("Edit character " + Name);
+        CharacterEditWindow.Show(this, null);
+    }
+
+    [RelayCommand]
+    public void SaveCharacter()
+    {
+        _characterData.Save();
+    }
+
+
+    [RelayCommand]
+    public async Task AddMountCharacter()
+    {
+        HashSet<string> alreadySelectedList = new HashSet<string>(MountCharacters);
+        var result = await CharacterSelectWindow.Show(UIManager.GetFoucusWindow(), alreadySelectedList);
+        if (result != null)
+        {
+            MountCharacters.Clear();
+            HashSet<string> selectedList = new HashSet<string>(result.Select(x => x.Name));
+            MountCharacters.AddRange(selectedList);
+        }
     }
 }

@@ -70,7 +70,7 @@ public class DummyWindow : Window
         // Hide();
 
         //if(UiharuCoreManager.Instance.IsWindows) 
-        LaunchMainWindow();
+        // LaunchMainWindow();
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

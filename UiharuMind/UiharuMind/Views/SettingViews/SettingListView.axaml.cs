@@ -18,6 +18,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Extensions;
@@ -53,10 +54,33 @@ public partial class SettingListView : UserControl
                 return;
             }
 
+            if(_settingConfig!=null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
             _settingConfig = value as ConfigBase;
             RefreshResetView();
+            if (_settingConfig != null) _settingConfig.PropertyChanged += NotifyPropertyChanged;
         }
     }
+
+    private void NotifyPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RequestReloadValues();
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_settingConfig != null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
+        if (_settingConfig != null) _settingConfig.PropertyChanged += NotifyPropertyChanged;
+        RequestReloadValues();
+        
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (_settingConfig != null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
+    }
+
     // public static readonly StyledProperty<object?> SettingConfigProperty =
     //     AvaloniaProperty.Register<SettingListView, object?>(nameof(SettingConfig));
     //
@@ -176,12 +200,17 @@ public partial class SettingListView : UserControl
                 TickFrequency = Convert.ToDouble(range.Step),
                 IsSnapToTickEnabled = true,
             };
+
+            // Panel titlePanel = new Panel();
             TextBlock title = new TextBlock
             {
-                Text = slider.Value.ToString(CultureInfo.CurrentCulture),
-                Margin = new Thickness(5, 0, 0, 0),
+                Text = slider.Value.ToString("0.##"),
+                Width = 50,
+                // Margin = new Thickness(10, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
             };
+            // titlePanel.Children.Add(title);
 
             panel.Children.Add(title);
             panel.Children.Add(slider);
@@ -190,8 +219,8 @@ public partial class SettingListView : UserControl
 
             slider.ValueChanged += (sender, e) =>
             {
-                property.SetValue(SettingConfig, Convert.ChangeType(slider.Value, type));
-                title.Text = slider.Value.ToString(CultureInfo.CurrentCulture);
+                property.SetValue(SettingConfig, slider.Value);
+                title.Text = slider.Value.ToString("0.##");
                 NotifyPropertyChanged(property);
             };
 
@@ -210,7 +239,7 @@ public partial class SettingListView : UserControl
 
         intbox.ValueChanged += (sender, e) =>
         {
-            property.SetValue(SettingConfig, Convert.ChangeType(intbox.Value, type));
+            property.SetValue(SettingConfig, intbox.Value);
             NotifyPropertyChanged(property);
         };
         _changeActions.Add(() => intbox.Value = Convert.ToDecimal(property.GetValue(SettingConfig)));

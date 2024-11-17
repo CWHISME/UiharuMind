@@ -27,6 +27,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -35,7 +36,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// </summary>
 public partial class ChatSessionViewData : ObservableObject
 {
-    private readonly ChatSession _chatSession;
+    public readonly ChatSession ChatSession;
 
     [ObservableProperty] private string _name;
     [ObservableProperty] private string _description;
@@ -55,14 +56,14 @@ public partial class ChatSessionViewData : ObservableObject
     /// </summary>
     public void Active()
     {
-        SyncSession(_chatSession);
+        SyncSession(ChatSession);
     }
 
     public ChatSessionViewData(ChatSession chatSession)
     {
-        _chatSession = chatSession;
-        Description = _chatSession.Description;
-        Name = _chatSession.Name;
+        ChatSession = chatSession;
+        Description = ChatSession.Description;
+        Name = ChatSession.Name;
         TimeString = CalcTimeString();
     }
 
@@ -85,7 +86,7 @@ public partial class ChatSessionViewData : ObservableObject
     /// <param name="token"></param>
     public async Task GenerateMessage(CancellationToken token)
     {
-        var lastMessage = _chatSession[^1];
+        var lastMessage = ChatSession[^1];
         if (lastMessage.Character == ECharacter.Assistant)
         {
             Log.Error("Error: Assistant cannot generate message");
@@ -102,10 +103,10 @@ public partial class ChatSessionViewData : ObservableObject
         // ChatViewItemData currentChatItem = null;
 
         // if (Math.Abs(ChatItems.Count - _chatSession.Count) > 0)
-        if (ChatItems.Count != _chatSession.Count)
+        if (ChatItems.Count != ChatSession.Count)
         {
             //不同步，说明出问题了，强行重载
-            SyncSession(_chatSession);
+            SyncSession(ChatSession);
             Log.Warning("SyncSession(Different count): " + Name);
         }
 
@@ -113,7 +114,7 @@ public partial class ChatSessionViewData : ObservableObject
         // && string.IsNullOrEmpty(ChatItems[^1].CachedContent?.Content))
         // {
         //与逻辑层一致，没问题，添加占位，先添加表现层的空消息
-        CurrentChatItem = AddMessage(_chatSession.CreateMessage(AuthorRole.Assistant, ""));
+        CurrentChatItem = AddMessage(ChatSession.CreateMessage(AuthorRole.Assistant, ""));
         // }
 
         // //检测当前最后一条是否合法
@@ -163,7 +164,7 @@ public partial class ChatSessionViewData : ObservableObject
 
         try
         {
-            await foreach (var item in _chatSession.GenerateCompletionStreaming(token))
+            await foreach (var item in ChatSession.GenerateCompletionStreaming(token))
             {
                 if (CurrentChatItem != null)
                 {
@@ -173,6 +174,10 @@ public partial class ChatSessionViewData : ObservableObject
         }
         catch (IOException)
         {
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
         }
 
 
@@ -186,15 +191,36 @@ public partial class ChatSessionViewData : ObservableObject
     [RelayCommand]
     public void ClearChatHistory()
     {
-        _chatSession.Clear();
-        ChatItems.Clear();
-        TimeString = "";
+        App.MessageService.ShowConfirmMessageBox(Lang.ClearTips,
+            (x) =>
+            {
+                ChatSession.Clear();
+                ChatItems.Clear();
+                TimeString = "";
+            });
+    }
+
+    [RelayCommand]
+    public void Delete()
+    {
+        App.MessageService.ShowConfirmMessageBox(Lang.DeleteAllClipboardHistoryTips,
+            (x) => { ChatManager.Instance.DeleteSession(ChatSession); });
+    }
+
+    public void ModifySessionName(string newName)
+    {
+        Name = ChatManager.Instance.ModifySessionName(ChatSession, newName);
+    }
+
+    public void ModifySessionDescription(string newName)
+    {
+        Description = ChatManager.Instance.ModifySessionDescription(ChatSession, newName);
     }
 
     private ChatViewItemData AddMessage(AuthorRole role, string message)
     {
-        _chatSession.AddMessage(role, message);
-        return AddMessage(_chatSession[^1]);
+        ChatSession.AddMessage(role, message);
+        return AddMessage(ChatSession[^1]);
     }
 
     // private void OnStartGenerate(ChatMessage obj)
@@ -232,10 +258,10 @@ public partial class ChatSessionViewData : ObservableObject
     /// <param name="value"></param>
     private void SyncSession(ChatSession? value)
     {
-        foreach (var item in ChatItems)
-        {
-            SimpleObjectPool<ChatViewItemData>.Release(item);
-        }
+        // foreach (var item in ChatItems)
+        // {
+        //     SimpleObjectPool<ChatViewItemData>.Release(item);
+        // }
 
         ChatItems.Clear();
 
@@ -253,9 +279,9 @@ public partial class ChatSessionViewData : ObservableObject
     private string CalcTimeString()
     {
         DateTime currentDate = DateTime.Now.Date;
-        DateTime lastChatDate = _chatSession.LastTime.Date;
+        DateTime lastChatDate = ChatSession.LastTime.Date;
 
-        if (currentDate == lastChatDate) return _chatSession.LastTime.ToString("HH:mm");
-        return _chatSession.LastTime.ToString("yyyy/MM/dd");
+        if (currentDate == lastChatDate) return ChatSession.LastTime.ToString("HH:mm");
+        return ChatSession.LastTime.ToString("yyyy/MM/dd");
     }
 }

@@ -52,6 +52,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 public enum DefaultCharacter
 {
     UiharuKazari,
+    Expositor,
     Translator,
     TranslateReviwer,
     Max

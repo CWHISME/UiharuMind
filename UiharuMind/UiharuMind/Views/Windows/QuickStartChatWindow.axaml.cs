@@ -83,6 +83,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        InitPosition();
         InputBox.Focus();
         PlayOpenAnimation();
     }
@@ -117,12 +118,12 @@ public partial class QuickStartChatWindow : QuickWindowBase
     public void InitPosition()
     {
         // 获取当前激活的屏幕
-        var screen = Screens.ScreenFromVisual(this);
+        var screen = App.ScreensService.MouseScreen;
         if (screen != null)
         {
             // 计算窗口在屏幕中心的坐标
             var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + Width) / 2;
-            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height + Height) / 2;
+            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - Height;
 
             // 设置窗口位置
             Position = new PixelPoint((int)x, (int)y);

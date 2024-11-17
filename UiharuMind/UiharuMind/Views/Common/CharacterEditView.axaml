@@ -2,13 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
              xmlns:u="https://irihi.tech/ursa"
-             xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+             xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.Common.CharacterInfoView">
+             x:Class="UiharuMind.Views.Common.CharacterEditView">
 
     <Design.DataContext>
         <viewData:CharacterInfoViewData />
@@ -25,20 +24,17 @@
             <Setter Property="FontSize" Value="24" />
             <Setter Property="Margin" Value="0,0,0,10" />
         </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Margin" Value="10,0" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
         <Style Selector="Border">
             <Setter Property="Padding" Value="0,10,0,10" />
         </Style>
-        <!-- <Style Selector="common|SimpleMarkdownViewer"> -->
-        <!--     <Setter Property="Margin" Value="0,10,0,10" /> -->
-        <!-- </Style> -->
     </UserControl.Styles>
 
     <DockPanel>
-        <!-- 操作 -->
-        <DockPanel Name="OperationPanel" DockPanel.Dock="Bottom" LastChildFill="False" Margin="20,10,20,10">
-            <Button Content="开始对话" DockPanel.Dock="Left" Command="{Binding StartChatCommand}" />
-            <Button Content="编辑角色" DockPanel.Dock="Right" Command="{Binding EditCharacterCommand}" />
-        </DockPanel>
         <Rectangle DockPanel.Dock="Bottom" Fill="{StaticResource UiRectangleLineBrush}" Height="1"
                    HorizontalAlignment="Stretch" />
 
@@ -48,11 +44,10 @@
                     <!-- 角色图片 -->
                     <Image Source="/Assets/avalonia-logo.ico" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
                     <SelectableTextBlock HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
-                    <SelectableTextBlock Text="{Binding Description}" />
+                    <TextBox Text="{Binding Description}" />
                 </StackPanel>
 
-                <!-- 功能类型 -->
-                <Border IsEnabled="False" BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.CharacterFuncType}" />
                         <ToggleSwitch IsChecked="{Binding IsRole}"
@@ -100,6 +95,16 @@
                         <TextBlock Text="{x:Static lang:Lang.MountsNullTips}"
                                    HorizontalAlignment="Center"
                                    IsVisible="{Binding $parent[1].IsVisible}" />
+                        <Button Content="{x:Static  lang:Lang.AddBtn}" Command="{Binding AddMountCharacterCommand}"
+                                Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 可选参数提示 -->
+                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                    <StackPanel>
+                        <u:Divider Content="{x:Static  lang:Lang.OptionalPromptParams}" />
+                        <SelectableTextBlock Text="{x:Static  lang:Lang.OptionalPromptParamsDesc}" />
                     </StackPanel>
                 </Border>
 
@@ -109,7 +114,7 @@
                                    Content="{x:Static  lang:Lang.CharacterDesc}" />
                         <u:Divider IsVisible="{Binding !IsRole,Mode=OneWay}"
                                    Content="{x:Static  lang:Lang.SystemPrompt}" />
-                        <common:SimpleMarkdownViewer MarkdownText="{Binding TemplateReadonly}" IsPlaintext="False" />
+                        <TextBox Text="{Binding Template}" />
                     </StackPanel>
                 </Border>
 
@@ -117,7 +122,7 @@
                         BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.CharacterFirstGreeting}" />
-                        <common:SimpleMarkdownViewer MarkdownText="{Binding FirstGreetingReadonly}" IsPlaintext="False" />
+                        <TextBox Text="{Binding FirstGreeting}" />
                     </StackPanel>
                 </Border>
 
@@ -131,16 +136,14 @@
                                 BorderBrush="{StaticResource UiBorderBrush}">
                             <StackPanel>
                                 <u:Divider Content="{x:Static  lang:Lang.CharacterDialogTemplate}" />
-                                <common:SimpleMarkdownViewer MarkdownText="{Binding DialogTemplateReadonly}"
-                                                             IsPlaintext="False" />
+                                <TextBox Text="{Binding DialogTemplate}" />
                             </StackPanel>
                         </Border>
                         <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
                             <StackPanel>
                                 <u:Divider Content="{x:Static  lang:Lang.ParameterSettings}" />
                                 <settingViews:SettingPanelView Padding="10,0,10,0"
-                                                               SettingConfig="{Binding ChatPromptExecutionSettings}"
-                                                               IsEnabled="False" />
+                                                               SettingConfig="{Binding ChatPromptExecutionSettings}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -148,6 +151,6 @@
 
             </StackPanel>
         </ScrollViewer>
-
     </DockPanel>
+
 </UserControl>

@@ -117,6 +117,23 @@ public class UIManager
         return null;
     }
 
+    /// <summary>
+    /// 当前焦点窗口
+    /// </summary>
+    /// <returns></returns>
+    public static Window GetFoucusWindow()
+    {
+        foreach (var window in _multiWindows)
+        {
+            foreach (var win in window.Value)
+            {
+                if (win.IsActive) return win;
+            }
+        }
+
+        return GetRootWindow();
+    }
+
     public static void CloseWindow<T>()
         where T : UiharuWindowBase
     {

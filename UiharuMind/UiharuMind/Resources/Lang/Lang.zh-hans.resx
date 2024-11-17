@@ -152,4 +152,71 @@
     <data name="Edit" xml:space="preserve">
         <value>编辑</value>
     </data>
+    <data name="CharacterDesc" xml:space="preserve">
+        <value>角色描述</value>
+    </data>
+    <data name="CharacterFirstGreeting" xml:space="preserve">
+        <value>开场白</value>
+    </data>
+    <data name="CharacterDialogTemplate" xml:space="preserve">
+        <value>对话模板</value>
+    </data>
+    <data name="AdvancedOptions" xml:space="preserve">
+        <value>高级选项</value>
+    </data>
+    <data name="ParameterSettings" xml:space="preserve">
+        <value>参数设置</value>
+    </data>
+    <data name="CancelBtn" xml:space="preserve">
+        <value>取消</value>
+    </data>
+    <data name="SaveBtn" xml:space="preserve">
+        <value>保存</value>
+    </data>
+    <data name="DeleteTips" xml:space="preserve">
+        <value>确认删除？</value>
+    </data>
+    <data name="ClearTips" xml:space="preserve">
+        <value>确认清除？</value>
+    </data>
+    <data name="MountsTitle" xml:space="preserve">
+        <value>挂载工具</value>
+    </data>
+    <data name="MountsDesc" xml:space="preserve">
+        <value>可以挂载其它“工具人角色”，工具人会以“系统”身份在最开始向该角色讲述要求。</value>
+    </data>
+    <data name="MountsNullTips" xml:space="preserve">
+        <value>未挂载其它工具人</value>
+    </data>
+    <data name="SystemPrompt" xml:space="preserve">
+        <value>系统提示</value>
+    </data>
+    <data name="RoleplayCharacter" xml:space="preserve">
+        <value>角色扮演</value>
+    </data>
+    <data name="ToolCharacter" xml:space="preserve">
+        <value>工具人</value>
+    </data>
+    <data name="CharacterFuncType" xml:space="preserve">
+        <value>角色功能</value>
+    </data>
+    <data name="AddDuplicateCharacterTips" xml:space="preserve">
+        <value>似乎存在重复名字的角色，是否重新编辑？</value>
+    </data>
+    <data name="OptionalPromptParams" xml:space="preserve">
+        <value>可选参数</value>
+    </data>
+    <data name="OptionalPromptParamsDesc" xml:space="preserve">
+        <value>{{$user}}：将会替换为用户名。
+{{$char}}：将会替换为当前角色名。</value>
+    </data>
+    <data name="ToggleIsPhotoListView" xml:space="preserve">
+        <value>相册模式</value>
+    </data>
+    <data name="ToggleIsListView" xml:space="preserve">
+        <value>列表模式</value>
+    </data>
+    <data name="MessageWarningTitle" xml:space="preserve">
+        <value>注意</value>
+    </data>
 </root>

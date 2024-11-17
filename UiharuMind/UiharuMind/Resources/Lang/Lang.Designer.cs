@@ -326,5 +326,137 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("Edit", resourceCulture);
             }
         }
+        
+        public static string CharacterDesc {
+            get {
+                return ResourceManager.GetString("CharacterDesc", resourceCulture);
+            }
+        }
+        
+        public static string CharacterFirstGreeting {
+            get {
+                return ResourceManager.GetString("CharacterFirstGreeting", resourceCulture);
+            }
+        }
+        
+        public static string CharacterDialogTemplate {
+            get {
+                return ResourceManager.GetString("CharacterDialogTemplate", resourceCulture);
+            }
+        }
+        
+        public static string AdvancedOptions {
+            get {
+                return ResourceManager.GetString("AdvancedOptions", resourceCulture);
+            }
+        }
+        
+        public static string ParameterSettings {
+            get {
+                return ResourceManager.GetString("ParameterSettings", resourceCulture);
+            }
+        }
+        
+        public static string CancelBtn {
+            get {
+                return ResourceManager.GetString("CancelBtn", resourceCulture);
+            }
+        }
+        
+        public static string SaveBtn {
+            get {
+                return ResourceManager.GetString("SaveBtn", resourceCulture);
+            }
+        }
+        
+        public static string DeleteTips {
+            get {
+                return ResourceManager.GetString("DeleteTips", resourceCulture);
+            }
+        }
+        
+        public static string ClearTips {
+            get {
+                return ResourceManager.GetString("ClearTips", resourceCulture);
+            }
+        }
+        
+        public static string MountsTitle {
+            get {
+                return ResourceManager.GetString("MountsTitle", resourceCulture);
+            }
+        }
+        
+        public static string MountsDesc {
+            get {
+                return ResourceManager.GetString("MountsDesc", resourceCulture);
+            }
+        }
+        
+        public static string MountsNullTips {
+            get {
+                return ResourceManager.GetString("MountsNullTips", resourceCulture);
+            }
+        }
+        
+        public static string SystemPrompt {
+            get {
+                return ResourceManager.GetString("SystemPrompt", resourceCulture);
+            }
+        }
+        
+        public static string RoleplayCharacter {
+            get {
+                return ResourceManager.GetString("RoleplayCharacter", resourceCulture);
+            }
+        }
+        
+        public static string ToolCharacter {
+            get {
+                return ResourceManager.GetString("ToolCharacter", resourceCulture);
+            }
+        }
+        
+        public static string CharacterFuncType {
+            get {
+                return ResourceManager.GetString("CharacterFuncType", resourceCulture);
+            }
+        }
+        
+        public static string AddDuplicateCharacterTips {
+            get {
+                return ResourceManager.GetString("AddDuplicateCharacterTips", resourceCulture);
+            }
+        }
+        
+        public static string OptionalPromptParams {
+            get {
+                return ResourceManager.GetString("OptionalPromptParams", resourceCulture);
+            }
+        }
+        
+        public static string OptionalPromptParamsDesc {
+            get {
+                return ResourceManager.GetString("OptionalPromptParamsDesc", resourceCulture);
+            }
+        }
+        
+        public static string ToggleIsPhotoListView {
+            get {
+                return ResourceManager.GetString("ToggleIsPhotoListView", resourceCulture);
+            }
+        }
+        
+        public static string ToggleIsListView {
+            get {
+                return ResourceManager.GetString("ToggleIsListView", resourceCulture);
+            }
+        }
+        
+        public static string MessageWarningTitle {
+            get {
+                return ResourceManager.GetString("MessageWarningTitle", resourceCulture);
+            }
+        }
     }
 }

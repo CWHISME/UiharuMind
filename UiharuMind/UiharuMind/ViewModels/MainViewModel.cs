@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -21,7 +22,7 @@ using UiharuMind.Views.Controls;
 
 namespace UiharuMind.ViewModels;
 
-public partial class MainViewModel : ViewModelBase, IRecipient<string>
+public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 {
     public MenuViewData Menus { get; set; } = new MenuViewData();
 
@@ -33,21 +34,24 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
     public MessageService MessageService => App.MessageService;
 
-    private readonly Dictionary<string, PageDataBase> _viewPageModels = new Dictionary<string, PageDataBase>();
+    private readonly Dictionary<MenuPages, PageDataBase> _viewPageModels = new Dictionary<MenuPages, PageDataBase>();
     private readonly Dictionary<Type, ViewModelBase> _viewModels = new Dictionary<Type, ViewModelBase>();
 
     public MainViewModel()
     {
-        Receive(MenuKeys.MenuMainKey);
-        Menus.MenuItems[0].IsSelected = true;
-        OnPropertyChanged();
+        Dispatcher.UIThread.Post(() =>
+        {
+            // Receive(MenuKeys.MenuMainKey);
+            // OnPropertyChanged();
+            JumpToPage(MenuPages.MenuMainKey);
+        }, DispatcherPriority.ApplicationIdle);
     }
 
     [RelayCommand]
     private async Task OpenSetting()
     {
         // Receive(MenuKeys.MenuSettingKey);
-        await MessageService.ShowPageDrawer(GetPage(MenuKeys.MenuAboutKey));
+        await MessageService.ShowPageDrawer(GetPage(MenuPages.MenuAboutKey));
     }
 
     [RelayCommand]
@@ -62,26 +66,30 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
         newValue?.OnEnable();
     }
 
-    public void Receive(string message)
-    {
-        // Menus.MenuItems[0].MenuHeader =  message;
-        Content = GetPage(message);
-    }
+    // public void Receive(string message)
+    // {
+    //     // Menus.MenuItems[0].MenuHeader =  message;
+    //     Content = GetPage(message);
+    //     // foreach (var menu in Menus.MenuItems)
+    //     // {
+    //     //     menu.IsSelected = menu.Key == message;
+    //     // }
+    // }
 
-    public PageDataBase GetPage(string message)
+    public PageDataBase GetPage(MenuPages message)
     {
         _viewPageModels.TryGetValue(message, out var vmPage);
         if (vmPage == null)
         {
             vmPage = message switch
             {
-                MenuKeys.MenuMainKey => new HomePageData(),
-                MenuKeys.MenuChatKey => new ChatPageData(),
-                MenuKeys.MenuTranslateKey => new TranslatePageData(),
-                MenuKeys.MenuModelKey => new ModelPageData() { Title = message },
-                MenuKeys.MenuLogKey => new LogPageData(),
-                MenuKeys.MenuSettingKey => new SettingPageData(),
-                MenuKeys.MenuAboutKey => new AboutPageData(),
+                MenuPages.MenuMainKey => new HomePageData(),
+                MenuPages.MenuChatKey => new ChatPageData(),
+                MenuPages.MenuTranslateKey => new TranslatePageData(),
+                MenuPages.MenuModelKey => new ModelPageData(),
+                MenuPages.MenuLogKey => new LogPageData(),
+                MenuPages.MenuSettingKey => new SettingPageData(),
+                MenuPages.MenuAboutKey => new AboutPageData(),
                 _ => new ModelPageData() { Title = message + "   Null Page" },
             };
             _viewPageModels.Add(message, vmPage);
@@ -106,4 +114,24 @@ public partial class MainViewModel : ViewModelBase, IRecipient<string>
 
         return (T)vm;
     }
+
+    public void JumpToPage(MenuPages page)
+    {
+        Content = GetPage(page);
+        foreach (var menu in Menus.MenuItems)
+        {
+            menu.IsSelected = menu.Key == page;
+        }
+    }
+}
+
+public enum MenuPages
+{
+    MenuMainKey,
+    MenuChatKey,
+    MenuTranslateKey,
+    MenuModelKey,
+    MenuLogKey,
+    MenuSettingKey,
+    MenuAboutKey
 }

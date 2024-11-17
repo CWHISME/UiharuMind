@@ -38,8 +38,14 @@ public partial class ChatPageData : PageDataBase
         // // _chatSessions.Add(new ChatSession());
         ChatViewModel = App.ViewModel.GetViewModel<ChatViewModel>();
         ChatListViewModel = App.ViewModel.GetViewModel<ChatListViewModel>();
+        ChatListViewModel.EventOnSelectedSessionChanged += OnSelectedSessionChanged;
         ChatViewModel.ChatSession = ChatListViewModel.SelectedSession;
         // ChatViewModel.ChatSession = _chatSessions[0];
+    }
+
+    private void OnSelectedSessionChanged(ChatSessionViewData? obj)
+    {
+        ChatViewModel.ChatSession = obj;
     }
 
     // [RelayCommand]

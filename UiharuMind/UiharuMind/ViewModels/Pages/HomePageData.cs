@@ -20,9 +20,32 @@ public partial class HomePageData : PageDataBase
 {
     protected override Control CreateView => new HomePage();
 
+    // [ObservableProperty] private CharacterInfoViewData _characterInfo;
     [ObservableProperty] private float _leftPaneWidth = 200;
+
+    [ObservableProperty] private CharacterListViewData _characterListViewData;
 
     public HomePageData()
     {
+        _characterListViewData = new CharacterListViewData();
+        // CharacterInfo = _characterListViewData.SelectedCharacter;
     }
+
+    // public override void OnEnable()
+    // {
+    //     base.OnEnable();
+    //     CharacterInfo = _characterListViewData.SelectedCharacter;
+    //     _characterListViewData.EventOnSelectedCharacterChanged += OnSelectedCharacterChanged;
+    // }
+    //
+    // private void OnSelectedCharacterChanged(CharacterInfoViewData obj)
+    // {
+    //     CharacterInfo = obj;
+    // }
+    //
+    // public override void OnDisable()
+    // {
+    //     base.OnDisable();
+    //     _characterListViewData.EventOnSelectedCharacterChanged -= OnSelectedCharacterChanged;
+    // }
 }

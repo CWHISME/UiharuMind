@@ -14,37 +14,10 @@
     </Design.DataContext>
 
     <Panel>
-        <!-- <u:Divider VerticalAlignment="Top" /> -->
-        <!-- <Grid ColumnDefinitions="Auto,Auto,*"> -->
-        <!-- -->
-        <!--     ~1~ Pane (Sidebar) @1@ -->
-        <!--     <Border Grid.Column="0" Margin="0,0,2,0" Width="{Binding LeftPaneWidth, Mode=TwoWay}"> -->
-        <!--         <common:CharacterListView /> -->
-        <!--     </Border> -->
-        <!-- -->
-        <!--     ~1~ Thumb for resizing left pane @1@ -->
-        <!--     ~1~ Cursor StandardCursorType @1@ -->
-        <!--     <Thumb Grid.Column="1" Width="5" DragDelta="OnLeftThumbDragDelta" Cursor="SizeWestEast"> -->
-        <!--         <Thumb.Template> -->
-        <!--             <ControlTemplate> -->
-        <!--                 ~1~ <Border Background="Gray" Width="1" /> @1@ -->
-        <!--                 <u:Divider Orientation="Vertical" -->
-        <!--                            Height="{Binding Height, RelativeSource={RelativeSource TemplatedParent}}" /> -->
-        <!--             </ControlTemplate> -->
-        <!--         </Thumb.Template> -->
-        <!--     </Thumb> -->
-        <!-- -->
-        <!--     ~1~ Content @1@ -->
-        <!--     <Border Grid.Column="2" Margin="5"> -->
-        <!--         <common:CharacterInfoView Name="CharacterInfoView" /> -->
-        <!--     </Border> -->
-        <!-- -->
-        <!-- </Grid> -->
-
         <Grid ColumnDefinitions="3*,Auto,*">
-            <common:CharacterListView />
+            <common:CharacterListView DataContext="{Binding CharacterListViewData}" />
             <GridSplitter Grid.Column="1" ResizeBehavior="PreviousAndNext" VerticalAlignment="Stretch" Width="5" />
-            <common:CharacterInfoView Name="CharacterInfoView" Grid.Column="2"/>
+            <common:CharacterInfoView Grid.Column="2" DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}" />
         </Grid>
     </Panel>
 

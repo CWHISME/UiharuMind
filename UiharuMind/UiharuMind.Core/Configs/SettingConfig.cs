@@ -35,4 +35,9 @@ public class SettingConfig : ConfigBase
     /// 聊天是否显示纯文本
     /// </summary>
     public bool IsChatPlainText { get; set; } = false;
+
+    /// <summary>
+    /// 角色列表是否显示以图片形式显示
+    /// </summary>
+    public bool IsCharacterPhotoListView { get; set; } = true;
 }

@@ -11,6 +11,7 @@
 
 using System.Collections;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
@@ -56,7 +57,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
 
     private CharacterData? _characterData;
 
-    private bool _isFinished = true;
+    // private bool _isFinished = true;
 
     private readonly SessionEnumerator _enumerator;
 
@@ -69,12 +70,14 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         _enumerator = new SessionEnumerator(this);
     }
 
-    public ChatSession(CharacterData characterData) : this()
+    public ChatSession(string sessionName, CharacterData characterData) : this()
     {
         _characterData = characterData;
         CharaterId = characterData.CharacterName;
-        Name = characterData.CharacterName;
-        Description = characterData.Description;
+        Name = sessionName;
+        Description = string.IsNullOrEmpty(characterData.FirstGreeting)
+            ? characterData.Description
+            : characterData.FirstGreeting;
     }
 
     public int Count => History.Count;
@@ -144,6 +147,29 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         return LlmManager.Instance.CurrentRunningModel!.InvokeAgentStreamingAsync(this, cancellationToken);
     }
 
+    public ChatHistory SafeGetHistory()
+    {
+        //检测是否额外挂载
+        ChatHistory chatHistory = History;
+        if (!CharacterData.IsTool && CharacterData.MountCharacters.Count > 0)
+        {
+            chatHistory = [];
+            foreach (var mountChar in CharacterData.MountCharacters)
+            {
+                var mountCharData = CharacterManager.Instance.GetCharacterData(mountChar);
+                chatHistory.Add(
+                    new ChatMessageContent(AuthorRole.System, CharacterData.TryRender(mountCharData.Template))
+                    {
+#pragma warning disable SKEXP0001
+                        AuthorName = mountCharData.CharacterName
+#pragma warning restore SKEXP0001
+                    });
+            }
+        }
+
+        return chatHistory;
+    }
+
     // public IAsyncEnumerable<string> GenerateCompletionAsync(Action<ChatMessage> onStartCallback,
     //     Action<string> onStepCallback,
     //     Action<string> onCompletionCallback, CancellationToken token)
@@ -205,7 +231,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     {
         History.Clear();
         TimeStamps.Clear();
-        _isFinished = true;
+        // _isFinished = true;
     }
 
     public IEnumerator<ChatMessage> GetEnumerator()

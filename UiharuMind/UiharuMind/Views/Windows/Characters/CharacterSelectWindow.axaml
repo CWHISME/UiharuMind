@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:common="clr-namespace:UiharuMind.Views.Common"
+        mc:Ignorable="d" d:DesignWidth="444" d:DesignHeight="666"
+        Width="444"
+        Height="666"
+        x:Class="UiharuMind.Views.Windows.Characters.CharacterSelectWindow"
+        Title="CharacterSelectWindow">
+
+    <DockPanel Margin="10">
+        <Button DockPanel.Dock="Bottom" Name="SureButton" Content="Sure" Click="SureButton_Click" Margin="0,10,0,0" />
+        <common:CharacterListView DockPanel.Dock="Top" Name="CharacterListView" />
+    </DockPanel>
+</Window>

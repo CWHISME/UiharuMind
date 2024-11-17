@@ -22,6 +22,7 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Views;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -46,7 +47,7 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private KeyGesture _sendGesture = new KeyGesture(Key.Enter);
     [ObservableProperty] private bool _scrollToEnd;
 
-    [ObservableProperty] private ChatSessionViewData _chatSession;
+    [ObservableProperty] private ChatSessionViewData? _chatSession;
 
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
@@ -76,7 +77,18 @@ public partial class ChatViewModel : ViewModelBase
     public void SendMessage()
     {
         // if (!InputManager.Instance.IsPressed(KeyCode.VcLeftControl)) return;
-        if (string.IsNullOrEmpty(InputText) || IsGenerating) return;
+        if (ChatSession == null)
+        {
+            App.MessageService.ShowWarningMessageBox("请先选择会话!", UIManager.GetFoucusWindow());
+            return;
+        }
+
+        if (string.IsNullOrEmpty(InputText) || IsGenerating)
+        {
+            App.MessageService.ShowWarningMessageBox("请输入内容！", UIManager.GetFoucusWindow());
+            return;
+        }
+
         // Log.Debug("SendMessageCommand:" + InputText);
         AddMessage(InputText);
         InputText = "";

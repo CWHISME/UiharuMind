@@ -9,6 +9,8 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
 {
     public readonly Dictionary<string, CharacterData> CharacterDataDictionary = new Dictionary<string, CharacterData>();
 
+    public event Action<CharacterData>? OnCharacterAdded;
+    public event Action<CharacterData>? OnCharacterRemoved;
 
     /// <summary>
     /// 用户角色的名字
@@ -53,7 +55,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         _userCharacterData = new CharacterData
         {
             CharacterName = "桃子",
-            Description = "桃子是来自学园都市的黑猫，喜欢甜食和在树荫下晒太阳，希望有人可以与她聊天，如果被拒绝了会很悲伤。",
+            Description = "桃子是一只可爱的黑猫，喜欢甜食和在树荫下晒太阳，希望有人可以与Ta聊天，如果被拒绝了会很悲伤。",
         };
     }
 
@@ -67,7 +69,41 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         if (CharacterDataDictionary.TryGetValue(characterName, out var characterData)) return characterData;
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari);
     }
-    
+
+    /// <summary>
+    /// 添加新角色，如果失败，则返回false
+    /// </summary>
+    /// <param name="characterData"></param>
+    /// <returns></returns>
+    public bool TryAddNewCharacterData(CharacterData characterData)
+    {
+        if (CharacterDataDictionary.TryAdd(characterData.CharacterName, characterData))
+        {
+            SaveCharacterData(characterData);
+            OnCharacterAdded?.Invoke(characterData);
+            return true;
+        }
+
+        return false;
+    }
+
+    public void DeleteCharacterData(CharacterData characterData)
+    {
+        DeleteCharacterData(characterData.CharacterName);
+    }
+
+    public void DeleteCharacterData(string characterName)
+    {
+        if (CharacterDataDictionary.ContainsKey(characterName))
+        {
+            var characterData = CharacterDataDictionary[characterName];
+            CharacterDataDictionary.Remove(characterName);
+            SaveUtility.Delete(Path.Combine(SettingConfig.SaveCharacterDataPath,
+                characterData.CharacterName + ".json"));
+            OnCharacterRemoved?.Invoke(characterData);
+        }
+    }
+
     public void SaveCharacterData(CharacterData characterData)
     {
         var savePath = Path.Combine(SettingConfig.SaveCharacterDataPath, characterData.CharacterName + ".json");

@@ -33,7 +33,7 @@ public class CharacterConfig
     /// <returns></returns>
     public ChatCompletionAgent ToAgent(Kernel kernel, Dictionary<string, object?>? kernelArguments = null)
     {
-        if (_cachedAgent != null) return _cachedAgent;
+        // if (_cachedAgent != null) return _cachedAgent;
         // if (kernelArguments != null)
         // {
         //     kernelArguments.Add("char", PromptConfig.Name);

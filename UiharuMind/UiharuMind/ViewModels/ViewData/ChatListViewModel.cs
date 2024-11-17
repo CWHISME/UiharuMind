@@ -9,11 +9,13 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
+using UiharuMind.Utils;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -24,7 +26,9 @@ public partial class ChatListViewModel : ViewModelBase
 {
     public ObservableCollection<ChatSessionViewData> ChatSessions { get; } = new();
 
-    [ObservableProperty] private ChatSessionViewData _selectedSession;
+    [ObservableProperty] private ChatSessionViewData? _selectedSession;
+
+    public event Action<ChatSessionViewData?>? EventOnSelectedSessionChanged;
 
     public ChatListViewModel()
     {
@@ -33,19 +37,29 @@ public partial class ChatListViewModel : ViewModelBase
             ChatSessions.Add(new ChatSessionViewData(session));
         }
 
-        if (ChatSessions.Count == 0)
-            ChatSessions.Add(new ChatSessionViewData(new ChatSession(CharacterManager.Instance.GetCharacterData(""))));
+        ChatManager.Instance.OnChatSessionAdded += OnChatSessionAdded;
+        ChatManager.Instance.OnChatSessionRemoved += OnChatSessionRemoved;
 
+        if (ChatSessions.Count == 0)
+            ChatManager.Instance.StartNewSession(CharacterManager.Instance.GetCharacterData(""));
+        else SelectedSession = ChatSessions[0];
+    }
+
+    private void OnChatSessionAdded(ChatSession obj)
+    {
+        ChatSessions.Insert(0, new ChatSessionViewData(obj));
         SelectedSession = ChatSessions[0];
     }
 
-    partial void OnSelectedSessionChanged(ChatSessionViewData value)
+    private void OnChatSessionRemoved(ChatSession obj)
     {
-        value.Active();
+        ChatSessions.Remvoe(x => x.ChatSession == obj);
+        SelectedSession = ChatSessions.Count > 0 ? ChatSessions[0] : null;
     }
 
-    [RelayCommand]
-    public void Delete()
+    partial void OnSelectedSessionChanged(ChatSessionViewData? value)
     {
+        value?.Active();
+        EventOnSelectedSessionChanged?.Invoke(value);
     }
 }

@@ -114,6 +114,7 @@
         <!-- detail text -->
         <ScrollViewer Grid.Row="2">
             <TextBox Name="DetailText" VerticalAlignment="Stretch" VerticalContentAlignment="Top" IsReadOnly="True"
+                     TextWrapping="Wrap"
                      Padding="5"
                      BorderThickness="0" />
         </ScrollViewer>

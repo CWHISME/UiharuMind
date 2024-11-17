@@ -24,13 +24,17 @@ public abstract class UiharuWindowBase : Window
     public void RequestShow(bool isFirstShow = false)
     {
         OnPreShow();
-        // if (isFirstShow) 
-        this.WindowState = WindowState.Normal;
-        // Show();
+        if (isFirstShow) Show();
+        else
+        {
+            this.WindowState = WindowState.Normal;
+            Dispatcher.UIThread.Post(Show, DispatcherPriority.ApplicationIdle);
+        }
+        // 
         // else
         // {
         //     this.WindowState = WindowState.Normal;
-        Dispatcher.UIThread.Post(Show, DispatcherPriority.ApplicationIdle);
+        // Dispatcher.UIThread.Post(Show, DispatcherPriority.ApplicationIdle);
         // }
     }
 

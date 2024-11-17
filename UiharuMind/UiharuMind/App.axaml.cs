@@ -86,6 +86,9 @@ public partial class App : Application, ILogger, IDisposable
         ProcessHelper.ForceClearAllProcesses();
 
         // var name= FontUtils.GetFontFamilyName("F:\\项目\\个人\\UiharuMind\\UiharuMind\\UiharuMind\\Assets\\Fonts\\DreamHanSansCN-W12.ttf");
+
+        //自动打开主窗口
+        DummyWindow.LaunchMainWindow();
     }
 
     // public new static App Current => (App)Application.Current!;
@@ -96,6 +99,11 @@ public partial class App : Application, ILogger, IDisposable
     public static ModelService ModelService { get; private set; }
     public static MainViewModel ViewModel => DummyWindow.MainViewModel;
     public static MessageService MessageService { get; private set; }
+
+    public static void JumpToPage(MenuPages page)
+    {
+        ViewModel.JumpToPage(page);
+    }
 
     public void Debug(string rawStr, LogItem message)
     {

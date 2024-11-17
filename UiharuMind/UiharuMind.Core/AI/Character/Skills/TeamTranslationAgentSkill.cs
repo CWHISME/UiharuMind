@@ -17,7 +17,7 @@ public class TeamTranslationAgentSkill : AgentSkill
         _args[key] = value;
     }
 
-    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,
+    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
         var translator = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator)
