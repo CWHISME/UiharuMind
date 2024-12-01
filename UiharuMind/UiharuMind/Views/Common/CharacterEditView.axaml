@@ -47,7 +47,9 @@
                     <TextBox Text="{Binding Description}" />
                 </StackPanel>
 
-                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                <!-- 功能类型 -->
+                <Border IsEnabled="{Binding !IsDefault,Mode=OneWay}" BorderThickness="1"
+                        BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.CharacterFuncType}" />
                         <ToggleSwitch IsChecked="{Binding IsRole}"
@@ -94,7 +96,7 @@
                         </ItemsControl>
                         <TextBlock Text="{x:Static lang:Lang.MountsNullTips}"
                                    HorizontalAlignment="Center"
-                                   IsVisible="{Binding $parent[1].IsVisible}" />
+                                   IsVisible="{Binding !$parent[1].IsVisible}" />
                         <Button Content="{x:Static  lang:Lang.AddBtn}" Command="{Binding AddMountCharacterCommand}"
                                 Margin="0,10,0,0" />
                     </StackPanel>

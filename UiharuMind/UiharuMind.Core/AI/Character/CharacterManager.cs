@@ -39,11 +39,18 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
             }
         }
 
-        if (CharacterDataDictionary.Count == 0)
+        //装载默认角色
+        foreach (var defCharacter in DefaultCharacterManager.Instance.Characters)
         {
-            var defaultCharacter = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari);
-            CharacterDataDictionary.Add(defaultCharacter.CharacterName, defaultCharacter);
+            if (CharacterDataDictionary.ContainsKey(defCharacter.Value.CharacterName)) continue;
+            CharacterDataDictionary.Add(defCharacter.Value.CharacterName, defCharacter.Value);
         }
+
+        // if (CharacterDataDictionary.Count == 0)
+        // {
+        //     var defaultCharacter = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari);
+        //     CharacterDataDictionary.Add(defaultCharacter.CharacterName, defaultCharacter);
+        // }
 
         //CharacterDataList.Add(DefaultCharacter.CreateDefalutCharacter());
         // string yaml = Read("UiharuKazari.yaml");

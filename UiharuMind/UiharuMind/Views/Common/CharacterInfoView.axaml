@@ -99,7 +99,7 @@
                         </ItemsControl>
                         <TextBlock Text="{x:Static lang:Lang.MountsNullTips}"
                                    HorizontalAlignment="Center"
-                                   IsVisible="{Binding $parent[1].IsVisible}" />
+                                   IsVisible="{Binding !$parent[1].IsVisible}" />
                     </StackPanel>
                 </Border>
 

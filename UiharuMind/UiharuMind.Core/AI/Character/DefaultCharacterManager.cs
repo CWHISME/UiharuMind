@@ -6,7 +6,8 @@ namespace UiharuMind.Core.AI.Character;
 
 public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInitialize
 {
-    private Dictionary<DefaultCharacter, CharacterData> _characters = new Dictionary<DefaultCharacter, CharacterData>();
+    public readonly Dictionary<DefaultCharacter, CharacterData> Characters =
+        new Dictionary<DefaultCharacter, CharacterData>();
 
     public void OnInitialize()
     {
@@ -19,10 +20,12 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
             string fileName = characterName + ".json";
             string externalFileName = Path.Combine(SettingConfig.SaveDefaultCharacterDataPath, fileName);
             CharacterData characterData = File.Exists(externalFileName)
-                ? SaveUtility.Load<CharacterData>(externalFileName)
+                ? SaveUtility.Load<CharacterData>(externalFileName) ??
+                  SaveUtility.LoadFromString<CharacterData>(Read(fileName))
                 : SaveUtility.LoadFromString<CharacterData>(Read(fileName));
 
-            _characters.Add(character, characterData);
+            characterData.IsDefaultCharacter = true;
+            Characters.Add(character, characterData);
         }
     }
 
@@ -33,7 +36,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
     /// <returns></returns>
     public CharacterData GetCharacterData(DefaultCharacter character)
     {
-        return _characters[character];
+        return Characters[character];
     }
 
     internal string Read(string fileName)
@@ -51,6 +54,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 
 public enum DefaultCharacter
 {
+    RoleplayAdmin,
     UiharuKazari,
     Expositor,
     Translator,

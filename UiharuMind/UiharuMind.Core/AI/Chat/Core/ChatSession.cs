@@ -127,7 +127,12 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     {
         return new ChatMessage()
         {
-            Message = new ChatMessageContent(authorRole, message),
+            Message = new ChatMessageContent(authorRole, message)
+            {
+#pragma warning disable SKEXP0001
+                AuthorName = CharacterManager.Instance.UserCharacterName
+#pragma warning restore SKEXP0001
+            },
             Timestamp = timestamp ?? DateTime.UtcNow.Ticks
         };
     }
@@ -165,6 +170,27 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
 #pragma warning restore SKEXP0001
                     });
             }
+
+            //对话模板，处理逻辑待定
+            if (!string.IsNullOrEmpty(CharacterData.DialogTemplate))
+            {
+                chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+                    CharacterData.TryRender(CharacterData.DialogTemplate))
+                {
+#pragma warning disable SKEXP0001
+                    AuthorName = "example"
+#pragma warning restore SKEXP0001
+                });
+            }
+
+            //开场白，处理逻辑待定
+            if (!string.IsNullOrEmpty(CharacterData.FirstGreeting))
+            {
+                chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+                    CharacterData.TryRender(CharacterData.FirstGreeting)));
+            }
+
+            chatHistory.AddRange(History);
         }
 
         return chatHistory;

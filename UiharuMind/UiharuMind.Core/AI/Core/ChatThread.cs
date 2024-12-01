@@ -274,8 +274,13 @@ public static class ChatThread
         //
         // yield return builder.ToString();
         // // Log.Debug("end of chat thread " + builder);
-        return InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, chatSession.SafeGetHistory(),
-            cancellationToken, () => { chatSession.AddMessageInfo(DateTime.UtcNow.Ticks); });
+        var history = chatSession.SafeGetHistory();
+        return InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, history,
+            cancellationToken, () =>
+            {
+                chatSession.History.Add(history[^1]);
+                chatSession.AddMessageInfo(DateTime.UtcNow.Ticks);
+            });
     }
 
     public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,

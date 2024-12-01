@@ -1,15 +1,24 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using AvaloniaEdit.Utils;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.Windows.Characters;
 
 public partial class CharacterSelectWindow : Window
 {
+    public enum CharacterType
+    {
+        Tool,
+        Roleplay,
+        All
+    }
+
     public static async Task<CharacterInfoViewData?> Show(Window parent)
     {
         var win = new CharacterSelectWindow();
@@ -17,12 +26,19 @@ public partial class CharacterSelectWindow : Window
     }
 
     public static async Task<List<CharacterInfoViewData>?> Show(Window parent,
-        HashSet<string>? alreadySelectedList)
+        HashSet<string>? alreadySelectedList, CharacterType type = CharacterType.All, params string[] exlcudeList)
     {
         var win = new CharacterSelectWindow
         {
             _multiSelect = true
         };
+        //排除角色
+        if (type != CharacterType.All)
+            exlcudeList.AddRange(win._listViewData.Characters.Where(x =>
+                    type == CharacterType.Roleplay && !x.IsRole || type == CharacterType.Tool && x.IsRole)
+                .Select(x => x.Name));
+        win.ExcludeCharacters(exlcudeList);
+
         IList? alreadySelected = null;
         win.CharacterListView.NormalListBox.SelectionMode = SelectionMode.Multiple;
         win.CharacterListView.PhotoListBox.SelectionMode = SelectionMode.Multiple;
@@ -55,6 +71,31 @@ public partial class CharacterSelectWindow : Window
         _listViewData = new CharacterListViewData();
 
         DataContext = _listViewData;
+    }
+
+    /// <summary>
+    /// 排除角色
+    /// </summary>
+    /// <param name="excludeList"></param>
+    public void ExcludeCharacters(params string[] excludeList)
+    {
+        List<CharacterInfoViewData> excludeListData = new List<CharacterInfoViewData>();
+        foreach (var name in excludeList)
+        {
+            foreach (var data in _listViewData.Characters)
+            {
+                if (data.Name == name)
+                {
+                    excludeListData.Add(data);
+                    break;
+                }
+            }
+        }
+
+        foreach (var item in excludeListData)
+        {
+            _listViewData.Characters.Remove(item);
+        }
     }
 
     protected override void OnOpened(EventArgs e)

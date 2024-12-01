@@ -89,6 +89,18 @@ public partial class ChatViewModel : ViewModelBase
             return;
         }
 
+        if (IsGenerating)
+        {
+            App.MessageService.ShowWarningMessageBox("正在生成中！", UIManager.GetFoucusWindow());
+            return;
+        }
+
+        if (ChatSession.ChatSession.History.Count > 0 && ChatSession.ChatSession.History[^1].Role == AuthorRole.User)
+        {
+            GenerateMessage();
+            return;
+        }
+
         // Log.Debug("SendMessageCommand:" + InputText);
         AddMessage(InputText);
         InputText = "";
@@ -122,6 +134,14 @@ public partial class ChatViewModel : ViewModelBase
         _cancelTokenSource = new CancellationTokenSource();
         await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant,
             message, _cancelTokenSource.Token);
+        IsGenerating = false;
+    }
+
+    private async void GenerateMessage()
+    {
+        IsGenerating = true;
+        _cancelTokenSource = new CancellationTokenSource();
+        await ChatSession.GenerateMessage(_cancelTokenSource.Token);
         IsGenerating = false;
     }
 

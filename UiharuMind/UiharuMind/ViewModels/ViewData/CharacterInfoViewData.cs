@@ -21,6 +21,8 @@ public partial class CharacterInfoViewData : ObservableObject
 {
     public ObservableCollection<string> MountCharacters { get; }
 
+    public bool IsDefault => _characterData.IsDefaultCharacter;
+
     /// <summary>
     /// 是否为普通角色，否则为工具人
     /// </summary>
@@ -230,11 +232,13 @@ public partial class CharacterInfoViewData : ObservableObject
     public async Task AddMountCharacter()
     {
         HashSet<string> alreadySelectedList = new HashSet<string>(MountCharacters);
-        var result = await CharacterSelectWindow.Show(UIManager.GetFoucusWindow(), alreadySelectedList);
+        var result = await CharacterSelectWindow.Show(UIManager.GetFoucusWindow(), alreadySelectedList,
+            CharacterSelectWindow.CharacterType.Tool, Name);
         if (result != null)
         {
             MountCharacters.Clear();
-            HashSet<string> selectedList = new HashSet<string>(result.Select(x => x.Name));
+            //排除重复及自己
+            HashSet<string> selectedList = new HashSet<string>(result.Select(x => x.Name).Where(x => x != Name));
             MountCharacters.AddRange(selectedList);
         }
     }

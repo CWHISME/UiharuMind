@@ -1,4 +1,5 @@
 {
+  "IsTool": true,
   "Config": {
     "PromptConfig": {
       "name": "TranslateReviwer",
