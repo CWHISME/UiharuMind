@@ -29,9 +29,10 @@
             <Setter Property="Padding" Value="10" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
-        <Style Selector="Border">
-            <Setter Property="Padding" Value="0,10,0,10" />
-        </Style>
+        <!-- 会影响其它样式 -->
+        <!-- <Style Selector="Border"> -->
+        <!--     <Setter Property="Padding" Value="0,10,0,10" /> -->
+        <!-- </Style> -->
     </UserControl.Styles>
 
     <DockPanel>
@@ -40,11 +41,13 @@
 
         <ScrollViewer BringIntoViewOnFocusChange="False">
             <StackPanel Spacing="30" Margin="15">
-                <StackPanel>
+                <StackPanel Spacing="10">
                     <!-- 角色图片 -->
                     <Image Source="/Assets/avalonia-logo.ico" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
-                    <SelectableTextBlock HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
-                    <TextBox Text="{Binding Description}" />
+                    <TextBox HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
+                    <TextBox Text="{Binding Description}"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True" />
                 </StackPanel>
 
                 <!-- 功能类型 -->
@@ -116,7 +119,9 @@
                                    Content="{x:Static  lang:Lang.CharacterDesc}" />
                         <u:Divider IsVisible="{Binding !IsRole,Mode=OneWay}"
                                    Content="{x:Static  lang:Lang.SystemPrompt}" />
-                        <TextBox Text="{Binding Template}" />
+                        <TextBox Text="{Binding Template}"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True" />
                     </StackPanel>
                 </Border>
 
@@ -124,7 +129,9 @@
                         BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.CharacterFirstGreeting}" />
-                        <TextBox Text="{Binding FirstGreeting}" />
+                        <TextBox Text="{Binding FirstGreeting}"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True" />
                     </StackPanel>
                 </Border>
 
@@ -138,7 +145,9 @@
                                 BorderBrush="{StaticResource UiBorderBrush}">
                             <StackPanel>
                                 <u:Divider Content="{x:Static  lang:Lang.CharacterDialogTemplate}" />
-                                <TextBox Text="{Binding DialogTemplate}" />
+                                <TextBox Text="{Binding DialogTemplate}"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True" />
                             </StackPanel>
                         </Border>
                         <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">

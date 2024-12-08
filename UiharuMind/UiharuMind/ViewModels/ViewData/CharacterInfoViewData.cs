@@ -1,13 +1,16 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
@@ -35,6 +38,14 @@ public partial class CharacterInfoViewData : ObservableObject
             OnPropertyChanged();
         }
     }
+
+    /// <summary>
+    /// 所属功能名
+    /// </summary>
+    public string FuncName => IsRole ? Lang.RoleplayCharacter : Lang.Tool;
+
+    public IImmutableSolidColorBrush FuncColor =>
+        IsRole ? Avalonia.Media.Brushes.LightGreen : Avalonia.Media.Brushes.Gold;
 
     public string Name
     {
@@ -175,9 +186,8 @@ public partial class CharacterInfoViewData : ObservableObject
 
     private CharacterData _characterData;
 
-    public CharacterInfoViewData()
+    public CharacterInfoViewData() : this(new CharacterData())
     {
-        _characterData = new CharacterData();
     }
 
     public CharacterInfoViewData(CharacterData characterData)
@@ -198,10 +208,7 @@ public partial class CharacterInfoViewData : ObservableObject
         if (!CharacterManager.Instance.TryAddNewCharacterData(_characterData))
         {
             App.MessageService.ShowConfirmMessageBox(Lang.AddDuplicateCharacterTips,
-                (result) =>
-                {
-                    if (result) CharacterEditWindow.Show(this, x => TryAddToNewCharacterData());
-                });
+                () => { CharacterEditWindow.Show(this, x => TryAddToNewCharacterData()); });
         }
     }
 
@@ -242,4 +249,23 @@ public partial class CharacterInfoViewData : ObservableObject
             MountCharacters.AddRange(selectedList);
         }
     }
+
+    // public CharacterInfoViewData DeepCopy()
+    // {
+    //     var tmpStr = SaveUtility.SaveToString(_characterData);
+    //     return new CharacterInfoViewData(SaveUtility.LoadFromString<CharacterData>(tmpStr));
+    // }
+    //
+    // public void CopyFrom(CharacterInfoViewData target)
+    // {
+    //     Name = target.Name;
+    //     Description = target.Description;
+    //     Template = target.Template;
+    //     DialogTemplate = target.DialogTemplate;
+    //     FirstGreeting = target.FirstGreeting;
+    //     ChatPromptExecutionSettings.Temperature= target.ChatPromptExecutionSettings.Temperature;
+    //     
+    //     MountCharacters.Clear();
+    //     MountCharacters.AddRange(target.MountCharacters);
+    // }
 }

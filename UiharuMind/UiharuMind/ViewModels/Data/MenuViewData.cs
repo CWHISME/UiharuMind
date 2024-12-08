@@ -21,7 +21,7 @@ public class MenuViewData
         new() { MenuHeader = Lang.MenuMainKey, MenuIconName = "Home", Key = MenuPages.MenuMainKey },
         new() { MenuHeader = "Separator", IsSeparator = true },
         new() { MenuHeader = Lang.MenuChatKey, MenuIconName = "Chat", Key = MenuPages.MenuChatKey },
-        // new() { MenuHeader = "翻译", MenuIconName =Lang.MenuTranslateKey, Key = MenuKeys.MenuTranslateKey },
+        // new() { MenuHeader = Lang.MenuTranslateKey, MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
         new() { MenuHeader = Lang.MenuModelKey, MenuIconName = "Folder", Key = MenuPages.MenuModelKey },
         new() { MenuHeader = Lang.MenuLogKey, MenuIconName = "BookInformationRegular", Key = MenuPages.MenuLogKey },

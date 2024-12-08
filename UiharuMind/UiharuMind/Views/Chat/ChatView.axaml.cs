@@ -11,6 +11,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.UIHolder;
@@ -28,4 +29,22 @@ public partial class ChatView : UserControl
         DataContext = App.ViewModel.GetViewModel<ChatViewModel>();
         _scrollViewerAutoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
     }
+
+    // protected override void OnLoaded(RoutedEventArgs e)
+    // {
+    //     base.OnLoaded(e);
+    //     App.ViewModel.GetViewModel<ChatViewModel>().OnEventChatSessionChanged += OnChatSessionChanged;
+    // }
+    //
+    // private void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
+    // {
+    //     //TODO:比如翻译则单独以翻译方式处理
+    //     Log.Debug("OnChatSessionChanged");
+    // }
+    //
+    // protected override void OnUnloaded(RoutedEventArgs e)
+    // {
+    //     base.OnUnloaded(e);
+    //     App.ViewModel.GetViewModel<ChatViewModel>().OnEventChatSessionChanged -= OnChatSessionChanged;
+    // }
 }

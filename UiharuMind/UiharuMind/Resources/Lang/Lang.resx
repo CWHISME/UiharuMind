@@ -104,7 +104,7 @@
         <value>Plaintext</value>
     </data>
     <data name="ChatPlaintextTooltip" xml:space="preserve">
-        <value />
+        <value>Render Markdown</value>
     </data>
     <data name="ClipboardHistory" xml:space="preserve">
         <value>Clipboard History</value>
@@ -194,13 +194,13 @@
         <value />
     </data>
     <data name="MountsNullTips" xml:space="preserve">
-        <value />
+        <value>Null</value>
     </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>SystemPrompt</value>
     </data>
     <data name="RoleplayCharacter" xml:space="preserve">
-        <value>Roleplay Character</value>
+        <value>Role</value>
     </data>
     <data name="ToolCharacter" xml:space="preserve">
         <value>Tool Character</value>
@@ -226,5 +226,11 @@
     </data>
     <data name="MessageWarningTitle" xml:space="preserve">
         <value>Warning</value>
+    </data>
+    <data name="Tool" xml:space="preserve">
+        <value>Tool</value>
+    </data>
+    <data name="CharacterCard" xml:space="preserve">
+        <value>Character Card</value>
     </data>
 </root>

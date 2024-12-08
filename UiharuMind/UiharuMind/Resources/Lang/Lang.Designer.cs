@@ -458,5 +458,17 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("MessageWarningTitle", resourceCulture);
             }
         }
+        
+        public static string Tool {
+            get {
+                return ResourceManager.GetString("Tool", resourceCulture);
+            }
+        }
+        
+        public static string CharacterCard {
+            get {
+                return ResourceManager.GetString("CharacterCard", resourceCulture);
+            }
+        }
     }
 }

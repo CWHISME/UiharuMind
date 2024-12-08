@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.Threading;
 using Avalonia.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -47,7 +48,7 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private KeyGesture _sendGesture = new KeyGesture(Key.Enter);
     [ObservableProperty] private bool _scrollToEnd;
 
-    [ObservableProperty] private ChatSessionViewData? _chatSession;
+    [ObservableProperty] private ChatSessionViewData _chatSession;
 
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
@@ -65,6 +66,8 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private bool _isVisiblePagination;
 
     private CancellationTokenSource? _cancelTokenSource;
+
+    public event Action<ChatSessionViewData>? OnEventChatSessionChanged;
 
     [RelayCommand]
     public void ChangeSendMode()
@@ -116,17 +119,18 @@ public partial class ChatViewModel : ViewModelBase
         _cancelTokenSource = null;
     }
 
-    [RelayCommand]
-    public void Edit()
-    {
-        Log.Debug("EditCommand");
-    }
-
-    [RelayCommand]
-    public void Delete()
-    {
-        Log.Debug("DeleteCommand");
-    }
+    // [RelayCommand]
+    // public void EditMessage(ChatViewItemData itemData)
+    // {
+    //     Log.Debug("EditCommand" + itemData.Message);
+    // }
+    //
+    // [RelayCommand]
+    // public void DeleteMessage(ChatViewItemData itemData)
+    // {
+    //     Log.Debug("DeleteCommand" + itemData);
+    //     // ChatSession?.RemoveChatItem(itemData);
+    // }
 
     private async void AddMessage(string message)
     {
@@ -164,4 +168,9 @@ public partial class ChatViewModel : ViewModelBase
     //
     //     InputToken = $"Token: {LlmTokenizer.GetInputTokenCount(value)}";
     // }
+
+    partial void OnChatSessionChanged(ChatSessionViewData value)
+    {
+        OnEventChatSessionChanged?.Invoke(value);
+    }
 }

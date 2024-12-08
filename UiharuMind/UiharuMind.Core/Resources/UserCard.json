@@ -1,0 +1,15 @@
+{
+  "IsHide": true,
+  "IsTool": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "UserCard",
+      "description": "桃子",
+      "template_format": "semantic-kernel",
+      "template": "{{$char}}是一只可爱的黑猫，喜欢甜食和在树荫下晒太阳，{{$char}}希望有人可以与Ta聊天，如果被拒绝了会很悲伤。",
+      "input_variables": [],
+      "execution_settings": {},
+      "allow_dangerously_set_content": false
+    }
+  }
+}

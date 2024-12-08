@@ -97,10 +97,10 @@ public partial class QuickToolWindow : QuickWindowBase
     {
         // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString), null, true);
         // QuickStartChatWindow.Show(_answerString);
-        QuickChatResultWindow.Show("解释", _answerString, ConfigManager.Instance.QuickToolPromptSetting.Explanation);
-        // ExpositorAgentSkill skill = new ExpositorAgentSkill();
-        // skill.AddParams("lang", Lang.Culture.EnglishName);
-        // QuickChatResultWindow.Show("解释", _answerString, skill);
+        // QuickChatResultWindow.Show("解释", _answerString, ConfigManager.Instance.QuickToolPromptSetting.Explanation);
+        ExpositorAgentSkill skill = new ExpositorAgentSkill();
+        // skill.SetLangate(Lang.Culture.EnglishName);
+        QuickChatResultWindow.Show("解释", _answerString, skill);
         PlayAnimation(false, SafeClose);
     }
 
@@ -140,7 +140,7 @@ public partial class QuickToolWindow : QuickWindowBase
             {
                 // TeamTranslationAgentSkill skill = new TeamTranslationAgentSkill();
                 TranslationAgentSkill skill = new TranslationAgentSkill();
-                skill.AddParams("lang", Lang.Culture.EnglishName);
+                // skill.AddParams("lang", Lang.Culture.EnglishName);
                 // QuickChatResultWindow.Show("翻译", _answerString,
                 //     ConfigManager.Instance.QuickToolPromptSetting.Translation);
                 QuickChatResultWindow.Show("翻译", _answerString, skill);

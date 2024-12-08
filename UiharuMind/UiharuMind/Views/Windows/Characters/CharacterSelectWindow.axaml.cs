@@ -22,22 +22,25 @@ public partial class CharacterSelectWindow : Window
     public static async Task<CharacterInfoViewData?> Show(Window parent)
     {
         var win = new CharacterSelectWindow();
+        win.CharacterListView.NormalListBox.SelectedItem = null;
+        win.CharacterListView.PhotoListBox.SelectedItem = null;
         return await win.ShowDialog<CharacterInfoViewData?>(parent);
     }
 
     public static async Task<List<CharacterInfoViewData>?> Show(Window parent,
-        HashSet<string>? alreadySelectedList, CharacterType type = CharacterType.All, params string[] exlcudeList)
+        HashSet<string>? alreadySelectedList, CharacterType type = CharacterType.All, params string[] excludeArray)
     {
         var win = new CharacterSelectWindow
         {
             _multiSelect = true
         };
         //排除角色
+        List<string> excludeList = excludeArray.ToList();
         if (type != CharacterType.All)
-            exlcudeList.AddRange(win._listViewData.Characters.Where(x =>
+            excludeList.AddRange(win._listViewData.Characters.Where(x =>
                     type == CharacterType.Roleplay && !x.IsRole || type == CharacterType.Tool && x.IsRole)
                 .Select(x => x.Name));
-        win.ExcludeCharacters(exlcudeList);
+        win.ExcludeCharacters(excludeList.ToArray());
 
         IList? alreadySelected = null;
         win.CharacterListView.NormalListBox.SelectionMode = SelectionMode.Multiple;

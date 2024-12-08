@@ -65,6 +65,8 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     // private const int CountSavedMaxCounter = 6;
     // private int _countSavedCounter = CountSavedMaxCounter;
 
+    // public event Action OnSessionChanged;
+
     public ChatSession()
     {
         _enumerator = new SessionEnumerator(this);
@@ -114,6 +116,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     {
         TimeStamps.Add(timestamp);
         Save();
+        // OnSessionChanged?.Invoke();
     }
 
     /// <summary>
@@ -130,11 +133,20 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             Message = new ChatMessageContent(authorRole, message)
             {
 #pragma warning disable SKEXP0001
-                AuthorName = CharacterManager.Instance.UserCharacterName
+                AuthorName = authorRole == AuthorRole.User
+                    ? CharacterManager.Instance.UserCharacterName
+                    : CharacterData.CharacterName
 #pragma warning restore SKEXP0001
             },
             Timestamp = timestamp ?? DateTime.UtcNow.Ticks
         };
+    }
+
+    public void RemoveMessageAt(int index)
+    {
+        History.RemoveAt(index);
+        TimeStamps.RemoveAt(index);
+        Save();
     }
 
     public IAsyncEnumerable<string> GenerateCompletionStreaming(CancellationToken cancellationToken = default)
@@ -155,32 +167,44 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     public ChatHistory SafeGetHistory()
     {
         //检测是否额外挂载
-        ChatHistory chatHistory = History;
-        if (!CharacterData.IsTool && CharacterData.MountCharacters.Count > 0)
+        ChatHistory chatHistory = [];
+        if (!CharacterData.IsTool)
         {
-            chatHistory = [];
-            foreach (var mountChar in CharacterData.MountCharacters)
+            if (CharacterData.MountCharacters.Count > 0)
             {
-                var mountCharData = CharacterManager.Instance.GetCharacterData(mountChar);
-                chatHistory.Add(
-                    new ChatMessageContent(AuthorRole.System, CharacterData.TryRender(mountCharData.Template))
-                    {
-#pragma warning disable SKEXP0001
-                        AuthorName = mountCharData.CharacterName
-#pragma warning restore SKEXP0001
-                    });
+                foreach (var mountChar in CharacterData.MountCharacters)
+                {
+                    var mountCharData = CharacterManager.Instance.GetCharacterData(mountChar);
+                    chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+                        CharacterData.TryRender(mountCharData.Template)));
+//                     {
+// #pragma warning disable SKEXP0001
+//                         AuthorName = mountCharData.CharacterName
+// #pragma warning restore SKEXP0001
+//                     });
+                }
             }
 
             //对话模板，处理逻辑待定
             if (!string.IsNullOrEmpty(CharacterData.DialogTemplate))
             {
-                chatHistory.Add(new ChatMessageContent(AuthorRole.System,
-                    CharacterData.TryRender(CharacterData.DialogTemplate))
+                var dialogList = CharacterData.TryRender(CharacterData.DialogTemplate).Split('\n');
+                foreach (var dialog in dialogList)
                 {
+                    chatHistory.Add(new ChatMessageContent(AuthorRole.System, dialog)
+                    {
 #pragma warning disable SKEXP0001
-                    AuthorName = "example"
+                        AuthorName = "exampleRole"
 #pragma warning restore SKEXP0001
-                });
+                    });
+                }
+//                 chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+//                     )
+//                 {
+// #pragma warning disable SKEXP0001
+//                     AuthorName = "exampleRole"
+// #pragma warning restore SKEXP0001
+//                 });
             }
 
             //开场白，处理逻辑待定
@@ -190,8 +214,12 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
                     CharacterData.TryRender(CharacterData.FirstGreeting)));
             }
 
-            chatHistory.AddRange(History);
+            //角色信息
+            var user = CharacterManager.Instance.UserCharacterData;
+            chatHistory.AddSystemMessage(user.Template.Replace("{{$char}}", user.Description));
         }
+
+        chatHistory.AddRange(History);
 
         return chatHistory;
     }

@@ -20,9 +20,13 @@
     </ItemGroup>
 
     <ItemGroup>
+      <EmbeddedResource Include="Resources\UserCard.json" />
       <None Remove="Resources\UiharuKazari.json" />
       <EmbeddedResource Include="Resources\Expositor.json" />
-      <EmbeddedResource Include="Resources\RoleplayAdmin.json" />
+      <EmbeddedResource Include="Resources\Actor.json" />
+      <EmbeddedResource Include="Resources\RoleplayDetailed.json" />
+      <EmbeddedResource Include="Resources\RoleplayImmersive.json" />
+      <EmbeddedResource Include="Resources\RoleplaySimple.json" />
       <EmbeddedResource Include="Resources\UiharuKazari.json" />
       <None Remove="Resources\Translator.json" />
       <EmbeddedResource Include="Resources\Translator.json" />

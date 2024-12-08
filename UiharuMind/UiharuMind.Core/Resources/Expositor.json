@@ -5,7 +5,7 @@
       "name": "Expositor",
       "description": "",
       "template_format": "semantic-kernel",
-      "template": "Please explain clearly and concisely in {{$lang}} : {{$content}}",
+      "template": "Please explain clearly and concisely in {{$lang}} any user input.",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false
@@ -16,7 +16,5 @@
       "presence_penalty": 0,
       "frequency_penalty": 0
     }
-  },
-  "DialogTemplate": "",
-  "FirstGreeting": ""
+  }
 }

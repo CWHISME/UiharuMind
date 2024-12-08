@@ -64,6 +64,17 @@
                                 <Ellipse.Fill>
                                     <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
                                 </Ellipse.Fill>
+                                <!-- 菜单 -->
+                                <Ellipse.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="{x:Static  lang:Lang.Edit}"
+                                                  CommandParameter="{Binding .}"
+                                                  Command="{Binding EditCommand}" />
+                                        <MenuItem Header="{x:Static  lang:Lang.Delete}"
+                                                  CommandParameter="{Binding .}"
+                                                  Command="{Binding DeleteCommand}" />
+                                    </ContextMenu>
+                                </Ellipse.ContextMenu>
                             </Ellipse>
 
                             <StackPanel Grid.Column="1" Margin="10,0,0,0" MinHeight="30" Orientation="Vertical">
@@ -71,18 +82,6 @@
                                                      HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
-                                    <!-- 菜单 -->
-                                    <Border.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="{x:Static  lang:Lang.Edit}"
-                                                      CommandParameter="{Binding}"
-                                                      Command="{Binding DataContext.EditCommand,RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
-                                            <MenuItem Header="{x:Static  lang:Lang.Delete}"
-                                                      CommandParameter="{Binding}"
-                                                      Command="{Binding DataContext.DeleteCommand,RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
-
                                     <common:SimpleMarkdownViewer MarkdownText="{Binding Message}"
                                                                  Margin="5">
                                         <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
@@ -151,7 +150,8 @@
                 </TextBox.KeyBindings>
             </TextBox>
 
-            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right" IsHitTestVisible="{Binding $self.Children[0].IsEnabled}">
+            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                        IsHitTestVisible="{Binding $self.Children[0].IsEnabled}">
                 <!-- ~1~ 显示输入的 token @1@ -->
                 <!-- <TextBlock Text="{Binding InputToken}" -->
                 <!--            FontSize="12" -->

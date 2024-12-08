@@ -41,7 +41,9 @@ public partial class CharacterListViewData : ObservableObject
     {
         foreach (var characterData in CharacterManager.Instance.CharacterDataDictionary)
         {
-            Characters.Add(new CharacterInfoViewData(characterData.Value));
+            var characterInfo = new CharacterInfoViewData(characterData.Value);
+            if (characterData.Value.IsTool) Characters.Add(characterInfo);
+            else Characters.Insert(0, characterInfo);
         }
     }
 

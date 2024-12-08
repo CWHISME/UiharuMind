@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Common.ChatPlugins"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.Common.ChatPlugins.ChatPlugin_UserCharacterCard">
+
+    <Design.DataContext>
+        <chatPlugins:ChatPlugin_UserCharacterCardData />
+    </Design.DataContext>
+
+    <!-- 角色卡 -->
+    <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}" Padding="5">
+        <StackPanel Spacing="10">
+            <u:Divider Content="{x:Static  lang:Lang.CharacterCard}" />
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="{Binding User.Description}" VerticalAlignment="Center" />
+                <Button DockPanel.Dock="Right" Content="{x:Static lang:Lang.Edit}"
+                        Command="{Binding EditUserCardCommand}" />
+            </DockPanel>
+            <SelectableTextBlock Text="{Binding UserTemplateReadonly}" TextWrapping="Wrap" />
+        </StackPanel>
+    </Border>
+
+</UserControl>

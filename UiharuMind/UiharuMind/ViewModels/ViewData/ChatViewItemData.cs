@@ -9,15 +9,21 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.ViewModels.ViewData;
 
+/// <summary>
+/// 一个聊天记录中的一条消息
+/// </summary>
 public partial class ChatViewItemData : ViewModelBase, IPoolAble
 {
     // [ObservableProperty] private bool _isUser;
@@ -38,6 +44,9 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     {
         get
         {
+#pragma warning disable SKEXP0001
+            if (!string.IsNullOrEmpty(_cachedContent?.AuthorName)) return _cachedContent.AuthorName;
+#pragma warning restore SKEXP0001
             if (Role == ECharacter.System) return "System";
             if (Role == ECharacter.User) return "User";
             if (Role == ECharacter.Assistant) return "Assistant";
@@ -58,6 +67,8 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
         }
     }
 
+    public Action<ChatViewItemData>? DeleteCallback { get; set; }
+
     public void SetChatItem(ChatMessage item)
     {
         Role = item.Character;
@@ -65,6 +76,19 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
         Message = item.Message?.Content;
         Timestamp = item.LocalTimeString;
         _cachedContent = item.Message;
+    }
+
+    [RelayCommand]
+    public void Edit()
+    {
+        Log.Debug("EditCommand" + Message);
+    }
+
+    [RelayCommand]
+    public void Delete()
+    {
+        // Log.Debug("DeleteCommand" + Message);
+        DeleteCallback?.Invoke(this);
     }
 
     public void Reset()

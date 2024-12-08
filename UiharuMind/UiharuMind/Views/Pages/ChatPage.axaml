@@ -5,6 +5,7 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              xmlns:u="https://irihi.tech/ursa"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.ChatPage">
 
@@ -50,7 +51,7 @@
             <!-- Pane (Sidebar) -->
             <Border Grid.Column="0" Margin="0,0,2,0" Width="{Binding LeftPaneWidth, Mode=TwoWay}">
                 <StackPanel Spacing="5">
-                    <Button Content="+" HorizontalAlignment="Stretch" Command="{Binding AddChatCommand}"/>
+                    <Button Content="+" HorizontalAlignment="Stretch" Command="{Binding AddChatCommand}" />
                     <otherViews:ChatListView />
                 </StackPanel>
             </Border>
@@ -85,7 +86,7 @@
 
             <!-- Right Pane (Content) -->
             <Border Grid.Column="4" Width="{Binding RightPaneWidth, Mode=TwoWay}">
-                <TextBlock Text="Right Content" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24" />
+                <common:ChatInfoView />
             </Border>
         </Grid>
     </Grid>

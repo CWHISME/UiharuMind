@@ -192,7 +192,7 @@
         <value>系统提示</value>
     </data>
     <data name="RoleplayCharacter" xml:space="preserve">
-        <value>角色扮演</value>
+        <value>角色</value>
     </data>
     <data name="ToolCharacter" xml:space="preserve">
         <value>工具人</value>
@@ -218,5 +218,11 @@
     </data>
     <data name="MessageWarningTitle" xml:space="preserve">
         <value>注意</value>
+    </data>
+    <data name="Tool" xml:space="preserve">
+        <value>工具</value>
+    </data>
+    <data name="CharacterCard" xml:space="preserve">
+        <value>角色卡</value>
     </data>
 </root>

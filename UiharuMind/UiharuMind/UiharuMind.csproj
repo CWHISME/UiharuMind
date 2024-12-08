@@ -34,9 +34,11 @@
 
 	<ItemGroup>
 	  <UpToDateCheckInput Remove="ViewModels\Controls\Footer.axaml" />
+	  <UpToDateCheckInput Remove="Views\Common\ChatPlugins\ChatPlugin_UserCharacterCard.axaml" />
 	</ItemGroup>
 
 	<ItemGroup>
+	  <AdditionalFiles Include="Views\Chat\ChatPlugins\ChatPlugin_UserCharacterCard.axaml" />
 	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCaptureDockWindow.axaml" />
 	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCapturePreviewWindow.axaml" />
 	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCaptureWindow.axaml" />
@@ -75,20 +77,24 @@
 	    <DependentUpon>LogView.axaml</DependentUpon>
 	    <SubType>Code</SubType>
 	  </Compile>
-	  <Compile Update="Views\Common\ChatView.axaml.cs">
-	    <DependentUpon>ChatView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Common\ChatListView.axaml.cs">
-	    <DependentUpon>ChatListView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
 	  <Compile Update="Views\Others\Footer.axaml.cs">
 	    <DependentUpon>Footer.axaml</DependentUpon>
 	    <SubType>Code</SubType>
 	  </Compile>
 	  <Compile Update="Views\ClipboardView\ClipboardSettingView.axaml.cs">
 	    <DependentUpon>ClipboardSettingView.axaml</DependentUpon>
+	    <SubType>Code</SubType>
+	  </Compile>
+	  <Compile Update="Views\Chat\ChatInfoView.axaml.cs">
+	    <DependentUpon>ChatInfoView.axaml</DependentUpon>
+	    <SubType>Code</SubType>
+	  </Compile>
+	  <Compile Update="Views\Chat\ChatListView.axaml.cs">
+	    <DependentUpon>ChatListView.axaml</DependentUpon>
+	    <SubType>Code</SubType>
+	  </Compile>
+	  <Compile Update="Views\Chat\ChatView.axaml.cs">
+	    <DependentUpon>ChatView.axaml</DependentUpon>
 	    <SubType>Code</SubType>
 	  </Compile>
 	</ItemGroup>

@@ -165,10 +165,13 @@ public partial class MessageService : ObservableObject
     /// <param name="message"></param>
     /// <param name="callback"></param>
     /// <returns></returns>
-    public void ShowConfirmMessageBox(string message, Action<bool> callback)
+    public void ShowConfirmMessageBox(string message, Action callback)
     {
         ShowMessageBox(message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
-            MessageBoxButton.YesNo, x => callback(x == MessageBoxResult.Yes));
+            MessageBoxButton.YesNo, x =>
+            {
+                if (x == MessageBoxResult.Yes) callback();
+            });
     }
 
     public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,

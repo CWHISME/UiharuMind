@@ -9,21 +9,13 @@ namespace UiharuMind.Core.AI.Character.Skills;
 
 public class TeamTranslationAgentSkill : AgentSkill
 {
-    private Dictionary<string, object?>? _args;
-
-    public void AddParams(string key, object? value)
-    {
-        _args ??= new Dictionary<string, object?>();
-        _args[key] = value;
-    }
-
     protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
         var translator = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator)
-            .ToAgent(modelRunningData.Kernel, _args);
+            .ToAgent(modelRunningData.Kernel, args);
         var reviwer = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslateReviwer)
-            .ToAgent(modelRunningData.Kernel, _args);
+            .ToAgent(modelRunningData.Kernel, args);
 
         return modelRunningData.InvokeAutoChatGroupPlanningStreamingAsync(text,
             new HistoryCountTerminationStrategy(3)

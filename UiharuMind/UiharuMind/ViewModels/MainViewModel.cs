@@ -43,7 +43,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         {
             // Receive(MenuKeys.MenuMainKey);
             // OnPropertyChanged();
-            JumpToPage(MenuPages.MenuMainKey);
+            JumpToPage(MenuPages.MenuChatKey);
         }, DispatcherPriority.ApplicationIdle);
     }
 

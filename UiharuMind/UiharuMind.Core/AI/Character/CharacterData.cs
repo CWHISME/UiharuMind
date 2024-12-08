@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using UiharuMind.Core.Core.Utils;
 
 #pragma warning disable SKEXP0110
 
@@ -12,12 +13,17 @@ public class CharacterData
     public CharacterConfig Config { get; set; } = new CharacterConfig();
 
     public ChatCompletionAgent ToAgent(Kernel kernel, Dictionary<string, object?>? kernelArguments = null) =>
-        Config.ToAgent(kernel, kernelArguments);
+        Config.ToAgent(kernel, CheckParams(kernelArguments));
 
     /// <summary>
     /// 是否是默认角色
     /// </summary>
     public bool IsDefaultCharacter { get; set; }
+
+    /// <summary>
+    /// 在角色列表隐藏
+    /// </summary>
+    public bool IsHide { get; set; }
 
     /// <summary>
     /// 是否是工具人
@@ -31,7 +37,13 @@ public class CharacterData
     /// 若挂载对象被挂载了额外角色，则该挂载对象将会失效
     /// </summary>
     public List<string> MountCharacters { get; set; } =
-        new List<string>() { DefaultCharacter.RoleplayAdmin.ToString() };
+        new List<string>()
+        {
+            DefaultCharacter.Actor.ToString(),
+            DefaultCharacter.RoleplaySimple.ToString(),
+            DefaultCharacter.RoleplayDetailed.ToString(),
+            DefaultCharacter.RoleplayImmersive.ToString()
+        };
 
     /// <summary>
     /// 角色名
@@ -95,4 +107,22 @@ public class CharacterData
     {
         return characterData.ToAgent(LlmManager.Instance.CurrentRunningModel!.Kernel);
     }
+
+
+    // ============================== Common Params ================================
+
+    public const string ParamsNameLanguage = "lang";
+    public const string ParamsNameChar = "char";
+    public const string ParamsNameUser = "user";
+
+    private Dictionary<string, object?> CheckParams(Dictionary<string, object?>? kernelArguments)
+    {
+        kernelArguments ??= new Dictionary<string, object?>();
+        kernelArguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.EnglishName);
+        kernelArguments.TryAdd(ParamsNameChar, CharacterName);
+        kernelArguments.TryAdd(ParamsNameUser, CharacterManager.Instance.UserCharacterName);
+        return kernelArguments;
+    }
+
+    //================================================================================
 }

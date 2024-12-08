@@ -25,9 +25,9 @@
             <Setter Property="FontSize" Value="24" />
             <Setter Property="Margin" Value="0,0,0,10" />
         </Style>
-        <Style Selector="Border">
-            <Setter Property="Padding" Value="0,10,0,10" />
-        </Style>
+        <!-- <Style Selector="Border"> -->
+        <!--     <Setter Property="Padding" Value="0,10,0,10" /> -->
+        <!-- </Style> -->
         <!-- <Style Selector="common|SimpleMarkdownViewer"> -->
         <!--     <Setter Property="Margin" Value="0,10,0,10" /> -->
         <!-- </Style> -->

@@ -14,13 +14,14 @@
 
     <DockPanel>
 
-        <DockPanel DockPanel.Dock="Top">
+        <DockPanel DockPanel.Dock="Top" LastChildFill="False">
             <ToggleSwitch DockPanel.Dock="Left" IsChecked="{Binding IsPhotoListView}"
                           OffContent="{x:Static  lang:Lang.ToggleIsListView}"
                           OnContent="{x:Static  lang:Lang.ToggleIsPhotoListView}" />
-            <Button Name="AddButton" DockPanel.Dock="Left" Content="+" Command="{Binding AddCharacterCommand}"
+            <Button Name="AddButton" DockPanel.Dock="Right" Content="+" Command="{Binding AddCharacterCommand}"
                     Height="{Binding $parent[DockPanel].Height}"
-                    Width="{Binding $self.Height}" />
+                    Width="{Binding $self.Height}"
+                    Margin="0,0,5,0" />
             <!-- <Panel DockPanel.Dock="Left" Margin="0,0,5,0"> -->
             <!--     <TextBox Watermark="Search..." Text="{Binding SearchText}" AcceptsReturn="True"/> -->
             <!--     ~1~ <ProgressBar IsIndeterminate="True" CornerRadius="0" VerticalAlignment="Bottom" IsVisible="{Binding IsBusy}" /> @1@ -->
@@ -46,10 +47,14 @@
                                        VerticalAlignment="Top">
                                 </Image>
                                 <Rectangle Fill="Lavender" Height="1" HorizontalAlignment="Stretch" />
+                                <!-- <u:Badge IsVisible="{Binding !IsRole}" Header="{x:Static  lang:Lang.Tool}" -->
+                                <!--          Background="Gold" /> -->
                                 <Panel Height="40">
                                     <TextBlock Text="{Binding Name}" TextAlignment="Center" VerticalAlignment="Center"
                                                TextWrapping="Wrap" />
                                 </Panel>
+                                <u:Badge Header="{Binding FuncName }"
+                                         Background="{Binding FuncColor}" Margin="0,0,0,5" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>
@@ -74,10 +79,14 @@
                                 <!-- 文本内容 -->
                                 <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical"
                                             VerticalAlignment="Center">
-                                    <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Orientation="Horizontal">
                                         <!-- 名称 -->
                                         <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
-                                    </Grid>
+                                        <u:Badge Header="{Binding FuncName }" HorizontalAlignment="Left"
+                                                 Background="{Binding FuncColor}" />
+                                        <!-- <u:Badge IsVisible="{Binding !IsRole}" Header="{x:Static  lang:Lang.Tool}" -->
+                                        <!--          Background="Gold" /> -->
+                                    </StackPanel>
 
                                     <!-- 描述 -->
                                     <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />

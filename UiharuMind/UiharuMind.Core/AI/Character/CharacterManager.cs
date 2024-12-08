@@ -15,14 +15,17 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     /// <summary>
     /// 用户角色的名字
     /// </summary>
-    public string UserCharacterName => _userCharacterData!.CharacterName;
+    public string UserCharacterName => UserCharacterData.Description;
 
     /// <summary>
     /// 代表用户自己的角色数据
+    /// Description: 代表名字
+    /// Template: 代表描述模板
     /// </summary>
-    public CharacterData UserCharacterData => _userCharacterData!;
+    public CharacterData UserCharacterData =>
+        DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UserCard);
 
-    private CharacterData? _userCharacterData;
+    // private CharacterData? _userCharacterData;
 
     public void OnInitialize()
     {
@@ -43,6 +46,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         foreach (var defCharacter in DefaultCharacterManager.Instance.Characters)
         {
             if (CharacterDataDictionary.ContainsKey(defCharacter.Value.CharacterName)) continue;
+            if (defCharacter.Value.IsHide) continue;
             CharacterDataDictionary.Add(defCharacter.Value.CharacterName, defCharacter.Value);
         }
 
@@ -59,11 +63,11 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         // var char2 = SaveUtility.LoadFromString<CharacterData>(str);
         // var yamlStr = YamlUtility.SaveToString(CharacterDataList[0]);
         // var char22=YamlUtility.LoadFromString<CharacterData>(yamlStr);
-        _userCharacterData = new CharacterData
-        {
-            CharacterName = "桃子",
-            Description = "桃子是一只可爱的黑猫，喜欢甜食和在树荫下晒太阳，希望有人可以与Ta聊天，如果被拒绝了会很悲伤。",
-        };
+        // _userCharacterData = new CharacterData
+        // {
+        //     CharacterName = "桃子",
+        //     Description = "桃子是一只可爱的黑猫，喜欢甜食和在树荫下晒太阳，希望有人可以与Ta聊天，如果被拒绝了会很悲伤。",
+        // };
     }
 
     /// <summary>
@@ -113,8 +117,15 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
 
     public void SaveCharacterData(CharacterData characterData)
     {
-        var savePath = Path.Combine(SettingConfig.SaveCharacterDataPath, characterData.CharacterName + ".json");
+        string path = SettingConfig.SaveCharacterDataPath;
+        if (Enum.TryParse(characterData.CharacterName, out DefaultCharacter defaultCharacter))
+        {
+            //默认角色单独存储
+            path = SettingConfig.SaveDefaultCharacterDataPath;
+        }
+
+        var savePath = Path.Combine(path, characterData.CharacterName + ".json");
         SaveUtility.Save(savePath, characterData);
-        CharacterDataDictionary.Add(characterData.CharacterName, characterData);
+        if (!characterData.IsHide) CharacterDataDictionary.TryAdd(characterData.CharacterName, characterData);
     }
 }

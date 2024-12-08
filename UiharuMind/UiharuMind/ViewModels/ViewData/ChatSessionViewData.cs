@@ -189,10 +189,11 @@ public partial class ChatSessionViewData : ObservableObject
     }
 
     [RelayCommand]
+    //清除所有历史记录
     public void ClearChatHistory()
     {
         App.MessageService.ShowConfirmMessageBox(Lang.ClearTips,
-            (x) =>
+            () =>
             {
                 ChatSession.Clear();
                 ChatItems.Clear();
@@ -201,10 +202,23 @@ public partial class ChatSessionViewData : ObservableObject
     }
 
     [RelayCommand]
+    //删除整个对话
     public void Delete()
     {
         App.MessageService.ShowConfirmMessageBox(Lang.DeleteAllClipboardHistoryTips,
-            (x) => { ChatManager.Instance.DeleteSession(ChatSession); });
+            () => { ChatManager.Instance.DeleteSession(ChatSession); });
+    }
+
+    /// <summary>
+    /// 删除指定消息
+    /// </summary>
+    /// <param name="itemData"></param>
+    public void DeleteChatItem(ChatViewItemData itemData)
+    {
+        int index = ChatItems.IndexOf(itemData);
+        if (index < 0) return;
+        ChatItems.RemoveAt(index);
+        ChatSession.RemoveMessageAt(index);
     }
 
     public void ModifySessionName(string newName)
@@ -247,6 +261,7 @@ public partial class ChatSessionViewData : ObservableObject
     {
         var chatViewItemData = new ChatViewItemData(); //SimpleObjectPool<ChatViewItemData>.Get();
         chatViewItemData.SetChatItem(chatItem);
+        chatViewItemData.DeleteCallback = DeleteChatItem;
         ChatItems.Add(chatViewItemData);
         TimeString = CalcTimeString();
         return chatViewItemData;

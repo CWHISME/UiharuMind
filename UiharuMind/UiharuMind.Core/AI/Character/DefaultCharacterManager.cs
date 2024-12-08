@@ -54,7 +54,11 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 
 public enum DefaultCharacter
 {
-    RoleplayAdmin,
+    UserCard,
+    Actor,
+    RoleplaySimple,
+    RoleplayDetailed,
+    RoleplayImmersive,
     UiharuKazari,
     Expositor,
     Translator,

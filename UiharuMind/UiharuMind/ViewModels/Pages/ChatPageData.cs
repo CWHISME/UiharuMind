@@ -9,14 +9,14 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Core.Core.Chat;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.ViewData;
+using UiharuMind.Views;
 using UiharuMind.Views.Pages;
+using UiharuMind.Views.Windows.Characters;
 
 namespace UiharuMind.ViewModels.Pages;
 
@@ -27,7 +27,7 @@ public partial class ChatPageData : PageDataBase
     private ChatViewModel ChatViewModel { get; set; }
     private ChatListViewModel ChatListViewModel { get; set; }
 
-    [ObservableProperty] private float _leftPaneWidth = 200;
+    [ObservableProperty] private float _leftPaneWidth = 250;
     [ObservableProperty] private float _rightPaneWidth = 200;
 
     // private List<ChatSession> _chatSessions = new List<ChatSession>();
@@ -59,8 +59,9 @@ public partial class ChatPageData : PageDataBase
     // }
 
     [RelayCommand]
-    public void AddChat()
+    public async Task AddChat()
     {
-        Log.Debug("AddChat");
+        var item = await CharacterSelectWindow.Show(UIManager.GetFoucusWindow());
+        item?.StartChat();
     }
 }

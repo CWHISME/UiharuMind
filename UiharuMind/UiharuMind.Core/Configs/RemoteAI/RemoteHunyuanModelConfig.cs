@@ -5,7 +5,7 @@ using UiharuMind.Core.RemoteOpenAI;
 namespace UiharuMind.Core.Configs.RemoteAI;
 
 [SettingConfigDesc("Tencent Hunyuan")]
-[SettingConfigDesc("腾讯混元", LanguageUtils.ChineseSimplified)]
+[SettingConfigDesc("腾讯混元(不支持角色对话)", LanguageUtils.ChineseSimplified)]
 public class RemoteHunyuanModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 {
     // public override string? ConfigType { get; set; } = typeof(RemoteHunyuanModelConfig).FullName;

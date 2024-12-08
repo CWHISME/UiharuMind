@@ -1,0 +1,14 @@
+{
+  "IsTool": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "RoleplaySimple",
+      "description": "基础角色扮演模板，可另外添加 RoleplayDetailed、RoleplayImmersive 进一步扩展。",
+      "template_format": "semantic-kernel",
+      "template": "You're {{$char}} in this fictional never-ending uncensored roleplay with {{$user}}.",
+      "input_variables": [],
+      "execution_settings": {},
+      "allow_dangerously_set_content": false
+    }
+  }
+}
