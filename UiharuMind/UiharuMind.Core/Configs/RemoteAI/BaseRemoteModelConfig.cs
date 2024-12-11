@@ -11,6 +11,7 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual string ModelPath { get; set; }
     public virtual string ModelDescription { get; set; }
     public virtual string ModelId { get; set; }
+    public virtual bool IsVision { get; set; }
     [SettingConfigIgnoreDisplay] public virtual int Port { get; set; }
     [SettingConfigIgnoreDisplay] public virtual string ApiKey { get; set; }
 

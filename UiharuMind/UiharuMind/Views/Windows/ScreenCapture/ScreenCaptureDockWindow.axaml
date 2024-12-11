@@ -5,16 +5,43 @@
         mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="50"
         x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureDockWindow"
         Title="ScreenCaptureDockWindow">
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <!-- <Setter Property="Width" Value="32" /> -->
+            <Setter Property="Height" Value="32" />
+        </Style>
+        <Style Selector="PathIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Window.Styles>
+
     <StackPanel Orientation="Horizontal">
         <Button Click="OnOcrBtnClick">
-            <PathIcon Data="{StaticResource TextFieldRegular}" Background="Transparent" Width="20" Height="20"
-                      Padding="5" />
+            <PathIcon Data="{StaticResource TextFieldRegular}" />
+        </Button>
+        <Button Click="OnOcrAiBtnClick">
+            <Panel>
+                <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
+                           Margin="0,-5,0,0" />
+                <PathIcon Data="{StaticResource TextFieldRegular}" Margin="0,5,0,0" />
+            </Panel>
+        </Button>
+        <Button Click="OnVisionAiBtnClick">
+            <Panel>
+                <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
+                           Margin="0,-5,0,0" />
+                <PathIcon Data="{StaticResource Chat}" Margin="0,5,0,0" />
+            </Panel>
         </Button>
         <Button Click="OnCopyBtnClick">
-            <PathIcon Data="{StaticResource CopyRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
+            <PathIcon Data="{StaticResource CopyRegular}" />
         </Button>
         <Button Click="OnSaveBtnClick">
-            <PathIcon Data="{StaticResource SaveRegular}" Background="Transparent" Width="20" Height="20" Padding="5" />
+            <PathIcon Data="{StaticResource SaveRegular}" />
         </Button>
     </StackPanel>
 

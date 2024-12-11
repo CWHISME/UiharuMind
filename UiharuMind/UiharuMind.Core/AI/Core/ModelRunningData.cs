@@ -49,6 +49,11 @@ public class ModelRunningData
     public bool IsRemoteModel => _modelInfo is RemoteModelInfo;
 
     /// <summary>
+    /// 是否是视觉模型
+    /// </summary>
+    public bool IsVisionModel => _modelInfo.IsVision;
+
+    /// <summary>
     /// 模型路径
     /// </summary>
     public string ModelPath => _modelInfo.ModelPath;
@@ -81,6 +86,7 @@ public class ModelRunningData
 
     /// <summary>
     /// 加载模型，如果模型已经处于运行中，则不进行任何操作
+    /// 远程模型将立即加载完成
     /// </summary>
     /// <param name="onLoading"></param>
     /// <param name="onLoaded"></param>
@@ -106,7 +112,7 @@ public class ModelRunningData
         // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(_modelInfo.ModelPath, Port,
         //     OnInitLoad,
         //     OnMessageUpdate);
-        StopRunning();
+        if (!IsRemoteModel) StopRunning();
     }
 
     /// <summary>

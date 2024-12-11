@@ -15,6 +15,7 @@ public interface ILlmModel
 {
     string ModelName { get; }
     string ModelPath { get; }
+    bool IsVision { get; }
     string ModelDescription { get; }
     string ModelId { get; }
     int Port { get; }

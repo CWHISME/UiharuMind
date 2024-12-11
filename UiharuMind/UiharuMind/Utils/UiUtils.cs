@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
@@ -50,6 +51,19 @@ public static class UiUtils
             }
         }).ConfigureAwait(false);
         return bitmap;
+    }
+
+    /// <summary>
+    /// 将 Bitmap 转换为字节数组
+    /// </summary>
+    /// <param name="bitmap"></param>
+    /// <returns></returns>
+    public static byte[] BitmapToBytes(this Bitmap bitmap)
+    {
+        using var memoryStream = new MemoryStream();
+        bitmap.Save(memoryStream);
+        memoryStream.Position = 0;
+        return memoryStream.ToArray();
     }
 
     /// <summary>

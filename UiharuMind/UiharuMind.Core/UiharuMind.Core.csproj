@@ -20,6 +20,8 @@
     </ItemGroup>
 
     <ItemGroup>
+      <EmbeddedResource Include="Resources\ImageOcr.json" />
+      <EmbeddedResource Include="Resources\ExpositorQuote.json" />
       <EmbeddedResource Include="Resources\UserCard.json" />
       <None Remove="Resources\UiharuKazari.json" />
       <EmbeddedResource Include="Resources\Expositor.json" />

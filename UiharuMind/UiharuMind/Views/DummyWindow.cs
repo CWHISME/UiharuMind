@@ -149,7 +149,7 @@ public class DummyWindow : Window
 
     public void LaunchQuickStartChatWindow()
     {
-        UIManager.ShowWindow<QuickStartChatWindow>();
+        QuickStartChatWindow.Show("");
     }
 
     public void LaunchQuickToolWindow(string answerStr)

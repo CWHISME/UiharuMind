@@ -13,6 +13,8 @@ using System;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Utils;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Common;
 
@@ -44,5 +46,18 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         if (CurrentSnapWindow == null) return;
         await App.FilesService.SaveImageAsync(CurrentSnapWindow.ImageSource, CurrentSnapWindow);
+    }
+
+    private void OnOcrAiBtnClick(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentSnapWindow == null) return;
+        ImageOcrSkill skill = new ImageOcrSkill(CurrentSnapWindow.ImageSource.BitmapToBytes());
+        QuickChatResultWindow.Show("OCR (AI)", "", skill);
+    }
+
+    private void OnVisionAiBtnClick(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentSnapWindow == null) return;
+        QuickStartChatWindow.Show(CurrentSnapWindow.ImageSource);
     }
 }

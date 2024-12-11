@@ -18,10 +18,11 @@ namespace UiharuMind.Core.RemoteOpenAI;
 
 public class RemoteModelInfo : ILlmModel
 {
-    public BaseRemoteModelConfig? Config { get; set; } = new RemoteModelConfig();
+    public BaseRemoteModelConfig Config { get; set; } = new RemoteModelConfig();
 
     [JsonIgnore] public string ModelName => Config.ModelName;
     [JsonIgnore] public string ModelPath => Config.ModelPath;
+    [JsonIgnore] public bool IsVision => Config.IsVision;
     [JsonIgnore] public string ModelDescription => Config.ModelDescription;
     [JsonIgnore] public string ModelId => Config.ModelId;
     [JsonIgnore] public int Port => Config.Port;

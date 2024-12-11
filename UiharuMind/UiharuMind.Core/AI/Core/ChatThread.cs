@@ -66,9 +66,14 @@ public static class ChatThread
         ChatHistory chatHistory,
         [EnumeratorCancellation] CancellationToken token)
     {
-        if (!modelRunning.IsRunning)
+        // if (!modelRunning.IsRunning)
+        // {
+        //     Log.Error("Model is not running.");
+        //     yield break;
+        // }
+        if (SafeCheckModelRunning(ref modelRunning) == false)
         {
-            Log.Error("Model is not running.");
+            yield return "Model is not running.";
             yield break;
         }
 
@@ -103,73 +108,73 @@ public static class ChatThread
         SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);
     }
 
-    public static async void SendMessageStreaming(this ModelRunningData modelRunning, ChatHistory chatHistory,
-        Action<DateTimeOffset>? onMessageStart,
-        Action<ChatStreamingMessageInfo> onMessageReceived,
-        Action<ChatStreamingMessageInfo> onMessageStopped,
-        CancellationToken token)
-    {
-        if (!modelRunning.IsRunning)
-        {
-            Log.Error("Model is not running.");
-            return;
-        }
-
-        var chat = modelRunning.Kernel.GetRequiredService<IChatCompletionService>();
-        var builder = StringBuilderPool.Get();
-        var delayUpdater = SimpleObjectPool<EmptyDelayUpdater>.Get();
-        delayUpdater.SetDelay(100);
-
-        ChatStreamingMessageInfo info = new ChatStreamingMessageInfo();
-        StreamingChatMessageContent? lastMessage = null;
-        try
-        {
-            await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
-                               new PromptExecutionSettings(), cancellationToken: token))
-            {
-                if (onMessageStart != null)
-                {
-                    if (content.Metadata?.TryGetValue("CreatedAt", out object? value) == true &&
-                        value is DateTimeOffset dateTimeOffset)
-                        onMessageStart(dateTimeOffset);
-                    else onMessageStart.Invoke(DateTimeOffset.Now);
-                    onMessageStart = null;
-                }
-
-                lastMessage = content;
-                builder.Append(content.Content);
-                // ReSharper disable once MethodHasAsyncOverload
-                if (delayUpdater.UpdateDelay())
-                {
-                    info.Message = builder.ToString();
-                    onMessageReceived?.Invoke(info);
-                }
-
-                if (token.IsCancellationRequested) break;
-            }
-        }
-        catch (IOException)
-        {
-        }
-        catch (Exception e)
-        {
-            Log.Error("Error in ChatThread.SendMessageStreamingAsync: " + e.Message);
-        }
-        finally
-        {
-            // info.Message = MarkdownUtils.ToHtml(builder.ToString());
-            info.Message = (builder.ToString());
-            if (lastMessage?.InnerContent is StreamingChatCompletionUpdate cp)
-            {
-                info.TokenCount = cp.Usage?.TotalTokenCount ?? 0;
-            }
-
-            StringBuilderPool.Release(builder);
-            SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);
-            Log.Debug("end of chat thread " + info.TokenCount);
-            onMessageStopped.Invoke(info);
-        }
-    }
+    // public static async void SendMessageStreaming(this ModelRunningData modelRunning, ChatHistory chatHistory,
+    //     Action<DateTimeOffset>? onMessageStart,
+    //     Action<ChatStreamingMessageInfo> onMessageReceived,
+    //     Action<ChatStreamingMessageInfo> onMessageStopped,
+    //     CancellationToken token)
+    // {
+    //     if (!modelRunning.IsRunning)
+    //     {
+    //         Log.Error("Model is not running.");
+    //         return;
+    //     }
+    //
+    //     var chat = modelRunning.Kernel.GetRequiredService<IChatCompletionService>();
+    //     var builder = StringBuilderPool.Get();
+    //     var delayUpdater = SimpleObjectPool<EmptyDelayUpdater>.Get();
+    //     delayUpdater.SetDelay(100);
+    //
+    //     ChatStreamingMessageInfo info = new ChatStreamingMessageInfo();
+    //     StreamingChatMessageContent? lastMessage = null;
+    //     try
+    //     {
+    //         await foreach (var content in chat.GetStreamingChatMessageContentsAsync(chatHistory,
+    //                            new PromptExecutionSettings(), cancellationToken: token))
+    //         {
+    //             if (onMessageStart != null)
+    //             {
+    //                 if (content.Metadata?.TryGetValue("CreatedAt", out object? value) == true &&
+    //                     value is DateTimeOffset dateTimeOffset)
+    //                     onMessageStart(dateTimeOffset);
+    //                 else onMessageStart.Invoke(DateTimeOffset.Now);
+    //                 onMessageStart = null;
+    //             }
+    //
+    //             lastMessage = content;
+    //             builder.Append(content.Content);
+    //             // ReSharper disable once MethodHasAsyncOverload
+    //             if (delayUpdater.UpdateDelay())
+    //             {
+    //                 info.Message = builder.ToString();
+    //                 onMessageReceived?.Invoke(info);
+    //             }
+    //
+    //             if (token.IsCancellationRequested) break;
+    //         }
+    //     }
+    //     catch (IOException)
+    //     {
+    //     }
+    //     catch (Exception e)
+    //     {
+    //         Log.Error("Error in ChatThread.SendMessageStreamingAsync: " + e.Message);
+    //     }
+    //     finally
+    //     {
+    //         // info.Message = MarkdownUtils.ToHtml(builder.ToString());
+    //         info.Message = (builder.ToString());
+    //         if (lastMessage?.InnerContent is StreamingChatCompletionUpdate cp)
+    //         {
+    //             info.TokenCount = cp.Usage?.TotalTokenCount ?? 0;
+    //         }
+    //
+    //         StringBuilderPool.Release(builder);
+    //         SimpleObjectPool<EmptyDelayUpdater>.Release(delayUpdater);
+    //         Log.Debug("end of chat thread " + info.TokenCount);
+    //         onMessageStopped.Invoke(info);
+    //     }
+    // }
 
     /// <summary>
     /// 使用提示词，直接生成流式消息
@@ -208,10 +213,15 @@ public static class ChatThread
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     public static async IAsyncEnumerable<string> InvokePromptStreamingAsync(
-        this ModelRunningData modelRunning, string prompt,
+        this ModelRunningData? modelRunning, string prompt,
         KernelArguments? kernelArguments = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (!modelRunning.IsRunning)
+        // if (!modelRunning.IsRunning)
+        // {
+        //     yield return "Model is not running.";
+        //     yield break;
+        // }
+        if (SafeCheckModelRunning(ref modelRunning) == false)
         {
             yield return "Model is not running.";
             yield break;
@@ -219,7 +229,7 @@ public static class ChatThread
 
         StringBuilder builder = new(64);
         EmptyDelayUpdater delayUpdater = new();
-        await foreach (var content in modelRunning.Kernel
+        await foreach (var content in modelRunning!.Kernel
                            .InvokePromptStreamingAsync(prompt, kernelArguments, cancellationToken: cancellationToken)
                            .ConfigureAwait(false))
         {
@@ -287,7 +297,7 @@ public static class ChatThread
         CharacterData characterData, ChatHistory? chatHistory = null,
         CancellationToken cancellationToken = default, Action? end = null)
     {
-        if (modelRunning is not { IsRunning: true })
+        if (SafeCheckModelRunning(ref modelRunning) == false)
         {
             return new AsyncEnumerableWithMessage("Model is not running.");
         }
@@ -301,7 +311,12 @@ public static class ChatThread
         ChatCompletionAgent agent, ChatHistory? chatHistory = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default, Action? end = null)
     {
-        if (modelRunning is not { IsRunning: true })
+        // if (modelRunning is not { IsRunning: true })
+        // {
+        //     yield return "Model is not running.";
+        //     yield break;
+        // }
+        if (SafeCheckModelRunning(ref modelRunning) == false)
         {
             yield return "Model is not running.";
             yield break;
@@ -313,7 +328,7 @@ public static class ChatThread
 
         chatHistory ??= new ChatHistory();
         await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
-                               chatHistory, null, modelRunning.Kernel, cancellationToken)
+                               chatHistory, null, modelRunning!.Kernel, cancellationToken)
                            .ConfigureAwait(false))
         {
             if (string.IsNullOrEmpty(response.Content))
@@ -353,7 +368,21 @@ public static class ChatThread
         TerminationStrategy terminationStrategy,
         [EnumeratorCancellation] CancellationToken cancellationToken = default, params Agent[] agents)
     {
-        if (modelRunning is not { IsRunning: true })
+        // if (modelRunning is not { IsRunning: true })
+        // {
+        //     if (modelRunning?.IsRemoteModel == false)
+        //     {
+        //         yield return "Model is not running.";
+        //         yield break;
+        //     }
+        //
+        //     if (modelRunning?.Kernel == null)
+        //     {
+        //         _ = modelRunning?.StartLoad(null, null);
+        //     }
+        // }
+
+        if (SafeCheckModelRunning(ref modelRunning) == false)
         {
             yield return "Model is not running.";
             yield break;
@@ -393,5 +422,15 @@ public static class ChatThread
             if (cancellationToken.IsCancellationRequested) break;
         }
         // Log.Debug(chat);
+    }
+
+    private static bool SafeCheckModelRunning(ref ModelRunningData? modelRunning)
+    {
+        if (modelRunning is not { IsRunning: true })
+        {
+            return false;
+        }
+
+        return true;
     }
 }

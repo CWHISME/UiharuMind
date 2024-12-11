@@ -61,7 +61,9 @@ public enum DefaultCharacter
     RoleplayImmersive,
     UiharuKazari,
     Expositor,
+    ExpositorQuote,
     Translator,
     TranslateReviwer,
+    ImageOcr,
     Max
 }

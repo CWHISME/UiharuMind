@@ -4,7 +4,7 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
-public class ExpositorAgentSkill : AgentSkill
+public class ExpositorAgentSkill : AgentSkillBase
 {
 
     protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,

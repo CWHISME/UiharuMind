@@ -11,11 +11,15 @@
 
     <StackPanel>
         <Border Name="QuatePanel" BorderThickness="1" Padding="10" CornerRadius="5">
-            <StackPanel Margin="10">
+            <StackPanel Margin="10" Spacing="10">
                 <TextBlock Text="{x:Static lang:Lang.QuickChatQuateTitle}" FontSize="18" />
-                <TextBlock Name="QuoteTextBlock" TextWrapping="Wrap" />
+                <Panel Margin="10">
+                    <TextBlock Name="QuoteTextBlock" TextWrapping="Wrap" />
+                    <Image Name="QuoteImage"></Image>
+                </Panel>
             </StackPanel>
         </Border>
+
         <Grid ColumnDefinitions="*,Auto" Margin="10">
             <TextBox Name="InputBox" Grid.Column="0" TextWrapping="Wrap" AcceptsReturn="True">
                 <TextBox.KeyBindings>

@@ -89,6 +89,11 @@
                                         Content="{x:Static lang:Lang.ModifyBtn}"
                                         CommandParameter="{Binding ModelName}"
                                         Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                    <Button
+                                        CornerRadius="15"
+                                        Content="{x:Static lang:Lang.Delete}"
+                                        CommandParameter="{Binding ModelName}"
+                                        Command="{Binding DataContext.DeleteRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                 </StackPanel>
                             </Panel>
                         </DockPanel>

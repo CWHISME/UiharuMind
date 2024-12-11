@@ -22,6 +22,7 @@ public class GGufModelInfo : ILlmModel
     public bool IsDegraded { get; set; }
 
     [JsonIgnore] public string ModelPath { get; set; }
+    public bool IsVision => false;
     public string ModelDescription { get; }
     public string ModelId { get; }
     public int Port { get; set; }

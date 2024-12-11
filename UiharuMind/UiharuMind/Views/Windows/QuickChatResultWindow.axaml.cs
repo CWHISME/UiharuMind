@@ -45,7 +45,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
             ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
     }
 
-    public static void Show(string? title, string? answer, AgentSkill agentSkill)
+    public static void Show(string? title, string? answer, AgentSkillBase agentSkill)
     {
         if (answer == null) return;
         UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, agentSkill), null,
@@ -107,7 +107,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
         Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
     }
 
-    public void SetRequestInfo(string? title, string content, AgentSkill agentSkill)
+    public void SetRequestInfo(string? title, string content, AgentSkillBase agentSkill)
     {
         TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
 

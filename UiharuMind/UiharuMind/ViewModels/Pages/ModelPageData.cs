@@ -24,6 +24,7 @@ using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Views;
 using UiharuMind.Views.Pages;
 using UiharuMind.Views.Windows.Common;
+using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.Pages;
 
@@ -81,6 +82,18 @@ public partial class ModelPageData : PageDataBase
         if (model != null)
         {
             LlmManager.Instance.RemoteModelManager.AddRemoteModel(model);
+            LoadModels();
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteRemoteModel(string name)
+    {
+        var result = await App.MessageService.ShowConfirmMessageBox("Are you sure to delete remote model " + name + "?",
+            UIManager.GetRootWindow());
+        if (result == MessageBoxResult.Yes)
+        {
+            LlmManager.Instance.RemoteModelManager.DeleteRemoteModel(name);
             LoadModels();
         }
     }

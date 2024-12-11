@@ -31,21 +31,37 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         }
     }
 
-    public async Task Run(ILlmModel model, Action<float>? onLoading = null, Action<Kernel>? onLoadOver = null,
+    public ModelRunningData? FindVisionModel()
+    {
+        ModelRunningData? modelRunning = null;
+        foreach (var model in RemoteListModels)
+        {
+            if (model.Value.IsVisionModel)
+            {
+                modelRunning = model.Value;
+                break;
+            }
+        }
+
+        return modelRunning;
+    }
+
+    public Task Run(ILlmModel model, Action<float>? onLoading = null, Action<Kernel>? onLoadOver = null,
         CancellationToken token = default)
     {
         onLoadOver?.Invoke(CreateKernel(model));
-        while (!token.IsCancellationRequested)
-        {
-            try
-            {
-                // 使用 Task.Delay 无限期地等待，直到 CancellationToken 被触发
-                await Task.Delay(Timeout.Infinite, token);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
+        return Task.CompletedTask;
+        // while (!token.IsCancellationRequested)
+        // {
+        //     try
+        //     {
+        //         // 使用 Task.Delay 无限期地等待，直到 CancellationToken 被触发
+        //         await Task.Delay(Timeout.Infinite, token);
+        //     }
+        //     catch (OperationCanceledException)
+        //     {
+        //     }
+        // }
     }
 
     private Kernel CreateKernel(ILlmModel model)

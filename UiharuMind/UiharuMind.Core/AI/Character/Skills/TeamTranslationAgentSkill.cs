@@ -7,7 +7,7 @@ using UiharuMind.Core.AI.Core;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
-public class TeamTranslationAgentSkill : AgentSkill
+public class TeamTranslationAgentSkill : AgentSkillBase
 {
     protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
