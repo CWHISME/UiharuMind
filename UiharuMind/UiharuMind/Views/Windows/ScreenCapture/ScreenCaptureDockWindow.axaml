@@ -20,7 +20,10 @@
     </Window.Styles>
 
     <StackPanel Orientation="Horizontal">
-        <Button Click="OnOcrBtnClick">
+        <Button Click="OnEditBtnClick">
+            <PathIcon Data="{StaticResource ImageEditRegular}" />
+        </Button>
+        <Button Name="OcrBtn" Click="OnOcrBtnClick">
             <PathIcon Data="{StaticResource TextFieldRegular}" />
         </Button>
         <Button Click="OnOcrAiBtnClick">

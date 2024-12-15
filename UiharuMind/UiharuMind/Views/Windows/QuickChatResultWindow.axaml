@@ -14,12 +14,15 @@
         <Border Height="30" Background="Transparent"
                 PointerPressed="InputElement_OnPointerPressed">
             <DockPanel LastChildFill="False">
-                <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,0,0" TextAlignment="Center" />
+                <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
                 <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
                     <u:LoadingIcon Name="LoadingEffect" />
                     <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
                             Click="OnStopButtonClick" />
                 </StackPanel>
+                <Button Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton">
+                    <PathIcon Data="{StaticResource ArrowRepeatAllRegular}" Width="20" Height="20" />
+                </Button>
                 <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
                         Click="CloseButton_Click" />
             </DockPanel>

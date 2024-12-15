@@ -163,9 +163,9 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             OnCurrentModelStartLoading?.Invoke();
             await CurrentRunningModel.StartLoad(OnCurrentModelLoading, OnCurrentModelLoaded);
             // 通知当前运行的模型改变
-            if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
+            // if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
             // 通知有任意模型状态改变
-            OnAnyModelStateChanged?.Invoke(runningInfo);
+            if (!CurrentRunningModel.IsRunning) OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"load model error， {modelName} not found in cache.");
     }

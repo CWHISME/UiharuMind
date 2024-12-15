@@ -7,11 +7,11 @@
     </Design.PreviewWith>
 
     <!-- Add Styles Here -->
-    
+
     <!-- pointerover 之类的效果想修改必须通过设置模板实现 -->
     <!-- https://github.com/AvaloniaUI/Avalonia/discussions/8382 -->
-    
-    <!-- SimpleSolidButton -->
+
+    <!-- SimpleSolidButton：单纯的按钮，无任何效果 -->
     <!-- 移除 Button 的悬停效果 -->
     <Style Selector="Button.SimpleSolidButton:pointerover /template/ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
@@ -21,14 +21,14 @@
     <Style Selector="Button.SimpleSolidButton:pressed /template/ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
     </Style>
-        
+
     <!-- 确保覆盖 Button 默认样式 -->
     <Style Selector="Button.SimpleSolidButton">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
     </Style>
-    
+
     <!-- 变成圆形按钮 -->
     <Style Selector="Button.CircleButton">
         <Setter Property="CornerRadius" Value="15" />
@@ -37,5 +37,5 @@
         <Setter Property="Width" Value="32" />
         <Setter Property="Height" Value="32" />
     </Style>
-    
+
 </Styles>

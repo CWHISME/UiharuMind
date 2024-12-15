@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using SharpHook.Native;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
@@ -129,8 +130,9 @@ public class DummyWindow : Window
     private void RegistryClipboardTool()
     {
         App.Clipboard.OnClipboardStringChanged += LaunchQuickToolWindow;
+        App.Clipboard.OnClipboardImageChanged += LaunchQuickImagePinWindow;
     }
-
+    
     // private void RegistryShortcutQuickTool(KeyCode decorateKeyCode)
     // {
     //     InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcC,
@@ -154,7 +156,12 @@ public class DummyWindow : Window
 
     public void LaunchQuickToolWindow(string answerStr)
     {
-        UIManager.ShowWindow<QuickToolWindow>(x => x.SetAnswerString(answerStr));
+        QuickToolWindow.Show(answerStr);
+    }
+    
+    private void LaunchQuickImagePinWindow(Bitmap obj)
+    {
+        QuickPinImageTipWindow.Show(obj);
     }
 
     public void LaunchQuickClipboardHistoryWindow()

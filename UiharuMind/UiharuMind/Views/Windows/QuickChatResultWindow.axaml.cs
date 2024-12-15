@@ -38,12 +38,12 @@ namespace UiharuMind.Views.Windows;
 
 public partial class QuickChatResultWindow : QuickWindowBase
 {
-    public static void Show(string? title, string? answer, string? prompt = null)
-    {
-        if (answer == null) return;
-        UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, prompt), null,
-            ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
-    }
+    // public static void Show(string? title, string? answer, string? prompt = null)
+    // {
+    //     if (answer == null) return;
+    //     UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, prompt), null,
+    //         ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
+    // }
 
     public static void Show(string? title, string? answer, AgentSkillBase agentSkill)
     {
@@ -73,43 +73,49 @@ public partial class QuickChatResultWindow : QuickWindowBase
         {
             InAnswerPanel.IsVisible = !value;
             LoadingEffect.IsLoading = !value;
+            RegenerateButton.IsVisible = value;
             ResultTextBlock.IsPlaintext = !value || ConfigManager.Instance.Setting.IsChatPlainText;
         }
     }
 
-    public void SetRequestInfo(string? title, string content, string? prompt = null)
-    {
-        TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+    private string _askContent;
+    private AgentSkillBase _agentSkill;
 
-        _cts = new CancellationTokenSource();
-        IsFinished = false;
-
-        async void Action()
-        {
-            try
-            {
-                //简单模式
-                await foreach (var message in LlmManager.Instance.CurrentRunningModel!
-                                   .InvokeQuickToolPromptStreamingAsync(
-                                       content, prompt, Lang.Culture, _cts.Token))
-                {
-                    AppendContent(message);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Warning(e.Message);
-            }
-
-            IsFinished = true;
-        }
-
-        Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
-    }
+    // public void SetRequestInfo(string? title, string content, string? prompt = null)
+    // {
+    //     TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+    //
+    //     _cts = new CancellationTokenSource();
+    //     IsFinished = false;
+    //
+    //     async void Action()
+    //     {
+    //         try
+    //         {
+    //             //简单模式
+    //             await foreach (var message in LlmManager.Instance.CurrentRunningModel!
+    //                                .InvokeQuickToolPromptStreamingAsync(
+    //                                    content, prompt, Lang.Culture, _cts.Token))
+    //             {
+    //                 AppendContent(message);
+    //             }
+    //         }
+    //         catch (Exception e)
+    //         {
+    //             Log.Warning(e.Message);
+    //         }
+    //
+    //         IsFinished = true;
+    //     }
+    //
+    //     Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
+    // }
 
     public void SetRequestInfo(string? title, string content, AgentSkillBase agentSkill)
     {
         TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+        _askContent = content;
+        _agentSkill = agentSkill;
 
         _cts = new CancellationTokenSource();
         IsFinished = false;
@@ -174,5 +180,10 @@ public partial class QuickChatResultWindow : QuickWindowBase
     {
         _cts.SafeStop();
         IsFinished = true;
+    }
+
+    private void OnRegenerateButtonClick(object? sender, RoutedEventArgs e)
+    {
+        SetRequestInfo(TitleTextBlock.Text, _askContent, _agentSkill);
     }
 }

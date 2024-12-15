@@ -11,9 +11,13 @@
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Common;
@@ -26,6 +30,12 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         SizeToContent = SizeToContent.WidthAndHeight;
         InitializeComponent();
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        OcrBtn.IsVisible = PlatformUtils.IsMacOS;
     }
 
     private void OnOcrBtnClick(object? sender, RoutedEventArgs e)
@@ -59,5 +69,26 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         if (CurrentSnapWindow == null) return;
         QuickStartChatWindow.Show(CurrentSnapWindow.ImageSource);
+    }
+
+    private void OnEditBtnClick(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentSnapWindow == null) return;
+        ScreenCaptureEditWindow window = new ScreenCaptureEditWindow(
+            CurrentSnapWindow.ImageSource, CurrentSnapWindow.Position,
+            new Size(CurrentSnapWindow.Width, CurrentSnapWindow.Height), (bitmap) =>
+            {
+                // CurrentSnapWindow?.SetImage(bitmap);
+                CurrentSnapWindow?.Show();
+            });
+        SafeClose();
+        CurrentSnapWindow.Hide();
+        window.Show();
+        // var result = await window.ShowDialog<Bitmap?>(CurrentSnapWindow);
+        // if (result != null)
+        // {
+        //     CurrentSnapWindow?.SetImage(result);
+        //     CurrentSnapWindow?.Show();
+        // }
     }
 }

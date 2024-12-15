@@ -233,4 +233,13 @@
     <data name="CharacterCard" xml:space="preserve">
         <value>Character Card</value>
     </data>
+    <data name="Translation" xml:space="preserve">
+        <value>Translation</value>
+    </data>
+    <data name="Ask" xml:space="preserve">
+        <value>Ask</value>
+    </data>
+    <data name="Explain" xml:space="preserve">
+        <value>Explain</value>
+    </data>
 </root>

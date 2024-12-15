@@ -72,7 +72,8 @@ public abstract class AgentSkillBase
     /// <returns></returns>
     private bool SafeCheckModelRunning(ref ModelRunningData? modelRunning)
     {
-        if (modelRunning == null && LlmManager.Instance.RemoteModelManager.RemoteListModels.Count > 0)
+        if ((modelRunning == null || IsVision && !modelRunning.IsVisionModel) &&
+            LlmManager.Instance.RemoteModelManager.RemoteListModels.Count > 0)
         {
             foreach (var model in LlmManager.Instance.RemoteModelManager.RemoteListModels)
             {

@@ -35,8 +35,13 @@ namespace UiharuMind.Views.Windows;
 /// <summary>
 /// 当复制操作发生后，显示在复制位置的工具
 /// </summary>
-public partial class QuickToolWindow : QuickWindowBase
+public partial class QuickToolWindow : QuickFloatingWindowBase
 {
+    public static void Show(string answerString)
+    {
+        UIManager.ShowWindow<QuickToolWindow>(x => x.SetAnswerString(answerString));
+    }
+
     public QuickToolWindow()
     {
         InitializeComponent();
@@ -45,47 +50,47 @@ public partial class QuickToolWindow : QuickWindowBase
         // SubMenuComboBox.SelectionChanged += OnSubMenuComboBoxSelectionChanged;
     }
 
-    public override void Awake()
-    {
-        SizeToContent = SizeToContent.WidthAndHeight;
-        this.SetSimpledecorationPureWindow();
-        this.CanResize = true;
-    }
+    // public override void Awake()
+    // {
+    //     SizeToContent = SizeToContent.WidthAndHeight;
+    //     this.SetSimpledecorationPureWindow();
+    //     this.CanResize = true;
+    // }
 
-    private void OnSubMenuComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        // CloseSelf();
-        if (sender == null) return;
-        var comboBox = (ComboBox)sender;
-        var newItem = comboBox.SelectedItem;
-        if (newItem != null)
-        {
-            comboBox.SelectedItem = null;
-            PlayAnimation(false, SafeClose);
-        }
-
-        // e.Handled = true;
-    }
+    // private void OnSubMenuComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    // {
+    //     // CloseSelf();
+    //     if (sender == null) return;
+    //     var comboBox = (ComboBox)sender;
+    //     var newItem = comboBox.SelectedItem;
+    //     if (newItem != null)
+    //     {
+    //         comboBox.SelectedItem = null;
+    //         PlayAnimation(false, SafeClose);
+    //     }
+    //
+    //     // e.Handled = true;
+    // }
 
     private string? _answerString;
 
-    protected override void OnPreShow()
-    {
-        base.OnPreShow();
-        InputManager.Instance.EventOnKeyDown += OnKeyDown;
-        InputManager.Instance.EventOnMouseWheel += OnMouseWheel;
-        BindMouseClickCloseEvent();
+    // protected override void OnPreShow()
+    // {
+    //     base.OnPreShow();
+    //     InputManager.Instance.EventOnKeyDown += OnKeyDown;
+    //     InputManager.Instance.EventOnMouseWheel += OnMouseWheel;
+    //     BindMouseClickCloseEvent();
+    //
+    //     ShowActivated = false;
+    //     this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
+    // }
 
-        ShowActivated = false;
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
-    }
-
-    protected override void OnPreClose()
-    {
-        base.OnPreClose();
-        InputManager.Instance.EventOnKeyDown -= OnKeyDown;
-        InputManager.Instance.EventOnMouseWheel -= OnMouseWheel;
-    }
+    // protected override void OnPreClose()
+    // {
+    //     base.OnPreClose();
+    //     InputManager.Instance.EventOnKeyDown -= OnKeyDown;
+    //     InputManager.Instance.EventOnMouseWheel -= OnMouseWheel;
+    // }
 
     public void SetAnswerString(string text)
     {
@@ -100,20 +105,20 @@ public partial class QuickToolWindow : QuickWindowBase
         // QuickChatResultWindow.Show("解释", _answerString, ConfigManager.Instance.QuickToolPromptSetting.Explanation);
         ExpositorAgentSkill skill = new ExpositorAgentSkill();
         // skill.SetLangate(Lang.Culture.EnglishName);
-        QuickChatResultWindow.Show("解释", _answerString, skill);
+        QuickChatResultWindow.Show(Lang.Explain, _answerString, skill);
         PlayAnimation(false, SafeClose);
     }
 
 
-    private void OnMouseWheel(MouseWheelEventData obj)
-    {
-        SafeClose();
-    }
-
-    private void OnKeyDown(KeyCode obj)
-    {
-        SafeClose();
-    }
+    // private void OnMouseWheel(MouseWheelEventData obj)
+    // {
+    //     SafeClose();
+    // }
+    //
+    // private void OnKeyDown(KeyCode obj)
+    // {
+    //     SafeClose();
+    // }
 
     protected override void OnPointerEntered(PointerEventArgs e)
     {
@@ -121,13 +126,18 @@ public partial class QuickToolWindow : QuickWindowBase
         PlayAnimation(true);
     }
 
-    protected override void OnPointerExited(PointerEventArgs e)
-    {
-        // if (SubMenuComboBox.IsDropDownOpen) return;
-        PlayAnimation(false);
-    }
+    // protected override void OnPointerExited(PointerEventArgs e)
+    // {
+    //     // if (SubMenuComboBox.IsDropDownOpen) return;
+    //     PlayAnimation(false);
+    // }
+    //
+    // private void PlayAnimation(bool isShowed, Action? onCompleted = null)
+    // {
+    //     UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
+    // }
 
-    private void PlayAnimation(bool isShowed, Action? onCompleted = null)
+    protected override void PlayAnimation(bool isShowed, Action? onCompleted = null)
     {
         UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
     }
@@ -135,7 +145,7 @@ public partial class QuickToolWindow : QuickWindowBase
     private void InitFunctionMenu()
     {
         FunctionMenu.Children.Clear();
-        AddFunctionMenu("翻译",
+        AddFunctionMenu(Lang.Translation,
             () =>
             {
                 // TeamTranslationAgentSkill skill = new TeamTranslationAgentSkill();
@@ -143,10 +153,9 @@ public partial class QuickToolWindow : QuickWindowBase
                 // skill.AddParams("lang", Lang.Culture.EnglishName);
                 // QuickChatResultWindow.Show("翻译", _answerString,
                 //     ConfigManager.Instance.QuickToolPromptSetting.Translation);
-                QuickChatResultWindow.Show("翻译", _answerString, skill);
+                QuickChatResultWindow.Show(Lang.Translation, _answerString, skill);
             });
-        AddFunctionMenu("询问",
-            () => { QuickStartChatWindow.Show(_answerString); });
+        AddFunctionMenu(Lang.Ask, () => { QuickStartChatWindow.Show(_answerString); });
     }
 
     private void AddFunctionMenu(string text, Action action, int xMargin = 5)

@@ -42,11 +42,13 @@ public class ClipboardService : IDisposable
     /// </summary>
     public ObservableCollection<ClipboardItem> ClipboardHistoryItems { get; }
 
-    public Action<string>? OnClipboardStringChanged;
+    public event Action<string>? OnClipboardStringChanged;
+    public event Action<Bitmap>? OnClipboardImageChanged;
 
     public const string ImageTypePngWin = "image/png";
 
     public const string ImageTypePngMac = "public.png";
+    // public const string ImageTypeTiffMac = "public.tiff";
 
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
     public const string HistoryFileName = "clipboard_history.json";
@@ -146,8 +148,15 @@ public class ClipboardService : IDisposable
 
     private async void OnSystemClipboardChanged()
     {
-        var clipboardContent = await Clipboard.GetTextAsync();
-        if (string.IsNullOrEmpty(clipboardContent)) return;
+        var clipboardContent = await GetFromClipboard();
+        if (string.IsNullOrEmpty(clipboardContent))
+        {
+            //是图片吗
+            var image = await GetImageFromClipboard();
+            if (image != null) OnClipboardImageChanged?.Invoke(image);
+            return;
+        }
+
         //简单对比排除一下相同项
         if (ClipboardHistoryItems.Count > 0 && clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
             clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;

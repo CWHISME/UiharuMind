@@ -1,0 +1,39 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:u="https://irihi.tech/ursa"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        MinWidth="200"
+        MinHeight="200"
+        x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureEditWindow"
+        Title="ScreenCaptureEditWindow">
+
+    <Window.Styles>
+        <Style Selector="Button">
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+    </Window.Styles>
+
+    <!-- Padding="5,-5" -->
+
+    <Border CornerRadius="10"
+            BorderThickness="1"
+            BorderBrush="{StaticResource UiBorderBrush}">
+
+        <Grid RowDefinitions="Auto,Auto,*" Margin="5">
+            <Image Name="ImageContent" Stretch="None"/>
+            <u:Divider Grid.Row="1" Margin="-10,5" />
+            <DockPanel Grid.Row="2" Margin="5,0">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
+                    <Button Content="Crop" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <!-- <Button Content="Save" Click="SaveButton_Click" /> -->
+                    <Button Content="X" Click="CancelButton_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Grid>
+    </Border>
+
+</Window>

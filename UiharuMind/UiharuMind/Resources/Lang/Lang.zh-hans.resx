@@ -225,4 +225,13 @@
     <data name="CharacterCard" xml:space="preserve">
         <value>角色卡</value>
     </data>
+    <data name="Translation" xml:space="preserve">
+        <value>翻译</value>
+    </data>
+    <data name="Ask" xml:space="preserve">
+        <value>询问</value>
+    </data>
+    <data name="Explain" xml:space="preserve">
+        <value>解释</value>
+    </data>
 </root>

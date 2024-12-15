@@ -470,5 +470,23 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("CharacterCard", resourceCulture);
             }
         }
+        
+        public static string Translation {
+            get {
+                return ResourceManager.GetString("Translation", resourceCulture);
+            }
+        }
+        
+        public static string Ask {
+            get {
+                return ResourceManager.GetString("Ask", resourceCulture);
+            }
+        }
+        
+        public static string Explain {
+            get {
+                return ResourceManager.GetString("Explain", resourceCulture);
+            }
+        }
     }
 }

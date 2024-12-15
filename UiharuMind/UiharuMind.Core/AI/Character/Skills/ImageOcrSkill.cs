@@ -21,7 +21,7 @@ public class ImageOcrSkill : AgentSkillVisionBase
     {
     }
 
-    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,
+    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string text,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {

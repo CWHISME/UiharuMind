@@ -9,6 +9,12 @@
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false
+    },
+    "OpenAiSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6,
+      "presence_penalty": 0,
+      "frequency_penalty": 0
     }
   }
 }

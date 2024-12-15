@@ -132,6 +132,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
         {
             ImageVisionSkill skill = new ImageVisionSkill(_quoteImage.BitmapToBytes());
             QuickChatResultWindow.Show("Vision (AI)", inputText, skill);
+            CloseByAnimation();
             return;
         }
 
