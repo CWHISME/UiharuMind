@@ -35,7 +35,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     private Size _originSize;
     // private double _minScale;
 
+
+    public Bitmap? ImageBackupSource;
+    public Bitmap ImageOriginSource;
     public Bitmap ImageSource;
+    // public Bitmap? ImageNewSource;
 
     public ScreenCapturePreviewWindow()
     {
@@ -75,7 +79,9 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         _aspectRatio = _originSize.Width / _originSize.Height;
 
         ImageSource = image;
+        ImageOriginSource = image;
         ImageContent.Source = image;
+        ImageBackupSource = null;
 
         var bounds = App.ScreensService.MouseScreen?.Bounds;
         if (bounds != null)

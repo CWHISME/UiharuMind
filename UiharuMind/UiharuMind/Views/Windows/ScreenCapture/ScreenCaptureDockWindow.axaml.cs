@@ -35,6 +35,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        ToggleOldNewBtn.IsVisible = CurrentSnapWindow?.ImageBackupSource != null;
         OcrBtn.IsVisible = PlatformUtils.IsMacOS;
     }
 
@@ -78,8 +79,10 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
             CurrentSnapWindow.ImageSource, CurrentSnapWindow.Position,
             new Size(CurrentSnapWindow.Width, CurrentSnapWindow.Height), (bitmap) =>
             {
-                // CurrentSnapWindow?.SetImage(bitmap);
-                CurrentSnapWindow?.Show();
+                CurrentSnapWindow.ImageBackupSource = CurrentSnapWindow.ImageOriginSource;
+                CurrentSnapWindow.ImageSource = bitmap;
+                CurrentSnapWindow.ImageContent.Source = bitmap;
+                CurrentSnapWindow.Show();
             });
         SafeClose();
         CurrentSnapWindow.Hide();
@@ -90,5 +93,13 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         //     CurrentSnapWindow?.SetImage(result);
         //     CurrentSnapWindow?.Show();
         // }
+    }
+
+    private void OnToggleOldNewBtnClick(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentSnapWindow?.ImageBackupSource == null) return;
+        (CurrentSnapWindow.ImageSource, CurrentSnapWindow.ImageBackupSource) =
+            (CurrentSnapWindow.ImageBackupSource, CurrentSnapWindow.ImageSource);
+        CurrentSnapWindow.ImageContent.Source = CurrentSnapWindow.ImageSource;
     }
 }

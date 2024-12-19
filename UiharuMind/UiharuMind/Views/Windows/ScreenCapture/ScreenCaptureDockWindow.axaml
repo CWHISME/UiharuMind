@@ -23,6 +23,9 @@
         <Button Click="OnEditBtnClick">
             <PathIcon Data="{StaticResource ImageEditRegular}" />
         </Button>
+        <Button Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick">
+            <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
+        </Button>
         <Button Name="OcrBtn" Click="OnOcrBtnClick">
             <PathIcon Data="{StaticResource TextFieldRegular}" />
         </Button>

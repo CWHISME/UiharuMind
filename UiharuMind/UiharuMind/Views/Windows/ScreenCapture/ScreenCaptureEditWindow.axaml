@@ -3,11 +3,16 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:u="https://irihi.tech/ursa"
+        xmlns:screenCapture="clr-namespace:UiharuMind.Views.Windows.ScreenCapture"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         MinWidth="200"
         MinHeight="200"
         x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureEditWindow"
         Title="ScreenCaptureEditWindow">
+
+    <Design.DataContext>
+        <screenCapture:ScreenCaptureEditWindow />
+    </Design.DataContext>
 
     <Window.Styles>
         <Style Selector="Button">
@@ -15,22 +20,39 @@
         </Style>
     </Window.Styles>
 
-    <!-- Padding="5,-5" -->
+    <Window.KeyBindings>
+        <!-- Bind Ctrl+Z to Undo -->
+        <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z" />
+        <!-- Bind Ctrl+Y to Redo -->
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y" />
+    </Window.KeyBindings>
 
     <Border CornerRadius="10"
             BorderThickness="1"
             BorderBrush="{StaticResource UiBorderBrush}">
 
         <Grid RowDefinitions="Auto,Auto,*" Margin="5">
-            <Image Name="ImageContent" Stretch="None"/>
+
+            <!-- <Panel Name="ImagePanel"> -->
+            <!-- <Image Name="ImageContent" Stretch="None" /> -->
+            <Canvas Name="DrawingCanvas" Background="Transparent">
+                <Image Name="ImageContent" Stretch="None" />
+            </Canvas>
+            <!-- Width="{Binding #ImageContent.Bounds.Width}" -->
+            <!-- Height="{Binding #ImageContent.Bounds.Height}" /> -->
+            <!-- </Panel> -->
             <u:Divider Grid.Row="1" Margin="-10,5" />
             <DockPanel Grid.Row="2" Margin="5,0">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                    <Button Content="Crop" />
+                    <ToggleButton Name="GeometryRectangleButton" Content="◻︎" />
+                    <ToggleButton Name="GeometryCircleButton" Content="○" />
+                    <ColorPicker Name="GeometryColorPicker" Theme="{StaticResource SimpleColorPicker}" />
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <!-- <Button Content="Save" Click="SaveButton_Click" /> -->
-                    <Button Content="X" Click="CancelButton_Click" />
+                    <!-- <Button Content="X" Click="CancelButton_Click" /> -->
+                    <Button Content="⇠" Name="UndoButton" Command="{Binding UndoCommand}" />
+                    <Button Content="⇢" Name="RedoButton" Command="{Binding RedoCommand}" />
                 </StackPanel>
             </DockPanel>
         </Grid>

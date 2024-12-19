@@ -25,6 +25,7 @@
 		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.4.0" />
 		<PackageReference Include="Markdown.Avalonia" Version="11.0.3-a1" />
 		<PackageReference Include="Semi.Avalonia" Version="11.1.0.4" />
+		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.1.0.5" />
 		<PackageReference Include="SharpHook" Version="5.3.8" />
 	</ItemGroup>
 

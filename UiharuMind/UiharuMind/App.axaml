@@ -21,6 +21,7 @@
 
     <Application.Styles>
         <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" />
+        <StyleInclude Source="avares://Semi.Avalonia.ColorPicker/Index.axaml" />
         <StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude>
         <StyleInclude Source="avares://UiharuMind/Assets/CustomButtonStyle.axaml"></StyleInclude>
         <StyleInclude Source="avares://UiharuMind/Assets/CustomFontStyle.axaml"></StyleInclude>
