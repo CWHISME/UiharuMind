@@ -5,7 +5,7 @@ namespace UiharuMind.Utils;
 
 public static class ObservableCollectionExt
 {
-    public static void Remvoe<T>(this ObservableCollection<T> collection, Func<T, bool> predicate)
+    public static void RemvoeItem<T>(this ObservableCollection<T> collection, Func<T, bool> predicate)
     {
         for (int i = collection.Count - 1; i >= 0; i--)
         {

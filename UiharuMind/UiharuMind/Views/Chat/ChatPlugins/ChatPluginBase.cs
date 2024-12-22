@@ -20,15 +20,24 @@ namespace UiharuMind.Views.Common.ChatPlugins;
 //     }
 // }
 
-public class ChatPluginBase : ObservableObject
+public partial class ChatPluginBase : ObservableObject
 {
     public virtual UserControl View { get; }
 
-    private ChatSessionViewData _chatSessionViewData;
+    [ObservableProperty] private ChatSessionViewData _chatSessionCurrentViewData;
 
     public void SetSessonData(ChatSessionViewData chatSessionViewData)
     {
-        _chatSessionViewData = chatSessionViewData;
+        ChatSessionCurrentViewData = chatSessionViewData;
+    }
+
+    partial void OnChatSessionCurrentViewDataChanged(ChatSessionViewData value)
+    {
+        OnChatSessionChanged(value);
+    }
+
+    protected virtual void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
+    {
     }
 }
 

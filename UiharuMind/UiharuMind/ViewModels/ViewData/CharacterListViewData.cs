@@ -5,8 +5,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Views.Windows.Characters;
+using UiharuMind.Utils;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -45,6 +45,19 @@ public partial class CharacterListViewData : ObservableObject
             if (characterData.Value.IsTool) Characters.Add(characterInfo);
             else Characters.Insert(0, characterInfo);
         }
+
+        CharacterManager.Instance.OnCharacterAdded += OnCharacterAdded;
+        CharacterManager.Instance.OnCharacterRemoved += OnCharacterRemoved;
+    }
+
+    private void OnCharacterAdded(CharacterData obj)
+    {
+        Characters.Insert(Math.Max(0, Characters.IndexOf(SelectedCharacter)), new CharacterInfoViewData(obj));
+    }
+
+    private void OnCharacterRemoved(CharacterData obj)
+    {
+        Characters.RemvoeItem(x => x.Name == obj.CharacterName);
     }
 
     partial void OnSelectedCharacterChanged(CharacterInfoViewData value)
@@ -56,5 +69,11 @@ public partial class CharacterListViewData : ObservableObject
     public void AddCharacter()
     {
         CharacterEditWindow.Show(null, (data) => { data.TryAddToNewCharacterData(); });
+    }
+
+    ~CharacterListViewData()
+    {
+        CharacterManager.Instance.OnCharacterAdded -= OnCharacterAdded;
+        CharacterManager.Instance.OnCharacterRemoved -= OnCharacterRemoved;
     }
 }

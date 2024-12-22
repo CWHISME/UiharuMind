@@ -225,7 +225,7 @@ public partial class CharacterInfoViewData : ObservableObject
     [RelayCommand]
     public void EditCharacter()
     {
-        CharacterEditWindow.Show(this, null);
+        CharacterEditWindow.Show(this, x => x.SaveCharacter());
     }
 
     [RelayCommand]
@@ -234,6 +234,19 @@ public partial class CharacterInfoViewData : ObservableObject
         _characterData.Save();
     }
 
+    [RelayCommand]
+    public void DeleteCharacter()
+    {
+        App.MessageService.ShowConfirmMessageBox(
+            string.Format(Lang.CharacterDeleteTips, _characterData.CharacterName), () => { _characterData.Delete(); });
+    }
+
+    [RelayCommand]
+    public void CopyCharacter()
+    {
+        App.MessageService.ShowConfirmMessageBox(
+            string.Format(Lang.CharacterCopyTips, _characterData.CharacterName), () => { _characterData.Copy(); });
+    }
 
     [RelayCommand]
     public async Task AddMountCharacter()

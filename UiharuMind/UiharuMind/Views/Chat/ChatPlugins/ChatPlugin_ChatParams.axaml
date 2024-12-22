@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Chat.ChatPlugins"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.Chat.ChatPlugins.ChatPlugin_ChatParams">
+
+    <Design.DataContext>
+        <chatPlugins:ChatPlugin_ChatParamsData />
+    </Design.DataContext>
+
+    <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+        <StackPanel>
+            <u:Divider Content="{x:Static  lang:Lang.ParameterSettings}" />
+            <settingViews:SettingPanelView Padding="10,0,10,0"
+                                           SettingConfig="{Binding Character.Config.ExecutionSettings}" />
+        </StackPanel>
+    </Border>
+
+</UserControl>

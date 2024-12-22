@@ -488,5 +488,29 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("Explain", resourceCulture);
             }
         }
+        
+        public static string CharacterDeleteTips {
+            get {
+                return ResourceManager.GetString("CharacterDeleteTips", resourceCulture);
+            }
+        }
+        
+        public static string CharacterCopyTips {
+            get {
+                return ResourceManager.GetString("CharacterCopyTips", resourceCulture);
+            }
+        }
+        
+        public static string DeleteCharacterTips {
+            get {
+                return ResourceManager.GetString("DeleteCharacterTips", resourceCulture);
+            }
+        }
+        
+        public static string Copy {
+            get {
+                return ResourceManager.GetString("Copy", resourceCulture);
+            }
+        }
     }
 }

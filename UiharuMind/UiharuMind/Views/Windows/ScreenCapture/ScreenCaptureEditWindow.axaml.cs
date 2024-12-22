@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -27,12 +28,17 @@ public partial class ScreenCaptureEditWindow : Window
 
     public int BtnHeight { get; set; } = 45;
 
+    private Size _size;
+    private double _scale;
+
     private static Color _color = Colors.Red;
 
     public ScreenCaptureEditWindow(Bitmap source, PixelPoint position, Size size, Action<Bitmap> onClose)
     {
         _source = source;
         _onClose = onClose;
+        _size = size;
+        _scale = size.Width / source.PixelSize.Width;
         int offset = (int)(App.ScreensService.Scaling * 5);
         var pos = new PixelPoint(position.X - offset, position.Y - offset);
         Width = size.Width + 10;
@@ -62,8 +68,11 @@ public partial class ScreenCaptureEditWindow : Window
     {
         base.OnOpened(e);
         ImageContent.Source = _source;
-        DrawingCanvas.Width = _source.PixelSize.Width;
-        DrawingCanvas.Height = _source.PixelSize.Height;
+        ImageContent.Width = _size.Width;
+        ImageContent.Height = _size.Height;
+        DrawingCanvas.Width = _size.Width;
+        DrawingCanvas.Height = _size.Height;
+
         GeometryColorPicker.Color = _color;
         RefreshUndoRedo();
     }
@@ -252,6 +261,48 @@ public partial class ScreenCaptureEditWindow : Window
         }
     }
 
+    public Bitmap RenderToBitmap(Layoutable visual, Bitmap originalBitmap)
+    {
+        var renderTargetBitmap = new RenderTargetBitmap(originalBitmap.PixelSize);
+        ImageContent.Width = originalBitmap.PixelSize.Width;
+        ImageContent.Height = originalBitmap.PixelSize.Height;
+        DrawingCanvas.Width = originalBitmap.PixelSize.Width;
+        DrawingCanvas.Height = originalBitmap.PixelSize.Height;
+        ResizeCanvasAndChildren(DrawingCanvas, originalBitmap.PixelSize.Width, originalBitmap.PixelSize.Height);
+        visual.Arrange(new Rect(0, 0, originalBitmap.PixelSize.Width, originalBitmap.PixelSize.Height));
+        renderTargetBitmap.Render(visual);
+        return renderTargetBitmap;
+    }
+
+    private void ResizeCanvasAndChildren(Canvas canvas, double originalWidth, double originalHeight)
+    {
+        // 计算 Canvas 经过缩放后的的大小，保持与原图一致
+        double scaleX = originalWidth / canvas.Bounds.Width;
+        double scaleY = originalHeight / canvas.Bounds.Height;
+        // canvas.Width = originalWidth;
+        // canvas.Height = originalHeight;
+
+        //同时遍历设置 Canvas 的所有子对象
+        foreach (var child in canvas.Children)
+        {
+            if (child is Path path)
+            {
+                switch (path.Data)
+                {
+                    case RectangleGeometry rect:
+                        rect.Rect = new Rect(rect.Rect.X * scaleX, rect.Rect.Y * scaleY, rect.Rect.Width * scaleX,
+                            rect.Rect.Height * scaleY);
+                        break;
+                    case EllipseGeometry ellipse:
+                        ellipse.Center = new Point(ellipse.Center.X * scaleX, ellipse.Center.Y * scaleY);
+                        ellipse.RadiusX *= scaleX;
+                        ellipse.RadiusY *= scaleY;
+                        break;
+                }
+            }
+        }
+    }
+
     public Bitmap CombineCanvasWithBitmap(Canvas canvas, Bitmap originalBitmap)
     {
         if (canvas.Bounds.Width <= 0 || canvas.Bounds.Height <= 0)
@@ -278,7 +329,7 @@ public partial class ScreenCaptureEditWindow : Window
 
     private void SafeClose()
     {
-        var combinedBitmap = CombineCanvasWithBitmap(DrawingCanvas, _source);
+        var combinedBitmap = RenderToBitmap(DrawingCanvas, _source);
         _onClose.Invoke(combinedBitmap);
         Close();
     }

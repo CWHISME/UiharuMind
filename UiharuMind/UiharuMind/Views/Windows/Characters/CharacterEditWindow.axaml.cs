@@ -36,7 +36,7 @@ public partial class CharacterEditWindow : UiharuWindowBase
     {
         if (DataContext is CharacterInfoViewData characterInfo)
         {
-            characterInfo.SaveCharacter();
+            // if (_onSureCallback == null) characterInfo.SaveCharacter();
             _onSureCallback?.Invoke(characterInfo);
         }
 

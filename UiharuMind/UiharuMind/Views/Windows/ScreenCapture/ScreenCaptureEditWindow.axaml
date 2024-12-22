@@ -33,10 +33,10 @@
 
         <Grid RowDefinitions="Auto,Auto,*" Margin="5">
 
-            <!-- <Panel Name="ImagePanel"> -->
-            <!-- <Image Name="ImageContent" Stretch="None" /> -->
+            <!-- <Panel Name="ImagePanel" HorizontalAlignment="Left"> -->
+            <!--     <Image Name="ImageContent" Stretch="None" /> -->
             <Canvas Name="DrawingCanvas" Background="Transparent">
-                <Image Name="ImageContent" Stretch="None" />
+                <Image Name="ImageContent" Stretch="Fill" />
             </Canvas>
             <!-- Width="{Binding #ImageContent.Bounds.Width}" -->
             <!-- Height="{Binding #ImageContent.Bounds.Height}" /> -->

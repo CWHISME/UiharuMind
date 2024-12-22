@@ -242,4 +242,16 @@
     <data name="Explain" xml:space="preserve">
         <value>Explain</value>
     </data>
+    <data name="CharacterDeleteTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="CharacterCopyTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="DeleteCharacterTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="Copy" xml:space="preserve">
+        <value>Copy</value>
+    </data>
 </root>

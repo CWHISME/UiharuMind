@@ -234,4 +234,16 @@
     <data name="Explain" xml:space="preserve">
         <value>解释</value>
     </data>
+    <data name="DeleteCharacterTips" xml:space="preserve">
+        <value>是否确认删除角色{0}?该操作不可逆！</value>
+    </data>
+    <data name="CharacterDeleteTips" xml:space="preserve">
+        <value>是否确认删除角色{0}?该操作不可逆！</value>
+    </data>
+    <data name="CharacterCopyTips" xml:space="preserve">
+        <value>是否确认复制角色{0}?</value>
+    </data>
+    <data name="Copy" xml:space="preserve">
+        <value>复制</value>
+    </data>
 </root>

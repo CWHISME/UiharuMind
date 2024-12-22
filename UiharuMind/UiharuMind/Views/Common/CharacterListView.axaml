@@ -42,6 +42,15 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{x:Static  lang:Lang.Delete}"
+                                              Command="{Binding DeleteCharacterCommand  }" />
+                                    <MenuItem Header="{x:Static  lang:Lang.Copy}"
+                                              Command="{Binding CopyCharacterCommand  }" />
+                                </ContextMenu>
+                            </Border.ContextMenu>
+
                             <StackPanel Width="120">
                                 <Image Source="/Assets/avalonia-logo.ico" Width="96" Height="144"
                                        VerticalAlignment="Top">

@@ -12,7 +12,6 @@
 using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Utils;
@@ -53,7 +52,7 @@ public partial class ChatListViewModel : ViewModelBase
 
     private void OnChatSessionRemoved(ChatSession obj)
     {
-        ChatSessions.Remvoe(x => x.ChatSession == obj);
+        ChatSessions.RemvoeItem(x => x.ChatSession == obj);
         SelectedSession = ChatSessions.Count > 0 ? ChatSessions[0] : null;
     }
 

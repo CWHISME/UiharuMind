@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 
 #pragma warning disable SKEXP0110
@@ -103,6 +104,21 @@ public class CharacterData
         CharacterManager.Instance.SaveCharacterData(this);
     }
 
+    public void Copy()
+    {
+        var newCharData = DeepCopy();
+        int index = 0;
+        do
+        {
+            newCharData.CharacterName = newCharData.CharacterName + "_Copy" + index++;
+        } while (!CharacterManager.Instance.TryAddNewCharacterData(newCharData));
+    }
+
+    public void Delete()
+    {
+        CharacterManager.Instance.DeleteCharacterData(this);
+    }
+
     public static implicit operator ChatCompletionAgent(CharacterData characterData)
     {
         return characterData.ToAgent(LlmManager.Instance.CurrentRunningModel!.Kernel);
@@ -125,4 +141,10 @@ public class CharacterData
     }
 
     //================================================================================
+
+    public CharacterData DeepCopy()
+    {
+        var tmpStr = SaveUtility.SaveToString(this);
+        return (SaveUtility.LoadFromString<CharacterData>(tmpStr));
+    }
 }

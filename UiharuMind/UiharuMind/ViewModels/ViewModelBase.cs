@@ -13,6 +13,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace UiharuMind.ViewModels;
 
+/// <summary>
+/// model 始终会存在
+/// data 则会根据需要重新创建
+/// </summary>
 public class ViewModelBase : ObservableObject
 {
     protected ViewModelBase()

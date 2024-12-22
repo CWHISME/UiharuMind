@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Views;
+using UiharuMind.Views.Chat.ChatPlugins;
 using UiharuMind.Views.Common.ChatPlugins;
 using UiharuMind.Views.Windows.Characters;
 
@@ -20,7 +21,9 @@ public partial class ChatInfoModel : ViewModelBase
 
     public ChatInfoModel()
     {
-        App.ViewModel.GetViewModel<ChatViewModel>().OnEventChatSessionChanged += OnChatSessionChanged;
+        var viewModel = App.ViewModel.GetViewModel<ChatViewModel>();
+        OnChatSessionChanged(viewModel.ChatSession);
+        viewModel.OnEventChatSessionChanged += OnChatSessionChanged;
     }
 
     private void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
@@ -30,21 +33,26 @@ public partial class ChatInfoModel : ViewModelBase
         //角色卡
         if (!chatSessionViewData.ChatSession.CharacterData.IsTool)
         {
-            ChatPluginList.Add(GetPlugin<ChatPlugin_UserCharacterCardData>());
+            var plugin = GetPlugin<ChatPlugin_UserCharacterCardData>(chatSessionViewData);
+            ChatPluginList.Add(plugin);
         }
+
+        ChatPluginList.Add(GetPlugin<ChatPlugin_ChatParamsData>(chatSessionViewData));
 
         OnEventChatSessionChanged?.Invoke();
     }
 
-    private ChatPluginBase GetPlugin<T>() where T : ChatPluginBase, new()
+    private ChatPluginBase GetPlugin<T>(ChatSessionViewData chatSessionViewData) where T : ChatPluginBase, new()
     {
         if (ChatPluginsCacheDict.TryGetValue(typeof(T), out var chatPlugin))
         {
+            chatPlugin.SetSessonData(chatSessionViewData);
             return chatPlugin;
         }
 
         var plugin = new T();
         ChatPluginsCacheDict[typeof(T)] = plugin;
+        plugin.SetSessonData(chatSessionViewData);
         return plugin;
     }
 }
