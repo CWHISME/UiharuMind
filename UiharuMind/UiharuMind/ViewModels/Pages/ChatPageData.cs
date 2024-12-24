@@ -24,8 +24,8 @@ public partial class ChatPageData : PageDataBase
 {
     protected override Control CreateView => new ChatPage();
 
-    private ChatViewModel ChatViewModel { get; set; }
-    private ChatListViewModel ChatListViewModel { get; set; }
+    public ChatViewModel ChatViewModel { get; }
+    public ChatListViewModel ChatListViewModel { get; }
 
     [ObservableProperty] private float _leftPaneWidth = 250;
     [ObservableProperty] private float _rightPaneWidth = 200;

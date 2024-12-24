@@ -65,6 +65,33 @@ public static class UiUtils
         memoryStream.Position = 0;
         return memoryStream.ToArray();
     }
+    
+    /// <summary>
+    /// 将 Base64 字符串转换为 Bitmap
+    /// </summary>
+    /// <param name="base64String"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public static Bitmap? Base64ToBitmap(string base64String)
+    {
+        if (string.IsNullOrEmpty(base64String))
+        {
+            Log.Error("Base64 string is null or empty.");
+            return null;
+        }
+
+        // 去除可能存在的 "data:image/png;base64," 或类似的前缀
+        if (base64String.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) && base64String.Contains(";base64,"))
+        {
+            base64String = base64String.Split(new[] { ";base64," }, StringSplitOptions.None)[1];
+        }
+
+        // 将 Base64 字符串解码为字节数组
+        byte[] imageBytes = Convert.FromBase64String(base64String);
+
+        using var stream = new MemoryStream(imageBytes);
+        return new Bitmap(stream);
+    }
 
     /// <summary>
     /// 计算指定大小的控件在屏幕内鼠标处的位置，防止其超出屏幕范围

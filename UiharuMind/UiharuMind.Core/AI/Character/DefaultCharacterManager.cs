@@ -64,6 +64,7 @@ public enum DefaultCharacter
     ExpositorQuote,
     Translator,
     TranslateReviwer,
-    ImageOcr,
+    VisionOcr,
+    Vision,
     Max
 }

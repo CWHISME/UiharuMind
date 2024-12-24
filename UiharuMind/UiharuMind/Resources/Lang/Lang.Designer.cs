@@ -512,5 +512,47 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("Copy", resourceCulture);
             }
         }
+        
+        public static string StartChat {
+            get {
+                return ResourceManager.GetString("StartChat", resourceCulture);
+            }
+        }
+        
+        public static string EditCharacter {
+            get {
+                return ResourceManager.GetString("EditCharacter", resourceCulture);
+            }
+        }
+        
+        public static string CharacterUser {
+            get {
+                return ResourceManager.GetString("CharacterUser", resourceCulture);
+            }
+        }
+        
+        public static string AutoDetect {
+            get {
+                return ResourceManager.GetString("AutoDetect", resourceCulture);
+            }
+        }
+        
+        public static string ParamsLang {
+            get {
+                return ResourceManager.GetString("ParamsLang", resourceCulture);
+            }
+        }
+        
+        public static string IsNotTakeHistoryContext {
+            get {
+                return ResourceManager.GetString("IsNotTakeHistoryContext", resourceCulture);
+            }
+        }
+        
+        public static string ConvertToTempChat {
+            get {
+                return ResourceManager.GetString("ConvertToTempChat", resourceCulture);
+            }
+        }
     }
 }

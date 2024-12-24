@@ -49,6 +49,16 @@ public partial class SettingPanelView : UserControl
         set => SetValue(SettingConfigProperty, value);
     }
 
+    public static readonly StyledProperty<bool> IsVerticleTitleProperty =
+        AvaloniaProperty.Register<SettingPanelView, bool>(nameof(IsVerticleTitle),
+            defaultBindingMode: BindingMode.TwoWay);
+
+    public bool IsVerticleTitle
+    {
+        get => GetValue(IsVerticleTitleProperty);
+        set => SetValue(IsVerticleTitleProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -56,8 +66,12 @@ public partial class SettingPanelView : UserControl
         {
             var actualValue = change.NewValue;
             Title.Content = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
-                         actualValue?.GetType().Name;
+                            actualValue?.GetType().Name;
             SettingListView.SettingConfig = change.NewValue;
+        }
+        else if (change.Property == IsVerticleTitleProperty)
+        {
+            SettingListView.IsVerticleTitle = change.GetNewValue<bool>();
         }
     }
     // private object? _settingConfig;

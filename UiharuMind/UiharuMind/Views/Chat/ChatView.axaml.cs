@@ -26,7 +26,7 @@ public partial class ChatView : UserControl
     public ChatView()
     {
         InitializeComponent();
-        DataContext = App.ViewModel.GetViewModel<ChatViewModel>();
+        // DataContext = App.ViewModel.GetViewModel<ChatViewModel>();
         _scrollViewerAutoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
     }
 

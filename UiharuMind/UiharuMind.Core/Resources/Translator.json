@@ -1,5 +1,6 @@
 {
   "IsTool": true,
+  "IsNotTakeHistoryContext": true,
   "Config": {
     "PromptConfig": {
       "name": "Translator",

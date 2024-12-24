@@ -59,6 +59,11 @@
                                       OffContent="{x:Static  lang:Lang.ToolCharacter}"
                                       OnContent="{x:Static  lang:Lang.RoleplayCharacter}"
                                       HorizontalAlignment="Center" />
+                        <ToggleSwitch OffContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                                      OnContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                                      HorizontalAlignment="Center"
+                                      IsVisible="{Binding !IsRole}"
+                                      IsChecked="{Binding IsNotTakeHistoryContext}" />
                     </StackPanel>
                 </Border>
 

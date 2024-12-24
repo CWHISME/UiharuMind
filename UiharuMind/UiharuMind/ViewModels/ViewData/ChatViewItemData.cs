@@ -11,6 +11,7 @@
 
 using System;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel;
@@ -18,6 +19,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Utils;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -29,6 +31,7 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     // [ObservableProperty] private bool _isUser;
     [ObservableProperty] private ECharacter _role;
     [ObservableProperty] private string? _message;
+    [ObservableProperty] private Bitmap? _messageImage;
     [ObservableProperty] private int? _tokenCount;
     [ObservableProperty] private string? _timestamp;
     [ObservableProperty] private bool _isDone = true;
@@ -39,6 +42,10 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     public string SenderIcon => "None";
 
     public bool IsUser => Role == ECharacter.User;
+
+    // public bool IsImageContent => (_cachedContent?.Items.Count > 0 && _cachedContent.Items[0] is ImageContent);
+    //是否是图片
+    public bool IsImageContent { get; private set; }
 
     public string SenderName
     {
@@ -76,6 +83,17 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
         Message = item.Message?.Content;
         Timestamp = item.LocalTimeString;
         _cachedContent = item.Message;
+        if (item.Message?.Items.Count > 0 && item.Message.Items[0] is ImageContent imageContent &&
+            imageContent.DataUri != null)
+        {
+            IsImageContent = true;
+            MessageImage = UiUtils.Base64ToBitmap(imageContent.DataUri);
+            if (MessageImage == null)
+            {
+                IsImageContent = false;
+                Message = "[Image] load failed";
+            }
+        }
     }
 
     [RelayCommand]

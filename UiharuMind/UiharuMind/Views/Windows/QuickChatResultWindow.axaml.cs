@@ -32,6 +32,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
 using UiharuMind.Utils.Tools;
 using UiharuMind.ViewModels.UIHolder;
+using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
@@ -74,8 +75,17 @@ public partial class QuickChatResultWindow : QuickWindowBase
             InAnswerPanel.IsVisible = !value;
             LoadingEffect.IsLoading = !value;
             RegenerateButton.IsVisible = value;
+            FuncBtn.IsVisible = value;
             ResultTextBlock.IsPlaintext = !value || ConfigManager.Instance.Setting.IsChatPlainText;
         }
+    }
+
+    /// <summary>
+    /// 是否能转换为临时对话
+    /// </summary>
+    public bool IsChatConvertable
+    {
+        get { return _agentSkill.IsConvertableToChatSession; }
     }
 
     private string _askContent;
@@ -185,5 +195,19 @@ public partial class QuickChatResultWindow : QuickWindowBase
     private void OnRegenerateButtonClick(object? sender, RoutedEventArgs e)
     {
         SetRequestInfo(TitleTextBlock.Text, _askContent, _agentSkill);
+    }
+
+    private void OnConvertToTempChatButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (!IsChatConvertable) return;
+        var chatSession = _agentSkill.TryConvertToChatSession();
+        if (chatSession == null)
+        {
+            Log.Error("Failed to convert to chat session.");
+            return;
+        }
+
+        QuickChatViewWindow.Show(new ChatViewModel()
+            { ChatSession = new ChatSessionViewData(chatSession) });
     }
 }

@@ -48,6 +48,19 @@ public partial class ChatSessionViewData : ObservableObject
     //     ? _chatSession.LastTime.ToString("HH:mm")
     //     : _chatSession.LastTime.ToString("yyyy-MM-dd");
 
+    /// <summary>
+    /// 是否携带对话历史，仅工具人有效
+    /// </summary>
+    public bool IsNotTakeHistoryContext
+    {
+        get => ChatSession.IsNotTakeHistoryContext;
+        set
+        {
+            ChatSession.IsNotTakeHistoryContext = value;
+            OnPropertyChanged();
+        }
+    }
+
     public ObservableCollection<ChatViewItemData> ChatItems { get; } = new();
     public ChatViewItemData? CurrentChatItem { get; set; }
 

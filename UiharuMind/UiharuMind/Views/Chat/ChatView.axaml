@@ -82,19 +82,24 @@
                                                      HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
                                 <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
                                         HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
-                                    <common:SimpleMarkdownViewer MarkdownText="{Binding Message}"
-                                                                 Margin="5">
-                                        <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
-                                        <common:SimpleMarkdownViewer.IsPlaintext>
-                                            <MultiBinding
-                                                Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                                <Binding Path="IsUser" />
-                                                <Binding Path="!IsDone" />
-                                                <!-- <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> -->
-                                                <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
-                                            </MultiBinding>
-                                        </common:SimpleMarkdownViewer.IsPlaintext>
-                                    </common:SimpleMarkdownViewer>
+                                    <Panel>
+                                        <common:SimpleMarkdownViewer
+                                            IsVisible="{Binding !IsImageContent}"
+                                            MarkdownText="{Binding Message}"
+                                            Margin="5">
+                                            <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
+                                            <common:SimpleMarkdownViewer.IsPlaintext>
+                                                <MultiBinding
+                                                    Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                    <Binding Path="IsUser" />
+                                                    <Binding Path="!IsDone" />
+                                                    <!-- <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> -->
+                                                    <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
+                                                </MultiBinding>
+                                            </common:SimpleMarkdownViewer.IsPlaintext>
+                                        </common:SimpleMarkdownViewer>
+                                        <Image IsVisible="{Binding IsImageContent}" Source="{Binding MessageImage}"/>
+                                    </Panel>
                                 </Border>
 
                                 <!-- 时间 -->

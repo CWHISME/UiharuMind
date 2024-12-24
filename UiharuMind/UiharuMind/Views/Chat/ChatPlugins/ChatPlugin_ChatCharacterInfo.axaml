@@ -4,24 +4,25 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Common.ChatPlugins"
+             xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Chat.ChatPlugins"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.Common.ChatPlugins.ChatPlugin_UserCharacterCard">
+             x:Class="UiharuMind.Views.Chat.ChatPlugins.ChatPlugin_ChatCharacterInfo">
 
     <Design.DataContext>
-        <chatPlugins:ChatPlugin_UserCharacterCardData />
+        <chatPlugins:ChatPlugin_ChatCharacterInfoData />
     </Design.DataContext>
 
-    <!-- 角色卡 -->
+    <!-- 角色信息 -->
     <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}" Padding="5">
         <StackPanel Spacing="10">
-            <u:Divider Content="{x:Static  lang:Lang.CharacterUser}" />
+            <u:Divider Content="{x:Static  lang:Lang.CharacterCard}" />
             <DockPanel LastChildFill="False">
-                <TextBlock DockPanel.Dock="Left" Text="{Binding User.Description}" VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding CharacterName}" VerticalAlignment="Center" />
+                
                 <Button DockPanel.Dock="Right" Content="{x:Static lang:Lang.Edit}"
-                        Command="{Binding EditUserCardCommand}" />
+                        Command="{Binding EditCharacterCommand}" />
             </DockPanel>
-            <SelectableTextBlock Text="{Binding UserTemplateReadonly}" TextWrapping="Wrap" />
+            <SelectableTextBlock Text="{Binding CharacterDescription}" TextWrapping="Wrap" />
         </StackPanel>
     </Border>
 

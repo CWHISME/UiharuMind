@@ -21,6 +21,7 @@ public partial class ChatInfoView : UserControl
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
+        OnChatSessionChanged();
         _model.OnEventChatSessionChanged += OnChatSessionChanged;
     }
 

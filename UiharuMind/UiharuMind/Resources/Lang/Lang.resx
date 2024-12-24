@@ -254,4 +254,25 @@
     <data name="Copy" xml:space="preserve">
         <value>Copy</value>
     </data>
+    <data name="StartChat" xml:space="preserve">
+        <value>Start Chat</value>
+    </data>
+    <data name="EditCharacter" xml:space="preserve">
+        <value>Edit Character</value>
+    </data>
+    <data name="CharacterUser" xml:space="preserve">
+        <value>Character User</value>
+    </data>
+    <data name="AutoDetect" xml:space="preserve">
+        <value>Auto Detect</value>
+    </data>
+    <data name="ParamsLang" xml:space="preserve">
+        <value>Params Lang($lang)</value>
+    </data>
+    <data name="IsNotTakeHistoryContext" xml:space="preserve">
+        <value>Is Not Take Histor yContext</value>
+    </data>
+    <data name="ConvertToTempChat" xml:space="preserve">
+        <value>ConvertToTempChat</value>
+    </data>
 </root>

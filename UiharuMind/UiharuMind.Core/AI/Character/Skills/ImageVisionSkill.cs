@@ -33,12 +33,31 @@ public class ImageVisionSkill : AgentSkillVisionBase
             // modelRunningData = visionModel;
         }
 
-        ChatHistory chatHistory = new ChatHistory();
-        chatHistory.AddUserMessage([
+        var ocr = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
+        _chatHistory = new ChatHistory();
+        _chatHistory.AddUserMessage([
             // new ImageContent(new Uri(""))
             new ImageContent(_imageBytes, "image/jpg"),
             new TextContent(text),
         ]);
-        return modelRunningData.SendMessageStreamingAsync(chatHistory, cancellationToken);
+        // return modelRunningData.SendMessageStreamingAsync(chatHistory, cancellationToken);
+        return modelRunningData.InvokeAgentStreamingAsync(ocr, _chatHistory, cancellationToken);
+        // _chatHistory = new ChatHistory();
+        // _chatHistory.AddUserMessage([
+        //     // new ImageContent(new Uri(""))
+        //     new ImageContent(_imageBytes, "image/jpg"),
+        //     new TextContent(text),
+        // ]);
+        // return modelRunningData.SendMessageStreamingAsync(_chatHistory, cancellationToken);
+    }
+
+    protected override ChatHistory GetChatHistory()
+    {
+        return _chatHistory;
+    }
+
+    protected override CharacterData GetCharacterData()
+    {
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision);
     }
 }

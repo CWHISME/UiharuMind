@@ -25,7 +25,7 @@ public class ImageOcrSkill : AgentSkillVisionBase
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
-        if (!modelRunningData.IsVisionModel)
+        if (false == modelRunningData?.IsVisionModel)
         {
             // var visionModel = LlmManager.Instance.RemoteModelManager.FindVisionModel();
             // if (visionModel == null)
@@ -33,15 +33,24 @@ public class ImageOcrSkill : AgentSkillVisionBase
             // modelRunningData = visionModel;
         }
 
-        var ocr = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ImageOcr)
-            .ToAgent(modelRunningData.Kernel, args);
-        ChatHistory chatHistory = new ChatHistory();
-        chatHistory.AddUserMessage([
+        var ocr = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
+        _chatHistory = new ChatHistory();
+        _chatHistory.AddUserMessage([
             // new ImageContent(new Uri(""))
             new ImageContent(_imageBytes, "image/jpg"),
             // new TextContent(text),
         ]);
         // return modelRunningData.SendMessageStreamingAsync(chatHistory, cancellationToken);
-        return modelRunningData.InvokeAgentStreamingAsync(ocr, chatHistory, cancellationToken);
+        return modelRunningData.InvokeAgentStreamingAsync(ocr, _chatHistory, cancellationToken);
+    }
+
+    protected override ChatHistory GetChatHistory()
+    {
+        return _chatHistory;
+    }
+
+    protected override CharacterData GetCharacterData()
+    {
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.VisionOcr);
     }
 }

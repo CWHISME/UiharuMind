@@ -44,13 +44,40 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// </summary>
     public string CharaterId { get; set; } = "Empty";
 
-    public ChatHistory History { get; set; } = new ChatHistory();
+    public ChatHistory History { get; private set; } = new ChatHistory();
+
+    /// <summary>
+    /// 是否不携带历史对话的上下文，如果为true则不携带，每次只有最后一句用户消息
+    /// 注：仅工具角色有效，角色扮演 必定携带历史上下文
+    /// </summary>
+    public bool IsNotTakeHistoryContext { get; set; } = true;
+
+    //自定义参数
+    public Dictionary<string, object?> CustomParams { get; set; } = new Dictionary<string, object?>();
+    //========
 
     [JsonIgnore]
     public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharaterId);
 
+
+    [JsonIgnore] private ModelRunningData? _modelRunningData;
+
+    /// <summary>
+    /// 该对话对应的模型
+    /// </summary>
+    [JsonIgnore]
+    public ModelRunningData? ChatModelRunningData
+    {
+        get
+        {
+            _modelRunningData ??= LlmManager.Instance.CurrentRunningModel;
+            return _modelRunningData;
+        }
+        set => _modelRunningData = value;
+    }
+
     //以 UTC 格式存储的时间戳
-    public List<long> TimeStamps { get; set; } = new List<long>();
+    public List<long> TimeStamps { get; private set; } = new List<long>();
 
     public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
     public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;
@@ -77,9 +104,25 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         _characterData = characterData;
         CharaterId = characterData.CharacterName;
         Name = sessionName;
+        IsNotTakeHistoryContext = characterData.IsNotTakeHistoryContext;
         Description = string.IsNullOrEmpty(characterData.FirstGreeting)
             ? characterData.Description
             : characterData.FirstGreeting;
+    }
+
+    public void ReInitHistory(ChatHistory history, List<long>? timeStamps = null)
+    {
+        History = history;
+        if (timeStamps == null)
+        {
+            timeStamps = new List<long>();
+            for (int i = 0; i < history.Count; i++)
+            {
+                timeStamps.Add(DateTime.Now.Ticks);
+            }
+        }
+
+        TimeStamps = timeStamps;
     }
 
     public int Count => History.Count;
@@ -161,7 +204,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
                 return new AsyncEnumerableWithMessage("Error:A same assistant cannot generate message");
         }
 
-        return LlmManager.Instance.CurrentRunningModel!.InvokeAgentStreamingAsync(this, cancellationToken);
+        return ChatModelRunningData.InvokeAgentStreamingAsync(this, cancellationToken);
     }
 
     public ChatHistory SafeGetHistory()
@@ -217,6 +260,13 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             //角色信息
             var user = CharacterManager.Instance.UserCharacterData;
             chatHistory.AddSystemMessage(user.Template.Replace("{{$char}}", user.Description));
+        }
+
+        //工具角色，且选择不携带历史记录
+        if (CharacterData.IsTool && IsNotTakeHistoryContext)
+        {
+            chatHistory.AddUserMessage(History[^1].Content ?? "");
+            return chatHistory;
         }
 
         chatHistory.AddRange(History);

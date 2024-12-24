@@ -15,6 +15,8 @@
     <!-- <Grid RowDefinitions="*,Auto"> -->
     <!-- -->
     <!-- </Grid> -->
-    <StackPanel Name="ChatPluginsPanel" />
+    <ScrollViewer>
+        <StackPanel Name="ChatPluginsPanel" />
+    </ScrollViewer>
 
 </UserControl>

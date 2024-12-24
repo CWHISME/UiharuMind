@@ -4,13 +4,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:u="https://irihi.tech/ursa"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
+        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
         x:Class="UiharuMind.Views.Windows.QuickChatResultWindow"
         Width="400"
         Height="350"
         Title="QuickChatResultWindow">
 
-    <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*" Margin="10">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*" Margin="10">
         <Border Height="30" Background="Transparent"
                 PointerPressed="InputElement_OnPointerPressed">
             <DockPanel LastChildFill="False">
@@ -31,9 +32,14 @@
         <!-- <ScrollViewer Name="ScrollViewer" Grid.Row="1" Margin="0,10,0,10"> -->
         <!--     <SelectableTextBlock Name="ResultTextBlock" TextWrapping="Wrap" Background="Transparent" Margin="10,0,10,0"></SelectableTextBlock> -->
         <!-- </ScrollViewer> -->
-        <ScrollViewer Grid.Row="2" Name="ScrollViewer" Margin="0,10,0,0">
+        <ScrollViewer Grid.Row="2" Name="ScrollViewer" Margin="0,10">
             <common:SimpleMarkdownViewer Name="ResultTextBlock" />
         </ScrollViewer>
+        <Button Grid.Row="3"
+                Name="FuncBtn"
+                Content="{x:Static lang:Lang.ConvertToTempChat}"
+                HorizontalAlignment="Right"
+                Click="OnConvertToTempChatButtonClick" />
     </Grid>
 
 </Window>

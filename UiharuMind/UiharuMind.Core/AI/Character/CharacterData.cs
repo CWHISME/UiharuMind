@@ -34,6 +34,12 @@ public class CharacterData
     public bool IsTool { get; set; }
 
     /// <summary>
+    /// 是否携带历史对话的上下文，如果为false则不携带，每次只有最后一句用户消息
+    /// 注：仅工具角色有效，角色扮演 必定携带历史上下文
+    /// </summary>
+    public bool IsNotTakeHistoryContext { get; set; }
+
+    /// <summary>
     /// 额外挂载工具角色(只能挂载没有挂载过对象的角色、即纯工具角色)
     /// 若挂载对象被挂载了额外角色，则该挂载对象将会失效
     /// </summary>

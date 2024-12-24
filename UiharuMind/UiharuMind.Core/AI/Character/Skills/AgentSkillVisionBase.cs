@@ -5,7 +5,7 @@ using UiharuMind.Core.Core.Process;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
-public abstract class AgentSkillVisionBase : AgentSkillBase
+public abstract class AgentSkillVisionBase : AgentSkillConvertableBase
 {
     protected readonly byte[] _imageBytes;
 

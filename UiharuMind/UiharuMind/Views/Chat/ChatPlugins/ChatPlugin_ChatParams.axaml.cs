@@ -21,6 +21,7 @@ public partial class ChatPlugin_ChatParams : UserControl
 public partial class ChatPlugin_ChatParamsData : ChatPluginDataBase<ChatPlugin_ChatParams>
 {
     [ObservableProperty] private CharacterData _character;
+    // [ObservableProperty] private bool _isToolCharacter;
 
     public ChatPlugin_ChatParamsData()
     {

@@ -36,8 +36,10 @@
     <DockPanel>
         <!-- 操作 -->
         <DockPanel Name="OperationPanel" DockPanel.Dock="Bottom" LastChildFill="False" Margin="20,10,20,10">
-            <Button Content="开始对话" DockPanel.Dock="Left" Command="{Binding StartChatCommand}" />
-            <Button Content="编辑角色" DockPanel.Dock="Right" Command="{Binding EditCharacterCommand}" />
+            <Button Content="{x:Static  lang:Lang.StartChat}" DockPanel.Dock="Left"
+                    Command="{Binding StartChatCommand}" />
+            <Button Content="{x:Static  lang:Lang.EditCharacter}" DockPanel.Dock="Right"
+                    Command="{Binding EditCharacterCommand}" />
         </DockPanel>
         <Rectangle DockPanel.Dock="Bottom" Fill="{StaticResource UiRectangleLineBrush}" Height="1"
                    HorizontalAlignment="Stretch" />
@@ -59,6 +61,11 @@
                                       OffContent="{x:Static  lang:Lang.ToolCharacter}"
                                       OnContent="{x:Static  lang:Lang.RoleplayCharacter}"
                                       HorizontalAlignment="Center" />
+                        <ToggleSwitch OffContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                                      OnContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                                      HorizontalAlignment="Center"
+                                      IsVisible="{Binding !IsRole}"
+                                      IsChecked="{Binding IsNotTakeHistoryContext}" />
                     </StackPanel>
                 </Border>
 

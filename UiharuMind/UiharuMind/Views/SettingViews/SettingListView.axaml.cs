@@ -54,10 +54,23 @@ public partial class SettingListView : UserControl
                 return;
             }
 
-            if(_settingConfig!=null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
+            if (_settingConfig != null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
             _settingConfig = value as ConfigBase;
             RefreshResetView();
             if (_settingConfig != null) _settingConfig.PropertyChanged += NotifyPropertyChanged;
+        }
+    }
+
+    private bool _isVerticleTitle = false;
+
+    public bool IsVerticleTitle
+    {
+        get => _isVerticleTitle;
+        set
+        {
+            bool changed = _isVerticleTitle != value;
+            _isVerticleTitle = value;
+            if (changed) RefreshResetView();
         }
     }
 
@@ -72,7 +85,6 @@ public partial class SettingListView : UserControl
         if (_settingConfig != null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
         if (_settingConfig != null) _settingConfig.PropertyChanged += NotifyPropertyChanged;
         RequestReloadValues();
-        
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -316,13 +328,23 @@ public partial class SettingListView : UserControl
         //     VerticalAlignment = VerticalAlignment.Center,
         //     Spacing = 10
         // };
-        DockPanel panel = new DockPanel() { LastChildFill = true };
+
+        Panel panel = IsVerticleTitle
+            ? new StackPanel()
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
+                // Spacing = 10
+            }
+            : new DockPanel() { LastChildFill = true };
 
         //添加设置项标题
         TextBlock title = new TextBlock
         {
             Text = property.Name,
             VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left,
             Width = 120,
             // FontSize = 14,
             Margin = new Thickness(0, 0, 10, 0)

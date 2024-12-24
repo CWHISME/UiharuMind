@@ -285,7 +285,7 @@ public static class ChatThread
         // yield return builder.ToString();
         // // Log.Debug("end of chat thread " + builder);
         var history = chatSession.SafeGetHistory();
-        return InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, history,
+        return InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, history, chatSession.CustomParams,
             cancellationToken, () =>
             {
                 chatSession.History.Add(history[^1]);
@@ -295,6 +295,7 @@ public static class ChatThread
 
     public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
         CharacterData characterData, ChatHistory? chatHistory = null,
+        Dictionary<string, object?>? kernelArguments = null,
         CancellationToken cancellationToken = default, Action? end = null)
     {
         if (SafeCheckModelRunning(ref modelRunning) == false)
@@ -302,7 +303,7 @@ public static class ChatThread
             return new AsyncEnumerableWithMessage("Model is not running.");
         }
 
-        return InvokeAgentStreamingAsync(modelRunning, characterData.ToAgent(modelRunning.Kernel),
+        return InvokeAgentStreamingAsync(modelRunning, characterData.ToAgent(modelRunning.Kernel, kernelArguments),
             chatHistory,
             cancellationToken, end);
     }

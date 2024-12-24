@@ -70,7 +70,7 @@
 
             <!-- Content -->
             <Border Grid.Column="2" Margin="5">
-                <otherViews:ChatView Name="ChatView" />
+                <otherViews:ChatView Name="ChatView" DataContext="{Binding ChatViewModel}" />
             </Border>
 
             <!-- Thumb for resizing right pane -->

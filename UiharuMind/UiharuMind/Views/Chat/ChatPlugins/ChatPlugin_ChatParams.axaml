@@ -16,7 +16,13 @@
     <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
         <StackPanel>
             <u:Divider Content="{x:Static  lang:Lang.ParameterSettings}" />
-            <settingViews:SettingPanelView Padding="10,0,10,0"
+            <ToggleSwitch OffContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                          OnContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                          HorizontalAlignment="Center"
+                          IsVisible="{Binding Character.IsTool}"
+                          IsChecked="{Binding ChatSessionCurrentViewData.IsNotTakeHistoryContext}" />
+            <settingViews:SettingPanelView Padding="10,0"
+                                           IsVerticleTitle="True"
                                            SettingConfig="{Binding Character.Config.ExecutionSettings}" />
         </StackPanel>
     </Border>

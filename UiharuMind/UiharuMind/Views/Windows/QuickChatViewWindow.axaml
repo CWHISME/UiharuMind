@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        Width="400"
+        Height="666"
+        x:Class="UiharuMind.Views.Windows.QuickChatViewWindow"
+        Title="QuickChatViewWindow">
+
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" Margin="10">
+        <Border Height="30" Background="Transparent"
+                PointerPressed="InputElement_OnPointerPressed">
+            <DockPanel LastChildFill="False">
+                <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                        Click="CloseButton_Click" />
+            </DockPanel>
+        </Border>
+        <Border Grid.Row="1" Margin="5">
+            <otherViews:ChatView />
+        </Border>
+    </Grid>
+
+</Window>

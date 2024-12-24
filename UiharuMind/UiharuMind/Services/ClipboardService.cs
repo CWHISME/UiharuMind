@@ -158,11 +158,21 @@ public class ClipboardService : IDisposable
         }
 
         //简单对比排除一下相同项
-        if (ClipboardHistoryItems.Count > 0 && clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
-            clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;
-        ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
-        OnClipboardStringChanged?.Invoke(clipboardContent);
-        _isHistoryDirty = true;
+        try
+        {
+            if (ClipboardHistoryItems.Count > 0 && clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
+                clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;
+            ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
+            OnClipboardStringChanged?.Invoke(clipboardContent);
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e.Message);
+        }
+        finally
+        {
+            _isHistoryDirty = true;
+        }
     }
 
     private void OnTimerElapsed(object? state)

@@ -246,4 +246,25 @@
     <data name="Copy" xml:space="preserve">
         <value>复制</value>
     </data>
+    <data name="StartChat" xml:space="preserve">
+        <value>开始对话</value>
+    </data>
+    <data name="EditCharacter" xml:space="preserve">
+        <value>编辑角色</value>
+    </data>
+    <data name="CharacterUser" xml:space="preserve">
+        <value>用户角色</value>
+    </data>
+    <data name="AutoDetect" xml:space="preserve">
+        <value>自动检测</value>
+    </data>
+    <data name="ParamsLang" xml:space="preserve">
+        <value>语言参数($lang)</value>
+    </data>
+    <data name="IsNotTakeHistoryContext" xml:space="preserve">
+        <value>是否不携带对话历史</value>
+    </data>
+    <data name="ConvertToTempChat" xml:space="preserve">
+        <value>转为临时对话</value>
+    </data>
 </root>

@@ -1,5 +1,6 @@
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.Utils;
 
@@ -43,8 +44,9 @@ public abstract class AgentSkillBase
     //================================================================================
 
     protected virtual bool IsVision => false;
+    protected ModelRunningData? CurModelRunningData;
 
-    public IAsyncEnumerable<string> DoSkill(ModelRunningData? modelRunningData, string userInput,
+    public virtual IAsyncEnumerable<string> DoSkill(ModelRunningData? modelRunningData, string userInput,
         CancellationToken cancellationToken = default)
     {
         // if (modelRunningData is not { IsRunning: true })
@@ -58,7 +60,17 @@ public abstract class AgentSkillBase
 
         // TrySetParams(LanguageParamsName, LanguageUtils.CurCultureInfo.EnglishName);
 
+        CurModelRunningData = modelRunningData;
         return OnDoSkill(modelRunningData, userInput, _args, cancellationToken);
+    }
+
+    // public abstract CharacterData Character { get; }
+
+    public virtual bool IsConvertableToChatSession => false;
+
+    public virtual ChatSession? TryConvertToChatSession()
+    {
+        return null;
     }
 
     protected abstract IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string userInput,

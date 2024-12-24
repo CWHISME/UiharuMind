@@ -30,14 +30,21 @@ public partial class ChatInfoModel : ViewModelBase
     {
         // HasUserCard = !chatSessionViewData.ChatSession.CharacterData.IsTool;
         ChatPluginList.Clear();
-        //角色卡
+
+        //角色
+        ChatPluginList.Add(GetPlugin<ChatPlugin_ChatCharacterInfoData>(chatSessionViewData));
+        //用户角色
         if (!chatSessionViewData.ChatSession.CharacterData.IsTool)
         {
             var plugin = GetPlugin<ChatPlugin_UserCharacterCardData>(chatSessionViewData);
             ChatPluginList.Add(plugin);
         }
 
+        ChatPluginList.Add(GetPlugin<ChatPlugin_TranslationData>(chatSessionViewData));
+
+        //对话参数
         ChatPluginList.Add(GetPlugin<ChatPlugin_ChatParamsData>(chatSessionViewData));
+        // ChatPluginList.Add(GetPlugin<ChatPlugin_CharacterFuncBtnData>(chatSessionViewData));
 
         OnEventChatSessionChanged?.Invoke();
     }

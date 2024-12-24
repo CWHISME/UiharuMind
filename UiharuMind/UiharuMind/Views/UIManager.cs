@@ -153,13 +153,13 @@ public class UIManager
     {
         if (image == null)
         {
-            Log.Error("image is null");
+            Log.Warning("image is null");
             return;
         }
 
         if (image.PixelSize.Width < 5 || image.PixelSize.Height < 5)
         {
-            Log.Error("image PixelSize is too small");
+            Log.Warning("image PixelSize is too small");
             return;
         }
 

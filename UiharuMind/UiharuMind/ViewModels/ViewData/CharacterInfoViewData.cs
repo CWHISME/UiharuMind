@@ -40,6 +40,19 @@ public partial class CharacterInfoViewData : ObservableObject
     }
 
     /// <summary>
+    /// 是否携带历史消息(仅工具人有效)
+    /// </summary>
+    public bool IsNotTakeHistoryContext
+    {
+        get => _characterData.IsNotTakeHistoryContext;
+        set
+        {
+            _characterData.IsNotTakeHistoryContext = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
     /// 所属功能名
     /// </summary>
     public string FuncName => IsRole ? Lang.RoleplayCharacter : Lang.Tool;

@@ -3,6 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Chat.ChatPlugins"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Chat.ChatPlugins.ChatPlugin_Translation">
 
@@ -10,9 +12,12 @@
         <chatPlugins:ChatPlugin_TranslationData />
     </Design.DataContext>
 
-    <StackPanel>
-        <TextBlock Text="翻译为：" />
-        <ComboBox ItemsSource="{Binding Languages}" Width="200" Height="25" Margin="5,0,0,0" />
-    </StackPanel>
+    <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}" Padding="5">
+        <StackPanel Spacing="10">
+            <u:Divider Content="{x:Static  lang:Lang.ParamsLang}" />
+            <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
+                      HorizontalAlignment="Stretch" />
+        </StackPanel>
+    </Border>
 
 </UserControl>
