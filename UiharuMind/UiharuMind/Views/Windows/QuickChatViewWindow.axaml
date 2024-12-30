@@ -10,13 +10,16 @@
         Title="QuickChatViewWindow">
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" Margin="10">
-        <Border Height="30" Background="Transparent"
+        <Border Height="50" Background="Transparent"
                 PointerPressed="InputElement_OnPointerPressed">
-            <DockPanel LastChildFill="False">
-                <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
-                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                        Click="CloseButton_Click" />
-            </DockPanel>
+            <StackPanel>
+                <DockPanel LastChildFill="False">
+                    <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
+                    <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                            Click="CloseButton_Click" />
+                </DockPanel>
+                <TextBlock Name="TitleSecondaryTextBlock" TextAlignment="Left" />
+            </StackPanel>
         </Border>
         <Border Grid.Row="1" Margin="5">
             <otherViews:ChatView />

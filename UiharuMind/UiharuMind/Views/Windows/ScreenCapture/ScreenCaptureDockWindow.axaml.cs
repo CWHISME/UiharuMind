@@ -82,6 +82,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
                 CurrentSnapWindow.ImageBackupSource = CurrentSnapWindow.ImageOriginSource;
                 CurrentSnapWindow.ImageSource = bitmap;
                 CurrentSnapWindow.ImageContent.Source = bitmap;
+                App.Clipboard.CopyImageToClipboard(bitmap);
                 CurrentSnapWindow.Show();
             });
         SafeClose();

@@ -42,7 +42,7 @@
     <!-- </UserControl.Styles> -->
 
     <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
-    <Grid RowDefinitions="*,Auto,Auto">
+    <Grid RowDefinitions="*,Auto,Auto,Auto">
 
         <!-- 聊天信息显示区域 -->
         <!-- BringIntoViewOnFocusChange = "False" 用于取消自动滚动到点击对象处 -->
@@ -98,7 +98,7 @@
                                                 </MultiBinding>
                                             </common:SimpleMarkdownViewer.IsPlaintext>
                                         </common:SimpleMarkdownViewer>
-                                        <Image IsVisible="{Binding IsImageContent}" Source="{Binding MessageImage}"/>
+                                        <Image IsVisible="{Binding IsImageContent}" Source="{Binding MessageImage}" />
                                     </Panel>
                                 </Border>
 
@@ -121,8 +121,14 @@
             CurrentPage="{Binding CurrentPageIndex}"
             TotalCount="{Binding ChatSession.ChatItems.Count}" />
 
+        <!-- 重算 -->
+        <Button Grid.Row="2" Content="{x:Static lang:Lang.RegenerateBtn}"
+                Margin="0,10,0,0"
+                IsVisible="{Binding IsVisibleRegenerateButton}"
+                Command="{Binding RegenerateMessageCommand}" />
+
         <!-- 输入区域 -->
-        <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto">
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto">
             <!-- 工具区域 -->
             <DockPanel Margin="5,5,5,0">
                 <Button Content="{Binding SenderMode}"

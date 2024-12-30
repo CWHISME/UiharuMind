@@ -554,5 +554,53 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ConvertToTempChat", resourceCulture);
             }
         }
+        
+        public static string TrayMenuAbout {
+            get {
+                return ResourceManager.GetString("TrayMenuAbout", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuOpen {
+            get {
+                return ResourceManager.GetString("TrayMenuOpen", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuQuit {
+            get {
+                return ResourceManager.GetString("TrayMenuQuit", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuQuitTips {
+            get {
+                return ResourceManager.GetString("TrayMenuQuitTips", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuScreenCapture {
+            get {
+                return ResourceManager.GetString("TrayMenuScreenCapture", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuQuickAsk {
+            get {
+                return ResourceManager.GetString("TrayMenuQuickAsk", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuClipboardHistory {
+            get {
+                return ResourceManager.GetString("TrayMenuClipboardHistory", resourceCulture);
+            }
+        }
+        
+        public static string RegenerateBtn {
+            get {
+                return ResourceManager.GetString("RegenerateBtn", resourceCulture);
+            }
+        }
     }
 }

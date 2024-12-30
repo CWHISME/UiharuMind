@@ -275,4 +275,28 @@
     <data name="ConvertToTempChat" xml:space="preserve">
         <value>ConvertToTempChat</value>
     </data>
+    <data name="TrayMenuAbout" xml:space="preserve">
+        <value>About</value>
+    </data>
+    <data name="TrayMenuOpen" xml:space="preserve">
+        <value>Open</value>
+    </data>
+    <data name="TrayMenuQuit" xml:space="preserve">
+        <value>Quit</value>
+    </data>
+    <data name="TrayMenuQuitTips" xml:space="preserve">
+        <value>Close Appliacation</value>
+    </data>
+    <data name="TrayMenuScreenCapture" xml:space="preserve">
+        <value>Screen Capture(Alt+Shift+Z)</value>
+    </data>
+    <data name="TrayMenuQuickAsk" xml:space="preserve">
+        <value>Quick Ask(Alt+Shift+A)</value>
+    </data>
+    <data name="TrayMenuClipboardHistory" xml:space="preserve">
+        <value>Clipboard History(Alt+Shift+S)</value>
+    </data>
+    <data name="RegenerateBtn" xml:space="preserve">
+        <value>Regenerate</value>
+    </data>
 </root>

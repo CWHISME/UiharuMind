@@ -50,10 +50,11 @@
 
             <!-- Pane (Sidebar) -->
             <Border Grid.Column="0" Margin="0,0,2,0" Width="{Binding LeftPaneWidth, Mode=TwoWay}">
-                <StackPanel Spacing="5">
-                    <Button Content="+" HorizontalAlignment="Stretch" Command="{Binding AddChatCommand}" />
-                    <otherViews:ChatListView />
-                </StackPanel>
+                <DockPanel>
+                    <Button DockPanel.Dock="Top" Content="+" HorizontalAlignment="Stretch"
+                            Command="{Binding AddChatCommand}" />
+                    <otherViews:ChatListView DockPanel.Dock="Bottom" Margin="0,10,0,0" />
+                </DockPanel>
             </Border>
 
             <!-- Thumb for resizing left pane -->

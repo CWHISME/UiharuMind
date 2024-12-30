@@ -30,9 +30,9 @@
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <!-- 会影响其它样式 -->
-        <!-- <Style Selector="Border"> -->
-        <!--     <Setter Property="Padding" Value="0,10,0,10" /> -->
-        <!-- </Style> -->
+        <Style Selector="Border.PaddingBorder">
+            <Setter Property="Padding" Value="0,10,0,10" />
+        </Style>
     </UserControl.Styles>
 
     <DockPanel>
@@ -51,7 +51,7 @@
                 </StackPanel>
 
                 <!-- 功能类型 -->
-                <Border IsEnabled="{Binding !IsDefault,Mode=OneWay}" BorderThickness="1"
+                <Border Classes="PaddingBorder" IsEnabled="{Binding !IsDefault,Mode=OneWay}" BorderThickness="1"
                         BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.CharacterFuncType}" />
@@ -68,7 +68,7 @@
                 </Border>
 
                 <!-- 挂载对象 -->
-                <Border IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
+                <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
                         BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <!-- 标题 -->
@@ -111,14 +111,14 @@
                 </Border>
 
                 <!-- 可选参数提示 -->
-                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                <Border Classes="PaddingBorder" BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.OptionalPromptParams}" />
                         <SelectableTextBlock Text="{x:Static  lang:Lang.OptionalPromptParamsDesc}" />
                     </StackPanel>
                 </Border>
 
-                <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                <Border Classes="PaddingBorder" BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider IsVisible="{Binding IsRole,Mode=OneWay}"
                                    Content="{x:Static  lang:Lang.CharacterDesc}" />
@@ -130,7 +130,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
+                <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
                         BorderBrush="{StaticResource UiBorderBrush}">
                     <StackPanel>
                         <u:Divider Content="{x:Static  lang:Lang.CharacterFirstGreeting}" />
@@ -146,7 +146,7 @@
                     </Expander.Header>
                     <StackPanel Spacing="25">
                         <!-- <StackPanel> -->
-                        <Border IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
+                        <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
                                 BorderBrush="{StaticResource UiBorderBrush}">
                             <StackPanel>
                                 <u:Divider Content="{x:Static  lang:Lang.CharacterDialogTemplate}" />

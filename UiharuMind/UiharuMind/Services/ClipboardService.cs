@@ -55,6 +55,7 @@ public class ClipboardService : IDisposable
 
     private Timer _timer;
     private bool _isHistoryDirty;
+    private bool _isSelfCopying;
 
     public ClipboardService(Window target)
     {
@@ -73,7 +74,15 @@ public class ClipboardService : IDisposable
     public void CopyToClipboard(string text)
     {
         // _target.Dispatcher.Invoke(() => { Clipboard.SetText(text); });
-        Clipboard.SetTextAsync(text);
+        _isSelfCopying = true;
+        try
+        {
+            Clipboard.SetTextAsync(text);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
     }
 
     public async Task<string?> GetFromClipboard()
@@ -83,23 +92,33 @@ public class ClipboardService : IDisposable
 
     public void CopyImageToClipboard(Bitmap bitmap)
     {
-        if (PlatformUtils.IsWindows)
+        _isSelfCopying = true;
+
+        try
         {
-            //window 剪切板似乎很麻烦，直接分离实现了
+            if (PlatformUtils.IsWindows)
+            {
+                //window 剪切板似乎很麻烦，直接分离实现了
 #pragma warning disable CA1416
-            ClipboardAvaloniaCustom.SetImage(bitmap);
+                ClipboardAvaloniaCustom.SetImage(bitmap);
 #pragma warning restore CA1416
-            return;
+            }
+            else
+            {
+                var dataObject = new DataObject();
+                using var memoryStream = new MemoryStream();
+                bitmap.Save(memoryStream);
+                memoryStream.Position = 0;
+                var bytes = memoryStream.ToArray();
+                dataObject.Set(ImageTypePngMac, bytes);
+
+                Clipboard.SetDataObjectAsync(dataObject);
+            }
         }
-
-        var dataObject = new DataObject();
-        using var memoryStream = new MemoryStream();
-        bitmap.Save(memoryStream);
-        memoryStream.Position = 0;
-        var bytes = memoryStream.ToArray();
-        dataObject.Set(ImageTypePngMac, bytes);
-
-        Clipboard.SetDataObjectAsync(dataObject);
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
     }
 
     public async Task<Bitmap?> GetImageFromClipboard()
@@ -148,6 +167,12 @@ public class ClipboardService : IDisposable
 
     private async void OnSystemClipboardChanged()
     {
+        if (_isSelfCopying)
+        {
+            _isSelfCopying = false;
+            return;
+        }
+
         var clipboardContent = await GetFromClipboard();
         if (string.IsNullOrEmpty(clipboardContent))
         {

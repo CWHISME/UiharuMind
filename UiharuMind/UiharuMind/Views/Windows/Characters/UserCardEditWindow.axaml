@@ -22,7 +22,7 @@
             <TextBox HorizontalAlignment="Center" Text="{Binding Description}" FontSize="24" />
         </StackPanel>
 
-        <Panel Grid.Row="1" Margin="0,10">
+        <Panel Grid.Row="1" Margin="10">
             <TextBox Text="{Binding Template}" VerticalAlignment="Stretch" VerticalContentAlignment="Top"
                      TextWrapping="Wrap"
                      Padding="5" />

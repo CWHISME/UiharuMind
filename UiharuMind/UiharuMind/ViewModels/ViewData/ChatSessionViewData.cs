@@ -90,6 +90,7 @@ public partial class ChatSessionViewData : ObservableObject
         // if (role != AuthorRole.User) return;
         //生成AI回复
         // _chatSession.GenerateCompletion(OnStartGenerate,OnStepGenerated,OnCompletionGenerated,new CancellationToken());
+        if (role != AuthorRole.User) return;
         await GenerateMessage(token);
     }
 

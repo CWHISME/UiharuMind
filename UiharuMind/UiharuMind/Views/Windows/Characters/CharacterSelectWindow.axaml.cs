@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using AvaloniaEdit.Utils;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.Windows.Characters;

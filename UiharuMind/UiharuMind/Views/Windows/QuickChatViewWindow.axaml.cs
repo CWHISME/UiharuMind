@@ -8,6 +8,9 @@ using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
 
+/// <summary>
+/// 临时对话
+/// </summary>
 public partial class QuickChatViewWindow : QuickWindowBase
 {
     public static void Show(ChatViewModel model)
@@ -27,7 +30,9 @@ public partial class QuickChatViewWindow : QuickWindowBase
         set
         {
             DataContext = value;
-            TitleTextBlock.Text = ChatModel?.ChatSession.Name;
+            TitleTextBlock.Text =
+                $"{ChatModel?.ChatSession.Name}";
+            TitleSecondaryTextBlock.Text = $"({ChatModel?.ChatSession.ChatSession.ChatModelRunningData?.ModelName})";
         }
     }
 

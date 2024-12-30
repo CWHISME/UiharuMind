@@ -25,7 +25,9 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
+using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views;
+using UiharuMind.Views.Windows;
 using Ursa.Controls;
 
 namespace UiharuMind;
@@ -127,9 +129,10 @@ public partial class App : Application, ILogger, IDisposable
         Process.GetCurrentProcess().Kill();
     }
 
-    private void OnAboutClick(object? sender, EventArgs e)
-    {
-    }
+    // private void OnAboutClick(object? sender, EventArgs e)
+    // {
+    //     
+    // }
 
     private void OnOpenClick(object? sender, EventArgs e)
     {
@@ -175,5 +178,25 @@ public partial class App : Application, ILogger, IDisposable
         Log.CloseAndFlush();
         Clipboard.Dispose();
         ProcessHelper.CancelAllProcesses();
+    }
+
+    private void OnScreenCaptureClick(object? sender, EventArgs e)
+    {
+        ScreenCaptureManager.CaptureScreen();
+    }
+
+    private void OnQuickAskClick(object? sender, EventArgs e)
+    {
+        DummyWindow.LaunchQuickStartChatWindow();
+    }
+
+    private void OnClipboardHistoryClick(object? sender, EventArgs e)
+    {
+        DummyWindow.LaunchQuickClipboardHistoryWindow();
+    }
+
+    private void OnAboutMenuItemClick(object? sender, EventArgs e)
+    {
+        UIManager.ShowWindow<AboutWindow>();
     }
 }

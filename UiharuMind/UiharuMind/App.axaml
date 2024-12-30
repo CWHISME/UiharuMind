@@ -1,7 +1,9 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:u-Semi="https://irihi.tech/ursa/themes/semi"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              x:Class="UiharuMind.App"
+             Name="UiharuMind"
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
@@ -33,18 +35,31 @@
         <!-- <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" /> -->
     </Application.Styles>
 
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="About UiharuMind" Click="OnAboutMenuItemClick" />
+        </NativeMenu>
+    </NativeMenu.Menu>
+
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/avalonia-logo.ico"
-                      ToolTipText="提示信息 ToolTip">
+                      ToolTipText="This is a ToolTip 🌱">
                 <TrayIcon.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="About" ToolTip="关于" Click="OnAboutClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuAbout}" Click="OnAboutMenuItemClick" />
                         <NativeMenuItemSeparator />
-                        <NativeMenuItem Header="打开主界面" ToolTip="打开主界面" Click="OnOpenClick" />
-                        <NativeMenuItem Header="Settings" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuOpen}" Click="OnOpenClick" />
+                        <!-- <NativeMenuItem Header="Settings" /> -->
                         <NativeMenuItemSeparator />
-                        <NativeMenuItem Header="Quit" ToolTip="退出" Click="OnQuitClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuScreenCapture}"
+                                        Click="OnScreenCaptureClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuQuickAsk}" Click="OnQuickAskClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuClipboardHistory}"
+                                        Click="OnClipboardHistoryClick" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuQuit}"
+                                        ToolTip="{x:Static  lang:Lang.TrayMenuQuitTips}" Click="OnQuitClick" />
                     </NativeMenu>
                 </TrayIcon.Menu>
             </TrayIcon>

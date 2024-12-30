@@ -44,7 +44,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// </summary>
     public string CharaterId { get; set; } = "Empty";
 
-    public ChatHistory History { get; private set; } = new ChatHistory();
+    public ChatHistory History { get; set; } = new ChatHistory();
 
     /// <summary>
     /// 是否不携带历史对话的上下文，如果为true则不携带，每次只有最后一句用户消息
@@ -77,7 +77,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     }
 
     //以 UTC 格式存储的时间戳
-    public List<long> TimeStamps { get; private set; } = new List<long>();
+    public List<long> TimeStamps { get; set; } = new List<long>();
 
     public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
     public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;

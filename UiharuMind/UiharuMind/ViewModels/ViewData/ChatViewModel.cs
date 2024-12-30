@@ -20,6 +20,7 @@ using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
@@ -64,6 +65,9 @@ public partial class ChatViewModel : ViewModelBase
 
     //是否显示分页，当超出一页之后才显示
     [ObservableProperty] private bool _isVisiblePagination;
+
+    //是否显示重新生成按钮
+    [ObservableProperty] private bool _isVisibleRegenerateButton;
 
     private CancellationTokenSource? _cancelTokenSource;
 
@@ -119,6 +123,21 @@ public partial class ChatViewModel : ViewModelBase
         _cancelTokenSource = null;
     }
 
+    [RelayCommand]
+    public void RegenerateMessage()
+    {
+        while (true)
+        {
+            if (ChatSession.ChatSession.Count == 0) return;
+            ChatMessage lastMessage = ChatSession.ChatSession[^1];
+            if (lastMessage.Character == ECharacter.User)
+                break;
+            ChatSession.ChatSession.RemoveMessageAt(ChatSession.ChatSession.Count - 1);
+        }
+
+        GenerateMessage();
+    }
+
     // [RelayCommand]
     // public void EditMessage(ChatViewItemData itemData)
     // {
@@ -151,6 +170,11 @@ public partial class ChatViewModel : ViewModelBase
 
     partial void OnIsGeneratingChanged(bool value)
     {
+        CheckGenerationBtnVisible();
+    }
+
+    partial void OnIsPlaintextChanged(bool value)
+    {
         ConfigManager.Instance.Setting.IsChatPlainText = value;
     }
 
@@ -172,5 +196,15 @@ public partial class ChatViewModel : ViewModelBase
     partial void OnChatSessionChanged(ChatSessionViewData value)
     {
         OnEventChatSessionChanged?.Invoke(value);
+        CheckGenerationBtnVisible();
+    }
+
+    private void CheckGenerationBtnVisible()
+    {
+        if (IsGenerating)
+            IsVisibleRegenerateButton = false;
+        else
+            IsVisibleRegenerateButton = ChatSession.ChatSession.Count > 0 &&
+                                        ChatSession.ChatSession[^1].Character != ECharacter.User;
     }
 }

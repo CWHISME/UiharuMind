@@ -267,4 +267,28 @@
     <data name="ConvertToTempChat" xml:space="preserve">
         <value>转为临时对话</value>
     </data>
+    <data name="TrayMenuAbout" xml:space="preserve">
+        <value>关于</value>
+    </data>
+    <data name="TrayMenuOpen" xml:space="preserve">
+        <value>打开主界面</value>
+    </data>
+    <data name="TrayMenuQuit" xml:space="preserve">
+        <value>退出</value>
+    </data>
+    <data name="TrayMenuQuitTips" xml:space="preserve">
+        <value>完全关闭程序</value>
+    </data>
+    <data name="TrayMenuScreenCapture" xml:space="preserve">
+        <value>截图(Alt+Shift+Z)</value>
+    </data>
+    <data name="TrayMenuQuickAsk" xml:space="preserve">
+        <value>快捷询问(Alt+Shift+A)</value>
+    </data>
+    <data name="TrayMenuClipboardHistory" xml:space="preserve">
+        <value>剪切板历史(Alt+Shift+S)</value>
+    </data>
+    <data name="RegenerateBtn" xml:space="preserve">
+        <value>重新回答</value>
+    </data>
 </root>
