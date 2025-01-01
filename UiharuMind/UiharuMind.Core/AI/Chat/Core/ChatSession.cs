@@ -10,9 +10,6 @@
  ****************************************************************************/
 
 using System.Collections;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -20,7 +17,6 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Chat;
 
@@ -50,7 +46,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// 是否不携带历史对话的上下文，如果为true则不携带，每次只有最后一句用户消息
     /// 注：仅工具角色有效，角色扮演 必定携带历史上下文
     /// </summary>
-    public bool IsNotTakeHistoryContext { get; set; } = true;
+    public bool IsNotTakeHistoryContext { get; set; }
 
     //自定义参数
     public Dictionary<string, object?> CustomParams { get; set; } = new Dictionary<string, object?>();
@@ -68,11 +64,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     [JsonIgnore]
     public ModelRunningData? ChatModelRunningData
     {
-        get
-        {
-            _modelRunningData ??= LlmManager.Instance.CurrentRunningModel;
-            return _modelRunningData;
-        }
+        get => _modelRunningData ?? LlmManager.Instance.CurrentRunningModel;
         set => _modelRunningData = value;
     }
 
@@ -138,9 +130,10 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// </summary>
     /// <param name="authorRole"></param>
     /// <param name="message"></param>
-    public void AddMessage(AuthorRole authorRole, string message)
+    /// <param name="imageBytes"></param>
+    public void AddMessage(AuthorRole authorRole, string message, byte[]? imageBytes = null)
     {
-        var chatMsg = CreateMessage(authorRole, message);
+        var chatMsg = CreateMessage(authorRole, message, imageBytes);
         History.Add(chatMsg.Message);
         // TimeStamps.Add(chatMsg.Timestamp);
         // if (_countSavedCounter-- <= 0)
@@ -167,13 +160,18 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// </summary>
     /// <param name="authorRole"></param>
     /// <param name="message"></param>
+    /// <param name="imageBytes"></param>
     /// <param name="timestamp"></param>
     /// <returns></returns>
-    public ChatMessage CreateMessage(AuthorRole authorRole, string message, long? timestamp = null)
+    public ChatMessage CreateMessage(AuthorRole authorRole, string message, byte[]? imageBytes = null,
+        long? timestamp = null)
     {
+        ChatMessageContentItemCollection items = new ChatMessageContentItemCollection();
+        if (imageBytes != null) items.Add(new ImageContent(imageBytes, "image/jpg"));
+        if (!string.IsNullOrEmpty(message)) items.Add(new TextContent(message));
         return new ChatMessage()
         {
-            Message = new ChatMessageContent(authorRole, message)
+            Message = new ChatMessageContent(authorRole, items)
             {
 #pragma warning disable SKEXP0001
                 AuthorName = authorRole == AuthorRole.User

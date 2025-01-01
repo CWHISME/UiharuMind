@@ -57,6 +57,8 @@
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuQuickAsk}" Click="OnQuickAskClick" />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuClipboardHistory}"
                                         Click="OnClipboardHistoryClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuTranslateHistory}"
+                                        Click="OnTranslateMenuItemClick" />
                         <NativeMenuItemSeparator />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuQuit}"
                                         ToolTip="{x:Static  lang:Lang.TrayMenuQuitTips}" Click="OnQuitClick" />

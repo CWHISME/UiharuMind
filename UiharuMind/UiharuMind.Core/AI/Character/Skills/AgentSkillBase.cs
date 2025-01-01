@@ -16,6 +16,11 @@ public abstract class AgentSkillBase
         _args[key] = value;
     }
 
+    public void RemoveParams(string key)
+    {
+        _args?.Remove(key);
+    }
+
     public object? GetParam(string key)
     {
         object? value = null;
@@ -36,9 +41,14 @@ public abstract class AgentSkillBase
 
     // ============================== Common Params ================================
 
-    public void SetLangate(string text)
+    public void SetLanguage(string text)
     {
         SetParams(CharacterData.ParamsNameLanguage, text);
+    }
+
+    public void RemoveLanguage()
+    {
+        RemoveParams(CharacterData.ParamsNameLanguage);
     }
 
     //================================================================================
@@ -106,14 +116,14 @@ public abstract class AgentSkillBase
 
         if (modelRunning is not { IsRunning: true })
         {
-            if (modelRunning?.IsRemoteModel == false)
+            if (modelRunning?.IsRemoteModel != true)
             {
                 return false;
             }
 
-            if (modelRunning?.Kernel == null)
+            if (modelRunning.Kernel == null)
             {
-                _ = modelRunning?.StartLoad(null, null);
+                _ = modelRunning.StartLoad(null, null);
             }
         }
 

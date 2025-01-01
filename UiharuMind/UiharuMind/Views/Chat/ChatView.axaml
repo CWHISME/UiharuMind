@@ -131,13 +131,22 @@
         <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto">
             <!-- 工具区域 -->
             <DockPanel Margin="5,5,5,0">
-                <Button Content="{Binding SenderMode}"
-                        Command="{Binding ChangeSendModeCommand}">
-                    <ToolTip.Tip>
-                        <TextBlock
-                            Text="{x:Static lang:Lang.SendUserDesc}" />
-                    </ToolTip.Tip>
-                </Button>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Content="{Binding SenderMode}"
+                            Command="{Binding ChangeSendModeCommand}">
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="{x:Static lang:Lang.SendUserDesc}" />
+                        </ToolTip.Tip>
+                    </Button>
+                    <Button IsVisible="{Binding IsSurportImage}" Command="{Binding UploadImageCommand}">
+                        <PathIcon Data="{StaticResource ImageRegular}" Width="20" Height="20" />
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="{x:Static lang:Lang.Image}" />
+                        </ToolTip.Tip>
+                    </Button>
+                </StackPanel>
                 <CheckBox DockPanel.Dock="Right" Content="{x:Static lang:Lang.Plaintext}"
                           IsChecked="{Binding IsPlaintext}"
                           HorizontalAlignment="Right">

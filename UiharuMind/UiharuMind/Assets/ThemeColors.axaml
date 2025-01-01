@@ -11,6 +11,7 @@
         <ResourceDictionary>
             <SolidColorBrush x:Key="UiBorderBrush" Color="Lavender" />
             <SolidColorBrush x:Key="UiRectangleLineBrush" Color="Lavender" />
+            <ImageBrush x:Key="IconBrush"  Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key='Light'>

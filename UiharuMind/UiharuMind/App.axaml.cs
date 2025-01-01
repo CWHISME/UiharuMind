@@ -195,6 +195,11 @@ public partial class App : Application, ILogger, IDisposable
         DummyWindow.LaunchQuickClipboardHistoryWindow();
     }
 
+    private void OnTranslateMenuItemClick(object? sender, EventArgs e)
+    {
+        DummyWindow.LaunchQuickTranslationWindow();
+    }
+
     private void OnAboutMenuItemClick(object? sender, EventArgs e)
     {
         UIManager.ShowWindow<AboutWindow>();

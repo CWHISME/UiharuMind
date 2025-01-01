@@ -10,9 +10,9 @@ namespace UiharuMind.Core.AI.Character.Skills;
 /// </summary>
 public abstract class AgentSkillConvertableBase : AgentSkillBase
 {
-    protected ChatHistory _chatHistory;
+    protected ChatHistory? _chatHistory;
 
-    public override bool IsConvertableToChatSession => true;
+    public override bool IsConvertableToChatSession => _chatHistory != null;
 
     public override ChatSession TryConvertToChatSession()
     {

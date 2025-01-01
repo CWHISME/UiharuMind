@@ -5,8 +5,8 @@
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.AboutPage">
-    <ScrollViewer>
-        <StackPanel Spacing="10" Margin="10">
+    <DockPanel Margin="10">
+        <StackPanel DockPanel.Dock="Top">
             <SelectableTextBlock Text="UiharuMind" FontSize="26" HorizontalAlignment="Center" />
             <HyperlinkButton Content="https://github.com/UiharuMind/UiharuMind" HorizontalAlignment="Center"
                              NavigateUri="https://github.com/UiharuMind/UiharuMind" />
@@ -17,11 +17,12 @@
                 HorizontalAlignment="Center"
                 TextWrapping="Wrap" />
             <u:Divider Content="Thanks" FontSize="20" />
-
-            <StackPanel Spacing="10" Name="LinksPanel" />
         </StackPanel>
 
+        <ScrollViewer DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <StackPanel Spacing="10" Name="LinksPanel" />
+        </ScrollViewer>
+    </DockPanel>
 
-    </ScrollViewer>
 
 </UserControl>

@@ -36,7 +36,7 @@ public class ModelRunningData
     /// <summary>
     /// 请先检测模型是否运行
     /// </summary>
-    public Kernel Kernel => _kernel!;
+    public Kernel? Kernel => _kernel;
 
     /// <summary>
     /// 当前运行的模型名称

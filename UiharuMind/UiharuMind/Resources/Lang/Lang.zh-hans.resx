@@ -291,4 +291,10 @@
     <data name="RegenerateBtn" xml:space="preserve">
         <value>重新回答</value>
     </data>
+    <data name="Image" xml:space="preserve">
+        <value>图片</value>
+    </data>
+    <data name="TrayMenuTranslateHistory" xml:space="preserve">
+        <value>翻译(Alt+Shift+Q)</value>
+    </data>
 </root>

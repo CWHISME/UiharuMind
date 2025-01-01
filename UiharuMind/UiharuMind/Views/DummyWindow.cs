@@ -122,6 +122,13 @@ public class DummyWindow : Window
                 KeyCode.VcLeftAlt, KeyCode.VcLeftShift
             },
             "Quick Clipboard History"));
+
+        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcQ,
+            LaunchQuickTranslationWindow, new List<KeyCode>()
+            {
+                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
+            },
+            "Quick Clipboard History"));
         // RegistryShortcutQuickTool(KeyCode.VcLeftControl);
         // RegistryShortcutQuickTool(KeyCode.VcLeftAlt);
         // RegistryShortcutQuickTool(KeyCode.VcLeftMeta);
@@ -132,7 +139,7 @@ public class DummyWindow : Window
         App.Clipboard.OnClipboardStringChanged += LaunchQuickToolWindow;
         App.Clipboard.OnClipboardImageChanged += LaunchQuickImagePinWindow;
     }
-    
+
     // private void RegistryShortcutQuickTool(KeyCode decorateKeyCode)
     // {
     //     InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcC,
@@ -158,7 +165,7 @@ public class DummyWindow : Window
     {
         QuickToolWindow.Show(answerStr);
     }
-    
+
     private void LaunchQuickImagePinWindow(Bitmap obj)
     {
         QuickPinImageTipWindow.Show(obj);
@@ -167,5 +174,10 @@ public class DummyWindow : Window
     public void LaunchQuickClipboardHistoryWindow()
     {
         UIManager.ShowWindow<QuickClipboardHistoryWindow>();
+    }
+
+    public void LaunchQuickTranslationWindow()
+    {
+        UIManager.ShowWindow<QuickTranslationWindow>();
     }
 }

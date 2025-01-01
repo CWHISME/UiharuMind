@@ -299,4 +299,10 @@
     <data name="RegenerateBtn" xml:space="preserve">
         <value>Regenerate</value>
     </data>
+    <data name="Image" xml:space="preserve">
+        <value>Image</value>
+    </data>
+    <data name="TrayMenuTranslateHistory" xml:space="preserve">
+        <value>Translation(Alt+Shift+Q)</value>
+    </data>
 </root>

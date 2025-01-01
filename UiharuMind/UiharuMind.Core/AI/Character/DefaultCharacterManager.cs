@@ -63,6 +63,7 @@ public enum DefaultCharacter
     Expositor,
     ExpositorQuote,
     Translator,
+    TranslatorAdvanced,
     TranslateReviwer,
     VisionOcr,
     Vision,

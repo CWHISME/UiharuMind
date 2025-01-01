@@ -602,5 +602,17 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("RegenerateBtn", resourceCulture);
             }
         }
+        
+        public static string Image {
+            get {
+                return ResourceManager.GetString("Image", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuTranslateHistory {
+            get {
+                return ResourceManager.GetString("TrayMenuTranslateHistory", resourceCulture);
+            }
+        }
     }
 }

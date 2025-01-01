@@ -245,9 +245,9 @@ public partial class ChatSessionViewData : ObservableObject
         Description = ChatManager.Instance.ModifySessionDescription(ChatSession, newName);
     }
 
-    private ChatViewItemData AddMessage(AuthorRole role, string message)
+    public ChatViewItemData AddMessage(AuthorRole role, string message, byte[]? imageBytes = null)
     {
-        ChatSession.AddMessage(role, message);
+        ChatSession.AddMessage(role, message, imageBytes);
         return AddMessage(ChatSession[^1]);
     }
 
