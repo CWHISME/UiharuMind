@@ -10,7 +10,7 @@
       "execution_settings": {},
       "allow_dangerously_set_content": false
     },
-    "OpenAiSettings": {
+    "ExecutionSettings": {
       "temperature": 0.5,
       "top_p": 0.6,
       "presence_penalty": 0,

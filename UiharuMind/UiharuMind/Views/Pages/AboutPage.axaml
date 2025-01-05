@@ -6,16 +6,16 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.AboutPage">
     <DockPanel Margin="10">
-        <StackPanel DockPanel.Dock="Top">
+        <StackPanel DockPanel.Dock="Top" Spacing="10">
             <SelectableTextBlock Text="UiharuMind" FontSize="26" HorizontalAlignment="Center" />
             <HyperlinkButton Content="https://github.com/UiharuMind/UiharuMind" HorizontalAlignment="Center"
                              NavigateUri="https://github.com/UiharuMind/UiharuMind" />
             <TextBlock Text="Version: 0.0.1" HorizontalAlignment="Center" />
-            <u:Divider />
-            <TextBlock
-                Text="UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。"
-                HorizontalAlignment="Center"
-                TextWrapping="Wrap" />
+            <u:Divider Content="Introduction" FontSize="20" />
+            <TextBlock Margin="5"
+                       Text="UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap" />
             <u:Divider Content="Thanks" FontSize="20" />
         </StackPanel>
 

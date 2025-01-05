@@ -297,4 +297,25 @@
     <data name="TrayMenuTranslateHistory" xml:space="preserve">
         <value>翻译(Alt+Shift+Q)</value>
     </data>
+    <data name="ExtraRequestText" xml:space="preserve">
+        <value>额外需求</value>
+    </data>
+    <data name="TargetLanguageText" xml:space="preserve">
+        <value>目标语言</value>
+    </data>
+    <data name="ExtraRequestTextBoxTips" xml:space="preserve">
+        <value>描述你对这次翻译的额外需求，例如：要求符合编程字段命名</value>
+    </data>
+    <data name="Think" xml:space="preserve">
+        <value>思考</value>
+    </data>
+    <data name="Filter" xml:space="preserve">
+        <value>筛选</value>
+    </data>
+    <data name="All" xml:space="preserve">
+        <value>全部</value>
+    </data>
+    <data name="Character" xml:space="preserve">
+        <value>角色</value>
+    </data>
 </root>

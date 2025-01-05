@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Views.Windows.Characters;
 using UiharuMind.Utils;
 
@@ -13,6 +14,27 @@ namespace UiharuMind.ViewModels.ViewData;
 public partial class CharacterListViewData : ObservableObject
 {
     public ObservableCollection<CharacterInfoViewData> Characters { get; set; } = new();
+
+    /// <summary>
+    /// 筛选
+    /// </summary>
+    public string[] FilterTags = new string[] { Lang.All, Lang.Tool, Lang.Character };
+
+    public string FilterTag
+    {
+        get => FilterTagIndex < 0 || FilterTagIndex >= FilterTags.Length ? FilterTags[0] : FilterTags[FilterTagIndex];
+        set => FilterTagIndex = Array.IndexOf(FilterTags, value);
+    }
+
+    public int FilterTagIndex
+    {
+        get => ConfigManager.Instance.Setting.CharacterFilterIndex;
+        set
+        {
+            ConfigManager.Instance.Setting.CharacterFilterIndex = value;
+            LoadCharacters();
+        }
+    }
 
     [ObservableProperty] private CharacterInfoViewData _selectedCharacter;
 
@@ -34,20 +56,25 @@ public partial class CharacterListViewData : ObservableObject
     public CharacterListViewData()
     {
         LoadCharacters();
+        CharacterManager.Instance.OnCharacterAdded += OnCharacterAdded;
+        CharacterManager.Instance.OnCharacterRemoved += OnCharacterRemoved;
         _selectedCharacter = Characters[0];
     }
 
     private void LoadCharacters()
     {
+        Characters.Clear();
         foreach (var characterData in CharacterManager.Instance.CharacterDataDictionary)
         {
-            var characterInfo = new CharacterInfoViewData(characterData.Value);
-            if (characterData.Value.IsTool) Characters.Add(characterInfo);
-            else Characters.Insert(0, characterInfo);
+            // 筛选
+            if (FilterTag == Lang.All || (FilterTag == Lang.Tool && characterData.Value.IsTool) ||
+                (FilterTag == Lang.Character && !characterData.Value.IsTool))
+            {
+                var characterInfo = new CharacterInfoViewData(characterData.Value);
+                if (characterData.Value.IsTool) Characters.Add(characterInfo);
+                else Characters.Insert(0, characterInfo);
+            }
         }
-
-        CharacterManager.Instance.OnCharacterAdded += OnCharacterAdded;
-        CharacterManager.Instance.OnCharacterRemoved += OnCharacterRemoved;
     }
 
     private void OnCharacterAdded(CharacterData obj)

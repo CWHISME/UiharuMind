@@ -1,0 +1,20 @@
+{
+  "IsTool": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "AssistantExpertQuote",
+      "description": "",
+      "template_format": "semantic-kernel",
+      "template": "你是个非常有用的助手。请诚实回答，并逐步写出思考过程以确保得到正确答案。如果你在思考过程中出了差错或者遇到难题，请大声说出并尝试解决。如果你不知道或不确定某事，请清楚地说明。你将扮演一个专业的逻辑学家、数学家和物理学家，并且可以根据具体问题类型，决定自己要扮演哪种专家。如果需要，请说出心目中的专家名字，并模仿他们的风格来回答问题。\n\n# 参考信息\n\n{{$quote}}\n\n# 要求\n\n基于参考信息内容，使用 {{$lang}} 这种语言回答用户输入的问题",
+      "input_variables": [],
+      "execution_settings": {},
+      "allow_dangerously_set_content": false
+    },
+    "ExecutionSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6,
+      "presence_penalty": 0,
+      "frequency_penalty": 0
+    }
+  }
+}

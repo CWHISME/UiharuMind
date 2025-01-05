@@ -103,7 +103,7 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString), null, true);
         // QuickStartChatWindow.Show(_answerString);
         // QuickChatResultWindow.Show("解释", _answerString, ConfigManager.Instance.QuickToolPromptSetting.Explanation);
-        ExpositorAgentSkill skill = new ExpositorAgentSkill();
+        AssistantExpertAgentSkill skill = new AssistantExpertAgentSkill();
         // skill.SetLangate(Lang.Culture.EnglishName);
         QuickChatResultWindow.Show(Lang.Explain, _answerString, skill);
         PlayAnimation(false, SafeClose);
@@ -155,6 +155,8 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 //     ConfigManager.Instance.QuickToolPromptSetting.Translation);
                 QuickChatResultWindow.Show(Lang.Translation, _answerString, skill);
             });
+        AddFunctionMenu(Lang.Think,
+            () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainofThoughtAgentSkill()); });
         AddFunctionMenu(Lang.Ask, () => { QuickStartChatWindow.Show(_answerString); });
     }
 

@@ -139,8 +139,10 @@ public partial class QuickStartChatWindow : QuickWindowBase
         // Log.Warning($"Quick chat: {inputText}");
         // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(inputText));
         // QuickChatResultWindow.Show("询问", $"请根据内容 {_quoteStr} 进行回答：\n{inputText}");
-        ExpositorQuoteAgentSkill quoteAgentSkill = new ExpositorQuoteAgentSkill(_quoteStr);
-        QuickChatResultWindow.Show("Answer", inputText, quoteAgentSkill);
+        AgentSkillBase askAgentSkill = string.IsNullOrEmpty(_quoteStr)
+            ? new AssistantExpertAgentSkill()
+            : new AssistantExpertQuoteAgentSkill(_quoteStr);
+        QuickChatResultWindow.Show("Answer", inputText, askAgentSkill);
         CloseByAnimation();
     }
 

@@ -65,7 +65,7 @@ public class ChatManager : Singleton<ChatManager>
     /// <param name="newName"></param>
     public string ModifySessionName(ChatSession session, string newName)
     {
-        DeleteChat(session);
+        DeleteSession(session);
         session.Name = GetUniqueSessionName(newName);
         SaveChat(session);
         return session.Name;
@@ -86,8 +86,14 @@ public class ChatManager : Singleton<ChatManager>
     /// <summary>
     /// 保存聊天记录
     /// </summary>
-    public static void SaveChat(ChatSession chatSession)
+    public static void SaveChat(ChatSession chatSession, bool isAsNew = false)
     {
+        if (isAsNew)
+        {
+            ChatManager.Instance.ModifySessionName(chatSession, chatSession.Name);
+            return;
+        }
+
         // if (!Directory.Exists(SettingConfig.SaveChatDataPath))
         //     Directory.CreateDirectory(SettingConfig.SaveChatDataPath);
         string fileName = $"{chatSession.Name}.json";

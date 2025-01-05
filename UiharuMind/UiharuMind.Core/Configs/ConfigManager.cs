@@ -35,8 +35,9 @@ public class ConfigManager : Singleton<ConfigManager>
     /// </summary>
     public void SaveSetting()
     {
-        SaveUtility.Save(typeof(SettingConfig), Setting);
-        SaveUtility.Save(typeof(QuickToolSetting), QuickToolSetting);
-        SaveUtility.Save(typeof(ChatSettingConfig), ChatSetting);
+        Setting.Save();
+        QuickToolSetting.Save();
+        QuickToolPromptSetting.Save();
+        ChatSetting.Save();
     }
 }

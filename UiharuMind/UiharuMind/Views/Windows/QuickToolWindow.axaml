@@ -19,7 +19,7 @@
             </Button.Styles>
             <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="25" Height="25" />
             <ToolTip.Tip>
-                <TextBlock Text="{x:Static  lang:Lang.Ask}" />
+                <TextBlock Text="{x:Static  lang:Lang.Explain}" />
             </ToolTip.Tip>
         </Button>
 

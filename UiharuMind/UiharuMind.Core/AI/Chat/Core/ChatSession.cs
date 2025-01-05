@@ -68,6 +68,12 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         set => _modelRunningData = value;
     }
 
+    /// <summary>
+    /// 如果该字段为 true，则表示该对话为临时对话，触发存储时将会保存为一个全新的 Session
+    /// </summary>
+    [JsonIgnore]
+    public bool IsDirty { get; set; } = false;
+
     //以 UTC 格式存储的时间戳
     public List<long> TimeStamps { get; set; } = new List<long>();
 
@@ -326,7 +332,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     // }
     public void Save()
     {
-        ChatManager.SaveChat(this);
+        ChatManager.SaveChat(this, IsDirty);
     }
 
     public void Clear()

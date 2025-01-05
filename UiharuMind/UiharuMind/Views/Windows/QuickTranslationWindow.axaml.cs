@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -51,11 +52,24 @@ public partial class QuickTranslationWindow : QuickWindowBase
         foreach (var culture in cultures)
         {
             if (string.IsNullOrEmpty(culture.Name)) continue;
+            if (culture.Name.Equals("zh") || culture.Name.Equals("en"))
+                _commonlyUsedLanguages.Add(culture.DisplayName);
             _languages.Add(culture.DisplayName);
         }
 
         TargetLanguageComboBox.ItemsSource = _languages;
         TargetLanguageComboBox.SelectedIndex = 0;
+        TargetLanguageComboBox.SelectionChanged += OnTargetLanguageComboBoxSelectionChanged;
+
+        CommonlyUsedLanguagePanel.Children.Clear();
+        foreach (var language in _commonlyUsedLanguages)
+        {
+            var button = new ToggleButton();
+            button.Content = language;
+            button.IsChecked = false;
+            button.Click += CommonlyUsedLanguageButton_Click;
+            CommonlyUsedLanguagePanel.Children.Add(button);
+        }
     }
 
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
@@ -63,6 +77,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
     private CancellationTokenSource? _cts;
 
     private List<string> _languages = new List<string>();
+    private List<string> _commonlyUsedLanguages = new List<string>();
 
     public bool IsFinished
     {
@@ -76,9 +91,9 @@ public partial class QuickTranslationWindow : QuickWindowBase
     }
 
     // private string _askContent;
-    private readonly AgentSkillBase _agentSkill;
+    private readonly TranslationAdvancedAgentSkill _agentSkill;
 
-    public void SetRequestInfo(string? content, AgentSkillBase agentSkill)
+    public void SetRequestInfo(string? content, TranslationAdvancedAgentSkill agentSkill)
     {
         if (string.IsNullOrEmpty(content))
         {
@@ -89,6 +104,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
         if (TargetLanguageComboBox.SelectedIndex > 0)
             agentSkill.SetLanguage(TargetLanguageComboBox.SelectedItem?.ToString()!);
         else agentSkill.RemoveLanguage();
+        agentSkill.SetExtraRequest(string.IsNullOrEmpty(ExtraRequestTextBox.Text) ? "None" : ExtraRequestTextBox.Text);
         // _askContent = content;
         // _agentSkill = agentSkill;
 
@@ -119,7 +135,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
     protected override void OnPreShow()
     {
         base.OnPreShow();
-        this.SetWindowToMousePosition(HorizontalAlignment.Center);
+        this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
     }
 
     protected override void OnPreClose()
@@ -153,6 +169,29 @@ public partial class QuickTranslationWindow : QuickWindowBase
     {
         SetRequestInfo(InputBox.Text, _agentSkill);
     }
+
+    //=======常用语言快捷切换=======
+    private void OnTargetLanguageComboBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        RefreshCommonlyUsedLanguagesState();
+    }
+
+    private void CommonlyUsedLanguageButton_Click(object? sender, RoutedEventArgs e)
+    {
+        TargetLanguageComboBox.SelectedItem = (sender as ToggleButton)?.Content;
+        RefreshCommonlyUsedLanguagesState();
+    }
+
+    private void RefreshCommonlyUsedLanguagesState()
+    {
+        foreach (var contrl in CommonlyUsedLanguagePanel.Children)
+        {
+            var btn = contrl as ToggleButton;
+            if (btn == null) continue;
+            btn.IsChecked = (string?)btn.Content == TargetLanguageComboBox.SelectedItem?.ToString();
+        }
+    }
+    //=========================
 
     [RelayCommand]
     public void SendMessage()

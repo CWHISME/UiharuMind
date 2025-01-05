@@ -79,6 +79,9 @@ public partial class AboutPage : UserControl
         LinksPanel.Children.Add(CreateLink("Markdig",
             "https://github.com/xoofx/markdig",
             "Markdig is a fast, powerful, CommonMark compliant, extensible Markdown processor for .NET."));
+
+        LinksPanel.Children.Add(CreateLink("SillyTavern",
+            "https://github.com/SillyTavern/SillyTavern", "参考了其中一些做法，并使用了部分系统提示"));
     }
 
     private Control CreateLink(string name, string uri, string description)
@@ -104,12 +107,16 @@ public partial class AboutPage : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Left,
         };
-        ToolTip tip = new ToolTip
+
+        if (!string.IsNullOrEmpty(description))
         {
-            Content = description,
-        };
-        ToolTip.SetTip(title, tip);
-        ToolTip.SetShowDelay(title, 0);
+            ToolTip tip = new ToolTip
+            {
+                Content = description,
+            };
+            ToolTip.SetTip(title, tip);
+            ToolTip.SetShowDelay(title, 0);
+        }
 
         link.Children.Add(title);
         link.Children.Add(new HyperlinkButton

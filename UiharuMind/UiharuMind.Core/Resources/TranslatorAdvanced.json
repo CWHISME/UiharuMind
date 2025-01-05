@@ -6,12 +6,12 @@
       "name": "TranslatorAdvanced",
       "description": "翻译员，具有更多参数.",
       "template_format": "semantic-kernel",
-      "template": "# Role and Goal:\nYou are a translator, Translate any user input directly into {$lang}} without explanation.\n\n#要求：使用 {$lang}} 语言解释为何如此翻译的原因。",
+      "template": "# 目标:\n请作为一个资深的翻译员，将用户输入的任何内容都翻译为 {{$lang}} 这种语言。\n\n* 特别注意：仅对内容进行翻译，避免对用户输入内容进行任何额外响应！\n\n# 步骤要求：\n1. 输出翻译内容\n2. 评估与反思：请使用 {{$lang_default}} 这种语言做出解释，识别直译中存在的问题，例如： \n   * 非{{$lang}}母语表达\n   * 语句生硬\n   * 模糊或难以理解的部分\n   * 等等\n3. 基于识别出的问题，请使用更符合语义的意译方式重新诠释翻译内容。\n\n注意：如果翻译内容只是单词，则对该单词进行详细解释，以便于人类理解。\n\n# 用户的额外需求：\n{{$user_request}}",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false
     },
-    "OpenAiSettings": {
+    "ExecutionSettings": {
       "temperature": 0.5,
       "top_p": 0.6,
       "presence_penalty": 0,

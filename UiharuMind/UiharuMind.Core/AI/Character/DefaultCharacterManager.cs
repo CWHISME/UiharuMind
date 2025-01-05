@@ -54,14 +54,30 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 
 public enum DefaultCharacter
 {
+    /// <summary>
+    /// 用户角色卡
+    /// </summary>
     UserCard,
     Actor,
     RoleplaySimple,
     RoleplayDetailed,
     RoleplayImmersive,
     UiharuKazari,
-    Expositor,
-    ExpositorQuote,
+
+    /// <summary>
+    /// 高级专家
+    /// </summary>
+    AssistantExpert,
+
+    /// <summary>
+    /// 高级专家的(带额外引用信息)
+    /// </summary>
+    AssistantExpertQuote,
+
+    /// <summary>
+    /// 思维链
+    /// </summary>
+    ChainofThought,
     Translator,
     TranslatorAdvanced,
     TranslateReviwer,

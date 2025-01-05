@@ -36,8 +36,33 @@ public class SettingConfig : ConfigBase
     /// </summary>
     public bool IsChatPlainText { get; set; } = false;
 
+    private bool _isCharacterPhotoListView;
+
     /// <summary>
     /// 角色列表是否显示以图片形式显示
     /// </summary>
-    public bool IsCharacterPhotoListView { get; set; } = true;
+    public bool IsCharacterPhotoListView
+    {
+        get => _isCharacterPhotoListView;
+        set
+        {
+            _isCharacterPhotoListView = value;
+            Save();
+        }
+    }
+
+    private int _characterFilterIndex;
+
+    /// <summary>
+    /// 角色列表筛选方式的索引
+    /// </summary>
+    public int CharacterFilterIndex
+    {
+        get => _characterFilterIndex;
+        set
+        {
+            _characterFilterIndex = value;
+            Save();
+        }
+    }
 }

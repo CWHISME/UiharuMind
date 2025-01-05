@@ -1,6 +1,10 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using UiharuMind.Resources.Lang;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.Common;
@@ -34,5 +38,39 @@ public partial class CharacterListView : UserControl
         InitializeComponent();
 
         // DataContext = App.ViewModel.GetViewModel<CharacterListViewData>();
+    }
+
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+
+        var data = DataContext as CharacterListViewData;
+        if (data == null) return;
+        FilterPanel.Children.Clear();
+        for (int i = 0; i < data.FilterTags.Length; i++)
+        {
+            var tag = data.FilterTags[i];
+            var button = new ToggleButton();
+            button.Content = tag;
+            button.IsChecked = i == 0;
+            button.Click += OnFilterClick;
+            FilterPanel.Children.Add(button);
+        }
+    }
+
+    private void OnFilterClick(object? sender, RoutedEventArgs e)
+    {
+        var content = (sender as ToggleButton)?.Content;
+        string? tag = content as string;
+        foreach (var child in FilterPanel.Children)
+        {
+            var button = child as ToggleButton;
+            if (button == null) continue;
+            button.IsChecked = button.Content == content;
+        }
+
+        var data = DataContext as CharacterListViewData;
+        if (data == null) return;
+        data.FilterTag = tag ?? "";
     }
 }

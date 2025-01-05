@@ -71,10 +71,10 @@ public class ClipboardService : IDisposable
         _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromSeconds(100));
     }
 
-    public void CopyToClipboard(string text)
+    public void CopyToClipboard(string text, bool ignoreSelfCopying = false)
     {
         // _target.Dispatcher.Invoke(() => { Clipboard.SetText(text); });
-        _isSelfCopying = true;
+        if (ignoreSelfCopying) _isSelfCopying = true;
         try
         {
             Clipboard.SetTextAsync(text);
@@ -90,9 +90,9 @@ public class ClipboardService : IDisposable
         return await Clipboard.GetTextAsync();
     }
 
-    public void CopyImageToClipboard(Bitmap bitmap)
+    public void CopyImageToClipboard(Bitmap bitmap, bool ignoreSelfCopying = false)
     {
-        _isSelfCopying = true;
+        if (ignoreSelfCopying) _isSelfCopying = true;
 
         try
         {

@@ -9,12 +9,22 @@ public class TranslationAdvancedAgentSkill : AgentSkillConvertableBase
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
-        // AddParams("content", text);
+        TrySetParams("user_request", "None");
+
         var translator = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
 
         _chatHistory = new ChatHistory();
         _chatHistory.AddMessage(AuthorRole.User, text);
         return modelRunningData.InvokeAgentStreamingAsync(translator, _chatHistory, cancellationToken);
+    }
+
+    /// <summary>
+    /// 设置额外需求
+    /// </summary>
+    /// <param name="extraRequest"></param>
+    public void SetExtraRequest(string extraRequest)
+    {
+        SetParams("user_request", extraRequest);
     }
 
     protected override ChatHistory GetChatHistory()

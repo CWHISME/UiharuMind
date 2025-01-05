@@ -14,15 +14,18 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
 
     public override bool IsConvertableToChatSession => _chatHistory != null;
 
-    public override ChatSession TryConvertToChatSession()
+    public override ChatSession? TryConvertToChatSession()
     {
+        var chatHistory = GetChatHistory();
+        if (chatHistory == null) return null;
+
         var characterData = GetCharacterData();
         var chatSession = new ChatSession(characterData.CharacterName, characterData);
-        chatSession.ReInitHistory(GetChatHistory());
+        chatSession.ReInitHistory(chatHistory);
         chatSession.ChatModelRunningData = CurModelRunningData;
         return chatSession;
     }
 
-    protected abstract ChatHistory GetChatHistory();
+    protected abstract ChatHistory? GetChatHistory();
     protected abstract CharacterData GetCharacterData();
 }

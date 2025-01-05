@@ -14,7 +14,7 @@
     <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*" Margin="10">
         <Border Background="Transparent"
                 PointerPressed="InputElement_OnPointerPressed">
-            <StackPanel>
+            <StackPanel Spacing="5" Margin="5">
                 <DockPanel LastChildFill="False">
                     <TextBlock Text="{x:Static lang:Lang.Translation}" FontSize="20" Margin="0,4.5,5,0"
                                TextAlignment="Center" />
@@ -31,9 +31,20 @@
                 </DockPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="Target Language:" FontSize="16" VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Static lang:Lang.TargetLanguageText}"
+                               FontSize="16" VerticalAlignment="Center" />
                     <ComboBox Name="TargetLanguageComboBox" HorizontalAlignment="Stretch" />
+
+                    <StackPanel Name="CommonlyUsedLanguagePanel" Orientation="Horizontal" Spacing="5" />
                 </StackPanel>
+
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="{x:Static lang:Lang.ExtraRequestText}"
+                               FontSize="16"
+                               VerticalAlignment="Center" />
+                    <TextBox DockPanel.Dock="Right" Name="ExtraRequestTextBox"
+                             Watermark="{x:Static lang:Lang.ExtraRequestTextBoxTips}" Margin="10,0,0,0" />
+                </DockPanel>
             </StackPanel>
         </Border>
         <ScrollViewer Grid.Row="2" Name="ScrollViewer">

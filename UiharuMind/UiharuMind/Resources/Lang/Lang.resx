@@ -305,4 +305,25 @@
     <data name="TrayMenuTranslateHistory" xml:space="preserve">
         <value>Translation(Alt+Shift+Q)</value>
     </data>
+    <data name="ExtraRequestText" xml:space="preserve">
+        <value>Extra Request</value>
+    </data>
+    <data name="TargetLanguageText" xml:space="preserve">
+        <value>Target Language</value>
+    </data>
+    <data name="ExtraRequestTextBoxTips" xml:space="preserve">
+        <value>Additional Requirement for Translation</value>
+    </data>
+    <data name="Think" xml:space="preserve">
+        <value>Think</value>
+    </data>
+    <data name="Filter" xml:space="preserve">
+        <value>Filter</value>
+    </data>
+    <data name="All" xml:space="preserve">
+        <value>All</value>
+    </data>
+    <data name="Character" xml:space="preserve">
+        <value>Character</value>
+    </data>
 </root>

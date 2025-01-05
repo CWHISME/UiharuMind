@@ -614,5 +614,47 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("TrayMenuTranslateHistory", resourceCulture);
             }
         }
+        
+        public static string ExtraRequestText {
+            get {
+                return ResourceManager.GetString("ExtraRequestText", resourceCulture);
+            }
+        }
+        
+        public static string TargetLanguageText {
+            get {
+                return ResourceManager.GetString("TargetLanguageText", resourceCulture);
+            }
+        }
+        
+        public static string ExtraRequestTextBoxTips {
+            get {
+                return ResourceManager.GetString("ExtraRequestTextBoxTips", resourceCulture);
+            }
+        }
+        
+        public static string Think {
+            get {
+                return ResourceManager.GetString("Think", resourceCulture);
+            }
+        }
+        
+        public static string Filter {
+            get {
+                return ResourceManager.GetString("Filter", resourceCulture);
+            }
+        }
+        
+        public static string All {
+            get {
+                return ResourceManager.GetString("All", resourceCulture);
+            }
+        }
+        
+        public static string Character {
+            get {
+                return ResourceManager.GetString("Character", resourceCulture);
+            }
+        }
     }
 }

@@ -134,13 +134,15 @@ public class CharacterData
     // ============================== Common Params ================================
 
     public const string ParamsNameLanguage = "lang";
+    public const string ParamsNameLanguageDefault = "lang_default";
     public const string ParamsNameChar = "char";
     public const string ParamsNameUser = "user";
 
     private Dictionary<string, object?> CheckParams(Dictionary<string, object?>? kernelArguments)
     {
         kernelArguments ??= new Dictionary<string, object?>();
-        kernelArguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.EnglishName);
+        kernelArguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.NativeName);
+        kernelArguments.TryAdd(ParamsNameLanguageDefault, LanguageUtils.CurCultureInfo.NativeName);
         kernelArguments.TryAdd(ParamsNameChar, CharacterName);
         kernelArguments.TryAdd(ParamsNameUser, CharacterManager.Instance.UserCharacterName);
         return kernelArguments;

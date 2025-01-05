@@ -5,17 +5,25 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
-public class ExpositorQuoteAgentSkill : AgentSkillConvertableBase
+public class NormalAgentSkill : AgentSkillConvertableBase
 {
-    public ExpositorQuoteAgentSkill(string quoteStr)
+    protected CharacterData _characterData;
+
+    public NormalAgentSkill(CharacterData characterData)
     {
-        SetParams("quote", quoteStr);
+        _characterData = characterData;
+    }
+
+    public NormalAgentSkill(DefaultCharacter character) : this(
+        DefaultCharacterManager.Instance.GetCharacterData(character))
+    {
     }
 
     protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string text,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
+        // AddParams("content", text);
         var agent = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
 
         _chatHistory = new ChatHistory();
@@ -23,13 +31,13 @@ public class ExpositorQuoteAgentSkill : AgentSkillConvertableBase
         return modelRunningData.InvokeAgentStreamingAsync(agent, _chatHistory, cancellationToken);
     }
 
-    protected override ChatHistory GetChatHistory()
+    protected override ChatHistory? GetChatHistory()
     {
         return _chatHistory;
     }
 
     protected override CharacterData GetCharacterData()
     {
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ExpositorQuote);
+        return _characterData; //DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.AssistantExpert);
     }
 }

@@ -33,7 +33,7 @@ public abstract class AgentSkillBase
     /// </summary>
     /// <param name="key"></param>
     /// <param name="value"></param>
-    private void TrySetParams(string key, object? value)
+    public void TrySetParams(string key, object? value)
     {
         if (GetParam(key) == null)
             SetParams(key, value);
