@@ -56,7 +56,7 @@ public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_
 
         if (Languages.Contains(lastLanguage))
             SelectedLanguage = lastLanguage;
-        else SelectedLanguage = "";
+        else SelectedLanguage = Languages.Count > 0 ? Languages[0] : "";
     }
 
     partial void OnSelectedLanguageChanged(string value)

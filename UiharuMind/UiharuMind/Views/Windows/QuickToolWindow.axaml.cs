@@ -103,7 +103,7 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(_answerString), null, true);
         // QuickStartChatWindow.Show(_answerString);
         // QuickChatResultWindow.Show("解释", _answerString, ConfigManager.Instance.QuickToolPromptSetting.Explanation);
-        AssistantExpertAgentSkill skill = new AssistantExpertAgentSkill();
+        AssistantExplainAgentSkill skill = new AssistantExplainAgentSkill();
         // skill.SetLangate(Lang.Culture.EnglishName);
         QuickChatResultWindow.Show(Lang.Explain, _answerString, skill);
         PlayAnimation(false, SafeClose);
@@ -136,6 +136,11 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     // {
     //     UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
     // }
+
+    protected override void SetWindowPosition()
+    {
+        this.SetWindowToMousePosition(HorizontalAlignment.Center, offsetX: 0, offsetY: -15);
+    }
 
     protected override void PlayAnimation(bool isShowed, Action? onCompleted = null)
     {

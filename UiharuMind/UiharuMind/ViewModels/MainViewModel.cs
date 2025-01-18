@@ -18,7 +18,9 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Pages;
+using UiharuMind.Views;
 using UiharuMind.Views.Controls;
+using UiharuMind.Views.Windows;
 
 namespace UiharuMind.ViewModels;
 
@@ -52,6 +54,12 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     {
         // Receive(MenuKeys.MenuSettingKey);
         await MessageService.ShowPageDrawer(GetPage(MenuPages.MenuAboutKey));
+    }
+
+    [RelayCommand]
+    private async Task OpenHelp()
+    {
+        await MessageService.ShowPageDrawer(GetPage(MenuPages.MenuHelpKey));
     }
 
     [RelayCommand]
@@ -90,6 +98,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
                 MenuPages.MenuLogKey => new LogPageData(),
                 MenuPages.MenuSettingKey => new SettingPageData(),
                 MenuPages.MenuAboutKey => new AboutPageData(),
+                MenuPages.MenuHelpKey => new HelpPageData(),
                 _ => new ModelPageData() { Title = message + "   Null Page" },
             };
             _viewPageModels.Add(message, vmPage);
@@ -133,5 +142,6 @@ public enum MenuPages
     MenuModelKey,
     MenuLogKey,
     MenuSettingKey,
-    MenuAboutKey
+    MenuAboutKey,
+    MenuHelpKey,
 }

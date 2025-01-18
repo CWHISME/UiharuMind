@@ -326,4 +326,10 @@
     <data name="Character" xml:space="preserve">
         <value>Character</value>
     </data>
+    <data name="Rename" xml:space="preserve">
+        <value>Rename</value>
+    </data>
+    <data name="TrayMenuHelp" xml:space="preserve">
+        <value>Help</value>
+    </data>
 </root>

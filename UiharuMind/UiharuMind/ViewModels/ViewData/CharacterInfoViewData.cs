@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
-using AvaloniaEdit.Utils;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -272,7 +271,8 @@ public partial class CharacterInfoViewData : ObservableObject
             MountCharacters.Clear();
             //排除重复及自己
             HashSet<string> selectedList = new HashSet<string>(result.Select(x => x.Name).Where(x => x != Name));
-            MountCharacters.AddRange(selectedList);
+            foreach (var selected in selectedList)
+                MountCharacters.Add(selected);
         }
     }
 

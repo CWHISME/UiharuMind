@@ -16,27 +16,19 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Views;
 using UiharuMind.Views.Windows;
 
-public partial class ClipboardItem : ObservableObject
+public partial class ClipboardItem(string date, string text, string imageSource = "") : ObservableObject
 {
-    [ObservableProperty] private string _text;
-    [ObservableProperty] private string _date;
-    [ObservableProperty] private string _imageSource;
-    [ObservableProperty] private bool _isImage;
+    [ObservableProperty] private string _text = text;
+    [ObservableProperty] private string _date = date;
+    [ObservableProperty] private string _imageSource = imageSource;
+    [ObservableProperty] private bool _isImage = !string.IsNullOrEmpty(imageSource);
 
-    public ClipboardItem()
-    {
-    }
+    // public ClipboardItem()
+    // {
+    // }
 
     public ClipboardItem(string text) : this(System.DateTime.Now.ToString("(yyyy-MM-dd HH:mm:ss)"), text)
     {
-    }
-
-    public ClipboardItem(string date, string text, string imageSource = "")
-    {
-        _text = text;
-        _date = date;
-        _imageSource = imageSource;
-        _isImage = !string.IsNullOrEmpty(imageSource);
     }
 
     public void CopyToClipboard()

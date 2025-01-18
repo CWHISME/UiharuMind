@@ -2,10 +2,10 @@
   "IsTool": true,
   "Config": {
     "PromptConfig": {
-      "name": "VisionOcr",
-      "description": "[快捷工具]：快捷工具功能中提取图片文字(OCR)所用的模板",
+      "name": "AssistantExpert",
+      "description": "[快捷工具]：主按钮(解释)功能会调用该对象。",
       "template_format": "semantic-kernel",
-      "template": "提取图片文字",
+      "template": "Please explain clearly and concisely in {{$lang}} any user input. Remember to be Answer truthfully and write out your thinking step by step to be sure you get the right answer.",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

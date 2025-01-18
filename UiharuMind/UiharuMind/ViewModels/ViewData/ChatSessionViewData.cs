@@ -28,6 +28,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -216,6 +217,21 @@ public partial class ChatSessionViewData : ObservableObject
     }
 
     [RelayCommand]
+    //重命名
+    public async Task Rename()
+    {
+        var result = await StringContentEditWindow.Show(ChatSession.Name);
+        if (!string.IsNullOrEmpty(result)) ModifySessionName(result);
+    }
+
+    [RelayCommand]
+    //复制整个对话
+    public void Copy()
+    {
+        ChatManager.Instance.CopySession(ChatSession);
+    }
+
+    [RelayCommand]
     //删除整个对话
     public void Delete()
     {
@@ -229,10 +245,14 @@ public partial class ChatSessionViewData : ObservableObject
     /// <param name="itemData"></param>
     public void DeleteChatItem(ChatViewItemData itemData)
     {
-        int index = ChatItems.IndexOf(itemData);
-        if (index < 0) return;
-        ChatItems.RemoveAt(index);
-        ChatSession.RemoveMessageAt(index);
+        App.MessageService.ShowConfirmMessageBox(Lang.DeleteTips,
+            () =>
+            {
+                int index = ChatItems.IndexOf(itemData);
+                if (index < 0) return;
+                ChatItems.RemoveAt(index);
+                ChatSession.RemoveMessageAt(index);
+            });
     }
 
     public void ModifySessionName(string newName)

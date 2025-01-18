@@ -54,7 +54,7 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private KeyGesture _sendGesture = new KeyGesture(Key.Enter);
     [ObservableProperty] private bool _scrollToEnd;
 
-    [ObservableProperty] private ChatSessionViewData _chatSession;
+    [ObservableProperty] private ChatSessionViewData? _chatSession;
 
     //处于生成状态
     [ObservableProperty] private bool _isGenerating;
@@ -79,7 +79,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private CancellationTokenSource? _cancelTokenSource;
 
-    public event Action<ChatSessionViewData>? OnEventChatSessionChanged;
+    public event Action<ChatSessionViewData?>? OnEventChatSessionChanged;
 
     public ChatViewModel()
     {
@@ -163,7 +163,7 @@ public partial class ChatViewModel : ViewModelBase
     {
         while (true)
         {
-            if (ChatSession.ChatSession.Count == 0) return;
+            if (ChatSession == null || ChatSession.ChatSession.Count == 0) return;
             ChatMessage lastMessage = ChatSession.ChatSession[^1];
             if (lastMessage.Character == ECharacter.User)
                 break;
@@ -188,6 +188,8 @@ public partial class ChatViewModel : ViewModelBase
 
     private async void AddMessage(string message)
     {
+        if (string.IsNullOrEmpty(message)) return;
+        if (ChatSession == null) return;
         IsGenerating = true;
         _cancelTokenSource = new CancellationTokenSource();
         await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant,
@@ -197,6 +199,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private async void GenerateMessage()
     {
+        if (ChatSession == null) return;
         IsGenerating = true;
         _cancelTokenSource = new CancellationTokenSource();
         await ChatSession.GenerateMessage(_cancelTokenSource.Token);
@@ -205,7 +208,7 @@ public partial class ChatViewModel : ViewModelBase
 
     private void OnCurrentModelChanged(ModelRunningData? obj)
     {
-        IsSurportImage = ChatSession.ChatSession.ChatModelRunningData?.IsVisionModel == true;
+        IsSurportImage = ChatSession?.ChatSession.ChatModelRunningData?.IsVisionModel == true;
     }
 
     partial void OnIsGeneratingChanged(bool value)
@@ -233,16 +236,16 @@ public partial class ChatViewModel : ViewModelBase
     //     InputToken = $"Token: {LlmTokenizer.GetInputTokenCount(value)}";
     // }
 
-    partial void OnChatSessionChanged(ChatSessionViewData value)
+    partial void OnChatSessionChanged(ChatSessionViewData? value)
     {
-        IsSurportImage = value.ChatSession.ChatModelRunningData?.IsVisionModel == true;
+        IsSurportImage = value?.ChatSession.ChatModelRunningData?.IsVisionModel == true;
         OnEventChatSessionChanged?.Invoke(value);
         CheckGenerationBtnVisible();
     }
 
     private void CheckGenerationBtnVisible()
     {
-        if (IsGenerating)
+        if (IsGenerating || ChatSession == null)
             IsVisibleRegenerateButton = false;
         else
             IsVisibleRegenerateButton = ChatSession.ChatSession.Count > 0 &&

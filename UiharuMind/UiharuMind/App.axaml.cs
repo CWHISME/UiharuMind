@@ -204,4 +204,9 @@ public partial class App : Application, ILogger, IDisposable
     {
         UIManager.ShowWindow<AboutWindow>();
     }
+
+    private void OnHelpMenuItemClick(object? sender, EventArgs e)
+    {
+        UIManager.ShowWindow<HelpWindow>();
+    }
 }

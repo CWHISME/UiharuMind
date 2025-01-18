@@ -656,5 +656,17 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("Character", resourceCulture);
             }
         }
+        
+        public static string Rename {
+            get {
+                return ResourceManager.GetString("Rename", resourceCulture);
+            }
+        }
+        
+        public static string TrayMenuHelp {
+            get {
+                return ResourceManager.GetString("TrayMenuHelp", resourceCulture);
+            }
+        }
     }
 }

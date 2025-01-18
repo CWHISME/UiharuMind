@@ -21,14 +21,18 @@ namespace UiharuMind.Views.Common;
 
 public abstract class UiharuWindowBase : Window
 {
-    public void RequestShow(bool isFirstShow = false)
+    public void RequestShow(bool isFirstShow = false, bool isActivate = false)
     {
         OnPreShow();
         if (isFirstShow) Show();
         else
         {
             this.WindowState = WindowState.Normal;
-            Dispatcher.UIThread.Post(Show, DispatcherPriority.ApplicationIdle);
+            Dispatcher.UIThread.Post(() =>
+            {
+                Show();
+                if (isActivate) this.Activate();
+            }, DispatcherPriority.ApplicationIdle);
         }
         // 
         // else

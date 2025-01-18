@@ -21,11 +21,14 @@
                 <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
                     <Grid.ContextMenu>
                         <ContextMenu>
+                            <MenuItem Header="{x:Static  lang:Lang.Rename}" Command="{Binding RenameCommand}" />
+                            <MenuItem Header="{x:Static  lang:Lang.Copy}" Command="{Binding CopyCommand}" />
                             <MenuItem Header="{x:Static  lang:Lang.Delete}" Command="{Binding DeleteCommand}" />
-                            <MenuItem Header="{x:Static  lang:Lang.ClearChatHistory}" Command="{Binding ClearChatHistoryCommand}" />
+                            <MenuItem Header="{x:Static  lang:Lang.ClearChatHistory}"
+                                      Command="{Binding ClearChatHistoryCommand}" />
                         </ContextMenu>
                     </Grid.ContextMenu>
-                    
+
                     <!-- 圆形图片 -->
                     <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple" StrokeThickness="1">
                         <Ellipse.Fill>
@@ -34,10 +37,12 @@
                     </Ellipse>
 
                     <!-- 文本内容 -->
-                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical" VerticalAlignment="Center"
+                                Spacing="10">
                         <Grid ColumnDefinitions="*,Auto">
                             <!-- 名称 -->
-                            <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Name}" HorizontalAlignment="Left"
+                                       TextTrimming="CharacterEllipsis" />
 
                             <!-- 时间 -->
                             <TextBlock Text="{Binding TimeString}" Grid.Column="1" FontSize="12"
@@ -45,7 +50,8 @@
                         </Grid>
 
                         <!-- 描述 -->
-                        <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />
+                        <TextBlock Text="{Binding Description}" HorizontalAlignment="Left"
+                                   TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Grid>
             </DataTemplate>

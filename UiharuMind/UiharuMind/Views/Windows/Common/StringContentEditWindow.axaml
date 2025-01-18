@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+        xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
+        xmlns:u="https://irihi.tech/ursa"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        Width="400"
+        Height="300"
+        x:Class="UiharuMind.Views.Windows.Common.StringContentEditWindow"
+        Title="StringContentEditWindow">
+
+    <Design.DataContext>
+        <common:StringContentEditWindowViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <u:Divider Content="Input" FontSize="24" />
+
+        <Panel Grid.Row="1" Margin="10">
+            <TextBox Text="{Binding ContentStr}" VerticalAlignment="Stretch"
+                     VerticalContentAlignment="Top"
+                     TextWrapping="Wrap"
+                     Padding="5" />
+        </Panel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center"
+                    Spacing="10" Margin="0,0,0,10">
+            <Button Content="{x:Static  lang:Lang.CancelBtn}" Click="CancelButton_Click" />
+            <Button Content="{x:Static  lang:Lang.SaveBtn}" Click="OkButton_Click" />
+        </StackPanel>
+    </Grid>
+
+</Window>

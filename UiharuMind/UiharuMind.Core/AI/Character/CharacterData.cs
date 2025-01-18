@@ -141,8 +141,8 @@ public class CharacterData
     private Dictionary<string, object?> CheckParams(Dictionary<string, object?>? kernelArguments)
     {
         kernelArguments ??= new Dictionary<string, object?>();
-        kernelArguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.NativeName);
-        kernelArguments.TryAdd(ParamsNameLanguageDefault, LanguageUtils.CurCultureInfo.NativeName);
+        kernelArguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.DisplayName);
+        kernelArguments.TryAdd(ParamsNameLanguageDefault, LanguageUtils.CurCultureInfo.DisplayName);
         kernelArguments.TryAdd(ParamsNameChar, CharacterName);
         kernelArguments.TryAdd(ParamsNameUser, CharacterManager.Instance.UserCharacterName);
         return kernelArguments;

@@ -23,6 +23,7 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
         var chatSession = new ChatSession(characterData.CharacterName, characterData);
         chatSession.ReInitHistory(chatHistory);
         chatSession.ChatModelRunningData = CurModelRunningData;
+        chatSession.IsDirty = true;
         return chatSession;
     }
 

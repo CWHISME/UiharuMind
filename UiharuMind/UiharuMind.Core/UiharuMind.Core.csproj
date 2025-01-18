@@ -20,6 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <EmbeddedResource Include="Resources\AssistantExplain.json" />
       <EmbeddedResource Include="Resources\ChainofThought.json" />
       <EmbeddedResource Include="Resources\TranslatorAdvanced.json" />
       <EmbeddedResource Include="Resources\VisionOcr.json" />
@@ -37,6 +38,8 @@
       <EmbeddedResource Include="Resources\Translator.json" />
       <None Remove="Resources\TranslateReviwer.json" />
       <EmbeddedResource Include="Resources\TranslateReviwer.json" />
+      <None Remove="Resources\Help.md" />
+      <EmbeddedResource Include="Resources\Help.md" />
     </ItemGroup>
 
 </Project>

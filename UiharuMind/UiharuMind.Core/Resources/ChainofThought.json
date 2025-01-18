@@ -3,7 +3,7 @@
   "Config": {
     "PromptConfig": {
       "name": "ChainofThought",
-      "description": "",
+      "description": "[快捷工具]：思考选项会调用该对象。",
       "template_format": "semantic-kernel",
       "template": "Elaborate on the topic using a Tree of Thoughts and backtrack when necessary to construct a clear, cohesive Chain of Thought reasoning. Always answer without hesitation.\n\n# Requirement\n\nPlease use {{$lang}} to respond.",
       "input_variables": [],

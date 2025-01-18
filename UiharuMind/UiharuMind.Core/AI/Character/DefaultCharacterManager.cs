@@ -1,6 +1,7 @@
 using System.Reflection;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Character;
 
@@ -21,8 +22,8 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
             string externalFileName = Path.Combine(SettingConfig.SaveDefaultCharacterDataPath, fileName);
             CharacterData characterData = File.Exists(externalFileName)
                 ? SaveUtility.Load<CharacterData>(externalFileName) ??
-                  SaveUtility.LoadFromString<CharacterData>(Read(fileName))
-                : SaveUtility.LoadFromString<CharacterData>(Read(fileName));
+                  EmbeddedResourcesUtils.ReadFromJson<CharacterData>(fileName)
+                : EmbeddedResourcesUtils.ReadFromJson<CharacterData>(fileName);
 
             characterData.IsDefaultCharacter = true;
             Characters.Add(character, characterData);
@@ -38,18 +39,6 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
     {
         return Characters[character];
     }
-
-    internal string Read(string fileName)
-    {
-        var type = GetType();
-        Assembly assembly = type.Assembly;
-
-        var resourceName = $"{assembly.GetName().Name}.Resources.{fileName}";
-        using Stream resource = assembly.GetManifestResourceStream(resourceName) ??
-                                throw new FileNotFoundException($"Resource {fileName} not found.");
-        using var reader = new StreamReader(resource);
-        return reader.ReadToEnd();
-    }
 }
 
 public enum DefaultCharacter
@@ -63,6 +52,11 @@ public enum DefaultCharacter
     RoleplayDetailed,
     RoleplayImmersive,
     UiharuKazari,
+
+    /// <summary>
+    /// 解释内容
+    /// </summary>
+    AssistantExplain,
 
     /// <summary>
     /// 高级专家

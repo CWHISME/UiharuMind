@@ -3,7 +3,7 @@
   "Config": {
     "PromptConfig": {
       "name": "Vision",
-      "description": "图片对话",
+      "description": "[快捷工具]：快捷工具功能中的图片对话所用的模板。",
       "template_format": "semantic-kernel",
       "template": "",
       "input_variables": [],

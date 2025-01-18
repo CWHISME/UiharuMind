@@ -39,7 +39,7 @@ public class QuickFloatingWindowBase : QuickWindowBase
         BindMouseClickCloseEvent();
 
         ShowActivated = false;
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
+        SetWindowPosition();
     }
 
     protected override void OnPreClose()
@@ -66,6 +66,11 @@ public class QuickFloatingWindowBase : QuickWindowBase
         // UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
         // if (!isShowed) SafeClose();
         onCompleted?.Invoke();
+    }
+    
+    protected virtual void SetWindowPosition()
+    {
+        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
     }
 
     private void OnMouseWheel(MouseWheelEventData obj)

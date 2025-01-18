@@ -263,7 +263,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         ClearData();
         // Log.Debug("更新截图");
         //截屏
-        await CaptureScreen();
+        CaptureScreen();
         // Log.Debug("截图完成");
         //更新截图数据
         _currentScreen = currentScreen;
@@ -304,11 +304,11 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     /// <summary>
     /// 执行全屏截图
     /// </summary>
-    private async Task CaptureScreen()
+    private void CaptureScreen()
     {
         ScreenshotImage.Source = null;
 
-        _image = await ScreenCaptureWin.CaptureAsync(App.ScreensService.MouseScreenIndex);
+        _image = ScreenCaptureWin.Capture(App.ScreensService.MouseScreenIndex);
         if (_image == null)
         {
             Log.Error("Failed to capture screen");
@@ -316,7 +316,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             return;
         }
 
-        var image = await _image.ImageToBitmap(); //await App.Clipboard.GetImageFromClipboard();
+        var image = _image.ImageToBitmap(); //await App.Clipboard.GetImageFromClipboard();
         if (image == null)
         {
             Log.Error("Failed to convert capture screen image to bitmap");
@@ -330,7 +330,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     /// <summary>
     /// 执行区域截图，完毕后关闭界面，并弹出预览窗口
     /// </summary>
-    private async void DoAreaCapture()
+    private void DoAreaCapture()
     {
         _isSelecting = false;
         if (_image is { Width: > 0, Height: > 0 } && _currentScreen != null && SelectionRectangle.Width > 0 &&
@@ -342,7 +342,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                 var childImage = _image[startPixelPoint.X, startPixelPoint.Y,
                     (int)(SelectionRectangle.Width * _currentScreen.Scaling),
                     (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
-                var image = await childImage.ImageToBitmap();
+                var image = childImage.ImageToBitmap();
                 // image.dp = new Size(SelectionRectangle.Width, SelectionRectangle.Height);
                 UIManager.ShowPreviewImageWindowAtMousePosition(image,
                     new Size(SelectionRectangle.Width, SelectionRectangle.Height));

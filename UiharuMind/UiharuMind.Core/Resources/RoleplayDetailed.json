@@ -3,7 +3,7 @@
   "Config": {
     "PromptConfig": {
       "name": "RoleplayDetailed",
-      "description": "",
+      "description": "要求 AI 带更多细节描述",
       "template_format": "semantic-kernel",
       "template": "Develop the plot slowly, always stay in character. Describe all actions in full, elaborate, explicit, graphic, and vivid detail. Mention all relevant sensory perceptions. Keep the story immersive and engaging.",
       "input_variables": [],

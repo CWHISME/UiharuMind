@@ -34,8 +34,10 @@ public class UIManager
     /// <param name="action">每次开启后都会调用</param>
     /// <param name="onCreateCallback">仅当处于第一次创建时才会调用，后续打开时只会调用 action</param>
     /// <param name="isMulti">允许同时开启多个同一窗口</param>
+    /// <param name="isActivate">是否同时激活(聚焦)窗口</param>
     /// <typeparam name="T"></typeparam>
-    public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null, bool isMulti = false)
+    public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null, bool isMulti = false,
+        bool isActivate = false)
         where T : UiharuWindowBase, new()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -58,7 +60,7 @@ public class UIManager
             if (window != null)
             {
                 action?.Invoke((T)window);
-                window.RequestShow();
+                window.RequestShow(isActivate: isActivate);
             }
             else
             {

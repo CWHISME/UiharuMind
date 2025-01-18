@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,6 +21,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Utils;
+using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -97,9 +99,13 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     }
 
     [RelayCommand]
-    public void Edit()
+    public async Task Edit()
     {
-        Log.Debug("EditCommand" + Message);
+        var result = await StringContentEditWindow.Show(Message ?? "");
+        if (!string.IsNullOrEmpty(result))
+        {
+            Message = result;
+        }
     }
 
     [RelayCommand]
@@ -113,5 +119,11 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     {
         Message = null;
         Timestamp = null;
+    }
+
+    partial void OnMessageChanged(string? value)
+    {
+        if (_cachedContent == null) return;
+        _cachedContent.Content = value;
     }
 }

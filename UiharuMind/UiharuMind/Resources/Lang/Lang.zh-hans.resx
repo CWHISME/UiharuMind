@@ -318,4 +318,10 @@
     <data name="Character" xml:space="preserve">
         <value>角色</value>
     </data>
+    <data name="Rename" xml:space="preserve">
+        <value>重命名</value>
+    </data>
+    <data name="TrayMenuHelp" xml:space="preserve">
+        <value>帮助</value>
+    </data>
 </root>

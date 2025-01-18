@@ -12,6 +12,7 @@
 using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Chat;
 
@@ -41,10 +42,19 @@ public class ChatManager : Singleton<ChatManager>
     public ChatSession StartNewSession(CharacterData characterData)
     {
         var session = new ChatSession(GetUniqueSessionName(characterData.CharacterName), characterData);
-        ChatSessions.Insert(0, session);
-        SaveChat(session);
-        OnChatSessionAdded?.Invoke(session);
+        AddSession(session);
         return session;
+    }
+
+    /// <summary>
+    /// 复制聊天记录
+    /// </summary>
+    /// <param name="session"></param>
+    public ChatSession CopySession(ChatSession session)
+    {
+        var sessionNew = GameUtils.Copy(session);
+        AddSession(sessionNew);
+        return sessionNew;
     }
 
     /// <summary>
@@ -66,8 +76,8 @@ public class ChatManager : Singleton<ChatManager>
     public string ModifySessionName(ChatSession session, string newName)
     {
         DeleteSession(session);
-        session.Name = GetUniqueSessionName(newName);
-        SaveChat(session);
+        session.Name = newName;
+        AddSession(session);
         return session.Name;
     }
 
@@ -90,7 +100,7 @@ public class ChatManager : Singleton<ChatManager>
     {
         if (isAsNew)
         {
-            ChatManager.Instance.ModifySessionName(chatSession, chatSession.Name);
+            ChatManager.Instance.AddSession(chatSession);
             return;
         }
 
@@ -126,6 +136,19 @@ public class ChatManager : Singleton<ChatManager>
 
         chatSessions.Sort((x, y) => y.LastTime.CompareTo(x.LastTime));
         return chatSessions;
+    }
+
+    /// <summary>
+    /// 添加聊天记录,如果添加的session的名称已经存在，则会自动修改名称变成一个新的
+    /// 由于 session 本身引用不变,因此如果不是自己创建的 session 不要直接调用,不然容易导致旧的名字也被修改了(因为同属一个引用)
+    /// </summary>
+    /// <param name="session"></param>
+    private void AddSession(ChatSession session)
+    {
+        session.Name = GetUniqueSessionName(session.Name);
+        ChatSessions.Insert(0, session);
+        SaveChat(session);
+        OnChatSessionAdded?.Invoke(session);
     }
 
     private string GetUniqueSessionName(string targetName)

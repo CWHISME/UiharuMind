@@ -30,7 +30,7 @@ public static class UiUtils
     /// <param name="image"></param>
     /// <param name="dpi"></param>
     /// <returns></returns>
-    public static async Task<Bitmap?> ImageToBitmap(this IImage image)
+    public static async Task<Bitmap?> ImageToBitmapAsync(this IImage image)
     {
         Bitmap? bitmap = null;
         await image.GetCaptureImagePointerAsync((data, stride) =>
@@ -54,6 +54,35 @@ public static class UiUtils
     }
 
     /// <summary>
+    /// 将 IImage 转换为 Bitmap
+    /// </summary>
+    /// <param name="image"></param>
+    /// <param name="dpi"></param>
+    /// <returns></returns>
+    public static Bitmap? ImageToBitmap(this IImage image)
+    {
+        Bitmap? bitmap = null;
+        image.GetCaptureImagePointer((data, stride) =>
+        {
+            try
+            {
+                bitmap = new Bitmap(
+                    PixelFormat.Bgra8888,
+                    AlphaFormat.Unpremul,
+                    data,
+                    new PixelSize(image.Width, image.Height),
+                    new Vector(96, 96),
+                    stride);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e.Message);
+            }
+        });
+        return bitmap;
+    }
+
+    /// <summary>
     /// 将 Bitmap 转换为字节数组
     /// </summary>
     /// <param name="bitmap"></param>
@@ -65,7 +94,7 @@ public static class UiUtils
         memoryStream.Position = 0;
         return memoryStream.ToArray();
     }
-    
+
     /// <summary>
     /// 将 Base64 字符串转换为 Bitmap
     /// </summary>
@@ -81,7 +110,8 @@ public static class UiUtils
         }
 
         // 去除可能存在的 "data:image/png;base64," 或类似的前缀
-        if (base64String.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) && base64String.Contains(";base64,"))
+        if (base64String.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) &&
+            base64String.Contains(";base64,"))
         {
             base64String = base64String.Split(new[] { ";base64," }, StringSplitOptions.None)[1];
         }

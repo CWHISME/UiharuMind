@@ -77,8 +77,11 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     //以 UTC 格式存储的时间戳
     public List<long> TimeStamps { get; set; } = new List<long>();
 
-    public DateTime FirstTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc) : DateTime.Now;
-    public DateTime LastTime => TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc) : DateTime.Now;
+    public DateTime FirstTime =>
+        TimeStamps.Count > 0 ? new DateTime(TimeStamps[0], DateTimeKind.Utc).ToLocalTime() : DateTime.MinValue;
+
+    public DateTime LastTime =>
+        TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc).ToLocalTime() : DateTime.MinValue;
 
     private CharacterData? _characterData;
 
@@ -116,7 +119,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             timeStamps = new List<long>();
             for (int i = 0; i < history.Count; i++)
             {
-                timeStamps.Add(DateTime.Now.Ticks);
+                timeStamps.Add(DateTime.UtcNow.Ticks);
             }
         }
 
@@ -333,6 +336,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     public void Save()
     {
         ChatManager.SaveChat(this, IsDirty);
+        IsDirty = false;
     }
 
     public void Clear()
