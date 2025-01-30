@@ -70,7 +70,7 @@ public class QuickFloatingWindowBase : QuickWindowBase
     
     protected virtual void SetWindowPosition()
     {
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 10, offsetY: -15);
+        this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 15, offsetY: -15);
     }
 
     private void OnMouseWheel(MouseWheelEventData obj)

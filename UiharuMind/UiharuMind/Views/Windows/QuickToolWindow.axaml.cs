@@ -137,10 +137,10 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     //     UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
     // }
 
-    protected override void SetWindowPosition()
-    {
-        this.SetWindowToMousePosition(HorizontalAlignment.Center, offsetX: 0, offsetY: -15);
-    }
+    // protected override void SetWindowPosition()
+    // {
+    //     this.SetWindowToMousePosition(HorizontalAlignment.Center, offsetX: 0, offsetY: -15);
+    // }
 
     protected override void PlayAnimation(bool isShowed, Action? onCompleted = null)
     {
