@@ -21,6 +21,7 @@ public static class ScreenCaptureWin
     private static readonly IScreenCaptureService ScreenCaptureService = new DX11ScreenCaptureService();
     private static readonly GraphicsCard GraphicsCard = ScreenCaptureService.GetGraphicsCards().First();
 
+    private static bool _hasCaptured = false;
     // public ScreenCaptureWin()
     // {
     //     ScreenCaptureService = ;
@@ -51,6 +52,12 @@ public static class ScreenCaptureWin
                 // Log.Debug($"注册全屏截图 {screenCapture.Display.Width}x{screenCapture.Display.Height}");
                 ICaptureZone fullscreen = screenCapture.RegisterCaptureZone(0, 0, screenCapture.Display.Width,
                     screenCapture.Display.Height);
+                if (!_hasCaptured)
+                {
+                    _hasCaptured = true;
+                    Thread.Sleep(100);
+                }
+
                 Thread.Sleep(1);
                 // Log.Debug("真的开始截图");
                 if (!screenCapture.CaptureScreen())

@@ -7,17 +7,17 @@
         Background="Transparent"
         Title="ScreenCaptureWindow">
     <Panel Name="MainPanel">
-        <Image Name="ScreenshotImage" Stretch="UniformToFill" />
+        <Image Name="ScreenshotImage" Stretch="Uniform" />
 
         <Border Name="InfoPanel" HorizontalAlignment="Left" VerticalAlignment="Top" BorderThickness="1"
                 BorderBrush="Silver"
                 Background="#333333"
-                Height="100" MinWidth="100" Padding="10">
+                MinWidth="100" Padding="10">
             <StackPanel>
                 <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
                 <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
-                <TextBlock Name="ColorText" Text="xxx" Foreground="White" />
-                <TextBlock Name="TipsText" Text="xxx" Foreground="White" />
+                <!-- <TextBlock Name="ColorText" Text="xxx" Foreground="White" /> -->
+                <!-- <TextBlock Name="TipsText" Text="xxx" Foreground="White" /> -->
             </StackPanel>
         </Border>
 

@@ -20,6 +20,8 @@ using HPPH;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
+using UiharuMind.Core.Input;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
 
@@ -92,14 +94,15 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     private void InitializeWindow()
     {
-        SystemDecorations = SystemDecorations.None;
+        // SystemDecorations = SystemDecorations.None;
         // Background = Brushes.Transparent;
         CanResize = false;
-        Topmost = true; // 确保窗口在最顶层
+        // Topmost = true; // 确保窗口在最顶层
         ShowInTaskbar = false;
-        ExtendClientAreaToDecorationsHint = true; // 扩展客户端区¸域以包括装饰
-        ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
-        WindowState = WindowState.FullScreen; // 最大化窗口
+        // ExtendClientAreaToDecorationsHint = true; // 扩展客户端区¸域以包括装饰
+        // ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
+        this.SetSimpledecorationPureWindow(true);
+        // WindowState = WindowState.FullScreen; // 最大化窗口
 
         // IntPtr hWnd = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
         // if (hWnd == IntPtr.Zero)
@@ -238,8 +241,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             // PixelPoint pixelPoint = PixelPoint.FromPoint(point, _currentScreen.Scaling);
             var mousePosition = App.ScreensService.MousePosition;
             PositionText.Text =
-                $"position:({Math.Clamp(mousePosition.X, 0, _currentScreen.Bounds.Width)},{Math.Clamp(mousePosition.Y, 0, _currentScreen.Bounds.Height)})";
-            ResolutionText.Text = $"resolution:({width}x{height})";
+                $"{Lang.ScreenCapturePosition}:({Math.Clamp(mousePosition.X, 0, _currentScreen.Bounds.Width)},{Math.Clamp(mousePosition.Y, 0, _currentScreen.Bounds.Height)})";
+            ResolutionText.Text = $"{Lang.ScreenCaptureResolution}:({width}x{height})";
             // TipsText.Text = $"{point.X} {point.Y}";
             Point point = position.ToPoint(_currentScreen.Scaling);
             // Log.Debug($"position:({position.X},{position.Y}) point:({point.X},{point.Y})");
@@ -263,14 +266,16 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         ClearData();
         // Log.Debug("更新截图");
         //截屏
-        CaptureScreen();
+        await CaptureScreen();
         // Log.Debug("截图完成");
         //更新截图数据
         _currentScreen = currentScreen;
         var bounds = _currentScreen.Bounds;
-        this.Width = bounds.Width;
-        this.Height = bounds.Height;
-        this.Position = bounds.Position;
+        Position = bounds.Position;
+        var scaling = _currentScreen.Scaling;
+        Width = bounds.Width / scaling;
+        Height = bounds.Height / scaling;
+        // WindowState = WindowState.FullScreen;
         //展示截图
         // Log.Debug("展示截图");
         DisplayCapture();
@@ -304,11 +309,11 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     /// <summary>
     /// 执行全屏截图
     /// </summary>
-    private void CaptureScreen()
+    private async Task CaptureScreen()
     {
         ScreenshotImage.Source = null;
 
-        _image = ScreenCaptureWin.Capture(App.ScreensService.MouseScreenIndex);
+        _image = await ScreenCaptureWin.CaptureAsync(App.ScreensService.MouseScreenIndex);
         if (_image == null)
         {
             Log.Error("Failed to capture screen");
@@ -316,7 +321,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             return;
         }
 
-        var image = _image.ImageToBitmap(); //await App.Clipboard.GetImageFromClipboard();
+        var image = await _image.ImageToBitmapAsync(); //await App.Clipboard.GetImageFromClipboard();
         if (image == null)
         {
             Log.Error("Failed to convert capture screen image to bitmap");
@@ -333,13 +338,22 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     private void DoAreaCapture()
     {
         _isSelecting = false;
+        Log.Warning(
+            $"{SelectionRectangle.Width} {SelectionRectangle.Height} startPoint:{_startPoint} currentPos:{App.ScreensService.MousePosition}");
         if (_image is { Width: > 0, Height: > 0 } && _currentScreen != null && SelectionRectangle.Width > 0 &&
             SelectionRectangle.Height > 0)
         {
             try
             {
-                PixelPoint startPixelPoint = PixelPoint.FromPoint(_startPoint, _currentScreen.Scaling);
-                var childImage = _image[startPixelPoint.X, startPixelPoint.Y,
+                PixelPoint startPixelPoint =
+                    PixelPoint.FromPoint(_startPoint, _currentScreen.Scaling);
+
+                // 计算实际起始点（确保起始点是左上角）
+                PixelPoint mousePosition = App.ScreensService.MousePosition;
+                int actualStartX = Math.Min(startPixelPoint.X, mousePosition.X);
+                int actualStartY = Math.Min(startPixelPoint.Y, mousePosition.Y);
+
+                var childImage = _image[actualStartX, actualStartY,
                     (int)(SelectionRectangle.Width * _currentScreen.Scaling),
                     (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
                 var image = childImage.ImageToBitmap();

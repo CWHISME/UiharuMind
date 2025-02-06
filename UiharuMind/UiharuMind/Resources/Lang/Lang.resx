@@ -332,4 +332,10 @@
     <data name="TrayMenuHelp" xml:space="preserve">
         <value>Help</value>
     </data>
+    <data name="ScreenCapturePosition" xml:space="preserve">
+        <value>Position</value>
+    </data>
+    <data name="ScreenCaptureResolution" xml:space="preserve">
+        <value>Resolution</value>
+    </data>
 </root>

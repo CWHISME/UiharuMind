@@ -324,4 +324,10 @@
     <data name="TrayMenuHelp" xml:space="preserve">
         <value>帮助</value>
     </data>
+    <data name="ScreenCapturePosition" xml:space="preserve">
+        <value>坐标</value>
+    </data>
+    <data name="ScreenCaptureResolution" xml:space="preserve">
+        <value>分辨率</value>
+    </data>
 </root>
