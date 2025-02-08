@@ -330,4 +330,7 @@
     <data name="ScreenCaptureResolution" xml:space="preserve">
         <value>分辨率</value>
     </data>
+    <data name="TrayMenuOpenSaveDir" xml:space="preserve">
+        <value>打开保存目录</value>
+    </data>
 </root>

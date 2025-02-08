@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd $SCRIPT_DIR
+
 dotnet publish ../UiharuMind.Desktop --output Tmp/Mac -r osx-arm64 --configuration Release -p:UseAppHost=true --self-contained
 
 mkdir Output

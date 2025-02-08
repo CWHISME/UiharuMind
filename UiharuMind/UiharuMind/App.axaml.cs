@@ -18,6 +18,8 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Core;
+using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -208,5 +210,10 @@ public partial class App : Application, ILogger, IDisposable
     private void OnHelpMenuItemClick(object? sender, EventArgs e)
     {
         UIManager.ShowWindow<HelpWindow>();
+    }
+
+    private void OnOpenSaveMenuItemClick(object? sender, EventArgs e)
+    {
+        App.FilesService.OpenFolder(SettingConfig.SaveDataPath);
     }
 }

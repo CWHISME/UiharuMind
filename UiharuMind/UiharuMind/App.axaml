@@ -53,6 +53,7 @@
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuAbout}" Click="OnAboutMenuItemClick" />
                         <NativeMenuItemSeparator />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuOpen}" Click="OnOpenClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuOpenSaveDir}" Click="OnOpenSaveMenuItemClick" />
                         <!-- <NativeMenuItem Header="Settings" /> -->
                         <NativeMenuItemSeparator />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuScreenCapture}"

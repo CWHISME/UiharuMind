@@ -338,4 +338,7 @@
     <data name="ScreenCaptureResolution" xml:space="preserve">
         <value>Resolution</value>
     </data>
+    <data name="TrayMenuOpenSaveDir" xml:space="preserve">
+        <value>Open Save Directory</value>
+    </data>
 </root>
