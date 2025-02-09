@@ -17,6 +17,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,6 +29,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Utils;
 using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.ViewModels.ViewData;
@@ -40,6 +42,7 @@ public partial class ChatSessionViewData : ObservableObject
     public readonly ChatSession ChatSession;
 
     [ObservableProperty] private string _name;
+    [ObservableProperty] private Bitmap? _icon;
     [ObservableProperty] private string _description;
     [ObservableProperty] private string _timeString;
 
@@ -78,6 +81,7 @@ public partial class ChatSessionViewData : ObservableObject
         ChatSession = chatSession;
         Description = ChatSession.Description;
         Name = ChatSession.Name;
+        Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         TimeString = CalcTimeString();
     }
 
@@ -295,6 +299,9 @@ public partial class ChatSessionViewData : ObservableObject
     {
         var chatViewItemData = new ChatViewItemData(); //SimpleObjectPool<ChatViewItemData>.Get();
         chatViewItemData.SetChatItem(chatItem);
+        chatViewItemData.Icon = chatViewItemData.IsUser
+            ? IconUtils.DefaultUserIcon
+            : IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         chatViewItemData.DeleteCallback = DeleteChatItem;
         ChatItems.Add(chatViewItemData);
         TimeString = CalcTimeString();

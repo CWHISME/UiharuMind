@@ -33,6 +33,7 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     // [ObservableProperty] private bool _isUser;
     [ObservableProperty] private ECharacter _role;
     [ObservableProperty] private string? _message;
+    [ObservableProperty] private Bitmap? _icon;
     [ObservableProperty] private Bitmap? _messageImage;
     [ObservableProperty] private int? _tokenCount;
     [ObservableProperty] private string? _timestamp;

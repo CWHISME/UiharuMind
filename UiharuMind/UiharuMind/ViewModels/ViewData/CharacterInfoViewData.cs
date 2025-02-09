@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -13,6 +13,7 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Utils;
 using UiharuMind.Views;
 using UiharuMind.Views.Windows.Characters;
 using Ursa.Controls;
@@ -35,6 +36,7 @@ public partial class CharacterInfoViewData : ObservableObject
         {
             _characterData.IsTool = !value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(Icon));
         }
     }
 
@@ -65,6 +67,16 @@ public partial class CharacterInfoViewData : ObservableObject
         set
         {
             _characterData.CharacterName = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public Bitmap? Icon
+    {
+        get => IconUtils.GetCharacterBitmapOrDefault(_characterData);
+        set
+        {
+            _characterData.CharacterIcon = value.BitmapToBase64();
             OnPropertyChanged();
         }
     }
@@ -224,6 +236,17 @@ public partial class CharacterInfoViewData : ObservableObject
         }
     }
 
+    public bool CheckCharacterNameValid()
+    {
+        if (string.IsNullOrEmpty(_characterData.CharacterName))
+        {
+            App.MessageService.ShowErrorMessageBox(Lang.CharacterEmptyNameTips);
+            return false;
+        }
+
+        return true;
+    }
+
     [RelayCommand]
     public void StartChat()
     {
@@ -243,7 +266,7 @@ public partial class CharacterInfoViewData : ObservableObject
     [RelayCommand]
     public void SaveCharacter()
     {
-        _characterData.Save();
+        if (CheckCharacterNameValid()) _characterData.Save();
     }
 
     [RelayCommand]

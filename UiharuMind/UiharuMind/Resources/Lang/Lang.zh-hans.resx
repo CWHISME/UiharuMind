@@ -207,7 +207,8 @@
         <value>可选参数</value>
     </data>
     <data name="OptionalPromptParamsDesc" xml:space="preserve">
-        <value>{{$user}}：将会替换为用户名。
+        <value>{{$lang}}：将会替换为当前语言。
+{{$user}}：将会替换为用户名。
 {{$char}}：将会替换为当前角色名。</value>
     </data>
     <data name="ToggleIsPhotoListView" xml:space="preserve">
@@ -332,5 +333,29 @@
     </data>
     <data name="TrayMenuOpenSaveDir" xml:space="preserve">
         <value>打开保存目录</value>
+    </data>
+    <data name="Introduction" xml:space="preserve">
+        <value>介绍</value>
+    </data>
+    <data name="Thanks" xml:space="preserve">
+        <value>感谢</value>
+    </data>
+    <data name="CharacterEmptyNameTips" xml:space="preserve">
+        <value>角色名为空！</value>
+    </data>
+    <data name="ImportFromFileBtn" xml:space="preserve">
+        <value>从文件导入</value>
+    </data>
+    <data name="ImportBtn" xml:space="preserve">
+        <value>导入</value>
+    </data>
+    <data name="ImportFromUrlBtn" xml:space="preserve">
+        <value>从链接导入</value>
+    </data>
+    <data name="ImportCharacterSupportUrl" xml:space="preserve">
+        <value>支持的来源</value>
+    </data>
+    <data name="LocalModelParamsSetting" xml:space="preserve">
+        <value>本地模型设置</value>
     </data>
 </root>

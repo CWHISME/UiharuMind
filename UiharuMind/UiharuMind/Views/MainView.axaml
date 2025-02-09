@@ -80,14 +80,14 @@
                     </u:NavMenu.HeaderTemplate>
 
                     <!--u:NavMenu.CanToggle="True"-->
+                    <!-- RenderOptions.BitmapInterpolationMode="HighQuality" -->
                     <u:NavMenu.Header>
                         <DockPanel HorizontalAlignment="Center" Margin="8">
                             <Image
                                 VerticalAlignment="Center"
                                 DockPanel.Dock="Left"
                                 Tapped="OnTapedMenuIcon"
-                                RenderOptions.BitmapInterpolationMode="HighQuality"
-                                Source="../Assets/avalonia-logo.ico" />
+                                Source="../Assets/Icon.png" />
                         </DockPanel>
                     </u:NavMenu.Header>
                 </u:NavMenu>
@@ -112,8 +112,7 @@
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left"
                 Tapped="OnTapedMenuIcon"
-                RenderOptions.BitmapInterpolationMode="HighQuality"
-                Source="../Assets/avalonia-logo.ico" />
+                Source="../Assets/Icon.png" />
 
             <u:ThemeToggleButton
                 Grid.Row="0"

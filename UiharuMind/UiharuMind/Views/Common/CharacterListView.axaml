@@ -24,10 +24,20 @@
                               OffContent="{x:Static  lang:Lang.ToggleIsListView}"
                               OnContent="{x:Static  lang:Lang.ToggleIsPhotoListView}" />
             </StackPanel>
-            <Button Name="AddButton" DockPanel.Dock="Right" Content="+" Command="{Binding AddCharacterCommand}"
-                    Height="{Binding $parent[DockPanel].Height}"
-                    Width="{Binding $self.Height}"
-                    Margin="0,0,5,0" />
+
+            <StackPanel Name="AddPanel" Orientation="Horizontal" DockPanel.Dock="Right">
+                <Button DockPanel.Dock="Right" Content="{x:Static  lang:Lang.CreateBtn}"
+                        Command="{Binding AddCharacterCommand}"
+                        Height="{Binding $parent[DockPanel].Height}"
+                        Width="{Binding $self.Height}"
+                        Margin="0,0,5,0" />
+                <Button DockPanel.Dock="Right" Content="{x:Static  lang:Lang.ImportBtn}"
+                        Command="{Binding ImportCharacterCommand}"
+                        Height="{Binding $parent[DockPanel].Height}"
+                        Width="{Binding $self.Height}"
+                        Margin="0,0,5,0" />
+            </StackPanel>
+
             <!-- <Panel DockPanel.Dock="Left" Margin="0,0,5,0"> -->
             <!--     <TextBox Watermark="Search..." Text="{Binding SearchText}" AcceptsReturn="True"/> -->
             <!--     ~1~ <ProgressBar IsIndeterminate="True" CornerRadius="0" VerticalAlignment="Bottom" IsVisible="{Binding IsBusy}" /> @1@ -->
@@ -47,7 +57,7 @@
                 </ListBox.ItemsPanel>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5">
+                        <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5" Padding="0,10,0,0">
                             <Border.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="{x:Static  lang:Lang.Delete}"
@@ -58,7 +68,7 @@
                             </Border.ContextMenu>
 
                             <StackPanel Width="120">
-                                <Image Source="/Assets/avalonia-logo.ico" Width="96" Height="144"
+                                <Image Source="{Binding Icon}" Width="96" Height="144"
                                        VerticalAlignment="Top">
                                 </Image>
                                 <Rectangle Fill="Lavender" Height="1" HorizontalAlignment="Stretch" />
@@ -82,12 +92,21 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5" Padding="5,0,0,0">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{x:Static  lang:Lang.Delete}"
+                                              Command="{Binding DeleteCharacterCommand  }" />
+                                    <MenuItem Header="{x:Static  lang:Lang.Copy}"
+                                              Command="{Binding CopyCharacterCommand  }" />
+                                </ContextMenu>
+                            </Border.ContextMenu>
+
                             <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
                                 <!-- 圆形图片 -->
                                 <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple"
                                          StrokeThickness="1">
                                     <Ellipse.Fill>
-                                        <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                                        <ImageBrush Source="{Binding Icon }" Stretch="UniformToFill" />
                                     </Ellipse.Fill>
                                 </Ellipse>
 

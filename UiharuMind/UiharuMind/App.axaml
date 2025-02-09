@@ -45,13 +45,11 @@
 
     <TrayIcon.Icons>
         <TrayIcons>
-            <TrayIcon Icon="/Assets/avalonia-logo.ico"
+            <TrayIcon Icon="/Assets/Icon.png"
                       ToolTipText="This is a ToolTip 🌱">
                 <TrayIcon.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuHelp}" Click="OnHelpMenuItemClick" />
-                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuAbout}" Click="OnAboutMenuItemClick" />
-                        <NativeMenuItemSeparator />
+                        <!-- <NativeMenuItemSeparator /> -->
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuOpen}" Click="OnOpenClick" />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuOpenSaveDir}" Click="OnOpenSaveMenuItemClick" />
                         <!-- <NativeMenuItem Header="Settings" /> -->
@@ -64,6 +62,8 @@
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuTranslateHistory}"
                                         Click="OnTranslateMenuItemClick" />
                         <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuHelp}" Click="OnHelpMenuItemClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuAbout}" Click="OnAboutMenuItemClick" />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuQuit}"
                                         ToolTip="{x:Static  lang:Lang.TrayMenuQuitTips}" Click="OnQuitClick" />
                     </NativeMenu>

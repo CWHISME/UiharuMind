@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Utils;
 using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows.Common;
@@ -22,6 +23,7 @@ public partial class StringContentEditWindow : Window
     public static async Task<string?> Show(string content, Window? owner = null)
     {
         StringContentEditWindow window = new StringContentEditWindow();
+        if (IconUtils.DefaultAppIcon != null) window.Icon = new WindowIcon(IconUtils.DefaultAppIcon);
         window.DataContext = new StringContentEditWindowViewModel(content, null);
         return await window.ShowDialog<string?>(owner ?? UIManager.GetFoucusWindow());
     }
@@ -48,9 +50,9 @@ public partial class StringContentEditWindowViewModel : ObservableObject
 {
     [ObservableProperty] private string _contentStr;
 
-    private Action<string> _callback;
+    private Action<string>? _callback;
 
-    public StringContentEditWindowViewModel(string contentStr, Action<string> callback)
+    public StringContentEditWindowViewModel(string contentStr, Action<string>? callback)
     {
         _contentStr = contentStr;
         _callback = callback;

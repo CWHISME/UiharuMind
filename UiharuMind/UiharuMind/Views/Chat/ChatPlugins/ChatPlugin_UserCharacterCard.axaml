@@ -16,11 +16,12 @@
     <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}" Padding="5">
         <StackPanel Spacing="10">
             <u:Divider Content="{x:Static  lang:Lang.CharacterUser}" />
-            <DockPanel LastChildFill="False">
-                <TextBlock DockPanel.Dock="Left" Text="{Binding User.Description}" VerticalAlignment="Center" />
+            <Panel>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding User.Description}" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" />
                 <Button DockPanel.Dock="Right" Content="{x:Static lang:Lang.Edit}"
-                        Command="{Binding EditUserCardCommand}" />
-            </DockPanel>
+                        Command="{Binding EditUserCardCommand}" HorizontalAlignment="Right" />
+            </Panel>
             <SelectableTextBlock Text="{Binding UserTemplateReadonly}" TextWrapping="Wrap" />
         </StackPanel>
     </Border>

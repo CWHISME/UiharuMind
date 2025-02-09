@@ -5,7 +5,7 @@
         xmlns:views="clr-namespace:UiharuMind.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.MainWindow"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/Icon.png"
         Title="UiharuMind">
     <views:MainView />
 </Window>

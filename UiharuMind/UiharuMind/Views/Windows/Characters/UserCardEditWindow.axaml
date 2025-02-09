@@ -6,7 +6,7 @@
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         Width="400"
-        Height="300"
+        Height="444"
         x:Class="UiharuMind.Views.Windows.Characters.UserCardEditWindow"
         Title="UserCardEditWindow">
 
@@ -16,15 +16,17 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <StackPanel Grid.Row="0" Spacing="10">
+        <StackPanel Grid.Row="0" Margin="10" Spacing="10">
             <!-- 角色图片 -->
-            <Image Source="/Assets/avalonia-logo.ico" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
+            <Image Source="{Binding Icon}" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
             <TextBox HorizontalAlignment="Center" Text="{Binding Description}" FontSize="24" />
         </StackPanel>
 
         <Panel Grid.Row="1" Margin="10">
             <TextBox Text="{Binding Template}" VerticalAlignment="Stretch" VerticalContentAlignment="Top"
                      TextWrapping="Wrap"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
                      Padding="5" />
         </Panel>
 

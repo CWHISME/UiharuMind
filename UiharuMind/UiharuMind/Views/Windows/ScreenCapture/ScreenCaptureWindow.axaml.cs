@@ -338,8 +338,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     private void DoAreaCapture()
     {
         _isSelecting = false;
-        Log.Warning(
-            $"{SelectionRectangle.Width} {SelectionRectangle.Height} startPoint:{_startPoint} currentPos:{App.ScreensService.MousePosition}");
+        // Log.Warning(
+        //     $"{SelectionRectangle.Width} {SelectionRectangle.Height} startPoint:{_startPoint} currentPos:{App.ScreensService.MousePosition}");
         if (_image is { Width: > 0, Height: > 0 } && _currentScreen != null && SelectionRectangle.Width > 0 &&
             SelectionRectangle.Height > 0)
         {

@@ -32,7 +32,7 @@
                     <!-- 圆形图片 -->
                     <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple" StrokeThickness="1">
                         <Ellipse.Fill>
-                            <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                            <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
                         </Ellipse.Fill>
                     </Ellipse>
 

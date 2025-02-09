@@ -12,6 +12,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -125,5 +126,10 @@ public partial class AboutPage : UserControl
         });
 
         return border;
+    }
+
+    private void AboutBtn_Click(object? sender, PointerPressedEventArgs e)
+    {
+        TopLevel.GetTopLevel(this)!.Launcher.LaunchUriAsync(new Uri("https://wangjiaying.top"));
     }
 }

@@ -195,8 +195,8 @@ public partial class MessageService : ObservableObject
             MessageIcon = icon
         };
 
-        var mainWindow = UIManager.GetMainWindow();
-        if (mainWindow == null) messageWindow.Show();
+        var mainWindow = UIManager.GetFoucusWindow();
+        if (!mainWindow.IsActive || !mainWindow.IsVisible) messageWindow.Show();
         else messageWindow.ShowDialog(mainWindow);
         messageWindow.Topmost = true;
     }

@@ -215,8 +215,9 @@
         <value>Optional Prompt Params</value>
     </data>
     <data name="OptionalPromptParamsDesc" xml:space="preserve">
-        <value>{{$user}}：replace by username。{
-{$char}}：replace by character name</value>
+        <value>{{$lang}}：replace by current language
+{{$user}}：replace by username
+{{$char}}：replace by character name</value>
     </data>
     <data name="ToggleIsPhotoListView" xml:space="preserve">
         <value>Photo View</value>
@@ -340,5 +341,29 @@
     </data>
     <data name="TrayMenuOpenSaveDir" xml:space="preserve">
         <value>Open Save Directory</value>
+    </data>
+    <data name="Introduction" xml:space="preserve">
+        <value>Introduction</value>
+    </data>
+    <data name="Thanks" xml:space="preserve">
+        <value>Thanks</value>
+    </data>
+    <data name="CharacterEmptyNameTips" xml:space="preserve">
+        <value>Character Name is Null!</value>
+    </data>
+    <data name="ImportFromFileBtn" xml:space="preserve">
+        <value>Import From File</value>
+    </data>
+    <data name="ImportBtn" xml:space="preserve">
+        <value>Import</value>
+    </data>
+    <data name="ImportFromUrlBtn" xml:space="preserve">
+        <value>Import From URL</value>
+    </data>
+    <data name="ImportCharacterSupportUrl" xml:space="preserve">
+        <value>Supprt Url</value>
+    </data>
+    <data name="LocalModelParamsSetting" xml:space="preserve">
+        <value>Local Models Setting</value>
     </data>
 </root>

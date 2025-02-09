@@ -8,6 +8,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Views.Windows.Characters;
 using UiharuMind.Utils;
+using UiharuMind.Views;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -96,6 +97,12 @@ public partial class CharacterListViewData : ObservableObject
     public void AddCharacter()
     {
         CharacterEditWindow.Show(null, (data) => { data.TryAddToNewCharacterData(); });
+    }
+
+    [RelayCommand]
+    public void ImportCharacter()
+    {
+        UIManager.ShowWindow<ImportCharacterWindow>();
     }
 
     ~CharacterListViewData()

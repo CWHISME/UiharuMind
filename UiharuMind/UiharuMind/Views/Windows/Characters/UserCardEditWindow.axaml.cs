@@ -32,6 +32,6 @@ public partial class UserCardEditWindow : UiharuWindowBase
 
     private void OkButton_Click(object? sender, RoutedEventArgs e)
     {
-        _characterInfo?.SaveCharacter();
+        if (_characterInfo?.CheckCharacterNameValid() == true) _characterInfo?.SaveCharacter();
     }
 }

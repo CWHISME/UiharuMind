@@ -37,7 +37,7 @@ public class UIManager
     /// <param name="isActivate">是否同时激活(聚焦)窗口</param>
     /// <typeparam name="T"></typeparam>
     public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null, bool isMulti = false,
-        bool isActivate = false)
+        bool isActivate = true)
         where T : UiharuWindowBase, new()
     {
         Dispatcher.UIThread.Invoke(() =>
@@ -69,6 +69,7 @@ public class UIManager
                 windowsList.Add(window);
                 onCreateCallback?.Invoke(window);
                 action?.Invoke(window);
+                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
                 window.Awake();
                 window.RequestShow(true);
             }
@@ -112,12 +113,12 @@ public class UIManager
         return App.DummyWindow;
     }
 
-    public static MainWindow? GetMainWindow()
-    {
-        var mainWindow = GetWindow<MainWindow>();
-        if (mainWindow?.IsVisible == true) return mainWindow;
-        return null;
-    }
+    // public static MainWindow? GetMainWindow()
+    // {
+    //     var mainWindow = GetWindow<MainWindow>();
+    //     if (mainWindow?.IsVisible == true) return mainWindow;
+    //     return null;
+    // }
 
     /// <summary>
     /// 当前焦点窗口
@@ -129,7 +130,7 @@ public class UIManager
         {
             foreach (var win in window.Value)
             {
-                if (win.IsActive) return win;
+                if (win.IsActive && win.IsVisible) return win;
             }
         }
 

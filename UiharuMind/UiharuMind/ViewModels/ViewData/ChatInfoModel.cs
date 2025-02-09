@@ -45,6 +45,9 @@ public partial class ChatInfoModel : ViewModelBase
 
             ChatPluginList.Add(GetPlugin<ChatPlugin_TranslationData>(chatSessionViewData));
 
+            //本地模型设置
+            ChatPluginList.Add(GetPlugin<ChatPlugin_LocalModelParamsData>(chatSessionViewData));
+
             //对话参数
             ChatPluginList.Add(GetPlugin<ChatPlugin_ChatParamsData>(chatSessionViewData));
             // ChatPluginList.Add(GetPlugin<ChatPlugin_CharacterFuncBtnData>(chatSessionViewData));

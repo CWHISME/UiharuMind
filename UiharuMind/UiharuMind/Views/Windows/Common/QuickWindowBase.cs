@@ -18,6 +18,8 @@ namespace UiharuMind.Views.Common;
 
 public class QuickWindowBase : UiharuWindowBase
 {
+    protected override bool IsAllowFocusOnOpen => false;
+
     public override void Awake()
     {
         this.SetSimpledecorationWindow();

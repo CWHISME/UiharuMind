@@ -21,17 +21,21 @@ namespace UiharuMind.Views.Common;
 
 public abstract class UiharuWindowBase : Window
 {
-    public void RequestShow(bool isFirstShow = false, bool isActivate = false)
+    public void RequestShow(bool isFirstShow = false, bool isActivate = true)
     {
         OnPreShow();
-        if (isFirstShow) Show();
+        if (isFirstShow)
+        {
+            if (IconUtils.DefaultAppIcon != null) Icon = new WindowIcon(IconUtils.DefaultAppIcon);
+            Show();
+        }
         else
         {
             this.WindowState = WindowState.Normal;
             Dispatcher.UIThread.Post(() =>
             {
                 Show();
-                if (isActivate) this.Activate();
+                if (isActivate && IsAllowFocusOnOpen) this.Activate();
             }, DispatcherPriority.ApplicationIdle);
         }
         // 
@@ -41,6 +45,8 @@ public abstract class UiharuWindowBase : Window
         // Dispatcher.UIThread.Post(Show, DispatcherPriority.ApplicationIdle);
         // }
     }
+
+    protected virtual bool IsAllowFocusOnOpen { get; set; } = true;
 
     public virtual void Awake()
     {

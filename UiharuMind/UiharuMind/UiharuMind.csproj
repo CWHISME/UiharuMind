@@ -97,5 +97,9 @@
 	    <DependentUpon>ChatView.axaml</DependentUpon>
 	    <SubType>Code</SubType>
 	  </Compile>
+	  <Compile Update="Views\Chat\ChatPlugins\ChatPlugin_LocalModelParams.axaml.cs">
+	    <DependentUpon>ChatPlugin_LocalModelParams.axaml</DependentUpon>
+	    <SubType>Code</SubType>
+	  </Compile>
 	</ItemGroup>
 </Project>

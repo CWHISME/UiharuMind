@@ -62,7 +62,7 @@
                             <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top"
                                      Grid.Column="{Binding Role, Converter={StaticResource UserColumIndexConverter},ConverterParameter=3}">
                                 <Ellipse.Fill>
-                                    <ImageBrush Source="/Assets/avalonia-logo.ico" Stretch="UniformToFill" />
+                                    <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
                                 </Ellipse.Fill>
                                 <!-- 菜单 -->
                                 <Ellipse.ContextMenu>

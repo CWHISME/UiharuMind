@@ -48,7 +48,7 @@
             <StackPanel Spacing="30" Margin="15">
                 <StackPanel>
                     <!-- 角色图片 -->
-                    <Image Source="/Assets/avalonia-logo.ico" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
+                    <Image Source="{Binding Icon}" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
                     <SelectableTextBlock HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
                     <SelectableTextBlock Text="{Binding Description}" />
                 </StackPanel>

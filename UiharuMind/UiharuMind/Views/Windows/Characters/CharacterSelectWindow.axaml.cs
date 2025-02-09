@@ -103,7 +103,7 @@ public partial class CharacterSelectWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        CharacterListView.AddButton.IsVisible = false;
+        CharacterListView.AddPanel.IsVisible = false;
         SureButton.IsVisible = _multiSelect;
         if (!_multiSelect)
         {

@@ -96,12 +96,31 @@ public static class UiUtils
     }
 
     /// <summary>
+    /// 将 Bitmap 转换为 Base64 字符串
+    /// </summary>
+    /// <param name="image"></param>
+    /// <returns></returns>
+    public static string BitmapToBase64(this Bitmap? image)
+    {
+        if (image == null)
+        {
+            Log.Error("Bitmap is null.");
+            return "";
+        }
+
+        using var memoryStream = new MemoryStream();
+        image.Save(memoryStream);
+        memoryStream.Position = 0;
+        return Convert.ToBase64String(memoryStream.ToArray());
+    }
+
+    /// <summary>
     /// 将 Base64 字符串转换为 Bitmap
     /// </summary>
     /// <param name="base64String"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
-    public static Bitmap? Base64ToBitmap(string base64String)
+    public static Bitmap? Base64ToBitmap(this string base64String)
     {
         if (string.IsNullOrEmpty(base64String))
         {

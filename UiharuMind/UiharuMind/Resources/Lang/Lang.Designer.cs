@@ -186,6 +186,15 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Character Name is Null!.
+        /// </summary>
+        public static string CharacterEmptyNameTips {
+            get {
+                return ResourceManager.GetString("CharacterEmptyNameTips", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to First Greeting.
         /// </summary>
         public static string CharacterFirstGreeting {
@@ -501,11 +510,56 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Import.
+        /// </summary>
+        public static string ImportBtn {
+            get {
+                return ResourceManager.GetString("ImportBtn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Supprt Url.
+        /// </summary>
+        public static string ImportCharacterSupportUrl {
+            get {
+                return ResourceManager.GetString("ImportCharacterSupportUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import From File.
+        /// </summary>
+        public static string ImportFromFileBtn {
+            get {
+                return ResourceManager.GetString("ImportFromFileBtn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Import From URL.
+        /// </summary>
+        public static string ImportFromUrlBtn {
+            get {
+                return ResourceManager.GetString("ImportFromUrlBtn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to In Answer....
         /// </summary>
         public static string InAnswer {
             get {
                 return ResourceManager.GetString("InAnswer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Introduction.
+        /// </summary>
+        public static string Introduction {
+            get {
+                return ResourceManager.GetString("Introduction", resourceCulture);
             }
         }
         
@@ -524,6 +578,15 @@ namespace UiharuMind.Resources.Lang {
         public static string LLamaCppSetting {
             get {
                 return ResourceManager.GetString("LLamaCppSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Local Models Setting.
+        /// </summary>
+        public static string LocalModelParamsSetting {
+            get {
+                return ResourceManager.GetString("LocalModelParamsSetting", resourceCulture);
             }
         }
         
@@ -690,8 +753,9 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {{$user}}：replace by username。{
-        ///{$char}}：replace by character name.
+        ///   Looks up a localized string similar to {{$lang}}：replace by current language
+        ///{{$user}}：replace by username
+        ///{{$char}}：replace by character name.
         /// </summary>
         public static string OptionalPromptParamsDesc {
             get {
@@ -881,6 +945,15 @@ namespace UiharuMind.Resources.Lang {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Thanks.
+        /// </summary>
+        public static string Thanks {
+            get {
+                return ResourceManager.GetString("Thanks", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Think.
         /// </summary>
         public static string Think {
@@ -967,6 +1040,15 @@ namespace UiharuMind.Resources.Lang {
         public static string TrayMenuOpen {
             get {
                 return ResourceManager.GetString("TrayMenuOpen", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Open Save Directory.
+        /// </summary>
+        public static string TrayMenuOpenSaveDir {
+            get {
+                return ResourceManager.GetString("TrayMenuOpenSaveDir", resourceCulture);
             }
         }
         

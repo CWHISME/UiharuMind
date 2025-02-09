@@ -82,6 +82,11 @@ public class CharacterData
         get => Config.PromptConfig.Template ?? "";
         set => Config.PromptConfig.Template = value;
     }
+    
+    /// <summary>
+    /// 角色头像，以 Base64 编码的图片数据
+    /// </summary>
+    public string CharacterIcon { get; set; } = "";
 
     /// <summary>
     /// 对话模板，主要用于角色扮演，可选，会作为系统回复的基础
