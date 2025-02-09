@@ -13,6 +13,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
@@ -93,6 +94,8 @@ public partial class App : Application, ILogger, IDisposable
 
         //自动打开主窗口
         DummyWindow.LaunchMainWindow();
+
+        DeliverTrayFunc();
     }
 
     // public new static App Current => (App)Application.Current!;
@@ -123,6 +126,19 @@ public partial class App : Application, ILogger, IDisposable
     {
         Console.WriteLine(message);
         Dispatcher.UIThread.Post(() => MessageService.ShowErrorMessageBox(rawStr));
+    }
+
+    private static void DeliverTrayFunc()
+    {
+        if (Current != null)
+        {
+            var trayIcons = TrayIcon.GetIcons(Current);
+            if (trayIcons?.Count > 0)
+            {
+                var trayIcon = trayIcons[0];
+                trayIcon.Clicked += (x, y) => DummyWindow.LaunchMainWindow();
+            }
+        }
     }
 
     private void OnQuitClick(object? sender, EventArgs e)
