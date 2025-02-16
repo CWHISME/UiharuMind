@@ -40,7 +40,7 @@ public class FilesService //: IStorageFolder
         // _filePickerOption.Title = "Select Folder";
         // _path = new Uri(defaultPath);
         if (owner == null) owner = UIManager.GetRootWindow();
-        var folder = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(defaultPath));
+        var folder = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(defaultPath)));
         _filePickerOption.SuggestedStartLocation = folder;
         var result = await owner.StorageProvider.OpenFolderPickerAsync(_filePickerOption);
         return result.FirstOrDefault()?.TryGetLocalPath() ?? defaultPath;
@@ -103,6 +103,6 @@ public class FilesService //: IStorageFolder
         var path = await App.FilesService.SaveFileAsync(owner,
             defaultName ?? "Uiharu_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + ".png");
         if (path == null) return;
-        bitmap.Save(path.AbsolutePath);
+        bitmap.Save(path.LocalPath);
     }
 }

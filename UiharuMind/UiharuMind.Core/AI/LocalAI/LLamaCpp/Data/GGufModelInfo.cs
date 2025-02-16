@@ -30,6 +30,10 @@ public class GGufModelInfo : ILlmModel
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 
+    /// <summary>
+    /// 是否已扫描到信息
+    /// </summary>
+    public bool IsReady => Infos.Count > 0;
 
     public void UpdateValue(string lineInfo)
     {

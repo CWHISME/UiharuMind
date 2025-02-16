@@ -93,6 +93,14 @@ public static class MarkdownUtils
         // IsDarkTheme = darkTheme;
         // return (markdown);
         // return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, darkTheme ? PipelineDark : PipelineLight), darkTheme);
+        if (markdown.StartsWith("<think>", StringComparison.Ordinal))
+        {
+            markdown = markdown.Replace("<think>", "<div class=\"think\">");
+            if (markdown.Contains("</think>"))
+                markdown = markdown.Replace("</think>", "</div>");
+            else markdown += "</div>";
+        }
+
         return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, PipelineDark), darkTheme);
 
         // if (darkTheme)
@@ -129,6 +137,13 @@ public static class MarkdownUtils
                          li p {{ margin-top: 0px; margin-bottom: 0px; }}
                          pre {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
                          code {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
+                        .think {{
+                            background-color: #202020;
+                            color: #888; /* 偏灰色 */
+                            padding: 10px;
+                            border-radius: 5px;
+                            font-style: italic;
+                        }}
                      </style></head>
                      <div style='color: #fff;'>
                          {text}
@@ -140,6 +155,13 @@ public static class MarkdownUtils
                          li p {{ margin-top: 0px; margin-bottom: 0px; }}
                          pre {{ font-family: 'HarmonyOS Sans'; }}
                          code {{ font-family: 'JetBrains Mono','HarmonyOS Sans'; }}
+                        .think {{
+                            background-color: #f0f0f0;
+                            color: #666; /* 偏灰色 */
+                            padding: 10px;
+                            border-radius: 5px;
+                            font-style: italic;
+                        }}
                      </style></head>
                      <div style='color: #000;'>
                          {text}

@@ -20,7 +20,7 @@ namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 public class LLamaCppServerParamsConfig : ConfigBase
 {
     [SettingConfigDesc("size of the prompt context (default: 0, 0 = loaded from model)")]
-    public int CtxSize { get; set; } = 0;
+    public int CtxSize { get; set; } = 4096;
 
     [SettingConfigDesc("number of tokens to predict (default: -1, -1 = infinity, -2 = until context filled)")]
     public int Predict { get; set; } = -1;

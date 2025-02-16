@@ -181,6 +181,7 @@ public class ClipboardService : IDisposable
             return;
         }
 
+        await Task.Delay(10);
         var clipboardContent = await GetFromClipboard();
         if (string.IsNullOrEmpty(clipboardContent))
         {

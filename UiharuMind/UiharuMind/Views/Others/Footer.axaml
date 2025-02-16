@@ -15,15 +15,15 @@
     </UserControl.Styles>
 
     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-        <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
-                      Command="{Binding OpenHelpCommand}">
-            <u:IconButton.Icon>
-                <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="20" Height="20" />
-            </u:IconButton.Icon>
-            <ToolTip.Tip>
-                <TextBlock Text="{x:Static lang:Lang.TrayMenuHelp}" />
-            </ToolTip.Tip>
-        </u:IconButton>
+        <!-- <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center" -->
+        <!--               Command="{Binding OpenHelpCommand}"> -->
+        <!--     <u:IconButton.Icon> -->
+        <!--         <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="20" Height="20" /> -->
+        <!--     </u:IconButton.Icon> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="{x:Static lang:Lang.TrayMenuHelp}" /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </u:IconButton> -->
         <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
                       Command="{Binding OpenSettingCommand}">
             <u:IconButton.Icon>

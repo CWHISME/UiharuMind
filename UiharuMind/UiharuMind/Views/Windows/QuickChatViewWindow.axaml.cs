@@ -36,6 +36,12 @@ public partial class QuickChatViewWindow : QuickWindowBase
         }
     }
 
+    public override void Awake()
+    {
+        base.Awake();
+        CanResize = true;
+    }
+
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         this.BeginMoveDrag(e);

@@ -9,9 +9,9 @@
 
     <ItemGroup>
       <PackageReference Include="AngleSharp" Version="1.1.2" />
-      <PackageReference Include="CliWrap" Version="3.6.6" />
-      <PackageReference Include="Downloader" Version="3.2.1" />
-      <PackageReference Include="Markdown.ColorCode" Version="2.3.0" />
+      <PackageReference Include="CliWrap" Version="3.8.0" />
+      <PackageReference Include="Downloader" Version="3.3.3" />
+      <PackageReference Include="Markdown.ColorCode" Version="3.0.0" />
       <PackageReference Include="Microsoft.SemanticKernel" Version="1.22.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.22.0-alpha" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />

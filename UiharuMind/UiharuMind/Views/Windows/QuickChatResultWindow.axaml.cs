@@ -154,6 +154,12 @@ public partial class QuickChatResultWindow : QuickWindowBase
         Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
     }
 
+    public override void Awake()
+    {
+        base.Awake();
+        CanResize = true;
+    }
+
     protected override void OnPreShow()
     {
         base.OnPreShow();

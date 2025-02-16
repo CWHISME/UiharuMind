@@ -52,6 +52,17 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         Action<Kernel>? onLoadOver = null,
         CancellationToken token = default)
     {
+        //检测是否正常扫描过信息
+        if (model is GGufModelInfo modelInfo)
+        {
+            if (!modelInfo.IsReady)
+            {
+                // await GetModelStateInfo(info.ExecutablePath, model.ModelPath).ConfigureAwait(false);
+                //TODO:扫描本地模型，更新缓存信息，以便进行运行时参数设置
+            }
+        }
+        //================================
+
         int loadingCount = 0;
         bool loadOver = false;
 
@@ -149,7 +160,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             if (executablePath == null) continue;
 
             if (!isChanged) isChanged = true;
-            info = await GetModelStateInfo(executablePath, file);
+            info = new GGufModelInfo(); //await GetModelStateInfo(executablePath, file);
             info.ModelName = fileName;
             info.ModelPath = file;
 
