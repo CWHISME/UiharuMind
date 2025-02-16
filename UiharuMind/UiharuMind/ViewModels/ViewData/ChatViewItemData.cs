@@ -44,6 +44,7 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
 
     public string SenderIcon => "None";
 
+    public bool IsSystem => Role == ECharacter.System;
     public bool IsUser => Role == ECharacter.User;
 
     // public bool IsImageContent => (_cachedContent?.Items.Count > 0 && _cachedContent.Items[0] is ImageContent);

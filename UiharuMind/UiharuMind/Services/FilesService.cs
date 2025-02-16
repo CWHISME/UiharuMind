@@ -69,11 +69,13 @@ public class FilesService //: IStorageFolder
         }
     }
 
-    public async Task<IStorageFile?> OpenFileAsync(Window owner)
+    public async Task<IStorageFile?> OpenFileAsync(Window owner, params string[] fileTypeFilter)
     {
+        FilePickerFileType fileType = new FilePickerFileType("Filter") { Patterns = fileTypeFilter };
         var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
         {
             Title = "Open File",
+            FileTypeFilter = new List<FilePickerFileType>() { fileType },
         });
 
         return files.Count >= 1 ? files[0] : null;

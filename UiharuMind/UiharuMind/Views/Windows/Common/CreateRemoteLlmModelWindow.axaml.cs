@@ -64,6 +64,8 @@ public partial class CreateRemoteLlmModelWindow : Window
 
 public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
 {
+    
+    public ModelConfig CustomeConfig { get; } = new ModelConfig { Name = Lang.CustomConfig, Type = typeof(RemoteModelConfig) };
     public ObservableCollection<ModelConfig> ModelConfigTypes { get; set; } = new ObservableCollection<ModelConfig>();
 
     [ObservableProperty] private bool _hasModelConfig;
@@ -81,7 +83,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
                 ModelConfigTypes.Add(new ModelConfig { Name = type.GetDescription(), Type = type });
             }
 
-            ModelConfigTypes.Add(new ModelConfig { Name = Lang.CustomConfig, Type = typeof(RemoteModelConfig) });
+            //ModelConfigTypes.Add(new ModelConfig { Name = Lang.CustomConfig, Type = typeof(RemoteModelConfig) });
             // ModelConfigTypes = modelConfigs;
         }
         // _remoteModelInfo ??= new RemoteModelInfo();

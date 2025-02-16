@@ -267,8 +267,8 @@ public partial class SimpleMarkdownViewer : UserControl
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        var maxWidth = availableSize.Width - 30;
-        MarkdownTextBlock.MaxWidth = maxWidth-1;
+        var maxWidth = Math.Clamp(availableSize.Width - 30, 0, int.MaxValue);
+        MarkdownTextBlock.MaxWidth = Math.Clamp(maxWidth - 1, 0, int.MaxValue);
         MainPanel.MaxWidth = maxWidth;
         return base.MeasureOverride(availableSize);
     }

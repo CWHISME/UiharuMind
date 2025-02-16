@@ -15,16 +15,20 @@ namespace UiharuMind.Core.Core;
 
 public class SettingConfig : ConfigBase
 {
-    public const string SaveDataPath = "./SaveData/";
-    public const string SaveChatDataPath = SaveDataPath + "ChatData/";
-    public const string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
-    public const string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
-    public const string LogDataPath = "./SaveLog/";
+    public static readonly string RootDataPath =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UiharuMind/");
+
+    public static readonly string SaveDataPath = Path.Combine(RootDataPath, "SaveData/");
+    public static readonly string SaveChatDataPath = SaveDataPath + "ChatData/";
+    public static readonly string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
+    public static readonly string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
+    public static readonly string LogDataPath = Path.Combine(RootDataPath, "SaveLog/");
 
     /// <summary>
     /// 本地服务引擎目录
     /// </summary>
-    public const string BackendRuntimeEnginePath = "./BackendRuntimeEngine/";
+    public static readonly string
+        BackendRuntimeEnginePath = Path.Combine(RootDataPath, "Runtime/"); //"./BackendRuntimeEngine/";
 
     /// <summary>
     /// 是否是本地服务模式

@@ -54,7 +54,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     {
         int loadingCount = 0;
         bool loadOver = false;
-        
+
         const float loadingMaxCount = 128f;
         const int loadingMinCount = 16;
 
@@ -131,6 +131,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     {
         string? executablePath = Config.GetExeLookupStatsPath(versionInfo?.ExecutablePath);
         _modelInfos.Clear();
+        if (!Directory.Exists(Config.LocalModelPath)) return _modelInfos;
         string[] files = Directory.GetFiles(Config.LocalModelPath!, "*.gguf", SearchOption.AllDirectories);
         bool isChanged = false;
         foreach (var file in files)

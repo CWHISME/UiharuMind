@@ -69,7 +69,16 @@ public static class ScreenCaptureManager
     /// </summary>
     public static async Task GetMacScreenCaptureFromClipboard()
     {
-        await ScreenCaptureMac.Capture();
+        App.Clipboard.IsSelfCopying = true;
+        try
+        {
+            await ScreenCaptureMac.Capture();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+
         UIManager.ShowPreviewImageWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
     }
 

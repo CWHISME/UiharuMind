@@ -76,7 +76,9 @@ public partial class QuickChatResultWindow : QuickWindowBase
             LoadingEffect.IsLoading = !value;
             RegenerateButton.IsVisible = value;
             FuncBtn.IsVisible = value;
-            ResultTextBlock.IsPlaintext = !value || ConfigManager.Instance.Setting.IsChatPlainText;
+            ResultTextBlock.IsPlaintext =
+                ConfigManager.Instance.Setting
+                    .IsChatPlainText; //!value || ConfigManager.Instance.Setting.IsChatPlainText;
         }
     }
 

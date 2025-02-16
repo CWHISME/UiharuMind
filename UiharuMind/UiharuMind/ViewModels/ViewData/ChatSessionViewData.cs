@@ -30,6 +30,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
+using UiharuMind.Views;
 using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.ViewModels.ViewData;
@@ -218,6 +219,14 @@ public partial class ChatSessionViewData : ObservableObject
                 ChatItems.Clear();
                 TimeString = "";
             });
+    }
+
+    [RelayCommand]
+    //编辑
+    public void EditCharater()
+    {
+        UIManager.ShowEditCharacterWindow(new CharacterInfoViewData(ChatSession.CharacterData),
+            x => x.SaveCharacter());
     }
 
     [RelayCommand]

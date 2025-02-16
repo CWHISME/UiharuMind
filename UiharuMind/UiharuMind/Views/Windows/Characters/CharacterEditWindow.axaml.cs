@@ -10,17 +10,7 @@ namespace UiharuMind.Views.Windows.Characters;
 
 public partial class CharacterEditWindow : UiharuWindowBase
 {
-    public static void Show(CharacterInfoViewData? characterInfo, Action<CharacterInfoViewData>? onSureCallback)
-    {
-        characterInfo ??= new CharacterInfoViewData();
-        UIManager.ShowWindow<CharacterEditWindow>(x =>
-        {
-            x.DataContext = characterInfo;
-            x._onSureCallback = onSureCallback;
-        });
-    }
-
-    private Action<CharacterInfoViewData>? _onSureCallback;
+    public Action<CharacterInfoViewData>? OnSureCallback;
 
     public CharacterEditWindow()
     {
@@ -38,7 +28,7 @@ public partial class CharacterEditWindow : UiharuWindowBase
         {
             if (!characterInfo.CheckCharacterNameValid()) return;
             // if (_onSureCallback == null) characterInfo.SaveCharacter();
-            _onSureCallback?.Invoke(characterInfo);
+            OnSureCallback?.Invoke(characterInfo);
         }
 
         Close();

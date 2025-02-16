@@ -23,12 +23,16 @@ public partial class ChatPlugin_ChatParamsData : ChatPluginDataBase<ChatPlugin_C
     [ObservableProperty] private CharacterData _character;
     // [ObservableProperty] private bool _isToolCharacter;
 
-    public ChatPlugin_ChatParamsData()
-    {
-    }
-
     protected override void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
     {
         Character = chatSessionViewData.ChatSession.CharacterData;
+    }
+
+    public override void OnChatBegin()
+    {
+        base.OnChatBegin();
+        if (!Character.Config.ExecutionSettings.IsDirty) return;
+        Character.Config.ExecutionSettings.IsDirty = false;
+        Character.Save();
     }
 }

@@ -13,7 +13,7 @@ public class RemoteModelConfig : BaseRemoteModelConfig
 
     [SettingConfigDesc("path to the model, should start with http or https")]
     [SettingConfigDesc("模型远程地址，应以http或https开头", LanguageUtils.ChineseSimplified)]
-    public override string ModelPath { get; set; } = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+    public override string ModelPath { get; set; }
 
     [SettingConfigDesc("description of the model")]
     [SettingConfigDesc("模型描述", LanguageUtils.ChineseSimplified)]

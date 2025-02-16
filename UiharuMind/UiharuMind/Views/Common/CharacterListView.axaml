@@ -19,10 +19,19 @@
                 <TextBlock Text="{x:Static lang:Lang.Filter}"
                            VerticalAlignment="Center" />
                 <StackPanel Name="FilterPanel" Orientation="Horizontal" Spacing="5" />
+                <PathIcon Data="{StaticResource InfoRegular}" Height="18">
+                    <ToolTip.Tip>
+                        <TextBlock Text="{x:Static lang:Lang.CharacterCompareToolTips}" FontSize="14" />
+                    </ToolTip.Tip>
+                </PathIcon>
                 <ToggleSwitch IsChecked="{Binding IsPhotoListView}"
                               Margin="10,0,0,0"
                               OffContent="{x:Static  lang:Lang.ToggleIsListView}"
                               OnContent="{x:Static  lang:Lang.ToggleIsPhotoListView}" />
+                <ToggleSwitch IsChecked="{Binding IsDisplayAllCharacters}"
+                              Margin="10,0,0,0"
+                              OffContent="{x:Static  lang:Lang.ShowHideCharactor}"
+                              OnContent="{x:Static  lang:Lang.ShowHideCharactor}" />
             </StackPanel>
 
             <StackPanel Name="AddPanel" Orientation="Horizontal" DockPanel.Dock="Right">
@@ -123,7 +132,7 @@
                                     </StackPanel>
 
                                     <!-- 描述 -->
-                                    <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" />
+                                    <TextBlock MaxHeight="40" Text="{Binding Description}" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Grid>
                         </Border>

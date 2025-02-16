@@ -16,7 +16,9 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
+using UiharuMind.Views.Windows.Characters;
 using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.Views;
@@ -69,7 +71,7 @@ public class UIManager
                 windowsList.Add(window);
                 onCreateCallback?.Invoke(window);
                 action?.Invoke(window);
-                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                window.WindowStartupLocation = WindowStartupLocation.Manual;
                 window.Awake();
                 window.RequestShow(true);
             }
@@ -130,7 +132,7 @@ public class UIManager
         {
             foreach (var win in window.Value)
             {
-                if (win.IsActive && win.IsVisible) return win;
+                if (win.IsActive && win.IsVisible && win.WindowState != WindowState.Minimized) return win;
             }
         }
 
@@ -171,6 +173,18 @@ public class UIManager
             var window = new ScreenCapturePreviewWindow();
             window.SetImage(image, size);
             window.Show();
+        });
+    }
+
+    //===================open====================
+    public static void ShowEditCharacterWindow(CharacterInfoViewData? characterInfo,
+        Action<CharacterInfoViewData>? onSureCallback)
+    {
+        characterInfo ??= new CharacterInfoViewData() { IsRole = false };
+        UIManager.ShowWindow<CharacterEditWindow>(x =>
+        {
+            x.DataContext = characterInfo;
+            x.OnSureCallback = onSureCallback;
         });
     }
 }

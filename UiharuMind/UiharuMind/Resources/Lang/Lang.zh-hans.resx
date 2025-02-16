@@ -78,10 +78,10 @@
         <value>[解压中...]</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
-        <value>本地引擎设置</value>
+        <value>本地执行后端设置</value>
     </data>
     <data name="CurrentEngineTypeSetting" xml:space="preserve">
-        <value>当前执行引擎：</value>
+        <value>当前执行后端：</value>
     </data>
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>正在检查更新...</value>
@@ -332,7 +332,7 @@
         <value>分辨率</value>
     </data>
     <data name="TrayMenuOpenSaveDir" xml:space="preserve">
-        <value>打开保存目录</value>
+        <value>打开数据目录</value>
     </data>
     <data name="Introduction" xml:space="preserve">
         <value>介绍</value>
@@ -357,5 +357,29 @@
     </data>
     <data name="LocalModelParamsSetting" xml:space="preserve">
         <value>本地模型设置</value>
+    </data>
+    <data name="AddCharacterSuccessTips" xml:space="preserve">
+        <value>角色添加成功！</value>
+    </data>
+    <data name="ImportCharacterTips" xml:space="preserve">
+        <value>支持从本地文件导入角色，请选择你要导入的文件(格式为 chara_card v3及以下版本类型的 Json 文件)，请注意：目前导入 chara_card 类型角色目前只是一个简单步骤，会丢失一部分信息！</value>
+    </data>
+    <data name="GPULayerTips" xml:space="preserve">
+        <value>需要卸载至 GPU 的层数，GPU 运行的层数越多，运行越快。但是请注意不要爆显存了，那同样会导致运行变得很慢。</value>
+    </data>
+    <data name="ContextSizeTips" xml:space="preserve">
+        <value>加载模型时的最大上下文大小，默认为 0 时将从模型读取最大支持大小。请注意：上下文越大，要求的 RAM 越多。</value>
+    </data>
+    <data name="FlashAttnTips" xml:space="preserve">
+        <value>是否启用 Flash Attention</value>
+    </data>
+    <data name="LocalModelParamsSettingTips" xml:space="preserve">
+        <value>本地模型设置仅影响本地运行模型，对远程模型(API 调用)无效。</value>
+    </data>
+    <data name="CharacterCompareToolTips" xml:space="preserve">
+        <value>Tool 为最基础的对话角色，与常规带系统提示的Agent表现一致。而角色则在此基础上附加了更多功能和额外信息。</value>
+    </data>
+    <data name="ShowHideCharactor" xml:space="preserve">
+        <value>显示隐藏</value>
     </data>
 </root>

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -60,6 +61,8 @@ public partial class CharacterInfoViewData : ObservableObject
 
     public IImmutableSolidColorBrush FuncColor =>
         IsRole ? Avalonia.Media.Brushes.LightGreen : Avalonia.Media.Brushes.Gold;
+
+    public long FileDateTime => _characterData.FileDateTime;
 
     public string Name
     {
@@ -227,12 +230,18 @@ public partial class CharacterInfoViewData : ObservableObject
         };
     }
 
-    public void TryAddToNewCharacterData()
+    public void TryAddToNewCharacterData(Action? onSuccess = null)
     {
+        ParamsSaveValidReplacer();
         if (!CharacterManager.Instance.TryAddNewCharacterData(_characterData))
         {
             App.MessageService.ShowConfirmMessageBox(Lang.AddDuplicateCharacterTips,
-                () => { CharacterEditWindow.Show(this, x => TryAddToNewCharacterData()); });
+                () => { UIManager.ShowEditCharacterWindow(this, x => TryAddToNewCharacterData(onSuccess)); });
+        }
+        else
+        {
+            App.MessageService.ShowNotification(Lang.AddCharacterSuccessTips);
+            onSuccess?.Invoke();
         }
     }
 
@@ -245,6 +254,16 @@ public partial class CharacterInfoViewData : ObservableObject
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// 保存之前的参数的有效性检查并替换，避免填错参数导致的错误
+    /// </summary>
+    public void ParamsSaveValidReplacer()
+    {
+        Template = _characterData.ParamsValidReplacer(Template);
+        DialogTemplate = _characterData.ParamsValidReplacer(DialogTemplate);
+        FirstGreeting = _characterData.ParamsValidReplacer(FirstGreeting);
     }
 
     [RelayCommand]
@@ -260,13 +279,17 @@ public partial class CharacterInfoViewData : ObservableObject
     [RelayCommand]
     public void EditCharacter()
     {
-        CharacterEditWindow.Show(this, x => x.SaveCharacter());
+        UIManager.ShowEditCharacterWindow(this, x => x.SaveCharacter());
     }
 
     [RelayCommand]
     public void SaveCharacter()
     {
-        if (CheckCharacterNameValid()) _characterData.Save();
+        if (CheckCharacterNameValid())
+        {
+            ParamsSaveValidReplacer();
+            _characterData.Save();
+        }
     }
 
     [RelayCommand]
@@ -287,7 +310,7 @@ public partial class CharacterInfoViewData : ObservableObject
     public async Task AddMountCharacter()
     {
         HashSet<string> alreadySelectedList = new HashSet<string>(MountCharacters);
-        var result = await CharacterSelectWindow.Show(UIManager.GetFoucusWindow(), alreadySelectedList,
+        var result = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFoucusWindow(), alreadySelectedList,
             CharacterSelectWindow.CharacterType.Tool, Name);
         if (result != null)
         {

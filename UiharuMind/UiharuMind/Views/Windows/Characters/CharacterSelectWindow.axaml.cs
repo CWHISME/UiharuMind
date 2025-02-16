@@ -18,7 +18,7 @@ public partial class CharacterSelectWindow : Window
         All
     }
 
-    public static async Task<CharacterInfoViewData?> Show(Window parent)
+    public static async Task<CharacterInfoViewData?> ShowCharacterSelectWindow(Window parent)
     {
         var win = new CharacterSelectWindow();
         win.CharacterListView.NormalListBox.SelectedItem = null;
@@ -26,13 +26,14 @@ public partial class CharacterSelectWindow : Window
         return await win.ShowDialog<CharacterInfoViewData?>(parent);
     }
 
-    public static async Task<List<CharacterInfoViewData>?> Show(Window parent,
+    public static async Task<List<CharacterInfoViewData>?> ShowCharacterSelectWindow(Window parent,
         HashSet<string>? alreadySelectedList, CharacterType type = CharacterType.All, params string[] excludeArray)
     {
         var win = new CharacterSelectWindow
         {
             _multiSelect = true
         };
+        win._listViewData.IsDisplayAllCharacters = true;
         //排除角色
         List<string> excludeList = excludeArray.ToList();
         if (type != CharacterType.All)

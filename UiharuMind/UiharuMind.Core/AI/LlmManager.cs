@@ -78,10 +78,10 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// </summary>
     public event Action<ModelRunningData?>? OnCurrentModelChanged;
 
-    /// <summary>
-    /// 当任何模型的状态改变时回调
-    /// </summary>
-    public event Action<ModelRunningData?>? OnAnyModelStateChanged;
+    // /// <summary>
+    // /// 当任何模型的状态改变时回调
+    // /// </summary>
+    // public event Action<ModelRunningData?>? OnAnyModelStateChanged;
 
     /// <summary>
     /// 当前模型开始加载
@@ -100,8 +100,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
     public void OnInitialize()
     {
-        if (UiharuCoreManager.Instance.IsWindows) SetupTestWin();
-        else SetupTest();
+        // if (UiharuCoreManager.Instance.IsWindows) SetupTestWin();
+        // else SetupTest();
     }
 
     /// <summary>
@@ -165,7 +165,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             // 通知当前运行的模型改变
             // if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
             // 通知有任意模型状态改变
-            if (!CurrentRunningModel.IsRunning) OnAnyModelStateChanged?.Invoke(runningInfo);
+            // if (false == CurrentRunningModel.IsRunning) OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"load model error， {modelName} not found in cache.");
     }
@@ -191,20 +191,22 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             runningInfo.StopRunning();
         }
         else Log.Error($"unload model error， {modelName} not found in cache.");
+
+        if (CurrentRunningModel == runningInfo) CurrentRunningModel = null;
     }
 
     //======================test=========================
-    private void SetupTestWin()
-    {
-        LLamaCppServer.Config.LLamaCppPath = "D:\\Solfware\\AI\\llama-b3772-bin-win-vulkan-x64";
-        if (!Directory.Exists(LLamaCppServer.Config.LocalModelPath))
-            LLamaCppServer.Config.LocalModelPath = "D:\\Solfware\\AI\\LLM_Models";
-    }
-
-    private void SetupTest()
-    {
-        LLamaCppServer.Config.LLamaCppPath =
-            "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3828-bin-macos-arm64/bin";
-        LLamaCppServer.Config.LocalModelPath = "/Users/dragonplus/Documents/Studys/LLMModels";
-    }
+    // private void SetupTestWin()
+    // {
+    //     LLamaCppServer.Config.LLamaCppPath = "D:\\Solfware\\AI\\llama-b3772-bin-win-vulkan-x64";
+    //     if (!Directory.Exists(LLamaCppServer.Config.LocalModelPath))
+    //         LLamaCppServer.Config.LocalModelPath = "D:\\Solfware\\AI\\LLM_Models";
+    // }
+    //
+    // private void SetupTest()
+    // {
+    //     LLamaCppServer.Config.LLamaCppPath =
+    //         "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3828-bin-macos-arm64/bin";
+    //     LLamaCppServer.Config.LocalModelPath = "/Users/dragonplus/Documents/Studys/LLMModels";
+    // }
 }

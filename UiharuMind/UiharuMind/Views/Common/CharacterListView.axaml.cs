@@ -52,7 +52,7 @@ public partial class CharacterListView : UserControl
             var tag = data.FilterTags[i];
             var button = new ToggleButton();
             button.Content = tag;
-            button.IsChecked = i == 0;
+            button.IsChecked = tag == data.FilterTag;
             button.Click += OnFilterClick;
             FilterPanel.Children.Add(button);
         }

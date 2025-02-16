@@ -25,6 +25,11 @@ public partial class MainWindow : UiharuWindowBase
         InitializeComponent();
     }
 
+    protected override void OnInitWindowPosition()
+    {
+        // base.OnInitWindowPosition();
+    }
+
     // public override void Show()
     // {
     //     base.Show();

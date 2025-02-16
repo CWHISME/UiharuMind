@@ -93,6 +93,21 @@ public static class WindowUtils
         window.BorderThickness = new Thickness(0);
     }
 
+    public static void SetScreenCenterPosition(this Window window)
+    {
+        // 获取当前激活的屏幕
+        var screen = App.ScreensService.MouseScreen;
+        if (screen != null)
+        {
+            // 计算窗口在屏幕中心的坐标
+            var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + window.Width) / 2;
+            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - window.Height;
+
+            // 设置窗口位置
+            window.Position = new PixelPoint((int)x, (int)y);
+        }
+    }
+
     /// <summary>
     /// 鼠标是否在窗口内
     /// </summary>

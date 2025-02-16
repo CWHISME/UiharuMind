@@ -25,6 +25,11 @@ public class UserLeftRightConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        if (value is ECharacter.System)
+        {
+            return HorizontalAlignment.Center;
+        }
+
         if (value is ECharacter.User)
         {
             return HorizontalAlignment.Right;

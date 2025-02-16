@@ -31,6 +31,14 @@ public partial class ChatPluginBase : ObservableObject
         ChatSessionCurrentViewData = chatSessionViewData;
     }
 
+    public virtual void OnChatBegin()
+    {
+    }
+
+    public virtual void OnChatEnd()
+    {
+    }
+
     partial void OnChatSessionCurrentViewDataChanged(ChatSessionViewData value)
     {
         OnChatSessionChanged(value);

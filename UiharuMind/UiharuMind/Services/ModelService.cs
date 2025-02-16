@@ -52,7 +52,7 @@ public partial class ModelService : ObservableObject
     public ModelService()
     {
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelStateChanged;
-        LlmManager.Instance.OnAnyModelStateChanged += OnAnyModelStateChanged;
+        // LlmManager.Instance.OnAnyModelStateChanged += OnAnyModelStateChanged;
         LlmManager.Instance.OnCurrentModelStartLoading += OnCurrentModelStartLoading;
         LlmManager.Instance.OnCurrentModelLoading += OnCurrentModelLoading;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
@@ -80,8 +80,9 @@ public partial class ModelService : ObservableObject
     [RelayCommand]
     public void EjectCurrentModel()
     {
-        CurModelRunningData?.StopRunning();
+        // CurModelRunningData?.StopRunning();
         // CurModelRunningData = FindIsRunningModel();
+        LlmManager.Instance.UnloadModel();
     }
 
     public async void LoadModelListAsync()

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.identifier</string>
+	<string>com.cwhisme.uiharumind</string>
 	<key>CFBundleName</key>
 	<string>UiharuMind</string>
 	<key>CFBundleVersion</key>
@@ -16,6 +16,8 @@
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleIconFile</key>
+	<string>Icon.png</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>NSHighResolutionCapable</key>

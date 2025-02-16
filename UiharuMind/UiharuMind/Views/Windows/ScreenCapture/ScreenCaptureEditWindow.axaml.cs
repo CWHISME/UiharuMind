@@ -13,7 +13,9 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SharpHook.Native;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
@@ -32,6 +34,9 @@ public partial class ScreenCaptureEditWindow : Window
     private double _scale;
 
     private static Color _color = Colors.Red;
+
+    // private KeyCombinationData _undoKey;
+    // private KeyCombinationData _redoKey;
 
     public ScreenCaptureEditWindow(Bitmap source, PixelPoint position, Size size, Action<Bitmap> onClose)
     {
@@ -62,6 +67,11 @@ public partial class ScreenCaptureEditWindow : Window
         DrawingCanvas.PointerPressed += OnDrawingCanvasPointerPressed;
         DrawingCanvas.PointerMoved += OnDrawingCanvasPointerMoved;
         DrawingCanvas.PointerReleased += OnDrawingCanvasPointerReleased;
+
+        // _undoKey = new KeyCombinationData(KeyCode.VcZ, Undo, [KeyCode.VcLeftControl],
+        //     "ScreenCaptureEditWindow Undo");
+        // _redoKey = new KeyCombinationData(KeyCode.VcY, Redo, [KeyCode.VcLeftControl],
+        //     "ScreenCaptureEditWindow Redo");
     }
 
     protected override void OnOpened(EventArgs e)
@@ -75,7 +85,24 @@ public partial class ScreenCaptureEditWindow : Window
 
         GeometryColorPicker.Color = _color;
         RefreshUndoRedo();
+
+        Focusable = true;
+        Focus();
     }
+
+    // protected override void OnLoaded(RoutedEventArgs e)
+    // {
+    //     base.OnLoaded(e);
+    //     InputManager.Instance.RegisterKey(_undoKey);
+    //     InputManager.Instance.RegisterKey(_redoKey);
+    // }
+    //
+    // protected override void OnUnloaded(RoutedEventArgs e)
+    // {
+    //     base.OnUnloaded(e);
+    //     InputManager.Instance.UnRegisterKey(_undoKey);
+    //     InputManager.Instance.UnRegisterKey(_redoKey);
+    // }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
@@ -102,9 +129,10 @@ public partial class ScreenCaptureEditWindow : Window
         {
             GeometryCircleButton.IsChecked = false;
         }
-        else
+        //如果旁边未选中，那么不允许自己不选中
+        else if (GeometryCircleButton.IsChecked == false)
         {
-            GeometryCircleButton.IsChecked = true;
+            GeometryRectangleButton.IsChecked = true;
         }
     }
 
@@ -114,9 +142,10 @@ public partial class ScreenCaptureEditWindow : Window
         {
             GeometryRectangleButton.IsChecked = false;
         }
-        else
+        //如果旁边未选中，那么不允许自己不选中
+        else if (GeometryRectangleButton.IsChecked == false)
         {
-            GeometryRectangleButton.IsChecked = true;
+            GeometryCircleButton.IsChecked = true;
         }
     }
 
@@ -156,7 +185,7 @@ public partial class ScreenCaptureEditWindow : Window
 
     private bool _isDrawing;
     private Point _startPoint;
-    private Geometry _currentGeometry;
+    private Geometry? _currentGeometry;
 
     private void OnDrawingCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
     {

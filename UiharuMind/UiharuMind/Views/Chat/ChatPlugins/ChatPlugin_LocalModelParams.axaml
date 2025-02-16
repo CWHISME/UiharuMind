@@ -15,9 +15,58 @@
     </Design.DataContext>
 
     <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
-        <StackPanel>
-            <u:Divider Content="{x:Static  lang:Lang.LocalModelParamsSetting}" />
-            <!-- <StackPanel Orientation=""> -->
+        <StackPanel Spacing="5" Margin="5">
+            <u:Divider>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{x:Static  lang:Lang.LocalModelParamsSetting}" VerticalAlignment="Center" />
+                    <PathIcon Data="{StaticResource InfoRegular}" Height="18">
+                        <ToolTip.Tip>
+                            <TextBlock Text="{x:Static lang:Lang.LocalModelParamsSettingTips}" FontSize="14" />
+                        </ToolTip.Tip>
+                    </PathIcon>
+                </StackPanel>
+            </u:Divider>
+
+            <u:Divider>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="GPU Layer" VerticalAlignment="Center">
+                        <!-- <PathIcon Data="{StaticResource InfoRegular}" Height="18"> -->
+                        <ToolTip.Tip>
+                            <TextBlock Text="{x:Static lang:Lang.GPULayerTips}" FontSize="14" />
+                        </ToolTip.Tip>
+                        <!-- </PathIcon> -->
+                    </TextBlock>
+                </StackPanel>
+            </u:Divider>
+            <u:NumericIntUpDown Value="{Binding GpuLayers}"></u:NumericIntUpDown>
+
+            <!-- 上下文大小 -->
+            <u:Divider>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="Context Size" VerticalAlignment="Center">
+                        <!-- <PathIcon Data="{StaticResource InfoRegular}" Height="18"> -->
+                        <ToolTip.Tip>
+                            <TextBlock Text="{x:Static lang:Lang.ContextSizeTips}" FontSize="14" />
+                        </ToolTip.Tip>
+                        <!-- </PathIcon> -->
+                    </TextBlock>
+                </StackPanel>
+            </u:Divider>
+            <u:NumericIntUpDown Value="{Binding CtxSize}"></u:NumericIntUpDown>
+
+            <!-- 是否启用 FlashAttn -->
+            <u:Divider>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="Flash Attn" VerticalAlignment="Center">
+                        <!-- <PathIcon Data="{StaticResource InfoRegular}" Height="18"> -->
+                        <ToolTip.Tip>
+                            <TextBlock Text="{x:Static lang:Lang.FlashAttnTips}" FontSize="14" />
+                        </ToolTip.Tip>
+                        <!-- </PathIcon> -->
+                    </TextBlock>
+                </StackPanel>
+            </u:Divider>
+            <CheckBox HorizontalAlignment="Center" Content="Enable FlashAttn" IsChecked="{Binding FlashAttn}" />
         </StackPanel>
     </Border>
 

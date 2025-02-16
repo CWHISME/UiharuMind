@@ -1,6 +1,7 @@
 using System.Reflection;
 using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 
 namespace UiharuMind.Core.AI.Character;
@@ -38,7 +39,19 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
             foreach (var file in files)
             {
                 var characterData = SaveUtility.Load<CharacterData>(file);
-                if (characterData != null) CharacterDataDictionary.Add(characterData.CharacterName, characterData);
+                if (characterData != null)
+                {
+                    try
+                    {
+                        characterData.FileDateTime = File.GetLastWriteTime(file).ToFileTimeUtc();
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e);
+                    }
+
+                    CharacterDataDictionary.Add(characterData.CharacterName, characterData);
+                }
             }
         }
 
@@ -78,7 +91,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     public CharacterData GetCharacterData(string characterName)
     {
         if (CharacterDataDictionary.TryGetValue(characterName, out var characterData)) return characterData;
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari);
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Assistant);
     }
 
     /// <summary>

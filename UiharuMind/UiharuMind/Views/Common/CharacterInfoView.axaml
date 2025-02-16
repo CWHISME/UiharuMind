@@ -35,7 +35,9 @@
 
     <DockPanel>
         <!-- 操作 -->
-        <DockPanel Name="OperationPanel" DockPanel.Dock="Bottom" LastChildFill="False" Margin="20,10,20,10">
+        <DockPanel Name="OperationPanel"
+                   IsEnabled="{Binding Name,Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   DockPanel.Dock="Bottom" LastChildFill="False" Margin="20,10,20,10">
             <Button Content="{x:Static  lang:Lang.StartChat}" DockPanel.Dock="Left"
                     Command="{Binding StartChatCommand}" />
             <Button Content="{x:Static  lang:Lang.EditCharacter}" DockPanel.Dock="Right"
@@ -50,7 +52,7 @@
                     <!-- 角色图片 -->
                     <Image Source="{Binding Icon}" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
                     <SelectableTextBlock HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
-                    <SelectableTextBlock Text="{Binding Description}" />
+                    <SelectableTextBlock Background="Transparent" Text="{Binding Description}" />
                 </StackPanel>
 
                 <!-- 功能类型 -->
@@ -135,12 +137,14 @@
                     </Expander.Header>
                     <StackPanel Spacing="25">
                         <!-- <StackPanel> -->
-                        <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
+                        <Border Classes="PaddingBorder"
+                                IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
                                 BorderBrush="{StaticResource UiBorderBrush}">
                             <StackPanel>
                                 <u:Divider Content="{x:Static  lang:Lang.CharacterDialogTemplate}" />
-                                <common:SimpleMarkdownViewer MarkdownText="{Binding DialogTemplateReadonly}"
-                                                             IsPlaintext="False" />
+                                <!-- <common:SimpleMarkdownViewer MarkdownText="{Binding DialogTemplateReadonly}" -->
+                                <!--                              IsPlaintext="False" /> -->
+                                <SelectableTextBlock Background="Transparent" Text="{Binding DialogTemplateReadonly}" />
                             </StackPanel>
                         </Border>
                         <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">

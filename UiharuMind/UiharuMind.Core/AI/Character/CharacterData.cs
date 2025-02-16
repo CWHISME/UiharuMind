@@ -22,9 +22,14 @@ public class CharacterData
     public bool IsDefaultCharacter { get; set; }
 
     /// <summary>
-    /// 在角色列表隐藏
+    /// 始终在角色列表隐藏
     /// </summary>
     public bool IsHide { get; set; }
+
+    /// <summary>
+    /// 是否默认隐藏
+    /// </summary>
+    public bool IsHideDefault { get; set; }
 
     /// <summary>
     /// 是否是工具人
@@ -49,7 +54,8 @@ public class CharacterData
             DefaultCharacter.Actor.ToString(),
             DefaultCharacter.RoleplaySimple.ToString(),
             DefaultCharacter.RoleplayDetailed.ToString(),
-            DefaultCharacter.RoleplayImmersive.ToString()
+            DefaultCharacter.RoleplayImmersive.ToString(),
+            DefaultCharacter.LocalLanguage.ToString(),
         };
 
     /// <summary>
@@ -82,7 +88,13 @@ public class CharacterData
         get => Config.PromptConfig.Template ?? "";
         set => Config.PromptConfig.Template = value;
     }
-    
+
+    /// <summary>
+    /// 存储的文件日期
+    /// </summary>
+    [JsonIgnore]
+    public long FileDateTime { get; set; }
+
     /// <summary>
     /// 角色头像，以 Base64 编码的图片数据
     /// </summary>
@@ -107,7 +119,16 @@ public class CharacterData
     public string TryRender(string template)
     {
         return template.Replace("{{$char}}", CharacterName)
-            .Replace("{{$user}}", CharacterManager.Instance.UserCharacterName);
+            .Replace("{{$user}}", CharacterManager.Instance.UserCharacterName)
+            .Replace("{{$lang}}", LanguageUtils.CurCultureInfo.DisplayName);
+    }
+
+    /// <summary>
+    /// 保存之前的参数的有效性检查并替换，避免填错参数导致的错误
+    /// </summary>
+    public string ParamsValidReplacer(string str)
+    {
+        return str.Replace("{{char}}", "{{$char}}").Replace("{{user}}", "{{$user}}");
     }
 
     public void Save()
@@ -132,7 +153,7 @@ public class CharacterData
 
     public static implicit operator ChatCompletionAgent(CharacterData characterData)
     {
-        return characterData.ToAgent(LlmManager.Instance.CurrentRunningModel!.Kernel);
+        return characterData.ToAgent(LlmManager.Instance.CurrentRunningModel!.Kernel!);
     }
 
 

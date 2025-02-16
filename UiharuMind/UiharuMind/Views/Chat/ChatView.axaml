@@ -60,6 +60,7 @@
                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="15,0">
                             <!-- 头像 -->
                             <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top"
+                                     IsVisible="{Binding !IsSystem}"
                                      Grid.Column="{Binding Role, Converter={StaticResource UserColumIndexConverter},ConverterParameter=3}">
                                 <Ellipse.Fill>
                                     <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
@@ -170,8 +171,8 @@
                 </TextBox.KeyBindings>
             </TextBox>
 
-            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                        IsHitTestVisible="{Binding $self.Children[0].IsEnabled}">
+            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+                <!-- IsHitTestVisible="{Binding $self.Children[0].IsEnabled}"> -->
                 <!-- ~1~ 显示输入的 token @1@ -->
                 <!-- <TextBlock Text="{Binding InputToken}" -->
                 <!--            FontSize="12" -->

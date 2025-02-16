@@ -32,9 +32,9 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         // BindMouseClickCloseEvent();
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override void OnLoaded(RoutedEventArgs e)
     {
-        base.OnOpened(e);
+        base.OnLoaded(e);
         HistoryView.HistoryListBox.ScrollIntoView(0);
     }
 

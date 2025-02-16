@@ -112,6 +112,11 @@ public class InputManager : Singleton<InputManager>, IInitialize
         _keyCombinations.Add(keyCombination);
     }
 
+    public void UnRegisterKey(KeyCombinationData keyCombination)
+    {
+        _keyCombinations.Remove(keyCombination);
+    }
+
     //=========Event Handler=========
 
     private void OnKeyTyped(object? sender, KeyboardHookEventArgs e)

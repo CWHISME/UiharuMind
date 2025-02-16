@@ -30,32 +30,20 @@
 
 如果目录中存在模型文件，但是模型列表中没有显示，请检查本地本地执行引擎是否正确配置：
 
-* 设置->本地引擎设置->选择本地执行引擎
-* 如果本地执行引擎列表中不存在任何项目，说明当前还未下载任何运行时，可以点击右侧 “检查更新” 按钮进行更新，会从 Github 自动拉取最新的运行列表。选择合适的运行时，点击下载即可。
+* 设置->本地引擎设置->选择本地执行后端
+* 如果本地执行后端列表中不存在任何项目，说明当前还未下载任何运行时，可以点击右侧 “检查更新” 按钮进行更新，会从 Github 自动拉取最新的后端列表。选择合适的运行时，点击下载即可。
 
 如果是第一次设置后，出现了其它错误提示，可以尝试重启软件。
 
 在模型列表存在的模型都可以在聊天页面顶部的模型运行菜单中选择运行。
-
-本地模型的运行底层依赖 llama.cpp，因此 llama.cpp 支持的这边理论上也支持：
-
-| Backend | Target devices |
-| --- | --- |
-| [Metal](docs/build.md#metal-build) | Apple Silicon |
-| [BLAS](docs/build.md#blas-build) | All |
-| [BLIS](docs/backend/BLIS.md) | All |
-| [SYCL](docs/backend/SYCL.md) | Intel and Nvidia GPU |
-| [MUSA](docs/build.md#musa) | Moore Threads MTT GPU |
-| [CUDA](docs/build.md#cuda) | Nvidia GPU |
-| [HIP](docs/build.md#hip) | AMD GPU |
-| [Vulkan](docs/build.md#vulkan) | GPU |
-| [CANN](docs/build.md#cann) | Ascend NPU |
 
 注意：本地模型的运行请确保本机有足够配置。
 
 ## 远程模型
 
 在线模型即使用在线 API，在主界面右侧的模型页签中，点击 远程模型添加按钮即可添加。只要兼容 OpenAI 接口就可以支持。
+
+注：远程模型 API 秘钥在本地存加密储，因此数据复制到其它机器上后不能直接使用，需要重新设置 API 秘钥。
 
 # 其它
 

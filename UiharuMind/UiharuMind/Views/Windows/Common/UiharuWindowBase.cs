@@ -9,12 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System.ComponentModel;
-using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
@@ -27,6 +23,7 @@ public abstract class UiharuWindowBase : Window
         if (isFirstShow)
         {
             if (IconUtils.DefaultAppIcon != null) Icon = new WindowIcon(IconUtils.DefaultAppIcon);
+            OnInitWindowPosition();
             Show();
         }
         else
@@ -50,6 +47,11 @@ public abstract class UiharuWindowBase : Window
 
     public virtual void Awake()
     {
+    }
+
+    protected virtual void OnInitWindowPosition()
+    {
+        this.SetScreenCenterPosition();
     }
 
     protected virtual void OnPreShow()

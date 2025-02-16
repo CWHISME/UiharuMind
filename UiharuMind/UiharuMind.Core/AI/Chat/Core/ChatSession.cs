@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System.Collections;
+using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -17,6 +18,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Chat;
 
@@ -109,6 +111,12 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         Description = string.IsNullOrEmpty(characterData.FirstGreeting)
             ? characterData.Description
             : characterData.FirstGreeting;
+
+        //开场白，处理逻辑待定
+        if (!string.IsNullOrEmpty(CharacterData.FirstGreeting))
+        {
+            AddMessage(AuthorRole.System, CharacterData.TryRender(CharacterData.FirstGreeting));
+        }
     }
 
     public void ReInitHistory(ChatHistory history, List<long>? timeStamps = null)
@@ -185,7 +193,9 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
 #pragma warning disable SKEXP0001
                 AuthorName = authorRole == AuthorRole.User
                     ? CharacterManager.Instance.UserCharacterName
-                    : CharacterData.CharacterName
+                    : authorRole == AuthorRole.System
+                        ? "System"
+                        : CharacterData.CharacterName
 #pragma warning restore SKEXP0001
             },
             Timestamp = timestamp ?? DateTime.UtcNow.Ticks
@@ -220,34 +230,62 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         ChatHistory chatHistory = [];
         if (!CharacterData.IsTool)
         {
+            StringBuilder sb = StringBuilderPool.Get();
             if (CharacterData.MountCharacters.Count > 0)
             {
                 foreach (var mountChar in CharacterData.MountCharacters)
                 {
                     var mountCharData = CharacterManager.Instance.GetCharacterData(mountChar);
-                    chatHistory.Add(new ChatMessageContent(AuthorRole.System,
-                        CharacterData.TryRender(mountCharData.Template)));
-//                     {
-// #pragma warning disable SKEXP0001
-//                         AuthorName = mountCharData.CharacterName
-// #pragma warning restore SKEXP0001
-//                     });
+                    sb.AppendLine(CharacterData.TryRender(mountCharData.Template));
+                    sb.AppendLine();
+//                     chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+//                         CharacterData.TryRender(mountCharData.Template)));
+// //                     {
+// // #pragma warning disable SKEXP0001
+// //                         AuthorName = mountCharData.CharacterName
+// // #pragma warning restore SKEXP0001
+// //                     });
                 }
             }
+
+            // //开场白，处理逻辑待定¸
+            // if (!string.IsNullOrEmpty(CharacterData.FirstGreeting))
+            // {
+            //     chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+            //         CharacterData.TryRender(CharacterData.FirstGreeting)));
+            // }
+            //角色信息
+            var user = CharacterManager.Instance.UserCharacterData;
+            sb.Append($"user plays the role of {user.Description}. {user.Description}'s information: ");
+            // sb.Append("User information: ");
+            // chatHistory.AddSystemMessage(user.Template.Replace("{{$char}}", user.Description));
+            sb.AppendLine(user.Template.Replace("{{$char}}", user.Description));
 
             //对话模板，处理逻辑待定
             if (!string.IsNullOrEmpty(CharacterData.DialogTemplate))
             {
-                var dialogList = CharacterData.TryRender(CharacterData.DialogTemplate).Split('\n');
-                foreach (var dialog in dialogList)
-                {
-                    chatHistory.Add(new ChatMessageContent(AuthorRole.System, dialog)
-                    {
-#pragma warning disable SKEXP0001
-                        AuthorName = "exampleRole"
-#pragma warning restore SKEXP0001
-                    });
-                }
+                sb.AppendLine(CharacterData.TryRender("Dialog Template:"));
+
+                sb.AppendLine(CharacterData.TryRender(CharacterData.DialogTemplate));
+                sb.AppendLine();
+//                 chatHistory.Add(new ChatMessageContent(AuthorRole.System,
+//                     $@"{CharacterData.TryRender(CharacterData.DialogTemplate)}")
+//                 {
+// #pragma warning disable SKEXP0001
+//                     AuthorName = "ExampleRole"
+// #pragma warning restore SKEXP0001
+//                 });
+//                 var dialogList = CharacterData.TryRender(CharacterData.DialogTemplate).Split('\n');
+//                 foreach (var dialog in dialogList)
+//                 {
+//                     if (string.IsNullOrEmpty(dialog) || dialog.Length < 2) continue;
+//                     chatHistory.Add(new ChatMessageContent(AuthorRole.System, dialog)
+//                     {
+// #pragma warning disable SKEXP0001
+//                         AuthorName = "ExampleRole"
+// #pragma warning restore SKEXP0001
+//                     });
+//                 }
 //                 chatHistory.Add(new ChatMessageContent(AuthorRole.System,
 //                     )
 //                 {
@@ -257,16 +295,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
 //                 });
             }
 
-            //开场白，处理逻辑待定
-            if (!string.IsNullOrEmpty(CharacterData.FirstGreeting))
-            {
-                chatHistory.Add(new ChatMessageContent(AuthorRole.System,
-                    CharacterData.TryRender(CharacterData.FirstGreeting)));
-            }
-
-            //角色信息
-            var user = CharacterManager.Instance.UserCharacterData;
-            chatHistory.AddSystemMessage(user.Template.Replace("{{$char}}", user.Description));
+            chatHistory.Add(new ChatMessageContent(AuthorRole.System, sb.ToString()));
         }
 
         //工具角色，且选择不携带历史记录

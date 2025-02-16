@@ -340,7 +340,7 @@
         <value>Resolution</value>
     </data>
     <data name="TrayMenuOpenSaveDir" xml:space="preserve">
-        <value>Open Save Directory</value>
+        <value>Open Data Directory</value>
     </data>
     <data name="Introduction" xml:space="preserve">
         <value>Introduction</value>
@@ -365,5 +365,29 @@
     </data>
     <data name="LocalModelParamsSetting" xml:space="preserve">
         <value>Local Models Setting</value>
+    </data>
+    <data name="AddCharacterSuccessTips" xml:space="preserve">
+        <value>Add Character Successfully!</value>
+    </data>
+    <data name="ImportCharacterTips" xml:space="preserve">
+        <value>Support  chara_card</value>
+    </data>
+    <data name="GPULayerTips" xml:space="preserve">
+        <value>number of layers to store in VRAM</value>
+    </data>
+    <data name="ContextSizeTips" xml:space="preserve">
+        <value>size of the prompt context (default: 0, 0 = loaded from model)</value>
+    </data>
+    <data name="FlashAttnTips" xml:space="preserve">
+        <value>enable Flash Attention</value>
+    </data>
+    <data name="LocalModelParamsSettingTips" xml:space="preserve">
+        <value>The settings for the local model only apply to models running on this device and do not impact models accessed remotely through API calls.</value>
+    </data>
+    <data name="CharacterCompareToolTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="ShowHideCharactor" xml:space="preserve">
+        <value>Display All</value>
     </data>
 </root>

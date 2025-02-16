@@ -17,22 +17,34 @@
 
     <ScrollViewer>
         <Panel Margin="10">
-            <!-- 选择列表 -->
-            <ListBox ItemsSource="{Binding ModelConfigTypes}" Name="SelectPanel"
-                     IsVisible="{Binding RemoteModelInfo, Converter={x:Static ObjectConverters.IsNull}}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <DockPanel>
-                            <Button Content="{x:Static  lang:Lang.CreateBtn}" DockPanel.Dock="Right"
-                                    Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    CommandParameter="{Binding}" />
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                        </DockPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
 
-            <StackPanel HorizontalAlignment="Center" Spacing="20" Margin="15"
+            <StackPanel
+                Name="SelectPanel"
+                IsVisible="{Binding RemoteModelInfo, Converter={x:Static ObjectConverters.IsNull}}">
+                <!-- 自定义 -->
+                <DockPanel Margin="10">
+                    <Button Content="{x:Static  lang:Lang.CreateBtn}" DockPanel.Dock="Right"
+                            Command="{Binding CreateRemoteModelCommand}"
+                            CommandParameter="{Binding CustomeConfig}" />
+                    <TextBlock Text="{Binding CustomeConfig.Name}" VerticalAlignment="Center" />
+                </DockPanel>
+                <u:Divider Content="OR" VerticalAlignment="Center" Margin="0,10" />
+                <!-- 选择列表 -->
+                <ListBox ItemsSource="{Binding ModelConfigTypes}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel>
+                                <Button Content="{x:Static  lang:Lang.CreateBtn}" DockPanel.Dock="Right"
+                                        Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+
+            <StackPanel HorizontalAlignment="Stretch" Spacing="20" Margin="15"
                         IsVisible="{Binding !#SelectPanel.IsVisible}">
                 <u:Divider Content="{x:Static  lang:Lang.ApiKey}" />
                 <TextBox VerticalContentAlignment="Center" Text="{Binding  RemoteModelInfo.ApiKey}"

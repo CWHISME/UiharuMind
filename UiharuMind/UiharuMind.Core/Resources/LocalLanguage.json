@@ -3,10 +3,10 @@
   "IsTool": true,
   "Config": {
     "PromptConfig": {
-      "name": "AssistantExplain",
-      "description": "[快捷工具]：主按钮(解释)功能会调用该对象。",
+      "name": "LocalLanguage",
+      "description": "要求使用本地语言回答",
       "template_format": "semantic-kernel",
-      "template": "Please explain clearly and concisely in {{$lang}} any user input. Remember to be Answer truthfully and write out your thinking step by step to be sure you get the right answer.",
+      "template": "Please use {{$lang}} to respond.",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

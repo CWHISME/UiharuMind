@@ -25,6 +25,10 @@
         <KeyBinding Command="{Binding UndoCommand}" Gesture="Ctrl+Z" />
         <!-- Bind Ctrl+Y to Redo -->
         <KeyBinding Command="{Binding RedoCommand}" Gesture="Ctrl+Y" />
+        <!-- Bind Meta+Z to Undo -->
+        <KeyBinding Command="{Binding UndoCommand}" Gesture="Meta+Z" />
+        <!-- Bind Meta+Y to Redo -->
+        <KeyBinding Command="{Binding RedoCommand}" Gesture="Meta+Y" />
     </Window.KeyBindings>
 
     <Border CornerRadius="10"
@@ -44,7 +48,7 @@
             <u:Divider Grid.Row="1" Margin="-10,5" />
             <DockPanel Grid.Row="2" Margin="5,0">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                    <ToggleButton Name="GeometryRectangleButton" Content="◻︎" />
+                    <ToggleButton Name="GeometryRectangleButton" Content="□" />
                     <ToggleButton Name="GeometryCircleButton" Content="○" />
                     <ColorPicker Name="GeometryColorPicker" Theme="{StaticResource SimpleColorPicker}" />
                 </StackPanel>

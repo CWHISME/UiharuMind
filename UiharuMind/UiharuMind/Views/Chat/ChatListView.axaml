@@ -21,6 +21,8 @@
                 <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
                     <Grid.ContextMenu>
                         <ContextMenu>
+                            <MenuItem Header="{x:Static  lang:Lang.EditCharacter}"
+                                      Command="{Binding EditCharaterCommand}" />
                             <MenuItem Header="{x:Static  lang:Lang.Rename}" Command="{Binding RenameCommand}" />
                             <MenuItem Header="{x:Static  lang:Lang.Copy}" Command="{Binding CopyCommand}" />
                             <MenuItem Header="{x:Static  lang:Lang.Delete}" Command="{Binding DeleteCommand}" />

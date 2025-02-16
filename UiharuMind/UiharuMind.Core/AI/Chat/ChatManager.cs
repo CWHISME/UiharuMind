@@ -135,6 +135,9 @@ public class ChatManager : Singleton<ChatManager>
         }
 
         chatSessions.Sort((x, y) => y.LastTime.CompareTo(x.LastTime));
+        // if (chatSessions.Count == 0)
+        //     chatSessions.Add(new ChatSession(nameof(DefaultCharacter.Assistant),
+        //         DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Assistant)));
         return chatSessions;
     }
 

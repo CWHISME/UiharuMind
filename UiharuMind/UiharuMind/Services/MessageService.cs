@@ -33,6 +33,7 @@ namespace UiharuMind.Services;
 public partial class MessageService : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
+    private Window _busyWindow;
 
     // private readonly DummyWindow _target;
     private WindowNotificationManager? _notificationManager;
@@ -111,19 +112,19 @@ public partial class MessageService : ObservableObject
         // Window? mainWindow = UIManager.GetWindow<MainWindow>();
         // if (mainWindow?.IsVisible == false) mainWindow = _target;
         // owner ??= UIManager.GetRootWindow();
-        if (IsBusy) return MessageBoxResult.None;
+        if (IsBusy && _busyWindow.IsActive && _busyWindow.IsVisible) return MessageBoxResult.None;
         IsBusy = true;
         MessageBoxResult result = MessageBoxResult.None;
         try
         {
-            var messageWindow = new MessageBoxWindow(button)
+            _busyWindow = new MessageBoxWindow(button)
             {
                 Content = message,
                 Title = title,
                 MessageIcon = icon
             };
-            messageWindow.Topmost = true;
-            result = await messageWindow.ShowDialog<MessageBoxResult>(owner);
+            _busyWindow.Topmost = true;
+            result = await _busyWindow.ShowDialog<MessageBoxResult>(owner);
             //模态弹窗会闪，感觉是窗体渲染的问题，所以这里用非模态弹窗代替了
             // await MessageBox.ShowOverlayAsync(message, "Error", icon: MessageBoxIcon.Error,button: MessageBoxButton.OK);
         }
@@ -158,6 +159,14 @@ public partial class MessageService : ObservableObject
     {
         ShowMessageBox(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK, null);
     }
+    
+    /// <summary>
+    /// 显示弹窗提示
+    /// </summary>
+    public void ShowWarningMessageBox(string message)
+    {
+        ShowMessageBox(message, Lang.MessageWarningTitle, MessageBoxIcon.Warning, MessageBoxButton.OK, null);
+    }
 
     /// <summary>
     /// 显示一个确认弹窗，可选择是、否
@@ -177,14 +186,14 @@ public partial class MessageService : ObservableObject
     public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,
         Action<MessageBoxResult>? callback)
     {
-        if (IsBusy)
+        if (IsBusy && _busyWindow.IsActive && _busyWindow.IsVisible)
         {
             Log.Warning("MessageService is busy, can't show messagebox.");
             return;
         }
 
         IsBusy = true;
-        var messageWindow = new UiharuMessageBoxWindow(button, (x) =>
+        _busyWindow = new UiharuMessageBoxWindow(button, (x) =>
         {
             IsBusy = false;
             callback?.Invoke(x);
@@ -196,9 +205,10 @@ public partial class MessageService : ObservableObject
         };
 
         var mainWindow = UIManager.GetFoucusWindow();
-        if (!mainWindow.IsActive || !mainWindow.IsVisible) messageWindow.Show();
-        else messageWindow.ShowDialog(mainWindow);
-        messageWindow.Topmost = true;
+        if (!mainWindow.IsActive || !mainWindow.IsVisible || mainWindow.WindowState == WindowState.Minimized)
+            _busyWindow.Show();
+        else _busyWindow.ShowDialog(mainWindow);
+        _busyWindow.Topmost = true;
     }
 
     //==================================================================================================

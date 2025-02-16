@@ -44,7 +44,7 @@ public class DummyWindow : Window
         Height = 0;
         // Position = new PixelPoint(0, 0);
         // Background = Brushes.Transparent;
-        Focusable = false;
+        Focusable = true;
         // IsVisible = false;
         // Opacity = 0;
         this.ShowActivated = false;
@@ -60,6 +60,7 @@ public class DummyWindow : Window
 
         // MainWindow = LaunchMainWindow();
         this.Activated += OnActivated;
+        this.GotFocus += OnActivated;
         this.Deactivated += OnDeactivated;
     }
 

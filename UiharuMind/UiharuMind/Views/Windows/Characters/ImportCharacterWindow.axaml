@@ -5,31 +5,51 @@
         xmlns:u="https://irihi.tech/ursa"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        Width="666"
-        Height="400"
+        Width="360"
+        Height="444"
         x:Class="UiharuMind.Views.Windows.Characters.ImportCharacterWindow"
         Title="ImportCharacterWindow">
 
     <TabControl>
         <TabItem Header="{x:Static lang:Lang.ImportFromFileBtn}">
-            <Grid RowDefinitions="*,Auto" Margin="10">
-                <TextBlock Text="支持从本地文件导入角色，请选择你要导入的文件(格式为 chara_card 类型的 Json 文件)" TextWrapping="Wrap" />
-                <Button Grid.Row="1" Content="{x:Static lang:Lang.ImportBtn}" Click="OnImportFromFileBtnClick" />
+            <Grid RowDefinitions="Auto,*,Auto" Margin="10">
+                <u:Banner
+                    Classes.Bordered="true"
+                    Header="{x:Static lang:Lang.MessageInfoTitle}"
+                    Type="Information">
+                    <u:Banner.Content>
+                        <TextBlock Text="{x:Static lang:Lang.ImportCharacterTips}" TextWrapping="Wrap" />
+                    </u:Banner.Content>
+                </u:Banner>
+                <!-- Content="{x:Static lang:Lang.ImportCharacterTips}" -->
+
+                <!-- <TextBlock -->
+                <!--     Text="{x:Static lang:Lang.ImportCharacterTips}" -->
+                <!--     TextWrapping="Wrap" /> -->
+                <Border Grid.Row="1" Margin="0,10" BorderThickness="2" BorderBrush="{StaticResource UiBorderBrush}">
+                    <StackPanel Name="ImportListPanel" Margin="0,10" />
+                </Border>
+                <Button Grid.Row="2" Content="{x:Static lang:Lang.ImportBtn}" Click="OnImportFromFileBtnClick" />
             </Grid>
         </TabItem>
         <TabItem Header="{x:Static lang:Lang.ImportFromUrlBtn}">
-            <Grid RowDefinitions="Auto,*,Auto" Margin="10">
+            <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="10">
                 <TextBlock Text="{x:Static lang:Lang.ImportCharacterSupportUrl}" FontSize="20" />
                 <!-- <u:Divider Content="{x:Static  lang:Lang.ImportFromUrlBtn}" FontSize="20" /> -->
-                <ScrollViewer Grid.Row="1" DockPanel.Dock="Bottom" Margin="10">
-                    <StackPanel>
-                        <SelectableTextBlock Text="Chub 角色" />
-                        <SelectableTextBlock Text="Pygmalion.chat 角色" />
-                        <SelectableTextBlock Text="RisuRealm 角色" />
-                        <TextBlock Text="等等 chara_card 格式的角色" />
-                    </StackPanel>
-                </ScrollViewer>
-                <Button Grid.Row="2" IsEnabled="False" Content="{x:Static lang:Lang.ImportBtn}"
+                <!-- <ScrollViewer Grid.Row="1" DockPanel.Dock="Bottom" Margin="10"> -->
+                <StackPanel Grid.Row="1">
+                    <SelectableTextBlock Text="Chub 角色" />
+                    <SelectableTextBlock Text="Pygmalion.chat 角色" />
+                    <SelectableTextBlock Text="RisuRealm 角色" />
+                    <TextBlock Text="等等 chara_card 格式的角色" />
+                </StackPanel>
+                <!-- </ScrollViewer> -->
+                <Border Grid.Row="2" Margin="0,10" BorderThickness="2" BorderBrush="{StaticResource UiBorderBrush}">
+                    <StackPanel Name="ImportUrlListPanel" Margin="0,10" />
+                </Border>
+                <TextBox Grid.Row="3" Name="ImportUrlInput" Margin="0,0,0,10" Height="80"
+                         VerticalContentAlignment="Top" Padding="8" TextWrapping="Wrap" />
+                <Button Grid.Row="4" IsEnabled="False" Content="{x:Static lang:Lang.ImportBtn}"
                         Click="OnImportFromUrlBtnClick" />
             </Grid>
         </TabItem>

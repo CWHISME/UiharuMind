@@ -24,6 +24,8 @@ public partial class ChatInfoModel : ViewModelBase
         var viewModel = App.ViewModel.GetViewModel<ChatViewModel>();
         OnChatSessionChanged(viewModel.ChatSession);
         viewModel.OnEventChatSessionChanged += OnChatSessionChanged;
+        viewModel.OnEventBeginChat += OnBeginChat;
+        viewModel.OnEventEndChat += OnEndChat;
     }
 
     private void OnChatSessionChanged(ChatSessionViewData? chatSessionViewData)
@@ -41,7 +43,7 @@ public partial class ChatInfoModel : ViewModelBase
             }
 
             //角色
-            ChatPluginList.Add(GetPlugin<ChatPlugin_ChatCharacterInfoData>(chatSessionViewData));
+            // ChatPluginList.Add(GetPlugin<ChatPlugin_ChatCharacterInfoData>(chatSessionViewData));
 
             ChatPluginList.Add(GetPlugin<ChatPlugin_TranslationData>(chatSessionViewData));
 
@@ -54,6 +56,22 @@ public partial class ChatInfoModel : ViewModelBase
         }
 
         OnEventChatSessionChanged?.Invoke();
+    }
+
+    private void OnEndChat(ChatSessionViewData? obj)
+    {
+        foreach (var plugin in ChatPluginList)
+        {
+            plugin.OnChatBegin();
+        }
+    }
+
+    private void OnBeginChat(ChatSessionViewData? obj)
+    {
+        foreach (var plugin in ChatPluginList)
+        {
+            plugin.OnChatEnd();
+        }
     }
 
     private ChatPluginBase GetPlugin<T>(ChatSessionViewData chatSessionViewData) where T : ChatPluginBase, new()

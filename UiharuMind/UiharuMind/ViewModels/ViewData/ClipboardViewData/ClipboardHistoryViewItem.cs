@@ -23,9 +23,9 @@ public partial class ClipboardItem(string date, string text, string imageSource 
     [ObservableProperty] private string _imageSource = imageSource;
     [ObservableProperty] private bool _isImage = !string.IsNullOrEmpty(imageSource);
 
-    // public ClipboardItem()
-    // {
-    // }
+    public ClipboardItem() : this("", "")
+    {
+    }
 
     public ClipboardItem(string text) : this(System.DateTime.Now.ToString("(yyyy-MM-dd HH:mm:ss)"), text)
     {

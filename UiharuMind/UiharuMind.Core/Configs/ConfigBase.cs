@@ -11,11 +11,18 @@
 
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
+using UiharuMind.Core.Core.Attributes;
 
 namespace UiharuMind.Core.Core.Configs;
 
 public class ConfigBase : INotifyPropertyChanged
 {
+    [SettingConfigIgnoreDisplay]
+    [SettingConfigIgnoreValue]
+    [JsonIgnore]
+    public bool IsDirty { get; set; } = false;
+
     public void Save()
     {
         SaveUtility.SaveRootFile(this.GetType().Name, this);
@@ -30,6 +37,7 @@ public class ConfigBase : INotifyPropertyChanged
 
     public void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
+        IsDirty = true;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

@@ -67,7 +67,13 @@ public class LogManager
     {
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         SaveUtility.Save();
-        File.WriteAllText(Path.Combine(path, "Log.txt"),
+        string logPath = Path.Combine(path, "Log.txt");
+        if (File.Exists(logPath))
+        {
+            File.Move(logPath, Path.Combine(path, "LastLog.txt"), true);
+        }
+
+        File.WriteAllText(logPath,
             JsonSerializer.Serialize(LogItems, new JsonSerializerOptions() { WriteIndented = true }));
     }
 

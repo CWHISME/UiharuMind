@@ -54,6 +54,16 @@ public enum DefaultCharacter
     UiharuKazari,
 
     /// <summary>
+    /// 本地语言
+    /// </summary>
+    LocalLanguage,
+
+    /// <summary>
+    /// 默认助手
+    /// </summary>
+    Assistant,
+
+    /// <summary>
     /// 解释内容
     /// </summary>
     AssistantExplain,

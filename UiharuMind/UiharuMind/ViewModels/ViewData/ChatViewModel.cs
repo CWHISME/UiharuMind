@@ -80,21 +80,24 @@ public partial class ChatViewModel : ViewModelBase
     private CancellationTokenSource? _cancelTokenSource;
 
     public event Action<ChatSessionViewData?>? OnEventChatSessionChanged;
+    public event Action<ChatSessionViewData?>? OnEventBeginChat;
+    public event Action<ChatSessionViewData?>? OnEventEndChat;
 
     public ChatViewModel()
     {
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
+        LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
     }
 
     [RelayCommand]
-    public void ChangeSendMode()
+    private void ChangeSendMode()
     {
         SenderMode = SenderMode == SendMode.User ? SendMode.Assistant : SendMode.User;
         Log.Debug("ChangeSendModeCommand:" + SenderMode);
     }
 
     [RelayCommand]
-    public async Task UploadImage()
+    private async Task UploadImage()
     {
         var file = await App.FilesService.OpenFileAsync(UIManager.GetFoucusWindow());
         if (file == null) return;
@@ -110,67 +113,89 @@ public partial class ChatViewModel : ViewModelBase
             return;
         }
 
+        if (ChatSession == null)
+        {
+            App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
+            return;
+        }
+
         ChatSession.AddMessage(AuthorRole.User, "", bitmap.BitmapToBytes());
     }
 
     [RelayCommand]
-    public void SendMessage()
+    private async Task SendMessage()
     {
         // if (!InputManager.Instance.IsPressed(KeyCode.VcLeftControl)) return;
         if (ChatSession == null)
         {
-            App.MessageService.ShowWarningMessageBox("请先选择会话!", UIManager.GetFoucusWindow());
+            App.MessageService.ShowWarningMessageBox("请先选择会话!");
             return;
         }
 
         if (string.IsNullOrEmpty(InputText) || IsGenerating)
         {
-            App.MessageService.ShowWarningMessageBox("请输入内容！", UIManager.GetFoucusWindow());
+            App.MessageService.ShowWarningMessageBox("请输入内容！");
             return;
         }
 
         if (IsGenerating)
         {
-            App.MessageService.ShowWarningMessageBox("正在生成中！", UIManager.GetFoucusWindow());
+            App.MessageService.ShowWarningMessageBox("正在生成中！");
             return;
         }
+
+        if (!IsModelRunning())
+        {
+            App.MessageService.ShowWarningMessageBox("当前未启用任何模型，请先启用模型再进行对话！");
+            return;
+        }
+
+        //添加 first message
 
         if (ChatSession.ChatSession.History.Count > 0 && ChatSession.ChatSession.History[^1].Role == AuthorRole.User &&
             //两者不同步了，不添加新输入，直接执行重新生成
             ChatSession.ChatItems.Count != ChatSession.ChatSession.History.Count)
         {
-            GenerateMessage();
+            await GenerateMessage();
             return;
         }
 
         // Log.Debug("SendMessageCommand:" + InputText);
-        AddMessage(InputText);
+        var message = InputText;
         InputText = "";
         ScrollToEnd = true;
+        await AddMessage(message);
         // SaveUtility.SaveRootFile("chat_history.json", ChatSession);
         // Lang.Culture = CultureInfo.GetCultureInfo("mmm");
     }
 
     [RelayCommand]
-    public void StopSending(ChatSessionViewData chatSession)
+    private void StopSending()
     {
         _cancelTokenSource.SafeStop();
         _cancelTokenSource = null;
+        IsGenerating = false;
     }
 
     [RelayCommand]
-    public void RegenerateMessage()
+    private async Task RegenerateMessage()
     {
+        ScrollToEnd = true;
         while (true)
         {
             if (ChatSession == null || ChatSession.ChatSession.Count == 0) return;
             ChatMessage lastMessage = ChatSession.ChatSession[^1];
             if (lastMessage.Character == ECharacter.User)
                 break;
+            if (lastMessage.Character == ECharacter.System)
+                break;
+
             ChatSession.ChatSession.RemoveMessageAt(ChatSession.ChatSession.Count - 1);
+            break;
         }
 
-        GenerateMessage();
+        if (ChatSession.ChatSession.Count == 0) return;
+        await GenerateMessage();
     }
 
     // [RelayCommand]
@@ -186,7 +211,7 @@ public partial class ChatViewModel : ViewModelBase
     //     // ChatSession?.RemoveChatItem(itemData);
     // }
 
-    private async void AddMessage(string message)
+    private async Task AddMessage(string message)
     {
         if (string.IsNullOrEmpty(message)) return;
         if (ChatSession == null) return;
@@ -197,7 +222,7 @@ public partial class ChatViewModel : ViewModelBase
         IsGenerating = false;
     }
 
-    private async void GenerateMessage()
+    private async Task GenerateMessage()
     {
         if (ChatSession == null) return;
         IsGenerating = true;
@@ -209,10 +234,18 @@ public partial class ChatViewModel : ViewModelBase
     private void OnCurrentModelChanged(ModelRunningData? obj)
     {
         IsSurportImage = ChatSession?.ChatSession.ChatModelRunningData?.IsVisionModel == true;
+        CheckGenerationBtnVisible();
+    }
+
+    private void OnCurrentModelLoaded()
+    {
+        CheckGenerationBtnVisible();
     }
 
     partial void OnIsGeneratingChanged(bool value)
     {
+        if (value) OnEventBeginChat?.Invoke(ChatSession);
+        else OnEventEndChat?.Invoke(ChatSession);
         CheckGenerationBtnVisible();
     }
 
@@ -221,9 +254,9 @@ public partial class ChatViewModel : ViewModelBase
         ConfigManager.Instance.Setting.IsChatPlainText = value;
     }
 
-    partial void OnCurrentPageIndexChanged(int value)
-    {
-    }
+    // partial void OnCurrentPageIndexChanged(int value)
+    // {
+    // }
 
     // partial void OnInputTextChanged(string value)
     // {
@@ -240,15 +273,24 @@ public partial class ChatViewModel : ViewModelBase
     {
         IsSurportImage = value?.ChatSession.ChatModelRunningData?.IsVisionModel == true;
         OnEventChatSessionChanged?.Invoke(value);
+        StopSending();
         CheckGenerationBtnVisible();
     }
 
     private void CheckGenerationBtnVisible()
     {
-        if (IsGenerating || ChatSession == null)
+        if (IsGenerating || ChatSession == null || !IsModelRunning())
             IsVisibleRegenerateButton = false;
         else
-            IsVisibleRegenerateButton = ChatSession.ChatSession.Count > 0 &&
-                                        ChatSession.ChatSession[^1].Character != ECharacter.User;
+            IsVisibleRegenerateButton = ChatSession.ChatSession.Count > 1
+                                        || ChatSession.ChatSession.Count == 1 &&
+                                        ChatSession.ChatSession[0].Character != ECharacter.System;
+    }
+
+    private bool IsModelRunning()
+    {
+        //当前加载模型和对话中的模型是否至少其中一个处于运行状态
+        return ChatSession?.ChatSession.ChatModelRunningData?.IsRunning == true ||
+               LlmManager.Instance.CurrentRunningModel?.IsRunning == true;
     }
 }

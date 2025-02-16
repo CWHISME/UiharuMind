@@ -13,7 +13,7 @@ PUBLISH_OUTPUT_DIRECTORY="Tmp/Mac/."
 # One example is /path/to/your/csproj/bin/Release/netcoreapp3.1/osx-x64/publish/.
 # If you want to change output directories, add `--output /my/directory/path` to your `dotnet publish` command.
 INFO_PLIST="Info.plist"
-ICON_FILE="myapp-logo.icns"
+ICON_FILE="../UiharuMind/Assets/Icon.png"
 EXEC="Exec"
 
 if [ -d "$APP_NAME" ]
@@ -29,5 +29,5 @@ mkdir "$APP_NAME/Contents/Resources"
 
 cp "$INFO_PLIST" "$APP_NAME/Contents/Info.plist"
 cp "$EXEC" "$APP_NAME/Contents/MacOS/$EXEC"
-# cp "$ICON_FILE" "$APP_NAME/Contents/Resources/$ICON_FILE"
+cp "$ICON_FILE" "$APP_NAME/Contents/Resources/Icon.png"
 cp -a "$PUBLISH_OUTPUT_DIRECTORY" "$APP_NAME/Contents/MacOS"

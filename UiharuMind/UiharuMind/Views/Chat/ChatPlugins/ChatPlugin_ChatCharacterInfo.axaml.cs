@@ -36,7 +36,8 @@ public partial class ChatPlugin_ChatCharacterInfoData : ChatPluginDataBase<ChatP
     [RelayCommand]
     public void EditCharacter()
     {
-        CharacterEditWindow.Show(new CharacterInfoViewData(ChatSessionCurrentViewData.ChatSession.CharacterData),
+        UIManager.ShowEditCharacterWindow(
+            new CharacterInfoViewData(ChatSessionCurrentViewData.ChatSession.CharacterData),
             x => x.SaveCharacter());
     }
 }

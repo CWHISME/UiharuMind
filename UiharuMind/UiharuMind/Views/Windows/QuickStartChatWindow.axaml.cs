@@ -90,7 +90,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
         base.OnPreShow();
         BindMouseClickCloseEvent();
         InputBox.Text = "";
-        InitPosition();
+        this.SetScreenCenterPosition();
     }
 
     // protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -102,7 +102,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        InitPosition();
+        this.SetScreenCenterPosition();
         InputBox.Focus();
         PlayOpenAnimation();
     }
@@ -144,20 +144,5 @@ public partial class QuickStartChatWindow : QuickWindowBase
             : new AssistantExpertQuoteAgentSkill(_quoteStr);
         QuickChatResultWindow.Show("Answer", inputText, askAgentSkill);
         CloseByAnimation();
-    }
-
-    public void InitPosition()
-    {
-        // 获取当前激活的屏幕
-        var screen = App.ScreensService.MouseScreen;
-        if (screen != null)
-        {
-            // 计算窗口在屏幕中心的坐标
-            var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + Width) / 2;
-            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - Height;
-
-            // 设置窗口位置
-            Position = new PixelPoint((int)x, (int)y);
-        }
     }
 }
