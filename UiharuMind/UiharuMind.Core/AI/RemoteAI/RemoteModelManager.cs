@@ -5,6 +5,7 @@ using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.ServerKernal;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.RemoteOpenAI;
 
@@ -79,6 +80,20 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         if (RemoteListModels.TryGetValue(model.ModelName, out var data))
             data.ForceUpdateModelInfo(model);
         else RemoteListModels[model.ModelName] = new ModelRunningData(this, model);
+        var list = SimpleObjectPool<List<string>>.Get();
+        foreach (var info in Config.ModelInfos)
+        {
+            if (info.Key != info.Value.ModelName) list.Add(info.Key);
+        }
+
+        //移除被改了名字的模型(新模型已添加，旧模型需要移除)
+        foreach (var del in list)
+        {
+            RemoteListModels.Remove(del);
+            Config.ModelInfos.Remove(del);
+        }
+        list.Clear();
+        SimpleObjectPool<List<string>>.Release(list);
         SaveConfig();
     }
 

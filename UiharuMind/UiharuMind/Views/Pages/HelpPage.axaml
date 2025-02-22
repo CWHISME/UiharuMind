@@ -4,6 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.HelpPage">
 
@@ -11,8 +13,15 @@
         <pages:HelpPageData />
     </Design.DataContext>
 
-    <ScrollViewer Name="ScrollViewer" Margin="15">
-        <common:SimpleMarkdownViewer MarkdownText="{Binding HelpText}" IsPlaintext="False" />
-    </ScrollViewer>
+    <DockPanel LastChildFill="True">
+        <!-- <TextBlock Text="{x:Static  lang:Lang.TrayMenuHelp}" FontSize="30" Margin="15" /> -->
+        <!-- -->
+        <StackPanel DockPanel.Dock="Top">
+            <u:Divider Content="{x:Static  lang:Lang.TrayMenuHelp}" FontSize="30" Margin="0,15,0,0"/>
+        </StackPanel>
+        <ScrollViewer DockPanel.Dock="Bottom" Name="ScrollViewer" Margin="15">
+            <common:SimpleMarkdownViewer MarkdownText="{Binding HelpText}" IsPlaintext="False" />
+        </ScrollViewer>
+    </DockPanel>
 
 </UserControl>

@@ -36,6 +36,7 @@ public class LLamaCppSamplingStrategiesConfig : ConfigBase
     [SettingConfigDesc(
         "用于控制生成文本的随机性。温度值越高，生成文本的随机性越大，多样性越高；温度值越低，生成文本的随机性越小，更加确定性。温度值通常在 0 到 1 之间，但也可以设置为大于 1 的值以增加随机性",
         LanguageUtils.ChineseSimplified)]
+    [SettingConfigRange(0f, 2.0f, 0.01f)]
     public float Temp { get; set; } = 0.8f;
 
     [SettingConfigDesc("top-k sampling (default: 40, 0 = disabled)")]
@@ -48,6 +49,7 @@ public class LLamaCppSamplingStrategiesConfig : ConfigBase
     //限制模型在每个生成步骤中只考虑累积概率达到某个阈值 p 的词
     [SettingConfigDesc("用于控制模型在每个生成步骤中只考虑累积概率达到某个阈值 p 的词。可以在一定程度上控制生成文本的多样性。较小的 p 值会生成更加一致的文本，较大的 p 值会生成更加多样化的文本。",
         LanguageUtils.ChineseSimplified)]
+    [SettingConfigRange(0f, 1.0f, 0.01f)]
     public float TopP { get; set; } = 0.9f;
 
     [SettingConfigDesc("min-p sampling (default: 0.1, 0.0 = disabled)")]

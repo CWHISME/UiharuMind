@@ -31,7 +31,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     public void OnInitialize()
     {
         var files = Directory.Exists(SettingConfig.SaveCharacterDataPath)
-            ? Directory.GetFiles(SettingConfig.SaveCharacterDataPath, "*.json")
+            ? Directory.GetFiles(SettingConfig.SaveCharacterDataPath, "*.json", SearchOption.AllDirectories)
             : null;
 
         if (files != null)
@@ -50,6 +50,8 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
                         Log.Error(e);
                     }
 
+                    if (string.IsNullOrEmpty(characterData.CharacterName))
+                        characterData.CharacterName = Path.GetFileNameWithoutExtension(file);
                     CharacterDataDictionary.Add(characterData.CharacterName, characterData);
                 }
             }

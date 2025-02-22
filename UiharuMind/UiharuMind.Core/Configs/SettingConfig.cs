@@ -31,14 +31,25 @@ public class SettingConfig : ConfigBase
         BackendRuntimeEnginePath = Path.Combine(RootDataPath, "Runtime/"); //"./BackendRuntimeEngine/";
 
     /// <summary>
+    /// 知识库路径
+    /// </summary>
+    public static readonly string MemoryPath = Path.Combine(RootDataPath, "Memory/");
+
+
+    /// <summary>
     /// 是否是本地服务模式
     /// </summary>
     public bool IsLocalServer { get; set; } = true;
 
     /// <summary>
-    /// 聊天是否显示纯文本
+    /// 聊天是否只显示纯文本
     /// </summary>
     public bool IsChatPlainText { get; set; } = false;
+
+    /// <summary>
+    /// 聊天是否隐藏模型思考过程
+    /// </summary>
+    public bool IsChatNotShowThinking { get; set; } = false;
 
     private bool _isCharacterPhotoListView;
 

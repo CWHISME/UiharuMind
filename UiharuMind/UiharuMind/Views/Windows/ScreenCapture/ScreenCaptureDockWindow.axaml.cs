@@ -50,7 +50,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnCopyBtnClick(object? sender, RoutedEventArgs e)
     {
         if (CurrentSnapWindow == null) return;
-        App.Clipboard.CopyImageToClipboard(CurrentSnapWindow.ImageSource);
+        App.Clipboard.CopyImageToClipboard(CurrentSnapWindow.ImageSource, true);
     }
 
     private async void OnSaveBtnClick(object? sender, RoutedEventArgs e)
@@ -82,7 +82,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
                 CurrentSnapWindow.ImageBackupSource = CurrentSnapWindow.ImageOriginSource;
                 CurrentSnapWindow.ImageSource = bitmap;
                 CurrentSnapWindow.ImageContent.Source = bitmap;
-                App.Clipboard.CopyImageToClipboard(bitmap);
+                App.Clipboard.CopyImageToClipboard(bitmap, true);
                 CurrentSnapWindow.Show();
             });
         SafeClose();

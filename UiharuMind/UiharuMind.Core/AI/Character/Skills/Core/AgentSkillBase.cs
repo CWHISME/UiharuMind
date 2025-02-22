@@ -71,7 +71,7 @@ public abstract class AgentSkillBase
         // TrySetParams(LanguageParamsName, LanguageUtils.CurCultureInfo.EnglishName);
 
         CurModelRunningData = modelRunningData;
-        return OnDoSkill(modelRunningData, userInput, _args, cancellationToken);
+        return OnDoSkill(modelRunningData!, userInput, _args, cancellationToken);
     }
 
     // public abstract CharacterData Character { get; }
@@ -83,7 +83,7 @@ public abstract class AgentSkillBase
         return null;
     }
 
-    protected abstract IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string userInput,
+    protected abstract IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string userInput,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default);
 
@@ -97,20 +97,21 @@ public abstract class AgentSkillBase
         if ((modelRunning == null || IsVision && !modelRunning.IsVisionModel) &&
             LlmManager.Instance.RemoteModelManager.RemoteListModels.Count > 0)
         {
+            if (!string.IsNullOrEmpty(LlmManager.Instance.RemoteModelManager.Config.FavoriteModel))
+                LlmManager.Instance.RemoteModelManager.RemoteListModels.TryGetValue(
+                    LlmManager.Instance.RemoteModelManager.Config.FavoriteModel, out modelRunning);
             foreach (var model in LlmManager.Instance.RemoteModelManager.RemoteListModels)
             {
-                if (modelRunning == null) modelRunning = model.Value;
                 if (IsVision && model.Value.IsVisionModel)
                 {
                     modelRunning = model.Value;
                     break;
                 }
 
-                if (!IsVision && !model.Value.IsVisionModel)
-                {
-                    modelRunning = model.Value;
-                    break;
-                }
+                if (IsVision || model.Value.IsVisionModel) continue;
+                // modelRunning = model.Value;
+                modelRunning ??= model.Value;
+                break;
             }
         }
 

@@ -782,5 +782,65 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ShowHideCharactor", resourceCulture);
             }
         }
+        
+        public static string HideThnkingText {
+            get {
+                return ResourceManager.GetString("HideThnkingText", resourceCulture);
+            }
+        }
+        
+        public static string HideThnkingTextTips {
+            get {
+                return ResourceManager.GetString("HideThnkingTextTips", resourceCulture);
+            }
+        }
+        
+        public static string FavoriteRemoteModelSetTips {
+            get {
+                return ResourceManager.GetString("FavoriteRemoteModelSetTips", resourceCulture);
+            }
+        }
+        
+        public static string FavoriteRemoteModelDelTips {
+            get {
+                return ResourceManager.GetString("FavoriteRemoteModelDelTips", resourceCulture);
+            }
+        }
+        
+        public static string ModelPageEmbededModelName {
+            get {
+                return ResourceManager.GetString("ModelPageEmbededModelName", resourceCulture);
+            }
+        }
+        
+        public static string ModelPageEmbedeTips {
+            get {
+                return ResourceManager.GetString("ModelPageEmbedeTips", resourceCulture);
+            }
+        }
+        
+        public static string ShowInExplorer {
+            get {
+                return ResourceManager.GetString("ShowInExplorer", resourceCulture);
+            }
+        }
+        
+        public static string ModelPageChangeBtn {
+            get {
+                return ResourceManager.GetString("ModelPageChangeBtn", resourceCulture);
+            }
+        }
+        
+        public static string ModelPageLocalModelsFolder {
+            get {
+                return ResourceManager.GetString("ModelPageLocalModelsFolder", resourceCulture);
+            }
+        }
+        
+        public static string ModelPageTitle {
+            get {
+                return ResourceManager.GetString("ModelPageTitle", resourceCulture);
+            }
+        }
     }
 }

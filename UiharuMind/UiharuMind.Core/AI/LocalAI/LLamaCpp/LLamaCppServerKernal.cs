@@ -9,7 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using Microsoft.Extensions.Logging;
+using Microsoft.KernelMemory;
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
@@ -17,7 +17,6 @@ using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Core.LLamaCpp.Versions;
 
@@ -28,9 +27,60 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     private LLamaCppVersionManager _llamaCppVersionManager = new LLamaCppVersionManager();
     private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
 
+    enum EmbededServerStatus
+    {
+        Stop,
+        Loading,
+        Running,
+    }
+
+    private GGufModelInfo _embededModelInfo = new GGufModelInfo();
+    private EmbededServerStatus _embededServerStatus = EmbededServerStatus.Stop;
+    private readonly Queue<Action<OpenAIConfig>> _pendingEmbeddedServerActions = new Queue<Action<OpenAIConfig>>();
+    private OpenAIConfig? _embeddedServerConfig;
+
+    public GGufModelInfo EmbededModelInfo
+    {
+        get
+        {
+            string? filePath = null;
+            if (Directory.Exists(Config.ExternalEmbededModelPath))
+            {
+                filePath = Directory.GetFiles(Config.ExternalEmbededModelPath, "*.gguf", SearchOption.TopDirectoryOnly)
+                    .FirstOrDefault();
+            }
+
+            filePath ??= Directory.GetFiles(Config.DefaultEmbededModelPath, "*.gguf", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault();
+            if (filePath == null) return _embededModelInfo;
+
+            _embededModelInfo = new GGufModelInfo()
+                { ModelName = Path.GetFileNameWithoutExtension(filePath), ModelPath = filePath };
+            return _embededModelInfo;
+        }
+    }
+
+    private OpenAIConfig EmbeddedServerConfig
+    {
+        get
+        {
+            if (_embeddedServerConfig == null)
+            {
+                _embeddedServerConfig = new OpenAIConfig
+                {
+                    Endpoint = $"http://localhost:{Config.DefaultEmbededPort}",
+                    TextModel = "None",
+                    TextModelMaxTokenTotal = 8192,
+                    APIKey = "None"
+                };
+            }
+
+            return _embeddedServerConfig;
+        }
+    }
 
     public async Task StartServer(string executablePath, string modelFilePath, int port,
-        Action<string>? onMessageUpdate = null, CancellationToken token = default)
+        Action<string>? onMessageUpdate = null, string extraParams = "", CancellationToken token = default)
     {
         // var exePath = Config.GetExeServerPath(executablePath);
         // if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
@@ -38,18 +88,37 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         //     Log.Error($"Can't find server executable {exePath}");
         //     return;
         // }
+        if (string.IsNullOrEmpty(modelFilePath))
+        {
+            Log.Error($"Can't run server without model file path");
+            return;
+        }
 
         // config ??= Config.ServerConfig;
         string paramsStr = Config.GetExeParams();
         Log.Debug("Start sever:" + paramsStr);
         await ProcessHelper.StartProcess(Config.GetExeServerPath(executablePath),
-                $"-m {modelFilePath} --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {paramsStr}",
+                $"-m {modelFilePath} --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {paramsStr} {extraParams}",
                 onMessageUpdate, token)
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 尝试确保嵌入式服务启动
+    /// </summary>
+    public void TryEnsureEmbededServer(VersionInfo versionInfo, Action<OpenAIConfig>? onLoadOver = null)
+    {
+        if (_embededServerStatus == EmbededServerStatus.Running)
+        {
+            onLoadOver?.Invoke(EmbeddedServerConfig);
+            return;
+        }
+
+        StartEmbededServer(versionInfo, onLoadOver);
+    }
+
     public async Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null,
-        Action<Kernel>? onLoadOver = null,
+        Action<Kernel>? onLoadOver = null, int? port = null, string extraParams = "",
         CancellationToken token = default)
     {
         //检测是否正常扫描过信息
@@ -101,14 +170,49 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             }
         }
 
-        await StartServer(info.ExecutablePath, model.ModelPath, Config.DefautPort, OnMessageUpdate, token)
+        await StartServer(info.ExecutablePath, model.ModelPath, port ?? Config.DefautPort, OnMessageUpdate, extraParams,
+                token)
             .ConfigureAwait(false);
+    }
+
+    private async void StartEmbededServer(VersionInfo versionInfo, Action<OpenAIConfig>? onLoadOver = null)
+    {
+        try
+        {
+            if (_embededServerStatus == EmbededServerStatus.Loading)
+            {
+                if (onLoadOver != null) _pendingEmbeddedServerActions.Enqueue(onLoadOver);
+                return;
+            }
+
+            _embededServerStatus = EmbededServerStatus.Loading;
+            await Run(versionInfo, EmbededModelInfo, onLoadOver: (x) =>
+                {
+                    _embededServerStatus = EmbededServerStatus.Running;
+                    foreach (var action in _pendingEmbeddedServerActions)
+                    {
+                        action(EmbeddedServerConfig);
+                    }
+
+                    _pendingEmbeddedServerActions.Clear();
+                    onLoadOver?.Invoke(EmbeddedServerConfig);
+                },
+                port: Config.DefaultEmbededPort, extraParams: "--embedding");
+        }
+        catch (Exception e)
+        {
+            Log.Error("Start embeded server failed：" + e.Message);
+        }
+        finally
+        {
+            _embededServerStatus = EmbededServerStatus.Stop;
+        }
     }
 
     private Kernel CreateKernel()
     {
         var kernelBuilder = Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion("UiharuMind", "Empty",
+            .AddOpenAIChatCompletion("UiharuMind", "None",
                 httpClient: new HttpClient(new SKernelHttpDelegatingHandler(port: Config.DefautPort)));
         return kernelBuilder.Build();
     }

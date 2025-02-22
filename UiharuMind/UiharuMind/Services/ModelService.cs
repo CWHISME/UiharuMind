@@ -98,7 +98,8 @@ public partial class ModelService : ObservableObject
         List<ModelRunningData> toDel = new List<ModelRunningData>();
         foreach (var oldItem in ModelSources)
         {
-            if (LlmManager.Instance.CacheModelDictionary.ContainsKey(oldItem.ModelName)) continue;
+            if (LlmManager.Instance.CacheModelDictionary.TryGetValue(oldItem.ModelName, out var model) &&
+                model == oldItem) continue;
             toDel.Add(oldItem);
         }
 
@@ -111,7 +112,9 @@ public partial class ModelService : ObservableObject
         // ModelSources.Clear();
         foreach (var model in list)
         {
-            if (!ModelSources.Contains(model)) ModelSources.Add(model);
+            if (ModelSources.Contains(model)) continue;
+            if (model.IsRemoteModel) ModelSources.Insert(0, model);
+            else ModelSources.Add(model);
         }
 
         Refresh();

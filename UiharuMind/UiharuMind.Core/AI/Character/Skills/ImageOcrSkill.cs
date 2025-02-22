@@ -21,7 +21,7 @@ public class ImageOcrSkill : AgentSkillVisionBase
     {
     }
 
-    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string text,
+    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
@@ -33,7 +33,7 @@ public class ImageOcrSkill : AgentSkillVisionBase
             // modelRunningData = visionModel;
         }
 
-        var ocr = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
+        var ocr = GetCharacterData().ToAgent(modelRunningData!.Kernel!, args);
         _chatHistory = new ChatHistory();
         _chatHistory.AddUserMessage([
             // new ImageContent(new Uri(""))
@@ -42,11 +42,6 @@ public class ImageOcrSkill : AgentSkillVisionBase
         ]);
         // return modelRunningData.SendMessageStreamingAsync(chatHistory, cancellationToken);
         return modelRunningData.InvokeAgentStreamingAsync(ocr, _chatHistory, cancellationToken);
-    }
-
-    protected override ChatHistory GetChatHistory()
-    {
-        return _chatHistory;
     }
 
     protected override CharacterData GetCharacterData()

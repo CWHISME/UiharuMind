@@ -1,6 +1,7 @@
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Utils;
 
@@ -8,7 +9,7 @@ public class AesEncryptionUtils
 {
     private static readonly string MacAddress = GetDeviceMacAddress();
     private static readonly byte[] Key = GenerateEncryptionKey(MacAddress, 32); // 256位密钥
-    private static readonly byte[] Iv = GenerateEncryptionKey(MacAddress, 16); // 128位IV
+    private static readonly byte[] Iv = GenerateEncryptionKey("IV_CAT", 16); // 128位IV
 
     // 加密字符串
     public static string EncryptString(string plainText)
@@ -40,8 +41,12 @@ public class AesEncryptionUtils
         if (string.IsNullOrEmpty(cipherText)) return string.Empty;
         using (Aes aesAlg = Aes.Create())
         {
+            //已知问题：不同的 key 和 iv 加解密的结果相同，相当于只是明文混淆，不知道是什么原因
+            //调用 GenerateKey 和 GenerateIV 方法会报错？什么情况...
             aesAlg.Key = Key;
             aesAlg.IV = Iv;
+            // aesAlg.GenerateKey();
+            // aesAlg.GenerateIV();
 
             ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
@@ -52,7 +57,10 @@ public class AesEncryptionUtils
                 using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
                 using (StreamReader srDecrypt = new StreamReader(csDecrypt))
                 {
-                    return srDecrypt.ReadToEnd();
+                    var plainText = srDecrypt.ReadToEnd();
+                    // Log.Warning(
+                    //     $"MacAddress:{MacAddress}  plainText:{plainText}  Key:{BitConverter.ToString(aesAlg.Key)}  Iv:{BitConverter.ToString(aesAlg.IV)}");
+                    return plainText;
                 }
             }
         }
@@ -68,27 +76,20 @@ public class AesEncryptionUtils
 
         if (nic == null)
         {
-            throw new InvalidOperationException("No network interfaces found.");
+            return ("No network interfaces found.");
         }
 
         return nic.GetPhysicalAddress().ToString();
     }
 
-    // 生成固定长度的加密密钥
-    private static byte[] GenerateEncryptionKey(string macAddress, int keyLength)
+    private static byte[] GenerateEncryptionKey(string macAddress, int length)
     {
-        byte[] macBytes = Encoding.UTF8.GetBytes(macAddress);
         using (SHA256 sha256 = SHA256.Create())
         {
-            byte[] hashBytes = sha256.ComputeHash(macBytes);
-            if (keyLength <= hashBytes.Length)
-            {
-                return hashBytes.Take(keyLength).ToArray();
-            }
-            else
-            {
-                throw new ArgumentException("Key length cannot be greater than the hash length.");
-            }
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(macAddress));
+            byte[] output = new byte[length];
+            Buffer.BlockCopy(hash, 0, output, 0, Math.Min(hash.Length, length));
+            return output;
         }
     }
 }

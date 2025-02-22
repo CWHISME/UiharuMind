@@ -195,6 +195,9 @@ public partial class ChatSessionViewData : ObservableObject
         catch (IOException)
         {
         }
+        catch (TaskCanceledException)
+        {
+        }
         catch (Exception e)
         {
             Log.Error(e.Message);

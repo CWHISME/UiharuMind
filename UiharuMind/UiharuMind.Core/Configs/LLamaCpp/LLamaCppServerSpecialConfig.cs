@@ -31,9 +31,7 @@ public class LLamaCppServerSpecialConfig : ConfigBase
     [SettingConfigNoneValue]
     public bool SpmInfill { get; set; } = false;
 
-    [SettingConfigDesc("pooling type for embeddings, use model default if unspecified (default: none)")]
-    [SettingConfigOptions("none", "mean", "cls", "last")]
-    public string Pooling { get; set; } = "none";
+
 
     // [SettingConfigDesc("enable continuous batching (a.k.a dynamic batching) (default: enabled)")]
     // [SettingConfigNoneValue]

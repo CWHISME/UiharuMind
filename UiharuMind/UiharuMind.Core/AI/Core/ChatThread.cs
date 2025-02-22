@@ -9,10 +9,14 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.ClientModel.Primitives;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -61,6 +65,12 @@ public static class ChatThread
     // {
     //     _kernel = kernal;
     // }
+
+    /// <summary>
+    /// 思维链内容获取
+    /// </summary>
+    static Func<StreamingChatCompletionUpdate?, string?> StreamingReasoningContentAccessor { get; } =
+        CreateStreamingReasoningContentAccessor();
 
     public static async IAsyncEnumerable<string> SendMessageStreamingAsync(this ModelRunningData modelRunning,
         ChatHistory chatHistory,
@@ -233,7 +243,14 @@ public static class ChatThread
                            .InvokePromptStreamingAsync(prompt, kernelArguments, cancellationToken: cancellationToken)
                            .ConfigureAwait(false))
         {
-            builder.Append(content);
+            var str = content.ToString();
+            if (string.IsNullOrEmpty(str))
+            {
+                str = StreamingReasoningContentAccessor(content.InnerContent as StreamingChatCompletionUpdate);
+                if (string.IsNullOrEmpty(str)) continue;
+            }
+
+            builder.Append(str);
             // ReSharper disable once MethodHasAsyncOverload
             if (delayUpdater.UpdateDelay())
             {
@@ -248,8 +265,8 @@ public static class ChatThread
 
     // =========================For agent=====================
 
-    public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
-        ChatSession chatSession, CancellationToken cancellationToken = default)
+    public static async IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
+        ChatSession chatSession, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // if (modelRunning is not { IsRunning: true })
         // {
@@ -284,13 +301,19 @@ public static class ChatThread
         //
         // yield return builder.ToString();
         // // Log.Debug("end of chat thread " + builder);
-        var history = chatSession.SafeGetHistory();
-        return InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, history, chatSession.CustomParams,
+        var history = await chatSession.SafeGetHistory();
+
+        var result = InvokeAgentStreamingAsync(modelRunning, chatSession.CharacterData, history,
+            chatSession.CustomParams,
             cancellationToken, () =>
             {
                 chatSession.History.Add(history[^1]);
                 chatSession.AddMessageInfo(DateTime.UtcNow.Ticks);
             });
+        await foreach (var message in result)
+        {
+            yield return message;
+        }
     }
 
     public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
@@ -326,18 +349,40 @@ public static class ChatThread
         // ChatCompletionAgent agent = characterData.ToAgent(modelRunning.Kernel);
         StringBuilder builder = new StringBuilder(64);
         EmptyDelayUpdater delayUpdater = new();
+        bool isParseThinking = false;
 
         chatHistory ??= new ChatHistory();
+        // CancellationTokenSource cts = new();
+        // cts.Token.Register(() => end?.Invoke());
+        cancellationToken.Register(() =>
+        {
+            chatHistory.AddAssistantMessage(builder.ToString());
+            end?.Invoke();
+        });
         await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
                                chatHistory, null, modelRunning!.Kernel, cancellationToken)
                            .ConfigureAwait(false))
         {
-            if (string.IsNullOrEmpty(response.Content))
+            string? content = response.Content;
+            if (string.IsNullOrEmpty(content))
             {
-                continue;
+                // var jsonContent = JsonNode.Parse(ModelReaderWriter.Write(update.InnerContent!));
+                // var reasoningUpdate = jsonContent!["choices"]![0]!["delta"]!["reasoning_content"];
+                content = StreamingReasoningContentAccessor(response.InnerContent as StreamingChatCompletionUpdate);
+                if (string.IsNullOrEmpty(content)) continue;
+                if (!isParseThinking)
+                {
+                    builder.Append("<think>");
+                    isParseThinking = true;
+                }
+            }
+            else if (isParseThinking)
+            {
+                builder.Append("</think>");
+                isParseThinking = false;
             }
 
-            builder.Append(response);
+            builder.Append(content);
             // ReSharper disable once MethodHasAsyncOverload
             if (delayUpdater.UpdateDelay())
             {
@@ -349,7 +394,9 @@ public static class ChatThread
             if (cancellationToken.IsCancellationRequested) break;
         }
 
-        yield return builder.ToString();
+        var lastMessage = builder.ToString();
+        chatHistory[^1].Content = lastMessage;
+        yield return lastMessage;
         // Log.Debug("end of chat thread " + builder);
         // chatSession.AddMessageInfo(DateTime.UtcNow.Ticks);
         end?.Invoke();
@@ -433,5 +480,91 @@ public static class ChatThread
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// 由于 OpenAI 的 API 限制，无法直接获取到 reasoning_content，因此需要使用反射来获取。
+    /// 创建一个从 StreamingChatCompletionUpdate 对象中提取 reasoning_content 的委托。
+    /// 如果未找到或无法解析，则返回 null。
+    /// </summary>
+    public static Func<StreamingChatCompletionUpdate?, string?> CreateStreamingReasoningContentAccessor()
+    {
+        // 1. 获取 StreamingChatCompletionUpdate 类型
+        Type streamingChatType = typeof(StreamingChatCompletionUpdate);
+
+        // 2. 获取 internal 属性 "Choices"
+        //    类型：IReadOnlyList<InternalCreateChatCompletionStreamResponseChoice>
+        PropertyInfo? choicesProp = streamingChatType.GetProperty(
+            "Choices",
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public
+        ) ?? throw new InvalidOperationException(
+            "Unable to reflect property 'Choices' in StreamingChatCompletionUpdate.");
+
+        // 3. 获取 Choices 的泛型参数 T = InternalCreateChatCompletionStreamResponseChoice
+        Type? choicesPropType = choicesProp.PropertyType ??
+                                throw new InvalidOperationException(
+                                    "Unable to determine the property type of 'Choices'."); // IReadOnlyList<T>
+
+        if (!choicesPropType.IsGenericType || choicesPropType.GetGenericArguments().Length != 1)
+        {
+            throw new InvalidOperationException(
+                "Property 'Choices' is not the expected generic type IReadOnlyList<T>.");
+        }
+
+        // 取得 T
+        Type choiceType = choicesPropType.GetGenericArguments()[0];
+
+        // 4. 从 choiceType 中获取 internal 属性 "Delta"
+        PropertyInfo? deltaProp = choiceType.GetProperty(
+            "Delta",
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public
+        ) ?? throw new InvalidOperationException("Unable to reflect property 'Delta' in choice type.");
+
+        // 5. 获取 Delta 对象的类型，然后从中获取 "SerializedAdditionalRawData"
+        Type deltaType = deltaProp.PropertyType;
+        PropertyInfo? rawDataProp = deltaType.GetProperty(
+            "SerializedAdditionalRawData",
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public
+        ) ?? throw new InvalidOperationException(
+            "Unable to reflect property 'SerializedAdditionalRawData' in delta type.");
+
+        // ---
+        // 创建并返回委托，在委托中使用上述缓存的 PropertyInfo
+        // ---
+        return streamingChatObj =>
+        {
+            if (streamingChatObj == null)
+            {
+                return null;
+            }
+
+            // 拿到 choices 数据
+            object? choicesObj = choicesProp.GetValue(streamingChatObj);
+            if (choicesObj is not IEnumerable choicesEnumerable)
+            {
+                return null;
+            }
+
+            foreach (object? choice in choicesEnumerable)
+            {
+                if (choice == null) continue;
+
+                // 获取 Delta 对象
+                object? deltaObj = deltaProp.GetValue(choice);
+                if (deltaObj == null) continue;
+
+                // 获取字典 SerializedAdditionalRawData
+                object? rawDataValue = rawDataProp.GetValue(deltaObj);
+                if (rawDataValue is not IDictionary<string, BinaryData> dict) continue;
+                // 从字典里查找 "reasoning_content"
+                if (dict.TryGetValue("reasoning_content", out BinaryData? binaryData))
+                {
+                    return binaryData.ToObjectFromJson<string>();
+                }
+            }
+
+            // 如果所有 Choice 中都没有找到则返回 null
+            return null;
+        };
     }
 }

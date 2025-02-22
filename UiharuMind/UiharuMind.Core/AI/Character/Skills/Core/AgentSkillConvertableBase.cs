@@ -17,7 +17,7 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
     public override ChatSession? TryConvertToChatSession()
     {
         var chatHistory = GetChatHistory();
-        if (chatHistory == null) return null;
+        // if (chatHistory == null) return null;
 
         var characterData = GetCharacterData();
         var chatSession = new ChatSession(characterData.CharacterName, characterData);
@@ -27,6 +27,10 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
         return chatSession;
     }
 
-    protected abstract ChatHistory? GetChatHistory();
+    protected virtual ChatHistory GetChatHistory()
+    {
+        return _chatHistory ?? new ChatHistory();
+    }
+
     protected abstract CharacterData GetCharacterData();
 }

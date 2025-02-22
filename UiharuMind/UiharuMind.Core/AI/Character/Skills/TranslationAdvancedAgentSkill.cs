@@ -26,12 +26,7 @@ public class TranslationAdvancedAgentSkill : AgentSkillConvertableBase
     {
         SetParams("user_request", extraRequest);
     }
-
-    protected override ChatHistory GetChatHistory()
-    {
-        return _chatHistory;
-    }
-
+    
     protected override CharacterData GetCharacterData()
     {
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslatorAdvanced);

@@ -17,6 +17,6 @@ namespace UiharuMind.Core.AI.Interfaces;
 public interface ILlmRuntimeEngine
 {
     public Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null,
-        Action<Kernel>? onLoadOver = null,
+        Action<Kernel>? onLoadOver = null, int? port = null, string extraParams = "",
         CancellationToken token = default);
 }

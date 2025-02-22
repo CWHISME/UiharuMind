@@ -13,9 +13,9 @@ public class TeamTranslationAgentSkill : AgentSkillBase
         CancellationToken cancellationToken = default)
     {
         var translator = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator)
-            .ToAgent(modelRunningData.Kernel, args);
+            .ToAgent(modelRunningData.Kernel!, args);
         var reviwer = DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslateReviwer)
-            .ToAgent(modelRunningData.Kernel, args);
+            .ToAgent(modelRunningData.Kernel!, args);
 
         return modelRunningData.InvokeAutoChatGroupPlanningStreamingAsync(text,
             new HistoryCountTerminationStrategy(3)

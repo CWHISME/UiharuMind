@@ -65,6 +65,9 @@ public partial class ChatViewModel : ViewModelBase
     //显示纯文本选项
     [ObservableProperty] private bool _isPlaintext;
 
+    //不显示思考过程
+    [ObservableProperty] private bool _isNotShowThinking;
+
     //分页后的当前页索引
     [ObservableProperty] private int _currentPageIndex;
 
@@ -87,6 +90,9 @@ public partial class ChatViewModel : ViewModelBase
     {
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
+
+        IsPlaintext = ConfigManager.Instance.Setting.IsChatPlainText;
+        IsNotShowThinking = ConfigManager.Instance.Setting.IsChatNotShowThinking;
     }
 
     [RelayCommand]
@@ -252,7 +258,15 @@ public partial class ChatViewModel : ViewModelBase
     partial void OnIsPlaintextChanged(bool value)
     {
         ConfigManager.Instance.Setting.IsChatPlainText = value;
+        ConfigManager.Instance.Setting.Save();
     }
+
+    partial void OnIsNotShowThinkingChanged(bool value)
+    {
+        ConfigManager.Instance.Setting.IsChatNotShowThinking = value;
+        ConfigManager.Instance.Setting.Save();
+    }
+
 
     // partial void OnCurrentPageIndexChanged(int value)
     // {

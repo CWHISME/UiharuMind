@@ -26,7 +26,7 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public string ModelDescription => Config.ModelDescription;
     [JsonIgnore] public string ModelId => Config.ModelId;
     [JsonIgnore] public int Port => Config.Port;
-
+    
     private string _apiKey = "";
 
     public string ApiKey

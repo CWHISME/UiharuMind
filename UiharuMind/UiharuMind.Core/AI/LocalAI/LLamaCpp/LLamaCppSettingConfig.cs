@@ -9,6 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
+using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Data;
@@ -27,9 +29,18 @@ public class LLamaCppSettingConfig : ConfigBase
     /// </summary>
     public int DefautPort { get; set; } = 1369;
 
+    public int DefaultEmbededPort => DefautPort + 1;
+
     public string? LLamaCppPath { get; set; }
 
-    public string LocalModelPath { get; set; } = "./Models";
+    public string LocalModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "Models"); //"./Models";
+
+
+    [JsonIgnore] public string DefaultEmbededModelPath { get; set; } = "./EmbededModels";
+
+    [JsonIgnore]
+    public string ExternalEmbededModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbededModels");
+
 
     public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();
 
@@ -43,6 +54,7 @@ public class LLamaCppSettingConfig : ConfigBase
     public LLamaCppServerParamsConfig ParamsConfig { get; set; } = new();
     public LLamaCppServerSpecialConfig SpecialConfig { get; set; } = new();
     public LLamaCppSamplingStrategiesConfig SamplingStrategiesConfig { get; set; } = new();
+    public LLamaCppServerRAGConfig RagConfig { get; set; } = new();
 
     public string GetExeParams()
     {

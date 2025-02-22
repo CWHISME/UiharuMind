@@ -33,7 +33,7 @@ public class ImageVisionSkill : AgentSkillVisionBase
             // modelRunningData = visionModel;
         }
 
-        var ocr = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
+        var ocr = GetCharacterData().ToAgent(modelRunningData.Kernel!, args);
         _chatHistory = new ChatHistory();
         _chatHistory.AddUserMessage([
             // new ImageContent(new Uri(""))
@@ -50,12 +50,7 @@ public class ImageVisionSkill : AgentSkillVisionBase
         // ]);
         // return modelRunningData.SendMessageStreamingAsync(_chatHistory, cancellationToken);
     }
-
-    protected override ChatHistory GetChatHistory()
-    {
-        return _chatHistory;
-    }
-
+    
     protected override CharacterData GetCharacterData()
     {
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision);

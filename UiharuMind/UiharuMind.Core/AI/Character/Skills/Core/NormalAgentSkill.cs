@@ -19,7 +19,7 @@ public class NormalAgentSkill : AgentSkillConvertableBase
     {
     }
 
-    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string text,
+    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
@@ -29,11 +29,8 @@ public class NormalAgentSkill : AgentSkillConvertableBase
         _chatHistory = new ChatHistory();
         _chatHistory.AddMessage(AuthorRole.User, text);
         return modelRunningData.InvokeAgentStreamingAsync(agent, _chatHistory, cancellationToken);
-    }
-
-    protected override ChatHistory? GetChatHistory()
-    {
-        return _chatHistory;
+        // JsonNode.Parse(ModelReaderWriter.Write(content.InnerContent!))["choices"]![0]!["delta"]!["reasoning_content"]
+        // return modelRunningData.InvokeQuickToolPromptStreamingAsync("你好", "你是一只猫");
     }
 
     protected override CharacterData GetCharacterData()

@@ -27,6 +27,7 @@ public class GGufModelInfo : ILlmModel
     public string ModelId { get; }
     public int Port { get; set; }
     public string ApiKey { get; }
+    public bool IsFavorite { get; set; }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 

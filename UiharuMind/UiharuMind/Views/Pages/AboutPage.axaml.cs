@@ -16,6 +16,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Views.Pages;
 
@@ -131,5 +132,10 @@ public partial class AboutPage : UserControl
     private void AboutBtn_Click(object? sender, PointerPressedEventArgs e)
     {
         TopLevel.GetTopLevel(this)!.Launcher.LaunchUriAsync(new Uri("https://wangjiaying.top"));
+    }
+
+    private void OnTapedIcon(object? sender, TappedEventArgs e)
+    {
+        Log.Debug("你点击了图标，但是什么也没发生");
     }
 }

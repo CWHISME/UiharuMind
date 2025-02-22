@@ -24,6 +24,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using TheArtOfDev.HtmlRenderer.Avalonia;
 using TheArtOfDev.HtmlRenderer.Core.Entities;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Utils.Tools;
@@ -35,6 +36,9 @@ public partial class SimpleMarkdownViewer : UserControl
 {
     public static readonly StyledProperty<bool> IsPlaintextProperty =
         AvaloniaProperty.Register<SimpleMarkdownViewer, bool>(nameof(IsPlaintext));
+
+    public static readonly StyledProperty<bool> IsThinkingRemoveProperty =
+        AvaloniaProperty.Register<SimpleMarkdownViewer, bool>(nameof(IsThinkingRemove));
 
     // public static readonly StyledProperty<bool> IsLoadingProperty =
     //     AvaloniaProperty.Register<SimpleMarkdownViewer, bool>(nameof(IsLoading));
@@ -48,6 +52,12 @@ public partial class SimpleMarkdownViewer : UserControl
         set => SetValue(IsPlaintextProperty, value);
     }
 
+
+    public bool? IsThinkingRemove
+    {
+        get => GetValue(IsThinkingRemoveProperty);
+        set => SetValue(IsThinkingRemoveProperty, value);
+    }
     // public bool? IsLoading
     // {
     //     get => GetValue(IsLoadingProperty);
@@ -74,7 +84,8 @@ public partial class SimpleMarkdownViewer : UserControl
     }
 
     private string HtmlText =>
-        MarkdownUtils.ToHtml(_textCache ?? "", Application.Current?.ActualThemeVariant == ThemeVariant.Dark);
+        MarkdownUtils.ToHtml(_textCache ?? "", Application.Current?.ActualThemeVariant == ThemeVariant.Dark,
+            IsThinkingRemove ?? false, out _isThinking);
     // GetThemeSpecificHtml(Application.Current?.ActualThemeVariant, MarkdownUtils.ToHtml(_textCache));
 
     private string? _textCache;
@@ -82,6 +93,7 @@ public partial class SimpleMarkdownViewer : UserControl
     // private bool? _isLastPlaintextCache;
     private bool _isPlaintextCache = true;
     private bool _isLoadingCache = true;
+    private bool _isThinking = false;
 
     private bool _isLoaded = false;
 
@@ -227,6 +239,10 @@ public partial class SimpleMarkdownViewer : UserControl
             _isPlaintextCache = isPlainText;
             CheckUpdateValid();
         }
+        else if (change.Property == IsThinkingRemoveProperty)
+        {
+            CheckUpdateValid();
+        }
 
         // Log.Debug(
         //     $"SimpleMarkdownViewer property changed: {change.Property.Name}  PlainTextBlock.Text:{PlainTextBlock?.Text}");
@@ -261,7 +277,7 @@ public partial class SimpleMarkdownViewer : UserControl
             if (_textCache != null) MarkdownTextBlock.Text = HtmlText; //MarkdownUtils.ToHtml(_textCache);
         }
 
-        SetLoadingState(string.IsNullOrEmpty(_textCache));
+        SetLoadingState(string.IsNullOrEmpty(_textCache)); // || _isThinking);
         // }
     }
 
@@ -306,6 +322,7 @@ public partial class SimpleMarkdownViewer : UserControl
         InitializeComponent();
 
         IsPlaintext = true;
+        _isThinking = false;
         SetLoadingState(false);
         _valueUiDelayUpdater = new ValueUiDelayUpdater<string>(SetText, 100);
         // var currentTheme = Application.Current.ActualThemeVariant;
@@ -350,7 +367,8 @@ public partial class SimpleMarkdownViewer : UserControl
         // if (!_change)
         // {
         //     _change = true;
-        return MarkdownUtils.ToHtml(text, theme == ThemeVariant.Dark);
+        return MarkdownUtils.ToHtml(text, theme == ThemeVariant.Dark,
+            ConfigManager.Instance.Setting.IsChatNotShowThinking, out _isThinking);
         // }
         // _change = false;
         // 分为黑白主题，分别定义样式，字体大小、颜色、上下边距(这是因为默认的 HtmlRenderer 似乎会将上下边距增加 20px)

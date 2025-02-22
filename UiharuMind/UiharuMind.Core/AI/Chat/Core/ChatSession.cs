@@ -122,16 +122,19 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     public void ReInitHistory(ChatHistory history, List<long>? timeStamps = null)
     {
         History = history;
-        if (timeStamps == null)
+        TimeStamps.Clear();
+        if (timeStamps != null)
         {
-            timeStamps = new List<long>();
-            for (int i = 0; i < history.Count; i++)
+            foreach (var time in timeStamps)
             {
-                timeStamps.Add(DateTime.UtcNow.Ticks);
+                TimeStamps.Add(time);
             }
         }
 
-        TimeStamps = timeStamps;
+        while (TimeStamps.Count < History.Count)
+        {
+            TimeStamps.Add(DateTime.UtcNow.Ticks);
+        }
     }
 
     public int Count => History.Count;
@@ -139,7 +142,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     public ChatMessage this[int index] => new ChatMessage()
     {
         Message = History[index],
-        Timestamp = TimeStamps[index]
+        Timestamp = index < TimeStamps.Count ? TimeStamps[index] : TimeStamps[^1]
     };
 
     /// <summary>
@@ -224,7 +227,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         return ChatModelRunningData.InvokeAgentStreamingAsync(this, cancellationToken);
     }
 
-    public ChatHistory SafeGetHistory()
+    public async Task<ChatHistory> SafeGetHistory()
     {
         //检测是否额外挂载
         ChatHistory chatHistory = [];
@@ -296,6 +299,13 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             }
 
             chatHistory.Add(new ChatMessageContent(AuthorRole.System, sb.ToString()));
+        }
+
+        if (CharacterData.Memery != null)
+        {
+            var longTermMemory = await CharacterData.Memery.GetLongTermMemory(History[^1].Content ?? "");
+            if (!string.IsNullOrEmpty(longTermMemory))
+                chatHistory.AddSystemMessage("Long term memory:\n" + longTermMemory);
         }
 
         //工具角色，且选择不携带历史记录

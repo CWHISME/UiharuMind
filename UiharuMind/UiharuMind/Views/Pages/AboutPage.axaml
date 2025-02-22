@@ -8,6 +8,10 @@
              x:Class="UiharuMind.Views.Pages.AboutPage">
     <DockPanel Margin="10">
         <StackPanel DockPanel.Dock="Top" Spacing="10">
+            <Image
+                MaxHeight="100"
+                Tapped="OnTapedIcon"
+                Source="/Assets/Icon.png" />
             <SelectableTextBlock Text="UiharuMind" FontSize="26" HorizontalAlignment="Center" />
             <HyperlinkButton Content="https://github.com/CWHISME/UiharuMind" HorizontalAlignment="Center"
                              NavigateUri="https://github.com/CWHISME/UiharuMind" />
@@ -16,6 +20,7 @@
                 <TextBlock Text="Version: 0.0.1" HorizontalAlignment="Center" />
                 <TextBlock Text=" | " />
                 <HyperlinkButton Content="Apache License"
+                                 Margin="0,-2,0,0"
                                  NavigateUri="https://github.com/CWHISME/UiharuMind?tab=Apache-2.0-1-ov-file" />
             </StackPanel>
             <TextBlock Text="Made by WangJiaYing (ᓚᘏᗢ)" HorizontalAlignment="Center" TextDecorations="Underline"

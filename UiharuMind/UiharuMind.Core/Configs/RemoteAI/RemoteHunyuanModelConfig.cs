@@ -20,7 +20,7 @@ public class RemoteHunyuanModelConfig : BaseRemoteModelConfig, IRemoteModelConfi
 
     [SettingConfigDesc("description of the model")]
     [SettingConfigDesc("模型描述", LanguageUtils.ChineseSimplified)]
-    public override string ModelDescription { get; set; }
+    public override string ModelDescription { get; set; } = "";
 
     [SettingConfigDesc("ID of the model, used to distinguish different models for calling")]
     [SettingConfigDesc("模型ID，用于区分调用的不同模型。\n请注意：目前除了 hunyuan-lite 之外的模型都要收费。", LanguageUtils.ChineseSimplified)]
@@ -31,5 +31,5 @@ public class RemoteHunyuanModelConfig : BaseRemoteModelConfig, IRemoteModelConfi
     public override string ModelId { get; set; } = "hunyuan-lite";
 
     public override int Port { get; set; }
-    public override string ApiKey { get; set; }
+    public override string ApiKey { get; set; } = "";
 }

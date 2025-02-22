@@ -17,6 +17,9 @@ namespace UiharuMind.Core.Core.Utils;
 
 public static class MarkdownUtils
 {
+    public const string ThinkingRawText = "[Thinking]";
+    public const string ThinkingText = "[Thinking...]";
+
     private static readonly MarkdownPipeline PipelineLight = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
         .UseColorCode(HtmlFormatterType.Style, styleDictionary: StyleDictionary.DefaultLight,
@@ -88,20 +91,16 @@ public static class MarkdownUtils
     //     return null;
     // }
 
-    public static string ToHtml(string markdown, bool darkTheme)
+    public static string ToHtml(string markdown, bool darkTheme, bool isRemoveThink, out bool isThinking)
     {
         // IsDarkTheme = darkTheme;
         // return (markdown);
         // return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, darkTheme ? PipelineDark : PipelineLight), darkTheme);
-        if (markdown.StartsWith("<think>", StringComparison.Ordinal))
-        {
-            markdown = markdown.Replace("<think>", "<div class=\"think\">");
-            if (markdown.Contains("</think>"))
-                markdown = markdown.Replace("</think>", "</div>");
-            else markdown += "</div>";
-        }
 
-        return GetThemeSpecificHtml(Markdig.Markdown.ToHtml(markdown, PipelineDark), darkTheme);
+
+        return GetThemeSpecificHtml(
+            Markdig.Markdown.ToHtml(ParseThinking(markdown, isRemoveThink, out isThinking), PipelineDark),
+            darkTheme);
 
         // if (darkTheme)
         // {
@@ -113,6 +112,34 @@ public static class MarkdownUtils
         // }
         //
         // return html;
+    }
+
+    private static string ParseThinking(string markdown, bool isRemoveThink, out bool isThinking)
+    {
+        const string startTag = "<think>";
+        const string endTag = "</think>";
+
+        if (markdown.StartsWith(startTag, StringComparison.Ordinal))
+        {
+            int endIndex = markdown.IndexOf(endTag, StringComparison.Ordinal);
+            isThinking = endIndex == -1;
+            if (isRemoveThink)
+            {
+                return (!isThinking)
+                    ? markdown.Substring(endIndex + endTag.Length)
+                    : Math.Sin(Environment.TickCount * 0.1) < 0
+                        ? ThinkingRawText
+                        : ThinkingText;
+            }
+
+            markdown = markdown.Replace(startTag, "<div class=\"think\">");
+            if (markdown.Contains(endTag))
+                markdown = markdown.Replace(endTag, "</div>");
+            else markdown += "</div>";
+        }
+        else isThinking = false;
+
+        return markdown;
     }
 
 

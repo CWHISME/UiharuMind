@@ -87,6 +87,7 @@
                                         <common:SimpleMarkdownViewer
                                             IsVisible="{Binding !IsImageContent}"
                                             MarkdownText="{Binding Message}"
+                                            IsThinkingRemove="{Binding DataContext.IsNotShowThinking,ElementName=Viewer}"
                                             Margin="5">
                                             <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
                                             <common:SimpleMarkdownViewer.IsPlaintext>
@@ -148,14 +149,24 @@
                         </ToolTip.Tip>
                     </Button>
                 </StackPanel>
-                <CheckBox DockPanel.Dock="Right" Content="{x:Static lang:Lang.Plaintext}"
-                          IsChecked="{Binding IsPlaintext}"
-                          HorizontalAlignment="Right">
-                    <ToolTip.Tip>
-                        <TextBlock
-                            Text="{x:Static lang:Lang.ChatPlaintextTooltip}" />
-                    </ToolTip.Tip>
-                </CheckBox>
+
+                <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <CheckBox Content="{x:Static lang:Lang.HideThnkingText}"
+                              IsChecked="{Binding IsNotShowThinking}">
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="{x:Static lang:Lang.HideThnkingTextTips}" />
+                        </ToolTip.Tip>
+                    </CheckBox>
+                    <CheckBox Content="{x:Static lang:Lang.Plaintext}"
+                              IsChecked="{Binding IsPlaintext}">
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="{x:Static lang:Lang.ChatPlaintextTooltip}" />
+                        </ToolTip.Tip>
+                    </CheckBox>
+                </StackPanel>
             </DockPanel>
 
             <!-- 输入区域 -->

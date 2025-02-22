@@ -13,11 +13,11 @@ public class AssistantExpertQuoteAgentSkill : NormalAgentSkill
         _quoteStr = quoteStr;
     }
 
-    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData? modelRunningData, string text,
+    protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
-        var agent = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
+        var agent = GetCharacterData().ToAgent(modelRunningData.Kernel!, args);
 
         _chatHistory = new ChatHistory();
         _chatHistory.AddMessage(AuthorRole.User, _quoteStr);

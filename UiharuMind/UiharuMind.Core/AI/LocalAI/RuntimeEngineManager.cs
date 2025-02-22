@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using Microsoft.KernelMemory;
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
@@ -155,10 +156,41 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     {
         if (CurrentSeletedVersion == null)
         {
-            Log.Error("Current Selected Local RuntimeEngine Version is null！");
+            Log.Error(
+                "Current Selected Local RuntimeBackend Engine Version is null！Plese to Setting Page to select a version first.");
             return;
         }
 
-        await LLamaCppServer.Run(CurrentSeletedVersion, model, onLoading, onLoadOver, token);
+        await LLamaCppServer.Run(CurrentSeletedVersion, model, onLoading, onLoadOver, token: token);
     }
+
+
+    /// <summary>
+    /// 尝试确保嵌入式服务启动
+    /// </summary>
+    /// <param name="onLoadOver"></param>
+    public void TryEnsureEmbededServer(Action<OpenAIConfig>? onLoadOver = null)
+    {
+        if (CurrentSeletedVersion == null)
+        {
+            Log.Error(
+                "Current Selected Local RuntimeBackend Engine Version is null！Plese to Setting Page to select a version first.");
+            return;
+        }
+
+        LLamaCppServer.TryEnsureEmbededServer(CurrentSeletedVersion, onLoadOver);
+    }
+
+    // private async void StartEmbededServer(Action<Kernel>? onLoadOver = null)
+    // {
+    //     if (CurrentSeletedVersion == null)
+    //     {
+    //         Log.Error(
+    //             "Current Selected Local RuntimeBackend Engine Version is null！Plese to Setting Page to select a version first.");
+    //         return;
+    //     }
+    //
+    //     await LLamaCppServer.Run(CurrentSeletedVersion, LLamaCppServer.Config.EmbededModelInfo, onLoadOver: onLoadOver,
+    //         port: LLamaCppServer.Config.DefaultEmbededPort, extraParams: "--embedding");
+    // }
 }

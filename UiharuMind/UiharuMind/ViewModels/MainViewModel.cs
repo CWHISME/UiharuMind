@@ -99,7 +99,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
                 MenuPages.MenuSettingKey => new SettingPageData(),
                 MenuPages.MenuAboutKey => new AboutPageData(),
                 MenuPages.MenuHelpKey => new HelpPageData(),
-                _ => new ModelPageData() { Title = message + "   Null Page" },
+                _ => GetPage(MenuPages.MenuModelKey),
             };
             _viewPageModels.Add(message, vmPage);
         }

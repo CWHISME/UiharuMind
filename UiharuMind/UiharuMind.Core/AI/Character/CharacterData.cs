@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using UiharuMind.Core.AI.KnowledgeBase;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 
@@ -11,10 +12,17 @@ namespace UiharuMind.Core.AI.Character;
 
 public class CharacterData
 {
+    private MemoryData? _memory;
+
     public CharacterConfig Config { get; set; } = new CharacterConfig();
 
     public ChatCompletionAgent ToAgent(Kernel kernel, Dictionary<string, object?>? kernelArguments = null) =>
         Config.ToAgent(kernel, CheckParams(kernelArguments));
+
+    /// <summary>
+    /// 记忆库
+    /// </summary>
+    public string MemeryName { get; set; } = "";
 
     /// <summary>
     /// 是否是默认角色
@@ -94,6 +102,13 @@ public class CharacterData
     /// </summary>
     [JsonIgnore]
     public long FileDateTime { get; set; }
+
+    /// <summary>
+    /// 知识库
+    /// </summary>
+    [JsonIgnore]
+    public MemoryData? Memery =>
+        _memory ??= MemoryManager.Instance.GetMemoryDatae(MemeryName);
 
     /// <summary>
     /// 角色头像，以 Base64 编码的图片数据

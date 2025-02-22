@@ -21,6 +21,7 @@
             <settingViews:SettingPanelView SettingConfig="{Binding CpuConfig}" />
             <settingViews:SettingPanelView SettingConfig="{Binding ParamsConfig}" />
             <settingViews:SettingPanelView SettingConfig="{Binding SamplingStrategiesConfig}" />
+            <settingViews:SettingPanelView SettingConfig="{Binding RagConfig}" />
             <settingViews:SettingPanelView SettingConfig="{Binding SpecialConfig}" />
         </StackPanel>
 

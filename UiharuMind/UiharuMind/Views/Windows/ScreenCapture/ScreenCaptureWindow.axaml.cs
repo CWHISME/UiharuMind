@@ -250,7 +250,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         }
         catch (Exception e)
         {
-            Log.Error(e.StackTrace);
+            Log.Warning(e.StackTrace);
         }
     }
 
@@ -316,7 +316,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         _image = await ScreenCaptureWin.CaptureAsync(App.ScreensService.MouseScreenIndex);
         if (_image == null)
         {
-            Log.Error("Failed to capture screen");
+            Log.Warning("Failed to capture screen");
             Close();
             return;
         }
@@ -324,7 +324,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         var image = await _image.ImageToBitmapAsync(); //await App.Clipboard.GetImageFromClipboard();
         if (image == null)
         {
-            Log.Error("Failed to convert capture screen image to bitmap");
+            Log.Warning("Failed to convert capture screen image to bitmap");
             Close();
             return;
         }
@@ -363,7 +363,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             }
             catch (Exception e)
             {
-                Log.Error(e.StackTrace);
+                Log.Warning(e.StackTrace);
             }
         }
 

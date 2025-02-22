@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -19,8 +20,10 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Views;
 using UiharuMind.Views.Pages;
 using UiharuMind.Views.Windows.Common;
@@ -30,11 +33,13 @@ namespace UiharuMind.ViewModels.Pages;
 
 public partial class ModelPageData : PageDataBase
 {
-    public string? Title { get; set; } = "Model Viewer";
-    public string? ModelPrefix { get; set; } = "Local models folder: ";
+    // public string? Title { get; set; } = "Model Viewer";
+    // public string? ModelPrefix { get; set; } = "Local models folder: ";
     [ObservableProperty] private string? _modelPath;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
+
+    public string EmbededModelPath => LLamaConfig.ExternalEmbededModelPath;
 
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
@@ -54,6 +59,13 @@ public partial class ModelPageData : PageDataBase
         App.FilesService.OpenFolder(LLamaConfig.LocalModelPath);
     }
 
+
+    [RelayCommand]
+    private void OpenEmbeddedModelFolder()
+    {
+        App.FilesService.OpenFolder(LLamaConfig.ExternalEmbededModelPath);
+    }
+
     [RelayCommand]
     private void OpenSelectModelFolder(string path)
     {
@@ -64,13 +76,13 @@ public partial class ModelPageData : PageDataBase
     private async Task RefreshSelectModelInfo(string path)
     {
         await App.ModelService.LoadModelList();
-        App.MessageService.ShowNotification("Reload Info：" + path);
+        App.MessageService.ShowToast("Reload Info：" + path);
     }
 
     [RelayCommand]
     private void OpenSelectModelInfo(string path)
     {
-        App.MessageService.ShowNotification("OpenSelectModelInfo.");
+        App.MessageService.ShowToast("OpenSelectModelInfo.");
     }
 
     [RelayCommand]
@@ -87,6 +99,12 @@ public partial class ModelPageData : PageDataBase
     }
 
     [RelayCommand]
+    private void ReloadEmbeddedModel()
+    {
+        App.MessageService.ShowToast("refresh embedded model.");
+    }
+
+    [RelayCommand]
     private async Task DeleteRemoteModel(string name)
     {
         var result = await App.MessageService.ShowConfirmMessageBox("Are you sure to delete remote model " + name + "?",
@@ -96,6 +114,25 @@ public partial class ModelPageData : PageDataBase
             LlmManager.Instance.RemoteModelManager.DeleteRemoteModel(name);
             LoadModels();
         }
+    }
+
+    [RelayCommand]
+    private void SetFavoriteRemoteModel(string? name)
+    {
+        if (name == null) return;
+        var oldName = LlmManager.Instance.RemoteModelManager.Config.FavoriteModel;
+        bool isRemove = oldName == name;
+        if (!string.IsNullOrEmpty(oldName) &&
+            LlmManager.Instance.CacheModelDictionary.TryGetValue(oldName, out var oldModel))
+            UpdateModel(oldModel);
+        LlmManager.Instance.RemoteModelManager.Config.FavoriteModel = isRemove ? "" : name;
+        LlmManager.Instance.RemoteModelManager.SaveConfig();
+        App.MessageService.ShowToast(isRemove
+            ? string.Format(Lang.FavoriteRemoteModelDelTips, name)
+            : string.Format(Lang.FavoriteRemoteModelSetTips, name));
+        if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out var model)) return;
+        UpdateModel(model);
+        LoadModels();
     }
 
     partial void OnModelPathChanged(string? value)
@@ -112,11 +149,28 @@ public partial class ModelPageData : PageDataBase
 
     protected override Control CreateView => new ModelPage();
 
-    public async void LoadModels()
+    private async void LoadModels()
     {
-        IsBusy = true;
-        await App.ModelService.LoadModelList();
-        // OnPropertyChanged(nameof(ModelSources));
-        IsBusy = false;
+        try
+        {
+            IsBusy = true;
+            await App.ModelService.LoadModelList();
+            // OnPropertyChanged(nameof(ModelSources));
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void UpdateModel(ModelRunningData model)
+    {
+        var index = ModelSources.IndexOf(model);
+        if (index == -1) return;
+        ModelSources[index] = model;
     }
 }

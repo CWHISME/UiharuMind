@@ -16,12 +16,7 @@ public class TranslationAgentSkill : AgentSkillConvertableBase
         _chatHistory.AddMessage(AuthorRole.User, text);
         return modelRunningData.InvokeAgentStreamingAsync(translator, _chatHistory, cancellationToken);
     }
-
-    protected override ChatHistory GetChatHistory()
-    {
-        return _chatHistory;
-    }
-
+    
     protected override CharacterData GetCharacterData()
     {
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator);

@@ -13,6 +13,7 @@ public class ChatPromptExecutionSettings : ConfigBase
         "控制生成文本的随机性:\n较高的温度值会使模型生成更加多样化和随机的结果，而较低的温度值会使生成的结果更加确定和集中。\n通常在0到1之间，但也可以大于1。默认为1.0。\n适用场景:\n\t高温度：适用于需要创造性和多样性的任务，如创意写作。\n\t低温度：适用于需要准确性和一致性的任务，如翻译或问答。",
         LanguageUtils.ChineseSimplified)]
     [JsonPropertyName("temperature")]
+    [SettingConfigRange(0f, 2.0f, 0.01f)]
     public double? Temperature { get; set; } = 1.0;
 
     [SettingConfigDesc(
@@ -21,6 +22,7 @@ public class ChatPromptExecutionSettings : ConfigBase
         "影响生成文本的多样性:\n模型只从概率最高的 token 中选择，直到这些 token 的概率之和达到 TopP 的值。简单来说，TopP 值越高，生成的文本越多样化。\n通常在0到1之间。默认为1.0。\n适用场景:\n\t高TopP：适用于需要多样性和创造性的任务。\n\t低TopP：适用于需要准确性和一致性的任务。",
         LanguageUtils.ChineseSimplified)]
     [JsonPropertyName("top_p")]
+    [SettingConfigRange(0f, 1.0f, 0.01f)]
     public double? TopP { get; set; } = 1.0;
 
     [SettingConfigDesc(
