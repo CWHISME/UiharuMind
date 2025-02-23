@@ -141,6 +141,13 @@
                                 Text="{x:Static lang:Lang.SendUserDesc}" />
                         </ToolTip.Tip>
                     </Button>
+                    <Button Command="{Binding MemoryEditorCommand}">
+                        <PathIcon Data="{StaticResource BookStarRegular}" Width="20" Height="20" />
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="{x:Static lang:Lang.Image}" />
+                        </ToolTip.Tip>
+                    </Button>
                     <Button IsVisible="{Binding IsSurportImage}" Command="{Binding UploadImageCommand}">
                         <PathIcon Data="{StaticResource ImageRegular}" Width="20" Height="20" />
                         <ToolTip.Tip>

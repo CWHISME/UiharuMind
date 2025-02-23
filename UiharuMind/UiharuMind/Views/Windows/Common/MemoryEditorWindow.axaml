@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="UiharuMind.Views.Windows.Common.MemoryEditorWindow"
+        Width="666"
+        Height="777"
+        Title="MemoryEditorWindow">
+
+    <Design.DataContext>
+        <common:MemoryEditorWindowModel />
+    </Design.DataContext>
+
+    <DockPanel Margin="20">
+        <!-- 顶部工具栏 -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="15" Margin="0 0 0 20">
+            <Button Content="📁 导入文件" Command="{Binding ImportFileCommand}" />
+            <Button Content="📂 导入目录" Command="{Binding ImportDirectoryCommand}" />
+            <Button Content="🌐 添加URL" Command="{Binding AddUrlCommand}" />
+            <Button Content="📝 新建文本" Command="{Binding CreateTextCommand}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="3*,2*" RowDefinitions="Auto,*" Margin="0 10">
+            <StackPanel Grid.Column="0" Grid.RowSpan="2" Margin="0 0 20 0">
+                <Border Background="{DynamicResource ThemeBackgroundBrush}"
+                        CornerRadius="8" Padding="10" Margin="0 10 0 0">
+                    <ItemsControl ItemsSource="{Binding KnowledgeItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="10" Margin="0 5" CornerRadius="6"
+                                        Background="{DynamicResource ThemeControlMidBrush}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <ContentControl Content="{Binding TypeIcon}"
+                                                        Margin="0 0 10 0"
+                                                        Width="24" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontWeight="Bold" />
+                                            <TextBlock Text="{Binding SourcePath}"
+                                                       Opacity="0.7"
+                                                       FontSize="12" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    Spacing="5">
+                                            <Button Content="🗑️" Tag="{Binding Id}"
+                                                    Command="{Binding DeleteItemCommand}" />
+                                            <Button Content="✏️" Tag="{Binding Id}"
+                                                    Command="{Binding EditItemCommand}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+
+</Window>

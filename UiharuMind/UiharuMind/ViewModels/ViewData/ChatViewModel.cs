@@ -129,6 +129,12 @@ public partial class ChatViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void MemoryEditor()
+    {
+        UIManager.ShowMemoryEditorWindow(UIManager.GetFoucusWindow());
+    }
+
+    [RelayCommand]
     private async Task SendMessage()
     {
         // if (!InputManager.Instance.IsPressed(KeyCode.VcLeftControl)) return;

@@ -16,9 +16,11 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows.Characters;
+using UiharuMind.Views.Windows.Common;
 using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.Views;
@@ -186,5 +188,14 @@ public class UIManager
             x.DataContext = characterInfo;
             x.OnSureCallback = onSureCallback;
         });
+    }
+
+    public static void ShowMemoryEditorWindow(Window owner)
+    {
+        var window = new MemoryEditorWindow
+        {
+            DataContext = new MemoryEditorWindowModel()
+        };
+        window.ShowDialog(owner);
     }
 }
