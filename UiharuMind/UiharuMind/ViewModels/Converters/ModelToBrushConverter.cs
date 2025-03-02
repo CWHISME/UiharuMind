@@ -16,6 +16,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Memery;
 
 namespace UiharuMind.ViewModels.Converters;
 
@@ -27,6 +28,11 @@ public class ModelToBrushConverter : IValueConverter
         {
             if (LlmManager.Instance.RemoteModelManager.Config.FavoriteModel == modelRunningData.ModelName)
                 return Brushes.Gold;
+        }
+
+        if (value is MemoryData memoryData)
+        {
+            return Brushes.Gold;
         }
 
         return Brushes.Gray;

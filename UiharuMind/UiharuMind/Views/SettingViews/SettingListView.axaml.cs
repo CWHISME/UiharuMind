@@ -183,6 +183,7 @@ public partial class SettingListView : UserControl
         {
             property.SetValue(SettingConfig, checkbox.IsChecked);
             NotifyPropertyChanged(property);
+            _settingConfig?.Save();
         };
         _changeActions.Add(() => checkbox.IsChecked = property.GetValue(SettingConfig) as bool?);
         return checkbox;

@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
+        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+        xmlns:u="https://irihi.tech/ursa"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="UiharuMind.Views.Windows.Common.MemorySelectWindow"
+        Width="444"
+        Height="444"
+        Title="MemorySelectWindow">
+
+    <Design.DataContext>
+        <common:MemorySelectWindowModel />
+    </Design.DataContext>
+
+    <Window.Styles>
+        <!-- 移除 ListBoxItem 的悬停效果 -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="CornerRadius" Value="5" />
+        </Style>
+    </Window.Styles>
+
+    <DockPanel Margin="10">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10">
+            <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Lang.MemorySelect}" FontSize="20" />
+            <TextBlock VerticalAlignment="Center" Text="{Binding SelectedMemoryName}" FontSize="20" Margin="-10,0,0,0" />
+            <Button Content="{x:Static lang:Lang.Edit}" Command="{Binding EditMemoryCommand}"
+                    IsVisible="{Binding SelectedMemory,Converter={x:Static ObjectConverters.IsNotNull}}"
+                    CommandParameter="{Binding SelectedMemory}" />
+        </StackPanel>
+        <u:Divider DockPanel.Dock="Top" Margin="0,10" />
+        <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center">
+            <Button Content="{x:Static lang:Lang.NewMemory}" Command="{Binding CreateMemoryCommand}" />
+        </StackPanel>
+        <u:Divider DockPanel.Dock="Top" Margin="0,10" />
+        <Border DockPanel.Dock="Bottom" BorderThickness="2" CornerRadius="10"
+                Padding="2"
+                BorderBrush="{StaticResource UiBorderBrush}">
+            <ListBox ItemsSource="{Binding Memories}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <!-- <Border CornerRadius="5" ClipToBounds="True"> -->
+                        <DockPanel>
+                            <StackPanel Orientation="Vertical" DockPanel.Dock="Left" VerticalAlignment="Center"
+                                        Margin="10,0,0,0">
+                                <SelectableTextBlock Text="{Binding Name}" />
+                                <!-- <SelectableTextBlock Text="{Binding Description}" FontSize="12" /> -->
+                            </StackPanel>
+                            <Panel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <Button
+                                        CornerRadius="10"
+                                        Content="{x:Static lang:Lang.Edit}"
+                                        CommandParameter="{Binding }"
+                                        Command="{Binding DataContext.EditMemoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                    <Button
+                                        CornerRadius="10"
+                                        Content="{x:Static lang:Lang.Delete}"
+                                        Foreground="Red"
+                                        CommandParameter="{Binding }"
+                                        Command="{Binding DataContext.DeletetMemoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                    <Button
+                                        CornerRadius="10"
+                                        Content="{x:Static lang:Lang.Select}"
+                                        CommandParameter="{Binding }"
+                                        Command="{Binding DataContext.SelectMemoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                </StackPanel>
+                            </Panel>
+                        </DockPanel>
+                        <!-- </Border> -->
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+    </DockPanel>
+
+</Window>

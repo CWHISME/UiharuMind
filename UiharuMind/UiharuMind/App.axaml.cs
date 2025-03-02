@@ -64,6 +64,7 @@ public partial class App : Application, ILogger, IDisposable
             ScreensService = new ScreensService(DummyWindow);
             MessageService = new MessageService();
             ModelService = new ModelService();
+            MemoryService = new MemoryService();
 
             desktop.MainWindow = DummyWindow;
 
@@ -104,6 +105,7 @@ public partial class App : Application, ILogger, IDisposable
     public static FilesService FilesService { get; private set; }
     public static ScreensService ScreensService { get; private set; }
     public static ModelService ModelService { get; private set; }
+    public static MemoryService MemoryService { get; private set; }
     public static MainViewModel ViewModel => DummyWindow.MainViewModel;
     public static MessageService MessageService { get; private set; }
 

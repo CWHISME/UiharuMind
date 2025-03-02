@@ -97,10 +97,9 @@
                     <DataTemplate>
                         <Border Background="Transparent" CornerRadius="10"
                                 Padding="10,3,10,3">
-                            <TextBlock IsHitTestVisible="False" Text="{Binding LogString}"
+                            <TextBlock IsHitTestVisible="False" Text="{Binding LogShortString}"
                                        Background="Transparent"
                                        MaxHeight="40"
-                                       TextTrimming="CharacterEllipsis"
                                        Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
                         </Border>
                     </DataTemplate>

@@ -842,5 +842,77 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ModelPageTitle", resourceCulture);
             }
         }
+        
+        public static string MemoryTitle {
+            get {
+                return ResourceManager.GetString("MemoryTitle", resourceCulture);
+            }
+        }
+        
+        public static string NoMemory {
+            get {
+                return ResourceManager.GetString("NoMemory", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTips {
+            get {
+                return ResourceManager.GetString("MemoryTips", resourceCulture);
+            }
+        }
+        
+        public static string Select {
+            get {
+                return ResourceManager.GetString("Select", resourceCulture);
+            }
+        }
+        
+        public static string NewMemory {
+            get {
+                return ResourceManager.GetString("NewMemory", resourceCulture);
+            }
+        }
+        
+        public static string MemorySelect {
+            get {
+                return ResourceManager.GetString("MemorySelect", resourceCulture);
+            }
+        }
+        
+        public static string CommonDeleteConfirmTips {
+            get {
+                return ResourceManager.GetString("CommonDeleteConfirmTips", resourceCulture);
+            }
+        }
+        
+        public static string MemoryEditorWindowUrlTips {
+            get {
+                return ResourceManager.GetString("MemoryEditorWindowUrlTips", resourceCulture);
+            }
+        }
+        
+        public static string MemoryEditorWindowDirectoryTips {
+            get {
+                return ResourceManager.GetString("MemoryEditorWindowDirectoryTips", resourceCulture);
+            }
+        }
+        
+        public static string MemoryEditorWindowFileTips {
+            get {
+                return ResourceManager.GetString("MemoryEditorWindowFileTips", resourceCulture);
+            }
+        }
+        
+        public static string ChatSessionMemoryFileUploadTips {
+            get {
+                return ResourceManager.GetString("ChatSessionMemoryFileUploadTips", resourceCulture);
+            }
+        }
+        
+        public static string ChatSessionMemoryFileUploadInfo {
+            get {
+                return ResourceManager.GetString("ChatSessionMemoryFileUploadInfo", resourceCulture);
+            }
+        }
     }
 }

@@ -20,7 +20,8 @@ namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 public class LLamaCppServerParamsConfig : ConfigBase
 {
     [SettingConfigDesc("size of the prompt context (default: 0, 0 = loaded from model)")]
-    public int CtxSize { get; set; } = 4096;
+    [DefaultValue(0)]
+    public int CtxSize { get; set; } = 16384;
 
     [SettingConfigDesc("number of tokens to predict (default: -1, -1 = infinity, -2 = until context filled)")]
     public int Predict { get; set; } = -1;
@@ -29,7 +30,7 @@ public class LLamaCppServerParamsConfig : ConfigBase
     public int BatchSize { get; set; } = 2048;
 
     [SettingConfigDesc("physical maximum batch size (default: 512)")]
-    public int UbatchSize { get; set; } = 512;
+    public int UbatchSize { get; set; } = 1024;
 
     [SettingConfigDesc("number of tokens to keep from the initial prompt (default: 0, -1 = all)")]
     public int Keep { get; set; } = 0;
@@ -71,7 +72,8 @@ public class LLamaCppServerParamsConfig : ConfigBase
     public string CacheTypeV { get; set; } = "f16";
 
     [SettingConfigDesc("KV cache defragmentation threshold (default: -1.0, < 0 - disabled)")]
-    [SettingConfigDesc("控制内存碎片整理的阈值。当内存碎片达到或超过这个阈值时，系统会触发内存碎片整理操作。(default: -1.0, < 0 - disabled)", LanguageUtils.ChineseSimplified)]
+    [SettingConfigDesc("控制内存碎片整理的阈值。当内存碎片达到或超过这个阈值时，系统会触发内存碎片整理操作。(default: -1.0, < 0 - disabled)",
+        LanguageUtils.ChineseSimplified)]
     [SettingConfigRange(-1.0f, 1.0f, 0.01f)]
     public float DefragThold { get; set; } = -1.0f;
 

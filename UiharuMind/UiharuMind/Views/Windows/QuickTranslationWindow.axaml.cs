@@ -95,6 +95,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
 
     public void SetRequestInfo(string? content, TranslationAdvancedAgentSkill agentSkill)
     {
+        _cts.SafeStop();
         if (string.IsNullOrEmpty(content))
         {
             Log.Error("Plase input content!");
@@ -141,7 +142,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
     protected override void OnPreClose()
     {
         base.OnPreClose();
-        if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
+        _cts.SafeStop();
     }
 
     private void AppendContent(string info)

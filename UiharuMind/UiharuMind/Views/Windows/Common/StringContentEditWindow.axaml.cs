@@ -20,14 +20,6 @@ public partial class StringContentEditWindow : Window
     //     });
     // }
 
-    public static async Task<string?> Show(string content, Window? owner = null)
-    {
-        StringContentEditWindow window = new StringContentEditWindow();
-        if (IconUtils.DefaultAppIcon != null) window.Icon = new WindowIcon(IconUtils.DefaultAppIcon);
-        window.DataContext = new StringContentEditWindowViewModel(content, null);
-        return await window.ShowDialog<string?>(owner ?? UIManager.GetFoucusWindow());
-    }
-
     public StringContentEditWindow()
     {
         InitializeComponent();

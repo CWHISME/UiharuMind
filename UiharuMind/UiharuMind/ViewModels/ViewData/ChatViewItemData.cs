@@ -21,6 +21,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Utils;
+using UiharuMind.Views;
 using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.ViewModels.ViewData;
@@ -103,7 +104,7 @@ public partial class ChatViewItemData : ViewModelBase, IPoolAble
     [RelayCommand]
     public async Task Edit()
     {
-        var result = await StringContentEditWindow.Show(Message ?? "");
+        var result = await UIManager.ShowStringEditWindow(Message ?? "");
         if (!string.IsNullOrEmpty(result))
         {
             Message = result;

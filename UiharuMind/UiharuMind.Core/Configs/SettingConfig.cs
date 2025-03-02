@@ -23,6 +23,7 @@ public class SettingConfig : ConfigBase
     public static readonly string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
     public static readonly string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
     public static readonly string LogDataPath = Path.Combine(RootDataPath, "SaveLog/");
+    public static readonly string MemoryDataPath = Path.Combine(SaveDataPath, "MemoryData/");
 
     /// <summary>
     /// 本地服务引擎目录
@@ -33,8 +34,7 @@ public class SettingConfig : ConfigBase
     /// <summary>
     /// 知识库路径
     /// </summary>
-    public static readonly string MemoryPath = Path.Combine(RootDataPath, "Memory/");
-
+    public static readonly string MemoryEmbededPath = Path.Combine(SaveDataPath, "MemoryEmbededCache/");
 
     /// <summary>
     /// 是否是本地服务模式

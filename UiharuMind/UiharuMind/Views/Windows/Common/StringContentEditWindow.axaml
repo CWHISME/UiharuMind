@@ -23,6 +23,7 @@
             <TextBox Text="{Binding ContentStr}" VerticalAlignment="Stretch"
                      VerticalContentAlignment="Top"
                      TextWrapping="Wrap"
+                     AcceptsReturn="True"
                      Padding="5" />
         </Panel>
 

@@ -9,10 +9,14 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.KernelMemory;
+using Microsoft.KernelMemory.AI.Ollama;
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.ServerKernal;
@@ -27,6 +31,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     private LLamaCppVersionManager _llamaCppVersionManager = new LLamaCppVersionManager();
     private Dictionary<string, GGufModelInfo> _modelInfos = new Dictionary<string, GGufModelInfo>();
 
+    private readonly string EmbedeHttpServerUrl;
+    private readonly string EmbedeHttpProxyServerUrl;
+    private readonly Uri EmbedeHttpServerUri;
+
     enum EmbededServerStatus
     {
         Stop,
@@ -37,7 +45,13 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     private GGufModelInfo _embededModelInfo = new GGufModelInfo();
     private EmbededServerStatus _embededServerStatus = EmbededServerStatus.Stop;
     private readonly Queue<Action<OpenAIConfig>> _pendingEmbeddedServerActions = new Queue<Action<OpenAIConfig>>();
+
     private OpenAIConfig? _embeddedServerConfig;
+
+    // private HttpProxyServer? _httpProxyServer;
+    private const int EmbedingModelMaxToken = 8191;
+    private const int EmbedingModelMaxTokenServer = EmbedingModelMaxToken + 1;
+
 
     public GGufModelInfo EmbededModelInfo
     {
@@ -68,15 +82,22 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             {
                 _embeddedServerConfig = new OpenAIConfig
                 {
-                    Endpoint = $"http://localhost:{Config.DefaultEmbededPort}",
-                    TextModel = "None",
-                    TextModelMaxTokenTotal = 8192,
+                    Endpoint = EmbedeHttpServerUrl,
+                    EmbeddingModel = "None",
+                    EmbeddingModelMaxTokenTotal = EmbedingModelMaxToken,
                     APIKey = "None"
                 };
             }
 
             return _embeddedServerConfig;
         }
+    }
+
+    public LLamaCppServerKernal()
+    {
+        EmbedeHttpServerUrl = $"http://localhost:{Config.DefaultEmbededPort}/";
+        EmbedeHttpProxyServerUrl = $"http://localhost:{Config.DefaultEmbededProxyPort}/";
+        EmbedeHttpServerUri = new Uri(EmbedeHttpServerUrl);
     }
 
     public async Task StartServer(string executablePath, string modelFilePath, int port,
@@ -95,11 +116,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         }
 
         // config ??= Config.ServerConfig;
-        string paramsStr = Config.GetExeParams();
-        Log.Debug("Start sever:" + paramsStr);
-        await ProcessHelper.StartProcess(Config.GetExeServerPath(executablePath),
-                $"-m {modelFilePath} --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {paramsStr} {extraParams}",
-                onMessageUpdate, token)
+        var totalParams =
+            $"-m \"{modelFilePath}\" --no-webui --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {Config.GetExeParams()} {extraParams}";
+        Log.Debug("Start sever:" + totalParams);
+        await ProcessHelper.StartProcess(Config.GetExeServerPath(executablePath), totalParams, onMessageUpdate, token)
             .ConfigureAwait(false);
     }
 
@@ -114,7 +134,21 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             return;
         }
 
-        StartEmbededServer(versionInfo, onLoadOver);
+        // //文本嵌入代理处理
+        // _httpProxyServer ??= new HttpProxyServer(EmbedeHttpProxyServerUrl, x => EmbedeHttpServerUri,
+        //     (x) =>
+        //     {
+        //         char[] chars = new char[x.Length - 2];
+        //         x.CopyTo(1, chars, 0, chars.Length);
+        //         // JsonNode rootNode = JsonNode.Parse(new string(chars))!;
+        //         // rootNode["data"] = "";
+        //         // rootNode["model"] = "";
+        //         // rootNode["usage"] = "";
+        //         // return rootNode.ToJsonString();
+        //         return new string(chars);
+        //     });
+        // _httpProxyServer.Start();
+        Task.Run(async () => { await StartEmbededServer(versionInfo, onLoadOver); }).ConfigureAwait(false);
     }
 
     public async Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null,
@@ -140,8 +174,14 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
 
         void OnMessageUpdate(string msg)
         {
-            if (Config.DebugConfig.LogRunningInfo) Log.Debug(msg);
+            // if (Config.DebugConfig.LogRunningInfo) Log.Debug(msg);
             if (loadOver) return;
+
+            if (msg.StartsWith("error"))
+            {
+                onLoadOver?.Invoke(CreateKernel());
+                return;
+            }
 
             if (!msg.StartsWith("main: server is listening"))
             {
@@ -158,8 +198,8 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
                 if (loadingCount >= loadingMaxCount)
                 {
                     Log.Debug($"Loading over cout {loadingCount}");
-                    loadOver = true;
-                    onLoadOver?.Invoke(CreateKernel());
+                    // loadOver = true;
+                    // onLoadOver?.Invoke(CreateKernel());
                 }
             }
             else
@@ -175,7 +215,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             .ConfigureAwait(false);
     }
 
-    private async void StartEmbededServer(VersionInfo versionInfo, Action<OpenAIConfig>? onLoadOver = null)
+    private async Task StartEmbededServer(VersionInfo versionInfo, Action<OpenAIConfig>? onLoadOver = null)
     {
         try
         {
@@ -197,7 +237,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
                     _pendingEmbeddedServerActions.Clear();
                     onLoadOver?.Invoke(EmbeddedServerConfig);
                 },
-                port: Config.DefaultEmbededPort, extraParams: "--embedding");
+                port: Config.DefaultEmbededPort, extraParams: $"--embedding -ub {EmbedingModelMaxTokenServer}");
         }
         catch (Exception e)
         {

@@ -420,4 +420,40 @@
     <data name="ModelPageTitle" xml:space="preserve">
         <value>Model Viewer</value>
     </data>
+    <data name="MemoryTitle" xml:space="preserve">
+        <value>Memory:</value>
+    </data>
+    <data name="NoMemory" xml:space="preserve">
+        <value>NoMemory</value>
+    </data>
+    <data name="MemoryTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="Select" xml:space="preserve">
+        <value>Select</value>
+    </data>
+    <data name="NewMemory" xml:space="preserve">
+        <value>NewMemory</value>
+    </data>
+    <data name="MemorySelect" xml:space="preserve">
+        <value>MemorySelect: </value>
+    </data>
+    <data name="CommonDeleteConfirmTips" xml:space="preserve">
+        <value>Are you sure delete?</value>
+    </data>
+    <data name="MemoryEditorWindowUrlTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MemoryEditorWindowDirectoryTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="MemoryEditorWindowFileTips" xml:space="preserve">
+        <value />
+    </data>
+    <data name="ChatSessionMemoryFileUploadTips" xml:space="preserve">
+        <value>Memory is empty! Do you want to create a new memory for this chat session?</value>
+    </data>
+    <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
+        <value />
+    </data>
 </root>

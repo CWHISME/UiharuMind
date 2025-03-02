@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
-using UiharuMind.Core.AI.KnowledgeBase;
+using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 
@@ -104,11 +104,11 @@ public class CharacterData
     public long FileDateTime { get; set; }
 
     /// <summary>
-    /// 知识库
+    /// 记忆
     /// </summary>
     [JsonIgnore]
     public MemoryData? Memery =>
-        _memory ??= MemoryManager.Instance.GetMemoryDatae(MemeryName);
+        _memory ??= MemoryManager.Instance.GetMemoryData(MemeryName);
 
     /// <summary>
     /// 角色头像，以 Base64 编码的图片数据

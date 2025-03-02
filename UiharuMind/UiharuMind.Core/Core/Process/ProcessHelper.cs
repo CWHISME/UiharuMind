@@ -250,10 +250,12 @@ public static class ProcessHelper
                     case StandardOutputCommandEvent stdOut:
                         lastLine = stdOut.Text;
                         onLogCallback.Invoke(lastLine);
+                        Log.Debug(lastLine);
                         break;
                     case StandardErrorCommandEvent stdErr:
                         lastLine = stdErr.Text;
                         onLogCallback.Invoke(lastLine);
+                        Log.Debug(lastLine);
                         break;
                     case ExitedCommandEvent exited:
                         if (exited.ExitCode != 0)
@@ -262,6 +264,7 @@ public static class ProcessHelper
                                 $"Process {exePath} exited with code {exited.ExitCode}. Last log line: {lastLine}");
                         }
 
+                        Log.Warning($"Process {exePath} exited.");
                         break;
                 }
             }

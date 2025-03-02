@@ -35,15 +35,19 @@ public class FilesService //: IStorageFolder
         // _filePickerOption.SuggestedStartLocation = this;
     }
 
-    public async Task<string> OpenSelectFolderAsync(string defaultPath, Window? owner = null)
+    public async Task<string> OpenSelectFolderAsync(string? defaultPath = null, Window? owner = null)
     {
         // _filePickerOption.Title = "Select Folder";
         // _path = new Uri(defaultPath);
-        if (owner == null) owner = UIManager.GetRootWindow();
-        var folder = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(defaultPath)));
-        _filePickerOption.SuggestedStartLocation = folder;
+        if (owner == null) owner = UIManager.GetFoucusWindow();
+        if (defaultPath != null && Directory.Exists(defaultPath))
+        {
+            var folder = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(defaultPath)));
+            _filePickerOption.SuggestedStartLocation = folder;
+        }
+
         var result = await owner.StorageProvider.OpenFolderPickerAsync(_filePickerOption);
-        return result.FirstOrDefault()?.TryGetLocalPath() ?? defaultPath;
+        return result.FirstOrDefault()?.TryGetLocalPath() ?? "";
     }
 
     public void OpenFolder(string? path)
@@ -69,16 +73,44 @@ public class FilesService //: IStorageFolder
         }
     }
 
-    public async Task<IStorageFile?> OpenFileAsync(Window owner, params string[] fileTypeFilter)
+    public async Task<IStorageFile?> OpenFileAsync(Window? owner, string? defaultPath = null,
+        params string[] fileTypeFilter)
     {
+        if (owner == null) owner = UIManager.GetFoucusWindow();
         FilePickerFileType fileType = new FilePickerFileType("Filter") { Patterns = fileTypeFilter };
+        var defaultUri = string.IsNullOrEmpty(defaultPath)
+            ? null
+            : new Uri(Path.GetFullPath(defaultPath));
+        var defaultLocation =
+            defaultUri != null ? await owner.StorageProvider.TryGetFolderFromPathAsync(defaultUri) : null;
         var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
         {
             Title = "Open File",
             FileTypeFilter = new List<FilePickerFileType>() { fileType },
+            SuggestedStartLocation = defaultLocation,
         });
 
         return files.Count >= 1 ? files[0] : null;
+    }
+
+    public async Task<IReadOnlyList<IStorageFile>> SelectFileAsync(Window? owner = null, string? defaultPath = null,
+        params string[] fileTypeFilter)
+    {
+        if (owner == null) owner = UIManager.GetFoucusWindow();
+        FilePickerFileType fileType = new FilePickerFileType("Filter") { Patterns = fileTypeFilter };
+        var defaultUri = string.IsNullOrEmpty(defaultPath)
+            ? null
+            : new Uri(Path.GetFullPath(defaultPath));
+        var defaultLocation =
+            defaultUri != null ? await owner.StorageProvider.TryGetFolderFromPathAsync(defaultUri) : null;
+        var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
+        {
+            Title = "Select File",
+            FileTypeFilter = new List<FilePickerFileType>() { fileType },
+            SuggestedStartLocation = defaultLocation,
+        });
+
+        return files;
     }
 
     public async Task<Uri?> SaveFileAsync(Window owner, string defaultName)
@@ -99,7 +131,7 @@ public class FilesService //: IStorageFolder
     /// <param name="defaultName"></param>
     public async Task SaveImageAsync(Bitmap bitmap, Window? owner = null, string? defaultName = null)
     {
-        if (owner == null) owner = UIManager.GetRootWindow();
+        if (owner == null) owner = UIManager.GetFoucusWindow();
         var path = await App.FilesService.SaveFileAsync(owner,
             defaultName ?? "Uiharu_" + DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss") + ".png");
         if (path == null) return;

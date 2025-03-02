@@ -31,13 +31,13 @@ public partial class ChatListViewModel : ViewModelBase
 
     public ChatListViewModel()
     {
-        foreach (var session in ChatManager.Instance.ChatSessions)
+        foreach (var session in ChatManager.Instance.GetOrderedItems())
         {
             ChatSessions.Add(new ChatSessionViewData(session));
         }
 
-        ChatManager.Instance.OnChatSessionAdded += OnChatSessionAdded;
-        ChatManager.Instance.OnChatSessionRemoved += OnChatSessionRemoved;
+        ChatManager.Instance.OnItemAdded += OnChatSessionAdded;
+        ChatManager.Instance.OnItemRemoved += OnChatSessionRemoved;
 
         if (ChatSessions.Count == 0)
             ChatManager.Instance.StartNewSession(CharacterManager.Instance.GetCharacterData(""));

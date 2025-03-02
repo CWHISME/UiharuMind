@@ -412,4 +412,41 @@
     <data name="ModelPageTitle" xml:space="preserve">
         <value>模型管理</value>
     </data>
+    <data name="MemoryTitle" xml:space="preserve">
+        <value>记忆库：</value>
+    </data>
+    <data name="NoMemory" xml:space="preserve">
+        <value>未设定</value>
+    </data>
+    <data name="MemoryTips" xml:space="preserve">
+        <value>开启对话后，优先使用角色记忆库。若后续手动切换记忆库，则仅影响指定对话场景。
+注：记忆库本身是共享的，另外请避免同一个记忆库中存放过多无关信息。</value>
+    </data>
+    <data name="Select" xml:space="preserve">
+        <value>选择</value>
+    </data>
+    <data name="NewMemory" xml:space="preserve">
+        <value>创建新记忆库</value>
+    </data>
+    <data name="MemorySelect" xml:space="preserve">
+        <value>当前选择记忆：</value>
+    </data>
+    <data name="CommonDeleteConfirmTips" xml:space="preserve">
+        <value>是否确认删除？</value>
+    </data>
+    <data name="MemoryEditorWindowUrlTips" xml:space="preserve">
+        <value>请用换行符分割不同的链接。</value>
+    </data>
+    <data name="MemoryEditorWindowFileTips" xml:space="preserve">
+        <value>添加文件</value>
+    </data>
+    <data name="MemoryEditorWindowDirectoryTips" xml:space="preserve">
+        <value>添加目录</value>
+    </data>
+    <data name="ChatSessionMemoryFileUploadTips" xml:space="preserve">
+        <value>当前对话不存在记忆库，是否创建新的记忆库并提交文件？</value>
+    </data>
+    <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
+        <value>当前存在文件：</value>
+    </data>
 </root>

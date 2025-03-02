@@ -17,7 +17,9 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Core.Process;
+using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Chat;
@@ -26,6 +28,7 @@ namespace UiharuMind.Core.Core.Chat;
 /// 表示一个对话
 /// </summary>
 public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
+    : IUniquieContainerItem
 {
     /// <summary>
     /// 本条对话名字
@@ -42,6 +45,12 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     /// </summary>
     public string CharaterId { get; set; } = "Empty";
 
+    /// <summary>
+    /// 记忆
+    /// </summary>
+    public string MemeryName { get; set; } = "";
+
+
     public ChatHistory History { get; set; } = new ChatHistory();
 
     /// <summary>
@@ -57,6 +66,30 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     [JsonIgnore]
     public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharaterId);
 
+    [JsonIgnore]
+    public MemoryData? Memery
+    {
+        get
+        {
+            if (_memory != null) return _memory;
+            //如果没有指定记忆，则使用角色的默认记忆，同时将对话记忆设置为角色的默认记忆
+            if (string.IsNullOrEmpty(MemeryName) ||
+                !MemoryManager.Instance.TryGetMemoryData(MemeryName, out _memory))
+            {
+                _memory = CharacterData.Memery;
+                if (_memory != null) MemeryName = CharacterData.MemeryName;
+            }
+
+            return _memory;
+        }
+        set
+        {
+            if (_memory == value) return;
+            _memory = value;
+            MemeryName = value?.Name ?? "";
+            Save();
+        }
+    }
 
     [JsonIgnore] private ModelRunningData? _modelRunningData;
 
@@ -86,6 +119,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         TimeStamps.Count > 0 ? new DateTime(TimeStamps[^1], DateTimeKind.Utc).ToLocalTime() : DateTime.MinValue;
 
     private CharacterData? _characterData;
+    private MemoryData? _memory;
 
     // private bool _isFinished = true;
 
@@ -301,11 +335,11 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             chatHistory.Add(new ChatMessageContent(AuthorRole.System, sb.ToString()));
         }
 
-        if (CharacterData.Memery != null)
+        if (Memery != null)
         {
-            var longTermMemory = await CharacterData.Memery.GetLongTermMemory(History[^1].Content ?? "");
+            var longTermMemory = await Memery.GetLongTermMemory(History[^1].Content ?? "");
             if (!string.IsNullOrEmpty(longTermMemory))
-                chatHistory.AddSystemMessage("Long term memory:\n" + longTermMemory);
+                chatHistory.AddSystemMessage("以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" + longTermMemory);
         }
 
         //工具角色，且选择不携带历史记录
@@ -374,7 +408,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     // }
     public void Save()
     {
-        ChatManager.SaveChat(this, IsDirty);
+        ChatManager.Instance.Save(this, IsDirty);
         IsDirty = false;
     }
 

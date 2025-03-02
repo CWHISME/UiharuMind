@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using Microsoft.KernelMemory;
+using Microsoft.KernelMemory.AI.Ollama;
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
@@ -169,12 +170,13 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     /// 尝试确保嵌入式服务启动
     /// </summary>
     /// <param name="onLoadOver"></param>
-    public void TryEnsureEmbededServer(Action<OpenAIConfig>? onLoadOver = null)
+    public void TryEnsureEmbededServer(Action<OpenAIConfig?>? onLoadOver = null)
     {
         if (CurrentSeletedVersion == null)
         {
             Log.Error(
                 "Current Selected Local RuntimeBackend Engine Version is null！Plese to Setting Page to select a version first.");
+            onLoadOver?.Invoke(null);
             return;
         }
 

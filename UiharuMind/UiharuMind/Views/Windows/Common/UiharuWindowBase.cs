@@ -74,6 +74,7 @@ public abstract class UiharuWindowBase : Window
         OnPreClose();
         // InvalidateMeasure();
         // Log.Debug("Closing window: " + this.GetType().Name + "   " + this.IsMeasureValid);
+        App.DummyWindow.Focus();
         Dispatcher.UIThread.Post(Hide, DispatcherPriority.ApplicationIdle);
     }
 

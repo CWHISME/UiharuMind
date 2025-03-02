@@ -25,6 +25,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -46,6 +47,9 @@ public partial class ChatSessionViewData : ObservableObject
     [ObservableProperty] private Bitmap? _icon;
     [ObservableProperty] private string _description;
     [ObservableProperty] private string _timeString;
+
+    [ObservableProperty] private string _memoryTipsName;
+    [ObservableProperty] private MemoryData? _memoryData;
 
     // public ECharacter Character => _chatSession.CharaterId == 0 ? ECharacter.User : ECharacter.Assistant;
     // //如果是当天，返回具体时间，否则返回日期
@@ -84,6 +88,8 @@ public partial class ChatSessionViewData : ObservableObject
         Name = ChatSession.Name;
         Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         TimeString = CalcTimeString();
+        MemoryData = ChatSession.Memery;
+        RefreshMemoryName();
     }
 
     public async Task AddMessageWithGenerate(AuthorRole role, string message, CancellationToken token)
@@ -236,7 +242,7 @@ public partial class ChatSessionViewData : ObservableObject
     //重命名
     public async Task Rename()
     {
-        var result = await StringContentEditWindow.Show(ChatSession.Name);
+        var result = await UIManager.ShowStringEditWindow(ChatSession.Name);
         if (!string.IsNullOrEmpty(result)) ModifySessionName(result);
     }
 
@@ -244,7 +250,7 @@ public partial class ChatSessionViewData : ObservableObject
     //复制整个对话
     public void Copy()
     {
-        ChatManager.Instance.CopySession(ChatSession);
+        ChatManager.Instance.Copy(ChatSession);
     }
 
     [RelayCommand]
@@ -252,7 +258,7 @@ public partial class ChatSessionViewData : ObservableObject
     public void Delete()
     {
         App.MessageService.ShowConfirmMessageBox(Lang.DeleteAllClipboardHistoryTips,
-            () => { ChatManager.Instance.DeleteSession(ChatSession); });
+            () => { ChatManager.Instance.Delete(ChatSession); });
     }
 
     /// <summary>
@@ -273,13 +279,13 @@ public partial class ChatSessionViewData : ObservableObject
 
     public void ModifySessionName(string newName)
     {
-        Name = ChatManager.Instance.ModifySessionName(ChatSession, newName);
+        Name = ChatManager.Instance.ModifyName(ChatSession, newName);
     }
 
-    public void ModifySessionDescription(string newName)
-    {
-        Description = ChatManager.Instance.ModifySessionDescription(ChatSession, newName);
-    }
+    // public void ModifySessionDescription(string newName)
+    // {
+    //     Description = ChatManager.Instance.ModifySessionDescription(ChatSession, newName);
+    // }
 
     public ChatViewItemData AddMessage(AuthorRole role, string message, byte[]? imageBytes = null)
     {
@@ -351,5 +357,16 @@ public partial class ChatSessionViewData : ObservableObject
 
         if (currentDate == lastChatDate) return ChatSession.LastTime.ToString("HH:mm");
         return ChatSession.LastTime.ToString("yyyy/MM/dd");
+    }
+
+    partial void OnMemoryDataChanged(MemoryData? value)
+    {
+        ChatSession.Memery = value;
+        RefreshMemoryName();
+    }
+
+    private void RefreshMemoryName()
+    {
+        MemoryTipsName = Lang.MemoryTitle + (MemoryData?.Name ?? Lang.NoMemory);
     }
 }

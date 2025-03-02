@@ -10,11 +10,14 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -22,12 +25,14 @@ using SharpHook.Native;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
 using UiharuMind.Views;
 
@@ -82,6 +87,9 @@ public partial class ChatViewModel : ViewModelBase
 
     private CancellationTokenSource? _cancelTokenSource;
 
+    // public ObservableCollection<MemoryData> MemorySources => App.MemoryService.MemorySources;
+    [ObservableProperty] private string _memoryFileTips;
+
     public event Action<ChatSessionViewData?>? OnEventChatSessionChanged;
     public event Action<ChatSessionViewData?>? OnEventBeginChat;
     public event Action<ChatSessionViewData?>? OnEventEndChat;
@@ -131,7 +139,96 @@ public partial class ChatViewModel : ViewModelBase
     [RelayCommand]
     private void MemoryEditor()
     {
-        UIManager.ShowMemoryEditorWindow(UIManager.GetFoucusWindow());
+        if (ChatSession == null)
+        {
+            App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
+            return;
+        }
+
+        UIManager.ShowMemorySelectWindow(UIManager.GetFoucusWindow(), x => { ChatSession.MemoryData = x; },
+            ChatSession.MemoryData);
+    }
+
+    [RelayCommand]
+    private async Task MemoryUpdateFile()
+    {
+        if (ChatSession == null)
+        {
+            App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
+            return;
+        }
+
+        var memory = ChatSession.ChatSession.Memery;
+        if (memory == null)
+        {
+            App.MessageService.ShowConfirmMessageBox(
+                Lang.ChatSessionMemoryFileUploadTips, async void () =>
+                {
+                    try
+                    {
+                        var memoryName = await UIManager.ShowStringEditWindow("NewMemory");
+                        if (string.IsNullOrEmpty(memoryName))
+                        {
+                            return;
+                        }
+
+                        var item = MemoryManager.Instance.AddNewItem(memoryName);
+                        ChatSession.MemoryData = item;
+                        await DoSelectUploadFiles(item);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e.Message);
+                    }
+                });
+            return;
+        }
+
+        await DoSelectUploadFiles(memory);
+    }
+
+    private async Task DoSelectUploadFiles(MemoryData item)
+    {
+        var files = await App.FilesService.SelectFileAsync();
+        if (files.Count > 0)
+        {
+            foreach (var file in files)
+            {
+                var localPath = file.TryGetLocalPath();
+                if (string.IsNullOrEmpty(localPath)) continue;
+                item.FilePaths.Add(localPath);
+            }
+
+            item.Save();
+        }
+
+        RefreshMemoryFileTips();
+    }
+
+    private void RefreshMemoryFileTips()
+    {
+        if (ChatSession?.MemoryData != null)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(Lang.ChatSessionMemoryFileUploadInfo);
+            if (ChatSession.MemoryData.FilePaths.Count == 0)
+            {
+                sb.Append(Lang.NoMemory);
+            }
+            else
+            {
+                var length = ChatSession.MemoryData.FilePaths.Count;
+                for (int i = 0; i < length; i++)
+                {
+                    var path = ChatSession.MemoryData.FilePaths[i];
+                    if (i == length - 1)
+                        sb.Append(path);
+                    else sb.AppendLine(path);
+                }
+            }
+
+            MemoryFileTips = sb.ToString();
+        }
     }
 
     [RelayCommand]
@@ -295,6 +392,7 @@ public partial class ChatViewModel : ViewModelBase
         OnEventChatSessionChanged?.Invoke(value);
         StopSending();
         CheckGenerationBtnVisible();
+        RefreshMemoryFileTips();
     }
 
     private void CheckGenerationBtnVisible()

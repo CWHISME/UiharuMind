@@ -23,6 +23,7 @@
         <converters:TwoValueToBooleanConverter x:Key="TwoValueToBooleanConverter" />
         <converters:MultiConditionBoolAndConverter x:Key="MultiConditionBoolAndConverter" />
         <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
+        <converters:ModelToBrushConverter x:Key="ModelToBrushConverter" />
     </UserControl.Resources>
 
     <Design.DataContext>
@@ -142,19 +143,35 @@
                         </ToolTip.Tip>
                     </Button>
                     <Button Command="{Binding MemoryEditorCommand}">
-                        <PathIcon Data="{StaticResource BookStarRegular}" Width="20" Height="20" />
+                        <PathIcon Data="{StaticResource BookStarRegular}" Width="20" Height="20"
+                                  Foreground="{Binding ChatSession.MemoryData,Converter={StaticResource ModelToBrushConverter}}" />
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{x:Static lang:Lang.Image}" />
+                                Text="{x:Static lang:Lang.MemoryTips}" />
                         </ToolTip.Tip>
                     </Button>
-                    <Button IsVisible="{Binding IsSurportImage}" Command="{Binding UploadImageCommand}">
-                        <PathIcon Data="{StaticResource ImageRegular}" Width="20" Height="20" />
+                    <Button Command="{Binding MemoryUpdateFileCommand}">
+                        <PathIcon Data="{StaticResource DocumentAddRegular}" Width="20" Height="20" />
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{x:Static lang:Lang.Image}" />
+                                Text="{Binding MemoryFileTips}" />
                         </ToolTip.Tip>
                     </Button>
+                    <!-- <TextBlock Text="{Binding ChatSession.MemoryTipsName}" VerticalAlignment="Center" /> -->
+                    <!-- <StackPanel Orientation="Horizontal" Spacing="10"> -->
+                    <!--     <TextBlock Text="{x:Static lang:Lang.MemoryTitle}" VerticalAlignment="Center" /> -->
+                    <!--     <TextBlock Text="{Binding ChatSession.MemoryTipsName}" Margin="-10,0,0,0" -->
+                    <!--                VerticalAlignment="Center" /> -->
+                    <!--     <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding MemorySources}" -->
+                    <!--               SelectedItem="{Binding ChatSession.MemoryData}" /> -->
+                    <!-- </StackPanel> -->
+                    <!-- <Button IsVisible="{Binding IsSurportImage}" Command="{Binding UploadImageCommand}"> -->
+                    <!--     <PathIcon Data="{StaticResource ImageRegular}" Width="20" Height="20" /> -->
+                    <!--     <ToolTip.Tip> -->
+                    <!--         <TextBlock -->
+                    <!--             Text="{x:Static lang:Lang.Image}" /> -->
+                    <!--     </ToolTip.Tip> -->
+                    <!-- </Button> -->
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Right" HorizontalAlignment="Right"

@@ -18,7 +18,9 @@ namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 [DisplayName("RAG Config")]
 public class LLamaCppServerRAGConfig : ConfigBase
 {
-    [SettingConfigDesc("pooling type for embeddings, use model default if unspecified (default: none)")]
+    [SettingConfigDesc("pooling type for embeddings")]
     [SettingConfigOptions("none", "mean", "cls", "last", "rank")]
-    public string Pooling { get; set; } = "none";
+    [DefaultValue("none")]
+    //标记 DefaultValue 后，默认取 { get; set; } = "cls"; 赋值参数
+    public string Pooling { get; set; } = "cls";
 }

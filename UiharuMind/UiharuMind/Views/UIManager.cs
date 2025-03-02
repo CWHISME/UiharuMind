@@ -11,12 +11,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Utils;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows.Characters;
@@ -25,12 +28,14 @@ using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.Views;
 
-public class UIManager
+public static class UIManager
 {
     // private static Dictionary<Type, UiharuWindowBase> _windows = new Dictionary<Type, UiharuWindowBase>();
 
     private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows =
         new Dictionary<Type, List<UiharuWindowBase>>();
+
+    private static Stack<Window> _windowStack = new Stack<Window>();
 
     /// <summary>
     /// 开启一个界面
@@ -130,15 +135,18 @@ public class UIManager
     /// <returns></returns>
     public static Window GetFoucusWindow()
     {
+        if (_windowStack.Count > 0) return _windowStack.Peek();
+        Window? selectedWindow = null;
         foreach (var window in _multiWindows)
         {
             foreach (var win in window.Value)
             {
-                if (win.IsActive && win.IsVisible && win.WindowState != WindowState.Minimized) return win;
+                if (win.IsFocused) return win;
+                if (win.IsActive && win.IsVisible && win.WindowState != WindowState.Minimized) selectedWindow = win;
             }
         }
 
-        return GetRootWindow();
+        return selectedWindow ?? GetRootWindow();
     }
 
     public static void CloseWindow<T>()
@@ -178,7 +186,33 @@ public class UIManager
         });
     }
 
+    public static async void ShowDialogStackWindow(this Window target, Window owner)
+    {
+        try
+        {
+            _windowStack.Push(target);
+            await target.ShowDialog(owner);
+            _windowStack.Pop();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+        finally
+        {
+            if (_windowStack.Count > 0 && _windowStack.Peek() == target) _windowStack.Pop();
+        }
+    }
+
     //===================open====================
+    public static async Task<string?> ShowStringEditWindow(string content, Window? owner = null)
+    {
+        StringContentEditWindow window = new StringContentEditWindow();
+        if (IconUtils.DefaultAppIcon != null) window.Icon = new WindowIcon(IconUtils.DefaultAppIcon);
+        window.DataContext = new StringContentEditWindowViewModel(content, null);
+        return await window.ShowDialog<string?>(owner ?? UIManager.GetFoucusWindow());
+    }
+
     public static void ShowEditCharacterWindow(CharacterInfoViewData? characterInfo,
         Action<CharacterInfoViewData>? onSureCallback)
     {
@@ -190,12 +224,22 @@ public class UIManager
         });
     }
 
-    public static void ShowMemoryEditorWindow(Window owner)
+    public static void ShowMemorySelectWindow(Window owner, Action<MemoryData>? onSelectMemory,
+        MemoryData? selectedMemory)
+    {
+        var window = new MemorySelectWindow()
+        {
+            DataContext = new MemorySelectWindowModel(selectedMemory, onSelectMemory)
+        };
+        window.ShowDialogStackWindow(owner);
+    }
+
+    public static void ShowMemoryEditorWindow(Window owner, MemoryData memoryData)
     {
         var window = new MemoryEditorWindow
         {
-            DataContext = new MemoryEditorWindowModel()
+            DataContext = new MemoryEditorWindowModel(memoryData)
         };
-        window.ShowDialog(owner);
+        window.ShowDialogStackWindow(owner);
     }
 }

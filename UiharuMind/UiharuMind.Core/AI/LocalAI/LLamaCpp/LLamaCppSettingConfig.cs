@@ -30,6 +30,7 @@ public class LLamaCppSettingConfig : ConfigBase
     public int DefautPort { get; set; } = 1369;
 
     public int DefaultEmbededPort => DefautPort + 1;
+    public int DefaultEmbededProxyPort => DefaultEmbededPort + 1;
 
     public string? LLamaCppPath { get; set; }
 
@@ -59,7 +60,7 @@ public class LLamaCppSettingConfig : ConfigBase
     public string GetExeParams()
     {
         return
-            $"{CommandLineHelper.GenerateCommandLineArgs(DebugConfig)} {CommandLineHelper.GenerateCommandLineArgs(CpuConfig)} {CommandLineHelper.GenerateCommandLineArgs(GeneralConfig)} {CommandLineHelper.GenerateCommandLineArgs(ParamsConfig)} {CommandLineHelper.GenerateCommandLineArgs(SpecialConfig)} {CommandLineHelper.GenerateCommandLineArgs(SamplingStrategiesConfig)}";
+            $"{CommandLineHelper.GenerateCommandLineArgs(DebugConfig)} {CommandLineHelper.GenerateCommandLineArgs(CpuConfig)} {CommandLineHelper.GenerateCommandLineArgs(GeneralConfig)} {CommandLineHelper.GenerateCommandLineArgs(ParamsConfig)} {CommandLineHelper.GenerateCommandLineArgs(SpecialConfig)} {CommandLineHelper.GenerateCommandLineArgs(SamplingStrategiesConfig)} {CommandLineHelper.GenerateCommandLineArgs(RagConfig)}";
     }
 
     public string? GetExeLookupStatsPath(string? executablePath)

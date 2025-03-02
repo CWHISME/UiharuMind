@@ -14,10 +14,16 @@ namespace UiharuMind.Core.Core.SimpleLog;
 public class LogItem
 {
     private string _logStr;
+    private string _logShortStr;
 
     public string LogString
     {
         get { return _logStr; }
+    }
+
+    public string LogShortString
+    {
+        get { return _logShortStr; }
     }
 
     private ELogType _logType;
@@ -29,7 +35,9 @@ public class LogItem
 
     public LogItem(ELogType type, string str)
     {
+        const int maxShortStrLength = 200;
         _logStr = DateTime.Now.ToString("[yyyy-MM-dd HH:mm:ss]") + str;
+        _logShortStr = str.Length > maxShortStrLength ? str.Substring(0, maxShortStrLength) : str;
         _logType = type;
     }
 

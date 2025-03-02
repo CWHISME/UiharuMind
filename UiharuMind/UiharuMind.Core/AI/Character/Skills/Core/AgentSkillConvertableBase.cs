@@ -21,6 +21,7 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
 
         var characterData = GetCharacterData();
         var chatSession = new ChatSession(characterData.CharacterName, characterData);
+        if (chatHistory.Count > 0) chatSession.Description = chatHistory[0].Content ?? "临时对话";
         chatSession.ReInitHistory(chatHistory);
         chatSession.ChatModelRunningData = CurModelRunningData;
         chatSession.IsDirty = true;
