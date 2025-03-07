@@ -64,9 +64,10 @@ public abstract class UiharuWindowBase : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        base.OnClosing(e);
         e.Cancel = true;
-        SafeClose();
+        Hide();
+        base.OnClosing(e);
+        // SafeClose();
     }
 
     protected virtual void SafeClose()

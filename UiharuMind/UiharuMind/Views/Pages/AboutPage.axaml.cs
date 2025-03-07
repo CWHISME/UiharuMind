@@ -58,6 +58,10 @@ public partial class AboutPage : UserControl
             "https://github.com/microsoft/semantic-kernel",
             "Semantic Kernel is an SDK that integrates Large Language Models (LLMs) like OpenAI, Azure OpenAI, and Hugging Face with conventional programming languages like C#, Python, and Java."));
 
+        LinksPanel.Children.Add(CreateLink("kernel-memory",
+            "https://github.com/microsoft/kernel-memory",
+            "Kernel Memory (KM) is a multi-modal AI Service specialized in the efficient indexing of datasets through custom continuous data hybrid pipelines, with support for Retrieval Augmented Generation (RAG), synthetic memory, prompt engineering, and custom semantic memory processing."));
+
         LinksPanel.Children.Add(CreateLink("Downloader",
             "https://github.com/bezzad/Downloader",
             "Fast, cross-platform, and reliable multipart downloader in .Net"));
