@@ -13,6 +13,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using UiharuMind.Core.Core.Attributes;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Configs;
 
@@ -25,8 +26,11 @@ public class ConfigBase : INotifyPropertyChanged
 
     public void Save()
     {
-        SaveUtility.SaveRootFile(this.GetType().Name, this);
+        if (AllowSelfSave) SaveUtility.SaveRootFile(this.GetType().Name, this);
+        else Log.Error("Save is not allowed for this config: " + this.GetType().Name);
     }
+
+    protected virtual bool AllowSelfSave => true;
 
     // public void Load()
     // {

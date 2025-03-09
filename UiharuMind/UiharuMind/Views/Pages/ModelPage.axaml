@@ -76,7 +76,10 @@
                     <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="30" ClipToBounds="True"
                             BorderThickness="1" Padding="5">
                         <DockPanel>
-                            <u:Badge Header="远程" Background="Gold" IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <u:Badge Header="{x:Static  lang:Lang.ModelStateRemote}" Background="SpringGreen"
+                                     IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <u:Badge Header="{x:Static  lang:Lang.ModelStateVision}" Background="Gold"
+                                     IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <StackPanel Orientation="Vertical" DockPanel.Dock="Left" VerticalAlignment="Center"
                                         Margin="10,0,0,0">
                                 <SelectableTextBlock Text="{Binding ModelName}" />

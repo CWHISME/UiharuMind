@@ -48,6 +48,7 @@ public partial class App : Application, ILogger, IDisposable
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Log.Debug("UiharuMind begins to start.");
         // Line below is needed to remove Avalonia data validation.
         // Without this line you will get duplicate validations from both Avalonia and CT
         BindingPlugins.DataValidators.RemoveAt(0);
@@ -97,6 +98,7 @@ public partial class App : Application, ILogger, IDisposable
         DummyWindow.LaunchMainWindow();
 
         DeliverTrayFunc();
+        Log.Debug("UiharuMind started.");
     }
 
     // public new static App Current => (App)Application.Current!;

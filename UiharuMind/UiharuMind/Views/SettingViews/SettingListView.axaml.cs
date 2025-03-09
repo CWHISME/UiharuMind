@@ -252,7 +252,15 @@ public partial class SettingListView : UserControl
 
         intbox.ValueChanged += (sender, e) =>
         {
-            property.SetValue(SettingConfig, Convert.ToDouble(intbox.Value));
+            if (numberStyles == NumberStyles.Integer)
+            {
+                property.SetValue(SettingConfig, (int)intbox.Value);
+            }
+            else
+            {
+                property.SetValue(SettingConfig, Convert.ToDouble(intbox.Value));
+            }
+
             NotifyPropertyChanged(property);
         };
         _changeActions.Add(() => intbox.Value = Convert.ToDecimal(property.GetValue(SettingConfig)));

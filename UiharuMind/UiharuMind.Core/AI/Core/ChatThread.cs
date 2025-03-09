@@ -383,6 +383,9 @@ public static class ChatThread
             }
 
             builder.Append(content);
+            const float maxDelay = 300f;
+            float factor = (float)Math.Pow(Math.Min(builder.Length / maxDelay, 1f), 3); // 使用三次方加速曲线，前面变化比较缓慢，越靠后越快
+            delayUpdater.SetDelay((int)(factor * maxDelay) + 50);
             // ReSharper disable once MethodHasAsyncOverload
             if (delayUpdater.UpdateDelay())
             {

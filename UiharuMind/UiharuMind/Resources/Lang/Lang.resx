@@ -456,4 +456,16 @@
     <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
         <value />
     </data>
+    <data name="DebugSetting" xml:space="preserve">
+        <value>Debug Setting</value>
+    </data>
+    <data name="SettingLogLevelTitle" xml:space="preserve">
+        <value>Log Level: </value>
+    </data>
+    <data name="ModelStateRemote" xml:space="preserve">
+        <value>API</value>
+    </data>
+    <data name="ModelStateVision" xml:space="preserve">
+        <value>Vision</value>
+    </data>
 </root>

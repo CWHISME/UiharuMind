@@ -30,7 +30,10 @@
                                     IsVisible="{Binding DataContext.CurModelRunningData,RelativeSource={RelativeSource AncestorType=ComboBox},FallbackValue=True, TargetNullValue=False}">
                             <PathIcon Data="{StaticResource InfoRegular}" />
                             <!-- <TextBlock Text="7B"></TextBlock> -->
-                            <u:Badge Header="远程" Background="Gold" IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <u:Badge Header="{x:Static  lang:Lang.ModelStateRemote}" Background="SpringGreen"
+                                     IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <u:Badge Header="{x:Static  lang:Lang.ModelStateVision}" Background="Gold"
+                                     IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" />
                         </StackPanel>
                     </DataTemplate>

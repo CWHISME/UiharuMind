@@ -53,20 +53,20 @@ public partial class ChatPlugin_LocalModelParamsData : ChatPluginDataBase<ChatPl
     {
         LlmManager.Instance.LLamaCppServer.Config.GeneralConfig.GpuLayers = value;
         LlmManager.Instance.LLamaCppServer.Config.GeneralConfig.OnPropertyChanged(nameof(GpuLayers));
-        LlmManager.Instance.LLamaCppServer.Config.ParamsConfig.Save();
+        LlmManager.Instance.LLamaCppServer.Config.Save();
     }
 
     partial void OnFlashAttnChanged(bool value)
     {
         LlmManager.Instance.LLamaCppServer.Config.GeneralConfig.FlashAttn = value;
         LlmManager.Instance.LLamaCppServer.Config.GeneralConfig.OnPropertyChanged(nameof(FlashAttn));
-        LlmManager.Instance.LLamaCppServer.Config.ParamsConfig.Save();
+        LlmManager.Instance.LLamaCppServer.Config.Save();
     }
 
     partial void OnCtxSizeChanged(int value)
     {
         LlmManager.Instance.LLamaCppServer.Config.ParamsConfig.CtxSize = value;
         LlmManager.Instance.LLamaCppServer.Config.ParamsConfig.OnPropertyChanged(nameof(CtxSize));
-        LlmManager.Instance.LLamaCppServer.Config.ParamsConfig.Save();
+        LlmManager.Instance.LLamaCppServer.Config.Save();
     }
 }

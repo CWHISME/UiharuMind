@@ -28,12 +28,14 @@ public class LLamaCppVersionManager
     /// 获取目录中本地引擎版本信息
     /// </summary>
     /// <param name="path"></param>
+    /// <param name="forceNew"></param>
     /// <returns></returns>
-    public async Task<VersionManager> GetLocalVersions(string path)
+    public async Task<VersionManager> GetLocalVersions(string path, bool forceNew = false)
     {
+        VersionManager versionManager = forceNew ? new VersionManager() : _versionManager;
         await Task.Run(() =>
         {
-            foreach (var item in _versionManager.VersionsList)
+            foreach (var item in versionManager.VersionsList)
             {
                 item.IsDownloaded = false;
             }
@@ -41,7 +43,7 @@ public class LLamaCppVersionManager
             foreach (string versionDir in Directory.EnumerateDirectories(path))
             {
                 string versionName = Path.GetFileName(versionDir);
-                var version = _versionManager.GetOrCreateVersion(versionName);
+                var version = versionManager.GetOrCreateVersion(versionName);
                 version.AddBackendType(new LLamaCppRuntimeEngine(versionName, versionDir));
                 //判断 versionDir 下是否有可执行文件
                 foreach (var file in Directory.EnumerateFiles(versionDir, LLamaCppSettingConfig.ServerExeName + "*",
@@ -54,11 +56,11 @@ public class LLamaCppVersionManager
                 if (!string.IsNullOrEmpty(version.ExecutablePath)) version.IsDownloaded = true;
             }
 
-            _versionManager.RemoveAllNotLoadedVersions();
-            _versionManager.Sort();
+            versionManager.RemoveAllNotLoadedVersions();
+            versionManager.Sort();
         }).ConfigureAwait(false);
 
-        return _versionManager;
+        return versionManager;
     }
 
     /// <summary>

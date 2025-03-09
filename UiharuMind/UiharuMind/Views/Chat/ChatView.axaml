@@ -220,8 +220,12 @@
                 <!-- 计算中显示的取消按钮 -->
                 <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" VerticalAlignment="Center">
                     <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
-                    <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
-                            Command="{Binding StopSendingCommand}" />
+                    <!-- <Button Content="●" Classes="SimpleSolidButton" Foreground="Red" -->
+                    <!--         Command="{Binding StopSendingCommand}" /> -->
+                    <Button Classes="SimpleSolidButton" Command="{Binding StopSendingCommand}">
+                        <PathIcon Data="{StaticResource StopRegular}" Width="15" Height="15" Background="Red"
+                                  Foreground="Red" />
+                    </Button>
                 </StackPanel>
             </StackPanel>
 

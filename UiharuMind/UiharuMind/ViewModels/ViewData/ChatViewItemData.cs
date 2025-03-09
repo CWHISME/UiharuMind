@@ -29,7 +29,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// <summary>
 /// 一个聊天记录中的一条消息
 /// </summary>
-public partial class ChatViewItemData : ViewModelBase, IPoolAble
+public partial class ChatViewItemData : ObservableObject, IPoolAble
 {
     // [ObservableProperty] private bool _isUser;
     [ObservableProperty] private ECharacter _role;

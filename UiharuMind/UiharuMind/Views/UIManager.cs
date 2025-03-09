@@ -32,6 +32,8 @@ public static class UIManager
 {
     // private static Dictionary<Type, UiharuWindowBase> _windows = new Dictionary<Type, UiharuWindowBase>();
 
+    public static bool IsClosing { get; set; } = false;
+
     private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows =
         new Dictionary<Type, List<UiharuWindowBase>>();
 

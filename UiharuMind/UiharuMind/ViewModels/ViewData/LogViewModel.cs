@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils.Tools;
 
@@ -36,7 +37,7 @@ public class LogViewModel : ViewModelBase
         {
             foreach (var item in LogManager.Instance.LogItems)
             {
-                Items.Add(item);
+                OnLogChange(item);
             }
 
             return Task.CompletedTask;
@@ -47,7 +48,8 @@ public class LogViewModel : ViewModelBase
 
     private void OnLogChange(LogItem obj)
     {
-        Items.Add(obj);
+        if (ConfigManager.Instance.DebugSetting.LogTypeInfo <= obj.LogType)
+            Items.Add(obj);
         // _delayUpdater.UpdateValue(obj).ConfigureAwait(false);
     }
 }

@@ -41,11 +41,40 @@ public partial class RuntimeEngineSettingData : ObservableObject
 
     public RuntimeEngineSettingData()
     {
-        InitializeAvailableVersions();
-        RemoteDwnloadListViewModel.OnDownloadFileChange += InitializeAvailableVersions;
+        _ = InitializeAvailableVersions();
+        RemoteDwnloadListViewModel.OnDownloadFileChange += () => _ = InitializeAvailableVersions();
     }
 
-    private async void InitializeAvailableVersions()
+    [RelayCommand]
+    private async Task ReloadRuntimeEngineList()
+    {
+        await InitializeAvailableVersions();
+        App.MessageService.ShowNotification("Engine list updated.");
+    }
+
+    [RelayCommand]
+    private async Task UpdateRemoteVersions()
+    {
+        IsCheckingForUpdate = true;
+        RemoteDwnloadListViewModel.ClearIfNotExists();
+        var versions = await LlmManager.Instance.RuntimeEngineManager.PullLastestVersion();
+        foreach (var version in versions.VersionsList)
+        {
+            if (RemoteDwnloadListViewModel.IsExists(version.Name)) continue;
+            RemoteDwnloadListViewModel.AddItem(new DownloadableItemData(version, true));
+        }
+
+        UpdatedResutInfo = versions.ReleaseDate;
+        IsCheckingForUpdate = false;
+    }
+
+    [RelayCommand]
+    private void OpenFolder()
+    {
+        App.FilesService.OpenFolder(SettingConfig.BackendRuntimeEnginePath);
+    }
+
+    private async Task InitializeAvailableVersions()
     {
         // AvailableVersions.Clear();
         var versions = await LlmManager.Instance.RuntimeEngineManager.GetLocalVersions();
@@ -67,28 +96,6 @@ public partial class RuntimeEngineSettingData : ObservableObject
         _lastAvailableVersions.AddRange(versions.VersionsList);
 
         SelectedVersion = LlmManager.Instance.RuntimeEngineManager.CurrentSeletedVersion;
-    }
-
-    [RelayCommand]
-    public async Task UpdateRemoteVersions()
-    {
-        IsCheckingForUpdate = true;
-        RemoteDwnloadListViewModel.ClearIfNotExists();
-        var versions = await LlmManager.Instance.RuntimeEngineManager.PullLastestVersion();
-        foreach (var version in versions.VersionsList)
-        {
-            if (RemoteDwnloadListViewModel.IsExists(version.Name)) continue;
-            RemoteDwnloadListViewModel.AddItem(new DownloadableItemData(version, true));
-        }
-
-        UpdatedResutInfo = versions.ReleaseDate;
-        IsCheckingForUpdate = false;
-    }
-
-    [RelayCommand]
-    private void OpenFolder()
-    {
-        App.FilesService.OpenFolder(SettingConfig.BackendRuntimeEnginePath);
     }
 
     //

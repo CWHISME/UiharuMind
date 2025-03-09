@@ -21,6 +21,7 @@ public class ConfigManager : Singleton<ConfigManager>
     public QuickToolSetting QuickToolSetting { get; private set; }
     public QuickToolPromptSetting QuickToolPromptSetting { get; private set; }
     public ChatSettingConfig ChatSetting { get; private set; }
+    public DebugSettingConfig DebugSetting { get; private set; }
 
     public ConfigManager()
     {
@@ -28,16 +29,17 @@ public class ConfigManager : Singleton<ConfigManager>
         QuickToolSetting = SaveUtility.LoadOrNew<QuickToolSetting>(typeof(QuickToolSetting));
         QuickToolPromptSetting = SaveUtility.LoadOrNew<QuickToolPromptSetting>(typeof(QuickToolPromptSetting));
         ChatSetting = SaveUtility.LoadOrNew<ChatSettingConfig>(typeof(ChatSettingConfig));
+        DebugSetting = SaveUtility.LoadOrNew<DebugSettingConfig>(typeof(DebugSettingConfig));
     }
 
-    /// <summary>
-    /// 保存设置
-    /// </summary>
-    public void SaveSetting()
-    {
-        Setting.Save();
-        QuickToolSetting.Save();
-        QuickToolPromptSetting.Save();
-        ChatSetting.Save();
-    }
+    // /// <summary>
+    // /// 保存设置
+    // /// </summary>
+    // public void SaveSetting()
+    // {
+    //     Setting.Save();
+    //     QuickToolSetting.Save();
+    //     QuickToolPromptSetting.Save();
+    //     ChatSetting.Save();
+    // }
 }

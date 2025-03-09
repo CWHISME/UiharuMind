@@ -51,28 +51,28 @@ public class InputManager : Singleton<InputManager>, IInitialize
         Start();
     }
 
-    public async void Start()
+    public void Start()
     {
-        _hook = new SimpleGlobalHook(GlobalHookType.All); //new TaskPoolGlobalHook();
-
-        _hook.HookEnabled += OnHookEnabled;
-        _hook.HookDisabled += OnHookDisabled;
-
-        // _hook.KeyTyped += OnKeyTyped;
-        _hook.KeyPressed += OnKeyPressed;
-        _hook.KeyReleased += OnKeyReleased;
-
-        // _hook.MouseClicked += OnMouseClicked;
-        _hook.MousePressed += OnMousePressed;
-        _hook.MouseReleased += OnMouseReleased;
-        _hook.MouseMoved += OnMouseMoved;
-        _hook.MouseDragged += OnMouseDragged;
-
-        _hook.MouseWheel += OnMouseWheel;
-
-        Thread thread = new Thread(() => { _hook.Run(); });
         try
         {
+            _hook = new SimpleGlobalHook(GlobalHookType.All); //new TaskPoolGlobalHook();
+
+            _hook.HookEnabled += OnHookEnabled;
+            _hook.HookDisabled += OnHookDisabled;
+
+            // _hook.KeyTyped += OnKeyTyped;
+            _hook.KeyPressed += OnKeyPressed;
+            _hook.KeyReleased += OnKeyReleased;
+
+            // _hook.MouseClicked += OnMouseClicked;
+            _hook.MousePressed += OnMousePressed;
+            _hook.MouseReleased += OnMouseReleased;
+            _hook.MouseMoved += OnMouseMoved;
+            _hook.MouseDragged += OnMouseDragged;
+
+            _hook.MouseWheel += OnMouseWheel;
+
+            Thread thread = new Thread(() => { _hook.Run(); });
             thread.Start();
         }
         catch (Exception)

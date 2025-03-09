@@ -15,11 +15,10 @@
 
     <Grid RowDefinitions="Auto,*">
         <StackPanel Orientation="Vertical">
-            <StackPanel Orientation="Horizontal" Margin="10">
+            <StackPanel Orientation="Horizontal" Margin="10" Spacing="10">
                 <TextBlock Text="{x:Static lang:Lang.CurrentEngineTypeSetting}" VerticalAlignment="Center" />
 
-                <ComboBox Margin="10,0,0,0"
-                          Width="300"
+                <ComboBox Width="300"
                           ItemsSource="{Binding AvailableVersions}"
                           SelectedItem="{Binding SelectedVersion}">
                     <ComboBox.ItemTemplate>
@@ -28,11 +27,16 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <Button Margin="10,0,0,0" Content="{x:Static lang:Lang.OpenDirectory}"
+                <!-- <u:IconButton Command="{Binding ReloadRuntimeEngineListCommand}"> -->
+                <!--     <u:IconButton.Icon> -->
+                <!--         <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" /> -->
+                <!--     </u:IconButton.Icon> -->
+                <!-- </u:IconButton> -->
+                <Button Content="{x:Static lang:Lang.OpenDirectory}"
                         Command="{Binding OpenFolderCommand}" />
-                <Button Margin="10,0,0,0" Content="{x:Static lang:Lang.CheckUpdate}"
+                <Button Content="{x:Static lang:Lang.CheckUpdate}"
                         Command="{Binding UpdateRemoteVersionsCommand}" />
-                <StackPanel Orientation="Horizontal" Margin="10,0,0,0" IsVisible="{Binding IsCheckingForUpdate}">
+                <StackPanel Orientation="Horizontal" IsVisible="{Binding IsCheckingForUpdate}">
                     <u:LoadingIcon />
                     <TextBlock Text="{x:Static lang:Lang.CheckingForUpdates}" VerticalAlignment="Center" />
                 </StackPanel>

@@ -26,6 +26,8 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
 {
     protected T? CurrentSnapWindow;
 
+    protected override bool IsAllowFocusOnOpen => false;
+
     public DockWindow()
     {
         this.SetSimpledecorationWindow();

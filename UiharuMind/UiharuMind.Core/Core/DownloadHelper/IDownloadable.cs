@@ -17,6 +17,7 @@ public interface IDownloadable
     public string DownloadUrl { get; }
 
     public bool IsDownloaded { get; set; }
+    public bool IsNotAllowDelete { get; }
 
     /// <summary>
     /// 如果 DownloadFileName 为空，则直接以下载文件名为文件名下载至 DownloadDirectory

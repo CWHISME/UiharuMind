@@ -100,7 +100,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         EmbedeHttpServerUri = new Uri(EmbedeHttpServerUrl);
     }
 
-    public async Task StartServer(string executablePath, string modelFilePath, int port,
+    public async Task StartServer(string executablePath, string modelFilePath, string projFilePath, int port,
         Action<string>? onMessageUpdate = null, string extraParams = "", CancellationToken token = default)
     {
         // var exePath = Config.GetExeServerPath(executablePath);
@@ -116,8 +116,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         }
 
         // config ??= Config.ServerConfig;
+        // {(string.IsNullOrEmpty(projFilePath) ? "" : $"--mmproj {projFilePath}")}
         var totalParams =
-            $"-m \"{modelFilePath}\" --no-webui --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {Config.GetExeParams()} {extraParams}";
+            $"-m \"{modelFilePath}\" --no-webui --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {Config
+                .GetExeParams()} {extraParams}";
         Log.Debug("Start sever:" + totalParams);
         await ProcessHelper.StartProcess(Config.GetExeServerPath(executablePath), totalParams, onMessageUpdate, token)
             .ConfigureAwait(false);
@@ -156,8 +158,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         CancellationToken token = default)
     {
         //检测是否正常扫描过信息
+        string projFilePath = "";
         if (model is GGufModelInfo modelInfo)
         {
+            if (modelInfo.ModelProjPath != null) projFilePath = modelInfo.ModelProjPath;
             if (!modelInfo.IsReady)
             {
                 // await GetModelStateInfo(info.ExecutablePath, model.ModelPath).ConfigureAwait(false);
@@ -210,7 +214,8 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             }
         }
 
-        await StartServer(info.ExecutablePath, model.ModelPath, port ?? Config.DefautPort, OnMessageUpdate, extraParams,
+        await StartServer(info.ExecutablePath, model.ModelPath, projFilePath, port ?? Config.DefautPort,
+                OnMessageUpdate, extraParams,
                 token)
             .ConfigureAwait(false);
     }
@@ -279,25 +284,48 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
 
     public async Task<IReadOnlyDictionary<string, GGufModelInfo>> GetModelList(VersionInfo? versionInfo)
     {
-        return await ScanLocalModels(versionInfo).ConfigureAwait(false);
+        return await ScanAllLocalModels(versionInfo).ConfigureAwait(false);
     }
 
-    public async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(VersionInfo? versionInfo, bool force = false)
+    public async Task<Dictionary<string, GGufModelInfo>> ScanAllLocalModels(VersionInfo? versionInfo,
+        bool force = false)
+    {
+        _modelInfos.Clear();
+        await ScanLocalModels(versionInfo, Config.DefaultLocalModelPath, _modelInfos);
+        return await ScanLocalModels(versionInfo, Config.LocalModelPath, _modelInfos);
+    }
+
+    private async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(VersionInfo? versionInfo, string modelPath,
+        Dictionary<string, GGufModelInfo> modelInfos,
+        bool force = false)
     {
         string? executablePath = Config.GetExeLookupStatsPath(versionInfo?.ExecutablePath);
-        _modelInfos.Clear();
-        if (!Directory.Exists(Config.LocalModelPath)) return _modelInfos;
-        string[] files = Directory.GetFiles(Config.LocalModelPath!, "*.gguf", SearchOption.AllDirectories);
+        // _modelInfos.Clear();
+        if (!Directory.Exists(modelPath)) return modelInfos;
+        string[] files = Directory.GetFiles(modelPath, "*.gguf", SearchOption.AllDirectories);
         bool isChanged = false;
         foreach (var file in files)
         {
             string fileName = Path.GetFileNameWithoutExtension(file);
+            if (fileName.Contains("mmproj", StringComparison.Ordinal)) continue;
+
+            //check vision
+            string projPath = "";
+            // var dir = Path.GetDirectoryName(file);
+            // if (dir != null)
+            // {
+            //     var mmproj = Directory.GetFiles(dir, "*.gguf", SearchOption.TopDirectoryOnly)
+            //         .FirstOrDefault(x => x.Contains("mmproj", StringComparison.Ordinal));
+            //     projPath = mmproj;
+            // }
+
             //缓存扫描结果，避免重复扫描，除非强制标记
             if (!force && Config.ModelInfos.TryGetValue(fileName, out var info))
                 // if (Config.ModelInfos.ContainsKey(fileName))
             {
                 info.ModelPath = file;
-                _modelInfos[fileName] = info;
+                info.ModelProjPath = projPath;
+                modelInfos[fileName] = info;
                 continue;
             }
 
@@ -307,15 +335,16 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             info = new GGufModelInfo(); //await GetModelStateInfo(executablePath, file);
             info.ModelName = fileName;
             info.ModelPath = file;
+            info.ModelProjPath = projPath;
 
-            _modelInfos[fileName] = info;
+            modelInfos[fileName] = info;
             Config.ModelInfos[fileName] = info;
             // break;
         }
 
         if (isChanged) Config.Save();
         //缓存一次时因为可能出现更换目录，配置设置还在但是模型已经不在的情况
-        return _modelInfos;
+        return modelInfos;
         // return null;
     }
 
@@ -334,7 +363,19 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     {
         string path = Path.Combine(enginePath, "LLamaCpp");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-        return await _llamaCppVersionManager.GetLocalVersions(path).ConfigureAwait(false);
+        var versionManager = await _llamaCppVersionManager.GetLocalVersions(path).ConfigureAwait(false);
+
+        //合并内部版本
+        string internalPath = Path.Combine(Config.DefaultRuntimePath, "LLamaCpp");
+        if (!Directory.Exists(internalPath)) return versionManager;
+        var internalVersion = await _llamaCppVersionManager.GetLocalVersions(internalPath, true).ConfigureAwait(false);
+        foreach (var ver in internalVersion.VersionsList)
+        {
+            ver.IsInternal = true;
+        }
+
+        versionManager.Merge(internalVersion);
+        return versionManager;
     }
 
     /// <summary>

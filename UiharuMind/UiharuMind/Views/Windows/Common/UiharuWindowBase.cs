@@ -64,10 +64,10 @@ public abstract class UiharuWindowBase : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        UIManager.IsClosing = true;
         e.Cancel = true;
         Hide();
         base.OnClosing(e);
-        // SafeClose();
     }
 
     protected virtual void SafeClose()
@@ -75,7 +75,7 @@ public abstract class UiharuWindowBase : Window
         OnPreClose();
         // InvalidateMeasure();
         // Log.Debug("Closing window: " + this.GetType().Name + "   " + this.IsMeasureValid);
-        App.DummyWindow.Focus();
+        // App.DummyWindow.Focus();
         Dispatcher.UIThread.Post(Hide, DispatcherPriority.ApplicationIdle);
     }
 

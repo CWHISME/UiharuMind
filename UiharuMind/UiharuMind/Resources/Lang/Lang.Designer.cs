@@ -914,5 +914,29 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ChatSessionMemoryFileUploadInfo", resourceCulture);
             }
         }
+        
+        public static string DebugSetting {
+            get {
+                return ResourceManager.GetString("DebugSetting", resourceCulture);
+            }
+        }
+        
+        public static string SettingLogLevelTitle {
+            get {
+                return ResourceManager.GetString("SettingLogLevelTitle", resourceCulture);
+            }
+        }
+        
+        public static string ModelStateRemote {
+            get {
+                return ResourceManager.GetString("ModelStateRemote", resourceCulture);
+            }
+        }
+        
+        public static string ModelStateVision {
+            get {
+                return ResourceManager.GetString("ModelStateVision", resourceCulture);
+            }
+        }
     }
 }

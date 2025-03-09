@@ -123,6 +123,8 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public bool IsNotAllowDelete => _target.IsNotAllowDelete;
+
     // /// <summary>
     // /// 是否正在下载
     // /// </summary>

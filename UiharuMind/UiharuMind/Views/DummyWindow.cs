@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using SharpHook.Native;
 using UiharuMind.Core.Core.SimpleLog;
@@ -32,7 +33,7 @@ public class DummyWindow : Window
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
 
-    // private bool _active;
+    private bool _isActive;
 
     public DummyWindow()
     {
@@ -60,13 +61,20 @@ public class DummyWindow : Window
 
         // MainWindow = LaunchMainWindow();
         this.Activated += OnActivated;
-        this.GotFocus += OnActivated;
-        this.Deactivated += OnDeactivated;
+        // this.GotFocus += OnActivated;
+        // this.Deactivated += OnDeactivated;
     }
+
+    // protected override void OnGotFocus(GotFocusEventArgs e)
+    // {
+    //     base.OnGotFocus(e);
+    //     OnActivated(sender: this, e: e);
+    // }
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+
         RegistryShortcut();
         RegistryClipboardTool();
         // Hide();
@@ -86,13 +94,27 @@ public class DummyWindow : Window
         // Log.Debug("活跃窗口" + WindowState);
         // if (_active) LaunchMainWindow();
         // _active = true;
-        if (WindowState == WindowState.Minimized) LaunchMainWindow();
+
+        if (WindowState == WindowState.Minimized && !UIManager.IsClosing) LaunchMainWindow();
         WindowState = WindowState.Minimized;
+        UIManager.IsClosing = false;
+        // if (_isActive||UIManager.IsClosing)
+        // {
+        //     _isActive = false;
+        //     //关闭界面必然触发主界面 Active，额外处理
+        //     UIManager.IsClosing = false;
+        //     return;
+        // }
+        //
+        // // _isActive = true;
+        // LaunchMainWindow();
+
         // Task.Delay(30).ContinueWith((x) => { return _active = false; });
     }
 
     private void OnDeactivated(object? sender, EventArgs e)
     {
+        _isActive = false;
         // Log.Debug("失活窗口" + WindowState);
     }
 
@@ -154,7 +176,16 @@ public class DummyWindow : Window
     public void LaunchMainWindow()
     {
         MainViewModel ??= new MainViewModel();
-        UIManager.ShowWindow<MainWindow>(null, x => x.DataContext = MainViewModel);
+        UIManager.ShowWindow<MainWindow>(null, x =>
+        {
+            x.DataContext = MainViewModel;
+            x.Activated += OnMainWindowActivated;
+        });
+    }
+
+    private void OnMainWindowActivated(object? sender, EventArgs e)
+    {
+        _isActive = true;
     }
 
     public void LaunchQuickStartChatWindow()

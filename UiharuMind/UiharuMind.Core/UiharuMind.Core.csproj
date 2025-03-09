@@ -14,7 +14,7 @@
       <PackageReference Include="KernelMemory.StructRAG" Version="0.0.15" />
       <PackageReference Include="Markdown.ColorCode" Version="3.0.0" />
       <PackageReference Include="Microsoft.KernelMemory" Version="0.97.250211.1" />
-      <PackageReference Include="Microsoft.SemanticKernel" Version="1.38.0" />
+      <PackageReference Include="Microsoft.SemanticKernel" Version="1.40.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.37.0-alpha" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpHook" Version="5.3.8" />

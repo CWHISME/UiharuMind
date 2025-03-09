@@ -21,7 +21,7 @@ public class LLamaCppServerParamsConfig : ConfigBase
 {
     [SettingConfigDesc("size of the prompt context (default: 0, 0 = loaded from model)")]
     [DefaultValue(0)]
-    public int CtxSize { get; set; } = 16384;
+    public int CtxSize { get; set; } = 4096;
 
     [SettingConfigDesc("number of tokens to predict (default: -1, -1 = infinity, -2 = until context filled)")]
     public int Predict { get; set; } = -1;
@@ -33,7 +33,8 @@ public class LLamaCppServerParamsConfig : ConfigBase
     public int UbatchSize { get; set; } = 1024;
 
     [SettingConfigDesc("number of tokens to keep from the initial prompt (default: 0, -1 = all)")]
-    public int Keep { get; set; } = 0;
+    [DefaultValue(0)]
+    public int Keep { get; set; } = -1;
 
     [SettingConfigDesc("prompt to start generation with")]
     public string Prompt { get; set; } = "";

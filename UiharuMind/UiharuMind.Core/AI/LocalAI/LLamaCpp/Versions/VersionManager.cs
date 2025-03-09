@@ -18,8 +18,11 @@ public class VersionManager
 
     public void AddVersion(VersionInfo versionInfo, bool withSort = true)
     {
-        VersionsList.Add(versionInfo);
-        if (withSort) Sort();
+        if (!VersionsList.Contains(versionInfo))
+        {
+            VersionsList.Add(versionInfo);
+            if (withSort) Sort();
+        }
     }
 
     public void RemoveVersion(string versionNumber)
@@ -60,5 +63,16 @@ public class VersionManager
     public void RemoveAllVersions()
     {
         VersionsList.Clear();
+    }
+
+    public void Merge(VersionManager otherVersion)
+    {
+        foreach (var other in otherVersion.VersionsList)
+        {
+            AddVersion(other, false);
+        }
+
+        // VersionsList.AddRange(internalVersion.VersionsList);
+        Sort();
     }
 }

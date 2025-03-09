@@ -24,9 +24,13 @@ public class VersionInfo : IComparable<VersionInfo>, IDownloadable, IEquatable<V
     public string ExecutablePath { get; set; }
     public string DownloadUrl { get; set; }
 
+    public bool IsNotAllowDelete => IsInternal;
     public string? DownloadFileName { get; set; }
 
     public string? DownloadDirectory { get; set; }
+
+    //默认的
+    public bool IsInternal { get; set; }
 
     // public string? DownloadSize { get; set; }
     public bool IsDownloaded

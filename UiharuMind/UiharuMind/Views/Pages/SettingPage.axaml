@@ -32,6 +32,14 @@
             </DockPanel>
         </TabItem>
 
+        <!-- debug -->
+        <TabItem Header="{x:Static lang:Lang.DebugSetting}">
+            <DockPanel Margin="0,10,0,0">
+                <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.DebugSetting}" FontSize="24" />
+                <settingViews:DebugSetting />
+            </DockPanel>
+        </TabItem>
+
     </TabControl>
 
 </UserControl>

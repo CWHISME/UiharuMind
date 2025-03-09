@@ -21,6 +21,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Clowd.Clipboard;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -173,7 +174,7 @@ public class ClipboardService : IDisposable
         OnTimerElapsed(null);
     }
 
-    private async void OnSystemClipboardChanged()
+    private void OnSystemClipboardChanged()
     {
         if (_isSelfCopying)
         {
@@ -181,32 +182,36 @@ public class ClipboardService : IDisposable
             return;
         }
 
-        await Task.Delay(10);
-        var clipboardContent = await GetFromClipboard();
-        if (string.IsNullOrEmpty(clipboardContent))
+        Dispatcher.UIThread.Post(async void () =>
         {
-            //是图片吗
-            var image = await GetImageFromClipboard();
-            if (image != null) OnClipboardImageChanged?.Invoke(image);
-            return;
-        }
+            try
+            {
+                await Task.Delay(10);
+                var clipboardContent = await GetFromClipboard();
+                if (string.IsNullOrEmpty(clipboardContent))
+                {
+                    //是图片吗
+                    var image = await GetImageFromClipboard();
+                    if (image != null) OnClipboardImageChanged?.Invoke(image);
+                    return;
+                }
 
-        //简单对比排除一下相同项
-        try
-        {
-            if (ClipboardHistoryItems.Count > 0 && clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
-                clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;
-            ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
-            OnClipboardStringChanged?.Invoke(clipboardContent);
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e.Message);
-        }
-        // finally
-        // {
-        //     _isHistoryDirty = true;
-        // }
+                //简单对比排除一下相同项
+                if (ClipboardHistoryItems.Count > 0 &&
+                    clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
+                    clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;
+                ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
+                OnClipboardStringChanged?.Invoke(clipboardContent);
+            }
+            catch (Exception e)
+            {
+                Log.Warning(e.Message);
+            }
+            // finally
+            // {
+            //     _isHistoryDirty = true;
+            // }
+        });
     }
 
     private void OnTimerElapsed(object? state)

@@ -37,10 +37,11 @@ public class LLamaCppSettingConfig : ConfigBase
     public string LocalModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "Models"); //"./Models";
 
 
-    [JsonIgnore] public string DefaultEmbededModelPath { get; set; } = "./EmbededModels";
+    [JsonIgnore] public string DefaultRuntimePath { get; set; } = "./InternalRuntime";
+    [JsonIgnore] public string DefaultLocalModelPath { get; set; } = "./InternalModels";
+    [JsonIgnore] public string DefaultEmbededModelPath { get; set; } = "./InternalEmbededModels";
 
-    [JsonIgnore]
-    public string ExternalEmbededModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbededModels");
+    [JsonIgnore] public string ExternalEmbededModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbededModels");
 
 
     public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();

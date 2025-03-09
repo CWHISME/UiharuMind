@@ -22,7 +22,10 @@ public class GGufModelInfo : ILlmModel
     public bool IsDegraded { get; set; }
 
     [JsonIgnore] public string ModelPath { get; set; }
-    public bool IsVision => false;
+
+    //投影路径
+    [JsonIgnore] public string? ModelProjPath { get; set; }
+    public bool IsVision => !string.IsNullOrEmpty(ModelProjPath);
     public string ModelDescription { get; }
     public string ModelId { get; }
     public int Port { get; set; }

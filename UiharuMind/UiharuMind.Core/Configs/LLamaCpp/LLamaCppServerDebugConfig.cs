@@ -19,14 +19,14 @@ namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 [DisplayName("Debug Config")]
 public class LLamaCppServerDebugConfig : ConfigBase
 {
-    // [SettingConfigDesc("log disable (default: true)")]
-    // [SettingConfigNoneValue]
-    // public bool LogDisable { get; set; } = true;
+    [SettingConfigDesc("log disable (default: true)")]
+    [SettingConfigNoneValue]
+    public bool LogDisable { get; set; } = true;
 
-    [SettingConfigDesc("log running info (default: false)")]
-    [SettingConfigDesc("运行过程中是否打印日志信息", LanguageUtils.ChineseSimplified)]
-    [SettingConfigIgnoreValue]
-    public bool LogRunningInfo { get; set; } = false;
+    // [SettingConfigDesc("log running info (default: false)")]
+    // [SettingConfigDesc("运行过程中是否打印日志信息", LanguageUtils.ChineseSimplified)]
+    // [SettingConfigIgnoreValue]
+    // public bool LogRunningInfo { get; set; } = false;
 
     [SettingConfigDesc("Set verbosity level to infinity (i.e. log all messages, useful for debugging)")]
     [SettingConfigNoneValue]
