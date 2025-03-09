@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using UiharuMind.Utils;
@@ -17,6 +18,8 @@ namespace UiharuMind.Views.Common;
 
 public abstract class UiharuWindowBase : Window
 {
+    public event Action? OnPreCloseEvent;
+
     public void RequestShow(bool isFirstShow = false, bool isActivate = true)
     {
         OnPreShow();
@@ -66,12 +69,12 @@ public abstract class UiharuWindowBase : Window
     {
         UIManager.IsClosing = true;
         e.Cancel = true;
-        Hide();
-        base.OnClosing(e);
+        SafeClose();
     }
 
     protected virtual void SafeClose()
     {
+        OnPreCloseEvent?.Invoke();
         OnPreClose();
         // InvalidateMeasure();
         // Log.Debug("Closing window: " + this.GetType().Name + "   " + this.IsMeasureValid);

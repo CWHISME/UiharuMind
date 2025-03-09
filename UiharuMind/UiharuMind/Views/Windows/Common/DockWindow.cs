@@ -71,6 +71,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
             CurrentSnapWindow.SizeChanged -= MainWindow_SizeChanged;
             CurrentSnapWindow.PointerExited -= MainWindow_OnMouseLeave;
             CurrentSnapWindow.Closing -= MainWindow_OnClose;
+            CurrentSnapWindow.OnPreCloseEvent -= MainWindow_OnClose;
         }
 
         // Log.Debug($"SetMainWindow {mainWindow} set");
@@ -81,10 +82,16 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         CurrentSnapWindow.SizeChanged += MainWindow_SizeChanged;
         CurrentSnapWindow.PointerExited += MainWindow_OnMouseLeave;
         CurrentSnapWindow.Closing += MainWindow_OnClose;
+        CurrentSnapWindow.OnPreCloseEvent += MainWindow_OnClose;
 
         RequestShow();
         UpdateFollowerWindowPosition();
         // Log.Debug($"SetMainWindow {mainWindow} UpdateFollowerWindowPosition");
+    }
+
+    private void MainWindow_OnClose()
+    {
+        SetMainWindow(null);
     }
 
     private void MainWindow_OnClose(object? sender, WindowClosingEventArgs e)
