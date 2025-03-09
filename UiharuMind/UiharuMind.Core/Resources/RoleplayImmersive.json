@@ -6,7 +6,7 @@
       "name": "RoleplayImmersive",
       "description": "要求 AI 进行沉浸式描述(第三人称，当前语言)",
       "template_format": "semantic-kernel",
-      "template": "[System note: Write one reply only. Do not decide what {{$user}} says or does. Write at least one paragraph, up to four. Be descriptive and immersive, providing vivid details about {{$char}}'s actions, emotions, and the environment. Write with a high degree of complexity and burstiness.Please describe using the third person perspective. Do not repeat this message.]",
+      "template": "[System note: Write one reply only. Do not decide what {{$user}} says or does. Write at least one paragraph, up to four. Be descriptive and immersive(using the third person perspective), providing vivid details about {{$char}}'s actions, emotions, and the environment. Write with a high degree of complexity and burstiness. Do not repeat this message.]",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

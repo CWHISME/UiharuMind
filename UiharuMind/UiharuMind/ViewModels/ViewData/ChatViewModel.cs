@@ -207,10 +207,10 @@ public partial class ChatViewModel : ViewModelBase
 
     private void RefreshMemoryFileTips()
     {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(Lang.ChatSessionMemoryFileUploadInfo);
         if (ChatSession?.MemoryData != null)
         {
-            StringBuilder sb = new StringBuilder();
-            sb.AppendLine(Lang.ChatSessionMemoryFileUploadInfo);
             if (ChatSession.MemoryData.FilePaths.Count == 0)
             {
                 sb.Append(Lang.NoMemory);
@@ -226,9 +226,10 @@ public partial class ChatViewModel : ViewModelBase
                     else sb.AppendLine(path);
                 }
             }
-
-            MemoryFileTips = sb.ToString();
         }
+        else sb.Append(Lang.NoMemory);
+
+        MemoryFileTips = sb.ToString();
     }
 
     [RelayCommand]

@@ -356,8 +356,14 @@ public static class ChatThread
         // cts.Token.Register(() => end?.Invoke());
         cancellationToken.Register(() =>
         {
-            chatHistory.AddAssistantMessage(builder.ToString());
-            end?.Invoke();
+            if (chatHistory[^1].Role == AuthorRole.User)
+            {
+                chatHistory.Add(new ChatMessageContent(AuthorRole.Assistant, builder.ToString())
+#pragma warning disable SKEXP0001
+                    { AuthorName = agent.Name });
+#pragma warning restore SKEXP0001
+                end?.Invoke();
+            }
         });
         await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
                                chatHistory, null, modelRunning!.Kernel, cancellationToken)
@@ -383,7 +389,7 @@ public static class ChatThread
             }
 
             builder.Append(content);
-            const float maxDelay = 300f;
+            const float maxDelay = 75f;
             float factor = (float)Math.Pow(Math.Min(builder.Length / maxDelay, 1f), 3); // 使用三次方加速曲线，前面变化比较缓慢，越靠后越快
             delayUpdater.SetDelay((int)(factor * maxDelay) + 50);
             // ReSharper disable once MethodHasAsyncOverload

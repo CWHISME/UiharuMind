@@ -28,41 +28,50 @@ public class MemoryData : IUniquieContainerItem
 
     public async Task<string> GetLongTermMemory(string query, bool asChunks = true)
     {
-        await TryInitializeMemoryAsync();
-
-        if (_memory == null) return "";
-
-        if (asChunks)
+        try
         {
-            // Fetch raw chunks, using KM indexes. More tokens to process with the chat history, but only one LLM request.
-            SearchResult memories = await _memory.SearchAsync(query, limit: 10);
-            var sb = StringBuilderPool.Get();
+            await TryInitializeMemoryAsync();
 
-            for (int i = 0; i < memories.Results.Count; i++)
+            if (_memory == null) return "";
+
+            if (asChunks)
             {
-                var result = memories.Results[i];
-                sb.AppendLine("SourceName: " + result.SourceName);
+                // Fetch raw chunks, using KM indexes. More tokens to process with the chat history, but only one LLM request.
+                SearchResult memories = await _memory.SearchAsync(query, limit: 10);
+                var sb = StringBuilderPool.Get();
 
-                for (int indexPart = 0; indexPart < result.Partitions.Count; indexPart++)
+                for (int i = 0; i < memories.Results.Count; i++)
                 {
-                    var partition = result.Partitions[indexPart];
-                    sb.AppendLine("PartitionId: " + partition.PartitionNumber);
-                    sb.AppendLine("Relevance: " + partition.Relevance);
-                    sb.AppendLine("Content: " + partition.Text);
-                    if (indexPart < result.Partitions.Count - 1) sb.AppendLine("\n");
+                    var result = memories.Results[i];
+                    sb.AppendLine("SourceName: " + result.SourceName);
+
+                    for (int indexPart = 0; indexPart < result.Partitions.Count; indexPart++)
+                    {
+                        var partition = result.Partitions[indexPart];
+                        sb.AppendLine("PartitionId: " + partition.PartitionNumber);
+                        sb.AppendLine("Relevance: " + partition.Relevance);
+                        sb.AppendLine("Content: " + partition.Text);
+                        if (indexPart < result.Partitions.Count - 1) sb.AppendLine("\n");
+                    }
+
+                    if (i < memories.Results.Count - 1) sb.AppendLine("\n***\n");
                 }
 
-                if (i < memories.Results.Count - 1) sb.AppendLine("\n***\n");
+                var str = sb.ToString();
+                StringBuilderPool.Release(sb);
+                return str;
             }
 
-            var str = sb.ToString();
-            StringBuilderPool.Release(sb);
-            return str;
+            // Use KM to generate an answer. Fewer tokens, but one extra LLM request.
+            MemoryAnswer answer = await _memory.AskAsync(query);
+            return answer.Result.Trim();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
         }
 
-        // Use KM to generate an answer. Fewer tokens, but one extra LLM request.
-        MemoryAnswer answer = await _memory.AskAsync(query);
-        return answer.Result.Trim();
+        return "";
     }
 
     public async Task MemorizeDocumentsAsync()
