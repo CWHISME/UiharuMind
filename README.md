@@ -14,18 +14,18 @@ UiharuMind 目前支持的功能有：
 > 默认端口为 1396，连接时直接填入 IP:1369 即可。
 > 例如：http://127.0.0.1:1369
 
-![](Images/1.png)
+![](Images/1.jpg)
 
-![](Images/2.png)
+![](Images/2.jpg)
 
-![](Images/3.png)
+![](Images/3.jpg)
 
-![](Images/4.png)
+![](Images/4.jpg)
 
-![](Images/5.png)
+![](Images/5.jpg)
 
-![](Images/6.png)
+![](Images/6.jpg)
 
-![](Images/7.png)
+![](Images/7.jpg)
 
 更多可以参考：[UiharuMind 工具使用指南](https://wangjiaying.top/2025/02/16/UiharuMind%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97/)
