@@ -1,0 +1,1 @@
+dotnet publish ../UiharuMind.Desktop --output Tmp/Win -r win-x64 --configuration Release --self-contained /p:PublishSingleFile=true

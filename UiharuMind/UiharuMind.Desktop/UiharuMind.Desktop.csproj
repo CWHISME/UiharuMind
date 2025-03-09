@@ -7,6 +7,11 @@
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\UiharuMind\Assets\Icon.ico</ApplicationIcon>
+    <Copyright>Made by WangJiaYing (ᓚᘏᗢ)</Copyright>
+    <PackageProjectUrl>https://github.com/CWHISME/UiharuMind</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/CWHISME/UiharuMind?tab=Apache-2.0-1-ov-file</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/CWHISME/UiharuMind</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,5 +20,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UiharuMind\UiharuMind.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\UiharuMind\Assets\Icon.ico">
+      <Link>Icon.ico</Link>
+    </None>
   </ItemGroup>
 </Project>

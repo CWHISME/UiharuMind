@@ -27,9 +27,11 @@ public class LLamaCppServerGeneralConfig : ConfigBase
     public bool Mlock { get; set; } = true;
 
     [SettingConfigDesc("do not memory-map model (slower load but may reduce pageouts if not using mlock)")]
+    [SettingConfigNoneValue]
     public bool NoMmap { get; set; } = false;
 
     [SettingConfigDesc("enable Flash Attention (default: disabled)")]
+    [SettingConfigNoneValue]
     public bool FlashAttn { get; set; } = false;
 
     [SettingConfigDesc(
@@ -37,6 +39,7 @@ public class LLamaCppServerGeneralConfig : ConfigBase
     public int MainGpu { get; set; } = 0;
 
     [SettingConfigDesc("check model tensor data for invalid values (default: false)")]
+    [SettingConfigNoneValue]
     public bool CheckTensors { get; set; } = false;
 
     [SettingConfigDesc("how to split the model across multiple GPUs")]

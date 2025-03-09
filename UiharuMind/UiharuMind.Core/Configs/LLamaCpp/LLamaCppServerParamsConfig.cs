@@ -65,11 +65,11 @@ public class LLamaCppServerParamsConfig : ConfigBase
     public bool NoKvOffload { get; set; } = false;
 
     [SettingConfigDesc("KV cache data type for K (default: f16)")]
-    [SettingConfigOptions("int8", "f16", "f32")]
+    [SettingConfigOptions("f16", "f32", "bf16","q8_0","q4_0","q4_1","iq4_nl","q5_0","q5_1")]
     public string CacheTypeK { get; set; } = "f16";
 
     [SettingConfigDesc("KV cache data type for V (default: f16)")]
-    [SettingConfigOptions("int8", "f16", "f32")]
+    [SettingConfigOptions("f16", "f32", "bf16","q8_0","q4_0","q4_1","iq4_nl","q5_0","q5_1")]
     public string CacheTypeV { get; set; } = "f16";
 
     [SettingConfigDesc("KV cache defragmentation threshold (default: -1.0, < 0 - disabled)")]
