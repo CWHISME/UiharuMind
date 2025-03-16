@@ -447,7 +447,7 @@
         <value>当前对话不存在记忆库，是否创建新的记忆库并提交文件？</value>
     </data>
     <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
-        <value>当前存在文件：</value>
+        <value>记忆库文件：</value>
     </data>
     <data name="DebugSetting" xml:space="preserve">
         <value>调试设置</value>
@@ -460,5 +460,8 @@
     </data>
     <data name="ModelStateVision" xml:space="preserve">
         <value>视觉</value>
+    </data>
+    <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
+        <value>记忆库链接：</value>
     </data>
 </root>

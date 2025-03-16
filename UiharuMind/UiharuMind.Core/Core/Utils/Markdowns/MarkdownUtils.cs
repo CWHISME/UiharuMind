@@ -22,6 +22,7 @@ public static class MarkdownUtils
 
     private static readonly MarkdownPipeline PipelineLight = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        // .UseMathematics()
         .UseColorCode(HtmlFormatterType.Style, styleDictionary: StyleDictionary.DefaultLight,
             defaultLanguageId: "csharp")
         // 添加自定义处理器，第一是去掉段落的顶部和底部的空白
@@ -33,6 +34,7 @@ public static class MarkdownUtils
 
     private static readonly MarkdownPipeline PipelineDark = new MarkdownPipelineBuilder()
         .UseAdvancedExtensions()
+        // .UseMathematics()
         .UseColorCode(HtmlFormatterType.Style, styleDictionary: StyleDictionary.DefaultDark,
             defaultLanguageId: "csharp")
         // 添加自定义处理器，第一是去掉段落的顶部和底部的空白

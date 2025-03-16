@@ -468,4 +468,7 @@
     <data name="ModelStateVision" xml:space="preserve">
         <value>Vision</value>
     </data>
+    <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
+        <value />
+    </data>
 </root>

@@ -12,6 +12,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,7 +89,6 @@ public partial class ChatViewModel : ViewModelBase
     private CancellationTokenSource? _cancelTokenSource;
 
     // public ObservableCollection<MemoryData> MemorySources => App.MemoryService.MemorySources;
-    [ObservableProperty] private string _memoryFileTips;
 
     public event Action<ChatSessionViewData?>? OnEventChatSessionChanged;
     public event Action<ChatSessionViewData?>? OnEventBeginChat;
@@ -134,102 +134,6 @@ public partial class ChatViewModel : ViewModelBase
         }
 
         ChatSession.AddMessage(AuthorRole.User, "", bitmap.BitmapToBytes());
-    }
-
-    [RelayCommand]
-    private void MemoryEditor()
-    {
-        if (ChatSession == null)
-        {
-            App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
-            return;
-        }
-
-        UIManager.ShowMemorySelectWindow(UIManager.GetFoucusWindow(), x => { ChatSession.MemoryData = x; },
-            ChatSession.MemoryData);
-    }
-
-    [RelayCommand]
-    private async Task MemoryUpdateFile()
-    {
-        if (ChatSession == null)
-        {
-            App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
-            return;
-        }
-
-        var memory = ChatSession.ChatSession.Memery;
-        if (memory == null)
-        {
-            App.MessageService.ShowConfirmMessageBox(
-                Lang.ChatSessionMemoryFileUploadTips, async void () =>
-                {
-                    try
-                    {
-                        var memoryName = await UIManager.ShowStringEditWindow("NewMemory");
-                        if (string.IsNullOrEmpty(memoryName))
-                        {
-                            return;
-                        }
-
-                        var item = MemoryManager.Instance.AddNewItem(memoryName);
-                        ChatSession.MemoryData = item;
-                        await DoSelectUploadFiles(item);
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error(e.Message);
-                    }
-                });
-            return;
-        }
-
-        await DoSelectUploadFiles(memory);
-    }
-
-    private async Task DoSelectUploadFiles(MemoryData item)
-    {
-        var files = await App.FilesService.SelectFileAsync();
-        if (files.Count > 0)
-        {
-            foreach (var file in files)
-            {
-                var localPath = file.TryGetLocalPath();
-                if (string.IsNullOrEmpty(localPath)) continue;
-                item.FilePaths.Add(localPath);
-            }
-
-            item.Save();
-        }
-
-        RefreshMemoryFileTips();
-    }
-
-    private void RefreshMemoryFileTips()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.AppendLine(Lang.ChatSessionMemoryFileUploadInfo);
-        if (ChatSession?.MemoryData != null)
-        {
-            if (ChatSession.MemoryData.FilePaths.Count == 0)
-            {
-                sb.Append(Lang.NoMemory);
-            }
-            else
-            {
-                var length = ChatSession.MemoryData.FilePaths.Count;
-                for (int i = 0; i < length; i++)
-                {
-                    var path = ChatSession.MemoryData.FilePaths[i];
-                    if (i == length - 1)
-                        sb.Append(path);
-                    else sb.AppendLine(path);
-                }
-            }
-        }
-        else sb.Append(Lang.NoMemory);
-
-        MemoryFileTips = sb.ToString();
     }
 
     [RelayCommand]
@@ -393,7 +297,8 @@ public partial class ChatViewModel : ViewModelBase
         OnEventChatSessionChanged?.Invoke(value);
         StopSending();
         CheckGenerationBtnVisible();
-        RefreshMemoryFileTips();
+        // RefreshMemoryFileTips();
+        // RefreshMemoryUrlTips();
     }
 
     private void CheckGenerationBtnVisible()

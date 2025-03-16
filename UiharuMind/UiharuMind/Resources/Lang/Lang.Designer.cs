@@ -938,5 +938,11 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ModelStateVision", resourceCulture);
             }
         }
+        
+        public static string ChatSessionMemoryUrlUploadInfo {
+            get {
+                return ResourceManager.GetString("ChatSessionMemoryUrlUploadInfo", resourceCulture);
+            }
+        }
     }
 }

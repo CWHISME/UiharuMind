@@ -20,8 +20,12 @@
                                TextAlignment="Center" />
                     <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
                         <u:LoadingIcon Name="LoadingEffect" />
-                        <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red"
-                                Click="OnStopButtonClick" />
+                        <!-- <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red" -->
+                        <!--         Click="OnStopButtonClick" /> -->
+                        <Button Classes="SimpleSolidButton" Click="OnStopButtonClick">
+                            <PathIcon Data="{StaticResource StopRegular}" Width="15" Height="15" Background="Red"
+                                      Foreground="Red" />
+                        </Button>
                     </StackPanel>
                     <Button Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton">
                         <PathIcon Data="{StaticResource ArrowRepeatAllRegular}" Width="20" Height="20" />

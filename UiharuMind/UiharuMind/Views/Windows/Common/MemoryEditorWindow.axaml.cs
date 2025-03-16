@@ -21,11 +21,18 @@ public partial class MemoryEditorWindow : Window
     {
         InitializeComponent();
     }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        (DataContext as MemoryEditorWindowModel)?.OnClose();
+    }
 }
 
 public partial class MemoryEditorWindowModel : ObservableObject
 {
     private MemoryData _memoryData;
+    private Action? _onClose;
 
     public ObservableCollection<string> Texts { get; set; }
     public ObservableCollection<string> FilePaths { get; set; }
@@ -41,9 +48,10 @@ public partial class MemoryEditorWindowModel : ObservableObject
         UrlPaths = "";
     }
 
-    public MemoryEditorWindowModel(MemoryData memoryData)
+    public MemoryEditorWindowModel(MemoryData memoryData, Action? onClose = null)
     {
         _memoryData = memoryData;
+        _onClose = onClose;
         Texts = new ObservableCollection<string>(memoryData.Texts);
         FilePaths = new ObservableCollection<string>(memoryData.FilePaths);
         DirectoryPaths = new ObservableCollection<string>(memoryData.DirectoryPaths);
@@ -141,6 +149,11 @@ public partial class MemoryEditorWindowModel : ObservableObject
                 _memoryData.DirectoryPaths.Remove(directory);
                 _memoryData.Save();
             });
+    }
+
+    public void OnClose()
+    {
+        _onClose?.Invoke();
     }
 
     private void ForceDeleteText(string text)

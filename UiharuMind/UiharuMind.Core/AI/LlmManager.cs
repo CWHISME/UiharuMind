@@ -161,7 +161,15 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             CurrentRunningModel = runningInfo;
             // 通知当前运行的模型开始加载
             OnCurrentModelStartLoading?.Invoke();
-            await CurrentRunningModel.StartLoad(OnCurrentModelLoading, OnCurrentModelLoaded);
+            try
+            {
+                await CurrentRunningModel.StartLoad(OnCurrentModelLoading, OnCurrentModelLoaded);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e.Message);
+                CurrentRunningModel = null;
+            }
             // 通知当前运行的模型改变
             // if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
             // 通知有任意模型状态改变

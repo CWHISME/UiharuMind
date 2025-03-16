@@ -20,7 +20,7 @@
                 <TextBlock Text="Version: 0.0.1" HorizontalAlignment="Center" />
                 <TextBlock Text=" | " />
                 <HyperlinkButton Content="Apache License"
-                                 Margin="0,-2,0,0"
+                                 Margin="5,-2,0,0"
                                  NavigateUri="https://github.com/CWHISME/UiharuMind?tab=Apache-2.0-1-ov-file" />
             </StackPanel>
             <TextBlock Text="Made by WangJiaYing (ᓚᘏᗢ)" HorizontalAlignment="Center" TextDecorations="Underline"
@@ -37,7 +37,7 @@
                 <!-- <StackPanel> -->
                 <u:Divider Content="{x:Static  lang:Lang.Introduction}" FontSize="20" />
                 <SelectableTextBlock Margin="5"
-                                     Text="UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。"
+                                     Text="UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、知识库对话、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。"
                                      HorizontalAlignment="Center"
                                      TextWrapping="Wrap" />
                 <u:Divider Content="{x:Static  lang:Lang.Thanks}" FontSize="20" />

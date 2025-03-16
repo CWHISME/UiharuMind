@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
@@ -33,6 +34,12 @@ public class ModelToBrushConverter : IValueConverter
         if (value is MemoryData memoryData)
         {
             return Brushes.Gold;
+        }
+
+        if (value is List<object> list)
+        {
+            // 检查列表数量是否不为 0
+            return list.Count > 0 ? Brushes.Gold : Brushes.Gray;
         }
 
         return Brushes.Gray;

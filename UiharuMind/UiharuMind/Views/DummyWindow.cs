@@ -33,7 +33,7 @@ public class DummyWindow : Window
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
 
-    private bool _isActive;
+    // private bool _isActive;
 
     public DummyWindow()
     {
@@ -114,7 +114,7 @@ public class DummyWindow : Window
 
     private void OnDeactivated(object? sender, EventArgs e)
     {
-        _isActive = false;
+        // _isActive = false;
         // Log.Debug("失活窗口" + WindowState);
     }
 
@@ -185,7 +185,7 @@ public class DummyWindow : Window
 
     private void OnMainWindowActivated(object? sender, EventArgs e)
     {
-        _isActive = true;
+        // _isActive = true;
     }
 
     public void LaunchQuickStartChatWindow()

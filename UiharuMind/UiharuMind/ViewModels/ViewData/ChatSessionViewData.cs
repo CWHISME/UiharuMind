@@ -14,10 +14,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -49,7 +52,13 @@ public partial class ChatSessionViewData : ObservableObject
     [ObservableProperty] private string _timeString;
 
     [ObservableProperty] private string _memoryTipsName;
+
     [ObservableProperty] private MemoryData? _memoryData;
+
+    [ObservableProperty] private string? _memoryFileTips;
+    [ObservableProperty] private ISolidColorBrush? _memoryFileBrush;
+    [ObservableProperty] private string? _memoryUrlTips;
+    [ObservableProperty] private ISolidColorBrush? _memoryUrlBrush;
 
     // public ECharacter Character => _chatSession.CharaterId == 0 ? ECharacter.User : ECharacter.Assistant;
     // //如果是当天，返回具体时间，否则返回日期
@@ -89,7 +98,7 @@ public partial class ChatSessionViewData : ObservableObject
         Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         TimeString = CalcTimeString();
         MemoryData = ChatSession.Memery;
-        RefreshMemoryName();
+        RefreshMemoryInfo();
     }
 
     public async Task AddMessageWithGenerate(AuthorRole role, string message, CancellationToken token)
@@ -293,6 +302,184 @@ public partial class ChatSessionViewData : ObservableObject
         return AddMessage(ChatSession[^1]);
     }
 
+    //===================================记忆=====================================
+
+    [RelayCommand]
+    private void MemoryEditor()
+    {
+        UIManager.ShowMemorySelectWindow(UIManager.GetFoucusWindow(), x => { MemoryData = x; },
+            MemoryData);
+    }
+
+    [RelayCommand]
+    private void MemoryUpdateFile()
+    {
+        // if (ChatSession == null)
+        // {
+        //     App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
+        //     return;
+        // }
+        //
+        // var memory = ChatSession.ChatSession.Memery;
+        // if (memory == null)
+        // {
+        //     App.MessageService.ShowConfirmMessageBox(
+        //         Lang.ChatSessionMemoryFileUploadTips, async void () =>
+        //         {
+        //             try
+        //             {
+        //                 var memoryName = await UIManager.ShowStringEditWindow("NewMemory");
+        //                 if (string.IsNullOrEmpty(memoryName))
+        //                 {
+        //                     return;
+        //                 }
+        //
+        //                 var item = MemoryManager.Instance.AddNewItem(memoryName);
+        //                 ChatSession.MemoryData = item;
+        //                 await DoSelectUploadFiles(item);
+        //             }
+        //             catch (Exception e)
+        //             {
+        //                 Log.Error(e.Message);
+        //             }
+        //         });
+        //     return;
+        // }
+
+        DoCheckMemoryBeforeUpload(x => { _ = DoSelectUploadFiles(x); });
+    }
+
+    [RelayCommand]
+    private void MemoryUpdateUrl()
+    {
+        DoCheckMemoryBeforeUpload(DoSelectUploadUrl);
+        // await DoSelectUploadFiles(memory);
+    }
+
+    private void DoCheckMemoryBeforeUpload(Action<MemoryData> callback)
+    {
+        var memory = MemoryData;
+        if (memory == null)
+        {
+            App.MessageService.ShowConfirmMessageBox(
+                Lang.ChatSessionMemoryFileUploadTips, async void () =>
+                {
+                    try
+                    {
+                        var memoryName = await UIManager.ShowStringEditWindow(Name + "_Memory");
+                        if (string.IsNullOrEmpty(memoryName))
+                        {
+                            return;
+                        }
+
+                        var item = MemoryManager.Instance.AddNewItem(memoryName);
+                        MemoryData = item;
+                        callback(item);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e.Message);
+                    }
+                });
+            return;
+        }
+
+        callback(memory);
+    }
+
+    private async Task DoSelectUploadFiles(MemoryData item)
+    {
+        var files = await App.FilesService.SelectFileAsync();
+        if (files.Count > 0)
+        {
+            foreach (var file in files)
+            {
+                var localPath = file.TryGetLocalPath();
+                if (string.IsNullOrEmpty(localPath)) continue;
+                if (!item.FilePaths.Contains(localPath)) item.FilePaths.Add(localPath);
+            }
+
+            item.Save();
+        }
+
+        RefreshMemoryFileTips();
+    }
+
+    private void RefreshMemoryFileTips()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(Lang.ChatSessionMemoryFileUploadInfo);
+        if (MemoryData != null)
+        {
+            if (MemoryData.FilePaths.Count == 0)
+            {
+                sb.Append(Lang.NoMemory);
+            }
+            else
+            {
+                var length = MemoryData.FilePaths.Count;
+                for (int i = 0; i < length; i++)
+                {
+                    var path = MemoryData.FilePaths[i];
+                    if (i == length - 1)
+                        sb.Append(path);
+                    else sb.AppendLine(path);
+                }
+            }
+        }
+        else sb.Append(Lang.NoMemory);
+
+        MemoryFileTips = sb.ToString();
+        MemoryFileBrush = MemoryData?.FilePaths.Count > 0 ? Brushes.Gold : Brushes.Gray;
+    }
+
+    private async void DoSelectUploadUrl(MemoryData item)
+    {
+        try
+        {
+            // UIManager.ShowMemoryEditorWindow(UIManager.GetFoucusWindow(), item, RefreshMemoryUrlTips);
+            string value = string.Join(Environment.NewLine, item.UrlPaths);
+            var result = await UIManager.ShowStringEditWindow(value);
+            if (result == null) return;
+            item.UrlPaths = result.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries).ToList();
+            item.Save();
+            RefreshMemoryUrlTips();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+        }
+    }
+
+    private void RefreshMemoryUrlTips()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(Lang.ChatSessionMemoryUrlUploadInfo);
+        if (MemoryData != null)
+        {
+            if (MemoryData.UrlPaths.Count == 0)
+            {
+                sb.Append(Lang.NoMemory);
+            }
+            else
+            {
+                for (int i = 0; i < MemoryData.UrlPaths.Count; i++)
+                {
+                    var path = MemoryData.UrlPaths[i];
+                    if (i == MemoryData.UrlPaths.Count - 1)
+                        sb.Append(path);
+                    else sb.AppendLine(path);
+                }
+            }
+        }
+        else sb.Append(Lang.NoMemory);
+
+        MemoryUrlTips = sb.ToString();
+        MemoryUrlBrush = MemoryData?.UrlPaths.Count > 0 ? Brushes.Gold : Brushes.Gray;
+    }
+
+    //============================================================
+
     // private void OnStartGenerate(ChatMessage obj)
     // {
     //     CurrentChatItem = AddMessage(obj);
@@ -362,7 +549,14 @@ public partial class ChatSessionViewData : ObservableObject
     partial void OnMemoryDataChanged(MemoryData? value)
     {
         ChatSession.Memery = value;
+        RefreshMemoryInfo();
+    }
+
+    private void RefreshMemoryInfo()
+    {
         RefreshMemoryName();
+        RefreshMemoryFileTips();
+        RefreshMemoryUrlTips();
     }
 
     private void RefreshMemoryName()

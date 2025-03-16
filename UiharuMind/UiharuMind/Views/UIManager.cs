@@ -236,11 +236,11 @@ public static class UIManager
         window.ShowDialogStackWindow(owner);
     }
 
-    public static void ShowMemoryEditorWindow(Window owner, MemoryData memoryData)
+    public static void ShowMemoryEditorWindow(Window owner, MemoryData memoryData, Action? onClose = null)
     {
         var window = new MemoryEditorWindow
         {
-            DataContext = new MemoryEditorWindowModel(memoryData)
+            DataContext = new MemoryEditorWindowModel(memoryData, onClose)
         };
         window.ShowDialogStackWindow(owner);
     }

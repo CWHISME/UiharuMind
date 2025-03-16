@@ -142,7 +142,7 @@
                                 Text="{x:Static lang:Lang.SendUserDesc}" />
                         </ToolTip.Tip>
                     </Button>
-                    <Button Command="{Binding MemoryEditorCommand}">
+                    <Button Command="{Binding ChatSession.MemoryEditorCommand}">
                         <PathIcon Data="{StaticResource BookStarRegular}" Width="20" Height="20"
                                   Foreground="{Binding ChatSession.MemoryData,Converter={StaticResource ModelToBrushConverter}}" />
                         <ToolTip.Tip>
@@ -150,11 +150,20 @@
                                 Text="{x:Static lang:Lang.MemoryTips}" />
                         </ToolTip.Tip>
                     </Button>
-                    <Button Command="{Binding MemoryUpdateFileCommand}">
-                        <PathIcon Data="{StaticResource DocumentAddRegular}" Width="20" Height="20" />
+                    <Button Command="{Binding ChatSession.MemoryUpdateFileCommand}">
+                        <PathIcon Data="{StaticResource DocumentAddRegular}"
+                                  Foreground="{Binding ChatSession.MemoryFileBrush}" Width="20" Height="20" />
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{Binding MemoryFileTips}" />
+                                Text="{Binding ChatSession.MemoryFileTips}" />
+                        </ToolTip.Tip>
+                    </Button>
+                    <Button Command="{Binding ChatSession.MemoryUpdateUrlCommand}">
+                        <PathIcon Data="{StaticResource GlobeAddRegular}"
+                                  Foreground="{Binding ChatSession.MemoryUrlBrush}" Width="20" Height="20" />
+                        <ToolTip.Tip>
+                            <TextBlock
+                                Text="{Binding ChatSession.MemoryUrlTips}" />
                         </ToolTip.Tip>
                     </Button>
                     <!-- <TextBlock Text="{Binding ChatSession.MemoryTipsName}" VerticalAlignment="Center" /> -->
