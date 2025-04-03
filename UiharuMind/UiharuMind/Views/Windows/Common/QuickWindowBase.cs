@@ -22,6 +22,7 @@ public class QuickWindowBase : UiharuWindowBase
 
     public override void Awake()
     {
+        base.Awake();
         this.SetSimpledecorationWindow();
     }
 

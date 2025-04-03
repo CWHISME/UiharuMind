@@ -20,6 +20,9 @@ public abstract class UiharuWindowBase : Window
 {
     public event Action? OnPreCloseEvent;
 
+    protected int StartWidth;
+    protected int StartHeight;
+
     public void RequestShow(bool isFirstShow = false, bool isActivate = true)
     {
         OnPreShow();
@@ -27,6 +30,8 @@ public abstract class UiharuWindowBase : Window
         {
             if (IconUtils.DefaultAppIcon != null) Icon = new WindowIcon(IconUtils.DefaultAppIcon);
             OnInitWindowPosition();
+            StartWidth = (int)Width;
+            StartHeight = (int)Height;
             Show();
         }
         else

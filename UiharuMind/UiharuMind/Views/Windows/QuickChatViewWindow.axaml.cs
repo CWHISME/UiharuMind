@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -45,6 +46,16 @@ public partial class QuickChatViewWindow : QuickWindowBase
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         this.BeginMoveDrag(e);
+        PointerUpdateKind pointerUpdateKind = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
+        if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed && e.ClickCount >= 2)
+        {
+            if (Math.Abs(Height - StartHeight) > 10)
+            {
+                Width = StartWidth;
+                Height = StartHeight;
+            }
+            else WindowState = WindowState.Maximized;
+        }
     }
 
     private void CloseButton_Click(object? sender, RoutedEventArgs e)

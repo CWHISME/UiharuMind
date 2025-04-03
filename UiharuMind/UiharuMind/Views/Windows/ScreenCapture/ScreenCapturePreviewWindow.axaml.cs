@@ -37,8 +37,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
 
 
     public Bitmap? ImageBackupSource;
-    public Bitmap ImageOriginSource;
-    public Bitmap ImageSource;
+    public Bitmap? ImageOriginSource;
+    public Bitmap? ImageSource;
     // public Bitmap? ImageNewSource;
 
     public ScreenCapturePreviewWindow()
@@ -77,6 +77,10 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         // _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
         // 计算原始尺寸的比例
         _aspectRatio = _originSize.Width / _originSize.Height;
+
+        ImageBackupSource?.Dispose();
+        ImageSource?.Dispose();
+        ImageOriginSource?.Dispose();
 
         ImageSource = image;
         ImageOriginSource = image;
