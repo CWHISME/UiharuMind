@@ -191,8 +191,8 @@ public class ClipboardService : IDisposable
                 if (string.IsNullOrEmpty(clipboardContent))
                 {
                     //是图片吗
-                    var image = await GetImageFromClipboard();
-                    if (image != null) OnClipboardImageChanged?.Invoke(image);
+                    // var image = await GetImageFromClipboard();
+                    // if (image != null) OnClipboardImageChanged?.Invoke(image);
                     return;
                 }
 
