@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.ClientModel;
 using System.Text;
 using System.Threading;
 using Avalonia.Controls;
@@ -143,6 +144,10 @@ public partial class QuickChatResultWindow : QuickWindowBase
                 {
                     AppendContent(message);
                 }
+            }
+            catch (ClientResultException e)
+            {
+                Log.Error(e.Message);
             }
             catch (Exception e)
             {

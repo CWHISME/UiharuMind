@@ -16,6 +16,7 @@ using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Utils;
 using UiharuMind.ViewModels.Pages;
 using UiharuMind.Views;
 using UiharuMind.Views.Common;
@@ -159,7 +160,7 @@ public partial class MessageService : ObservableObject
     {
         ShowMessageBox(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK, null);
     }
-    
+
     /// <summary>
     /// 显示弹窗提示
     /// </summary>
@@ -206,8 +207,12 @@ public partial class MessageService : ObservableObject
 
         var mainWindow = UIManager.GetFoucusWindow();
         if (!mainWindow.IsActive || !mainWindow.IsVisible || mainWindow.WindowState == WindowState.Minimized)
+        {
             _busyWindow.Show();
+            _busyWindow.SetScreenCenterPosition();
+        }
         else _busyWindow.ShowDialog(mainWindow);
+
         _busyWindow.Topmost = true;
     }
 

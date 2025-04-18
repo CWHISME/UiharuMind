@@ -17,9 +17,10 @@
         <vm:IconNameToPathConverter x:Key="IconConverter" />
     </UserControl.Resources>
 
+    <!-- 如果需要模糊 -->
+    <!-- Classes.Blur="{Binding MessageService.IsBusy}" -->
     <Panel>
         <Grid
-            Classes.Blur="{Binding MessageService.IsBusy}"
             ColumnDefinitions="Auto, *"
             RowDefinitions="Auto, *">
             <!--模糊-->

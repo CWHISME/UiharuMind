@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using SharpHook.Native;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
@@ -22,6 +23,7 @@ using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Windows;
+using Ursa.Controls;
 
 namespace UiharuMind.Views;
 
@@ -34,6 +36,8 @@ public class DummyWindow : Window
     // public QuickToolWindow? QuickToolWindow { get; private set; }
 
     // private bool _isActive;
+
+    // private bool _isInit;
 
     public DummyWindow()
     {
@@ -75,12 +79,25 @@ public class DummyWindow : Window
     {
         base.OnOpened(e);
 
+        InputManager.Instance.Start(OnQuickKeyInitFailure);
         RegistryShortcut();
         RegistryClipboardTool();
         // Hide();
 
         //if(UiharuCoreManager.Instance.IsWindows) 
         // LaunchMainWindow();
+        // _isInit = true;
+    }
+
+    private void OnQuickKeyInitFailure()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            App.MessageService.ShowMessageBox(
+                "Failed to bind system shortcut keys. If you are using a Mac, please ensure you have the required permissions and follow the instructions provided, then try again!\n\nNote:Please be aware that if the permission list is already in place but is not functioning correctly, you should first remove the permissions and then re-add them.",
+                "UiharuMind: Ops!", MessageBoxIcon.Warning,
+                MessageBoxButton.OK, (x) => { InputManager.Instance.Start(OnQuickKeyInitFailure); });
+        });
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

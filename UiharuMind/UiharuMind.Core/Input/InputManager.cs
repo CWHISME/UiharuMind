@@ -43,18 +43,24 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// </summary>
     private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
 
+    //是否启用过
+    private bool _isEnabled;
+    // private Action _onStartCallback;
+
     public void OnInitialize()
     {
         //Test
         // if(UiharuCoreManager.Instance.IsWindows) return;
 
-        Start();
+        // Start();
     }
 
-    public void Start()
+    public async void Start(Action onFailed)
     {
         try
         {
+            // _onStartCallback = onStart;
+
             _hook = new SimpleGlobalHook(GlobalHookType.All); //new TaskPoolGlobalHook();
 
             _hook.HookEnabled += OnHookEnabled;
@@ -72,21 +78,34 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
             _hook.MouseWheel += OnMouseWheel;
 
-            Thread thread = new Thread(() => { _hook.Run(); });
-            thread.Start();
+            //     Thread thread = new Thread(() =>
+            //     {
+            //         try
+            //         {
+            //             _hook.Run();
+            //             onStarted?.Invoke();
+            //         }
+            //         catch (Exception e)
+            //         {
+            //             Console.WriteLine(e);
+            //             onFailed?.Invoke();
+            //         }
+            //     });
+            //     thread.Start();
+            //     thread.Interrupt();
+            // }
+            // catch (Exception)
+            // {
+            //     Stop();
+            // }
+
+            await _hook.RunAsync().ConfigureAwait(false);
         }
         catch (Exception)
         {
             Stop();
+            if (!_isEnabled) onFailed.Invoke();
         }
-        // try
-        // {
-        //     await _hook.RunAsync().ConfigureAwait(false);
-        // }
-        // catch (Exception)
-        // {
-        //     Stop();
-        // }
     }
 
     public void Stop()
@@ -182,6 +201,8 @@ public class InputManager : Singleton<InputManager>, IInitialize
     private void OnHookEnabled(object? sender, HookEventArgs e)
     {
         Log.Debug("OnHookEnabled");
+        _isEnabled = true;
+        // _onStartCallback.Invoke();
     }
 
     private void OnHookDisabled(object? sender, HookEventArgs e)
