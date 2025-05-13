@@ -19,4 +19,10 @@ public partial class Footer : UserControl
     {
         InitializeComponent();
     }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        VersionText.Text = App.Version.ToString();
+    }
 }

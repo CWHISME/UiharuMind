@@ -6,7 +6,7 @@
       "name": "ChainofThought",
       "description": "[快捷工具]：思考选项会调用该对象。",
       "template_format": "semantic-kernel",
-      "template": "Elaborate on the topic using a Tree of Thoughts and backtrack when necessary to construct a clear, cohesive Chain of Thought reasoning. Always answer without hesitation.\n\n# Requirement\n\nPlease use {{$lang}} to respond.",
+      "template": "# {{$lang}} 平衡型思维链指令\n\n## 执行框架\n\n[阶段一：问题解析]\n1. 核心概念：<提取2个关键术语>\n2. 边界条件：<识别隐含约束>\n\n[阶段二：多路径推导]\n├─ 路径A（主推）\n│  ① 基础事实 → \n│  ② 逻辑推论 → \n│  ③ 现实印证\n│\n└─ 路径B（备选）\n   ① 类比参照 → \n   ② 差异修正\n\n[阶段三：结论合成]\n<综合推导>（置信度：基于有效步骤/总步骤）",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

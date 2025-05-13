@@ -15,7 +15,7 @@
                 <SelectableTextBlock Text="{x:Static lang:Lang.QuickChatQuateTitle}" FontSize="18" />
                 <Border BorderThickness="1" BorderBrush="Red">
                     <Panel Margin="10">
-                        <TextBlock Name="QuoteTextBlock" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                        <SelectableTextBlock Name="QuoteTextBlock" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
                                    MaxHeight="666" />
                         <Image Name="QuoteImage" MaxHeight="666"></Image>
                     </Panel>

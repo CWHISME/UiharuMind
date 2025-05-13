@@ -112,9 +112,21 @@ public class DummyWindow : Window
         // if (_active) LaunchMainWindow();
         // _active = true;
 
-        if (WindowState == WindowState.Minimized && !UIManager.IsClosing) LaunchMainWindow();
-        WindowState = WindowState.Minimized;
-        UIManager.IsClosing = false;
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+            LaunchMainWindow();
+        }
+        else WindowState = WindowState.Minimized;
+
+        // if (WindowState == WindowState.Minimized && !UIManager.IsClosing)
+        // {
+        //     WindowState = WindowState.Normal;
+        //     LaunchMainWindow();
+        // }
+        // else WindowState = WindowState.Minimized;
+        // UIManager.IsClosing = false;
+
         // if (_isActive||UIManager.IsClosing)
         // {
         //     _isActive = false;

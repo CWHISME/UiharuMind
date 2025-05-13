@@ -30,6 +30,9 @@ public partial class AboutPage : UserControl
     protected override void OnInitialized()
     {
         base.OnInitialized();
+
+        VersionText.Text = "Version: " + App.Version;
+
         LinksPanel.Children.Add(CreateLink("Avalonia",
             "https://github.com/AvaloniaUI/Avalonia",
             "Cross-platform UI framework for dotnet"));

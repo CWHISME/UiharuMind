@@ -111,6 +111,11 @@ public partial class App : Application, ILogger, IDisposable
     public static MainViewModel ViewModel => DummyWindow.MainViewModel;
     public static MessageService MessageService { get; private set; }
 
+    /// <summary>
+    /// 版本号
+    /// </summary>
+    public static Version Version = new Version(0, 0, 2);
+
     public static void JumpToPage(MenuPages page)
     {
         ViewModel.JumpToPage(page);

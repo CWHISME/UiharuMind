@@ -20,8 +20,8 @@ public class AssistantExpertQuoteAgentSkill : NormalAgentSkill
         var agent = GetCharacterData().ToAgent(modelRunningData.Kernel!, args);
 
         _chatHistory = new ChatHistory();
-        _chatHistory.AddMessage(AuthorRole.User, _quoteStr);
         _chatHistory.AddMessage(AuthorRole.User, text);
+        _chatHistory.AddMessage(AuthorRole.User,"参考内容：\n"+ _quoteStr);
         return modelRunningData.InvokeAgentStreamingAsync(agent, _chatHistory, cancellationToken);
     }
 }

@@ -60,7 +60,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         if (ReferenceEquals(mainWindow, CurrentSnapWindow))
         {
             // Log.Debug($"SetMainWindow {mainWindow} ReferenceEquals");
-            RequestShow();
+            RequestShow(isActivate: false);
             UpdateFollowerWindowPosition();
             return;
         }
@@ -84,7 +84,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
         CurrentSnapWindow.Closing += MainWindow_OnClose;
         CurrentSnapWindow.OnPreCloseEvent += MainWindow_OnClose;
 
-        RequestShow();
+        RequestShow(isActivate: false);
         UpdateFollowerWindowPosition();
         // Log.Debug($"SetMainWindow {mainWindow} UpdateFollowerWindowPosition");
     }

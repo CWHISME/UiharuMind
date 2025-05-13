@@ -33,6 +33,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
         DataContext = this;
 
         _agentSkill = new TranslationAdvancedAgentSkill();
+        _simpleAgentSkill = new TranslationAgentSkill();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
     }
 
@@ -91,9 +92,17 @@ public partial class QuickTranslationWindow : QuickWindowBase
     }
 
     // private string _askContent;
+    private readonly TranslationAgentSkill _simpleAgentSkill;
     private readonly TranslationAdvancedAgentSkill _agentSkill;
 
-    public void SetRequestInfo(string? content, TranslationAdvancedAgentSkill agentSkill)
+    private AgentSkillBase GetSkill()
+    {
+        if(string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
+        _agentSkill.SetExtraRequest(ExtraRequestTextBox.Text);
+        return _agentSkill;
+    }
+
+    public void SetRequestInfo(string? content, AgentSkillBase agentSkill)
     {
         _cts.SafeStop();
         if (string.IsNullOrEmpty(content))
@@ -105,7 +114,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
         if (TargetLanguageComboBox.SelectedIndex > 0)
             agentSkill.SetLanguage(TargetLanguageComboBox.SelectedItem?.ToString()!);
         else agentSkill.RemoveLanguage();
-        agentSkill.SetExtraRequest(string.IsNullOrEmpty(ExtraRequestTextBox.Text) ? "None" : ExtraRequestTextBox.Text);
+        // agentSkill.SetExtraRequest(string.IsNullOrEmpty(ExtraRequestTextBox.Text) ? "None" : ExtraRequestTextBox.Text);
         // _askContent = content;
         // _agentSkill = agentSkill;
 
@@ -168,7 +177,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
 
     private void OnRegenerateButtonClick(object? sender, RoutedEventArgs e)
     {
-        SetRequestInfo(InputBox.Text, _agentSkill);
+        SetRequestInfo(InputBox.Text, GetSkill());
     }
 
     //=======常用语言快捷切换=======
@@ -197,6 +206,6 @@ public partial class QuickTranslationWindow : QuickWindowBase
     [RelayCommand]
     public void SendMessage()
     {
-        SetRequestInfo(InputBox.Text, _agentSkill);
+        SetRequestInfo(InputBox.Text, GetSkill());
     }
 }
