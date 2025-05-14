@@ -19,6 +19,13 @@ namespace UiharuMind.Core.Core.Utils
     {
         private static readonly ConcurrentStack<StringBuilder> Pool = new();
 
+        private static readonly StringBuilder Builder = new();
+
+        /// <summary>
+        /// 注：更方便，但是非线程安全
+        /// </summary>
+        public static StringBuilder StringBuilder => Builder.Clear();
+
         public static StringBuilder Get()
         {
             if (!Pool.TryPop(out var obj))

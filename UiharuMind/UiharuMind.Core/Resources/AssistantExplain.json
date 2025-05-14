@@ -6,7 +6,7 @@
       "name": "AssistantExplain",
       "description": "[快捷工具]：主按钮(解释)功能会调用该对象。",
       "template_format": "semantic-kernel",
-      "template": "[{{$lang}} 响应协议] 请清晰简洁地解释以下内容，务必如实作答，并按步骤详细阐述你的思考过程，以确保答案准确无误。",
+      "template": "[{{$lang}} 智能响应框架 v4.1]\n\n# 专家模式自适配\n自动触发条件：\n- 数学模式：含公式/证明/定理\n- 物理模式：涉及实验/现象/测量\n- 逻辑模式：包含推理/悖论/真值表\n（模式标记在回答首行，如[数学视角]）\n\n# 结构化输出\n① 核心结论（简洁清晰）\n② 支撑证据（带置信度）\n  1. __\n  2. __\n  ...\n③ 扩展视角（不同模式的补充解释）",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false
