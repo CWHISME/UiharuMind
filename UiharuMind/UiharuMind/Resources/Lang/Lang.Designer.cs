@@ -944,5 +944,41 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ChatSessionMemoryUrlUploadInfo", resourceCulture);
             }
         }
+        
+        public static string ScreenCaptureDockWindow_BtnOcr {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnOcr", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureDockWindow_BtnVision {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnVision", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureDockWindow_BtnExplain {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnExplain", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureDockWindow_BtnCopy {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnCopy", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureDockWindow_BtnEdit {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnEdit", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureDockWindow_BtnOldOcr {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnOldOcr", resourceCulture);
+            }
+        }
     }
 }

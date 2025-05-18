@@ -11,8 +11,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -22,6 +25,7 @@ using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
+using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows;
 using Ursa.Controls;
 
@@ -35,7 +39,8 @@ public class DummyWindow : Window
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
 
-    // private bool _isActive;
+    // private bool _isMainWindowActive;
+    // private Window? _miniDummyWindow;
 
     // private bool _isInit;
 
@@ -45,8 +50,8 @@ public class DummyWindow : Window
         // ExtendClientAreaToDecorationsHint = true;
         // ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         // var size = Screens.Primary.Bounds.Size.ToSize();
-        Width = 0;
-        Height = 0;
+        Width = 1;
+        Height = 1;
         // Position = new PixelPoint(0, 0);
         // Background = Brushes.Transparent;
         Focusable = true;
@@ -57,7 +62,7 @@ public class DummyWindow : Window
         this.SetSimpledecorationPureWindow(false);
         IsHitTestVisible = false;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        WindowState = WindowState.Minimized;
+        WindowState = WindowState.Normal;
         // this.ShowInTaskbar = false;
         // this.WindowState = WindowState.Minimized;
 
@@ -112,12 +117,21 @@ public class DummyWindow : Window
         // if (_active) LaunchMainWindow();
         // _active = true;
 
-        if (WindowState == WindowState.Minimized)
-        {
-            WindowState = WindowState.Normal;
-            LaunchMainWindow();
-        }
-        else WindowState = WindowState.Minimized;
+        // if (_isMainWindowActive && !UIManager.IsClosing) LaunchMainWindow();
+        // if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        // {
+        //     if (desktop.Windows.FirstOrDefault(x => x != this && x is not UiharuWindowBase) != null) return;
+        //     // Log.Debug("活跃窗口" + desktop.Windows.Count);
+        // }
+
+        if (!UIManager.IsClosing) LaunchMainWindow();
+        //想点击 Mac 托盘打开主界面，但是有问题，会导致关闭上一个界面时也自动将主界面打开，难顶！
+        // if (WindowState == WindowState.Minimized)
+        // {
+        //     WindowState = WindowState.Normal;
+        //     LaunchMainWindow();
+        // }
+        // else WindowState = WindowState.Minimized;
 
         // if (WindowState == WindowState.Minimized && !UIManager.IsClosing)
         // {
@@ -208,14 +222,29 @@ public class DummyWindow : Window
         UIManager.ShowWindow<MainWindow>(null, x =>
         {
             x.DataContext = MainViewModel;
-            x.Activated += OnMainWindowActivated;
+            // x.Activated += OnMainWindowActivated;
+            // x.OnPreCloseEvent += OnMainWindowClosed;
         });
     }
 
-    private void OnMainWindowActivated(object? sender, EventArgs e)
-    {
-        // _isActive = true;
-    }
+    // private void OnMainWindowActivated(object? sender, EventArgs e)
+    // {
+    //     _isMainWindowActive = true;
+    //
+    //     // if (_miniDummyWindow != null) return;
+    //     // _miniDummyWindow = new Window
+    //     // {
+    //     //     Width = 1,
+    //     //     Height = 1,
+    //     //     ShowInTaskbar = false
+    //     // };
+    //     // _miniDummyWindow.Show();
+    // }
+    //
+    // private void OnMainWindowClosed()
+    // {
+    //     _isMainWindowActive = false;
+    // }
 
     public void LaunchQuickStartChatWindow()
     {

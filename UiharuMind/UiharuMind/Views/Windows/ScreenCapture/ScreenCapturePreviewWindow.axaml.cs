@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
@@ -28,7 +29,7 @@ using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
 
-public partial class ScreenCapturePreviewWindow : UiharuWindowBase
+public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindow //Window, IDockedWindow
 {
     private Point _dragStartPoint;
     private bool _isDragging;
@@ -48,6 +49,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         //SizeToContent = SizeToContent.WidthAndHeight;
 
         this.SetSimpledecorationWindow();
+        ShowActivated = false;
 
         this.MinWidth = 50;
         this.MinHeight = 50;
@@ -200,6 +202,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
     {
         if (e.ClickCount == 2)
         {
+            // ScreenCaptureManager.SyncDockWindow(null);
+            // // Task.Run(() =>
+            // // {
+            // //     Task.Delay(1000);
+            // //     SafeClose();
+            // // });
             Close();
         }
 
@@ -232,8 +240,21 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase
         _isDragging = false;
     }
 
+    protected override void OnPreClose()
+    {
+        base.OnPreClose();
+        ImageBackupSource?.Dispose();
+        ImageSource?.Dispose();
+        ImageOriginSource?.Dispose();
+        ImageBackupSource = null;
+        ImageSource = null;
+        ImageOriginSource = null;
+    }
+
     // protected override void OnClosing(WindowClosingEventArgs e)
     // {
-    //     e.Cancel = true;
+    //     OnPreCloseEvent?.Invoke();
     // }
+    //
+    // public event Action? OnPreCloseEvent;
 }

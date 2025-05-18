@@ -464,4 +464,22 @@
     <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
         <value>记忆库链接：</value>
     </data>
+    <data name="ScreenCaptureDockWindow_BtnOcr" xml:space="preserve">
+        <value>通过 OCR 识别图片文字</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnVision" xml:space="preserve">
+        <value>进行图片对话(询问)</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnExplain" xml:space="preserve">
+        <value>描述并解释图片内容</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnEdit" xml:space="preserve">
+        <value>编辑</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnCopy" xml:space="preserve">
+        <value>复制</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
+        <value>调用 Mac 系统自带的图片查看器以复制文字</value>
+    </data>
 </root>

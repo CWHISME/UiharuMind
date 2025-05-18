@@ -11,6 +11,7 @@
 
 using System;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using UiharuMind.Utils;
 
@@ -23,8 +24,19 @@ public abstract class UiharuWindowBase : Window
     protected int StartWidth;
     protected int StartHeight;
 
+    protected UiharuWindowBase()
+    {
+        Activated += OnActivated;
+    }
+
+    private void OnActivated(object? sender, EventArgs e)
+    {
+        UIManager.ClosingWindowSet.Remove(this);
+    }
+
     public void RequestShow(bool isFirstShow = false, bool isActivate = true)
     {
+        UIManager.ClosingWindowSet.Add(this);
         OnPreShow();
         if (isFirstShow)
         {
@@ -55,6 +67,7 @@ public abstract class UiharuWindowBase : Window
 
     public virtual void Awake()
     {
+        ShowActivated = false;
     }
 
     protected virtual void OnInitWindowPosition()
@@ -72,19 +85,28 @@ public abstract class UiharuWindowBase : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        UIManager.IsClosing = true;
         e.Cancel = true;
+        UIManager.ClosingWindowSet.Add(this);
+        App.DummyWindow.Activate();
         SafeClose();
     }
 
     protected virtual void SafeClose()
     {
+        // UIManager.IsClosing = true;
+        UIManager.ClosingWindowSet.Add(this);
         OnPreCloseEvent?.Invoke();
         OnPreClose();
         // InvalidateMeasure();
         // Log.Debug("Closing window: " + this.GetType().Name + "   " + this.IsMeasureValid);
         // App.DummyWindow.Focus();
-        Dispatcher.UIThread.Post(Hide, DispatcherPriority.ApplicationIdle);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ShowActivated || IsActive) App.DummyWindow.Activate();
+            Hide();
+            // UIManager.IsClosing = false;
+            UIManager.ClosingWindowSet.Remove(this);
+        }, DispatcherPriority.ApplicationIdle);
     }
 
     //Tools

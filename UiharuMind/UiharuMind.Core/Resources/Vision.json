@@ -6,7 +6,7 @@
       "name": "Vision",
       "description": "[快捷工具]：快捷工具功能中的图片对话所用的模板。",
       "template_format": "semantic-kernel",
-      "template": "",
+      "template": "[{{$lang}} 交互指令]\n\n优先解析图片核心元素（物体/场景/文字），区分客观描述与主观推测。请求分析时调用领域知识（如艺术、摄影），创意生成需关联图像特征。低质量图片需提示解析限制，响应保持简洁聚焦。",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

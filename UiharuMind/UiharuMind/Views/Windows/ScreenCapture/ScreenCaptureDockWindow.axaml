@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
         mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="50"
         x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureDockWindow"
         Title="ScreenCaptureDockWindow">
@@ -22,12 +23,18 @@
     <StackPanel Orientation="Horizontal">
         <Button Click="OnEditBtnClick">
             <PathIcon Data="{StaticResource ImageEditRegular}" />
+            <ToolTip.Tip>
+                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnEdit}" />
+            </ToolTip.Tip>
         </Button>
         <Button Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick">
             <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
         </Button>
         <Button Name="OcrBtn" Click="OnOcrBtnClick">
             <PathIcon Data="{StaticResource TextFieldRegular}" />
+            <ToolTip.Tip>
+                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnOldOcr}" />
+            </ToolTip.Tip>
         </Button>
         <Button Click="OnOcrAiBtnClick">
             <Panel>
@@ -35,19 +42,41 @@
                            Margin="0,-5,0,0" />
                 <PathIcon Data="{StaticResource TextFieldRegular}" Margin="0,5,0,0" />
             </Panel>
+            <ToolTip.Tip>
+                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnOcr}" />
+            </ToolTip.Tip>
         </Button>
+        <!-- <Button Click="OnExplainAiBtnClick"> -->
+        <!--     <Panel> -->
+        <!--         <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center" -->
+        <!--                    Margin="0,-5,0,0" /> -->
+        <!--         <PathIcon Data="{StaticResource Chat}" Margin="0,5,0,0" /> -->
+        <!--     </Panel> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnExplain}" /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </Button> -->
         <Button Click="OnVisionAiBtnClick">
             <Panel>
                 <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
                            Margin="0,-5,0,0" />
                 <PathIcon Data="{StaticResource Chat}" Margin="0,5,0,0" />
             </Panel>
+            <ToolTip.Tip>
+                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnVision}" />
+            </ToolTip.Tip>
         </Button>
         <Button Click="OnCopyBtnClick">
             <PathIcon Data="{StaticResource CopyRegular}" />
+            <ToolTip.Tip>
+                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnCopy}" />
+            </ToolTip.Tip>
         </Button>
         <Button Click="OnSaveBtnClick">
             <PathIcon Data="{StaticResource SaveRegular}" />
+            <ToolTip.Tip>
+                <TextBlock Text="{x:Static  lang:Lang.SaveBtn}" />
+            </ToolTip.Tip>
         </Button>
     </StackPanel>
 

@@ -54,7 +54,7 @@ public static class ScreenCaptureManager
         await GetMacScreenCaptureFromClipboard();
     }
 
-    public static void SyncDockWindow(ScreenCapturePreviewWindow window)
+    public static void SyncDockWindow(ScreenCapturePreviewWindow? window)
     {
         ScreenCaptureDocker.SetMainWindow(window);
     }

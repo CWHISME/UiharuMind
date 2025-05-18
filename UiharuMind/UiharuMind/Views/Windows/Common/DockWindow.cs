@@ -22,7 +22,12 @@ using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
 
-public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
+public interface IDockedWindow
+{
+    public event Action? OnPreCloseEvent;
+}
+
+public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
 {
     protected T? CurrentSnapWindow;
 
@@ -31,6 +36,7 @@ public class DockWindow<T> : UiharuWindowBase where T : UiharuWindowBase
     public DockWindow()
     {
         this.SetSimpledecorationWindow();
+        ShowActivated = false;
     }
 
     // protected override void OnOpened(EventArgs e)

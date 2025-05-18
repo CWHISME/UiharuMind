@@ -32,7 +32,8 @@ public static class UIManager
 {
     // private static Dictionary<Type, UiharuWindowBase> _windows = new Dictionary<Type, UiharuWindowBase>();
 
-    public static bool IsClosing { get; set; } = false;
+    public static bool IsClosing => ClosingWindowSet.Count > 0; //{ get; set; } = false;
+    public static HashSet<UiharuWindowBase> ClosingWindowSet { get; set; } = new HashSet<UiharuWindowBase>();
 
     private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows =
         new Dictionary<Type, List<UiharuWindowBase>>();
@@ -180,12 +181,14 @@ public static class UIManager
             return;
         }
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            var window = new ScreenCapturePreviewWindow();
-            window.SetImage(image, size);
-            window.Show();
-        });
+        ShowWindow<ScreenCapturePreviewWindow>((window) => { window.SetImage(image, size); }, isMulti: true);
+
+        // Dispatcher.UIThread.Post(() =>
+        // {
+        //     var window = new ScreenCapturePreviewWindow();
+        //     window.SetImage(image, size);
+        //     window.Show();
+        // });
     }
 
     public static async void ShowDialogStackWindow(this Window target, Window owner)

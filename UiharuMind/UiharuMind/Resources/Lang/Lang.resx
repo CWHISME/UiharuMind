@@ -471,4 +471,22 @@
     <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
         <value />
     </data>
+    <data name="ScreenCaptureDockWindow_BtnOcr" xml:space="preserve">
+        <value>OCR</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnVision" xml:space="preserve">
+        <value>Ask</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnExplain" xml:space="preserve">
+        <value>Explain</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnCopy" xml:space="preserve">
+        <value>Copy</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnEdit" xml:space="preserve">
+        <value>Edit</value>
+    </data>
+    <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
+        <value>System OCR</value>
+    </data>
 </root>

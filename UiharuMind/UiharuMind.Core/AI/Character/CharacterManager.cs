@@ -93,7 +93,12 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     public CharacterData GetCharacterData(string characterName)
     {
         if (CharacterDataDictionary.TryGetValue(characterName, out var characterData)) return characterData;
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Assistant);
+        if (Enum.TryParse(typeof(DefaultCharacter), characterName, out var defaultCharacter))
+        {
+            return DefaultCharacterManager.Instance.GetCharacterData((DefaultCharacter)defaultCharacter);
+        }
+
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Empty);
     }
 
     /// <summary>

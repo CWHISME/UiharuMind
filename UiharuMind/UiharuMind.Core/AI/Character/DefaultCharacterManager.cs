@@ -44,19 +44,23 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 public enum DefaultCharacter
 {
     /// <summary>
+    /// 空角色，用于找不到的情况下默认角色
+    /// </summary>
+    Empty,
+    /// <summary>
     /// 用户角色卡
     /// </summary>
     UserCard,
-    Actor,
-    RoleplaySimple,
-    RoleplayDetailed,
-    RoleplayImmersive,
+    Roleplay_FirstPerson,
+    Roleplay_ThirdPerson,
+    // RoleplayDetailed,
+    // RoleplayImmersive,
     UiharuKazari,
 
     /// <summary>
     /// 本地语言
     /// </summary>
-    LocalLanguage,
+    SystemLanguage,
 
     /// <summary>
     /// 默认助手

@@ -149,7 +149,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         //开场白，处理逻辑待定
         if (!string.IsNullOrEmpty(CharacterData.FirstGreeting))
         {
-            AddMessage(AuthorRole.System, CharacterData.TryRender(CharacterData.FirstGreeting));
+            AddMessage(AuthorRole.Assistant, CharacterData.TryRender(CharacterData.FirstGreeting));
         }
     }
 
@@ -188,6 +188,15 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
     public void AddMessage(AuthorRole authorRole, string message, byte[]? imageBytes = null)
     {
         var chatMsg = CreateMessage(authorRole, message, imageBytes);
+
+        //如果AI作为第一条消息，那么特殊处理下(特殊显示)
+        if (History.Count == 0 && authorRole == AuthorRole.Assistant)
+        {
+#pragma warning disable SKEXP0001
+            chatMsg.Message.AuthorName = ChatMessage.NarratorName;
+#pragma warning restore SKEXP0001
+        }
+
         History.Add(chatMsg.Message);
         // TimeStamps.Add(chatMsg.Timestamp);
         // if (_countSavedCounter-- <= 0)
@@ -254,7 +263,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             //最后两条如是同一个 assistant 的话，不生成
             var prevMessage = this[^2];
             if (prevMessage.Character == ECharacter.Assistant &&
-                prevMessage.CharactorName == lastMessage.CharactorName)
+                prevMessage.CharacterName == lastMessage.CharacterName)
                 return new AsyncEnumerableWithMessage("Error:A same assistant cannot generate message");
         }
 
@@ -273,6 +282,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
                 foreach (var mountChar in CharacterData.MountCharacters)
                 {
                     var mountCharData = CharacterManager.Instance.GetCharacterData(mountChar);
+                    if (string.IsNullOrEmpty(mountCharData.Template)) continue;
                     sb.AppendLine(CharacterData.TryRender(mountCharData.Template));
                     sb.AppendLine();
 //                     chatHistory.Add(new ChatMessageContent(AuthorRole.System,
@@ -293,7 +303,7 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
             // }
             //角色信息
             var user = CharacterManager.Instance.UserCharacterData;
-            sb.Append($"user plays the role of {user.Description}. {user.Description}'s information: ");
+            sb.Append($"{user.Description}的个人信息： ");
             // sb.Append("User information: ");
             // chatHistory.AddSystemMessage(user.Template.Replace("{{$char}}", user.Description));
             sb.AppendLine(user.Template.Replace("{{$char}}", user.Description));
@@ -339,7 +349,8 @@ public class ChatSession //: INotifyPropertyChanged //: IEnumerable<ChatMessage>
         {
             var longTermMemory = await Memery.GetLongTermMemory(History[^1].Content ?? "");
             if (!string.IsNullOrEmpty(longTermMemory))
-                chatHistory.AddSystemMessage("以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" + longTermMemory);
+                chatHistory.AddSystemMessage("以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" +
+                                             longTermMemory);
         }
 
         //工具角色，且选择不携带历史记录

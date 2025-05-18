@@ -3,10 +3,10 @@
   "IsTool": true,
   "Config": {
     "PromptConfig": {
-      "name": "LocalLanguage",
+      "name": "SystemLanguage",
       "description": "要求使用本地语言回答",
       "template_format": "semantic-kernel",
-      "template": "Please use {{$lang}} to respond.",
+      "template": "[系统语言：{{$lang}}]",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

@@ -18,6 +18,8 @@ namespace UiharuMind.Core.Core.Chat;
 
 public struct ChatMessage
 {
+    public const string NarratorName = "Narrator";
+
     /// <summary>
     /// 以 UTC 时间戳表示的消息发送时间
     /// </summary>
@@ -31,13 +33,14 @@ public struct ChatMessage
     /// <summary>
     /// 消息角色名字
     /// </summary>
-    public string CharactorName => Message.AuthorName ?? "系统";
+    public string CharacterName => Message.AuthorName ?? "系统";
 
     public ECharacter Character
     {
         get
         {
-            if (Message.Role == AuthorRole.System) return ECharacter.System;
+            if (Message.Role == AuthorRole.System || Message.Role == AuthorRole.Developer ||
+                CharacterName.Equals(NarratorName, StringComparison.Ordinal)) return ECharacter.System;
             if (Message.Role == AuthorRole.User) return ECharacter.User;
             if (Message.Role == AuthorRole.Assistant) return ECharacter.Assistant;
             if (Message.Role == AuthorRole.Tool) return ECharacter.Tool;

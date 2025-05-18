@@ -6,7 +6,7 @@
       "name": "VisionOcr",
       "description": "[快捷工具]：快捷工具功能中提取图片文字(OCR)所用的模板",
       "template_format": "semantic-kernel",
-      "template": "提取图片文字",
+      "template": "# 目标\n\n执行OCR识别任务，提取图片中的文字，不要解释\n\n# 步骤\n\n层级识别策略：\n\n1. 优先提取清晰区域文字\n2. 二次处理低对比度/小字号区域\n3. 最后尝试识别破损/遮挡字符（用▢标记不确定字符）",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

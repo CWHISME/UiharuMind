@@ -1,0 +1,15 @@
+{
+  "IsHide": true,
+  "IsTool": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "EmptyPrompt",
+      "description": "EmptyPrompt",
+      "template_format": "semantic-kernel",
+      "template": "",
+      "input_variables": [],
+      "execution_settings": {},
+      "allow_dangerously_set_content": false
+    }
+  }
+}

@@ -59,11 +59,7 @@ public class CharacterData
     public List<string> MountCharacters { get; set; } =
         new List<string>()
         {
-            DefaultCharacter.Actor.ToString(),
-            DefaultCharacter.RoleplaySimple.ToString(),
-            DefaultCharacter.RoleplayDetailed.ToString(),
-            DefaultCharacter.RoleplayImmersive.ToString(),
-            DefaultCharacter.LocalLanguage.ToString(),
+            nameof(DefaultCharacter.Roleplay_ThirdPerson),
         };
 
     /// <summary>

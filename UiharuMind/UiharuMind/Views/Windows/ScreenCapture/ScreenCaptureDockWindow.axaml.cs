@@ -103,4 +103,9 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
             (CurrentSnapWindow.ImageBackupSource, CurrentSnapWindow.ImageSource);
         CurrentSnapWindow.ImageContent.Source = CurrentSnapWindow.ImageSource;
     }
+
+    private void OnExplainAiBtnClick(object? sender, RoutedEventArgs e)
+    {
+       
+    }
 }
