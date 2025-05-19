@@ -13,7 +13,7 @@ public class ChatPromptExecutionSettings : ConfigBase
         "控制生成文本的随机性:\n较高的温度值会使模型生成更加多样化和随机的结果，而较低的温度值会使生成的结果更加确定和集中。\n通常在0到1之间，但也可以大于1。默认为1.0。\n适用场景:\n\t高温度：适用于需要创造性和多样性的任务，如创意写作。\n\t低温度：适用于需要准确性和一致性的任务，如翻译或问答。",
         LanguageUtils.ChineseSimplified)]
     [JsonPropertyName("temperature")]
-    [SettingConfigRange(0f, 2.0f, 0.01f)]
+    [SettingConfigRange(0f, 1.0f, 0.01f)]
     public double? Temperature { get; set; } = 1.0;
 
     [SettingConfigDesc(
