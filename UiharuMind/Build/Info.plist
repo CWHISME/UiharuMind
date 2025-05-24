@@ -11,7 +11,7 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>10.12</string>
 	<key>CFBundleExecutable</key>
-	<string>Exec</string>
+	<string>UiharuMind.Desktop</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

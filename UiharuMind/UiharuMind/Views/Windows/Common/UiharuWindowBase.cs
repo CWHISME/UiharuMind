@@ -37,6 +37,7 @@ public abstract class UiharuWindowBase : Window
     public void RequestShow(bool isFirstShow = false, bool isActivate = true)
     {
         UIManager.ClosingWindowSet.Add(this);
+        // if (isActivate && IsAllowFocusOnOpen) ShowActivated = true;
         OnPreShow();
         if (isFirstShow)
         {
@@ -105,7 +106,8 @@ public abstract class UiharuWindowBase : Window
             if (ShowActivated || IsActive) App.DummyWindow.Activate();
             Hide();
             // UIManager.IsClosing = false;
-            UIManager.ClosingWindowSet.Remove(this);
+            Dispatcher.UIThread.Post(() => { UIManager.ClosingWindowSet.Remove(this); },
+                DispatcherPriority.ApplicationIdle);
         }, DispatcherPriority.ApplicationIdle);
     }
 

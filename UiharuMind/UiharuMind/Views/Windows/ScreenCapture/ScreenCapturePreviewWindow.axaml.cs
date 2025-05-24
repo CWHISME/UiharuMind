@@ -240,9 +240,23 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         _isDragging = false;
     }
 
-    protected override void OnPreClose()
+    // protected override void OnPreClose()
+    // {
+    //     base.OnPreClose();
+    //     ImageBackupSource?.Dispose();
+    //     ImageSource?.Dispose();
+    //     ImageOriginSource?.Dispose();
+    //     ImageBackupSource = null;
+    //     ImageSource = null;
+    //     ImageOriginSource = null;
+    // }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
     {
-        base.OnPreClose();
+        // OnPreCloseEvent?.Invoke();
+        base.OnClosing(e);
+
+        ImageContent.Source = null;
         ImageBackupSource?.Dispose();
         ImageSource?.Dispose();
         ImageOriginSource?.Dispose();
@@ -250,11 +264,6 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         ImageSource = null;
         ImageOriginSource = null;
     }
-
-    // protected override void OnClosing(WindowClosingEventArgs e)
-    // {
-    //     OnPreCloseEvent?.Invoke();
-    // }
     //
     // public event Action? OnPreCloseEvent;
 }

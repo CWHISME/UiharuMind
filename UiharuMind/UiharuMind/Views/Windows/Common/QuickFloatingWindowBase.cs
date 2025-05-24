@@ -24,11 +24,15 @@ namespace UiharuMind.Views.Common;
 /// </summary>
 public class QuickFloatingWindowBase : QuickWindowBase
 {
+    
+    protected override bool IsAllowFocusOnOpen => false;
+    
     public override void Awake()
     {
         SizeToContent = SizeToContent.WidthAndHeight;
         this.SetSimpledecorationPureWindow();
-        this.CanResize = true;
+        CanResize = true;
+        ShowActivated = false;
     }
 
     protected override void OnPreShow()
@@ -38,7 +42,6 @@ public class QuickFloatingWindowBase : QuickWindowBase
         InputManager.Instance.EventOnMouseWheel += OnMouseWheel;
         BindMouseClickCloseEvent();
 
-        ShowActivated = false;
         SetWindowPosition();
     }
 

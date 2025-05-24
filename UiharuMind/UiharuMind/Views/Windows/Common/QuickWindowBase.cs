@@ -18,7 +18,6 @@ namespace UiharuMind.Views.Common;
 
 public class QuickWindowBase : UiharuWindowBase
 {
-    protected override bool IsAllowFocusOnOpen => false;
 
     public override void Awake()
     {
@@ -52,9 +51,9 @@ public class QuickWindowBase : UiharuWindowBase
         this.CheckMouseOutsideWindow(CloseByAnimation);
     }
 
-    public void PlayOpenAnimation()
+    public void PlayOpenAnimation(Action? action = null)
     {
-        UiAnimationUtils.PlayAlphaTransitionAnimation(this, true, null);
+        UiAnimationUtils.PlayAlphaTransitionAnimation(this, true, action);
     }
 
     public void CloseByAnimation()

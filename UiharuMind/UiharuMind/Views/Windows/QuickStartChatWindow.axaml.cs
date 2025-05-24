@@ -10,9 +10,11 @@
  ****************************************************************************/
 
 using System;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
@@ -56,6 +58,8 @@ public partial class QuickStartChatWindow : QuickWindowBase
             x.QuatePanel.IsVisible = true;
         });
     }
+
+    protected override bool IsAllowFocusOnOpen => true;
 
     public QuickStartChatWindow()
     {
@@ -104,7 +108,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
         base.OnOpened(e);
         this.SetScreenCenterPosition();
         InputBox.Focus();
-        PlayOpenAnimation();
+        PlayOpenAnimation(() => { InputBox.Focus(); });
     }
 
     private void OnConfirmButtonClick(object sender, RoutedEventArgs e)

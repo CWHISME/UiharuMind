@@ -38,6 +38,12 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         HistoryView.HistoryListBox.ScrollIntoView(0);
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        HistoryView.HistoryListBox.ScrollIntoView(0);
+    }
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         this.BeginMoveDrag(e);

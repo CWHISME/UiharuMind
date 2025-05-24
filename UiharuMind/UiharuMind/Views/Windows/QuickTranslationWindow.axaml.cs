@@ -73,6 +73,13 @@ public partial class QuickTranslationWindow : QuickWindowBase
         }
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        InputBox.Focus();
+        PlayOpenAnimation(() => { InputBox.Focus(); });
+    }
+
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
 
     private CancellationTokenSource? _cts;
@@ -97,7 +104,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
 
     private AgentSkillBase GetSkill()
     {
-        if(string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
+        if (string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
         _agentSkill.SetExtraRequest(ExtraRequestTextBox.Text);
         return _agentSkill;
     }
