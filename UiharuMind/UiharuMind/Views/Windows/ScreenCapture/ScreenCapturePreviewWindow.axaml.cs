@@ -92,8 +92,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         var bounds = App.ScreensService.MouseScreen?.Bounds;
         if (bounds != null)
         {
-            MaxWidth = bounds.Value.Width / scaling;
-            MaxHeight = bounds.Value.Height / scaling;
+            MaxWidth = bounds.Value.Width / scaling * 2;
+            MaxHeight = bounds.Value.Height / scaling * 2;
         }
 
         SetImageSize(_originSize);
