@@ -22,7 +22,7 @@ namespace UiharuMind.Views.Windows.ScreenCapture;
 
 public partial class ScreenCaptureEditWindow : Window
 {
-    private Bitmap _source;
+    private Bitmap? _source;
     private Action<Bitmap> _onClose;
 
     private Stack<Path> _undoStack = new Stack<Path>();
@@ -358,8 +358,14 @@ public partial class ScreenCaptureEditWindow : Window
 
     private void SafeClose()
     {
-        var combinedBitmap = RenderToBitmap(DrawingCanvas, _source);
-        _onClose.Invoke(combinedBitmap);
+        if (_source != null)
+        {
+            var combinedBitmap = RenderToBitmap(DrawingCanvas, _source);
+            _onClose.Invoke(combinedBitmap);
+            ImageContent.Source = null;
+            _source = null;
+        }
+
         Close();
     }
 }

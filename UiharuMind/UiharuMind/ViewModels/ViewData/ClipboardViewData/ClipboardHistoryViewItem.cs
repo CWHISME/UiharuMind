@@ -9,6 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind;
@@ -41,7 +43,17 @@ public partial class ClipboardItem(string date, string text, string imageSource 
         {
             App.Clipboard.CopyToClipboard(Text);
             App.MessageService.ShowToast(Lang.CopiedToClipboardTips);
-            UIManager.CloseWindow<QuickClipboardHistoryWindow>();
         }
+
+        // Task.Run(() =>
+        // {
+        //     // Task.Delay(100).ContinueWith((x) =>
+        //     // {
+        //     Dispatcher.UIThread.Post(UIManager.CloseWindow<QuickClipboardHistoryWindow>,
+        //         DispatcherPriority.ApplicationIdle);
+        //     // });
+        // });
+        Dispatcher.UIThread.Post(UIManager.CloseWindow<QuickClipboardHistoryWindow>,
+            DispatcherPriority.ApplicationIdle);
     }
 }

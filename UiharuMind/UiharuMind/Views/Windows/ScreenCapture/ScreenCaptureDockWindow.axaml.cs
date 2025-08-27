@@ -41,7 +41,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
 
     private void OnOcrBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CurrentSnapWindow == null) return;
+        if (!IsValid()) return;
         var path = Path.GetTempPath() + "ocr.png";
         CurrentSnapWindow.ImageSource.Save(path);
         ScreenCaptureManager.OpenOcr(path, (int)CurrentSnapWindow.Width, (int)CurrentSnapWindow.Height);
@@ -49,19 +49,19 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
 
     private void OnCopyBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CurrentSnapWindow == null) return;
+        if (!IsValid()) return;
         App.Clipboard.CopyImageToClipboard(CurrentSnapWindow.ImageSource, true);
     }
 
     private async void OnSaveBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CurrentSnapWindow == null) return;
+        if (!IsValid()) return;
         await App.FilesService.SaveImageAsync(CurrentSnapWindow.ImageSource, CurrentSnapWindow);
     }
 
     private void OnOcrAiBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CurrentSnapWindow == null) return;
+        if (!IsValid()) return;
         ImageOcrSkill skill = new ImageOcrSkill(CurrentSnapWindow.ImageSource.BitmapToBytes());
         QuickChatResultWindow.Show("OCR (AI)", "", skill);
     }
@@ -74,7 +74,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
 
     private void OnEditBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CurrentSnapWindow == null) return;
+        if (!IsValid()) return;
         ScreenCaptureEditWindow window = new ScreenCaptureEditWindow(
             CurrentSnapWindow.ImageSource, CurrentSnapWindow.Position,
             new Size(CurrentSnapWindow.Width, CurrentSnapWindow.Height), (bitmap) =>
@@ -98,7 +98,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
 
     private void OnToggleOldNewBtnClick(object? sender, RoutedEventArgs e)
     {
-        if (CurrentSnapWindow?.ImageBackupSource == null) return;
+        if (CurrentSnapWindow == null || CurrentSnapWindow?.ImageBackupSource == null) return;
         (CurrentSnapWindow.ImageSource, CurrentSnapWindow.ImageBackupSource) =
             (CurrentSnapWindow.ImageBackupSource, CurrentSnapWindow.ImageSource);
         CurrentSnapWindow.ImageContent.Source = CurrentSnapWindow.ImageSource;
@@ -106,6 +106,11 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
 
     private void OnExplainAiBtnClick(object? sender, RoutedEventArgs e)
     {
-       
+    }
+
+    private bool IsValid()
+    {
+        if (CurrentSnapWindow == null || CurrentSnapWindow.ImageSource == null) return false;
+        return true;
     }
 }

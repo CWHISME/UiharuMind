@@ -21,7 +21,7 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
 {
     public ObservableCollection<ClipboardItem> ClipboardHistoryItems => App.Clipboard.ClipboardHistoryItems;
 
-    [ObservableProperty] private string _title;
+    [ObservableProperty] private string _title = "";
 
     public ClipboardHistoryViewModel()
     {

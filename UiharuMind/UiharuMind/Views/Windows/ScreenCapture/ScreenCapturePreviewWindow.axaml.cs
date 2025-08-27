@@ -50,6 +50,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         this.SetSimpledecorationWindow();
         ShowActivated = false;
+        ShowInTaskbar = false;
 
         this.MinWidth = 50;
         this.MinHeight = 50;
@@ -80,14 +81,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         // 计算原始尺寸的比例
         _aspectRatio = _originSize.Width / _originSize.Height;
 
-        ImageBackupSource?.Dispose();
-        ImageSource?.Dispose();
-        ImageOriginSource?.Dispose();
-
-        ImageSource = image;
-        ImageOriginSource = image;
-        ImageContent.Source = image;
-        ImageBackupSource = null;
+        SafeSetImage(image);
 
         var bounds = App.ScreensService.MouseScreen?.Bounds;
         if (bounds != null)
@@ -107,6 +101,22 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         this.Width = newSize.Width;
         this.Height = newSize.Height;
         // ClientSize = newSize;
+    }
+
+    private void SafeSetImage(Bitmap? image)
+    {
+        var imageBackupSource = ImageBackupSource;
+        var imageSource = ImageSource;
+        var imageOriginSource = ImageOriginSource;
+
+        ImageBackupSource = null;
+        ImageSource = image;
+        ImageOriginSource = image;
+        ImageContent.Source = image;
+
+        imageBackupSource?.Dispose();
+        imageSource?.Dispose();
+        imageOriginSource?.Dispose();
     }
 
     private void OnMouseEnter(object? sender, PointerEventArgs e)
@@ -240,30 +250,9 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         _isDragging = false;
     }
 
-    // protected override void OnPreClose()
-    // {
-    //     base.OnPreClose();
-    //     ImageBackupSource?.Dispose();
-    //     ImageSource?.Dispose();
-    //     ImageOriginSource?.Dispose();
-    //     ImageBackupSource = null;
-    //     ImageSource = null;
-    //     ImageOriginSource = null;
-    // }
-
-    protected override void OnClosing(WindowClosingEventArgs e)
+    protected override void OnPreClose()
     {
-        // OnPreCloseEvent?.Invoke();
-        base.OnClosing(e);
-
-        ImageContent.Source = null;
-        ImageBackupSource?.Dispose();
-        ImageSource?.Dispose();
-        ImageOriginSource?.Dispose();
-        ImageBackupSource = null;
-        ImageSource = null;
-        ImageOriginSource = null;
+        base.OnPreClose();
+        SafeSetImage(null);
     }
-    //
-    // public event Action? OnPreCloseEvent;
 }

@@ -196,10 +196,10 @@ public class ClipboardService : IDisposable
                     return;
                 }
 
-                //简单对比排除一下相同项
+                //排除一下相同项
                 if (ClipboardHistoryItems.Count > 0 &&
                     clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
-                    clipboardContent[0] == ClipboardHistoryItems[0].Text[0]) return;
+                    ClipboardHistoryItems[0].Text.Equals(clipboardContent, StringComparison.Ordinal)) return;
                 ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
                 OnClipboardStringChanged?.Invoke(clipboardContent);
             }

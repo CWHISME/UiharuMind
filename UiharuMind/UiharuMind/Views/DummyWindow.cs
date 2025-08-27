@@ -69,7 +69,7 @@ public class DummyWindow : Window
         // KeyDown += OnKeyDown;
 
         // MainWindow = LaunchMainWindow();
-        this.Activated += OnActivated;
+        // this.Activated += OnActivated;
         // this.GotFocus += OnActivated;
         // this.Deactivated += OnDeactivated;
     }

@@ -10,9 +10,11 @@
  ****************************************************************************/
 
 using System;
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
 
@@ -30,18 +32,18 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
         // BindMouseClickCloseEvent();
-    }
-
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
         HistoryView.HistoryListBox.ScrollIntoView(0);
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override void IsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
     {
-        base.OnOpened(e);
-        HistoryView.HistoryListBox.ScrollIntoView(0);
+        base.IsVisibleChanged(e);
+        if (e.GetNewValue<bool>())
+        {
+            // 使用Dispatcher延迟处理，确保布局已完成
+            Dispatcher.UIThread.InvokeAsync(() => { HistoryView.HistoryListBox.ScrollIntoView(0); },
+                DispatcherPriority.ApplicationIdle);
+        }
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
