@@ -109,6 +109,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         var imageSource = ImageSource;
         var imageOriginSource = ImageOriginSource;
 
+        ImageContent.Source = null;
         ImageBackupSource = null;
         ImageSource = image;
         ImageOriginSource = image;
