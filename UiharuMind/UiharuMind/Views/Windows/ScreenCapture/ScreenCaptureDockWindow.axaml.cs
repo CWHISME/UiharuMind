@@ -43,26 +43,26 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         if (!IsValid()) return;
         var path = Path.GetTempPath() + "ocr.png";
-        CurrentSnapWindow.ImageSource.Save(path);
+        CurrentSnapWindow!.ImageSource!.Save(path);
         ScreenCaptureManager.OpenOcr(path, (int)CurrentSnapWindow.Width, (int)CurrentSnapWindow.Height);
     }
 
     private void OnCopyBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        App.Clipboard.CopyImageToClipboard(CurrentSnapWindow.ImageSource, true);
+        App.Clipboard.CopyImageToClipboard(CurrentSnapWindow!.ImageSource!, true);
     }
 
     private async void OnSaveBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        await App.FilesService.SaveImageAsync(CurrentSnapWindow.ImageSource, CurrentSnapWindow);
+        await App.FilesService.SaveImageAsync(CurrentSnapWindow!.ImageSource!, CurrentSnapWindow);
     }
 
     private void OnOcrAiBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        ImageOcrSkill skill = new ImageOcrSkill(CurrentSnapWindow.ImageSource.BitmapToBytes());
+        ImageOcrSkill skill = new ImageOcrSkill(CurrentSnapWindow!.ImageSource!.BitmapToBytes());
         QuickChatResultWindow.Show("OCR (AI)", "", skill);
     }
 
@@ -75,13 +75,19 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnEditBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
+        Bitmap? backup = CurrentSnapWindow!.ImageOriginSource;
+        Bitmap? curImage = CurrentSnapWindow.ImageSource!;
+        CurrentSnapWindow.ImageSource = null;
+        CurrentSnapWindow!.ImageOriginSource = null;
+        CurrentSnapWindow!.ImageBackupSource = null;
+        var backupPos = CurrentSnapWindow.Position;
         ScreenCaptureEditWindow window = new ScreenCaptureEditWindow(
-            CurrentSnapWindow.ImageSource, CurrentSnapWindow.Position,
+            curImage, backupPos,
             new Size(CurrentSnapWindow.Width, CurrentSnapWindow.Height), (bitmap) =>
             {
-                CurrentSnapWindow.ImageBackupSource = CurrentSnapWindow.ImageOriginSource;
-                CurrentSnapWindow.ImageSource = bitmap;
-                CurrentSnapWindow.ImageContent.Source = bitmap;
+                CurrentSnapWindow.SetImage(bitmap, pos: backupPos);
+                CurrentSnapWindow.ImageOriginSource = CurrentSnapWindow.ImageBackupSource = backup;
+
                 App.Clipboard.CopyImageToClipboard(bitmap, true);
                 CurrentSnapWindow.Show();
             });

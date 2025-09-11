@@ -87,6 +87,7 @@ public abstract class UiharuWindowBase : Window
     protected override void OnClosing(WindowClosingEventArgs e)
     {
         e.Cancel = true;
+        base.OnClosing(e);
         UIManager.ClosingWindowSet.Add(this);
         App.DummyWindow.Activate();
         SafeClose();

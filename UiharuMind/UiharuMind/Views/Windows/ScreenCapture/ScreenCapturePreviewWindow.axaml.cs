@@ -72,7 +72,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private Size _currentSize;
     // private PixelPoint _currentPixelPoint;
 
-    public void SetImage(Bitmap image, Size? size = null)
+    public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null)
     {
         // Content = new Image { Source = image };
         var scaling = App.ScreensService.Scaling;
@@ -92,7 +92,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         SetImageSize(_originSize);
 
-        this.SetWindowToMousePosition();
+        if (pos == null) this.SetWindowToMousePosition();
     }
 
     private void SetImageSize(Size newSize)
@@ -251,9 +251,15 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         _isDragging = false;
     }
 
-    protected override void OnPreClose()
+    protected override void OnClosed(EventArgs e)
     {
-        base.OnPreClose();
+        base.OnClosed(e);
+        SafeSetImage(null);
+    }
+
+    public override void Hide()
+    {
+        base.Hide();
         SafeSetImage(null);
     }
 }
