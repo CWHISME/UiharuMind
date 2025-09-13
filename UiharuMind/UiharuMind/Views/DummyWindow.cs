@@ -55,9 +55,9 @@ public class DummyWindow : Window
         // Position = new PixelPoint(0, 0);
         // Background = Brushes.Transparent;
         Focusable = true;
-        // IsVisible = false;
+        IsVisible = false;
         // Opacity = 0;
-        this.ShowActivated = false;
+        ShowActivated = false;
         ShowInTaskbar = false;
         this.SetSimpledecorationPureWindow(false);
         IsHitTestVisible = false;
@@ -87,7 +87,7 @@ public class DummyWindow : Window
         InputManager.Instance.Start(OnQuickKeyInitFailure);
         RegistryShortcut();
         RegistryClipboardTool();
-        // Hide();
+        Hide();
 
         //if(UiharuCoreManager.Instance.IsWindows) 
         // LaunchMainWindow();
