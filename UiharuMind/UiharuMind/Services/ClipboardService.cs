@@ -76,8 +76,8 @@ public class ClipboardService : IDisposable
         ClipboardHistoryItems = SaveUtility.LoadRootFile<ObservableCollection<ClipboardItem>>(HistoryFileName) ??
                                 new ObservableCollection<ClipboardItem>();
 
-        //初始化定时器，每隔100秒检测保存一次历史记录
-        _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromSeconds(100));
+        //初始化定时器，每隔指定时间检测保存一次历史记录
+        _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromMinutes(10));
     }
 
     public void CopyToClipboard(string text, bool ignoreSelfCopying = false)

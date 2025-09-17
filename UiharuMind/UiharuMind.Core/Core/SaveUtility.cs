@@ -53,11 +53,14 @@ public static class SaveUtility
             string? dir = Path.GetDirectoryName(filePath);
             if (dir == null) return;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            File.WriteAllText(filePath, JsonSerializer.Serialize(target, _options));
+
+            string jsonString = JsonSerializer.Serialize(target, _options);
+
+            File.WriteAllTextAsync(filePath, jsonString);
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
         }
     }
 
