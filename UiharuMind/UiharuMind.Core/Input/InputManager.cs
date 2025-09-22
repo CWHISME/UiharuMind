@@ -10,8 +10,7 @@
  ****************************************************************************/
 
 using SharpHook;
-using SharpHook.Native;
-using UiharuMind.Core.Core;
+using SharpHook.Data;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 

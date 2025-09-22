@@ -39,7 +39,7 @@ public static class UIManager
         new Dictionary<Type, List<UiharuWindowBase>>();
 
     private static Stack<Window> _windowStack = new Stack<Window>();
-
+    
     /// <summary>
     /// 开启一个界面
     /// </summary>

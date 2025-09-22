@@ -11,21 +11,14 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using SharpHook.Native;
-using UiharuMind.Core.Core.SimpleLog;
+using SharpHook.Data;
 using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
-using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows;
 using Ursa.Controls;
 

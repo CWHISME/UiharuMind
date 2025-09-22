@@ -31,6 +31,7 @@ public static class WindowUtils
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
+            var winSize=window.ClientSize;
             var pos = App.ScreensService.MousePosition;
             var scaling = App.ScreensService.Scaling;
             double posX = pos.X;
@@ -38,10 +39,10 @@ public static class WindowUtils
             switch (horizontalAlignment)
             {
                 case HorizontalAlignment.Left:
-                    posX -= window.Width * scaling;
+                    posX -= winSize.Width * scaling;
                     break;
                 case HorizontalAlignment.Center:
-                    posX -= window.Width / 2 * scaling;
+                    posX -= winSize.Width / 2 * scaling;
                     break;
                 case HorizontalAlignment.Right:
                     break;
@@ -50,17 +51,17 @@ public static class WindowUtils
             switch (verticalAlignment)
             {
                 case VerticalAlignment.Top:
-                    posY -= window.Height * scaling;
+                    posY -= winSize.Height * scaling;
                     break;
                 case VerticalAlignment.Center:
-                    posY -= window.Height / 2 * scaling;
+                    posY -= winSize.Height / 2 * scaling;
                     break;
                 case VerticalAlignment.Bottom:
                     break;
             }
 
             var finalPos = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
-            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, window.ClientSize);
+            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, winSize);
         });
     }
 
@@ -100,8 +101,9 @@ public static class WindowUtils
         if (screen != null)
         {
             // 计算窗口在屏幕中心的坐标
-            var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + window.Width) / 2;
-            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - window.Height;
+            var winSize=window.ClientSize;
+            var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + winSize.Width) / 2;
+            var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - winSize.Height;
 
             // 设置窗口位置
             window.Position = new PixelPoint((int)x, (int)y);

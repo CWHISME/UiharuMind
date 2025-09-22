@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 using System;
-using SharpHook.Native;
+using SharpHook.Data;
 using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 

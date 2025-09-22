@@ -9,7 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using SharpHook.Native;
+using SharpHook.Data;
 
 namespace UiharuMind.Core.Input;
 

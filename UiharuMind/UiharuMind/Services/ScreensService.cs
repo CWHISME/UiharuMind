@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
-using SharpHook.Native;
+using SharpHook.Data;
 using UiharuMind.Core.Input;
 
 namespace UiharuMind.Services;

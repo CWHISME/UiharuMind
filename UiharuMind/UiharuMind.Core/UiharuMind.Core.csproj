@@ -17,7 +17,7 @@
       <PackageReference Include="Microsoft.SemanticKernel" Version="1.40.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.37.0-alpha" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
-      <PackageReference Include="SharpHook" Version="5.3.8" />
+      <PackageReference Include="SharpHook" Version="7.0.2" />
       <PackageReference Include="Tiktoken" Version="2.0.3" />
     </ItemGroup>
 
