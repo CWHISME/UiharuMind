@@ -24,6 +24,16 @@ public class InputManager : Singleton<InputManager>, IInitialize
     public static MouseEventData MouseData;
 
     /// <summary>
+    /// 上一次鼠标按下位置信息
+    /// </summary>
+    public static MouseEventData MousePressedData;
+
+    /// <summary>
+    /// 上一次鼠标释放位置信息
+    /// </summary>
+    public static MouseEventData MouseReleasedData;
+
+    /// <summary>
     /// 功能是否启用
     /// </summary>
     public bool IsRunning => _hook.IsRunning;
@@ -171,12 +181,14 @@ public class InputManager : Singleton<InputManager>, IInitialize
     {
         EventOnMouseClicked?.Invoke(e.Data);
         MouseData = e.Data;
+        MousePressedData = e.Data;
         // Log.Debug("OnMousePressed");
     }
 
     private void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
         MouseData = e.Data;
+        MouseReleasedData = e.Data;
         // Log.Debug("OnMouseReleased");
     }
 

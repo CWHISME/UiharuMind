@@ -40,6 +40,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     // private bool _error = false;
 
+    public override bool IsCacheWindow => false;
+
     public ScreenCaptureWindow()
     {
         InitializeComponent();
@@ -94,63 +96,15 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     private void InitializeWindow()
     {
-        // SystemDecorations = SystemDecorations.None;
-        // Background = Brushes.Transparent;
         CanResize = false;
-        // Topmost = true; // 确保窗口在最顶层
         ShowInTaskbar = false;
-        // ExtendClientAreaToDecorationsHint = true; // 扩展客户端区¸域以包括装饰
-        // ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         this.SetSimpledecorationPureWindow(true);
-        // WindowState = WindowState.FullScreen; // 最大化窗口
-
-        // IntPtr hWnd = this.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-        // if (hWnd == IntPtr.Zero)
-        // {
-        //     Log.Error("Failed to get window handle");
-        //     _error = true;
-        //     return;
-        // }
-
-        // IntPtr hWndInsertAfter = new IntPtr(-1);
-        // int x = 0;
-        // int y = 0;
-        // if (Screens.Primary != null)
-        // {
-        //     var screen = Screens.ScreenFromWindow(this);
-        //     if (screen != null)
-        //     {
-        //         try
-        //         {
-        //             _screenWidth = screen.Bounds.Width;
-        //             _screenHeight = screen.Bounds.Height;
-        //             // SetWindowPos(hWnd, hWndInsertAfter, x, y, _screenWidth, _screenHeight, 0);
-        //             _screenWidth = (int)Math.Ceiling(_screenWidth / screen.Scaling);
-        //             _screenHeight = (int)Math.Ceiling(_screenHeight / screen.Scaling);
-        //         }
-        //         catch (Exception e)
-        //         {
-        //             Log.Error(e.Message);
-        //             // _error = true;
-        //         }
-        //     }
-        // }
-
-        // InfoPanel.IsVisible = false;
     }
 
     protected override void OnPreShow()
     {
         UpdateCaptureScreen();
     }
-
-    // protected override void OnOpened(EventArgs e)
-    // {
-    //     base.OnOpened(e);
-    //     // UpdateCaptureScreen();
-    //     // CaptureScreen();
-    //     Log.Debug("OnOpened.");
-    // }
 
     protected override void OnKeyUp(KeyEventArgs e)
     {
@@ -358,8 +312,12 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                     (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
                 var image = childImage.ImageToBitmap();
                 // image.dp = new Size(SelectionRectangle.Width, SelectionRectangle.Height);
-                UIManager.ShowPreviewImageWindowAtMousePosition(image,
-                    new Size(SelectionRectangle.Width, SelectionRectangle.Height));
+
+                // UIManager.ShowPreviewImageWindowAtMousePosition(image,
+                //     new Size(SelectionRectangle.Width, SelectionRectangle.Height));
+
+                //校正截图的上下左右不同方向拖动方式
+                UIManager.ShowPreviewImageWindowAtMousePosition(image, PixelPoint.FromPoint(_startPoint, App.ScreensService.Scaling), App.ScreensService.MouseReleasedPosition);
             }
             catch (Exception e)
             {

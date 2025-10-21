@@ -15,6 +15,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -72,7 +73,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private Size _currentSize;
     // private PixelPoint _currentPixelPoint;
 
-    public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null)
+    public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
+        VerticalAlignment verticalAlignment = VerticalAlignment.Top)
     {
         // Content = new Image { Source = image };
         var scaling = App.ScreensService.Scaling;
@@ -92,7 +94,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         SetImageSize(_originSize);
 
-        if (pos == null) this.SetWindowToMousePosition();
+        if (pos == null) this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height);
     }
 
     private void SetImageSize(Size newSize)

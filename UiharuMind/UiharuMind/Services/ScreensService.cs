@@ -38,6 +38,24 @@ public class ScreensService
     }
 
     /// <summary>
+    /// 上一鼠标按下的像素位置
+    /// </summary>
+    public PixelPoint MousePressedPosition
+    {
+        get => new(InputManager.MousePressedData.X, InputManager.MousePressedData.Y);
+        set => InputManager.MousePressedData = new MouseEventData() { X = (short)value.X, Y = (short)value.Y };
+    }
+
+    /// <summary>
+    /// 上一次鼠标释放的像素位置
+    /// </summary>
+    public PixelPoint MouseReleasedPosition
+    {
+        get => new(InputManager.MouseReleasedData.X, InputManager.MouseReleasedData.Y);
+        set => InputManager.MouseReleasedData = new MouseEventData() { X = (short)value.X, Y = (short)value.Y };
+    }
+
+    /// <summary>
     /// 以控件计算的鼠标位置
     /// </summary>
     public Point MousePositionPoint => MousePosition.ToPoint(Scaling);

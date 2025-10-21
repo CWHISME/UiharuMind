@@ -13,6 +13,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Core;
@@ -79,7 +80,7 @@ public static class ScreenCaptureManager
             Log.Error(e.Message);
         }
 
-        UIManager.ShowPreviewImageWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard());
+        UIManager.ShowPreviewImageWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard(), App.ScreensService.MousePressedPosition, App.ScreensService.MouseReleasedPosition);
     }
 
     public static async void OpenOcr(string filePath, int width, int height)

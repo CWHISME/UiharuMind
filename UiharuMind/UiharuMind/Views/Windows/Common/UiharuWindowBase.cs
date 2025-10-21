@@ -24,6 +24,11 @@ public abstract class UiharuWindowBase : Window
     protected int StartWidth;
     protected int StartHeight;
 
+    /// <summary>
+    /// 是否不关闭，重复复用
+    /// </summary>
+    public virtual bool IsCacheWindow => true;
+
     protected UiharuWindowBase()
     {
         Activated += OnActivated;
@@ -86,11 +91,20 @@ public abstract class UiharuWindowBase : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        e.Cancel = true;
-        base.OnClosing(e);
-        UIManager.ClosingWindowSet.Add(this);
-        App.DummyWindow.Activate();
-        SafeClose();
+        if (IsCacheWindow)
+        {
+            e.Cancel = true;
+            base.OnClosing(e);
+            UIManager.ClosingWindowSet.Add(this);
+            App.DummyWindow.Activate();
+            SafeClose();
+        }
+        else
+        {
+            OnPreCloseEvent?.Invoke();
+            OnPreClose();
+            base.OnClosing(e);
+        }
     }
 
     protected virtual void SafeClose()

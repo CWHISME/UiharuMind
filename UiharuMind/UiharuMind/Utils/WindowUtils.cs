@@ -27,22 +27,25 @@ public static class WindowUtils
 {
     public static void SetWindowToMousePosition(this Window window,
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
-        VerticalAlignment verticalAlignment = VerticalAlignment.Top, int offsetX = 0, int offsetY = 0)
+        VerticalAlignment verticalAlignment = VerticalAlignment.Top, double width = 0, double height = 0, int offsetX = 0, int offsetY = 0)
     {
-        Dispatcher.UIThread.InvokeAsync(() =>
+        var pos = App.ScreensService.MousePosition;
+        if (width == 0) width = window.Width;
+        if (height == 0) height = window.Height;
+        Dispatcher.UIThread.Post(() =>
         {
-            var winSize=window.ClientSize;
-            var pos = App.ScreensService.MousePosition;
+            var windowWidth = width;
+            var windowHeight = height;
             var scaling = App.ScreensService.Scaling;
             double posX = pos.X;
             double posY = pos.Y;
             switch (horizontalAlignment)
             {
                 case HorizontalAlignment.Left:
-                    posX -= winSize.Width * scaling;
+                    posX -= (windowWidth - 1) * scaling;
                     break;
                 case HorizontalAlignment.Center:
-                    posX -= winSize.Width / 2 * scaling;
+                    posX -= windowWidth / 2 * scaling;
                     break;
                 case HorizontalAlignment.Right:
                     break;
@@ -51,17 +54,17 @@ public static class WindowUtils
             switch (verticalAlignment)
             {
                 case VerticalAlignment.Top:
-                    posY -= winSize.Height * scaling;
+                    posY -= (windowHeight - 1) * scaling;
                     break;
                 case VerticalAlignment.Center:
-                    posY -= winSize.Height / 2 * scaling;
+                    posY -= windowHeight / 2 * scaling;
                     break;
                 case VerticalAlignment.Bottom:
                     break;
             }
 
             var finalPos = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
-            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, winSize);
+            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, new Size(windowWidth, windowHeight));
         });
     }
 
@@ -101,7 +104,7 @@ public static class WindowUtils
         if (screen != null)
         {
             // 计算窗口在屏幕中心的坐标
-            var winSize=window.ClientSize;
+            var winSize = window.ClientSize;
             var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + winSize.Width) / 2;
             var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - winSize.Height;
 

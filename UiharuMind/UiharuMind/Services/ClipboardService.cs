@@ -56,7 +56,7 @@ public class ClipboardService : IDisposable
 
     private Timer _timer;
 
-    // private bool _isHistoryDirty;
+    private bool _isHistoryDirty;
     private bool _isSelfCopying;
 
     public bool IsSelfCopying
@@ -77,7 +77,7 @@ public class ClipboardService : IDisposable
                                 new ObservableCollection<ClipboardItem>();
 
         //初始化定时器，每隔指定时间检测保存一次历史记录
-        _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromMinutes(10));
+        _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromHours(1));
     }
 
     public void CopyToClipboard(string text, bool ignoreSelfCopying = false)
@@ -186,7 +186,7 @@ public class ClipboardService : IDisposable
         {
             try
             {
-                await Task.Delay(10);
+                await Task.Delay(100);
                 var clipboardContent = await GetFromClipboard();
                 if (string.IsNullOrEmpty(clipboardContent))
                 {
@@ -207,22 +207,24 @@ public class ClipboardService : IDisposable
             {
                 Log.Warning(e.Message);
             }
-            // finally
-            // {
-            //     _isHistoryDirty = true;
-            // }
+            finally
+            {
+                _isHistoryDirty = true;
+            }
         });
     }
 
     private void OnTimerElapsed(object? state)
     {
+        if (!_isHistoryDirty) return;
         SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
-        // _isHistoryDirty = false;
+        _isHistoryDirty = false;
     }
 
     public void Dispose()
     {
-        SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
+        if (_isHistoryDirty) SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
+        _isHistoryDirty = false;
         _clipboardMonitor?.Dispose();
         _timer.Dispose();
     }

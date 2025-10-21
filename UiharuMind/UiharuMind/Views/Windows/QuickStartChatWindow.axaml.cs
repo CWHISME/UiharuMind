@@ -93,6 +93,10 @@ public partial class QuickStartChatWindow : QuickWindowBase
     {
         base.OnPreShow();
         BindMouseClickCloseEvent();
+        QuoteImage.Source = null;
+        QuoteTextBlock.Text = "";
+        _quoteStr = null;
+        _quoteImage = null;
         InputBox.Text = "";
         this.SetScreenCenterPosition();
     }

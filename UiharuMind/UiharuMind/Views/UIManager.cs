@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Core.AI.Memery;
@@ -39,7 +40,7 @@ public static class UIManager
         new Dictionary<Type, List<UiharuWindowBase>>();
 
     private static Stack<Window> _windowStack = new Stack<Window>();
-    
+
     /// <summary>
     /// 开启一个界面
     /// </summary>
@@ -78,7 +79,7 @@ public static class UIManager
             {
                 window = new T();
                 // _multiWindows[typeof(T)] = [window];
-                windowsList.Add(window);
+                if (window.IsCacheWindow) windowsList.Add(window);
                 onCreateCallback?.Invoke(window);
                 action?.Invoke(window);
                 window.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -163,11 +164,23 @@ public static class UIManager
     }
 
     /// <summary>
-    /// 在屏幕显示一张图(当前鼠标位置)
+    ///  在屏幕显示一张截图(当前鼠标位置)
     /// </summary>
     /// <param name="image"></param>
-    /// <param name="size">默认大小</param>
-    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, Size? size = null)
+    /// <param name="startMousePos">开始截图的鼠标位置</param>
+    /// <param name="endMousePos">结束截图的鼠标位置</param>
+    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, PixelPoint startMousePos, PixelPoint endMousePos)
+    {
+        ShowPreviewImageWindowAtMousePosition(image, null,
+            endMousePos.X > startMousePos.X ? HorizontalAlignment.Left : HorizontalAlignment.Right,
+            endMousePos.Y > startMousePos.Y ? VerticalAlignment.Top : VerticalAlignment.Bottom);
+    }
+
+    /// <summary>
+    /// 在屏幕显示一张图(当前鼠标位置)
+    /// </summary>
+    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, Size? size = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
+        VerticalAlignment verticalAlignment = VerticalAlignment.Top)
     {
         if (image == null)
         {
@@ -181,14 +194,7 @@ public static class UIManager
             return;
         }
 
-        ShowWindow<ScreenCapturePreviewWindow>((window) => { window.SetImage(image, size); }, isMulti: true);
-
-        // Dispatcher.UIThread.Post(() =>
-        // {
-        //     var window = new ScreenCapturePreviewWindow();
-        //     window.SetImage(image, size);
-        //     window.Show();
-        // });
+        ShowWindow<ScreenCapturePreviewWindow>((window) => { window.SetImage(image, size, null, horizontalAlignment, verticalAlignment); }, isMulti: true);
     }
 
     public static async void ShowDialogStackWindow(this Window target, Window owner)
@@ -209,7 +215,7 @@ public static class UIManager
         }
     }
 
-    //===================open====================
+//===================open====================
     public static async Task<string?> ShowStringEditWindow(string content, Window? owner = null)
     {
         StringContentEditWindow window = new StringContentEditWindow();
