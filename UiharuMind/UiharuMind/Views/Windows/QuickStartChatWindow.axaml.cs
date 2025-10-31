@@ -37,6 +37,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
     {
         UIManager.ShowWindow<QuickStartChatWindow>(x =>
         {
+            x.ResetInfo();
             x._quoteStr = quoteStr;
             x._quoteImage = null;
             x.QuoteTextBlock.Text = quoteStr;
@@ -50,6 +51,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
     {
         UIManager.ShowWindow<QuickStartChatWindow>(x =>
         {
+            x.ResetInfo();
             x._quoteStr = null;
             x._quoteImage = quoteImage;
             x.QuoteTextBlock.IsVisible = false;
@@ -93,11 +95,6 @@ public partial class QuickStartChatWindow : QuickWindowBase
     {
         base.OnPreShow();
         BindMouseClickCloseEvent();
-        QuoteImage.Source = null;
-        QuoteTextBlock.Text = "";
-        _quoteStr = null;
-        _quoteImage = null;
-        InputBox.Text = "";
         this.SetScreenCenterPosition();
     }
 
@@ -113,6 +110,15 @@ public partial class QuickStartChatWindow : QuickWindowBase
         this.SetScreenCenterPosition();
         InputBox.Focus();
         PlayOpenAnimation(() => { InputBox.Focus(); });
+    }
+
+    private void ResetInfo()
+    {
+        QuoteImage.Source = null;
+        QuoteTextBlock.Text = "";
+        _quoteStr = null;
+        _quoteImage = null;
+        InputBox.Text = "";
     }
 
     private void OnConfirmButtonClick(object sender, RoutedEventArgs e)
