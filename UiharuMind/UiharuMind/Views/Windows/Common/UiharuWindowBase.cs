@@ -73,7 +73,6 @@ public abstract class UiharuWindowBase : Window
 
     public virtual void Awake()
     {
-        ShowActivated = false;
     }
 
     protected virtual void OnInitWindowPosition()
