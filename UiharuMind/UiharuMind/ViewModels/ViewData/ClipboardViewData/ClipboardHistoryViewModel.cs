@@ -11,8 +11,11 @@
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Views;
+using UiharuMind.Views.Windows;
 using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.ViewData.ClipboardViewData;
@@ -31,8 +34,12 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
 
     public void Copy(ClipboardItem item)
     {
-        ClipboardHistoryItems.Remove(item);
-        item.CopyToClipboard();
+        UIManager.CloseWindow<QuickClipboardHistoryWindow>();
+        Dispatcher.UIThread.Post(() =>
+        {
+            ClipboardHistoryItems.Remove(item);
+            item.CopyToClipboard();
+        }, DispatcherPriority.ApplicationIdle);
     }
 
     public void Delete(ClipboardItem item)

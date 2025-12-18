@@ -33,8 +33,8 @@ public static class UIManager
 {
     // private static Dictionary<Type, UiharuWindowBase> _windows = new Dictionary<Type, UiharuWindowBase>();
 
-    public static bool IsClosing => ClosingWindowSet.Count > 0; //{ get; set; } = false;
-    public static HashSet<UiharuWindowBase> ClosingWindowSet { get; set; } = new HashSet<UiharuWindowBase>();
+    // public static bool IsClosing => ClosingWindowSet.Count > 0; //{ get; set; } = false;
+    // public static HashSet<UiharuWindowBase> ClosingWindowSet { get; set; } = new HashSet<UiharuWindowBase>();
 
     private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows =
         new Dictionary<Type, List<UiharuWindowBase>>();

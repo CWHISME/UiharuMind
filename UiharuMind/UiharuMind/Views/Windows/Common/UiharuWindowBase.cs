@@ -36,12 +36,12 @@ public abstract class UiharuWindowBase : Window
 
     private void OnActivated(object? sender, EventArgs e)
     {
-        UIManager.ClosingWindowSet.Remove(this);
+        // UIManager.ClosingWindowSet.Remove(this);
     }
 
     public void RequestShow(bool isFirstShow = false, bool isActivate = true)
     {
-        UIManager.ClosingWindowSet.Add(this);
+        // UIManager.ClosingWindowSet.Add(this);
         // if (isActivate && IsAllowFocusOnOpen) ShowActivated = true;
         OnPreShow();
         if (isFirstShow)
@@ -94,7 +94,7 @@ public abstract class UiharuWindowBase : Window
         {
             e.Cancel = true;
             base.OnClosing(e);
-            UIManager.ClosingWindowSet.Add(this);
+            // UIManager.ClosingWindowSet.Add(this);
             App.DummyWindow.Activate();
             SafeClose();
         }
@@ -109,20 +109,18 @@ public abstract class UiharuWindowBase : Window
     protected virtual void SafeClose()
     {
         // UIManager.IsClosing = true;
-        UIManager.ClosingWindowSet.Add(this);
+        // UIManager.ClosingWindowSet.Add(this);
         OnPreCloseEvent?.Invoke();
         OnPreClose();
-        // InvalidateMeasure();
-        // Log.Debug("Closing window: " + this.GetType().Name + "   " + this.IsMeasureValid);
-        // App.DummyWindow.Focus();
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (ShowActivated || IsActive) App.DummyWindow.Activate();
-            Hide();
-            // UIManager.IsClosing = false;
-            Dispatcher.UIThread.Post(() => { UIManager.ClosingWindowSet.Remove(this); },
-                DispatcherPriority.ApplicationIdle);
-        }, DispatcherPriority.ApplicationIdle);
+        Dispatcher.UIThread.Post(Hide);
+        // Dispatcher.UIThread.Post(() =>
+        // {
+        //     if (ShowActivated || IsActive) App.DummyWindow.Activate();
+        //     Hide();
+        //     // UIManager.IsClosing = false;
+        //     Dispatcher.UIThread.Post(() => { UIManager.ClosingWindowSet.Remove(this); },
+        //         DispatcherPriority.ApplicationIdle);
+        // }, DispatcherPriority.ApplicationIdle);
     }
 
     //Tools

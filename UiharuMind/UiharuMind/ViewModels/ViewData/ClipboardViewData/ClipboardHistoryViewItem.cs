@@ -53,7 +53,7 @@ public partial class ClipboardItem(string date, string text, string imageSource 
         //         DispatcherPriority.ApplicationIdle);
         //     // });
         // });
-        Dispatcher.UIThread.Post(UIManager.CloseWindow<QuickClipboardHistoryWindow>,
-            DispatcherPriority.ApplicationIdle);
+        // Dispatcher.UIThread.Post(UIManager.CloseWindow<QuickClipboardHistoryWindow>,
+        //     DispatcherPriority.ApplicationIdle);
     }
 }

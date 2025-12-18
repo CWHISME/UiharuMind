@@ -116,7 +116,7 @@ public class DummyWindow : Window
         //     if (desktop.Windows.FirstOrDefault(x => x != this && x is not UiharuWindowBase) != null) return;
         //     // Log.Debug("活跃窗口" + desktop.Windows.Count);
         // }
-        if (!UIManager.IsClosing) LaunchMainWindow();
+        // if (!UIManager.IsClosing) LaunchMainWindow();
         //想点击 Mac 托盘打开主界面，但是有问题，会导致关闭上一个界面时也自动将主界面打开，难顶！
         // if (WindowState == WindowState.Minimized)
         // {
