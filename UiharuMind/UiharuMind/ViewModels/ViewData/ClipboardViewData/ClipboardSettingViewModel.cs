@@ -40,6 +40,6 @@ public partial class ClipboardSettingViewModel : ViewModelBase
     [RelayCommand]
     private void ClearAll()
     {
-        _historyViewModel.ClipboardHistoryItems.Clear();
+        App.Clipboard.ClipboardHistoryItems.Clear();
     }
 }

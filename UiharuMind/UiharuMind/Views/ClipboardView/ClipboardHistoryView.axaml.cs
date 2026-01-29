@@ -11,6 +11,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -51,6 +52,25 @@ public partial class ClipboardHistoryView : UserControl
         if (result == MessageBoxResult.Yes)
         {
             App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().DeleteAll();
+        }
+    }
+
+    private void SearchToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        var toggleButton = (ToggleButton)sender;
+        bool isChecked = toggleButton.IsChecked == true;
+
+        if (isChecked)
+        {
+            SearchTextBox.Focus();
+        }
+    }
+
+    private void SearchTextBox_KeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            SearchToggleButton.IsChecked = false;
         }
     }
 }
