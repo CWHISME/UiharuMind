@@ -16,6 +16,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using UiharuMind.Utils;
+using UiharuMind.ViewModels.ViewData.ClipboardViewData;
 using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
@@ -32,6 +33,7 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
         // BindMouseClickCloseEvent();
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
         HistoryView.HistoryListBox.ScrollIntoView(0);
     }
 

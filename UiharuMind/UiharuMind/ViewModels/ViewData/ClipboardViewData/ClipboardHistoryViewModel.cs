@@ -41,7 +41,7 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         set
         {
             SetProperty(ref _isSearchActive, value);
-            PerformSearch();
+            PerformSearch(false);
         }
     }
 
@@ -65,7 +65,12 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         FilteredClipboardHistoryItems = new ObservableCollection<ClipboardItem>(App.Clipboard.ClipboardHistoryItems);
 
         RefreshTitle();
-        App.Clipboard.OnClipboardStringChanged += OnClipboardStringChanged;
+        // App.Clipboard.OnClipboardStringChanged += OnClipboardStringChanged;
+    }
+
+    public void SyncData()
+    {
+        PerformSearch(false);
     }
 
     public void Copy(ClipboardItem item)
@@ -90,24 +95,30 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         PerformSearch("");
     }
 
-    private void OnClipboardStringChanged(string obj)
-    {
-        // 更新所有项目缓存
-        // _allItems = new List<ClipboardItem>(App.Clipboard.ClipboardHistoryItems);
+    // private void OnClipboardStringChanged(string obj)
+    // {
+    //     // 更新所有项目缓存
+    //     // _allItems = new List<ClipboardItem>(App.Clipboard.ClipboardHistoryItems);
+    //
+    //     PerformSearch(_searchText);
+    //     // OnPropertyChanged(nameof(ClipboardHistoryItems));
+    // }
 
-        PerformSearch(_searchText);
-        // OnPropertyChanged(nameof(ClipboardHistoryItems));
-    }
-
-    private void PerformSearch()
+    private void PerformSearch(bool delay = true)
     {
         // 使用防抖机制，减少频繁搜索
         _debounceTimer?.Dispose();
-        _debounceTimer = new Timer(_ => { Dispatcher.UIThread.Invoke(() => PerformSearch(_searchText)); }, null, TimeSpan.FromMilliseconds(300), Timeout.InfiniteTimeSpan);
+        if (delay) _debounceTimer = new Timer(_ => { Dispatcher.UIThread.Invoke(() => PerformSearch(_searchText)); }, null, TimeSpan.FromMilliseconds(300), Timeout.InfiniteTimeSpan);
+        else Dispatcher.UIThread.Invoke(() => PerformSearch(_searchText));
     }
 
     private void PerformSearch(string value)
     {
+        if (!IsSearchActive && FilteredClipboardHistoryItems.Count == App.Clipboard.ClipboardHistoryItems.Count && FilteredClipboardHistoryItems.Count > 0 && FilteredClipboardHistoryItems[0] == App.Clipboard.ClipboardHistoryItems[0])
+        {
+            return;
+        }
+
         FilteredClipboardHistoryItems.Clear();
 
         if (!IsSearchActive || string.IsNullOrWhiteSpace(value))

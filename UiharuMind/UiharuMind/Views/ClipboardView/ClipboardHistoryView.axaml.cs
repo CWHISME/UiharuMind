@@ -32,6 +32,12 @@ public partial class ClipboardHistoryView : UserControl
         DataContext = App.ViewModel.GetViewModel<ClipboardHistoryViewModel>();
     }
 
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
+    }
+
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed) return;
