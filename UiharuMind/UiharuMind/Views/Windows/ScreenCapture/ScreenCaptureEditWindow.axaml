@@ -47,16 +47,24 @@
             <!-- </Panel> -->
             <u:Divider Grid.Row="1" Margin="-10,5" />
             <DockPanel Grid.Row="2" Margin="5,0">
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
-                    <ToggleButton Name="GeometryRectangleButton" Content="□" />
-                    <ToggleButton Name="GeometryCircleButton" Content="○" />
-                    <ColorPicker Name="GeometryColorPicker" Theme="{StaticResource SimpleColorPicker}" />
-                </StackPanel>
+                <ScrollViewer DockPanel.Dock="Left" 
+                              HorizontalScrollBarVisibility="Auto" 
+                              VerticalScrollBarVisibility="Disabled">
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Left">
+                        <ToggleButton Name="GeometryRectangleButton" Content="□" ToolTip.Tip="Rectangle"/>
+                        <ToggleButton Name="GeometryCircleButton" Content="○" ToolTip.Tip="Circle"/>
+                        <ToggleButton Name="GeometryLineButton" Content="—" ToolTip.Tip="Line"/>
+                        <ToggleButton Name="GeometryArrowLineButton" Content="➡" ToolTip.Tip="ArrowLine"/>
+                        <ToggleButton Name="GeometryTextButton" Content="T" ToolTip.Tip="Text"/>
+                        <ColorPicker Name="GeometryColorPicker" Theme="{StaticResource SimpleColorPicker}" />
+                    </StackPanel>
+                </ScrollViewer>
+
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                     <!-- <Button Content="Save" Click="SaveButton_Click" /> -->
                     <!-- <Button Content="X" Click="CancelButton_Click" /> -->
-                    <Button Content="⇠" Name="UndoButton" Command="{Binding UndoCommand}" />
-                    <Button Content="⇢" Name="RedoButton" Command="{Binding RedoCommand}" />
+                    <Button Content="⇠" Name="UndoButton" Command="{Binding UndoCommand}" ToolTip.Tip="Undo (Ctrl+Z)"/>
+                    <Button Content="⇢" Name="RedoButton" Command="{Binding RedoCommand}" ToolTip.Tip="Redo (Ctrl+Y)"/>
                 </StackPanel>
             </DockPanel>
         </Grid>
