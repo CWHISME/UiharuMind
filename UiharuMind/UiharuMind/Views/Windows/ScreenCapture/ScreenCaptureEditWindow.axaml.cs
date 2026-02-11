@@ -41,11 +41,13 @@ public partial class ScreenCaptureEditWindow : Window
     private Stack<Control> _undoStack = new Stack<Control>();
     private Stack<Control> _redoStack = new Stack<Control>();
 
-    private DrawingTool _currentTool = DrawingTool.Rectangle;
+    private static DrawingTool _currentTool = DrawingTool.Rectangle;
+    private static Color _currentColor = Colors.Red;
+
     private bool _isDrawing;
     private Point _startPoint;
+    private Point _currentPoint;
     private Control? _currentControl;
-    private Color _currentColor = Colors.Red;
     private int _clickCount;
     private int _onTextLostFocusCount;
     private bool _isClose;
@@ -88,7 +90,7 @@ public partial class ScreenCaptureEditWindow : Window
         GeometryArrowLineButton.IsCheckedChanged += (s, e) => UpdateTool(s, DrawingTool.ArrowLine);
         GeometryTextButton.IsCheckedChanged += (s, e) => UpdateTool(s, DrawingTool.Text);
 
-        GeometryRectangleButton.IsChecked = true;
+        UpdateToolRender();
 
         DrawingCanvas.PointerPressed += OnDrawingCanvasPointerPressed;
         DrawingCanvas.PointerMoved += OnDrawingCanvasPointerMoved;
@@ -204,13 +206,18 @@ public partial class ScreenCaptureEditWindow : Window
         }
 
         _currentTool = tool;
-        GeometryRectangleButton.IsChecked = tool == DrawingTool.Rectangle;
-        GeometryCircleButton.IsChecked = tool == DrawingTool.Circle;
-        GeometryLineButton.IsChecked = tool == DrawingTool.Line;
-        GeometryArrowLineButton.IsChecked = tool == DrawingTool.ArrowLine;
-        GeometryTextButton.IsChecked = tool == DrawingTool.Text;
-        
-        DrawingCanvas.Cursor = tool == DrawingTool.Text ? new Cursor(StandardCursorType.Ibeam) : Cursor.Default;
+        UpdateToolRender();
+    }
+
+    private void UpdateToolRender()
+    {
+        GeometryRectangleButton.IsChecked = _currentTool == DrawingTool.Rectangle;
+        GeometryCircleButton.IsChecked = _currentTool == DrawingTool.Circle;
+        GeometryLineButton.IsChecked = _currentTool == DrawingTool.Line;
+        GeometryArrowLineButton.IsChecked = _currentTool == DrawingTool.ArrowLine;
+        GeometryTextButton.IsChecked = _currentTool == DrawingTool.Text;
+
+        DrawingCanvas.Cursor = _currentTool == DrawingTool.Text ? new Cursor(StandardCursorType.Ibeam) : Cursor.Default;
     }
 
     #endregion
@@ -230,6 +237,7 @@ public partial class ScreenCaptureEditWindow : Window
         _redoStack.Clear();
         _isDrawing = true;
         _startPoint = e.GetPosition(DrawingCanvas);
+        _currentPoint = _startPoint;
         _currentColor = GeometryColorPicker.Color;
         _clickCount++;
 
@@ -368,27 +376,27 @@ public partial class ScreenCaptureEditWindow : Window
         if (!_isDrawing || _currentControl == null)
             return;
 
-        var currentPoint = e.GetPosition(DrawingCanvas);
+        _currentPoint = e.GetPosition(DrawingCanvas);
         var bounds = GetDrawingBounds();
 
-        currentPoint = ConstrainPointToBounds(currentPoint, bounds);
+        _currentPoint = ConstrainPointToBounds(_currentPoint, bounds);
 
         switch (_currentTool)
         {
             case DrawingTool.Rectangle when _currentControl is Rectangle rectangle:
-                UpdateRectangle(rectangle, currentPoint, bounds);
+                UpdateRectangle(rectangle, _currentPoint, bounds);
                 break;
 
             case DrawingTool.Circle when _currentControl is Ellipse ellipse:
-                UpdateEllipse(ellipse, currentPoint, bounds);
+                UpdateEllipse(ellipse, _currentPoint, bounds);
                 break;
 
             case DrawingTool.Line when _currentControl is Line line:
-                UpdateLine(line, currentPoint, bounds);
+                UpdateLine(line, _currentPoint, bounds);
                 break;
-            
+
             case DrawingTool.ArrowLine when _currentControl is ArrowLineControl arrowLine:
-                arrowLine.UpdateEndPoint(currentPoint);
+                arrowLine.UpdateEndPoint(_currentPoint);
                 break;
         }
     }
@@ -433,6 +441,12 @@ public partial class ScreenCaptureEditWindow : Window
     {
         if (_isDrawing && _currentTool != DrawingTool.Text)
         {
+            if (_startPoint == _currentPoint)
+            {
+                ClearCurrentControl();
+                return;
+            }
+
             _isDrawing = false;
             _currentControl = null;
         }
@@ -649,15 +663,23 @@ public partial class ScreenCaptureEditWindow : Window
     }
     //=================
 
+    private void ClearCurrentControl()
+    {
+        if (_currentControl != null)
+        {
+            DrawingCanvas.Children.Remove(_currentControl);
+            _undoStack.Push(_currentControl);
+            RefreshUndoRedo();
+            _currentControl = null;
+            _isDrawing = false;
+        }
+    }
+
     private void SafeClose()
     {
         _isClose = true;
 
-        if (_currentControl != null)
-        {
-            DrawingCanvas.Children.Remove(_currentControl);
-            _currentControl = null;
-        }
+        ClearCurrentControl();
 
         if (_source != null)
         {
