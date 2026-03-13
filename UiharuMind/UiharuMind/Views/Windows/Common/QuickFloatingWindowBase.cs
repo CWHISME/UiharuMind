@@ -24,9 +24,8 @@ namespace UiharuMind.Views.Common;
 /// </summary>
 public class QuickFloatingWindowBase : QuickWindowBase
 {
-    
     protected override bool IsAllowFocusOnOpen => false;
-    
+
     public override void Awake()
     {
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -70,7 +69,7 @@ public class QuickFloatingWindowBase : QuickWindowBase
         // if (!isShowed) SafeClose();
         onCompleted?.Invoke();
     }
-    
+
     protected virtual void SetWindowPosition()
     {
         this.SetWindowToMousePosition(HorizontalAlignment.Right, offsetX: 15, offsetY: -15);

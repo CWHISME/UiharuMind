@@ -18,6 +18,7 @@ namespace UiharuMind.Views.Common;
 
 public class QuickWindowBase : UiharuWindowBase
 {
+    public override bool IsCacheWindow => true;
 
     public override void Awake()
     {

@@ -33,8 +33,15 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
         // BindMouseClickCloseEvent();
-        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
-        HistoryView.HistoryListBox.ScrollIntoView(0);
+        OnClipboardStringChanged("");
+
+        App.Clipboard.OnClipboardStringChanged += OnClipboardStringChanged;
+    }
+
+    protected override void OnPreClose()
+    {
+        base.OnPreClose();
+        App.Clipboard.OnClipboardStringChanged -= OnClipboardStringChanged;
     }
 
     protected override void IsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
@@ -56,5 +63,11 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
     private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void OnClipboardStringChanged(string obj)
+    {
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
+        HistoryView.HistoryListBox.ScrollIntoView(0);
     }
 }

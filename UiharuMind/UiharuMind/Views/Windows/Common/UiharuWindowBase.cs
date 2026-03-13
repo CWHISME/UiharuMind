@@ -13,6 +13,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
@@ -27,7 +28,7 @@ public abstract class UiharuWindowBase : Window
     /// <summary>
     /// 是否不关闭，重复复用
     /// </summary>
-    public virtual bool IsCacheWindow => true;
+    public virtual bool IsCacheWindow => false;
 
     protected UiharuWindowBase()
     {
@@ -54,6 +55,12 @@ public abstract class UiharuWindowBase : Window
         }
         else
         {
+            if (!IsCacheWindow)
+            {
+                Log.Warning($"[{GetType().Name}] This window is not allowed to be reused.");
+                return;
+            }
+
             this.WindowState = WindowState.Normal;
             Dispatcher.UIThread.Post(() =>
             {
@@ -90,37 +97,22 @@ public abstract class UiharuWindowBase : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        OnPreCloseEvent?.Invoke();
+        OnPreClose();
         if (IsCacheWindow)
         {
             e.Cancel = true;
-            base.OnClosing(e);
-            // UIManager.ClosingWindowSet.Add(this);
-            App.DummyWindow.Activate();
-            SafeClose();
+            // App.DummyWindow.Activate();
+            Dispatcher.UIThread.Post(Hide);
         }
-        else
-        {
-            OnPreCloseEvent?.Invoke();
-            OnPreClose();
-            base.OnClosing(e);
-        }
+        else UIManager.RemoveWindow(this);
+
+        base.OnClosing(e);
     }
 
     protected virtual void SafeClose()
     {
-        // UIManager.IsClosing = true;
-        // UIManager.ClosingWindowSet.Add(this);
-        OnPreCloseEvent?.Invoke();
-        OnPreClose();
-        Dispatcher.UIThread.Post(Hide);
-        // Dispatcher.UIThread.Post(() =>
-        // {
-        //     if (ShowActivated || IsActive) App.DummyWindow.Activate();
-        //     Hide();
-        //     // UIManager.IsClosing = false;
-        //     Dispatcher.UIThread.Post(() => { UIManager.ClosingWindowSet.Remove(this); },
-        //         DispatcherPriority.ApplicationIdle);
-        // }, DispatcherPriority.ApplicationIdle);
+        Dispatcher.UIThread.Post(Close);
     }
 
     //Tools

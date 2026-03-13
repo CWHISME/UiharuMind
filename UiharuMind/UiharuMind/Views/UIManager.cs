@@ -65,7 +65,7 @@ public static class UIManager
             T? window = null;
             foreach (var win in windowsList)
             {
-                if (win.IsVisible && isMulti) continue;
+                if ((win.IsVisible && isMulti) || !win.IsCacheWindow) continue;
                 window = (T)win;
                 break;
             }
@@ -79,7 +79,7 @@ public static class UIManager
             {
                 window = new T();
                 // _multiWindows[typeof(T)] = [window];
-                if (window.IsCacheWindow) windowsList.Add(window);
+                windowsList.Add(window);
                 onCreateCallback?.Invoke(window);
                 action?.Invoke(window);
                 window.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -107,9 +107,9 @@ public static class UIManager
     public static T? GetWindow<T>()
         where T : UiharuWindowBase
     {
-        if (_multiWindows.ContainsKey(typeof(T)))
+        if (_multiWindows.TryGetValue(typeof(T), out var windows) && windows.Count > 0)
         {
-            return (T)_multiWindows[typeof(T)][0];
+            return (T)windows[0];
         }
 
         return null;
@@ -156,10 +156,22 @@ public static class UIManager
     public static void CloseWindow<T>()
         where T : UiharuWindowBase
     {
-        if (_multiWindows.ContainsKey(typeof(T)))
+        CloseWindow(typeof(T));
+    }
+
+    public static void CloseWindow(Type type)
+    {
+        if (_multiWindows.TryGetValue(type, out var windows) && windows.Count > 0)
         {
-            var window = _multiWindows[typeof(T)][0];
-            window.Close();
+            windows[0].Close();
+        }
+    }
+
+    public static void RemoveWindow(UiharuWindowBase win)
+    {
+        if (_multiWindows.TryGetValue(win.GetType(), out var windows) && windows.Count > 0)
+        {
+            windows.Remove(win);
         }
     }
 

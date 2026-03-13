@@ -20,6 +20,8 @@ namespace UiharuMind.Views;
 
 public partial class MainWindow : UiharuWindowBase
 {
+    public override bool IsCacheWindow => true;
+
     public MainWindow()
     {
         InitializeComponent();
