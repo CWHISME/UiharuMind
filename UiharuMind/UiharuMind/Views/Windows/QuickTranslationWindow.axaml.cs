@@ -33,7 +33,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
         DataContext = this;
 
         _agentSkill = new TranslationAdvancedAgentSkill();
-        _simpleAgentSkill = new TranslationAgentSkill();
+        // _simpleAgentSkill = new TranslationAgentSkill();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
     }
 
@@ -99,13 +99,13 @@ public partial class QuickTranslationWindow : QuickWindowBase
     }
 
     // private string _askContent;
-    private readonly TranslationAgentSkill _simpleAgentSkill;
+    // private readonly TranslationAgentSkill _simpleAgentSkill;
     private readonly TranslationAdvancedAgentSkill _agentSkill;
 
     private AgentSkillBase GetSkill()
     {
-        if (string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
-        _agentSkill.SetExtraRequest(ExtraRequestTextBox.Text);
+        // if (string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
+        _agentSkill.SetExtraRequest(ExtraRequestTextBox.Text ?? "无");
         return _agentSkill;
     }
 

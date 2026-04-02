@@ -160,8 +160,8 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 //     ConfigManager.Instance.QuickToolPromptSetting.Translation);
                 QuickChatResultWindow.Show(Lang.Translation, _answerString, skill);
             });
-        AddFunctionMenu(Lang.Think,
-            () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainofThoughtAgentSkill()); });
+        AddFunctionMenu(Lang.SyntacticAnalysis, () => { QuickChatResultWindow.Show(Lang.SyntacticAnalysis, _answerString, new AssistantSyntacticAnalysisAgentSkill()); });
+        AddFunctionMenu(Lang.Think, () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainofThoughtAgentSkill()); });
         AddFunctionMenu(Lang.Ask, () => { QuickStartChatWindow.Show(_answerString); });
     }
 

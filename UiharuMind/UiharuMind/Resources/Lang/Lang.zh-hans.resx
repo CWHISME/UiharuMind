@@ -482,4 +482,7 @@
     <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
         <value>调用 Mac 系统自带的图片查看器以复制文字</value>
     </data>
+    <data name="SyntacticAnalysis" xml:space="preserve">
+        <value>语法分析</value>
+    </data>
 </root>

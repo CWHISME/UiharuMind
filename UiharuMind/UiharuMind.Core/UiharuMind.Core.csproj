@@ -24,6 +24,7 @@
     <ItemGroup>
       <EmbeddedResource Include="Resources\Assistant.json" />
       <EmbeddedResource Include="Resources\AssistantExplain.json" />
+      <EmbeddedResource Include="Resources\AssistantSyntacticAnalysis.json" />
       <EmbeddedResource Include="Resources\ChainofThought.json" />
       <EmbeddedResource Include="Resources\Empty.json" />
       <EmbeddedResource Include="Resources\Roleplay_FirstPerson.json" />

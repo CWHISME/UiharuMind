@@ -489,4 +489,7 @@
     <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
         <value>System OCR</value>
     </data>
+    <data name="SyntacticAnalysis" xml:space="preserve">
+        <value>Syntactic Analysis</value>
+    </data>
 </root>

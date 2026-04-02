@@ -980,5 +980,11 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("ScreenCaptureDockWindow_BtnOldOcr", resourceCulture);
             }
         }
+        
+        public static string SyntacticAnalysis {
+            get {
+                return ResourceManager.GetString("SyntacticAnalysis", resourceCulture);
+            }
+        }
     }
 }

@@ -81,11 +81,17 @@ public enum DefaultCharacter
     /// 高级专家的(带额外引用信息)
     /// </summary>
     AssistantExpertQuote,
+    
+    /// <summary>
+    /// 语法分析
+    /// </summary>
+    AssistantSyntacticAnalysis,
 
     /// <summary>
     /// 思维链
     /// </summary>
     ChainofThought,
+    
     Translator,
     TranslatorAdvanced,
     TranslateReviwer,
