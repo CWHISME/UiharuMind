@@ -91,6 +91,10 @@ public enum DefaultCharacter
     /// 思维链
     /// </summary>
     ChainofThought,
+    // /// <summary>
+    // /// 文本思考：
+    // /// </summary>
+    // TextThinker,
     
     Translator,
     TranslatorAdvanced,
