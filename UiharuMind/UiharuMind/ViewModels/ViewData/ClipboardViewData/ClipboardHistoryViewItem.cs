@@ -10,6 +10,8 @@
  ****************************************************************************/
 
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -41,7 +43,7 @@ public partial class ClipboardItem(string date, string text, string imageSource 
         {
             var image = new Bitmap(ImageSource);
             App.Clipboard.CopyImageToClipboard(image, true);
-            UIManager.ShowPreviewImageWindowAtMousePosition(image, App.ScreensService.MousePressedPosition, App.ScreensService.MouseReleasedPosition);
+            UIManager.ShowPreviewImageWindowAtMousePosition(image, horizontalAlignment: HorizontalAlignment.Center, verticalAlignment: VerticalAlignment.Center);
         }
         else
         {
