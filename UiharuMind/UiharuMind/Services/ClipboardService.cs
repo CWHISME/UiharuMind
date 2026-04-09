@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +46,7 @@ public class ClipboardService : IDisposable
 
     public event Action<string>? OnClipboardStringChanged;
     public event Action<Bitmap>? OnClipboardImageChanged;
+    public event Action? OnClipboardChanged;
 
     public const string ImageTypePngWin = "image/png";
 
@@ -78,6 +80,9 @@ public class ClipboardService : IDisposable
 
         //初始化定时器，每隔指定时间检测保存一次历史记录
         _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromHours(1));
+
+        //检查图片目录是否存在图片，但是历史记录又没有添加的
+        Task.Run(CheckAndRecordImagesInClipboardHistory);
     }
 
     public void CopyToClipboard(string text, bool ignoreSelfCopying = false)
@@ -171,7 +176,75 @@ public class ClipboardService : IDisposable
     public void ClearClipboardHistory()
     {
         ClipboardHistoryItems.Clear();
+        _isHistoryDirty = true;
         OnTimerElapsed(null);
+        Directory.Delete(SettingConfig.SaveClipboardHistoryImagePath, true);
+        OnClipboardChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 将指定记录移动至第一个
+    /// </summary>
+    /// <param name="item"></param>
+    public void MoveClipboardHistoryItemFirst(ClipboardItem item)
+    {
+        var index = ClipboardHistoryItems.IndexOf(item);
+        if (index <= 0) return;
+        ClipboardHistoryItems.Move(index, 0);
+        _isHistoryDirty = true;
+        OnClipboardChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 删除指定记录
+    /// </summary>
+    /// <param name="item"></param>
+    public void DeleteClipboardHistoryItem(ClipboardItem item)
+    {
+        ClipboardHistoryItems.Remove(item);
+        if (item.IsImage) File.Delete(item.ImageSource);
+        _isHistoryDirty = true;
+        OnClipboardChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 将图片记录至剪切板历史
+    /// </summary>
+    /// <param name="bitmap"></param>
+    /// <param name="fileName"></param>
+    public void RecordImageToHistory(Bitmap? bitmap, string? fileName = null)
+    {
+        if (bitmap == null) return;
+        string date = DateTime.Now.ToString("(yyyy-MM-dd HH:mm:ss)");
+        string fullPath = SaveUtility.GetSaveClipboardHistoryImagePath(fileName ?? $"Uiharu_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
+        string? dir = Path.GetDirectoryName(fullPath);
+        if (dir == null) return;
+        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        if (!File.Exists(fullPath)) bitmap.Save(fullPath);
+        ClipboardHistoryItems.Insert(0, new ClipboardItem(date, "", fullPath));
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnClipboardImageChanged?.Invoke(bitmap);
+            OnClipboardChanged?.Invoke();
+        });
+    }
+
+    /// <summary>
+    /// 检查真实图片文件，并将未记录的图片记录至剪切板历史
+    /// </summary>
+    private void CheckAndRecordImagesInClipboardHistory()
+    {
+        var files = Directory.GetFiles(SettingConfig.SaveClipboardHistoryImagePath, "*.png");
+        foreach (var file in files)
+        {
+            var fileName = Path.GetFileName(file);
+            var item = ClipboardHistoryItems.FirstOrDefault(x => x.IsImage && x.ImageSource == fileName);
+            if (item == null)
+            {
+                var bitmap = new Bitmap(file);
+                RecordImageToHistory(bitmap, fileName);
+            }
+        }
     }
 
     private void OnSystemClipboardChanged()
@@ -202,6 +275,7 @@ public class ClipboardService : IDisposable
                     ClipboardHistoryItems[0].Text.Equals(clipboardContent, StringComparison.Ordinal)) return;
                 ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
                 OnClipboardStringChanged?.Invoke(clipboardContent);
+                OnClipboardChanged?.Invoke();
             }
             catch (Exception e)
             {

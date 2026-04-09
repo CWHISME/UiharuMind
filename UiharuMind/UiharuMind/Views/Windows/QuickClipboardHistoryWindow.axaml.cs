@@ -14,6 +14,7 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.ViewData.ClipboardViewData;
@@ -33,15 +34,16 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
         // BindMouseClickCloseEvent();
-        OnClipboardStringChanged("");
+        OnClipboardChanged();
+        HistoryView.HistoryListBox.ScrollIntoView(0);
 
-        App.Clipboard.OnClipboardStringChanged += OnClipboardStringChanged;
+        App.Clipboard.OnClipboardChanged += OnClipboardChanged;
     }
 
     protected override void OnPreClose()
     {
         base.OnPreClose();
-        App.Clipboard.OnClipboardStringChanged -= OnClipboardStringChanged;
+        App.Clipboard.OnClipboardChanged -= OnClipboardChanged;
     }
 
     protected override void IsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
@@ -65,9 +67,8 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
         Close();
     }
 
-    private void OnClipboardStringChanged(string obj)
+    private void OnClipboardChanged()
     {
         App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
-        HistoryView.HistoryListBox.ScrollIntoView(0);
     }
 }

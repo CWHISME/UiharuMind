@@ -80,7 +80,9 @@ public static class ScreenCaptureManager
             Log.Error(e.Message);
         }
 
-        UIManager.ShowPreviewImageWindowAtMousePosition(await App.Clipboard.GetImageFromClipboard(), App.ScreensService.MousePressedPosition, App.ScreensService.MouseReleasedPosition);
+        var image = await App.Clipboard.GetImageFromClipboard();
+        App.Clipboard.RecordImageToHistory(image);
+        UIManager.ShowPreviewImageWindowAtMousePosition(image, App.ScreensService.MousePressedPosition, App.ScreensService.MouseReleasedPosition);
     }
 
     public static async void OpenOcr(string filePath, int width, int height)

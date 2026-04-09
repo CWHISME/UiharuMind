@@ -195,7 +195,7 @@ public class DummyWindow : Window
     private void RegistryClipboardTool()
     {
         App.Clipboard.OnClipboardStringChanged += LaunchQuickToolWindow;
-        App.Clipboard.OnClipboardImageChanged += LaunchQuickImagePinWindow;
+        // App.Clipboard.OnClipboardImageChanged += LaunchQuickImagePinWindow;
     }
 
     // private void RegistryShortcutQuickTool(KeyCode decorateKeyCode)

@@ -41,7 +41,24 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         set
         {
             SetProperty(ref _isSearchActive, value);
-            PerformSearch(false);
+            if (value) IsImageFilterActive = false;
+            else PerformSearch(false);
+        }
+    }
+
+    private bool _isImageFilterActive;
+
+    /// <summary>
+    /// 筛选仅显示图片
+    /// </summary>
+    public bool IsImageFilterActive
+    {
+        get => _isImageFilterActive;
+        set
+        {
+            SetProperty(ref _isImageFilterActive, value);
+            if (value) IsSearchActive = false;
+            else PerformSearch(false);
         }
     }
 
@@ -76,16 +93,12 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
     public void Copy(ClipboardItem item)
     {
         UIManager.CloseWindow<QuickClipboardHistoryWindow>();
-        Dispatcher.UIThread.Post(() =>
-        {
-            App.Clipboard.ClipboardHistoryItems.Remove(item);
-            item.CopyToClipboard();
-        }, DispatcherPriority.ApplicationIdle);
+        Dispatcher.UIThread.Post(item.CopyToClipboard, DispatcherPriority.ApplicationIdle);
     }
 
     public void Delete(ClipboardItem item)
     {
-        App.Clipboard.ClipboardHistoryItems.Remove(item);
+        App.Clipboard.DeleteClipboardHistoryItem(item);
     }
 
     public void DeleteAll()
@@ -108,45 +121,83 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
     {
         // 使用防抖机制，减少频繁搜索
         _debounceTimer?.Dispose();
-        if (delay) _debounceTimer = new Timer(_ => { Dispatcher.UIThread.Invoke(() => PerformSearch(_searchText)); }, null, TimeSpan.FromMilliseconds(300), Timeout.InfiniteTimeSpan);
-        else Dispatcher.UIThread.Invoke(() => PerformSearch(_searchText));
+        if (delay) _debounceTimer = new Timer(_ => { Dispatcher.UIThread.Invoke(() => PerformSearch(SearchText)); }, null, TimeSpan.FromMilliseconds(300), Timeout.InfiniteTimeSpan);
+        else Dispatcher.UIThread.Invoke(() => PerformSearch(SearchText));
     }
 
     private void PerformSearch(string value)
     {
-        if (!IsSearchActive && FilteredClipboardHistoryItems.Count == App.Clipboard.ClipboardHistoryItems.Count && FilteredClipboardHistoryItems.Count > 0 && FilteredClipboardHistoryItems[0] == App.Clipboard.ClipboardHistoryItems[0])
+        var sourceItems = App.Clipboard.ClipboardHistoryItems;
+
+        // 如果没有激活任何过滤条件，显示所有项目
+        if (!IsSearchActive && !IsImageFilterActive)
         {
+            if (IsCollectionEqual(FilteredClipboardHistoryItems, sourceItems))
+            {
+                return;
+            }
+
+            UpdateFilteredItems(sourceItems);
+            RefreshTitle();
             return;
         }
 
-        FilteredClipboardHistoryItems.Clear();
+        // 执行过滤
+        IEnumerable<ClipboardItem> filtered = sourceItems;
 
-        if (!IsSearchActive || string.IsNullOrWhiteSpace(value))
+        // 图片过滤
+        if (IsImageFilterActive)
         {
-            // 显示所有项目
-            foreach (var item in App.Clipboard.ClipboardHistoryItems)
-            {
-                FilteredClipboardHistoryItems.Add(item);
-            }
+            filtered = filtered.Where(item => item.IsImage);
         }
-        else
-        {
-            // 执行过滤
-            var filtered = App.Clipboard.ClipboardHistoryItems.Where(item =>
-                item.Text.Contains(value, StringComparison.OrdinalIgnoreCase)).ToList();
 
-            foreach (var item in filtered)
-            {
-                FilteredClipboardHistoryItems.Add(item);
-            }
+        // 文本搜索过滤
+        if (IsSearchActive && !string.IsNullOrWhiteSpace(value))
+        {
+            filtered = filtered.Where(item =>
+                !string.IsNullOrEmpty(item.Text) &&
+                item.Text.Contains(value, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var filteredList = filtered.ToList();
+
+        // 只在结果变化时更新
+        if (!IsCollectionEqual(FilteredClipboardHistoryItems, filteredList))
+        {
+            UpdateFilteredItems(filteredList);
         }
 
         RefreshTitle();
     }
 
+    private bool IsCollectionEqual(ObservableCollection<ClipboardItem> collection, IEnumerable<ClipboardItem> items)
+    {
+        var itemList = items.ToList();
+        if (collection.Count != itemList.Count)
+        {
+            return false;
+        }
+
+        if (collection.Count > 0)
+        {
+            if (!collection[0].Equals(itemList[0])) return false;
+        }
+
+        return true;
+    }
+
+    private void UpdateFilteredItems(IEnumerable<ClipboardItem> items)
+    {
+        FilteredClipboardHistoryItems.Clear();
+        foreach (var item in items)
+        {
+            FilteredClipboardHistoryItems.Add(item);
+        }
+    }
+
     private void RefreshTitle()
     {
-        if (IsSearchActive)
+        if (IsSearchActive || IsImageFilterActive)
         {
             Title = string.Format(Lang.ClipboardHistoryCount, FilteredClipboardHistoryItems.Count + "/" + App.Clipboard.ClipboardHistoryItems.Count);
             return;

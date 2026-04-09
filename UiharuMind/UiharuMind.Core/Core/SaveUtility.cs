@@ -43,7 +43,7 @@ public static class SaveUtility
 
     public static void SaveRootFile(string fileName, object target)
     {
-        Save(Path.Combine(SettingConfig.SaveDataPath, fileName), target);
+        Save(GetSaveDataPath(fileName), target);
     }
 
     public static void Save(string filePath, object target)
@@ -82,6 +82,26 @@ public static class SaveUtility
         return JsonSerializer.Serialize(target, _options);
     }
 
+    /// <summary>
+    /// 根据保存名字获取完整的保存路径
+    /// </summary>
+    /// <param name="fileName"></param>
+    /// <returns></returns>
+    public static string GetSaveDataPath(string fileName)
+    {
+        return Path.Combine(SettingConfig.SaveDataPath, fileName);
+    }
+
+    /// <summary>
+    /// 获取完整的保存剪切板历史图片记录的路径
+    /// </summary>
+    /// <param name="fileName"></param>
+    /// <returns></returns>
+    public static string GetSaveClipboardHistoryImagePath(string fileName)
+    {
+        return Path.Combine(SettingConfig.SaveClipboardHistoryImagePath, fileName);
+    }
+
     //=========================Load=================================
 
     public static T LoadOrNew<T>(Type t) where T : class, new()
@@ -96,8 +116,7 @@ public static class SaveUtility
 
     public static T? LoadRootFile<T>(string fileName) where T : class, new()
     {
-        string path = Path.Combine(SettingConfig.SaveDataPath, fileName);
-        return Load<T>(path);
+        return Load<T>(GetSaveDataPath(fileName));
     }
 
     public static T? Load<T>(string filePath) where T : class, new()

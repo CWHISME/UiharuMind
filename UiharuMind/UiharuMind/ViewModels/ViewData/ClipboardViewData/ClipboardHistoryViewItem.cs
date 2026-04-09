@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System.Threading.Tasks;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -35,15 +36,19 @@ public partial class ClipboardItem(string date, string text, string imageSource 
 
     public void CopyToClipboard()
     {
+        App.Clipboard.MoveClipboardHistoryItemFirst(this);
         if (IsImage)
         {
-            // App.Clipboard.CopyImageToClipboard(ImageSource);
+            var image = new Bitmap(ImageSource);
+            App.Clipboard.CopyImageToClipboard(image, true);
+            UIManager.ShowPreviewImageWindowAtMousePosition(image, App.ScreensService.MousePressedPosition, App.ScreensService.MouseReleasedPosition);
         }
         else
         {
-            App.Clipboard.CopyToClipboard(Text);
-            App.MessageService.ShowToast(Lang.CopiedToClipboardTips);
+            App.Clipboard.CopyToClipboard(Text, true);
         }
+
+        App.MessageService.ShowToast(Lang.CopiedToClipboardTips);
 
         // Task.Run(() =>
         // {

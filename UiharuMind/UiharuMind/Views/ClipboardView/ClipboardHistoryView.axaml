@@ -4,9 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:clipboardViewData="clr-namespace:UiharuMind.ViewModels.ViewData.ClipboardViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.ClipboardView.ClipboardHistoryView">
 
+    <UserControl.Resources>
+        <converters:FilePathToImageConverter x:Key="FilePathToImageConverter" />
+    </UserControl.Resources>
+    
     <Design.DataContext>
         <clipboardViewData:ClipboardHistoryViewModel />
     </Design.DataContext>
@@ -36,6 +41,15 @@
                               MinWidth="20"
                               Padding="2,1">
                     <PathIcon Data="{StaticResource SearchRegular}" />
+                </ToggleButton>
+                <ToggleButton IsChecked="{Binding IsImageFilterActive}" 
+                              VerticalAlignment="Center"
+                              Height="20"
+                              Width="20"
+                              MinHeight="20"
+                              MinWidth="20"
+                              Padding="2,1">
+                    <PathIcon Data="{StaticResource ImageRegular}" />
                 </ToggleButton>
             </StackPanel>
         </Grid>
@@ -67,12 +81,15 @@
                                     <MenuItem Header="{x:Static  lang:Lang.DeleteAll}" Click="MenuItemDeleteAll_Click" />
                                 </ContextMenu>
                             </Grid.ContextMenu>
-                            <Image Source="{Binding ImageSource}" IsVisible="{Binding IsImage}" />
+                            <Image MaxHeight="80" Source="{Binding ImageSource,Converter={StaticResource FilePathToImageConverter}}" Stretch="Uniform" StretchDirection="Both" IsVisible="{Binding IsImage}" />
                             <TextBlock Grid.Row="1" Text="{Binding Text}" IsVisible="{Binding !IsImage}"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
                             <ToolTip.Tip>
-                                <TextBlock Text="{Binding Text}" />
+                                <Panel>
+                                    <Image Source="{Binding ImageSource,Converter={StaticResource FilePathToImageConverter}}" IsVisible="{Binding IsImage}"></Image>
+                                    <TextBlock Text="{Binding Text}" IsVisible="{Binding !IsImage}" />
+                                </Panel>
                             </ToolTip.Tip>
                         </Grid>
                     </DataTemplate>

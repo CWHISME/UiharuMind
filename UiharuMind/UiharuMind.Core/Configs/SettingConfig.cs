@@ -24,6 +24,7 @@ public class SettingConfig : ConfigBase
     public static readonly string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
     public static readonly string LogDataPath = Path.Combine(RootDataPath, "SaveLog/");
     public static readonly string MemoryDataPath = Path.Combine(SaveDataPath, "MemoryData/");
+    public static readonly string SaveClipboardHistoryImagePath = Path.Combine(SaveDataPath, "ClipboardHistoryImage/");
 
     /// <summary>
     /// 本地服务引擎目录

@@ -318,6 +318,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
                 //校正截图的上下左右不同方向拖动方式
                 UIManager.ShowPreviewImageWindowAtMousePosition(image, PixelPoint.FromPoint(_startPoint, App.ScreensService.Scaling), App.ScreensService.MouseReleasedPosition);
+                App.Clipboard.RecordImageToHistory(image);
             }
             catch (Exception e)
             {
