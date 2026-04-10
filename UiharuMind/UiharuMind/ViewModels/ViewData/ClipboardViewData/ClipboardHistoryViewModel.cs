@@ -103,9 +103,12 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
 
     public void DeleteAll()
     {
-        App.Clipboard.ClearClipboardHistory();
-        IsSearchActive = false;
-        PerformSearch("");
+        //如果处于搜索中，仅删除所有搜索结果
+        if (IsSearchActive || IsImageFilterActive)
+        {
+            App.Clipboard.DeleteClipboardHistoryItem(FilteredClipboardHistoryItems);
+        }
+        else App.Clipboard.ClearClipboardHistory();
     }
 
     // private void OnClipboardStringChanged(string obj)

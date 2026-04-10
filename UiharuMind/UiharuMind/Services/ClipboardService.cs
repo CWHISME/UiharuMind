@@ -92,6 +92,7 @@ public class ClipboardService : IDisposable
         try
         {
             Clipboard.SetTextAsync(text);
+            OnClipboardStringChanged?.Invoke(text);
         }
         catch (Exception e)
         {
@@ -128,6 +129,8 @@ public class ClipboardService : IDisposable
 
                 Clipboard.SetDataObjectAsync(dataObject);
             }
+
+            OnClipboardImageChanged?.Invoke(bitmap);
         }
         catch (Exception e)
         {
@@ -208,6 +211,21 @@ public class ClipboardService : IDisposable
     }
 
     /// <summary>
+    /// 删除指定记录
+    /// </summary>
+    public void DeleteClipboardHistoryItem(IList<ClipboardItem> list)
+    {
+        foreach (var item in list)
+        {
+            ClipboardHistoryItems.Remove(item);
+            if (item.IsImage) File.Delete(item.ImageSource);
+        }
+
+        _isHistoryDirty = true;
+        OnClipboardChanged?.Invoke();
+    }
+
+    /// <summary>
     /// 将图片记录至剪切板历史
     /// </summary>
     /// <param name="bitmap"></param>
@@ -237,12 +255,12 @@ public class ClipboardService : IDisposable
         var files = Directory.GetFiles(SettingConfig.SaveClipboardHistoryImagePath, "*.png");
         foreach (var file in files)
         {
-            var fileName = Path.GetFileName(file);
-            var item = ClipboardHistoryItems.FirstOrDefault(x => x.IsImage && x.ImageSource == fileName);
+            var item = ClipboardHistoryItems.FirstOrDefault(x => x.IsImage && x.ImageSource.Equals(file, StringComparison.OrdinalIgnoreCase));
             if (item == null)
             {
                 var bitmap = new Bitmap(file);
-                RecordImageToHistory(bitmap, fileName);
+                RecordImageToHistory(bitmap, Path.GetFileName(file));
+                _isHistoryDirty = true;
             }
         }
     }
