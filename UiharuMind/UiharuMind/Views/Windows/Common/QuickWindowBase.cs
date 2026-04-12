@@ -32,18 +32,22 @@ public class QuickWindowBase : UiharuWindowBase
         base.OnOpened(e);
     }
 
-    /// <summary>
-    /// 绑定鼠标点击关闭事件，点击鼠标时若不在当前界面，则关闭当前界面
-    /// </summary>
-    protected void BindMouseClickCloseEvent()
+    protected override void OnInitWindowPosition()
     {
-        InputManager.Instance.EventOnMouseClicked += OnMouseClicked;
     }
 
     protected override void OnPreClose()
     {
         base.OnPreClose();
         InputManager.Instance.EventOnMouseClicked -= OnMouseClicked;
+    }
+
+    /// <summary>
+    /// 绑定鼠标点击关闭事件，点击鼠标时若不在当前界面，则关闭当前界面
+    /// </summary>
+    protected void BindMouseClickCloseEvent()
+    {
+        InputManager.Instance.EventOnMouseClicked += OnMouseClicked;
     }
 
     protected void OnMouseClicked(MouseEventData obj)

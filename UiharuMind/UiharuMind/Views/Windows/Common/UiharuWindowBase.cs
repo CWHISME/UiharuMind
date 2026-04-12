@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -44,11 +45,11 @@ public abstract class UiharuWindowBase : Window
     {
         // UIManager.ClosingWindowSet.Add(this);
         // if (isActivate && IsAllowFocusOnOpen) ShowActivated = true;
+        if (isFirstShow) OnInitWindowPosition();
         OnPreShow();
         if (isFirstShow)
         {
             if (IconUtils.DefaultAppIcon != null) Icon = new WindowIcon(IconUtils.DefaultAppIcon);
-            OnInitWindowPosition();
             StartWidth = (int)Width;
             StartHeight = (int)Height;
             Show();
@@ -114,6 +115,16 @@ public abstract class UiharuWindowBase : Window
     {
         Dispatcher.UIThread.Post(Close);
     }
+
+    protected virtual void SafeClose(float delayTime)
+    {
+        Task.Run(async () =>
+        {
+            await Task.Delay((int)(1000 * delayTime));
+            SafeClose();
+        });
+    }
+
 
     //Tools
     protected void ShowMessage(string message)

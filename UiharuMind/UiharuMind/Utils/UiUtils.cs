@@ -178,9 +178,9 @@ public static class UiUtils
         if (screen == null) return new PixelPoint(0, 0);
 
         // 计算对象位置在屏幕内的有效范围
-        int posX = Math.Clamp(onScreenPosition.X, screen.Bounds.Position.X,
+        int posX = Math.Clamp(onScreenPosition.X + (int)offset.Width, screen.Bounds.Position.X,
             screen.Bounds.Position.X + screen.Bounds.Width);
-        int posY = Math.Clamp(onScreenPosition.Y, screen.Bounds.Position.Y,
+        int posY = Math.Clamp(onScreenPosition.Y + (int)offset.Height, screen.Bounds.Position.Y,
             screen.Bounds.Position.Y + screen.Bounds.Height);
 
         // 使用ClampToBounds计算控件在屏幕内的位置

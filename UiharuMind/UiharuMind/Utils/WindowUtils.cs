@@ -32,7 +32,7 @@ public static class WindowUtils
         var pos = App.ScreensService.MousePosition;
         if (width == 0) width = window.Width;
         if (height == 0) height = window.Height;
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Invoke(() =>
         {
             var windowWidth = width;
             var windowHeight = height;
@@ -65,7 +65,7 @@ public static class WindowUtils
 
             var finalPos = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
             window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, new Size(windowWidth, windowHeight));
-        });
+        }, DispatcherPriority.MaxValue);
     }
 
     public static void SetSimpledecorationWindow(this Window window, bool isTopmost = true)

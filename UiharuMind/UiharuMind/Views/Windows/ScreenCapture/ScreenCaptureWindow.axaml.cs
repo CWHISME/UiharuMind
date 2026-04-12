@@ -123,6 +123,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
+        if (!MainPanel.IsVisible) return;
         PointerUpdateKind pointerUpdateKind = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
         if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
         {
@@ -136,12 +137,13 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         }
         else if (pointerUpdateKind == PointerUpdateKind.RightButtonPressed)
         {
-            Close();
+            SafeClose(0.15f);
         }
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
+        if (!MainPanel.IsVisible) return;
         if (!_isSelecting)
         {
             UpdateExtraInfo();
@@ -184,7 +186,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         try
         {
             var position = UiUtils.EnsurePositionWithinScreen(_currentScreen, App.ScreensService.MousePosition,
-                InfoPanel.Bounds.Size);
+                InfoPanel.Bounds.Size, new Size(25, 25));
 
             if (correct)
             {

@@ -97,6 +97,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         if (pos == null) this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height);
     }
 
+    protected override void OnInitWindowPosition()
+    {
+        // base.OnInitWindowPosition();
+    }
+
     private void SetImageSize(Size newSize)
     {
         _currentSize = newSize;
@@ -216,12 +221,9 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         if (e.ClickCount == 2)
         {
             // ScreenCaptureManager.SyncDockWindow(null);
-            // // Task.Run(() =>
-            // // {
-            // //     Task.Delay(1000);
-            // //     SafeClose();
-            // // });
-            Close();
+            SafeClose(0.1f);
+            // Close();
+            return;
         }
 
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
