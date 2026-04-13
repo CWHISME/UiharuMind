@@ -241,4 +241,9 @@ public partial class App : Application, ILogger, IDisposable
     {
         App.FilesService.OpenFolder(SettingConfig.SaveDataPath);
     }
+
+    private void OnUpdateMenuItemClick(object? sender, EventArgs e)
+    {
+        TopLevel.GetTopLevel(DummyWindow)!.Launcher.LaunchUriAsync(new Uri("https://github.com/CWHISME/UiharuMind/releases/latest"));
+    }
 }

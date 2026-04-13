@@ -485,4 +485,7 @@
     <data name="SyntacticAnalysis" xml:space="preserve">
         <value>语法分析</value>
     </data>
+    <data name="TrayMenuUpdate" xml:space="preserve">
+        <value>更新</value>
+    </data>
 </root>

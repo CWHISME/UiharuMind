@@ -492,4 +492,7 @@
     <data name="SyntacticAnalysis" xml:space="preserve">
         <value>Syntactic Analysis</value>
     </data>
+    <data name="TrayMenuUpdate" xml:space="preserve">
+        <value>Update</value>
+    </data>
 </root>

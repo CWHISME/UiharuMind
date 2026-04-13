@@ -986,5 +986,11 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("SyntacticAnalysis", resourceCulture);
             }
         }
+        
+        public static string TrayMenuUpdate {
+            get {
+                return ResourceManager.GetString("TrayMenuUpdate", resourceCulture);
+            }
+        }
     }
 }

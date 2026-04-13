@@ -63,6 +63,7 @@
                                         Click="OnTranslateMenuItemClick" />
                         <NativeMenuItemSeparator />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuHelp}" Click="OnHelpMenuItemClick" />
+                        <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuUpdate}" Click="OnUpdateMenuItemClick" />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuAbout}" Click="OnAboutMenuItemClick" />
                         <NativeMenuItem Header="{x:Static  lang:Lang.TrayMenuQuit}"
                                         ToolTip="{x:Static  lang:Lang.TrayMenuQuitTips}" Click="OnQuitClick" />
