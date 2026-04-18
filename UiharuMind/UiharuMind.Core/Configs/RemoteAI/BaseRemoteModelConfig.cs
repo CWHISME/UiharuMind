@@ -1,6 +1,8 @@
+using System.Text.Json.Nodes;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Configs.RemoteAI;
 
@@ -12,6 +14,13 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual string ModelDescription { get; set; }
     public virtual string ModelId { get; set; }
     public virtual bool IsVision { get; set; }
+
+    [SettingConfigDesc("Is Thinking")]
+    [SettingConfigDesc("是否是思考模型", LanguageUtils.ChineseSimplified)]
+    public virtual bool IsThinking { get; set; }
+
+    public virtual KeyValuePair<string, JsonNode?>? GetExtraParams() => null;
+
     [SettingConfigIgnoreDisplay] public virtual int Port { get; set; }
     [SettingConfigIgnoreDisplay] public virtual string ApiKey { get; set; }
 

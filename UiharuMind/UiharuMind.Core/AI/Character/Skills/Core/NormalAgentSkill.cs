@@ -33,7 +33,7 @@ public class NormalAgentSkill : AgentSkillConvertableBase
         // return modelRunningData.InvokeQuickToolPromptStreamingAsync("你好", "你是一只猫");
     }
 
-    protected override CharacterData GetCharacterData()
+    public override CharacterData GetCharacterData()
     {
         return _characterData; //DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.AssistantExpert);
     }

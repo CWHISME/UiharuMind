@@ -51,7 +51,7 @@ public class ImageVisionSkill : AgentSkillVisionBase
         // return modelRunningData.SendMessageStreamingAsync(_chatHistory, cancellationToken);
     }
     
-    protected override CharacterData GetCharacterData()
+    public override CharacterData GetCharacterData()
     {
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision);
     }

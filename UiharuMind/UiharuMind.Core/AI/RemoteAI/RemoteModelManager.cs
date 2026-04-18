@@ -70,7 +70,7 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         var kernelBuilder = Kernel.CreateBuilder()
             .AddOpenAIChatCompletion(model.ModelId, model.ApiKey,
                 httpClient: new HttpClient(
-                    new SKernelHttpDelegatingHandler(model.ModelPath + (model.Port > 0 ? (":" + model.Port) : ""))));
+                    new SKernelHttpDelegatingHandler(model, model.ModelPath + (model.Port > 0 ? (":" + model.Port) : ""))));
         return kernelBuilder.Build();
     }
 
@@ -92,6 +92,7 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
             RemoteListModels.Remove(del);
             Config.ModelInfos.Remove(del);
         }
+
         list.Clear();
         SimpleObjectPool<List<string>>.Release(list);
         SaveConfig();

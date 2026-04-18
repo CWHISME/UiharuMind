@@ -266,7 +266,7 @@
         <value>是否不携带对话历史</value>
     </data>
     <data name="ConvertToTempChat" xml:space="preserve">
-        <value>转为临时对话</value>
+        <value>转为对话</value>
     </data>
     <data name="TrayMenuAbout" xml:space="preserve">
         <value>关于</value>
@@ -487,5 +487,8 @@
     </data>
     <data name="TrayMenuUpdate" xml:space="preserve">
         <value>更新</value>
+    </data>
+    <data name="QuickTranslationWindow_Character" xml:space="preserve">
+        <value>角色</value>
     </data>
 </root>

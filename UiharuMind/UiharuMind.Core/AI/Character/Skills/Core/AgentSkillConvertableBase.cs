@@ -33,5 +33,10 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
         return _chatHistory ?? new ChatHistory();
     }
 
-    protected abstract CharacterData GetCharacterData();
+    public abstract CharacterData GetCharacterData();
+
+    public override string ToString()
+    {
+        return GetCharacterData().CharacterName;
+    }
 }

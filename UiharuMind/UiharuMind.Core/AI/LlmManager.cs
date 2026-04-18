@@ -71,6 +71,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     private Dictionary<string, ModelRunningData> _chacheModels = new Dictionary<string, ModelRunningData>();
 
     private List<ModelRunningData> _remoteModelList = new List<ModelRunningData>();
+
     //======================callbacks======================
 
     /// <summary>
@@ -201,6 +202,59 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         else Log.Error($"unload model error， {modelName} not found in cache.");
 
         if (CurrentRunningModel == runningInfo) CurrentRunningModel = null;
+    }
+
+    /// <summary>
+    /// 检查当前是否存在允许中模型，如果没有运行中模型，优先取远程模型
+    /// </summary>
+    /// <returns></returns>
+    public bool TryCheckModelRunning(bool isVision)
+    {
+        return TryCheckModelRunning(isVision, ref _curModelRunningData);
+    }
+
+    /// <summary>
+    /// 检查当前是否存在允许中模型，如果没有运行中模型，优先取远程模型
+    /// </summary>
+    /// <returns></returns>
+    public bool TryCheckModelRunning(bool isVision, ref ModelRunningData? modelRunning)
+    {
+        if ((modelRunning == null || isVision && !modelRunning.IsVisionModel) &&
+            RemoteModelManager.RemoteListModels.Count > 0)
+        {
+            if (!string.IsNullOrEmpty(RemoteModelManager.Config.FavoriteModel))
+                RemoteModelManager.RemoteListModels.TryGetValue(
+                    RemoteModelManager.Config.FavoriteModel, out modelRunning);
+            foreach (var model in RemoteModelManager.RemoteListModels)
+            {
+                if (isVision && model.Value.IsVisionModel)
+                {
+                    modelRunning = model.Value;
+                    break;
+                }
+
+                if (isVision || model.Value.IsVisionModel) continue;
+                // modelRunning = model.Value;
+                modelRunning ??= model.Value;
+                OnCurrentModelChanged?.Invoke(modelRunning);
+                break;
+            }
+        }
+
+        if (modelRunning is not { IsRunning: true })
+        {
+            if (modelRunning?.IsRemoteModel != true)
+            {
+                return false;
+            }
+
+            if (modelRunning.Kernel == null)
+            {
+                _ = modelRunning.StartLoad(null, null);
+            }
+        }
+
+        return true;
     }
 
     //======================test=========================

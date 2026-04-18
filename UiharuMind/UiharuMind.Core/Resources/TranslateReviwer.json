@@ -13,9 +13,7 @@
     },
     "ExecutionSettings": {
       "temperature": 0.5,
-      "top_p": 0.6,
-      "presence_penalty": 0,
-      "frequency_penalty": 0
+      "top_p": 0.6
     }
   },
   "DialogTemplate": "",

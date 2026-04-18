@@ -3,14 +3,23 @@ using UiharuMind.Core.AI.Core;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
-public class TranslationAdvancedAgentSkill : AgentSkillConvertableBase
+/// <summary>
+/// 自定义角色技能
+/// </summary>
+public class CustomAgentSkill : AgentSkillConvertableBase
 {
+    private CharacterData _characterData;
+
+    public CustomAgentSkill(CharacterData characterData)
+    {
+        _characterData = characterData;
+    }
+
     protected override IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string text,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
-        TrySetParams("user_request", "None");
-
+        // AddParams("content", text);
         var translator = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
 
         _chatHistory = new ChatHistory();
@@ -18,17 +27,8 @@ public class TranslationAdvancedAgentSkill : AgentSkillConvertableBase
         return modelRunningData.InvokeAgentStreamingAsync(translator, _chatHistory, cancellationToken);
     }
 
-    /// <summary>
-    /// 设置额外需求
-    /// </summary>
-    /// <param name="extraRequest"></param>
-    public void SetExtraRequest(string extraRequest)
-    {
-        SetParams("user_request", extraRequest);
-    }
-    
     public override CharacterData GetCharacterData()
     {
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslatorAdvanced);
+        return _characterData;
     }
 }

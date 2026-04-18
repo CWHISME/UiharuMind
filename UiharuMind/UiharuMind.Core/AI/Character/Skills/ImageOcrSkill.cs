@@ -44,7 +44,7 @@ public class ImageOcrSkill : AgentSkillVisionBase
         return modelRunningData.InvokeAgentStreamingAsync(ocr, _chatHistory, cancellationToken);
     }
 
-    protected override CharacterData GetCharacterData()
+    public override CharacterData GetCharacterData()
     {
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.VisionOcr);
     }

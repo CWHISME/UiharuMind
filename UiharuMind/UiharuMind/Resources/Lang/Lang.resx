@@ -274,7 +274,7 @@
         <value>Is Not Take Histor yContext</value>
     </data>
     <data name="ConvertToTempChat" xml:space="preserve">
-        <value>ConvertToTempChat</value>
+        <value>ConvertToChat</value>
     </data>
     <data name="TrayMenuAbout" xml:space="preserve">
         <value>About</value>
@@ -494,5 +494,8 @@
     </data>
     <data name="TrayMenuUpdate" xml:space="preserve">
         <value>Update</value>
+    </data>
+    <data name="QuickTranslationWindow_Character" xml:space="preserve">
+        <value>Character</value>
     </data>
 </root>

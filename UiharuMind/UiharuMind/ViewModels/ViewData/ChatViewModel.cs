@@ -160,8 +160,11 @@ public partial class ChatViewModel : ViewModelBase
 
         if (!IsModelRunning())
         {
-            App.MessageService.ShowWarningMessageBox("当前未启用任何模型，请先启用模型再进行对话！");
-            return;
+            if (!LlmManager.Instance.TryCheckModelRunning(false))
+            {
+                App.MessageService.ShowWarningMessageBox("当前未启用任何模型，请先启用模型再进行对话！");
+                return;
+            }
         }
 
         //添加 first message

@@ -9,11 +9,11 @@
         Width="666"
         Height="500"
         x:Class="UiharuMind.Views.Windows.QuickTranslationWindow"
-        Title="QuickTranslationWindow">
+        Title="{x:Static lang:Lang.Translation}">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*" Margin="10">
-        <Border Background="Transparent"
-                PointerPressed="InputElement_OnPointerPressed">
+        <!-- 这个 Border 会导致 window 平台上 ComboBox 弹不出来 -->
+        <!-- <Border Background="Red" PointerPressed="InputElement_OnPointerPressed"> -->
             <StackPanel Spacing="5" Margin="5">
                 <DockPanel LastChildFill="False">
                     <TextBlock Text="{x:Static lang:Lang.Translation}" FontSize="20" Margin="0,4.5,5,0"
@@ -30,8 +30,8 @@
                     <Button Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton">
                         <PathIcon Data="{StaticResource ArrowRepeatAllRegular}" Width="20" Height="20" />
                     </Button>
-                    <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                            Click="CloseButton_Click" />
+                    <!-- <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right" -->
+                    <!--         Click="CloseButton_Click" /> -->
                 </DockPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10">
@@ -40,6 +40,10 @@
                     <ComboBox Name="TargetLanguageComboBox" HorizontalAlignment="Stretch" />
 
                     <StackPanel Name="CommonlyUsedLanguagePanel" Orientation="Horizontal" Spacing="5" />
+                    
+                    <TextBlock Text="{x:Static lang:Lang.QuickTranslationWindow_Character}"
+                               FontSize="16" VerticalAlignment="Center" />
+                    <ComboBox Name="TargetCharacterComboBox" HorizontalAlignment="Stretch" />
                 </StackPanel>
 
                 <DockPanel>
@@ -50,7 +54,7 @@
                              Watermark="{x:Static lang:Lang.ExtraRequestTextBoxTips}" Margin="10,0,0,0" />
                 </DockPanel>
             </StackPanel>
-        </Border>
+        <!-- </Border> -->
         <ScrollViewer Grid.Row="2" Name="ScrollViewer">
             <!-- <common:SimpleMarkdownViewer Name="ResultTextBlock" /> -->
             <Grid>

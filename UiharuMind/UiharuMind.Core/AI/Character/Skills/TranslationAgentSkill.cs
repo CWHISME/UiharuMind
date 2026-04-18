@@ -17,7 +17,7 @@ public class TranslationAgentSkill : AgentSkillConvertableBase
         return modelRunningData.InvokeAgentStreamingAsync(translator, _chatHistory, cancellationToken);
     }
     
-    protected override CharacterData GetCharacterData()
+    public override CharacterData GetCharacterData()
     {
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator);
     }

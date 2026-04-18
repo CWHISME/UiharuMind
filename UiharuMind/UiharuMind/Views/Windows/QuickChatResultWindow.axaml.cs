@@ -61,6 +61,14 @@ public partial class QuickChatResultWindow : QuickWindowBase
         // SizeToContent = SizeToContent.WidthAndHeight;
 
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
+        PlaintextCheckBox.IsChecked = ConfigManager.Instance.Setting.IsChatPlainText;
+        PlaintextCheckBox.IsCheckedChanged += (sender, args) =>
+        {
+            var isChecked = (sender as CheckBox)?.IsChecked ?? false;
+            ResultTextBlock.IsPlaintext = isChecked;
+            ConfigManager.Instance.Setting.IsChatPlainText = isChecked;
+            ConfigManager.Instance.Setting.Save();
+        };
         // _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
     }
 
@@ -77,7 +85,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
             InAnswerPanel.IsVisible = !value;
             LoadingEffect.IsLoading = !value;
             RegenerateButton.IsVisible = value;
-            FuncBtn.IsVisible = value;
+            ToolPanel.IsVisible = value;
             ResultTextBlock.IsPlaintext =
                 ConfigManager.Instance.Setting
                     .IsChatPlainText; //!value || ConfigManager.Instance.Setting.IsChatPlainText;
@@ -87,43 +95,10 @@ public partial class QuickChatResultWindow : QuickWindowBase
     /// <summary>
     /// 是否能转换为临时对话
     /// </summary>
-    public bool IsChatConvertable
-    {
-        get { return _agentSkill.IsConvertableToChatSession; }
-    }
+    public bool IsChatConvertable => _agentSkill.IsConvertableToChatSession;
 
     private string _askContent;
     private AgentSkillBase _agentSkill;
-
-    // public void SetRequestInfo(string? title, string content, string? prompt = null)
-    // {
-    //     TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
-    //
-    //     _cts = new CancellationTokenSource();
-    //     IsFinished = false;
-    //
-    //     async void Action()
-    //     {
-    //         try
-    //         {
-    //             //简单模式
-    //             await foreach (var message in LlmManager.Instance.CurrentRunningModel!
-    //                                .InvokeQuickToolPromptStreamingAsync(
-    //                                    content, prompt, Lang.Culture, _cts.Token))
-    //             {
-    //                 AppendContent(message);
-    //             }
-    //         }
-    //         catch (Exception e)
-    //         {
-    //             Log.Warning(e.Message);
-    //         }
-    //
-    //         IsFinished = true;
-    //     }
-    //
-    //     Dispatcher.UIThread.Post(Action, DispatcherPriority.ApplicationIdle);
-    // }
 
     public void SetRequestInfo(string? title, string content, AgentSkillBase agentSkill)
     {
@@ -139,8 +114,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
             try
             {
                 //讨论模式
-                await foreach (var message in agentSkill.DoSkill(LlmManager.Instance.CurrentRunningModel!, content,
-                                   _cts.Token))
+                await foreach (var message in agentSkill.DoSkill(content, _cts.Token))
                 {
                     AppendContent(message);
                 }
@@ -170,6 +144,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
     {
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Center);
+        PlaintextCheckBox.IsChecked = ConfigManager.Instance.Setting.IsChatPlainText;
     }
 
     protected override void OnPreClose()

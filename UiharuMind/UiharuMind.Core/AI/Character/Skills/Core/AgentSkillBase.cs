@@ -56,6 +56,12 @@ public abstract class AgentSkillBase
     protected virtual bool IsVision => false;
     protected ModelRunningData? CurModelRunningData;
 
+    public virtual IAsyncEnumerable<string> DoSkill(string userInput,
+        CancellationToken cancellationToken = default)
+    {
+        return DoSkill(LlmManager.Instance.CurrentRunningModel, userInput, cancellationToken);
+    }
+
     public virtual IAsyncEnumerable<string> DoSkill(ModelRunningData? modelRunningData, string userInput,
         CancellationToken cancellationToken = default)
     {
@@ -63,7 +69,7 @@ public abstract class AgentSkillBase
         // {
         //     return new AsyncEnumerableWithMessage("Model is not running.");
         // }
-        if (SafeCheckModelRunning(ref modelRunningData) == false)
+        if (LlmManager.Instance.TryCheckModelRunning(IsVision, ref modelRunningData) == false)
         {
             return new AsyncEnumerableWithMessage("Model is not running.");
         }
@@ -86,48 +92,4 @@ public abstract class AgentSkillBase
     protected abstract IAsyncEnumerable<string> OnDoSkill(ModelRunningData modelRunningData, string userInput,
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 如果没有运行中模型，优先取远程模型
-    /// </summary>
-    /// <param name="modelRunning"></param>
-    /// <returns></returns>
-    private bool SafeCheckModelRunning(ref ModelRunningData? modelRunning)
-    {
-        if ((modelRunning == null || IsVision && !modelRunning.IsVisionModel) &&
-            LlmManager.Instance.RemoteModelManager.RemoteListModels.Count > 0)
-        {
-            if (!string.IsNullOrEmpty(LlmManager.Instance.RemoteModelManager.Config.FavoriteModel))
-                LlmManager.Instance.RemoteModelManager.RemoteListModels.TryGetValue(
-                    LlmManager.Instance.RemoteModelManager.Config.FavoriteModel, out modelRunning);
-            foreach (var model in LlmManager.Instance.RemoteModelManager.RemoteListModels)
-            {
-                if (IsVision && model.Value.IsVisionModel)
-                {
-                    modelRunning = model.Value;
-                    break;
-                }
-
-                if (IsVision || model.Value.IsVisionModel) continue;
-                // modelRunning = model.Value;
-                modelRunning ??= model.Value;
-                break;
-            }
-        }
-
-        if (modelRunning is not { IsRunning: true })
-        {
-            if (modelRunning?.IsRemoteModel != true)
-            {
-                return false;
-            }
-
-            if (modelRunning.Kernel == null)
-            {
-                _ = modelRunning.StartLoad(null, null);
-            }
-        }
-
-        return true;
-    }
 }

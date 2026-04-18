@@ -10,7 +10,10 @@
  ****************************************************************************/
 
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -19,15 +22,17 @@ namespace UiharuMind.Core.Core.LLM;
 class SKernelHttpDelegatingHandler : DelegatingHandler
 {
     private readonly Uri _baseUri;
+    private readonly ILlmModel? _model;
 
-    public SKernelHttpDelegatingHandler(string address = "http://127.0.0.1:1369/v1/chat/completions")
+    public SKernelHttpDelegatingHandler(ILlmModel? model, string address = "http://127.0.0.1:1369/v1/chat/completions")
         : base(new HttpClientHandler())
     {
         var newUriBuilder = new UriBuilder(address);
         _baseUri = newUriBuilder.Uri;
+        _model = model;
     }
 
-    public SKernelHttpDelegatingHandler(string host = "http://127.0.0.1", int port = 1369,
+    public SKernelHttpDelegatingHandler(ILlmModel? model, string host = "http://127.0.0.1", int port = 1369,
         string absolutePath = "/v1/chat/completions")
         : base(new HttpClientHandler())
     {
@@ -39,18 +44,46 @@ class SKernelHttpDelegatingHandler : DelegatingHandler
             Path = absolutePath
         };
         _baseUri = newUriBuilder.Uri;
+        _model = model;
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
-        CancellationToken cancellationToken)
+    // protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+    //     CancellationToken cancellationToken)
+    // {
+    //     request.RequestUri = _baseUri;
+    //     // var mediaType = request.Content!.Headers!.ContentType!.MediaType;
+    //     if (request.Content!.Headers!.ContentType!.MediaType == "application/json")
+    //     {
+    //         var content = Regex.Unescape(await request.Content!.ReadAsStringAsync(cancellationToken));
+    //         Log.Debug($"Kernel Send : {content}");
+    //         // request.Content = new StringContent(content, Encoding.UTF8, mediaType);
+    //     }
+    //
+    //     return await base.SendAsync(request, cancellationToken);
+    // }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         request.RequestUri = _baseUri;
-        // var mediaType = request.Content!.Headers!.ContentType!.MediaType;
-        if (request.Content!.Headers!.ContentType!.MediaType == "application/json")
+        if (request.Method == HttpMethod.Post && request.Content != null)
         {
-            var content = Regex.Unescape(await request.Content!.ReadAsStringAsync(cancellationToken));
-            Log.Debug($"Kernel Send : {content}");
-            // request.Content = new StringContent(content, Encoding.UTF8, mediaType);
+            var jsonContent = await request.Content.ReadAsStringAsync(cancellationToken);
+
+            var extraParams = _model?.GetExtraParams();
+            if (extraParams != null)
+            {
+                var jsonNode = JsonNode.Parse(jsonContent)?.AsObject();
+
+                if (jsonNode != null)
+                {
+                    // jsonNode["thinking"] = new JsonObject { ["type"] = "disabled" };
+                    jsonNode.Add((KeyValuePair<string, JsonNode?>)extraParams);
+                    jsonContent = jsonNode.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+                    request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                }
+            }
+
+            Log.Debug($"Kernel Send : {Regex.Unescape(jsonContent)}");
         }
 
         return await base.SendAsync(request, cancellationToken);

@@ -9,6 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json.Nodes;
+
 namespace UiharuMind.Core.AI.Interfaces;
 
 public interface ILlmModel
@@ -20,4 +22,6 @@ public interface ILlmModel
     string ModelId { get; }
     int Port { get; }
     string ApiKey { get; }
+
+    public KeyValuePair<string, JsonNode?>? GetExtraParams() => null;
 }

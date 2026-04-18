@@ -12,6 +12,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.Skills;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Process;
@@ -24,8 +25,10 @@ using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
 
-public partial class QuickTranslationWindow : QuickWindowBase
+public partial class QuickTranslationWindow : UiharuWindowBase
 {
+    public override bool IsCacheWindow => true;
+
     public QuickTranslationWindow()
     {
         InitializeComponent();
@@ -73,11 +76,12 @@ public partial class QuickTranslationWindow : QuickWindowBase
         }
     }
 
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         InputBox.Focus();
-        PlayOpenAnimation(() => { InputBox.Focus(); });
+        // PlayOpenAnimation(() => { InputBox.Focus(); });
     }
 
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
@@ -101,12 +105,14 @@ public partial class QuickTranslationWindow : QuickWindowBase
     // private string _askContent;
     // private readonly TranslationAgentSkill _simpleAgentSkill;
     private readonly TranslationAdvancedAgentSkill _agentSkill;
+    private readonly List<AgentSkillConvertableBase> _customAgentSkills = new List<AgentSkillConvertableBase>();
+    private int _lastCharacterCount;
 
     private AgentSkillBase GetSkill()
     {
         // if (string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
         _agentSkill.SetExtraRequest(ExtraRequestTextBox.Text ?? "无");
-        return _agentSkill;
+        return TargetCharacterComboBox.SelectedItem as AgentSkillBase ?? _agentSkill;
     }
 
     public void SetRequestInfo(string? content, AgentSkillBase agentSkill)
@@ -132,8 +138,7 @@ public partial class QuickTranslationWindow : QuickWindowBase
         {
             try
             {
-                await foreach (var message in agentSkill.DoSkill(LlmManager.Instance.CurrentRunningModel!, content,
-                                   _cts.Token))
+                await foreach (var message in agentSkill.DoSkill(content, _cts.Token))
                 {
                     AppendContent(message);
                 }
@@ -153,6 +158,25 @@ public partial class QuickTranslationWindow : QuickWindowBase
     {
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
+
+        if (_lastCharacterCount != CharacterManager.Instance.CharacterDataDictionary.Count)
+        {
+            _customAgentSkills.Clear();
+            _customAgentSkills.Add(_agentSkill);
+            var defaultChar = _agentSkill.GetCharacterData();
+            foreach (var item in CharacterManager.Instance.CharacterDataDictionary)
+            {
+                if (!item.Value.IsTool || item.Value == defaultChar) continue;
+                var customAgentSkill = new CustomAgentSkill(item.Value);
+                _customAgentSkills.Add(customAgentSkill);
+            }
+
+            _customAgentSkills.Sort((x, y) => String.Compare(x.GetCharacterData().CharacterName, y.GetCharacterData().CharacterName, StringComparison.Ordinal));
+            _lastCharacterCount = CharacterManager.Instance.CharacterDataDictionary.Count;
+
+            TargetCharacterComboBox.ItemsSource = _customAgentSkills;
+            TargetCharacterComboBox.SelectedItem ??= _agentSkill;
+        }
     }
 
     protected override void OnPreClose()

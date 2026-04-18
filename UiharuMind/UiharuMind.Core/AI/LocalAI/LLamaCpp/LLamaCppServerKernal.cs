@@ -183,7 +183,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
 
             if (msg.StartsWith("error"))
             {
-                onLoadOver?.Invoke(CreateKernel());
+                onLoadOver?.Invoke(CreateKernel(model));
                 return;
             }
 
@@ -210,7 +210,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             {
                 Log.Debug($"Loading over {loadingCount}");
                 loadOver = true;
-                onLoadOver?.Invoke(CreateKernel());
+                onLoadOver?.Invoke(CreateKernel(model));
             }
         }
 
@@ -254,11 +254,11 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         }
     }
 
-    private Kernel CreateKernel()
+    private Kernel CreateKernel(ILlmModel model)
     {
         var kernelBuilder = Kernel.CreateBuilder()
             .AddOpenAIChatCompletion("UiharuMind", "None",
-                httpClient: new HttpClient(new SKernelHttpDelegatingHandler(port: Config.DefautPort)));
+                httpClient: new HttpClient(new SKernelHttpDelegatingHandler(model, port: Config.DefautPort)));
         return kernelBuilder.Build();
     }
 

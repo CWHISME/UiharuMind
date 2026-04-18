@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Configs.RemoteAI;
@@ -26,6 +27,9 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public string ModelDescription => Config.ModelDescription;
     [JsonIgnore] public string ModelId => Config.ModelId;
     [JsonIgnore] public int Port => Config.Port;
+    [JsonIgnore] public bool IsThinking => Config.IsThinking;
+
+    public virtual KeyValuePair<string, JsonNode?>? GetExtraParams() => Config.GetExtraParams();
 
     private string _apiKey = "";
 

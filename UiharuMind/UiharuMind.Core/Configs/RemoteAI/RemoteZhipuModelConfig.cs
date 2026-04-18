@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
 
@@ -27,6 +28,11 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
         "glm-4-flash", "glm-4", "glm-4-plus", "glm-4-air", "glm-4-airx", "glm-4-long", "glm-4-flashx"
     ])]
     public override string ModelId { get; set; } = "glm-4-flash";
+
+    public override KeyValuePair<string, JsonNode?>? GetExtraParams()
+    {
+        return IsThinking ? null : new KeyValuePair<string, JsonNode?>("thinking", new JsonObject { ["type"] = "disabled" });
+    }
 
     public override int Port { get; set; }
     public override string ApiKey { get; set; } = "";

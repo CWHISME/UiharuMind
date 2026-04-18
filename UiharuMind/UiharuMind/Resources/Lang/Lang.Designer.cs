@@ -992,5 +992,11 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("TrayMenuUpdate", resourceCulture);
             }
         }
+        
+        public static string QuickTranslationWindow_Character {
+            get {
+                return ResourceManager.GetString("QuickTranslationWindow_Character", resourceCulture);
+            }
+        }
     }
 }
