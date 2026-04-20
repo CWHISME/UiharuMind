@@ -30,10 +30,20 @@
         <Button Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick">
             <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
         </Button>
-        <Button Name="OcrBtn" Click="OnOcrBtnClick">
-            <PathIcon Data="{StaticResource TextFieldRegular}" />
+        <!-- <Button Name="OcrBtn" Click="OnOcrBtnClick"> -->
+        <!--     <PathIcon Data="{StaticResource TextFieldRegular}" /> -->
+        <!--     <ToolTip.Tip> -->
+        <!--         <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnOldOcr}" /> -->
+        <!--     </ToolTip.Tip> -->
+        <!-- </Button> -->
+        <Button Click="OnExplainAiBtnClick">
+            <Panel>
+                <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
+                           Margin="0,-5,0,0" />
+                <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Margin="0,5,0,0" />
+            </Panel>
             <ToolTip.Tip>
-                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnOldOcr}" />
+                <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnExplain}" />
             </ToolTip.Tip>
         </Button>
         <Button Click="OnOcrAiBtnClick">
@@ -46,16 +56,6 @@
                 <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnOcr}" />
             </ToolTip.Tip>
         </Button>
-        <!-- <Button Click="OnExplainAiBtnClick"> -->
-        <!--     <Panel> -->
-        <!--         <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center" -->
-        <!--                    Margin="0,-5,0,0" /> -->
-        <!--         <PathIcon Data="{StaticResource Chat}" Margin="0,5,0,0" /> -->
-        <!--     </Panel> -->
-        <!--     <ToolTip.Tip> -->
-        <!--         <TextBlock Text="{x:Static  lang:Lang.ScreenCaptureDockWindow_BtnExplain}" /> -->
-        <!--     </ToolTip.Tip> -->
-        <!-- </Button> -->
         <Button Click="OnVisionAiBtnClick">
             <Panel>
                 <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"

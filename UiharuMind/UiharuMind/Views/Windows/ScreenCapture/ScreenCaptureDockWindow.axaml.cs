@@ -16,8 +16,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.Skills;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Common;
@@ -36,7 +38,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         base.OnOpened(e);
         ToggleOldNewBtn.IsVisible = CurrentSnapWindow?.ImageBackupSource != null;
-        OcrBtn.IsVisible = PlatformUtils.IsMacOS;
+        // OcrBtn.IsVisible = PlatformUtils.IsMacOS;
     }
 
     private void OnOcrBtnClick(object? sender, RoutedEventArgs e)
@@ -62,8 +64,16 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnOcrAiBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        ImageOcrSkill skill = new ImageOcrSkill(CurrentSnapWindow!.ImageSource!.BitmapToBytes());
+        // ImageOcrSkill skill = new ImageOcrSkill(GetImageBytes());
+        CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.VisionOcr, GetImageBytes());
         QuickChatResultWindow.Show("OCR (AI)", "", skill);
+    }
+
+    private void OnExplainAiBtnClick(object? sender, RoutedEventArgs e)
+    {
+        if (!IsValid()) return;
+        CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.AssistantExplain, GetImageBytes());
+        QuickChatResultWindow.Show(Lang.Explain, "", skill);
     }
 
     private void OnVisionAiBtnClick(object? sender, RoutedEventArgs e)
@@ -89,6 +99,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
                 CurrentSnapWindow.ImageOriginSource = CurrentSnapWindow.ImageBackupSource = backup;
 
                 App.Clipboard.CopyImageToClipboard(bitmap, true);
+                App.Clipboard.RecordImageToHistory(bitmap);
                 CurrentSnapWindow.Show();
             });
         SafeClose();
@@ -110,13 +121,14 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         CurrentSnapWindow.ImageContent.Source = CurrentSnapWindow.ImageSource;
     }
 
-    private void OnExplainAiBtnClick(object? sender, RoutedEventArgs e)
-    {
-    }
-
     private bool IsValid()
     {
         if (CurrentSnapWindow == null || CurrentSnapWindow.ImageSource == null) return false;
         return true;
+    }
+
+    private byte[] GetImageBytes()
+    {
+        return CurrentSnapWindow!.ImageSource!.BitmapToBytes();
     }
 }
