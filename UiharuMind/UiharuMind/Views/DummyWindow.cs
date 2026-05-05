@@ -27,7 +27,7 @@ namespace UiharuMind.Views;
 public class DummyWindow : Window
 {
     // public MainWindow? MainWindow { get; private set; }
-    public MainViewModel? MainViewModel { get; private set; } //=> (MainViewModel)MainWindow!.DataContext!;
+    public MainViewModel? MainViewModel { get; private set; } = new MainViewModel(); //=> (MainViewModel)MainWindow!.DataContext!;
 
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
@@ -187,6 +187,13 @@ public class DummyWindow : Window
                 KeyCode.VcLeftAlt, KeyCode.VcLeftShift
             },
             "Quick Clipboard History"));
+
+        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcG,
+            LaunchQuickAutoClickWindow, new List<KeyCode>()
+            {
+                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
+            },
+            "Quick Clipboard History"));
         // RegistryShortcutQuickTool(KeyCode.VcLeftControl);
         // RegistryShortcutQuickTool(KeyCode.VcLeftAlt);
         // RegistryShortcutQuickTool(KeyCode.VcLeftMeta);
@@ -210,7 +217,6 @@ public class DummyWindow : Window
 
     public void LaunchMainWindow()
     {
-        MainViewModel ??= new MainViewModel();
         UIManager.ShowWindow<MainWindow>(null, x =>
         {
             x.DataContext = MainViewModel;
@@ -261,5 +267,10 @@ public class DummyWindow : Window
     public void LaunchQuickTranslationWindow()
     {
         UIManager.ShowWindow<QuickTranslationWindow>();
+    }
+
+    public void LaunchQuickAutoClickWindow()
+    {
+        UIManager.ShowWindow<QuickAutoClickWindow>();
     }
 }

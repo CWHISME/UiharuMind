@@ -40,8 +40,15 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     public event Action<KeyCode>? EventOnKeyDown;
     public event Action<KeyCode>? EventOnKeyUp;
-    public event Action<MouseEventData>? EventOnMouseClicked;
+    public event Action<MouseEventData>? EventOnMousePressed;
+    public event Action<MouseEventData>? EventOnMouseReleased;
+    public event Action<MouseEventData>? EventOnMouseMoved;
     public event Action<MouseWheelEventData>? EventOnMouseWheel;
+    
+    /// <summary>
+    /// 鼠标点击事件（仅在短按时触发，长按不触发）
+    /// </summary>
+    public event Action<MouseEventData>? EventOnMouseClicked;
 
     private GlobalHookBase _hook;
 
@@ -51,6 +58,14 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// 组合键组合数据
     /// </summary>
     private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
+
+    // 鼠标按下时间记录，用于判断是否为点击
+    private Dictionary<MouseButton, DateTime> _mousePressTimes = new Dictionary<MouseButton, DateTime>();
+    
+    /// <summary>
+    /// 点击阈值（毫秒），超过此时间视为长按而非点击
+    /// </summary>
+    private const int ClickThresholdMs = 300;
 
     //是否启用过
     private bool _isEnabled;
@@ -75,7 +90,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
             _hook.HookEnabled += OnHookEnabled;
             _hook.HookDisabled += OnHookDisabled;
 
-            // _hook.KeyTyped += OnKeyTyped;
+            _hook.KeyTyped += OnKeyTyped;
             _hook.KeyPressed += OnKeyPressed;
             _hook.KeyReleased += OnKeyReleased;
 
@@ -149,10 +164,19 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnKeyTyped(object? sender, KeyboardHookEventArgs e)
     {
+        // Log.Debug("OnKeyTyped " + e.Data.KeyCode);
     }
 
     private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
     {
+        // Log.Debug("OnKeyPressed " + e.Data.KeyCode);
+        
+        // 如果这个键已经处于按下状态，说明是操作系统的键盘重复事件，不触发 EventOnKeyDown
+        if (!_pressedKeys.Add(e.Data.KeyCode))
+        {
+            return;
+        }
+
         EventOnKeyDown?.Invoke(e.Data.KeyCode);
         foreach (var keyCombination in _keyCombinations)
         {
@@ -162,8 +186,6 @@ public class InputManager : Singleton<InputManager>, IInitialize
             e.SuppressEvent = true;
             return;
         }
-
-        _pressedKeys.Add(e.Data.KeyCode);
     }
 
     private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
@@ -179,7 +201,10 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnMousePressed(object? sender, MouseHookEventArgs e)
     {
-        EventOnMouseClicked?.Invoke(e.Data);
+        // 记录按下时间
+        _mousePressTimes[e.Data.Button] = DateTime.Now;
+        
+        EventOnMousePressed?.Invoke(e.Data);
         MouseData = e.Data;
         MousePressedData = e.Data;
         // Log.Debug("OnMousePressed");
@@ -187,6 +212,22 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnMouseReleased(object? sender, MouseHookEventArgs e)
     {
+        var button = e.Data.Button;
+        
+        // 计算按下时长
+        if (_mousePressTimes.TryGetValue(button, out var pressTime))
+        {
+            var duration = (int)(DateTime.Now - pressTime).TotalMilliseconds;
+            _mousePressTimes.Remove(button);
+            
+            // 如果按下时长在点击阈值内，触发 Click 事件
+            if (duration <= ClickThresholdMs)
+            {
+                EventOnMouseClicked?.Invoke(e.Data);
+            }
+        }
+        
+        EventOnMouseReleased?.Invoke(e.Data);
         MouseData = e.Data;
         MouseReleasedData = e.Data;
         // Log.Debug("OnMouseReleased");
@@ -194,12 +235,15 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnMouseMoved(object? sender, MouseHookEventArgs e)
     {
+        EventOnMouseMoved?.Invoke(e.Data);
         MouseData = e.Data;
         // Log.Debug($"鼠标位置 {e.Data.X},{e.Data.Y}");
     }
 
     private void OnMouseDragged(object? sender, MouseHookEventArgs e)
     {
+        // 拖拽时也触发 MouseMoved 事件，以便上层可以统一处理
+        EventOnMouseMoved?.Invoke(e.Data);
         MouseData = e.Data;
         // Log.Debug("OnMouseDragged");
     }

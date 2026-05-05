@@ -111,12 +111,12 @@ public abstract class UiharuWindowBase : Window
         base.OnClosing(e);
     }
 
-    protected virtual void SafeClose()
+    public virtual void SafeClose()
     {
         Dispatcher.UIThread.Post(Close);
     }
 
-    protected virtual void SafeClose(float delayTime)
+    public virtual void SafeClose(float delayTime)
     {
         Task.Run(async () =>
         {

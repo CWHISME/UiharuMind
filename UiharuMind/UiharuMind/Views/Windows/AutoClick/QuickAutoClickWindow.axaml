@@ -1,0 +1,416 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:UiharuMind.ViewModels.ViewData"
+    xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+    mc:Ignorable="d"
+    d:DesignWidth="600"
+    d:DesignHeight="600"
+    Width="600"
+    Height="600"
+    MinWidth="400"
+    MinHeight="500"
+    x:Class="UiharuMind.Views.Windows.QuickAutoClickWindow"
+    Title="自动点击器">
+    
+    <Design.DataContext>
+        <vm:QuickAutoClickViewModel />
+    </Design.DataContext>
+    
+    <Window.Resources>
+        <converters:ActionTypeToIconConverter x:Key="ActionTypeToIconConverter" />
+        <converters:ActionTypeToColorConverter x:Key="ActionTypeToColorConverter" />
+        <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+    </Window.Resources>
+    
+    <Window.Styles>
+        <Style Selector="Button.ActionButton">
+            <Setter Property="Margin" Value="5" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ActionButton:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+            <Setter Property="Background" Value="#9CA3AF" />
+        </Style>
+        <Style Selector="Button.ControlButton">
+            <Setter Property="Margin" Value="3" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Button.ControlButton:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </Window.Styles>
+    
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="15">
+        <!-- 当前会话名称（作为标题） -->
+        <TextBlock Grid.Row="0"
+                  Text="{Binding CurrentSessionName}" 
+                  FontSize="18" 
+                  FontWeight="Bold"
+                  HorizontalAlignment="Center"
+                  Foreground="#1F2937"
+                  Margin="0,0,0,8" />
+        
+        <!-- 状态栏 -->
+        <Border Grid.Row="1" 
+                Background="#F5F5F5" 
+                CornerRadius="8" 
+                Padding="12"
+                Margin="0,0,0,10">
+            <StackPanel Spacing="6">
+                <TextBlock Text="{Binding StatusText}" 
+                          FontSize="13" 
+                          Foreground="#333333"
+                          HorizontalAlignment="Center"
+                          FontWeight="SemiBold" />
+                <TextBlock Text="{Binding RecordedActionsCount, StringFormat='已录制: {0} 个动作'}" 
+                          FontSize="12" 
+                          Foreground="#666666"
+                          HorizontalAlignment="Center"
+                          IsVisible="{Binding IsRecording}" />
+            </StackPanel>
+        </Border>
+        
+        <!-- 控制按钮区 -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" Margin="0,0,0,10">
+            <Button Grid.Column="0" 
+                    Content="⏺ 开始录制"
+                    Classes="ActionButton"
+                    Background="#10B981"
+                    Foreground="White"
+                    Command="{Binding StartRecordingCommand}"
+                    IsEnabled="{Binding !IsRecording}"
+                    HorizontalAlignment="Stretch" />
+            
+            <Button Grid.Column="1" 
+                    Content="⏹ 停止录制"
+                    Classes="ActionButton"
+                    Background="#F59E0B"
+                    Foreground="White"
+                    Command="{Binding StopRecordingCommand}"
+                    IsEnabled="{Binding IsRecording}"
+                    HorizontalAlignment="Stretch" />
+            
+            <Button Grid.Column="2" 
+                    Content="▶ 播放"
+                    Classes="ActionButton"
+                    Background="#3B82F6"
+                    Foreground="White"
+                    Command="{Binding PlayActionsCommand}"
+                    IsEnabled="{Binding HasActions}"
+                    HorizontalAlignment="Stretch" />
+            
+            <Button Grid.Column="3" 
+                    Content="⏸ 停止"
+                    Classes="ActionButton"
+                    Background="#EF4444"
+                    Foreground="White"
+                    Command="{Binding StopPlaybackCommand}"
+                    IsEnabled="{Binding IsPlaying}"
+                    HorizontalAlignment="Stretch" />
+        </Grid>
+        
+        <!-- 状态互斥提示 -->
+        <TextBlock Grid.Row="3" 
+                  Text="⚠️ 录制中，无法进行其他操作"
+                  FontSize="11"
+                  Foreground="#EF4444"
+                  HorizontalAlignment="Center"
+                  Margin="0,0,0,5"
+                  IsVisible="{Binding IsRecording}" />
+        
+        <TextBlock Grid.Row="3" 
+                  Text="⚠️ 播放中，请等待完成或点击停止"
+                  FontSize="11"
+                  Foreground="#F59E0B"
+                  HorizontalAlignment="Center"
+                  Margin="0,0,0,5"
+                  IsVisible="{Binding IsPlaying}" />
+        
+        <!-- 动作列表和会话列表（左右布局） -->
+        <Grid Grid.Row="3" ColumnDefinitions="2*,3*" Margin="0,5,0,0">
+            <!-- 左侧：会话列表 -->
+            <Border Grid.Column="0"
+                    Background="#F9FAFB" 
+                    CornerRadius="8" 
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1"
+                    Margin="0,0,5,0"
+                    Padding="10">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- 标题 -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Text="📁 已保存的会话" 
+                                  FontWeight="SemiBold"
+                                  FontSize="12"
+                                  Foreground="#374151" />
+                        <TextBlock Grid.Column="1"
+                                  Text="{Binding SavedSessions.Count}"
+                                  FontSize="10"
+                                  Foreground="#9CA3AF"
+                                  VerticalAlignment="Center" />
+                    </Grid>
+                    
+                    <!-- 会话管理按钮 -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,0,0,8">
+                        <Button 
+                            Content="🆕 新建"
+                            Classes="ControlButton"
+                            Click="NewSessionButton_Click"
+                            Background="#6366F1"
+                            Foreground="White"
+                            HorizontalAlignment="Stretch"
+                            FontSize="11"
+                            Padding="6,4" />
+                        
+                        <Button Content="💾 保存"
+                                Grid.Column="1"
+                                Classes="ControlButton"
+                                Click="SaveSessionButton_Click"
+                                IsEnabled="{Binding HasUnsavedChanges}"
+                                Background="#10B981"
+                                Foreground="White"
+                                HorizontalAlignment="Stretch"
+                                FontSize="11"
+                                Padding="6,4" />
+                    </Grid>
+                    
+                    <!-- 会话列表 -->
+                    <ListBox x:Name="SessionListBox"
+                            Grid.Row="2"
+                            ItemsSource="{Binding SavedSessions}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            SelectionMode="Single"
+                            SelectionChanged="SessionList_SelectionChanged">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource BorderCardBorderBrush}" />
+                                <Setter Property="CornerRadius" Value="0" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="✏️ 重命名" Click="RenameSessionMenuItem_Click" />
+                                            <MenuItem Header="❌ 删除" Click="DeleteSessionMenuItem_Click" />
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" 
+                                                   FontWeight="Medium"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding Name}" />
+                                        <TextBlock FontSize="10" 
+                                                  Foreground="#9CA3AF">
+                                            <Run Text="{Binding Actions.Count}" />
+                                            <Run Text="个动作 · " />
+                                            <Run Text="{Binding LastTime, StringFormat='yyyy-MM-dd HH:mm'}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                    
+                                    <!-- 删除按钮 -->
+                                    <Button Grid.Column="1"
+                                           Content="✕"
+                                           Classes="ControlButton"
+                                           Background="Transparent"
+                                           Foreground="#DC2626"
+                                           Width="24"
+                                           Height="24"
+                                           Padding="0"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"
+                                           HorizontalContentAlignment="Center"
+                                           VerticalContentAlignment="Center"
+                                           CommandParameter="{Binding}"
+                                           Click="DeleteSessionButton_Click"
+                                           ToolTip.Tip="删除此会话" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+            
+            <!-- 右侧：动作列表 -->
+            <Border Grid.Column="1"
+                    Background="#FAFAFA" 
+                    CornerRadius="8" 
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="1"
+                    Margin="5,0,0,0">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- 设置行 -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,*,Auto,*" Margin="8,8,8,4">
+                        <TextBlock Grid.Column="0" Text="重复:" VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" />
+                        <NumericUpDown Grid.Column="1" 
+                                      Value="{Binding RepeatCount}" 
+                                      Minimum="1" 
+                                      Maximum="999"
+                                      HorizontalAlignment="Stretch"
+                                      Height="28"
+                                      FontSize="11" />
+                        
+                        <TextBlock Grid.Column="2" Text="延迟(ms):" VerticalAlignment="Center" Margin="8,0,5,0" FontSize="11" />
+                        <NumericUpDown Grid.Column="3" 
+                                      Value="{Binding DefaultDelay}" 
+                                      Minimum="0" 
+                                      Maximum="10000"
+                                      Increment="50"
+                                      HorizontalAlignment="Stretch"
+                                      Height="28"
+                                      FontSize="11" />
+                        
+                        <TextBlock Grid.Column="4" Text="倍速:" VerticalAlignment="Center" Margin="8,0,5,0" FontSize="11" />
+                        <NumericUpDown Grid.Column="5" 
+                                      Value="{Binding PlaybackSpeed}" 
+                                      Minimum="0.1" 
+                                      Maximum="5.0"
+                                      Increment="0.25"
+                                      FormatString="0.00x"
+                                      HorizontalAlignment="Stretch"
+                                      Height="28"
+                                      FontSize="11"
+                                      ToolTip.Tip="支持 0.1x - 5.0x，可手动输入" />
+                    </Grid>
+                    
+                    <!-- 添加动作按钮 -->
+                    <WrapPanel Grid.Row="1" Margin="8,4,8,8">
+                        <Button Content="🖱 左键" 
+                                Classes="ControlButton"
+                                Command="{Binding AddMouseClickActionCommand}" 
+                                ToolTip.Tip="手动添加鼠标左键点击"
+                                Margin="2" />
+                        <Button Content="🖱 右键" 
+                                Classes="ControlButton"
+                                Command="{Binding AddMouseRightClickActionCommand}"
+                                ToolTip.Tip="手动添加鼠标右键点击"
+                                Margin="2" />
+                        <Button Content="⌨ 选择按键" 
+                                Classes="ControlButton"
+                                Click="AddKeyButton_Click"
+                                Background="#E0E7FF"
+                                Foreground="#4338CA"
+                                ToolTip.Tip="点击后按下想要添加的按键"
+                                Margin="2" />
+                        <Button Content="⏱ 延迟" 
+                                Classes="ControlButton"
+                                Command="{Binding AddDelayActionCommand}"
+                                ToolTip.Tip="手动添加延迟"
+                                Margin="2" />
+                        <Button Content="🗑 清空" 
+                                Classes="ControlButton"
+                                Background="#FEE2E2"
+                                Foreground="#DC2626"
+                                Command="{Binding ClearActionsCommand}"
+                                ToolTip.Tip="清空所有动作"
+                                Margin="2" />
+                        
+                        <Border Background="#E8F5E9"
+                                CornerRadius="10"
+                                Padding="8,4"
+                                Margin="5,2,2,2">
+                            <TextBlock Text="{Binding ActionCount, StringFormat='共 {0} 个动作'}" 
+                                       VerticalAlignment="Center"
+                                      FontSize="11"
+                                      Foreground="#2E7D32"
+                                      FontWeight="SemiBold" />
+                        </Border>
+                    </WrapPanel>
+                    
+                    <!-- 动作列表 -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <Grid>
+                            <!-- 空状态提示 -->
+                            <StackPanel HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"
+                                       Spacing="10"
+                                       IsVisible="{Binding HasNoActions}">
+                                <TextBlock Text="📝" FontSize="48" HorizontalAlignment="Center" />
+                                <TextBlock Text="暂无动作" 
+                                          FontSize="14" 
+                                          Foreground="#999999"
+                                          HorizontalAlignment="Center" />
+                                <TextBlock Text="点击上方按钮添加动作" 
+                                          FontSize="12" 
+                                          Foreground="#CCCCCC"
+                                          HorizontalAlignment="Center" />
+                            </StackPanel>
+                            
+                            <!-- 动作列表 -->
+                            <ItemsControl ItemsSource="{Binding Actions}" IsVisible="{Binding HasActions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" 
+                                                CornerRadius="6" 
+                                                Margin="5" 
+                                                Padding="8">
+                                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                                <!-- 类型图标 -->
+                                                <Border Grid.Column="0" 
+                                                        Width="28" 
+                                                        Height="28"
+                                                        CornerRadius="14"
+                                                        Background="{Binding ActionType, Converter={StaticResource ActionTypeToColorConverter}}"
+                                                        Margin="0,0,8,0"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ActionType, Converter={StaticResource ActionTypeToIconConverter}}"
+                                                              FontSize="13"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center" />
+                                                </Border>
+                                                
+                                                <!-- 动作信息 -->
+                                                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Description}" 
+                                                              FontWeight="SemiBold"
+                                                              FontSize="12"
+                                                              Foreground="#1F2937" />
+                                                    <TextBlock Text="{Binding Delay, StringFormat='⏱ {0}ms'}" 
+                                                              FontSize="10" 
+                                                              Foreground="#6B7280" />
+                                                </StackPanel>
+                                                
+                                                <!-- 删除按钮 -->
+                                                <Button Grid.Column="2" 
+                                                        Content="✕" 
+                                                        Classes="ControlButton"
+                                                        Background="#FEE2E2"
+                                                        Foreground="#DC2626"
+                                                        Command="{Binding DataContext.RemoveActionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        Width="28" 
+                                                        Height="28"
+                                                        Padding="0"
+                                                        FontSize="14"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalContentAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        ToolTip.Tip="删除此动作" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

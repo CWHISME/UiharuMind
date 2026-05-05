@@ -49,7 +49,7 @@ public static class UIManager
     /// <param name="isMulti">允许同时开启多个同一窗口</param>
     /// <param name="isActivate">是否同时激活(聚焦)窗口</param>
     /// <typeparam name="T"></typeparam>
-    public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null, bool isMulti = false,
+    public static void ShowWindow<T>(Action<T>? action = null, Action<T>? onCreateCallback = null, bool isMulti = true,
         bool isActivate = true)
         where T : UiharuWindowBase, new()
     {
@@ -75,7 +75,7 @@ public static class UIManager
                 action?.Invoke((T)window);
                 window.RequestShow(isActivate: isActivate);
             }
-            else
+            else if (windowsList.Count == 0)
             {
                 window = new T();
                 // _multiWindows[typeof(T)] = [window];
@@ -85,6 +85,11 @@ public static class UIManager
                 window.WindowStartupLocation = WindowStartupLocation.Manual;
                 window.Awake();
                 window.RequestShow(true);
+            }
+            else
+            {
+                windowsList[0].Activate();
+                Log.Warning($"[{typeof(T).Name}] This window is already opened.");
             }
             // if (_multiWindows.ContainsKey(typeof(T)))
             // {

@@ -95,8 +95,9 @@ public partial class App : Application, ILogger, IDisposable
         // var name= FontUtils.GetFontFamilyName("F:\\项目\\个人\\UiharuMind\\UiharuMind\\UiharuMind\\Assets\\Fonts\\DreamHanSansCN-W12.ttf");
 
         //自动打开主窗口
+#if !DEBUG
         DummyWindow.LaunchMainWindow();
-
+#endif
         DeliverTrayFunc();
         Log.Debug("UiharuMind started.");
     }

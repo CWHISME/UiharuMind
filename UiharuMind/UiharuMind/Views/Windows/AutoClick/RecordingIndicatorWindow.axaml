@@ -1,0 +1,33 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="UiharuMind.Views.Windows.AutoClick.RecordingIndicatorWindow"
+    Title="录制中">
+    
+    <Border Name="IndicatorBorder" 
+            Background="#FEE2E2" 
+            CornerRadius="8"
+            BorderBrush="#EF4444"
+            BorderThickness="2"
+            Padding="15,10">
+        <StackPanel HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"
+                   Spacing="8">
+            <TextBlock Text="🔴 录制中..." 
+                      FontSize="14" 
+                      FontWeight="Bold"
+                      Foreground="#DC2626"
+                      HorizontalAlignment="Center" />
+            <TextBlock Name="ActionCountText"
+                      Text="已录制: 0 个动作" 
+                      FontSize="12"
+                      Foreground="#6B7280"
+                      HorizontalAlignment="Center" />
+            <TextBlock Text="按 Alt+Shift+G 停止"
+                      FontSize="10"
+                      Foreground="#9CA3AF"
+                      HorizontalAlignment="Center"
+                      FontStyle="Italic" />
+        </StackPanel>
+    </Border>
+</Window>
