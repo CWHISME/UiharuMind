@@ -271,6 +271,9 @@ public class DummyWindow : Window
 
     public void LaunchQuickAutoClickWindow()
     {
-        UIManager.ShowWindow<QuickAutoClickWindow>();
+        Dispatcher.UIThread.Post(() =>
+        {
+            UIManager.ShowWindow<QuickAutoClickWindow>();
+        });
     }
 }

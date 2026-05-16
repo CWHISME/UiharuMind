@@ -18,18 +18,9 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
         _globalSimulator.SimulateMouseMovement(x, y);
     }
 
-    public async void SendMouseClickLeft()
+    public async Task SendMouseClickLeft()
     {
-        try
-        {
-            _globalSimulator.SimulateMousePress(MouseButton.Button1);
-            await Task.Delay(100);
-            _globalSimulator.SimulateMouseRelease(MouseButton.Button1);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e);
-        }
+        await SendMouseClick(MouseButton.Button1);
     }
 
     public async Task SendMouseClick(MouseButton button, int delayMs = 100)
@@ -150,7 +141,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
             '.' => KeyCode.VcPeriod,
             ',' => KeyCode.VcComma,
             ';' => KeyCode.VcSemicolon,
-            '\''=> KeyCode.VcQuote,
+            '\'' => KeyCode.VcQuote,
             '[' => KeyCode.VcOpenBracket,
             ']' => KeyCode.VcCloseBracket,
             '\\' => KeyCode.VcBackslash,

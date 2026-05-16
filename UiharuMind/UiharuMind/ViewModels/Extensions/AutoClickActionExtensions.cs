@@ -18,7 +18,7 @@ public static class AutoClickActionExtensions
     {
         return new AutoClickActionData
         {
-            ActionType = action.ActionType,
+            ActionType = action.ActionType, // 直接使用枚举
             Description = action.Description,
             Delay = action.Delay,
             MouseButton = (int?)action.MouseButton,

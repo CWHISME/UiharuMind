@@ -247,4 +247,9 @@ public partial class App : Application, ILogger, IDisposable
     {
         TopLevel.GetTopLevel(DummyWindow)!.Launcher.LaunchUriAsync(new Uri("https://github.com/CWHISME/UiharuMind/releases/latest"));
     }
+
+    private void OnAutoClickMenuItemClick(object? sender, EventArgs e)
+    {
+        DummyWindow.LaunchQuickAutoClickWindow();
+    }
 }

@@ -190,6 +190,7 @@
                     <ListBox x:Name="SessionListBox"
                             Grid.Row="2"
                             ItemsSource="{Binding SavedSessions}"
+                            SelectedItem="{Binding CurrentSession, Mode=OneWay}"
                             Background="Transparent"
                             BorderThickness="0"
                             SelectionMode="Single"
@@ -260,11 +261,12 @@
                         <TextBlock Grid.Column="0" Text="重复:" VerticalAlignment="Center" Margin="0,0,5,0" FontSize="11" />
                         <NumericUpDown Grid.Column="1" 
                                       Value="{Binding RepeatCount}" 
-                                      Minimum="1" 
+                                      Minimum="0" 
                                       Maximum="999"
                                       HorizontalAlignment="Stretch"
                                       Height="28"
-                                      FontSize="11" />
+                                      FontSize="11"
+                                      ToolTip.Tip="0 表示无限循环，需手动停止" />
                         
                         <TextBlock Grid.Column="2" Text="延迟(ms):" VerticalAlignment="Center" Margin="8,0,5,0" FontSize="11" />
                         <NumericUpDown Grid.Column="3" 
@@ -354,6 +356,11 @@
                             
                             <!-- 动作列表 -->
                             <ItemsControl ItemsSource="{Binding Actions}" IsVisible="{Binding HasActions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="White" 
@@ -370,7 +377,8 @@
                                                         Margin="0,0,8,0"
                                                         VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding ActionType, Converter={StaticResource ActionTypeToIconConverter}}"
-                                                              FontSize="13"
+                                                              FontSize="12"
+                                                              TextAlignment="Center"
                                                               HorizontalAlignment="Center"
                                                               VerticalAlignment="Center" />
                                                 </Border>

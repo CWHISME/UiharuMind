@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using UiharuMind.Core.AutoClick;
 
 namespace UiharuMind.ViewModels.Converters;
 
@@ -14,11 +15,17 @@ public class ActionTypeToColorConverter : IValueConverter
     {
         return value switch
         {
-            "MouseClick" => new SolidColorBrush(Color.Parse("#DBEAFE")), // 蓝色
-            "KeyPress" => new SolidColorBrush(Color.Parse("#E0E7FF")),   // 紫色
-            "Delay" => new SolidColorBrush(Color.Parse("#FEF3C7")),      // 黄色
-            "Text" => new SolidColorBrush(Color.Parse("#D1FAE5")),       // 绿色
-            _ => new SolidColorBrush(Color.Parse("#F3F4F6"))             // 灰色
+            AutoClickActionType.MouseClick => new SolidColorBrush(Color.Parse("#DBEAFE")), // 蓝色
+            AutoClickActionType.MouseDown => new SolidColorBrush(Color.Parse("#BFDBFE")),  // 深蓝色
+            AutoClickActionType.MouseUp => new SolidColorBrush(Color.Parse("#BFDBFE")),    // 深蓝色
+            AutoClickActionType.MouseMove => new SolidColorBrush(Color.Parse("#C7D2FE")),  // 紫蓝色
+            AutoClickActionType.MouseWheel => new SolidColorBrush(Color.Parse("#DDD6FE")), // 紫色
+            AutoClickActionType.KeyPress => new SolidColorBrush(Color.Parse("#E0E7FF")),   // 浅紫色
+            AutoClickActionType.KeyDown => new SolidColorBrush(Color.Parse("#C4B5FD")),    // 深紫色
+            AutoClickActionType.KeyUp => new SolidColorBrush(Color.Parse("#C4B5FD")),      // 深紫色
+            AutoClickActionType.Delay => new SolidColorBrush(Color.Parse("#FEF3C7")),      // 黄色
+            AutoClickActionType.Text => new SolidColorBrush(Color.Parse("#D1FAE5")),       // 绿色
+            _ => new SolidColorBrush(Color.Parse("#F3F4F6"))                               // 灰色
         };
     }
 

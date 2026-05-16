@@ -9,6 +9,23 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.AutoClick;
 
 /// <summary>
+/// 自动点击动作类型枚举
+/// </summary>
+public enum AutoClickActionType
+{
+    MouseClick,
+    MouseDown,
+    MouseUp,
+    MouseMove,
+    MouseWheel,
+    KeyPress,
+    KeyDown,
+    KeyUp,
+    Text,
+    Delay
+}
+
+/// <summary>
 /// 自动点击会话数据
 /// </summary>
 public class AutoClickSession : IUniquieContainerItem
@@ -72,7 +89,7 @@ public class AutoClickSession : IUniquieContainerItem
 /// </summary>
 public class AutoClickActionData
 {
-    [JsonPropertyName("actionType")] public string ActionType { get; set; } = "";
+    [JsonPropertyName("actionType")] public AutoClickActionType ActionType { get; set; }
 
     [JsonPropertyName("description")] public string Description { get; set; } = "";
 

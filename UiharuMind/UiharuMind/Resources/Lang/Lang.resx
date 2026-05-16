@@ -498,4 +498,7 @@
     <data name="QuickTranslationWindow_Character" xml:space="preserve">
         <value>Character</value>
     </data>
+    <data name="TrayMenuAutoClick" xml:space="preserve">
+        <value>Auto Click(Alt+Shift+G)</value>
+    </data>
 </root>

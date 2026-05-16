@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using SharpHook.Data;
 using UiharuMind.Core.AutoClick;
 using UiharuMind.Core.Input;
@@ -114,11 +115,6 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
     }
 
     /// <summary>
-    /// 是否正在录制（公开属性）
-    /// </summary>
-    public bool IsRecording => _viewModel.IsRecording;
-
-    /// <summary>
     /// 显示按键选择对话框
     /// </summary>
     private void ShowKeySelectionDialog()
@@ -165,26 +161,21 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
         // 使用 InputManager 监听按键
         void OnKeyDownHandler(KeyCode keyCode)
         {
-            if (keyCode == KeyCode.VcEscape)
+            Dispatcher.UIThread.Post(() =>
             {
-                dialog.Close();
-                return;
-            }
+                if (keyCode == KeyCode.VcEscape)
+                {
+                    dialog.Close();
+                    return;
+                }
 
-            // 忽略修饰键
-            if (!IsModifierKey(keyCode))
-            {
-                _viewModel.AddCustomKeyAction(keyCode);
-                dialog.Close();
-            }
-        }
-
-        bool IsModifierKey(KeyCode keyCode)
-        {
-            return keyCode is KeyCode.VcLeftShift or KeyCode.VcRightShift or
-                KeyCode.VcLeftControl or KeyCode.VcRightControl or
-                KeyCode.VcLeftAlt or KeyCode.VcRightAlt or
-                KeyCode.VcLeftMeta or KeyCode.VcRightMeta;
+                // 忽略修饰键
+                if (!_viewModel.IsModifierKey(keyCode))
+                {
+                    _viewModel.AddCustomKeyAction(keyCode);
+                    dialog.Close();
+                }
+            });
         }
 
         // 注册临时监听器
@@ -214,13 +205,16 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
         var session = e.AddedItems[0] as AutoClickSession;
         if (session == null) return;
 
+        // 如果选中的会话和当前会话一致，不需要重新加载
+        if (session == _viewModel.CurrentSession) return;
+
         // 检查是否有未保存的修改
         if (_viewModel.HasUnsavedChanges)
         {
             var result = await App.MessageService.ShowConfirmMessageBox(
-                "当前会话有未保存的修改，是否先保存？", 
+                "当前会话有未保存的修改，是否先保存？",
                 this);
-            
+
             if (result == MessageBoxResult.Yes)
             {
                 // 用户选择保存
@@ -228,22 +222,22 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
             }
             else if (result == MessageBoxResult.Cancel)
             {
-                // 用户取消操作，恢复之前的选中项
+                // 用户取消操作，恢复之前的选中项（使用 OneWay 绑定，需要手动恢复）
                 var listBox = sender as ListBox;
                 if (listBox != null)
                 {
-                    // 清除当前的选中，恢复到之前的状态
-                    listBox.SelectedIndex = -1;
+                    listBox.SelectedItem = _viewModel.CurrentSession;
                 }
+
                 return;
             }
             // 如果选择 No，直接继续加载新会话（丢弃修改）
         }
 
-        // 加载选中的会话
+        // 加载选中的会话（LoadSession 内部会设置 CurrentSession，由于是 OneWay 绑定，ListBox 会自动更新）
         _viewModel.LoadSession(session);
     }
-    
+
     /// <summary>
     /// 新建会话按钮点击
     /// </summary>
@@ -253,9 +247,9 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
         if (_viewModel.HasUnsavedChanges)
         {
             var result = await App.MessageService.ShowConfirmMessageBox(
-                "当前会话有未保存的修改，是否先保存？", 
+                "当前会话有未保存的修改，是否先保存？",
                 this);
-            
+
             if (result == MessageBoxResult.Yes)
             {
                 // 选择保存
@@ -268,10 +262,10 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
             }
             // 如果选择 No，直接继续创建新会话
         }
-        
+
         _viewModel.NewSession();
     }
-    
+
     /// <summary>
     /// 保存会话按钮点击
     /// </summary>
@@ -285,11 +279,11 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
             {
                 return;
             }
-            
+
             // 创建新会话并设置名称
             _viewModel.NewSession();
         }
-        
+
         // 执行保存
         _viewModel.SaveSession();
     }
@@ -328,19 +322,19 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
                 if (session.Actions.Count > 0)
                 {
                     var result = await App.MessageService.ShowConfirmMessageBox(
-                        $"确定要删除会话 \"{session.Name}\" 吗？\n该会话包含 {session.Actions.Count} 个动作。", 
+                        $"确定要删除会话 \"{session.Name}\" 吗？\n该会话包含 {session.Actions.Count} 个动作。",
                         this);
-                    
+
                     if (result != MessageBoxResult.Yes)
                         return;
                 }
-                
+
                 // 空会话直接删除，不需要确认
                 _viewModel.DeleteSession(session);
             }
         }
     }
-    
+
     /// <summary>
     /// 删除按钮点击（从条目中）
     /// </summary>
@@ -352,13 +346,13 @@ public partial class QuickAutoClickWindow : UiharuWindowBase
             if (session.Actions.Count > 0)
             {
                 var result = await App.MessageService.ShowConfirmMessageBox(
-                    $"确定要删除会话 \"{session.Name}\" 吗？\n该会话包含 {session.Actions.Count} 个动作。", 
+                    $"确定要删除会话 \"{session.Name}\" 吗？\n该会话包含 {session.Actions.Count} 个动作。",
                     this);
-                
+
                 if (result != MessageBoxResult.Yes)
                     return;
             }
-            
+
             // 空会话直接删除，不需要确认
             _viewModel.DeleteSession(session);
         }

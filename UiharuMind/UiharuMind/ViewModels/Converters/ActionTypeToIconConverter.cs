@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Avalonia.Media;
+using UiharuMind.Core.AutoClick;
 
 namespace UiharuMind.ViewModels.Converters;
 
@@ -14,10 +14,16 @@ public class ActionTypeToIconConverter : IValueConverter
     {
         return value switch
         {
-            "MouseClick" => "🖱",
-            "KeyPress" => "⌨",
-            "Delay" => "⏱",
-            "Text" => "📝",
+            AutoClickActionType.MouseClick => "🖱",
+            AutoClickActionType.MouseDown => "⬇️",
+            AutoClickActionType.MouseUp => "⬆️",
+            AutoClickActionType.MouseMove => "➡️",
+            AutoClickActionType.MouseWheel => "🔄",
+            AutoClickActionType.KeyPress => "⌨",
+            AutoClickActionType.KeyDown => "⬇️",
+            AutoClickActionType.KeyUp => "⬆️",
+            AutoClickActionType.Delay => "⏱",
+            AutoClickActionType.Text => "📝",
             _ => "❓"
         };
     }

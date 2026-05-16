@@ -40,11 +40,8 @@ public partial class PlaybackIndicatorWindow : UiharuWindowBase
     {
         _currentRound = current;
         _totalRounds = total;
-        
-        Dispatcher.UIThread.Post(() =>
-        {
-            RoundText.Text = total > 1 ? $"第 {current}/{total} 轮" : "执行中...";
-        });
+
+        Dispatcher.UIThread.Post(() => { RoundText.Text = total > 1 ? $"第 {current}/{total} 轮" : $"第 {current}/∞ 轮"; });
     }
 
     public void FlashIndicator()

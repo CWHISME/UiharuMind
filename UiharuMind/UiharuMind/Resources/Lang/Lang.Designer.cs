@@ -998,5 +998,11 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("QuickTranslationWindow_Character", resourceCulture);
             }
         }
+        
+        public static string TrayMenuAutoClick {
+            get {
+                return ResourceManager.GetString("TrayMenuAutoClick", resourceCulture);
+            }
+        }
     }
 }

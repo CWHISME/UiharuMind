@@ -22,26 +22,26 @@ namespace UiharuMind.ViewModels.ViewData;
 /// </summary>
 public partial class AutoClickAction : ObservableObject
 {
-    [ObservableProperty] private string _actionType; // MouseClick, MouseDown, MouseUp, MouseMove, MouseWheel, KeyPress, KeyDown, KeyUp, Text, Delay
+    [ObservableProperty] private Core.AutoClick.AutoClickActionType _actionType;
     [ObservableProperty] private string _description;
     [ObservableProperty] private int _delay; // 延迟时间（毫秒）
-    
+
     // 鼠标相关
     [ObservableProperty] private MouseButton? _mouseButton;
     [ObservableProperty] private short _mouseX;
     [ObservableProperty] private short _mouseY;
-    
+
     // 键盘相关
     [ObservableProperty] private KeyCode? _keyCode;
     [ObservableProperty] private string? _text;
-    
+
     // 滚轮相关
     [ObservableProperty] private int? _wheelDelta;
-    
+
     // 持续时间（用于长按/按住）
     [ObservableProperty] private int? _duration;
 
-    public AutoClickAction(string actionType, string description, int delay = 0)
+    public AutoClickAction(Core.AutoClick.AutoClickActionType actionType, string description, int delay = 0)
     {
         _actionType = actionType;
         _description = description;
@@ -61,12 +61,13 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private Action? _onStopRecording;
     private Action<int, int>? _onPlaybackProgress;
     private Action? _onPlaybackFinished;
-    private HashSet<KeyCode> _pressedKeys = new();
     private Dictionary<KeyCode, DateTime> _keyPressTimes = new(); // 记录按键按下时间
     private (short x, short y) _lastMousePosition = (0, 0); // 记录上次鼠标位置
     private bool _isMousePressed = false; // 鼠标是否处于按下状态
+    private bool _isLoadingSession = false; // 标记是否正在加载会话，避免循环触发
     private bool _shouldRecordMouseDownUp = false; // 是否应该记录 MouseDown/Up（用于区分点击和长按）
-    
+    private DateTime _mousePressTime = DateTime.MinValue; // 记录鼠标按下时间
+
     [ObservableProperty] private bool _isRecording;
     [ObservableProperty] private bool _isPlaying;
     [ObservableProperty] private int _repeatCount = 1;
@@ -80,16 +81,16 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     /// <summary>
     /// 当前会话名称（如果有）
     /// </summary>
-    public string CurrentSessionName => _currentSession?.Name ?? "未命名会话";
-    
+    public string CurrentSessionName => CurrentSession?.Name ?? "未命名会话";
+
     public ObservableCollection<AutoClickAction> Actions { get; } = new();
     public ObservableCollection<AutoClickSession> SavedSessions { get; } = new();
 
     public int ActionCount => Actions.Count;
-    
+
     public bool HasNoActions => Actions.Count == 0;
     public bool HasActions => Actions.Count > 0;
-    
+
     /// <summary>
     /// 是否有未保存的修改（有动作且是脏状态）
     /// </summary>
@@ -100,15 +101,15 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     public QuickAutoClickViewModel()
     {
         Actions.CollectionChanged += OnActionsCollectionChanged;
-        
+
         // 监听 AutoClickManager 的事件
         AutoClickManager.Instance.OnItemAdded += OnSessionAdded;
         AutoClickManager.Instance.OnItemRemoved += OnSessionRemoved;
-        
+
         // 加载已保存的会话
         LoadSavedSessions();
     }
-    
+
     /// <summary>
     /// 会话添加事件处理
     /// </summary>
@@ -117,18 +118,18 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         // 检查是否已经存在
         if (SavedSessions.Any(s => s.Name == session.Name))
             return;
-        
+
         // 插入到最前面（按时间排序）
         SavedSessions.Insert(0, session);
     }
-    
+
     /// <summary>
     /// 会话删除事件处理
     /// </summary>
     private void OnSessionRemoved(AutoClickSession session)
     {
         SavedSessions.Remove(session);
-        
+
         // 如果删除的是当前会话，清空引用
         if (CurrentSession == session)
         {
@@ -170,7 +171,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         OnPropertyChanged(nameof(ActionCount));
         OnPropertyChanged(nameof(HasNoActions));
         OnPropertyChanged(nameof(HasActions));
-        
+
         // 如果动作发生变化（非Reset），标记为脏
         // Reset 是 Clear() 触发的，不应该标记为脏
         if (e.Action != NotifyCollectionChangedAction.Reset && Actions.Count > 0)
@@ -185,6 +186,20 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasUnsavedChanges));
         }
     }
+    
+    partial void OnCurrentSessionChanged(AutoClickSession? oldValue, AutoClickSession? newValue)
+    {
+        Log.Debug($"CurrentSession changed: {oldValue?.Name ?? "null"} -> {newValue?.Name ?? "null"}");
+        
+        // 如果正在加载会话，不需要额外处理
+        if (_isLoadingSession) return;
+        
+        // 如果是新建会话或开始录制时创建的会话，动作列表应该是空的
+        if (newValue != null && Actions.Count == 0 && !IsDirty)
+        {
+            Log.Debug($"New session created: {newValue.Name}, actions cleared");
+        }
+    }
 
     #region 录制功能
 
@@ -192,7 +207,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private void StartRecording()
     {
         if (IsRecording) return;
-        
+
         // 如果当前有未保存的动作或没有当前会话，创建新会话
         if (Actions.Count > 0 || CurrentSession == null)
         {
@@ -203,19 +218,18 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(CurrentSessionName));
         }
-        
+
         // 隐藏窗口
         _onStartRecording?.Invoke();
-        
+
         IsRecording = true;
         RecordedActionsCount = 0;
-        _pressedKeys.Clear();
         _keyPressTimes.Clear(); // 清空按键按下时间记录
         _recordStopwatch = new Stopwatch();
         _recordStopwatch.Start();
         _lastActionTime = DateTime.Now;
         _lastMousePosition = (0, 0); // 重置鼠标位置
-        
+
         // 注册全局事件监听
         InputManager.Instance.EventOnKeyDown += OnRecordKeyDown;
         InputManager.Instance.EventOnKeyUp += OnRecordKeyUp;
@@ -224,7 +238,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         InputManager.Instance.EventOnMouseReleased += OnRecordMouseReleased;
         InputManager.Instance.EventOnMouseMoved += OnRecordMouseMoved;
         InputManager.Instance.EventOnMouseWheel += OnRecordMouseWheel;
-        
+
         StatusText = "🔴 录制中... 操作鼠标和键盘";
         Log.Debug("开始录制动作");
     }
@@ -233,10 +247,10 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private void StopRecording()
     {
         if (!IsRecording) return;
-        
+
         IsRecording = false;
         _recordStopwatch?.Stop();
-        
+
         // 取消注册全局事件监听
         InputManager.Instance.EventOnKeyDown -= OnRecordKeyDown;
         InputManager.Instance.EventOnKeyUp -= OnRecordKeyUp;
@@ -245,40 +259,76 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         InputManager.Instance.EventOnMouseReleased -= OnRecordMouseReleased;
         InputManager.Instance.EventOnMouseMoved -= OnRecordMouseMoved;
         InputManager.Instance.EventOnMouseWheel -= OnRecordMouseWheel;
-        
+
+        // 清理停止快捷键（Alt+Shift+G）的录制记录
+        RemoveStopHotkeyActions();
+
         // 如果有录制的动作，标记为脏
         if (RecordedActionsCount > 0)
         {
             IsDirty = true;
             OnPropertyChanged(nameof(HasUnsavedChanges));
         }
-        
+
         StatusText = $"✅ 录制完成，共 {RecordedActionsCount} 个动作";
         Log.Debug($"停止录制，共录制 {RecordedActionsCount} 个动作");
-        
+
         // 显示窗口
         _onStopRecording?.Invoke();
+    }
+
+    /// <summary>
+    /// 移除停止快捷键（Alt+Shift+G）的录制记录
+    /// </summary>
+    private void RemoveStopHotkeyActions()
+    {
+        if (Actions.Count < 3) return;
+
+        // 检查最后三个动作是否为 Alt+Shift+G 的 KeyDown
+        var count = Actions.Count;
+        var lastAction = Actions[count - 1];
+        var secondLastAction = Actions[count - 2];
+        var thirdLastAction = Actions[count - 3];
+
+        // 检查是否是 G + Shift + Alt 的组合（顺序可能不同）
+        bool isStopHotkey = false;
+
+
+        bool IsMod(KeyCode? keyCode)
+        {
+            return keyCode == KeyCode.VcLeftAlt || keyCode == KeyCode.VcRightAlt ||
+                   keyCode == KeyCode.VcLeftShift || keyCode == KeyCode.VcRightShift;
+        }
+
+        if (lastAction.ActionType == Core.AutoClick.AutoClickActionType.KeyDown && lastAction.KeyCode == KeyCode.VcG &&
+            secondLastAction.ActionType == Core.AutoClick.AutoClickActionType.KeyDown && (IsMod(secondLastAction.KeyCode)) &&
+            thirdLastAction.ActionType == Core.AutoClick.AutoClickActionType.KeyDown && (IsMod(thirdLastAction.KeyCode)))
+        {
+            isStopHotkey = true;
+        }
+
+        if (isStopHotkey)
+        {
+            // 移除最后三个动作
+            Actions.RemoveAt(count - 1);
+            Actions.RemoveAt(count - 2);
+            Actions.RemoveAt(count - 3);
+            RecordedActionsCount -= 3;
+
+            Log.Debug("已移除停止快捷键的录制记录");
+        }
     }
 
     private void OnRecordKeyDown(KeyCode keyCode)
     {
         // InputManager 已经过滤了键盘重复事件，这里直接记录
-        
+
         // 记录按下时间
         _keyPressTimes[keyCode] = DateTime.Now;
-        
-        // 如果按下的是停止快捷键（Alt+Shift+G），不录制并停止
-        if (keyCode == KeyCode.VcG && 
-            InputManager.Instance.IsPressed(KeyCode.VcLeftAlt) && 
-            InputManager.Instance.IsPressed(KeyCode.VcLeftShift))
-        {
-            StopRecording();
-            return;
-        }
-        
-        // 记录所有按键（包括修饰键）
+
+        // 正常记录所有按键（包括修饰键）
         var delay = CalculateDelay();
-        var action = new AutoClickAction("KeyDown", GetKeyCodeDescription(keyCode), delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.KeyDown, GetKeyCodeDescription(keyCode), delay)
         {
             KeyCode = keyCode
         };
@@ -288,8 +338,6 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
     private void OnRecordKeyUp(KeyCode keyCode)
     {
-        _pressedKeys.Remove(keyCode);
-        
         // 计算按下时长
         int? duration = null;
         if (_keyPressTimes.TryGetValue(keyCode, out var pressTime))
@@ -297,9 +345,9 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             duration = (int)(DateTime.Now - pressTime).TotalMilliseconds;
             _keyPressTimes.Remove(keyCode);
         }
-        
+
         var delay = CalculateDelay();
-        var action = new AutoClickAction("KeyUp", GetKeyCodeDescription(keyCode), delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.KeyUp, GetKeyCodeDescription(keyCode), delay)
         {
             KeyCode = keyCode,
             Duration = duration
@@ -316,22 +364,36 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         {
             // 移除最后一个动作（MouseDown）
             var lastAction = Actions.Last();
-            if (lastAction.ActionType == "MouseDown")
+            if (lastAction.ActionType == Core.AutoClick.AutoClickActionType.MouseDown)
             {
                 Actions.RemoveAt(Actions.Count - 1);
                 RecordedActionsCount--;
             }
             _shouldRecordMouseDownUp = false; // 标记为不需要记录 MouseUp
         }
-        
-        // 记录 MouseClick
+
+        // 计算按下时长（从按下到释放的时间差）
+        int duration = 50; // 默认 50ms
+        if (_mousePressTime != DateTime.MinValue)
+        {
+            duration = (int)(DateTime.Now - _mousePressTime).TotalMilliseconds;
+            duration = Math.Max(10, Math.Min(duration, 300)); // 限制在 10-300ms 之间
+        }
+
+        // 计算 Delay：从上一个动作到当前 MouseClick 的时间间隔
         var delay = CalculateDelay();
+        
+        // 如果刚刚删除了 MouseDown，需要调整 Delay
+        // 因为 MouseDown 没有消耗时间（Delay=0），所以当前的 Delay 已经是从上一个真实动作到现在的间隔
+        // 不需要额外调整
+        
         var button = GetMouseButtonFromData(mouseData);
-        var action = new AutoClickAction("MouseClick", GetMouseButtonDescription(button), delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseClick, GetMouseButtonDescription(button), delay)
         {
             MouseButton = button,
             MouseX = mouseData.X,
-            MouseY = mouseData.Y
+            MouseY = mouseData.Y,
+            Duration = duration // 保存按下时长
         };
 
         Dispatcher.UIThread.Post(() => { AddAction(action); });
@@ -341,13 +403,17 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     {
         _isMousePressed = true;
         _shouldRecordMouseDownUp = true; // 默认假设是长按，需要记录
+        _mousePressTime = DateTime.Now; // 记录按下时间
         
+        // 注意：这里不调用 CalculateDelay()，因为如果是短按，MouseDown 会被删除
+        // 我们只在 OnRecordMouseClick 中计算 Delay
+
         // 更新最后鼠标位置为按下时的位置
         _lastMousePosition = (mouseData.X, mouseData.Y);
         
-        var delay = CalculateDelay();
+        // 仍然记录 MouseDown，但标记为可能被删除
         var button = GetMouseButtonFromData(mouseData);
-        var action = new AutoClickAction("MouseDown", $"鼠标{GetMouseButtonDescription(button)}按下", delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseDown, $"鼠标{GetMouseButtonDescription(button)}按下", 0) // Delay 设为 0
         {
             MouseButton = button,
             MouseX = mouseData.X,
@@ -360,19 +426,19 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private void OnRecordMouseReleased(MouseEventData mouseData)
     {
         _isMousePressed = false;
-        
+
         // 如果标记为不应该记录（即会触发 Click），则跳过
         if (!_shouldRecordMouseDownUp)
         {
             _shouldRecordMouseDownUp = true; // 重置标记
             return;
         }
-        
+
         _shouldRecordMouseDownUp = true; // 重置标记
-        
+
         var delay = CalculateDelay();
         var button = GetMouseButtonFromData(mouseData);
-        var action = new AutoClickAction("MouseUp", $"鼠标{GetMouseButtonDescription(button)}释放", delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseUp, $"鼠标{GetMouseButtonDescription(button)}释放", delay)
         {
             MouseButton = button,
             MouseX = mouseData.X,
@@ -386,15 +452,15 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     {
         // 只在鼠标按下时记录移动（拖拽操作）
         if (!_isMousePressed) return;
-        
+
         // 只记录位置变化较大的移动（避免过多动作）
         var dx = Math.Abs(mouseData.X - _lastMousePosition.x);
         var dy = Math.Abs(mouseData.Y - _lastMousePosition.y);
-        
+
         if (dx < 5 && dy < 5) return; // 忽略微小移动
-        
+
         var delay = CalculateDelay();
-        var action = new AutoClickAction("MouseMove", $"鼠标移动到 ({mouseData.X}, {mouseData.Y})", delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseMove, $"鼠标移动到 ({mouseData.X}, {mouseData.Y})", delay)
         {
             MouseX = mouseData.X,
             MouseY = mouseData.Y
@@ -408,7 +474,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     {
         var delay = CalculateDelay();
         var direction = wheelData.Rotation > 0 ? "向上" : "向下";
-        var action = new AutoClickAction("MouseWheel", $"鼠标滚轮{direction}", delay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseWheel, $"鼠标滚轮{direction}", delay)
         {
             WheelDelta = wheelData.Rotation
         };
@@ -429,14 +495,6 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         Actions.Add(action);
         RecordedActionsCount++;
         OnActionRecorded?.Invoke(RecordedActionsCount);
-    }
-
-    private bool IsModifierKey(KeyCode keyCode)
-    {
-        return keyCode is KeyCode.VcLeftShift or KeyCode.VcRightShift or
-                     KeyCode.VcLeftControl or KeyCode.VcRightControl or
-                     KeyCode.VcLeftAlt or KeyCode.VcRightAlt or
-                     KeyCode.VcLeftMeta or KeyCode.VcRightMeta;
     }
 
     private MouseButton GetMouseButtonFromData(MouseEventData data)
@@ -460,31 +518,49 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         };
     }
 
+    public bool IsModifierKey(KeyCode keyCode)
+    {
+        return keyCode is KeyCode.VcLeftShift or KeyCode.VcRightShift or
+            KeyCode.VcLeftControl or KeyCode.VcRightControl or
+            KeyCode.VcLeftAlt or KeyCode.VcRightAlt or
+            KeyCode.VcLeftMeta or KeyCode.VcRightMeta;
+    }
+
     #endregion
-    
+
     [RelayCommand]
     private async Task PlayActions()
     {
         if (IsPlaying || Actions.Count == 0) return;
-        
+
         IsPlaying = true;
         StatusText = "▶ 执行中...";
         _playbackCts = new CancellationTokenSource();
-        
+
         try
         {
-            for (int i = 0; i < RepeatCount; i++)
+            bool isInfiniteLoop = RepeatCount == 0;
+            int loopIndex = 0;
+            
+            while (!_playbackCts.Token.IsCancellationRequested)
             {
-                if (_playbackCts.Token.IsCancellationRequested) break;
+                // 检查是否达到循环次数上限（非无限模式）
+                if (!isInfiniteLoop && loopIndex >= RepeatCount) break;
                 
-                if (RepeatCount > 1)
+                // 更新状态文本
+                if (isInfiniteLoop)
                 {
-                    StatusText = $"▶ 执行中... ({i + 1}/{RepeatCount})";
+                    StatusText = $"▶ 执行中... (第 {loopIndex + 1} 次 / ∞)";
+                }
+                else if (RepeatCount > 1)
+                {
+                    StatusText = $"▶ 执行中... ({loopIndex + 1}/{RepeatCount})";
                 }
                 
                 // 通知进度
-                _onPlaybackProgress?.Invoke(i + 1, RepeatCount);
+                _onPlaybackProgress?.Invoke(loopIndex + 1, RepeatCount);
                 
+                // 执行所有动作
                 foreach (var action in Actions)
                 {
                     if (_playbackCts.Token.IsCancellationRequested) break;
@@ -499,8 +575,17 @@ public partial class QuickAutoClickViewModel : ViewModelBase
                     // 再执行动作
                     await ExecuteAction(action);
                 }
+                
+                // 如果不是最后一次循环，等待间隔
+                bool isLastLoop = !isInfiniteLoop && loopIndex == RepeatCount - 1;
+                if (!isLastLoop && DefaultDelay > 0)
+                {
+                    await Task.Delay(DefaultDelay, _playbackCts.Token);
+                }
+                
+                loopIndex++;
             }
-            
+
             StatusText = "✅ 执行完成";
         }
         catch (OperationCanceledException)
@@ -517,7 +602,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             IsPlaying = false;
             _playbackCts?.Dispose();
             _playbackCts = null;
-            
+
             // 通知回放完成
             _onPlaybackFinished?.Invoke();
         }
@@ -570,12 +655,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
         // 保存到文件
         AutoClickManager.Instance.Save(CurrentSession);
-        
+
         // 重置脏标记（已保存）
         IsDirty = false;
         OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(CurrentSessionName));
-        
+
         // 通知 UI 刷新该会话项（因为 LastTime 等属性改变了）
         var index = SavedSessions.IndexOf(CurrentSession);
         if (index >= 0)
@@ -597,6 +682,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         if (IsPlaying) StopPlayback();
         if (IsRecording) StopRecording();
 
+        // 标记正在加载会话，避免 OnCurrentSessionChanged 中的逻辑干扰
+        _isLoadingSession = true;
+
+        // 先设置 CurrentSession，避免 UI 层的 SelectionChanged 重复触发
+        CurrentSession = session;
+
         // 清空当前动作
         Actions.Clear();
 
@@ -610,12 +701,14 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         // 恢复设置
         RepeatCount = session.RepeatCount;
         DefaultDelay = session.DefaultDelay;
-        CurrentSession = session;
-        
+
         // 重置脏标记（刚加载的会话是干净的）
         IsDirty = false;
         OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(CurrentSessionName));
+
+        // 加载完成，取消标记
+        _isLoadingSession = false;
 
         StatusText = $"📂 已加载: {session.Name} ({Actions.Count} 个动作)";
         Log.Debug($"加载会话: {session.Name}, 动作数: {Actions.Count}");
@@ -640,17 +733,16 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
         // 清空当前动作
         Actions.Clear();
-        
+
         // 创建一个新的会话（会触发 OnItemAdded 事件）
-        var tempSession = AutoClickManager.Instance.CreateNewSession($"新会话_{DateTime.Now:yyyyMMdd_HHmmss}");
-        CurrentSession = tempSession;
-        
+        CurrentSession = AutoClickManager.Instance.CreateNewSession($"新会话_{DateTime.Now:yyyyMMdd_HHmmss}");
+
         // 重置脏标记（新会话是干净的）
         IsDirty = false;
         OnPropertyChanged(nameof(HasUnsavedChanges));
         OnPropertyChanged(nameof(CurrentSessionName));
 
-        StatusText = $"🆕 已创建: {tempSession.Name}";
+        StatusText = $"🆕 已创建: {CurrentSession.Name}";
     }
 
     #endregion
@@ -660,7 +752,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     [RelayCommand]
     private void AddMouseClickAction()
     {
-        var action = new AutoClickAction("MouseClick", $"鼠标左键点击", _defaultDelay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseClick, $"鼠标左键点击", DefaultDelay)
         {
             MouseButton = MouseButton.Button1
         };
@@ -671,7 +763,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     [RelayCommand]
     private void AddMouseRightClickAction()
     {
-        var action = new AutoClickAction("MouseClick", $"鼠标右键点击", _defaultDelay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.MouseClick, $"鼠标右键点击", DefaultDelay)
         {
             MouseButton = MouseButton.Button2
         };
@@ -682,7 +774,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     [RelayCommand]
     private void AddDelayAction()
     {
-        var action = new AutoClickAction("Delay", $"延迟 {_defaultDelay}ms", _defaultDelay);
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.Delay, $"延迟 {DefaultDelay}ms", DefaultDelay);
         Actions.Add(action);
         StatusText = "已添加延迟动作";
     }
@@ -693,7 +785,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     public void AddCustomKeyAction(KeyCode keyCode)
     {
         var keyName = GetKeyCodeDescription(keyCode);
-        var action = new AutoClickAction("KeyPress", $"按键: {keyName}", _defaultDelay)
+        var action = new AutoClickAction(Core.AutoClick.AutoClickActionType.KeyPress, $"按键: {keyName}", DefaultDelay)
         {
             KeyCode = keyCode
         };
@@ -709,45 +801,52 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         {
             switch (action.ActionType)
             {
-                case "MouseClick":
+                case Core.AutoClick.AutoClickActionType.MouseClick:
                     if (action.MouseButton.HasValue)
                     {
                         // 如果有坐标信息，先移动鼠标到该位置
                         if (action.MouseX != 0 || action.MouseY != 0)
                         {
                             InputSimulateManager.Instance.SendMouseMove(action.MouseX, action.MouseY);
-                            await Task.Delay(50); // 等待移动完成
+                            await Task.Delay(10); 
                         }
-                        await InputSimulateManager.Instance.SendMouseClick(action.MouseButton.Value, 50);
+                        
+                        // 使用录制的按下时长（如果有的话）
+                        int pressDuration = action.Duration ?? 10;
+                        // Log.Debug($"执行 MouseClick: 按钮={action.MouseButton.Value}, 位置=({action.MouseX}, {action.MouseY}), Duration={pressDuration}ms, Delay={action.Delay}ms");
+                        await InputSimulateManager.Instance.SendMouseClick(action.MouseButton.Value, pressDuration);
                     }
                     break;
-                    
-                case "MouseDown":
+
+                case Core.AutoClick.AutoClickActionType.MouseDown:
                     if (action.MouseButton.HasValue)
                     {
                         if (action.MouseX != 0 || action.MouseY != 0)
                         {
                             InputSimulateManager.Instance.SendMouseMove(action.MouseX, action.MouseY);
-                            await Task.Delay(50);
+                            await Task.Delay(10);
                         }
+
                         InputSimulateManager.Instance.SimulateMousePress(action.MouseButton.Value);
-                        
+
                         // 如果有持续时间，等待相应时间
                         if (action.Duration.HasValue && action.Duration.Value > 0)
                         {
                             await Task.Delay(action.Duration.Value, _playbackCts!.Token);
                         }
                     }
+
                     break;
-                    
-                case "MouseUp":
+
+                case Core.AutoClick.AutoClickActionType.MouseUp:
                     if (action.MouseButton.HasValue)
                     {
                         InputSimulateManager.Instance.SimulateMouseRelease(action.MouseButton.Value);
                     }
+
                     break;
-                    
-                case "MouseMove":
+
+                case Core.AutoClick.AutoClickActionType.MouseMove:
                     if (action.MouseX != 0 || action.MouseY != 0)
                     {
                         InputSimulateManager.Instance.SendMouseMove(action.MouseX, action.MouseY);
@@ -758,50 +857,56 @@ public partial class QuickAutoClickViewModel : ViewModelBase
                             await Task.Delay(Math.Max(10, adjustedDelay), _playbackCts!.Token);
                         }
                     }
+
                     break;
-                    
-                case "MouseWheel":
+
+                case Core.AutoClick.AutoClickActionType.MouseWheel:
                     if (action.WheelDelta.HasValue)
                     {
                         InputSimulateManager.Instance.SimulateMouseWheel(action.WheelDelta.Value);
                     }
+
                     break;
-                    
-                case "KeyPress":
+
+                case Core.AutoClick.AutoClickActionType.KeyPress:
                     if (action.KeyCode.HasValue)
                     {
                         await InputSimulateManager.Instance.SendKeyPress(action.KeyCode.Value, 50);
                     }
+
                     break;
-                    
-                case "KeyDown":
+
+                case Core.AutoClick.AutoClickActionType.KeyDown:
                     if (action.KeyCode.HasValue)
                     {
                         InputSimulateManager.Instance.SimulateKeyPress(action.KeyCode.Value);
-                        
+
                         // 如果有持续时间，等待相应时间
                         if (action.Duration.HasValue && action.Duration.Value > 0)
                         {
                             await Task.Delay(action.Duration.Value, _playbackCts!.Token);
                         }
                     }
+
                     break;
-                    
-                case "KeyUp":
+
+                case Core.AutoClick.AutoClickActionType.KeyUp:
                     if (action.KeyCode.HasValue)
                     {
                         InputSimulateManager.Instance.SimulateKeyRelease(action.KeyCode.Value);
                     }
+
                     break;
-                    
-                case "Text":
+
+                case Core.AutoClick.AutoClickActionType.Text:
                     if (!string.IsNullOrEmpty(action.Text))
                     {
                         await InputSimulateManager.Instance.SendText(action.Text, 50);
                     }
+
                     break;
-                    
-                case "Delay":
+
+                case Core.AutoClick.AutoClickActionType.Delay:
                     await Task.Delay(action.Delay);
                     break;
             }
@@ -816,8 +921,5 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     {
         base.OnDisable();
         _playbackCts?.Cancel();
-        _playbackCts?.Dispose();
     }
 }
-
-
