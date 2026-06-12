@@ -93,7 +93,7 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
     public void Copy(ClipboardItem item)
     {
         UIManager.CloseWindow<QuickClipboardHistoryWindow>();
-        Dispatcher.UIThread.Post(item.CopyToClipboard, DispatcherPriority.ApplicationIdle);
+        Dispatcher.UIThread.Invoke(item.CopyToClipboard, DispatcherPriority.ApplicationIdle);
     }
 
     public void Delete(ClipboardItem item)

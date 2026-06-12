@@ -24,7 +24,7 @@ public class RemoteZhipuVisionModelConfig : BaseRemoteModelConfig, IRemoteModelC
     [SettingConfigDesc("ID of the model, used to distinguish different models for calling")]
     [SettingConfigDesc("模型ID，用于区分调用的不同模型。\n请注意：目前除了 GLM-4V-Flash 之外的模型都要收费。", LanguageUtils.ChineseSimplified)]
     [SettingConfigOptions([
-        "glm-4v-flash", "glm-4v-plus", "glm-4v"
+        "glm-4v-flash", "glm-4.6v-flash", "glm-4v-plus", "glm-4v"
     ])]
     public override string ModelId { get; set; } = "glm-4v-flash";
 

@@ -38,9 +38,15 @@ public partial class ClipboardHistoryView : UserControl
         App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
     }
 
-    private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    // private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    // {
+    //     if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed) return;
+    //     App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
+    //         .Copy((ClipboardItem)((Control)(e.Source!))!.DataContext!);
+    // }
+
+    private void InputElement_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed) return;
         App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
             .Copy((ClipboardItem)((Control)(e.Source!))!.DataContext!);
     }

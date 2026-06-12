@@ -25,7 +25,7 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
     [SettingConfigDesc("ID of the model, used to distinguish different models for calling")]
     [SettingConfigDesc("模型ID，用于区分调用的不同模型。\n请注意：目前除了 glm-4-flash 之外的模型都要收费。", LanguageUtils.ChineseSimplified)]
     [SettingConfigOptions([
-        "glm-4-flash", "glm-4", "glm-4-plus", "glm-4-air", "glm-4-airx", "glm-4-long", "glm-4-flashx"
+        "glm-4-flash", "glm-4.7-flash", "glm-4", "glm-4-plus", "glm-4-air", "glm-4-airx", "glm-4-long", "glm-4-flashx"
     ])]
     public override string ModelId { get; set; } = "glm-4-flash";
 
