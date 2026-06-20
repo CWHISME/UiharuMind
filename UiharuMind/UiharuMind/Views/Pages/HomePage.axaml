@@ -4,21 +4,91 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
-             xmlns:u="https://irihi.tech/ursa"
-             xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
              x:Class="UiharuMind.Views.Pages.HomePage">
 
     <Design.DataContext>
         <pages:HomePageData />
     </Design.DataContext>
 
-    <Panel>
-        <Grid ColumnDefinitions="3*,Auto,*">
-            <common:CharacterListView DataContext="{Binding CharacterListViewData}" />
-            <GridSplitter Grid.Column="1" ResizeBehavior="PreviousAndNext" VerticalAlignment="Stretch" Width="5" />
-            <common:CharacterInfoView Grid.Column="2" DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}" />
-        </Grid>
-    </Panel>
+    <UserControl.Styles>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="Border.workspace-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </UserControl.Styles>
 
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Padding="14,10"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel>
+                    <TextBlock Classes="section-title" Text="{loc:Loc CharacterWorkspace}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterWorkspaceHint}" />
+                </StackPanel>
+
+                <Button Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}">
+                    <PathIcon Width="18" Height="18" Data="{StaticResource InfoRegular}" />
+                    <ToolTip.Tip>
+                        <TextBlock Text="{loc:Loc CharacterPreview}" />
+                    </ToolTip.Tip>
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="12" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <Border Grid.Column="0" Classes="workspace-pane" ClipToBounds="True">
+                <common:CharacterListView DataContext="{Binding CharacterListViewData}" Margin="10" />
+            </Border>
+
+            <Thumb Grid.Column="1"
+                   Width="6"
+                   IsVisible="{Binding IsDetailPaneOpen}"
+                   DragDelta="OnLeftThumbDragDelta"
+                   Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <Border Grid.Column="2"
+                    Classes="workspace-pane"
+                    Width="{Binding DetailPaneWidth, Mode=TwoWay}"
+                    IsVisible="{Binding IsDetailPaneOpen}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,12,10,8">
+                        <StackPanel>
+                            <TextBlock Classes="section-title" Text="{loc:Loc CharacterPreview}" />
+                            <TextBlock Classes="muted" Text="{Binding CharacterListViewData.SelectedCharacter.Name}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource StopRegular}" />
+                        </Button>
+                    </Grid>
+                    <common:CharacterInfoView DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
 </UserControl>

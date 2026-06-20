@@ -3,62 +3,80 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:u="https://irihi.tech/ursa"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="520"
              x:Class="UiharuMind.Views.OtherViews.ChatListView">
-
-    <!-- ================================================ -->
-    <!-- =================== 对话列表 ==================== -->
-    <!-- ================================================ -->
 
     <Design.DataContext>
         <viewData:ChatListViewModel />
     </Design.DataContext>
 
-    <ListBox ItemsSource="{Binding ChatSessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}">
+    <UserControl.Styles>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </UserControl.Styles>
+
+    <ListBox ItemsSource="{Binding ChatSessions}"
+             SelectedItem="{Binding SelectedSession}">
         <ListBox.ItemTemplate>
             <DataTemplate>
-                <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
-                    <Grid.ContextMenu>
+                <Border Padding="10" Background="Transparent" CornerRadius="8">
+                    <Border.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="{loc:Loc EditCharacter}"
-                                      Command="{Binding EditCharaterCommand}" />
+                            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharaterCommand}" />
                             <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
                             <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
+                            <MenuItem Header="{loc:Loc ClearChatHistory}" Command="{Binding ClearChatHistoryCommand}" />
                             <MenuItem Header="{loc:Loc Delete}" Command="{Binding DeleteCommand}" />
-                            <MenuItem Header="{loc:Loc ClearChatHistory}"
-                                      Command="{Binding ClearChatHistoryCommand}" />
                         </ContextMenu>
-                    </Grid.ContextMenu>
+                    </Border.ContextMenu>
 
-                    <!-- 圆形图片 -->
-                    <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple" StrokeThickness="1">
-                        <Ellipse.Fill>
-                            <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
-                        </Ellipse.Fill>
-                    </Ellipse>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Ellipse Width="38" Height="38" Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1">
+                            <Ellipse.Fill>
+                                <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+                            </Ellipse.Fill>
+                        </Ellipse>
 
-                    <!-- 文本内容 -->
-                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical" VerticalAlignment="Center"
-                                Spacing="10">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <!-- 名称 -->
-                            <TextBlock Text="{Binding Name}" HorizontalAlignment="Left"
-                                       TextTrimming="CharacterEllipsis" />
-
-                            <!-- 时间 -->
-                            <TextBlock Text="{Binding TimeString}" Grid.Column="1" FontSize="12"
-                                       HorizontalAlignment="Right" />
+                        <Grid Grid.Column="1" RowDefinitions="Auto,Auto" MinWidth="0">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SemiGrey7}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1"
+                                           Classes="muted"
+                                           Text="{Binding TimeString}"
+                                           Margin="8,0,0,0" />
+                            </Grid>
+                            <TextBlock Grid.Row="1"
+                                       Classes="muted"
+                                       Text="{Binding Description}"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="2" />
                         </Grid>
-
-                        <!-- 描述 -->
-                        <TextBlock Text="{Binding Description}" HorizontalAlignment="Left"
-                                   TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </Grid>
+                    </Grid>
+                </Border>
             </DataTemplate>
         </ListBox.ItemTemplate>
     </ListBox>
-
 </UserControl>

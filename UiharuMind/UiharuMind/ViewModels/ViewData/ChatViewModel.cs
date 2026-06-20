@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -87,6 +88,7 @@ public partial class ChatViewModel : ViewModelBase
     [ObservableProperty] private bool _isVisibleRegenerateButton;
 
     private CancellationTokenSource? _cancelTokenSource;
+    private ChatSessionViewData? _subscribedChatSession;
 
     // public ObservableCollection<MemoryData> MemorySources => App.MemoryService.MemorySources;
 
@@ -215,6 +217,36 @@ public partial class ChatViewModel : ViewModelBase
         await GenerateMessage();
     }
 
+    [RelayCommand]
+    private async Task RetryFromMessage(ChatViewItemData? itemData)
+    {
+        if (itemData == null || ChatSession == null || IsGenerating) return;
+        int index = ChatSession.ChatItems.IndexOf(itemData);
+        if (index < 0) return;
+
+        while (ChatSession.ChatItems.Count > index + 1)
+        {
+            int lastIndex = ChatSession.ChatItems.Count - 1;
+            ChatSession.ChatItems.RemoveAt(lastIndex);
+            ChatSession.ChatSession.RemoveMessageAt(lastIndex);
+        }
+
+        if (itemData.Role == ECharacter.Assistant)
+        {
+            ChatSession.ChatItems.RemoveAt(index);
+            ChatSession.ChatSession.RemoveMessageAt(index);
+        }
+
+        if (ChatSession.ChatSession.Count == 0) return;
+        ScrollToEnd = true;
+        await GenerateMessage();
+    }
+
+    private void RetryFromMessageWithoutAwait(ChatViewItemData itemData)
+    {
+        _ = RetryFromMessage(itemData);
+    }
+
     // [RelayCommand]
     // public void EditMessage(ChatViewItemData itemData)
     // {
@@ -296,12 +328,31 @@ public partial class ChatViewModel : ViewModelBase
 
     partial void OnChatSessionChanged(ChatSessionViewData? value)
     {
+        if (_subscribedChatSession != null)
+            _subscribedChatSession.ChatItems.CollectionChanged -= OnChatItemsCollectionChanged;
+
+        _subscribedChatSession = value;
+        if (value != null)
+        {
+            value.ChatItems.CollectionChanged += OnChatItemsCollectionChanged;
+            foreach (var item in value.ChatItems) item.RetryCallback = RetryFromMessageWithoutAwait;
+        }
+
         IsSurportImage = value?.ChatSession.ChatModelRunningData?.IsVisionModel == true;
         OnEventChatSessionChanged?.Invoke(value);
         StopSending();
         CheckGenerationBtnVisible();
         // RefreshMemoryFileTips();
         // RefreshMemoryUrlTips();
+    }
+
+    private void OnChatItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems == null) return;
+        foreach (ChatViewItemData item in e.NewItems)
+        {
+            item.RetryCallback = RetryFromMessageWithoutAwait;
+        }
     }
 
     private void CheckGenerationBtnVisible()

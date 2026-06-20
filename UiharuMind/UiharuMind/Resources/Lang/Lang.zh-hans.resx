@@ -965,4 +965,85 @@
     <data name="KeySelectionWaiting" xml:space="preserve">
         <value>等待按键...</value>
     </data>
+    <data name="ChatWorkspace" xml:space="preserve">
+        <value>聊天工作台</value>
+    </data>
+    <data name="ChatWorkspaceEmpty" xml:space="preserve">
+        <value>请选择或创建会话</value>
+    </data>
+    <data name="ChatSessions" xml:space="preserve">
+        <value>会话</value>
+    </data>
+    <data name="ChatSessionsHint" xml:space="preserve">
+        <value>角色扮演与助手对话</value>
+    </data>
+    <data name="ChatDetails" xml:space="preserve">
+        <value>详情</value>
+    </data>
+    <data name="NewChat" xml:space="preserve">
+        <value>新建会话</value>
+    </data>
+    <data name="RetryMessage" xml:space="preserve">
+        <value>从此处重试</value>
+    </data>
+    <data name="StopGenerating" xml:space="preserve">
+        <value>停止</value>
+    </data>
+    <data name="CharacterWorkspace" xml:space="preserve">
+        <value>角色工作台</value>
+    </data>
+    <data name="CharacterWorkspaceHint" xml:space="preserve">
+        <value>管理角色扮演人物与工具助手</value>
+    </data>
+    <data name="CharacterPreview" xml:space="preserve">
+        <value>角色预览</value>
+    </data>
+    <data name="CharacterLibraryHint" xml:space="preserve">
+        <value>选择角色后可预览、编辑或开始聊天。</value>
+    </data>
+    <data name="CharacterEditor" xml:space="preserve">
+        <value>角色编辑器</value>
+    </data>
+    <data name="CharacterEditorHint" xml:space="preserve">
+        <value>编辑身份、提示词、挂载工具与生成参数。</value>
+    </data>
+    <data name="CharacterEditorSections" xml:space="preserve">
+        <value>分组</value>
+    </data>
+    <data name="EditorBasicInfo" xml:space="preserve">
+        <value>基础信息</value>
+    </data>
+    <data name="EditorPrompt" xml:space="preserve">
+        <value>提示词模板</value>
+    </data>
+    <data name="EditorPreview" xml:space="preserve">
+        <value>实时预览</value>
+    </data>
+    <data name="EditorPreviewHint" xml:space="preserve">
+        <value>会随字段修改同步更新。</value>
+    </data>
+    <data name="CharacterName" xml:space="preserve">
+        <value>角色名称</value>
+    </data>
+    <data name="ImportCharacter" xml:space="preserve">
+        <value>导入角色</value>
+    </data>
+    <data name="ImportFileTitle" xml:space="preserve">
+        <value>从本地 JSON 导入</value>
+    </data>
+    <data name="ImportFileHint" xml:space="preserve">
+        <value>选择兼容的角色卡文件，并导入到本地角色库。</value>
+    </data>
+    <data name="ImportUrlDisabledTitle" xml:space="preserve">
+        <value>URL 导入暂不可用</value>
+    </data>
+    <data name="ImportUrlDisabledHint" xml:space="preserve">
+        <value>此入口预留给后续在线角色卡导入。当前请使用本地 JSON 导入。</value>
+    </data>
+    <data name="UserCardEditor" xml:space="preserve">
+        <value>用户卡编辑器</value>
+    </data>
+    <data name="UserCardEditorHint" xml:space="preserve">
+        <value>调整你的显示身份与用户提示词模板。</value>
+    </data>
 </root>

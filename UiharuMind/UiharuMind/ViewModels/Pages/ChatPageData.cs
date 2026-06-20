@@ -27,8 +27,10 @@ public partial class ChatPageData : PageDataBase
     public ChatViewModel ChatViewModel { get; }
     public ChatListViewModel ChatListViewModel { get; }
 
-    [ObservableProperty] private float _leftPaneWidth = 250;
-    [ObservableProperty] private float _rightPaneWidth = 200;
+    [ObservableProperty] private float _leftPaneWidth = 260;
+    [ObservableProperty] private float _rightPaneWidth = 320;
+    [ObservableProperty] private bool _isLeftPaneOpen = true;
+    [ObservableProperty] private bool _isRightPaneOpen = true;
 
     // private List<ChatSession> _chatSessions = new List<ChatSession>();
 
@@ -63,5 +65,31 @@ public partial class ChatPageData : PageDataBase
     {
         var item = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFoucusWindow());
         item?.StartChat();
+    }
+
+    [RelayCommand]
+    private void ToggleLeftPane()
+    {
+        IsLeftPaneOpen = !IsLeftPaneOpen;
+    }
+
+    [RelayCommand]
+    private void ToggleRightPane()
+    {
+        IsRightPaneOpen = !IsRightPaneOpen;
+    }
+
+    public void UpdateResponsiveState(double width)
+    {
+        if (width <= 0) return;
+        if (width < 860)
+        {
+            IsLeftPaneOpen = false;
+            IsRightPaneOpen = false;
+        }
+        else if (width < 1040)
+        {
+            IsRightPaneOpen = false;
+        }
     }
 }

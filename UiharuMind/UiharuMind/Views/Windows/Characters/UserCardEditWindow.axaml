@@ -3,39 +3,94 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        Width="400"
-        Height="444"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="560"
+        Width="720"
+        Height="560"
+        MinWidth="560"
+        MinHeight="460"
         x:Class="UiharuMind.Views.Windows.Characters.UserCardEditWindow"
-        Title="UserCardEditWindow">
+        Title="{loc:Loc UserCardEditor}">
 
     <Design.DataContext>
         <viewData:CharacterInfoViewData />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Window.Styles>
+        <Style Selector="Border.edit-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </Window.Styles>
 
-        <StackPanel Grid.Row="0" Margin="10" Spacing="10">
-            <!-- 角色图片 -->
-            <Image Source="{Binding Icon}" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
-            <TextBox HorizontalAlignment="Center" Text="{Binding Description}" FontSize="24" />
-        </StackPanel>
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Padding="16,12"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Classes="title" Text="{loc:Loc UserCardEditor}" />
+                <TextBlock Classes="muted" Text="{loc:Loc UserCardEditorHint}" />
+            </StackPanel>
+        </Border>
 
-        <Panel Grid.Row="1" Margin="10">
-            <TextBox Text="{Binding Template}" VerticalAlignment="Stretch" VerticalContentAlignment="Top"
-                     TextWrapping="Wrap"
-                     AcceptsReturn="True"
-                     AcceptsTab="True"
-                     Padding="5" />
-        </Panel>
+        <ScrollViewer Grid.Row="1" Margin="12">
+            <StackPanel Spacing="12">
+                <Border Classes="edit-card">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                        <Border Width="96" Height="132" CornerRadius="8" ClipToBounds="True"
+                                BorderBrush="{DynamicResource SemiGrey2}"
+                                BorderThickness="1">
+                            <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="{loc:Loc EditorBasicInfo}" />
+                            <TextBox Text="{Binding Description}"
+                                     Watermark="{loc:Loc CharacterDesc}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center"
-                    Spacing="10" Margin="0,0,0,10">
-            <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
-            <Button Content="{loc:Loc SaveBtn}" Click="OkButton_Click" />
-        </StackPanel>
+                <Border Classes="edit-card">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="{loc:Loc SystemPrompt}" />
+                        <TextBox Text="{Binding Template}"
+                                 MinHeight="260"
+                                 VerticalContentAlignment="Top"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
+                                 Padding="10" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="12"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
+                <Button Click="OkButton_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}" />
+                        <TextBlock Text="{loc:Loc SaveBtn}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
     </Grid>
-
 </Window>

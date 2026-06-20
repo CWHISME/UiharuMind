@@ -24,17 +24,23 @@ public partial class ChatPage : UserControl
     public ChatPage()
     {
         InitializeComponent();
+        SizeChanged += OnSizeChanged;
+    }
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is ChatPageData data) data.UpdateResponsiveState(e.NewSize.Width);
     }
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
     {
         var data = (ChatPageData)DataContext!;
-        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 0, 300);
+        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 230, 340);
     }
 
     private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
     {
         var data = (ChatPageData)DataContext!;
-        data.RightPaneWidth = Math.Clamp(data.RightPaneWidth - (float)e.Vector.X, 0, 300);
+        data.RightPaneWidth = Math.Clamp(data.RightPaneWidth - (float)e.Vector.X, 280, 380);
     }
 }

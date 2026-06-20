@@ -3,62 +3,99 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:u="https://irihi.tech/ursa"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="620"
              x:Class="UiharuMind.Views.Common.CharacterListView">
 
     <Design.DataContext>
         <viewData:CharacterListViewData />
     </Design.DataContext>
 
+    <UserControl.Styles>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Border.character-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+    </UserControl.Styles>
+
     <DockPanel>
+        <Grid DockPanel.Dock="Top" RowDefinitions="Auto,Auto" RowSpacing="10" Margin="2,0,2,10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{loc:Loc Filter}"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SemiGrey6}" />
+                    <StackPanel Name="FilterPanel" Orientation="Horizontal" Spacing="6" />
+                    <PathIcon Data="{StaticResource InfoRegular}" Height="18" Width="18" VerticalAlignment="Center">
+                        <ToolTip.Tip>
+                            <TextBlock Text="{loc:Loc CharacterCompareToolTips}" FontSize="14" />
+                        </ToolTip.Tip>
+                    </PathIcon>
+                </StackPanel>
 
-        <DockPanel DockPanel.Dock="Top" LastChildFill="False">
-            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="5">
-                <TextBlock Text="{loc:Loc Filter}"
+                <StackPanel Name="AddPanel" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="icon" Command="{Binding AddCharacterCommand}">
+                        <PathIcon Width="17" Height="17" Data="{StaticResource DocumentAddRegular}" />
+                        <ToolTip.Tip>
+                            <TextBlock Text="{loc:Loc CreateBtn}" />
+                        </ToolTip.Tip>
+                    </Button>
+                    <Button Classes="icon" Command="{Binding ImportCharacterCommand}">
+                        <PathIcon Width="17" Height="17" Data="{StaticResource OpenRegular}" />
+                        <ToolTip.Tip>
+                            <TextBlock Text="{loc:Loc ImportBtn}" />
+                        </ToolTip.Tip>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Classes="muted"
+                           Text="{loc:Loc CharacterLibraryHint}"
                            VerticalAlignment="Center" />
-                <StackPanel Name="FilterPanel" Orientation="Horizontal" Spacing="5" />
-                <PathIcon Data="{StaticResource InfoRegular}" Height="18">
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc CharacterCompareToolTips}" FontSize="14" />
-                    </ToolTip.Tip>
-                </PathIcon>
-                <ToggleSwitch IsChecked="{Binding IsPhotoListView}"
-                              Margin="10,0,0,0"
-                              OffContent="{loc:Loc ToggleIsListView}"
-                              OnContent="{loc:Loc ToggleIsPhotoListView}" />
-                <ToggleSwitch IsChecked="{Binding IsDisplayAllCharacters}"
-                              Margin="10,0,0,0"
-                              OffContent="{loc:Loc ShowHideCharactor}"
-                              OnContent="{loc:Loc ShowHideCharactor}" />
-            </StackPanel>
-
-            <StackPanel Name="AddPanel" Orientation="Horizontal" DockPanel.Dock="Right">
-                <Button DockPanel.Dock="Right" Content="{loc:Loc CreateBtn}"
-                        Command="{Binding AddCharacterCommand}"
-                        Height="{Binding $parent[DockPanel].Height}"
-                        Width="{Binding $self.Height}"
-                        Margin="0,0,5,0" />
-                <Button DockPanel.Dock="Right" Content="{loc:Loc ImportBtn}"
-                        Command="{Binding ImportCharacterCommand}"
-                        Height="{Binding $parent[DockPanel].Height}"
-                        Width="{Binding $self.Height}"
-                        Margin="0,0,5,0" />
-            </StackPanel>
-
-            <!-- <Panel DockPanel.Dock="Left" Margin="0,0,5,0"> -->
-            <!--     <TextBox Watermark="Search..." Text="{Binding SearchText}" AcceptsReturn="True"/> -->
-            <!--     ~1~ <ProgressBar IsIndeterminate="True" CornerRadius="0" VerticalAlignment="Bottom" IsVisible="{Binding IsBusy}" /> @1@ -->
-            <!-- </Panel> -->
-        </DockPanel>
-
-        <u:Divider Margin="0,10" DockPanel.Dock="Top" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                    <ToggleSwitch IsChecked="{Binding IsPhotoListView}"
+                                  OffContent="{loc:Loc ToggleIsListView}"
+                                  OnContent="{loc:Loc ToggleIsPhotoListView}" />
+                    <ToggleSwitch IsChecked="{Binding IsDisplayAllCharacters}"
+                                  OffContent="{loc:Loc ShowHideCharactor}"
+                                  OnContent="{loc:Loc ShowHideCharactor}" />
+                </StackPanel>
+            </Grid>
+        </Grid>
 
         <Panel>
-            <!-- 相册模式 -->
-            <ListBox Name="PhotoListBox" IsVisible="{Binding IsPhotoListView}" ItemsSource="{Binding Characters}"
+            <ListBox Name="PhotoListBox"
+                     IsVisible="{Binding IsPhotoListView}"
+                     ItemsSource="{Binding Characters}"
                      SelectedItem="{Binding SelectedCharacter}">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -67,74 +104,80 @@
                 </ListBox.ItemsPanel>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5" Padding="0,10,0,0">
+                        <Border Classes="character-card" Width="150" Padding="10">
                             <Border.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="{loc:Loc Delete}"
-                                              Command="{Binding DeleteCharacterCommand  }" />
-                                    <MenuItem Header="{loc:Loc Copy}"
-                                              Command="{Binding CopyCharacterCommand  }" />
+                                    <MenuItem Header="{loc:Loc StartChat}" Command="{Binding StartChatCommand}" />
+                                    <MenuItem Header="{loc:Loc Edit}" Command="{Binding EditCharacterCommand}" />
+                                    <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCharacterCommand}" />
+                                    <MenuItem Header="{loc:Loc Delete}" Command="{Binding DeleteCharacterCommand}" />
                                 </ContextMenu>
                             </Border.ContextMenu>
-
-                            <StackPanel Width="120">
-                                <Image Source="{Binding Icon}" Width="96" Height="144"
-                                       VerticalAlignment="Top">
-                                </Image>
-                                <Rectangle Fill="Lavender" Height="1" HorizontalAlignment="Stretch" />
-                                <!-- <u:Badge IsVisible="{Binding !IsRole}" Header="{loc:Loc Tool}" -->
-                                <!--          Background="Gold" /> -->
-                                <Panel Height="40">
-                                    <TextBlock Text="{Binding Name}" TextAlignment="Center" VerticalAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                </Panel>
-                                <u:Badge Header="{Binding FuncName }"
-                                         Background="{Binding FuncColor}" Margin="0,0,0,5" />
+                            <StackPanel Spacing="8">
+                                <Border Width="96" Height="132" CornerRadius="8" ClipToBounds="True"
+                                        BorderBrush="{DynamicResource SemiGrey2}"
+                                        BorderThickness="1"
+                                        HorizontalAlignment="Center">
+                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Text="{Binding Name}"
+                                           TextAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           MaxLines="2"
+                                           Foreground="{DynamicResource SemiGrey7}" />
+                                <u:Badge Header="{Binding FuncName}"
+                                         Background="{Binding FuncColor}"
+                                         HorizontalAlignment="Center" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <!-- 列表模式 -->
-            <ListBox Name="NormalListBox" IsVisible="{Binding !IsPhotoListView}" ItemsSource="{Binding Characters}"
+            <ListBox Name="NormalListBox"
+                     IsVisible="{Binding !IsPhotoListView}"
+                     ItemsSource="{Binding Characters}"
                      SelectedItem="{Binding SelectedCharacter}">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Border BorderThickness="1" BorderBrush="Lavender" Margin="0,5,0,5" Padding="5,0,0,0">
+                        <Border Classes="character-card" Padding="10" Margin="0,0,0,6">
                             <Border.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="{loc:Loc Delete}"
-                                              Command="{Binding DeleteCharacterCommand  }" />
-                                    <MenuItem Header="{loc:Loc Copy}"
-                                              Command="{Binding CopyCharacterCommand  }" />
+                                    <MenuItem Header="{loc:Loc StartChat}" Command="{Binding StartChatCommand}" />
+                                    <MenuItem Header="{loc:Loc Edit}" Command="{Binding EditCharacterCommand}" />
+                                    <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCharacterCommand}" />
+                                    <MenuItem Header="{loc:Loc Delete}" Command="{Binding DeleteCharacterCommand}" />
                                 </ContextMenu>
                             </Border.ContextMenu>
 
-                            <Grid ColumnDefinitions="Auto,*" Height="60" Background="Transparent">
-                                <!-- 圆形图片 -->
-                                <Ellipse Grid.Column="0" Width="40" Height="40" Stroke="MediumPurple"
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <Ellipse Width="44" Height="44"
+                                         Stroke="{DynamicResource SemiGrey2}"
                                          StrokeThickness="1">
                                     <Ellipse.Fill>
-                                        <ImageBrush Source="{Binding Icon }" Stretch="UniformToFill" />
+                                        <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
                                     </Ellipse.Fill>
                                 </Ellipse>
 
-                                <!-- 文本内容 -->
-                                <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Vertical"
-                                            VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <!-- 名称 -->
-                                        <TextBlock Text="{Binding Name}" HorizontalAlignment="Left" />
-                                        <u:Badge Header="{Binding FuncName }" HorizontalAlignment="Left"
-                                                 Background="{Binding FuncColor}" />
-                                        <!-- <u:Badge IsVisible="{Binding !IsRole}" Header="{loc:Loc Tool}" -->
-                                        <!--          Background="Gold" /> -->
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource SemiGrey7}" />
+                                        <u:Badge Header="{Binding FuncName}" Background="{Binding FuncColor}" />
                                     </StackPanel>
-
-                                    <!-- 描述 -->
-                                    <TextBlock MaxHeight="40" Text="{Binding Description}" HorizontalAlignment="Left" />
+                                    <TextBlock Classes="muted"
+                                               Text="{Binding Description}"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxLines="2" />
                                 </StackPanel>
+
+                                <Button Grid.Column="2"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding StartChatCommand}">
+                                    <PathIcon Width="16" Height="16" Data="{StaticResource Chat}" />
+                                </Button>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -142,5 +185,4 @@
             </ListBox>
         </Panel>
     </DockPanel>
-
 </UserControl>

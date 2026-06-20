@@ -4,93 +4,168 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
-             xmlns:u="https://irihi.tech/ursa"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
              x:Class="UiharuMind.Views.Pages.ChatPage">
 
     <Design.DataContext>
         <pages:ChatPageData />
     </Design.DataContext>
 
-    <!-- <Grid RowDefinitions="Auto,*"> -->
-    <!--     <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" /> -->
-    <!--     <Grid Grid.Row="1" ColumnDefinitions="Auto,*"> -->
-    <!--         <otherViews:ChatListView /> -->
-    <!--         <otherViews:ChatView Name="ChatView" Grid.Column="1" /> -->
-    <!--     </Grid> -->
-    <!-- </Grid> -->
+    <UserControl.Styles>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.workspace-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Thumb.resize-thumb">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
 
-    <!-- <Grid RowDefinitions="Auto,*"> -->
-    <!--     <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" /> -->
-    <!--     <SplitView Grid.Row="1" Margin="0,12,0,5" IsPaneOpen="True" DisplayMode="Inline" OpenPaneLength="200" CompactPaneLength="50"> -->
-    <!--         ~1~ Pane (Sidebar) @1@ -->
-    <!--         <SplitView.Pane> -->
-    <!--             <StackPanel Background="LightGray"> -->
-    <!--                 <Button Content="Home" Margin="10" /> -->
-    <!--                 <Button Content="Settings" Margin="10" /> -->
-    <!--                 <Button Content="About" Margin="10" /> -->
-    <!--             </StackPanel> -->
-    <!--         </SplitView.Pane> -->
-    <!-- -->
-    <!--         ~1~ Content @1@ -->
-    <!--         <SplitView.Content> -->
-    <!--             <Grid ColumnDefinitions="Auto,*"> -->
-    <!--                 <otherViews:ChatListView /> -->
-    <!--                 <otherViews:ChatView Name="ChatView" Grid.Column="1" /> -->
-    <!--             </Grid> -->
-    <!--         </SplitView.Content> -->
-    <!--     </SplitView> -->
-    <!-- </Grid> -->
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Height="50"
+                Padding="10,6"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1"
+                Background="{DynamicResource SemiGrey0}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                <Button Grid.Column="0"
+                        Classes="icon"
+                        Command="{Binding ToggleLeftPaneCommand}"
+                        IsVisible="{Binding IsLeftPaneOpen}">
+                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowExportRegular}" />
+                    <ToolTip.Tip>
+                        <TextBlock Text="{loc:Loc ChatSessions}" />
+                    </ToolTip.Tip>
+                </Button>
+                <Button Grid.Column="0"
+                        Classes="icon"
+                        Command="{Binding ToggleLeftPaneCommand}"
+                        IsVisible="{Binding !IsLeftPaneOpen}">
+                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowImportRegular}" />
+                    <ToolTip.Tip>
+                        <TextBlock Text="{loc:Loc ChatSessions}" />
+                    </ToolTip.Tip>
+                </Button>
 
-    <Grid RowDefinitions="Auto,Auto,*">
-        <otherViews:ModelSelectComboBoxView Name="ModelSelectPopupView" Grid.Row="0" />
-        <u:Divider Grid.Row="1" Margin="0,10" />
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <Border Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        MinWidth="260">
+                    <otherViews:ModelSelectComboBoxView />
+                </Border>
 
-            <!-- Pane (Sidebar) -->
-            <Border Grid.Column="0" Margin="0,0,2,0" Width="{Binding LeftPaneWidth, Mode=TwoWay}">
+                <Button Grid.Column="2"
+                        Classes="icon"
+                        Command="{Binding ToggleRightPaneCommand}"
+                        IsVisible="{Binding IsRightPaneOpen}">
+                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowImportRegular}" />
+                    <ToolTip.Tip>
+                        <TextBlock Text="{loc:Loc ChatDetails}" />
+                    </ToolTip.Tip>
+                </Button>
+                <Button Grid.Column="2"
+                        Classes="icon"
+                        Command="{Binding ToggleRightPaneCommand}"
+                        IsVisible="{Binding !IsRightPaneOpen}">
+                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowExportRegular}" />
+                    <ToolTip.Tip>
+                        <TextBlock Text="{loc:Loc ChatDetails}" />
+                    </ToolTip.Tip>
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="10" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+            <Border Grid.Column="0"
+                    Classes="workspace-pane"
+                    Width="{Binding LeftPaneWidth, Mode=TwoWay}"
+                    IsVisible="{Binding IsLeftPaneOpen}">
                 <DockPanel>
-                    <Button DockPanel.Dock="Top" Content="+" HorizontalAlignment="Stretch"
-                            Command="{Binding AddChatCommand}" />
-                    <otherViews:ChatListView DockPanel.Dock="Bottom" Margin="0,10,0,0" />
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,12,10,8">
+                        <StackPanel>
+                            <TextBlock Classes="section-title" Text="{loc:Loc ChatSessions}" />
+                            <TextBlock Classes="muted" Text="{loc:Loc ChatSessionsHint}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="icon" Command="{Binding AddChatCommand}">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource Chat}" />
+                        </Button>
+                    </Grid>
+                    <otherViews:ChatListView Margin="8,0,8,8" />
                 </DockPanel>
             </Border>
 
-            <!-- Thumb for resizing left pane -->
-            <!-- Cursor StandardCursorType -->
-            <Thumb Grid.Column="1" Width="5" Margin="0,-10,0,0" DragDelta="OnLeftThumbDragDelta" Cursor="SizeWestEast">
+            <Thumb Grid.Column="1"
+                   Classes="resize-thumb"
+                   IsVisible="{Binding IsLeftPaneOpen}"
+                   DragDelta="OnLeftThumbDragDelta"
+                   Cursor="SizeWestEast">
                 <Thumb.Template>
                     <ControlTemplate>
-                        <!-- <Border Background="Gray" Width="1" /> -->
-                        <u:Divider Orientation="Vertical"
-                                   Height="{Binding Height, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Grid Background="Transparent">
+                            <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
+                        </Grid>
                     </ControlTemplate>
                 </Thumb.Template>
             </Thumb>
 
-            <!-- Content -->
-            <Border Grid.Column="2" Margin="5">
+            <Border Grid.Column="2" Classes="workspace-pane" ClipToBounds="True" MinWidth="260">
                 <otherViews:ChatView Name="ChatView" DataContext="{Binding ChatViewModel}" />
             </Border>
 
-            <!-- Thumb for resizing right pane -->
-            <Thumb Grid.Column="3" Width="5" Margin="0,-10,0,0" DragDelta="OnRightThumbDragDelta" Cursor="SizeWestEast">
+            <Thumb Grid.Column="3"
+                   Classes="resize-thumb"
+                   IsVisible="{Binding IsRightPaneOpen}"
+                   DragDelta="OnRightThumbDragDelta"
+                   Cursor="SizeWestEast">
                 <Thumb.Template>
                     <ControlTemplate>
-                        <!-- <Border Background="Gray" Width="1" /> -->
-                        <u:Divider Orientation="Vertical"
-                                   Height="{Binding Height, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Grid Background="Transparent">
+                            <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
+                        </Grid>
                     </ControlTemplate>
                 </Thumb.Template>
             </Thumb>
 
-            <!-- Right Pane (Content) -->
-            <Border Grid.Column="4" Width="{Binding RightPaneWidth, Mode=TwoWay}">
-                <common:ChatInfoView />
+            <Border Grid.Column="4"
+                    Classes="workspace-pane"
+                    Width="{Binding RightPaneWidth, Mode=TwoWay}"
+                    MinWidth="260"
+                    MaxWidth="360"
+                    IsVisible="{Binding IsRightPaneOpen}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*" Margin="14,12,14,8">
+                        <StackPanel MinWidth="0">
+                            <TextBlock Classes="section-title" Text="{loc:Loc ChatDetails}" />
+                            <TextBlock Classes="muted"
+                                       Text="{Binding ChatViewModel.ChatSession.Name}"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="1" />
+                        </StackPanel>
+                    </Grid>
+                    <common:ChatInfoView Margin="8,0,8,8" />
+                </DockPanel>
             </Border>
         </Grid>
     </Grid>
-
-
 </UserControl>

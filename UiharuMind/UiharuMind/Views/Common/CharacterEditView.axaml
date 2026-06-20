@@ -5,9 +5,8 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="720"
              x:Class="UiharuMind.Views.Common.CharacterEditView">
 
     <Design.DataContext>
@@ -15,159 +14,146 @@
     </Design.DataContext>
 
     <UserControl.Styles>
-        <Style Selector="SelectableTextBlock">
-            <!-- <Setter Property="IsReadOnly" Value="True" /> -->
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <!-- <Setter Property="BorderThickness" Value="0" /> -->
-            <Setter Property="Padding" Value="10" />
-        </Style>
-        <Style Selector="u|Divider">
-            <Setter Property="FontSize" Value="24" />
-            <Setter Property="Margin" Value="0,0,0,10" />
-        </Style>
         <Style Selector="TextBox">
-            <Setter Property="Margin" Value="10,0" />
             <Setter Property="Padding" Value="10" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
-        <!-- 会影响其它样式 -->
-        <Style Selector="Border.PaddingBorder">
-            <Setter Property="Padding" Value="0,10,0,10" />
+        <Style Selector="Border.edit-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <Style Selector="TextBlock.card-title">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="SelectableTextBlock">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
         </Style>
     </UserControl.Styles>
 
-    <DockPanel>
-        <Rectangle DockPanel.Dock="Bottom" Fill="{DynamicResource SemiGrey2}" Height="1"
-                   HorizontalAlignment="Stretch" />
+    <ScrollViewer Name="EditScrollViewer" BringIntoViewOnFocusChange="False">
+        <StackPanel Spacing="12" Margin="14">
+            <Border Name="BasicInfoSection" Classes="edit-card">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                    <Border Width="96" Height="132" CornerRadius="8" ClipToBounds="True"
+                            BorderBrush="{DynamicResource SemiGrey2}"
+                            BorderThickness="1">
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                    </Border>
 
-        <ScrollViewer BringIntoViewOnFocusChange="False">
-            <StackPanel Spacing="30" Margin="15">
+                    <StackPanel Grid.Column="1" Spacing="8">
+                        <TextBlock Classes="card-title" Text="{loc:Loc EditorBasicInfo}" />
+                        <TextBox Text="{Binding Name}" Watermark="{loc:Loc CharacterName}" />
+                        <TextBox Text="{Binding Description}"
+                                 Watermark="{loc:Loc CharacterDesc}"
+                                 MinHeight="72"
+                                 AcceptsReturn="True" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsDefault}">
                 <StackPanel Spacing="10">
-                    <!-- 角色图片 -->
-                    <Image Source="{Binding Icon}" Width="96" MaxHeight="144" VerticalAlignment="Top"></Image>
-                    <TextBox HorizontalAlignment="Center" Text="{Binding Name}" FontSize="24" />
-                    <TextBox Text="{Binding Description}"
-                             TextWrapping="Wrap"
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterFuncType}" />
+                    <ToggleSwitch IsChecked="{Binding IsRole}"
+                                  OffContent="{loc:Loc ToolCharacter}"
+                                  OnContent="{loc:Loc RoleplayCharacter}" />
+                    <ToggleSwitch OffContent="{loc:Loc IsNotTakeHistoryContext}"
+                                  OnContent="{loc:Loc IsNotTakeHistoryContext}"
+                                  IsVisible="{Binding !IsRole}"
+                                  IsChecked="{Binding IsNotTakeHistoryContext}" />
+                </StackPanel>
+            </Border>
+
+            <Border Name="MountsSection" Classes="edit-card" IsVisible="{Binding IsRole}">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Classes="card-title" Text="{loc:Loc MountsTitle}" />
+                        <PathIcon Width="16" Height="16" Data="{StaticResource InfoRegular}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc MountsDesc}" FontSize="14" />
+                            </ToolTip.Tip>
+                        </PathIcon>
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding MountCharacters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <u:Badge Header="{Binding}" Background="{DynamicResource SemiBlue5}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="muted" Text="{loc:Loc MountsNullTips}" />
+                    <Button Content="{loc:Loc AddBtn}" Command="{Binding AddMountCharacterCommand}" />
+                </StackPanel>
+            </Border>
+
+            <Border Name="OptionalPromptSection" Classes="edit-card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="card-title" Text="{loc:Loc OptionalPromptParams}" />
+                    <SelectableTextBlock Text="{loc:Loc OptionalPromptParamsDesc}" />
+                </StackPanel>
+            </Border>
+
+            <Border Name="PromptSection" Classes="edit-card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="card-title"
+                               IsVisible="{Binding IsRole}"
+                               Text="{loc:Loc CharacterDesc}" />
+                    <TextBlock Classes="card-title"
+                               IsVisible="{Binding !IsRole}"
+                               Text="{loc:Loc SystemPrompt}" />
+                    <TextBox Text="{Binding Template}"
+                             MinHeight="180"
                              AcceptsReturn="True" />
                 </StackPanel>
+            </Border>
 
-                <!-- 功能类型 -->
-                <Border Classes="PaddingBorder" IsEnabled="{Binding !IsDefault,Mode=OneWay}" BorderThickness="1"
-                        BorderBrush="{DynamicResource SemiGrey2}">
-                    <StackPanel>
-                        <u:Divider Content="{loc:Loc CharacterFuncType}" />
-                        <ToggleSwitch IsChecked="{Binding IsRole}"
-                                      OffContent="{loc:Loc ToolCharacter}"
-                                      OnContent="{loc:Loc RoleplayCharacter}"
-                                      HorizontalAlignment="Center" />
-                        <ToggleSwitch OffContent="{loc:Loc IsNotTakeHistoryContext}"
-                                      OnContent="{loc:Loc IsNotTakeHistoryContext}"
-                                      HorizontalAlignment="Center"
-                                      IsVisible="{Binding !IsRole}"
-                                      IsChecked="{Binding IsNotTakeHistoryContext}" />
-                    </StackPanel>
-                </Border>
+            <Border Name="GreetingSection" Classes="edit-card" IsVisible="{Binding IsRole}">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterFirstGreeting}" />
+                    <TextBox Text="{Binding FirstGreeting}"
+                             MinHeight="120"
+                             AcceptsReturn="True" />
+                </StackPanel>
+            </Border>
 
-                <!-- 挂载对象 -->
-                <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
-                        BorderBrush="{DynamicResource SemiGrey2}">
-                    <StackPanel>
-                        <!-- 标题 -->
-                        <u:Divider Content="">
-                            <u:Divider.ContentTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <TextBlock Text="{loc:Loc MountsTitle}" VerticalAlignment="Center" />
-                                        <PathIcon Data="{StaticResource InfoRegular}">
-                                            <ToolTip.Tip>
-                                                <TextBlock Text="{loc:Loc MountsDesc}" FontSize="14" />
-                                            </ToolTip.Tip>
-                                        </PathIcon>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </u:Divider.ContentTemplate>
-                        </u:Divider>
-                        <!-- 挂载对象 -->
-                        <ItemsControl ItemsSource="{Binding MountCharacters}"
-                                      Padding="10"
-                                      HorizontalAlignment="Center"
-                                      IsVisible="{Binding MountCharacters.Count,ConverterParameter=0,Converter={x:Static ObjectConverters.NotEqual}}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <u:Badge Header="{Binding }" Background="Gold" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="{loc:Loc MountsNullTips}"
-                                   HorizontalAlignment="Center"
-                                   IsVisible="{Binding !$parent[1].IsVisible}" />
-                        <Button Content="{loc:Loc AddBtn}" Command="{Binding AddMountCharacterCommand}"
-                                Margin="0,10,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- 可选参数提示 -->
-                <Border Classes="PaddingBorder" BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
-                    <StackPanel>
-                        <u:Divider Content="{loc:Loc OptionalPromptParams}" />
-                        <SelectableTextBlock Text="{loc:Loc OptionalPromptParamsDesc}" />
-                    </StackPanel>
-                </Border>
-
-                <Border Classes="PaddingBorder" BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
-                    <StackPanel>
-                        <u:Divider IsVisible="{Binding IsRole,Mode=OneWay}"
-                                   Content="{loc:Loc CharacterDesc}" />
-                        <u:Divider IsVisible="{Binding !IsRole,Mode=OneWay}"
-                                   Content="{loc:Loc SystemPrompt}" />
-                        <TextBox Text="{Binding Template}"
-                                 TextWrapping="Wrap"
-                                 AcceptsReturn="True" />
-                    </StackPanel>
-                </Border>
-
-                <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
-                        BorderBrush="{DynamicResource SemiGrey2}">
-                    <StackPanel>
-                        <u:Divider Content="{loc:Loc CharacterFirstGreeting}" />
-                        <TextBox Text="{Binding FirstGreeting}"
-                                 TextWrapping="Wrap"
-                                 AcceptsReturn="True" />
-                    </StackPanel>
-                </Border>
-
-                <Expander Margin="-8" IsExpanded="True">
-                    <Expander.Header>
-                        <u:Divider Content="{loc:Loc AdvancedOptions}" />
-                    </Expander.Header>
-                    <StackPanel Spacing="25">
-                        <!-- <StackPanel> -->
-                        <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
-                                BorderBrush="{DynamicResource SemiGrey2}">
-                            <StackPanel>
-                                <u:Divider Content="{loc:Loc CharacterDialogTemplate}" />
-                                <TextBox Text="{Binding DialogTemplate}"
-                                         TextWrapping="Wrap"
-                                         AcceptsReturn="True" />
-                            </StackPanel>
-                        </Border>
-                        <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
-                            <StackPanel>
-                                <u:Divider Content="{loc:Loc ParameterSettings}" />
-                                <settingViews:SettingPanelView Padding="10,0,10,0"
-                                                               SettingConfig="{Binding ChatPromptExecutionSettings}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Expander>
-
-            </StackPanel>
-        </ScrollViewer>
-    </DockPanel>
-
+            <Expander IsExpanded="True">
+                <Expander.Header>
+                    <TextBlock Classes="card-title" Text="{loc:Loc AdvancedOptions}" />
+                </Expander.Header>
+                <StackPanel Spacing="12" Margin="0,10,0,0">
+                    <Border Name="DialogTemplateSection" Classes="edit-card" IsVisible="{Binding IsRole}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="card-title" Text="{loc:Loc CharacterDialogTemplate}" />
+                            <TextBox Text="{Binding DialogTemplate}"
+                                     MinHeight="140"
+                                     AcceptsReturn="True" />
+                        </StackPanel>
+                    </Border>
+                    <Border Name="ParametersSection" Classes="edit-card">
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="card-title" Text="{loc:Loc ParameterSettings}" />
+                            <settingViews:SettingPanelView SettingConfig="{Binding ChatPromptExecutionSettings}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

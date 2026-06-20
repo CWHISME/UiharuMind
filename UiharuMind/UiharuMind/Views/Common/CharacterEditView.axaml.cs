@@ -30,4 +30,21 @@ public partial class CharacterEditView : UserControl
     {
         InitializeComponent();
     }
+
+    public void ScrollToSection(string? sectionKey)
+    {
+        Control? target = sectionKey switch
+        {
+            "Basic" => BasicInfoSection,
+            "Function" => FunctionTypeSection,
+            "Mounts" => MountsSection,
+            "Prompt" => PromptSection,
+            "Greeting" => GreetingSection,
+            "Dialog" => DialogTemplateSection,
+            "Parameters" => ParametersSection,
+            _ => BasicInfoSection
+        };
+
+        target.BringIntoView();
+    }
 }

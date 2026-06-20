@@ -80,6 +80,7 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     }
 
     public Action<ChatViewItemData>? DeleteCallback { get; set; }
+    public Action<ChatViewItemData>? RetryCallback { get; set; }
 
     public void SetChatItem(ChatMessage item)
     {
@@ -116,6 +117,19 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     {
         // Log.Debug("DeleteCommand" + Message);
         DeleteCallback?.Invoke(this);
+    }
+
+    [RelayCommand]
+    public void Copy()
+    {
+        if (string.IsNullOrEmpty(Message)) return;
+        App.Clipboard.CopyToClipboard(Message, true);
+    }
+
+    [RelayCommand]
+    public void Retry()
+    {
+        RetryCallback?.Invoke(this);
     }
 
     public void Reset()

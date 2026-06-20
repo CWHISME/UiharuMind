@@ -23,11 +23,17 @@ public partial class HomePage : UserControl
     public HomePage()
     {
         InitializeComponent();
+        SizeChanged += OnSizeChanged;
+    }
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is HomePageData data) data.UpdateResponsiveState(e.NewSize.Width);
     }
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
     {
         var data = (HomePageData)DataContext!;
-        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 0, 300);
+        data.DetailPaneWidth = Math.Clamp(data.DetailPaneWidth - (float)e.Vector.X, 280, 460);
     }
 }

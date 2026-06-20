@@ -15,8 +15,11 @@
     <!-- <Grid RowDefinitions="*,Auto"> -->
     <!-- -->
     <!-- </Grid> -->
-    <ScrollViewer>
-        <StackPanel Name="ChatPluginsPanel" />
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto"
+                  BringIntoViewOnFocusChange="False">
+        <StackPanel Name="ChatPluginsPanel"
+                    MaxWidth="360" />
     </ScrollViewer>
 
 </UserControl>

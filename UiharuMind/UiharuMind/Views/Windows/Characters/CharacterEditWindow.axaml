@@ -3,24 +3,100 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
-        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="760"
+        Width="1180"
+        Height="760"
+        MinWidth="920"
+        MinHeight="620"
         x:Class="UiharuMind.Views.Windows.Characters.CharacterEditWindow"
-        Title="CharacterEditWindow">
+        Title="{loc:Loc CharacterEditor}">
 
-    <DockPanel>
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10"
-                    Spacing="10">
-            <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
-            <Button Content="{loc:Loc SaveBtn}" Click="OkButton_Click" />
-        </StackPanel>
+    <Window.Styles>
+        <Style Selector="Button.nav-section">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style Selector="Button.nav-section.selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiBlue5}" />
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </Window.Styles>
 
-        <Grid ColumnDefinitions="*,Auto,*">
-            <common:CharacterEditView />
-            <GridSplitter Grid.Column="1" ResizeBehavior="PreviousAndNext" VerticalAlignment="Stretch" Width="5" />
-            <common:CharacterInfoView Grid.Column="2" IsDisplayFuncButton="False" />
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Padding="16,12"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel>
+                    <TextBlock Classes="title" Text="{loc:Loc CharacterEditor}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterEditorHint}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
+                    <Button Click="OkButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}" />
+                            <TextBlock Text="{loc:Loc SaveBtn}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="156,*,340" ColumnSpacing="12" Margin="12">
+            <Border Background="{DynamicResource SemiGrey1}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="10">
+                <StackPanel>
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterEditorSections}" Margin="2,0,0,10" />
+                    <Button Name="BasicSectionButton" Classes="nav-section selected" Content="{loc:Loc EditorBasicInfo}" Tag="Basic" Click="SectionButton_Click" />
+                    <Button Classes="nav-section" Content="{loc:Loc CharacterFuncType}" Tag="Function" Click="SectionButton_Click" />
+                    <Button Classes="nav-section" Content="{loc:Loc MountsTitle}" Tag="Mounts" Click="SectionButton_Click" />
+                    <Button Classes="nav-section" Content="{loc:Loc EditorPrompt}" Tag="Prompt" Click="SectionButton_Click" />
+                    <Button Classes="nav-section" Content="{loc:Loc CharacterFirstGreeting}" Tag="Greeting" Click="SectionButton_Click" />
+                    <Button Classes="nav-section" Content="{loc:Loc CharacterDialogTemplate}" Tag="Dialog" Click="SectionButton_Click" />
+                    <Button Classes="nav-section" Content="{loc:Loc ParameterSettings}" Tag="Parameters" Click="SectionButton_Click" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="{DynamicResource SemiGrey0}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    ClipToBounds="True">
+                <common:CharacterEditView Name="EditView" />
+            </Border>
+
+            <Border Grid.Column="2"
+                    Background="{DynamicResource SemiGrey0}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    ClipToBounds="True">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="14,12,14,8">
+                        <TextBlock Classes="title" Text="{loc:Loc EditorPreview}" />
+                        <TextBlock Classes="muted" Text="{loc:Loc EditorPreviewHint}" />
+                    </StackPanel>
+                    <common:CharacterInfoView IsDisplayFuncButton="False" />
+                </DockPanel>
+            </Border>
         </Grid>
-    </DockPanel>
-
+    </Grid>
 </Window>

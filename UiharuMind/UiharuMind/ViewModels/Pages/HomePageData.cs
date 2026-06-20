@@ -22,6 +22,8 @@ public partial class HomePageData : PageDataBase
 
     // [ObservableProperty] private CharacterInfoViewData _characterInfo;
     [ObservableProperty] private float _leftPaneWidth = 200;
+    [ObservableProperty] private float _detailPaneWidth = 340;
+    [ObservableProperty] private bool _isDetailPaneOpen = true;
 
     [ObservableProperty] private CharacterListViewData _characterListViewData;
 
@@ -29,6 +31,18 @@ public partial class HomePageData : PageDataBase
     {
         _characterListViewData = new CharacterListViewData();
         // CharacterInfo = _characterListViewData.SelectedCharacter;
+    }
+
+    public void UpdateResponsiveState(double width)
+    {
+        if (width <= 0) return;
+        if (width < 880) IsDetailPaneOpen = false;
+    }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ToggleDetailPane()
+    {
+        IsDetailPaneOpen = !IsDetailPaneOpen;
     }
 
     // public override void OnEnable()

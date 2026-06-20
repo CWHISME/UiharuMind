@@ -4,25 +4,17 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
-             xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
              xmlns:extends="clr-namespace:UiharuMind.Extends"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="620"
              x:Class="UiharuMind.Views.OtherViews.ChatView">
-
-    <!-- ================================================ -->
-    <!-- 一个对话框，用于显示聊天信息，并提供输入框，用于发送消息。 -->
-    <!-- ================================================ -->
 
     <UserControl.Resources>
         <converters:UserColumIndexConverter x:Key="UserColumIndexConverter" />
         <converters:UserLeftRightConverter x:Key="UserLeftRightConverter" />
-        <converters:TwoValueToBooleanConverter x:Key="TwoValueToBooleanConverter" />
-        <converters:MultiConditionBoolAndConverter x:Key="MultiConditionBoolAndConverter" />
         <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
         <converters:ModelToBrushConverter x:Key="ModelToBrushConverter" />
     </UserControl.Resources>
@@ -31,215 +23,307 @@
         <viewData:ChatViewModel />
     </Design.DataContext>
 
-    <!-- <UserControl.Styles> -->
-    <!--     <Style Selector="ListBoxItem:pointerover"> -->
-    <!--         <Setter Property="Background" Value="Transparent" /> -->
-    <!--         ~1~ <Setter Property="Foreground" Value="Transparent"/> @1@ -->
-    <!--     </Style> -->
-    <!--     <Style Selector="ListBoxItem:selected"> -->
-    <!--         <Setter Property="Background" Value="Transparent" /> -->
-    <!--         ~1~ <Setter Property="Foreground" Value="Transparent"/> @1@ -->
-    <!--     </Style> -->
-    <!-- -->
-    <!-- </UserControl.Styles> -->
+    <UserControl.Styles>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Border.tool-row">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+        <Style Selector="TextBox.composer-input">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="MinHeight" Value="72" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="TextBox.composer-input:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox.composer-input /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus-within /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:pointerover /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus-within /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input /template/ Panel">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox.composer-input:pointerover /template/ Panel">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus-within /template/ Panel">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
 
-    <!-- 定义两行，第一行占据剩余空间，第二行固定高度 -->
-    <Grid RowDefinitions="*,Auto,Auto,Auto">
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Padding="14,10"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel MinWidth="0">
+                    <TextBlock Text="{Binding ChatSession.Name, TargetNullValue={loc:Loc ChatWorkspaceEmpty}}"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="1"
+                               Foreground="{DynamicResource SemiGrey7}" />
+                    <TextBlock Classes="muted"
+                               Text="{Binding ChatSession.MemoryTipsName}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="1" />
+                </StackPanel>
 
-        <!-- 聊天信息显示区域 -->
-        <!-- BringIntoViewOnFocusChange = "False" 用于取消自动滚动到点击对象处 -->
-        <ScrollViewer Grid.Row="0" Name="Viewer" u:ScrollTo.Direction="Bottom" BringIntoViewOnFocusChange="False"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Classes="icon" Command="{Binding RegenerateMessageCommand}"
+                            IsVisible="{Binding IsVisibleRegenerateButton}">
+                        <PathIcon Width="17" Height="17" Data="{StaticResource ArrowRepeatAllRegular}" />
+                        <ToolTip.Tip>
+                            <TextBlock Text="{loc:Loc RegenerateBtn}" />
+                        </ToolTip.Tip>
+                    </Button>
+                    <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
+                        <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
+                        <Button Classes="icon" Command="{Binding StopSendingCommand}">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource StopRegular}" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc StopGenerating}" />
+                            </ToolTip.Tip>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      Name="Viewer"
+                      Padding="18,18,18,0"
+                      u:ScrollTo.Direction="Bottom"
+                      BringIntoViewOnFocusChange="False"
+                      VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
-            <ItemsControl ItemsSource="{Binding ChatSession.ChatItems}">
-                <!-- <ItemsControl.ItemsPanel> -->
-                <!--     <ItemsPanelTemplate> -->
-                <!--         <VirtualizingStackPanel /> -->
-                <!--     </ItemsPanelTemplate> -->
-                <!-- </ItemsControl.ItemsPanel> -->
-                <ItemsControl.ItemTemplate>
-                    <extends:ReuseDataTemplate>
-                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="15,0">
-                            <!-- 头像 -->
-                            <Ellipse Width="30" Height="30" Stroke="Black" StrokeThickness="1" VerticalAlignment="Top"
-                                     IsVisible="{Binding !IsSystem}"
-                                     Grid.Column="{Binding Role, Converter={StaticResource UserColumIndexConverter},ConverterParameter=3}">
-                                <Ellipse.Fill>
-                                    <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
-                                </Ellipse.Fill>
-                                <!-- 菜单 -->
-                                <Ellipse.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="{loc:Loc Edit}"
-                                                  CommandParameter="{Binding .}"
-                                                  Command="{Binding EditCommand}" />
-                                        <MenuItem Header="{loc:Loc Delete}"
-                                                  CommandParameter="{Binding .}"
-                                                  Command="{Binding DeleteCommand}" />
-                                    </ContextMenu>
-                                </Ellipse.ContextMenu>
-                            </Ellipse>
+            <StackPanel>
+                <ItemsControl ItemsSource="{Binding ChatSession.ChatItems}">
+                    <ItemsControl.ItemTemplate>
+                        <extends:ReuseDataTemplate>
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
+                                <Ellipse Width="34" Height="34"
+                                         Stroke="{DynamicResource SemiGrey2}"
+                                         StrokeThickness="1"
+                                         VerticalAlignment="Top"
+                                         IsVisible="{Binding !IsSystem}"
+                                         Grid.Column="{Binding Role, Converter={StaticResource UserColumIndexConverter}, ConverterParameter=3}">
+                                    <Ellipse.Fill>
+                                        <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+                                    </Ellipse.Fill>
+                                </Ellipse>
 
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0" MinHeight="30" Orientation="Vertical">
-                                <SelectableTextBlock Text="{Binding SenderName}"
-                                                     HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
-                                <Border BorderThickness="2" BorderBrush="{Binding SenderColor}" CornerRadius="5"
-                                        HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
-                                    <Panel>
-                                        <common:SimpleMarkdownViewer
-                                            IsVisible="{Binding !IsImageContent}"
-                                            MarkdownText="{Binding Message}"
-                                            IsThinkingRemove="{Binding DataContext.IsNotShowThinking,ElementName=Viewer}"
-                                            Margin="5">
-                                            <!-- 不是用户、并且没有设置显示原文，则以 Markdown 显示 -->
-                                            <common:SimpleMarkdownViewer.IsPlaintext>
-                                                <MultiBinding
-                                                    Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                                    <Binding Path="IsUser" />
-                                                    <Binding Path="!IsDone" />
-                                                    <!-- <Binding Path="DataContext.IsGenerating" ElementName="Viewer" /> -->
-                                                    <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
-                                                </MultiBinding>
-                                            </common:SimpleMarkdownViewer.IsPlaintext>
-                                        </common:SimpleMarkdownViewer>
-                                        <Image IsVisible="{Binding IsImageContent}" Source="{Binding MessageImage}" />
-                                    </Panel>
-                                </Border>
+                                <StackPanel Grid.Column="1"
+                                            Margin="10,0"
+                                            MinHeight="34"
+                                            HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="8"
+                                                HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                        <TextBlock Text="{Binding SenderName}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource SemiGrey7}" />
+                                        <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                                    </StackPanel>
 
-                                <!-- 时间 -->
-                                <TextBlock Text="{Binding Timestamp}"
-                                           HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}" />
-                            </StackPanel>
-                        </Grid>
-                    </extends:ReuseDataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                                    <Border Margin="0,5,0,0"
+                                            Padding="10"
+                                            MaxWidth="640"
+                                            CornerRadius="8"
+                                            BorderThickness="1"
+                                            BorderBrush="{Binding SenderColor}"
+                                            Background="{DynamicResource SemiGrey1}">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
+                                                <MenuItem Header="{loc:Loc Edit}" Command="{Binding EditCommand}" />
+                                                <MenuItem Header="{loc:Loc RetryMessage}" Command="{Binding RetryCommand}" />
+                                                <MenuItem Header="{loc:Loc Delete}" Command="{Binding DeleteCommand}" />
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <Panel>
+                                            <common:SimpleMarkdownViewer
+                                                IsVisible="{Binding !IsImageContent}"
+                                                MarkdownText="{Binding Message}"
+                                                IsThinkingRemove="{Binding DataContext.IsNotShowThinking, ElementName=Viewer}">
+                                                <common:SimpleMarkdownViewer.IsPlaintext>
+                                                    <MultiBinding Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                        <Binding Path="IsUser" />
+                                                        <Binding Path="!IsDone" />
+                                                        <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
+                                                    </MultiBinding>
+                                                </common:SimpleMarkdownViewer.IsPlaintext>
+                                            </common:SimpleMarkdownViewer>
+                                            <Image IsVisible="{Binding IsImageContent}"
+                                                   Source="{Binding MessageImage}"
+                                                   MaxWidth="520"
+                                                   MaxHeight="360" />
+                                        </Panel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </extends:ReuseDataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Height="28" />
+            </StackPanel>
         </ScrollViewer>
 
-        <!-- 分页区域 -->
-        <u:Pagination
-            HorizontalAlignment="Center"
-            Grid.Row="1"
-            PageSize="20"
-            IsVisible="{Binding IsVisiblePagination}"
-            CurrentPage="{Binding CurrentPageIndex}"
-            TotalCount="{Binding ChatSession.ChatItems.Count}" />
+        <Border Grid.Row="2"
+                Margin="14"
+                Padding="8"
+                Classes="tool-row">
+            <Grid RowDefinitions="*,Auto" RowSpacing="4">
+                <TextBox Grid.Row="0"
+                         Name="InputBox"
+                         Classes="composer-input"
+                         Text="{Binding InputText, Mode=TwoWay}"
+                         AcceptsReturn="True"
+                         VerticalContentAlignment="Top"
+                         PlaceholderText="{loc:Loc ChatInputTips}">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
+                    </TextBox.KeyBindings>
+                </TextBox>
 
-        <!-- 重算 -->
-        <Button Grid.Row="2" Content="{loc:Loc RegenerateBtn}"
-                Margin="0,10,0,0"
-                IsVisible="{Binding IsVisibleRegenerateButton}"
-                Command="{Binding RegenerateMessageCommand}" />
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Button Classes="icon" Command="{Binding ChangeSendModeCommand}">
+                            <TextBlock Text="{Binding SenderMode}" FontSize="11" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc SendUserDesc}" />
+                            </ToolTip.Tip>
+                        </Button>
+                        <Button Classes="icon" Command="{Binding ChatSession.MemoryEditorCommand}">
+                            <PathIcon Width="18" Height="18"
+                                      Data="{StaticResource BookStarRegular}"
+                                      Foreground="{Binding ChatSession.MemoryData, Converter={StaticResource ModelToBrushConverter}}" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc MemoryTips}" />
+                            </ToolTip.Tip>
+                        </Button>
+                        <Button Classes="icon" Command="{Binding ChatSession.MemoryUpdateFileCommand}">
+                            <PathIcon Width="18" Height="18"
+                                      Data="{StaticResource DocumentAddRegular}"
+                                      Foreground="{Binding ChatSession.MemoryFileBrush}" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{Binding ChatSession.MemoryFileTips}" />
+                            </ToolTip.Tip>
+                        </Button>
+                        <Button Classes="icon" Command="{Binding ChatSession.MemoryUpdateUrlCommand}">
+                            <PathIcon Width="18" Height="18"
+                                      Data="{StaticResource GlobeAddRegular}"
+                                      Foreground="{Binding ChatSession.MemoryUrlBrush}" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{Binding ChatSession.MemoryUrlTips}" />
+                            </ToolTip.Tip>
+                        </Button>
+                        <Button Classes="icon"
+                                IsVisible="{Binding IsSurportImage}"
+                                Command="{Binding UploadImageCommand}">
+                            <PathIcon Width="18" Height="18" Data="{StaticResource ImageRegular}" />
+                        </Button>
+                        <Button Classes="icon">
+                            <PathIcon Width="18" Height="18" Data="{StaticResource Setting}" />
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <StackPanel Spacing="8" MinWidth="160">
+                                        <CheckBox Content="{loc:Loc HideThnkingText}"
+                                                  IsChecked="{Binding IsNotShowThinking}" />
+                                        <CheckBox Content="{loc:Loc Plaintext}"
+                                                  IsChecked="{Binding IsPlaintext}" />
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc Settings}" />
+                            </ToolTip.Tip>
+                        </Button>
+                    </StackPanel>
 
-        <!-- 输入区域 -->
-        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,Auto">
-            <!-- 工具区域 -->
-            <DockPanel Margin="5,5,5,0">
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <Button Content="{Binding SenderMode}"
-                            Command="{Binding ChangeSendModeCommand}">
+                    <Button Grid.Column="1"
+                            Classes="icon"
+                            IsVisible="{Binding !IsGenerating}"
+                            IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{Binding SendMessageCommand}">
+                        <PathIcon Width="18" Height="18" Data="{StaticResource Chat}" />
                         <ToolTip.Tip>
-                            <TextBlock
-                                Text="{loc:Loc SendUserDesc}" />
+                            <TextBlock Text="{loc:Loc Send}" />
                         </ToolTip.Tip>
                     </Button>
-                    <Button Command="{Binding ChatSession.MemoryEditorCommand}">
-                        <PathIcon Data="{StaticResource BookStarRegular}" Width="20" Height="20"
-                                  Foreground="{Binding ChatSession.MemoryData,Converter={StaticResource ModelToBrushConverter}}" />
+
+                    <Button Grid.Column="1"
+                            Classes="icon"
+                            IsVisible="{Binding IsGenerating}"
+                            Command="{Binding StopSendingCommand}">
+                        <PathIcon Width="18" Height="18" Data="{StaticResource StopRegular}" />
                         <ToolTip.Tip>
-                            <TextBlock
-                                Text="{loc:Loc MemoryTips}" />
+                            <TextBlock Text="{loc:Loc StopGenerating}" />
                         </ToolTip.Tip>
                     </Button>
-                    <Button Command="{Binding ChatSession.MemoryUpdateFileCommand}">
-                        <PathIcon Data="{StaticResource DocumentAddRegular}"
-                                  Foreground="{Binding ChatSession.MemoryFileBrush}" Width="20" Height="20" />
-                        <ToolTip.Tip>
-                            <TextBlock
-                                Text="{Binding ChatSession.MemoryFileTips}" />
-                        </ToolTip.Tip>
-                    </Button>
-                    <Button Command="{Binding ChatSession.MemoryUpdateUrlCommand}">
-                        <PathIcon Data="{StaticResource GlobeAddRegular}"
-                                  Foreground="{Binding ChatSession.MemoryUrlBrush}" Width="20" Height="20" />
-                        <ToolTip.Tip>
-                            <TextBlock
-                                Text="{Binding ChatSession.MemoryUrlTips}" />
-                        </ToolTip.Tip>
-                    </Button>
-                    <!-- <TextBlock Text="{Binding ChatSession.MemoryTipsName}" VerticalAlignment="Center" /> -->
-                    <!-- <StackPanel Orientation="Horizontal" Spacing="10"> -->
-                    <!--     <TextBlock Text="{loc:Loc MemoryTitle}" VerticalAlignment="Center" /> -->
-                    <!--     <TextBlock Text="{Binding ChatSession.MemoryTipsName}" Margin="-10,0,0,0" -->
-                    <!--                VerticalAlignment="Center" /> -->
-                    <!--     <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding MemorySources}" -->
-                    <!--               SelectedItem="{Binding ChatSession.MemoryData}" /> -->
-                    <!-- </StackPanel> -->
-                    <!-- <Button IsVisible="{Binding IsSurportImage}" Command="{Binding UploadImageCommand}"> -->
-                    <!--     <PathIcon Data="{StaticResource ImageRegular}" Width="20" Height="20" /> -->
-                    <!--     <ToolTip.Tip> -->
-                    <!--         <TextBlock -->
-                    <!--             Text="{loc:Loc Image}" /> -->
-                    <!--     </ToolTip.Tip> -->
-                    <!-- </Button> -->
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                            VerticalAlignment="Center">
-                    <CheckBox Content="{loc:Loc HideThnkingText}"
-                              IsChecked="{Binding IsNotShowThinking}">
-                        <ToolTip.Tip>
-                            <TextBlock
-                                Text="{loc:Loc HideThnkingTextTips}" />
-                        </ToolTip.Tip>
-                    </CheckBox>
-                    <CheckBox Content="{loc:Loc Plaintext}"
-                              IsChecked="{Binding IsPlaintext}">
-                        <ToolTip.Tip>
-                            <TextBlock
-                                Text="{loc:Loc ChatPlaintextTooltip}" />
-                        </ToolTip.Tip>
-                    </CheckBox>
-                </StackPanel>
-            </DockPanel>
-
-            <!-- 输入区域 -->
-            <TextBox Grid.Row="1" Name="InputBox" Margin="5" Padding="5,5,5,50" Text="{Binding InputText, Mode=TwoWay}"
-                     MinHeight="80"
-                     MaxHeight="250"
-                     TextWrapping="Wrap"
-                     AcceptsReturn="True"
-                     PlaceholderText="{loc:Loc ChatInputTips}"
-                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch">
-                <TextBox.KeyBindings>
-                    <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
-                </TextBox.KeyBindings>
-            </TextBox>
-
-            <StackPanel Grid.Row="1" Margin="15" VerticalAlignment="Bottom" HorizontalAlignment="Right">
-                <!-- IsHitTestVisible="{Binding $self.Children[0].IsEnabled}"> -->
-                <!-- ~1~ 显示输入的 token @1@ -->
-                <!-- <TextBlock Text="{Binding InputToken}" -->
-                <!--            FontSize="12" -->
-                <!--            VerticalAlignment="Center" /> -->
-                <!-- 发送按钮 -->
-                <Button IsVisible="{Binding !IsGenerating}"
-                        IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                        Content="{loc:Loc Send}"
-                        Command="{Binding SendMessageCommand}" VerticalAlignment="Center" />
-                <!-- 计算中显示的取消按钮 -->
-                <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" VerticalAlignment="Center">
-                    <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
-                    <!-- <Button Content="●" Classes="SimpleSolidButton" Foreground="Red" -->
-                    <!--         Command="{Binding StopSendingCommand}" /> -->
-                    <Button Classes="SimpleSolidButton" Command="{Binding StopSendingCommand}">
-                        <PathIcon Data="{StaticResource StopRegular}" Width="15" Height="15" Background="Red"
-                                  Foreground="Red" />
-                    </Button>
-                </StackPanel>
-            </StackPanel>
-
-        </Grid>
+                </Grid>
+            </Grid>
+        </Border>
     </Grid>
-
 </UserControl>

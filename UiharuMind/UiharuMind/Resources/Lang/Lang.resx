@@ -972,4 +972,85 @@
     <data name="KeySelectionWaiting" xml:space="preserve">
         <value>Waiting...</value>
     </data>
+    <data name="ChatWorkspace" xml:space="preserve">
+        <value>Chat Workspace</value>
+    </data>
+    <data name="ChatWorkspaceEmpty" xml:space="preserve">
+        <value>Select or create a chat session</value>
+    </data>
+    <data name="ChatSessions" xml:space="preserve">
+        <value>Sessions</value>
+    </data>
+    <data name="ChatSessionsHint" xml:space="preserve">
+        <value>Roleplay and assistant conversations</value>
+    </data>
+    <data name="ChatDetails" xml:space="preserve">
+        <value>Details</value>
+    </data>
+    <data name="NewChat" xml:space="preserve">
+        <value>New Chat</value>
+    </data>
+    <data name="RetryMessage" xml:space="preserve">
+        <value>Retry from here</value>
+    </data>
+    <data name="StopGenerating" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="CharacterWorkspace" xml:space="preserve">
+        <value>Character Workspace</value>
+    </data>
+    <data name="CharacterWorkspaceHint" xml:space="preserve">
+        <value>Manage roleplay characters and tool assistants</value>
+    </data>
+    <data name="CharacterPreview" xml:space="preserve">
+        <value>Character Preview</value>
+    </data>
+    <data name="CharacterLibraryHint" xml:space="preserve">
+        <value>Choose a character to preview, edit, or start chatting.</value>
+    </data>
+    <data name="CharacterEditor" xml:space="preserve">
+        <value>Character Editor</value>
+    </data>
+    <data name="CharacterEditorHint" xml:space="preserve">
+        <value>Edit identity, prompts, mounted tools, and generation parameters.</value>
+    </data>
+    <data name="CharacterEditorSections" xml:space="preserve">
+        <value>Sections</value>
+    </data>
+    <data name="EditorBasicInfo" xml:space="preserve">
+        <value>Basic Info</value>
+    </data>
+    <data name="EditorPrompt" xml:space="preserve">
+        <value>Prompt Template</value>
+    </data>
+    <data name="EditorPreview" xml:space="preserve">
+        <value>Live Preview</value>
+    </data>
+    <data name="EditorPreviewHint" xml:space="preserve">
+        <value>Updates as fields change.</value>
+    </data>
+    <data name="CharacterName" xml:space="preserve">
+        <value>Character name</value>
+    </data>
+    <data name="ImportCharacter" xml:space="preserve">
+        <value>Import Character</value>
+    </data>
+    <data name="ImportFileTitle" xml:space="preserve">
+        <value>Import from local JSON</value>
+    </data>
+    <data name="ImportFileHint" xml:space="preserve">
+        <value>Select a compatible character card file and import it into the local library.</value>
+    </data>
+    <data name="ImportUrlDisabledTitle" xml:space="preserve">
+        <value>URL import is not available yet</value>
+    </data>
+    <data name="ImportUrlDisabledHint" xml:space="preserve">
+        <value>This entry is reserved for future online character-card imports. Use local JSON import for now.</value>
+    </data>
+    <data name="UserCardEditor" xml:space="preserve">
+        <value>User Card Editor</value>
+    </data>
+    <data name="UserCardEditorHint" xml:space="preserve">
+        <value>Adjust your displayed identity and user prompt template.</value>
+    </data>
 </root>
