@@ -54,9 +54,12 @@
         <SelectableTextBlock Name="PlainTextBlock"
                              Background="Transparent"
                              TextWrapping="Wrap"
+                             HorizontalAlignment="Left"
                              FontSize="14">
         </SelectableTextBlock>
-        <avalonia1:HtmlLabel Name="MarkdownTextBlock" AutoSize="True" />
+        <avalonia1:HtmlLabel Name="MarkdownTextBlock"
+                             AutoSize="True"
+                             HorizontalAlignment="Left" />
         <!--     </DockPanel> -->
         <!-- </ScrollViewer> -->
 

@@ -81,6 +81,7 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
 
     public Action<ChatViewItemData>? DeleteCallback { get; set; }
     public Action<ChatViewItemData>? RetryCallback { get; set; }
+    public Action<ChatViewItemData>? BranchCallback { get; set; }
 
     public void SetChatItem(ChatMessage item)
     {
@@ -132,6 +133,12 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
         RetryCallback?.Invoke(this);
     }
 
+    [RelayCommand]
+    public void Branch()
+    {
+        BranchCallback?.Invoke(this);
+    }
+
     public void Reset()
     {
         Message = null;
@@ -142,5 +149,11 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     {
         if (_cachedContent == null) return;
         _cachedContent.Content = value;
+    }
+
+    partial void OnRoleChanged(ECharacter value)
+    {
+        OnPropertyChanged(nameof(IsSystem));
+        OnPropertyChanged(nameof(IsUser));
     }
 }

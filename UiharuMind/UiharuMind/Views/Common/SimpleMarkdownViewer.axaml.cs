@@ -25,7 +25,6 @@ using Avalonia.Styling;
 using TheArtOfDev.HtmlRenderer.Avalonia;
 using TheArtOfDev.HtmlRenderer.Core.Entities;
 using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Services;
 using UiharuMind.Utils.Tools;

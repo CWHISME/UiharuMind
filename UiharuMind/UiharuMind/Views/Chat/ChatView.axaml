@@ -31,6 +31,49 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style Selector="Button.message-action">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="MinWidth" Value="18" />
+            <Setter Property="MinHeight" Value="18" />
+            <Setter Property="MaxWidth" Value="18" />
+            <Setter Property="MaxHeight" Value="18" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Width="18"
+                            Height="18"
+                            CornerRadius="4"
+                            Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.message-action:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="Border.message-actions">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Grid.message-row:pointerover Border.message-actions">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
         <Style Selector="TextBlock.muted">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
@@ -40,6 +83,14 @@
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="14" />
+        </Style>
+        <Style Selector="Border.message-bubble">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="MaxWidth" Value="640" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
         <Style Selector="TextBox.composer-input">
             <Setter Property="Background" Value="Transparent" />
@@ -162,7 +213,10 @@
                 <ItemsControl ItemsSource="{Binding ChatSession.ChatItems}">
                     <ItemsControl.ItemTemplate>
                         <extends:ReuseDataTemplate>
-                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
+                            <Grid Classes="message-row"
+                                  ColumnDefinitions="Auto,*,Auto"
+                                  Margin="0,0,0,16"
+                                  Background="Transparent">
                                 <Ellipse Width="34" Height="34"
                                          Stroke="{DynamicResource SemiGrey2}"
                                          StrokeThickness="1"
@@ -174,54 +228,88 @@
                                     </Ellipse.Fill>
                                 </Ellipse>
 
-                                <StackPanel Grid.Column="1"
-                                            Margin="10,0"
-                                            MinHeight="34"
-                                            HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
-                                    <StackPanel Orientation="Horizontal"
-                                                Spacing="8"
-                                                HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
-                                        <TextBlock Text="{Binding SenderName}"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource SemiGrey7}" />
-                                        <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                                <Grid Grid.Column="1"
+                                      Margin="10,0"
+                                      MinHeight="34"
+                                      RowDefinitions="Auto,18"
+                                      Background="Transparent"
+                                      HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                    <StackPanel HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                        <StackPanel Orientation="Horizontal"
+                                                    Spacing="8"
+                                                    HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                            <TextBlock Text="{Binding SenderName}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource SemiGrey7}" />
+                                            <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                                        </StackPanel>
+
+                                        <Grid Margin="0,5,0,0"
+                                              HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                            <Border
+                                                    Classes="message-bubble"
+                                                    BorderBrush="{Binding SenderColor}"
+                                                    HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                                <Panel HorizontalAlignment="Left">
+                                                    <common:SimpleMarkdownViewer
+                                                        HorizontalAlignment="Left"
+                                                        IsVisible="{Binding !IsImageContent}"
+                                                        MarkdownText="{Binding Message}"
+                                                        IsThinkingRemove="{Binding DataContext.IsNotShowThinking, ElementName=Viewer}">
+                                                        <common:SimpleMarkdownViewer.IsPlaintext>
+                                                            <MultiBinding Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                                <Binding Path="IsUser" />
+                                                                <Binding Path="!IsDone" />
+                                                                <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
+                                                            </MultiBinding>
+                                                        </common:SimpleMarkdownViewer.IsPlaintext>
+                                                    </common:SimpleMarkdownViewer>
+                                                    <Image IsVisible="{Binding IsImageContent}"
+                                                           Source="{Binding MessageImage}"
+                                                           MaxWidth="520"
+                                                           MaxHeight="360" />
+                                                </Panel>
+                                            </Border>
+                                        </Grid>
                                     </StackPanel>
 
-                                    <Border Margin="0,5,0,0"
-                                            Padding="10"
-                                            MaxWidth="640"
-                                            CornerRadius="8"
-                                            BorderThickness="1"
-                                            BorderBrush="{Binding SenderColor}"
-                                            Background="{DynamicResource SemiGrey1}">
-                                        <Border.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
-                                                <MenuItem Header="{loc:Loc Edit}" Command="{Binding EditCommand}" />
-                                                <MenuItem Header="{loc:Loc RetryMessage}" Command="{Binding RetryCommand}" />
-                                                <MenuItem Header="{loc:Loc Delete}" Command="{Binding DeleteCommand}" />
-                                            </ContextMenu>
-                                        </Border.ContextMenu>
-                                        <Panel>
-                                            <common:SimpleMarkdownViewer
-                                                IsVisible="{Binding !IsImageContent}"
-                                                MarkdownText="{Binding Message}"
-                                                IsThinkingRemove="{Binding DataContext.IsNotShowThinking, ElementName=Viewer}">
-                                                <common:SimpleMarkdownViewer.IsPlaintext>
-                                                    <MultiBinding Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                                        <Binding Path="IsUser" />
-                                                        <Binding Path="!IsDone" />
-                                                        <Binding Path="DataContext.IsPlaintext" ElementName="Viewer" />
-                                                    </MultiBinding>
-                                                </common:SimpleMarkdownViewer.IsPlaintext>
-                                            </common:SimpleMarkdownViewer>
-                                            <Image IsVisible="{Binding IsImageContent}"
-                                                   Source="{Binding MessageImage}"
-                                                   MaxWidth="520"
-                                                   MaxHeight="360" />
-                                        </Panel>
+                                    <Border Classes="message-actions"
+                                            Grid.Row="1"
+                                            HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Button Classes="message-action" Command="{Binding BranchCommand}">
+                                                <PathIcon Width="11" Height="11" Data="{StaticResource BranchRegular}" />
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc BranchChatAfterMessage}" />
+                                                </ToolTip.Tip>
+                                            </Button>
+                                            <Button Classes="message-action" Command="{Binding RetryCommand}">
+                                                <PathIcon Width="11" Height="11" Data="{StaticResource ArrowRepeatAllRegular}" />
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc RetryMessage}" />
+                                                </ToolTip.Tip>
+                                            </Button>
+                                            <Button Classes="message-action" Command="{Binding CopyCommand}">
+                                                <PathIcon Width="11" Height="11" Data="{StaticResource CopyRegular}" />
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc Copy}" />
+                                                </ToolTip.Tip>
+                                            </Button>
+                                            <Button Classes="message-action" Command="{Binding EditCommand}">
+                                                <PathIcon Width="11" Height="11" Data="{StaticResource EditRegular}" />
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc Edit}" />
+                                                </ToolTip.Tip>
+                                            </Button>
+                                            <Button Classes="message-action" Command="{Binding DeleteCommand}">
+                                                <PathIcon Width="11" Height="11" Data="{StaticResource DeleteRegular}" />
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc Delete}" />
+                                                </ToolTip.Tip>
+                                            </Button>
+                                        </StackPanel>
                                     </Border>
-                                </StackPanel>
+                                </Grid>
                             </Grid>
                         </extends:ReuseDataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -288,12 +376,39 @@
                             <PathIcon Width="18" Height="18" Data="{StaticResource Setting}" />
                             <Button.Flyout>
                                 <Flyout Placement="Top">
-                                    <StackPanel Spacing="8" MinWidth="160">
-                                        <CheckBox Content="{loc:Loc HideThnkingText}"
-                                                  IsChecked="{Binding IsNotShowThinking}" />
-                                        <CheckBox Content="{loc:Loc Plaintext}"
-                                                  IsChecked="{Binding IsPlaintext}" />
-                                    </StackPanel>
+                                    <Border Padding="10"
+                                            CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="10">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <PathIcon Width="16"
+                                                          Height="16"
+                                                          VerticalAlignment="Center"
+                                                          Data="{StaticResource Setting}" />
+                                                <TextBlock Text="{loc:Loc Settings}"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource SemiGrey7}" />
+                                            </StackPanel>
+
+                                            <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+
+                                            <CheckBox Content="{loc:Loc HideThnkingText}"
+                                                      IsChecked="{Binding IsNotShowThinking}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc HideThnkingTextTips}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+
+                                            <CheckBox Content="{loc:Loc Plaintext}"
+                                                      IsChecked="{Binding IsPlaintext}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc ChatPlaintextTooltip}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+                                        </StackPanel>
+                                    </Border>
                                 </Flyout>
                             </Button.Flyout>
                             <ToolTip.Tip>

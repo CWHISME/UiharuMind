@@ -335,7 +335,7 @@ public partial class ChatViewModel : ViewModelBase
         if (value != null)
         {
             value.ChatItems.CollectionChanged += OnChatItemsCollectionChanged;
-            foreach (var item in value.ChatItems) item.RetryCallback = RetryFromMessageWithoutAwait;
+            foreach (var item in value.ChatItems) BindChatItemActions(item);
         }
 
         IsSurportImage = value?.ChatSession.ChatModelRunningData?.IsVisionModel == true;
@@ -351,8 +351,20 @@ public partial class ChatViewModel : ViewModelBase
         if (e.NewItems == null) return;
         foreach (ChatViewItemData item in e.NewItems)
         {
-            item.RetryCallback = RetryFromMessageWithoutAwait;
+            BindChatItemActions(item);
         }
+    }
+
+    private void BindChatItemActions(ChatViewItemData item)
+    {
+        item.RetryCallback = RetryFromMessageWithoutAwait;
+        item.BranchCallback = BranchFromMessage;
+    }
+
+    private void BranchFromMessage(ChatViewItemData itemData)
+    {
+        if (ChatSession == null || IsGenerating) return;
+        ChatSession.BranchFromChatItem(itemData);
     }
 
     private void CheckGenerationBtnVisible()

@@ -993,6 +993,12 @@
     <data name="RetryMessage" xml:space="preserve">
         <value>Retry from here</value>
     </data>
+    <data name="BranchChatAfterMessage" xml:space="preserve">
+        <value>Branch after this message</value>
+    </data>
+    <data name="ChatBranchSuffix" xml:space="preserve">
+        <value>Branch</value>
+    </data>
     <data name="StopGenerating" xml:space="preserve">
         <value>Stop</value>
     </data>

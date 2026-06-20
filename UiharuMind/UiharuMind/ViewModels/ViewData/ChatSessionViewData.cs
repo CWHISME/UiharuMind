@@ -33,6 +33,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.Views;
 using UiharuMind.Views.Windows.Common;
@@ -261,6 +262,26 @@ public partial class ChatSessionViewData : ObservableObject
     public void Copy()
     {
         ChatManager.Instance.Copy(ChatSession);
+    }
+
+    public void BranchFromChatItem(ChatViewItemData itemData)
+    {
+        int index = ChatItems.IndexOf(itemData);
+        if (index < 0) return;
+
+        var branchSession = GameUtils.Copy(ChatSession);
+        var suffix = LocalizationManager.Instance.GetString("ChatBranchSuffix");
+        branchSession.Name = $"{ChatSession.Name} {suffix}";
+        branchSession.Description = ChatSession.Description;
+
+        while (branchSession.Count > index + 1)
+        {
+            int lastIndex = branchSession.Count - 1;
+            branchSession.History.RemoveAt(lastIndex);
+            branchSession.TimeStamps.RemoveAt(lastIndex);
+        }
+
+        ChatManager.Instance.Add(branchSession);
     }
 
     [RelayCommand]
