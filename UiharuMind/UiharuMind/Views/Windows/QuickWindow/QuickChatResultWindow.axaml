@@ -5,6 +5,7 @@
         xmlns:u="https://irihi.tech/ursa"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
         x:Class="UiharuMind.Views.Windows.QuickChatResultWindow"
         Width="400"
@@ -37,17 +38,17 @@
             <common:SimpleMarkdownViewer Name="ResultTextBlock" />
         </ScrollViewer>
         <DockPanel Grid.Row="3" Name="ToolPanel">
-            <CheckBox Content="{x:Static lang:Lang.Plaintext}"
+            <CheckBox Content="{loc:Loc Plaintext}"
                       VerticalAlignment="Center"
                       Name="PlaintextCheckBox"
                       DockPanel.Dock="Left">
                 <ToolTip.Tip>
                     <TextBlock
-                        Text="{x:Static lang:Lang.ChatPlaintextTooltip}" />
+                        Text="{loc:Loc ChatPlaintextTooltip}" />
                 </ToolTip.Tip>
             </CheckBox>
             <Button Name="FuncBtn"
-                    Content="{x:Static lang:Lang.ConvertToTempChat}"
+                    Content="{loc:Loc ConvertToTempChat}"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Right"
                     Click="OnConvertToTempChatButtonClick"

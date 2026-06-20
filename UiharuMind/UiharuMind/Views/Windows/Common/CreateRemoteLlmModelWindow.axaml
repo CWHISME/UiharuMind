@@ -6,6 +6,7 @@
         xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
         xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         Width="500"
         x:Class="UiharuMind.Views.Windows.Common.CreateRemoteLlmModelWindow"
@@ -23,7 +24,7 @@
                 IsVisible="{Binding RemoteModelInfo, Converter={x:Static ObjectConverters.IsNull}}">
                 <!-- 自定义 -->
                 <DockPanel Margin="10">
-                    <Button Content="{x:Static  lang:Lang.CreateBtn}" DockPanel.Dock="Right"
+                    <Button Content="{loc:Loc CreateBtn}" DockPanel.Dock="Right"
                             Command="{Binding CreateRemoteModelCommand}"
                             CommandParameter="{Binding CustomeConfig}" />
                     <TextBlock Text="{Binding CustomeConfig.Name}" VerticalAlignment="Center" />
@@ -34,7 +35,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <DockPanel>
-                                <Button Content="{x:Static  lang:Lang.CreateBtn}" DockPanel.Dock="Right"
+                                <Button Content="{loc:Loc CreateBtn}" DockPanel.Dock="Right"
                                         Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         CommandParameter="{Binding}" />
                                 <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
@@ -46,12 +47,12 @@
 
             <StackPanel HorizontalAlignment="Stretch" Spacing="20" Margin="15"
                         IsVisible="{Binding !#SelectPanel.IsVisible}">
-                <u:Divider Content="{x:Static  lang:Lang.ApiKey}" />
+                <u:Divider Content="{loc:Loc ApiKey}" />
                 <TextBox VerticalContentAlignment="Center" Text="{Binding  RemoteModelInfo.ApiKey}"
                          PasswordChar="*" />
                 <!-- <u:Divider Content="设置" /> -->
                 <settingViews:SettingPanelView SettingConfig="{Binding RemoteModelInfo.Config}" />
-                <Button Content="{x:Static  lang:Lang.SureBtn}" Theme="{DynamicResource SolidButton}"
+                <Button Content="{loc:Loc SureBtn}" Theme="{DynamicResource SolidButton}"
                         u:FormItem.NoLabel="True"
                         HorizontalAlignment="Stretch" Click="Button_OnClick" />
             </StackPanel>

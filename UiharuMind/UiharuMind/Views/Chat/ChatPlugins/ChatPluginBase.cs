@@ -22,9 +22,9 @@ namespace UiharuMind.Views.Common.ChatPlugins;
 
 public partial class ChatPluginBase : ObservableObject
 {
-    public virtual UserControl View { get; }
+    public virtual UserControl View => null!;
 
-    [ObservableProperty] private ChatSessionViewData _chatSessionCurrentViewData;
+    [ObservableProperty] private ChatSessionViewData _chatSessionCurrentViewData = null!;
 
     public void SetSessonData(ChatSessionViewData chatSessionViewData)
     {

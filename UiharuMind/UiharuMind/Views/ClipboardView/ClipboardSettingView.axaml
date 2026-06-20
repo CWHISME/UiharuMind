@@ -17,7 +17,7 @@
         <clipboardView:ClipboardHistoryView Grid.Row="0" />
 
         <StackPanel Grid.Row="1" Orientation="Vertical">
-            <TextBox Watermark="Max Record Count" Text="{Binding MaxRecordCount}" />
+            <TextBox PlaceholderText="Max Record Count" Text="{Binding MaxRecordCount}" />
             <CheckBox Content="Save to Disk" IsChecked="{Binding SaveToDisk}" />
             <Button Content="Clear All" Command="{Binding ClearAllCommand}" />
         </StackPanel>

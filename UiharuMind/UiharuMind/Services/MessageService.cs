@@ -34,7 +34,7 @@ namespace UiharuMind.Services;
 public partial class MessageService : ObservableObject
 {
     [ObservableProperty] private bool _isBusy;
-    private Window _busyWindow;
+    private Window? _busyWindow;
 
     // private readonly DummyWindow _target;
     private WindowNotificationManager? _notificationManager;
@@ -113,7 +113,7 @@ public partial class MessageService : ObservableObject
         // Window? mainWindow = UIManager.GetWindow<MainWindow>();
         // if (mainWindow?.IsVisible == false) mainWindow = _target;
         // owner ??= UIManager.GetRootWindow();
-        if (IsBusy && _busyWindow.IsActive && _busyWindow.IsVisible) return MessageBoxResult.None;
+        if (IsBusy && _busyWindow?.IsActive == true && _busyWindow.IsVisible) return MessageBoxResult.None;
         IsBusy = true;
         MessageBoxResult result = MessageBoxResult.None;
         try
@@ -129,7 +129,7 @@ public partial class MessageService : ObservableObject
             //模态弹窗会闪，感觉是窗体渲染的问题，所以这里用非模态弹窗代替了
             // await MessageBox.ShowOverlayAsync(message, "Error", icon: MessageBoxIcon.Error,button: MessageBoxButton.OK);
         }
-        catch (Exception e)
+        catch
         {
             // ignored
         }
@@ -187,7 +187,7 @@ public partial class MessageService : ObservableObject
     public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,
         Action<MessageBoxResult>? callback)
     {
-        if (IsBusy && _busyWindow.IsActive && _busyWindow.IsVisible)
+        if (IsBusy && _busyWindow?.IsActive == true && _busyWindow.IsVisible)
         {
             Log.Warning("MessageService is busy, can't show messagebox.");
             return;
@@ -241,9 +241,9 @@ public partial class MessageService : ObservableObject
         try
         {
             if (page.View.Parent is ContentControl parent) parent.Content = null;
-            await Drawer.ShowCustomModal<object?>(page.View, page, null, options);
+            await OverlayDrawer.ShowCustomAsync<object?>(page.View, page, null, options);
         }
-        catch (Exception e)
+        catch
         {
             // ignored
         }

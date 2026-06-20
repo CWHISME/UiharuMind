@@ -4,19 +4,20 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         Width="666"
         Height="500"
-        x:Class="UiharuMind.Views.Windows.QuickTranslationWindow"
-        Title="{x:Static lang:Lang.Translation}">
+        x:Class="UiharuMind.Views.Windows.TranslationWindow"
+        Title="{loc:Loc Translation}">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*" Margin="10">
         <!-- 这个 Border 会导致 window 平台上 ComboBox 弹不出来 -->
         <!-- <Border Background="Red" PointerPressed="InputElement_OnPointerPressed"> -->
             <StackPanel Spacing="5" Margin="5">
                 <DockPanel LastChildFill="False">
-                    <TextBlock Text="{x:Static lang:Lang.Translation}" FontSize="20" Margin="0,4.5,5,0"
+                    <TextBlock Text="{loc:Loc Translation}" FontSize="20" Margin="0,4.5,5,0"
                                TextAlignment="Center" />
                     <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
                         <u:LoadingIcon Name="LoadingEffect" />
@@ -35,23 +36,23 @@
                 </DockPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="{x:Static lang:Lang.TargetLanguageText}"
+                    <TextBlock Text="{loc:Loc TargetLanguageText}"
                                FontSize="16" VerticalAlignment="Center" />
                     <ComboBox Name="TargetLanguageComboBox" HorizontalAlignment="Stretch" />
 
                     <StackPanel Name="CommonlyUsedLanguagePanel" Orientation="Horizontal" Spacing="5" />
                     
-                    <TextBlock Text="{x:Static lang:Lang.QuickTranslationWindow_Character}"
+                    <TextBlock Text="{loc:Loc QuickTranslationWindow_Character}"
                                FontSize="16" VerticalAlignment="Center" />
                     <ComboBox Name="TargetCharacterComboBox" HorizontalAlignment="Stretch" />
                 </StackPanel>
 
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Left" Text="{x:Static lang:Lang.ExtraRequestText}"
+                    <TextBlock DockPanel.Dock="Left" Text="{loc:Loc ExtraRequestText}"
                                FontSize="16"
                                VerticalAlignment="Center" />
                     <TextBox DockPanel.Dock="Right" Name="ExtraRequestTextBox"
-                             Watermark="{x:Static lang:Lang.ExtraRequestTextBoxTips}" Margin="10,0,0,0" />
+                             PlaceholderText="{loc:Loc ExtraRequestTextBoxTips}" Margin="10,0,0,0" />
                 </DockPanel>
             </StackPanel>
         <!-- </Border> -->
@@ -69,7 +70,7 @@
                          Grid.Column="0" Margin="5" Padding="5"
                          TextWrapping="Wrap"
                          AcceptsReturn="True"
-                         Watermark="{x:Static lang:Lang.ChatInputTips}"
+                         PlaceholderText="{loc:Loc ChatInputTips}"
                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch">
                     <TextBox.KeyBindings>
                         <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Enter" />

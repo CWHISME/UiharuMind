@@ -10,24 +10,40 @@
  ****************************************************************************/
 
 using System.Collections.ObjectModel;
+using UiharuMind.Services;
 using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.ViewModels;
 
 public class MenuViewData
 {
-    public ObservableCollection<MenuItemViewData> MenuItems { get; set; } = new()
+    public ObservableCollection<MenuItemViewData> MenuItems { get; set; }
+
+    public MenuViewData()
     {
-        new() { MenuHeader = Lang.MenuMainKey, MenuIconName = "Home", Key = MenuPages.MenuMainKey },
-        new() { MenuHeader = "Separator", IsSeparator = true },
-        new() { MenuHeader = Lang.MenuChatKey, MenuIconName = "Chat", Key = MenuPages.MenuChatKey },
+        MenuItems = new ObservableCollection<MenuItemViewData>
+        {
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuMainKey), MenuIconName = "Home", Key = MenuPages.MenuMainKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuChatKey), MenuIconName = "Chat", Key = MenuPages.MenuChatKey },
         // new() { MenuHeader = Lang.MenuTranslateKey, MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
-        new() { MenuHeader = Lang.MenuModelKey, MenuIconName = "Folder", Key = MenuPages.MenuModelKey },
-        new() { MenuHeader = Lang.MenuLogKey, MenuIconName = "BookInformationRegular", Key = MenuPages.MenuLogKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "Folder", Key = MenuPages.MenuModelKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuLogKey), MenuIconName = "BookInformationRegular", Key = MenuPages.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
-        new() { MenuHeader = Lang.MenuSettingKey, MenuIconName = "Setting", Key = MenuPages.MenuSettingKey },
-    };
+        };
+
+        RefreshLanguage();
+        LocalizationManager.Instance.LanguageChanged += RefreshLanguage;
+    }
+
+    private void RefreshLanguage()
+    {
+        foreach (var menuItem in MenuItems)
+        {
+            if (menuItem.MenuHeaderResourceKey == null) continue;
+            menuItem.MenuHeader = LocalizationManager.Instance.GetString(menuItem.MenuHeaderResourceKey);
+        }
+    }
 }
 
 // public static class MenuKeys

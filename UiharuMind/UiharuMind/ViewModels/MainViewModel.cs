@@ -11,7 +11,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -50,16 +49,9 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     }
 
     [RelayCommand]
-    private async Task OpenSetting()
+    private void OpenSetting()
     {
-        // Receive(MenuKeys.MenuSettingKey);
-        await MessageService.ShowPageDrawer(GetPage(MenuPages.MenuAboutKey));
-    }
-
-    [RelayCommand]
-    private async Task OpenHelp()
-    {
-        await MessageService.ShowPageDrawer(GetPage(MenuPages.MenuHelpKey));
+        UIManager.ShowWindow<SettingsWindow>();
     }
 
     [RelayCommand]
@@ -96,8 +88,6 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
                 MenuPages.MenuTranslateKey => new TranslatePageData(),
                 MenuPages.MenuModelKey => new ModelPageData(),
                 MenuPages.MenuLogKey => new LogPageData(),
-                MenuPages.MenuSettingKey => new SettingPageData(),
-                MenuPages.MenuAboutKey => new AboutPageData(),
                 MenuPages.MenuHelpKey => new HelpPageData(),
                 _ => GetPage(MenuPages.MenuModelKey),
             };
@@ -126,6 +116,12 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 
     public void JumpToPage(MenuPages page)
     {
+        if (page == MenuPages.MenuSettingKey)
+        {
+            UIManager.ShowWindow<SettingsWindow>();
+            return;
+        }
+
         Content = GetPage(page);
         foreach (var menu in Menus.MenuItems)
         {

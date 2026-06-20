@@ -9,7 +9,6 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using Tiktoken;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI;
 using UiharuMind.Core.Core;

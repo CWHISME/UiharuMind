@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System.ComponentModel;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avalonia;
@@ -18,6 +19,8 @@ using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Extensions;
+using UiharuMind.Services;
 
 namespace UiharuMind.Views.SettingViews;
 
@@ -27,6 +30,8 @@ namespace UiharuMind.Views.SettingViews;
 /// </summary>
 public partial class SettingPanelView : UserControl
 {
+    private object? _currentSettingConfig;
+
     public SettingPanelView()
     {
         // DataContext = this;
@@ -64,15 +69,40 @@ public partial class SettingPanelView : UserControl
         base.OnPropertyChanged(change);
         if (change.Property == SettingConfigProperty)
         {
-            var actualValue = change.NewValue;
-            Title.Content = actualValue?.GetType().GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ??
-                            actualValue?.GetType().Name;
+            _currentSettingConfig = change.NewValue;
+            RefreshTitle();
             SettingListView.SettingConfig = change.NewValue;
         }
         else if (change.Property == IsVerticleTitleProperty)
         {
             SettingListView.IsVerticleTitle = change.GetNewValue<bool>();
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        LocalizationManager.Instance.LanguageChanged -= RefreshLanguage;
+        LocalizationManager.Instance.LanguageChanged += RefreshLanguage;
+        RefreshTitle();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        LocalizationManager.Instance.LanguageChanged -= RefreshLanguage;
+    }
+
+    private void RefreshLanguage()
+    {
+        RefreshTitle();
+        SettingListView.SettingConfig = _currentSettingConfig;
+    }
+
+    private void RefreshTitle()
+    {
+        var type = _currentSettingConfig?.GetType();
+        Title.Content = type?.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? type?.Name;
     }
     // private object? _settingConfig;
     //

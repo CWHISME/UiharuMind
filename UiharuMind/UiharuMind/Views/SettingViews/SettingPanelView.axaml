@@ -16,7 +16,7 @@
         <!-- <TextBlock Name="Title" FontSize="16" FontWeight="Bold" Margin="0,0,0,10" /> -->
         <u:Divider Name="Title" FontSize="20" FontWeight="Bold" />
         <!-- Settings -->
-        <Border BorderBrush="{StaticResource UiBorderBrush}" BorderThickness="1" Padding="10">
+        <Border BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="1" Padding="10">
             <settingViews:SettingListView Name="SettingListView" />
         </Border>
     </StackPanel>

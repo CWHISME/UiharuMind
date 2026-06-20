@@ -19,6 +19,7 @@ namespace UiharuMind.Views.Common;
 public class QuickWindowBase : UiharuWindowBase
 {
     public override bool IsCacheWindow => true;
+    public override bool ContributesToMacRegularMode => false;
 
     public override void Awake()
     {

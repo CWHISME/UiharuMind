@@ -5,6 +5,7 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
@@ -69,10 +70,10 @@
                                 <!-- 菜单 -->
                                 <Ellipse.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="{x:Static  lang:Lang.Edit}"
+                                        <MenuItem Header="{loc:Loc Edit}"
                                                   CommandParameter="{Binding .}"
                                                   Command="{Binding EditCommand}" />
-                                        <MenuItem Header="{x:Static  lang:Lang.Delete}"
+                                        <MenuItem Header="{loc:Loc Delete}"
                                                   CommandParameter="{Binding .}"
                                                   Command="{Binding DeleteCommand}" />
                                     </ContextMenu>
@@ -125,7 +126,7 @@
             TotalCount="{Binding ChatSession.ChatItems.Count}" />
 
         <!-- 重算 -->
-        <Button Grid.Row="2" Content="{x:Static lang:Lang.RegenerateBtn}"
+        <Button Grid.Row="2" Content="{loc:Loc RegenerateBtn}"
                 Margin="0,10,0,0"
                 IsVisible="{Binding IsVisibleRegenerateButton}"
                 Command="{Binding RegenerateMessageCommand}" />
@@ -139,7 +140,7 @@
                             Command="{Binding ChangeSendModeCommand}">
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{x:Static lang:Lang.SendUserDesc}" />
+                                Text="{loc:Loc SendUserDesc}" />
                         </ToolTip.Tip>
                     </Button>
                     <Button Command="{Binding ChatSession.MemoryEditorCommand}">
@@ -147,7 +148,7 @@
                                   Foreground="{Binding ChatSession.MemoryData,Converter={StaticResource ModelToBrushConverter}}" />
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{x:Static lang:Lang.MemoryTips}" />
+                                Text="{loc:Loc MemoryTips}" />
                         </ToolTip.Tip>
                     </Button>
                     <Button Command="{Binding ChatSession.MemoryUpdateFileCommand}">
@@ -168,7 +169,7 @@
                     </Button>
                     <!-- <TextBlock Text="{Binding ChatSession.MemoryTipsName}" VerticalAlignment="Center" /> -->
                     <!-- <StackPanel Orientation="Horizontal" Spacing="10"> -->
-                    <!--     <TextBlock Text="{x:Static lang:Lang.MemoryTitle}" VerticalAlignment="Center" /> -->
+                    <!--     <TextBlock Text="{loc:Loc MemoryTitle}" VerticalAlignment="Center" /> -->
                     <!--     <TextBlock Text="{Binding ChatSession.MemoryTipsName}" Margin="-10,0,0,0" -->
                     <!--                VerticalAlignment="Center" /> -->
                     <!--     <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding MemorySources}" -->
@@ -178,25 +179,25 @@
                     <!--     <PathIcon Data="{StaticResource ImageRegular}" Width="20" Height="20" /> -->
                     <!--     <ToolTip.Tip> -->
                     <!--         <TextBlock -->
-                    <!--             Text="{x:Static lang:Lang.Image}" /> -->
+                    <!--             Text="{loc:Loc Image}" /> -->
                     <!--     </ToolTip.Tip> -->
                     <!-- </Button> -->
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Right" HorizontalAlignment="Right"
                             VerticalAlignment="Center">
-                    <CheckBox Content="{x:Static lang:Lang.HideThnkingText}"
+                    <CheckBox Content="{loc:Loc HideThnkingText}"
                               IsChecked="{Binding IsNotShowThinking}">
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{x:Static lang:Lang.HideThnkingTextTips}" />
+                                Text="{loc:Loc HideThnkingTextTips}" />
                         </ToolTip.Tip>
                     </CheckBox>
-                    <CheckBox Content="{x:Static lang:Lang.Plaintext}"
+                    <CheckBox Content="{loc:Loc Plaintext}"
                               IsChecked="{Binding IsPlaintext}">
                         <ToolTip.Tip>
                             <TextBlock
-                                Text="{x:Static lang:Lang.ChatPlaintextTooltip}" />
+                                Text="{loc:Loc ChatPlaintextTooltip}" />
                         </ToolTip.Tip>
                     </CheckBox>
                 </StackPanel>
@@ -208,7 +209,7 @@
                      MaxHeight="250"
                      TextWrapping="Wrap"
                      AcceptsReturn="True"
-                     Watermark="{x:Static lang:Lang.ChatInputTips}"
+                     PlaceholderText="{loc:Loc ChatInputTips}"
                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch">
                 <TextBox.KeyBindings>
                     <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
@@ -224,7 +225,7 @@
                 <!-- 发送按钮 -->
                 <Button IsVisible="{Binding !IsGenerating}"
                         IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                        Content="{x:Static  lang:Lang.Send}"
+                        Content="{loc:Loc Send}"
                         Command="{Binding SendMessageCommand}" VerticalAlignment="Center" />
                 <!-- 计算中显示的取消按钮 -->
                 <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" VerticalAlignment="Center">

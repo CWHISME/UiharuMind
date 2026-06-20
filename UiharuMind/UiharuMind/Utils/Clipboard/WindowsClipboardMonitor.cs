@@ -24,7 +24,7 @@ public class WindowsClipboardMonitor : IClipboardMonitor
     private readonly Thread _monitorThread;
     private IntPtr _windowHandle;
     private bool _running;
-    private WndProcDelegate _wndProcDelegate;
+    private WndProcDelegate _wndProcDelegate = null!;
 
     public event Action? OnClipboardChanged;
 

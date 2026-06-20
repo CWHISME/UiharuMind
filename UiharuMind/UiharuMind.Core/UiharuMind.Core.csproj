@@ -18,7 +18,6 @@
       <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.37.0-alpha" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpHook" Version="7.1.1" />
-      <PackageReference Include="Tiktoken" Version="2.0.3" />
     </ItemGroup>
 
     <ItemGroup>
@@ -43,8 +42,8 @@
       <EmbeddedResource Include="Resources\Translator.json" />
       <None Remove="Resources\TranslateReviwer.json" />
       <EmbeddedResource Include="Resources\TranslateReviwer.json" />
-      <None Remove="Resources\Help.md" />
-      <EmbeddedResource Include="Resources\Help.md" />
+      <None Remove="Resources\Help*.md" />
+      <EmbeddedResource Include="Resources\Help*.md" />
     </ItemGroup>
 
 </Project>

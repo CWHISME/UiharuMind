@@ -41,6 +41,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // private bool _error = false;
 
     public override bool IsCacheWindow => false;
+    public override bool ContributesToMacRegularMode => false;
 
     public ScreenCaptureWindow()
     {

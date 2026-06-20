@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Common.ChatPlugins"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.ChatPlugins.ChatPlugin_UserCharacterCard">
@@ -13,13 +14,13 @@
     </Design.DataContext>
 
     <!-- 角色卡 -->
-    <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}" Padding="5">
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" Padding="5">
         <StackPanel Spacing="10">
-            <u:Divider Content="{x:Static  lang:Lang.CharacterUser}" />
+            <u:Divider Content="{loc:Loc CharacterUser}" />
             <Panel>
                 <TextBlock DockPanel.Dock="Left" Text="{Binding User.Description}" VerticalAlignment="Center"
                            HorizontalAlignment="Left" />
-                <Button DockPanel.Dock="Right" Content="{x:Static lang:Lang.Edit}"
+                <Button DockPanel.Dock="Right" Content="{loc:Loc Edit}"
                         Command="{Binding EditUserCardCommand}" HorizontalAlignment="Right" />
             </Panel>
             <SelectableTextBlock Text="{Binding UserTemplateReadonly}" TextWrapping="Wrap" />

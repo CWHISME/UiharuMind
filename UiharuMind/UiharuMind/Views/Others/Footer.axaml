@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Controls.Footer">
 
@@ -15,25 +15,19 @@
     </UserControl.Styles>
 
     <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-        <!-- <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center" -->
-        <!--               Command="{Binding OpenHelpCommand}"> -->
-        <!--     <u:IconButton.Icon> -->
-        <!--         <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="20" Height="20" /> -->
-        <!--     </u:IconButton.Icon> -->
-        <!--     <ToolTip.Tip> -->
-        <!--         <TextBlock Text="{x:Static lang:Lang.TrayMenuHelp}" /> -->
-        <!--     </ToolTip.Tip> -->
-        <!-- </u:IconButton> -->
         <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
+                      Height="42"
+                      Width="42"
+                      Padding="0"
                       Command="{Binding OpenSettingCommand}">
             <u:IconButton.Icon>
                 <!-- <TextBlock -->
                 <!--     HorizontalAlignment="Center" -->
                 <!--     Text="🌱" /> -->
-                <PathIcon Data="{StaticResource InfoRegular}" Width="20" Height="20" />
+                <PathIcon Data="{StaticResource Setting}" Width="20" Height="20" />
             </u:IconButton.Icon>
             <ToolTip.Tip>
-                <TextBlock Text="{x:Static lang:Lang.MenuAboutKey}" />
+                <TextBlock Text="{loc:Loc MenuSettingKey}" />
             </ToolTip.Tip>
         </u:IconButton>
         <TextBlock Name="VersionText" HorizontalAlignment="Center" />

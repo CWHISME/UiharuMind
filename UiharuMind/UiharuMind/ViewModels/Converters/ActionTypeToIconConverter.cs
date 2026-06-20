@@ -14,17 +14,18 @@ public class ActionTypeToIconConverter : IValueConverter
     {
         return value switch
         {
-            AutoClickActionType.MouseClick => "🖱",
-            AutoClickActionType.MouseDown => "⬇️",
-            AutoClickActionType.MouseUp => "⬆️",
-            AutoClickActionType.MouseMove => "➡️",
-            AutoClickActionType.MouseWheel => "🔄",
-            AutoClickActionType.KeyPress => "⌨",
-            AutoClickActionType.KeyDown => "⬇️",
-            AutoClickActionType.KeyUp => "⬆️",
-            AutoClickActionType.Delay => "⏱",
-            AutoClickActionType.Text => "📝",
-            _ => "❓"
+            AutoClickStepKind.MouseClick => "M",
+            AutoClickStepKind.MouseDown => "↓",
+            AutoClickStepKind.MouseUp => "↑",
+            AutoClickStepKind.MouseMove => "→",
+            AutoClickStepKind.MouseWheel => "W",
+            AutoClickStepKind.KeyClick => "K",
+            AutoClickStepKind.KeyDown => "↓",
+            AutoClickStepKind.KeyUp => "↑",
+            AutoClickStepKind.Delay => "T",
+            AutoClickStepKind.Text => "A",
+            AutoClickStepKind.Loop => "L",
+            _ => "?"
         };
     }
 

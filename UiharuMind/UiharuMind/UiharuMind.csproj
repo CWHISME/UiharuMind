@@ -4,44 +4,29 @@
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
-
-
+	
 	<ItemGroup>
 		<AvaloniaResource Include="Assets\**" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="11.2.5" />
-		<PackageReference Include="Avalonia.HtmlRenderer" Version="11.0.0" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.5" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.5" />
+		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.HtmlRenderer" Version="12.0.0" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
 		<!--主题包-->
-		<PackageReference Include="Irihi.Ursa" Version="1.7.0" />
+		<PackageReference Include="Irihi.Ursa" Version="2.0.1" />
 
-		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.2.5" />
-		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="1.7.0" />
-		<PackageReference Include="Semi.Avalonia" Version="11.2.1.3" />
-		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="11.2.1.3" />
+		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.0.1" />
+		<PackageReference Include="Semi.Avalonia" Version="12.0.3" />
+		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.0.3" />
 		<PackageReference Include="SharpHook" Version="7.1.1" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\UiharuMind.Core\UiharuMind.Core.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <UpToDateCheckInput Remove="ViewModels\Controls\Footer.axaml" />
-	  <UpToDateCheckInput Remove="Views\Common\ChatPlugins\ChatPlugin_UserCharacterCard.axaml" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <AdditionalFiles Include="Views\Chat\ChatPlugins\ChatPlugin_UserCharacterCard.axaml" />
-	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCaptureDockWindow.axaml" />
-	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCapturePreviewWindow.axaml" />
-	  <AdditionalFiles Include="Views\Windows\ScreenCapture\ScreenCaptureWindow.axaml" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -68,48 +53,6 @@
 	    <DesignTime>True</DesignTime>
 	    <AutoGen>True</AutoGen>
 	    <DependentUpon>zh-CN.resx</DependentUpon>
-	  </Compile>
-	  <Compile Update="Views\Common\ModelSelectComboBoxView.axaml.cs">
-	    <DependentUpon>ModelSelectComboBoxView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Common\LogView.axaml.cs">
-	    <DependentUpon>LogView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Others\Footer.axaml.cs">
-	    <DependentUpon>Footer.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\ClipboardView\ClipboardSettingView.axaml.cs">
-	    <DependentUpon>ClipboardSettingView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Chat\ChatInfoView.axaml.cs">
-	    <DependentUpon>ChatInfoView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Chat\ChatListView.axaml.cs">
-	    <DependentUpon>ChatListView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Chat\ChatView.axaml.cs">
-	    <DependentUpon>ChatView.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Chat\ChatPlugins\ChatPlugin_LocalModelParams.axaml.cs">
-	    <DependentUpon>ChatPlugin_LocalModelParams.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Windows\AutoClick\QuickAutoClickWindow.axaml.cs">
-	    <DependentUpon>QuickAutoClickWindow.axaml</DependentUpon>
-	    <SubType>Code</SubType>
-	  </Compile>
-	  <Compile Update="Views\Windows\AutoClick\RecordingIndicatorWindow.axaml.cs">
-	    <DependentUpon>RecordingIndicatorWindow.axaml</DependentUpon>
-	  </Compile>
-	  <Compile Update="Views\Windows\AutoClick\PlaybackIndicatorWindow.axaml.cs">
-	    <DependentUpon>PlaybackIndicatorWindow.axaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
 </Project>

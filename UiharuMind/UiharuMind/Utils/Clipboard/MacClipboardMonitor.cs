@@ -11,7 +11,7 @@
 
 using System;
 using System.Runtime.InteropServices;
-using System.Timers;
+using Avalonia.Threading;
 
 namespace UiharuMind.Utils.Clipboard;
 
@@ -20,59 +20,73 @@ namespace UiharuMind.Utils.Clipboard;
 /// </summary>
 public class MacClipboardMonitor : IClipboardMonitor
 {
-    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
+    private const string ObjCLibrary = "/usr/lib/libobjc.A.dylib";
+
+    [DllImport(ObjCLibrary)]
     private static extern IntPtr objc_getClass(string className);
 
-    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
+    [DllImport(ObjCLibrary)]
     private static extern IntPtr sel_registerName(string selectorName);
 
-    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit", EntryPoint = "objc_msgSend")]
+    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector);
 
-    [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit", EntryPoint = "objc_msgSend")]
-    private static extern int objc_msgSend_int(IntPtr receiver, IntPtr selector);
+    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
+    private static extern nint objc_msgSend_nint(IntPtr receiver, IntPtr selector);
 
-    private readonly Timer _clipboardCheckTimer;
+    private static readonly IntPtr GeneralPasteboardSelector = sel_registerName("generalPasteboard");
+    private static readonly IntPtr ChangeCountSelector = sel_registerName("changeCount");
+
+    private readonly DispatcherTimer _clipboardCheckTimer;
     private readonly IntPtr _pasteboard;
-    private int _lastChangeCount;
+    private nint _lastChangeCount;
+    private bool _disposed;
+    private bool _isChecking;
 
     public event Action? OnClipboardChanged;
 
     public MacClipboardMonitor(double interval = 1000)
     {
         IntPtr nsPasteboardClass = objc_getClass("NSPasteboard");
-        IntPtr generalPasteboardSelector = sel_registerName("generalPasteboard");
-        _pasteboard = objc_msgSend_IntPtr(nsPasteboardClass, generalPasteboardSelector);
+        _pasteboard = objc_msgSend_IntPtr(nsPasteboardClass, GeneralPasteboardSelector);
 
-        IntPtr changeCountSelector = sel_registerName("changeCount");
-        _lastChangeCount = objc_msgSend_int(_pasteboard, changeCountSelector);
+        _lastChangeCount = objc_msgSend_nint(_pasteboard, ChangeCountSelector);
 
-        _clipboardCheckTimer = new Timer(interval);
-        _clipboardCheckTimer.Elapsed += CheckClipboard;
+        _clipboardCheckTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(interval)
+        };
+        _clipboardCheckTimer.Tick += CheckClipboard;
         _clipboardCheckTimer.Start();
     }
 
-    private void CheckClipboard(object? sender, ElapsedEventArgs e)
+    private void CheckClipboard(object? sender, EventArgs e)
     {
-        IntPtr changeCountSelector = sel_registerName("changeCount");
-        int currentChangeCount = objc_msgSend_int(_pasteboard, changeCountSelector);
+        if (_disposed || _isChecking) return;
 
-        if (currentChangeCount != _lastChangeCount)
+        _isChecking = true;
+        try
         {
+            nint currentChangeCount = objc_msgSend_nint(_pasteboard, ChangeCountSelector);
+
+            if (currentChangeCount == _lastChangeCount) return;
+
             _lastChangeCount = currentChangeCount;
-            OnClipboardChanged?.Invoke();
+            if (!_disposed) OnClipboardChanged?.Invoke();
+        }
+        finally
+        {
+            _isChecking = false;
         }
     }
 
     public void Dispose()
     {
-        
+        if (_disposed) return;
+        _disposed = true;
         _clipboardCheckTimer.Stop();
-        _clipboardCheckTimer.Dispose();
-    }
-    
-    ~MacClipboardMonitor()
-    {
-        Dispose();
+        _clipboardCheckTimer.Tick -= CheckClipboard;
+        OnClipboardChanged = null;
+        GC.SuppressFinalize(this);
     }
 }

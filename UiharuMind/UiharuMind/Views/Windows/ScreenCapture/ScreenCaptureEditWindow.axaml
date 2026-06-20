@@ -33,7 +33,7 @@
 
     <Border CornerRadius="10"
             BorderThickness="1"
-            BorderBrush="{StaticResource UiBorderBrush}">
+            BorderBrush="{DynamicResource SemiGrey2}">
 
         <Grid RowDefinitions="Auto,Auto,*" Margin="5">
 

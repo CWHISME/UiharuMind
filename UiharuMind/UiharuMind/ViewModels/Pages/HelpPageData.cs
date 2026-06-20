@@ -10,19 +10,45 @@
  ****************************************************************************/
 
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.ComponentModel;
+using System.IO;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Services;
 using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;
 
 public partial class HelpPageData : PageDataBase
 {
-    public string HelpText { get; set; }
+    [ObservableProperty] private string _helpText = string.Empty;
 
     public HelpPageData()
     {
-        HelpText = EmbeddedResourcesUtils.Read("Help.md");
+        LocalizationManager.Instance.LanguageChanged += RefreshHelpText;
+        RefreshHelpText();
     }
 
-    protected override Control CreateView => new HelpPage();
+    protected override Control CreateView => new HelpPage { DataContext = this };
+
+    private void RefreshHelpText()
+    {
+        HelpText = ReadHelpDocument(LocalizationManager.Instance.LanguageCode);
+    }
+
+    private static string ReadHelpDocument(string? languageCode)
+    {
+        if (!string.IsNullOrWhiteSpace(languageCode))
+        {
+            try
+            {
+                return EmbeddedResourcesUtils.Read($"Help.{languageCode}.md");
+            }
+            catch (FileNotFoundException)
+            {
+                // Fallback below.
+            }
+        }
+
+        return EmbeddedResourcesUtils.Read("Help.md");
+    }
 }

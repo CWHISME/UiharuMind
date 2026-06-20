@@ -1,0 +1,487 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:UiharuMind.ViewModels.ViewData"
+    xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+    xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+    mc:Ignorable="d"
+    d:DesignWidth="1180"
+    d:DesignHeight="760"
+    Width="1180"
+    Height="760"
+    MinWidth="980"
+    MinHeight="640"
+    Icon="/Assets/Icon.png"
+    x:Class="UiharuMind.Views.Windows.AutoClickWindow"
+    Title="{Binding WindowTitle}">
+
+    <Design.DataContext>
+        <vm:QuickAutoClickViewModel />
+    </Design.DataContext>
+
+    <Window.Resources>
+        <converters:AutoClickIndentConverter x:Key="AutoClickIndentConverter" />
+        <converters:AutoClickKindGlyphConverter x:Key="AutoClickKindGlyphConverter" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.Panel">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.ToolbarButton">
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinHeight" Value="32" />
+        </Style>
+        <Style Selector="Button.IconButton">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="ListBox.SessionList">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBox.SessionList ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.SessionCard">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="ListBox.SessionList ListBoxItem:pointerover Border.SessionCard">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBox.SessionList ListBoxItem:selected Border.SessionCard">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiBlue5}" />
+        </Style>
+        <Style Selector="ListBox.StepList">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBox.StepList ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.StepCard">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
+        <Style Selector="Border.StepCard:selected">
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiBlue5}" />
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <Style Selector="Border.StepCard:executing">
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGreen5}" />
+            <Setter Property="Background" Value="{DynamicResource SemiGreen0}" />
+        </Style>
+        <Style Selector="Border.FieldSection">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1"
+                Padding="18,12">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3">
+                    <TextBlock Text="{Binding CurrentSessionDisplayName}"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding StatusText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource SemiGrey7}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Margin="16,0,0,0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Spacing="8">
+                    <Button Classes="ToolbarButton"
+                            Command="{Binding StartRecordingCommand}"
+                            IsEnabled="{Binding !IsRecording}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Width="10" Height="10" CornerRadius="5" Background="{DynamicResource SemiRed5}" />
+                            <TextBlock Text="{loc:Loc AutoClickStartRecording}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="ToolbarButton"
+                            Command="{Binding PlayActionsCommand}"
+                            IsEnabled="{Binding HasSteps}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="▶" FontSize="12" />
+                            <TextBlock Text="{loc:Loc AutoClickPlay}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="ToolbarButton"
+                            Command="{Binding SaveSessionCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Width="14" Height="14" Data="{StaticResource SaveRegular}" />
+                            <TextBlock Text="{loc:Loc SaveBtn}" />
+                            <TextBlock Text="{Binding UnsavedMarker}"
+                                       Foreground="{DynamicResource SemiRed5}"
+                                       FontWeight="Bold" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Margin="18"
+              ColumnDefinitions="260,*,300">
+            <Border Grid.Column="0" Classes="Panel" Padding="12">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Classes="SectionTitle" Text="{loc:Loc AutoClickSessions}" />
+                            <TextBlock FontSize="12"
+                                       Foreground="{DynamicResource SemiGrey6}"
+                                       Text="{Binding SavedSessions.Count, StringFormat='{}{0}'}" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Classes="IconButton"
+                                Command="{Binding NewSessionCommand}"
+                                ToolTip.Tip="{loc:Loc AutoClickNewSession}">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource DocumentAddRegular}" />
+                        </Button>
+                    </Grid>
+
+                    <TextBox Grid.Row="1"
+                             PlaceholderText="{loc:Loc AutoClickSearchSession}"
+                             Text="{Binding SearchText}"
+                             Margin="0,0,0,10" />
+
+                    <ListBox x:Name="SessionListBox"
+                             Grid.Row="2"
+                             Classes="SessionList"
+                             ItemsSource="{Binding SavedSessions}"
+                             SelectedItem="{Binding CurrentSession, Mode=OneWay}"
+                             SelectionChanged="SessionList_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="SessionCard"
+                                        Padding="10">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="{loc:Loc AutoClickRenameSession}" Click="RenameSessionMenuItem_Click" />
+                                            <MenuItem Header="{loc:Loc AutoClickDuplicateSession}" Command="{Binding DataContext.DuplicateSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                            <MenuItem Header="{loc:Loc Delete}" Click="DeleteSessionMenuItem_Click" />
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding Name}" />
+                                        <TextBlock Grid.Row="1"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource SemiGrey6}">
+                                            <Run Text="{Binding StepCount}" />
+                                            <Run Text=" " />
+                                            <Run Text="{loc:Loc AutoClickStepUnit}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding UpdatedAt, StringFormat='yyyy-MM-dd HH:mm'}" />
+                                        </TextBlock>
+                                        <Button Grid.Column="1"
+                                                Grid.RowSpan="2"
+                                                Classes="IconButton"
+                                                CommandParameter="{Binding}"
+                                                Click="DeleteSessionButton_Click"
+                                                ToolTip.Tip="{loc:Loc Delete}">
+                                            <TextBlock Text="×" FontSize="18" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Classes="Panel" Padding="14" Margin="14,0,0,0">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Classes="SectionTitle" Text="{loc:Loc AutoClickTimeline}" />
+                            <TextBlock Text="{Binding StepCountText}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SemiGrey6}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    Spacing="6"
+                                    VerticalAlignment="Center">
+                            <Button Classes="IconButton" Command="{Binding MoveSelectedStepUpCommand}" ToolTip.Tip="{loc:Loc AutoClickMoveUp}">
+                                <TextBlock Text="↑" FontSize="16" />
+                            </Button>
+                            <Button Classes="IconButton" Command="{Binding MoveSelectedStepDownCommand}" ToolTip.Tip="{loc:Loc AutoClickMoveDown}">
+                                <TextBlock Text="↓" FontSize="16" />
+                            </Button>
+                            <Button Classes="IconButton" Command="{Binding DuplicateSelectedStepCommand}" ToolTip.Tip="{loc:Loc AutoClickDuplicateStep}">
+                                <PathIcon Width="15" Height="15" Data="{StaticResource CopyRegular}" />
+                            </Button>
+                            <Button Classes="IconButton" Command="{Binding RemoveSelectedStepCommand}" ToolTip.Tip="{loc:Loc AutoClickRemoveStep}">
+                                <TextBlock Text="×" FontSize="18" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <WrapPanel Grid.Row="1" Margin="0,0,0,12">
+                        <Button Classes="ToolbarButton" Command="{Binding AddMouseClickStepCommand}" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc AutoClickAddLeftClick}" />
+                        </Button>
+                        <Button Classes="ToolbarButton" Command="{Binding AddMouseRightClickStepCommand}" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc AutoClickAddRightClick}" />
+                        </Button>
+                        <Button Classes="ToolbarButton" Click="AddKeyButton_Click" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc AutoClickAddKey}" />
+                        </Button>
+                        <Button Classes="ToolbarButton" Command="{Binding AddTextStepCommand}" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc AutoClickAddText}" />
+                        </Button>
+                        <Button Classes="ToolbarButton" Command="{Binding AddDelayStepCommand}" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc AutoClickAddDelay}" />
+                        </Button>
+                        <Button Classes="ToolbarButton" Command="{Binding AddLoopStepCommand}" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc AutoClickAddLoop}" />
+                        </Button>
+                        <Button Classes="ToolbarButton" Command="{Binding ClearStepsCommand}" Margin="0,0,6,6">
+                            <TextBlock Text="{loc:Loc DeleteAll}" />
+                        </Button>
+                    </WrapPanel>
+
+                    <Grid Grid.Row="2">
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Spacing="8"
+                                    IsVisible="{Binding HasNoSteps}">
+                            <PathIcon Width="42" Height="42" Data="{StaticResource ArrowRepeatAllRegular}" Foreground="{DynamicResource SemiGrey5}" />
+                            <TextBlock Text="{loc:Loc AutoClickEmptyTimelineTitle}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc AutoClickEmptyTimelineDesc}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SemiGrey6}"
+                                       TextAlignment="Center" />
+                        </StackPanel>
+
+                        <ListBox x:Name="StepListBox"
+                                 Classes="StepList"
+                                 ItemsSource="{Binding VisibleSteps}"
+                                 SelectedItem="{Binding SelectedStep}"
+                                 IsVisible="{Binding HasSteps}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes.StepCard="True"
+                                            Classes.selected="{Binding IsSelected}"
+                                            Classes.executing="{Binding IsExecuting}"
+                                            Margin="{Binding Level, Converter={StaticResource AutoClickIndentConverter}}">
+                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                            <Border Width="34"
+                                                    Height="34"
+                                                    CornerRadius="17"
+                                                    Background="{DynamicResource SemiGrey1}">
+                                                <TextBlock Text="{Binding KindDisplayName, Converter={StaticResource AutoClickKindGlyphConverter}}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           FontSize="14"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="3" Margin="10,0,0,0">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding Title}"
+                                                               FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Border CornerRadius="4"
+                                                            Padding="5,1"
+                                                            Background="{DynamicResource SemiGrey1}">
+                                                        <TextBlock Text="{Binding KindDisplayName}"
+                                                                   FontSize="11"
+                                                                   Foreground="{DynamicResource SemiGrey7}" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Summary}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiGrey6}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2"
+                                                        Margin="10,0,0,0"
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DelayText}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SemiGrey6}" />
+                                                <CheckBox IsChecked="{Binding IsEnabled}"
+                                                          ToolTip.Tip="{loc:Loc AutoClickEnabled}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Classes="Panel" Padding="14" Margin="14,0,0,0">
+                <ScrollViewer>
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="SectionTitle" Text="{loc:Loc AutoClickInspector}" />
+                            <TextBlock Text="{Binding SelectedStep.Title}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SemiGrey6}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding HasSelectedStep}" />
+                            <TextBlock Text="{loc:Loc AutoClickNoStepSelected}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SemiGrey6}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding !HasSelectedStep}" />
+                        </StackPanel>
+
+                        <Border Classes="FieldSection">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickPlaybackSettings}" />
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                    <TextBlock Text="{loc:Loc AutoClickRepeatCount}" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1" Width="110" Minimum="0" Maximum="999" Value="{Binding RepeatCount}" />
+                                    <TextBlock Grid.Row="1" Text="{loc:Loc AutoClickDefaultDelay}" VerticalAlignment="Center" Margin="0,8,0,0" />
+                                    <NumericUpDown Grid.Row="1" Grid.Column="1" Width="110" Minimum="0" Maximum="10000" Increment="50" Value="{Binding DefaultDelay}" Margin="0,8,0,0" />
+                                    <TextBlock Grid.Row="2" Text="{loc:Loc AutoClickPlaybackSpeed}" VerticalAlignment="Center" Margin="0,8,0,0" />
+                                    <NumericUpDown Grid.Row="2" Grid.Column="1" Width="110" Minimum="0.1" Maximum="5" Increment="0.25" FormatString="0.00x" Value="{Binding PlaybackSpeed}" Margin="0,8,0,0" />
+                                </Grid>
+                                <TextBlock Text="{loc:Loc AutoClickRepeatCountHint}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SemiGrey6}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection">
+                            <StackPanel Spacing="8">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickAdvancedSettings}" />
+                                <CheckBox Content="{loc:Loc AutoClickRecordMouseMovement}"
+                                          IsChecked="{Binding RecordMouseMovement}" />
+                                <TextBlock Text="{loc:Loc AutoClickRecordMouseMovementHint}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SemiGrey6}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection" IsVisible="{Binding HasSelectedStep}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickStepSettings}" />
+                                <CheckBox Content="{loc:Loc AutoClickEnabled}" IsChecked="{Binding SelectedStep.IsEnabled}" />
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                    <TextBlock Text="{loc:Loc AutoClickDelayMs}" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1" Width="120" Minimum="0" Maximum="120000" Increment="50" Value="{Binding SelectedStep.Delay}" />
+                                    <TextBlock Grid.Row="1" Text="{loc:Loc AutoClickDurationMs}" VerticalAlignment="Center" IsVisible="{Binding SelectedStepHasDuration}" Margin="0,8,0,0" />
+                                    <NumericUpDown Grid.Row="1" Grid.Column="1" Width="120" Minimum="0" Maximum="120000" Increment="10" Value="{Binding SelectedStep.Duration}" IsVisible="{Binding SelectedStepHasDuration}" Margin="0,8,0,0" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsMouse}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickMouseSettings}" />
+                                <ComboBox ItemsSource="{Binding MouseButtonOptions}"
+                                          SelectedValue="{Binding SelectedStep.MouseButton}"
+                                          SelectedValueBinding="{Binding Value}"
+                                          IsVisible="{Binding SelectedStepIsMouseButton}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                    <TextBlock Text="X" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1" Width="120" Minimum="-32768" Maximum="32767" Value="{Binding SelectedStep.X}" />
+                                    <TextBlock Grid.Row="1" Text="Y" VerticalAlignment="Center" Margin="0,8,0,0" />
+                                    <NumericUpDown Grid.Row="1" Grid.Column="1" Width="120" Minimum="-32768" Maximum="32767" Value="{Binding SelectedStep.Y}" Margin="0,8,0,0" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsWheel}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickWheelSettings}" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{loc:Loc AutoClickWheelDelta}" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1" Width="120" Minimum="-10000" Maximum="10000" Value="{Binding SelectedStep.WheelDelta}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsKeyboard}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickKeyboardSettings}" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{loc:Loc AutoClickKey}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Click="ChangeSelectedKeyButton_Click">
+                                        <TextBlock Text="{Binding SelectedStep.Title}" />
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsText}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickTextSettings}" />
+                                <TextBox Text="{Binding SelectedStep.Text}" AcceptsReturn="True" MinHeight="90" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsLoop}">
+                            <StackPanel Spacing="10">
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickLoopSettings}" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{loc:Loc AutoClickLoopCount}" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1" Width="120" Minimum="1" Maximum="999" Value="{Binding SelectedStep.LoopCount}" />
+                                </Grid>
+                                <TextBlock Text="{loc:Loc AutoClickLoopHint}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource SemiGrey6}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

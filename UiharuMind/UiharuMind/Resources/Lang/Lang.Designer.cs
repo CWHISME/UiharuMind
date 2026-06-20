@@ -1004,5 +1004,215 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("TrayMenuAutoClick", resourceCulture);
             }
         }
+        
+        public static string GeneralSetting {
+            get {
+                return ResourceManager.GetString("GeneralSetting", resourceCulture);
+            }
+        }
+        
+        public static string LanguageSetting {
+            get {
+                return ResourceManager.GetString("LanguageSetting", resourceCulture);
+            }
+        }
+        
+        public static string SettingsWindowTitle {
+            get {
+                return ResourceManager.GetString("SettingsWindowTitle", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdate {
+            get {
+                return ResourceManager.GetString("ApplicationUpdate", resourceCulture);
+            }
+        }
+        
+        public static string InstalledVersion {
+            get {
+                return ResourceManager.GetString("InstalledVersion", resourceCulture);
+            }
+        }
+        
+        public static string CheckAppUpdate {
+            get {
+                return ResourceManager.GetString("CheckAppUpdate", resourceCulture);
+            }
+        }
+        
+        public static string CheckAppUpdateDesc {
+            get {
+                return ResourceManager.GetString("CheckAppUpdateDesc", resourceCulture);
+            }
+        }
+        
+        public static string UserInterfaceSetting {
+            get {
+                return ResourceManager.GetString("UserInterfaceSetting", resourceCulture);
+            }
+        }
+        
+        public static string LanguageSettingDesc {
+            get {
+                return ResourceManager.GetString("LanguageSettingDesc", resourceCulture);
+            }
+        }
+        
+        public static string GeneralSettings {
+            get {
+                return ResourceManager.GetString("GeneralSettings", resourceCulture);
+            }
+        }
+        
+        public static string SettingLogLevelDesc {
+            get {
+                return ResourceManager.GetString("SettingLogLevelDesc", resourceCulture);
+            }
+        }
+        
+        public static string SaveDirectory {
+            get {
+                return ResourceManager.GetString("SaveDirectory", resourceCulture);
+            }
+        }
+        
+        public static string AboutIntroductionText {
+            get {
+                return ResourceManager.GetString("AboutIntroductionText", resourceCulture);
+            }
+        }
+        
+        public static string AboutDefaultIconCredit {
+            get {
+                return ResourceManager.GetString("AboutDefaultIconCredit", resourceCulture);
+            }
+        }
+        
+        public static string AboutFontCredit {
+            get {
+                return ResourceManager.GetString("AboutFontCredit", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutsSetting {
+            get {
+                return ResourceManager.GetString("ShortcutsSetting", resourceCulture);
+            }
+        }
+        
+        public static string GlobalShortcuts {
+            get {
+                return ResourceManager.GetString("GlobalShortcuts", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutCaptureScreen {
+            get {
+                return ResourceManager.GetString("ShortcutCaptureScreen", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutCaptureScreenDesc {
+            get {
+                return ResourceManager.GetString("ShortcutCaptureScreenDesc", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutQuickStartChat {
+            get {
+                return ResourceManager.GetString("ShortcutQuickStartChat", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutQuickStartChatDesc {
+            get {
+                return ResourceManager.GetString("ShortcutQuickStartChatDesc", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutClipboardHistory {
+            get {
+                return ResourceManager.GetString("ShortcutClipboardHistory", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutClipboardHistoryDesc {
+            get {
+                return ResourceManager.GetString("ShortcutClipboardHistoryDesc", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutQuickTranslation {
+            get {
+                return ResourceManager.GetString("ShortcutQuickTranslation", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutQuickTranslationDesc {
+            get {
+                return ResourceManager.GetString("ShortcutQuickTranslationDesc", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutQuickAutoClick {
+            get {
+                return ResourceManager.GetString("ShortcutQuickAutoClick", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutQuickAutoClickDesc {
+            get {
+                return ResourceManager.GetString("ShortcutQuickAutoClickDesc", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutSavedTips {
+            get {
+                return ResourceManager.GetString("ShortcutSavedTips", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutConflictTips {
+            get {
+                return ResourceManager.GetString("ShortcutConflictTips", resourceCulture);
+            }
+        }
+        
+        public static string ResetDefaults {
+            get {
+                return ResourceManager.GetString("ResetDefaults", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStopShortcutTips {
+            get {
+                return ResourceManager.GetString("AutoClickStopShortcutTips", resourceCulture);
+            }
+        }
+        
+        public static string KeySelectionWindowTitle {
+            get {
+                return ResourceManager.GetString("KeySelectionWindowTitle", resourceCulture);
+            }
+        }
+        
+        public static string KeySelectionShortcutInstruction {
+            get {
+                return ResourceManager.GetString("KeySelectionShortcutInstruction", resourceCulture);
+            }
+        }
+        
+        public static string KeySelectionSingleInstruction {
+            get {
+                return ResourceManager.GetString("KeySelectionSingleInstruction", resourceCulture);
+            }
+        }
+        
+        public static string KeySelectionWaiting {
+            get {
+                return ResourceManager.GetString("KeySelectionWaiting", resourceCulture);
+            }
+        }
     }
 }

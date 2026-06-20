@@ -32,6 +32,8 @@ namespace UiharuMind.Views.Windows.ScreenCapture;
 
 public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindow //Window, IDockedWindow
 {
+    public override bool ContributesToMacRegularMode => false;
+
     private Point _dragStartPoint;
     private bool _isDragging;
     private Size _originSize;

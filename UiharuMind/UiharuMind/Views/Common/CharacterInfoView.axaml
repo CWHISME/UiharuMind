@@ -7,6 +7,7 @@
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.CharacterInfoView">
 
@@ -38,12 +39,12 @@
         <DockPanel Name="OperationPanel"
                    IsEnabled="{Binding Name,Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                    DockPanel.Dock="Bottom" LastChildFill="False" Margin="20,10,20,10">
-            <Button Content="{x:Static  lang:Lang.StartChat}" DockPanel.Dock="Left"
+            <Button Content="{loc:Loc StartChat}" DockPanel.Dock="Left"
                     Command="{Binding StartChatCommand}" />
-            <Button Content="{x:Static  lang:Lang.EditCharacter}" DockPanel.Dock="Right"
+            <Button Content="{loc:Loc EditCharacter}" DockPanel.Dock="Right"
                     Command="{Binding EditCharacterCommand}" />
         </DockPanel>
-        <Rectangle DockPanel.Dock="Bottom" Fill="{StaticResource UiRectangleLineBrush}" Height="1"
+        <Rectangle DockPanel.Dock="Bottom" Fill="{DynamicResource SemiGrey2}" Height="1"
                    HorizontalAlignment="Stretch" />
 
         <ScrollViewer BringIntoViewOnFocusChange="False">
@@ -57,15 +58,15 @@
 
                 <!-- 功能类型 -->
                 <Border Classes="PaddingBorder" IsEnabled="False" BorderThickness="1"
-                        BorderBrush="{StaticResource UiBorderBrush}">
+                        BorderBrush="{DynamicResource SemiGrey2}">
                     <StackPanel>
-                        <u:Divider Content="{x:Static  lang:Lang.CharacterFuncType}" />
+                        <u:Divider Content="{loc:Loc CharacterFuncType}" />
                         <ToggleSwitch IsChecked="{Binding IsRole}"
-                                      OffContent="{x:Static  lang:Lang.ToolCharacter}"
-                                      OnContent="{x:Static  lang:Lang.RoleplayCharacter}"
+                                      OffContent="{loc:Loc ToolCharacter}"
+                                      OnContent="{loc:Loc RoleplayCharacter}"
                                       HorizontalAlignment="Center" />
-                        <ToggleSwitch OffContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
-                                      OnContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+                        <ToggleSwitch OffContent="{loc:Loc IsNotTakeHistoryContext}"
+                                      OnContent="{loc:Loc IsNotTakeHistoryContext}"
                                       HorizontalAlignment="Center"
                                       IsVisible="{Binding !IsRole}"
                                       IsChecked="{Binding IsNotTakeHistoryContext}" />
@@ -74,17 +75,17 @@
 
                 <!-- 挂载对象 -->
                 <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
-                        BorderBrush="{StaticResource UiBorderBrush}">
+                        BorderBrush="{DynamicResource SemiGrey2}">
                     <StackPanel>
                         <!-- 标题 -->
                         <u:Divider Content="">
                             <u:Divider.ContentTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <TextBlock Text="{x:Static  lang:Lang.MountsTitle}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{loc:Loc MountsTitle}" VerticalAlignment="Center" />
                                         <PathIcon Data="{StaticResource InfoRegular}">
                                             <ToolTip.Tip>
-                                                <TextBlock Text="{x:Static lang:Lang.MountsDesc}" FontSize="14" />
+                                                <TextBlock Text="{loc:Loc MountsDesc}" FontSize="14" />
                                             </ToolTip.Tip>
                                         </PathIcon>
                                     </StackPanel>
@@ -107,49 +108,49 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <TextBlock Text="{x:Static lang:Lang.MountsNullTips}"
+                        <TextBlock Text="{loc:Loc MountsNullTips}"
                                    HorizontalAlignment="Center"
                                    IsVisible="{Binding !$parent[1].IsVisible}" />
                     </StackPanel>
                 </Border>
 
-                <Border Classes="PaddingBorder" BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                <Border Classes="PaddingBorder" BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
                     <StackPanel>
                         <u:Divider IsVisible="{Binding IsRole,Mode=OneWay}"
-                                   Content="{x:Static  lang:Lang.CharacterDesc}" />
+                                   Content="{loc:Loc CharacterDesc}" />
                         <u:Divider IsVisible="{Binding !IsRole,Mode=OneWay}"
-                                   Content="{x:Static  lang:Lang.SystemPrompt}" />
+                                   Content="{loc:Loc SystemPrompt}" />
                         <common:SimpleMarkdownViewer MarkdownText="{Binding TemplateReadonly}" IsPlaintext="False" />
                     </StackPanel>
                 </Border>
 
                 <Border Classes="PaddingBorder" IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
-                        BorderBrush="{StaticResource UiBorderBrush}">
+                        BorderBrush="{DynamicResource SemiGrey2}">
                     <StackPanel>
-                        <u:Divider Content="{x:Static  lang:Lang.CharacterFirstGreeting}" />
+                        <u:Divider Content="{loc:Loc CharacterFirstGreeting}" />
                         <common:SimpleMarkdownViewer MarkdownText="{Binding FirstGreetingReadonly}" IsPlaintext="False" />
                     </StackPanel>
                 </Border>
 
                 <Expander Margin="-8" IsExpanded="True">
                     <Expander.Header>
-                        <u:Divider Content="{x:Static  lang:Lang.AdvancedOptions}" />
+                        <u:Divider Content="{loc:Loc AdvancedOptions}" />
                     </Expander.Header>
                     <StackPanel Spacing="25">
                         <!-- <StackPanel> -->
                         <Border Classes="PaddingBorder"
                                 IsVisible="{Binding IsRole,Mode=OneWay}" BorderThickness="1"
-                                BorderBrush="{StaticResource UiBorderBrush}">
+                                BorderBrush="{DynamicResource SemiGrey2}">
                             <StackPanel>
-                                <u:Divider Content="{x:Static  lang:Lang.CharacterDialogTemplate}" />
+                                <u:Divider Content="{loc:Loc CharacterDialogTemplate}" />
                                 <!-- <common:SimpleMarkdownViewer MarkdownText="{Binding DialogTemplateReadonly}" -->
                                 <!--                              IsPlaintext="False" /> -->
                                 <SelectableTextBlock Background="Transparent" Text="{Binding DialogTemplateReadonly}" />
                             </StackPanel>
                         </Border>
-                        <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+                        <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
                             <StackPanel>
-                                <u:Divider Content="{x:Static  lang:Lang.ParameterSettings}" />
+                                <u:Divider Content="{loc:Loc ParameterSettings}" />
                                 <settingViews:SettingPanelView Padding="10,0,10,0"
                                                                SettingConfig="{Binding ChatPromptExecutionSettings}"
                                                                IsEnabled="False" />

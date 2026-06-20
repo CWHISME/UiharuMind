@@ -32,6 +32,7 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
     protected T? CurrentSnapWindow;
 
     public override bool IsCacheWindow => true;
+    public override bool ContributesToMacRegularMode => false;
 
     protected override bool IsAllowFocusOnOpen => false;
 

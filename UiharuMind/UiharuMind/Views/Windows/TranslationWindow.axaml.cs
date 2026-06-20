@@ -25,11 +25,11 @@ using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
 
-public partial class QuickTranslationWindow : UiharuWindowBase
+public partial class TranslationWindow : UiharuWindowBase
 {
     public override bool IsCacheWindow => true;
 
-    public QuickTranslationWindow()
+    public TranslationWindow()
     {
         InitializeComponent();
 

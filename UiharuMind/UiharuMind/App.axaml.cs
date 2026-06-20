@@ -15,7 +15,6 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Core;
@@ -24,7 +23,6 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
@@ -49,9 +47,6 @@ public partial class App : Application, ILogger, IDisposable
     public override void OnFrameworkInitializationCompleted()
     {
         Log.Debug("UiharuMind begins to start.");
-        // Line below is needed to remove Avalonia data validation.
-        // Without this line you will get duplicate validations from both Avalonia and CT
-        BindingPlugins.DataValidators.RemoveAt(0);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // desktop.MainWindow = new MainWindow
@@ -82,8 +77,8 @@ public partial class App : Application, ILogger, IDisposable
         base.OnFrameworkInitializationCompleted();
 
         LogManager.Instance.Logger = this;
-        Lang.Culture = CultureInfo.CurrentCulture;
-        LanguageUtils.CurCultureInfo = CultureInfo.CurrentCulture;
+        LocalizationManager.Instance.InitializeFromConfig();
+        ApplicationThemeManager.InitializeFromConfig();
         UiharuCoreManager.Instance.Init();
 
         // Process.GetCurrentProcess().Exited += OnExit;
@@ -103,19 +98,19 @@ public partial class App : Application, ILogger, IDisposable
     }
 
     // public new static App Current => (App)Application.Current!;
-    public static DummyWindow DummyWindow { get; private set; }
-    public static ClipboardService Clipboard { get; private set; }
-    public static FilesService FilesService { get; private set; }
-    public static ScreensService ScreensService { get; private set; }
-    public static ModelService ModelService { get; private set; }
-    public static MemoryService MemoryService { get; private set; }
-    public static MainViewModel ViewModel => DummyWindow.MainViewModel;
-    public static MessageService MessageService { get; private set; }
+    public static DummyWindow DummyWindow { get; private set; } = null!;
+    public static ClipboardService Clipboard { get; private set; } = null!;
+    public static FilesService FilesService { get; private set; } = null!;
+    public static ScreensService ScreensService { get; private set; } = null!;
+    public static ModelService ModelService { get; private set; } = null!;
+    public static MemoryService MemoryService { get; private set; } = null!;
+    public static MainViewModel ViewModel => DummyWindow.MainViewModel!;
+    public static MessageService MessageService { get; private set; } = null!;
 
     /// <summary>
     /// 版本号
     /// </summary>
-    public static Version Version = new Version(0, 0, 8);
+    public static Version Version = new Version(0, 0, 9);
 
     public static void JumpToPage(MenuPages page)
     {
@@ -228,24 +223,14 @@ public partial class App : Application, ILogger, IDisposable
         DummyWindow.LaunchQuickTranslationWindow();
     }
 
-    private void OnAboutMenuItemClick(object? sender, EventArgs e)
+    private void OnSettingsMenuItemClick(object? sender, EventArgs e)
     {
-        UIManager.ShowWindow<AboutWindow>();
-    }
-
-    private void OnHelpMenuItemClick(object? sender, EventArgs e)
-    {
-        UIManager.ShowWindow<HelpWindow>();
+        UIManager.ShowWindow<SettingsWindow>();
     }
 
     private void OnOpenSaveMenuItemClick(object? sender, EventArgs e)
     {
         App.FilesService.OpenFolder(SettingConfig.SaveDataPath);
-    }
-
-    private void OnUpdateMenuItemClick(object? sender, EventArgs e)
-    {
-        TopLevel.GetTopLevel(DummyWindow)!.Launcher.LaunchUriAsync(new Uri("https://github.com/CWHISME/UiharuMind/releases/latest"));
     }
 
     private void OnAutoClickMenuItemClick(object? sender, EventArgs e)

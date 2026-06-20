@@ -20,7 +20,7 @@ public partial class ChatPlugin_ChatParams : UserControl
 
 public partial class ChatPlugin_ChatParamsData : ChatPluginDataBase<ChatPlugin_ChatParams>
 {
-    [ObservableProperty] private CharacterData _character;
+    [ObservableProperty] private CharacterData _character = null!;
     // [ObservableProperty] private bool _isToolCharacter;
 
     protected override void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)

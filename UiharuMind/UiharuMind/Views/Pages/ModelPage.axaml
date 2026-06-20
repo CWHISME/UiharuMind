@@ -7,6 +7,7 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              x:DataType="pages:ModelPageData">
 
@@ -21,37 +22,37 @@
 
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Spacing="5">
-            <TextBlock Text="{x:Static lang:Lang.ModelPageTitle}" FontSize="24" />
+            <TextBlock Text="{loc:Loc ModelPageTitle}" FontSize="24" />
             <StackPanel Spacing="5" Orientation="Horizontal">
-                <TextBlock Text="{x:Static lang:Lang.ModelPageLocalModelsFolder}" VerticalAlignment="Center"></TextBlock>
+                <TextBlock Text="{loc:Loc ModelPageLocalModelsFolder}" VerticalAlignment="Center"></TextBlock>
                 <TextBox IsEnabled="False" Text="{Binding ModelPath}" VerticalAlignment="Center"></TextBox>
-                <Button Content="{x:Static lang:Lang.ModelPageChangeBtn}"
+                <Button Content="{loc:Loc ModelPageChangeBtn}"
                         Command="{Binding OpenChangeModelPathCommand}">
                 </Button>
-                <Button Content="{x:Static lang:Lang.ShowInExplorer}" Command="{Binding OpenModelFolderCommand}"></Button>
+                <Button Content="{loc:Loc ShowInExplorer}" Command="{Binding OpenModelFolderCommand}"></Button>
             </StackPanel>
             <StackPanel Spacing="5" Orientation="Horizontal">
-                <TextBlock Text="{x:Static lang:Lang.ModelPageEmbededModelName}" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc ModelPageEmbededModelName}" VerticalAlignment="Center" />
                 <TextBox IsEnabled="False" Text="{Binding EmbededModelPath,Mode=OneTime}" VerticalAlignment="Center"></TextBox>
-                <!-- <Button Content="{x:Static lang:Lang.RegenerateBtn}" Command="{Binding ReloadEmbeddedModelCommand}"></Button> -->
+                <!-- <Button Content="{loc:Loc RegenerateBtn}" Command="{Binding ReloadEmbeddedModelCommand}"></Button> -->
                 <u:IconButton CommandParameter="{Binding ModelPath}"
                               Command="{Binding ReloadEmbeddedModelCommand}">
                     <u:IconButton.Icon>
                         <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
                     </u:IconButton.Icon>
                 </u:IconButton>
-                <Button Content="{x:Static lang:Lang.ShowInExplorer}"
+                <Button Content="{loc:Loc ShowInExplorer}"
                         Command="{Binding OpenEmbeddedModelFolderCommand}">
                 </Button>
                 <PathIcon Data="{StaticResource InfoRegular}" Height="18">
                     <ToolTip.Tip>
-                        <TextBlock Text="{x:Static lang:Lang.ModelPageEmbedeTips}" FontSize="14" />
+                        <TextBlock Text="{loc:Loc ModelPageEmbedeTips}" FontSize="14" />
                     </ToolTip.Tip>
                 </PathIcon>
             </StackPanel>
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{x:Static lang:Lang.CreateRemoteModel}" VerticalAlignment="Center" />
-                <Button Content="{x:Static lang:Lang.AddBtn}" Command="{Binding CreateRemoteModelCommand}"></Button>
+                <TextBlock Text="{loc:Loc CreateRemoteModel}" VerticalAlignment="Center" />
+                <Button Content="{loc:Loc AddBtn}" Command="{Binding CreateRemoteModelCommand}"></Button>
             </StackPanel>
         </StackPanel>
 
@@ -76,9 +77,9 @@
                     <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="30" ClipToBounds="True"
                             BorderThickness="1" Padding="5">
                         <DockPanel>
-                            <u:Badge Header="{x:Static  lang:Lang.ModelStateRemote}" Background="SpringGreen"
+                            <u:Badge Header="{loc:Loc ModelStateRemote}" Background="SpringGreen"
                                      IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <u:Badge Header="{x:Static  lang:Lang.ModelStateVision}" Background="Gold"
+                            <u:Badge Header="{loc:Loc ModelStateVision}" Background="Gold"
                                      IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <StackPanel Orientation="Vertical" DockPanel.Dock="Left" VerticalAlignment="Center"
                                         Margin="10,0,0,0">
@@ -124,12 +125,12 @@
                                     </u:IconButton>
                                     <Button
                                         CornerRadius="15"
-                                        Content="{x:Static lang:Lang.ModifyBtn}"
+                                        Content="{loc:Loc ModifyBtn}"
                                         CommandParameter="{Binding ModelName}"
                                         Command="{Binding DataContext.CreateRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                     <Button
                                         CornerRadius="15"
-                                        Content="{x:Static lang:Lang.Delete}"
+                                        Content="{loc:Loc Delete}"
                                         CommandParameter="{Binding ModelName}"
                                         Command="{Binding DataContext.DeleteRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                 </StackPanel>

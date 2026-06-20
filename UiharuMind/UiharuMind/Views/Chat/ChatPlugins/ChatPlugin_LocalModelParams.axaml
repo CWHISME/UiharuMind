@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Chat.ChatPlugins"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -14,14 +15,14 @@
         <chatPlugins:ChatPlugin_LocalModelParamsData />
     </Design.DataContext>
 
-    <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
         <StackPanel Spacing="5" Margin="5">
             <u:Divider>
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                    <TextBlock Text="{x:Static  lang:Lang.LocalModelParamsSetting}" VerticalAlignment="Center" />
+                    <TextBlock Text="{loc:Loc LocalModelParamsSetting}" VerticalAlignment="Center" />
                     <PathIcon Data="{StaticResource InfoRegular}" Height="18">
                         <ToolTip.Tip>
-                            <TextBlock Text="{x:Static lang:Lang.LocalModelParamsSettingTips}" FontSize="14" />
+                            <TextBlock Text="{loc:Loc LocalModelParamsSettingTips}" FontSize="14" />
                         </ToolTip.Tip>
                     </PathIcon>
                 </StackPanel>
@@ -32,7 +33,7 @@
                     <TextBlock Text="GPU Layer" VerticalAlignment="Center">
                         <!-- <PathIcon Data="{StaticResource InfoRegular}" Height="18"> -->
                         <ToolTip.Tip>
-                            <TextBlock Text="{x:Static lang:Lang.GPULayerTips}" FontSize="14" />
+                            <TextBlock Text="{loc:Loc GPULayerTips}" FontSize="14" />
                         </ToolTip.Tip>
                         <!-- </PathIcon> -->
                     </TextBlock>
@@ -46,7 +47,7 @@
                     <TextBlock Text="Context Size" VerticalAlignment="Center">
                         <!-- <PathIcon Data="{StaticResource InfoRegular}" Height="18"> -->
                         <ToolTip.Tip>
-                            <TextBlock Text="{x:Static lang:Lang.ContextSizeTips}" FontSize="14" />
+                            <TextBlock Text="{loc:Loc ContextSizeTips}" FontSize="14" />
                         </ToolTip.Tip>
                         <!-- </PathIcon> -->
                     </TextBlock>
@@ -60,7 +61,7 @@
                     <TextBlock Text="Flash Attn" VerticalAlignment="Center">
                         <!-- <PathIcon Data="{StaticResource InfoRegular}" Height="18"> -->
                         <ToolTip.Tip>
-                            <TextBlock Text="{x:Static lang:Lang.FlashAttnTips}" FontSize="14" />
+                            <TextBlock Text="{loc:Loc FlashAttnTips}" FontSize="14" />
                         </ToolTip.Tip>
                         <!-- </PathIcon> -->
                     </TextBlock>

@@ -1,117 +1,88 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core;
+using SharpHook.Data;
 using UiharuMind.Core.Core.Singletons;
-using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AutoClick;
 
-/// <summary>
-/// 自动点击动作类型枚举
-/// </summary>
-public enum AutoClickActionType
+public enum AutoClickStepKind
 {
     MouseClick,
     MouseDown,
     MouseUp,
     MouseMove,
     MouseWheel,
-    KeyPress,
+    KeyClick,
     KeyDown,
     KeyUp,
     Text,
-    Delay
+    Delay,
+    Loop
 }
 
-/// <summary>
-/// 自动点击会话数据
-/// </summary>
 public class AutoClickSession : IUniquieContainerItem
 {
-    /// <summary>
-    /// 会话名称
-    /// </summary>
-    public string Name { get; set; } = "";
+    public const int CurrentVersion = 2;
 
-    /// <summary>
-    /// 创建时间
-    /// </summary>
-    public DateTime CreateTime { get; set; } = DateTime.Now;
+    public int Version { get; set; }
 
-    /// <summary>
-    /// 最后修改时间
-    /// </summary>
-    public DateTime LastTime { get; set; } = DateTime.Now;
+    public string Name { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 重复次数
-    /// </summary>
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
     public int RepeatCount { get; set; } = 1;
 
-    /// <summary>
-    /// 默认延迟
-    /// </summary>
+    public double PlaybackSpeed { get; set; } = 1.0;
+
     public int DefaultDelay { get; set; } = 100;
 
-    /// <summary>
-    /// 动作列表
-    /// </summary>
-    public List<AutoClickActionData> Actions { get; set; } = new();
+    public bool RecordMouseMovement { get; set; }
 
-    /// <summary>
-    /// 描述
-    /// </summary>
-    public string Description { get; set; } = "";
+    public List<AutoClickStepData> Steps { get; set; } = new();
 
-    /// <summary>
-    /// 保存会话到文件
-    /// </summary>
-    public void Save()
+    [JsonIgnore] public int StepCount => CountSteps(Steps);
+
+    private static int CountSteps(IEnumerable<AutoClickStepData> steps)
     {
-        LastTime = DateTime.Now;
-        string fileName = $"{Name}.json";
-        SaveUtility.Save(System.IO.Path.Combine(SettingConfig.SaveAutoClickDataPath, fileName), this);
-    }
+        var count = 0;
+        foreach (var step in steps)
+        {
+            count++;
+            count += CountSteps(step.Children);
+        }
 
-    /// <summary>
-    /// 从文件加载会话
-    /// </summary>
-    public static AutoClickSession? Load(string filePath)
-    {
-        return SaveUtility.Load<AutoClickSession>(filePath);
+        return count;
     }
 }
 
-/// <summary>
-/// 自动点击动作数据
-/// </summary>
-public class AutoClickActionData
+public class AutoClickStepData
 {
-    [JsonPropertyName("actionType")] public AutoClickActionType ActionType { get; set; }
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
-    [JsonPropertyName("description")] public string Description { get; set; } = "";
+    public AutoClickStepKind Kind { get; set; }
 
-    [JsonPropertyName("delay")] public int Delay { get; set; }
+    public bool IsEnabled { get; set; } = true;
 
-    [JsonPropertyName("mouseButton")] public int? MouseButton { get; set; }
+    public int Delay { get; set; }
 
-    [JsonPropertyName("mouseX")] public short MouseX { get; set; }
+    public MouseButton? MouseButton { get; set; }
 
-    [JsonPropertyName("mouseY")] public short MouseY { get; set; }
+    public short X { get; set; }
 
-    [JsonPropertyName("keyCode")] public int? KeyCode { get; set; }
+    public short Y { get; set; }
 
-    [JsonPropertyName("text")] public string? Text { get; set; }
-    
-    /// <summary>
-    /// 滚轮滚动量（正数向上，负数向下）
-    /// </summary>
-    [JsonPropertyName("wheelDelta")] public int? WheelDelta { get; set; }
-    
-    /// <summary>
-    /// 按键/鼠标按住的持续时间（毫秒）
-    /// </summary>
-    [JsonPropertyName("duration")] public int? Duration { get; set; }
+    public KeyCode? KeyCode { get; set; }
+
+    public string? Text { get; set; }
+
+    public int? WheelDelta { get; set; }
+
+    public int? Duration { get; set; }
+
+    public int LoopCount { get; set; } = 1;
+
+    public List<AutoClickStepData> Children { get; set; } = new();
 }

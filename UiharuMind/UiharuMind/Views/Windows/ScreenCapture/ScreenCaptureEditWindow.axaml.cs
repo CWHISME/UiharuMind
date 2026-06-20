@@ -34,7 +34,7 @@ public enum DrawingTool
 public partial class ScreenCaptureEditWindow : Window
 {
     private Bitmap? _source;
-    private Action<Bitmap> _onClose;
+    private Action<Bitmap>? _onClose;
     private Size _size;
     // private double _scale;
 
@@ -56,6 +56,10 @@ public partial class ScreenCaptureEditWindow : Window
 
     // private KeyCombinationData _undoKey;
     // private KeyCombinationData _redoKey;
+
+    public ScreenCaptureEditWindow()
+    {
+    }
 
     public ScreenCaptureEditWindow(Bitmap source, PixelPoint position, Size size, Action<Bitmap> onClose)
     {
@@ -684,7 +688,7 @@ public partial class ScreenCaptureEditWindow : Window
         if (_source != null)
         {
             var combinedBitmap = RenderToBitmap(DrawingCanvas, _source);
-            _onClose.Invoke(combinedBitmap);
+            _onClose?.Invoke(combinedBitmap);
             ImageContent.Source = null;
             _source = null;
         }

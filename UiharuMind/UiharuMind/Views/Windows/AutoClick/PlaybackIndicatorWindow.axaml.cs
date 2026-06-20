@@ -1,6 +1,8 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using UiharuMind.Core.Configs;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
 
@@ -20,9 +22,12 @@ public partial class PlaybackIndicatorWindow : UiharuWindowBase
         Height = 90;
         CanResize = false;
         ShowInTaskbar = false;
+        StopShortcutText.Text = string.Format(LocalizationManager.Instance.GetString("AutoClickStopShortcutTips"),
+            ConfigManager.Instance.Setting.QuickAutoClickShortcut);
     }
 
     public override bool IsCacheWindow => false;
+    public override bool ContributesToMacRegularMode => false;
 
     protected override void OnOpened(EventArgs e)
     {
@@ -41,7 +46,12 @@ public partial class PlaybackIndicatorWindow : UiharuWindowBase
         _currentRound = current;
         _totalRounds = total;
 
-        Dispatcher.UIThread.Post(() => { RoundText.Text = total > 1 ? $"第 {current}/{total} 轮" : $"第 {current}/∞ 轮"; });
+        Dispatcher.UIThread.Post(() =>
+        {
+            RoundText.Text = total > 0
+                ? string.Format(LocalizationManager.Instance.GetString("AutoClickPlaybackRoundFormat"), current, total)
+                : string.Format(LocalizationManager.Instance.GetString("AutoClickPlaybackInfiniteRoundFormat"), current);
+        });
     }
 
     public void FlashIndicator()

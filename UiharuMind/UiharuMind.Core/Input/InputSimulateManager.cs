@@ -1,4 +1,3 @@
-using SharpHook;
 using SharpHook.Data;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -7,7 +6,7 @@ namespace UiharuMind.Core.Input;
 
 public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
 {
-    EventSimulator _globalSimulator = new EventSimulator();
+    private readonly IInputSimulatorBackend _simulatorBackend = InputBackendFactory.CreateSimulatorBackend();
 
     public void OnInitialize()
     {
@@ -15,7 +14,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
 
     public void SendMouseMove(short x, short y)
     {
-        _globalSimulator.SimulateMouseMovement(x, y);
+        _simulatorBackend.SendMouseMove(x, y);
     }
 
     public async Task SendMouseClickLeft()
@@ -27,9 +26,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateMousePress(button);
-            await Task.Delay(delayMs);
-            _globalSimulator.SimulateMouseRelease(button);
+            await _simulatorBackend.SendMouseClick(button, delayMs);
         }
         catch (Exception e)
         {
@@ -41,7 +38,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateMousePress(button);
+            _simulatorBackend.SimulateMousePress(button);
         }
         catch (Exception e)
         {
@@ -53,7 +50,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateMouseRelease(button);
+            _simulatorBackend.SimulateMouseRelease(button);
         }
         catch (Exception e)
         {
@@ -65,7 +62,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateMouseWheel((short)wheelDelta);
+            _simulatorBackend.SimulateMouseWheel(wheelDelta);
         }
         catch (Exception e)
         {
@@ -77,9 +74,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateKeyPress(keyCode);
-            await Task.Delay(delayMs);
-            _globalSimulator.SimulateKeyRelease(keyCode);
+            await _simulatorBackend.SendKeyPress(keyCode, delayMs);
         }
         catch (Exception e)
         {
@@ -91,7 +86,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateKeyPress(keyCode);
+            _simulatorBackend.SimulateKeyPress(keyCode);
         }
         catch (Exception e)
         {
@@ -103,7 +98,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            _globalSimulator.SimulateKeyRelease(keyCode);
+            _simulatorBackend.SimulateKeyRelease(keyCode);
         }
         catch (Exception e)
         {
@@ -115,14 +110,7 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
     {
         try
         {
-            foreach (char c in text)
-            {
-                var keyCode = CharToKeyCode(c);
-                if (keyCode != KeyCode.VcUndefined)
-                {
-                    await SendKeyPress(keyCode, delayBetweenKeys);
-                }
-            }
+            await _simulatorBackend.SendText(text, delayBetweenKeys);
         }
         catch (Exception e)
         {
@@ -130,35 +118,11 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
         }
     }
 
-    private KeyCode CharToKeyCode(char c)
-    {
-        return c switch
-        {
-            >= 'a' and <= 'z' => (KeyCode)((int)KeyCode.VcA + (c - 'a')),
-            >= 'A' and <= 'Z' => (KeyCode)((int)KeyCode.VcA + (c - 'A')),
-            >= '0' and <= '9' => (KeyCode)((int)KeyCode.Vc0 + (c - '0')),
-            ' ' => KeyCode.VcSpace,
-            '.' => KeyCode.VcPeriod,
-            ',' => KeyCode.VcComma,
-            ';' => KeyCode.VcSemicolon,
-            '\'' => KeyCode.VcQuote,
-            '[' => KeyCode.VcOpenBracket,
-            ']' => KeyCode.VcCloseBracket,
-            '\\' => KeyCode.VcBackslash,
-            '/' => KeyCode.VcSlash,
-            '-' => KeyCode.VcMinus,
-            '=' => KeyCode.VcEquals,
-            _ => KeyCode.VcUndefined
-        };
-    }
-
     public void Test()
     {
-        _globalSimulator.Sequence()
-            .AddMouseMovementRelative(20, 20)
-            .AddMousePress(MouseButton.Button1)
-            .AddMouseRelease(MouseButton.Button1)
-            .AddMouseMovementRelative(-20, -20)
-            .Simulate();
+        SendMouseMove((short)(InputManager.MouseData.X + 20), (short)(InputManager.MouseData.Y + 20));
+        SimulateMousePress(MouseButton.Button1);
+        SimulateMouseRelease(MouseButton.Button1);
+        SendMouseMove((short)(InputManager.MouseData.X - 20), (short)(InputManager.MouseData.Y - 20));
     }
 }

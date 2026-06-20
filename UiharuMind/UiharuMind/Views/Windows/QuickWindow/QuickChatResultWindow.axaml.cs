@@ -97,8 +97,8 @@ public partial class QuickChatResultWindow : QuickWindowBase
     /// </summary>
     public bool IsChatConvertable => _agentSkill.IsConvertableToChatSession;
 
-    private string _askContent;
-    private AgentSkillBase _agentSkill;
+    private string _askContent = string.Empty;
+    private AgentSkillBase _agentSkill = null!;
 
     public void SetRequestInfo(string? title, string content, AgentSkillBase agentSkill)
     {

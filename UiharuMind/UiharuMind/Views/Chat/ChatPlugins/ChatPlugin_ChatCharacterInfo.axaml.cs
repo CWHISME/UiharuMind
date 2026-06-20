@@ -19,8 +19,8 @@ public partial class ChatPlugin_ChatCharacterInfo : UserControl
 
 public partial class ChatPlugin_ChatCharacterInfoData : ChatPluginDataBase<ChatPlugin_ChatCharacterInfo>
 {
-    [ObservableProperty] private string _characterName;
-    [ObservableProperty] private string _characterDescription;
+    [ObservableProperty] private string _characterName = string.Empty;
+    [ObservableProperty] private string _characterDescription = string.Empty;
     // [ObservableProperty] private string _characterTemplete;
 
     protected override void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)

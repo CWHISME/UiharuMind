@@ -1,0 +1,119 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.SettingViews.ShortcutSettingView">
+
+    <Design.DataContext>
+        <settingViews:ShortcutSettingViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Spacing="22" MaxWidth="760">
+            <StackPanel Spacing="8">
+                <TextBlock Text="{loc:Loc GlobalShortcuts}"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <Border Classes="SettingsSection">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="*,220" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc ShortcutCaptureScreen}" />
+                                <TextBlock Text="{loc:Loc ShortcutCaptureScreenDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{Binding CaptureScreenShortcut}"
+                                    Click="OnCaptureScreenShortcutClick"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,220" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc ShortcutQuickStartChat}" />
+                                <TextBlock Text="{loc:Loc ShortcutQuickStartChatDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{Binding QuickStartChatShortcut}"
+                                    Click="OnQuickStartChatShortcutClick"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,220" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc ShortcutClipboardHistory}" />
+                                <TextBlock Text="{loc:Loc ShortcutClipboardHistoryDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{Binding ClipboardHistoryShortcut}"
+                                    Click="OnClipboardHistoryShortcutClick"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,220" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc ShortcutQuickTranslation}" />
+                                <TextBlock Text="{loc:Loc ShortcutQuickTranslationDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{Binding QuickTranslationShortcut}"
+                                    Click="OnQuickTranslationShortcutClick"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,220" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc ShortcutQuickAutoClick}" />
+                                <TextBlock Text="{loc:Loc ShortcutQuickAutoClickDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{Binding QuickAutoClickShortcut}"
+                                    Click="OnQuickAutoClickShortcutClick"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Command="{Binding ApplyCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="14" Height="14" Data="{StaticResource SaveRegular}" />
+                        <TextBlock Text="{loc:Loc SaveBtn}" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding ResetDefaultsCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="14" Height="14" Data="{StaticResource ArrowRepeatAllRegular}" />
+                        <TextBlock Text="{loc:Loc ResetDefaults}" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Text="{Binding StatusText}"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SemiGrey7}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

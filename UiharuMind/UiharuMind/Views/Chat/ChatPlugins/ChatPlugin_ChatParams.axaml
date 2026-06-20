@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:chatPlugins="clr-namespace:UiharuMind.Views.Chat.ChatPlugins"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -13,11 +14,11 @@
         <chatPlugins:ChatPlugin_ChatParamsData />
     </Design.DataContext>
 
-    <Border BorderThickness="1" BorderBrush="{StaticResource UiBorderBrush}">
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
         <StackPanel>
-            <u:Divider Content="{x:Static  lang:Lang.ParameterSettings}" />
-            <ToggleSwitch OffContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
-                          OnContent="{x:Static lang:Lang.IsNotTakeHistoryContext}"
+            <u:Divider Content="{loc:Loc ParameterSettings}" />
+            <ToggleSwitch OffContent="{loc:Loc IsNotTakeHistoryContext}"
+                          OnContent="{loc:Loc IsNotTakeHistoryContext}"
                           HorizontalAlignment="Center"
                           IsVisible="{Binding Character.IsTool}"
                           IsChecked="{Binding ChatSessionCurrentViewData.IsNotTakeHistoryContext}" />

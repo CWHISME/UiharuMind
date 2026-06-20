@@ -98,6 +98,7 @@ public partial class ChatSessionViewData : ObservableObject
         Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         TimeString = CalcTimeString();
         MemoryData = ChatSession.Memery;
+        MemoryTipsName = "";
         RefreshMemoryInfo();
     }
 

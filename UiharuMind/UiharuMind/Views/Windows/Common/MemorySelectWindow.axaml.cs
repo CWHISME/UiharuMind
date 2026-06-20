@@ -28,7 +28,7 @@ public partial class MemorySelectWindowModel : ObservableObject
     private Action<MemoryData>? OnSelectMemory;
 
     [ObservableProperty] private MemoryData? _selectedMemory;
-    [ObservableProperty] private string _selectedMemoryName;
+    [ObservableProperty] private string _selectedMemoryName = Lang.NoMemory;
 
     public MemorySelectWindowModel()
     {

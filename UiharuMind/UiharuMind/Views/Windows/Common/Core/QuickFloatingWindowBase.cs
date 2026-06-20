@@ -13,6 +13,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Threading;
 using SharpHook.Data;
 using UiharuMind.Core.Input;
 using UiharuMind.Utils;
@@ -40,8 +41,12 @@ public class QuickFloatingWindowBase : QuickWindowBase
         InputManager.Instance.EventOnKeyDown += OnKeyDown;
         InputManager.Instance.EventOnMouseWheel += OnMouseWheel;
         BindMouseClickCloseEvent();
+    }
 
-        SetWindowPosition();
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        Dispatcher.UIThread.Post(SetWindowPosition, DispatcherPriority.Loaded);
     }
 
     protected override void OnPreClose()

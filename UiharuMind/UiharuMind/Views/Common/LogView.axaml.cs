@@ -17,6 +17,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Services;
 using UiharuMind.ViewModels.Converters;
 using UiharuMind.ViewModels.UIHolder;
 using UiharuMind.ViewModels.ViewData;
@@ -78,7 +79,7 @@ public partial class LogView : UserControl
                 _selectedControl = control;
                 // _selectedControl.BorderThickness = new Thickness();
                 _selectedControl.Background = new SolidColorBrush(new Color(
-                    (byte)(Application.Current?.ActualThemeVariant == ThemeVariant.Dark ? 118 : 40), 118, 118, 118));
+                    (byte)(ApplicationThemeManager.IsDarkTheme() ? 118 : 40), 118, 118, 118));
 
                 DetailText.Foreground =
                     (IBrush)_logLevelToColorConverter.Convert(logItem.LogType, typeof(LogItem), null,

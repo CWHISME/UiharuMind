@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:semi="clr-namespace:Semi.Avalonia;assembly=Semi.Avalonia">
     <Design.PreviewWith>
         <Border Padding="20">
             <!-- Add Controls for Previewer Here -->
@@ -9,18 +10,34 @@
     <!-- Add Styles Here -->
     <Styles.Resources>
         <ResourceDictionary>
-            <SolidColorBrush x:Key="UiBorderBrush" Color="Lavender" />
-            <SolidColorBrush x:Key="UiRectangleLineBrush" Color="Lavender" />
+            <SolidColorBrush x:Key="UiBorderBrush" Color="#E5E6EB" />
+            <SolidColorBrush x:Key="UiRectangleLineBrush" Color="#E5E6EB" />
             <ImageBrush x:Key="IconBrush"  Source="/Assets/Icon.png" Stretch="UniformToFill" />
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key='Light'>
-                    <SolidColorBrush x:Key='UiBackgroundBrush'>White</SolidColorBrush>
-                    <SolidColorBrush x:Key='UiForegroundBrush'>Black</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>#F7F8FA</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>#1D2129</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key='Dark'>
-                    <SolidColorBrush x:Key='UiBackgroundBrush'>Black</SolidColorBrush>
-                    <SolidColorBrush x:Key='UiForegroundBrush'>White</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>#1D2129</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>#F2F3F5</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Aquatic}">
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>#EAF7FA</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>#173B4D</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Desert}">
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>#FAF2E7</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>#4D351C</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Dusk}">
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>#282235</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>#F4F0FA</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static semi:SemiTheme.NightSky}">
+                    <SolidColorBrush x:Key='UiBackgroundBrush'>#202633</SolidColorBrush>
+                    <SolidColorBrush x:Key='UiForegroundBrush'>#F2F5FA</SolidColorBrush>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

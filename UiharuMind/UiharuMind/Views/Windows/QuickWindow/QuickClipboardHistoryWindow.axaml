@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:clipboardView="clr-namespace:UiharuMind.Views.ClipboardView"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         Width="300"
@@ -14,8 +15,9 @@
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" Margin="10">
         <StackPanel>
             <DockPanel LastChildFill="False">
-                <TextBlock VerticalAlignment="Center" Text="{x:Static  lang:Lang.ClipboardHistory}" FontSize="20" />
+                <TextBlock VerticalAlignment="Center" Text="{loc:Loc ClipboardHistory}" FontSize="20" />
                 <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                        Padding="0,0,0,-2.5"
                         Click="CloseButton_Click" />
             </DockPanel>
             <u:Divider Margin="0,3,0,5" />

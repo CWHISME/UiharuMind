@@ -41,7 +41,7 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
         return items;
     }
 
-    public void OnInitialize()
+    public virtual void OnInitialize()
     {
         ItemDictionary.Clear();
 

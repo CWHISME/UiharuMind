@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViewData="clr-namespace:UiharuMind.ViewModels.SettingViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -16,7 +17,7 @@
     <Grid RowDefinitions="Auto,*">
         <StackPanel Orientation="Vertical">
             <StackPanel Orientation="Horizontal" Margin="10" Spacing="10">
-                <TextBlock Text="{x:Static lang:Lang.CurrentEngineTypeSetting}" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc CurrentEngineTypeSetting}" VerticalAlignment="Center" />
 
                 <ComboBox Width="300"
                           ItemsSource="{Binding AvailableVersions}"
@@ -32,13 +33,13 @@
                 <!--         <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" /> -->
                 <!--     </u:IconButton.Icon> -->
                 <!-- </u:IconButton> -->
-                <Button Content="{x:Static lang:Lang.OpenDirectory}"
+                <Button Content="{loc:Loc OpenDirectory}"
                         Command="{Binding OpenFolderCommand}" />
-                <Button Content="{x:Static lang:Lang.CheckUpdate}"
+                <Button Content="{loc:Loc CheckUpdate}"
                         Command="{Binding UpdateRemoteVersionsCommand}" />
                 <StackPanel Orientation="Horizontal" IsVisible="{Binding IsCheckingForUpdate}">
                     <u:LoadingIcon />
-                    <TextBlock Text="{x:Static lang:Lang.CheckingForUpdates}" VerticalAlignment="Center" />
+                    <TextBlock Text="{loc:Loc CheckingForUpdates}" VerticalAlignment="Center" />
                 </StackPanel>
             </StackPanel>
 

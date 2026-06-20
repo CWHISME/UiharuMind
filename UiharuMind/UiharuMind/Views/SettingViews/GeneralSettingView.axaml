@@ -1,0 +1,141 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Views.SettingViews.GeneralSettingView">
+
+    <Design.DataContext>
+        <settingViews:GeneralSettingViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Spacing="22" MaxWidth="760">
+            <StackPanel Spacing="8">
+                <TextBlock Text="{loc:Loc ApplicationUpdate}"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <Border Classes="SettingsSection">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="38">
+                            <TextBlock Text="{loc:Loc InstalledVersion}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding VersionText}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SemiGrey7}" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc CheckAppUpdate}" />
+                                <TextBlock Text="{loc:Loc CheckAppUpdateDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Command="{Binding OpenUpdatePageCommand}"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Width="14" Height="14" Data="{StaticResource OpenFolderRegular}" />
+                                    <TextBlock Text="{loc:Loc TrayMenuUpdate}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="{loc:Loc UserInterfaceSetting}"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <Border Classes="SettingsSection">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc LanguageSetting}" />
+                                <TextBlock Text="{loc:Loc LanguageSettingDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1"
+                                      Width="220"
+                                      ItemsSource="{Binding LanguageOptions}"
+                                      SelectedItem="{Binding SelectedLanguage}"
+                                      VerticalAlignment="Center">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc ThemeSetting}" />
+                                <TextBlock Text="{loc:Loc ThemeSettingDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1"
+                                      Width="160"
+                                      ItemsSource="{Binding ThemeOptions}"
+                                      SelectedItem="{Binding SelectedTheme}"
+                                      VerticalAlignment="Center">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="{loc:Loc GeneralSettings}"
+                           FontSize="15"
+                           FontWeight="SemiBold" />
+                <Border Classes="SettingsSection">
+                    <StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc SettingLogLevelTitle}" />
+                                <TextBlock Text="{loc:Loc SettingLogLevelDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1"
+                                      Width="160"
+                                      ItemsSource="{Binding LogLevelList}"
+                                      SelectedIndex="{Binding LogSelecetedTypeIndex}"
+                                      VerticalAlignment="Center" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="44">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc SaveDirectory}" />
+                                <TextBlock Text="{Binding SaveDirectoryPath}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Command="{Binding OpenSaveFolderCommand}"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Width="14" Height="14" Data="{StaticResource OpenFolderRegular}" />
+                                    <TextBlock Text="{loc:Loc OpenDirectory}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

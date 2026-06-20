@@ -30,8 +30,9 @@ public static class WindowUtils
         VerticalAlignment verticalAlignment = VerticalAlignment.Top, double width = 0, double height = 0, int offsetX = 0, int offsetY = 0)
     {
         var pos = App.ScreensService.MousePosition;
-        if (width == 0) width = window.Width;
-        if (height == 0) height = window.Height;
+        var fallbackSize = GetMeasuredWindowSize(window);
+        if (width <= 0 || double.IsNaN(width) || double.IsInfinity(width)) width = fallbackSize.Width;
+        if (height <= 0 || double.IsNaN(height) || double.IsInfinity(height)) height = fallbackSize.Height;
         Dispatcher.UIThread.Invoke(() =>
         {
             var windowWidth = width;
@@ -68,15 +69,32 @@ public static class WindowUtils
         }, DispatcherPriority.MaxValue);
     }
 
+    private static Size GetMeasuredWindowSize(Window window)
+    {
+        if (window.Bounds.Width > 0 && window.Bounds.Height > 0) return window.Bounds.Size;
+        if (window.ClientSize.Width > 0 && window.ClientSize.Height > 0) return window.ClientSize;
+        if (window.DesiredSize.Width > 0 && window.DesiredSize.Height > 0) return window.DesiredSize;
+
+        var width = GetValidDimension(window.Width, window.MinWidth, 48);
+        var height = GetValidDimension(window.Height, window.MinHeight, 48);
+        return new Size(width, height);
+    }
+
+    private static double GetValidDimension(double value, double minValue, double fallback)
+    {
+        if (value > 0 && !double.IsNaN(value) && !double.IsInfinity(value)) return value;
+        if (minValue > 0 && !double.IsNaN(minValue) && !double.IsInfinity(minValue)) return minValue;
+        return fallback;
+    }
+
     public static void SetSimpledecorationWindow(this Window window, bool isTopmost = true)
     {
         window.Topmost = isTopmost;
         window.WindowState = WindowState.Normal;
         window.WindowStartupLocation = WindowStartupLocation.Manual;
         window.CanResize = false;
-        window.SystemDecorations = SystemDecorations.BorderOnly;
+        window.WindowDecorations = WindowDecorations.BorderOnly;
         window.ExtendClientAreaToDecorationsHint = true;
-        window.ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
         window.ExtendClientAreaTitleBarHeightHint = -1;
         //不需要任务栏显示
         window.ShowInTaskbar = false;
@@ -87,7 +105,7 @@ public static class WindowUtils
     {
         //连背景边框也没有的窗口
         SetSimpledecorationWindow(window, isTopmost);
-        window.SystemDecorations = SystemDecorations.None;
+        window.WindowDecorations = WindowDecorations.None;
         window.TransparencyLevelHint = new List<WindowTransparencyLevel>()
             { WindowTransparencyLevel.Transparent, WindowTransparencyLevel.AcrylicBlur };
         //如果开启这个，会导致窗口边缘像 Border 的东西显示出来，无法做到纯透明
@@ -162,7 +180,7 @@ public static class WindowUtils
     /// <returns></returns>
     public static Window GetParentWindow(this Control control)
     {
-        var parent = control.GetVisualRoot();
+        var parent = TopLevel.GetTopLevel(control);
         return (Window)parent!;
     }
 }

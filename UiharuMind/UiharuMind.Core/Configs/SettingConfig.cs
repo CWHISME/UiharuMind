@@ -10,11 +10,18 @@
  ****************************************************************************/
 
 using UiharuMind.Core.Core.Configs;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core;
 
 public class SettingConfig : ConfigBase
 {
+    public const string DefaultCaptureScreenShortcut = "Alt+Shift+Z";
+    public const string DefaultQuickStartChatShortcut = "Alt+Shift+A";
+    public const string DefaultClipboardHistoryShortcut = "Alt+Shift+S";
+    public const string DefaultQuickTranslationShortcut = "Alt+Shift+Q";
+    public const string DefaultQuickAutoClickShortcut = "Alt+Shift+G";
+
     public static readonly string RootDataPath =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UiharuMind/");
 
@@ -52,6 +59,100 @@ public class SettingConfig : ConfigBase
     /// 聊天是否隐藏模型思考过程
     /// </summary>
     public bool IsChatNotShowThinking { get; set; } = false;
+
+    private string _languageCode = LanguageUtils.GetSupportedCultureOrDefault(null).Name;
+    private string _themeMode = "Default";
+
+    /// <summary>
+    /// 应用界面语言
+    /// </summary>
+    public string LanguageCode
+    {
+        get => _languageCode;
+        set
+        {
+            _languageCode = LanguageUtils.GetSupportedCultureOrDefault(value).Name;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// 应用主题模式：Default / Light / Dark / Aquatic / Desert / Dusk / NightSky
+    /// </summary>
+    public string ThemeMode
+    {
+        get => _themeMode;
+        set
+        {
+            _themeMode = value is "Light" or "Dark" or "Aquatic" or "Desert" or "Dusk" or "NightSky"
+                ? value
+                : "Default";
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
+    private string _captureScreenShortcut = DefaultCaptureScreenShortcut;
+    private string _quickStartChatShortcut = DefaultQuickStartChatShortcut;
+    private string _clipboardHistoryShortcut = DefaultClipboardHistoryShortcut;
+    private string _quickTranslationShortcut = DefaultQuickTranslationShortcut;
+    private string _quickAutoClickShortcut = DefaultQuickAutoClickShortcut;
+
+    public string CaptureScreenShortcut
+    {
+        get => _captureScreenShortcut;
+        set
+        {
+            if (_captureScreenShortcut == value) return;
+            _captureScreenShortcut = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string QuickStartChatShortcut
+    {
+        get => _quickStartChatShortcut;
+        set
+        {
+            if (_quickStartChatShortcut == value) return;
+            _quickStartChatShortcut = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string ClipboardHistoryShortcut
+    {
+        get => _clipboardHistoryShortcut;
+        set
+        {
+            if (_clipboardHistoryShortcut == value) return;
+            _clipboardHistoryShortcut = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string QuickTranslationShortcut
+    {
+        get => _quickTranslationShortcut;
+        set
+        {
+            if (_quickTranslationShortcut == value) return;
+            _quickTranslationShortcut = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string QuickAutoClickShortcut
+    {
+        get => _quickAutoClickShortcut;
+        set
+        {
+            if (_quickAutoClickShortcut == value) return;
+            _quickAutoClickShortcut = value;
+            OnPropertyChanged();
+        }
+    }
 
     private bool _isCharacterPhotoListView;
 

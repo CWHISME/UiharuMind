@@ -3,26 +3,21 @@ using System.Collections.Generic;
 using System.IO;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
-using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AutoClick;
 
-/// <summary>
-/// 自动点击会话管理器
-/// </summary>
 public class AutoClickManager : UniquieContainerSingleton<AutoClickManager, AutoClickSession>
 {
-    /// <summary>
-    /// 创建新的录制会话
-    /// </summary>
-    public AutoClickSession CreateNewSession(string name = "新录制")
+    public AutoClickSession CreateNewSession(string name = "New Flow")
     {
         var session = new AutoClickSession
         {
+            Version = AutoClickSession.CurrentVersion,
             Name = GetUniqueName(name),
-            CreateTime = DateTime.Now,
-            LastTime = DateTime.Now
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
         Add(session);
         return session;
@@ -32,6 +27,43 @@ public class AutoClickManager : UniquieContainerSingleton<AutoClickManager, Auto
 
     protected override void OnOrderedItems(List<AutoClickSession> items)
     {
-        items.Sort((x, y) => y.LastTime.CompareTo(x.LastTime));
+        items.Sort((x, y) => y.UpdatedAt.CompareTo(x.UpdatedAt));
+    }
+
+    public new AutoClickSession Add(AutoClickSession session)
+    {
+        session.Version = AutoClickSession.CurrentVersion;
+        return base.Add(session);
+    }
+
+    public override void OnInitialize()
+    {
+        ItemDictionary.Clear();
+
+        if (!Directory.Exists(SaveRootPath)) return;
+        foreach (var file in Directory.GetFiles(SaveRootPath, "*.json"))
+        {
+            var item = SaveUtility.Load<AutoClickSession>(file);
+            if (item == null || item.Version != AutoClickSession.CurrentVersion)
+            {
+                Log.Debug($"Ignore legacy AutoClick session: {file}");
+                continue;
+            }
+
+            var fileName = Path.GetFileNameWithoutExtension(file);
+            if (string.IsNullOrEmpty(item.Name) || item.Name != fileName)
+            {
+                item.Name = fileName;
+            }
+
+            ItemDictionary[item.Name] = item;
+        }
+    }
+
+    public new void Save(AutoClickSession session, bool isAsNew = false)
+    {
+        session.Version = AutoClickSession.CurrentVersion;
+        session.UpdatedAt = DateTime.Now;
+        base.Save(session, isAsNew);
     }
 }

@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d"
+        Width="380"
+        Height="220"
+        MinWidth="360"
+        MinHeight="200"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Topmost="True"
+        x:Class="UiharuMind.Views.Windows.Common.KeySelectionWindow"
+        Title="{loc:Loc KeySelectionWindowTitle}">
+
+    <Grid RowDefinitions="*,Auto" Margin="20">
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="12">
+            <TextBlock Name="InstructionText"
+                       Text="{loc:Loc KeySelectionShortcutInstruction}"
+                       FontSize="15"
+                       Foreground="{DynamicResource SemiGrey7}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+            <Border CornerRadius="8"
+                    Padding="16,10"
+                    Background="{DynamicResource SemiGrey0}">
+                <TextBlock Name="KeyDisplayText"
+                           Text="{loc:Loc KeySelectionWaiting}"
+                           FontSize="22"
+                           FontWeight="SemiBold"
+                           TextAlignment="Center"
+                           MinWidth="220"
+                           Foreground="{DynamicResource SemiBlue5}" />
+            </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="10">
+            <Button Content="{loc:Loc CancelBtn}"
+                    Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

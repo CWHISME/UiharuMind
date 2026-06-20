@@ -3,12 +3,21 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.Windows.QuickToolWindow"
         Title="QuickToolWindow">
 
     <StackPanel Orientation="Horizontal" Background="Transparent" Height="50">
-        <Button Name="MainButton" Click="OnMainButtonClock" Background="Transparent">
+        <Button Name="MainButton"
+                Click="OnMainButtonClock"
+                PointerEntered="OnMainButtonPointerEntered"
+                Background="Transparent"
+                Width="50"
+                Height="50"
+                MinWidth="50"
+                MinHeight="50"
+                Padding="0">
             <Button.Styles>
                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
@@ -19,27 +28,13 @@
             </Button.Styles>
             <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="25" Height="25" />
             <ToolTip.Tip>
-                <TextBlock Text="{x:Static  lang:Lang.Explain}" />
+                <TextBlock Text="{loc:Loc Explain}" />
             </ToolTip.Tip>
         </Button>
 
         <!-- 隐藏的菜单 -->
-        <Border Name="MainMenu" IsVisible="False" CornerRadius="5">
-            <!-- <Border.Transitions> -->
-            <!--     <Transitions> -->
-            <!--         <DoubleTransition Duration="0:0:1" /> -->
-            <!--     </Transitions> -->
-            <!-- </Border.Transitions> -->
+        <Border Name="MainMenu" IsVisible="True" IsHitTestVisible="False" CornerRadius="5" Opacity="0">
             <StackPanel Name="FunctionMenu" Orientation="Horizontal">
-                <!-- <StackPanel.Transitions> -->
-                <!--     <DoubleTransition Property="Opacity" Duration="0:0:0.5" /> -->
-                <!-- </StackPanel.Transitions> -->
-                <!-- <Button Content="解释" /> -->
-                <!-- <Button Content="翻译" /> -->
-                <!-- <ComboBox Name="SubMenuComboBox" VerticalAlignment="Center"> -->
-                <!--     <ComboBoxItem Content="Choice 1" /> -->
-                <!--     <ComboBoxItem Content="Choice 2" /> -->
-                <!-- </ComboBox> -->
             </StackPanel>
         </Border>
 

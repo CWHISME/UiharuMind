@@ -1,31 +1,32 @@
 <Window
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
     x:Class="UiharuMind.Views.Windows.AutoClick.RecordingIndicatorWindow"
-    Title="录制中">
-    
-    <Border Name="IndicatorBorder" 
-            Background="#FEE2E2" 
+    Title="{loc:Loc AutoClickRecordingIndicatorTitle}">
+
+    <Border Name="IndicatorBorder"
+            Background="{DynamicResource SemiRed0}"
             CornerRadius="8"
-            BorderBrush="#EF4444"
+            BorderBrush="{DynamicResource SemiRed5}"
             BorderThickness="2"
             Padding="15,10">
-        <StackPanel HorizontalAlignment="Center" 
+        <StackPanel HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    Spacing="8">
-            <TextBlock Text="🔴 录制中..." 
-                      FontSize="14" 
+            <TextBlock Text="{loc:Loc AutoClickRecordingIndicatorTitle}"
+                      FontSize="14"
                       FontWeight="Bold"
-                      Foreground="#DC2626"
+                      Foreground="{DynamicResource SemiRed5}"
                       HorizontalAlignment="Center" />
             <TextBlock Name="ActionCountText"
-                      Text="已录制: 0 个动作" 
+                      Text="{loc:Loc AutoClickRecordedCountZero}"
                       FontSize="12"
-                      Foreground="#6B7280"
+                      Foreground="{DynamicResource SemiGrey7}"
                       HorizontalAlignment="Center" />
-            <TextBlock Text="按 Alt+Shift+G 停止"
+            <TextBlock Name="StopShortcutText"
                       FontSize="10"
-                      Foreground="#9CA3AF"
+                      Foreground="{DynamicResource SemiGrey6}"
                       HorizontalAlignment="Center"
                       FontStyle="Italic" />
         </StackPanel>

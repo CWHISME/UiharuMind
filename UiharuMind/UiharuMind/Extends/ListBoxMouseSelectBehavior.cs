@@ -61,19 +61,19 @@ public class ListBoxMouseSelectBehavior
         _listBox.AddHandler(InputElement.PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel);
     }
 
-    private void OnPointerPressed(object sender, PointerPressedEventArgs e)
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _isSelecting = true;
         _startPosition = e.GetPosition(_listBox);
         SelectItemAtPosition(_startPosition);
     }
 
-    private void OnPointerReleased(object sender, PointerReleasedEventArgs e)
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _isSelecting = false;
     }
 
-    private void OnPointerMoved(object sender, PointerEventArgs e)
+    private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
         if (_isSelecting)
         {

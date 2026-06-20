@@ -31,6 +31,8 @@ public abstract class UiharuWindowBase : Window
     /// </summary>
     public virtual bool IsCacheWindow => false;
 
+    public virtual bool ContributesToMacRegularMode => true;
+
     protected UiharuWindowBase()
     {
         Activated += OnActivated;
@@ -53,6 +55,7 @@ public abstract class UiharuWindowBase : Window
             StartWidth = (int)Width;
             StartHeight = (int)Height;
             Show();
+            OnPostShow();
         }
         else
         {
@@ -66,6 +69,8 @@ public abstract class UiharuWindowBase : Window
             Dispatcher.UIThread.Post(() =>
             {
                 Show();
+                OnPostShow();
+                UIManager.RefreshMacApplicationActivationPolicy();
                 if (isActivate && IsAllowFocusOnOpen) this.Activate();
             }, DispatcherPriority.ApplicationIdle);
         }
@@ -92,6 +97,10 @@ public abstract class UiharuWindowBase : Window
     {
     }
 
+    protected virtual void OnPostShow()
+    {
+    }
+
     protected virtual void OnPreClose()
     {
     }
@@ -104,9 +113,17 @@ public abstract class UiharuWindowBase : Window
         {
             e.Cancel = true;
             // App.DummyWindow.Activate();
-            Dispatcher.UIThread.Post(Hide);
+            Dispatcher.UIThread.Post(() =>
+            {
+                Hide();
+                UIManager.RefreshMacApplicationActivationPolicy();
+            });
         }
-        else UIManager.RemoveWindow(this);
+        else
+        {
+            UIManager.RemoveWindow(this);
+            UIManager.RefreshMacApplicationActivationPolicy();
+        }
 
         base.OnClosing(e);
     }

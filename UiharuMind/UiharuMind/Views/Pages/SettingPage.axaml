@@ -7,6 +7,7 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              x:DataType="pages:SettingPageData">
 
@@ -17,25 +18,32 @@
 
     <TabControl>
 
-        <TabItem Header="{x:Static lang:Lang.RuntimeEngineSetting}">
+        <TabItem Header="{loc:Loc RuntimeEngineSetting}">
             <DockPanel Margin="0,10,0,0">
-                <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.RuntimeEngineSetting}" FontSize="24" />
+                <TextBlock DockPanel.Dock="Top" Text="{loc:Loc RuntimeEngineSetting}" FontSize="24" />
                 <settingViews:RuntimeEngineSettingView />
             </DockPanel>
         </TabItem>
 
         <!-- Model Parameters Tab -->
-        <TabItem Header="{x:Static lang:Lang.LLamaCppSetting}">
+        <TabItem Header="{loc:Loc LLamaCppSetting}">
             <DockPanel Margin="0,10,0,0">
-                <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.LLamaCppSetting}" FontSize="24" />
+                <TextBlock DockPanel.Dock="Top" Text="{loc:Loc LLamaCppSetting}" FontSize="24" />
                 <settingViews:LLamaCppSettingView />
             </DockPanel>
         </TabItem>
 
-        <!-- debug -->
-        <TabItem Header="{x:Static lang:Lang.DebugSetting}">
+        <TabItem Header="{loc:Loc GeneralSetting}">
             <DockPanel Margin="0,10,0,0">
-                <TextBlock DockPanel.Dock="Top" Text="{x:Static lang:Lang.DebugSetting}" FontSize="24" />
+                <TextBlock DockPanel.Dock="Top" Text="{loc:Loc GeneralSetting}" FontSize="24" />
+                <settingViews:GeneralSettingView />
+            </DockPanel>
+        </TabItem>
+
+        <!-- debug -->
+        <TabItem Header="{loc:Loc DebugSetting}">
+            <DockPanel Margin="0,10,0,0">
+                <TextBlock DockPanel.Dock="Top" Text="{loc:Loc DebugSetting}" FontSize="24" />
                 <settingViews:DebugSetting />
             </DockPanel>
         </TabItem>

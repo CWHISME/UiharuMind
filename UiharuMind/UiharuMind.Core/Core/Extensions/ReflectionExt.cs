@@ -165,7 +165,7 @@ namespace UiharuMind.Core.Core.Extensions
         public static FieldInfo GetFieldIncludingBaseClasses(this Type type, string fieldName,
             BindingFlags bindingFlags)
         {
-            FieldInfo field = null;
+            FieldInfo? field = null;
 
             // 遍历当前类型及其所有基类
             while (type != null && field == null)

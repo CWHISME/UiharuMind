@@ -25,7 +25,7 @@ public partial class ChatPlugin_Translation : UserControl
 public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_Translation>
 {
     [ObservableProperty] private List<string> _languages = new List<string>();
-    [ObservableProperty] private string _selectedLanguage;
+    [ObservableProperty] private string _selectedLanguage = Lang.AutoDetect;
 
     public ChatPlugin_TranslationData()
     {

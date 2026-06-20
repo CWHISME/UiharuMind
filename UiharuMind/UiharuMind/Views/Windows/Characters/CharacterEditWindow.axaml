@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.Windows.Characters.CharacterEditWindow"
         Title="CharacterEditWindow">
@@ -11,8 +12,8 @@
     <DockPanel>
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10"
                     Spacing="10">
-            <Button Content="{x:Static  lang:Lang.CancelBtn}" Click="CancelButton_Click" />
-            <Button Content="{x:Static  lang:Lang.SaveBtn}" Click="OkButton_Click" />
+            <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
+            <Button Content="{loc:Loc SaveBtn}" Click="OkButton_Click" />
         </StackPanel>
 
         <Grid ColumnDefinitions="*,Auto,*">

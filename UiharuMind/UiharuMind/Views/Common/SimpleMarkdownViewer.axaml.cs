@@ -27,6 +27,7 @@ using TheArtOfDev.HtmlRenderer.Core.Entities;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Services;
 using UiharuMind.Utils.Tools;
 using UiharuMind.ViewModels.UIHolder;
 
@@ -84,7 +85,7 @@ public partial class SimpleMarkdownViewer : UserControl
     }
 
     private string HtmlText =>
-        MarkdownUtils.ToHtml(_textCache ?? "", Application.Current?.ActualThemeVariant == ThemeVariant.Dark,
+        MarkdownUtils.ToHtml(_textCache ?? "", ApplicationThemeManager.IsDarkTheme(),
             IsThinkingRemove ?? false, out _isThinking);
     // GetThemeSpecificHtml(Application.Current?.ActualThemeVariant, MarkdownUtils.ToHtml(_textCache));
 
@@ -308,12 +309,6 @@ public partial class SimpleMarkdownViewer : UserControl
 
     static SimpleMarkdownViewer()
     {
-        HtmlRender.AddFontFamily(new FontFamily(
-            new Uri("avares://UiharuMind/Assets/Fonts"),
-            "#HarmonyOS Sans"));
-        HtmlRender.AddFontFamily(new FontFamily(
-            new Uri("avares://UiharuMind/Assets/Fonts"),
-            "#JetBrains Mono"));
     }
 
     public SimpleMarkdownViewer()
@@ -367,7 +362,7 @@ public partial class SimpleMarkdownViewer : UserControl
         // if (!_change)
         // {
         //     _change = true;
-        return MarkdownUtils.ToHtml(text, theme == ThemeVariant.Dark,
+        return MarkdownUtils.ToHtml(text, ApplicationThemeManager.IsDarkTheme(theme),
             ConfigManager.Instance.Setting.IsChatNotShowThinking, out _isThinking);
         // }
         // _change = false;

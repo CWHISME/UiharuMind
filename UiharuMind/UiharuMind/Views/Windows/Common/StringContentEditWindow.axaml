@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -29,8 +30,8 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center"
                     Spacing="10" Margin="0,0,0,10">
-            <Button Content="{x:Static  lang:Lang.CancelBtn}" Click="CancelButton_Click" />
-            <Button Content="{x:Static  lang:Lang.SaveBtn}" Click="OkButton_Click" />
+            <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
+            <Button Content="{loc:Loc SaveBtn}" Click="OkButton_Click" />
         </StackPanel>
     </Grid>
 

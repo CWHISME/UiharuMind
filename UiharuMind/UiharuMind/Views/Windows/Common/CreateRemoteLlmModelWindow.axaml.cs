@@ -92,9 +92,14 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     [RelayCommand]
     public void CreateRemoteModel(ModelConfig modelConfig)
     {
+        if (Activator.CreateInstance(modelConfig.Type) is not BaseRemoteModelConfig config)
+        {
+            return;
+        }
+
         RemoteModelInfo = new RemoteModelInfo()
         {
-            Config = Activator.CreateInstance(modelConfig.Type) as BaseRemoteModelConfig
+            Config = config
         };
     }
 

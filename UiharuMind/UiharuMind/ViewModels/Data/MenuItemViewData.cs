@@ -18,7 +18,15 @@ namespace UiharuMind.ViewModels;
 
 public class MenuItemViewData : ObservableObject
 {
-    public string? MenuHeader { get; set; }
+    private string? _menuHeader;
+
+    public string? MenuHeader
+    {
+        get => _menuHeader;
+        set => SetProperty(ref _menuHeader, value);
+    }
+
+    public string? MenuHeaderResourceKey { get; set; }
     public string? MenuIconName { get; set; }
     public MenuPages Key { get; set; }
     public string? Status { get; set; }

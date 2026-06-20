@@ -20,6 +20,7 @@ using Avalonia.Threading;
 using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
@@ -89,9 +90,12 @@ public static class UIManager
             }
             else
             {
-                windowsList[0].Activate();
+                if (windowsList[0].ContributesToMacRegularMode) windowsList[0].Activate();
                 Log.Warning($"[{typeof(T).Name}] This window is already opened.");
             }
+
+            RefreshMacApplicationActivationPolicy();
+            if (isActivate && window?.ContributesToMacRegularMode == true) MacApplicationActivationService.ActivateIgnoringOtherApps();
             // if (_multiWindows.ContainsKey(typeof(T)))
             // {
             //     var window = _multiWindows[typeof(T)][0];
@@ -179,6 +183,25 @@ public static class UIManager
         {
             windows.Remove(win);
         }
+    }
+
+    public static void RefreshMacApplicationActivationPolicy()
+    {
+        MacApplicationActivationService.SetRegularMode(HasVisibleMacRegularModeWindow());
+    }
+
+    private static bool HasVisibleMacRegularModeWindow()
+    {
+        foreach (var window in _multiWindows.Values)
+        {
+            foreach (var win in window)
+            {
+                if (win.ContributesToMacRegularMode && win.IsVisible && win.WindowState != WindowState.Minimized)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

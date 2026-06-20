@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:download="clr-namespace:UiharuMind.ViewModels.ViewData.Download"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.DownloadListView">
@@ -22,20 +23,20 @@
                                        Width="300"
                                        TextWrapping="Wrap" Margin="0,0,10,0" />
                             <!-- 下载按钮 -->
-                            <Button Margin="10,0,0,0" DockPanel.Dock="Right" Content="{x:Static lang:Lang.Download}"
+                            <Button Margin="10,0,0,0" DockPanel.Dock="Right" Content="{loc:Loc Download}"
                                     IsEnabled="{Binding !IsDownloading}"
                                     IsVisible="{Binding !IsDownloaded}"
                                     CommandParameter="{Binding .}"
                                     Command="{Binding DataContext.DownloadVersionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                             <!-- 删除按钮 -->
-                            <Button Margin="10,0,0,0" DockPanel.Dock="Right" Content="{x:Static lang:Lang.Delete}"
+                            <Button Margin="10,0,0,0" DockPanel.Dock="Right" Content="{loc:Loc Delete}"
                                     IsVisible="{Binding IsDownloaded}"
                                     IsEnabled="{Binding !IsNotAllowDelete}"
                                     CommandParameter="{Binding .}"
                                     Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                             <!-- 打开目录按钮 -->
                             <Button Margin="10,0,0,0" DockPanel.Dock="Right"
-                                    Content="{x:Static lang:Lang.OpenDirectory}"
+                                    Content="{loc:Loc OpenDirectory}"
                                     IsVisible="{Binding IsDownloaded}"
                                     CommandParameter="{Binding .}"
                                     Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />

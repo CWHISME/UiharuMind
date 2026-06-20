@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:services="clr-namespace:UiharuMind.Services"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ModelSelectComboBoxView">
@@ -30,9 +31,9 @@
                                     IsVisible="{Binding DataContext.CurModelRunningData,RelativeSource={RelativeSource AncestorType=ComboBox},FallbackValue=True, TargetNullValue=False}">
                             <PathIcon Data="{StaticResource InfoRegular}" />
                             <!-- <TextBlock Text="7B"></TextBlock> -->
-                            <u:Badge Header="{x:Static  lang:Lang.ModelStateRemote}" Background="SpringGreen"
+                            <u:Badge Header="{loc:Loc ModelStateRemote}" Background="SpringGreen"
                                      IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <u:Badge Header="{x:Static  lang:Lang.ModelStateVision}" Background="Gold"
+                            <u:Badge Header="{loc:Loc ModelStateVision}" Background="Gold"
                                      IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" />
                         </StackPanel>
@@ -45,7 +46,7 @@
         </Panel>
 
         <!-- 右边的按钮或文字 -->
-        <Button Grid.Column="2" Content="{x:Static lang:Lang.EjectModel}" VerticalAlignment="Center"
+        <Button Grid.Column="2" Content="{loc:Loc EjectModel}" VerticalAlignment="Center"
                 Command="{Binding EjectCurrentModel}"
                 IsEnabled="{Binding CurIsRunning}" />
     </Grid>

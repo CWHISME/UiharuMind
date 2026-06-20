@@ -9,7 +9,6 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using SharpHook;
 using SharpHook.Data;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -36,7 +35,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// <summary>
     /// 功能是否启用
     /// </summary>
-    public bool IsRunning => _hook.IsRunning;
+    public bool IsRunning => _hookBackend.IsRunning;
 
     public event Action<KeyCode>? EventOnKeyDown;
     public event Action<KeyCode>? EventOnKeyUp;
@@ -44,24 +43,26 @@ public class InputManager : Singleton<InputManager>, IInitialize
     public event Action<MouseEventData>? EventOnMouseReleased;
     public event Action<MouseEventData>? EventOnMouseMoved;
     public event Action<MouseWheelEventData>? EventOnMouseWheel;
-    
+
     /// <summary>
     /// 鼠标点击事件（仅在短按时触发，长按不触发）
     /// </summary>
     public event Action<MouseEventData>? EventOnMouseClicked;
 
-    private GlobalHookBase _hook;
-
-    private HashSet<KeyCode> _pressedKeys = new HashSet<KeyCode>();
+    private readonly IInputHookBackend _hookBackend;
+    private readonly object _stateLock = new();
+    private readonly HashSet<KeyCode> _pressedKeys = new();
+    private readonly Timer? _pressedStateSyncTimer;
+    private int _registeredShortcutSuspendCount;
 
     /// <summary>
     /// 组合键组合数据
     /// </summary>
-    private List<KeyCombinationData> _keyCombinations = new List<KeyCombinationData>();
+    private readonly List<KeyCombinationData> _keyCombinations = new();
 
     // 鼠标按下时间记录，用于判断是否为点击
-    private Dictionary<MouseButton, DateTime> _mousePressTimes = new Dictionary<MouseButton, DateTime>();
-    
+    private readonly Dictionary<MouseButton, DateTime> _mousePressTimes = new();
+
     /// <summary>
     /// 点击阈值（毫秒），超过此时间视为长按而非点击
     /// </summary>
@@ -69,64 +70,37 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     //是否启用过
     private bool _isEnabled;
-    // private Action _onStartCallback;
+
+    public InputManager()
+    {
+        _hookBackend = InputBackendFactory.CreateHookBackend();
+        _hookBackend.HookEnabled += OnHookEnabled;
+        _hookBackend.HookDisabled += OnHookDisabled;
+        _hookBackend.KeyPressed += OnKeyPressed;
+        _hookBackend.KeyReleased += OnKeyReleased;
+        _hookBackend.MousePressed += OnMousePressed;
+        _hookBackend.MouseReleased += OnMouseReleased;
+        _hookBackend.MouseMoved += OnMouseMoved;
+        _hookBackend.MouseDragged += OnMouseDragged;
+        _hookBackend.MouseWheel += OnMouseWheel;
+        _pressedStateSyncTimer = new Timer(_ => SyncPressedStateWithBackend(), null, 1000, 1000);
+    }
 
     public void OnInitialize()
     {
-        //Test
-        // if(UiharuCoreManager.Instance.IsWindows) return;
-
-        // Start();
+        // Start is triggered by DummyWindow after the Avalonia app is ready.
     }
 
     public async void Start(Action onFailed)
     {
         try
         {
-            // _onStartCallback = onStart;
-
-            _hook = new SimpleGlobalHook(GlobalHookType.All); //new TaskPoolGlobalHook();
-
-            _hook.HookEnabled += OnHookEnabled;
-            _hook.HookDisabled += OnHookDisabled;
-
-            _hook.KeyTyped += OnKeyTyped;
-            _hook.KeyPressed += OnKeyPressed;
-            _hook.KeyReleased += OnKeyReleased;
-
-            // _hook.MouseClicked += OnMouseClicked;
-            _hook.MousePressed += OnMousePressed;
-            _hook.MouseReleased += OnMouseReleased;
-            _hook.MouseMoved += OnMouseMoved;
-            _hook.MouseDragged += OnMouseDragged;
-
-            _hook.MouseWheel += OnMouseWheel;
-
-            //     Thread thread = new Thread(() =>
-            //     {
-            //         try
-            //         {
-            //             _hook.Run();
-            //             onStarted?.Invoke();
-            //         }
-            //         catch (Exception e)
-            //         {
-            //             Console.WriteLine(e);
-            //             onFailed?.Invoke();
-            //         }
-            //     });
-            //     thread.Start();
-            //     thread.Interrupt();
-            // }
-            // catch (Exception)
-            // {
-            //     Stop();
-            // }
-
-            await _hook.RunAsync().ConfigureAwait(false);
+            await _hookBackend.RunAsync().ConfigureAwait(false);
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            Log.Error("Input hook failed. On Windows, games running as administrator require UiharuMind to run with the same privilege.");
+            Log.Warning(e.Message);
             Stop();
             if (!_isEnabled) onFailed.Invoke();
         }
@@ -134,10 +108,10 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     public void Stop()
     {
-        if (_hook.IsDisposed) return;
         try
         {
-            _hook.Dispose();
+            _hookBackend.Dispose();
+            ClearPressedState();
         }
         catch (Exception)
         {
@@ -147,7 +121,27 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     public bool IsPressed(KeyCode keyCode)
     {
-        return _pressedKeys.Contains(keyCode);
+        SyncPressedStateWithBackend();
+        lock (_stateLock)
+        {
+            return _pressedKeys.Contains(keyCode);
+        }
+    }
+
+    public void ClearPressedState()
+    {
+        lock (_stateLock)
+        {
+            _pressedKeys.Clear();
+            _mousePressTimes.Clear();
+        }
+    }
+
+    public IDisposable SuspendRegisteredShortcuts()
+    {
+        Interlocked.Increment(ref _registeredShortcutSuspendCount);
+        ClearPressedState();
+        return new RegisteredShortcutSuspendScope(this);
     }
 
     public void RegisterKey(KeyCombinationData keyCombination)
@@ -160,108 +154,160 @@ public class InputManager : Singleton<InputManager>, IInitialize
         _keyCombinations.Remove(keyCombination);
     }
 
+    public void ClearRegisteredKeys()
+    {
+        _keyCombinations.Clear();
+    }
+
     //=========Event Handler=========
 
-    private void OnKeyTyped(object? sender, KeyboardHookEventArgs e)
+    private bool OnKeyPressed(KeyCode keyCode)
     {
-        // Log.Debug("OnKeyTyped " + e.Data.KeyCode);
-    }
+        SyncPressedStateWithBackend();
 
-    private void OnKeyPressed(object? sender, KeyboardHookEventArgs e)
-    {
-        // Log.Debug("OnKeyPressed " + e.Data.KeyCode);
-        
         // 如果这个键已经处于按下状态，说明是操作系统的键盘重复事件，不触发 EventOnKeyDown
-        if (!_pressedKeys.Add(e.Data.KeyCode))
+        lock (_stateLock)
         {
-            return;
-        }
-
-        EventOnKeyDown?.Invoke(e.Data.KeyCode);
-        foreach (var keyCombination in _keyCombinations)
-        {
-            if (keyCombination.MainKeyCode != e.Data.KeyCode) continue;
-            if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
-            keyCombination.OnTrigger?.Invoke();
-            e.SuppressEvent = true;
-            return;
-        }
-    }
-
-    private void OnKeyReleased(object? sender, KeyboardHookEventArgs e)
-    {
-        EventOnKeyUp?.Invoke(e.Data.KeyCode);
-        _pressedKeys.Remove(e.Data.KeyCode);
-    }
-
-    private void OnMouseClicked(object? sender, MouseHookEventArgs e)
-    {
-        // Log.Debug(sender + "  OnMouseClicked " + e);
-    }
-
-    private void OnMousePressed(object? sender, MouseHookEventArgs e)
-    {
-        // 记录按下时间
-        _mousePressTimes[e.Data.Button] = DateTime.Now;
-        
-        EventOnMousePressed?.Invoke(e.Data);
-        MouseData = e.Data;
-        MousePressedData = e.Data;
-        // Log.Debug("OnMousePressed");
-    }
-
-    private void OnMouseReleased(object? sender, MouseHookEventArgs e)
-    {
-        var button = e.Data.Button;
-        
-        // 计算按下时长
-        if (_mousePressTimes.TryGetValue(button, out var pressTime))
-        {
-            var duration = (int)(DateTime.Now - pressTime).TotalMilliseconds;
-            _mousePressTimes.Remove(button);
-            
-            // 如果按下时长在点击阈值内，触发 Click 事件
-            if (duration <= ClickThresholdMs)
+            if (!_pressedKeys.Add(keyCode))
             {
-                EventOnMouseClicked?.Invoke(e.Data);
+                return false;
             }
         }
-        
-        EventOnMouseReleased?.Invoke(e.Data);
-        MouseData = e.Data;
-        MouseReleasedData = e.Data;
-        // Log.Debug("OnMouseReleased");
+
+        EventOnKeyDown?.Invoke(keyCode);
+        if (Volatile.Read(ref _registeredShortcutSuspendCount) > 0)
+        {
+            return false;
+        }
+
+        foreach (var keyCombination in _keyCombinations)
+        {
+            if (keyCombination.MainKeyCode != keyCode) continue;
+            if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
+            try
+            {
+                keyCombination.OnTrigger?.Invoke();
+            }
+            catch (Exception e)
+            {
+                Log.Warning(e.Message);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
-    private void OnMouseMoved(object? sender, MouseHookEventArgs e)
+    private void OnKeyReleased(KeyCode keyCode)
     {
-        EventOnMouseMoved?.Invoke(e.Data);
-        MouseData = e.Data;
-        // Log.Debug($"鼠标位置 {e.Data.X},{e.Data.Y}");
+        lock (_stateLock)
+        {
+            _pressedKeys.Remove(keyCode);
+        }
+
+        EventOnKeyUp?.Invoke(keyCode);
     }
 
-    private void OnMouseDragged(object? sender, MouseHookEventArgs e)
+    private void OnMousePressed(MouseEventData data)
     {
-        // 拖拽时也触发 MouseMoved 事件，以便上层可以统一处理
-        EventOnMouseMoved?.Invoke(e.Data);
-        MouseData = e.Data;
-        // Log.Debug("OnMouseDragged");
+        lock (_stateLock)
+        {
+            _mousePressTimes[data.Button] = DateTime.Now;
+        }
+
+        EventOnMousePressed?.Invoke(data);
+        MouseData = data;
+        MousePressedData = data;
     }
 
-    private void OnMouseWheel(object? sender, MouseWheelHookEventArgs e)
+    private void OnMouseReleased(MouseEventData data)
     {
-        EventOnMouseWheel?.Invoke(e.Data);
+        var button = data.Button;
+
+        DateTime pressTime;
+        lock (_stateLock)
+        {
+            if (!_mousePressTimes.TryGetValue(button, out pressTime))
+            {
+                pressTime = default;
+            }
+            else
+            {
+                _mousePressTimes.Remove(button);
+            }
+        }
+
+        if (pressTime != default)
+        {
+            var duration = (int)(DateTime.Now - pressTime).TotalMilliseconds;
+            if (duration <= ClickThresholdMs)
+            {
+                EventOnMouseClicked?.Invoke(data);
+            }
+        }
+
+        EventOnMouseReleased?.Invoke(data);
+        MouseData = data;
+        MouseReleasedData = data;
     }
 
-    private void OnHookEnabled(object? sender, HookEventArgs e)
+    private void OnMouseMoved(MouseEventData data)
+    {
+        EventOnMouseMoved?.Invoke(data);
+        MouseData = data;
+    }
+
+    private void OnMouseDragged(MouseEventData data)
+    {
+        EventOnMouseMoved?.Invoke(data);
+        MouseData = data;
+    }
+
+    private void OnMouseWheel(MouseWheelEventData data)
+    {
+        EventOnMouseWheel?.Invoke(data);
+    }
+
+    private void OnHookEnabled()
     {
         Log.Debug("OnHookEnabled");
         _isEnabled = true;
-        // _onStartCallback.Invoke();
     }
 
-    private void OnHookDisabled(object? sender, HookEventArgs e)
+    private void OnHookDisabled()
     {
         Log.Debug("OnHookDisabled");
+        ClearPressedState();
+    }
+
+    private void ResumeRegisteredShortcuts()
+    {
+        if (Interlocked.CompareExchange(ref _registeredShortcutSuspendCount, 0, 0) <= 0) return;
+        Interlocked.Decrement(ref _registeredShortcutSuspendCount);
+        ClearPressedState();
+    }
+
+    private void SyncPressedStateWithBackend()
+    {
+        if (_pressedKeys.Count == 0) return;
+        lock (_stateLock)
+        {
+            _pressedKeys.RemoveWhere(keyCode => _hookBackend.IsKeyPressed(keyCode) == false);
+        }
+    }
+
+    private sealed class RegisteredShortcutSuspendScope(InputManager inputManager)
+        : IDisposable
+    {
+        private InputManager? _inputManager = inputManager;
+
+        public void Dispose()
+        {
+            var inputManager = _inputManager;
+            if (inputManager == null) return;
+            _inputManager = null;
+            inputManager.ResumeRegisteredShortcuts();
+        }
     }
 }

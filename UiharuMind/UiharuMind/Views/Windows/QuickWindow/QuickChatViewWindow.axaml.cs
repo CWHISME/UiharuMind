@@ -16,7 +16,7 @@ public partial class QuickChatViewWindow : QuickWindowBase
 {
     public static void Show(ChatViewModel model)
     {
-        model.ChatSession.Active();
+        model.ChatSession!.Active();
         UIManager.ShowWindow<QuickChatViewWindow>(x => x.ChatModel = model, isMulti: true);
     }
 
@@ -32,8 +32,8 @@ public partial class QuickChatViewWindow : QuickWindowBase
         {
             DataContext = value;
             TitleTextBlock.Text =
-                $"{ChatModel?.ChatSession.Name}";
-            TitleSecondaryTextBlock.Text = $"({ChatModel?.ChatSession.ChatSession.ChatModelRunningData?.ModelName})";
+                $"{ChatModel!.ChatSession!.Name}";
+            TitleSecondaryTextBlock.Text = $"({ChatModel!.ChatSession!.ChatSession.ChatModelRunningData?.ModelName})";
         }
     }
 

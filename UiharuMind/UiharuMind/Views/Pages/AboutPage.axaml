@@ -4,46 +4,45 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Pages.AboutPage">
     <DockPanel Margin="10">
-        <StackPanel DockPanel.Dock="Top" Spacing="10">
-            <Image
-                MaxHeight="100"
-                Tapped="OnTapedIcon"
-                Source="/Assets/Icon.png" />
-            <SelectableTextBlock Text="UiharuMind" FontSize="26" HorizontalAlignment="Center" />
-            <HyperlinkButton Content="https://github.com/CWHISME/UiharuMind" HorizontalAlignment="Center"
-                             NavigateUri="https://github.com/CWHISME/UiharuMind" />
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Name="VersionText" HorizontalAlignment="Center" />
-                <TextBlock Text=" | " />
-                <HyperlinkButton Content="Apache License"
-                                 Margin="5,-2,0,0"
-                                 NavigateUri="https://github.com/CWHISME/UiharuMind?tab=Apache-2.0-1-ov-file" />
-            </StackPanel>
-            <TextBlock Text="Made by WangJiaYing (ᓚᘏᗢ)" HorizontalAlignment="Center" TextDecorations="Underline"
-                       PointerPressed="AboutBtn_Click">
-                <ToolTip.ShowDelay> 0 </ToolTip.ShowDelay>
-                <ToolTip.Tip>
-                    <TextBlock Text="点我 (‾◡◝)" />
-                </ToolTip.Tip>
-            </TextBlock>
-        </StackPanel>
-
         <ScrollViewer DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <StackPanel>
+                <Image
+                    MaxHeight="100"
+                    Tapped="OnTapedIcon"
+                    Source="/Assets/Icon.png" />
+                <SelectableTextBlock Text="UiharuMind" FontSize="26" HorizontalAlignment="Center" />
+                <HyperlinkButton Content="https://github.com/CWHISME/UiharuMind" HorizontalAlignment="Center"
+                                 NavigateUri="https://github.com/CWHISME/UiharuMind" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Name="VersionText" HorizontalAlignment="Center" />
+                    <TextBlock Text=" | " />
+                    <HyperlinkButton Content="Apache License"
+                                     Margin="5,-2,0,0"
+                                     NavigateUri="https://github.com/CWHISME/UiharuMind?tab=Apache-2.0-1-ov-file" />
+                </StackPanel>
+                <TextBlock Text="Made by WangJiaYing (ᓚᘏᗢ)" HorizontalAlignment="Center" TextDecorations="Underline"
+                           PointerPressed="AboutBtn_Click">
+                    <ToolTip.ShowDelay> 0 </ToolTip.ShowDelay>
+                    <ToolTip.Tip>
+                        <TextBlock Text="点我 (‾◡◝)" />
+                    </ToolTip.Tip>
+                </TextBlock>
+                <!-- 感谢、引用的开源项目 -->
                 <!-- <StackPanel> -->
-                <u:Divider Content="{x:Static  lang:Lang.Introduction}" FontSize="20" />
+                <u:Divider Content="{loc:Loc Introduction}" FontSize="20" />
                 <SelectableTextBlock Margin="5"
-                                     Text="UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、知识库对话、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。"
+                                     Text="{loc:Loc AboutIntroductionText}"
                                      HorizontalAlignment="Center"
                                      TextWrapping="Wrap" />
-                <u:Divider Content="{x:Static  lang:Lang.Thanks}" FontSize="20" />
+                <u:Divider Content="{loc:Loc Thanks}" FontSize="20" />
                 <StackPanel Margin="0,10">
-                    <SelectableTextBlock HorizontalAlignment="Center" Text="默认角色图标由智谱 CogView4 生成" />
-                    <SelectableTextBlock HorizontalAlignment="Center" Text="字体使用华为 HarmonyOS Sans" />
+                    <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutDefaultIconCredit}" />
+                    <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutFontCredit}" />
                     <u:Divider Margin="0,10" />
                 </StackPanel>
                 <!-- </StackPanel> -->
@@ -51,6 +50,5 @@
             </StackPanel>
         </ScrollViewer>
     </DockPanel>
-
 
 </UserControl>

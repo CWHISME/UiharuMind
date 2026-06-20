@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.Windows.Common.MemoryEditorWindow"
@@ -19,24 +20,24 @@
         <TabItem Header="📝 文本">
             <Border CornerRadius="10" Padding="10">
                 <DockPanel>
-                    <Button DockPanel.Dock="Bottom" Content="{x:Static lang:Lang.AddBtn}"
+                    <Button DockPanel.Dock="Bottom" Content="{loc:Loc AddBtn}"
                             Command="{Binding AddTextCommand}" />
                     <ListBox DockPanel.Dock="Top" ItemsSource="{Binding Texts}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{DynamicResource UiBorderBrush}" CornerRadius="30"
+                                <Border BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="30"
                                         ClipToBounds="True"
                                         BorderThickness="1" Padding="5">
                                     <DockPanel LastChildFill="False">
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
                                             <Button
                                                 CornerRadius="15"
-                                                Content="{x:Static lang:Lang.Edit}"
+                                                Content="{loc:Loc Edit}"
                                                 CommandParameter="{Binding  }"
                                                 Command="{Binding DataContext.EditTextCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                             <Button
                                                 CornerRadius="15"
-                                                Content="{x:Static lang:Lang.Delete}"
+                                                Content="{loc:Loc Delete}"
                                                 CommandParameter="{Binding }"
                                                 Command="{Binding DataContext.DeletetTextCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                         </StackPanel>
@@ -59,30 +60,30 @@
                     <u:Banner
                         DockPanel.Dock="Top"
                         Classes.Bordered="true"
-                        Header="{x:Static lang:Lang.MessageInfoTitle}"
+                        Header="{loc:Loc MessageInfoTitle}"
                         Type="Information">
                         <u:Banner.Content>
-                            <TextBlock Text="{x:Static lang:Lang.MemoryEditorWindowFileTips}" TextWrapping="Wrap" />
+                            <TextBlock Text="{loc:Loc MemoryEditorWindowFileTips}" TextWrapping="Wrap" />
                         </u:Banner.Content>
                     </u:Banner>
-                    <Button DockPanel.Dock="Bottom" Content="{x:Static lang:Lang.AddBtn}"
+                    <Button DockPanel.Dock="Bottom" Content="{loc:Loc AddBtn}"
                             Command="{Binding AddFileCommand}" />
                     <ListBox DockPanel.Dock="Top" ItemsSource="{Binding FilePaths}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{DynamicResource UiBorderBrush}" CornerRadius="30"
+                                <Border BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="30"
                                         ClipToBounds="True"
                                         BorderThickness="1" Padding="5">
                                     <DockPanel LastChildFill="False">
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
                                             <Button
                                                 CornerRadius="15"
-                                                Content="{x:Static lang:Lang.OpenDirectory}"
+                                                Content="{loc:Loc OpenDirectory}"
                                                 CommandParameter="{Binding  }"
                                                 Command="{Binding DataContext.OpenFileFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                             <Button
                                                 CornerRadius="15"
-                                                Content="{x:Static lang:Lang.Delete}"
+                                                Content="{loc:Loc Delete}"
                                                 CommandParameter="{Binding }"
                                                 Command="{Binding DataContext.DeletetFileCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                         </StackPanel>
@@ -105,30 +106,30 @@
                     <u:Banner
                         DockPanel.Dock="Top"
                         Classes.Bordered="true"
-                        Header="{x:Static lang:Lang.MessageInfoTitle}"
+                        Header="{loc:Loc MessageInfoTitle}"
                         Type="Information">
                         <u:Banner.Content>
-                            <TextBlock Text="{x:Static lang:Lang.MemoryEditorWindowDirectoryTips}" TextWrapping="Wrap" />
+                            <TextBlock Text="{loc:Loc MemoryEditorWindowDirectoryTips}" TextWrapping="Wrap" />
                         </u:Banner.Content>
                     </u:Banner>
-                    <Button DockPanel.Dock="Bottom" Content="{x:Static lang:Lang.AddBtn}"
+                    <Button DockPanel.Dock="Bottom" Content="{loc:Loc AddBtn}"
                             Command="{Binding AddDirectoryCommand}" />
                     <ListBox DockPanel.Dock="Top" ItemsSource="{Binding DirectoryPaths}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{DynamicResource UiBorderBrush}" CornerRadius="30"
+                                <Border BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="30"
                                         ClipToBounds="True"
                                         BorderThickness="1" Padding="5">
                                     <DockPanel LastChildFill="False">
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
                                             <Button
                                                 CornerRadius="15"
-                                                Content="{x:Static lang:Lang.OpenDirectory}"
+                                                Content="{loc:Loc OpenDirectory}"
                                                 CommandParameter="{Binding  }"
                                                 Command="{Binding DataContext.OpenDirecoryFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                             <Button
                                                 CornerRadius="15"
-                                                Content="{x:Static lang:Lang.Delete}"
+                                                Content="{loc:Loc Delete}"
                                                 CommandParameter="{Binding }"
                                                 Command="{Binding DataContext.DeletetDirectoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                         </StackPanel>
@@ -151,10 +152,10 @@
                     <u:Banner
                         DockPanel.Dock="Top"
                         Classes.Bordered="true"
-                        Header="{x:Static lang:Lang.MessageInfoTitle}"
+                        Header="{loc:Loc MessageInfoTitle}"
                         Type="Information">
                         <u:Banner.Content>
-                            <TextBlock Text="{x:Static lang:Lang.MemoryEditorWindowUrlTips}" TextWrapping="Wrap" />
+                            <TextBlock Text="{loc:Loc MemoryEditorWindowUrlTips}" TextWrapping="Wrap" />
                         </u:Banner.Content>
                     </u:Banner>
                     <TextBox DockPanel.Dock="Bottom" Text="{Binding UrlPaths}" AcceptsReturn="True"

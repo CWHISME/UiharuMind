@@ -15,17 +15,18 @@ public class ActionTypeToColorConverter : IValueConverter
     {
         return value switch
         {
-            AutoClickActionType.MouseClick => new SolidColorBrush(Color.Parse("#DBEAFE")), // 蓝色
-            AutoClickActionType.MouseDown => new SolidColorBrush(Color.Parse("#BFDBFE")),  // 深蓝色
-            AutoClickActionType.MouseUp => new SolidColorBrush(Color.Parse("#BFDBFE")),    // 深蓝色
-            AutoClickActionType.MouseMove => new SolidColorBrush(Color.Parse("#C7D2FE")),  // 紫蓝色
-            AutoClickActionType.MouseWheel => new SolidColorBrush(Color.Parse("#DDD6FE")), // 紫色
-            AutoClickActionType.KeyPress => new SolidColorBrush(Color.Parse("#E0E7FF")),   // 浅紫色
-            AutoClickActionType.KeyDown => new SolidColorBrush(Color.Parse("#C4B5FD")),    // 深紫色
-            AutoClickActionType.KeyUp => new SolidColorBrush(Color.Parse("#C4B5FD")),      // 深紫色
-            AutoClickActionType.Delay => new SolidColorBrush(Color.Parse("#FEF3C7")),      // 黄色
-            AutoClickActionType.Text => new SolidColorBrush(Color.Parse("#D1FAE5")),       // 绿色
-            _ => new SolidColorBrush(Color.Parse("#F3F4F6"))                               // 灰色
+            AutoClickStepKind.MouseClick => new SolidColorBrush(Color.Parse("#DBEAFE")),
+            AutoClickStepKind.MouseDown => new SolidColorBrush(Color.Parse("#BFDBFE")),
+            AutoClickStepKind.MouseUp => new SolidColorBrush(Color.Parse("#BFDBFE")),
+            AutoClickStepKind.MouseMove => new SolidColorBrush(Color.Parse("#C7D2FE")),
+            AutoClickStepKind.MouseWheel => new SolidColorBrush(Color.Parse("#DDD6FE")),
+            AutoClickStepKind.KeyClick => new SolidColorBrush(Color.Parse("#E0E7FF")),
+            AutoClickStepKind.KeyDown => new SolidColorBrush(Color.Parse("#C4B5FD")),
+            AutoClickStepKind.KeyUp => new SolidColorBrush(Color.Parse("#C4B5FD")),
+            AutoClickStepKind.Delay => new SolidColorBrush(Color.Parse("#FEF3C7")),
+            AutoClickStepKind.Text => new SolidColorBrush(Color.Parse("#D1FAE5")),
+            AutoClickStepKind.Loop => new SolidColorBrush(Color.Parse("#CCFBF1")),
+            _ => new SolidColorBrush(Color.Parse("#F3F4F6"))
         };
     }
 

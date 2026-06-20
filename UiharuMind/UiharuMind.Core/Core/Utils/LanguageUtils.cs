@@ -25,4 +25,37 @@ public static class LanguageUtils
         new CultureInfo(EnglishUnitedStates),
         new CultureInfo(ChineseSimplified)
     };
+
+    public static CultureInfo GetSupportedCultureOrDefault(string? languageCode)
+    {
+        if (!string.IsNullOrWhiteSpace(languageCode))
+        {
+            foreach (var cultureInfo in SupportedLanguages)
+            {
+                if (string.Equals(cultureInfo.Name, languageCode, StringComparison.OrdinalIgnoreCase))
+                {
+                    return cultureInfo;
+                }
+            }
+        }
+
+        foreach (var cultureInfo in SupportedLanguages)
+        {
+            if (string.Equals(cultureInfo.Name, CultureInfo.CurrentCulture.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                return cultureInfo;
+            }
+        }
+
+        foreach (var cultureInfo in SupportedLanguages)
+        {
+            if (string.Equals(cultureInfo.TwoLetterISOLanguageName, CultureInfo.CurrentCulture.TwoLetterISOLanguageName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return cultureInfo;
+            }
+        }
+
+        return new CultureInfo(EnglishUnitedStates);
+    }
 }

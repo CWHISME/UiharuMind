@@ -26,12 +26,12 @@ public class ClipboardAvaloniaCustom : ClipboardStaticBase<ClipboardHandleAvalon
 public class ClipboardHandleAvalonia : ClipboardHandleGdiBase, IClipboardHandlePlatform<Bitmap>
 {
     /// <inheritdoc/>
-    public virtual Bitmap? GetImage()
+    public virtual Bitmap GetImage()
     {
         using var gdi = GetImageImpl();
 
         if (gdi == null)
-            return null;
+            return null!;
 
         var bitmapData = gdi.LockBits(
             new Rectangle(0, 0, gdi.Width, gdi.Height),

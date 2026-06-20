@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="680"
+        Width="960"
+        Height="680"
+        MinWidth="760"
+        MinHeight="520"
+        x:Class="UiharuMind.Views.Windows.SettingsWindow"
+        Icon="/Assets/Icon.png"
+        Title="{loc:Loc SettingsWindowTitle}">
+
+    <Window.Styles>
+        <Style Selector="Button.SettingsNavButton">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.SettingsNavButton:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue5}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Border.SettingsSection">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid ColumnDefinitions="216,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Column="0"
+                Background="{DynamicResource SemiGrey1}"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,1,0"
+                Padding="12">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <TextBlock Text="{loc:Loc SettingsWindowTitle}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Margin="4,4,4,12" />
+
+                <StackPanel Grid.Row="1" Spacing="6">
+                    <Button Name="GeneralButton"
+                            Classes="SettingsNavButton"
+                            Click="OnGeneralClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource Setting}" />
+                            <TextBlock Text="{loc:Loc GeneralSetting}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Name="RuntimeButton"
+                            Classes="SettingsNavButton"
+                            Click="OnRuntimeClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource ArrowSyncCircleRegular}" />
+                            <TextBlock Text="{loc:Loc RuntimeEngineSetting}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Name="ModelButton"
+                            Classes="SettingsNavButton"
+                            Click="OnModelClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource OpenFolderRegular}" />
+                            <TextBlock Text="{loc:Loc LLamaCppSetting}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Name="ShortcutsButton"
+                            Classes="SettingsNavButton"
+                            Click="OnShortcutsClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource TextFieldRegular}" />
+                            <TextBlock Text="{loc:Loc ShortcutsSetting}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Name="HelpButton"
+                            Classes="SettingsNavButton"
+                            Click="OnHelpClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource BookQuestionMarkRegular}" />
+                            <TextBlock Text="{loc:Loc TrayMenuHelp}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Name="AboutButton"
+                            Classes="SettingsNavButton"
+                            Click="OnAboutClick">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource InfoRegular}" />
+                            <TextBlock Text="{loc:Loc TrayMenuAbout}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Margin="4,12,4,4">
+                    <TextBlock Text="UiharuMind"
+                               FontWeight="SemiBold"
+                               FontSize="13" />
+                    <TextBlock Name="VersionText"
+                               Foreground="{DynamicResource SemiGrey6}"
+                               FontSize="12" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+            <Border Height="48"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="True">
+                    <TextBlock Name="TitleText"
+                               Margin="28,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="16"
+                               FontWeight="SemiBold" />
+                </DockPanel>
+            </Border>
+
+            <ContentControl Name="SettingsContent"
+                            Grid.Row="1"
+                            Margin="20" />
+        </Grid>
+    </Grid>
+</Window>

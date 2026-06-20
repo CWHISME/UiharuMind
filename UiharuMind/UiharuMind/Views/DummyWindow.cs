@@ -14,8 +14,11 @@ using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core;
 using SharpHook.Data;
 using UiharuMind.Core.Input;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
@@ -160,43 +163,32 @@ public class DummyWindow : Window
 
     private void RegistryShortcut()
     {
-        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcZ,
-            ScreenCaptureManager.CaptureScreen, new List<KeyCode>()
-            {
-                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
-            },
-            "Capture Screen"));
-
-        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcA,
-            LaunchQuickStartChatWindow, new List<KeyCode>()
-            {
-                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
-            },
-            "Quick Start Chat"));
-
-        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcS,
-            LaunchQuickClipboardHistoryWindow, new List<KeyCode>()
-            {
-                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
-            },
-            "Quick Clipboard History"));
-
-        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcQ,
-            LaunchQuickTranslationWindow, new List<KeyCode>()
-            {
-                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
-            },
-            "Quick Clipboard History"));
-
-        InputManager.Instance.RegisterKey(new KeyCombinationData(KeyCode.VcG,
-            LaunchQuickAutoClickWindow, new List<KeyCode>()
-            {
-                KeyCode.VcLeftAlt, KeyCode.VcLeftShift
-            },
-            "Quick Clipboard History"));
+        InputManager.Instance.ClearRegisteredKeys();
+        var setting = ConfigManager.Instance.Setting;
+        RegisterShortcut(setting.CaptureScreenShortcut, ScreenCaptureManager.CaptureScreen, "Capture Screen");
+        RegisterShortcut(setting.QuickStartChatShortcut, LaunchQuickStartChatWindow, "Quick Start Chat");
+        RegisterShortcut(setting.ClipboardHistoryShortcut, LaunchQuickClipboardHistoryWindow, "Quick Clipboard History");
+        RegisterShortcut(setting.QuickTranslationShortcut, LaunchQuickTranslationWindow, "Quick Translation");
+        RegisterShortcut(setting.QuickAutoClickShortcut, LaunchQuickAutoClickWindow, "Quick Auto Click");
         // RegistryShortcutQuickTool(KeyCode.VcLeftControl);
         // RegistryShortcutQuickTool(KeyCode.VcLeftAlt);
         // RegistryShortcutQuickTool(KeyCode.VcLeftMeta);
+    }
+
+    public void ReloadShortcuts()
+    {
+        RegistryShortcut();
+    }
+
+    private static void RegisterShortcut(string gesture, Action onTrigger, string name)
+    {
+        if (!ShortcutGestureParser.TryParse(gesture, out var mainKey, out var modifiers, out var error))
+        {
+            Log.Warning($"Skip shortcut '{name}': {error}");
+            return;
+        }
+
+        InputManager.Instance.RegisterKey(new KeyCombinationData(mainKey, onTrigger, modifiers, name));
     }
 
     private void RegistryClipboardTool()
@@ -266,14 +258,14 @@ public class DummyWindow : Window
 
     public void LaunchQuickTranslationWindow()
     {
-        UIManager.ShowWindow<QuickTranslationWindow>();
+        UIManager.ShowWindow<TranslationWindow>();
     }
 
     public void LaunchQuickAutoClickWindow()
     {
         Dispatcher.UIThread.Post(() =>
         {
-            UIManager.ShowWindow<QuickAutoClickWindow>();
+            UIManager.ShowWindow<AutoClickWindow>();
         });
     }
 }

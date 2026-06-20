@@ -51,7 +51,11 @@ public class ClipboardService : IDisposable
     public const string ImageTypePngWin = "image/png";
 
     public const string ImageTypePngMac = "public.png";
-    // public const string ImageTypeTiffMac = "public.tiff";
+    public const string ImageTypeTiffMac = "public.tiff";
+
+    private static readonly DataFormat<byte[]> ImageFormatPngWin = DataFormat.CreateBytesPlatformFormat(ImageTypePngWin);
+    private static readonly DataFormat<byte[]> ImageFormatPngMac = DataFormat.CreateBytesPlatformFormat(ImageTypePngMac);
+    private static readonly DataFormat<byte[]> ImageFormatTiffMac = DataFormat.CreateBytesPlatformFormat(ImageTypeTiffMac);
 
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
     public const string HistoryFileName = "clipboard_history.json";
@@ -102,7 +106,7 @@ public class ClipboardService : IDisposable
 
     public async Task<string?> GetFromClipboard()
     {
-        return await Clipboard.GetTextAsync();
+        return await Clipboard.TryGetValueAsync(DataFormat.Text);
     }
 
     public void CopyImageToClipboard(Bitmap bitmap, bool ignoreSelfCopying = false)
@@ -120,14 +124,7 @@ public class ClipboardService : IDisposable
             }
             else
             {
-                var dataObject = new DataObject();
-                using var memoryStream = new MemoryStream();
-                bitmap.Save(memoryStream);
-                memoryStream.Position = 0;
-                var bytes = memoryStream.ToArray();
-                dataObject.Set(ImageTypePngMac, bytes);
-
-                Clipboard.SetDataObjectAsync(dataObject);
+                Clipboard.SetBitmapAsync(bitmap);
             }
 
             OnClipboardImageChanged?.Invoke(bitmap);
@@ -149,21 +146,21 @@ public class ClipboardService : IDisposable
 
         try
         {
-            var types = await Clipboard.GetFormatsAsync();
-            foreach (var type in types)
+            var bitmap = await Clipboard.TryGetBitmapAsync();
+            if (bitmap != null) return bitmap;
+
+            foreach (var format in new[] { ImageFormatPngWin, ImageFormatPngMac, ImageFormatTiffMac })
             {
-                if (type is ImageTypePngWin or ImageTypePngMac)
+                var data = await Clipboard.TryGetValueAsync(format);
+                if (data is { Length: > 0 })
                 {
-                    var data = await Clipboard.GetDataAsync(type);
-                    if (data is byte[] pngBytes)
-                    {
-                        using var stream = new MemoryStream(pngBytes);
-                        return new Bitmap(stream);
-                    }
+                    using var stream = new MemoryStream(data);
+                    return new Bitmap(stream);
                 }
             }
 
-            Log.Warning("No PNG image found in clipboard.");
+            var formats = await Clipboard.GetDataFormatsAsync();
+            Log.Warning($"No image found in clipboard. Formats: {string.Join(", ", formats)}");
         }
         catch (Exception e)
         {

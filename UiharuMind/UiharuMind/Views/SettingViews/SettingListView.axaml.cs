@@ -25,6 +25,7 @@ using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Services;
 
 namespace UiharuMind.Views.SettingViews;
 
@@ -82,6 +83,8 @@ public partial class SettingListView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        LocalizationManager.Instance.LanguageChanged -= RefreshResetView;
+        LocalizationManager.Instance.LanguageChanged += RefreshResetView;
         if (_settingConfig != null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
         if (_settingConfig != null) _settingConfig.PropertyChanged += NotifyPropertyChanged;
         RequestReloadValues();
@@ -91,6 +94,7 @@ public partial class SettingListView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         if (_settingConfig != null) _settingConfig.PropertyChanged -= NotifyPropertyChanged;
+        LocalizationManager.Instance.LanguageChanged -= RefreshResetView;
     }
 
     // public static readonly StyledProperty<object?> SettingConfigProperty =
