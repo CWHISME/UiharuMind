@@ -5,12 +5,12 @@ namespace UiharuMind.Core.Input;
 
 public sealed class WindowsInputHookBackend : IInputHookBackend
 {
-    private const int WhKeyboardLl = 13;
     private const int WhMouseLl = 14;
     private const int WmKeyDown = 0x0100;
     private const int WmKeyUp = 0x0101;
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
+    private const int WmInput = 0x00FF;
     private const int WmMouseMove = 0x0200;
     private const int WmLButtonDown = 0x0201;
     private const int WmLButtonUp = 0x0202;
@@ -23,23 +23,40 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
     private const int WmXButtonUp = 0x020C;
     private const int WmMouseHWheel = 0x020E;
     private const int WmQuit = 0x0012;
+    private const int RidInput = 0x10000003;
+    private const int RidevInputSink = 0x00000100;
+    private const int RimTypeKeyboard = 1;
+    private const int VkShift = 0x10;
+    private const int VkControl = 0x11;
+    private const int VkMenu = 0x12;
+    private const int VkLeftShift = 0xA0;
+    private const int VkRightShift = 0xA1;
+    private const int VkLeftControl = 0xA2;
+    private const int VkRightControl = 0xA3;
+    private const int VkLeftMenu = 0xA4;
+    private const int VkRightMenu = 0xA5;
+    private const uint RiKeyBreak = 0x0001;
+    private const uint RiKeyE0 = 0x0002;
+    private const uint MapvkVscToVkEx = 3;
+    private const string RawInputWindowClassName = "UiharuMindRawInputMessageWindow";
+    private static readonly IntPtr HwndMessage = new(-3);
 
-    private readonly LowLevelProc _keyboardProc;
     private readonly LowLevelProc _mouseProc;
+    private readonly WndProc _wndProc;
     private readonly HashSet<MouseButton> _pressedButtons = new();
 
-    private IntPtr _keyboardHook;
     private IntPtr _mouseHook;
+    private IntPtr _messageWindow;
     private uint _hookThreadId;
     private bool _disposed;
 
     public WindowsInputHookBackend()
     {
-        _keyboardProc = KeyboardHookCallback;
         _mouseProc = MouseHookCallback;
+        _wndProc = RawInputWindowProc;
     }
 
-    public bool IsRunning => _keyboardHook != IntPtr.Zero || _mouseHook != IntPtr.Zero;
+    public bool IsRunning => _messageWindow != IntPtr.Zero || _mouseHook != IntPtr.Zero;
 
     public bool? IsKeyPressed(KeyCode keyCode)
     {
@@ -75,14 +92,15 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
     {
         _disposed = false;
         _hookThreadId = GetCurrentThreadId();
-        _keyboardHook = SetWindowsHookEx(WhKeyboardLl, _keyboardProc, IntPtr.Zero, 0);
+        _messageWindow = CreateRawInputMessageWindow();
+        RegisterKeyboardRawInput(_messageWindow);
         _mouseHook = SetWindowsHookEx(WhMouseLl, _mouseProc, IntPtr.Zero, 0);
 
-        if (_keyboardHook == IntPtr.Zero || _mouseHook == IntPtr.Zero)
+        if (_messageWindow == IntPtr.Zero || _mouseHook == IntPtr.Zero)
         {
             DisposeHooks();
             throw new InvalidOperationException(
-                $"Failed to install Windows input hooks. Win32Error={Marshal.GetLastWin32Error()}");
+                $"Failed to initialize Windows input adapter. Win32Error={Marshal.GetLastWin32Error()}");
         }
 
         HookEnabled?.Invoke();
@@ -102,32 +120,61 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
         }
     }
 
-    private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+    private IntPtr RawInputWindowProc(IntPtr hwnd, uint message, UIntPtr wParam, IntPtr lParam)
     {
-        if (nCode < 0)
+        if (message == WmInput)
         {
-            return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
+            ProcessRawKeyboardInput(lParam);
         }
 
-        var data = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
-        var keyCode = InputKeyCodeMapper.FromWindowsVirtualKey((int)data.VkCode);
-        if (keyCode == KeyCode.VcUndefined)
-        {
-            return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
-        }
+        return DefWindowProc(hwnd, message, wParam, lParam);
+    }
 
-        var message = wParam.ToInt32();
-        var suppress = false;
-        if (message is WmKeyDown or WmSysKeyDown)
-        {
-            suppress = KeyPressed?.Invoke(keyCode) == true;
-        }
-        else if (message is WmKeyUp or WmSysKeyUp)
-        {
-            KeyReleased?.Invoke(keyCode);
-        }
+    private void ProcessRawKeyboardInput(IntPtr rawInputHandle)
+    {
+        uint size = 0;
+        var headerSize = (uint)Marshal.SizeOf<RawInputHeader>();
+        GetRawInputData(rawInputHandle, RidInput, IntPtr.Zero, ref size, headerSize);
+        if (size == 0) return;
 
-        return suppress ? 1 : CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
+        var buffer = Marshal.AllocHGlobal((int)size);
+        try
+        {
+            if (GetRawInputData(rawInputHandle, RidInput, buffer, ref size, headerSize) != size) return;
+
+            var rawInput = Marshal.PtrToStructure<RawInput>(buffer);
+            if (rawInput.Header.Type != RimTypeKeyboard) return;
+
+            var virtualKey = NormalizeRawVirtualKey(rawInput.Keyboard);
+            var keyCode = InputKeyCodeMapper.FromWindowsVirtualKey(virtualKey);
+            if (keyCode == KeyCode.VcUndefined) return;
+
+            var isKeyUp = (rawInput.Keyboard.Flags & RiKeyBreak) != 0;
+            if (isKeyUp)
+            {
+                KeyReleased?.Invoke(keyCode);
+            }
+            else
+            {
+                KeyPressed?.Invoke(keyCode);
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    private static int NormalizeRawVirtualKey(RawKeyboard keyboard)
+    {
+        var virtualKey = keyboard.VKey;
+        return virtualKey switch
+        {
+            VkShift => MapVirtualKey(keyboard.MakeCode, MapvkVscToVkEx) == VkRightShift ? VkRightShift : VkLeftShift,
+            VkControl => (keyboard.Flags & RiKeyE0) != 0 ? VkRightControl : VkLeftControl,
+            VkMenu => (keyboard.Flags & RiKeyE0) != 0 ? VkRightMenu : VkLeftMenu,
+            _ => virtualKey
+        };
     }
 
     private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -214,10 +261,10 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
 
     private void DisposeHooks()
     {
-        if (_keyboardHook != IntPtr.Zero)
+        if (_messageWindow != IntPtr.Zero)
         {
-            UnhookWindowsHookEx(_keyboardHook);
-            _keyboardHook = IntPtr.Zero;
+            DestroyWindow(_messageWindow);
+            _messageWindow = IntPtr.Zero;
         }
 
         if (_mouseHook != IntPtr.Zero)
@@ -230,23 +277,61 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
         _pressedButtons.Clear();
     }
 
+    private static void RegisterKeyboardRawInput(IntPtr hwnd)
+    {
+        var devices = new[]
+        {
+            new RawInputDevice
+            {
+                UsagePage = 0x01,
+                Usage = 0x06,
+                Flags = RidevInputSink,
+                Target = hwnd
+            }
+        };
+
+        if (!RegisterRawInputDevices(devices, (uint)devices.Length, (uint)Marshal.SizeOf<RawInputDevice>()))
+        {
+            throw new InvalidOperationException(
+                $"Failed to register Raw Input keyboard device. Win32Error={Marshal.GetLastWin32Error()}");
+        }
+    }
+
+    private IntPtr CreateRawInputMessageWindow()
+    {
+        var instance = GetModuleHandle(null);
+        var windowClass = new WndClass
+        {
+            Style = 0,
+            WndProc = _wndProc,
+            Instance = instance,
+            ClassName = RawInputWindowClassName
+        };
+
+        RegisterClass(ref windowClass);
+        return CreateWindowEx(
+            0,
+            RawInputWindowClassName,
+            RawInputWindowClassName,
+            0,
+            0,
+            0,
+            0,
+            0,
+            HwndMessage,
+            IntPtr.Zero,
+            instance,
+            IntPtr.Zero);
+    }
+
     private delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
+    private delegate IntPtr WndProc(IntPtr hwnd, uint msg, UIntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Point
     {
         public int X;
         public int Y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct KbdLlHookStruct
-    {
-        public uint VkCode;
-        public uint ScanCode;
-        public uint Flags;
-        public uint Time;
-        public IntPtr ExtraInfo;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -268,6 +353,57 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
         public IntPtr LParam;
         public uint Time;
         public Point Pt;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RawInputDevice
+    {
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
+        public IntPtr Target;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RawInputHeader
+    {
+        public int Type;
+        public int Size;
+        public IntPtr Device;
+        public IntPtr WParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RawKeyboard
+    {
+        public ushort MakeCode;
+        public ushort Flags;
+        public ushort Reserved;
+        public ushort VKey;
+        public uint Message;
+        public uint ExtraInformation;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RawInput
+    {
+        public RawInputHeader Header;
+        public RawKeyboard Keyboard;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WndClass
+    {
+        public uint Style;
+        public WndProc WndProc;
+        public int ClsExtra;
+        public int WndExtra;
+        public IntPtr Instance;
+        public IntPtr Icon;
+        public IntPtr Cursor;
+        public IntPtr Background;
+        public string? MenuName;
+        public string ClassName;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -297,4 +433,48 @@ public sealed class WindowsInputHookBackend : IInputHookBackend
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterRawInputDevices(
+        RawInputDevice[] pRawInputDevices,
+        uint uiNumDevices,
+        uint cbSize);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetRawInputData(
+        IntPtr hRawInput,
+        int uiCommand,
+        IntPtr pData,
+        ref uint pcbSize,
+        uint cbSizeHeader);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern ushort RegisterClass(ref WndClass lpWndClass);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateWindowEx(
+        uint dwExStyle,
+        string lpClassName,
+        string lpWindowName,
+        uint dwStyle,
+        int x,
+        int y,
+        int nWidth,
+        int nHeight,
+        IntPtr hWndParent,
+        IntPtr hMenu,
+        IntPtr hInstance,
+        IntPtr lpParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, UIntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern int MapVirtualKey(int uCode, uint uMapType);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr GetModuleHandle(string? lpModuleName);
 }

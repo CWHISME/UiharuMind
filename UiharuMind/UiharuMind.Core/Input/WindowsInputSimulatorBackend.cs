@@ -7,8 +7,10 @@ public class WindowsInputSimulatorBackend : IInputSimulatorBackend
 {
     private const int InputMouse = 0;
     private const int InputKeyboard = 1;
+    private const uint KeyEventFExtendedKey = 0x0001;
     private const uint KeyEventFKeyUp = 0x0002;
     private const uint KeyEventFUnicode = 0x0004;
+    private const uint KeyEventFScanCode = 0x0008;
     private const uint MouseEventFMove = 0x0001;
     private const uint MouseEventFLeftDown = 0x0002;
     private const uint MouseEventFLeftUp = 0x0004;
@@ -25,6 +27,7 @@ public class WindowsInputSimulatorBackend : IInputSimulatorBackend
     private const int SmYVirtualScreen = 77;
     private const int SmCxVirtualScreen = 78;
     private const int SmCyVirtualScreen = 79;
+    private const uint MapvkVkToVscEx = 4;
 
     public void SendMouseMove(short x, short y)
     {
@@ -88,6 +91,9 @@ public class WindowsInputSimulatorBackend : IInputSimulatorBackend
         var virtualKey = InputKeyCodeMapper.ToWindowsVirtualKey(keyCode);
         if (virtualKey == 0) return;
 
+        var scanCode = (ushort)(MapVirtualKey(virtualKey, MapvkVkToVscEx) & 0xFF);
+        if (scanCode == 0) return;
+
         var input = new Input
         {
             Type = InputKeyboard,
@@ -95,13 +101,36 @@ public class WindowsInputSimulatorBackend : IInputSimulatorBackend
             {
                 Ki = new KeyboardInput
                 {
-                    Wvk = virtualKey,
-                    DwFlags = keyUp ? KeyEventFKeyUp : 0
+                    Wvk = 0,
+                    WScan = scanCode,
+                    DwFlags = KeyEventFScanCode |
+                              (keyUp ? KeyEventFKeyUp : 0) |
+                              (IsExtendedKey(virtualKey) ? KeyEventFExtendedKey : 0)
                 }
             }
         };
 
         SendInputOrThrow(input);
+    }
+
+    private static bool IsExtendedKey(ushort virtualKey)
+    {
+        return virtualKey is
+            0x21 or // PageUp
+            0x22 or // PageDown
+            0x23 or // End
+            0x24 or // Home
+            0x25 or // Left
+            0x26 or // Up
+            0x27 or // Right
+            0x28 or // Down
+            0x2D or // Insert
+            0x2E or // Delete
+            0x5B or // Left Windows
+            0x5C or // Right Windows
+            0x6F or // NumPad Divide
+            0xA3 or // Right Control
+            0xA5;   // Right Alt
     }
 
     private static void SendUnicodeChar(char c, bool keyUp)
@@ -217,4 +246,7 @@ public class WindowsInputSimulatorBackend : IInputSimulatorBackend
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint uCode, uint uMapType);
 }
