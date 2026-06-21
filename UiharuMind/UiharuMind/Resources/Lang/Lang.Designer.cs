@@ -1070,6 +1070,24 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("SettingLogLevelDesc", resourceCulture);
             }
         }
+
+        public static string FullscreenGameInputSupport {
+            get {
+                return ResourceManager.GetString("FullscreenGameInputSupport", resourceCulture);
+            }
+        }
+
+        public static string FullscreenGameInputSupportDesc {
+            get {
+                return ResourceManager.GetString("FullscreenGameInputSupportDesc", resourceCulture);
+            }
+        }
+
+        public static string FullscreenGameInputRestartConfirm {
+            get {
+                return ResourceManager.GetString("FullscreenGameInputRestartConfirm", resourceCulture);
+            }
+        }
         
         public static string SaveDirectory {
             get {

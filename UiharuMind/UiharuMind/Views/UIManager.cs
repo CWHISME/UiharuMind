@@ -90,7 +90,7 @@ public static class UIManager
             }
             else
             {
-                if (windowsList[0].ContributesToMacRegularMode) windowsList[0].Activate();
+                if (windowsList[0].ContributesToMacRegularMode) WindowActivationService.Activate(windowsList[0]);
                 Log.Warning($"[{typeof(T).Name}] This window is already opened.");
             }
 

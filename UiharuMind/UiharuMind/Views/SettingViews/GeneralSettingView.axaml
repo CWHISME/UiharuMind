@@ -116,6 +116,19 @@
                                       SelectedIndex="{Binding LogSelecetedTypeIndex}"
                                       VerticalAlignment="Center" />
                         </Grid>
+                        <Border Height="1" Background="{DynamicResource SemiGrey2}" IsVisible="{Binding IsWindows}" />
+                        <Grid ColumnDefinitions="*,Auto" MinHeight="52" IsVisible="{Binding IsWindows}">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc FullscreenGameInputSupport}" />
+                                <TextBlock Text="{loc:Loc FullscreenGameInputSupportDesc}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey6}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <CheckBox Grid.Column="1"
+                                      IsChecked="{Binding EnableFullscreenGameInputSupport}"
+                                      VerticalAlignment="Center" />
+                        </Grid>
                         <Border Height="1" Background="{DynamicResource SemiGrey2}" />
                         <Grid ColumnDefinitions="*,Auto" MinHeight="44">
                             <StackPanel VerticalAlignment="Center">

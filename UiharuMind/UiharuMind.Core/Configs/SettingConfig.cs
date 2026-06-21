@@ -93,6 +93,23 @@ public class SettingConfig : ConfigBase
         }
     }
 
+    private bool _enableFullscreenGameInputSupport;
+
+    /// <summary>
+    /// Windows 下是否启动时请求管理员权限，以提升全屏/管理员游戏输入兼容性
+    /// </summary>
+    public bool EnableFullscreenGameInputSupport
+    {
+        get => _enableFullscreenGameInputSupport;
+        set
+        {
+            if (_enableFullscreenGameInputSupport == value) return;
+            _enableFullscreenGameInputSupport = value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
     private string _captureScreenShortcut = DefaultCaptureScreenShortcut;
     private string _quickStartChatShortcut = DefaultQuickStartChatShortcut;
     private string _clipboardHistoryShortcut = DefaultClipboardHistoryShortcut;

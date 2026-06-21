@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using SharpHook;
 using SharpHook.Data;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Input;
 
@@ -28,7 +30,7 @@ public class SharpHookInputHookBackend : IInputHookBackend
     {
         Dispose();
 
-        _hook = new SimpleGlobalHook(GlobalHookType.All);
+        _hook = CreateHook();
         _hook.HookEnabled += (_, _) => HookEnabled?.Invoke();
         _hook.HookDisabled += (_, _) => HookDisabled?.Invoke();
         _hook.KeyPressed += (_, e) => e.SuppressEvent = KeyPressed?.Invoke(e.Data.KeyCode) == true;
@@ -40,6 +42,11 @@ public class SharpHookInputHookBackend : IInputHookBackend
         _hook.MouseWheel += (_, e) => MouseWheel?.Invoke(e.Data);
 
         await _hook.RunAsync().ConfigureAwait(false);
+    }
+
+    private static GlobalHookBase CreateHook()
+    {
+        return new SimpleGlobalHook(GlobalHookType.All);
     }
 
     public void Dispose()

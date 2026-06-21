@@ -159,8 +159,8 @@ public class ClipboardService : IDisposable
                 }
             }
 
-            var formats = await Clipboard.GetDataFormatsAsync();
-            Log.Warning($"No image found in clipboard. Formats: {string.Join(", ", formats)}");
+            // var formats = await Clipboard.GetDataFormatsAsync();
+            Log.Warning($"No image found in clipboard.");
         }
         catch (Exception e)
         {

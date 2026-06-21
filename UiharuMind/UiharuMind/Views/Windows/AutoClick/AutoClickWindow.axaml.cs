@@ -59,7 +59,7 @@ public partial class AutoClickWindow : UiharuWindowBase
             Show();
             WindowState = WindowState.Normal;
             UIManager.RefreshMacApplicationActivationPolicy();
-            Activate();
+            WindowActivationService.Activate(this);
         }, DispatcherPriority.ApplicationIdle);
     }
 
@@ -87,7 +87,7 @@ public partial class AutoClickWindow : UiharuWindowBase
         _playbackWindow?.Close();
         _playbackWindow = null;
         Show();
-        Activate();
+        WindowActivationService.Activate(this);
     }
 
     private async void AddKeyButton_Click(object? sender, RoutedEventArgs e)

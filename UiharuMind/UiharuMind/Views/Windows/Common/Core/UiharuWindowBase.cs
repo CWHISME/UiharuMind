@@ -15,6 +15,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 
 namespace UiharuMind.Views.Common;
@@ -56,6 +57,7 @@ public abstract class UiharuWindowBase : Window
             StartHeight = (int)Height;
             Show();
             OnPostShow();
+            if (isActivate && IsAllowFocusOnOpen) WindowActivationService.Activate(this);
         }
         else
         {
@@ -71,7 +73,7 @@ public abstract class UiharuWindowBase : Window
                 Show();
                 OnPostShow();
                 UIManager.RefreshMacApplicationActivationPolicy();
-                if (isActivate && IsAllowFocusOnOpen) this.Activate();
+                if (isActivate && IsAllowFocusOnOpen) WindowActivationService.Activate(this);
             }, DispatcherPriority.ApplicationIdle);
         }
         // 

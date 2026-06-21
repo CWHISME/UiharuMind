@@ -561,6 +561,15 @@
     <data name="SettingLogLevelDesc" xml:space="preserve">
         <value>Control how much runtime log output is recorded.</value>
     </data>
+    <data name="FullscreenGameInputSupport" xml:space="preserve">
+        <value>Fullscreen game input support</value>
+    </data>
+    <data name="FullscreenGameInputSupportDesc" xml:space="preserve">
+        <value>Request administrator permission on Windows startup to improve shortcut listening and input simulation in fullscreen or administrator games.</value>
+    </data>
+    <data name="FullscreenGameInputRestartConfirm" xml:space="preserve">
+        <value>This setting takes effect after restart. Restart UiharuMind now?</value>
+    </data>
     <data name="SaveDirectory" xml:space="preserve">
         <value>Save Directory</value>
     </data>

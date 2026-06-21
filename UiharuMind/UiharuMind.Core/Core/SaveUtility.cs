@@ -56,7 +56,7 @@ public static class SaveUtility
 
             string jsonString = JsonSerializer.Serialize(target, _options);
 
-            File.WriteAllTextAsync(filePath, jsonString);
+            File.WriteAllText(filePath, jsonString);
         }
         catch (Exception e)
         {

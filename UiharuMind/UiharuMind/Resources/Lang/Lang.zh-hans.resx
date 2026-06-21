@@ -554,6 +554,15 @@
     <data name="SettingLogLevelDesc" xml:space="preserve">
         <value>控制运行日志记录的详细程度。</value>
     </data>
+    <data name="FullscreenGameInputSupport" xml:space="preserve">
+        <value>支持全屏游戏按键监听/模拟</value>
+    </data>
+    <data name="FullscreenGameInputSupportDesc" xml:space="preserve">
+        <value>Windows 启动时请求管理员权限，以提升全屏或管理员权限游戏中的快捷键监听和输入模拟兼容性。</value>
+    </data>
+    <data name="FullscreenGameInputRestartConfirm" xml:space="preserve">
+        <value>该设置需要重启后生效。是否立即重启 UiharuMind？</value>
+    </data>
     <data name="SaveDirectory" xml:space="preserve">
         <value>保存目录</value>
     </data>

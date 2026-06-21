@@ -10,6 +10,8 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
+using UiharuMind.Views;
+using Ursa.Controls;
 
 namespace UiharuMind.Views.SettingViews;
 
@@ -28,12 +30,16 @@ public partial class GeneralSettingViewModel : ViewModelBase
     [ObservableProperty] private ThemeOption? _selectedTheme;
     [ObservableProperty] private string[] _logLevelList;
     [ObservableProperty] private int _logSelecetedTypeIndex;
+    [ObservableProperty] private bool _enableFullscreenGameInputSupport;
+
+    private bool _isInitialized;
 
     public ObservableCollection<LanguageOption> LanguageOptions { get; } = new();
     public ObservableCollection<ThemeOption> ThemeOptions { get; } = new();
 
     public string VersionText => $"UiharuMind {App.Version}";
     public string SaveDirectoryPath => SettingConfig.SaveDataPath;
+    public bool IsWindows => PlatformUtils.IsWindows;
 
     public GeneralSettingViewModel()
     {
@@ -50,9 +56,11 @@ public partial class GeneralSettingViewModel : ViewModelBase
         }
 
         LogSelecetedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
+        EnableFullscreenGameInputSupport = ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport;
         RefreshThemeOptions();
         RefreshSelectedLanguage();
         LocalizationManager.Instance.LanguageChanged += RefreshLanguage;
+        _isInitialized = true;
     }
 
     partial void OnSelectedLanguageChanged(LanguageOption? value)
@@ -71,6 +79,19 @@ public partial class GeneralSettingViewModel : ViewModelBase
     {
         ConfigManager.Instance.DebugSetting.LogTypeInfo = (ELogType)value;
         ConfigManager.Instance.DebugSetting.Save();
+    }
+
+    async partial void OnEnableFullscreenGameInputSupportChanged(bool value)
+    {
+        if (!_isInitialized) return;
+        ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport = value;
+        var owner = UIManager.GetFoucusWindow();
+        var result = await App.MessageService.ShowConfirmMessageBox(
+            LocalizationManager.Instance.GetString("FullscreenGameInputRestartConfirm"), owner);
+        if (result == MessageBoxResult.Yes)
+        {
+            ApplicationRestartService.Restart();
+        }
     }
 
     [RelayCommand]

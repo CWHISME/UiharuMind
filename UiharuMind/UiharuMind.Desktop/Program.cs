@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using Avalonia;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Services;
 
 namespace UiharuMind.Desktop;
 
@@ -12,14 +15,22 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (TryRelaunchAsAdministrator(args)) return;
+
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
     }
 
-    private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private static bool TryRelaunchAsAdministrator(string[] args)
     {
-        var exception = e.ExceptionObject as Exception;
-        Log.Error("未处理的异常导致应用程序崩溃: " + exception);
+        if (!OperatingSystem.IsWindows() ||
+            Debugger.IsAttached ||
+            !ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport)
+        {
+            return false;
+        }
+
+        return ApplicationRestartService.TryRestartAsAdministrator(args);
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
