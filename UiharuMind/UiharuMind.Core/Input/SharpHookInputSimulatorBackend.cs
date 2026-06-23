@@ -12,6 +12,11 @@ public class SharpHookInputSimulatorBackend : IInputSimulatorBackend
         _globalSimulator.SimulateMouseMovement(x, y);
     }
 
+    public void SendMouseMoveRelative(short x, short y)
+    {
+        _globalSimulator.SimulateMouseMovementRelative(x, y);
+    }
+
     public async Task SendMouseClick(MouseButton button, int delayMs = 100)
     {
         _globalSimulator.SimulateMousePress(button);

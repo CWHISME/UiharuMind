@@ -5,6 +5,7 @@ namespace UiharuMind.Core.Input;
 public interface IInputSimulatorBackend
 {
     void SendMouseMove(short x, short y);
+    void SendMouseMoveRelative(short x, short y);
     Task SendMouseClick(MouseButton button, int delayMs = 100);
     void SimulateMousePress(MouseButton button);
     void SimulateMouseRelease(MouseButton button);

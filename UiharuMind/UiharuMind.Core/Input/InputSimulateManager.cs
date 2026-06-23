@@ -17,6 +17,11 @@ public class InputSimulateManager : Singleton<InputSimulateManager>, IInitialize
         _simulatorBackend.SendMouseMove(x, y);
     }
 
+    public void SendMouseMoveRelative(short x, short y)
+    {
+        _simulatorBackend.SendMouseMoveRelative(x, y);
+    }
+
     public async Task SendMouseClickLeft()
     {
         await SendMouseClick(MouseButton.Button1);

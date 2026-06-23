@@ -337,12 +337,14 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private DateTime _mousePressTime = DateTime.MinValue;
     private AutoClickStepViewModel? _pendingMouseDownStep;
     private bool _isMousePressed;
+    private bool _isPlaybackMousePressed;
     private bool _hasRecordedMouseMovementDuringPress;
     private bool _isLoadingSession;
     private bool _isInternalUpdate;
     private string _statusKey = "AutoClickStatusReady";
     private object[] _statusArgs = [];
     private readonly List<AutoClickSession> _allSessions = new();
+    private (short x, short y)? _lastPlaybackMousePosition;
 
     [ObservableProperty] private bool _isRecording;
     [ObservableProperty] private bool _isPlaying;
@@ -726,6 +728,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
         IsPlaying = true;
         _playbackCts = new CancellationTokenSource();
+        _isPlaybackMousePressed = false;
+        _lastPlaybackMousePosition = null;
         SetStatus("AutoClickStatusPlaying");
 
         try
@@ -751,7 +755,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
                     await Task.Delay(GetAdjustedDelay(DefaultDelay), _playbackCts.Token);
                 }
             }
-
+            await Task.Delay(1000, _playbackCts.Token);
             SetStatus("AutoClickStatusPlaybackFinished");
         }
         catch (OperationCanceledException)
@@ -766,6 +770,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         finally
         {
             foreach (var step in VisibleSteps) step.IsExecuting = false;
+            _isPlaybackMousePressed = false;
+            _lastPlaybackMousePosition = null;
             IsPlaying = false;
             _playbackCts?.Dispose();
             _playbackCts = null;
@@ -1433,6 +1439,41 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         var mouseMovePlaybackFrameIntervalMs = GetMouseMovementFrameIntervalMs();
         var lastSentTargetMs = -mouseMovePlaybackFrameIntervalMs;
 
+        if (points.Count == 1 || !_isPlaybackMousePressed)
+        {
+            await PlayMouseMovePathAbsolute(points, stopwatch, targetElapsedMs, lastSentTargetMs, mouseMovePlaybackFrameIntervalMs, token);
+            return;
+        }
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            var point = points[i];
+            targetElapsedMs += GetAdjustedDelayOrZero(point.Delay);
+
+            var isLast = i == points.Count - 1;
+            if (!isLast && targetElapsedMs - lastSentTargetMs < mouseMovePlaybackFrameIntervalMs)
+            {
+                continue;
+            }
+
+            await DelayUntil(stopwatch, targetElapsedMs, token);
+            MoveMouseRelativeTo(point.X, point.Y);
+            lastSentTargetMs = targetElapsedMs;
+        }
+
+        var lastPoint = points[^1];
+        _lastPlaybackMousePosition = (lastPoint.X, lastPoint.Y);
+    }
+
+    private async Task PlayMouseMovePathAbsolute(
+        IReadOnlyList<(short X, short Y, int Delay)> points,
+        Stopwatch stopwatch,
+        int targetElapsedMs,
+        int lastSentTargetMs,
+        int mouseMovePlaybackFrameIntervalMs,
+        CancellationToken token)
+    {
         for (var i = 0; i < points.Count; i++)
         {
             token.ThrowIfCancellationRequested();
@@ -1447,8 +1488,33 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
             await DelayUntil(stopwatch, targetElapsedMs, token);
             InputSimulateManager.Instance.SendMouseMove(point.X, point.Y);
+            _lastPlaybackMousePosition = (point.X, point.Y);
             lastSentTargetMs = targetElapsedMs;
         }
+    }
+
+    private void MoveMouseRelativeTo(short x, short y)
+    {
+        if (_lastPlaybackMousePosition is not { } lastPosition)
+        {
+            InputSimulateManager.Instance.SendMouseMove(x, y);
+            _lastPlaybackMousePosition = (x, y);
+            return;
+        }
+
+        var dx = ClampToShort(x - lastPosition.x);
+        var dy = ClampToShort(y - lastPosition.y);
+        if (dx != 0 || dy != 0)
+        {
+            InputSimulateManager.Instance.SendMouseMoveRelative(dx, dy);
+        }
+
+        _lastPlaybackMousePosition = (x, y);
+    }
+
+    private static short ClampToShort(int value)
+    {
+        return (short)Math.Clamp(value, short.MinValue, short.MaxValue);
     }
 
     private static async Task DelayUntil(Stopwatch stopwatch, int targetElapsedMs, CancellationToken token)
@@ -1477,6 +1543,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
                 {
                     await MoveMouseIfNeeded(step, token, true);
                     InputSimulateManager.Instance.SimulateMousePress(step.MouseButton.Value);
+                    _isPlaybackMousePressed = true;
                     var mouseDownDuration = step.Duration.GetValueOrDefault();
                     if (mouseDownDuration > 0)
                     {
@@ -1488,8 +1555,9 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             case AutoClickStepKind.MouseUp:
                 if (step.MouseButton.HasValue)
                 {
-                    await MoveMouseIfNeeded(step, token, true);
+                    await MoveMouseIfNeeded(step, token, false);
                     InputSimulateManager.Instance.SimulateMouseRelease(step.MouseButton.Value);
+                    _isPlaybackMousePressed = false;
                 }
 
                 break;
@@ -1550,7 +1618,15 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     {
         if (step.X != 0 || step.Y != 0)
         {
+            if (_lastPlaybackMousePosition is { } lastPosition &&
+                lastPosition.x == step.X &&
+                lastPosition.y == step.Y)
+            {
+                return;
+            }
+
             InputSimulateManager.Instance.SendMouseMove(step.X, step.Y);
+            _lastPlaybackMousePosition = (step.X, step.Y);
             if (settleBeforeAction)
             {
                 await Task.Delay(MouseMoveSettleDelayMs, token);
