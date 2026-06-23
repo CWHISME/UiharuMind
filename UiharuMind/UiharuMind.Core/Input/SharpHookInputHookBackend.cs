@@ -31,15 +31,15 @@ public class SharpHookInputHookBackend : IInputHookBackend
         Dispose();
 
         _hook = CreateHook();
-        _hook.HookEnabled += (_, _) => HookEnabled?.Invoke();
-        _hook.HookDisabled += (_, _) => HookDisabled?.Invoke();
-        _hook.KeyPressed += (_, e) => e.SuppressEvent = KeyPressed?.Invoke(e.Data.KeyCode) == true;
-        _hook.KeyReleased += (_, e) => KeyReleased?.Invoke(e.Data.KeyCode);
-        _hook.MousePressed += (_, e) => MousePressed?.Invoke(e.Data);
-        _hook.MouseReleased += (_, e) => MouseReleased?.Invoke(e.Data);
-        _hook.MouseMoved += (_, e) => MouseMoved?.Invoke(e.Data);
-        _hook.MouseDragged += (_, e) => MouseDragged?.Invoke(e.Data);
-        _hook.MouseWheel += (_, e) => MouseWheel?.Invoke(e.Data);
+        _hook.HookEnabled += (_, _) => SafeInvoke(HookEnabled);
+        _hook.HookDisabled += (_, _) => SafeInvoke(HookDisabled);
+        _hook.KeyPressed += (_, e) => e.SuppressEvent = SafeInvoke(KeyPressed, e.Data.KeyCode);
+        _hook.KeyReleased += (_, e) => SafeInvoke(KeyReleased, e.Data.KeyCode);
+        _hook.MousePressed += (_, e) => SafeInvoke(MousePressed, e.Data);
+        _hook.MouseReleased += (_, e) => SafeInvoke(MouseReleased, e.Data);
+        _hook.MouseMoved += (_, e) => SafeInvoke(MouseMoved, e.Data);
+        _hook.MouseDragged += (_, e) => SafeInvoke(MouseDragged, e.Data);
+        _hook.MouseWheel += (_, e) => SafeInvoke(MouseWheel, e.Data);
 
         await _hook.RunAsync().ConfigureAwait(false);
     }
@@ -47,6 +47,43 @@ public class SharpHookInputHookBackend : IInputHookBackend
     private static GlobalHookBase CreateHook()
     {
         return new SimpleGlobalHook(GlobalHookType.All);
+    }
+
+    private static void SafeInvoke(Action? action)
+    {
+        try
+        {
+            action?.Invoke();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e);
+        }
+    }
+
+    private static bool SafeInvoke<T>(Func<T, bool>? action, T value)
+    {
+        try
+        {
+            return action?.Invoke(value) == true;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e);
+            return false;
+        }
+    }
+
+    private static void SafeInvoke<T>(Action<T>? action, T value)
+    {
+        try
+        {
+            action?.Invoke(value);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e);
+        }
     }
 
     public void Dispose()

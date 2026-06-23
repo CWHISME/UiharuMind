@@ -18,7 +18,7 @@ namespace UiharuMind.Core.Configs;
 /// <summary>
 /// 用于快捷功能设置、包括界面等相关设置
 /// </summary>
-public class QuickToolSetting : ConfigBase
+public class QuickToolSetting : TConfigBase<QuickToolSetting>
 {
     [SettingConfigDesc(
         "The detection interval for the clipboard, with higher frequency resulting in faster response but greater performance consumption.  \nThis setting is only effective on MacOS, with the unit being seconds, and the default value is 0.5 seconds.")]

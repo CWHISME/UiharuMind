@@ -95,7 +95,7 @@
                              IsEnabled="False"
                              TextWrapping="Wrap"
                              AcceptsReturn="True"
-                             Watermark="{loc:Loc ImportUrlDisabledTitle}" />
+                             PlaceholderText="{loc:Loc ImportUrlDisabledTitle}" />
                     <Button Grid.Row="3"
                             HorizontalAlignment="Right"
                             IsEnabled="False"

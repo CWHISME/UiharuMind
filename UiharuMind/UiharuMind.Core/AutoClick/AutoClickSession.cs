@@ -41,6 +41,10 @@ public class AutoClickSession : IUniquieContainerItem
 
     public bool RecordMouseMovement { get; set; }
 
+    public int MouseMovementFrameRate { get; set; }
+
+    public bool? RecordMouseMovementOnlyWhenPressed { get; set; }
+
     public List<AutoClickStepData> Steps { get; set; } = new();
 
     [JsonIgnore] public int StepCount => CountSteps(Steps);

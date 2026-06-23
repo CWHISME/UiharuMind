@@ -169,7 +169,7 @@
                         </StackPanel>
                         <Button Grid.Column="1"
                                 Classes="IconButton"
-                                Command="{Binding NewSessionCommand}"
+                                Click="NewSessionButton_Click"
                                 ToolTip.Tip="{loc:Loc AutoClickNewSession}">
                             <PathIcon Width="16" Height="16" Data="{StaticResource DocumentAddRegular}" />
                         </Button>
@@ -394,7 +394,19 @@
                             <StackPanel Spacing="8">
                                 <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickAdvancedSettings}" />
                                 <CheckBox Content="{loc:Loc AutoClickRecordMouseMovement}"
-                                          IsChecked="{Binding RecordMouseMovement}" />
+                                          IsChecked="{Binding RecordMouseMovement, Mode=TwoWay}" />
+                                <CheckBox Content="{loc:Loc AutoClickRecordMouseMovementOnlyWhenPressed}"
+                                          IsChecked="{Binding RecordMouseMovementOnlyWhenPressed, Mode=TwoWay}"
+                                          IsEnabled="{Binding RecordMouseMovement}" />
+                                <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding RecordMouseMovement}">
+                                    <TextBlock Text="{loc:Loc AutoClickMouseMovementFrameRate}" VerticalAlignment="Center" />
+                                    <NumericUpDown Grid.Column="1"
+                                                   Width="110"
+                                                   Minimum="1"
+                                                   Maximum="120"
+                                                   Increment="1"
+                                                   Value="{Binding MouseMovementFrameRate}" />
+                                </Grid>
                                 <TextBlock Text="{loc:Loc AutoClickRecordMouseMovementHint}"
                                            FontSize="11"
                                            Foreground="{DynamicResource SemiGrey6}"

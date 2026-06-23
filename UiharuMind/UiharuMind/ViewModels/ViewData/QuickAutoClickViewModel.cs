@@ -22,6 +22,7 @@ namespace UiharuMind.ViewModels.ViewData;
 public partial class AutoClickStepViewModel : ObservableObject
 {
     private readonly Action<AutoClickStepViewModel>? _onChanged;
+    private bool _suspendChangeNotification;
 
     public AutoClickStepViewModel(AutoClickStepKind kind, Action<AutoClickStepViewModel>? onChanged)
     {
@@ -29,6 +30,21 @@ public partial class AutoClickStepViewModel : ObservableObject
         _kind = kind;
         Children.CollectionChanged += OnChildrenCollectionChanged;
         RefreshLocalized();
+    }
+
+    public static AutoClickStepViewModel CreateInitialized(
+        AutoClickStepKind kind,
+        Action<AutoClickStepViewModel>? onChanged,
+        Action<AutoClickStepViewModel> initialize)
+    {
+        var step = new AutoClickStepViewModel(kind, onChanged)
+        {
+            _suspendChangeNotification = true
+        };
+        initialize(step);
+        step._suspendChangeNotification = false;
+        step.RefreshLocalized();
+        return step;
     }
 
     [ObservableProperty] private string _id = Guid.NewGuid().ToString("N");
@@ -56,6 +72,7 @@ public partial class AutoClickStepViewModel : ObservableObject
     public bool IsLoop => Kind == AutoClickStepKind.Loop;
     public bool HasChildren => Children.Count > 0;
     public string DelayText => string.Format(LocalizationManager.Instance.GetString("AutoClickDelayFormat"), Delay);
+
     public string DurationText => Duration.HasValue
         ? string.Format(LocalizationManager.Instance.GetString("AutoClickDurationFormat"), Duration.Value)
         : LocalizationManager.Instance.GetString("AutoClickNoDuration");
@@ -68,6 +85,7 @@ public partial class AutoClickStepViewModel : ObservableObject
     }
 
     partial void OnIsEnabledChanged(bool value) => NotifyChanged();
+
     partial void OnDelayChanged(int value)
     {
         OnPropertyChanged(nameof(DelayText));
@@ -285,12 +303,21 @@ public partial class AutoClickStepViewModel : ObservableObject
         };
     }
 
-    private void NotifyChanged() => _onChanged?.Invoke(this);
+    private void NotifyChanged()
+    {
+        if (_suspendChangeNotification) return;
+        _onChanged?.Invoke(this);
+    }
 }
 
 public partial class QuickAutoClickViewModel : ViewModelBase
 {
+    private const int DefaultMouseMovementFrameRate = 30;
+    private const int MinMouseMovementFrameRate = 1;
+    private const int MaxMouseMovementFrameRate = 120;
     private const int MouseMoveSettleDelayMs = 35;
+    private const int MouseMoveRecordMinDistance = 12;
+    private const int PlaybackStartSettleDelayMs = 250;
     private const int KeyClickMergeThresholdMs = 350;
     private const int MouseClickMergeThresholdMs = 350;
 
@@ -298,15 +325,19 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private DateTime _lastActionTime;
     private Action? _onStartRecording;
     private Action? _onStopRecording;
+    private Func<CancellationToken, Task>? _onPreparePlayback;
     private Action<int, int>? _onPlaybackProgress;
     private Action? _onPlaybackFinished;
     private readonly Dictionary<KeyCode, DateTime> _keyPressTimes = new();
     private readonly Stopwatch _recordStopwatch = new();
     private IDisposable? _shortcutSuspendScope;
     private (short x, short y) _lastMousePosition;
+    private (short x, short y) _mousePressPosition;
     private DateTime _lastMouseMoveTime;
     private DateTime _mousePressTime = DateTime.MinValue;
+    private AutoClickStepViewModel? _pendingMouseDownStep;
     private bool _isMousePressed;
+    private bool _hasRecordedMouseMovementDuringPress;
     private bool _isLoadingSession;
     private bool _isInternalUpdate;
     private string _statusKey = "AutoClickStatusReady";
@@ -319,6 +350,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     [ObservableProperty] private int _defaultDelay = 100;
     [ObservableProperty] private double _playbackSpeed = 1.0;
     [ObservableProperty] private bool _recordMouseMovement;
+    [ObservableProperty] private int _mouseMovementFrameRate = DefaultMouseMovementFrameRate;
+    [ObservableProperty] private bool _recordMouseMovementOnlyWhenPressed = true;
     [ObservableProperty] private string _statusText = string.Empty;
     [ObservableProperty] private int _recordedActionsCount;
     [ObservableProperty] private AutoClickSession? _currentSession;
@@ -374,8 +407,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         _onStopRecording = onStop;
     }
 
-    public void SetPlaybackCallback(Action<int, int>? onProgress, Action? onFinished = null)
+    public void SetPlaybackCallback(
+        Func<CancellationToken, Task>? onPrepare,
+        Action<int, int>? onProgress,
+        Action? onFinished = null)
     {
+        _onPreparePlayback = onPrepare;
         _onPlaybackProgress = onProgress;
         _onPlaybackFinished = onFinished;
     }
@@ -406,6 +443,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         PlaybackSpeed = session.PlaybackSpeed;
         DefaultDelay = session.DefaultDelay;
         RecordMouseMovement = session.RecordMouseMovement;
+        MouseMovementFrameRate = GetSessionMouseMovementFrameRate(session);
+        RecordMouseMovementOnlyWhenPressed = GetSessionRecordMouseMovementOnlyWhenPressed(session);
         Steps.Clear();
 
         foreach (var stepData in session.Steps)
@@ -436,6 +475,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         CurrentSession.PlaybackSpeed = Math.Clamp(PlaybackSpeed, 0.1, 5.0);
         CurrentSession.DefaultDelay = Math.Max(0, DefaultDelay);
         CurrentSession.RecordMouseMovement = RecordMouseMovement;
+        CurrentSession.MouseMovementFrameRate = NormalizeMouseMovementFrameRate(MouseMovementFrameRate);
+        CurrentSession.RecordMouseMovementOnlyWhenPressed = RecordMouseMovementOnlyWhenPressed;
         CurrentSession.Steps = Steps.Select(x => x.ToData()).ToList();
         AutoClickManager.Instance.Save(CurrentSession);
         RefreshSessionListItem(CurrentSession);
@@ -455,7 +496,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         RepeatCount = 1;
         PlaybackSpeed = 1.0;
         DefaultDelay = 100;
-        RecordMouseMovement = false;
+        RecordMouseMovement = AutoClickSettingConfig.Current.DefaultRecordMouseMovement;
+        MouseMovementFrameRate = NormalizeMouseMovementFrameRate(AutoClickSettingConfig.Current.DefaultMouseMovementFrameRate);
+        RecordMouseMovementOnlyWhenPressed = AutoClickSettingConfig.Current.DefaultRecordMouseMovementOnlyWhenPressed;
+        CurrentSession.RecordMouseMovement = RecordMouseMovement;
+        CurrentSession.MouseMovementFrameRate = MouseMovementFrameRate;
+        CurrentSession.RecordMouseMovementOnlyWhenPressed = RecordMouseMovementOnlyWhenPressed;
         Steps.Clear();
         ReplaceVisibleSteps([]);
         SelectedStep = null;
@@ -487,6 +533,29 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         SetStatus("AutoClickStatusDeleted", session.Name);
     }
 
+    private static int GetSessionMouseMovementFrameRate(AutoClickSession session)
+    {
+        return NormalizeMouseMovementFrameRate(session.MouseMovementFrameRate > 0
+            ? session.MouseMovementFrameRate
+            : AutoClickSettingConfig.Current.DefaultMouseMovementFrameRate);
+    }
+
+    private static bool GetSessionRecordMouseMovementOnlyWhenPressed(AutoClickSession session)
+    {
+        return session.RecordMouseMovementOnlyWhenPressed ??
+               AutoClickSettingConfig.Current.DefaultRecordMouseMovementOnlyWhenPressed;
+    }
+
+    private static int NormalizeMouseMovementFrameRate(int frameRate)
+    {
+        return Math.Clamp(frameRate, MinMouseMovementFrameRate, MaxMouseMovementFrameRate);
+    }
+
+    private int GetMouseMovementFrameIntervalMs()
+    {
+        return Math.Max(1, (int)Math.Round(1000.0 / NormalizeMouseMovementFrameRate(MouseMovementFrameRate)));
+    }
+
     [RelayCommand]
     public void DuplicateSession(AutoClickSession? session)
     {
@@ -501,6 +570,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             PlaybackSpeed = session.PlaybackSpeed,
             DefaultDelay = session.DefaultDelay,
             RecordMouseMovement = session.RecordMouseMovement,
+            MouseMovementFrameRate = GetSessionMouseMovementFrameRate(session),
+            RecordMouseMovementOnlyWhenPressed = GetSessionRecordMouseMovementOnlyWhenPressed(session),
             Steps = session.Steps.Select(CloneData).ToList()
         };
         AutoClickManager.Instance.Add(copy);
@@ -609,9 +680,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         _recordStopwatch.Restart();
         _lastActionTime = DateTime.Now;
         _lastMousePosition = (0, 0);
+        _mousePressPosition = (0, 0);
         _lastMouseMoveTime = DateTime.MinValue;
         _mousePressTime = DateTime.MinValue;
+        _pendingMouseDownStep = null;
         _isMousePressed = false;
+        _hasRecordedMouseMovementDuringPress = false;
 
         InputManager.Instance.EventOnKeyDown += OnRecordKeyDown;
         InputManager.Instance.EventOnKeyUp += OnRecordKeyUp;
@@ -656,6 +730,13 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
         try
         {
+            if (_onPreparePlayback != null)
+            {
+                await _onPreparePlayback(_playbackCts.Token);
+            }
+
+            await Task.Delay(PlaybackStartSettleDelayMs, _playbackCts.Token);
+
             var isInfinite = RepeatCount == 0;
             var loopIndex = 0;
             while (!_playbackCts.Token.IsCancellationRequested)
@@ -729,6 +810,22 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     partial void OnRecordMouseMovementChanged(bool value)
     {
         if (_isInternalUpdate) return;
+        AutoClickSettingConfig.Current.DefaultRecordMouseMovement = value;
+        MarkDirty();
+    }
+
+    partial void OnMouseMovementFrameRateChanged(int value)
+    {
+        if (_isInternalUpdate) return;
+        MouseMovementFrameRate = NormalizeMouseMovementFrameRate(value);
+        AutoClickSettingConfig.Current.DefaultMouseMovementFrameRate = MouseMovementFrameRate;
+        MarkDirty();
+    }
+
+    partial void OnRecordMouseMovementOnlyWhenPressedChanged(bool value)
+    {
+        if (_isInternalUpdate) return;
+        AutoClickSettingConfig.Current.DefaultRecordMouseMovementOnlyWhenPressed = value;
         MarkDirty();
     }
 
@@ -1000,12 +1097,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         }
 
         _keyPressTimes[keyCode] = DateTime.Now;
-        var step = new AutoClickStepViewModel(AutoClickStepKind.KeyDown, OnStepChanged)
+        var delay = CalculateDelay();
+        Dispatcher.UIThread.Post(() => AddRecordedStep(CreateRecordedStep(AutoClickStepKind.KeyDown, step =>
         {
-            KeyCode = keyCode,
-            Delay = CalculateDelay()
-        };
-        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
+            step.KeyCode = keyCode;
+            step.Delay = delay;
+        })));
     }
 
     private void OnRecordKeyUp(KeyCode keyCode)
@@ -1026,13 +1123,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             return;
         }
 
-        var step = new AutoClickStepViewModel(AutoClickStepKind.KeyUp, OnStepChanged)
+        Dispatcher.UIThread.Post(() => AddRecordedStep(CreateRecordedStep(AutoClickStepKind.KeyUp, step =>
         {
-            KeyCode = keyCode,
-            Delay = Math.Max(0, delay),
-            Duration = duration
-        };
-        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
+            step.KeyCode = keyCode;
+            step.Delay = Math.Max(0, delay);
+            step.Duration = duration;
+        })));
     }
 
     private void ReplacePendingKeyDownWithPress(KeyCode keyCode, int duration)
@@ -1040,23 +1136,23 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         var lastStep = VisibleSteps.LastOrDefault();
         if (lastStep?.Kind != AutoClickStepKind.KeyDown || lastStep.KeyCode != keyCode)
         {
-            AddRecordedStep(new AutoClickStepViewModel(AutoClickStepKind.KeyClick, OnStepChanged)
+            AddRecordedStep(CreateRecordedStep(AutoClickStepKind.KeyClick, step =>
             {
-                KeyCode = keyCode,
-                Duration = duration
-            });
+                step.KeyCode = keyCode;
+                step.Duration = duration;
+            }));
             return;
         }
 
         var delay = lastStep.Delay;
         RemoveFromParent(lastStep);
         RecordedActionsCount = Math.Max(0, RecordedActionsCount - 1);
-        AddRecordedStep(new AutoClickStepViewModel(AutoClickStepKind.KeyClick, OnStepChanged)
+        AddRecordedStep(CreateRecordedStep(AutoClickStepKind.KeyClick, step =>
         {
-            KeyCode = keyCode,
-            Delay = delay,
-            Duration = duration
-        });
+            step.KeyCode = keyCode;
+            step.Delay = delay;
+            step.Duration = duration;
+        }));
     }
 
     private void OnRecordMousePressed(MouseEventData mouseData)
@@ -1064,14 +1160,16 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         _isMousePressed = true;
         _mousePressTime = DateTime.Now;
         _lastMousePosition = (mouseData.X, mouseData.Y);
-        var step = new AutoClickStepViewModel(AutoClickStepKind.MouseDown, OnStepChanged)
+        _mousePressPosition = (mouseData.X, mouseData.Y);
+        _hasRecordedMouseMovementDuringPress = false;
+        var delay = CalculateDelay();
+        _pendingMouseDownStep = CreateRecordedStep(AutoClickStepKind.MouseDown, step =>
         {
-            MouseButton = mouseData.Button,
-            X = mouseData.X,
-            Y = mouseData.Y,
-            Delay = CalculateDelay()
-        };
-        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
+            step.MouseButton = mouseData.Button;
+            step.X = mouseData.X;
+            step.Y = mouseData.Y;
+            step.Delay = delay;
+        });
     }
 
     private void OnRecordMouseReleased(MouseEventData mouseData)
@@ -1081,82 +1179,126 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         var duration = _mousePressTime == DateTime.MinValue
             ? 0
             : (int)(now - _mousePressTime).TotalMilliseconds;
+        var releaseDx = Math.Abs(mouseData.X - _mousePressPosition.x);
+        var releaseDy = Math.Abs(mouseData.Y - _mousePressPosition.y);
+        var isClick = duration is > 0 and <= MouseClickMergeThresholdMs &&
+                      !_hasRecordedMouseMovementDuringPress &&
+                      releaseDx < MouseMoveRecordMinDistance &&
+                      releaseDy < MouseMoveRecordMinDistance;
+
+        if (isClick)
+        {
+            var clickDelay = _pendingMouseDownStep?.Delay ?? Math.Max(0, (int)(now - _lastActionTime).TotalMilliseconds);
+            _pendingMouseDownStep = null;
+            _lastActionTime = now;
+            Dispatcher.UIThread.Post(() => AddRecordedStep(CreateRecordedStep(AutoClickStepKind.MouseClick, step =>
+            {
+                step.MouseButton = mouseData.Button;
+                step.X = mouseData.X;
+                step.Y = mouseData.Y;
+                step.Delay = clickDelay;
+                step.Duration = duration;
+            })));
+            return;
+        }
+
+        FlushPendingMouseDown();
+        AddFinalRecordedMouseMoveIfNeeded(mouseData, now);
+        now = DateTime.Now;
         var delay = (int)(now - _lastActionTime).TotalMilliseconds;
         _lastActionTime = now;
 
-        if (duration is > 0 and <= MouseClickMergeThresholdMs)
+        Dispatcher.UIThread.Post(() => AddRecordedStep(CreateRecordedStep(AutoClickStepKind.MouseUp, step =>
         {
-            Dispatcher.UIThread.Post(() => ReplacePendingMouseDownWithClick(mouseData, duration));
-            return;
-        }
-
-        var step = new AutoClickStepViewModel(AutoClickStepKind.MouseUp, OnStepChanged)
-        {
-            MouseButton = mouseData.Button,
-            X = mouseData.X,
-            Y = mouseData.Y,
-            Delay = Math.Max(0, delay),
-            Duration = duration > 0 ? duration : null
-        };
-        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
-    }
-
-    private void ReplacePendingMouseDownWithClick(MouseEventData mouseData, int duration)
-    {
-        var lastStep = VisibleSteps.LastOrDefault();
-        if (lastStep?.Kind != AutoClickStepKind.MouseDown || lastStep.MouseButton != mouseData.Button)
-        {
-            AddRecordedStep(new AutoClickStepViewModel(AutoClickStepKind.MouseClick, OnStepChanged)
-            {
-                MouseButton = mouseData.Button,
-                X = mouseData.X,
-                Y = mouseData.Y,
-                Duration = duration
-            });
-            return;
-        }
-
-        var delay = lastStep.Delay;
-        RemoveFromParent(lastStep);
-        RecordedActionsCount = Math.Max(0, RecordedActionsCount - 1);
-        AddRecordedStep(new AutoClickStepViewModel(AutoClickStepKind.MouseClick, OnStepChanged)
-        {
-            MouseButton = mouseData.Button,
-            X = mouseData.X,
-            Y = mouseData.Y,
-            Delay = delay,
-            Duration = duration
-        });
+            step.MouseButton = mouseData.Button;
+            step.X = mouseData.X;
+            step.Y = mouseData.Y;
+            step.Delay = Math.Max(0, delay);
+            step.Duration = duration > 0 ? duration : null;
+        })));
     }
 
     private void OnRecordMouseMoved(MouseEventData mouseData)
     {
         if (!RecordMouseMovement) return;
-        if (!_isMousePressed) return;
+        if (RecordMouseMovementOnlyWhenPressed && !_isMousePressed) return;
         var dx = Math.Abs(mouseData.X - _lastMousePosition.x);
         var dy = Math.Abs(mouseData.Y - _lastMousePosition.y);
         var now = DateTime.Now;
-        if ((dx < 8 && dy < 8) || (now - _lastMouseMoveTime).TotalMilliseconds < 35) return;
-
-        var step = new AutoClickStepViewModel(AutoClickStepKind.MouseMove, OnStepChanged)
+        if ((dx < MouseMoveRecordMinDistance && dy < MouseMoveRecordMinDistance) ||
+            (now - _lastMouseMoveTime).TotalMilliseconds < GetMouseMovementFrameIntervalMs())
         {
-            X = mouseData.X,
-            Y = mouseData.Y,
-            Delay = CalculateDelay()
-        };
+            return;
+        }
+
+        var delay = CalculateDelay();
+        FlushPendingMouseDown();
+        QueueRecordedMouseMove(mouseData, delay, now);
+    }
+
+    private void AddFinalRecordedMouseMoveIfNeeded(MouseEventData mouseData, DateTime now)
+    {
+        if (!RecordMouseMovement) return;
+        if (mouseData.X == _lastMousePosition.x && mouseData.Y == _lastMousePosition.y) return;
+        FlushPendingMouseDown();
+        QueueRecordedMouseMove(mouseData, CalculateDelay(), now);
+    }
+
+    private void FlushPendingMouseDown()
+    {
+        if (_pendingMouseDownStep == null) return;
+        var step = _pendingMouseDownStep;
+        _pendingMouseDownStep = null;
+        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
+    }
+
+    private void QueueRecordedMouseMove(MouseEventData mouseData, int delay, DateTime now)
+    {
+        if (_isMousePressed)
+        {
+            _hasRecordedMouseMovementDuringPress = true;
+        }
+
         _lastMousePosition = (mouseData.X, mouseData.Y);
         _lastMouseMoveTime = now;
-        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
+        Dispatcher.UIThread.Post(() => AddRecordedStep(CreateRecordedStep(AutoClickStepKind.MouseMove, step =>
+        {
+            step.X = mouseData.X;
+            step.Y = mouseData.Y;
+            step.Delay = delay;
+        })));
     }
 
     private void OnRecordMouseWheel(MouseWheelEventData wheelData)
     {
-        var step = new AutoClickStepViewModel(AutoClickStepKind.MouseWheel, OnStepChanged)
+        var delay = CalculateDelay();
+        var wheelSteps = NormalizeWheelSteps(wheelData);
+        Dispatcher.UIThread.Post(() => AddRecordedStep(CreateRecordedStep(AutoClickStepKind.MouseWheel, step =>
         {
-            WheelDelta = wheelData.Rotation,
-            Delay = CalculateDelay()
-        };
-        Dispatcher.UIThread.Post(() => AddRecordedStep(step));
+            step.WheelDelta = wheelSteps;
+            step.Delay = delay;
+        })));
+    }
+
+    private static int NormalizeWheelSteps(MouseWheelEventData wheelData)
+    {
+        var rotation = wheelData.Rotation;
+        if (rotation == 0) return 0;
+
+        var delta = wheelData.Delta;
+        if (delta > 0)
+        {
+            return (int)Math.Round((double)rotation / delta, MidpointRounding.AwayFromZero);
+        }
+
+        return rotation;
+    }
+
+    private AutoClickStepViewModel CreateRecordedStep(
+        AutoClickStepKind kind,
+        Action<AutoClickStepViewModel> initialize)
+    {
+        return AutoClickStepViewModel.CreateInitialized(kind, OnStepChanged, initialize);
     }
 
     private void AddRecordedStep(AutoClickStepViewModel step)
@@ -1223,10 +1365,18 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
     private async Task ExecuteSteps(IEnumerable<AutoClickStepViewModel> steps, CancellationToken token)
     {
-        foreach (var step in steps)
+        var stepList = steps.ToList();
+        for (var index = 0; index < stepList.Count; index++)
         {
+            var step = stepList[index];
             token.ThrowIfCancellationRequested();
             if (!step.IsEnabled) continue;
+            if (step.Kind == AutoClickStepKind.MouseMove)
+            {
+                index = await ExecuteMouseMoveRun(stepList, index, token);
+                continue;
+            }
+
             var showExecutingState = step.Kind != AutoClickStepKind.MouseMove;
             if (showExecutingState)
             {
@@ -1254,6 +1404,59 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             {
                 step.IsExecuting = false;
             }
+        }
+    }
+
+    private async Task<int> ExecuteMouseMoveRun(IReadOnlyList<AutoClickStepViewModel> steps, int startIndex, CancellationToken token)
+    {
+        var points = new List<(short X, short Y, int Delay)>();
+        var index = startIndex;
+
+        for (; index < steps.Count; index++)
+        {
+            var step = steps[index];
+            if (!step.IsEnabled || step.Kind != AutoClickStepKind.MouseMove) break;
+            if (step.X == 0 && step.Y == 0) continue;
+            points.Add((step.X, step.Y, Math.Max(0, step.Delay)));
+        }
+
+        await PlayMouseMovePath(points, token);
+        return index - 1;
+    }
+
+    private async Task PlayMouseMovePath(IReadOnlyList<(short X, short Y, int Delay)> points, CancellationToken token)
+    {
+        if (points.Count == 0) return;
+
+        var stopwatch = Stopwatch.StartNew();
+        var targetElapsedMs = 0;
+        var mouseMovePlaybackFrameIntervalMs = GetMouseMovementFrameIntervalMs();
+        var lastSentTargetMs = -mouseMovePlaybackFrameIntervalMs;
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            var point = points[i];
+            targetElapsedMs += GetAdjustedDelayOrZero(point.Delay);
+
+            var isLast = i == points.Count - 1;
+            if (!isLast && targetElapsedMs - lastSentTargetMs < mouseMovePlaybackFrameIntervalMs)
+            {
+                continue;
+            }
+
+            await DelayUntil(stopwatch, targetElapsedMs, token);
+            InputSimulateManager.Instance.SendMouseMove(point.X, point.Y);
+            lastSentTargetMs = targetElapsedMs;
+        }
+    }
+
+    private static async Task DelayUntil(Stopwatch stopwatch, int targetElapsedMs, CancellationToken token)
+    {
+        var remainingMs = targetElapsedMs - stopwatch.ElapsedMilliseconds;
+        if (remainingMs > 1)
+        {
+            await Task.Delay((int)remainingMs, token);
         }
     }
 
@@ -1358,6 +1561,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private int GetAdjustedDelay(int delay)
     {
         return Math.Max(1, (int)(delay / Math.Clamp(PlaybackSpeed, 0.1, 5.0)));
+    }
+
+    private int GetAdjustedDelayOrZero(int delay)
+    {
+        if (delay <= 0) return 0;
+        return GetAdjustedDelay(delay);
     }
 
     private int CountSteps(IEnumerable<AutoClickStepViewModel> steps)

@@ -750,6 +750,12 @@
     <data name="AutoClickRecordMouseMovement" xml:space="preserve">
         <value>Record mouse movement</value>
     </data>
+    <data name="AutoClickMouseMovementFrameRate" xml:space="preserve">
+        <value>Mouse path FPS</value>
+    </data>
+    <data name="AutoClickRecordMouseMovementOnlyWhenPressed" xml:space="preserve">
+        <value>Only while mouse button is pressed</value>
+    </data>
     <data name="AutoClickRecordMouseMovementHint" xml:space="preserve">
         <value>Experimental. Disabled by default because raw cursor paths can replay unevenly across apps, displays, and input backends.</value>
     </data>

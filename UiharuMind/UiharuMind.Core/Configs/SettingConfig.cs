@@ -9,12 +9,13 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core;
 
-public class SettingConfig : ConfigBase
+public class SettingConfig : TConfigBase<SettingConfig>
 {
     public const string DefaultCaptureScreenShortcut = "Alt+Shift+Z";
     public const string DefaultQuickStartChatShortcut = "Alt+Shift+A";
@@ -26,6 +27,7 @@ public class SettingConfig : ConfigBase
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UiharuMind/");
 
     public static readonly string SaveDataPath = Path.Combine(RootDataPath, "SaveData/");
+    public static readonly string SaveSettingDataPath = SaveDataPath + "SettingData/";
     public static readonly string SaveChatDataPath = SaveDataPath + "ChatData/";
     public static readonly string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
     public static readonly string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";

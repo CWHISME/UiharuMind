@@ -2,7 +2,7 @@ using UiharuMind.Core.Core.Configs;
 
 namespace UiharuMind.Core.Configs;
 
-public class QuickToolPromptSetting : ConfigBase
+public class QuickToolPromptSetting : TConfigBase<QuickToolPromptSetting>
 {
     public string Explanation { get; set; } = "Please explain clearly and concisely in {{$lang}} : {{$content}}";
 

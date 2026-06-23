@@ -89,7 +89,7 @@ public static class SaveUtility
     /// <returns></returns>
     public static string GetSaveDataPath(string fileName)
     {
-        return Path.Combine(SettingConfig.SaveDataPath, fileName);
+        return Path.Combine(SettingConfig.SaveSettingDataPath, fileName);
     }
 
     /// <summary>

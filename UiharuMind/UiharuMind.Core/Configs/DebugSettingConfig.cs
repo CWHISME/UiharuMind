@@ -9,14 +9,14 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Attributes;
-using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 
-public class DebugSettingConfig : ConfigBase
+public class DebugSettingConfig : TConfigBase<DebugSettingConfig>
 {
     [SettingConfigDesc("log running info to console")]
     [SettingConfigDesc("运行过程中打印日志等级", LanguageUtils.ChineseSimplified)]

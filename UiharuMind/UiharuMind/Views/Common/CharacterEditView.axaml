@@ -54,9 +54,9 @@
 
                     <StackPanel Grid.Column="1" Spacing="8">
                         <TextBlock Classes="card-title" Text="{loc:Loc EditorBasicInfo}" />
-                        <TextBox Text="{Binding Name}" Watermark="{loc:Loc CharacterName}" />
+                        <TextBox Text="{Binding Name}" PlaceholderText="{loc:Loc CharacterName}" />
                         <TextBox Text="{Binding Description}"
-                                 Watermark="{loc:Loc CharacterDesc}"
+                                 PlaceholderText="{loc:Loc CharacterDesc}"
                                  MinHeight="72"
                                  AcceptsReturn="True" />
                     </StackPanel>

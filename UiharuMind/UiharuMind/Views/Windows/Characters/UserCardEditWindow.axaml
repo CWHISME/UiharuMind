@@ -58,7 +58,7 @@
                         <StackPanel Grid.Column="1" Spacing="8">
                             <TextBlock FontWeight="SemiBold" Text="{loc:Loc EditorBasicInfo}" />
                             <TextBox Text="{Binding Description}"
-                                     Watermark="{loc:Loc CharacterDesc}" />
+                                     PlaceholderText="{loc:Loc CharacterDesc}" />
                         </StackPanel>
                     </Grid>
                 </Border>

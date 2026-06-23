@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -24,7 +26,7 @@ public partial class AutoClickWindow : UiharuWindowBase
         InitializeComponent();
         _viewModel = App.ViewModel.GetViewModel<QuickAutoClickViewModel>();
         _viewModel.SetRecordingCallbacks(PrepareForRecording, FinishRecording);
-        _viewModel.SetPlaybackCallback(UpdatePlaybackIndicator, FinishPlayback);
+        _viewModel.SetPlaybackCallback(PrepareForPlaybackAsync, UpdatePlaybackIndicator, FinishPlayback);
         _viewModel.OnActionRecorded += UpdateRecordingIndicator;
         DataContext = _viewModel;
     }
@@ -39,6 +41,8 @@ public partial class AutoClickWindow : UiharuWindowBase
         _viewModel.OnDisable();
         _indicatorWindow?.Close();
         _playbackWindow?.Close();
+        _indicatorWindow = null;
+        _playbackWindow = null;
     }
 
     public void PrepareForRecording()
@@ -52,15 +56,7 @@ public partial class AutoClickWindow : UiharuWindowBase
 
     public void FinishRecording()
     {
-        _indicatorWindow?.SafeClose();
-        _indicatorWindow = null;
-        Dispatcher.UIThread.Post(() =>
-        {
-            Show();
-            WindowState = WindowState.Normal;
-            UIManager.RefreshMacApplicationActivationPolicy();
-            WindowActivationService.Activate(this);
-        }, DispatcherPriority.ApplicationIdle);
+        UIManager.ShowWindow<AutoClickWindow>();
     }
 
     public void UpdateRecordingIndicator(int count)
@@ -69,25 +65,29 @@ public partial class AutoClickWindow : UiharuWindowBase
         _indicatorWindow?.FlashIndicator();
     }
 
-    public void UpdatePlaybackIndicator(int current, int total)
+    private async Task PrepareForPlaybackAsync(CancellationToken cancellationToken)
     {
         if (_playbackWindow == null)
         {
             _playbackWindow = new PlaybackIndicatorWindow();
             _playbackWindow.Show();
-            Hide();
         }
 
+        SafeClose();
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render, cancellationToken);
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle, cancellationToken);
+    }
+
+    public void UpdatePlaybackIndicator(int current, int total)
+    {
+        if (_playbackWindow == null) return;
         _playbackWindow.UpdateProgress(current, total);
         _playbackWindow.FlashIndicator();
     }
 
     private void FinishPlayback()
     {
-        _playbackWindow?.Close();
-        _playbackWindow = null;
-        Show();
-        WindowActivationService.Activate(this);
+        UIManager.ShowWindow<AutoClickWindow>();
     }
 
     private async void AddKeyButton_Click(object? sender, RoutedEventArgs e)
@@ -115,26 +115,34 @@ public partial class AutoClickWindow : UiharuWindowBase
         if (e.AddedItems[0] is not AutoClickSession session) return;
         if (session == _viewModel.CurrentSession) return;
 
-        if (_viewModel.HasUnsavedChanges)
+        if (!await ConfirmDiscardUnsavedAsync())
         {
-            var result = await App.MessageService.ShowConfirmMessageBox(
-                LocalizationManager.Instance.GetString("AutoClickDiscardUnsavedConfirm"),
-                this);
-
-            if (result != MessageBoxResult.Yes)
+            if (sender is ListBox listBox)
             {
-                if (sender is ListBox listBox)
-                {
-                    _isRestoringSessionSelection = true;
-                    listBox.SelectedItem = _viewModel.CurrentSession;
-                    _isRestoringSessionSelection = false;
-                }
-
-                return;
+                _isRestoringSessionSelection = true;
+                listBox.SelectedItem = _viewModel.CurrentSession;
+                _isRestoringSessionSelection = false;
             }
+
+            return;
         }
 
         _viewModel.LoadSession(session);
+    }
+
+    private async void NewSessionButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!await ConfirmDiscardUnsavedAsync()) return;
+        _viewModel.NewSessionCommand.Execute(null);
+    }
+
+    private async System.Threading.Tasks.Task<bool> ConfirmDiscardUnsavedAsync()
+    {
+        if (!_viewModel.HasUnsavedChanges) return true;
+        var result = await App.MessageService.ShowConfirmMessageBox(
+            LocalizationManager.Instance.GetString("AutoClickDiscardUnsavedConfirm"),
+            this);
+        return result == MessageBoxResult.Yes;
     }
 
     private async void RenameSessionMenuItem_Click(object? sender, RoutedEventArgs e)

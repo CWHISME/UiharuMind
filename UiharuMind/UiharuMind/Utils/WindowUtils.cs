@@ -20,6 +20,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using UiharuMind.Core.Input;
+using UiharuMind.Services;
 
 namespace UiharuMind.Utils;
 
@@ -113,6 +114,20 @@ public static class WindowUtils
         window.Background = Brushes.Transparent;
         window.Foreground = Brushes.Transparent;
         window.BorderThickness = new Thickness(0);
+    }
+
+    /// <summary>
+    /// 设置界面不可交互不可点击，开启时不影响前台界面
+    /// </summary>
+    /// <param name="window"></param>
+    public static void SetNonInteractiveOverlayWindow(this Window window)
+    {
+        window.ShowActivated = false;
+        window.Focusable = false;
+        window.IsHitTestVisible = false;
+        window.ShowInTaskbar = false;
+
+        OverlayWindowService.ApplyNativeNonInteractiveStyle(window);
     }
 
     public static void SetScreenCenterPosition(this Window window)

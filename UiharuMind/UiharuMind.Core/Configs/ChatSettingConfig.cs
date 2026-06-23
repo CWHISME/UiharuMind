@@ -9,13 +9,14 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 
-public class ChatSettingConfig : ConfigBase
+public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
 {
     
     [SettingConfigDesc("Token for model name")]

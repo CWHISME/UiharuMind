@@ -1,11 +1,10 @@
 using System.Text.Json.Serialization;
 using UiharuMind.Core.Core.Attributes;
-using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Configs;
 
-public class ChatPromptExecutionSettings : ConfigBase
+public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettings>
 {
     [SettingConfigDesc(
         "Temperature controls the randomness of the completion. The higher the temperature, the more random the completion. Default is 1.0.")]

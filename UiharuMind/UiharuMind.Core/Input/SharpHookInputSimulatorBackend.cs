@@ -31,7 +31,15 @@ public class SharpHookInputSimulatorBackend : IInputSimulatorBackend
 
     public void SimulateMouseWheel(int wheelDelta)
     {
-        _globalSimulator.SimulateMouseWheel((short)wheelDelta);
+        _globalSimulator.SimulateMouseWheel(
+            ClampToShort(wheelDelta),
+            MouseWheelScrollDirection.Vertical,
+            MouseWheelScrollType.UnitScroll);
+    }
+
+    private static short ClampToShort(int value)
+    {
+        return (short)Math.Clamp(value, short.MinValue, short.MaxValue);
     }
 
     public async Task SendKeyPress(KeyCode keyCode, int delayMs = 100)
