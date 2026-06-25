@@ -429,6 +429,45 @@
     <data name="MemoryTips" xml:space="preserve">
         <value />
     </data>
+    <data name="MemoryIndexUpdate" xml:space="preserve">
+        <value>Update memory index</value>
+    </data>
+    <data name="MemoryIndexUpdating" xml:space="preserve">
+        <value>Memory index is updating. Please wait...</value>
+    </data>
+    <data name="MemoryIndexNeedUpdate" xml:space="preserve">
+        <value>Memory sources changed. Update the index before the new content can be retrieved. Chats will keep using the previous index until then.</value>
+    </data>
+    <data name="MemoryIndexReady" xml:space="preserve">
+        <value>Memory index is up to date.</value>
+    </data>
+    <data name="MemoryIndexNotBuilt" xml:space="preserve">
+        <value>Memory index has not been built yet. Update the index before this memory can be retrieved.</value>
+    </data>
+    <data name="MemoryIndexLastIndexed" xml:space="preserve">
+        <value>Last indexed: </value>
+    </data>
+    <data name="MemoryIndexLastError" xml:space="preserve">
+        <value>Last error: </value>
+    </data>
+    <data name="MemoryIndexUpdateSuccess" xml:space="preserve">
+        <value>Memory index updated.</value>
+    </data>
+    <data name="MemoryIndexUpdateFailed" xml:space="preserve">
+        <value>Memory index update failed.</value>
+    </data>
+    <data name="MemoryIndexEmbeddingServerUnavailable" xml:space="preserve">
+        <value>Embedding server is unavailable. Please check the local embedding model and llama.cpp server settings.</value>
+    </data>
+    <data name="MemoryIndexEmbeddingServerTimeout" xml:space="preserve">
+        <value>Embedding server startup timed out. Please check that the embedding model exists, or try again later.</value>
+    </data>
+    <data name="MemoryIndexMemoryNameMissing" xml:space="preserve">
+        <value>Memory name is missing.</value>
+    </data>
+    <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
+        <value>Memory index database is unavailable.</value>
+    </data>
     <data name="Select" xml:space="preserve">
         <value>Select</value>
     </data>

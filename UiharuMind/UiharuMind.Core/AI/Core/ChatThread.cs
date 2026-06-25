@@ -244,11 +244,11 @@ public static class ChatThread
                            .ConfigureAwait(false))
         {
             var str = content.ToString();
-            if (string.IsNullOrEmpty(str))
-            {
-                str = StreamingReasoningContentAccessor(content.InnerContent as StreamingChatCompletionUpdate);
-                if (string.IsNullOrEmpty(str)) continue;
-            }
+            // if (string.IsNullOrEmpty(str))
+            // {
+            //     str = StreamingReasoningContentAccessor(content.InnerContent as StreamingChatCompletionUpdate);
+            //     if (string.IsNullOrEmpty(str)) continue;
+            // }
 
             builder.Append(str);
             // ReSharper disable once MethodHasAsyncOverload
@@ -349,7 +349,7 @@ public static class ChatThread
         // ChatCompletionAgent agent = characterData.ToAgent(modelRunning.Kernel);
         StringBuilder builder = new StringBuilder(64);
         EmptyDelayUpdater delayUpdater = new();
-        bool isParseThinking = false;
+        // bool isParseThinking = false;
 
         chatHistory ??= new ChatHistory();
         // CancellationTokenSource cts = new();
@@ -365,28 +365,34 @@ public static class ChatThread
                 end?.Invoke();
             }
         });
-        await foreach (StreamingChatMessageContent response in agent.InvokeStreamingAsync(
-                               chatHistory, null, modelRunning!.Kernel, cancellationToken)
+        AgentInvokeOptions agentInvokeOptions = new()
+        {
+            Kernel = modelRunning!.Kernel,
+            KernelArguments = agent.Arguments
+        };
+        await foreach (AgentResponseItem<StreamingChatMessageContent> responseItem in agent.InvokeStreamingAsync(
+                               chatHistory, null, agentInvokeOptions, cancellationToken)
                            .ConfigureAwait(false))
         {
+            StreamingChatMessageContent response = responseItem.Message;
             string? content = response.Content;
-            if (string.IsNullOrEmpty(content))
-            {
-                // var jsonContent = JsonNode.Parse(ModelReaderWriter.Write(update.InnerContent!));
-                // var reasoningUpdate = jsonContent!["choices"]![0]!["delta"]!["reasoning_content"];
-                content = StreamingReasoningContentAccessor(response.InnerContent as StreamingChatCompletionUpdate);
-                if (string.IsNullOrEmpty(content)) continue;
-                if (!isParseThinking)
-                {
-                    builder.Append("<think>");
-                    isParseThinking = true;
-                }
-            }
-            else if (isParseThinking)
-            {
-                builder.Append("</think>");
-                isParseThinking = false;
-            }
+            // if (string.IsNullOrEmpty(content))
+            // {
+            //     // var jsonContent = JsonNode.Parse(ModelReaderWriter.Write(update.InnerContent!));
+            //     // var reasoningUpdate = jsonContent!["choices"]![0]!["delta"]!["reasoning_content"];
+            //     content = StreamingReasoningContentAccessor(response.InnerContent as StreamingChatCompletionUpdate);
+            //     if (string.IsNullOrEmpty(content)) continue;
+            //     if (!isParseThinking)
+            //     {
+            //         builder.Append("<think>");
+            //         isParseThinking = true;
+            //     }
+            // }
+            // else if (isParseThinking)
+            // {
+            //     builder.Append("</think>");
+            //     isParseThinking = false;
+            // }
 
             builder.Append(content);
             const float maxDelay = 75f;

@@ -860,6 +860,84 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("MemoryTips", resourceCulture);
             }
         }
+
+        public static string MemoryIndexUpdate {
+            get {
+                return ResourceManager.GetString("MemoryIndexUpdate", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexUpdating {
+            get {
+                return ResourceManager.GetString("MemoryIndexUpdating", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexNeedUpdate {
+            get {
+                return ResourceManager.GetString("MemoryIndexNeedUpdate", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexReady {
+            get {
+                return ResourceManager.GetString("MemoryIndexReady", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexNotBuilt {
+            get {
+                return ResourceManager.GetString("MemoryIndexNotBuilt", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexLastIndexed {
+            get {
+                return ResourceManager.GetString("MemoryIndexLastIndexed", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexLastError {
+            get {
+                return ResourceManager.GetString("MemoryIndexLastError", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexUpdateSuccess {
+            get {
+                return ResourceManager.GetString("MemoryIndexUpdateSuccess", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexUpdateFailed {
+            get {
+                return ResourceManager.GetString("MemoryIndexUpdateFailed", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexEmbeddingServerUnavailable {
+            get {
+                return ResourceManager.GetString("MemoryIndexEmbeddingServerUnavailable", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexEmbeddingServerTimeout {
+            get {
+                return ResourceManager.GetString("MemoryIndexEmbeddingServerTimeout", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexMemoryNameMissing {
+            get {
+                return ResourceManager.GetString("MemoryIndexMemoryNameMissing", resourceCulture);
+            }
+        }
+
+        public static string MemoryIndexVectorStoreUnavailable {
+            get {
+                return ResourceManager.GetString("MemoryIndexVectorStoreUnavailable", resourceCulture);
+            }
+        }
         
         public static string Select {
             get {

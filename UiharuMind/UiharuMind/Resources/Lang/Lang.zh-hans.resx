@@ -422,6 +422,45 @@
         <value>开启对话后，优先使用角色记忆库。若后续手动切换记忆库，则仅影响指定对话场景。
 注：记忆库本身是共享的，另外请避免同一个记忆库中存放过多无关信息。</value>
     </data>
+    <data name="MemoryIndexUpdate" xml:space="preserve">
+        <value>更新记忆索引</value>
+    </data>
+    <data name="MemoryIndexUpdating" xml:space="preserve">
+        <value>正在更新记忆索引，请稍候...</value>
+    </data>
+    <data name="MemoryIndexNeedUpdate" xml:space="preserve">
+        <value>记忆来源已变更，索引尚未更新。更新前，聊天仍会使用旧索引。</value>
+    </data>
+    <data name="MemoryIndexReady" xml:space="preserve">
+        <value>记忆索引已同步。</value>
+    </data>
+    <data name="MemoryIndexNotBuilt" xml:space="preserve">
+        <value>记忆索引尚未建立。请先更新索引，当前记忆内容才可被检索。</value>
+    </data>
+    <data name="MemoryIndexLastIndexed" xml:space="preserve">
+        <value>上次更新：</value>
+    </data>
+    <data name="MemoryIndexLastError" xml:space="preserve">
+        <value>上次错误：</value>
+    </data>
+    <data name="MemoryIndexUpdateSuccess" xml:space="preserve">
+        <value>记忆索引已更新。</value>
+    </data>
+    <data name="MemoryIndexUpdateFailed" xml:space="preserve">
+        <value>记忆索引更新失败。</value>
+    </data>
+    <data name="MemoryIndexEmbeddingServerUnavailable" xml:space="preserve">
+        <value>嵌入服务器不可用，请检查本地嵌入模型和 llama.cpp server 配置。</value>
+    </data>
+    <data name="MemoryIndexEmbeddingServerTimeout" xml:space="preserve">
+        <value>嵌入服务器启动超时，请检查嵌入模型是否存在，或稍后重试。</value>
+    </data>
+    <data name="MemoryIndexMemoryNameMissing" xml:space="preserve">
+        <value>记忆库名称为空。</value>
+    </data>
+    <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
+        <value>记忆索引数据库不可用。</value>
+    </data>
     <data name="Select" xml:space="preserve">
         <value>选择</value>
     </data>

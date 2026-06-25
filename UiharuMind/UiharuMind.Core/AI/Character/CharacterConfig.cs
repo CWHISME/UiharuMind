@@ -44,7 +44,7 @@ public class CharacterConfig
         _openAiSettings.FrequencyPenalty = ExecutionSettings.FrequencyPenalty;
         _openAiSettings.PresencePenalty = ExecutionSettings.PresencePenalty;
 
-        _cachedAgent = new ChatCompletionAgent(PromptConfig)
+        _cachedAgent = new ChatCompletionAgent(PromptConfig, new KernelPromptTemplateFactory())
         {
             Kernel = kernel,
             Arguments = new KernelArguments(_openAiSettings)

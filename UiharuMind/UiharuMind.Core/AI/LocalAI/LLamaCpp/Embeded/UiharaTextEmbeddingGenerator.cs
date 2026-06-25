@@ -1,12 +1,10 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.KernelMemory;
-using Microsoft.KernelMemory.AI;
 
 namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
 
-public class UiharaTextEmbeddingGenerator : ITextEmbeddingGenerator
+public class UiharaTextEmbeddingGenerator
 {
     public UiharaTextEmbeddingGenerator(string baseUrl, int maxTokens)
     {
@@ -28,7 +26,7 @@ public class UiharaTextEmbeddingGenerator : ITextEmbeddingGenerator
         return new List<string>();
     }
 
-    public async Task<Embedding> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+    public async Task<ReadOnlyMemory<float>> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
     {
         // 准备请求数据
         var requestData = new EmbeddingRequest
@@ -55,7 +53,7 @@ public class UiharaTextEmbeddingGenerator : ITextEmbeddingGenerator
             if (node.Name == "embedding")
             {
                 var embedding = JsonSerializer.Deserialize<float[]>(node.Value[0].GetRawText());
-                return new Embedding(embedding ?? throw new InvalidOperationException("Invalid embedding data"));
+                return new ReadOnlyMemory<float>(embedding ?? throw new InvalidOperationException("Invalid embedding data"));
             }
         }
 

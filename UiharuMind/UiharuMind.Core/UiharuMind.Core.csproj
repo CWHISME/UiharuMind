@@ -11,11 +11,10 @@
       <PackageReference Include="AngleSharp" Version="1.1.2" />
       <PackageReference Include="CliWrap" Version="3.8.1" />
       <PackageReference Include="Downloader" Version="3.3.3" />
-      <PackageReference Include="KernelMemory.StructRAG" Version="0.0.15" />
       <PackageReference Include="Markdown.ColorCode" Version="3.0.0" />
-      <PackageReference Include="Microsoft.KernelMemory" Version="0.97.250211.1" />
-      <PackageReference Include="Microsoft.SemanticKernel" Version="1.40.0" />
-      <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.37.0-alpha" />
+      <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0" />
+      <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.77.0" />
+      <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpHook" Version="7.1.1" />
     </ItemGroup>

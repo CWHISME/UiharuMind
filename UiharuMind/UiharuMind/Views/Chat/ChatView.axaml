@@ -367,6 +367,14 @@
                                 <TextBlock Text="{Binding ChatSession.MemoryUrlTips}" />
                             </ToolTip.Tip>
                         </Button>
+                        <Button Classes="icon" Command="{Binding ChatSession.MemoryUpdateIndexCommand}">
+                            <PathIcon Width="18" Height="18"
+                                      Data="{StaticResource ArrowSyncCircleRegular}"
+                                      Foreground="{Binding ChatSession.MemoryIndexBrush}" />
+                            <ToolTip.Tip>
+                                <TextBlock Text="{Binding ChatSession.MemoryIndexTips}" />
+                            </ToolTip.Tip>
+                        </Button>
                         <Button Classes="icon"
                                 IsVisible="{Binding IsSurportImage}"
                                 Command="{Binding UploadImageCommand}">

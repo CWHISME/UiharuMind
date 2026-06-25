@@ -9,11 +9,10 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using Microsoft.KernelMemory;
-using Microsoft.KernelMemory.AI.Ollama;
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
@@ -170,7 +169,7 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     /// 尝试确保嵌入式服务启动
     /// </summary>
     /// <param name="onLoadOver"></param>
-    public void TryEnsureEmbededServer(Action<OpenAIConfig?>? onLoadOver = null)
+    public void TryEnsureEmbededServer(Action<EmbeddedServerConfig?>? onLoadOver = null)
     {
         if (CurrentSeletedVersion == null)
         {

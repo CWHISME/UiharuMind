@@ -11,11 +11,10 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.KernelMemory;
-using Microsoft.KernelMemory.AI.Ollama;
 using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
@@ -44,9 +43,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
 
     private GGufModelInfo _embededModelInfo = new GGufModelInfo();
     private EmbededServerStatus _embededServerStatus = EmbededServerStatus.Stop;
-    private readonly Queue<Action<OpenAIConfig>> _pendingEmbeddedServerActions = new Queue<Action<OpenAIConfig>>();
+    private readonly Queue<Action<EmbeddedServerConfig?>> _pendingEmbeddedServerActions =
+        new Queue<Action<EmbeddedServerConfig?>>();
 
-    private OpenAIConfig? _embeddedServerConfig;
+    private EmbeddedServerConfig? _embeddedServerConfig;
 
     // private HttpProxyServer? _httpProxyServer;
     private const int EmbedingModelMaxToken = 8191;
@@ -74,13 +74,13 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         }
     }
 
-    private OpenAIConfig EmbeddedServerConfig
+    private EmbeddedServerConfig EmbeddedServerConfig
     {
         get
         {
             if (_embeddedServerConfig == null)
             {
-                _embeddedServerConfig = new OpenAIConfig
+                _embeddedServerConfig = new EmbeddedServerConfig
                 {
                     Endpoint = EmbedeHttpServerUrl,
                     EmbeddingModel = "None",
@@ -128,7 +128,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     /// <summary>
     /// 尝试确保嵌入式服务启动
     /// </summary>
-    public void TryEnsureEmbededServer(VersionInfo versionInfo, Action<OpenAIConfig>? onLoadOver = null)
+    public void TryEnsureEmbededServer(VersionInfo versionInfo, Action<EmbeddedServerConfig?>? onLoadOver = null)
     {
         if (_embededServerStatus == EmbededServerStatus.Running)
         {
@@ -220,8 +220,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             .ConfigureAwait(false);
     }
 
-    private async Task StartEmbededServer(VersionInfo versionInfo, Action<OpenAIConfig>? onLoadOver = null)
+    private async Task StartEmbededServer(VersionInfo versionInfo, Action<EmbeddedServerConfig?>? onLoadOver = null)
     {
+        bool loadSucceeded = false;
+        bool failureNotified = false;
         try
         {
             if (_embededServerStatus == EmbededServerStatus.Loading)
@@ -233,6 +235,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             _embededServerStatus = EmbededServerStatus.Loading;
             await Run(versionInfo, EmbededModelInfo, onLoadOver: (x) =>
                 {
+                    loadSucceeded = true;
                     _embededServerStatus = EmbededServerStatus.Running;
                     foreach (var action in _pendingEmbeddedServerActions)
                     {
@@ -247,11 +250,28 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         catch (Exception e)
         {
             Log.Error("Start embeded server failed：" + e.Message);
+            NotifyEmbeddedServerFailed(onLoadOver);
+            failureNotified = true;
         }
         finally
         {
-            _embededServerStatus = EmbededServerStatus.Stop;
+            if (!loadSucceeded)
+            {
+                if (!failureNotified) NotifyEmbeddedServerFailed(onLoadOver);
+                _embededServerStatus = EmbededServerStatus.Stop;
+            }
         }
+    }
+
+    private void NotifyEmbeddedServerFailed(Action<EmbeddedServerConfig?>? onLoadOver)
+    {
+        foreach (var action in _pendingEmbeddedServerActions)
+        {
+            action(null);
+        }
+
+        _pendingEmbeddedServerActions.Clear();
+        onLoadOver?.Invoke(null);
     }
 
     private Kernel CreateKernel(ILlmModel model)

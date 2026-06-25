@@ -60,6 +60,9 @@ public partial class ChatSessionViewData : ObservableObject
     [ObservableProperty] private ISolidColorBrush? _memoryFileBrush;
     [ObservableProperty] private string? _memoryUrlTips;
     [ObservableProperty] private ISolidColorBrush? _memoryUrlBrush;
+    [ObservableProperty] private string? _memoryIndexTips;
+    [ObservableProperty] private ISolidColorBrush? _memoryIndexBrush;
+    [ObservableProperty] private bool _isMemoryIndexUpdating;
 
     // public ECharacter Character => _chatSession.CharaterId == 0 ? ECharacter.User : ECharacter.Assistant;
     // //如果是当天，返回具体时间，否则返回日期
@@ -378,6 +381,34 @@ public partial class ChatSessionViewData : ObservableObject
         // await DoSelectUploadFiles(memory);
     }
 
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task MemoryUpdateIndex()
+    {
+        var memory = MemoryData;
+        if (memory == null)
+        {
+            App.MessageService.ShowWarningMessageBox(Lang.NoMemory);
+            return;
+        }
+
+        if (IsMemoryIndexUpdating) return;
+        IsMemoryIndexUpdating = true;
+        RefreshMemoryIndexTips();
+        try
+        {
+            var success = await memory.UpdateIndexAsync();
+            if (success)
+                App.MessageService.ShowNotification(Lang.MemoryIndexUpdateSuccess);
+            else
+                App.MessageService.ShowWarningMessageBox(BuildMemoryIndexFailureMessage(memory.LastIndexError));
+        }
+        finally
+        {
+            IsMemoryIndexUpdating = false;
+            RefreshMemoryInfo();
+        }
+    }
+
     private void DoCheckMemoryBeforeUpload(Action<MemoryData> callback)
     {
         var memory = MemoryData;
@@ -424,7 +455,7 @@ public partial class ChatSessionViewData : ObservableObject
             item.Save();
         }
 
-        RefreshMemoryFileTips();
+        RefreshMemoryInfo();
     }
 
     private void RefreshMemoryFileTips()
@@ -465,7 +496,7 @@ public partial class ChatSessionViewData : ObservableObject
             if (result == null) return;
             item.UrlPaths = result.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries).ToList();
             item.Save();
-            RefreshMemoryUrlTips();
+            RefreshMemoryInfo();
         }
         catch (Exception e)
         {
@@ -579,10 +610,62 @@ public partial class ChatSessionViewData : ObservableObject
         RefreshMemoryName();
         RefreshMemoryFileTips();
         RefreshMemoryUrlTips();
+        RefreshMemoryIndexTips();
     }
 
     private void RefreshMemoryName()
     {
         MemoryTipsName = Lang.MemoryTitle + (MemoryData?.Name ?? Lang.NoMemory);
+    }
+
+    private void RefreshMemoryIndexTips()
+    {
+        var memory = MemoryData;
+        if (memory == null)
+        {
+            MemoryIndexTips = Lang.NoMemory;
+            MemoryIndexBrush = Brushes.Gray;
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine(GetMemoryIndexStateText(memory));
+        if (memory.LastIndexedAt != null)
+            sb.AppendLine(Lang.MemoryIndexLastIndexed + memory.LastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm"));
+        if (!string.IsNullOrEmpty(memory.LastIndexError))
+            sb.AppendLine(Lang.MemoryIndexLastError + GetMemoryIndexErrorText(memory.LastIndexError));
+
+        MemoryIndexTips = sb.ToString();
+        MemoryIndexBrush = IsMemoryIndexUpdating ? Brushes.DeepSkyBlue :
+            memory.IndexDirty ? Brushes.Orange :
+            !string.IsNullOrEmpty(memory.LastIndexError) ? Brushes.OrangeRed :
+            memory.LastIndexedAt != null ? Brushes.Gold : Brushes.Gray;
+    }
+
+    private string GetMemoryIndexStateText(MemoryData memory)
+    {
+        if (IsMemoryIndexUpdating) return Lang.MemoryIndexUpdating;
+        if (memory.IndexDirty) return Lang.MemoryIndexNeedUpdate;
+        if (memory.LastIndexedAt == null) return Lang.MemoryIndexNotBuilt;
+        return Lang.MemoryIndexReady;
+    }
+
+    private static string BuildMemoryIndexFailureMessage(string error)
+    {
+        if (string.IsNullOrEmpty(error)) return Lang.MemoryIndexUpdateFailed;
+        return Lang.MemoryIndexUpdateFailed + Environment.NewLine + GetMemoryIndexErrorText(error);
+    }
+
+    private static string GetMemoryIndexErrorText(string error)
+    {
+        return error switch
+        {
+            "Embedding server is unavailable." => Lang.MemoryIndexEmbeddingServerUnavailable,
+            "Embedding server startup timed out." => Lang.MemoryIndexEmbeddingServerTimeout,
+            "Memory name not set" => Lang.MemoryIndexMemoryNameMissing,
+            "Memory vector store unavailable" => Lang.MemoryIndexVectorStoreUnavailable,
+            "Memory index update failed" => Lang.MemoryIndexUpdateFailed,
+            _ => error
+        };
     }
 }
