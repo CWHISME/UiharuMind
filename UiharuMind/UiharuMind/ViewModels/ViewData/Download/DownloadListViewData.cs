@@ -16,11 +16,11 @@ using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Views;
-using Ursa.Controls;
+using UiharuMind.Services;
 
 namespace UiharuMind.ViewModels.ViewData.Download;
 
@@ -29,6 +29,18 @@ namespace UiharuMind.ViewModels.ViewData.Download;
 /// </summary>
 public partial class DownloadListViewData : ObservableObject
 {
+    protected readonly IMessageService MessageService;
+    private string _downloadedActionText = Lang.OpenDirectory;
+
+    public DownloadListViewData() : this(App.Services.GetRequiredService<IMessageService>())
+    {
+    }
+
+    public DownloadListViewData(IMessageService messageService)
+    {
+        MessageService = messageService;
+    }
+
     /// <summary>
     /// 添加删除请不要直接调用列表的清理，而是调用Clear方法(或者自己挨个调用每个 DownloadableItemData 元素的 Dispose 方法)
     /// </summary>
@@ -45,6 +57,18 @@ public partial class DownloadListViewData : ObservableObject
     /// 当下载了新文件、或者删除了旧文件后，会调用
     /// </summary>
     public event Action? OnDownloadFileChange;
+
+    public string DownloadedActionText
+    {
+        get => _downloadedActionText;
+        set => SetProperty(ref _downloadedActionText, value);
+    }
+
+    public Func<DownloadableItemData, string?>? LocalFileDirectoryPathProvider { get; set; }
+    public Func<DownloadableItemData, string>? DeleteFilePathProvider { get; set; }
+    public Func<string>? DeleteConfirmMessageProvider { get; set; }
+    public Func<DownloadableItemData, Task>? DownloadCompletedHandler { get; set; }
+    public Func<DownloadableItemData, Task>? DownloadedActionHandler { get; set; }
 
     /// <summary>
     /// 清理所有下载列表，如果想保留正在下载的对象，请调用 ClearIfNotDownloading
@@ -133,8 +157,14 @@ public partial class DownloadListViewData : ObservableObject
     }
 
     [RelayCommand]
-    protected void OpenFolder(DownloadableItemData version)
+    protected async Task OpenFolder(DownloadableItemData version)
     {
+        if (DownloadedActionHandler != null)
+        {
+            await DownloadedActionHandler(version);
+            return;
+        }
+
         App.FilesService.OpenFolder(GetLocalFileDirectoryPath(version));
     }
 
@@ -165,10 +195,7 @@ public partial class DownloadListViewData : ObservableObject
     {
         try
         {
-            var result =
-                await App.MessageService.ShowConfirmMessageBox(Lang.ConfirmDeleteRuntimeEngine,
-                    UIManager.GetRootWindow());
-            if (result == MessageBoxResult.Yes)
+            if (await MessageService.ConfirmAsync(GetDeleteConfirmMessage()))
             {
                 var path = GetDeleteFilePath(version);
                 if (File.Exists(path)) File.Delete(path);
@@ -190,9 +217,17 @@ public partial class DownloadListViewData : ObservableObject
     /// </summary>
     /// <param name="version"></param>
     /// <returns></returns>
-    protected virtual string? GetLocalFileDirectoryPath(DownloadableItemData version)
+    protected string? GetLocalFileDirectoryPath(DownloadableItemData version)
     {
-        return Path.GetDirectoryName(version.DownloadFilePath);
+        if (version.Target is IInstalledDownloadable installedDownloadable &&
+            !string.IsNullOrWhiteSpace(installedDownloadable.InstalledPath) &&
+            Directory.Exists(installedDownloadable.InstalledPath))
+        {
+            return installedDownloadable.InstalledPath;
+        }
+
+        return LocalFileDirectoryPathProvider?.Invoke(version) ??
+               Path.GetDirectoryName(version.DownloadFilePath);
     }
 
     /// <summary>
@@ -200,9 +235,26 @@ public partial class DownloadListViewData : ObservableObject
     /// </summary>
     /// <param name="version"></param>
     /// <returns></returns>
-    protected virtual string GetDeleteFilePath(DownloadableItemData version)
+    protected string GetDeleteFilePath(DownloadableItemData version)
     {
-        return version.DownloadFilePath;
+        if (version.Target is IInstalledDownloadable installedDownloadable &&
+            !string.IsNullOrWhiteSpace(installedDownloadable.InstalledPath) &&
+            (File.Exists(installedDownloadable.InstalledPath) || Directory.Exists(installedDownloadable.InstalledPath)))
+        {
+            return installedDownloadable.InstalledPath;
+        }
+
+        return DeleteFilePathProvider?.Invoke(version) ?? version.DownloadFilePath;
+    }
+
+    protected string GetDeleteConfirmMessage()
+    {
+        return DeleteConfirmMessageProvider?.Invoke() ?? Lang.ConfirmDeleteRuntimeEngine;
+    }
+
+    protected void NotifyDownloadFileChanged()
+    {
+        OnDownloadFileChange?.Invoke();
     }
 
     /// <summary>
@@ -210,9 +262,9 @@ public partial class DownloadListViewData : ObservableObject
     /// </summary>
     /// <param name="version"></param>
     /// <returns></returns>
-    protected virtual Task OnFileDownloadCompleted(DownloadableItemData version)
+    protected Task OnFileDownloadCompleted(DownloadableItemData version)
     {
-        return Task.CompletedTask;
+        return DownloadCompletedHandler?.Invoke(version) ?? Task.CompletedTask;
     }
 
     private async void OnDownloadCompleted(DownloadableItemData obj)

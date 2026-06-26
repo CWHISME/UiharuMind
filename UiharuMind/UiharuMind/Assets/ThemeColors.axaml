@@ -18,26 +18,80 @@
                 <ResourceDictionary x:Key='Light'>
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#F7F8FA</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#1D2129</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusNeutralBrush'>#667085</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusProgressBrush'>#1769E0</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusWarningBrush'>#B54708</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusDangerBrush'>#D92D20</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusSuccessBrush'>#067647</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusInfoBrush'>#1769E0</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#067647</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusWarningBrush'>#B54708</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusErrorBrush'>#D92D20</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key='Dark'>
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#1D2129</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#F2F3F5</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusNeutralBrush'>#98A2B3</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusProgressBrush'>#84ADFF</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusWarningBrush'>#FEC84B</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusDangerBrush'>#FDA29B</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusSuccessBrush'>#75E0A7</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusInfoBrush'>#84ADFF</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#75E0A7</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEC84B</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FDA29B</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Aquatic}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#EAF7FA</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#173B4D</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusNeutralBrush'>#526B78</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusProgressBrush'>#087EA4</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusWarningBrush'>#9A6700</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusDangerBrush'>#C4320A</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusSuccessBrush'>#087443</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusInfoBrush'>#087EA4</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#087443</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusWarningBrush'>#9A6700</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusErrorBrush'>#C4320A</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Desert}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#FAF2E7</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#4D351C</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusNeutralBrush'>#74665A</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusProgressBrush'>#175CD3</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusWarningBrush'>#A15C00</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusDangerBrush'>#B42318</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusSuccessBrush'>#067647</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusInfoBrush'>#175CD3</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#067647</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusWarningBrush'>#A15C00</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusErrorBrush'>#B42318</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Dusk}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#282235</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#F4F0FA</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusNeutralBrush'>#B6AEC2</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusProgressBrush'>#A4BCFD</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusWarningBrush'>#FEDF89</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusDangerBrush'>#FECDCA</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusSuccessBrush'>#A6F4C5</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusInfoBrush'>#A4BCFD</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#A6F4C5</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEDF89</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FECDCA</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.NightSky}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#202633</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#F2F5FA</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusNeutralBrush'>#A6B0C3</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusProgressBrush'>#84CAFF</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusWarningBrush'>#FEC84B</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusDangerBrush'>#FDA29B</SolidColorBrush>
+                    <SolidColorBrush x:Key='MemoryStatusSuccessBrush'>#75E0A7</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusInfoBrush'>#84CAFF</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#75E0A7</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEC84B</SolidColorBrush>
+                    <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FDA29B</SolidColorBrush>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

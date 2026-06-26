@@ -4,18 +4,19 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AutoClick;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows.AutoClick;
 using UiharuMind.Views.Windows.Common;
-using Ursa.Controls;
 
 namespace UiharuMind.Views.Windows;
 
 public partial class AutoClickWindow : UiharuWindowBase
 {
+    private readonly IMessageService _messageService;
     private readonly QuickAutoClickViewModel _viewModel;
     private RecordingIndicatorWindow? _indicatorWindow;
     private PlaybackIndicatorWindow? _playbackWindow;
@@ -23,6 +24,7 @@ public partial class AutoClickWindow : UiharuWindowBase
 
     public AutoClickWindow()
     {
+        _messageService = App.Services.GetRequiredService<IMessageService>();
         InitializeComponent();
         _viewModel = App.ViewModel.GetViewModel<QuickAutoClickViewModel>();
         _viewModel.SetRecordingCallbacks(PrepareForRecording, FinishRecording);
@@ -139,10 +141,8 @@ public partial class AutoClickWindow : UiharuWindowBase
     private async System.Threading.Tasks.Task<bool> ConfirmDiscardUnsavedAsync()
     {
         if (!_viewModel.HasUnsavedChanges) return true;
-        var result = await App.MessageService.ShowConfirmMessageBox(
-            LocalizationManager.Instance.GetString("AutoClickDiscardUnsavedConfirm"),
-            this);
-        return result == MessageBoxResult.Yes;
+        return await _messageService.ConfirmAsync(
+            LocalizationManager.Instance.GetString("AutoClickDiscardUnsavedConfirm"));
     }
 
     private async void RenameSessionMenuItem_Click(object? sender, RoutedEventArgs e)
@@ -181,8 +181,7 @@ public partial class AutoClickWindow : UiharuWindowBase
 
         var message = string.Format(LocalizationManager.Instance.GetString("AutoClickDeleteSessionConfirm"),
             session.Name, session.StepCount);
-        var result = await App.MessageService.ShowConfirmMessageBox(message, this);
-        if (result == MessageBoxResult.Yes)
+        if (await _messageService.ConfirmAsync(message))
         {
             _viewModel.DeleteSession(session);
         }

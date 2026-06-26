@@ -1,63 +1,62 @@
-/****************************************************************************
- * Copyright (c) 2024 CWHISME
- *
- * UiharuMind v0.0.1
- *
- * https://wangjiaying.top
- * https://github.com/CWHISME/UiharuMind
- *
- * Latest Update: 2024.10.07
- ****************************************************************************/
-
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-
-#pragma warning disable SKEXP0001
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.Core.Chat;
 
-public struct ChatMessage
+public sealed class ChatMessageData
+{
+    public ECharacter Role { get; set; }
+    public string AuthorName { get; set; } = "";
+    public string Content { get; set; } = "";
+    public byte[]? ImageBytes { get; set; }
+    public string ImageMediaType { get; set; } = "image/jpeg";
+    public long Timestamp { get; set; } = DateTime.UtcNow.Ticks;
+
+    [JsonIgnore]
+    public bool HasImage => ImageBytes is { Length: > 0 };
+
+    /// <summary>
+    /// 仅在请求模型时转换为 Microsoft.Extensions.AI 消息，持久化格式不依赖具体 AI SDK。
+    /// </summary>
+    public Microsoft.Extensions.AI.ChatMessage ToAIMessage()
+    {
+        List<AIContent> contents = [];
+        if (HasImage) contents.Add(new DataContent(ImageBytes, ImageMediaType));
+        if (!string.IsNullOrEmpty(Content)) contents.Add(new TextContent(Content));
+
+        return new Microsoft.Extensions.AI.ChatMessage(ToChatRole(Role), contents)
+        {
+            AuthorName = string.IsNullOrWhiteSpace(AuthorName) ? null : AuthorName,
+            CreatedAt = new DateTimeOffset(new DateTime(Timestamp, DateTimeKind.Utc))
+        };
+    }
+
+    private static ChatRole ToChatRole(ECharacter role) => role switch
+    {
+        ECharacter.System => ChatRole.System,
+        ECharacter.Assistant => ChatRole.Assistant,
+        ECharacter.Tool => ChatRole.Tool,
+        _ => ChatRole.User
+    };
+}
+
+public readonly struct ChatMessage
 {
     public const string NarratorName = "Narrator";
 
-    /// <summary>
-    /// 以 UTC 时间戳表示的消息发送时间
-    /// </summary>
-    public long Timestamp;
+    public required ChatMessageData Message { get; init; }
 
-    /// <summary>
-    /// 本条消息内容
-    /// </summary>
-    public ChatMessageContent Message;
+    public long Timestamp => Message.Timestamp;
+    public string CharacterName => string.IsNullOrWhiteSpace(Message.AuthorName) ? "System" : Message.AuthorName;
 
-    /// <summary>
-    /// 消息角色名字
-    /// </summary>
-    public string CharacterName => Message.AuthorName ?? "系统";
+    public ECharacter Character => Message.Role;
 
-    public ECharacter Character
-    {
-        get
-        {
-            if (Message.Role == AuthorRole.System || Message.Role == AuthorRole.Developer ||
-                CharacterName.Equals(NarratorName, StringComparison.Ordinal)) return ECharacter.System;
-            if (Message.Role == AuthorRole.User) return ECharacter.User;
-            if (Message.Role == AuthorRole.Assistant) return ECharacter.Assistant;
-            if (Message.Role == AuthorRole.Tool) return ECharacter.Tool;
-            return ECharacter.User;
-        }
-    }
-
-    /// <summary>
-    /// 将存储的 UTC 时间戳转换为本地时间字符串，格式为 "yyyy/MM/dd HH:mm:ss"
-    /// </summary>
     public string LocalTimeString
     {
         get
         {
-            DateTime utcTime = new DateTime(Timestamp, DateTimeKind.Utc);
-            DateTime localTime = utcTime.ToLocalTime();
-            return localTime.ToString("yyyy/MM/dd HH:mm:ss");
+            DateTime utcTime = new(Timestamp, DateTimeKind.Utc);
+            return utcTime.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss");
         }
     }
 }

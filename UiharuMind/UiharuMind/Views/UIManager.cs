@@ -279,10 +279,8 @@ public static class UIManager
     public static void ShowMemorySelectWindow(Window owner, Action<MemoryData>? onSelectMemory,
         MemoryData? selectedMemory)
     {
-        var window = new MemorySelectWindow()
-        {
-            DataContext = new MemorySelectWindowModel(selectedMemory, onSelectMemory)
-        };
+        var window = new MemorySelectWindow();
+        window.DataContext = new MemorySelectWindowModel(selectedMemory, onSelectMemory, window.Close);
         window.ShowDialogStackWindow(owner);
     }
 
@@ -293,5 +291,24 @@ public static class UIManager
             DataContext = new MemoryEditorWindowModel(memoryData, onClose)
         };
         window.ShowDialogStackWindow(owner);
+    }
+
+    public static async Task<MemoryTextSource?> ShowMemoryTextSourceEditWindow(
+        Window owner, MemoryTextSource? source = null)
+    {
+        var window = new MemoryTextSourceEditWindow
+        {
+            DataContext = new MemoryTextSourceEditWindowModel(source)
+        };
+        return await window.ShowDialog<MemoryTextSource?>(owner);
+    }
+
+    public static async Task<MemoryCreateRequest?> ShowMemoryCreateWindow(Window owner)
+    {
+        var window = new MemoryCreateWindow
+        {
+            DataContext = new MemoryCreateWindowModel()
+        };
+        return await window.ShowDialog<MemoryCreateRequest?>(owner);
     }
 }

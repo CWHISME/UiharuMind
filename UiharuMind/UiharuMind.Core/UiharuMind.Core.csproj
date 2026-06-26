@@ -12,11 +12,14 @@
       <PackageReference Include="CliWrap" Version="3.8.1" />
       <PackageReference Include="Downloader" Version="3.3.3" />
       <PackageReference Include="Markdown.ColorCode" Version="3.0.0" />
-      <PackageReference Include="Microsoft.SemanticKernel" Version="1.77.0" />
-      <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.77.0" />
+      <PackageReference Include="Microsoft.Agents.AI" Version="1.11.0" />
+      <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.11.0" />
+      <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
+      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpHook" Version="7.1.1" />
+      <PackageReference Include="UTF.Unknown" Version="2.6.0" />
     </ItemGroup>
 
     <ItemGroup>

@@ -11,7 +11,11 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Microsoft.SemanticKernel;
+using System.ClientModel;
+using System.ClientModel.Primitives;
+using Microsoft.Extensions.AI;
+using OpenAI;
+using OpenAI.Chat;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
@@ -119,7 +123,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         // {(string.IsNullOrEmpty(projFilePath) ? "" : $"--mmproj {projFilePath}")}
         var totalParams =
             $"-m \"{modelFilePath}\" --no-webui --alias {Path.GetFileNameWithoutExtension(modelFilePath)} --port {port} {Config
-                .GetExeParams()} {extraParams}";
+                .GetExeParams()} -to 0 {extraParams}";
         Log.Debug("Start sever:" + totalParams);
         await ProcessHelper.StartProcess(Config.GetExeServerPath(executablePath), totalParams, onMessageUpdate, token)
             .ConfigureAwait(false);
@@ -154,7 +158,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     }
 
     public async Task Run(VersionInfo info, ILlmModel model, Action<float>? onLoading = null,
-        Action<Kernel>? onLoadOver = null, int? port = null, string extraParams = "",
+        Action<IChatClient>? onLoadOver = null, int? port = null, string extraParams = "",
         CancellationToken token = default)
     {
         //检测是否正常扫描过信息
@@ -183,7 +187,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
 
             if (msg.StartsWith("error"))
             {
-                onLoadOver?.Invoke(CreateKernel(model));
+                onLoadOver?.Invoke(CreateChatClient(model));
                 return;
             }
 
@@ -210,7 +214,7 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             {
                 Log.Debug($"Loading over {loadingCount}");
                 loadOver = true;
-                onLoadOver?.Invoke(CreateKernel(model));
+                onLoadOver?.Invoke(CreateChatClient(model));
             }
         }
 
@@ -245,7 +249,10 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
                     _pendingEmbeddedServerActions.Clear();
                     onLoadOver?.Invoke(EmbeddedServerConfig);
                 },
-                port: Config.DefaultEmbededPort, extraParams: $"--embedding -ub {EmbedingModelMaxTokenServer}");
+                // embedding 请求需要逻辑 batch 与 physical batch 同步，否则长文本会被 llama.cpp 拒绝。
+                port: Config.DefaultEmbededPort,
+                extraParams:
+                $"--embedding -b {EmbedingModelMaxTokenServer} -ub {EmbedingModelMaxTokenServer}");
         }
         catch (Exception e)
         {
@@ -274,12 +281,15 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         onLoadOver?.Invoke(null);
     }
 
-    private Kernel CreateKernel(ILlmModel model)
+    private IChatClient CreateChatClient(ILlmModel model)
     {
-        var kernelBuilder = Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion("UiharuMind", "None",
-                httpClient: new HttpClient(new SKernelHttpDelegatingHandler(model, port: Config.DefautPort)));
-        return kernelBuilder.Build();
+        var handler = new OpenAICompatibleHttpHandler(model, port: Config.DefautPort);
+        var options = new OpenAIClientOptions
+        {
+            Transport = new HttpClientPipelineTransport(new HttpClient(handler))
+        };
+        var client = new ChatClient("UiharuMind", new ApiKeyCredential("None"), options);
+        return client.AsIChatClient();
     }
 
     // public async Task Run(ILlmModel model, Action<CancellationTokenSource> onStartLoad, Action<float>? onLoading = null,

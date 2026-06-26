@@ -1,5 +1,5 @@
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Character.Skills;
@@ -18,14 +18,11 @@ public class AssistantExpertQuoteAgentSkill : NormalAgentSkill
         Dictionary<string, object?>? args,
         CancellationToken cancellationToken = default)
     {
-        var agent = GetCharacterData().ToAgent(modelRunningData.Kernel!, args);
-
-        _chatHistory = new ChatHistory();
         var builder = StringBuilderPool.StringBuilder;
         builder.Append(text);
         builder.AppendLine("\n***\n以下为参考内容：");
         builder.AppendLine(_quoteStr);
-        _chatHistory.AddUserMessage(builder.ToString());
-        return modelRunningData.InvokeAgentStreamingAsync(agent, _chatHistory, cancellationToken);
+        _chatHistory = [new ChatMessageData { Role = ECharacter.User, Content = builder.ToString() }];
+        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
 }

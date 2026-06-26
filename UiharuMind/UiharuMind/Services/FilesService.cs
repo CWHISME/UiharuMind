@@ -94,10 +94,10 @@ public class FilesService //: IStorageFolder
     }
 
     public async Task<IReadOnlyList<IStorageFile>> SelectFileAsync(Window? owner = null, string? defaultPath = null,
-        params string[] fileTypeFilter)
+        string? title = null, string? filterName = null, params string[] fileTypeFilter)
     {
         if (owner == null) owner = UIManager.GetFoucusWindow();
-        FilePickerFileType fileType = new FilePickerFileType("Filter") { Patterns = fileTypeFilter };
+        FilePickerFileType fileType = new FilePickerFileType(filterName ?? "Filter") { Patterns = fileTypeFilter };
         var defaultUri = string.IsNullOrEmpty(defaultPath)
             ? null
             : new Uri(Path.GetFullPath(defaultPath));
@@ -105,7 +105,7 @@ public class FilesService //: IStorageFolder
             defaultUri != null ? await owner.StorageProvider.TryGetFolderFromPathAsync(defaultUri) : null;
         var files = await owner.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions()
         {
-            Title = "Select File",
+            Title = title ?? "Select File",
             FileTypeFilter = new List<FilePickerFileType>() { fileType },
             SuggestedStartLocation = defaultLocation,
         });

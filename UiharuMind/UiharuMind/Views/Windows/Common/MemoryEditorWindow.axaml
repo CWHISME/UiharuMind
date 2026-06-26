@@ -3,185 +3,396 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
-        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-        xmlns:u="https://irihi.tech/ursa"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d"
         x:Class="UiharuMind.Views.Windows.Common.MemoryEditorWindow"
-        Width="666"
-        Height="777"
-        Title="MemoryEditorWindow">
-
+        Width="1040"
+        Height="740"
+        MinWidth="840"
+        MinHeight="600"
+        Title="{loc:Loc MemoryWorkspaceTitle}">
     <Design.DataContext>
         <common:MemoryEditorWindowModel />
     </Design.DataContext>
 
-    <DockPanel>
-        <Border DockPanel.Dock="Top" Padding="10" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock Text="{Binding IndexStatusText}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <Button Grid.Column="1"
-                        Content="{loc:Loc MemoryIndexUpdate}"
-                        Command="{Binding UpdateIndexCommand}"
-                        ToolTip.Tip="{Binding IndexStatusText}" />
+    <Window.Styles>
+        <Style Selector="TextBlock.page-title">
+            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Border.source-item">
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        </Style>
+        <Style Selector="Button.icon-action">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="7" />
+        </Style>
+        <Style Selector="Border.status-pill">
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+        </Style>
+        <Style Selector="Border.status-pill[Tag=Ready]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MemoryStatusSuccessBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.status-pill[Tag=Dirty]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MemoryStatusWarningBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.status-pill[Tag=Error]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MemoryStatusDangerBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.status-pill[Tag=Progress]">
+            <Setter Property="BorderBrush" Value="{DynamicResource MemoryStatusProgressBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.update-action[Tag=True]">
+            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusDangerBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Padding="18,14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="13">
+                <Border Width="56" Height="56" CornerRadius="8"
+                        Background="{DynamicResource SemiBlue0}">
+                    <PathIcon Width="27" Height="27" Data="{StaticResource BookStarRegular}"
+                              Foreground="{DynamicResource SemiBlue5}" />
+                </Border>
+                <StackPanel Grid.Column="1"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Stretch"
+                            Spacing="3">
+                    <TextBlock Classes="page-title" Text="{Binding MemoryName}" />
+                    <TextBlock Text="{Binding MemoryDescriptionDisplay}"
+                               Classes="muted"
+                               TextWrapping="Wrap"
+                               TextAlignment="Left"
+                               HorizontalAlignment="Left"
+                               MaxWidth="620"
+                               MaxHeight="34"
+                               ClipToBounds="True" />
+                </StackPanel>
+                <Button Grid.Column="2"
+                        Classes="update-action"
+                        Tag="{Binding IndexUpdater.IsUpdating}"
+                        Command="{Binding IndexUpdater.UpdateCommand}"
+                        IsEnabled="{Binding CanUpdateIndex}"
+                        MinWidth="154"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <PathIcon Width="17" Height="17" Data="{StaticResource ArrowSyncCircleRegular}" />
+                        <TextBlock Text="{Binding IndexUpdater.ActionText}" />
+                    </StackPanel>
+                </Button>
             </Grid>
         </Border>
 
-    <TabControl>
-        <TabItem Header="📝 文本">
-            <Border CornerRadius="10" Padding="10">
-                <DockPanel>
-                    <Button DockPanel.Dock="Bottom" Content="{loc:Loc AddBtn}"
-                            Command="{Binding AddTextCommand}" />
-                    <ListBox DockPanel.Dock="Top" ItemsSource="{Binding Texts}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="30"
-                                        ClipToBounds="True"
-                                        BorderThickness="1" Padding="5">
-                                    <DockPanel LastChildFill="False">
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
-                                            <Button
-                                                CornerRadius="15"
-                                                Content="{loc:Loc Edit}"
-                                                CommandParameter="{Binding  }"
-                                                Command="{Binding DataContext.EditTextCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                            <Button
-                                                CornerRadius="15"
-                                                Content="{loc:Loc Delete}"
-                                                CommandParameter="{Binding }"
-                                                Command="{Binding DataContext.DeletetTextCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+        <Grid Grid.Row="1" ColumnDefinitions="272,*" ColumnSpacing="12" Margin="12">
+            <Border Background="{DynamicResource SemiGrey1}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="14">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="14">
+                    <StackPanel Spacing="7">
+                        <TextBlock Text="{loc:Loc MemoryIndexOverviewTitle}" Classes="section-title" />
+                        <Border Classes="status-pill" Tag="{Binding IndexStatusKey}"
+                                HorizontalAlignment="Stretch">
+                            <TextBlock Text="{Binding IndexStatusText}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                        </Border>
+                        <TextBlock Text="{Binding IndexStatusDetailText}"
+                                   Classes="muted"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Spacing="8">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <PathIcon Width="15" Height="15" Data="{StaticResource TextFieldRegular}"
+                                      Foreground="{DynamicResource SemiGrey5}" />
+                            <TextBlock Grid.Column="1" Text="{Binding SourceCountText}" Classes="muted"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}"
+                                      Foreground="{DynamicResource SemiGrey5}" />
+                            <TextBlock Grid.Column="1" Text="{Binding LastIndexedText}" Classes="muted"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Grid.Row="2" Height="1" Background="{DynamicResource SemiGrey2}" />
+
+                    <StackPanel Grid.Row="3" Spacing="7">
+                        <TextBlock Text="{loc:Loc MemoryDescriptionSectionTitle}"
+                                   FontWeight="SemiBold" />
+                        <TextBox Text="{Binding MemoryDescription}"
+                                 Height="82"
+                                 MaxLength="240"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top"
+                                 Padding="8"
+                                 PlaceholderText="{loc:Loc MemoryDescriptionPlaceholder}" />
+                        <Button HorizontalAlignment="Right"
+                                IsEnabled="{Binding CanSaveDescription}"
+                                Command="{Binding SaveDescriptionCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <PathIcon Width="14" Height="14" Data="{StaticResource SaveRegular}" />
+                                <TextBlock Text="{loc:Loc MemorySaveDescriptionAction}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="4" Spacing="10">
+                        <TextBlock Text="{loc:Loc MemoryIndexRoleHintTitle}" FontWeight="SemiBold" />
+                        <TextBlock Text="{loc:Loc MemoryIndexRoleHint}" Classes="muted" TextWrapping="Wrap" />
+
+                        <Border Padding="10" CornerRadius="7"
+                                Background="{DynamicResource SemiBlue0}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{loc:Loc MemoryIndexSafeUpdateTitle}"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SemiBlue5}" />
+                                <TextBlock Text="{loc:Loc MemoryIndexSafeUpdateHint}"
+                                           Classes="muted" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="5" Text="{loc:Loc MemoryEditorFooterHint}"
+                               Classes="muted" TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="{DynamicResource SemiGrey0}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    ClipToBounds="True">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <Border Padding="14,12"
+                            Background="{DynamicResource SemiGrey1}"
+                            BorderBrush="{DynamicResource SemiGrey2}"
+                            BorderThickness="0,0,0,1"
+                            IsVisible="{Binding IsBusy}">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding IndexUpdater.ProgressStageText}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding IndexUpdater.ProgressValue, StringFormat={}{0:0}%}"
+                                           Foreground="{DynamicResource MemoryStatusProgressBrush}" />
+                            </Grid>
+                            <ProgressBar Grid.Row="1" Minimum="0" Maximum="100"
+                                         Value="{Binding IndexUpdater.ProgressValue}" Height="6" />
+                            <TextBlock Grid.Row="2" Text="{Binding IndexUpdater.ProgressDetailText}"
+                                       TextWrapping="Wrap" Classes="muted" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="1"
+                            Margin="14,12,14,0"
+                            Padding="11"
+                            CornerRadius="7"
+                            Background="{DynamicResource SemiGrey1}"
+                            BorderBrush="{DynamicResource MemoryStatusDangerBrush}"
+                            BorderThickness="1"
+                            IsVisible="{Binding HasFailure}">
+                        <TextBlock Text="{Binding FailureText}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource MemoryStatusDangerBrush}" />
+                    </Border>
+
+                    <TabControl Grid.Row="2" Margin="14">
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Width="15" Height="15" Data="{StaticResource TextFieldRegular}" />
+                                    <TextBlock Text="{loc:Loc MemoryManualTextTab}" />
+                                </StackPanel>
+                            </TabItem.Header>
+                            <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,14,0,0">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="{loc:Loc MemoryManualTextTitle}" Classes="section-title" />
+                                        <TextBlock Text="{loc:Loc MemoryManualTextRoleHint}"
+                                                   Classes="muted" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Command="{Binding AddTextCommand}"
+                                            IsEnabled="{Binding !IsBusy}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <PathIcon Width="16" Height="16" Data="{StaticResource TextFieldRegular}" />
+                                            <TextBlock Text="{loc:Loc MemoryAddManualText}" />
                                         </StackPanel>
-                                        <TextBlock DockPanel.Dock="Left" Margin="10,0,0,0" Text="{Binding }"
-                                                   MaxHeight="40"
-                                                   VerticalAlignment="Center"
-                                                   TextWrapping="Wrap" />
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
-        </TabItem>
+                                    </Button>
+                                </Grid>
 
-        <TabItem Header="📁 文件">
-            <Border CornerRadius="10" Padding="10">
-                <DockPanel>
-                    <u:Banner
-                        DockPanel.Dock="Top"
-                        Classes.Bordered="true"
-                        Header="{loc:Loc MessageInfoTitle}"
-                        Type="Information">
-                        <u:Banner.Content>
-                            <TextBlock Text="{loc:Loc MemoryEditorWindowFileTips}" TextWrapping="Wrap" />
-                        </u:Banner.Content>
-                    </u:Banner>
-                    <Button DockPanel.Dock="Bottom" Content="{loc:Loc AddBtn}"
-                            Command="{Binding AddFileCommand}" />
-                    <ListBox DockPanel.Dock="Top" ItemsSource="{Binding FilePaths}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="30"
-                                        ClipToBounds="True"
-                                        BorderThickness="1" Padding="5">
-                                    <DockPanel LastChildFill="False">
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
-                                            <Button
-                                                CornerRadius="15"
-                                                Content="{loc:Loc OpenDirectory}"
-                                                CommandParameter="{Binding  }"
-                                                Command="{Binding DataContext.OpenFileFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                            <Button
-                                                CornerRadius="15"
-                                                Content="{loc:Loc Delete}"
-                                                CommandParameter="{Binding }"
-                                                Command="{Binding DataContext.DeletetFileCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                <Grid Grid.Row="1">
+                                    <ListBox ItemsSource="{Binding TextSources}" Background="Transparent">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Classes="source-item">
+                                                    <Grid ColumnDefinitions="38,*,Auto" ColumnSpacing="11">
+                                                        <Border Width="38" Height="38" CornerRadius="7"
+                                                                Background="{DynamicResource SemiBlue0}">
+                                                            <PathIcon Width="18" Height="18"
+                                                                      Data="{StaticResource TextFieldRegular}"
+                                                                      Foreground="{DynamicResource SemiBlue5}" />
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Spacing="4">
+                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource SemiGrey7}" />
+                                                            <TextBlock Text="{Binding Content}" MaxHeight="44"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       TextWrapping="Wrap" Classes="muted" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+                                                            <Button Classes="icon-action"
+                                                                    IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    Command="{Binding DataContext.EditTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    CommandParameter="{Binding}">
+                                                                <PathIcon Data="{StaticResource EditRegular}" />
+                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc Edit}" /></ToolTip.Tip>
+                                                            </Button>
+                                                            <Button Classes="icon-action"
+                                                                    IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    Command="{Binding DataContext.DeleteTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    CommandParameter="{Binding}">
+                                                                <PathIcon Data="{StaticResource DeleteRegular}" />
+                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <StackPanel IsVisible="{Binding !HasTextSources}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                MaxWidth="320"
+                                                Spacing="8">
+                                        <PathIcon Width="38" Height="38" Data="{StaticResource TextFieldRegular}"
+                                                  Foreground="{DynamicResource SemiGrey4}" />
+                                        <TextBlock Text="{loc:Loc MemoryManualTextEmptyTitle}"
+                                                   FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{loc:Loc MemoryManualTextEmptyHint}"
+                                                   Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </TabItem>
+
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Width="15" Height="15" Data="{StaticResource DocumentAddRegular}" />
+                                    <TextBlock Text="{loc:Loc MemoryTextFilesTab}" />
+                                </StackPanel>
+                            </TabItem.Header>
+                            <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="0,14,0,0">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="{loc:Loc MemoryTextFilesTitle}" Classes="section-title" />
+                                        <TextBlock Text="{loc:Loc MemoryTextFilesRoleHint}"
+                                                   Classes="muted" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Command="{Binding AddFileCommand}"
+                                            IsEnabled="{Binding CanImportFiles}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <PathIcon Width="16" Height="16" Data="{StaticResource DocumentAddRegular}" />
+                                            <TextBlock Text="{Binding AddFileActionText}" />
                                         </StackPanel>
-                                        <TextBlock DockPanel.Dock="Left" Margin="10,0,0,0" Text="{Binding }"
-                                                   MaxHeight="40"
-                                                   VerticalAlignment="Center"
-                                                   TextWrapping="Wrap" />
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
+                                    </Button>
+                                </Grid>
+
+                                <Grid Grid.Row="1">
+                                    <ListBox ItemsSource="{Binding Files}" Background="Transparent">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Classes="source-item">
+                                                    <Grid ColumnDefinitions="38,*,Auto" ColumnSpacing="11">
+                                                        <Border Width="38" Height="38" CornerRadius="7"
+                                                                Background="{DynamicResource SemiBlue0}">
+                                                            <PathIcon Width="18" Height="18"
+                                                                      Data="{StaticResource DocumentAddRegular}"
+                                                                      Foreground="{DynamicResource SemiBlue5}" />
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Spacing="3">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource SemiGrey7}" />
+                                                            <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis"
+                                                                       Classes="muted" />
+                                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                                <TextBlock Text="{Binding SizeText}" Classes="muted" />
+                                                                <TextBlock Text="{Binding EncodingText}" Classes="muted" />
+                                                                <TextBlock Text="{Binding ErrorText}"
+                                                                           Foreground="{DynamicResource MemoryStatusDangerBrush}"
+                                                                           IsVisible="{Binding !IsValid}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
+                                                            <Button Classes="icon-action"
+                                                                    Command="{Binding DataContext.OpenFileFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    CommandParameter="{Binding}">
+                                                                <PathIcon Data="{StaticResource OpenFolderRegular}" />
+                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc OpenDirectory}" /></ToolTip.Tip>
+                                                            </Button>
+                                                            <Button Classes="icon-action"
+                                                                    IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                    CommandParameter="{Binding}">
+                                                                <PathIcon Data="{StaticResource DeleteRegular}" />
+                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <StackPanel IsVisible="{Binding !HasFiles}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                MaxWidth="330"
+                                                Spacing="8">
+                                        <PathIcon Width="38" Height="38" Data="{StaticResource DocumentAddRegular}"
+                                                  Foreground="{DynamicResource SemiGrey4}" />
+                                        <TextBlock Text="{loc:Loc MemoryTextFilesEmptyTitle}"
+                                                   FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{loc:Loc MemoryTextFilesEmptyHint}"
+                                                   Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
             </Border>
-        </TabItem>
-
-        <TabItem Header="📂 目录">
-            <Border CornerRadius="10" Padding="10">
-                <DockPanel>
-                    <u:Banner
-                        DockPanel.Dock="Top"
-                        Classes.Bordered="true"
-                        Header="{loc:Loc MessageInfoTitle}"
-                        Type="Information">
-                        <u:Banner.Content>
-                            <TextBlock Text="{loc:Loc MemoryEditorWindowDirectoryTips}" TextWrapping="Wrap" />
-                        </u:Banner.Content>
-                    </u:Banner>
-                    <Button DockPanel.Dock="Bottom" Content="{loc:Loc AddBtn}"
-                            Command="{Binding AddDirectoryCommand}" />
-                    <ListBox DockPanel.Dock="Top" ItemsSource="{Binding DirectoryPaths}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="30"
-                                        ClipToBounds="True"
-                                        BorderThickness="1" Padding="5">
-                                    <DockPanel LastChildFill="False">
-                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
-                                            <Button
-                                                CornerRadius="15"
-                                                Content="{loc:Loc OpenDirectory}"
-                                                CommandParameter="{Binding  }"
-                                                Command="{Binding DataContext.OpenDirecoryFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                            <Button
-                                                CornerRadius="15"
-                                                Content="{loc:Loc Delete}"
-                                                CommandParameter="{Binding }"
-                                                Command="{Binding DataContext.DeletetDirectoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                        </StackPanel>
-                                        <TextBlock DockPanel.Dock="Left" Margin="10,0,0,0" Text="{Binding }"
-                                                   MaxHeight="40"
-                                                   VerticalAlignment="Center"
-                                                   TextWrapping="Wrap" />
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
-        </TabItem>
-
-        <TabItem Header="🌐 URL">
-            <Border CornerRadius="10" Padding="10">
-                <DockPanel>
-                    <u:Banner
-                        DockPanel.Dock="Top"
-                        Classes.Bordered="true"
-                        Header="{loc:Loc MessageInfoTitle}"
-                        Type="Information">
-                        <u:Banner.Content>
-                            <TextBlock Text="{loc:Loc MemoryEditorWindowUrlTips}" TextWrapping="Wrap" />
-                        </u:Banner.Content>
-                    </u:Banner>
-                    <TextBox DockPanel.Dock="Bottom" Text="{Binding UrlPaths}" AcceptsReturn="True"
-                             Margin="10"
-                             Padding="10"
-                             VerticalAlignment="Stretch"
-                             HorizontalAlignment="Stretch"
-                             VerticalContentAlignment="Top"
-                             HorizontalContentAlignment="Left" />
-                </DockPanel>
-            </Border>
-        </TabItem>
-
-    </TabControl>
-    </DockPanel>
-
-
+        </Grid>
+    </Grid>
 </Window>

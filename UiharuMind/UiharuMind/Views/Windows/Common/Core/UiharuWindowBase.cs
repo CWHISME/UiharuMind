@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Services;
 using UiharuMind.Utils;
@@ -22,6 +23,8 @@ namespace UiharuMind.Views.Common;
 
 public abstract class UiharuWindowBase : Window
 {
+    private IMessageService MessageService =>
+        App.Services.GetRequiredService<IMessageService>();
     public event Action? OnPreCloseEvent;
 
     protected int StartWidth;
@@ -148,6 +151,6 @@ public abstract class UiharuWindowBase : Window
     //Tools
     protected void ShowMessage(string message)
     {
-        App.MessageService.ShowMessageBox(message, this.GetParentWindow());
+        _ = MessageService.ShowInfoAsync(message);
     }
 }

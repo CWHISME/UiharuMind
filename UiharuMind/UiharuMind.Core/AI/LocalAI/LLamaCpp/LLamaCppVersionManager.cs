@@ -9,14 +9,12 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System.Dynamic;
-using AngleSharp;
-using AngleSharp.Dom;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Versions;
+using System.Text.RegularExpressions;
 
 namespace UiharuMind.Core.LLamaCpp;
 
@@ -69,47 +67,27 @@ public class LLamaCppVersionManager
     /// <returns></returns>
     public async Task<VersionManager> GetLatestVersion(string path)
     {
-        var config = Configuration.Default.WithDefaultLoader();
-        var context = BrowsingContext.New(config);
-        var document = await context.OpenAsync("https://github.com/ggerganov/llama.cpp/releases/latest");
+        GitHubReleaseInfo? release = await GitHubReleaseAssetHelper
+            .GetLatestReleaseAsync("ggerganov", "llama.cpp")
+            .ConfigureAwait(false);
+        if (release == null) return _versionManager;
 
-        // string versionName = Path.GetFileName(document.Location.PathName);
-        var descDocumant = document.QuerySelector(".Box-body");
-        if (descDocumant == null) return _versionManager;
+        string? releaseDate = release.PublishedAt.HasValue
+            ? TimeUtils.TimeStringToLocalTimeString(release.PublishedAt.Value.ToString("O"))
+            : null;
+        _versionManager.ReleaseDate = $"Release Date: {releaseDate} \n\n{release.Body}";
 
-        string? versionName = descDocumant.QuerySelector("h1")?.TextContent;
-        if (versionName == null) return _versionManager;
-
-        string? releaseDate = descDocumant.QuerySelector("relative-time")?.GetAttribute("datetime");
-        string? updateDesc = descDocumant.QuerySelector("pre")?.TextContent;
-        // string assetCount = document.QuerySelector(".Box-footer .Counter").TextContent;
-        // _versionManager.GetOrCreateVersion(versionName);
-
-        if (releaseDate != null) releaseDate = TimeUtils.TimeStringToLocalTimeString(releaseDate);
-
-        _versionManager.ReleaseDate = $"Release Date: {releaseDate} \n\n{updateDesc}";
-
-        string assetPath = "https://github.com/ggerganov/llama.cpp/releases/expanded_assets/" + versionName;
-        var assetsDocument = await context.OpenAsync(assetPath);
-        var assetList = assetsDocument.QuerySelectorAll("li");
-        foreach (var detail in assetList)
+        IReadOnlyList<GitHubReleaseAssetInfo> assets = GitHubReleaseAssetHelper.SelectPlatformAssets(
+            release.Assets,
+            new GitHubReleaseAssetSelectOptions(NamePrefix: "llama-"));
+        foreach (GitHubReleaseAssetInfo asset in assets)
         {
-            var detailList = detail.QuerySelectorAll("div");
-            var link = detailList[0].QuerySelector("a");
-            var name = link?.TextContent.Trim();
-            if (name == null || !name.StartsWith("llama-")) continue;
-            //筛选掉非该平台的版本
-            if (PlatformUtils.IsWindows && !name.Contains("win", StringComparison.OrdinalIgnoreCase)) continue;
-            if (PlatformUtils.IsMacOS && !name.Contains("macos", StringComparison.OrdinalIgnoreCase)) continue;
-            if (PlatformUtils.IsLinux && !name.Contains("linux", StringComparison.OrdinalIgnoreCase)) continue;
-            var linkHref = "https://github.com" + link?.GetAttribute("href");
-            // var size = detailList[1].QuerySelector("span")?.TextContent;
-            // Log.Debug($"{name} {size} {linkHref}");
+            string name = asset.Name;
             var version = _versionManager.GetOrCreateVersion(Path.GetFileNameWithoutExtension(name));
             if (version.IsDownloaded) continue;
-            // version.DownloadSize = size;
-            version.DownloadUrl = linkHref;
-            version.ExecutablePath = Path.Combine(path, version.VersionNumber);
+            version.DownloadUrl = asset.DownloadUrl;
+            version.DownloadFileName = ReleaseVersionPackageManager.GetPackageFilePath(path, asset.Name);
+            version.ExecutablePath = ReleaseVersionPackageManager.GetInstallDirectoryFromVersion(path, version.VersionNumber);
         }
 
         _versionManager.Sort();

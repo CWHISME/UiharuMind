@@ -3,78 +3,295 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
-        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-        xmlns:u="https://irihi.tech/ursa"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d"
         x:Class="UiharuMind.Views.Windows.Common.MemorySelectWindow"
-        Width="444"
-        Height="444"
-        Title="MemorySelectWindow">
+        Width="920"
+        Height="640"
+        MinWidth="840"
+        MinHeight="520"
+        Title="{loc:Loc MemoryLibraryTitle}">
 
     <Design.DataContext>
         <common:MemorySelectWindowModel />
     </Design.DataContext>
 
     <Window.Styles>
-        <!-- 移除 ListBoxItem 的悬停效果 -->
-        <Style Selector="ListBoxItem">
-            <Setter Property="CornerRadius" Value="5" />
+        <Style Selector="TextBlock.page-title">
+            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Button.icon-action">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="7" />
+        </Style>
+        <Style Selector="ListBox.memory-list ListBoxItem">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="ListBox.memory-list ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiBlue4}" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Padding" Value="9" />
+        </Style>
+        <Style Selector="Border.status-dot">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{DynamicResource MemoryStatusWarningBrush}" />
+        </Style>
+        <Style Selector="Border.status-dot[Tag=Ready]">
+            <Setter Property="Background" Value="{DynamicResource MemoryStatusSuccessBrush}" />
+        </Style>
+        <Style Selector="Border.status-dot[Tag=Error]">
+            <Setter Property="Background" Value="{DynamicResource MemoryStatusDangerBrush}" />
+        </Style>
+        <Style Selector="Border.status-dot[Tag=Progress]">
+            <Setter Property="Background" Value="{DynamicResource MemoryStatusProgressBrush}" />
+        </Style>
+        <Style Selector="Border.detail-panel">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
         </Style>
     </Window.Styles>
 
-    <DockPanel Margin="10">
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10">
-            <TextBlock VerticalAlignment="Center" Text="{loc:Loc MemorySelect}" FontSize="20" />
-            <TextBlock VerticalAlignment="Center" Text="{Binding SelectedMemoryName}" FontSize="20" Margin="-10,0,0,0" />
-            <Button Content="{loc:Loc Edit}" Command="{Binding EditMemoryCommand}"
-                    IsVisible="{Binding SelectedMemory,Converter={x:Static ObjectConverters.IsNotNull}}"
-                    CommandParameter="{Binding SelectedMemory}" />
-        </StackPanel>
-        <u:Divider DockPanel.Dock="Top" Margin="0,10" />
-        <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center">
-            <Button Content="{loc:Loc NewMemory}" Command="{Binding CreateMemoryCommand}" />
-        </StackPanel>
-        <u:Divider DockPanel.Dock="Top" Margin="0,10" />
-        <Border DockPanel.Dock="Bottom" BorderThickness="2" CornerRadius="10"
-                Padding="2"
-                BorderBrush="{DynamicResource SemiGrey2}">
-            <ListBox ItemsSource="{Binding Memories}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <!-- <Border CornerRadius="5" ClipToBounds="True"> -->
-                        <DockPanel>
-                            <StackPanel Orientation="Vertical" DockPanel.Dock="Left" VerticalAlignment="Center"
-                                        Margin="10,0,0,0">
-                                <SelectableTextBlock Text="{Binding Name}" />
-                                <!-- <SelectableTextBlock Text="{Binding Description}" FontSize="12" /> -->
-                            </StackPanel>
-                            <Panel DockPanel.Dock="Right" HorizontalAlignment="Right">
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <Button
-                                        CornerRadius="10"
-                                        Content="{loc:Loc Edit}"
-                                        CommandParameter="{Binding }"
-                                        Command="{Binding DataContext.EditMemoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                    <Button
-                                        CornerRadius="10"
-                                        Content="{loc:Loc Delete}"
-                                        Foreground="Red"
-                                        CommandParameter="{Binding }"
-                                        Command="{Binding DataContext.DeletetMemoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                    <Button
-                                        CornerRadius="10"
-                                        Content="{loc:Loc Select}"
-                                        CommandParameter="{Binding }"
-                                        Command="{Binding DataContext.SelectMemoryCommand,RelativeSource={RelativeSource AncestorType=ListBox}}" />
-                                </StackPanel>
-                            </Panel>
-                        </DockPanel>
-                        <!-- </Border> -->
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Padding="18,14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Spacing="3">
+                    <TextBlock Classes="page-title" Text="{loc:Loc MemoryLibraryTitle}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc MemoryLibraryHint}" />
+                </StackPanel>
+                <Button Grid.Column="1" Command="{Binding CreateMemoryCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Width="16" Height="16" Data="{StaticResource DocumentAddRegular}" />
+                        <TextBlock Text="{loc:Loc MemoryCreateAction}" />
+                    </StackPanel>
+                </Button>
+            </Grid>
         </Border>
-    </DockPanel>
 
+        <Grid Grid.Row="1" ColumnDefinitions="320,*" ColumnSpacing="12" Margin="12">
+            <Border Classes="detail-panel" Padding="10">
+                <Grid RowDefinitions="Auto,*" RowSpacing="10">
+                    <Grid>
+                        <TextBox Text="{Binding SearchText}"
+                                 Padding="31,6,8,6"
+                                 PlaceholderText="{loc:Loc MemorySearchPlaceholder}" />
+                        <PathIcon Width="15" Height="15" Margin="9,0,0,0"
+                                  HorizontalAlignment="Left"
+                                  IsHitTestVisible="False"
+                                  Data="{StaticResource SearchRegular}"
+                                  Foreground="{DynamicResource SemiGrey5}" />
+                    </Grid>
+
+                    <ListBox Grid.Row="1"
+                             Classes="memory-list"
+                             Background="Transparent"
+                             IsEnabled="{Binding !IndexUpdater.IsUpdating}"
+                             ItemsSource="{Binding FilteredMemories}"
+                             SelectedItem="{Binding SelectedItem}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="40,*,Auto" ColumnSpacing="10">
+                                    <Border Width="40" Height="40" CornerRadius="7"
+                                            Background="{DynamicResource SemiBlue0}">
+                                        <PathIcon Width="20" Height="20"
+                                                  Data="{StaticResource BookStarRegular}"
+                                                  Foreground="{DynamicResource SemiBlue5}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="5">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{loc:Loc MemoryAttachedBadge}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource SemiBlue5}"
+                                                       IsVisible="{Binding IsAttached}" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding SourceSummary}" Classes="muted" />
+                                    </StackPanel>
+                                    <Border Grid.Column="2" Classes="status-dot" Tag="{Binding StatusKey}"
+                                            VerticalAlignment="Center">
+                                        <ToolTip.Tip>
+                                            <TextBlock Text="{Binding StatusText}" />
+                                        </ToolTip.Tip>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1" Margin="10,6">
+                <Grid>
+                <Grid IsVisible="{Binding HasSelection}"
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto"
+                      RowSpacing="14">
+                    <Grid ColumnDefinitions="64,*,Auto,Auto" ColumnSpacing="10">
+                        <Border Width="64" Height="64" CornerRadius="8"
+                                Background="{DynamicResource SemiBlue0}">
+                            <PathIcon Width="30" Height="30"
+                                      Data="{StaticResource BookStarRegular}"
+                                      Foreground="{DynamicResource SemiBlue5}" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                            <TextBlock Text="{Binding SelectedItem.Name}" FontSize="22" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SemiGrey7}" />
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <Border Classes="status-dot" Tag="{Binding SelectedItem.StatusKey}"
+                                        VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SelectedItem.StatusText}" Classes="muted" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="2" Command="{Binding IndexUpdater.UpdateCommand}"
+                                MinWidth="132">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Width="15" Height="15" Data="{StaticResource ArrowSyncCircleRegular}" />
+                                <TextBlock Text="{Binding IndexUpdater.ActionText}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="3"
+                                IsEnabled="{Binding !IndexUpdater.IsUpdating}"
+                                Command="{Binding EditMemoryCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Width="15" Height="15" Data="{StaticResource EditRegular}" />
+                                <TextBlock Text="{loc:Loc MemoryManageAction}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <Border Grid.Row="1"
+                            Padding="12"
+                            CornerRadius="7"
+                            Background="{DynamicResource SemiGrey1}"
+                            BorderBrush="{DynamicResource SemiGrey2}"
+                            BorderThickness="1">
+                        <Grid RowDefinitions="Auto,Auto" RowSpacing="7">
+                            <TextBlock Text="{loc:Loc MemoryDescriptionSectionTitle}"
+                                       FontWeight="SemiBold" />
+                            <ScrollViewer Grid.Row="1"
+                                          MaxHeight="76"
+                                          VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding SelectedItem.Description}"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Left"
+                                           HorizontalAlignment="Stretch"
+                                           Foreground="{DynamicResource SemiGrey6}" />
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Border Classes="detail-panel" Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{Binding SelectedItem.TextSourceCount}" FontSize="20" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc MemoryManualTextTab}" Classes="muted" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Classes="detail-panel" Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{Binding SelectedItem.FileSourceCount}" FontSize="20" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc MemoryTextFilesTab}" Classes="muted" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Classes="detail-panel" Padding="12">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{Binding SelectedItem.LastIndexedText}" FontSize="13" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{loc:Loc MemoryLastIndexedLabel}" Classes="muted" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="3"
+                            Padding="12"
+                            CornerRadius="7"
+                            BorderBrush="{DynamicResource MemoryStatusProgressBrush}"
+                            BorderThickness="1"
+                            IsVisible="{Binding IndexUpdater.IsUpdating}">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding IndexUpdater.ProgressStageText}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding IndexUpdater.ProgressValue, StringFormat={}{0:0}%}"
+                                           Foreground="{DynamicResource MemoryStatusProgressBrush}" />
+                            </Grid>
+                            <ProgressBar Grid.Row="1"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Value="{Binding IndexUpdater.ProgressValue}"
+                                         Height="6" />
+                            <TextBlock Grid.Row="2"
+                                       Text="{loc:Loc MemoryIndexCancelHint}"
+                                       Classes="muted" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4" Padding="14" CornerRadius="8"
+                            Background="{DynamicResource SemiBlue0}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <PathIcon Width="22" Height="22"
+                                      Data="{StaticResource BookStarRegular}"
+                                      Foreground="{DynamicResource SemiBlue5}"
+                                      VerticalAlignment="Top" />
+                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Loc MemoryRoleUsageTitle}" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SemiBlue5}" />
+                            <TextBlock Text="{loc:Loc MemoryRoleUsageHint}" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SemiGrey6}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="6" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Button Command="{Binding DeleteMemoryCommand}">
+                            <PathIcon Width="16" Height="16" Data="{StaticResource DeleteRegular}"
+                                      Foreground="{DynamicResource MemoryStatusDangerBrush}" />
+                            <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
+                        </Button>
+                        <Button Grid.Column="2"
+                                IsEnabled="{Binding !IndexUpdater.IsUpdating}"
+                                Command="{Binding AttachMemoryCommand}"
+                                MinWidth="150">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Width="16" Height="16" Data="{StaticResource SaveRegular}" />
+                                <TextBlock Text="{loc:Loc MemoryAttachAction}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Grid>
+
+                <StackPanel IsVisible="{Binding !HasSelection}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            MaxWidth="300">
+                    <PathIcon Width="42" Height="42" Data="{StaticResource BookQuestionMarkRegular}"
+                              Foreground="{DynamicResource SemiGrey4}" />
+                    <TextBlock Text="{loc:Loc MemoryLibraryEmptyTitle}"
+                               FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{loc:Loc MemoryLibraryEmptyHint}"
+                               TextWrapping="Wrap" TextAlignment="Center" Classes="muted" />
+                </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
 </Window>

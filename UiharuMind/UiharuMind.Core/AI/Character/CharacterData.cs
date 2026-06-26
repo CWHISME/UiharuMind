@@ -1,12 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
-
-#pragma warning disable SKEXP0110
 
 namespace UiharuMind.Core.AI.Character;
 
@@ -16,8 +14,8 @@ public class CharacterData
 
     public CharacterConfig Config { get; set; } = new CharacterConfig();
 
-    public ChatCompletionAgent ToAgent(Kernel kernel, Dictionary<string, object?>? kernelArguments = null) =>
-        Config.ToAgent(kernel, CheckParams(kernelArguments));
+    public ChatClientAgent ToAgent(IChatClient chatClient, Dictionary<string, object?>? arguments = null) =>
+        Config.ToAgent(chatClient, BuildPromptArguments(arguments));
 
     /// <summary>
     /// 记忆库
@@ -129,9 +127,7 @@ public class CharacterData
     /// <param name="template"></param>
     public string TryRender(string template)
     {
-        return template.Replace("{{$char}}", CharacterName)
-            .Replace("{{$user}}", CharacterManager.Instance.UserCharacterName)
-            .Replace("{{$lang}}", LanguageUtils.CurCultureInfo.DisplayName);
+        return CharacterPromptRenderer.Render(template, BuildPromptArguments(null));
     }
 
     /// <summary>
@@ -162,12 +158,6 @@ public class CharacterData
         CharacterManager.Instance.DeleteCharacterData(this);
     }
 
-    public static implicit operator ChatCompletionAgent(CharacterData characterData)
-    {
-        return characterData.ToAgent(LlmManager.Instance.CurrentRunningModel!.Kernel!);
-    }
-
-
     // ============================== Common Params ================================
 
     public const string ParamsNameLanguage = "lang";
@@ -175,14 +165,14 @@ public class CharacterData
     public const string ParamsNameChar = "char";
     public const string ParamsNameUser = "user";
 
-    private Dictionary<string, object?> CheckParams(Dictionary<string, object?>? kernelArguments)
+    public Dictionary<string, object?> BuildPromptArguments(Dictionary<string, object?>? arguments)
     {
-        kernelArguments ??= new Dictionary<string, object?>();
-        kernelArguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.DisplayName);
-        kernelArguments.TryAdd(ParamsNameLanguageDefault, LanguageUtils.CurCultureInfo.DisplayName);
-        kernelArguments.TryAdd(ParamsNameChar, CharacterName);
-        kernelArguments.TryAdd(ParamsNameUser, CharacterManager.Instance.UserCharacterName);
-        return kernelArguments;
+        arguments ??= new Dictionary<string, object?>();
+        arguments.TryAdd(ParamsNameLanguage, LanguageUtils.CurCultureInfo.DisplayName);
+        arguments.TryAdd(ParamsNameLanguageDefault, LanguageUtils.CurCultureInfo.DisplayName);
+        arguments.TryAdd(ParamsNameChar, CharacterName);
+        arguments.TryAdd(ParamsNameUser, CharacterManager.Instance.UserCharacterName);
+        return arguments;
     }
 
     //================================================================================

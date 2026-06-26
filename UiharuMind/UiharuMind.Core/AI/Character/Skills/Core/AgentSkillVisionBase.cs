@@ -1,7 +1,6 @@
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
+using UiharuMind.Core.Core.Chat;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
@@ -26,15 +25,17 @@ public abstract class AgentSkillVisionBase : AgentSkillConvertableBase
             // modelRunningData = visionModel;
         }
 
-        var ocr = GetCharacterData().ToAgent(modelRunningData!.Kernel!, args);
-        _chatHistory = new ChatHistory();
-        _chatHistory.AddUserMessage([
-            // new ImageContent(new Uri(""))
-            new ImageContent(_imageBytes, "image/jpg"),
-            // new TextContent(text),
-        ]);
-        // return modelRunningData.SendMessageStreamingAsync(chatHistory, cancellationToken);
-        return modelRunningData.InvokeAgentStreamingAsync(ocr, _chatHistory, cancellationToken);
+        _chatHistory =
+        [
+            new ChatMessageData
+            {
+                Role = ECharacter.User,
+                Content = text,
+                ImageBytes = _imageBytes,
+                ImageMediaType = "image/jpeg"
+            }
+        ];
+        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
 
     protected override bool IsVision => true;

@@ -19,20 +19,20 @@ using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.LLM;
 
-class SKernelHttpDelegatingHandler : DelegatingHandler
+class OpenAICompatibleHttpHandler : DelegatingHandler
 {
     private readonly Uri _baseUri;
     private readonly ILlmModel? _model;
 
-    public SKernelHttpDelegatingHandler(ILlmModel? model, string address = "http://127.0.0.1:1369/v1/chat/completions")
+    public OpenAICompatibleHttpHandler(ILlmModel? model, string address = "http://127.0.0.1:1369/v1/chat/completions")
         : base(new HttpClientHandler())
     {
-        var newUriBuilder = new UriBuilder(address);
+        var newUriBuilder = CreateChatCompletionUri(address);
         _baseUri = newUriBuilder.Uri;
         _model = model;
     }
 
-    public SKernelHttpDelegatingHandler(ILlmModel? model, string host = "http://127.0.0.1", int port = 1369,
+    public OpenAICompatibleHttpHandler(ILlmModel? model, string host = "http://127.0.0.1", int port = 1369,
         string absolutePath = "/v1/chat/completions")
         : base(new HttpClientHandler())
     {
@@ -47,6 +47,18 @@ class SKernelHttpDelegatingHandler : DelegatingHandler
         _model = model;
     }
 
+    private static UriBuilder CreateChatCompletionUri(string address)
+    {
+        var builder = new UriBuilder(address);
+        string path = builder.Path.TrimEnd('/');
+        // 远程配置既允许填写完整接口，也允许只填写 OpenAI-compatible 的服务根路径。
+        if (path.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            builder.Path = path + "/chat/completions";
+        else if (string.IsNullOrEmpty(path))
+            builder.Path = "/v1/chat/completions";
+        return builder;
+    }
+
     // protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
     //     CancellationToken cancellationToken)
     // {
@@ -55,7 +67,7 @@ class SKernelHttpDelegatingHandler : DelegatingHandler
     //     if (request.Content!.Headers!.ContentType!.MediaType == "application/json")
     //     {
     //         var content = Regex.Unescape(await request.Content!.ReadAsStringAsync(cancellationToken));
-    //         Log.Debug($"Kernel Send : {content}");
+    //         Log.Debug($"OpenAI-compatible request: {content}");
     //         // request.Content = new StringContent(content, Encoding.UTF8, mediaType);
     //     }
     //
@@ -64,6 +76,7 @@ class SKernelHttpDelegatingHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // OpenAI SDK 会自行拼接标准路径，这里统一改写到用户配置的兼容端点。
         request.RequestUri = _baseUri;
         if (request.Method == HttpMethod.Post && request.Content != null)
         {
@@ -83,7 +96,7 @@ class SKernelHttpDelegatingHandler : DelegatingHandler
                 }
             }
 
-            Log.Debug($"Kernel Send : {Regex.Unescape(jsonContent)}");
+            Log.Debug($"OpenAI-compatible request: {Regex.Unescape(jsonContent)}");
         }
 
         return await base.SendAsync(request, cancellationToken);

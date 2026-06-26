@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
@@ -24,15 +25,16 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Services;
 using UiharuMind.Views;
 using UiharuMind.Views.Pages;
 using UiharuMind.Views.Windows.Common;
-using Ursa.Controls;
 
 namespace UiharuMind.ViewModels.Pages;
 
 public partial class ModelPageData : PageDataBase
 {
+    private readonly IMessageService _messageService;
     // public string? Title { get; set; } = "Model Viewer";
     // public string? ModelPrefix { get; set; } = "Local models folder: ";
     [ObservableProperty] private string? _modelPath;
@@ -44,6 +46,15 @@ public partial class ModelPageData : PageDataBase
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
     private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.Config;
+
+    public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>())
+    {
+    }
+
+    public ModelPageData(IMessageService messageService)
+    {
+        _messageService = messageService;
+    }
 
     [RelayCommand]
     private async Task OpenChangeModelPath()
@@ -76,13 +87,13 @@ public partial class ModelPageData : PageDataBase
     private async Task RefreshSelectModelInfo(string path)
     {
         await App.ModelService.LoadModelList();
-        App.MessageService.ShowToast("Reload Info：" + path);
+        _messageService.ShowNotification("Reload Info: " + path);
     }
 
     [RelayCommand]
     private void OpenSelectModelInfo(string path)
     {
-        App.MessageService.ShowToast("OpenSelectModelInfo.");
+        _messageService.ShowNotification("OpenSelectModelInfo.");
     }
 
     [RelayCommand]
@@ -101,15 +112,13 @@ public partial class ModelPageData : PageDataBase
     [RelayCommand]
     private void ReloadEmbeddedModel()
     {
-        App.MessageService.ShowToast("refresh embedded model.");
+        _messageService.ShowNotification("refresh embedded model.");
     }
 
     [RelayCommand]
     private async Task DeleteRemoteModel(string name)
     {
-        var result = await App.MessageService.ShowConfirmMessageBox("Are you sure to delete remote model " + name + "?",
-            UIManager.GetRootWindow());
-        if (result == MessageBoxResult.Yes)
+        if (await _messageService.ConfirmAsync("Are you sure to delete remote model " + name + "?"))
         {
             LlmManager.Instance.RemoteModelManager.DeleteRemoteModel(name);
             LoadModels();
@@ -127,7 +136,7 @@ public partial class ModelPageData : PageDataBase
             UpdateModel(oldModel);
         LlmManager.Instance.RemoteModelManager.Config.FavoriteModel = isRemove ? "" : name;
         LlmManager.Instance.RemoteModelManager.SaveConfig();
-        App.MessageService.ShowToast(isRemove
+        _messageService.ShowNotification(isRemove
             ? string.Format(Lang.FavoriteRemoteModelDelTips, name)
             : string.Format(Lang.FavoriteRemoteModelSetTips, name));
         if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out var model)) return;
@@ -138,7 +147,7 @@ public partial class ModelPageData : PageDataBase
     partial void OnModelPathChanged(string? value)
     {
         LoadModels();
-        App.MessageService.ShowNotification("Model list updated.");
+        _messageService.ShowNotification("Model list updated.");
     }
 
     public override void OnEnable()

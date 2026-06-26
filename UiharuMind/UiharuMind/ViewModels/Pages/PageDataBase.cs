@@ -35,12 +35,6 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
     
     // public void ShowNotification(string message)
     // {
-    //     ShowNotification("Information", message, NotificationType.Information);
-    // }
-
-    // public void ShowNotification(string title, string message, NotificationType type)
-    // {
-    //     App.MessageService.Show(new Notification(title, message, type));
     // }
 
     protected abstract Control CreateView { get; }

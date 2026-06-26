@@ -1,0 +1,136 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
+        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        mc:Ignorable="d"
+        x:Class="UiharuMind.Views.Windows.Common.MemoryTextSourceEditWindow"
+        Width="800"
+        Height="620"
+        MinWidth="640"
+        MinHeight="500"
+        Title="{loc:Loc MemoryTextEditorTitle}">
+    <Design.DataContext>
+        <common:MemoryTextSourceEditWindowModel />
+    </Design.DataContext>
+
+    <Window.Styles>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+        <Border Padding="18,14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="52,*" ColumnSpacing="12">
+                <Border Width="52" Height="52" CornerRadius="8"
+                        Background="{DynamicResource SemiBlue0}">
+                    <PathIcon Width="24" Height="24" Data="{StaticResource TextFieldRegular}"
+                              Foreground="{DynamicResource SemiBlue5}" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc MemoryTextEditorTitle}" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="{loc:Loc MemoryTextEditorRoleHint}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="220,*" ColumnSpacing="12" Margin="12">
+            <Border Background="{DynamicResource SemiGrey1}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="14">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc MemoryTextWritingGuideTitle}" Classes="section-title" />
+                        <TextBlock Text="{loc:Loc MemoryTextWritingGuideHint}"
+                                   Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="{loc:Loc MemoryTextGuideIdentity}" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="{loc:Loc MemoryTextGuideIdentityHint}"
+                                       Classes="muted" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="{loc:Loc MemoryTextGuideRelationship}" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="{loc:Loc MemoryTextGuideRelationshipHint}"
+                                       Classes="muted" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="{loc:Loc MemoryTextGuideWorld}" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="{loc:Loc MemoryTextGuideWorldHint}"
+                                       Classes="muted" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Padding="10" CornerRadius="7" Background="{DynamicResource SemiBlue0}">
+                        <TextBlock Text="{loc:Loc MemoryTextIndexHint}"
+                                   Classes="muted" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="{DynamicResource SemiGrey0}"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16">
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc MemoryTextTitleLabel}" Classes="section-title" />
+                        <TextBox Text="{Binding Title}"
+                                 MaxLength="80"
+                                 PlaceholderText="{loc:Loc MemoryTextTitlePlaceholder}" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="6">
+                        <TextBlock Text="{loc:Loc MemoryTextContentLabel}" Classes="section-title" />
+                        <TextBox Grid.Row="1"
+                                 Text="{Binding Content}"
+                                 AcceptsReturn="True"
+                                 AcceptsTab="True"
+                                 TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top"
+                                 VerticalAlignment="Stretch"
+                                 Padding="12"
+                                 PlaceholderText="{loc:Loc MemoryTextContentPlaceholder}" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="2"
+                               Text="{Binding ContentLengthText}"
+                               Classes="muted"
+                               HorizontalAlignment="Right" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{loc:Loc MemoryTextSaveHint}"
+                           Classes="muted" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
+                    <Button IsEnabled="{Binding CanSave}" Click="SaveButton_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}" />
+                            <TextBlock Text="{loc:Loc SaveBtn}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

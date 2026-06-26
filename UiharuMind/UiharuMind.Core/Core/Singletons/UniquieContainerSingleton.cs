@@ -23,7 +23,6 @@ public interface IUniquieContainerItem
 public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IInitialize
     where T : class, IUniquieContainerItem, new() where TMgr : new()
 {
-    // public readonly List<T> ChatSessions = LoadChatHistory();
     public readonly Dictionary<string, T> ItemDictionary =
         new Dictionary<string, T>();
 

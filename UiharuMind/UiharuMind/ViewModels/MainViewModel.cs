@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Pages;
 using UiharuMind.Views;
@@ -25,6 +26,7 @@ namespace UiharuMind.ViewModels;
 
 public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 {
+    private readonly IServiceProvider _services;
     public MenuViewData Menus { get; set; } = new MenuViewData();
 
     public Footer Footers { get; set; } = new Footer();
@@ -33,13 +35,16 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 
     [ObservableProperty] private ViewModelBase? _content;
 
-    public MessageService MessageService => App.MessageService;
-
     private readonly Dictionary<MenuPages, PageDataBase> _viewPageModels = new Dictionary<MenuPages, PageDataBase>();
     private readonly Dictionary<Type, ViewModelBase> _viewModels = new Dictionary<Type, ViewModelBase>();
 
-    public MainViewModel()
+    public MainViewModel() : this(App.Services)
     {
+    }
+
+    public MainViewModel(IServiceProvider services)
+    {
+        _services = services;
         Dispatcher.UIThread.Post(() =>
         {
             // Receive(MenuKeys.MenuMainKey);
@@ -83,12 +88,12 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         {
             vmPage = message switch
             {
-                MenuPages.MenuMainKey => new HomePageData(),
-                MenuPages.MenuChatKey => new ChatPageData(),
-                MenuPages.MenuTranslateKey => new TranslatePageData(),
-                MenuPages.MenuModelKey => new ModelPageData(),
-                MenuPages.MenuLogKey => new LogPageData(),
-                MenuPages.MenuHelpKey => new HelpPageData(),
+                MenuPages.MenuMainKey => ActivatorUtilities.CreateInstance<HomePageData>(_services),
+                MenuPages.MenuChatKey => ActivatorUtilities.CreateInstance<ChatPageData>(_services),
+                MenuPages.MenuTranslateKey => ActivatorUtilities.CreateInstance<TranslatePageData>(_services),
+                MenuPages.MenuModelKey => ActivatorUtilities.CreateInstance<ModelPageData>(_services),
+                MenuPages.MenuLogKey => ActivatorUtilities.CreateInstance<LogPageData>(_services),
+                MenuPages.MenuHelpKey => ActivatorUtilities.CreateInstance<HelpPageData>(_services),
                 _ => GetPage(MenuPages.MenuModelKey),
             };
             _viewPageModels.Add(message, vmPage);
@@ -102,12 +107,12 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
-    public T GetViewModel<T>() where T : ViewModelBase, new()
+    public T GetViewModel<T>() where T : ViewModelBase
     {
         _viewModels.TryGetValue(typeof(T), out var vm);
         if (vm == null)
         {
-            vm = new T();
+            vm = ActivatorUtilities.CreateInstance<T>(_services);
             _viewModels.Add(typeof(T), vm);
         }
 

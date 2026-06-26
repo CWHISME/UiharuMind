@@ -22,7 +22,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.Extensions.DependencyInjection;
 using SharpHook.Native;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
@@ -35,6 +35,7 @@ using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.Views;
 
@@ -45,6 +46,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// </summary>
 public partial class ChatViewModel : ViewModelBase
 {
+    private readonly IMessageService _messageService;
     public enum SendMode
     {
         User,
@@ -96,8 +98,13 @@ public partial class ChatViewModel : ViewModelBase
     public event Action<ChatSessionViewData?>? OnEventBeginChat;
     public event Action<ChatSessionViewData?>? OnEventEndChat;
 
-    public ChatViewModel()
+    public ChatViewModel() : this(App.Services.GetRequiredService<IMessageService>())
     {
+    }
+
+    public ChatViewModel(IMessageService messageService)
+    {
+        _messageService = messageService;
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
 
@@ -131,11 +138,12 @@ public partial class ChatViewModel : ViewModelBase
 
         if (ChatSession == null)
         {
-            App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
+            await _messageService.ShowWarningAsync(
+                LocalizationManager.Instance.GetString("ChatSelectSessionWarning"));
             return;
         }
 
-        ChatSession.AddMessage(AuthorRole.User, "", bitmap.BitmapToBytes());
+        ChatSession.AddMessage(ECharacter.User, "", bitmap.BitmapToBytes());
     }
 
     [RelayCommand]
@@ -144,19 +152,22 @@ public partial class ChatViewModel : ViewModelBase
         // if (!InputManager.Instance.IsPressed(KeyCode.VcLeftControl)) return;
         if (ChatSession == null)
         {
-            App.MessageService.ShowWarningMessageBox("请先选择会话!");
+            await _messageService.ShowWarningAsync(
+                LocalizationManager.Instance.GetString("ChatSelectSessionWarning"));
             return;
         }
 
         if (string.IsNullOrEmpty(InputText) || IsGenerating)
         {
-            App.MessageService.ShowWarningMessageBox("请输入内容！");
+            await _messageService.ShowWarningAsync(
+                LocalizationManager.Instance.GetString("ChatInputRequiredWarning"));
             return;
         }
 
         if (IsGenerating)
         {
-            App.MessageService.ShowWarningMessageBox("正在生成中！");
+            await _messageService.ShowWarningAsync(
+                LocalizationManager.Instance.GetString("ChatGenerationInProgressWarning"));
             return;
         }
 
@@ -164,14 +175,15 @@ public partial class ChatViewModel : ViewModelBase
         {
             if (!LlmManager.Instance.TryCheckModelRunning(false))
             {
-                App.MessageService.ShowWarningMessageBox("当前未启用任何模型，请先启用模型再进行对话！");
+                await _messageService.ShowWarningAsync(
+                    LocalizationManager.Instance.GetString("ChatModelRequiredWarning"));
                 return;
             }
         }
 
         //添加 first message
 
-        if (ChatSession.ChatSession.History.Count > 0 && ChatSession.ChatSession.History[^1].Role == AuthorRole.User &&
+        if (ChatSession.ChatSession.History.Count > 0 && ChatSession.ChatSession.History[^1].Role == ECharacter.User &&
             //两者不同步了，不添加新输入，直接执行重新生成
             ChatSession.ChatItems.Count != ChatSession.ChatSession.History.Count)
         {
@@ -266,7 +278,7 @@ public partial class ChatViewModel : ViewModelBase
         if (ChatSession == null) return;
         IsGenerating = true;
         _cancelTokenSource = new CancellationTokenSource();
-        await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? AuthorRole.User : AuthorRole.Assistant,
+        await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? ECharacter.User : ECharacter.Assistant,
             message, _cancelTokenSource.Token);
         IsGenerating = false;
     }

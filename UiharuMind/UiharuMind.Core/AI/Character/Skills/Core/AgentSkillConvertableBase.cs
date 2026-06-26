@@ -1,4 +1,3 @@
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Utils;
@@ -10,7 +9,7 @@ namespace UiharuMind.Core.AI.Character.Skills;
 /// </summary>
 public abstract class AgentSkillConvertableBase : AgentSkillBase
 {
-    protected ChatHistory? _chatHistory;
+    protected List<ChatMessageData>? _chatHistory;
 
     public override bool IsConvertableToChatSession => _chatHistory != null;
 
@@ -21,16 +20,16 @@ public abstract class AgentSkillConvertableBase : AgentSkillBase
 
         var characterData = GetCharacterData();
         var chatSession = new ChatSession(characterData.CharacterName, characterData);
-        if (chatHistory.Count > 0) chatSession.Description = chatHistory[0].Content ?? "临时对话";
+        if (chatHistory.Count > 0) chatSession.Description = chatHistory[0].Content;
         chatSession.ReInitHistory(chatHistory);
         chatSession.ChatModelRunningData = CurModelRunningData;
         chatSession.IsDirty = true;
         return chatSession;
     }
 
-    protected virtual ChatHistory GetChatHistory()
+    protected virtual List<ChatMessageData> GetChatHistory()
     {
-        return _chatHistory ?? new ChatHistory();
+        return _chatHistory ?? [];
     }
 
     public abstract CharacterData GetCharacterData();

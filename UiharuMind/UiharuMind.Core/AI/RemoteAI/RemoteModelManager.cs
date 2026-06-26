@@ -1,4 +1,8 @@
-using Microsoft.SemanticKernel;
+using System.ClientModel;
+using System.ClientModel.Primitives;
+using Microsoft.Extensions.AI;
+using OpenAI;
+using OpenAI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Configs.RemoteAI;
@@ -47,10 +51,10 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         return modelRunning;
     }
 
-    public Task Run(ILlmModel model, Action<float>? onLoading = null, Action<Kernel>? onLoadOver = null,
+    public Task Run(ILlmModel model, Action<float>? onLoading = null, Action<IChatClient>? onLoadOver = null,
         CancellationToken token = default)
     {
-        onLoadOver?.Invoke(CreateKernel(model));
+        onLoadOver?.Invoke(CreateChatClient(model));
         return Task.CompletedTask;
         // while (!token.IsCancellationRequested)
         // {
@@ -65,13 +69,16 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         // }
     }
 
-    private Kernel CreateKernel(ILlmModel model)
+    private IChatClient CreateChatClient(ILlmModel model)
     {
-        var kernelBuilder = Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion(model.ModelId, model.ApiKey,
-                httpClient: new HttpClient(
-                    new SKernelHttpDelegatingHandler(model, model.ModelPath + (model.Port > 0 ? (":" + model.Port) : ""))));
-        return kernelBuilder.Build();
+        var handler = new OpenAICompatibleHttpHandler(
+            model, model.ModelPath + (model.Port > 0 ? ":" + model.Port : ""));
+        var options = new OpenAIClientOptions
+        {
+            Transport = new HttpClientPipelineTransport(new HttpClient(handler))
+        };
+        var client = new ChatClient(model.ModelId, new ApiKeyCredential(model.ApiKey), options);
+        return client.AsIChatClient();
     }
 
     public void AddRemoteModel(RemoteModelInfo model)

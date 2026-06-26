@@ -247,7 +247,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
                 return false;
             }
 
-            if (modelRunning.Kernel == null)
+            if (modelRunning.ChatClient == null)
             {
                 _ = modelRunning.StartLoad(null, null);
             }

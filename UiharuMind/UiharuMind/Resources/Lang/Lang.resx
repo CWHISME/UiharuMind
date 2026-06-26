@@ -468,6 +468,126 @@
     <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
         <value>Memory index database is unavailable.</value>
     </data>
+    <data name="MemoryWorkspaceTitle" xml:space="preserve">
+        <value>Memory workspace</value>
+    </data>
+    <data name="MemoryManualTextTab" xml:space="preserve">
+        <value>Manual text</value>
+    </data>
+    <data name="MemoryManualTextTitle" xml:space="preserve">
+        <value>Curated knowledge</value>
+    </data>
+    <data name="MemoryManualTextHint" xml:space="preserve">
+        <value>Add focused notes, facts, or instructions that should be available during retrieval.</value>
+    </data>
+    <data name="MemoryAddManualText" xml:space="preserve">
+        <value>Add text</value>
+    </data>
+    <data name="MemoryTextFilesTab" xml:space="preserve">
+        <value>Text files</value>
+    </data>
+    <data name="MemoryTextFilesTitle" xml:space="preserve">
+        <value>Local text files</value>
+    </data>
+    <data name="MemoryTextFilesHint" xml:space="preserve">
+        <value>Files are validated by content and encoding before they are added. Binary documents are not supported.</value>
+    </data>
+    <data name="MemoryAddTextFile" xml:space="preserve">
+        <value>Add file</value>
+    </data>
+    <data name="MemoryTextEditorTitle" xml:space="preserve">
+        <value>Edit memory text</value>
+    </data>
+    <data name="MemoryTextEditorHint" xml:space="preserve">
+        <value>Use a clear title and keep each entry focused on one topic for better retrieval quality.</value>
+    </data>
+    <data name="MemoryTextTitleLabel" xml:space="preserve">
+        <value>Title</value>
+    </data>
+    <data name="MemoryTextTitlePlaceholder" xml:space="preserve">
+        <value>For example: Product return policy</value>
+    </data>
+    <data name="MemoryTextContentLabel" xml:space="preserve">
+        <value>Content</value>
+    </data>
+    <data name="MemoryTextContentPlaceholder" xml:space="preserve">
+        <value>Enter the knowledge that should be indexed...</value>
+    </data>
+    <data name="MemoryIndexStop" xml:space="preserve">
+        <value>Stop update</value>
+    </data>
+    <data name="MemoryIndexCancelledOldIndexKept" xml:space="preserve">
+        <value>Update stopped. The previous index is still available.</value>
+    </data>
+    <data name="MemoryIndexNeverUpdated" xml:space="preserve">
+        <value>Never updated</value>
+    </data>
+    <data name="MemorySourceCountFormat" xml:space="preserve">
+        <value>{0} text entries, {1} files</value>
+    </data>
+    <data name="MemoryIndexStagePreparing" xml:space="preserve">
+        <value>Preparing embedding service</value>
+    </data>
+    <data name="MemoryIndexStageReadingSources" xml:space="preserve">
+        <value>Reading and validating sources</value>
+    </data>
+    <data name="MemoryIndexStageSplittingText" xml:space="preserve">
+        <value>Preparing text chunks</value>
+    </data>
+    <data name="MemoryIndexStageGeneratingEmbeddings" xml:space="preserve">
+        <value>Generating embeddings</value>
+    </data>
+    <data name="MemoryIndexStageWritingDatabase" xml:space="preserve">
+        <value>Writing the new index</value>
+    </data>
+    <data name="MemoryIndexStageCompleted" xml:space="preserve">
+        <value>Index update completed</value>
+    </data>
+    <data name="MemoryIndexProgressFormat" xml:space="preserve">
+        <value>Sources {0}/{1} · Succeeded {5} · Failed {6} · Chunks {2}/{3} · {4}</value>
+    </data>
+    <data name="MemorySelectTextFilesTitle" xml:space="preserve">
+        <value>Select plain text files</value>
+    </data>
+    <data name="MemoryTextFileFilter" xml:space="preserve">
+        <value>Plain text files</value>
+    </data>
+    <data name="MemorySourceEmpty" xml:space="preserve">
+        <value>The text entry is empty.</value>
+    </data>
+    <data name="MemorySourceFileMissing" xml:space="preserve">
+        <value>The file no longer exists.</value>
+    </data>
+    <data name="MemorySourceEncodingUnknown" xml:space="preserve">
+        <value>The file encoding could not be detected reliably.</value>
+    </data>
+    <data name="MemorySourceNotPlainText" xml:space="preserve">
+        <value>The selected file is not a valid plain text file.</value>
+    </data>
+    <data name="MemorySourceReadFailed" xml:space="preserve">
+        <value>The file could not be read.</value>
+    </data>
+    <data name="MemorySourceUnsupported" xml:space="preserve">
+        <value>This memory source type is not supported.</value>
+    </data>
+    <data name="MemorySourceValidationFailed" xml:space="preserve">
+        <value>One or more sources could not be validated. The previous index was kept.</value>
+    </data>
+    <data name="MemoryImportStop" xml:space="preserve">
+        <value>Stop import</value>
+    </data>
+    <data name="MemoryImportValidating" xml:space="preserve">
+        <value>Validating text files</value>
+    </data>
+    <data name="MemoryImportProgressFormat" xml:space="preserve">
+        <value>File {0}/{1} · {2} · Accepted {3} · Rejected {4}</value>
+    </data>
+    <data name="MemoryImportCompleted" xml:space="preserve">
+        <value>{0} text files were added.</value>
+    </data>
+    <data name="MemoryImportCancelled" xml:space="preserve">
+        <value>File import was stopped. No partial batch was added.</value>
+    </data>
     <data name="Select" xml:space="preserve">
         <value>Select</value>
     </data>
@@ -559,7 +679,52 @@
         <value>Check for updates</value>
     </data>
     <data name="CheckAppUpdateDesc" xml:space="preserve">
-        <value>Open the latest GitHub release page.</value>
+        <value>Automatically checks GitHub releases and downloads the matching package when a new version is available.</value>
+    </data>
+    <data name="ApplicationUpdateGoTo" xml:space="preserve">
+        <value>Go to</value>
+    </data>
+    <data name="ApplicationUpdateAvailableFormat" xml:space="preserve">
+        <value>New version available: {0}</value>
+    </data>
+    <data name="ApplicationUpdateCheckFailed" xml:space="preserve">
+        <value>Update check failed.</value>
+    </data>
+    <data name="ApplicationUpdateAlreadyLatest" xml:space="preserve">
+        <value>You are using the latest version.</value>
+    </data>
+    <data name="ApplicationUpdateAutoCheckPending" xml:space="preserve">
+        <value>Automatic update check has not completed yet.</value>
+    </data>
+    <data name="ApplicationUpdateDownloadTitle" xml:space="preserve">
+        <value>Download update package</value>
+    </data>
+    <data name="ApplicationUpdateDownloadDesc" xml:space="preserve">
+        <value>The package is downloaded to the application data folder. After download, use Install to open it.</value>
+    </data>
+    <data name="ApplicationUpdateNoAsset" xml:space="preserve">
+        <value>No downloadable package matching this device was found. Please use the release page.</value>
+    </data>
+    <data name="ConfirmDeleteApplicationUpdate" xml:space="preserve">
+        <value>Delete this downloaded application update package?</value>
+    </data>
+    <data name="ApplicationUpdateInstall" xml:space="preserve">
+        <value>Install</value>
+    </data>
+    <data name="ApplicationUpdateInstallConfirm" xml:space="preserve">
+        <value>The update package will be extracted, then the downloaded zip will be deleted. Continue?</value>
+    </data>
+    <data name="ApplicationUpdateInstallFileMissing" xml:space="preserve">
+        <value>The downloaded update package no longer exists.</value>
+    </data>
+    <data name="ApplicationUpdateInstallFailed" xml:space="preserve">
+        <value>Installation failed</value>
+    </data>
+    <data name="ApplicationUpdateInstallPackageDeleted" xml:space="preserve">
+        <value>The update package was extracted and the downloaded archive was deleted.</value>
+    </data>
+    <data name="ApplicationUpdateExtractFailed" xml:space="preserve">
+        <value>Failed to extract the update package.</value>
     </data>
     <data name="UserInterfaceSetting" xml:space="preserve">
         <value>User Interface</value>
@@ -1112,5 +1277,209 @@
     </data>
     <data name="UserCardEditorHint" xml:space="preserve">
         <value>Adjust your displayed identity and user prompt template.</value>
+    </data>
+    <data name="ChatSelectSessionWarning" xml:space="preserve">
+        <value>Please select a chat session first.</value>
+    </data>
+    <data name="ChatInputRequiredWarning" xml:space="preserve">
+        <value>Enter a message before sending.</value>
+    </data>
+    <data name="ChatGenerationInProgressWarning" xml:space="preserve">
+        <value>A response is already being generated.</value>
+    </data>
+    <data name="ChatModelRequiredWarning" xml:space="preserve">
+        <value>No model is active. Enable a model before starting a conversation.</value>
+    </data>
+    <data name="MemoryIndexDimensionMismatch" xml:space="preserve">
+        <value>The embedding model dimension does not match the existing index. Rebuild the memory index.</value>
+    </data>
+    <data name="MemoryLibraryTitle" xml:space="preserve">
+        <value>Character Memory Library</value>
+    </data>
+    <data name="MemoryLibraryHint" xml:space="preserve">
+        <value>Choose the background, relationships, and world knowledge this character should remember.</value>
+    </data>
+    <data name="MemoryCreateAction" xml:space="preserve">
+        <value>Create memory</value>
+    </data>
+    <data name="MemorySearchPlaceholder" xml:space="preserve">
+        <value>Search memories</value>
+    </data>
+    <data name="MemoryAttachedBadge" xml:space="preserve">
+        <value>Attached</value>
+    </data>
+    <data name="MemoryManageAction" xml:space="preserve">
+        <value>Manage content</value>
+    </data>
+    <data name="MemoryLastIndexedLabel" xml:space="preserve">
+        <value>Last indexed</value>
+    </data>
+    <data name="MemoryRoleUsageTitle" xml:space="preserve">
+        <value>How this memory is used</value>
+    </data>
+    <data name="MemoryRoleUsageHint" xml:space="preserve">
+        <value>Relevant passages are recalled during the conversation and supplied to the character as private context.</value>
+    </data>
+    <data name="MemoryAttachAction" xml:space="preserve">
+        <value>Attach to character</value>
+    </data>
+    <data name="MemoryLibraryEmptyTitle" xml:space="preserve">
+        <value>No memory selected</value>
+    </data>
+    <data name="MemoryLibraryEmptyHint" xml:space="preserve">
+        <value>Select a memory on the left, or create one for this character.</value>
+    </data>
+    <data name="MemoryDeleteConfirm" xml:space="preserve">
+        <value>Delete this memory library? Its sources and local index will no longer be available.</value>
+    </data>
+    <data name="MemoryDescriptionFallback" xml:space="preserve">
+        <value>Character background and long-term context.</value>
+    </data>
+    <data name="MemoryLibrarySourceSummary" xml:space="preserve">
+        <value>{0} notes · {1} files</value>
+    </data>
+    <data name="MemoryIndexHasError" xml:space="preserve">
+        <value>Index needs attention</value>
+    </data>
+    <data name="MemoryCreateTitle" xml:space="preserve">
+        <value>Create character memory</value>
+    </data>
+    <data name="MemoryCreateHint" xml:space="preserve">
+        <value>Give this memory a clear identity so it can be reused across compatible characters.</value>
+    </data>
+    <data name="MemoryNameLabel" xml:space="preserve">
+        <value>Memory name</value>
+    </data>
+    <data name="MemoryNamePlaceholder" xml:space="preserve">
+        <value>For example: Misaka Mikoto · Academy City</value>
+    </data>
+    <data name="MemoryNameHint" xml:space="preserve">
+        <value>Use a short name that is easy to recognize in the character selector.</value>
+    </data>
+    <data name="MemoryDescriptionLabel" xml:space="preserve">
+        <value>Purpose</value>
+    </data>
+    <data name="MemoryDescriptionPlaceholder" xml:space="preserve">
+        <value>Describe the character, relationship, setting, or story arc covered by this memory.</value>
+    </data>
+    <data name="MemoryIndexOverviewTitle" xml:space="preserve">
+        <value>Index health</value>
+    </data>
+    <data name="MemoryIndexRoleHintTitle" xml:space="preserve">
+        <value>Built for role continuity</value>
+    </data>
+    <data name="MemoryIndexRoleHint" xml:space="preserve">
+        <value>Keep facts focused and explicit. Separate identities, relationships, events, and world rules into readable sources.</value>
+    </data>
+    <data name="MemoryIndexSafeUpdateTitle" xml:space="preserve">
+        <value>Safe update</value>
+    </data>
+    <data name="MemoryIndexSafeUpdateHint" xml:space="preserve">
+        <value>The previous index remains usable until the new one is completely built.</value>
+    </data>
+    <data name="MemoryEditorFooterHint" xml:space="preserve">
+        <value>Source changes become searchable after updating the index.</value>
+    </data>
+    <data name="MemoryManualTextRoleHint" xml:space="preserve">
+        <value>Write character facts, relationships, important events, dialogue rules, and world lore.</value>
+    </data>
+    <data name="MemoryManualTextEmptyTitle" xml:space="preserve">
+        <value>No character notes yet</value>
+    </data>
+    <data name="MemoryManualTextEmptyHint" xml:space="preserve">
+        <value>Add a focused note for identity, relationships, history, or world knowledge.</value>
+    </data>
+    <data name="MemoryTextFilesRoleHint" xml:space="preserve">
+        <value>Import scripts, lore sheets, profiles, or other detected plain-text references.</value>
+    </data>
+    <data name="MemoryTextFilesEmptyTitle" xml:space="preserve">
+        <value>No reference files yet</value>
+    </data>
+    <data name="MemoryTextFilesEmptyHint" xml:space="preserve">
+        <value>Add a text-based character profile, story summary, script, or world guide.</value>
+    </data>
+    <data name="MemoryTextEditorRoleHint" xml:space="preserve">
+        <value>Shape one focused piece of long-term context for the character.</value>
+    </data>
+    <data name="MemoryTextWritingGuideTitle" xml:space="preserve">
+        <value>Writing guide</value>
+    </data>
+    <data name="MemoryTextWritingGuideHint" xml:space="preserve">
+        <value>Clear, factual notes are easier to recall than long conversational prose.</value>
+    </data>
+    <data name="MemoryTextGuideIdentity" xml:space="preserve">
+        <value>Identity</value>
+    </data>
+    <data name="MemoryTextGuideIdentityHint" xml:space="preserve">
+        <value>Names, traits, habits, abilities, and boundaries.</value>
+    </data>
+    <data name="MemoryTextGuideRelationship" xml:space="preserve">
+        <value>Relationships</value>
+    </data>
+    <data name="MemoryTextGuideRelationshipHint" xml:space="preserve">
+        <value>How people address, trust, remember, and react to one another.</value>
+    </data>
+    <data name="MemoryTextGuideWorld" xml:space="preserve">
+        <value>World and events</value>
+    </data>
+    <data name="MemoryTextGuideWorldHint" xml:space="preserve">
+        <value>Locations, timelines, rules, shared history, and unresolved events.</value>
+    </data>
+    <data name="MemoryTextIndexHint" xml:space="preserve">
+        <value>After saving, return to the memory workspace and update the index.</value>
+    </data>
+    <data name="MemoryTextCharacterCount" xml:space="preserve">
+        <value>{0} characters</value>
+    </data>
+    <data name="MemoryTextSaveHint" xml:space="preserve">
+        <value>Saving marks the memory index as needing an update.</value>
+    </data>
+    <data name="MemoryNameInvalid" xml:space="preserve">
+        <value>The name contains characters that cannot be used in a local memory file.</value>
+    </data>
+    <data name="MemoryIndexEmbeddingInputTooLarge" xml:space="preserve">
+        <value>A passage is still too large for the embedding model after automatic splitting. Shorten that source and try again.</value>
+    </data>
+    <data name="MemoryIndexPendingShort" xml:space="preserve">
+        <value>Update required</value>
+    </data>
+    <data name="MemoryIndexNotBuiltShort" xml:space="preserve">
+        <value>Not indexed</value>
+    </data>
+    <data name="MemoryIndexPreparingShort" xml:space="preserve">
+        <value>Preparing the index...</value>
+    </data>
+    <data name="MemoryDescriptionSectionTitle" xml:space="preserve">
+        <value>Memory purpose</value>
+    </data>
+    <data name="MemoryEditDescriptionAction" xml:space="preserve">
+        <value>Edit description</value>
+    </data>
+    <data name="MemoryIndexCancelHint" xml:space="preserve">
+        <value>Click Stop update to cancel. The previous index remains available.</value>
+    </data>
+    <data name="MemoryIndexUpdatingDetail" xml:space="preserve">
+        <value>A new searchable index is being built. Existing conversations can continue using the previous version.</value>
+    </data>
+    <data name="MemoryIndexReadyDetail" xml:space="preserve">
+        <value>All current sources are available for character recall.</value>
+    </data>
+    <data name="MemoryIndexEmbeddingRequestFailed" xml:space="preserve">
+        <value>The embedding service could not process the request. Check that the embedding model is running, then retry the index update.</value>
+    </data>
+    <data name="MemorySaveDescriptionAction" xml:space="preserve">
+        <value>Save description</value>
+    </data>
+    <data name="MemoryDescriptionSaved" xml:space="preserve">
+        <value>Memory description saved.</value>
+    </data>
+    <data name="MemoryIndexStorageFailed" xml:space="preserve">
+        <value>The local memory index could not be written. Close other operations using this memory and try again.</value>
+    </data>
+    <data name="MessageSuccessTitle" xml:space="preserve">
+        <value>Success</value>
+    </data>
+    <data name="NotificationClose" xml:space="preserve">
+        <value>Close notification</value>
     </data>
 </root>

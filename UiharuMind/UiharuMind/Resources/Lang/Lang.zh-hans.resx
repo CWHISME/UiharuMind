@@ -461,6 +461,126 @@
     <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
         <value>记忆索引数据库不可用。</value>
     </data>
+    <data name="MemoryWorkspaceTitle" xml:space="preserve">
+        <value>记忆库工作台</value>
+    </data>
+    <data name="MemoryManualTextTab" xml:space="preserve">
+        <value>手动文本</value>
+    </data>
+    <data name="MemoryManualTextTitle" xml:space="preserve">
+        <value>结构化知识条目</value>
+    </data>
+    <data name="MemoryManualTextHint" xml:space="preserve">
+        <value>添加需要在检索时使用的笔记、事实或规则。每个条目聚焦一个主题可获得更好的检索效果。</value>
+    </data>
+    <data name="MemoryAddManualText" xml:space="preserve">
+        <value>添加文本</value>
+    </data>
+    <data name="MemoryTextFilesTab" xml:space="preserve">
+        <value>文本文件</value>
+    </data>
+    <data name="MemoryTextFilesTitle" xml:space="preserve">
+        <value>本地文本文件</value>
+    </data>
+    <data name="MemoryTextFilesHint" xml:space="preserve">
+        <value>文件会在加入前检测内容和编码。当前仅支持纯文本，不支持 PDF、Word、图片等二进制文档。</value>
+    </data>
+    <data name="MemoryAddTextFile" xml:space="preserve">
+        <value>添加文件</value>
+    </data>
+    <data name="MemoryTextEditorTitle" xml:space="preserve">
+        <value>编辑记忆文本</value>
+    </data>
+    <data name="MemoryTextEditorHint" xml:space="preserve">
+        <value>请填写清晰标题，并让每个条目尽量只描述一个主题。</value>
+    </data>
+    <data name="MemoryTextTitleLabel" xml:space="preserve">
+        <value>标题</value>
+    </data>
+    <data name="MemoryTextTitlePlaceholder" xml:space="preserve">
+        <value>例如：商品退换货规则</value>
+    </data>
+    <data name="MemoryTextContentLabel" xml:space="preserve">
+        <value>正文</value>
+    </data>
+    <data name="MemoryTextContentPlaceholder" xml:space="preserve">
+        <value>输入需要建立索引的知识内容...</value>
+    </data>
+    <data name="MemoryIndexStop" xml:space="preserve">
+        <value>停止更新</value>
+    </data>
+    <data name="MemoryIndexCancelledOldIndexKept" xml:space="preserve">
+        <value>已停止更新，之前成功建立的索引仍可继续使用。</value>
+    </data>
+    <data name="MemoryIndexNeverUpdated" xml:space="preserve">
+        <value>尚未更新</value>
+    </data>
+    <data name="MemorySourceCountFormat" xml:space="preserve">
+        <value>{0} 条文本，{1} 个文件</value>
+    </data>
+    <data name="MemoryIndexStagePreparing" xml:space="preserve">
+        <value>正在准备嵌入服务</value>
+    </data>
+    <data name="MemoryIndexStageReadingSources" xml:space="preserve">
+        <value>正在读取并校验来源</value>
+    </data>
+    <data name="MemoryIndexStageSplittingText" xml:space="preserve">
+        <value>正在生成文本分块</value>
+    </data>
+    <data name="MemoryIndexStageGeneratingEmbeddings" xml:space="preserve">
+        <value>正在生成向量</value>
+    </data>
+    <data name="MemoryIndexStageWritingDatabase" xml:space="preserve">
+        <value>正在写入新索引</value>
+    </data>
+    <data name="MemoryIndexStageCompleted" xml:space="preserve">
+        <value>索引更新完成</value>
+    </data>
+    <data name="MemoryIndexProgressFormat" xml:space="preserve">
+        <value>来源 {0}/{1} · 成功 {5} · 失败 {6} · 分块 {2}/{3} · {4}</value>
+    </data>
+    <data name="MemorySelectTextFilesTitle" xml:space="preserve">
+        <value>选择纯文本文件</value>
+    </data>
+    <data name="MemoryTextFileFilter" xml:space="preserve">
+        <value>纯文本文件</value>
+    </data>
+    <data name="MemorySourceEmpty" xml:space="preserve">
+        <value>文本条目内容为空。</value>
+    </data>
+    <data name="MemorySourceFileMissing" xml:space="preserve">
+        <value>文件已不存在。</value>
+    </data>
+    <data name="MemorySourceEncodingUnknown" xml:space="preserve">
+        <value>无法可靠识别文件编码。</value>
+    </data>
+    <data name="MemorySourceNotPlainText" xml:space="preserve">
+        <value>所选文件不是有效的纯文本文件。</value>
+    </data>
+    <data name="MemorySourceReadFailed" xml:space="preserve">
+        <value>无法读取该文件。</value>
+    </data>
+    <data name="MemorySourceUnsupported" xml:space="preserve">
+        <value>暂不支持此类记忆来源。</value>
+    </data>
+    <data name="MemorySourceValidationFailed" xml:space="preserve">
+        <value>部分来源未通过校验，旧索引已保留。</value>
+    </data>
+    <data name="MemoryImportStop" xml:space="preserve">
+        <value>停止导入</value>
+    </data>
+    <data name="MemoryImportValidating" xml:space="preserve">
+        <value>正在校验文本文件</value>
+    </data>
+    <data name="MemoryImportProgressFormat" xml:space="preserve">
+        <value>文件 {0}/{1} · {2} · 已接受 {3} · 已拒绝 {4}</value>
+    </data>
+    <data name="MemoryImportCompleted" xml:space="preserve">
+        <value>已添加 {0} 个文本文件。</value>
+    </data>
+    <data name="MemoryImportCancelled" xml:space="preserve">
+        <value>已停止文件导入，本批次不会提交部分结果。</value>
+    </data>
     <data name="Select" xml:space="preserve">
         <value>选择</value>
     </data>
@@ -552,7 +672,52 @@
         <value>检查更新</value>
     </data>
     <data name="CheckAppUpdateDesc" xml:space="preserve">
-        <value>打开最新 GitHub Release 页面。</value>
+        <value>自动检查 GitHub Release，发现新版本时可下载匹配当前设备的安装包。</value>
+    </data>
+    <data name="ApplicationUpdateGoTo" xml:space="preserve">
+        <value>前往</value>
+    </data>
+    <data name="ApplicationUpdateAvailableFormat" xml:space="preserve">
+        <value>发现新版本：{0}</value>
+    </data>
+    <data name="ApplicationUpdateCheckFailed" xml:space="preserve">
+        <value>更新检查失败。</value>
+    </data>
+    <data name="ApplicationUpdateAlreadyLatest" xml:space="preserve">
+        <value>当前已是最新版本。</value>
+    </data>
+    <data name="ApplicationUpdateAutoCheckPending" xml:space="preserve">
+        <value>自动更新检查尚未完成。</value>
+    </data>
+    <data name="ApplicationUpdateDownloadTitle" xml:space="preserve">
+        <value>下载更新包</value>
+    </data>
+    <data name="ApplicationUpdateDownloadDesc" xml:space="preserve">
+        <value>更新包会下载到应用数据目录，下载完成后可点击安装打开。</value>
+    </data>
+    <data name="ApplicationUpdateNoAsset" xml:space="preserve">
+        <value>未找到匹配当前设备的可下载安装包，请前往 Release 页面处理。</value>
+    </data>
+    <data name="ConfirmDeleteApplicationUpdate" xml:space="preserve">
+        <value>确定删除这个已下载的应用更新包吗？</value>
+    </data>
+    <data name="ApplicationUpdateInstall" xml:space="preserve">
+        <value>安装</value>
+    </data>
+    <data name="ApplicationUpdateInstallConfirm" xml:space="preserve">
+        <value>将解压更新包，并在解压成功后删除已下载的 zip 文件，是否继续？</value>
+    </data>
+    <data name="ApplicationUpdateInstallFileMissing" xml:space="preserve">
+        <value>已下载的更新包不存在。</value>
+    </data>
+    <data name="ApplicationUpdateInstallFailed" xml:space="preserve">
+        <value>安装失败</value>
+    </data>
+    <data name="ApplicationUpdateInstallPackageDeleted" xml:space="preserve">
+        <value>更新包已解压，并已删除下载的压缩包。</value>
+    </data>
+    <data name="ApplicationUpdateExtractFailed" xml:space="preserve">
+        <value>更新包解压失败。</value>
     </data>
     <data name="UserInterfaceSetting" xml:space="preserve">
         <value>用户界面</value>
@@ -1105,5 +1270,209 @@
     </data>
     <data name="UserCardEditorHint" xml:space="preserve">
         <value>调整你的显示身份与用户提示词模板。</value>
+    </data>
+    <data name="ChatSelectSessionWarning" xml:space="preserve">
+        <value>请先选择一个会话。</value>
+    </data>
+    <data name="ChatInputRequiredWarning" xml:space="preserve">
+        <value>请输入内容后再发送。</value>
+    </data>
+    <data name="ChatGenerationInProgressWarning" xml:space="preserve">
+        <value>当前正在生成回复，请稍候。</value>
+    </data>
+    <data name="ChatModelRequiredWarning" xml:space="preserve">
+        <value>当前没有启用的模型，请先启用模型再开始对话。</value>
+    </data>
+    <data name="MemoryIndexDimensionMismatch" xml:space="preserve">
+        <value>当前嵌入模型的向量维度与已有索引不一致，请重新构建记忆索引。</value>
+    </data>
+    <data name="MemoryLibraryTitle" xml:space="preserve">
+        <value>角色记忆库</value>
+    </data>
+    <data name="MemoryLibraryHint" xml:space="preserve">
+        <value>为角色选择需要长期记住的背景、关系与世界设定。</value>
+    </data>
+    <data name="MemoryCreateAction" xml:space="preserve">
+        <value>新建记忆</value>
+    </data>
+    <data name="MemorySearchPlaceholder" xml:space="preserve">
+        <value>搜索记忆库</value>
+    </data>
+    <data name="MemoryAttachedBadge" xml:space="preserve">
+        <value>已挂载</value>
+    </data>
+    <data name="MemoryManageAction" xml:space="preserve">
+        <value>管理内容</value>
+    </data>
+    <data name="MemoryLastIndexedLabel" xml:space="preserve">
+        <value>上次索引</value>
+    </data>
+    <data name="MemoryRoleUsageTitle" xml:space="preserve">
+        <value>角色会如何使用这份记忆</value>
+    </data>
+    <data name="MemoryRoleUsageHint" xml:space="preserve">
+        <value>对话时会检索相关片段，并作为角色不可见的上下文提供给模型。</value>
+    </data>
+    <data name="MemoryAttachAction" xml:space="preserve">
+        <value>挂载到角色</value>
+    </data>
+    <data name="MemoryLibraryEmptyTitle" xml:space="preserve">
+        <value>尚未选择记忆库</value>
+    </data>
+    <data name="MemoryLibraryEmptyHint" xml:space="preserve">
+        <value>从左侧选择一份记忆，或为当前角色新建记忆库。</value>
+    </data>
+    <data name="MemoryDeleteConfirm" xml:space="preserve">
+        <value>确定删除这份记忆库吗？它的来源与本地索引将不再可用。</value>
+    </data>
+    <data name="MemoryDescriptionFallback" xml:space="preserve">
+        <value>角色背景与长期上下文。</value>
+    </data>
+    <data name="MemoryLibrarySourceSummary" xml:space="preserve">
+        <value>{0} 条设定 · {1} 个文件</value>
+    </data>
+    <data name="MemoryIndexHasError" xml:space="preserve">
+        <value>索引需要处理</value>
+    </data>
+    <data name="MemoryCreateTitle" xml:space="preserve">
+        <value>创建角色记忆</value>
+    </data>
+    <data name="MemoryCreateHint" xml:space="preserve">
+        <value>为记忆库建立清晰身份，方便在相容角色之间复用。</value>
+    </data>
+    <data name="MemoryNameLabel" xml:space="preserve">
+        <value>记忆库名称</value>
+    </data>
+    <data name="MemoryNamePlaceholder" xml:space="preserve">
+        <value>例如：御坂美琴 · 学园都市时期</value>
+    </data>
+    <data name="MemoryNameHint" xml:space="preserve">
+        <value>使用在角色选择界面中容易识别的简短名称。</value>
+    </data>
+    <data name="MemoryDescriptionLabel" xml:space="preserve">
+        <value>用途说明</value>
+    </data>
+    <data name="MemoryDescriptionPlaceholder" xml:space="preserve">
+        <value>说明这份记忆覆盖的角色、关系、世界观或剧情阶段。</value>
+    </data>
+    <data name="MemoryIndexOverviewTitle" xml:space="preserve">
+        <value>索引状态</value>
+    </data>
+    <data name="MemoryIndexRoleHintTitle" xml:space="preserve">
+        <value>保持角色连续性</value>
+    </data>
+    <data name="MemoryIndexRoleHint" xml:space="preserve">
+        <value>尽量使用明确事实，并将身份、关系、事件和世界规则拆分为易读的来源。</value>
+    </data>
+    <data name="MemoryIndexSafeUpdateTitle" xml:space="preserve">
+        <value>安全更新</value>
+    </data>
+    <data name="MemoryIndexSafeUpdateHint" xml:space="preserve">
+        <value>新索引完整构建前，角色仍会继续使用上一次成功的索引。</value>
+    </data>
+    <data name="MemoryEditorFooterHint" xml:space="preserve">
+        <value>来源修改后，需要更新索引才能在对话中被检索。</value>
+    </data>
+    <data name="MemoryManualTextRoleHint" xml:space="preserve">
+        <value>编写角色事实、人物关系、重要事件、对话规则与世界设定。</value>
+    </data>
+    <data name="MemoryManualTextEmptyTitle" xml:space="preserve">
+        <value>还没有角色设定</value>
+    </data>
+    <data name="MemoryManualTextEmptyHint" xml:space="preserve">
+        <value>添加一条聚焦于身份、关系、经历或世界知识的设定。</value>
+    </data>
+    <data name="MemoryTextFilesRoleHint" xml:space="preserve">
+        <value>导入剧本、世界书、人物档案或其它可检测的纯文本参考资料。</value>
+    </data>
+    <data name="MemoryTextFilesEmptyTitle" xml:space="preserve">
+        <value>还没有参考文件</value>
+    </data>
+    <data name="MemoryTextFilesEmptyHint" xml:space="preserve">
+        <value>添加纯文本角色档案、剧情概要、台本或世界观资料。</value>
+    </data>
+    <data name="MemoryTextEditorRoleHint" xml:space="preserve">
+        <value>为角色整理一段聚焦、可长期检索的上下文。</value>
+    </data>
+    <data name="MemoryTextWritingGuideTitle" xml:space="preserve">
+        <value>设定编写建议</value>
+    </data>
+    <data name="MemoryTextWritingGuideHint" xml:space="preserve">
+        <value>清晰、事实化的设定通常比很长的对话式文字更容易被准确召回。</value>
+    </data>
+    <data name="MemoryTextGuideIdentity" xml:space="preserve">
+        <value>身份与个性</value>
+    </data>
+    <data name="MemoryTextGuideIdentityHint" xml:space="preserve">
+        <value>姓名、性格、习惯、能力与行为边界。</value>
+    </data>
+    <data name="MemoryTextGuideRelationship" xml:space="preserve">
+        <value>人物关系</value>
+    </data>
+    <data name="MemoryTextGuideRelationshipHint" xml:space="preserve">
+        <value>彼此如何称呼、信任、记忆与作出反应。</value>
+    </data>
+    <data name="MemoryTextGuideWorld" xml:space="preserve">
+        <value>世界与事件</value>
+    </data>
+    <data name="MemoryTextGuideWorldHint" xml:space="preserve">
+        <value>地点、时间线、规则、共同经历与尚未解决的事件。</value>
+    </data>
+    <data name="MemoryTextIndexHint" xml:space="preserve">
+        <value>保存后请返回记忆工作台更新索引。</value>
+    </data>
+    <data name="MemoryTextCharacterCount" xml:space="preserve">
+        <value>{0} 个字符</value>
+    </data>
+    <data name="MemoryTextSaveHint" xml:space="preserve">
+        <value>保存后，记忆索引会被标记为需要更新。</value>
+    </data>
+    <data name="MemoryNameInvalid" xml:space="preserve">
+        <value>名称中包含无法用于本地记忆文件的字符。</value>
+    </data>
+    <data name="MemoryIndexEmbeddingInputTooLarge" xml:space="preserve">
+        <value>某段内容在自动拆分后仍超过嵌入模型限制，请缩短该来源后重试。</value>
+    </data>
+    <data name="MemoryIndexPendingShort" xml:space="preserve">
+        <value>需要更新</value>
+    </data>
+    <data name="MemoryIndexNotBuiltShort" xml:space="preserve">
+        <value>尚未建立索引</value>
+    </data>
+    <data name="MemoryIndexPreparingShort" xml:space="preserve">
+        <value>正在准备索引...</value>
+    </data>
+    <data name="MemoryDescriptionSectionTitle" xml:space="preserve">
+        <value>记忆定位</value>
+    </data>
+    <data name="MemoryEditDescriptionAction" xml:space="preserve">
+        <value>编辑描述</value>
+    </data>
+    <data name="MemoryIndexCancelHint" xml:space="preserve">
+        <value>点击“停止更新”即可取消，上一版索引仍可继续使用。</value>
+    </data>
+    <data name="MemoryIndexUpdatingDetail" xml:space="preserve">
+        <value>正在构建新的可检索索引，现有对话仍可继续使用上一版本。</value>
+    </data>
+    <data name="MemoryIndexReadyDetail" xml:space="preserve">
+        <value>当前全部来源均已可供角色在对话中检索。</value>
+    </data>
+    <data name="MemoryIndexEmbeddingRequestFailed" xml:space="preserve">
+        <value>嵌入服务未能处理本次请求，请确认嵌入模型正在运行后重试更新索引。</value>
+    </data>
+    <data name="MemorySaveDescriptionAction" xml:space="preserve">
+        <value>保存描述</value>
+    </data>
+    <data name="MemoryDescriptionSaved" xml:space="preserve">
+        <value>记忆库描述已保存。</value>
+    </data>
+    <data name="MemoryIndexStorageFailed" xml:space="preserve">
+        <value>本地记忆索引写入失败，请结束正在使用该记忆库的其它操作后重试。</value>
+    </data>
+    <data name="MessageSuccessTitle" xml:space="preserve">
+        <value>成功</value>
+    </data>
+    <data name="NotificationClose" xml:space="preserve">
+        <value>关闭通知</value>
     </data>
 </root>

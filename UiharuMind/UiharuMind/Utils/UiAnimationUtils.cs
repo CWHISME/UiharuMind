@@ -26,7 +26,9 @@ namespace UiharuMind.Utils;
 public static class UiAnimationUtils
 {
     private const double HorizontalRevealHiddenOffset = -10;
+    private const double NotificationHiddenOffset = 16;
     private const int ControlTransitionMilliseconds = 120;
+    private const int NotificationTransitionMilliseconds = 180;
 
     private static Dictionary<Visual, CancellationTokenSource> _animationCts =
         new Dictionary<Visual, CancellationTokenSource>();
@@ -83,6 +85,12 @@ public static class UiAnimationUtils
         control.IsVisible = true;
         control.IsHitTestVisible = false;
         control.RenderTransform = new TranslateTransform(HorizontalRevealHiddenOffset, 0);
+    }
+
+    public static Task PlayNotificationTransitionAnimationAsync(Control? control, bool isShowed)
+    {
+        if (control == null) return Task.CompletedTask;
+        return PlayNotificationTransitionAnimationCoreAsync(control, isShowed);
     }
 
     /// <summary>
@@ -154,6 +162,66 @@ public static class UiAnimationUtils
             control.Opacity = targetOpacity;
             transform.X = targetX;
             onCompleted?.Invoke();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (_animationCts.TryGetValue(control, out var currentCts) && currentCts == cts)
+            {
+                _animationCts.Remove(control);
+            }
+        }
+    }
+
+    private static async Task PlayNotificationTransitionAnimationCoreAsync(Control control, bool isShowed)
+    {
+        if (_animationCts.TryGetValue(control, out var cts) && !cts.IsCancellationRequested) cts.Cancel();
+        cts = new CancellationTokenSource();
+        _animationCts[control] = cts;
+
+        var transform = control.RenderTransform as TranslateTransform;
+        if (transform == null)
+        {
+            transform = new TranslateTransform(isShowed ? NotificationHiddenOffset : 0, 0);
+            control.RenderTransform = transform;
+        }
+
+        if (isShowed)
+        {
+            control.Opacity = 0;
+            transform.X = NotificationHiddenOffset;
+        }
+
+        double startOpacity = control.Opacity;
+        double startX = transform.X;
+        double targetOpacity = isShowed ? 1 : 0;
+        double targetX = isShowed ? 0 : NotificationHiddenOffset;
+
+        try
+        {
+            var startTime = DateTime.UtcNow;
+            while (true)
+            {
+                cts.Token.ThrowIfCancellationRequested();
+
+                double elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                double progress = Math.Clamp(elapsed / NotificationTransitionMilliseconds, 0, 1);
+                // 通知动画只做轻微位移和淡入淡出，避免新增消息时影响已有卡片布局。
+                double eased = isShowed
+                    ? 1 - Math.Pow(1 - progress, 3)
+                    : progress * progress;
+
+                control.Opacity = Lerp(startOpacity, targetOpacity, eased);
+                transform.X = Lerp(startX, targetX, eased);
+
+                if (progress >= 1) break;
+                await Task.Delay(16, cts.Token);
+            }
+
+            control.Opacity = targetOpacity;
+            transform.X = targetX;
         }
         catch (OperationCanceledException)
         {

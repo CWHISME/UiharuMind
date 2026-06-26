@@ -31,3 +31,11 @@ public interface IDownloadable
     /// </summary>
     public string? DownloadDirectory { get; }
 }
+
+/// <summary>
+/// 下载包解压或安装后可能会变成目录，下载列表可通过该接口识别最终本地内容。
+/// </summary>
+public interface IInstalledDownloadable
+{
+    public string? InstalledPath { get; }
+}

@@ -145,6 +145,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     public DownloadableItemData(IDownloadable target, bool initDownloadSize = false)
     {
         _target = target;
+        DownloadFilePath = ResolveDownloadFilePath();
         if (initDownloadSize) InitFileSize();
     }
 
@@ -171,14 +172,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         DownloadProgress = 0;
         IsDownloaded = false;
 
-        if (!string.IsNullOrWhiteSpace(_target.DownloadFileName)) DownloadFilePath = _target.DownloadFileName;
-        else if (!string.IsNullOrWhiteSpace(_target.DownloadDirectory))
-            DownloadFilePath = Path.Combine(_target.DownloadDirectory, Path.GetFileName(_target.DownloadUrl));
-        else
-        {
-            //下载至缓存目录
-            DownloadFilePath = Path.Combine(Path.GetTempPath(), Path.GetFileName(_target.DownloadUrl));
-        }
+        DownloadFilePath = ResolveDownloadFilePath();
 
         IsDownloading = true;
         await _downloadService.DownloadFileTaskAsync(DownloadUrl, DownloadFilePath).ConfigureAwait(false);
@@ -261,10 +255,8 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     {
         if (IsDownloaded)
         {
-            TotalSizeInfo =
-                SimpleStringHelper.FormatBytes(
-                    await SimpleFileHelper.GetFileOrDirectorySizeAsync(_target.DownloadFileName ??
-                                                                       _target.DownloadDirectory));
+            long size = await SimpleFileHelper.GetFileOrDirectorySizeAsync(GetDownloadedSizePath());
+            TotalSizeInfo = size < 0 ? string.Empty : SimpleStringHelper.FormatBytes(size);
             return;
         }
 
@@ -298,6 +290,37 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
             ErrorMessage = e.Message;
             TotalSizeInfo = "Error";
         }
+    }
+
+    private string ResolveDownloadFilePath()
+    {
+        if (!string.IsNullOrWhiteSpace(_target.DownloadFileName)) return _target.DownloadFileName;
+        if (!string.IsNullOrWhiteSpace(_target.DownloadDirectory))
+        {
+            string fileName = Path.GetFileName(_target.DownloadUrl);
+            return string.IsNullOrWhiteSpace(fileName)
+                ? _target.DownloadDirectory
+                : Path.Combine(_target.DownloadDirectory, fileName);
+        }
+
+        // 下载至缓存目录
+        string cachedFileName = Path.GetFileName(_target.DownloadUrl);
+        return Path.Combine(Path.GetTempPath(),
+            string.IsNullOrWhiteSpace(cachedFileName) ? _target.Name : cachedFileName);
+    }
+
+    private string? GetDownloadedSizePath()
+    {
+        if (_target is IInstalledDownloadable installedDownloadable &&
+            !string.IsNullOrWhiteSpace(installedDownloadable.InstalledPath) &&
+            (File.Exists(installedDownloadable.InstalledPath) || Directory.Exists(installedDownloadable.InstalledPath)))
+        {
+            return installedDownloadable.InstalledPath;
+        }
+
+        if (File.Exists(DownloadFilePath) || Directory.Exists(DownloadFilePath)) return DownloadFilePath;
+        if (!string.IsNullOrWhiteSpace(_target.DownloadDirectory)) return _target.DownloadDirectory;
+        return _target.DownloadFileName;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

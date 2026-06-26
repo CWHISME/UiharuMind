@@ -5,12 +5,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Services;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.Windows.Characters;
 
 public partial class CharacterSelectWindow : Window
 {
+    private readonly IMessageService _messageService;
     public enum CharacterType
     {
         Tool,
@@ -69,6 +72,7 @@ public partial class CharacterSelectWindow : Window
 
     public CharacterSelectWindow()
     {
+        _messageService = App.Services.GetRequiredService<IMessageService>();
         InitializeComponent();
 
         _listViewData = new CharacterListViewData();
@@ -112,11 +116,11 @@ public partial class CharacterSelectWindow : Window
         }
     }
 
-    private void SureButton_Click(object? sender, RoutedEventArgs e)
+    private async void SureButton_Click(object? sender, RoutedEventArgs e)
     {
         if (CharacterListView.NormalListBox.SelectedItems == null)
         {
-            App.MessageService.ShowErrorMessageBox("请选择角色", this);
+            await _messageService.ShowErrorAsync("请选择角色");
             return;
         }
 

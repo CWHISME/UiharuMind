@@ -1,283 +1,464 @@
-/****************************************************************************
- * Copyright (c) 2024 CWHISME
- *
- * UiharuMind v0.0.1
- *
- * https://wangjiaying.top
- * https://github.com/CWHISME/UiharuMind
- *
- * Latest Update: 2024.10.07
- ****************************************************************************/
-
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Notifications;
+using Avalonia.Platform;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Utils;
-using UiharuMind.ViewModels.Pages;
-using UiharuMind.Views;
 using UiharuMind.Views.Common;
-using Ursa.Common;
+using UiharuMind.Views.Windows.Common;
 using Ursa.Controls;
-using Ursa.Controls.Options;
-using Notification = Avalonia.Controls.Notifications.Notification;
-using WindowNotificationManager = Avalonia.Controls.Notifications.WindowNotificationManager;
 
 namespace UiharuMind.Services;
 
-/// <summary>
-/// UI 信息弹出展示公共接口
-/// </summary>
-public partial class MessageService : ObservableObject
+public sealed class MessageService : IMessageService, IDisposable
 {
-    [ObservableProperty] private bool _isBusy;
-    private Window? _busyWindow;
+    private const int MaximumVisibleNotifications = 6;
+    private static readonly TimeSpan DefaultNotificationDuration = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ErrorNotificationDuration = TimeSpan.FromSeconds(8);
 
-    // private readonly DummyWindow _target;
-    private WindowNotificationManager? _notificationManager;
-    private WindowToastManager? _toastManager;
+    private readonly IApplicationWindowProvider _windowProvider;
+    private readonly object _dialogSync = new();
+    private readonly Queue<DialogRequest> _dialogQueue = [];
+    private readonly Queue<NotificationRequest> _notificationQueue = [];
+    private readonly ObservableCollection<ApplicationNotification> _notifications = [];
 
-    public WindowNotificationManager NotificationManager
+    private ApplicationNotificationWindow? _notificationWindow;
+    private bool _dialogPumpRunning;
+    private bool _disposed;
+
+    public MessageService(IApplicationWindowProvider windowProvider)
     {
-        get
+        _windowProvider = windowProvider;
+    }
+
+    public async Task ShowInfoAsync(
+        string message,
+        string? title = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+            MessageBoxIcon.Information, MessageBoxButton.OK, cancellationToken);
+    }
+
+    public async Task ShowWarningAsync(
+        string message,
+        string? title = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnqueueDialogAsync(message, title ?? Lang.MessageWarningTitle,
+            MessageBoxIcon.Warning, MessageBoxButton.OK, cancellationToken);
+    }
+
+    public async Task ShowErrorAsync(
+        string message,
+        string? title = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnqueueDialogAsync(message, title ?? Lang.MessageErrorTitle,
+            MessageBoxIcon.Error, MessageBoxButton.OK, cancellationToken);
+    }
+
+    public Task<bool> ConfirmAsync(
+        string message,
+        string? title = null,
+        CancellationToken cancellationToken = default)
+    {
+        return EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+            MessageBoxIcon.Question, MessageBoxButton.YesNo, cancellationToken);
+    }
+
+    public void ShowNotification(
+        string message,
+        string? title = null,
+        MessageSeverity severity = MessageSeverity.Information)
+    {
+        if (_disposed || string.IsNullOrWhiteSpace(message)) return;
+        Dispatcher.UIThread.Post(() => EnqueueNotification(
+            new NotificationRequest(title ?? GetDefaultTitle(severity), message, severity)));
+    }
+
+    private Task<bool> EnqueueDialogAsync(
+        string message,
+        string title,
+        MessageBoxIcon icon,
+        MessageBoxButton buttons,
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (cancellationToken.IsCancellationRequested)
+            return Task.FromCanceled<bool>(cancellationToken);
+
+        var request = new DialogRequest(message, title, icon, buttons, cancellationToken);
+        lock (_dialogSync)
         {
-            if (_notificationManager == null)
-                _notificationManager = new WindowNotificationManager(UIManager.GetWindow<MainWindow>())
-                    { MaxItems = 6 };
-            return _notificationManager;
-        }
-    }
-
-    public WindowToastManager ToastManager
-    {
-        get
-        {
-            if (_toastManager == null)
-                _toastManager = new WindowToastManager(UIManager.GetWindow<MainWindow>()) { MaxItems = 3 };
-            return _toastManager;
-        }
-    }
-
-    // public MessageService(DummyWindow target)
-    // {
-    //     _target = target;
-    // }
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    /// <param name="owner"></param>
-    /// <param name="message"></param>
-    public async void ShowMessageBox(string message, Window owner)
-    {
-        await ShowMessageBox(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK);
-    }
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    public async void ShowWarningMessageBox(string message, Window owner)
-    {
-        await ShowMessageBox(owner, message, Lang.MessageWarningTitle, MessageBoxIcon.Warning, MessageBoxButton.OK);
-    }
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    public async void ShowErrorMessageBox(string message, Window owner)
-    {
-        await ShowMessageBox(owner, message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK);
-    }
-
-    /// <summary>
-    /// 显示一个确认弹窗，可选择是、否
-    /// </summary>
-    /// <param name="owner"></param>
-    /// <param name="message"></param>
-    /// <returns></returns>
-    public async Task<MessageBoxResult> ShowConfirmMessageBox(string message, Window owner)
-    {
-        return await ShowMessageBox(owner, message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
-            MessageBoxButton.YesNo);
-    }
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    public async Task<MessageBoxResult> ShowMessageBox(Window owner, string message, string title, MessageBoxIcon icon,
-        MessageBoxButton button)
-    {
-        // Window? mainWindow = UIManager.GetWindow<MainWindow>();
-        // if (mainWindow?.IsVisible == false) mainWindow = _target;
-        // owner ??= UIManager.GetRootWindow();
-        if (IsBusy && _busyWindow?.IsActive == true && _busyWindow.IsVisible) return MessageBoxResult.None;
-        IsBusy = true;
-        MessageBoxResult result = MessageBoxResult.None;
-        try
-        {
-            _busyWindow = new MessageBoxWindow(button)
+            _dialogQueue.Enqueue(request);
+            if (!_dialogPumpRunning)
             {
-                Content = message,
-                Title = title,
-                MessageIcon = icon
-            };
-            _busyWindow.Topmost = true;
-            result = await _busyWindow.ShowDialog<MessageBoxResult>(owner);
-            //模态弹窗会闪，感觉是窗体渲染的问题，所以这里用非模态弹窗代替了
-            // await MessageBox.ShowOverlayAsync(message, "Error", icon: MessageBoxIcon.Error,button: MessageBoxButton.OK);
+                _dialogPumpRunning = true;
+                _ = ProcessDialogQueueAsync();
+            }
         }
-        catch
+
+        return request.Completion.Task;
+    }
+
+    private async Task ProcessDialogQueueAsync()
+    {
+        while (true)
         {
-            // ignored
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-
-        return result;
-    }
-
-    //===========================非模态弹窗===========================
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    /// <param name="message"></param>
-    /// <param name="callback"></param>
-    public void ShowMessageBox(string message, Action<MessageBoxResult> callback)
-    {
-        ShowMessageBox(message, Lang.MessageInfoTitle, MessageBoxIcon.Information, MessageBoxButton.OK, callback);
-    }
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    public void ShowErrorMessageBox(string message)
-    {
-        ShowMessageBox(message, Lang.MessageErrorTitle, MessageBoxIcon.Error, MessageBoxButton.OK, null);
-    }
-
-    /// <summary>
-    /// 显示弹窗提示
-    /// </summary>
-    public void ShowWarningMessageBox(string message)
-    {
-        ShowMessageBox(message, Lang.MessageWarningTitle, MessageBoxIcon.Warning, MessageBoxButton.OK, null);
-    }
-
-    /// <summary>
-    /// 显示一个确认弹窗，可选择是、否
-    /// </summary>
-    /// <param name="message"></param>
-    /// <param name="callback"></param>
-    /// <returns></returns>
-    public void ShowConfirmMessageBox(string message, Action callback)
-    {
-        ShowMessageBox(message, Lang.MessageInfoTitle, MessageBoxIcon.Question,
-            MessageBoxButton.YesNo, x =>
+            DialogRequest? request;
+            lock (_dialogSync)
             {
-                if (x == MessageBoxResult.Yes) callback();
+                if (_dialogQueue.Count == 0)
+                {
+                    _dialogPumpRunning = false;
+                    return;
+                }
+
+                request = _dialogQueue.Dequeue();
+            }
+
+            if (request.CancellationToken.IsCancellationRequested)
+            {
+                request.Completion.TrySetCanceled(request.CancellationToken);
+                continue;
+            }
+
+            try
+            {
+                bool result = await RunOnUiThreadAsync(() => ShowDialogCoreAsync(request));
+                request.Completion.TrySetResult(result);
+            }
+            catch (OperationCanceledException)
+            {
+                request.Completion.TrySetCanceled(request.CancellationToken);
+            }
+            catch (Exception exception)
+            {
+                Log.Error(exception);
+                request.Completion.TrySetException(exception);
+            }
+        }
+    }
+
+    private async Task<bool> ShowDialogCoreAsync(DialogRequest request)
+    {
+        var completion = new TaskCompletionSource<MessageBoxResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var window = new UiharuMessageBoxWindow(
+            request.Buttons, result => completion.TrySetResult(result))
+        {
+            Content = request.Message,
+            Title = request.Title,
+            MessageIcon = request.Icon,
+            Topmost = true
+        };
+
+        using CancellationTokenRegistration registration = request.CancellationToken.Register(() =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (window.IsVisible) window.Close();
             });
+        });
+
+        Window? owner = _windowProvider.GetActiveWindow();
+        if (owner is { IsVisible: true, WindowState: not WindowState.Minimized })
+        {
+            _ = window.ShowDialog(owner);
+        }
+        else
+        {
+            window.Opened += (_, _) => CenterWindow(window);
+            window.Show();
+        }
+
+        MessageBoxResult result = await completion.Task;
+        request.CancellationToken.ThrowIfCancellationRequested();
+        return result == MessageBoxResult.Yes || request.Buttons == MessageBoxButton.OK;
     }
 
-    public void ShowMessageBox(string message, string title, MessageBoxIcon icon, MessageBoxButton button,
-        Action<MessageBoxResult>? callback)
+    private void EnqueueNotification(NotificationRequest request)
     {
-        if (IsBusy && _busyWindow?.IsActive == true && _busyWindow.IsVisible)
+        EnsureNotificationWindow();
+        ApplicationNotification? existingNotification = FindVisibleNotification(request);
+        if (existingNotification != null)
         {
-            Log.Warning("MessageService is busy, can't show messagebox.");
+            existingNotification.Merge(GetNotificationDuration(request.Severity));
             return;
         }
 
-        IsBusy = true;
-        _busyWindow = new UiharuMessageBoxWindow(button, (x) =>
+        if (_notifications.Count >= MaximumVisibleNotifications)
         {
-            IsBusy = false;
-            callback?.Invoke(x);
-        })
-        {
-            Content = message,
-            Title = title,
-            MessageIcon = icon
-        };
-
-        var mainWindow = UIManager.GetFoucusWindow();
-        if (!mainWindow.IsActive || !mainWindow.IsVisible || mainWindow.WindowState == WindowState.Minimized)
-        {
-            _busyWindow.Show();
-            _busyWindow.SetScreenCenterPosition();
+            _notificationQueue.Enqueue(request);
+            return;
         }
-        else _busyWindow.ShowDialog(mainWindow);
 
-        _busyWindow.Topmost = true;
+        ShowNotificationCore(request);
     }
 
-    //==================================================================================================
-
-    /// <summary>
-    /// 显示一个滑出的页面
-    /// </summary>
-    /// <param name="page"></param>
-    /// <param name="position"></param>
-    /// <param name="buttons"></param>
-    /// <param name="canLightDismiss"></param>
-    /// <param name="isCloseButtonVisible"></param>
-    public async Task ShowPageDrawer(PageDataBase page, Position position = Position.Right,
-        DialogButton buttons = DialogButton.None, bool canLightDismiss = true, bool isCloseButtonVisible = true)
+    private void ShowNotificationCore(NotificationRequest request)
     {
-        var options = new DrawerOptions()
+        var notification = new ApplicationNotification(
+            request.Title,
+            request.Message,
+            request.Severity,
+            CloseNotification);
+        _notifications.Add(notification);
+        notification.Start(GetNotificationDuration(request.Severity));
+        _notificationWindow!.ShowOrReposition();
+    }
+
+    private ApplicationNotification? FindVisibleNotification(NotificationRequest request)
+    {
+        foreach (ApplicationNotification notification in _notifications)
         {
-            Position = position,
-            Buttons = buttons,
-            CanLightDismiss = canLightDismiss,
-            IsCloseButtonVisible = isCloseButtonVisible,
-            MinWidth = UIManager.GetWindow<MainWindow>()!.DesiredSize.Width * 0.66,
+            if (notification.IsClosing) continue;
+            if (notification.Severity == request.Severity &&
+                string.Equals(notification.Title, request.Title, StringComparison.Ordinal) &&
+                string.Equals(notification.Message, request.Message, StringComparison.Ordinal))
+            {
+                return notification;
+            }
+        }
+
+        return null;
+    }
+
+    private void CloseNotification(ApplicationNotification notification)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => CloseNotification(notification));
+            return;
+        }
+
+        if (notification.IsClosing) return;
+        notification.IsClosing = true;
+        _ = CloseNotificationAsync(notification);
+    }
+
+    private async Task CloseNotificationAsync(ApplicationNotification notification)
+    {
+        await (_notificationWindow?.PlayNotificationExitAsync(notification) ?? Task.CompletedTask);
+
+        notification.Dispose();
+        _notifications.Remove(notification);
+        if (_notificationQueue.Count > 0)
+        {
+            ShowNotificationCore(_notificationQueue.Dequeue());
+        }
+        else if (_notifications.Count == 0)
+        {
+            _notificationWindow?.Hide();
+        }
+        else
+        {
+            _notificationWindow?.ShowOrReposition();
+        }
+    }
+
+    private void EnsureNotificationWindow()
+    {
+        if (_notificationWindow != null) return;
+        _notificationWindow = new ApplicationNotificationWindow(_windowProvider)
+        {
+            DataContext = _notifications
         };
-        IsBusy = true;
+    }
+
+    private void CenterWindow(Window window)
+    {
+        Screen screen = _windowProvider.GetTargetScreen();
+        double scaling = screen.Scaling;
+        int width = (int)Math.Ceiling(window.Bounds.Width * scaling);
+        int height = (int)Math.Ceiling(window.Bounds.Height * scaling);
+        window.Position = new PixelPoint(
+            screen.WorkingArea.X + (screen.WorkingArea.Width - width) / 2,
+            screen.WorkingArea.Y + (screen.WorkingArea.Height - height) / 2);
+    }
+
+    private static Task<T> RunOnUiThreadAsync<T>(Func<Task<T>> action)
+    {
+        if (Dispatcher.UIThread.CheckAccess()) return action();
+
+        var completion = new TaskCompletionSource<T>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        Dispatcher.UIThread.Post(async () =>
+        {
+            try
+            {
+                completion.TrySetResult(await action());
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(exception);
+            }
+        });
+        return completion.Task;
+    }
+
+    private static string GetDefaultTitle(MessageSeverity severity) => severity switch
+    {
+        MessageSeverity.Success => GetText("MessageSuccessTitle"),
+        MessageSeverity.Warning => Lang.MessageWarningTitle,
+        MessageSeverity.Error => Lang.MessageErrorTitle,
+        _ => Lang.MessageInfoTitle
+    };
+
+    private static TimeSpan GetNotificationDuration(MessageSeverity severity) =>
+        severity == MessageSeverity.Error ? ErrorNotificationDuration : DefaultNotificationDuration;
+
+    private static string GetText(string key) =>
+        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (ApplicationNotification notification in _notifications)
+            notification.Dispose();
+        _notifications.Clear();
+        _notificationQueue.Clear();
+        _notificationWindow?.Close();
+        _notificationWindow = null;
+
+        lock (_dialogSync)
+        {
+            while (_dialogQueue.Count > 0)
+            {
+                DialogRequest request = _dialogQueue.Dequeue();
+                request.Completion.TrySetCanceled();
+            }
+        }
+    }
+
+    private sealed record NotificationRequest(
+        string Title,
+        string Message,
+        MessageSeverity Severity);
+
+    private sealed class DialogRequest
+    {
+        public string Message { get; }
+        public string Title { get; }
+        public MessageBoxIcon Icon { get; }
+        public MessageBoxButton Buttons { get; }
+        public CancellationToken CancellationToken { get; }
+        public TaskCompletionSource<bool> Completion { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public DialogRequest(
+            string message,
+            string title,
+            MessageBoxIcon icon,
+            MessageBoxButton buttons,
+            CancellationToken cancellationToken)
+        {
+            Message = message;
+            Title = title;
+            Icon = icon;
+            Buttons = buttons;
+            CancellationToken = cancellationToken;
+        }
+    }
+}
+
+public partial class ApplicationNotification : ObservableObject, IDisposable
+{
+    private readonly Action<ApplicationNotification> _close;
+    private CancellationTokenSource? _lifetime;
+
+    public string Title { get; }
+    public string Message { get; }
+    public MessageSeverity Severity { get; }
+    public string IconText { get; }
+    public string CloseText { get; }
+
+    [ObservableProperty] private bool _isPaused;
+    [ObservableProperty] private bool _isClosing;
+    [ObservableProperty] private bool _hasPlayedEntranceAnimation;
+    [ObservableProperty] private int _repeatCount = 1;
+
+    public bool HasRepeat => RepeatCount > 1;
+    public string RepeatCountText => RepeatCount > 1 ? $"x{RepeatCount}" : string.Empty;
+
+    public ApplicationNotification(
+        string title,
+        string message,
+        MessageSeverity severity,
+        Action<ApplicationNotification> close)
+    {
+        Title = title;
+        Message = message;
+        Severity = severity;
+        IconText = severity switch
+        {
+            MessageSeverity.Success => "✓",
+            MessageSeverity.Warning => "!",
+            MessageSeverity.Error => "×",
+            _ => "i"
+        };
+        _close = close;
+        CloseText = Lang.ResourceManager.GetString(
+            "NotificationClose", LocalizationManager.Instance.CurrentCulture) ?? "Close";
+    }
+
+    public void Start(TimeSpan duration)
+    {
+        _lifetime = new CancellationTokenSource();
+        _ = RunLifetimeAsync(duration, _lifetime.Token);
+    }
+
+    public void Merge(TimeSpan duration)
+    {
+        RepeatCount++;
+        OnPropertyChanged(nameof(HasRepeat));
+        OnPropertyChanged(nameof(RepeatCountText));
+        RestartLifetime(duration);
+    }
+
+    [RelayCommand]
+    private void Close() => _close(this);
+
+    private async Task RunLifetimeAsync(TimeSpan duration, CancellationToken cancellationToken)
+    {
+        TimeSpan remaining = duration;
+        TimeSpan interval = TimeSpan.FromMilliseconds(100);
         try
         {
-            if (page.View.Parent is ContentControl parent) parent.Content = null;
-            await OverlayDrawer.ShowCustomAsync<object?>(page.View, page, null, options);
+            while (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(interval, cancellationToken);
+                if (!IsPaused) remaining -= interval;
+            }
+
+            _close(this);
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // ignored
-        }
-        finally
-        {
-            IsBusy = false;
         }
     }
 
-    //==================================================================================================
-
-    /// <summary>
-    /// 显示从界面右上方弹出的提示条信息
-    /// </summary>
-    public void ShowNotification(string message)
+    private void RestartLifetime(TimeSpan duration)
     {
-        ShowNotification(Lang.MessageInfoTitle, message, NotificationType.Information);
+        _lifetime?.Cancel();
+        _lifetime?.Dispose();
+        _lifetime = new CancellationTokenSource();
+        _ = RunLifetimeAsync(duration, _lifetime.Token);
     }
 
-    /// <summary>
-    /// 显示从界面右上方弹出的提示条信息
-    /// </summary>
-    public void ShowNotification(string title, string message, NotificationType type)
+    public void Dispose()
     {
-        NotificationManager.Show(new Notification(title, message, type));
-    }
-
-    //==================================================================================================
-
-    /// <summary>
-    /// 显示从界面正上方弹出的提示条信息
-    /// </summary>
-    public void ShowToast(string message, NotificationType type = NotificationType.Information)
-    {
-        ToastManager.Show(message, type: type);
+        _lifetime?.Cancel();
+        _lifetime?.Dispose();
+        _lifetime = null;
     }
 }

@@ -16,6 +16,7 @@
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
 		<!--主题包-->
 		<PackageReference Include="Irihi.Ursa" Version="2.0.1" />
 
@@ -53,6 +54,12 @@
 	    <DesignTime>True</DesignTime>
 	    <AutoGen>True</AutoGen>
 	    <DependentUpon>zh-CN.resx</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Windows\Common\MemoryCreateWindow.axaml.cs">
+	    <DependentUpon>MemoryCreateWindow.axaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Windows\Common\ApplicationNotificationWindow.axaml.cs">
+	    <DependentUpon>ApplicationNotificationWindow.axaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
 </Project>

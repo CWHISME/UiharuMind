@@ -1,4 +1,3 @@
-using Microsoft.SemanticKernel;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;

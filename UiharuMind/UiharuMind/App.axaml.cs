@@ -17,6 +17,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
@@ -58,9 +59,17 @@ public partial class App : Application, ILogger, IDisposable
             Clipboard = new ClipboardService(DummyWindow);
             FilesService = new FilesService();
             ScreensService = new ScreensService(DummyWindow);
-            MessageService = new MessageService();
             ModelService = new ModelService();
             MemoryService = new MemoryService();
+
+            Services = new ServiceCollection()
+                .AddSingleton(ScreensService)
+                .AddSingleton<IApplicationWindowProvider, ApplicationWindowProvider>()
+                .AddSingleton<IMessageService, MessageService>()
+                .AddSingleton<ApplicationUpdateService>()
+                .AddSingleton<MainViewModel>()
+                .BuildServiceProvider();
+            DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());
 
             desktop.MainWindow = DummyWindow;
 
@@ -94,6 +103,8 @@ public partial class App : Application, ILogger, IDisposable
         DummyWindow.LaunchMainWindow();
 #endif
         DeliverTrayFunc();
+        if (Services != null)
+            _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
         Log.Debug("UiharuMind started.");
     }
 
@@ -104,13 +115,13 @@ public partial class App : Application, ILogger, IDisposable
     public static ScreensService ScreensService { get; private set; } = null!;
     public static ModelService ModelService { get; private set; } = null!;
     public static MemoryService MemoryService { get; private set; } = null!;
+    public static IServiceProvider Services { get; private set; } = null!;
     public static MainViewModel ViewModel => DummyWindow.MainViewModel!;
-    public static MessageService MessageService { get; private set; } = null!;
 
     /// <summary>
     /// 版本号
     /// </summary>
-    public static Version Version = new Version(0, 0, 9);
+    public static Version Version = new Version(0, 0, 1);
 
     public static void JumpToPage(MenuPages page)
     {
@@ -130,7 +141,13 @@ public partial class App : Application, ILogger, IDisposable
     public void Error(string rawStr, LogItem message)
     {
         Console.WriteLine(message);
-        Dispatcher.UIThread.Post(() => MessageService.ShowErrorMessageBox(rawStr));
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (Services?.GetService<IMessageService>() is { } messageService)
+                _ = messageService.ShowErrorAsync(rawStr);
+            else
+                Console.Error.WriteLine(rawStr);
+        });
     }
 
     private static void DeliverTrayFunc()
@@ -200,6 +217,7 @@ public partial class App : Application, ILogger, IDisposable
     {
         Log.CloseAndFlush();
         Clipboard.Dispose();
+        (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();
     }
 

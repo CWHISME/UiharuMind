@@ -1,5 +1,5 @@
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.Core.Chat;
 
 namespace UiharuMind.Core.AI.Character.Skills;
 
@@ -10,11 +10,8 @@ public class TranslationAgentSkill : AgentSkillConvertableBase
         CancellationToken cancellationToken = default)
     {
         // AddParams("content", text);
-        var translator = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
-
-        _chatHistory = new ChatHistory();
-        _chatHistory.AddMessage(AuthorRole.User, text);
-        return modelRunningData.InvokeAgentStreamingAsync(translator, _chatHistory, cancellationToken);
+        _chatHistory = [new ChatMessageData { Role = ECharacter.User, Content = text }];
+        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
     
     public override CharacterData GetCharacterData()

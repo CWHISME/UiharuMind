@@ -13,24 +13,26 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using Avalonia.Controls.Notifications;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Versions;
+using UiharuMind.Resources.Lang;
+using UiharuMind.Services;
 using UiharuMind.ViewModels.ViewData.Download;
 
 namespace UiharuMind.ViewModels.SettingViewData;
 
 public partial class RuntimeEngineSettingData : ObservableObject
 {
+    private readonly IMessageService _messageService;
     public ObservableCollection<VersionInfo?> AvailableVersions { get; set; } =
         new ObservableCollection<VersionInfo?>();
 
-    public RuntimeEngineDownloadListViewData RemoteDwnloadListViewModel { get; set; } =
-        new RuntimeEngineDownloadListViewData();
+    public DownloadListViewData RemoteDwnloadListViewModel { get; }
 
     //上一次本地版本列表，用于更新时差分删除
     private List<VersionInfo> _lastAvailableVersions = new List<VersionInfo>();
@@ -39,8 +41,20 @@ public partial class RuntimeEngineSettingData : ObservableObject
     [ObservableProperty] private bool _isCheckingForUpdate;
     [ObservableProperty] private string? _updatedResutInfo;
 
-    public RuntimeEngineSettingData()
+    public RuntimeEngineSettingData() : this(App.Services.GetRequiredService<IMessageService>())
     {
+    }
+
+    public RuntimeEngineSettingData(IMessageService messageService)
+    {
+        _messageService = messageService;
+        RemoteDwnloadListViewModel = new DownloadListViewData(messageService)
+        {
+            DeleteFilePathProvider = item => ((VersionInfo)item.Target).ExecutablePath,
+            LocalFileDirectoryPathProvider = item => ((VersionInfo)item.Target).ExecutablePath,
+            DownloadCompletedHandler = OnRuntimeEngineDownloadCompleted,
+            DeleteConfirmMessageProvider = () => Lang.ConfirmDeleteRuntimeEngine
+        };
         _ = InitializeAvailableVersions();
         RemoteDwnloadListViewModel.OnDownloadFileChange += () => _ = InitializeAvailableVersions();
     }
@@ -49,7 +63,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
     private async Task ReloadRuntimeEngineList()
     {
         await InitializeAvailableVersions();
-        App.MessageService.ShowNotification("Engine list updated.");
+        _messageService.ShowNotification("Engine list updated.");
     }
 
     [RelayCommand]
@@ -98,63 +112,6 @@ public partial class RuntimeEngineSettingData : ObservableObject
         SelectedVersion = LlmManager.Instance.RuntimeEngineManager.CurrentSeletedVersion;
     }
 
-    //
-    // [RelayCommand]
-    // private void DownloadVersion(DownloadableItemData version)
-    // {
-    //     // SimpleZipDownloader downloader1 = new SimpleZipDownloader();
-    //     // downloader1.DownloadProgressChanged += (totalRead, totalBytes) =>
-    //     // {
-    //     //     if (totalBytes != -1)
-    //     //     {
-    //     //         Log.Debug($"下载进度1: {totalRead}/{totalBytes} ({(double)totalRead / totalBytes:P})");
-    //     //     }
-    //     //     else
-    //     //     {
-    //     //         Log.Debug($"下载进度1: {totalRead} bytes");
-    //     //     }
-    //     // };
-    //     //
-    //     // downloader1.ExtractProgressChanged += (progress) => { Log.Debug($"解压进度1: {progress}"); };
-    //     //
-    //     // await downloader1.DownloadAndExtractAsync(version.DownloadUrl, version.ExecutablePath);
-    //     version.StartDownload(OnDownloadCompleted);
-    // }
-    //
-    // [RelayCommand]
-    // private async Task DeleteVersion(DownloadableItemData version)
-    // {
-    //     try
-    //     {
-    //         var result = await App.MessageService.ShowConfirmMessage(Lang.ConfirmDeleteRuntimeEngine);
-    //         if (result == MessageBoxResult.Yes)
-    //         {
-    //             var ver = (VersionInfo)version.Target;
-    //             Directory.Delete(ver.ExecutablePath, true);
-    //         }
-    //     }
-    //     catch (Exception e)
-    //     {
-    //         Log.Error(e.Message);
-    //     }
-    // }
-    //
-    // private async void OnDownloadCompleted(DownloadableItemData obj)
-    // {
-    //     //解压完成后，刷新版本列表
-    //     var version = (VersionInfo)obj.Target;
-    //     obj.IsDownloading = true;
-    //     obj.DownloadInfo = "[解压中...]" + obj.DownloadInfo;
-    //     await SimpleZipHelper.ExtractZipFile(obj.DownloadFilePath, version.ExecutablePath, true);
-    //     obj.IsDownloading = false;
-    //     InitializeAvailableVersions();
-    // }
-
-    // partial void OnSelectedIndexChanged(int oldValue, int newValue)
-    // {
-    //     
-    // }
-
     partial void OnSelectedVersionChanged(VersionInfo? oldValue, VersionInfo? newValue)
     {
         if (newValue == null)
@@ -164,5 +121,16 @@ public partial class RuntimeEngineSettingData : ObservableObject
         }
 
         if (oldValue != null) LlmManager.Instance.RuntimeEngineManager.SetSelectedVersion(newValue);
+    }
+
+    private static async Task OnRuntimeEngineDownloadCompleted(DownloadableItemData item)
+    {
+        // runtime engine 发布包是 zip，下载完成后解压到版本目录。
+        var version = (VersionInfo)item.Target;
+        item.IsDownloading = true;
+        item.DownloadInfo = Lang.Decompressing + item.DownloadInfo;
+        await SimpleZipHelper.ExtractZipFile(item.DownloadFilePath, version.ExecutablePath, true);
+        item.IsDownloading = false;
+        item.InitFileSize();
     }
 }

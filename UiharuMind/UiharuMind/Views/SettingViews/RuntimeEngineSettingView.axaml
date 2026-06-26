@@ -43,7 +43,11 @@
                 </StackPanel>
             </StackPanel>
 
-            <Border BorderThickness="1" BorderBrush="MediumPurple" Margin="10,0,0,10"
+            <Border BorderThickness="1"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    Background="{DynamicResource SemiGrey0}"
+                    CornerRadius="7"
+                    Margin="10,0,10,10"
                     IsVisible="{Binding UpdatedResutInfo,FallbackValue=True, TargetNullValue=False}">
                 <ScrollViewer MaxHeight="200">
                     <SelectableTextBlock Text="{Binding UpdatedResutInfo}" Margin="10"></SelectableTextBlock>

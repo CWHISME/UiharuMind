@@ -18,14 +18,12 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memery;
@@ -45,6 +43,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// </summary>
 public partial class ChatSessionViewData : ObservableObject
 {
+    private readonly IMessageService _messageService;
     public readonly ChatSession ChatSession;
 
     [ObservableProperty] private string _name;
@@ -56,13 +55,8 @@ public partial class ChatSessionViewData : ObservableObject
 
     [ObservableProperty] private MemoryData? _memoryData;
 
-    [ObservableProperty] private string? _memoryFileTips;
-    [ObservableProperty] private ISolidColorBrush? _memoryFileBrush;
-    [ObservableProperty] private string? _memoryUrlTips;
-    [ObservableProperty] private ISolidColorBrush? _memoryUrlBrush;
     [ObservableProperty] private string? _memoryIndexTips;
-    [ObservableProperty] private ISolidColorBrush? _memoryIndexBrush;
-    [ObservableProperty] private bool _isMemoryIndexUpdating;
+    [ObservableProperty] private string _memoryStatusKey = "None";
 
     // public ECharacter Character => _chatSession.CharaterId == 0 ? ECharacter.User : ECharacter.Assistant;
     // //如果是当天，返回具体时间，否则返回日期
@@ -95,7 +89,13 @@ public partial class ChatSessionViewData : ObservableObject
     }
 
     public ChatSessionViewData(ChatSession chatSession)
+        : this(chatSession, App.Services.GetRequiredService<IMessageService>())
     {
+    }
+
+    public ChatSessionViewData(ChatSession chatSession, IMessageService messageService)
+    {
+        _messageService = messageService;
         ChatSession = chatSession;
         Description = ChatSession.Description;
         Name = ChatSession.Name;
@@ -106,7 +106,7 @@ public partial class ChatSessionViewData : ObservableObject
         RefreshMemoryInfo();
     }
 
-    public async Task AddMessageWithGenerate(AuthorRole role, string message, CancellationToken token)
+    public async Task AddMessageWithGenerate(ECharacter role, string message, CancellationToken token)
     {
         // _chatSession.AddMessage(role, message);
         // //添加用户消息
@@ -116,7 +116,7 @@ public partial class ChatSessionViewData : ObservableObject
         // if (role != AuthorRole.User) return;
         //生成AI回复
         // _chatSession.GenerateCompletion(OnStartGenerate,OnStepGenerated,OnCompletionGenerated,new CancellationToken());
-        if (role != AuthorRole.User) return;
+        if (role != ECharacter.User) return;
         await GenerateMessage(token);
     }
 
@@ -154,7 +154,7 @@ public partial class ChatSessionViewData : ObservableObject
         // && string.IsNullOrEmpty(ChatItems[^1].CachedContent?.Content))
         // {
         //与逻辑层一致，没问题，添加占位，先添加表现层的空消息
-        CurrentChatItem = AddMessage(ChatSession.CreateMessage(AuthorRole.Assistant, ""));
+        CurrentChatItem = AddMessage(ChatSession.CreateMessage(ECharacter.Assistant, ""));
         // }
 
         // //检测当前最后一条是否合法
@@ -223,6 +223,20 @@ public partial class ChatSessionViewData : ObservableObject
             Log.Error(e.Message);
         }
 
+        if (CurrentChatItem != null)
+        {
+            if (ChatSession.Count == ChatItems.Count &&
+                ChatSession[^1].Character == ECharacter.Assistant)
+            {
+                CurrentChatItem.SetChatItem(ChatSession[^1]);
+            }
+            else if (string.IsNullOrEmpty(CurrentChatItem.Message))
+            {
+                ChatItems.Remove(CurrentChatItem);
+            }
+
+            CurrentChatItem.IsDone = true;
+        }
 
         // if (ChatItems.Count == _chatSession.Count && CurrentChatItem != null)
         //     CurrentChatItem.SetChatItem(_chatSession[^1]);
@@ -233,15 +247,12 @@ public partial class ChatSessionViewData : ObservableObject
 
     [RelayCommand]
     //清除所有历史记录
-    public void ClearChatHistory()
+    public async Task ClearChatHistory()
     {
-        App.MessageService.ShowConfirmMessageBox(Lang.ClearTips,
-            () =>
-            {
-                ChatSession.Clear();
-                ChatItems.Clear();
-                TimeString = "";
-            });
+        if (!await _messageService.ConfirmAsync(Lang.ClearTips)) return;
+        ChatSession.Clear();
+        ChatItems.Clear();
+        TimeString = "";
     }
 
     [RelayCommand]
@@ -281,7 +292,6 @@ public partial class ChatSessionViewData : ObservableObject
         {
             int lastIndex = branchSession.Count - 1;
             branchSession.History.RemoveAt(lastIndex);
-            branchSession.TimeStamps.RemoveAt(lastIndex);
         }
 
         ChatManager.Instance.Add(branchSession);
@@ -289,26 +299,23 @@ public partial class ChatSessionViewData : ObservableObject
 
     [RelayCommand]
     //删除整个对话
-    public void Delete()
+    public async Task Delete()
     {
-        App.MessageService.ShowConfirmMessageBox(Lang.DeleteAllClipboardHistoryTips,
-            () => { ChatManager.Instance.Delete(ChatSession); });
+        if (await _messageService.ConfirmAsync(Lang.DeleteAllClipboardHistoryTips))
+            ChatManager.Instance.Delete(ChatSession);
     }
 
     /// <summary>
     /// 删除指定消息
     /// </summary>
     /// <param name="itemData"></param>
-    public void DeleteChatItem(ChatViewItemData itemData)
+    public async void DeleteChatItem(ChatViewItemData itemData)
     {
-        App.MessageService.ShowConfirmMessageBox(Lang.DeleteTips,
-            () =>
-            {
-                int index = ChatItems.IndexOf(itemData);
-                if (index < 0) return;
-                ChatItems.RemoveAt(index);
-                ChatSession.RemoveMessageAt(index);
-            });
+        if (!await _messageService.ConfirmAsync(Lang.DeleteTips)) return;
+        int index = ChatItems.IndexOf(itemData);
+        if (index < 0) return;
+        ChatItems.RemoveAt(index);
+        ChatSession.RemoveMessageAt(index);
     }
 
     public void ModifySessionName(string newName)
@@ -321,7 +328,7 @@ public partial class ChatSessionViewData : ObservableObject
     //     Description = ChatManager.Instance.ModifySessionDescription(ChatSession, newName);
     // }
 
-    public ChatViewItemData AddMessage(AuthorRole role, string message, byte[]? imageBytes = null)
+    public ChatViewItemData AddMessage(ECharacter role, string message, byte[]? imageBytes = null)
     {
         ChatSession.AddMessage(role, message, imageBytes);
         return AddMessage(ChatSession[^1]);
@@ -334,201 +341,6 @@ public partial class ChatSessionViewData : ObservableObject
     {
         UIManager.ShowMemorySelectWindow(UIManager.GetFoucusWindow(), x => { MemoryData = x; },
             MemoryData);
-    }
-
-    [RelayCommand]
-    private void MemoryUpdateFile()
-    {
-        // if (ChatSession == null)
-        // {
-        //     App.MessageService.ShowWarningMessageBox("Please select a chat session first!");
-        //     return;
-        // }
-        //
-        // var memory = ChatSession.ChatSession.Memery;
-        // if (memory == null)
-        // {
-        //     App.MessageService.ShowConfirmMessageBox(
-        //         Lang.ChatSessionMemoryFileUploadTips, async void () =>
-        //         {
-        //             try
-        //             {
-        //                 var memoryName = await UIManager.ShowStringEditWindow("NewMemory");
-        //                 if (string.IsNullOrEmpty(memoryName))
-        //                 {
-        //                     return;
-        //                 }
-        //
-        //                 var item = MemoryManager.Instance.AddNewItem(memoryName);
-        //                 ChatSession.MemoryData = item;
-        //                 await DoSelectUploadFiles(item);
-        //             }
-        //             catch (Exception e)
-        //             {
-        //                 Log.Error(e.Message);
-        //             }
-        //         });
-        //     return;
-        // }
-
-        DoCheckMemoryBeforeUpload(x => { _ = DoSelectUploadFiles(x); });
-    }
-
-    [RelayCommand]
-    private void MemoryUpdateUrl()
-    {
-        DoCheckMemoryBeforeUpload(DoSelectUploadUrl);
-        // await DoSelectUploadFiles(memory);
-    }
-
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task MemoryUpdateIndex()
-    {
-        var memory = MemoryData;
-        if (memory == null)
-        {
-            App.MessageService.ShowWarningMessageBox(Lang.NoMemory);
-            return;
-        }
-
-        if (IsMemoryIndexUpdating) return;
-        IsMemoryIndexUpdating = true;
-        RefreshMemoryIndexTips();
-        try
-        {
-            var success = await memory.UpdateIndexAsync();
-            if (success)
-                App.MessageService.ShowNotification(Lang.MemoryIndexUpdateSuccess);
-            else
-                App.MessageService.ShowWarningMessageBox(BuildMemoryIndexFailureMessage(memory.LastIndexError));
-        }
-        finally
-        {
-            IsMemoryIndexUpdating = false;
-            RefreshMemoryInfo();
-        }
-    }
-
-    private void DoCheckMemoryBeforeUpload(Action<MemoryData> callback)
-    {
-        var memory = MemoryData;
-        if (memory == null)
-        {
-            App.MessageService.ShowConfirmMessageBox(
-                Lang.ChatSessionMemoryFileUploadTips, async void () =>
-                {
-                    try
-                    {
-                        var memoryName = await UIManager.ShowStringEditWindow(Name + "_Memory");
-                        if (string.IsNullOrEmpty(memoryName))
-                        {
-                            return;
-                        }
-
-                        var item = MemoryManager.Instance.AddNewItem(memoryName);
-                        MemoryData = item;
-                        callback(item);
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error(e.Message);
-                    }
-                });
-            return;
-        }
-
-        callback(memory);
-    }
-
-    private async Task DoSelectUploadFiles(MemoryData item)
-    {
-        var files = await App.FilesService.SelectFileAsync();
-        if (files.Count > 0)
-        {
-            foreach (var file in files)
-            {
-                var localPath = file.TryGetLocalPath();
-                if (string.IsNullOrEmpty(localPath)) continue;
-                if (!item.FilePaths.Contains(localPath)) item.FilePaths.Add(localPath);
-            }
-
-            item.Save();
-        }
-
-        RefreshMemoryInfo();
-    }
-
-    private void RefreshMemoryFileTips()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.AppendLine(Lang.ChatSessionMemoryFileUploadInfo);
-        if (MemoryData != null)
-        {
-            if (MemoryData.FilePaths.Count == 0)
-            {
-                sb.Append(Lang.NoMemory);
-            }
-            else
-            {
-                var length = MemoryData.FilePaths.Count;
-                for (int i = 0; i < length; i++)
-                {
-                    var path = MemoryData.FilePaths[i];
-                    if (i == length - 1)
-                        sb.Append(path);
-                    else sb.AppendLine(path);
-                }
-            }
-        }
-        else sb.Append(Lang.NoMemory);
-
-        MemoryFileTips = sb.ToString();
-        MemoryFileBrush = MemoryData?.FilePaths.Count > 0 ? Brushes.Gold : Brushes.Gray;
-    }
-
-    private async void DoSelectUploadUrl(MemoryData item)
-    {
-        try
-        {
-            // UIManager.ShowMemoryEditorWindow(UIManager.GetFoucusWindow(), item, RefreshMemoryUrlTips);
-            string value = string.Join(Environment.NewLine, item.UrlPaths);
-            var result = await UIManager.ShowStringEditWindow(value);
-            if (result == null) return;
-            item.UrlPaths = result.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries).ToList();
-            item.Save();
-            RefreshMemoryInfo();
-        }
-        catch (Exception e)
-        {
-            Log.Error(e.Message);
-        }
-    }
-
-    private void RefreshMemoryUrlTips()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.AppendLine(Lang.ChatSessionMemoryUrlUploadInfo);
-        if (MemoryData != null)
-        {
-            if (MemoryData.UrlPaths.Count == 0)
-            {
-                sb.Append(Lang.NoMemory);
-            }
-            else
-            {
-                for (int i = 0; i < MemoryData.UrlPaths.Count; i++)
-                {
-                    var path = MemoryData.UrlPaths[i];
-                    if (i == MemoryData.UrlPaths.Count - 1)
-                        sb.Append(path);
-                    else sb.AppendLine(path);
-                }
-            }
-        }
-        else sb.Append(Lang.NoMemory);
-
-        MemoryUrlTips = sb.ToString();
-        MemoryUrlBrush = MemoryData?.UrlPaths.Count > 0 ? Brushes.Gold : Brushes.Gray;
     }
 
     //============================================================
@@ -599,17 +411,22 @@ public partial class ChatSessionViewData : ObservableObject
         return ChatSession.LastTime.ToString("yyyy/MM/dd");
     }
 
-    partial void OnMemoryDataChanged(MemoryData? value)
+    partial void OnMemoryDataChanged(MemoryData? oldValue, MemoryData? newValue)
     {
-        ChatSession.Memery = value;
+        if (oldValue != null) oldValue.StateChanged -= OnMemoryStateChanged;
+        if (newValue != null) newValue.StateChanged += OnMemoryStateChanged;
+        ChatSession.Memery = newValue;
         RefreshMemoryInfo();
+    }
+
+    private void OnMemoryStateChanged()
+    {
+        Dispatcher.UIThread.Post(RefreshMemoryInfo);
     }
 
     private void RefreshMemoryInfo()
     {
         RefreshMemoryName();
-        RefreshMemoryFileTips();
-        RefreshMemoryUrlTips();
         RefreshMemoryIndexTips();
     }
 
@@ -624,7 +441,7 @@ public partial class ChatSessionViewData : ObservableObject
         if (memory == null)
         {
             MemoryIndexTips = Lang.NoMemory;
-            MemoryIndexBrush = Brushes.Gray;
+            MemoryStatusKey = "None";
             return;
         }
 
@@ -636,24 +453,15 @@ public partial class ChatSessionViewData : ObservableObject
             sb.AppendLine(Lang.MemoryIndexLastError + GetMemoryIndexErrorText(memory.LastIndexError));
 
         MemoryIndexTips = sb.ToString();
-        MemoryIndexBrush = IsMemoryIndexUpdating ? Brushes.DeepSkyBlue :
-            memory.IndexDirty ? Brushes.Orange :
-            !string.IsNullOrEmpty(memory.LastIndexError) ? Brushes.OrangeRed :
-            memory.LastIndexedAt != null ? Brushes.Gold : Brushes.Gray;
+        MemoryStatusKey = !string.IsNullOrEmpty(memory.LastIndexError) ? "Error" :
+            memory.IndexDirty || memory.LastIndexedAt == null ? "Dirty" : "Ready";
     }
 
     private string GetMemoryIndexStateText(MemoryData memory)
     {
-        if (IsMemoryIndexUpdating) return Lang.MemoryIndexUpdating;
         if (memory.IndexDirty) return Lang.MemoryIndexNeedUpdate;
         if (memory.LastIndexedAt == null) return Lang.MemoryIndexNotBuilt;
         return Lang.MemoryIndexReady;
-    }
-
-    private static string BuildMemoryIndexFailureMessage(string error)
-    {
-        if (string.IsNullOrEmpty(error)) return Lang.MemoryIndexUpdateFailed;
-        return Lang.MemoryIndexUpdateFailed + Environment.NewLine + GetMemoryIndexErrorText(error);
     }
 
     private static string GetMemoryIndexErrorText(string error)
@@ -665,7 +473,13 @@ public partial class ChatSessionViewData : ObservableObject
             "Memory name not set" => Lang.MemoryIndexMemoryNameMissing,
             "Memory vector store unavailable" => Lang.MemoryIndexVectorStoreUnavailable,
             "Memory index update failed" => Lang.MemoryIndexUpdateFailed,
+            "Memory source validation failed" => GetLocalizedText("MemorySourceValidationFailed"),
+            "Memory vector dimension mismatch" => GetLocalizedText("MemoryIndexDimensionMismatch"),
+            "Embedding input is too large" => GetLocalizedText("MemoryIndexEmbeddingInputTooLarge"),
             _ => error
         };
     }
+
+    private static string GetLocalizedText(string key) =>
+        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }

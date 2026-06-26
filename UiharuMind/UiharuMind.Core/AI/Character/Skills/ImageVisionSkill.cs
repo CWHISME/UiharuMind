@@ -1,5 +1,3 @@
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
 

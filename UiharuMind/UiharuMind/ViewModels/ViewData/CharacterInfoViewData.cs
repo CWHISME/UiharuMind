@@ -8,12 +8,14 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.Views;
 using UiharuMind.Views.Windows.Characters;
@@ -23,6 +25,7 @@ namespace UiharuMind.ViewModels.ViewData;
 
 public partial class CharacterInfoViewData : ObservableObject
 {
+    private readonly IMessageService _messageService;
     public ObservableCollection<string> MountCharacters { get; }
 
     public bool IsDefault => _characterData.IsDefaultCharacter;
@@ -218,7 +221,13 @@ public partial class CharacterInfoViewData : ObservableObject
     }
 
     public CharacterInfoViewData(CharacterData characterData)
+        : this(characterData, App.Services.GetRequiredService<IMessageService>())
     {
+    }
+
+    public CharacterInfoViewData(CharacterData characterData, IMessageService messageService)
+    {
+        _messageService = messageService;
         _characterData = characterData;
         Name = characterData.CharacterName;
         Description = characterData.Description;
@@ -230,17 +239,18 @@ public partial class CharacterInfoViewData : ObservableObject
         };
     }
 
-    public void TryAddToNewCharacterData(Action? onSuccess = null)
+    public async void TryAddToNewCharacterData(Action? onSuccess = null)
     {
         ParamsSaveValidReplacer();
         if (!CharacterManager.Instance.TryAddNewCharacterData(_characterData))
         {
-            App.MessageService.ShowConfirmMessageBox(Lang.AddDuplicateCharacterTips,
-                () => { UIManager.ShowEditCharacterWindow(this, x => TryAddToNewCharacterData(onSuccess)); });
+            if (await _messageService.ConfirmAsync(Lang.AddDuplicateCharacterTips))
+                UIManager.ShowEditCharacterWindow(this, x => TryAddToNewCharacterData(onSuccess));
         }
         else
         {
-            App.MessageService.ShowNotification(Lang.AddCharacterSuccessTips);
+            _messageService.ShowNotification(
+                Lang.AddCharacterSuccessTips, severity: MessageSeverity.Success);
             onSuccess?.Invoke();
         }
     }
@@ -249,7 +259,7 @@ public partial class CharacterInfoViewData : ObservableObject
     {
         if (string.IsNullOrEmpty(_characterData.CharacterName))
         {
-            App.MessageService.ShowErrorMessageBox(Lang.CharacterEmptyNameTips);
+            _ = _messageService.ShowErrorAsync(Lang.CharacterEmptyNameTips);
             return false;
         }
 
@@ -293,17 +303,19 @@ public partial class CharacterInfoViewData : ObservableObject
     }
 
     [RelayCommand]
-    public void DeleteCharacter()
+    public async Task DeleteCharacter()
     {
-        App.MessageService.ShowConfirmMessageBox(
-            string.Format(Lang.CharacterDeleteTips, _characterData.CharacterName), () => { _characterData.Delete(); });
+        if (await _messageService.ConfirmAsync(
+                string.Format(Lang.CharacterDeleteTips, _characterData.CharacterName)))
+            _characterData.Delete();
     }
 
     [RelayCommand]
-    public void CopyCharacter()
+    public async Task CopyCharacter()
     {
-        App.MessageService.ShowConfirmMessageBox(
-            string.Format(Lang.CharacterCopyTips, _characterData.CharacterName), () => { _characterData.Copy(); });
+        if (await _messageService.ConfirmAsync(
+                string.Format(Lang.CharacterCopyTips, _characterData.CharacterName)))
+            _characterData.Copy();
     }
 
     [RelayCommand]

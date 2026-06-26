@@ -19,8 +19,6 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character.Skills;

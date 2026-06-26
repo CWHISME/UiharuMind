@@ -9,7 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using Microsoft.SemanticKernel;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
@@ -152,7 +152,7 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     }
 
     public async Task Run(ILlmModel model, Action<float>? onLoading = null,
-        Action<Kernel>? onLoadOver = null, CancellationToken token = default)
+        Action<IChatClient>? onLoadOver = null, CancellationToken token = default)
     {
         if (CurrentSeletedVersion == null)
         {
@@ -182,7 +182,7 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
         LLamaCppServer.TryEnsureEmbededServer(CurrentSeletedVersion, onLoadOver);
     }
 
-    // private async void StartEmbededServer(Action<Kernel>? onLoadOver = null)
+    // private async void StartEmbededServer(Action<IChatClient>? onLoadOver = null)
     // {
     //     if (CurrentSeletedVersion == null)
     //     {

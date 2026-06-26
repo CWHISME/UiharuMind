@@ -11,14 +11,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using SharpHook.Data;
 using UiharuMind.Core.Input;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Services;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
@@ -30,7 +33,7 @@ namespace UiharuMind.Views;
 public class DummyWindow : Window
 {
     // public MainWindow? MainWindow { get; private set; }
-    public MainViewModel? MainViewModel { get; private set; } = new MainViewModel(); //=> (MainViewModel)MainWindow!.DataContext!;
+    public MainViewModel? MainViewModel { get; private set; }
 
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
@@ -70,6 +73,11 @@ public class DummyWindow : Window
         // this.Deactivated += OnDeactivated;
     }
 
+    public void InitializeMainViewModel(MainViewModel viewModel)
+    {
+        MainViewModel = viewModel;
+    }
+
     // protected override void OnGotFocus(GotFocusEventArgs e)
     // {
     //     base.OnGotFocus(e);
@@ -94,10 +102,12 @@ public class DummyWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            App.MessageService.ShowMessageBox(
+            _ = App.Services.GetRequiredService<IMessageService>().ShowWarningAsync(
                 "Failed to bind system shortcut keys. If you are using a Mac, please ensure you have the required permissions and follow the instructions provided, then try again!\n\nNote:Please be aware that if the permission list is already in place but is not functioning correctly, you should first remove the permissions and then re-add them.",
-                "UiharuMind: Ops!", MessageBoxIcon.Warning,
-                MessageBoxButton.OK, (x) => { InputManager.Instance.Start(OnQuickKeyInitFailure); });
+                "UiharuMind: Ops!").ContinueWith(_ =>
+                {
+                    InputManager.Instance.Start(OnQuickKeyInitFailure);
+                }, TaskScheduler.FromCurrentSynchronizationContext());
         });
     }
 

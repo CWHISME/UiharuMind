@@ -10,13 +10,12 @@
  ****************************************************************************/
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -40,8 +39,8 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     [ObservableProperty] private string? _timestamp;
     [ObservableProperty] private bool _isDone = true;
 
-    private ChatMessageContent? _cachedContent;
-    public ChatMessageContent? CachedContent => _cachedContent;
+    private ChatMessageData? _cachedContent;
+    public ChatMessageData? CachedContent => _cachedContent;
 
     public string SenderIcon => "None";
 
@@ -56,9 +55,7 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     {
         get
         {
-#pragma warning disable SKEXP0001
             if (!string.IsNullOrEmpty(_cachedContent?.AuthorName)) return _cachedContent.AuthorName;
-#pragma warning restore SKEXP0001
             if (Role == ECharacter.System) return "System";
             if (Role == ECharacter.User) return "User";
             if (Role == ECharacter.Assistant) return "Assistant";
@@ -87,14 +84,14 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     {
         Role = item.Character;
         // IsUser = item.Character == ECharacter.User;
-        Message = item.Message?.Content;
+        Message = item.Message.Content;
         Timestamp = item.LocalTimeString;
         _cachedContent = item.Message;
-        if (item.Message?.Items.Count > 0 && item.Message.Items[0] is ImageContent imageContent &&
-            imageContent.DataUri != null)
+        if (item.Message.HasImage)
         {
             IsImageContent = true;
-            MessageImage = UiUtils.Base64ToBitmap(imageContent.DataUri);
+            using MemoryStream stream = new(item.Message.ImageBytes!);
+            MessageImage = new Bitmap(stream);
             if (MessageImage == null)
             {
                 IsImageContent = false;
@@ -148,7 +145,7 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     partial void OnMessageChanged(string? value)
     {
         if (_cachedContent == null) return;
-        _cachedContent.Content = value;
+        _cachedContent.Content = value ?? "";
     }
 
     partial void OnRoleChanged(ECharacter value)

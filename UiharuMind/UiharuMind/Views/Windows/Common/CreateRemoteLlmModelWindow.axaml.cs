@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.Configs.RemoteAI;
@@ -21,6 +22,7 @@ namespace UiharuMind.Views.Windows.Common;
 
 public partial class CreateRemoteLlmModelWindow : Window
 {
+    private readonly IMessageService _messageService;
     public static async Task<RemoteModelInfo?> ShowWindow(Window owner, RemoteModelInfo? remoteModelInfo = null)
     {
         var window = new CreateRemoteLlmModelWindow
@@ -32,29 +34,30 @@ public partial class CreateRemoteLlmModelWindow : Window
 
     public CreateRemoteLlmModelWindow()
     {
+        _messageService = App.Services.GetRequiredService<IMessageService>();
         InitializeComponent();
         SizeToContent = SizeToContent.Height;
     }
 
-    private void Button_OnClick(object? sender, RoutedEventArgs e)
+    private async void Button_OnClick(object? sender, RoutedEventArgs e)
     {
         var cfg = (DataContext as CreateRemoteLlmModelWindowViewModel)?.RemoteModelInfo;
         if (cfg == null) return;
         if (string.IsNullOrEmpty(cfg.ModelName))
         {
-            App.MessageService.ShowMessageBox(Lang.NotInputModelNameTips, this);
+            await _messageService.ShowInfoAsync(Lang.NotInputModelNameTips);
             return;
         }
 
         // if (LlmManager.Instance.CacheModelDictionary.ContainsKey(cfg.ModelName))
         // {
-        //     App.MessageService.ShowMessageBox(Lang.RepeatModelNameTips, this);
+        //     await _messageService.ShowInfoAsync(Lang.RepeatModelNameTips);
         //     return;
         // }
 
         if (string.IsNullOrEmpty(cfg.ApiKey))
         {
-            App.MessageService.ShowMessageBox(Lang.NotInputModelApiKey, this);
+            await _messageService.ShowInfoAsync(Lang.NotInputModelApiKey);
             return;
         }
 

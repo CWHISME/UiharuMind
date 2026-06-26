@@ -1,4 +1,3 @@
-using Microsoft.SemanticKernel.ChatCompletion;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Utils;
@@ -24,11 +23,11 @@ public class NormalAgentSkill : AgentSkillConvertableBase
         CancellationToken cancellationToken = default)
     {
         // AddParams("content", text);
-        var agent = GetCharacterData().ToAgent(modelRunningData.Kernel, args);
-
-        _chatHistory = new ChatHistory();
-        _chatHistory.AddMessage(AuthorRole.User, text);
-        return modelRunningData.InvokeAgentStreamingAsync(agent, _chatHistory, cancellationToken);
+        _chatHistory =
+        [
+            new ChatMessageData { Role = ECharacter.User, Content = text }
+        ];
+        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
         // JsonNode.Parse(ModelReaderWriter.Write(content.InnerContent!))["choices"]![0]!["delta"]!["reasoning_content"]
         // return modelRunningData.InvokeQuickToolPromptStreamingAsync("你好", "你是一只猫");
     }

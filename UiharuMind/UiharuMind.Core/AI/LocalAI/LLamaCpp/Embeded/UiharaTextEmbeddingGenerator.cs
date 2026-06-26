@@ -39,13 +39,19 @@ public class UiharaTextEmbeddingGenerator
         var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
         // 发送 POST 请求
-        var response = await _httpClient.PostAsync("/embedding", content, cancellationToken);
+        using HttpResponseMessage response =
+            await _httpClient.PostAsync("/embedding", content, cancellationToken).ConfigureAwait(false);
+        string responseJson =
+            await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            if (IsInputTooLargeError(responseJson))
+                throw new EmbeddingInputTooLargeException(responseJson);
 
-        // 确保请求成功
-        response.EnsureSuccessStatusCode();
-
-        // 读取响应内容
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException(
+                $"Embedding request failed ({(int)response.StatusCode}): {responseJson}",
+                null, response.StatusCode);
+        }
 
         // 解析 JSON 响应
         foreach (var node in JsonDocument.Parse(responseJson).RootElement[0].EnumerateObject())
@@ -60,8 +66,22 @@ public class UiharaTextEmbeddingGenerator
         throw new InvalidOperationException("Invalid response data");
     }
 
+    private static bool IsInputTooLargeError(string responseBody)
+    {
+        return responseBody.Contains("input is too large", StringComparison.OrdinalIgnoreCase) ||
+               responseBody.Contains("increase the physical batch size", StringComparison.OrdinalIgnoreCase) ||
+               responseBody.Contains("exceeds the available context size", StringComparison.OrdinalIgnoreCase);
+    }
+
     private class EmbeddingRequest
     {
         [JsonPropertyName("input")] public string Input { get; set; } = "";
+    }
+}
+
+public sealed class EmbeddingInputTooLargeException : Exception
+{
+    public EmbeddingInputTooLargeException(string message) : base(message)
+    {
     }
 }

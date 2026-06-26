@@ -31,6 +31,18 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style Selector="Button.memory-status PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusNeutralBrush}" />
+        </Style>
+        <Style Selector="Button.memory-status[Tag=Dirty] PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusDangerBrush}" />
+        </Style>
+        <Style Selector="Button.memory-status[Tag=Error] PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusDangerBrush}" />
+        </Style>
+        <Style Selector="Button.memory-status[Tag=Ready] PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusSuccessBrush}" />
+        </Style>
         <Style Selector="Button.message-action">
             <Setter Property="Width" Value="18" />
             <Setter Property="Height" Value="18" />
@@ -343,34 +355,11 @@
                                 <TextBlock Text="{loc:Loc SendUserDesc}" />
                             </ToolTip.Tip>
                         </Button>
-                        <Button Classes="icon" Command="{Binding ChatSession.MemoryEditorCommand}">
+                        <Button Classes="icon memory-status"
+                                Tag="{Binding ChatSession.MemoryStatusKey}"
+                                Command="{Binding ChatSession.MemoryEditorCommand}">
                             <PathIcon Width="18" Height="18"
-                                      Data="{StaticResource BookStarRegular}"
-                                      Foreground="{Binding ChatSession.MemoryData, Converter={StaticResource ModelToBrushConverter}}" />
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc MemoryTips}" />
-                            </ToolTip.Tip>
-                        </Button>
-                        <Button Classes="icon" Command="{Binding ChatSession.MemoryUpdateFileCommand}">
-                            <PathIcon Width="18" Height="18"
-                                      Data="{StaticResource DocumentAddRegular}"
-                                      Foreground="{Binding ChatSession.MemoryFileBrush}" />
-                            <ToolTip.Tip>
-                                <TextBlock Text="{Binding ChatSession.MemoryFileTips}" />
-                            </ToolTip.Tip>
-                        </Button>
-                        <Button Classes="icon" Command="{Binding ChatSession.MemoryUpdateUrlCommand}">
-                            <PathIcon Width="18" Height="18"
-                                      Data="{StaticResource GlobeAddRegular}"
-                                      Foreground="{Binding ChatSession.MemoryUrlBrush}" />
-                            <ToolTip.Tip>
-                                <TextBlock Text="{Binding ChatSession.MemoryUrlTips}" />
-                            </ToolTip.Tip>
-                        </Button>
-                        <Button Classes="icon" Command="{Binding ChatSession.MemoryUpdateIndexCommand}">
-                            <PathIcon Width="18" Height="18"
-                                      Data="{StaticResource ArrowSyncCircleRegular}"
-                                      Foreground="{Binding ChatSession.MemoryIndexBrush}" />
+                                      Data="{StaticResource BookStarRegular}" />
                             <ToolTip.Tip>
                                 <TextBlock Text="{Binding ChatSession.MemoryIndexTips}" />
                             </ToolTip.Tip>

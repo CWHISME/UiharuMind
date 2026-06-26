@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
 
@@ -6,6 +7,14 @@ namespace UiharuMind.Core.Configs;
 
 public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettings>
 {
+    public ChatOptions ToChatOptions() => new()
+    {
+        Temperature = Temperature is null ? null : (float)Temperature.Value,
+        TopP = TopP is null ? null : (float)TopP.Value,
+        PresencePenalty = PresencePenalty is null ? null : (float)PresencePenalty.Value,
+        FrequencyPenalty = FrequencyPenalty is null ? null : (float)FrequencyPenalty.Value
+    };
+
     [SettingConfigDesc(
         "Temperature controls the randomness of the completion. The higher the temperature, the more random the completion. Default is 1.0.")]
     [SettingConfigDesc(

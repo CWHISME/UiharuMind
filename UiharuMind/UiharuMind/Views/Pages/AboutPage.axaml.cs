@@ -57,9 +57,13 @@ public partial class AboutPage : UserControl
             "https://github.com/ggerganov/llama.cpp",
             "Inference of Meta's LLaMA model (and others) in pure C/C++"));
 
-        LinksPanel.Children.Add(CreateLink("Microsoft.SemanticKernel",
-            "https://github.com/microsoft/semantic-kernel",
-            "Semantic Kernel is an SDK that integrates Large Language Models (LLMs) like OpenAI, Azure OpenAI, and Hugging Face with conventional programming languages like C#, Python, and Java."));
+        LinksPanel.Children.Add(CreateLink("Microsoft Agent Framework",
+            "https://github.com/microsoft/agent-framework",
+            "Framework for building and orchestrating AI agents and workflows."));
+
+        LinksPanel.Children.Add(CreateLink("Microsoft.Extensions.AI",
+            "https://github.com/dotnet/extensions",
+            "Common .NET abstractions for chat clients, embeddings, tools, telemetry, and caching."));
 
         LinksPanel.Children.Add(CreateLink("Downloader",
             "https://github.com/bezzad/Downloader",
