@@ -40,6 +40,8 @@ public partial class App : Application, ILogger, IDisposable
     {
         AvaloniaXamlLoader.Load(this);
 
+        LogManager.Instance.Logger = this;
+        
         // 捕获未处理的异常
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         Dispatcher.UIThread.UnhandledException += UIThread_UnhandledException;
@@ -85,7 +87,6 @@ public partial class App : Application, ILogger, IDisposable
 
         base.OnFrameworkInitializationCompleted();
 
-        LogManager.Instance.Logger = this;
         LocalizationManager.Instance.InitializeFromConfig();
         ApplicationThemeManager.InitializeFromConfig();
         UiharuCoreManager.Instance.Init();
