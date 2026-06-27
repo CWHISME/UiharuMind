@@ -133,7 +133,7 @@ public static class SaveUtility
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Warning(e.ToString());
         }
 
         return new T();

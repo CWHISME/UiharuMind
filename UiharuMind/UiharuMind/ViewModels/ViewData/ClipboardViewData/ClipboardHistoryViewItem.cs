@@ -25,20 +25,13 @@ using UiharuMind.Views.Windows;
 
 public partial class ClipboardItem : ObservableObject
 {
-    private readonly IMessageService _messageService;
-
-    public ClipboardItem(string date, string text, string imageSource = "")
-        : this(date, text, imageSource, App.Services.GetRequiredService<IMessageService>())
-    {
-    }
-
-    public ClipboardItem(string date, string text, string imageSource, IMessageService messageService)
+    
+    public ClipboardItem(string date, string text, string imageSource="")
     {
         _date = date;
         _text = text;
         _imageSource = imageSource;
         _isImage = !string.IsNullOrEmpty(imageSource);
-        _messageService = messageService;
     }
 
     [ObservableProperty] private string _text;
@@ -46,7 +39,7 @@ public partial class ClipboardItem : ObservableObject
     [ObservableProperty] private string _imageSource;
     [ObservableProperty] private bool _isImage;
 
-    public ClipboardItem() : this("", "")
+    public ClipboardItem(): this("", "")
     {
     }
 
@@ -68,17 +61,6 @@ public partial class ClipboardItem : ObservableObject
             App.Clipboard.CopyToClipboard(Text, true);
         }
 
-        _messageService.ShowNotification(Lang.CopiedToClipboardTips);
-
-        // Task.Run(() =>
-        // {
-        //     // Task.Delay(100).ContinueWith((x) =>
-        //     // {
-        //     Dispatcher.UIThread.Post(UIManager.CloseWindow<QuickClipboardHistoryWindow>,
-        //         DispatcherPriority.ApplicationIdle);
-        //     // });
-        // });
-        // Dispatcher.UIThread.Post(UIManager.CloseWindow<QuickClipboardHistoryWindow>,
-        //     DispatcherPriority.ApplicationIdle);
+        App.Services.GetRequiredService<IMessageService>().ShowNotification(Lang.CopiedToClipboardTips);
     }
 }
