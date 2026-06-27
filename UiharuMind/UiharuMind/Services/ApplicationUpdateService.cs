@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,18 +17,22 @@ public partial class ApplicationUpdateService : ObservableObject
         "https://github.com/CWHISME/UiharuMind/releases/latest";
 
     private readonly SemaphoreSlim _checkLock = new(1, 1);
+    private readonly ApplicationUpdateVersionManager _versionManager = new();
 
     [ObservableProperty] private bool _isCheckingForUpdates;
     [ObservableProperty] private bool _hasChecked;
     [ObservableProperty] private string? _lastError;
-    [ObservableProperty] private ApplicationUpdateRelease? _latestRelease;
+    [ObservableProperty] private ManagedVersionPackage? _latestPackage;
 
     public bool HasAvailableUpdate =>
-        LatestRelease != null && IsRemoteVersionNewer(LatestRelease.Version, App.Version);
+        LatestPackage != null && ManagedVersionPackage.IsRemoteVersionNewer(LatestPackage.Version, App.Version);
 
-    partial void OnLatestReleaseChanged(ApplicationUpdateRelease? value)
+    public string LatestReleaseUrl => LatestPackage?.ReleaseUrl ?? LatestReleasePageUrl;
+
+    partial void OnLatestPackageChanged(ManagedVersionPackage? value)
     {
         OnPropertyChanged(nameof(HasAvailableUpdate));
+        OnPropertyChanged(nameof(LatestReleaseUrl));
     }
 
     public async Task CheckForUpdatesAsync(CancellationToken cancellationToken = default)
@@ -40,9 +43,10 @@ public partial class ApplicationUpdateService : ObservableObject
         {
             IsCheckingForUpdates = true;
             LastError = null;
-            LatestRelease = await FetchLatestReleaseAsync(cancellationToken).ConfigureAwait(false);
+            LatestPackage = await FetchLatestPackageAsync(cancellationToken).ConfigureAwait(false);
             HasChecked = true;
             OnPropertyChanged(nameof(HasAvailableUpdate));
+            OnPropertyChanged(nameof(LatestReleaseUrl));
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -57,119 +61,26 @@ public partial class ApplicationUpdateService : ObservableObject
         }
     }
 
-    private async Task<ApplicationUpdateRelease?> FetchLatestReleaseAsync(CancellationToken cancellationToken)
+    private async Task<ManagedVersionPackage?> FetchLatestPackageAsync(CancellationToken cancellationToken)
     {
-        GitHubReleaseInfo? release = await GitHubReleaseAssetHelper
-            .GetLatestReleaseAsync("CWHISME", "UiharuMind", cancellationToken)
+        IReadOnlyList<ManagedVersionPackage> assets = await _versionManager
+            .PullLatestVersionsAsync(GetUpdatePackageRoot(), cancellationToken)
             .ConfigureAwait(false);
-        return BuildRelease(release);
+        return assets.FirstOrDefault();
     }
 
-    private static ApplicationUpdateRelease? BuildRelease(GitHubReleaseInfo? release)
+    public async Task InstallPackageAsync(
+        ManagedVersionPackage asset,
+        CancellationToken cancellationToken = default)
     {
-        if (release == null || string.IsNullOrWhiteSpace(release.TagName)) return null;
-
-        List<ApplicationUpdateAsset> assets = release.Assets
-            .Select(asset => CreateAsset(release, asset))
-            .ToList();
-        GitHubReleaseAssetInfo? preferredAsset = GitHubReleaseAssetHelper.SelectPlatformAsset(
-            release.Assets,
-            new GitHubReleaseAssetSelectOptions(NameSuffix: ".zip"));
-
-        return new ApplicationUpdateRelease(
-            release.TagName,
-            NormalizeVersion(release.TagName),
-            release.Name,
-            release.ReleaseUrl,
-            release.PublishedAt,
-            release.Body,
-            assets,
-            preferredAsset == null
-                ? null
-                : assets.FirstOrDefault(asset => asset.Name == preferredAsset.Name));
+        await _versionManager.InstallArchiveAsync(asset, true, cancellationToken)
+            .ConfigureAwait(false);
     }
 
-    private static ApplicationUpdateAsset CreateAsset(
-        GitHubReleaseInfo release,
-        GitHubReleaseAssetInfo asset)
+    private static string GetUpdatePackageRoot()
     {
         string directory = Path.Combine(SettingConfig.SaveDataPath, "ApplicationUpdates");
         Directory.CreateDirectory(directory);
-        string packageFilePath = ReleaseVersionPackageManager.GetPackageFilePath(directory, asset.Name);
-        string installDirectory = ReleaseVersionPackageManager.GetInstallDirectoryFromPackageName(directory, asset.Name);
-        return new ApplicationUpdateAsset(
-            release.TagName,
-            asset.Name,
-            asset.DownloadUrl,
-            packageFilePath,
-            installDirectory,
-            asset.Size);
+        return directory;
     }
-
-    private static Version NormalizeVersion(string rawVersion)
-    {
-        string version = rawVersion.Trim().TrimStart('v', 'V');
-        Match numericVersion = Regex.Match(version, @"\d+(\.\d+){0,3}");
-        if (numericVersion.Success) version = numericVersion.Value;
-        return Version.TryParse(version, out Version? parsed) ? parsed : new Version(0, 0);
-    }
-
-    private static bool IsRemoteVersionNewer(Version remote, Version local)
-    {
-        Version normalizedRemote = NormalizeVersionPartCount(remote);
-        Version normalizedLocal = NormalizeVersionPartCount(local);
-        return normalizedRemote > normalizedLocal;
-    }
-
-    private static Version NormalizeVersionPartCount(Version version)
-    {
-        return new Version(
-            Math.Max(version.Major, 0),
-            Math.Max(version.Minor, 0),
-            Math.Max(version.Build, 0),
-            Math.Max(version.Revision, 0));
-    }
-
-}
-
-public sealed record ApplicationUpdateRelease(
-    string TagName,
-    Version Version,
-    string? Name,
-    string ReleaseUrl,
-    DateTimeOffset? PublishedAt,
-    string? Body,
-    IReadOnlyList<ApplicationUpdateAsset> Assets,
-    ApplicationUpdateAsset? PreferredAsset);
-
-public sealed class ApplicationUpdateAsset : IDownloadable, IInstalledDownloadable
-{
-    public ApplicationUpdateAsset(
-        string versionName,
-        string name,
-        string downloadUrl,
-        string downloadFileName,
-        string installDirectory,
-        long size)
-    {
-        VersionName = versionName;
-        Name = name;
-        DownloadUrl = downloadUrl;
-        DownloadFileName = downloadFileName;
-        InstallDirectory = installDirectory;
-        Size = size;
-        IsDownloaded = File.Exists(downloadFileName) ||
-                       ReleaseVersionPackageManager.IsInstalledDirectory(installDirectory);
-    }
-
-    public string VersionName { get; }
-    public string Name { get; }
-    public string DownloadUrl { get; }
-    public bool IsDownloaded { get; set; }
-    public bool IsNotAllowDelete => false;
-    public string? DownloadFileName { get; }
-    public string? DownloadDirectory => null;
-    public string InstallDirectory { get; }
-    public string? InstalledPath => InstallDirectory;
-    public long Size { get; }
 }

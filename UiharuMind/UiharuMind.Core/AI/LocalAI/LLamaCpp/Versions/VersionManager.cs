@@ -9,6 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using UiharuMind.Core.Core.Utils;
+
 namespace UiharuMind.Core.LLamaCpp.Versions;
 
 public class VersionManager
@@ -27,20 +29,24 @@ public class VersionManager
 
     public void RemoveVersion(string versionNumber)
     {
-        VersionsList.RemoveAll(x => x.VersionNumber == versionNumber);
+        VersionsList.RemoveAll(x => x.Name == versionNumber);
     }
 
     public VersionInfo? GetVersion(string versionNumber)
     {
-        return VersionsList.FirstOrDefault(x => x.VersionNumber == versionNumber);
+        return VersionsList.FirstOrDefault(x => x.Name == versionNumber);
     }
 
     public VersionInfo GetOrCreateVersion(string versionNumber)
     {
-        var versionInfo = VersionsList.FirstOrDefault(x => x.VersionNumber == versionNumber);
+        var versionInfo = VersionsList.FirstOrDefault(x => x.Name == versionNumber);
         if (versionInfo == null)
         {
-            versionInfo = new VersionInfo(versionNumber);
+            versionInfo = new VersionInfo
+            {
+                Name = versionNumber,
+                Version = ManagedVersionPackage.ParseVersion(versionNumber)
+            };
             AddVersion(versionInfo);
         }
 

@@ -64,7 +64,7 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
         var versions = GetLocalVersions().Result;
         foreach (var version in versions.VersionsList)
         {
-            if (version.VersionNumber == Config.SelecetedRuntimeEngine) CurrentSeletedVersion = version;
+            if (version.Name == Config.SelecetedRuntimeEngine) CurrentSeletedVersion = version;
         }
     }
 
@@ -75,7 +75,7 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     public void SetSelectedVersion(VersionInfo? version)
     {
         CurrentSeletedVersion = version;
-        Config.SelecetedRuntimeEngine = version?.VersionNumber;
+        Config.SelecetedRuntimeEngine = version?.Name;
         SaveConfig();
     }
 

@@ -393,19 +393,8 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
     {
         string path = Path.Combine(enginePath, "LLamaCpp");
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-        var versionManager = await _llamaCppVersionManager.GetLocalVersions(path).ConfigureAwait(false);
-
-        //合并内部版本
         string internalPath = Path.Combine(Config.DefaultRuntimePath, "LLamaCpp");
-        if (!Directory.Exists(internalPath)) return versionManager;
-        var internalVersion = await _llamaCppVersionManager.GetLocalVersions(internalPath, true).ConfigureAwait(false);
-        foreach (var ver in internalVersion.VersionsList)
-        {
-            ver.IsInternal = true;
-        }
-
-        versionManager.Merge(internalVersion);
-        return versionManager;
+        return await _llamaCppVersionManager.GetLocalVersions(path, internalPath).ConfigureAwait(false);
     }
 
     /// <summary>

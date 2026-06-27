@@ -253,9 +253,17 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
     /// </summary>
     public async void InitFileSize()
     {
+        RefreshDownloadedState();
         if (IsDownloaded)
         {
-            long size = await SimpleFileHelper.GetFileOrDirectorySizeAsync(GetDownloadedSizePath());
+            string? downloadedSizePath = GetDownloadedSizePath();
+            if (string.IsNullOrWhiteSpace(downloadedSizePath))
+            {
+                TotalSizeInfo = string.Empty;
+                return;
+            }
+
+            long size = await SimpleFileHelper.GetFileOrDirectorySizeAsync(downloadedSizePath);
             TotalSizeInfo = size < 0 ? string.Empty : SimpleStringHelper.FormatBytes(size);
             return;
         }
@@ -311,6 +319,7 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
 
     private string? GetDownloadedSizePath()
     {
+        RefreshDownloadedState();
         if (_target is IInstalledDownloadable installedDownloadable &&
             !string.IsNullOrWhiteSpace(installedDownloadable.InstalledPath) &&
             (File.Exists(installedDownloadable.InstalledPath) || Directory.Exists(installedDownloadable.InstalledPath)))
@@ -319,8 +328,28 @@ public class DownloadableItemData : INotifyPropertyChanged, IDisposable
         }
 
         if (File.Exists(DownloadFilePath) || Directory.Exists(DownloadFilePath)) return DownloadFilePath;
-        if (!string.IsNullOrWhiteSpace(_target.DownloadDirectory)) return _target.DownloadDirectory;
-        return _target.DownloadFileName;
+        if (!string.IsNullOrWhiteSpace(_target.DownloadDirectory) &&
+            (File.Exists(_target.DownloadDirectory) || Directory.Exists(_target.DownloadDirectory)))
+        {
+            return _target.DownloadDirectory;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_target.DownloadFileName) &&
+            (File.Exists(_target.DownloadFileName) || Directory.Exists(_target.DownloadFileName)))
+        {
+            return _target.DownloadFileName;
+        }
+
+        return null;
+    }
+
+    public void RefreshDownloadedState()
+    {
+        if (_target is ManagedVersionPackage package)
+        {
+            package.RefreshState();
+            OnPropertyChanged(nameof(IsDownloaded));
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

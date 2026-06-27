@@ -9,85 +9,103 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.RegularExpressions;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.LLamaCpp.Versions;
-using System.Text.RegularExpressions;
 
 namespace UiharuMind.Core.LLamaCpp;
 
-public class LLamaCppVersionManager
+public class LLamaCppVersionManager : ReleaseVersionManagerBase<VersionInfo>
 {
     private readonly VersionManager _versionManager = new VersionManager();
+
+    protected override string Owner => "ggerganov";
+    protected override string Repository => "llama.cpp";
 
     /// <summary>
     /// 获取目录中本地引擎版本信息
     /// </summary>
-    /// <param name="path"></param>
-    /// <param name="forceNew"></param>
-    /// <returns></returns>
     public async Task<VersionManager> GetLocalVersions(string path, bool forceNew = false)
     {
-        VersionManager versionManager = forceNew ? new VersionManager() : _versionManager;
-        await Task.Run(() =>
+        await GetLocalVersionsAsync(path, forceNew).ConfigureAwait(false);
+        return SyncVersionManager();
+    }
+
+    public async Task<VersionManager> GetLocalVersions(
+        string path,
+        string? internalPath)
+    {
+        await GetLocalVersionsAsync(path).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(internalPath) && Directory.Exists(internalPath))
         {
-            foreach (var item in versionManager.VersionsList)
-            {
-                item.IsDownloaded = false;
-            }
+            await ScanLocalVersionsAsync(
+                    internalPath,
+                    Versions,
+                    false,
+                    version => version.IsNotAllowDelete = true)
+                .ConfigureAwait(false);
+        }
 
-            foreach (string versionDir in Directory.EnumerateDirectories(path))
-            {
-                string versionName = Path.GetFileName(versionDir);
-                var version = versionManager.GetOrCreateVersion(versionName);
-                version.AddBackendType(new LLamaCppRuntimeEngine(versionName, versionDir));
-                //判断 versionDir 下是否有可执行文件
-                foreach (var file in Directory.EnumerateFiles(versionDir, LLamaCppSettingConfig.ServerExeName + "*",
-                             SearchOption.AllDirectories))
-                {
-                    version.ExecutablePath = Path.GetDirectoryName(file)!;
-                    break;
-                }
-
-                if (!string.IsNullOrEmpty(version.ExecutablePath)) version.IsDownloaded = true;
-            }
-
-            versionManager.RemoveAllNotLoadedVersions();
-            versionManager.Sort();
-        }).ConfigureAwait(false);
-
-        return versionManager;
+        SortVersions();
+        return SyncVersionManager();
     }
 
     /// <summary>
     /// 拉取最新版本列表(注：会包含本地已有的版本)
     /// </summary>
-    /// <returns></returns>
     public async Task<VersionManager> GetLatestVersion(string path)
     {
-        GitHubReleaseInfo? release = await GitHubReleaseAssetHelper
-            .GetLatestReleaseAsync("ggerganov", "llama.cpp")
-            .ConfigureAwait(false);
-        if (release == null) return _versionManager;
+        await PullLatestVersionsAsync(path).ConfigureAwait(false);
+        return SyncVersionManager();
+    }
 
+    protected override void ConfigureLocalVersion(VersionInfo version, string versionDirectory)
+    {
+        version.ExecutablePath = versionDirectory;
+    }
+
+    protected override GitHubReleaseAssetSelectOptions GetAssetSelectOptions()
+    {
+        return new GitHubReleaseAssetSelectOptions(NamePrefix: "llama-");
+    }
+
+    protected override ManagedVersionValidationResult ValidateInstalledVersion(VersionInfo version)
+    {
+        if (!Directory.Exists(version.InstallDirectory))
+        {
+            return new ManagedVersionValidationResult(false, "Runtime directory does not exist.");
+        }
+
+        foreach (string file in Directory.EnumerateFiles(
+                     version.InstallDirectory,
+                     LLamaCppSettingConfig.ServerExeName + "*",
+                     SearchOption.AllDirectories))
+        {
+            // llama.cpp 的可用性仍以找到 llama-server 可执行文件为准。
+            version.ExecutablePath = Path.GetDirectoryName(file)!;
+            return ManagedVersionValidationResult.Valid;
+        }
+
+        return new ManagedVersionValidationResult(false, $"{LLamaCppSettingConfig.ServerExeName} was not found.");
+    }
+
+    protected override string CreateReleaseInfoText(GitHubReleaseInfo release)
+    {
         string? releaseDate = release.PublishedAt.HasValue
             ? TimeUtils.TimeStringToLocalTimeString(release.PublishedAt.Value.ToString("O"))
             : null;
-        _versionManager.ReleaseDate = $"Release Date: {releaseDate} \n\n{release.Body}";
+        return $"Release Date: {releaseDate} \n\n{release.Body}";
+    }
 
-        IReadOnlyList<GitHubReleaseAssetInfo> assets = GitHubReleaseAssetHelper.SelectPlatformAssets(
-            release.Assets,
-            new GitHubReleaseAssetSelectOptions(NamePrefix: "llama-"));
-        foreach (GitHubReleaseAssetInfo asset in assets)
+    private VersionManager SyncVersionManager()
+    {
+        _versionManager.RemoveAllVersions();
+        _versionManager.ReleaseDate = ReleaseInfoText;
+        foreach (VersionInfo version in VersionsList)
         {
-            string name = asset.Name;
-            var version = _versionManager.GetOrCreateVersion(Path.GetFileNameWithoutExtension(name));
-            if (version.IsDownloaded) continue;
-            version.DownloadUrl = asset.DownloadUrl;
-            version.DownloadFileName = ReleaseVersionPackageManager.GetPackageFilePath(path, asset.Name);
-            version.ExecutablePath = ReleaseVersionPackageManager.GetInstallDirectoryFromVersion(path, version.VersionNumber);
+            _versionManager.AddVersion(version, false);
         }
 
         _versionManager.Sort();

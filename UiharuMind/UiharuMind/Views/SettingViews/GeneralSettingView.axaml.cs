@@ -2,7 +2,6 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -136,8 +135,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
     private void OpenUpdatePage()
     {
         TopLevel.GetTopLevel(App.DummyWindow)!.Launcher.LaunchUriAsync(
-            new Uri(_applicationUpdateService.LatestRelease?.ReleaseUrl ??
-                    "https://github.com/CWHISME/UiharuMind/releases/latest"));
+            new Uri(_applicationUpdateService.LatestReleaseUrl));
     }
 
     [RelayCommand]
@@ -202,9 +200,9 @@ public partial class GeneralSettingViewModel : ViewModelBase
         HasAppUpdate = _applicationUpdateService.HasAvailableUpdate;
         HasAppUpdateError = !string.IsNullOrWhiteSpace(_applicationUpdateService.LastError);
         AppUpdateErrorText = _applicationUpdateService.LastError ?? string.Empty;
-        LatestVersionText = _applicationUpdateService.LatestRelease?.TagName ?? "-";
-        HasApplicationUpdateAsset = _applicationUpdateService.LatestRelease?.PreferredAsset != null;
-        SetApplicationUpdateAsset(HasAppUpdate ? _applicationUpdateService.LatestRelease?.PreferredAsset : null);
+        LatestVersionText = _applicationUpdateService.LatestPackage?.Name ?? "-";
+        HasApplicationUpdateAsset = _applicationUpdateService.LatestPackage != null;
+        SetApplicationUpdateAsset(HasAppUpdate ? _applicationUpdateService.LatestPackage : null);
 
         if (IsCheckingForAppUpdate)
         {
@@ -212,11 +210,11 @@ public partial class GeneralSettingViewModel : ViewModelBase
             return;
         }
 
-        if (HasAppUpdate && _applicationUpdateService.LatestRelease != null)
+        if (HasAppUpdate && _applicationUpdateService.LatestPackage != null)
         {
             AppUpdateStatusText = string.Format(
                 LocalizationManager.Instance.GetString("ApplicationUpdateAvailableFormat"),
-                _applicationUpdateService.LatestRelease.TagName);
+                _applicationUpdateService.LatestPackage.Name);
             return;
         }
 
@@ -231,7 +229,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
             : LocalizationManager.Instance.GetString("ApplicationUpdateAutoCheckPending");
     }
 
-    private void SetApplicationUpdateAsset(ApplicationUpdateAsset? asset)
+    private void SetApplicationUpdateAsset(ManagedVersionPackage? asset)
     {
         ApplicationUpdateDownloadListViewModel.ClearIfNotExists();
         UpdateApplicationUpdateDownloadedActionText(asset);
@@ -243,7 +241,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
     {
         if (IsApplicationUpdateInstalled(item))
         {
-            App.FilesService.OpenFolder(((ApplicationUpdateAsset)item.Target).InstallDirectory);
+            App.FilesService.OpenFolder(((ManagedVersionPackage)item.Target).InstallDirectory);
             return;
         }
 
@@ -260,19 +258,17 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
         try
         {
-            if (IsZipPackage(item.DownloadFilePath))
+            if (item.Target is not ManagedVersionPackage asset)
             {
-                await ExtractApplicationUpdatePackageAsync(item);
-            }
-            else
-            {
-                OpenDownloadedPackage(item.DownloadFilePath);
+                await _messageService.ShowWarningAsync(L("ApplicationUpdateInstallFileMissing"));
+                return;
             }
 
-            if (File.Exists(item.DownloadFilePath)) File.Delete(item.DownloadFilePath);
+            await _applicationUpdateService.InstallPackageAsync(asset);
             item.IsDownloaded = true;
             item.InitFileSize();
-            UpdateApplicationUpdateDownloadedActionText(item.Target as ApplicationUpdateAsset);
+            UpdateApplicationUpdateDownloadedActionText(asset);
+            App.FilesService.OpenFolder(asset.InstallDirectory);
             _messageService.ShowNotification(
                 L("ApplicationUpdateInstallPackageDeleted"),
                 severity: MessageSeverity.Success);
@@ -284,83 +280,22 @@ public partial class GeneralSettingViewModel : ViewModelBase
         }
     }
 
-    private static async Task ExtractApplicationUpdatePackageAsync(DownloadableItemData item)
-    {
-        string extractPath = item.Target is ApplicationUpdateAsset asset
-            ? asset.InstallDirectory
-            : GetExtractPath(item.DownloadFilePath);
-        if (Directory.Exists(extractPath)) Directory.Delete(extractPath, true);
-
-        // 应用更新发布包目前是 zip，安装动作实际是解压并让用户处理替换。
-        await SimpleZipHelper.ExtractZipFile(item.DownloadFilePath, extractPath);
-        if (!Directory.Exists(extractPath) || Directory.GetFileSystemEntries(extractPath).Length == 0)
-        {
-            throw new InvalidOperationException(L("ApplicationUpdateExtractFailed"));
-        }
-
-        App.FilesService.OpenFolder(extractPath);
-    }
-
-    private static void OpenDownloadedPackage(string filePath)
-    {
-        if (OperatingSystem.IsMacOS())
-        {
-            var info = new ProcessStartInfo("open")
-            {
-                UseShellExecute = false
-            };
-            info.ArgumentList.Add("-W");
-            info.ArgumentList.Add(filePath);
-            Process.Start(info);
-            return;
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            var info = new ProcessStartInfo("xdg-open")
-            {
-                UseShellExecute = false
-            };
-            info.ArgumentList.Add(filePath);
-            Process.Start(info);
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo(Path.GetFullPath(filePath))
-        {
-            UseShellExecute = true
-        });
-    }
-
-    private static bool IsZipPackage(string filePath)
-    {
-        return string.Equals(Path.GetExtension(filePath), ".zip", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetExtractPath(string filePath)
-    {
-        string? directory = Path.GetDirectoryName(filePath);
-        string name = Path.GetFileNameWithoutExtension(filePath);
-        return Path.Combine(directory ?? Path.GetTempPath(), name);
-    }
-
     private static string L(string key)
     {
         return LocalizationManager.Instance.GetString(key);
     }
 
-    private void UpdateApplicationUpdateDownloadedActionText(ApplicationUpdateAsset? asset)
+    private void UpdateApplicationUpdateDownloadedActionText(ManagedVersionPackage? asset)
     {
         ApplicationUpdateDownloadListViewModel.DownloadedActionText =
-            asset != null && ReleaseVersionPackageManager.IsInstalledDirectory(asset.InstallDirectory)
+            asset is { IsInstalled: true }
                 ? L("OpenDirectory")
                 : L("ApplicationUpdateInstall");
     }
 
     private static bool IsApplicationUpdateInstalled(DownloadableItemData item)
     {
-        return item.Target is ApplicationUpdateAsset asset &&
-               ReleaseVersionPackageManager.IsInstalledDirectory(asset.InstallDirectory);
+        return item.Target is ManagedVersionPackage { IsInstalled: true };
     }
 }
 

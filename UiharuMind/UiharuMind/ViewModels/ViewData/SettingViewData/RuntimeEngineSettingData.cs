@@ -50,8 +50,6 @@ public partial class RuntimeEngineSettingData : ObservableObject
         _messageService = messageService;
         RemoteDwnloadListViewModel = new DownloadListViewData(messageService)
         {
-            DeleteFilePathProvider = item => ((VersionInfo)item.Target).ExecutablePath,
-            LocalFileDirectoryPathProvider = item => ((VersionInfo)item.Target).ExecutablePath,
             DownloadCompletedHandler = OnRuntimeEngineDownloadCompleted,
             DeleteConfirmMessageProvider = () => Lang.ConfirmDeleteRuntimeEngine
         };
@@ -125,11 +123,11 @@ public partial class RuntimeEngineSettingData : ObservableObject
 
     private static async Task OnRuntimeEngineDownloadCompleted(DownloadableItemData item)
     {
-        // runtime engine 发布包是 zip，下载完成后解压到版本目录。
+        // runtime engine 发布包可能是 zip/tar 等格式，统一交给 SharpCompress 工具处理。
         var version = (VersionInfo)item.Target;
         item.IsDownloading = true;
         item.DownloadInfo = Lang.Decompressing + item.DownloadInfo;
-        await SimpleZipHelper.ExtractZipFile(item.DownloadFilePath, version.ExecutablePath, true);
+        await SimpleArchiveHelper.ExtractArchiveAsync(item.DownloadFilePath, version.InstallDirectory, true);
         item.IsDownloading = false;
         item.InitFileSize();
     }

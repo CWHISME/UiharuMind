@@ -110,6 +110,7 @@ public partial class DownloadListViewData : ObservableObject
         List<DownloadableItemData> toDelete = new List<DownloadableItemData>();
         foreach (var item in RemoteVersions)
         {
+            item.RefreshDownloadedState();
             if (item.IsDownloading) continue;
             if (item.IsDownloaded) continue;
             toDelete.Add(item);
@@ -200,6 +201,7 @@ public partial class DownloadListViewData : ObservableObject
                 var path = GetDeleteFilePath(version);
                 if (File.Exists(path)) File.Delete(path);
                 if (Directory.Exists(path)) Directory.Delete(path, true);
+                version.RefreshDownloadedState();
                 RemoveItem(version);
             }
 
