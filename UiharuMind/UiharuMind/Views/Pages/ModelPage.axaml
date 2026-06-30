@@ -31,25 +31,6 @@
                 </Button>
                 <Button Content="{loc:Loc ShowInExplorer}" Command="{Binding OpenModelFolderCommand}"></Button>
             </StackPanel>
-            <StackPanel Spacing="5" Orientation="Horizontal">
-                <TextBlock Text="{loc:Loc ModelPageEmbededModelName}" VerticalAlignment="Center" />
-                <TextBox IsEnabled="False" Text="{Binding EmbededModelPath,Mode=OneTime}" VerticalAlignment="Center"></TextBox>
-                <!-- <Button Content="{loc:Loc RegenerateBtn}" Command="{Binding ReloadEmbeddedModelCommand}"></Button> -->
-                <u:IconButton CommandParameter="{Binding ModelPath}"
-                              Command="{Binding ReloadEmbeddedModelCommand}">
-                    <u:IconButton.Icon>
-                        <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
-                    </u:IconButton.Icon>
-                </u:IconButton>
-                <Button Content="{loc:Loc ShowInExplorer}"
-                        Command="{Binding OpenEmbeddedModelFolderCommand}">
-                </Button>
-                <PathIcon Data="{StaticResource InfoRegular}" Height="18">
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc ModelPageEmbedeTips}" FontSize="14" />
-                    </ToolTip.Tip>
-                </PathIcon>
-            </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="{loc:Loc CreateRemoteModel}" VerticalAlignment="Center" />
                 <Button Content="{loc:Loc AddBtn}" Command="{Binding CreateRemoteModelCommand}"></Button>
@@ -90,6 +71,14 @@
                                 <!-- 本地模型 -->
                                 <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsRemoteModel,Mode=OneWay}">
                                     <u:IconButton CornerRadius="20"
+                                                  Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
+                                                  CommandParameter="{Binding ModelName}"
+                                                  Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                        <u:IconButton.Icon>
+                                            <PathIcon Data="{StaticResource StarRegular}" />
+                                        </u:IconButton.Icon>
+                                    </u:IconButton>
+                                    <u:IconButton CornerRadius="20"
                                                   CommandParameter="{Binding ModelPath}"
                                                   Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
@@ -117,7 +106,7 @@
                                     <u:IconButton CornerRadius="20"
                                                   Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
                                                   CommandParameter="{Binding ModelName}"
-                                                  Command="{Binding DataContext.SetFavoriteRemoteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                                  Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
                                             <PathIcon Data="{StaticResource StarRegular}" />
                                         </u:IconButton.Icon>

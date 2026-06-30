@@ -21,8 +21,8 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
@@ -40,8 +40,6 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private string? _modelPath;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
-
-    public string EmbededModelPath => LLamaConfig.ExternalEmbededModelPath;
 
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
 
@@ -70,12 +68,6 @@ public partial class ModelPageData : PageDataBase
         App.FilesService.OpenFolder(LLamaConfig.LocalModelPath);
     }
 
-
-    [RelayCommand]
-    private void OpenEmbeddedModelFolder()
-    {
-        App.FilesService.OpenFolder(LLamaConfig.ExternalEmbededModelPath);
-    }
 
     [RelayCommand]
     private void OpenSelectModelFolder(string path)
@@ -110,12 +102,6 @@ public partial class ModelPageData : PageDataBase
     }
 
     [RelayCommand]
-    private void ReloadEmbeddedModel()
-    {
-        _messageService.ShowNotification("refresh embedded model.");
-    }
-
-    [RelayCommand]
     private async Task DeleteRemoteModel(string name)
     {
         if (await _messageService.ConfirmAsync("Are you sure to delete remote model " + name + "?"))
@@ -126,21 +112,16 @@ public partial class ModelPageData : PageDataBase
     }
 
     [RelayCommand]
-    private void SetFavoriteRemoteModel(string? name)
+    private void SetFavoriteModel(string? name)
     {
         if (name == null) return;
-        var oldName = LlmManager.Instance.RemoteModelManager.Config.FavoriteModel;
-        bool isRemove = oldName == name;
-        if (!string.IsNullOrEmpty(oldName) &&
-            LlmManager.Instance.CacheModelDictionary.TryGetValue(oldName, out var oldModel))
-            UpdateModel(oldModel);
-        LlmManager.Instance.RemoteModelManager.Config.FavoriteModel = isRemove ? "" : name;
-        LlmManager.Instance.RemoteModelManager.SaveConfig();
+        bool isRemove = ModelSettingConfig.Current.FavoriteModel == name;
+        ModelSettingConfig.Current.FavoriteModel = isRemove ? "" : name;
+        ModelSettingConfig.Current.Save();
+
         _messageService.ShowNotification(isRemove
             ? string.Format(Lang.FavoriteRemoteModelDelTips, name)
             : string.Format(Lang.FavoriteRemoteModelSetTips, name));
-        if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out var model)) return;
-        UpdateModel(model);
         LoadModels();
     }
 
@@ -182,4 +163,5 @@ public partial class ModelPageData : PageDataBase
         if (index == -1) return;
         ModelSources[index] = model;
     }
+
 }

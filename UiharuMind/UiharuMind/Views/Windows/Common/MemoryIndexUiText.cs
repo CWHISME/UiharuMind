@@ -15,10 +15,18 @@ internal static class MemoryIndexUiText
     public static string GetIndexErrorText(string error)
     {
         if (error.StartsWith("Embedding request failed", StringComparison.OrdinalIgnoreCase) ||
+            error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Response status code does not indicate success",
                 StringComparison.OrdinalIgnoreCase))
         {
             return L("MemoryIndexEmbeddingRequestFailed");
+        }
+
+        if (error.StartsWith("Embedding model startup failed", StringComparison.OrdinalIgnoreCase) ||
+            error.StartsWith("Failed to load LLamaSharp embedding model", StringComparison.OrdinalIgnoreCase) ||
+            error.StartsWith("Remote embedding backend is not implemented", StringComparison.OrdinalIgnoreCase))
+        {
+            return L("MemoryIndexEmbeddingServerUnavailable");
         }
 
         if (error.Contains("vector store failed", StringComparison.OrdinalIgnoreCase) ||
@@ -30,6 +38,7 @@ internal static class MemoryIndexUiText
         return error switch
         {
             "Embedding server is unavailable." => L("MemoryIndexEmbeddingServerUnavailable"),
+            "Embedding model is unavailable." => L("MemoryIndexEmbeddingServerUnavailable"),
             "Embedding server startup timed out." => L("MemoryIndexEmbeddingServerTimeout"),
             "Memory name not set" => L("MemoryIndexMemoryNameMissing"),
             "Memory source validation failed" => L("MemorySourceValidationFailed"),

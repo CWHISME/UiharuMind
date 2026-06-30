@@ -16,6 +16,7 @@ using System.ClientModel.Primitives;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
+using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
@@ -62,13 +63,13 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         get
         {
             string? filePath = null;
-            if (Directory.Exists(Config.ExternalEmbededModelPath))
+            if (Directory.Exists(EmbeddingModelSettingConfig.Current.ExternalEmbededModelPath))
             {
-                filePath = Directory.GetFiles(Config.ExternalEmbededModelPath, "*.gguf", SearchOption.TopDirectoryOnly)
+                filePath = Directory.GetFiles(EmbeddingModelSettingConfig.Current.ExternalEmbededModelPath, "*.gguf", SearchOption.TopDirectoryOnly)
                     .FirstOrDefault();
             }
 
-            filePath ??= Directory.GetFiles(Config.DefaultEmbededModelPath, "*.gguf", SearchOption.TopDirectoryOnly)
+            filePath ??= Directory.GetFiles(EmbeddingModelSettingConfig.Current.DefaultEmbededModelPath, "*.gguf", SearchOption.TopDirectoryOnly)
                 .FirstOrDefault();
             if (filePath == null) return _embededModelInfo;
 

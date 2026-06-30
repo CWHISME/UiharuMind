@@ -11,6 +11,7 @@
 
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -42,14 +43,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     public ModelRunningData? CurrentRunningModel
     {
         get => _curModelRunningData;
-        set
-        {
-            if (value == _curModelRunningData) return;
-            if (_curModelRunningData?.IsRunning == true) _curModelRunningData.StopRunning();
-            _curModelRunningData = value;
-            OnCurrentModelChanged?.Invoke(value);
-            LoadCurrentModel();
-        }
+        set => SetCurrentRunningModel(value);
     }
 
     /// <summary>
@@ -152,23 +146,34 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// <param name="modelName"></param>
     public async Task LoadModel(string? modelName)
     {
+        if (string.IsNullOrEmpty(modelName))
+            modelName = GetPreferredModelName(false);
         if (string.IsNullOrEmpty(modelName)) return;
         if (CurrentRunningModel != null && CurrentRunningModel.ModelName == modelName &&
             CurrentRunningModel.IsRunning) return;
-        CurrentRunningModel?.StopRunning();
         if (_chacheModels.TryGetValue(modelName, out var runningInfo))
         {
-            CurrentRunningModel = runningInfo;
+            CurrentRunningModel?.StopRunning();
+            SetCurrentRunningModel(runningInfo, false);
             // 通知当前运行的模型开始加载
             OnCurrentModelStartLoading?.Invoke();
+            bool loadedCallbackInvoked = false;
             try
             {
-                await CurrentRunningModel.StartLoad(OnCurrentModelLoading, OnCurrentModelLoaded);
+                await CurrentRunningModel.StartLoad(OnCurrentModelLoading, () =>
+                {
+                    loadedCallbackInvoked = true;
+                    OnCurrentModelLoaded?.Invoke();
+                });
             }
             catch (Exception e)
             {
                 Log.Error(e.Message);
-                CurrentRunningModel = null;
+                SetCurrentRunningModel(null);
+            }
+            finally
+            {
+                if (!loadedCallbackInvoked) OnCurrentModelLoaded?.Invoke();
             }
             // 通知当前运行的模型改变
             // if (runningInfo == CurrentRunningModel) CurrentRunningModel = null;
@@ -176,6 +181,20 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             // if (false == CurrentRunningModel.IsRunning) OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"load model error， {modelName} not found in cache.");
+    }
+
+    public string? GetPreferredModelName(bool isVision)
+    {
+        if (CurrentRunningModel != null && IsModelCompatible(CurrentRunningModel, isVision))
+            return CurrentRunningModel.ModelName;
+
+        string favoriteModel = ModelSettingConfig.Current.FavoriteModel;
+        if (!string.IsNullOrEmpty(favoriteModel) &&
+            _chacheModels.TryGetValue(favoriteModel, out var favorite) &&
+            IsModelCompatible(favorite, isVision))
+            return favorite.ModelName;
+
+        return _modelList.FirstOrDefault(model => IsModelCompatible(model, isVision))?.ModelName;
     }
 
     /// <summary>
@@ -218,26 +237,13 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// <returns></returns>
     public bool TryCheckModelRunning(bool isVision, ref ModelRunningData? modelRunning)
     {
-        if ((modelRunning == null || isVision && !modelRunning.IsVisionModel) &&
-            RemoteModelManager.RemoteListModels.Count > 0)
+        if (modelRunning == null || isVision && !modelRunning.IsVisionModel)
         {
-            if (!string.IsNullOrEmpty(RemoteModelManager.Config.FavoriteModel))
-                RemoteModelManager.RemoteListModels.TryGetValue(
-                    RemoteModelManager.Config.FavoriteModel, out modelRunning);
-            foreach (var model in RemoteModelManager.RemoteListModels)
-            {
-                if (isVision && model.Value.IsVisionModel)
-                {
-                    modelRunning = model.Value;
-                    break;
-                }
-
-                if (isVision || model.Value.IsVisionModel) continue;
-                // modelRunning = model.Value;
-                modelRunning ??= model.Value;
-                OnCurrentModelChanged?.Invoke(modelRunning);
-                break;
-            }
+            string? modelName = GetPreferredModelName(isVision);
+            if (!string.IsNullOrWhiteSpace(modelName) &&
+                _chacheModels.TryGetValue(modelName, out var preferredModel))
+                modelRunning = preferredModel;
+            OnCurrentModelChanged?.Invoke(modelRunning);
         }
 
         if (modelRunning is not { IsRunning: true })
@@ -254,6 +260,19 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         }
 
         return true;
+    }
+
+    private void SetCurrentRunningModel(ModelRunningData? value, bool stopPrevious = true)
+    {
+        if (value == _curModelRunningData) return;
+        if (stopPrevious && _curModelRunningData?.IsRunning == true) _curModelRunningData.StopRunning();
+        _curModelRunningData = value;
+        OnCurrentModelChanged?.Invoke(value);
+    }
+
+    private static bool IsModelCompatible(ModelRunningData model, bool isVision)
+    {
+        return isVision ? model.IsVisionModel : !model.IsVisionModel;
     }
 
     //======================test=========================

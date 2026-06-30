@@ -3,12 +3,18 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $SCRIPT_DIR
 
-dotnet publish ../UiharuMind.Desktop --output Tmp/Mac -r osx-arm64 --configuration Release -p:UseAppHost=true --self-contained
+TARGET_RUNTIME="osx-arm64"
+PUBLISH_OUTPUT_DIRECTORY="Tmp/Mac"
 
-mkdir Output
+dotnet publish ../UiharuMind.Desktop --output "$PUBLISH_OUTPUT_DIRECTORY" -r "$TARGET_RUNTIME" --configuration Release -p:UseAppHost=true --self-contained
+
+if [ -d "$PUBLISH_OUTPUT_DIRECTORY/runtimes" ]; then
+    find "$PUBLISH_OUTPUT_DIRECTORY/runtimes" -mindepth 1 -maxdepth 1 -type d ! -name "$TARGET_RUNTIME" -exec rm -rf {} +
+fi
+
+mkdir -p Output
 
 APP_NAME="Output/UiharuMind.app"
-PUBLISH_OUTPUT_DIRECTORY="Tmp/Mac/."
 # PUBLISH_OUTPUT_DIRECTORY should point to the output directory of your dotnet publish command.
 # One example is /path/to/your/csproj/bin/Release/netcoreapp3.1/osx-x64/publish/.
 # If you want to change output directories, add `--output /my/directory/path` to your `dotnet publish` command.
@@ -30,4 +36,4 @@ mkdir "$APP_NAME/Contents/Resources"
 cp "$INFO_PLIST" "$APP_NAME/Contents/Info.plist"
 cp "$EXEC" "$APP_NAME/Contents/MacOS/$EXEC"
 cp "$ICON_FILE" "$APP_NAME/Contents/Resources/Icon.png"
-cp -a "$PUBLISH_OUTPUT_DIRECTORY" "$APP_NAME/Contents/MacOS"
+cp -a "$PUBLISH_OUTPUT_DIRECTORY/." "$APP_NAME/Contents/MacOS"

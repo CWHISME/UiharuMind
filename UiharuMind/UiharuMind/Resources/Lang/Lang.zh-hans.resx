@@ -1475,4 +1475,259 @@
     <data name="NotificationClose" xml:space="preserve">
         <value>关闭通知</value>
     </data>
+    <data name="MenuServicesKey" xml:space="preserve">
+        <value>服务</value>
+    </data>
+    <data name="ServicesPageTitle" xml:space="preserve">
+        <value>模型服务</value>
+    </data>
+    <data name="ServicesPageSubtitle" xml:space="preserve">
+        <value>集中查看对话、嵌入、本地执行后端和远程 API 的运行状态。</value>
+    </data>
+    <data name="ServicesRefresh" xml:space="preserve">
+        <value>刷新</value>
+    </data>
+    <data name="ServicesChatModelService" xml:space="preserve">
+        <value>对话模型服务</value>
+    </data>
+    <data name="ServicesChatModelServiceDesc" xml:space="preserve">
+        <value>当前对话与角色回复使用的模型。</value>
+    </data>
+    <data name="ServicesEmbeddingModelService" xml:space="preserve">
+        <value>嵌入模型服务</value>
+    </data>
+    <data name="ServicesEmbeddingModelServiceDesc" xml:space="preserve">
+        <value>供记忆库索引与检索复用的常驻嵌入运行时。</value>
+    </data>
+    <data name="ServicesRuntimeBackendService" xml:space="preserve">
+        <value>本地执行后端</value>
+    </data>
+    <data name="ServicesRemoteApiService" xml:space="preserve">
+        <value>远程 API</value>
+    </data>
+    <data name="ServicesStatusRunning" xml:space="preserve">
+        <value>运行中</value>
+    </data>
+    <data name="ServicesStatusStopped" xml:space="preserve">
+        <value>未运行</value>
+    </data>
+    <data name="ServicesStatusLoading" xml:space="preserve">
+        <value>加载中</value>
+    </data>
+    <data name="ServicesStatusError" xml:space="preserve">
+        <value>异常</value>
+    </data>
+    <data name="ServicesStart" xml:space="preserve">
+        <value>启动</value>
+    </data>
+    <data name="ServicesStop" xml:space="preserve">
+        <value>停止</value>
+    </data>
+    <data name="ServicesRestart" xml:space="preserve">
+        <value>重启</value>
+    </data>
+    <data name="ServicesReload" xml:space="preserve">
+        <value>重新加载</value>
+    </data>
+    <data name="ServicesSaveSettings" xml:space="preserve">
+        <value>保存设置</value>
+    </data>
+    <data name="ServicesOpenFolder" xml:space="preserve">
+        <value>打开目录</value>
+    </data>
+    <data name="ServicesSelect" xml:space="preserve">
+        <value>选择</value>
+    </data>
+    <data name="ServicesSelectFolder" xml:space="preserve">
+        <value>选择目录</value>
+    </data>
+    <data name="ServicesCurrentModel" xml:space="preserve">
+        <value>当前模型</value>
+    </data>
+    <data name="ServicesModelPath" xml:space="preserve">
+        <value>模型路径</value>
+    </data>
+    <data name="ServicesEndpoint" xml:space="preserve">
+        <value>接口地址</value>
+    </data>
+    <data name="ServicesBackend" xml:space="preserve">
+        <value>后端</value>
+    </data>
+    <data name="ServicesDimensions" xml:space="preserve">
+        <value>向量维度</value>
+    </data>
+    <data name="ServicesLastStarted" xml:space="preserve">
+        <value>上次启动</value>
+    </data>
+    <data name="ServicesLastError" xml:space="preserve">
+        <value>最近错误</value>
+    </data>
+    <data name="ServicesNoModelRunning" xml:space="preserve">
+        <value>当前没有运行中的模型</value>
+    </data>
+    <data name="ServicesNoError" xml:space="preserve">
+        <value>暂无错误</value>
+    </data>
+    <data name="ServicesModelCount" xml:space="preserve">
+        <value>模型数量</value>
+    </data>
+    <data name="ServicesModelCountFormat" xml:space="preserve">
+        <value>{0} 个模型</value>
+    </data>
+    <data name="ServicesRunningCountFormat" xml:space="preserve">
+        <value>{0} 个运行中</value>
+    </data>
+    <data name="ServicesRemoteModelCountFormat" xml:space="preserve">
+        <value>{0} 个远程模型</value>
+    </data>
+    <data name="ServicesFavoriteRemoteModel" xml:space="preserve">
+        <value>默认远程模型</value>
+    </data>
+    <data name="ServicesRuntimeVersion" xml:space="preserve">
+        <value>运行时版本</value>
+    </data>
+    <data name="ServicesRuntimePath" xml:space="preserve">
+        <value>运行时路径</value>
+    </data>
+    <data name="ServicesRemoteModels" xml:space="preserve">
+        <value>远程模型</value>
+    </data>
+    <data name="ServicesRemoteApiHint" xml:space="preserve">
+        <value>远程模型的新增和编辑仍在“模型”页完成，本页只展示运行状态。</value>
+    </data>
+    <data name="ServicesNoRuntimeSelected" xml:space="preserve">
+        <value>尚未选择运行时</value>
+    </data>
+    <data name="ServicesContextSize" xml:space="preserve">
+        <value>上下文</value>
+    </data>
+    <data name="ServicesBatchSize" xml:space="preserve">
+        <value>批处理</value>
+    </data>
+    <data name="ServicesUBatchSize" xml:space="preserve">
+        <value>物理批处理</value>
+    </data>
+    <data name="ServicesGpuLayers" xml:space="preserve">
+        <value>GPU 层数</value>
+    </data>
+    <data name="ServicesRemoteEndpoint" xml:space="preserve">
+        <value>远程嵌入接口地址</value>
+    </data>
+    <data name="ServicesRemoteModelId" xml:space="preserve">
+        <value>远程嵌入模型 ID</value>
+    </data>
+    <data name="ServicesRemoteApiKey" xml:space="preserve">
+        <value>远程嵌入 API Key</value>
+    </data>
+    <data name="ServicesEmbeddingModelPathWatermark" xml:space="preserve">
+        <value>嵌入 GGUF 模型路径</value>
+    </data>
+    <data name="ServicesEmbeddingSettingsSaved" xml:space="preserve">
+        <value>嵌入服务设置已保存。</value>
+    </data>
+    <data name="ServicesEmbeddingSettingsDesc" xml:space="preserve">
+        <value>配置常驻嵌入运行时。LLamaSharp 会在进程内运行；只有手动选择远程后端时才使用远程嵌入。</value>
+    </data>
+    <data name="ServicesEmbeddingAdvanced" xml:space="preserve">
+        <value>高级参数</value>
+    </data>
+    <data name="ServicesEmbeddingAdvancedDesc" xml:space="preserve">
+        <value>通常保持默认即可。只有嵌入模型提示上下文、批处理或显存相关错误时再调整。</value>
+    </data>
+    <data name="ServicesContextSizeDesc" xml:space="preserve">
+        <value>嵌入模型单次请求可处理的最大 token 数。</value>
+    </data>
+    <data name="ServicesBatchSizeDesc" xml:space="preserve">
+        <value>生成嵌入时使用的逻辑批处理大小。</value>
+    </data>
+    <data name="ServicesUBatchSizeDesc" xml:space="preserve">
+        <value>物理批处理大小。若后端提示 input is too large，可优先降低此项。</value>
+    </data>
+    <data name="ServicesGpuLayersDesc" xml:space="preserve">
+        <value>卸载到 GPU 的模型层数。设置为 0 表示纯 CPU 嵌入。</value>
+    </data>
+    <data name="ServicesRuntimeHint" xml:space="preserve">
+        <value>运行时下载、安装和选择仍在设置中完成。本页只展示当前启用的本地执行后端。</value>
+    </data>
+    <data name="ServicesStatusNeedsConfig" xml:space="preserve">
+        <value>需要配置</value>
+    </data>
+    <data name="ServicesRunningDetails" xml:space="preserve">
+        <value>运行详情</value>
+    </data>
+    <data name="ServicesChatRuntimeDetails" xml:space="preserve">
+        <value>对话运行时</value>
+    </data>
+    <data name="ServicesChatRuntimeDetailsDesc" xml:space="preserve">
+        <value>展示当前负责角色回复的模型服务。</value>
+    </data>
+    <data name="ServicesEmbeddingRuntimeDetails" xml:space="preserve">
+        <value>嵌入运行时</value>
+    </data>
+    <data name="ServicesEmbeddingRuntimeDetailsDesc" xml:space="preserve">
+        <value>展示供记忆库检索复用的常驻嵌入服务。</value>
+    </data>
+    <data name="ServicesEmbeddingSource" xml:space="preserve">
+        <value>来源</value>
+    </data>
+    <data name="ServicesConfiguredModel" xml:space="preserve">
+        <value>配置模型</value>
+    </data>
+    <data name="ServicesRuntimeModel" xml:space="preserve">
+        <value>运行模型</value>
+    </data>
+    <data name="ServicesRecentIssue" xml:space="preserve">
+        <value>近期问题</value>
+    </data>
+    <data name="ServicesEmbeddingConfiguration" xml:space="preserve">
+        <value>嵌入配置</value>
+    </data>
+    <data name="ServicesEmbeddingSourceLocal" xml:space="preserve">
+        <value>本地模型</value>
+    </data>
+    <data name="ServicesEmbeddingSourceLocalDesc" xml:space="preserve">
+        <value>从外部嵌入模型目录和内置目录中选择一个 GGUF 模型。未选择时会使用第一个可用模型。</value>
+    </data>
+    <data name="ServicesEmbeddingSourceManagedLocal" xml:space="preserve">
+        <value>应用内模型</value>
+    </data>
+    <data name="ServicesEmbeddingSourceManagedLocalDesc" xml:space="preserve">
+        <value>从应用数据目录或内置目录中选择一个 GGUF 嵌入模型。</value>
+    </data>
+    <data name="ServicesEmbeddingSourceCustomLocal" xml:space="preserve">
+        <value>自定义本地文件</value>
+    </data>
+    <data name="ServicesEmbeddingSourceCustomLocalDesc" xml:space="preserve">
+        <value>使用指定的本地 GGUF 嵌入模型文件。</value>
+    </data>
+    <data name="ServicesEmbeddingSourceRemoteApi" xml:space="preserve">
+        <value>远程 API</value>
+    </data>
+    <data name="ServicesEmbeddingSourceRemoteApiDesc" xml:space="preserve">
+        <value>使用 OpenAI 兼容的远程嵌入接口。</value>
+    </data>
+    <data name="ServicesEmbeddingSourceApplication" xml:space="preserve">
+        <value>应用目录</value>
+    </data>
+    <data name="ServicesEmbeddingSourceBuiltIn" xml:space="preserve">
+        <value>内置</value>
+    </data>
+    <data name="ServicesRefreshModels" xml:space="preserve">
+        <value>刷新模型</value>
+    </data>
+    <data name="ServicesManagedEmbeddingSummaryFormat" xml:space="preserve">
+        <value>应用目录：{0} / 内置：{1}</value>
+    </data>
+    <data name="ServicesNoManagedEmbeddingModels" xml:space="preserve">
+        <value>未发现应用内或内置 GGUF 嵌入模型。请将模型放入应用嵌入模型目录，或切换为自定义本地文件。</value>
+    </data>
+    <data name="ServicesChatModelNotSelected" xml:space="preserve">
+        <value>尚未选择对话模型，请先前往“模型”页选择模型。</value>
+    </data>
+    <data name="ServicesGoToModelPage" xml:space="preserve">
+        <value>前往模型页</value>
+    </data>
+    <data name="ServicesEmbeddingStartFailed" xml:space="preserve">
+        <value>嵌入模型启动失败</value>
+    </data>
 </root>

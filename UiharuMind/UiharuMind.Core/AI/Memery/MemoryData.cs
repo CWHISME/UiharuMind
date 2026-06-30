@@ -1,9 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using UiharuMind.Core.AI.Embedding;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -17,7 +18,6 @@ public class MemoryData : IUniquieContainerItem
     private const int ChunkOverlap = 120;
     private const int MinimumAdaptiveChunkLength = 48;
     private const string CollectionName = "chunks";
-    private static readonly TimeSpan EmbeddingServerStartTimeout = TimeSpan.FromMinutes(2);
     private static readonly IMemorySourceReader[] SourceReaders =
     [
         new ManualTextSourceReader(),
@@ -35,7 +35,7 @@ public class MemoryData : IUniquieContainerItem
     public event Action? StateChanged;
 
     private readonly SemaphoreSlim _indexLock = new(1, 1);
-    private UiharaTextEmbeddingGenerator? _embeddingGenerator;
+    private IEmbeddingSession? _embeddingSession;
     private SqliteCollection<string, MemoryChunkRecord>? _collection;
     private int? _embeddingDimensions;
     private bool _isVectorStoreUnavailable;
@@ -45,7 +45,7 @@ public class MemoryData : IUniquieContainerItem
         try
         {
             if (!await EnsureReadyForSearchAsync().ConfigureAwait(false)) return "";
-            if (_embeddingGenerator == null || string.IsNullOrWhiteSpace(query) || _isVectorStoreUnavailable) return "";
+            if (_embeddingSession == null || string.IsNullOrWhiteSpace(query) || _isVectorStoreUnavailable) return "";
 
             ReadOnlyMemory<float> queryEmbedding =
                 await GenerateSearchEmbeddingAsync(query).ConfigureAwait(false);
@@ -100,7 +100,7 @@ public class MemoryData : IUniquieContainerItem
             DeleteDatabaseFiles(temporaryDatabasePath);
             Report(progress, MemoryIndexStage.Preparing, 0.02, "", 0, SourceCount, 0, 0, 0);
             if (!await EnsureReadyForSearchAsync(cancellationToken).ConfigureAwait(false) ||
-                _embeddingGenerator == null)
+                _embeddingSession == null)
             {
                 return FailUpdate(LastIndexError, failures);
             }
@@ -171,7 +171,7 @@ public class MemoryData : IUniquieContainerItem
                 ReadOnlyMemory<float> embedding;
                 try
                 {
-                    embedding = await _embeddingGenerator
+                    embedding = await _embeddingSession
                         .GenerateEmbeddingAsync(pending.Text, cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -263,7 +263,7 @@ public class MemoryData : IUniquieContainerItem
             return false;
         }
 
-        return await WrapTryEnsureEmbeddedServerAsync(cancellationToken).ConfigureAwait(false);
+        return await EnsureEmbeddingSessionAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void Save()
@@ -449,35 +449,23 @@ public class MemoryData : IUniquieContainerItem
         return collection;
     }
 
-    private async Task<bool> WrapTryEnsureEmbeddedServerAsync(CancellationToken cancellationToken)
+    private async Task<bool> EnsureEmbeddingSessionAsync(CancellationToken cancellationToken)
     {
-        if (_embeddingGenerator != null) return true;
-
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        LlmManager.Instance.RuntimeEngineManager.TryEnsureEmbededServer(config =>
+        if (_embeddingSession is { IsRunning: true }) return true;
+        try
         {
-            if (config == null)
-            {
-                LastIndexError = "Embedding server is unavailable.";
-                tcs.TrySetResult(false);
-                return;
-            }
-
-            _embeddingGenerator =
-                new UiharaTextEmbeddingGenerator(config.Endpoint, config.EmbeddingModelMaxTokenTotal);
-            tcs.TrySetResult(true);
-        });
-
-        Task timeoutTask = Task.Delay(EmbeddingServerStartTimeout, cancellationToken);
-        Task completedTask = await Task.WhenAny(tcs.Task, timeoutTask).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (completedTask == timeoutTask)
+            _embeddingSession = await EmbeddingModelService.Instance
+                .GetSessionAsync(cancellationToken)
+                .ConfigureAwait(false);
+            LastIndexError = "";
+            return true;
+        }
+        catch (Exception e)
         {
-            LastIndexError = "Embedding server startup timed out.";
+            LastIndexError = e is EmbeddingRuntimeException ? e.Message : "Embedding model startup failed.";
+            Log.Error($"Embedding session unavailable: {e.Message}");
             return false;
         }
-
-        return await tcs.Task.ConfigureAwait(false);
     }
 
     private static IEnumerable<string> SplitText(string text)
@@ -497,14 +485,14 @@ public class MemoryData : IUniquieContainerItem
 
     private async Task<ReadOnlyMemory<float>> GenerateSearchEmbeddingAsync(string query)
     {
-        if (_embeddingGenerator == null) throw new InvalidOperationException("Embedding server is unavailable.");
+        if (_embeddingSession == null) throw new InvalidOperationException("Embedding model is unavailable.");
 
         string candidate = query.Trim();
         while (true)
         {
             try
             {
-                return await _embeddingGenerator.GenerateEmbeddingAsync(candidate).ConfigureAwait(false);
+                return await _embeddingSession.GenerateEmbeddingAsync(candidate).ConfigureAwait(false);
             }
             catch (EmbeddingInputTooLargeException) when (candidate.Length > MinimumAdaptiveChunkLength)
             {

@@ -466,9 +466,18 @@ public partial class ChatSessionViewData : ObservableObject
 
     private static string GetMemoryIndexErrorText(string error)
     {
+        if (error.StartsWith("Embedding model startup failed", StringComparison.OrdinalIgnoreCase) ||
+            error.StartsWith("Failed to load LLamaSharp embedding model", StringComparison.OrdinalIgnoreCase) ||
+            error.StartsWith("Remote embedding backend is not implemented", StringComparison.OrdinalIgnoreCase))
+            return Lang.MemoryIndexEmbeddingServerUnavailable;
+
+        if (error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase))
+            return GetLocalizedText("MemoryIndexEmbeddingRequestFailed");
+
         return error switch
         {
             "Embedding server is unavailable." => Lang.MemoryIndexEmbeddingServerUnavailable,
+            "Embedding model is unavailable." => Lang.MemoryIndexEmbeddingServerUnavailable,
             "Embedding server startup timed out." => Lang.MemoryIndexEmbeddingServerTimeout,
             "Memory name not set" => Lang.MemoryIndexMemoryNameMissing,
             "Memory vector store unavailable" => Lang.MemoryIndexVectorStoreUnavailable,

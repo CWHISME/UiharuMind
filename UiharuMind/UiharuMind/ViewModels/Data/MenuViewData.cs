@@ -27,8 +27,9 @@ public class MenuViewData
             new() { MenuHeaderResourceKey = nameof(Lang.MenuChatKey), MenuIconName = "Chat", Key = MenuPages.MenuChatKey },
         // new() { MenuHeader = Lang.MenuTranslateKey, MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "Folder", Key = MenuPages.MenuModelKey },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuLogKey), MenuIconName = "BookInformationRegular", Key = MenuPages.MenuLogKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "FolderRegular", Key = MenuPages.MenuModelKey },
+            new() { MenuHeaderResourceKey = "MenuServicesKey", MenuIconName = "DeveloperBoardRegular", Key = MenuPages.MenuServicesKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuLogKey), MenuIconName = "BookQuestionMarkRegular", Key = MenuPages.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
         };
 

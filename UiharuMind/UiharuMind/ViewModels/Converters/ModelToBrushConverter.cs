@@ -17,6 +17,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.AI.Memery;
 
 namespace UiharuMind.ViewModels.Converters;
@@ -27,7 +28,7 @@ public class ModelToBrushConverter : IValueConverter
     {
         if (value is ILlmModel modelRunningData)
         {
-            if (LlmManager.Instance.RemoteModelManager.Config.FavoriteModel == modelRunningData.ModelName)
+            if (ModelSettingConfig.Current.FavoriteModel == modelRunningData.ModelName)
                 return Brushes.Gold;
         }
 

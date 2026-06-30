@@ -39,11 +39,7 @@ public class LLamaCppSettingConfig : ConfigBase
 
     [JsonIgnore] public string DefaultRuntimePath { get; set; } = "./InternalRuntime";
     [JsonIgnore] public string DefaultLocalModelPath { get; set; } = "./InternalModels";
-    [JsonIgnore] public string DefaultEmbededModelPath { get; set; } = "./InternalEmbededModels";
-
-    [JsonIgnore] public string ExternalEmbededModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbededModels");
-
-
+    
     public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();
 
     // public string ExeLookupStats => Path.Combine(LLamaCppPath!, "llama-lookup-stats");

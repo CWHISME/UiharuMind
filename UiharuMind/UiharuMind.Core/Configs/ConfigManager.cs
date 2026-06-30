@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AutoClick;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Singletons;
@@ -23,6 +24,7 @@ public class ConfigManager : Singleton<ConfigManager>
     public QuickToolPromptSetting QuickToolPromptSetting => QuickToolPromptSetting.Current;
     public ChatSettingConfig ChatSetting => ChatSettingConfig.Current;
     public DebugSettingConfig DebugSetting => DebugSettingConfig.Current;
+    public EmbeddingModelSettingConfig EmbeddingModelSetting => EmbeddingModelSettingConfig.Current;
 
     // public ConfigManager()
     // {

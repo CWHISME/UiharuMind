@@ -1482,4 +1482,259 @@
     <data name="NotificationClose" xml:space="preserve">
         <value>Close notification</value>
     </data>
+    <data name="MenuServicesKey" xml:space="preserve">
+        <value>Services</value>
+    </data>
+    <data name="ServicesPageTitle" xml:space="preserve">
+        <value>Model Services</value>
+    </data>
+    <data name="ServicesPageSubtitle" xml:space="preserve">
+        <value>Monitor chat, embedding, local runtime and remote API services from one place.</value>
+    </data>
+    <data name="ServicesRefresh" xml:space="preserve">
+        <value>Refresh</value>
+    </data>
+    <data name="ServicesChatModelService" xml:space="preserve">
+        <value>Chat model service</value>
+    </data>
+    <data name="ServicesChatModelServiceDesc" xml:space="preserve">
+        <value>Current model used by conversations and character replies.</value>
+    </data>
+    <data name="ServicesEmbeddingModelService" xml:space="preserve">
+        <value>Embedding model service</value>
+    </data>
+    <data name="ServicesEmbeddingModelServiceDesc" xml:space="preserve">
+        <value>Persistent embedding runtime used by memory indexing and retrieval.</value>
+    </data>
+    <data name="ServicesRuntimeBackendService" xml:space="preserve">
+        <value>Local runtime</value>
+    </data>
+    <data name="ServicesRemoteApiService" xml:space="preserve">
+        <value>Remote API</value>
+    </data>
+    <data name="ServicesStatusRunning" xml:space="preserve">
+        <value>Running</value>
+    </data>
+    <data name="ServicesStatusStopped" xml:space="preserve">
+        <value>Stopped</value>
+    </data>
+    <data name="ServicesStatusLoading" xml:space="preserve">
+        <value>Loading</value>
+    </data>
+    <data name="ServicesStatusError" xml:space="preserve">
+        <value>Error</value>
+    </data>
+    <data name="ServicesStart" xml:space="preserve">
+        <value>Start</value>
+    </data>
+    <data name="ServicesStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="ServicesRestart" xml:space="preserve">
+        <value>Restart</value>
+    </data>
+    <data name="ServicesReload" xml:space="preserve">
+        <value>Reload</value>
+    </data>
+    <data name="ServicesSaveSettings" xml:space="preserve">
+        <value>Save settings</value>
+    </data>
+    <data name="ServicesOpenFolder" xml:space="preserve">
+        <value>Open folder</value>
+    </data>
+    <data name="ServicesSelect" xml:space="preserve">
+        <value>Select</value>
+    </data>
+    <data name="ServicesSelectFolder" xml:space="preserve">
+        <value>Select folder</value>
+    </data>
+    <data name="ServicesCurrentModel" xml:space="preserve">
+        <value>Current model</value>
+    </data>
+    <data name="ServicesModelPath" xml:space="preserve">
+        <value>Model path</value>
+    </data>
+    <data name="ServicesEndpoint" xml:space="preserve">
+        <value>Endpoint</value>
+    </data>
+    <data name="ServicesBackend" xml:space="preserve">
+        <value>Backend</value>
+    </data>
+    <data name="ServicesDimensions" xml:space="preserve">
+        <value>Dimensions</value>
+    </data>
+    <data name="ServicesLastStarted" xml:space="preserve">
+        <value>Last started</value>
+    </data>
+    <data name="ServicesLastError" xml:space="preserve">
+        <value>Last error</value>
+    </data>
+    <data name="ServicesNoModelRunning" xml:space="preserve">
+        <value>No model is running</value>
+    </data>
+    <data name="ServicesNoError" xml:space="preserve">
+        <value>No error</value>
+    </data>
+    <data name="ServicesModelCount" xml:space="preserve">
+        <value>Model count</value>
+    </data>
+    <data name="ServicesModelCountFormat" xml:space="preserve">
+        <value>{0} models</value>
+    </data>
+    <data name="ServicesRunningCountFormat" xml:space="preserve">
+        <value>{0} running</value>
+    </data>
+    <data name="ServicesRemoteModelCountFormat" xml:space="preserve">
+        <value>{0} remote models</value>
+    </data>
+    <data name="ServicesFavoriteRemoteModel" xml:space="preserve">
+        <value>Favorite remote model</value>
+    </data>
+    <data name="ServicesRuntimeVersion" xml:space="preserve">
+        <value>Runtime version</value>
+    </data>
+    <data name="ServicesRuntimePath" xml:space="preserve">
+        <value>Runtime path</value>
+    </data>
+    <data name="ServicesRemoteModels" xml:space="preserve">
+        <value>Remote models</value>
+    </data>
+    <data name="ServicesRemoteApiHint" xml:space="preserve">
+        <value>Remote model creation and editing remains on the Model page; this page only shows runtime status.</value>
+    </data>
+    <data name="ServicesNoRuntimeSelected" xml:space="preserve">
+        <value>No runtime selected</value>
+    </data>
+    <data name="ServicesContextSize" xml:space="preserve">
+        <value>Context</value>
+    </data>
+    <data name="ServicesBatchSize" xml:space="preserve">
+        <value>Batch</value>
+    </data>
+    <data name="ServicesUBatchSize" xml:space="preserve">
+        <value>Physical batch</value>
+    </data>
+    <data name="ServicesGpuLayers" xml:space="preserve">
+        <value>GPU layers</value>
+    </data>
+    <data name="ServicesRemoteEndpoint" xml:space="preserve">
+        <value>Remote embedding endpoint</value>
+    </data>
+    <data name="ServicesRemoteModelId" xml:space="preserve">
+        <value>Remote embedding model id</value>
+    </data>
+    <data name="ServicesRemoteApiKey" xml:space="preserve">
+        <value>Remote embedding API key</value>
+    </data>
+    <data name="ServicesEmbeddingModelPathWatermark" xml:space="preserve">
+        <value>Embedding GGUF model path</value>
+    </data>
+    <data name="ServicesEmbeddingSettingsSaved" xml:space="preserve">
+        <value>Embedding service settings saved.</value>
+    </data>
+    <data name="ServicesEmbeddingSettingsDesc" xml:space="preserve">
+        <value>Configure the persistent embedding runtime. LLamaSharp runs in-process; remote embedding is only used when selected explicitly.</value>
+    </data>
+    <data name="ServicesEmbeddingAdvanced" xml:space="preserve">
+        <value>Advanced</value>
+    </data>
+    <data name="ServicesEmbeddingAdvancedDesc" xml:space="preserve">
+        <value>Usually keep these defaults. Adjust them only when the embedding model reports context, batch, or GPU memory errors.</value>
+    </data>
+    <data name="ServicesContextSizeDesc" xml:space="preserve">
+        <value>Maximum tokens the embedding model can process in one request.</value>
+    </data>
+    <data name="ServicesBatchSizeDesc" xml:space="preserve">
+        <value>Logical batch size used while evaluating embedding input.</value>
+    </data>
+    <data name="ServicesUBatchSizeDesc" xml:space="preserve">
+        <value>Physical batch size. Lower this when the backend says the input is too large for the batch.</value>
+    </data>
+    <data name="ServicesGpuLayersDesc" xml:space="preserve">
+        <value>Number of model layers offloaded to GPU. Use 0 for CPU-only embedding.</value>
+    </data>
+    <data name="ServicesRuntimeHint" xml:space="preserve">
+        <value>Runtime packages are installed and selected in Settings. This page only shows the active local backend.</value>
+    </data>
+    <data name="ServicesStatusNeedsConfig" xml:space="preserve">
+        <value>Needs setup</value>
+    </data>
+    <data name="ServicesRunningDetails" xml:space="preserve">
+        <value>Runtime details</value>
+    </data>
+    <data name="ServicesChatRuntimeDetails" xml:space="preserve">
+        <value>Chat runtime</value>
+    </data>
+    <data name="ServicesChatRuntimeDetailsDesc" xml:space="preserve">
+        <value>Shows the model currently serving character replies.</value>
+    </data>
+    <data name="ServicesEmbeddingRuntimeDetails" xml:space="preserve">
+        <value>Embedding runtime</value>
+    </data>
+    <data name="ServicesEmbeddingRuntimeDetailsDesc" xml:space="preserve">
+        <value>Shows the persistent embedding service used by memory search.</value>
+    </data>
+    <data name="ServicesEmbeddingSource" xml:space="preserve">
+        <value>Source</value>
+    </data>
+    <data name="ServicesConfiguredModel" xml:space="preserve">
+        <value>Configured model</value>
+    </data>
+    <data name="ServicesRuntimeModel" xml:space="preserve">
+        <value>Runtime model</value>
+    </data>
+    <data name="ServicesRecentIssue" xml:space="preserve">
+        <value>Recent issue</value>
+    </data>
+    <data name="ServicesEmbeddingConfiguration" xml:space="preserve">
+        <value>Embedding configuration</value>
+    </data>
+    <data name="ServicesEmbeddingSourceLocal" xml:space="preserve">
+        <value>Local model</value>
+    </data>
+    <data name="ServicesEmbeddingSourceLocalDesc" xml:space="preserve">
+        <value>Choose one GGUF embedding model from the external embedding folder and the built-in folder. If no model is selected, the first available model is used.</value>
+    </data>
+    <data name="ServicesEmbeddingSourceManagedLocal" xml:space="preserve">
+        <value>App models</value>
+    </data>
+    <data name="ServicesEmbeddingSourceManagedLocalDesc" xml:space="preserve">
+        <value>Choose a GGUF embedding model discovered from the app data folder or the built-in model folder.</value>
+    </data>
+    <data name="ServicesEmbeddingSourceCustomLocal" xml:space="preserve">
+        <value>Custom local file</value>
+    </data>
+    <data name="ServicesEmbeddingSourceCustomLocalDesc" xml:space="preserve">
+        <value>Use a specific local GGUF embedding model file.</value>
+    </data>
+    <data name="ServicesEmbeddingSourceRemoteApi" xml:space="preserve">
+        <value>Remote API</value>
+    </data>
+    <data name="ServicesEmbeddingSourceRemoteApiDesc" xml:space="preserve">
+        <value>Use an OpenAI-compatible remote embedding endpoint.</value>
+    </data>
+    <data name="ServicesEmbeddingSourceApplication" xml:space="preserve">
+        <value>App data</value>
+    </data>
+    <data name="ServicesEmbeddingSourceBuiltIn" xml:space="preserve">
+        <value>Built-in</value>
+    </data>
+    <data name="ServicesRefreshModels" xml:space="preserve">
+        <value>Refresh models</value>
+    </data>
+    <data name="ServicesManagedEmbeddingSummaryFormat" xml:space="preserve">
+        <value>App folder: {0} / Built-in: {1}</value>
+    </data>
+    <data name="ServicesNoManagedEmbeddingModels" xml:space="preserve">
+        <value>No app or built-in GGUF embedding model was found. Add a model to the app embedding model folder, or switch to a custom local file.</value>
+    </data>
+    <data name="ServicesChatModelNotSelected" xml:space="preserve">
+        <value>No chat model is selected. Please choose a model on the Model page first.</value>
+    </data>
+    <data name="ServicesGoToModelPage" xml:space="preserve">
+        <value>Go to Model page</value>
+    </data>
+    <data name="ServicesEmbeddingStartFailed" xml:space="preserve">
+        <value>Embedding startup failed</value>
+    </data>
 </root>
