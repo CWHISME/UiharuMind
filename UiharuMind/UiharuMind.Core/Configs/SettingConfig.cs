@@ -52,16 +52,6 @@ public class SettingConfig : TConfigBase<SettingConfig>
     /// </summary>
     public bool IsLocalServer { get; set; } = true;
 
-    /// <summary>
-    /// 聊天是否只显示纯文本
-    /// </summary>
-    public bool IsChatPlainText { get; set; } = false;
-
-    /// <summary>
-    /// 聊天是否隐藏模型思考过程
-    /// </summary>
-    public bool IsChatNotShowThinking { get; set; } = false;
-
     private string _languageCode = LanguageUtils.GetSupportedCultureOrDefault(null).Name;
     private string _themeMode = "Default";
 

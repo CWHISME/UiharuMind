@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -23,6 +24,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
@@ -83,9 +85,31 @@ public partial class ModelPageData : PageDataBase
     }
 
     [RelayCommand]
-    private void OpenSelectModelInfo(string path)
+    private async Task OpenSelectModelInfo(string path)
     {
-        _messageService.ShowNotification("OpenSelectModelInfo.");
+        GGufModelInfo? info = ModelSources
+            .Select(model => model.ModelInfo)
+            .OfType<GGufModelInfo>()
+            .FirstOrDefault(model => model.ModelPath == path);
+        if (info == null)
+        {
+            _messageService.ShowNotification(path);
+            return;
+        }
+
+        string message = string.Join(Environment.NewLine, new[]
+        {
+            $"Name: {info.DisplayName}",
+            $"Architecture: {info.Architecture}",
+            $"Size: {info.SizeLabel}",
+            $"Context: {info.ContextLength:N0}",
+            $"Embedding: {info.EmbeddingLength:N0}",
+            $"Layers: {info.LayerCount}",
+            $"Heads: {info.AttentionHeadCount} / KV {info.AttentionHeadCountKv}",
+            $"File: {info.ModelPath}"
+        }.Where(line => !line.EndsWith(": ", StringComparison.Ordinal)));
+
+        await _messageService.ShowInfoAsync(message, info.ModelName);
     }
 
     [RelayCommand]

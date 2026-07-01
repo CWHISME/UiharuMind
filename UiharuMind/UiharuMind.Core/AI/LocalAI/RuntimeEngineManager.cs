@@ -14,6 +14,8 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.ServerKernal;
@@ -33,6 +35,7 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     /// llamacpp 服务
     /// </summary>
     public LLamaCppServerKernal LLamaCppServer { get; private set; } = new LLamaCppServerKernal();
+    private ModelRuntimeCoordinator? _coordinator;
 
     /// <summary>
     /// 当前选择的运行时版本
@@ -57,6 +60,11 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     public RuntimeEngineManager()
     {
         InitializeAvailableVersions();
+    }
+
+    public void AttachCoordinator(ModelRuntimeCoordinator coordinator)
+    {
+        _coordinator = coordinator;
     }
 
     private void InitializeAvailableVersions()
@@ -112,6 +120,9 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     /// </summary>
     public async Task<IReadOnlyDictionary<string, ModelRunningData>> GetModelList()
     {
+        if (_coordinator != null)
+            return await _coordinator.RefreshLocalModelsAsync().ConfigureAwait(false);
+
         _modelDeleteCacheList.Clear();
 
         var modelList = await LLamaCppServer.GetModelList(CurrentSeletedVersion).ConfigureAwait(false);
@@ -154,14 +165,13 @@ public class RuntimeEngineManager : ServerKernalBase<RuntimeEngineManager, Runti
     public async Task Run(ILlmModel model, Action<float>? onLoading = null,
         Action<IChatClient>? onLoadOver = null, CancellationToken token = default)
     {
-        if (CurrentSeletedVersion == null)
+        if (_coordinator == null)
         {
-            Log.Error(
-                "Current Selected Local RuntimeBackend Engine Version is null！Plese to Setting Page to select a version first.");
+            Log.Error("Model runtime coordinator is not initialized.");
             return;
         }
 
-        await LLamaCppServer.Run(CurrentSeletedVersion, model, onLoading, onLoadOver, token: token);
+        await _coordinator.Run(model, onLoading, onLoadOver, token).ConfigureAwait(false);
     }
 
 

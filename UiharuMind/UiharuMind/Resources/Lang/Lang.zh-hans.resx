@@ -89,6 +89,87 @@
     <data name="LLamaCppSetting" xml:space="preserve">
         <value>LLamaCpp 设置</value>
     </data>
+    <data name="ModelRuntimeEngine" xml:space="preserve">
+        <value>运行引擎</value>
+    </data>
+    <data name="ModelRuntimeLLamaSharpBackend" xml:space="preserve">
+        <value>LLamaSharp 后端</value>
+    </data>
+    <data name="ModelRuntimeChangeHint" xml:space="preserve">
+        <value>更换运行引擎或参数不会影响当前已经运行的本地模型，重新加载模型后才会生效。</value>
+    </data>
+    <data name="ModelRuntimeSectionTitle" xml:space="preserve">
+        <value>本地模型运行时</value>
+    </data>
+    <data name="ModelRuntimeSectionDesc" xml:space="preserve">
+        <value>选择本地 GGUF 模型的运行方式，并调整下次加载时使用的通用参数。</value>
+    </data>
+    <data name="ModelRuntimeLLamaSharpTitle" xml:space="preserve">
+        <value>LLamaSharp 内置运行时</value>
+    </data>
+    <data name="ModelRuntimeLLamaSharpDesc" xml:space="preserve">
+        <value>在应用进程内运行 GGUF 模型。CPU 始终可用；GPU 模式取决于已安装的 LLamaSharp 后端包和当前平台支持。</value>
+    </data>
+    <data name="ModelRuntimeLLamaCppTitle" xml:space="preserve">
+        <value>llama.cpp 运行包</value>
+    </data>
+    <data name="ModelRuntimeLLamaCppDesc" xml:space="preserve">
+        <value>使用外部 llama.cpp server 可执行文件。这里选择或下载下次加载模型时使用的运行包。</value>
+    </data>
+    <data name="ModelRuntimeContextSize" xml:space="preserve">
+        <value>上下文长度</value>
+    </data>
+    <data name="ModelRuntimeContextSizeDesc" xml:space="preserve">
+        <value>本地推理可使用的最大提示词上下文。0 表示自动。</value>
+    </data>
+    <data name="ModelRuntimeGpuLayers" xml:space="preserve">
+        <value>GPU 层数</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersDesc" xml:space="preserve">
+        <value>卸载到 GPU 的层数。设置为 0 表示纯 CPU 运行。</value>
+    </data>
+    <data name="ModelRuntimeBatchSize" xml:space="preserve">
+        <value>批处理</value>
+    </data>
+    <data name="ModelRuntimeBatchSizeDesc" xml:space="preserve">
+        <value>评估时使用的逻辑批处理大小。0 表示自动。</value>
+    </data>
+    <data name="ModelRuntimeUBatchSize" xml:space="preserve">
+        <value>物理批处理</value>
+    </data>
+    <data name="ModelRuntimeUBatchSizeDesc" xml:space="preserve">
+        <value>物理批处理大小。0 表示自动。后端提示 batch/input too large 时可优先降低。</value>
+    </data>
+    <data name="ModelRuntimeThreads" xml:space="preserve">
+        <value>CPU 线程</value>
+    </data>
+    <data name="ModelRuntimeThreadsDesc" xml:space="preserve">
+        <value>0 表示由后端自动选择。</value>
+    </data>
+    <data name="ModelRuntimeFlashAttention" xml:space="preserve">
+        <value>启用 Flash Attention</value>
+    </data>
+    <data name="ModelRuntimeQuickSettings" xml:space="preserve">
+        <value>本地运行设置</value>
+    </data>
+    <data name="ModelRuntimeEstimatedMemoryUsage" xml:space="preserve">
+        <value>预计内存占用</value>
+    </data>
+    <data name="ModelRuntimeBeta" xml:space="preserve">
+        <value>Beta</value>
+    </data>
+    <data name="ModelRuntimeGpuMemory" xml:space="preserve">
+        <value>GPU</value>
+    </data>
+    <data name="ModelRuntimeTotalMemory" xml:space="preserve">
+        <value>总计</value>
+    </data>
+    <data name="ModelRuntimeContextLimitHint" xml:space="preserve">
+        <value>模型支持的最大上下文会在 GGUF 元信息可用后显示。</value>
+    </data>
+    <data name="ModelRuntimeShowAdvancedSettings" xml:space="preserve">
+        <value>显示高级设置</value>
+    </data>
     <data name="InAnswer" xml:space="preserve">
         <value>计算中...</value>
     </data>
@@ -1729,5 +1810,65 @@
     </data>
     <data name="ServicesEmbeddingStartFailed" xml:space="preserve">
         <value>嵌入模型启动失败</value>
+    </data>
+    <data name="ModelRuntimeAvailableMemory" xml:space="preserve">
+        <value>可用</value>
+    </data>
+    <data name="ModelRuntimeRiskLevel" xml:space="preserve">
+        <value>风险</value>
+    </data>
+    <data name="ModelRuntimeRiskLow" xml:space="preserve">
+        <value>低</value>
+    </data>
+    <data name="ModelRuntimeRiskWarning" xml:space="preserve">
+        <value>警告</value>
+    </data>
+    <data name="ModelRuntimeRiskDanger" xml:space="preserve">
+        <value>高</value>
+    </data>
+    <data name="ModelRuntimeRiskUnknown" xml:space="preserve">
+        <value>未知</value>
+    </data>
+    <data name="ModelRuntimeRiskDetailFormat" xml:space="preserve">
+        <value>估算总占用：{0}&#x0a;KV 缓存：{1}&#x0a;原因：{2}</value>
+    </data>
+    <data name="ModelRuntimeLoadRiskConfirmTitle" xml:space="preserve">
+        <value>确认加载本地模型</value>
+    </data>
+    <data name="ModelRuntimeLoadRiskConfirmFormat" xml:space="preserve">
+        <value>本地模型“{0}”存在 {1} 启动风险。&#x0a;估算内存占用：{2}&#x0a;原因：{3}</value>
+    </data>
+    <data name="ModelRuntimeLoadRiskNativeCrashHint" xml:space="preserve">
+        <value>托管异常通常可以恢复，但 native/Metal 内存不足可能导致应用无响应或崩溃。是否继续加载？</value>
+    </data>
+    <data name="ServicesDeviceResourceTitle" xml:space="preserve">
+        <value>设备资源</value>
+    </data>
+    <data name="ServicesDeviceResourceDesc" xml:space="preserve">
+        <value>用于本地模型风险检查的资源快照。</value>
+    </data>
+    <data name="ServicesDeviceCpuUsage" xml:space="preserve">
+        <value>应用 CPU</value>
+    </data>
+    <data name="ServicesDeviceMemory" xml:space="preserve">
+        <value>设备内存</value>
+    </data>
+    <data name="ServicesDeviceTotalMemory" xml:space="preserve">
+        <value>总内存</value>
+    </data>
+    <data name="ServicesDeviceAvailableMemory" xml:space="preserve">
+        <value>可用内存</value>
+    </data>
+    <data name="ServicesDeviceCpu" xml:space="preserve">
+        <value>CPU</value>
+    </data>
+    <data name="ServicesDeviceGpu" xml:space="preserve">
+        <value>GPU</value>
+    </data>
+    <data name="ServicesDeviceGpuMemory" xml:space="preserve">
+        <value>GPU 内存</value>
+    </data>
+    <data name="ServicesRuntimeRiskDetailFormat" xml:space="preserve">
+        <value>估算总占用：{0}&#x0a;KV 缓存：{1}&#x0a;原因：{2}</value>
     </data>
 </root>

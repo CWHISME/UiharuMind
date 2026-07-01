@@ -27,4 +27,14 @@ public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
     [SettingConfigDesc("alowed multi answer window")]
     [SettingConfigDesc("是否同时允许多个回答窗口存在(如果允许，每次都会开启新界面展示结果)", LanguageUtils.ChineseSimplified)]
     public bool IsAllowMultiAnswerWindow { get; set; } = false;
+    
+    /// <summary>
+    /// 聊天是否只显示纯文本
+    /// </summary>
+    public bool IsChatPlainText { get; set; } = false;
+
+    /// <summary>
+    /// 聊天是否隐藏模型思考过程
+    /// </summary>
+    public bool IsChatNotShowThinking { get; set; } = false;
 }

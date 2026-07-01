@@ -97,6 +97,87 @@
     <data name="LLamaCppSetting" xml:space="preserve">
         <value>LLamaCpp Setting</value>
     </data>
+    <data name="ModelRuntimeEngine" xml:space="preserve">
+        <value>Runtime engine</value>
+    </data>
+    <data name="ModelRuntimeLLamaSharpBackend" xml:space="preserve">
+        <value>LLamaSharp backend</value>
+    </data>
+    <data name="ModelRuntimeChangeHint" xml:space="preserve">
+        <value>Changing runtime engine or parameters does not affect the currently running local model. Reload the model to apply changes.</value>
+    </data>
+    <data name="ModelRuntimeSectionTitle" xml:space="preserve">
+        <value>Local model runtime</value>
+    </data>
+    <data name="ModelRuntimeSectionDesc" xml:space="preserve">
+        <value>Choose how local GGUF models run and tune the common parameters used by the next load.</value>
+    </data>
+    <data name="ModelRuntimeLLamaSharpTitle" xml:space="preserve">
+        <value>LLamaSharp built-in runtime</value>
+    </data>
+    <data name="ModelRuntimeLLamaSharpDesc" xml:space="preserve">
+        <value>Runs GGUF models in-process. CPU is always available; GPU mode depends on the installed LLamaSharp backend package and platform support.</value>
+    </data>
+    <data name="ModelRuntimeLLamaCppTitle" xml:space="preserve">
+        <value>llama.cpp runtime package</value>
+    </data>
+    <data name="ModelRuntimeLLamaCppDesc" xml:space="preserve">
+        <value>Uses an external llama.cpp server executable. Select or download the runtime package used by the next model load.</value>
+    </data>
+    <data name="ModelRuntimeContextSize" xml:space="preserve">
+        <value>Context size</value>
+    </data>
+    <data name="ModelRuntimeContextSizeDesc" xml:space="preserve">
+        <value>Maximum prompt context for local inference. 0 means Auto.</value>
+    </data>
+    <data name="ModelRuntimeGpuLayers" xml:space="preserve">
+        <value>GPU layers</value>
+    </data>
+    <data name="ModelRuntimeGpuLayersDesc" xml:space="preserve">
+        <value>Layers offloaded to GPU. Use 0 for CPU-only execution.</value>
+    </data>
+    <data name="ModelRuntimeBatchSize" xml:space="preserve">
+        <value>Batch size</value>
+    </data>
+    <data name="ModelRuntimeBatchSizeDesc" xml:space="preserve">
+        <value>Logical batch size used during evaluation. 0 means Auto.</value>
+    </data>
+    <data name="ModelRuntimeUBatchSize" xml:space="preserve">
+        <value>Physical batch</value>
+    </data>
+    <data name="ModelRuntimeUBatchSizeDesc" xml:space="preserve">
+        <value>Physical batch size. 0 means Auto. Lower it when the backend reports batch/input too large.</value>
+    </data>
+    <data name="ModelRuntimeThreads" xml:space="preserve">
+        <value>CPU threads</value>
+    </data>
+    <data name="ModelRuntimeThreadsDesc" xml:space="preserve">
+        <value>0 lets the backend choose automatically.</value>
+    </data>
+    <data name="ModelRuntimeFlashAttention" xml:space="preserve">
+        <value>Enable Flash Attention</value>
+    </data>
+    <data name="ModelRuntimeQuickSettings" xml:space="preserve">
+        <value>Local runtime settings</value>
+    </data>
+    <data name="ModelRuntimeEstimatedMemoryUsage" xml:space="preserve">
+        <value>Estimated memory usage</value>
+    </data>
+    <data name="ModelRuntimeBeta" xml:space="preserve">
+        <value>Beta</value>
+    </data>
+    <data name="ModelRuntimeGpuMemory" xml:space="preserve">
+        <value>GPU</value>
+    </data>
+    <data name="ModelRuntimeTotalMemory" xml:space="preserve">
+        <value>Total</value>
+    </data>
+    <data name="ModelRuntimeContextLimitHint" xml:space="preserve">
+        <value>The model-supported maximum will be shown after the GGUF metadata is available.</value>
+    </data>
+    <data name="ModelRuntimeShowAdvancedSettings" xml:space="preserve">
+        <value>Show advanced settings</value>
+    </data>
     <data name="InAnswer" xml:space="preserve">
         <value>In Answer...</value>
     </data>
@@ -1736,5 +1817,65 @@
     </data>
     <data name="ServicesEmbeddingStartFailed" xml:space="preserve">
         <value>Embedding startup failed</value>
+    </data>
+    <data name="ModelRuntimeAvailableMemory" xml:space="preserve">
+        <value>Available</value>
+    </data>
+    <data name="ModelRuntimeRiskLevel" xml:space="preserve">
+        <value>Risk</value>
+    </data>
+    <data name="ModelRuntimeRiskLow" xml:space="preserve">
+        <value>Low</value>
+    </data>
+    <data name="ModelRuntimeRiskWarning" xml:space="preserve">
+        <value>Warning</value>
+    </data>
+    <data name="ModelRuntimeRiskDanger" xml:space="preserve">
+        <value>High</value>
+    </data>
+    <data name="ModelRuntimeRiskUnknown" xml:space="preserve">
+        <value>Unknown</value>
+    </data>
+    <data name="ModelRuntimeRiskDetailFormat" xml:space="preserve">
+        <value>Estimated total: {0}&#x0a;KV cache: {1}&#x0a;Reason: {2}</value>
+    </data>
+    <data name="ModelRuntimeLoadRiskConfirmTitle" xml:space="preserve">
+        <value>Confirm local model load</value>
+    </data>
+    <data name="ModelRuntimeLoadRiskConfirmFormat" xml:space="preserve">
+        <value>The local model "{0}" has a {1} startup risk.&#x0a;Estimated memory: {2}&#x0a;Reason: {3}</value>
+    </data>
+    <data name="ModelRuntimeLoadRiskNativeCrashHint" xml:space="preserve">
+        <value>Managed errors can usually be recovered, but native/Metal out-of-memory errors may make the app unresponsive or crash. Continue loading?</value>
+    </data>
+    <data name="ServicesDeviceResourceTitle" xml:space="preserve">
+        <value>Device resources</value>
+    </data>
+    <data name="ServicesDeviceResourceDesc" xml:space="preserve">
+        <value>Resource snapshot used by local model risk checks.</value>
+    </data>
+    <data name="ServicesDeviceCpuUsage" xml:space="preserve">
+        <value>App CPU</value>
+    </data>
+    <data name="ServicesDeviceMemory" xml:space="preserve">
+        <value>Device memory</value>
+    </data>
+    <data name="ServicesDeviceTotalMemory" xml:space="preserve">
+        <value>Total memory</value>
+    </data>
+    <data name="ServicesDeviceAvailableMemory" xml:space="preserve">
+        <value>Available memory</value>
+    </data>
+    <data name="ServicesDeviceCpu" xml:space="preserve">
+        <value>CPU</value>
+    </data>
+    <data name="ServicesDeviceGpu" xml:space="preserve">
+        <value>GPU</value>
+    </data>
+    <data name="ServicesDeviceGpuMemory" xml:space="preserve">
+        <value>GPU memory</value>
+    </data>
+    <data name="ServicesRuntimeRiskDetailFormat" xml:space="preserve">
+        <value>Estimated total: {0}&#x0a;KV cache: {1}&#x0a;Reason: {2}</value>
     </data>
 </root>

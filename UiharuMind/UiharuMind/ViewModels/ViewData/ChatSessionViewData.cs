@@ -220,7 +220,7 @@ public partial class ChatSessionViewData : ObservableObject
         }
         catch (Exception e)
         {
-            Log.Error(e.Message);
+            Log.Error(e.ToString());
         }
 
         if (CurrentChatItem != null)

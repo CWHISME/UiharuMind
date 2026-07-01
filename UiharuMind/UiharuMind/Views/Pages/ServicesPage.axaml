@@ -170,6 +170,43 @@
                     <Border Classes="service-card">
                         <StackPanel Spacing="12">
                             <StackPanel Spacing="3">
+                                <TextBlock Text="{loc:Loc ServicesDeviceResourceTitle}" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ServicesDeviceResourceDesc}" Classes="muted" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                                <TextBlock Text="{loc:Loc ServicesDeviceCpuUsage}" Classes="muted" />
+                                <TextBlock Grid.Column="1" Text="{Binding DeviceCpuUsageText}" />
+
+                                <TextBlock Grid.Row="1" Text="{loc:Loc ServicesDeviceMemory}" Classes="muted" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceMemoryText}" />
+
+                                <TextBlock Grid.Row="2" Text="{loc:Loc ServicesDeviceCpu}" Classes="muted" />
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="1"
+                                           Text="{Binding DeviceCpuName}"
+                                           ToolTip.Tip="{Binding DeviceCpuName}"
+                                           TextTrimming="CharacterEllipsis" />
+
+                                <TextBlock Grid.Row="3" Text="{loc:Loc ServicesDeviceGpu}" Classes="muted" />
+                                <TextBlock Grid.Row="3"
+                                           Grid.Column="1"
+                                           Text="{Binding DeviceGpuName}"
+                                           ToolTip.Tip="{Binding DeviceGpuName}"
+                                           TextTrimming="CharacterEllipsis" />
+
+                                <TextBlock Grid.Row="4" Text="{loc:Loc ServicesDeviceGpuMemory}" Classes="muted" />
+                                <TextBlock Grid.Row="4"
+                                           Grid.Column="1"
+                                           Text="{Binding DeviceGpuMemoryText}"
+                                           ToolTip.Tip="{Binding DeviceGpuMemoryNote}"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="service-card">
+                        <StackPanel Spacing="12">
+                            <StackPanel Spacing="3">
                                 <TextBlock Text="{loc:Loc ServicesEmbeddingRuntimeDetails}" FontSize="17" FontWeight="SemiBold" />
                                 <TextBlock Text="{loc:Loc ServicesEmbeddingRuntimeDetailsDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>

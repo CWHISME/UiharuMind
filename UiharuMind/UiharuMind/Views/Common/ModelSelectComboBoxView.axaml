@@ -3,8 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:services="clr-namespace:UiharuMind.Services"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.OtherViews.ModelSelectComboBoxView">
@@ -13,7 +13,7 @@
         <services:ModelService />
     </Design.DataContext>
 
-    <Grid ColumnDefinitions="Auto,*,Auto">
+    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
 
         <!-- 左边的按钮或文字 -->
         <TextBlock Grid.Column="0" Text="Models" VerticalAlignment="Center" />
@@ -28,25 +28,66 @@
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal"
                                     Spacing="5"
-                                    IsVisible="{Binding DataContext.CurModelRunningData,RelativeSource={RelativeSource AncestorType=ComboBox},FallbackValue=True, TargetNullValue=False}">
-                            <PathIcon Data="{StaticResource InfoRegular}" />
-                            <!-- <TextBlock Text="7B"></TextBlock> -->
-                            <u:Badge Header="{loc:Loc ModelStateRemote}" Background="SpringGreen"
+                                    VerticalAlignment="Center">
+                            <u:Badge Header="{loc:Loc ModelStateRemote}"
+                                     Background="SpringGreen"
                                      IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <u:Badge Header="{loc:Loc ModelStateVision}" Background="Gold"
+                            <u:Badge Header="{loc:Loc ModelStateVision}"
+                                     Background="Gold"
                                      IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
-                            <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ModelName}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
+                <ComboBox.SelectionBoxItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="5"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <u:Badge Header="{loc:Loc ModelStateRemote}"
+                                     Background="SpringGreen"
+                                     IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <u:Badge Header="{loc:Loc ModelStateVision}"
+                                     Background="Gold"
+                                     IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
+                            <TextBlock Text="{Binding ModelName}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.SelectionBoxItemTemplate>
             </ComboBox>
             <ProgressBar VerticalAlignment="Bottom" Name="ProgressBar" Minimum="0" Maximum="1" CornerRadius="0"
                          Value="{Binding LoadingProgress}" IsVisible="{Binding IsLoading}" />
             <!-- <ProgressBar VerticalAlignment="Bottom" CornerRadius="0" Margin="0,0,0,4" IsIndeterminate="True" IsVisible="{Binding IsLoading}" /> -->
         </Panel>
 
+        <Button Grid.Column="2"
+                Width="34"
+                Height="34"
+                Padding="0"
+                VerticalAlignment="Center">
+            <PathIcon Width="17" Height="17" Data="{StaticResource Setting}" />
+            <ToolTip.Tip>
+                <TextBlock Text="{loc:Loc ModelRuntimeQuickSettings}" />
+            </ToolTip.Tip>
+            <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedRight">
+                    <Border Width="540"
+                            Height="460"
+                            Padding="0"
+                            ClipToBounds="True">
+                        <common:ModelRuntimeBasicSettingsView />
+                    </Border>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+
         <!-- 右边的按钮或文字 -->
-        <Button Grid.Column="2" Content="{loc:Loc EjectModel}" VerticalAlignment="Center"
+        <Button Grid.Column="3" Content="{loc:Loc EjectModel}" VerticalAlignment="Center"
                 Command="{Binding EjectCurrentModel}"
                 IsEnabled="{Binding CurIsRunning}" />
     </Grid>

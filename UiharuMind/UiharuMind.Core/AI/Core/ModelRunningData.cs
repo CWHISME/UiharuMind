@@ -16,6 +16,7 @@ using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.LLamaCpp.Data;
 using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.AI.Core;
@@ -56,6 +57,10 @@ public class ModelRunningData
     /// 模型路径
     /// </summary>
     public string ModelPath => _modelInfo.ModelPath;
+
+    public string ModelMetadataSummary => _modelInfo is GGufModelInfo ggufModelInfo
+        ? ggufModelInfo.MetadataSummary
+        : "";
 
     /// <summary>
     /// 是否处于运行中
@@ -111,7 +116,6 @@ public class ModelRunningData
         // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(_modelInfo.ModelPath, Port,
         //     OnInitLoad,
         //     OnMessageUpdate);
-        if (!IsRemoteModel) StopRunning();
     }
 
     /// <summary>

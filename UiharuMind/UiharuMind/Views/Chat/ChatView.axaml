@@ -341,6 +341,7 @@
                          Text="{Binding InputText, Mode=TwoWay}"
                          AcceptsReturn="True"
                          VerticalContentAlignment="Top"
+                         MaxHeight="240"
                          PlaceholderText="{loc:Loc ChatInputTips}">
                     <TextBox.KeyBindings>
                         <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />

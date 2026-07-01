@@ -1,0 +1,208 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="560" d:DesignHeight="500"
+             x:Class="UiharuMind.Views.Common.ModelRuntimeBasicSettingsView"
+             x:DataType="viewData:ModelRuntimeBasicSettingsData">
+
+    <Design.DataContext>
+        <viewData:ModelRuntimeBasicSettingsData />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Border.runtime-strip">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="TextBox.runtime-number">
+            <Setter Property="Width" Value="84" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border MaxHeight="460"
+            CornerRadius="8"
+            BorderThickness="1"
+            BorderBrush="{DynamicResource SemiGrey2}"
+            Background="{DynamicResource SemiGrey0}"
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto,Auto,*,Auto"
+              RowSpacing="0">
+
+            <Border Padding="14,12"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="0,0,0,1">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CurrentModelName}"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding CurrentModelDetailText}"
+                                   Classes="muted"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <ComboBox Grid.Column="1"
+                              Width="130"
+                              ItemsSource="{Binding EngineOptions}"
+                              SelectedItem="{Binding EngineType}" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1"
+                    Margin="12,10,12,0"
+                    Classes="runtime-strip">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="{loc:Loc ModelRuntimeEstimatedMemoryUsage}"
+                                   FontWeight="SemiBold" />
+                        <Border CornerRadius="4"
+                                Padding="4,1"
+                                Background="{DynamicResource SemiGrey2}">
+                            <TextBlock Text="{loc:Loc ModelRuntimeBeta}"
+                                       FontSize="11" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                        <TextBlock Text="{loc:Loc ModelRuntimeAvailableMemory}"
+                                   FontWeight="SemiBold" />
+                        <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
+                            <TextBlock Text="{Binding AvailableMemoryText}" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                        <TextBlock Text="{loc:Loc ModelRuntimeTotalMemory}"
+                                   FontWeight="SemiBold" />
+                        <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
+                            <TextBlock Text="{Binding EstimatedTotalMemoryText}" />
+                        </Border>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                        <TextBlock Text="{loc:Loc ModelRuntimeRiskLevel}"
+                                   FontWeight="SemiBold" />
+                        <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
+                            <TextBlock Text="{Binding RuntimeRiskText}"
+                                       ToolTip.Tip="{Binding RuntimeRiskDetailText}" />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="2"
+                          MaxHeight="245"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="18"
+                            Margin="14,18,14,16">
+                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{loc:Loc ModelRuntimeContextSize}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeContextSizeDesc}"
+                                           Classes="muted"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBox Grid.Column="1"
+                                     Classes="runtime-number"
+                                     Text="{Binding ContextSize}" />
+                        </Grid>
+                        <Slider Grid.Row="1"
+                                Minimum="0"
+                                Maximum="{Binding MaxContextSize}"
+                                Value="{Binding ContextSize}" />
+                        <TextBlock Grid.Row="2"
+                                   Text="{loc:Loc ModelRuntimeContextLimitHint}"
+                                   Classes="muted" />
+                    </Grid>
+
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="7">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{loc:Loc ModelRuntimeGpuLayers}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeGpuLayersDesc}"
+                                           Classes="muted"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBox Grid.Column="1"
+                                     Classes="runtime-number"
+                                     Text="{Binding GpuLayers}" />
+                        </Grid>
+                        <Slider Grid.Row="1"
+                                Minimum="0"
+                                Maximum="{Binding MaxGpuLayers}"
+                                Value="{Binding GpuLayers}" />
+                    </Grid>
+
+                    <ToggleSwitch Content="{loc:Loc ModelRuntimeShowAdvancedSettings}"
+                                  IsChecked="{Binding ShowAdvancedSettings}" />
+
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                          RowSpacing="12"
+                          IsVisible="{Binding ShowAdvancedSettings}">
+                        <Grid ColumnDefinitions="*,84" ColumnSpacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{loc:Loc ModelRuntimeBatchSize}" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeBatchSizeDesc}" Classes="muted" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding BatchSize}" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,84" ColumnSpacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{loc:Loc ModelRuntimeUBatchSize}" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeUBatchSizeDesc}" Classes="muted" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding UBatchSize}" />
+                        </Grid>
+                        <Grid Grid.Row="2" ColumnDefinitions="*,84" ColumnSpacing="10">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{loc:Loc ModelRuntimeThreads}" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeThreadsDesc}" Classes="muted" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding Threads}" />
+                        </Grid>
+                        <CheckBox Grid.Row="3"
+                                  Content="{loc:Loc ModelRuntimeFlashAttention}"
+                                  IsChecked="{Binding FlashAttention}" />
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="3"
+                    Padding="14,10"
+                    BorderBrush="{DynamicResource SemiGrey2}"
+                    BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding IsLLamaSharpEngine}">
+                        <TextBlock Text="{loc:Loc ModelRuntimeLLamaSharpBackend}"
+                                   VerticalAlignment="Center"
+                                   Classes="muted" />
+                        <ComboBox Width="130"
+                                  ItemsSource="{Binding LLamaSharpBackendOptions}"
+                                  SelectedItem="{Binding LlamaSharpBackendMode}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               Text="{loc:Loc ModelRuntimeChangeHint}"
+                               Classes="muted"
+                               TextWrapping="Wrap"
+                               MaxWidth="320" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

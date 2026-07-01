@@ -44,9 +44,10 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
             if (_session is { IsRunning: true } && _sessionKey == key) return _session;
 
             StopSessionCore();
-            _session = EmbeddingModelResolver.IsRemote(config)
-                ? CreateRemoteSession(config)
-                : await CreateLLamaSharpSessionAsync(config, cancellationToken).ConfigureAwait(false);
+            string modelPath = EmbeddingModelResolver.IsRemote(config) ? "" : ResolveModelPath(config);
+            _session = await LlmManager.Instance.RuntimeCoordinator
+                .CreateEmbeddingSessionAsync(config, modelPath, cancellationToken)
+                .ConfigureAwait(false);
             _sessionKey = key;
             _lastStartedAt = DateTime.Now;
             _lastError = "";
@@ -111,25 +112,6 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
             embedding.GpuLayers,
             embedding.RemoteEndpoint,
             embedding.RemoteModelId);
-    }
-
-    private static async Task<IEmbeddingSession> CreateLLamaSharpSessionAsync(
-        EmbeddingModelSettingConfig config, CancellationToken cancellationToken)
-    {
-        string modelPath = ResolveModelPath(config);
-        return await LLamaSharpEmbeddingSession.CreateAsync(
-            modelPath,
-            config.ContextSize,
-            config.BatchSize,
-            config.UBatchSize,
-            config.GpuLayers,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private static IEmbeddingSession CreateRemoteSession(EmbeddingModelSettingConfig config)
-    {
-        return new OpenAICompatibleEmbeddingSession(
-            config.RemoteEndpoint, config.RemoteModelId, config.RemoteApiKey);
     }
 
     public static IReadOnlyList<EmbeddingModelCandidate> GetManagedCandidates()

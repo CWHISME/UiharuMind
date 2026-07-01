@@ -13,7 +13,6 @@ public partial class SettingsWindow : UiharuWindowBase
 {
     private readonly GeneralSettingView _generalSettingView = new();
     private readonly RuntimeEngineSettingView _runtimeEngineSettingView = new();
-    private readonly LLamaCppSettingView _llamaCppSettingView = new();
     private readonly ShortcutSettingView _shortcutSettingView = new();
     private readonly HelpPageData _helpPageData = (HelpPageData)App.ViewModel.GetPage(MenuPages.MenuHelpKey);
     private readonly AboutPage _aboutPage = new();
@@ -36,11 +35,6 @@ public partial class SettingsWindow : UiharuWindowBase
     private void OnRuntimeClick(object? sender, RoutedEventArgs e)
     {
         Select(RuntimeButton, _runtimeEngineSettingView, "RuntimeEngineSetting");
-    }
-
-    private void OnModelClick(object? sender, RoutedEventArgs e)
-    {
-        Select(ModelButton, _llamaCppSettingView, "LLamaCppSetting");
     }
 
     private void OnShortcutsClick(object? sender, RoutedEventArgs e)
@@ -70,7 +64,6 @@ public partial class SettingsWindow : UiharuWindowBase
         _selectedTitleKey = titleKey;
         GeneralButton.Classes.Set("selected", selectedButton == GeneralButton);
         RuntimeButton.Classes.Set("selected", selectedButton == RuntimeButton);
-        ModelButton.Classes.Set("selected", selectedButton == ModelButton);
         ShortcutsButton.Classes.Set("selected", selectedButton == ShortcutsButton);
         HelpButton.Classes.Set("selected", selectedButton == HelpButton);
         AboutButton.Classes.Set("selected", selectedButton == AboutButton);

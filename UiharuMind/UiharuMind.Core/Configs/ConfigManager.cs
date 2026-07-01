@@ -23,6 +23,7 @@ public class ConfigManager : Singleton<ConfigManager>
     public QuickToolSetting QuickToolSetting => QuickToolSetting.Current;
     public QuickToolPromptSetting QuickToolPromptSetting => QuickToolPromptSetting.Current;
     public ChatSettingConfig ChatSetting => ChatSettingConfig.Current;
+    public ModelRuntimeSettingConfig ModelRuntimeSetting => ModelRuntimeSettingConfig.Current;
     public DebugSettingConfig DebugSetting => DebugSettingConfig.Current;
     public EmbeddingModelSettingConfig EmbeddingModelSetting => EmbeddingModelSettingConfig.Current;
 

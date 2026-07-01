@@ -23,6 +23,7 @@ using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character.Skills;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
@@ -59,13 +60,13 @@ public partial class QuickChatResultWindow : QuickWindowBase
         // SizeToContent = SizeToContent.WidthAndHeight;
 
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
-        PlaintextCheckBox.IsChecked = ConfigManager.Instance.Setting.IsChatPlainText;
+        PlaintextCheckBox.IsChecked = ChatSettingConfig.Current.IsChatPlainText;
         PlaintextCheckBox.IsCheckedChanged += (sender, args) =>
         {
             var isChecked = (sender as CheckBox)?.IsChecked ?? false;
             ResultTextBlock.IsPlaintext = isChecked;
-            ConfigManager.Instance.Setting.IsChatPlainText = isChecked;
-            ConfigManager.Instance.Setting.Save();
+            ChatSettingConfig.Current.IsChatPlainText = isChecked;
+            ChatSettingConfig.Current.Save();
         };
         // _uiUpdater = new ValueUiDelayUpdater<string>(SetContent);
     }
@@ -85,7 +86,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
             RegenerateButton.IsVisible = value;
             ToolPanel.IsVisible = value;
             ResultTextBlock.IsPlaintext =
-                ConfigManager.Instance.Setting
+                ChatSettingConfig.Current
                     .IsChatPlainText; //!value || ConfigManager.Instance.Setting.IsChatPlainText;
         }
     }
@@ -142,7 +143,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
     {
         base.OnPreShow();
         this.SetWindowToMousePosition(HorizontalAlignment.Center);
-        PlaintextCheckBox.IsChecked = ConfigManager.Instance.Setting.IsChatPlainText;
+        PlaintextCheckBox.IsChecked = ChatSettingConfig.Current.IsChatPlainText;
     }
 
     protected override void OnPreClose()

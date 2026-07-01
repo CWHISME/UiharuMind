@@ -12,6 +12,7 @@
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.LocalAI;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -34,6 +35,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// 远程模型
     /// </summary>
     public RemoteModelManager RemoteModelManager { get; } = new RemoteModelManager();
+    public ModelRuntimeCoordinator RuntimeCoordinator { get; }
 
     public LLamaCppServerKernal LLamaCppServer => RuntimeEngineManager.LLamaCppServer;
 
@@ -64,6 +66,15 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     private Dictionary<string, ModelRunningData> _chacheModels = new Dictionary<string, ModelRunningData>();
 
     private List<ModelRunningData> _remoteModelList = new List<ModelRunningData>();
+
+    public LlmManager()
+    {
+        RuntimeCoordinator = new ModelRuntimeCoordinator(
+            RuntimeEngineManager.LLamaCppServer,
+            RemoteModelManager,
+            () => RuntimeEngineManager.CurrentSeletedVersion);
+        RuntimeEngineManager.AttachCoordinator(RuntimeCoordinator);
+    }
 
     //======================callbacks======================
 
@@ -107,14 +118,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         _modelList.Clear();
         _chacheModels.Clear();
 
-        // 加载远程模型
-        foreach (var model in RemoteModelManager.RemoteListModels)
-        {
-            _chacheModels.Add(model.Key, model.Value);
-            _modelList.Add(model.Value);
-        }
-
-        var modelList = await Task.Run(RuntimeEngineManager.GetModelList).ConfigureAwait(false);
+        var modelList = await RuntimeCoordinator.RefreshModelsAsync().ConfigureAwait(false);
         foreach (var model in modelList)
         {
             _chacheModels.Add(model.Key, model.Value);
@@ -181,6 +185,16 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             // if (false == CurrentRunningModel.IsRunning) OnAnyModelStateChanged?.Invoke(runningInfo);
         }
         else Log.Error($"load model error， {modelName} not found in cache.");
+    }
+
+    public RuntimeLoadRisk AnalyzeLoadRisk(string? modelName)
+    {
+        if (string.IsNullOrEmpty(modelName))
+            modelName = GetPreferredModelName(false);
+        if (string.IsNullOrEmpty(modelName)) return RuntimeLoadRisk.Low;
+        return _chacheModels.TryGetValue(modelName, out var runningInfo)
+            ? RuntimeCoordinator.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
+            : RuntimeLoadRisk.Low;
     }
 
     public string? GetPreferredModelName(bool isVision)

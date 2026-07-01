@@ -20,6 +20,7 @@ using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Interfaces;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.AI.LocalAI.LLamaCpp.Embeded;
+using UiharuMind.Core.AI.LocalAI.GGuf;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.Core.Process;
@@ -322,8 +323,8 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
         bool force = false)
     {
         _modelInfos.Clear();
-        await ScanLocalModels(versionInfo, Config.DefaultLocalModelPath, _modelInfos);
-        return await ScanLocalModels(versionInfo, Config.LocalModelPath, _modelInfos);
+        await ScanLocalModels(versionInfo, Config.DefaultLocalModelPath, _modelInfos, force);
+        return await ScanLocalModels(versionInfo, Config.LocalModelPath, _modelInfos, force);
     }
 
     private async Task<Dictionary<string, GGufModelInfo>> ScanLocalModels(VersionInfo? versionInfo, string modelPath,
@@ -356,17 +357,21 @@ public class LLamaCppServerKernal : ServerKernalBase<LLamaCppServerKernal, LLama
             {
                 info.ModelPath = file;
                 info.ModelProjPath = projPath;
+                if (info.ContextLength <= 0)
+                {
+                    info.ApplyMetadata(GGufMetadataReader.TryRead(file));
+                    isChanged = true;
+                }
                 modelInfos[fileName] = info;
                 continue;
             }
-
-            if (executablePath == null) continue;
 
             if (!isChanged) isChanged = true;
             info = new GGufModelInfo(); //await GetModelStateInfo(executablePath, file);
             info.ModelName = fileName;
             info.ModelPath = file;
             info.ModelProjPath = projPath;
+            info.ApplyMetadata(GGufMetadataReader.TryRead(file));
 
             modelInfos[fileName] = info;
             Config.ModelInfos[fileName] = info;

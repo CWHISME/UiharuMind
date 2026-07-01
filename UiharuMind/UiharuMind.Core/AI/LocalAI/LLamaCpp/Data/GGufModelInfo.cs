@@ -11,6 +11,7 @@
 
 using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.LocalAI.GGuf;
 
 namespace UiharuMind.Core.LLamaCpp.Data;
 
@@ -31,13 +32,54 @@ public class GGufModelInfo : ILlmModel
     public int Port { get; set; }
     public string ApiKey { get; }
     public bool IsFavorite { get; set; }
+    public string Architecture { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public string SizeLabel { get; set; } = "";
+    public int ContextLength { get; set; }
+    public int EmbeddingLength { get; set; }
+    public int LayerCount { get; set; }
+    public int AttentionHeadCount { get; set; }
+    public int AttentionHeadCountKv { get; set; }
+    public ulong ParameterCount { get; set; }
+    public ulong FileSizeBytes { get; set; }
 
     [JsonInclude] private Dictionary<string, string> Infos { get; set; } = new Dictionary<string, string>(10);
 
     /// <summary>
     /// 是否已扫描到信息
     /// </summary>
-    public bool IsReady => Infos.Count > 0;
+    public bool IsReady => Infos.Count > 0 || ContextLength > 0;
+
+    public string MetadataSummary
+    {
+        get
+        {
+            List<string> parts = [];
+            if (!string.IsNullOrWhiteSpace(Architecture)) parts.Add(Architecture);
+            if (!string.IsNullOrWhiteSpace(SizeLabel)) parts.Add(SizeLabel);
+            if (ContextLength > 0) parts.Add($"{ContextLength:N0} ctx");
+            if (LayerCount > 0) parts.Add($"{LayerCount} layers");
+            return parts.Count == 0 ? "" : string.Join(" · ", parts);
+        }
+    }
+
+    public void ApplyMetadata(GGufMetadataInfo? metadata)
+    {
+        if (metadata == null) return;
+
+        Architecture = metadata.Architecture;
+        DisplayName = metadata.DisplayName;
+        SizeLabel = metadata.SizeLabel;
+        ContextLength = metadata.ContextLength;
+        EmbeddingLength = metadata.EmbeddingLength;
+        LayerCount = metadata.LayerCount;
+        AttentionHeadCount = metadata.AttentionHeadCount;
+        AttentionHeadCountKv = metadata.AttentionHeadCountKv;
+        ParameterCount = metadata.ParameterCount;
+        FileSizeBytes = metadata.FileSizeBytes;
+        foreach ((string key, string value) in metadata.RawMetadata)
+            Infos[key] = value;
+    }
 
     public void UpdateValue(string lineInfo)
     {

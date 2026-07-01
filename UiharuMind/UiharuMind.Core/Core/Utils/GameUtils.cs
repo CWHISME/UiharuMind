@@ -27,4 +27,23 @@ public static class GameUtils
         if (obj == null) return new T();
         return SaveUtility.LoadFromString<T>(SaveUtility.SaveToString(obj));
     }
+
+    /// <summary>
+    /// 字节转字符串显示
+    /// </summary>
+    /// <param name="bytes"></param>
+    /// <returns></returns>
+    public static string FormatBytes(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        double value = bytes;
+        int unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{value:0.#} {units[unitIndex]}";
+    }
 }

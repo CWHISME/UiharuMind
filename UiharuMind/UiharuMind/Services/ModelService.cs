@@ -9,14 +9,18 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.LLamaCpp.Data;
 
 namespace UiharuMind.Services;
@@ -30,10 +34,18 @@ public partial class ModelService : ObservableObject
     public ObservableCollection<ModelRunningData> ModelSources { get; set; } =
         new ObservableCollection<ModelRunningData>();
 
+    private ModelRunningData? _modelSelectionOverride;
+
     public ModelRunningData? CurModelRunningData
     {
-        get => LlmManager.Instance.CurrentRunningModel;
-        set => LlmManager.Instance.CurrentRunningModel = value;
+        get => _modelSelectionOverride ?? LlmManager.Instance.CurrentRunningModel;
+        set
+        {
+            if (value == null || value == CurModelRunningData) return;
+            _modelSelectionOverride = value;
+            Refresh();
+            _ = LoadSelectedModelAsync(value);
+        }
     }
 
     [ObservableProperty] private bool _isLoading;
@@ -82,7 +94,93 @@ public partial class ModelService : ObservableObject
     {
         // CurModelRunningData?.StopRunning();
         // CurModelRunningData = FindIsRunningModel();
+        _modelSelectionOverride = null;
         LlmManager.Instance.UnloadModel();
+    }
+
+    private async Task LoadSelectedModelAsync(ModelRunningData model)
+    {
+        bool loaded = await LoadModelWithRiskConfirmationAsync(model);
+        if (!loaded) await ResetModelSelectionAsync();
+        else
+        {
+            _modelSelectionOverride = null;
+            Refresh();
+        }
+    }
+
+    public async Task<bool> LoadModelWithRiskConfirmationAsync(string? modelName)
+    {
+        if (string.IsNullOrWhiteSpace(modelName)) return false;
+        ModelRunningData? model = ModelSources.FirstOrDefault(x => x.ModelName == modelName);
+        if (model != null) return await LoadModelWithRiskConfirmationAsync(model);
+
+        if (!await ConfirmLocalLoadRiskAsync(modelName, false).ConfigureAwait(true))
+        {
+            return false;
+        }
+        await LlmManager.Instance.LoadModel(modelName);
+        Refresh();
+        return true;
+    }
+
+    private async Task<bool> LoadModelWithRiskConfirmationAsync(ModelRunningData model)
+    {
+        if (!await ConfirmLocalLoadRiskAsync(model.ModelName, model.IsRemoteModel).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        await LlmManager.Instance.LoadModel(model.ModelName);
+        Refresh();
+        return true;
+    }
+
+    private async Task ResetModelSelectionAsync()
+    {
+        // ComboBox 已经把目标值写进 UI 选择状态；取消加载后需要显式让绑定回读当前真实运行模型。
+        _modelSelectionOverride = null;
+        await Dispatcher.UIThread.InvokeAsync(Refresh);
+        await Task.Delay(1);
+        await Dispatcher.UIThread.InvokeAsync(Refresh);
+    }
+
+    private static async Task<bool> ConfirmLocalLoadRiskAsync(string modelName, bool isRemoteModel)
+    {
+        if (isRemoteModel) return true;
+
+        RuntimeLoadRisk risk = await Task.Run(() => LlmManager.Instance.AnalyzeLoadRisk(modelName));
+        if (!risk.RequiresConfirmation) return true;
+
+        string message = string.Format(
+            L("ModelRuntimeLoadRiskConfirmFormat"),
+            modelName,
+            FormatRiskLevel(risk.Level),
+            FormatBytes(risk.EstimatedTotalBytes),
+            string.IsNullOrWhiteSpace(risk.Reason) ? "-" : risk.Reason);
+
+        if (risk.Warnings.Count > 0)
+            message += Environment.NewLine + string.Join(Environment.NewLine, risk.Warnings.Select(x => $"- {x}"));
+        message += Environment.NewLine + L("ModelRuntimeLoadRiskNativeCrashHint");
+
+        IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
+        return await messageService.ConfirmAsync(message, L("ModelRuntimeLoadRiskConfirmTitle"));
+    }
+
+    private static string FormatRiskLevel(RuntimeLoadRiskLevel level)
+    {
+        return level switch
+        {
+            RuntimeLoadRiskLevel.Danger => L("ModelRuntimeRiskDanger"),
+            RuntimeLoadRiskLevel.Warning => L("ModelRuntimeRiskWarning"),
+            RuntimeLoadRiskLevel.Unknown => L("ModelRuntimeRiskUnknown"),
+            _ => L("ModelRuntimeRiskLow")
+        };
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        return bytes <= 0 ? "-" : Core.Core.Utils.GameUtils.FormatBytes(bytes);
     }
 
     public async void LoadModelListAsync()
@@ -138,5 +236,10 @@ public partial class ModelService : ObservableObject
     private void OnAnyModelStateChanged(ModelRunningData? model)
     {
         Refresh();
+    }
+
+    private static string L(string key)
+    {
+        return LocalizationManager.Instance.GetString(key);
     }
 }

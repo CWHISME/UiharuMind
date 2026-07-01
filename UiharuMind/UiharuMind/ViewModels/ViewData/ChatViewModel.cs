@@ -27,6 +27,7 @@ using SharpHook.Native;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.AI.Memery;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
@@ -108,8 +109,8 @@ public partial class ChatViewModel : ViewModelBase
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
 
-        IsPlaintext = ConfigManager.Instance.Setting.IsChatPlainText;
-        IsNotShowThinking = ConfigManager.Instance.Setting.IsChatNotShowThinking;
+        IsPlaintext = ChatSettingConfig.Current.IsChatPlainText;
+        IsNotShowThinking = ChatSettingConfig.Current.IsChatNotShowThinking;
     }
 
     [RelayCommand]
@@ -312,14 +313,14 @@ public partial class ChatViewModel : ViewModelBase
 
     partial void OnIsPlaintextChanged(bool value)
     {
-        ConfigManager.Instance.Setting.IsChatPlainText = value;
-        ConfigManager.Instance.Setting.Save();
+        ChatSettingConfig.Current.IsChatPlainText = value;
+        ChatSettingConfig.Current.Save();
     }
 
     partial void OnIsNotShowThinkingChanged(bool value)
     {
-        ConfigManager.Instance.Setting.IsChatNotShowThinking = value;
-        ConfigManager.Instance.Setting.Save();
+        ChatSettingConfig.Current.IsChatNotShowThinking = value;
+        ChatSettingConfig.Current.Save();
     }
 
 

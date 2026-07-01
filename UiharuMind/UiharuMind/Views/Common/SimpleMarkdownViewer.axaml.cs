@@ -24,6 +24,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using TheArtOfDev.HtmlRenderer.Avalonia;
 using TheArtOfDev.HtmlRenderer.Core.Entities;
+using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Services;
@@ -362,7 +363,7 @@ public partial class SimpleMarkdownViewer : UserControl
         // {
         //     _change = true;
         return MarkdownUtils.ToHtml(text, ApplicationThemeManager.IsDarkTheme(theme),
-            ConfigManager.Instance.Setting.IsChatNotShowThinking, out _isThinking);
+            ChatSettingConfig.Current.IsChatNotShowThinking, out _isThinking);
         // }
         // _change = false;
         // 分为黑白主题，分别定义样式，字体大小、颜色、上下边距(这是因为默认的 HtmlRenderer 似乎会将上下边距增加 20px)

@@ -20,9 +20,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Embedding;
+using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Views;
@@ -37,6 +40,7 @@ public partial class ServicesPageData : PageDataBase
     private readonly EmbeddingModelSettingConfig _embeddingConfig = ConfigManager.Instance.EmbeddingModelSetting;
     private bool _isSyncingStatus;
     private string? _lastChatModelName;
+    private RuntimeDeviceInfo _deviceInfo = RuntimeDeviceInfoProvider.Capture();
 
     [ObservableProperty] private bool _isEmbeddingBusy;
     [ObservableProperty] private bool _isEmbeddingEnabled;
@@ -144,6 +148,18 @@ public partial class ServicesPageData : PageDataBase
     public string FavoriteModel =>
         LlmManager.Instance.GetPreferredModelName(false) ?? "-";
 
+    public string DeviceCpuUsageText => _deviceInfo.ProcessCpuUsagePercent <= 0
+        ? "-"
+        : $"{_deviceInfo.ProcessCpuUsagePercent:F1}%";
+
+    public string DeviceMemoryText => $"{FormatBytes(_deviceInfo.AvailableMemoryBytes)} / {FormatBytes(_deviceInfo.TotalMemoryBytes)}";
+    public string DeviceCpuName => string.IsNullOrWhiteSpace(_deviceInfo.CpuName) ? "-" : _deviceInfo.CpuName;
+    public string DeviceGpuName => string.IsNullOrWhiteSpace(_deviceInfo.GpuName) ? "-" : _deviceInfo.GpuName;
+    public string DeviceGpuMemoryText => _deviceInfo.HasGpuMemoryInfo
+        ? $"{FormatBytes(_deviceInfo.GpuAvailableMemoryBytes)} / {FormatBytes(_deviceInfo.GpuTotalMemoryBytes)}"
+        : "-";
+    public string DeviceGpuMemoryNote => string.IsNullOrWhiteSpace(_deviceInfo.GpuMemoryNote) ? "-" : _deviceInfo.GpuMemoryNote;
+
     public ServicesPageData() : this(App.Services.GetRequiredService<IMessageService>())
     {
     }
@@ -194,7 +210,7 @@ public partial class ServicesPageData : PageDataBase
         }
 
         App.ModelService.EjectCurrentModel();
-        await LlmManager.Instance.LoadModel(modelName);
+        await App.ModelService.LoadModelWithRiskConfirmationAsync(modelName);
         RefreshStatus();
     }
 
@@ -325,7 +341,7 @@ public partial class ServicesPageData : PageDataBase
 
         try
         {
-            await LlmManager.Instance.LoadModel(modelName);
+            await App.ModelService.LoadModelWithRiskConfirmationAsync(modelName);
         }
         finally
         {
@@ -411,9 +427,9 @@ public partial class ServicesPageData : PageDataBase
         _embeddingConfig.RemoteEndpoint = EmbeddingRemoteEndpoint;
         _embeddingConfig.RemoteModelId = EmbeddingRemoteModelId;
         _embeddingConfig.RemoteApiKey = EmbeddingRemoteApiKey;
-        _embeddingConfig.ContextSize = Math.Max(1, EmbeddingContextSize);
-        _embeddingConfig.BatchSize = Math.Max(1, EmbeddingBatchSize);
-        _embeddingConfig.UBatchSize = Math.Max(1, EmbeddingUBatchSize);
+        _embeddingConfig.ContextSize = Math.Max(0, EmbeddingContextSize);
+        _embeddingConfig.BatchSize = Math.Max(0, EmbeddingBatchSize);
+        _embeddingConfig.UBatchSize = Math.Max(0, EmbeddingUBatchSize);
         _embeddingConfig.GpuLayers = EmbeddingGpuLayers;
         _embeddingConfig.Save();
         if (notify) _messageService.ShowNotification(Loc("ServicesEmbeddingSettingsSaved"));
@@ -485,6 +501,7 @@ public partial class ServicesPageData : PageDataBase
 
     private void RefreshStatus()
     {
+        _deviceInfo = RuntimeDeviceInfoProvider.Capture();
         if (App.ModelService.CurModelRunningData != null)
             _lastChatModelName = App.ModelService.CurModelRunningData.ModelName;
 
@@ -520,11 +537,22 @@ public partial class ServicesPageData : PageDataBase
         OnPropertyChanged(nameof(RuntimePath));
         OnPropertyChanged(nameof(RemoteModelCount));
         OnPropertyChanged(nameof(FavoriteModel));
+        OnPropertyChanged(nameof(DeviceCpuUsageText));
+        OnPropertyChanged(nameof(DeviceMemoryText));
+        OnPropertyChanged(nameof(DeviceCpuName));
+        OnPropertyChanged(nameof(DeviceGpuName));
+        OnPropertyChanged(nameof(DeviceGpuMemoryText));
+        OnPropertyChanged(nameof(DeviceGpuMemoryNote));
     }
 
     private static string Loc(string key)
     {
         return LocalizationManager.Instance.GetString(key);
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        return bytes <= 0 ? "-" : GameUtils.FormatBytes(bytes);
     }
 }
 
@@ -538,7 +566,7 @@ public sealed class EmbeddingModelCandidateViewData
         Path = candidate.Path;
         Source = candidate.Source;
         SourceText = sourceText;
-        SizeText = FormatSize(candidate.SizeBytes);
+        SizeText = GameUtils.FormatBytes(candidate.SizeBytes);
     }
 
     public string Name { get; }
@@ -546,19 +574,4 @@ public sealed class EmbeddingModelCandidateViewData
     public EmbeddingModelCandidateSource Source { get; }
     public string SourceText { get; }
     public string SizeText { get; }
-
-    private static string FormatSize(long bytes)
-    {
-        if (bytes < 1024) return $"{bytes} B";
-        double size = bytes / 1024d;
-        string[] units = { "KB", "MB", "GB", "TB" };
-        int unitIndex = 0;
-        while (size >= 1024 && unitIndex < units.Length - 1)
-        {
-            size /= 1024;
-            unitIndex++;
-        }
-
-        return $"{size:0.#} {units[unitIndex]}";
-    }
 }
