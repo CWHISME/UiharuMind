@@ -14,7 +14,7 @@ using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 
-namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+namespace UiharuMind.Core.AI.Runtime.Backends;
 
 [DisplayName("Sampling Strategies")]
 public class LLamaCppSamplingStrategiesConfig : ConfigBase

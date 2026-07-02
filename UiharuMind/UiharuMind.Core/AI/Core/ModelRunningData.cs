@@ -11,19 +11,17 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.LLM;
-using UiharuMind.Core.Core.Process;
-using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Core;
 
 public class ModelRunningData
 {
-    private ILlmRuntime _runtime;
     private ILlmModel _modelInfo;
 
     private IChatClient? _chatClient;
@@ -77,9 +75,8 @@ public class ModelRunningData
     // private Action<float>? _onLoading;
     // private Action? _onLoaded;
 
-    public ModelRunningData(ILlmRuntime runtime, ILlmModel modelInfo)
+    public ModelRunningData(ILlmModel modelInfo)
     {
-        _runtime = runtime;
         _modelInfo = modelInfo;
     }
 
@@ -88,34 +85,36 @@ public class ModelRunningData
         _modelInfo = modelInfo;
     }
 
-    /// <summary>
-    /// 加载模型，如果模型已经处于运行中，则不进行任何操作
-    /// 远程模型将立即加载完成
-    /// </summary>
-    /// <param name="onLoading"></param>
-    /// <param name="onLoaded"></param>
-    public async Task StartLoad(Action<float>? onLoading, Action? onLoaded)
+    public CancellationToken BeginLoading()
     {
-        if (_cts != null) return;
         _isLoaded = false;
-        // _loadingCount = 0;
+        _chatClient = null;
         LoadingPercent = 0;
-        // _onLoading = onLoading;
-        // _onLoaded = onLoaded;
         _cts = new CancellationTokenSource();
-        await _runtime.Run(_modelInfo, (x) =>
+        return _cts.Token;
+    }
+
+    public void UpdateLoading(float loadingPercent)
+    {
+        LoadingPercent = loadingPercent;
+    }
+
+    public void CompleteLoading(IChatClient chatClient)
+    {
+        _chatClient = chatClient;
+        _isLoaded = true;
+        LoadingPercent = 1;
+    }
+
+    public void FailLoading()
+    {
+        if (!_isLoaded)
         {
-            LoadingPercent = x;
-            onLoading?.Invoke(x);
-        }, (chatClient) =>
-        {
-            _chatClient = chatClient;
-            _isLoaded = true;
-            onLoaded?.Invoke();
-        }, _cts.Token);
-        // await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.StartServer(_modelInfo.ModelPath, Port,
-        //     OnInitLoad,
-        //     OnMessageUpdate);
+            _chatClient = null;
+            LoadingPercent = 0;
+        }
+
+        _cts = null;
     }
 
     /// <summary>
@@ -124,6 +123,10 @@ public class ModelRunningData
     public void StopRunning()
     {
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
+        if (_chatClient is IDisposable disposable) disposable.Dispose();
+        _chatClient = null;
+        _isLoaded = false;
+        LoadingPercent = 0;
         _cts = null;
     }
 

@@ -10,13 +10,13 @@
  ****************************************************************************/
 
 using UiharuMind.Core.AI.Core;
-using UiharuMind.Core.AI.LocalAI;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
-using UiharuMind.Core.LLamaCpp;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.AI;
@@ -35,7 +35,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// 远程模型
     /// </summary>
     public RemoteModelManager RemoteModelManager { get; } = new RemoteModelManager();
-    public ModelRuntimeCoordinator RuntimeCoordinator { get; }
+
+    public ModelRuntimeService RuntimeService { get; }
 
     public LLamaCppServerKernal LLamaCppServer => RuntimeEngineManager.LLamaCppServer;
 
@@ -69,11 +70,10 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
     public LlmManager()
     {
-        RuntimeCoordinator = new ModelRuntimeCoordinator(
+        RuntimeService = new ModelRuntimeService(
             RuntimeEngineManager.LLamaCppServer,
             RemoteModelManager,
             () => RuntimeEngineManager.CurrentSeletedVersion);
-        RuntimeEngineManager.AttachCoordinator(RuntimeCoordinator);
     }
 
     //======================callbacks======================
@@ -118,7 +118,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         _modelList.Clear();
         _chacheModels.Clear();
 
-        var modelList = await RuntimeCoordinator.RefreshModelsAsync().ConfigureAwait(false);
+        var modelList = await RuntimeService.RefreshModelsAsync().ConfigureAwait(false);
         foreach (var model in modelList)
         {
             _chacheModels.Add(model.Key, model.Value);
@@ -164,11 +164,12 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             bool loadedCallbackInvoked = false;
             try
             {
-                await CurrentRunningModel.StartLoad(OnCurrentModelLoading, () =>
+                bool loaded = await RuntimeService.StartChatModelAsync(CurrentRunningModel, OnCurrentModelLoading, () =>
                 {
                     loadedCallbackInvoked = true;
                     OnCurrentModelLoaded?.Invoke();
-                });
+                }).ConfigureAwait(false);
+                if (!loaded) SetCurrentRunningModel(null);
             }
             catch (Exception e)
             {
@@ -193,7 +194,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             modelName = GetPreferredModelName(false);
         if (string.IsNullOrEmpty(modelName)) return RuntimeLoadRisk.Low;
         return _chacheModels.TryGetValue(modelName, out var runningInfo)
-            ? RuntimeCoordinator.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
+            ? RuntimeService.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
             : RuntimeLoadRisk.Low;
     }
 
@@ -208,7 +209,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
             IsModelCompatible(favorite, isVision))
             return favorite.ModelName;
 
-        return _modelList.FirstOrDefault(model => IsModelCompatible(model, isVision))?.ModelName;
+        //自动选未收藏的只会选远程模型
+        return _modelList.FirstOrDefault(model => IsModelCompatible(model, isVision) && model.IsRemoteModel)?.ModelName;
     }
 
     /// <summary>
@@ -269,7 +271,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
             if (modelRunning.ChatClient == null)
             {
-                _ = modelRunning.StartLoad(null, null);
+                _ = RuntimeService.StartChatModelAsync(modelRunning);
             }
         }
 

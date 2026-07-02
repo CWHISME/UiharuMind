@@ -11,7 +11,7 @@
 
 using UiharuMind.Core.Configs;
 
-namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+namespace UiharuMind.Core.AI.Runtime.Backends;
 
 public class ModelSettingConfig : TConfigBase<ModelSettingConfig>
 {

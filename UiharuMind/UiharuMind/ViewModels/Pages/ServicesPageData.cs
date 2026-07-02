@@ -46,6 +46,7 @@ public partial class ServicesPageData : PageDataBase
     [ObservableProperty] private bool _isEmbeddingEnabled;
     [ObservableProperty] private bool _isChatEnabled;
     [ObservableProperty] private EmbeddingSourceModeOption? _selectedEmbeddingSourceMode;
+    [ObservableProperty] private EmbeddingBackendOption? _selectedLocalEmbeddingBackend;
     [ObservableProperty] private EmbeddingModelCandidateViewData? _selectedManagedEmbeddingModel;
     [ObservableProperty] private string _embeddingRemoteEndpoint = "";
     [ObservableProperty] private string _embeddingRemoteModelId = "";
@@ -56,6 +57,7 @@ public partial class ServicesPageData : PageDataBase
     [ObservableProperty] private int _embeddingGpuLayers;
 
     public ObservableCollection<EmbeddingSourceModeOption> EmbeddingSourceModeOptions { get; } = new();
+    public ObservableCollection<EmbeddingBackendOption> LocalEmbeddingBackendOptions { get; } = new();
     public ObservableCollection<EmbeddingModelCandidateViewData> ManagedEmbeddingModels { get; } = new();
 
     public string ChatStatusKey => App.ModelService.IsLoading
@@ -170,6 +172,7 @@ public partial class ServicesPageData : PageDataBase
         App.ModelService.PropertyChanged += (_, _) => RefreshStatus();
         _embeddingService.StateChanged += RefreshStatus;
         InitializeSourceModes();
+        InitializeLocalEmbeddingBackends();
         LoadEmbeddingSettings();
         RefreshManagedEmbeddingModels();
     }
@@ -274,6 +277,12 @@ public partial class ServicesPageData : PageDataBase
         OnPropertyChanged(nameof(EmbeddingConfiguredModelPath));
         OnPropertyChanged(nameof(EmbeddingConfiguredModelDisplay));
         OnPropertyChanged(nameof(EmbeddingConfiguredSourceText));
+    }
+
+    partial void OnSelectedLocalEmbeddingBackendChanged(EmbeddingBackendOption? value)
+    {
+        OnPropertyChanged(nameof(EmbeddingConfiguredModelPath));
+        OnPropertyChanged(nameof(EmbeddingConfiguredModelDisplay));
     }
 
     partial void OnSelectedManagedEmbeddingModelChanged(EmbeddingModelCandidateViewData? value)
@@ -396,6 +405,17 @@ public partial class ServicesPageData : PageDataBase
             Loc("ServicesEmbeddingSourceRemoteApiDesc")));
     }
 
+    private void InitializeLocalEmbeddingBackends()
+    {
+        LocalEmbeddingBackendOptions.Clear();
+        LocalEmbeddingBackendOptions.Add(new EmbeddingBackendOption(
+            EmbeddingModelSettingConfig.BackendLLamaSharp,
+            "LLamaSharp"));
+        LocalEmbeddingBackendOptions.Add(new EmbeddingBackendOption(
+            EmbeddingModelSettingConfig.BackendLLamaCpp,
+            "llama.cpp"));
+    }
+
     private void LoadEmbeddingSettings()
     {
         string sourceMode = _embeddingConfig.SourceMode;
@@ -405,6 +425,13 @@ public partial class ServicesPageData : PageDataBase
             sourceMode = EmbeddingModelSettingConfig.SourceModeLocal;
         SelectedEmbeddingSourceMode = EmbeddingSourceModeOptions.FirstOrDefault(x => x.Mode == sourceMode) ??
                                       EmbeddingSourceModeOptions.First();
+        string backend = _embeddingConfig.Backend;
+        if (string.IsNullOrWhiteSpace(backend) ||
+            string.Equals(backend, EmbeddingModelSettingConfig.BackendOpenAICompatible, StringComparison.OrdinalIgnoreCase))
+            backend = EmbeddingModelSettingConfig.BackendLLamaSharp;
+        SelectedLocalEmbeddingBackend = LocalEmbeddingBackendOptions.FirstOrDefault(x =>
+            string.Equals(x.Backend, backend, StringComparison.OrdinalIgnoreCase)) ??
+                                        LocalEmbeddingBackendOptions.First();
         EmbeddingRemoteEndpoint = _embeddingConfig.RemoteEndpoint;
         EmbeddingRemoteModelId = _embeddingConfig.RemoteModelId;
         EmbeddingRemoteApiKey = _embeddingConfig.RemoteApiKey;
@@ -419,8 +446,8 @@ public partial class ServicesPageData : PageDataBase
         string sourceMode = SelectedEmbeddingSourceMode?.Mode ?? EmbeddingModelSettingConfig.SourceModeLocal;
         _embeddingConfig.SourceMode = sourceMode;
         _embeddingConfig.Backend = sourceMode == EmbeddingModelSettingConfig.SourceModeRemoteApi
-            ? "OpenAICompatible"
-            : "LLamaSharp";
+            ? EmbeddingModelSettingConfig.BackendOpenAICompatible
+            : SelectedLocalEmbeddingBackend?.Backend ?? EmbeddingModelSettingConfig.BackendLLamaSharp;
         _embeddingConfig.ModelPath = sourceMode == EmbeddingModelSettingConfig.SourceModeLocal
             ? SelectedManagedEmbeddingModel?.Path ?? _embeddingConfig.ModelPath
             : "";
@@ -557,6 +584,8 @@ public partial class ServicesPageData : PageDataBase
 }
 
 public sealed record EmbeddingSourceModeOption(string Mode, string DisplayName, string Description);
+
+public sealed record EmbeddingBackendOption(string Backend, string DisplayName);
 
 public sealed class EmbeddingModelCandidateViewData
 {

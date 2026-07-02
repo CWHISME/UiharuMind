@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Configs;
 
 namespace UiharuMind.Core.RemoteOpenAI;

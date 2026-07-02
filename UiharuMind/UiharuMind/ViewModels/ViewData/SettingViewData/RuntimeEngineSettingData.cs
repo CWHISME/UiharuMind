@@ -19,7 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Core.LLamaCpp.Versions;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.ViewData;

@@ -16,9 +16,9 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using UiharuMind.Core.AI;
-using UiharuMind.Core.AI.Interfaces;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
-using UiharuMind.Core.AI.Memery;
+using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Runtime.Backends;
+using UiharuMind.Core.AI.Memory;
 
 namespace UiharuMind.ViewModels.Converters;
 

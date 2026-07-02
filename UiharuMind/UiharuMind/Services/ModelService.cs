@@ -21,7 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime;
-using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Services;
 

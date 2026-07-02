@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Core.AI.Memery;
+using UiharuMind.Core.AI.Memory;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 

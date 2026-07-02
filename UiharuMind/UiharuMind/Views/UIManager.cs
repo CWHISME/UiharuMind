@@ -17,7 +17,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using UiharuMind.Core.AI.Memery;
+using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Services;

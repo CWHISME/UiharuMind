@@ -5,6 +5,7 @@
  ****************************************************************************/
 
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Runtime;
 

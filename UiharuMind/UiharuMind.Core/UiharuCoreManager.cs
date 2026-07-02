@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 using System.Runtime.InteropServices;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
@@ -19,7 +19,7 @@ using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Input;
-using UiharuMind.Core.LLamaCpp;
+using UiharuMind.Core.AI.Runtime.Backends;
 
 namespace UiharuMind.Core;
 

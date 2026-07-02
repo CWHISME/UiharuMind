@@ -5,7 +5,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
-using UiharuMind.Core.AI.Memery;
+using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.Core.Utils;

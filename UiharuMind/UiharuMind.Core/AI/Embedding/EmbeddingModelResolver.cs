@@ -9,7 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 
 namespace UiharuMind.Core.AI.Embedding;
 
@@ -48,7 +48,8 @@ public static class EmbeddingModelResolver
     {
         return string.Equals(config.SourceMode, EmbeddingModelSettingConfig.SourceModeRemoteApi,
                    StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(config.Backend, "OpenAICompatible", StringComparison.OrdinalIgnoreCase);
+               string.Equals(config.Backend, EmbeddingModelSettingConfig.BackendOpenAICompatible,
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AddCandidates(

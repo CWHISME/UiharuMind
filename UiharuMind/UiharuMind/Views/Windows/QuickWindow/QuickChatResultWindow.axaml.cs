@@ -23,7 +23,7 @@ using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character.Skills;
 using UiharuMind.Core.AI.Core;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;

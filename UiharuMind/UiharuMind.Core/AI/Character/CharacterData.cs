@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Memery;
+using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 

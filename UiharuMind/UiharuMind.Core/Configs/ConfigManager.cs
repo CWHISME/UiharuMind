@@ -9,7 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AutoClick;
 using UiharuMind.Core.Core;

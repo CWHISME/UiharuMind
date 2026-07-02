@@ -15,8 +15,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
-using UiharuMind.Core.LLamaCpp;
-using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.AI.Runtime.Backends;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Interfaces;
 

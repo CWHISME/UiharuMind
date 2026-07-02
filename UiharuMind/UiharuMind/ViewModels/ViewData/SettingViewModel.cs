@@ -1,5 +1,5 @@
 using UiharuMind.Core.AI;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.ViewModels.SettingViewData;
 

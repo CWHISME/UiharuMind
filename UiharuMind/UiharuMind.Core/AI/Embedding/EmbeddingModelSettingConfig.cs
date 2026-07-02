@@ -21,6 +21,10 @@ namespace UiharuMind.Core.AI.Embedding;
 [DisplayName("Embedding Model")]
 public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConfig>
 {
+    public const string BackendLLamaSharp = "LLamaSharp";
+    public const string BackendLLamaCpp = "LLamaCpp";
+    public const string BackendOpenAICompatible = "OpenAICompatible";
+
     public const string SourceModeLocal = "Local";
     public const string SourceModeManagedLocal = "ManagedLocal";
     public const string SourceModeCustomLocal = "CustomLocal";
@@ -32,50 +36,58 @@ public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConf
     //外部模型目录路径(可修改)
     public string ExternalEmbededModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbededModels");
 
-    [SettingConfigDesc("Embedding model source")]
-    [SettingConfigDesc("嵌入模型来源", LanguageUtils.ChineseSimplified)]
-    [SettingConfigOptions(SourceModeLocal, SourceModeRemoteApi)]
+    /// <summary>
+    /// 嵌入模型来源
+    /// </summary>
     public string SourceMode { get; set; } = SourceModeLocal;
 
-    [SettingConfigDesc("Embedding backend")]
-    [SettingConfigDesc("嵌入模型后端", LanguageUtils.ChineseSimplified)]
-    [SettingConfigOptions("LLamaSharp", "OpenAICompatible")]
-    public string Backend { get; set; } = "LLamaSharp";
+    /// <summary>
+    /// 嵌入模型后端
+    /// </summary>
+    public string Backend { get; set; } = BackendLLamaSharp;
 
-    [SettingConfigDesc("Embedding model path. Empty means using the first GGUF file in the embedding model folders.")]
-    [SettingConfigDesc("嵌入模型路径。留空时会使用嵌入模型目录中的第一个 GGUF 文件。", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// 嵌入模型路径。留空时会使用嵌入模型目录中的第一个 GGUF 文件。
+    /// </summary>
     public string ModelPath { get; set; } = "";
 
-    [SettingConfigDesc("Preload embedding model when it is first needed and keep it in memory.")]
-    [SettingConfigDesc("首次需要时加载嵌入模型，并常驻内存。", LanguageUtils.ChineseSimplified)]
-    [SettingConfigNoneValue]
+    /// <summary>
+    /// 首次需要时加载嵌入模型，并常驻内存。
+    /// </summary>
     public bool KeepLoaded { get; set; } = true;
 
-    [SettingConfigDesc("embedding context size")]
-    [SettingConfigDesc("嵌入上下文长度", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// 嵌入上下文长度
+    /// </summary>
     public int ContextSize { get; set; } = 8192;
 
-    [SettingConfigDesc("embedding logical batch size")]
-    [SettingConfigDesc("嵌入逻辑批处理大小", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// 嵌入逻辑批处理大小
+    /// </summary>
     public int BatchSize { get; set; } = 8192;
 
-    [SettingConfigDesc("embedding physical batch size")]
-    [SettingConfigDesc("嵌入物理批处理大小", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// 嵌入物理批处理大小
+    /// </summary>
     public int UBatchSize { get; set; } = 8192;
 
-    [SettingConfigDesc("GPU layers for embedding model (-1 means all possible layers).")]
-    [SettingConfigDesc("嵌入模型 GPU 层数（-1 表示尽可能全部使用）。", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// 嵌入模型 GPU 层数（-1 表示尽可能全部使用）。
+    /// </summary>
     public int GpuLayers { get; set; } = 0;
 
-    [SettingConfigDesc("OpenAI compatible embedding endpoint. Reserved for remote embedding backend.")]
-    [SettingConfigDesc("OpenAI 兼容嵌入接口地址，供远程嵌入后端使用。", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// OpenAI 兼容嵌入接口地址，供远程嵌入后端使用。
+    /// </summary>
     public string RemoteEndpoint { get; set; } = "";
 
-    [SettingConfigDesc("OpenAI compatible embedding model id. Reserved for remote embedding backend.")]
-    [SettingConfigDesc("OpenAI 兼容嵌入模型 ID，供远程嵌入后端使用。", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// OpenAI 兼容嵌入模型 ID，供远程嵌入后端使用。
+    /// </summary>
     public string RemoteModelId { get; set; } = "";
 
-    [SettingConfigDesc("OpenAI compatible embedding API key. Reserved for remote embedding backend.")]
-    [SettingConfigDesc("OpenAI 兼容嵌入 API Key，供远程嵌入后端使用。", LanguageUtils.ChineseSimplified)]
+    /// <summary>
+    /// OpenAI 兼容嵌入 API Key，供远程嵌入后端使用。
+    /// </summary>
     public string RemoteApiKey { get; set; } = "";
 }

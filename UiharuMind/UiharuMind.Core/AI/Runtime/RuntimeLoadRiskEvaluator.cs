@@ -4,7 +4,7 @@
  * UiharuMind v0.0.1
  ****************************************************************************/
 
-using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Runtime;
 

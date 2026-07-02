@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;

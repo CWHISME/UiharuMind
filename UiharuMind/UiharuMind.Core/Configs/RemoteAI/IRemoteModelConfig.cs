@@ -1,4 +1,4 @@
-using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.Configs.RemoteAI;
 

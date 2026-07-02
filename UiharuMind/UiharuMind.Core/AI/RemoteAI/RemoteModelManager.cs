@@ -4,7 +4,7 @@ using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
 using UiharuMind.Core.AI.Core;
-using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
@@ -13,8 +13,7 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.RemoteOpenAI;
 
-public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteModelSettingConfig>,
-    ILlmRuntime
+public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteModelSettingConfig>
 {
     public readonly Dictionary<string, ModelRunningData> RemoteListModels = new Dictionary<string, ModelRunningData>();
 
@@ -32,7 +31,7 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
                     BaseRemoteModelConfig correct) config.Config = correct;
             }
 
-            RemoteListModels[info.Value.ModelName] = new ModelRunningData(this, config);
+            RemoteListModels[info.Value.ModelName] = new ModelRunningData(config);
         }
     }
 
@@ -86,7 +85,7 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         Config.ModelInfos[model.ModelName] = model;
         if (RemoteListModels.TryGetValue(model.ModelName, out var data))
             data.ForceUpdateModelInfo(model);
-        else RemoteListModels[model.ModelName] = new ModelRunningData(this, model);
+        else RemoteListModels[model.ModelName] = new ModelRunningData(model);
         var list = SimpleObjectPool<List<string>>.Get();
         foreach (var info in Config.ModelInfos)
         {

@@ -15,7 +15,7 @@ using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 using CliWrap;
 using CliWrap.EventStream;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 

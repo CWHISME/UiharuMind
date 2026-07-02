@@ -13,7 +13,7 @@ using System.ComponentModel;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
 
-namespace UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+namespace UiharuMind.Core.AI.Runtime.Backends;
 
 [DisplayName("Specific Config")]
 public class LLamaCppServerSpecialConfig : ConfigBase

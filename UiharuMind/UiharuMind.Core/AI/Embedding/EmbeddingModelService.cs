@@ -45,7 +45,7 @@ public class EmbeddingModelService : Singleton<EmbeddingModelService>
 
             StopSessionCore();
             string modelPath = EmbeddingModelResolver.IsRemote(config) ? "" : ResolveModelPath(config);
-            _session = await LlmManager.Instance.RuntimeCoordinator
+            _session = await LlmManager.Instance.RuntimeService
                 .CreateEmbeddingSessionAsync(config, modelPath, cancellationToken)
                 .ConfigureAwait(false);
             _sessionKey = key;

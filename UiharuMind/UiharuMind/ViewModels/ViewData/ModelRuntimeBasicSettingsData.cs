@@ -13,7 +13,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Services;
 
 namespace UiharuMind.ViewModels.ViewData;

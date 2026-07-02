@@ -14,7 +14,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.LLamaCpp.Data;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.Pages;
 

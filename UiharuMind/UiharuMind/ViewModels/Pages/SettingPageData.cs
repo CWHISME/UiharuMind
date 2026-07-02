@@ -22,7 +22,7 @@ using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
-using UiharuMind.Core.AI.LocalAI.LLamaCpp.Configs;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Input;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.ViewModels.ViewData;

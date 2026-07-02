@@ -6,7 +6,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Embedding;
-using UiharuMind.Core.AI.Interfaces;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Runtime;
@@ -15,19 +15,6 @@ public enum RuntimeCapability
 {
     Chat,
     Embedding
-}
-
-public sealed class ModelMetadata
-{
-    public string Architecture { get; init; } = "";
-    public string DisplayName { get; init; } = "";
-    public string SizeLabel { get; init; } = "";
-    public int ContextLength { get; init; }
-    public int EmbeddingLength { get; init; }
-    public int LayerCount { get; init; }
-    public ulong FileSizeBytes { get; init; }
-
-    public static ModelMetadata Empty { get; } = new();
 }
 
 public sealed record RuntimeResolvedParameters(
