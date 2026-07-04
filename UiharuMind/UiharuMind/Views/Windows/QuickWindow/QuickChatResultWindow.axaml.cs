@@ -155,13 +155,13 @@ public partial class QuickChatResultWindow : QuickWindowBase
 
     private void SetContent(string info)
     {
-        ResultTextBlock.SimpleSetMarkdownText = info;
+        ResultTextBlock.ForceSetText(info);
         // TokenTextBlock.Text = $"(Tokens: {info.TokenCount})";
     }
 
     private void AppendContent(string info)
     {
-        ResultTextBlock.SimpleSetMarkdownText = (info);
+        ResultTextBlock.AppendText(info);
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

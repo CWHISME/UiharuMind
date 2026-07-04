@@ -21,6 +21,7 @@ public class CustomAgentSkill : AgentSkillConvertableBase
     {
         // AddParams("content", text);
         _chatHistory = [new ChatMessageData { Role = ECharacter.User, Content = text }];
+        //TODO：存在问题，此处未保存 AI 回复，会导致选择转换对话丢失
         return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
 

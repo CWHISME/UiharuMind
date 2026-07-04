@@ -10,17 +10,14 @@
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Resources>
-        <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
-        <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
-
-        <!-- <Styles.Resources> -->
-        <!-- <ResourceDictionary> -->
-        <!-- <ResourceDictionary.MergedDictionaries> -->
-        <!-- <ResourceInclude Source="/Assets/Colors.axaml" /> -->
-        <!-- </ResourceDictionary.MergedDictionaries> -->
-        <!-- </ResourceDictionary> -->
-        <!-- </Styles.Resources> -->
-        <!-- <SolidColorBrush x:Key="BorderBrush" Color="Lavender" /> -->
+        <ResourceDictionary>
+            <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
+            <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
+            
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
@@ -36,6 +33,7 @@
         <!-- <FluentTheme /> -->
         <!-- <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> -->
         <!-- <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" /> -->
+        <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml"/>
     </Application.Styles>
 
     <NativeMenu.Menu>

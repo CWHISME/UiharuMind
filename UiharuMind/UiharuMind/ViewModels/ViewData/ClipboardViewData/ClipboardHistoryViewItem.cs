@@ -25,8 +25,7 @@ using UiharuMind.Views.Windows;
 
 public partial class ClipboardItem : ObservableObject
 {
-    
-    public ClipboardItem(string date, string text, string imageSource="")
+    public ClipboardItem(string date, string text, string imageSource = "")
     {
         _date = date;
         _text = text;
@@ -39,7 +38,7 @@ public partial class ClipboardItem : ObservableObject
     [ObservableProperty] private string _imageSource;
     [ObservableProperty] private bool _isImage;
 
-    public ClipboardItem(): this("", "")
+    public ClipboardItem() : this("", "")
     {
     }
 
@@ -52,15 +51,14 @@ public partial class ClipboardItem : ObservableObject
         App.Clipboard.MoveClipboardHistoryItemFirst(this);
         if (IsImage)
         {
-            var image = new Bitmap(ImageSource);
-            App.Clipboard.CopyImageToClipboard(image, true);
-            UIManager.ShowPreviewImageWindowAtMousePosition(image, horizontalAlignment: HorizontalAlignment.Center, verticalAlignment: VerticalAlignment.Center);
+            App.Clipboard.CopyImageToClipboard(new Bitmap(ImageSource), true);
+            UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(ImageSource), horizontalAlignment: HorizontalAlignment.Center, verticalAlignment: VerticalAlignment.Center);
         }
         else
         {
             App.Clipboard.CopyToClipboard(Text, true);
         }
 
-        App.Services.GetRequiredService<IMessageService>().ShowNotification(Lang.CopiedToClipboardTips);
+        // App.Services.GetRequiredService<IMessageService>().ShowNotification(Lang.CopiedToClipboardTips);
     }
 }

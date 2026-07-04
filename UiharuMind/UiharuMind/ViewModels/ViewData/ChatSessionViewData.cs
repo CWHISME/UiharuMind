@@ -149,58 +149,9 @@ public partial class ChatSessionViewData : ObservableObject
             SyncSession(ChatSession);
             Log.Warning("SyncSession(Different count): " + Name);
         }
-
-        // else //(ChatItems.Count == _chatSession.Count)
-        // && string.IsNullOrEmpty(ChatItems[^1].CachedContent?.Content))
-        // {
+        
         //与逻辑层一致，没问题，添加占位，先添加表现层的空消息
         CurrentChatItem = AddMessage(ChatSession.CreateMessage(ECharacter.Assistant, ""));
-        // }
-
-        // //检测当前最后一条是否合法
-        // if (lastMessage.Message != currentChatItem.CachedContent)
-        // {
-        // }
-
-        //先添加表现层的空消息
-        // CurrentChatItem = AddMessage(_chatSession.CreateMessage(AuthorRole.Assistant, ""));
-
-
-        // await Task.Run(() =>
-        // {
-        //     bool isCompleted = false;
-        //     _chatSession.GenerateCompletionStreaming(() =>
-        //         {
-        //             currentChatItem.IsDone = false;
-        //             currentChatItem.SetChatItem(_chatSession[^1]);
-        //         },
-        //         (message) =>
-        //         {
-        //             currentChatItem.Message = message.Message;
-        //             currentChatItem.TokenCount = message.TokenCount;
-        //         },
-        //         (message) =>
-        //         {
-        //             currentChatItem.Message = message.Message;
-        //             currentChatItem.TokenCount = message.TokenCount;
-        //             currentChatItem.IsDone = true;
-        //             isCompleted = true;
-        //         }, token);
-        //     while (!isCompleted)
-        //     {
-        //         Thread.Sleep(1000);
-        //     }
-        // }, token);
-
-
-        // await foreach (var item in LlmManager.Instance.CurrentRunningModel!.InvokeAgentStreamingAsync(_chatSession,
-        //                    token))
-        // {
-        //     if (CurrentChatItem != null)
-        //     {
-        //         CurrentChatItem.Message = item;
-        //     }
-        // }
 
         try
         {
@@ -208,6 +159,7 @@ public partial class ChatSessionViewData : ObservableObject
             {
                 if (CurrentChatItem != null)
                 {
+                    //TODO:绑定方式全量更新 Markdown 比较费，需要优化
                     CurrentChatItem.Message = item;
                 }
             }

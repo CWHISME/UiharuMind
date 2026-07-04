@@ -54,20 +54,21 @@ public static class ChatThread
         if (!string.IsNullOrWhiteSpace(instructions))
             messages.Insert(0, new AIChatMessage(ChatRole.System, instructions));
 
-        string finalText = "";
+        StringBuilder finalText = StringBuilderPool.Get();
         try
         {
             await foreach (string text in StreamChatAsync(client!, messages,
                                chatSession.CharacterData.Config.ExecutionSettings.ToChatOptions(), cancellationToken))
             {
-                finalText = text;
-                yield return text;
+                finalText.Append(text);
+                yield return finalText.ToString();
             }
         }
         finally
         {
             // 取消生成时也保存已经收到的有效内容，且只在此处写入一次。
-            chatSession.AddGeneratedAssistantMessage(finalText);
+            chatSession.AddGeneratedAssistantMessage(finalText.ToString());
+            StringBuilderPool.Release(finalText);
         }
     }
 
@@ -88,19 +89,42 @@ public static class ChatThread
         ChatClientAgent agent, IEnumerable<AIChatMessage> messages,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        StringBuilder builder = new(64);
-        EmptyDelayUpdater delayUpdater = new();
+        // StringBuilder builder = StringBuilderPool.StringBuilder;
+        // EmptyDelayUpdater delayUpdater = new();
 
         await foreach (AgentResponseUpdate update in agent.RunStreamingAsync(
                            messages, null, null, cancellationToken).ConfigureAwait(false))
         {
-            if (string.IsNullOrEmpty(update.Text)) continue;
-            builder.Append(update.Text);
-            ConfigureDelay(delayUpdater, builder.Length);
-            if (delayUpdater.UpdateDelay()) yield return builder.ToString();
+            string text = update.Text;
+            if (string.IsNullOrEmpty(text)) continue;
+            // builder.Append(update.Text);
+            // ConfigureDelay(delayUpdater, builder.Length);
+            // if (delayUpdater.UpdateDelay()) yield return builder.ToString();
+            yield return text;
         }
 
-        yield return builder.ToString();
+        // yield return builder.ToString();
+    }
+    
+    private static async IAsyncEnumerable<string> StreamChatAsync(
+        IChatClient client, IEnumerable<AIChatMessage> messages, ChatOptions? options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        // StringBuilder builder = new(64);
+        // EmptyDelayUpdater delayUpdater = new();
+
+        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
+                           messages, options, cancellationToken).ConfigureAwait(false))
+        {
+            string text = update.Text;
+            if (string.IsNullOrEmpty(text)) continue;
+            // builder.Append(text);
+            // ConfigureDelay(delayUpdater, builder.Length);
+            // if (delayUpdater.UpdateDelay()) yield return builder.ToString();
+            yield return text;
+        }
+
+        // yield return builder.ToString();
     }
 
     public static async IAsyncEnumerable<string> InvokeSequentialAgentWorkflowStreamingAsync(
@@ -134,26 +158,6 @@ public static class ChatThread
         }
 
         Log.Debug("Translation review workflow completed.");
-    }
-
-    private static async IAsyncEnumerable<string> StreamChatAsync(
-        IChatClient client, IEnumerable<AIChatMessage> messages, ChatOptions? options,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        StringBuilder builder = new(64);
-        EmptyDelayUpdater delayUpdater = new();
-
-        await foreach (ChatResponseUpdate update in client.GetStreamingResponseAsync(
-                           messages, options, cancellationToken).ConfigureAwait(false))
-        {
-            string? text = update.Text;
-            if (string.IsNullOrEmpty(text)) continue;
-            builder.Append(text);
-            ConfigureDelay(delayUpdater, builder.Length);
-            if (delayUpdater.UpdateDelay()) yield return builder.ToString();
-        }
-
-        yield return builder.ToString();
     }
 
     private static void ConfigureDelay(EmptyDelayUpdater updater, int length)

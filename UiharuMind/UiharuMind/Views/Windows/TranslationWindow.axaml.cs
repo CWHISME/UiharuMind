@@ -187,7 +187,7 @@ public partial class TranslationWindow : UiharuWindowBase
 
     private void AppendContent(string info)
     {
-        ResultTextBlock.Text = info;
+        ResultTextBlock.Text += info;
     }
 
     private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

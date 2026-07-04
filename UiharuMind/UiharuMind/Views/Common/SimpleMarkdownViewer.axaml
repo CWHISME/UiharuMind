@@ -8,95 +8,33 @@
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
              xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:avalonia1="clr-namespace:TheArtOfDev.HtmlRenderer.Avalonia;assembly=Avalonia.HtmlRenderer"
+             xmlns:avalonia2="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.SimpleMarkdownViewer">
-
-    <!-- <UserControl.Styles> -->
-    <!-- -->
-    <!--     ~1~ <FluentTheme /> @1@ -->
-    <!--     <SimpleTheme /> -->
-    <!--     <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" /> -->
-    <!--      -->
-    <!--     ~1~ <FluentTheme /> @1@ -->
-    <!--     ~1~ <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> @1@ -->
-    <!-- -->
-    <!--      -->
-    <!--     ~1~ @1@ -->
-    <!--     ~1~ <Style Selector="avedit|TextEditor"> @1@ -->
-    <!--     ~1~     <Style.Setters> @1@ -->
-    <!--     ~1~         <Setter Property="ShowLineNumbers" Value="True" /> @1@ -->
-    <!--     ~1~     </Style.Setters> @1@ -->
-    <!--     ~1~ </Style> @1@ -->
-    <!-- -->
-    <!--     ~1~ <Style Selector=".CodeBlock Button.CopyButton TextBlock"> @1@ -->
-    <!--     ~1~     <Setter Property="Text" Value="📋" /> @1@ -->
-    <!--     ~1~ </Style> @1@ -->
-    <!--     ~1~ <Style Selector="Button.CopyButton > TextBlock"> @1@ -->
-    <!--     ~1~     <Setter Property="Text" Value="📋" /> @1@ -->
-    <!--     ~1~ </Style> @1@ -->
-    <!-- -->
-    <!--     ~1~ <Style Selector="avalonia1|CTextBlock"> @1@ -->
-    <!--     ~1~     <Setter Property="SelectionBrush" Value="#ff0041c5" /> @1@ -->
-    <!--     ~1~     <Setter Property="Foreground" Value="White"></Setter> @1@ -->
-    <!--     ~1~ </Style> @1@ -->
-    <!-- </UserControl.Styles> -->
-
-    <!-- SaveScrollValueWhenContentUpdated="True" -->
-
-
+    
+    <UserControl.Resources>
+        <Thickness x:Key="MarkdownBlockMargin">0</Thickness>
+    </UserControl.Resources>
+    
     <Panel Name="MainPanel">
-        <!-- 普通文字显示 -->
-        <!-- IsVisible="{Binding IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
-        <!-- Text="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
-        <!-- <ScrollViewer -->
-        <!--     HorizontalScrollBarVisibility="Disabled"> -->
-        <!--     <DockPanel> -->
-        <SelectableTextBlock Name="PlainTextBlock"
-                             Background="Transparent"
-                             TextWrapping="Wrap"
-                             HorizontalAlignment="Left"
-                             FontSize="14">
-        </SelectableTextBlock>
-        <avalonia1:HtmlLabel Name="MarkdownTextBlock"
-                             AutoSize="True"
-                             HorizontalAlignment="Left" />
-        <!--     </DockPanel> -->
-        <!-- </ScrollViewer> -->
+        <Border Background="Transparent">
+            <Panel>
+                <!-- 普通文字显示 -->
+                <SelectableTextBlock Name="PlainTextBlock"
+                                     Background="Transparent"
+                                     TextWrapping="Wrap"
+                                     HorizontalAlignment="Left">
+                </SelectableTextBlock>
+                <!-- <avalonia1:HtmlLabel Name="MarkdownTextBlock" -->
+                <!--                      AutoSize="True" -->
+                <!--                      HorizontalAlignment="Left" /> -->
+                <!-- <ComboBox Name="ThemeComboBox"/> -->
+                <avalonia2:MarkdownRenderer x:Name="MarkdownTextBlock"/>
 
-        <!-- Avalonia.Markdown 渲染显示 -->
-        <!-- IsVisible="{Binding !IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
-        <!-- Markdown="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}"> -->
+                <u:LoadingIcon Name="LoadingEffect" />
+            </Panel>
+        </Border>
 
-        <!-- <mdxaml:MarkdownScrollViewer -->
-        <!--     Name="MarkdownScrollViewer" -->
-        <!--     MarkdownStyleName="FluentTheme" -->
-        <!--     SelectionEnabled="True"> -->
-        <!--     <mdxaml:MarkdownScrollViewer.Plugins> -->
-        <!--         <mdxaml:MdAvPlugins> -->
-        <!--             <avalonia:ChatAISetup /> -->
-        <!--         </mdxaml:MdAvPlugins> -->
-        <!--     </mdxaml:MarkdownScrollViewer.Plugins> -->
-        <!--     <mdxaml:MarkdownScrollViewer.Styles> -->
-        <!--         ~1~ <FluentTheme /> @1@ -->
-        <!--         ~1~ <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> @1@ -->
-        <!--         <SimpleTheme /> -->
-        <!--         <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" /> -->
-        <!--         <Style Selector="Button.CopyButton TextBlock"> -->
-        <!--             <Setter Property="Text" Value="📋" /> -->
-        <!--         </Style> -->
-        <!--         <Style Selector=".CodeBlock avedit|TextEditor"> -->
-        <!--             <Setter Property="ShowLineNumbers" Value="True" /> -->
-        <!--             ~1~ 强行写死C#，因为目前 MarkdownScrollViewer 有问题，使用 FluentTheme 代码高亮是有了，但是内容会丢失，而且闪烁 @1@ -->
-        <!--             <Setter Property="SyntaxHighlighting" Value="C#" /> -->
-        <!--         </Style> -->
-        <!--     </mdxaml:MarkdownScrollViewer.Styles> -->
-        <!-- </mdxaml:MarkdownScrollViewer> -->
-
-        <!-- <avalonia1:HtmlPanel Name="MarkdownTextBlock" /> -->
-        <!-- Text="{Binding MarkdownText, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" -->
-        <!-- IsVisible="{Binding !IsPlaintext, RelativeSource={RelativeSource AncestorType={x:Type common:SimpleMarkdownViewer}}}" /> -->
-
-        <u:LoadingIcon Name="LoadingEffect" />
     </Panel>
 
 

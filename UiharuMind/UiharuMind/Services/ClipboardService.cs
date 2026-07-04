@@ -45,7 +45,8 @@ public class ClipboardService : IDisposable
     public ObservableCollection<ClipboardItem> ClipboardHistoryItems { get; }
 
     public event Action<string>? OnClipboardStringChanged;
-    public event Action<Bitmap>? OnClipboardImageChanged;
+
+    // public event Action<Bitmap>? OnClipboardImageChanged;
     public event Action? OnClipboardChanged;
 
     public const string ImageTypePngWin = "image/png";
@@ -127,7 +128,7 @@ public class ClipboardService : IDisposable
                 Clipboard.SetBitmapAsync(bitmap);
             }
 
-            OnClipboardImageChanged?.Invoke(bitmap);
+            // OnClipboardImageChanged?.Invoke(bitmap);
         }
         catch (Exception e)
         {
@@ -239,7 +240,7 @@ public class ClipboardService : IDisposable
         ClipboardHistoryItems.Insert(0, new ClipboardItem(date, "", fullPath));
         Dispatcher.UIThread.Post(() =>
         {
-            OnClipboardImageChanged?.Invoke(bitmap);
+            // OnClipboardImageChanged?.Invoke(bitmap);
             OnClipboardChanged?.Invoke();
         });
     }
@@ -255,7 +256,7 @@ public class ClipboardService : IDisposable
             var item = ClipboardHistoryItems.FirstOrDefault(x => x.IsImage && x.ImageSource.Equals(file, StringComparison.OrdinalIgnoreCase));
             if (item == null)
             {
-                var bitmap = new Bitmap(file);
+                using var bitmap = new Bitmap(file);
                 RecordImageToHistory(bitmap, Path.GetFileName(file));
                 _isHistoryDirty = true;
             }
