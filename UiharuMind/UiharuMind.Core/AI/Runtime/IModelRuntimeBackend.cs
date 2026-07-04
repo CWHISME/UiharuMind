@@ -32,7 +32,7 @@ public interface IModelRuntimeBackend
         CancellationToken cancellationToken);
 }
 
-public sealed class ModelRuntimeBackendRegistry
+internal sealed class ModelRuntimeBackendRegistry
 {
     private readonly List<IModelRuntimeBackend> _backends = [];
 

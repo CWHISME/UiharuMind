@@ -99,8 +99,7 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         string normalized = NormalizeEngineType(value);
         if (normalized != value)
         {
-            _engineType = normalized;
-            OnPropertyChanged(nameof(EngineType));
+            EngineType = normalized;
         }
 
         _config.EngineType = normalized;
@@ -115,8 +114,7 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         string normalized = NormalizeBackendMode(value);
         if (normalized != value)
         {
-            _llamaSharpBackendMode = normalized;
-            OnPropertyChanged(nameof(LlamaSharpBackendMode));
+            LlamaSharpBackendMode = normalized;
         }
 
         _config.LLamaSharpBackendMode = normalized;

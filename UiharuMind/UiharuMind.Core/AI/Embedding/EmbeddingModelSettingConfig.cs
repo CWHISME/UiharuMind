@@ -31,10 +31,10 @@ public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConf
     public const string SourceModeRemoteApi = "RemoteApi";
 
     //内置模型目录路径(不可修改)
-    [JsonIgnore] public string DefaultEmbededModelPath { get; set; } = "./InternalEmbededModels";
+    [JsonIgnore] public string DefaultEmbeddedModelPath { get; set; } = "./InternalEmbeddedModels";
 
     //外部模型目录路径(可修改)
-    public string ExternalEmbededModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbededModels");
+    public string ExternalEmbeddedModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbeddedModels");
 
     /// <summary>
     /// 嵌入模型来源

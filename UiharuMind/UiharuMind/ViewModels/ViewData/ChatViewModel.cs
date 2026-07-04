@@ -123,7 +123,7 @@ public partial class ChatViewModel : ViewModelBase
     [RelayCommand]
     private async Task UploadImage()
     {
-        var file = await App.FilesService.OpenFileAsync(UIManager.GetFoucusWindow());
+        var file = await App.FilesService.OpenFileAsync(UIManager.GetFocusWindow());
         if (file == null) return;
         Bitmap? bitmap = null;
         try

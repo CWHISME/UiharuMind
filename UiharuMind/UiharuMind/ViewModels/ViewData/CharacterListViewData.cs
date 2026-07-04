@@ -146,7 +146,7 @@ public partial class CharacterListViewData : ObservableObject
     {
         // UIManager.ShowWindow<ImportCharacterWindow>();
         var window = new ImportCharacterWindow();
-        await window.ShowDialog(UIManager.GetFoucusWindow());
+        await window.ShowDialog(UIManager.GetFocusWindow());
     }
 
     ~CharacterListViewData()

@@ -78,7 +78,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
     {
         IsCheckingForUpdate = true;
         RemoteDwnloadListViewModel.ClearIfNotExists();
-        var versions = await LlmManager.Instance.RuntimeEngineManager.PullLastestVersion();
+        var versions = await LlmManager.Instance.PullLatestRuntimeVersion();
         foreach (var version in versions.VersionsList)
         {
             if (RemoteDwnloadListViewModel.IsExists(version.Name)) continue;
@@ -98,7 +98,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
     private async Task InitializeAvailableVersions()
     {
         // AvailableVersions.Clear();
-        var versions = await LlmManager.Instance.RuntimeEngineManager.GetLocalVersions();
+        var versions = await LlmManager.Instance.GetLocalRuntimeVersions();
         foreach (var version in versions.VersionsList)
         {
             _lastAvailableVersions.Remove(version);
@@ -116,18 +116,18 @@ public partial class RuntimeEngineSettingData : ObservableObject
         //缓存本地版本列表
         _lastAvailableVersions.AddRange(versions.VersionsList);
 
-        SelectedVersion = LlmManager.Instance.RuntimeEngineManager.CurrentSeletedVersion;
+        SelectedVersion = LlmManager.Instance.CurrentRuntimeVersion;
     }
 
     partial void OnSelectedVersionChanged(VersionInfo? oldValue, VersionInfo? newValue)
     {
         if (newValue == null)
         {
-            SelectedVersion = LlmManager.Instance.RuntimeEngineManager.CurrentSeletedVersion;
+            SelectedVersion = LlmManager.Instance.CurrentRuntimeVersion;
             return;
         }
 
-        if (oldValue != null) LlmManager.Instance.RuntimeEngineManager.SetSelectedVersion(newValue);
+        if (oldValue != null) LlmManager.Instance.SetSelectedRuntimeVersion(newValue);
     }
 
     private static async Task OnRuntimeEngineDownloadCompleted(DownloadableItemData item)

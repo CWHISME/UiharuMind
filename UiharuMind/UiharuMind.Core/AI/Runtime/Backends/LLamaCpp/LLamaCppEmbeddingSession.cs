@@ -38,7 +38,7 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "None");
     }
 
-    public string BackendName => LLamaCppRuntimeBackend.ProviderId;
+    public string BackendName => LLamaCppRuntimeBackend.BackendId;
     public string ModelPath { get; }
     public int Dimensions { get; private set; }
     public bool IsRunning => !_disposed && !_serverTask.IsCompleted;
@@ -60,7 +60,7 @@ public sealed class LLamaCppEmbeddingSession : IEmbeddingSession
         if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
             throw new FileNotFoundException("llama.cpp server executable was not found.", executablePath);
 
-        int port = config.DefaultEmbededPort;
+        int port = config.DefaultEmbeddedPort;
         string endpoint = $"http://127.0.0.1:{port}/";
         using var linkedStartupCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var serverCts = new CancellationTokenSource();

@@ -20,7 +20,7 @@ public class CharacterData
     /// <summary>
     /// 记忆库
     /// </summary>
-    public string MemeryName { get; set; } = "";
+    public string MemoryName { get; set; } = "";
 
     /// <summary>
     /// 是否是默认角色
@@ -101,8 +101,8 @@ public class CharacterData
     /// 记忆
     /// </summary>
     [JsonIgnore]
-    public MemoryData? Memery =>
-        _memory ??= MemoryManager.Instance.GetMemoryData(MemeryName);
+    public MemoryData? Memory =>
+        _memory ??= MemoryManager.Instance.GetMemoryData(MemoryName);
 
     /// <summary>
     /// 角色头像，以 Base64 编码的图片数据

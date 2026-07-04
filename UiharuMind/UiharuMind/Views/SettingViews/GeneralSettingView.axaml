@@ -185,7 +185,7 @@
                             <ComboBox Grid.Column="1"
                                       Width="160"
                                       ItemsSource="{Binding LogLevelList}"
-                                      SelectedIndex="{Binding LogSelecetedTypeIndex}"
+                                      SelectedIndex="{Binding LogSelectedTypeIndex}"
                                       VerticalAlignment="Center" />
                         </Grid>
                         <Border Height="1" Background="{DynamicResource SemiGrey2}" IsVisible="{Binding IsWindows}" />

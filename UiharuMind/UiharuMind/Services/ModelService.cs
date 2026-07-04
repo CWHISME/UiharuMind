@@ -34,6 +34,7 @@ public partial class ModelService : ObservableObject
     public ObservableCollection<ModelRunningData> ModelSources { get; set; } =
         new ObservableCollection<ModelRunningData>();
 
+    //选择本地模型会有风险运行提示，取消后还原
     private ModelRunningData? _modelSelectionOverride;
 
     public ModelRunningData? CurModelRunningData
@@ -44,7 +45,7 @@ public partial class ModelService : ObservableObject
             if (value == null || value == CurModelRunningData) return;
             _modelSelectionOverride = value;
             Refresh();
-            _ = LoadSelectedModelAsync(value);
+            _ = LoadModelWithRiskConfirmationAsync(value);
         }
     }
 
@@ -98,51 +99,32 @@ public partial class ModelService : ObservableObject
         LlmManager.Instance.UnloadModel();
     }
 
-    private async Task LoadSelectedModelAsync(ModelRunningData model)
-    {
-        bool loaded = await LoadModelWithRiskConfirmationAsync(model);
-        if (!loaded) await ResetModelSelectionAsync();
-        else
-        {
-            _modelSelectionOverride = null;
-            Refresh();
-        }
-    }
-
     public async Task<bool> LoadModelWithRiskConfirmationAsync(string? modelName)
     {
         if (string.IsNullOrWhiteSpace(modelName)) return false;
         ModelRunningData? model = ModelSources.FirstOrDefault(x => x.ModelName == modelName);
         if (model != null) return await LoadModelWithRiskConfirmationAsync(model);
-
-        if (!await ConfirmLocalLoadRiskAsync(modelName, false).ConfigureAwait(true))
-        {
-            return false;
-        }
-        await LlmManager.Instance.LoadModel(modelName);
-        Refresh();
-        return true;
+        return false;
     }
 
     private async Task<bool> LoadModelWithRiskConfirmationAsync(ModelRunningData model)
     {
-        if (!await ConfirmLocalLoadRiskAsync(model.ModelName, model.IsRemoteModel).ConfigureAwait(true))
+        if (!await ConfirmLocalLoadRiskAsync(model.ModelName, model.IsRemoteModel).ConfigureAwait(false))
         {
+            ResetModelSelection();
             return false;
         }
 
-        await LlmManager.Instance.LoadModel(model.ModelName);
-        Refresh();
+        await LlmManager.Instance.LoadModel(model.ModelName).ConfigureAwait(false);
+        ResetModelSelection();
         return true;
     }
 
-    private async Task ResetModelSelectionAsync()
+    private void ResetModelSelection()
     {
         // ComboBox 已经把目标值写进 UI 选择状态；取消加载后需要显式让绑定回读当前真实运行模型。
         _modelSelectionOverride = null;
-        await Dispatcher.UIThread.InvokeAsync(Refresh);
-        await Task.Delay(1);
-        await Dispatcher.UIThread.InvokeAsync(Refresh);
+        Refresh();
     }
 
     private static async Task<bool> ConfirmLocalLoadRiskAsync(string modelName, bool isRemoteModel)

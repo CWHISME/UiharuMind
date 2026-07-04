@@ -138,14 +138,14 @@ public partial class ServicesPageData : PageDataBase
         ManagedEmbeddingModels.Count(x => x.Source == EmbeddingModelCandidateSource.BuiltIn));
 
     public string RuntimeVersionName =>
-        LlmManager.Instance.RuntimeEngineManager.CurrentSeletedVersion?.Name ?? Loc("ServicesNoRuntimeSelected");
+        LlmManager.Instance.CurrentRuntimeVersion?.Name ?? Loc("ServicesNoRuntimeSelected");
 
     public string RuntimePath =>
-        LlmManager.Instance.RuntimeEngineManager.CurrentSeletedVersion?.InstallDirectory ??
+        LlmManager.Instance.CurrentRuntimeVersion?.InstallDirectory ??
         SettingConfig.BackendRuntimeEnginePath;
 
     public string RemoteModelCount =>
-        string.Format(Loc("ServicesRemoteModelCountFormat"), LlmManager.Instance.RemoteModelManager.RemoteListModels.Count);
+        string.Format(Loc("ServicesRemoteModelCountFormat"), LlmManager.Instance.RemoteModelCount);
 
     public string FavoriteModel =>
         LlmManager.Instance.GetPreferredModelName(false) ?? "-";
@@ -228,17 +228,17 @@ public partial class ServicesPageData : PageDataBase
     [RelayCommand]
     private void OpenEmbeddingFolder()
     {
-        App.FilesService.OpenFolder(EmbeddingModelSettingConfig.Current.ExternalEmbededModelPath);
+        App.FilesService.OpenFolder(EmbeddingModelSettingConfig.Current.ExternalEmbeddedModelPath);
     }
 
     [RelayCommand]
     private async Task SelectEmbeddingFolderAsync()
     {
         string path = await App.FilesService.OpenSelectFolderAsync(
-            EmbeddingModelSettingConfig.Current.ExternalEmbededModelPath,
-            UIManager.GetFoucusWindow());
+            EmbeddingModelSettingConfig.Current.ExternalEmbeddedModelPath,
+            UIManager.GetFocusWindow());
         if (string.IsNullOrWhiteSpace(path)) return;
-        EmbeddingModelSettingConfig.Current.ExternalEmbededModelPath = path;
+        EmbeddingModelSettingConfig.Current.ExternalEmbeddedModelPath = path;
         EmbeddingModelSettingConfig.Current.Save();
         RefreshManagedEmbeddingModels();
         SaveEmbeddingSettings(false);

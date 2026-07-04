@@ -359,14 +359,14 @@
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="{Binding SelectedEmbeddingSourceMode.Description}" Classes="muted" TextWrapping="Wrap" />
                                     <TextBox Classes="compact"
-                                             Watermark="{loc:Loc ServicesRemoteEndpoint}"
+                                             PlaceholderText="{loc:Loc ServicesRemoteEndpoint}"
                                              Text="{Binding EmbeddingRemoteEndpoint}" />
                                     <TextBox Classes="compact"
-                                             Watermark="{loc:Loc ServicesRemoteModelId}"
+                                             PlaceholderText="{loc:Loc ServicesRemoteModelId}"
                                              Text="{Binding EmbeddingRemoteModelId}" />
                                     <TextBox Classes="compact"
                                              PasswordChar="*"
-                                             Watermark="{loc:Loc ServicesRemoteApiKey}"
+                                             PlaceholderText="{loc:Loc ServicesRemoteApiKey}"
                                              Text="{Binding EmbeddingRemoteApiKey}" />
                                 </StackPanel>
                             </Border>

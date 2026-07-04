@@ -13,11 +13,8 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.Extensions;
-using UiharuMind.Core.RemoteOpenAI;
-using UiharuMind.Core.AI.Models;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
-using UiharuMind.ViewModels;
 
 namespace UiharuMind.Views.Windows.Common;
 

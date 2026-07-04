@@ -25,7 +25,7 @@ public partial class DebugSettingViewModel : ViewModelBase
 {
     // ConfigManager.Instance.DebugSetting.LogTypeInfo
     [ObservableProperty] private string[] _logLevelList; //= new ObservableCollection<string>();
-    [ObservableProperty] private int _logSelecetedTypeIndex;
+    [ObservableProperty] private int _logSelectedTypeIndex;
 
     public DebugSettingViewModel()
     {
@@ -36,10 +36,10 @@ public partial class DebugSettingViewModel : ViewModelBase
             LogLevelList[i] = ((ELogType)i).ToString();
         }
 
-        LogSelecetedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
+        LogSelectedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
     }
 
-    partial void OnLogSelecetedTypeIndexChanged(int value)
+    partial void OnLogSelectedTypeIndexChanged(int value)
     {
         ConfigManager.Instance.DebugSetting.LogTypeInfo =
             (ELogType)value; //(ELogType)Enum.Parse(typeof(ELogType), value);

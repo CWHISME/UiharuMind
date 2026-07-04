@@ -12,8 +12,6 @@
 using CliFx;
 using CliFx.Attributes;
 using CliFx.Infrastructure;
-using UiharuMind.Core;
-using UiharuMind.Core.AI;
 
 namespace UiharuMind.CLI.Commands;
 
@@ -22,7 +20,6 @@ public class PullLlamacppVersion : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {
-        // var version = await LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.PullLastestVersion();
-        
+        await Task.CompletedTask;
     }
 }

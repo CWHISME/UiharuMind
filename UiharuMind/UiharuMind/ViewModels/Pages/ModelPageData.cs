@@ -22,10 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
-using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.AI.Models;
-using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
@@ -45,9 +42,7 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private int _count;
 
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
-
-    private LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.RuntimeEngineManager.LLamaCppServer.Config;
-
+    
     public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>())
     {
     }
@@ -60,15 +55,15 @@ public partial class ModelPageData : PageDataBase
     [RelayCommand]
     private async Task OpenChangeModelPath()
     {
-        LLamaConfig.LocalModelPath = await App.FilesService.OpenSelectFolderAsync(LLamaConfig.LocalModelPath)!;
-        ModelPath = LLamaConfig.LocalModelPath;
-        LLamaConfig.Save();
+        ModelSettingConfig.Current.LocalModelPath = await App.FilesService.OpenSelectFolderAsync(ModelSettingConfig.Current.LocalModelPath)!;
+        ModelPath = ModelSettingConfig.Current.LocalModelPath;
+        ModelSettingConfig.Current.Save();
     }
 
     [RelayCommand]
     private void OpenModelFolder()
     {
-        App.FilesService.OpenFolder(LLamaConfig.LocalModelPath);
+        App.FilesService.OpenFolder(ModelSettingConfig.Current.LocalModelPath);
     }
 
 
@@ -117,11 +112,11 @@ public partial class ModelPageData : PageDataBase
     private async Task CreateRemoteModel(string? name)
     {
         RemoteModelInfo? info = null;
-        if (name != null) LlmManager.Instance.RemoteModelManager.Config.ModelInfos.TryGetValue(name, out info);
+        if (name != null) LlmManager.Instance.TryGetRemoteModelInfo(name, out info);
         var model = await CreateRemoteLlmModelWindow.ShowWindow(UIManager.GetRootWindow(), info);
         if (model != null)
         {
-            LlmManager.Instance.RemoteModelManager.AddRemoteModel(model);
+            LlmManager.Instance.AddRemoteModel(model);
             LoadModels();
         }
     }
@@ -131,7 +126,7 @@ public partial class ModelPageData : PageDataBase
     {
         if (await _messageService.ConfirmAsync("Are you sure to delete remote model " + name + "?"))
         {
-            LlmManager.Instance.RemoteModelManager.DeleteRemoteModel(name);
+            LlmManager.Instance.DeleteRemoteModel(name);
             LoadModels();
         }
     }
@@ -159,7 +154,7 @@ public partial class ModelPageData : PageDataBase
     public override void OnEnable()
     {
         base.OnEnable();
-        ModelPath = LLamaConfig.LocalModelPath;
+        ModelPath = ModelSettingConfig.Current.LocalModelPath;
     }
 
     protected override Control CreateView => new ModelPage();

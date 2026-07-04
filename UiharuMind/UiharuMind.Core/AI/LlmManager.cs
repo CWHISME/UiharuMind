@@ -10,13 +10,14 @@
  ****************************************************************************/
 
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Embedding;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
-using UiharuMind.Core.AI.Runtime;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
-using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.RemoteOpenAI;
 
 namespace UiharuMind.Core.AI;
@@ -26,19 +27,12 @@ namespace UiharuMind.Core.AI;
 /// </summary>
 public class LlmManager : Singleton<LlmManager>, IInitialize
 {
-    /// <summary>
-    /// 本地模型运行管理
-    /// </summary>
-    public RuntimeEngineManager RuntimeEngineManager { get; } = new RuntimeEngineManager();
+    private readonly LLamaCppRuntimeService _llamaCppRuntime = new();
+    private readonly RemoteModelManager _remoteModelManager = new();
+    private readonly ModelRuntimeService _runtimeService;
 
-    /// <summary>
-    /// 远程模型
-    /// </summary>
-    public RemoteModelManager RemoteModelManager { get; } = new RemoteModelManager();
-
-    public ModelRuntimeService RuntimeService { get; }
-
-    public LLamaCppServerKernal LLamaCppServer => RuntimeEngineManager.LLamaCppServer;
+    public VersionInfo? CurrentRuntimeVersion => _llamaCppRuntime.CurrentVersion;
+    public int RemoteModelCount => _remoteModelManager.RemoteListModels.Count;
 
     /// <summary>
     /// 当前运行(/选择)的模型
@@ -46,13 +40,13 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     public ModelRunningData? CurrentRunningModel
     {
         get => _curModelRunningData;
-        set => SetCurrentRunningModel(value);
+        private set => SetCurrentRunningModel(value);
     }
 
     /// <summary>
     /// 当前模型列表的字典缓存
     /// </summary>
-    public Dictionary<string, ModelRunningData> CacheModelDictionary => _chacheModels;
+    public Dictionary<string, ModelRunningData> CacheModelDictionary => _cacheModels;
 
     private ModelRunningData? _curModelRunningData;
 
@@ -64,16 +58,16 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     /// <summary>
     ///模型列表缓存
     /// </summary>
-    private Dictionary<string, ModelRunningData> _chacheModels = new Dictionary<string, ModelRunningData>();
+    private Dictionary<string, ModelRunningData> _cacheModels = new Dictionary<string, ModelRunningData>();
 
     private List<ModelRunningData> _remoteModelList = new List<ModelRunningData>();
 
     public LlmManager()
     {
-        RuntimeService = new ModelRuntimeService(
-            RuntimeEngineManager.LLamaCppServer,
-            RemoteModelManager,
-            () => RuntimeEngineManager.CurrentSeletedVersion);
+        _runtimeService = new ModelRuntimeService(
+            _llamaCppRuntime,
+            _remoteModelManager,
+            () => _llamaCppRuntime.CurrentVersion);
     }
 
     //======================callbacks======================
@@ -116,12 +110,12 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     public async Task<List<ModelRunningData>> ReloadModelList()
     {
         _modelList.Clear();
-        _chacheModels.Clear();
+        _cacheModels.Clear();
 
-        var modelList = await RuntimeService.RefreshModelsAsync().ConfigureAwait(false);
+        var modelList = await _runtimeService.RefreshModelsAsync().ConfigureAwait(false);
         foreach (var model in modelList)
         {
-            _chacheModels.Add(model.Key, model.Value);
+            _cacheModels.Add(model.Key, model.Value);
             _modelList.Add(model.Value);
         }
 
@@ -153,18 +147,16 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (string.IsNullOrEmpty(modelName))
             modelName = GetPreferredModelName(false);
         if (string.IsNullOrEmpty(modelName)) return;
-        if (CurrentRunningModel != null && CurrentRunningModel.ModelName == modelName &&
-            CurrentRunningModel.IsRunning) return;
-        if (_chacheModels.TryGetValue(modelName, out var runningInfo))
+        if (CurrentRunningModel != null && CurrentRunningModel.ModelName == modelName && CurrentRunningModel.IsRunning) return;
+        if (_cacheModels.TryGetValue(modelName, out var runningInfo))
         {
-            CurrentRunningModel?.StopRunning();
-            SetCurrentRunningModel(runningInfo, false);
+            SetCurrentRunningModel(runningInfo);
             // 通知当前运行的模型开始加载
             OnCurrentModelStartLoading?.Invoke();
             bool loadedCallbackInvoked = false;
             try
             {
-                bool loaded = await RuntimeService.StartChatModelAsync(CurrentRunningModel, OnCurrentModelLoading, () =>
+                bool loaded = await _runtimeService.StartChatModelAsync(runningInfo, OnCurrentModelLoading, () =>
                 {
                     loadedCallbackInvoked = true;
                     OnCurrentModelLoaded?.Invoke();
@@ -193,8 +185,8 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (string.IsNullOrEmpty(modelName))
             modelName = GetPreferredModelName(false);
         if (string.IsNullOrEmpty(modelName)) return RuntimeLoadRisk.Low;
-        return _chacheModels.TryGetValue(modelName, out var runningInfo)
-            ? RuntimeService.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
+        return _cacheModels.TryGetValue(modelName, out var runningInfo)
+            ? _runtimeService.AnalyzeChatLoadRisk(runningInfo.ModelInfo)
             : RuntimeLoadRisk.Low;
     }
 
@@ -205,7 +197,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
         string favoriteModel = ModelSettingConfig.Current.FavoriteModel;
         if (!string.IsNullOrEmpty(favoriteModel) &&
-            _chacheModels.TryGetValue(favoriteModel, out var favorite) &&
+            _cacheModels.TryGetValue(favoriteModel, out var favorite) &&
             IsModelCompatible(favorite, isVision))
             return favorite.ModelName;
 
@@ -229,7 +221,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
     public void UnloadModel(string modelName)
     {
         if (string.IsNullOrEmpty(modelName)) return;
-        if (_chacheModels.TryGetValue(modelName, out var runningInfo))
+        if (_cacheModels.TryGetValue(modelName, out var runningInfo))
         {
             runningInfo.StopRunning();
         }
@@ -257,7 +249,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         {
             string? modelName = GetPreferredModelName(isVision);
             if (!string.IsNullOrWhiteSpace(modelName) &&
-                _chacheModels.TryGetValue(modelName, out var preferredModel))
+                _cacheModels.TryGetValue(modelName, out var preferredModel))
                 modelRunning = preferredModel;
             OnCurrentModelChanged?.Invoke(modelRunning);
         }
@@ -271,7 +263,7 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
             if (modelRunning.ChatClient == null)
             {
-                _ = RuntimeService.StartChatModelAsync(modelRunning);
+                _ = _runtimeService.StartChatModelAsync(modelRunning);
             }
         }
 
@@ -291,18 +283,46 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         return isVision ? model.IsVisionModel : !model.IsVisionModel;
     }
 
-    //======================test=========================
-    // private void SetupTestWin()
+    public Task<VersionManager> GetLocalRuntimeVersions()
+    {
+        return _llamaCppRuntime.GetLocalVersions();
+    }
+
+    public Task<VersionManager> PullLatestRuntimeVersion()
+    {
+        return _llamaCppRuntime.PullLatestVersion();
+    }
+
+    public void SetSelectedRuntimeVersion(VersionInfo? version)
+    {
+        _llamaCppRuntime.SetSelectedVersion(version);
+    }
+
+    // public void SaveLLamaCppConfig()
     // {
-    //     LLamaCppServer.Config.LLamaCppPath = "D:\\Solfware\\AI\\llama-b3772-bin-win-vulkan-x64";
-    //     if (!Directory.Exists(LLamaCppServer.Config.LocalModelPath))
-    //         LLamaCppServer.Config.LocalModelPath = "D:\\Solfware\\AI\\LLM_Models";
+    //     _llamaCppRuntime.Config.Save();
     // }
-    //
-    // private void SetupTest()
-    // {
-    //     LLamaCppServer.Config.LLamaCppPath =
-    //         "/Users/dragonplus/Documents/Studys/llamacpp/llama-b3828-bin-macos-arm64/bin";
-    //     LLamaCppServer.Config.LocalModelPath = "/Users/dragonplus/Documents/Studys/LLMModels";
-    // }
+
+    public bool TryGetRemoteModelInfo(string modelName, out RemoteModelInfo? model)
+    {
+        return RemoteModelSettingConfig.Current.ModelInfos.TryGetValue(modelName, out model);
+    }
+
+    public void AddRemoteModel(RemoteModelInfo model)
+    {
+        _remoteModelManager.AddRemoteModel(model);
+    }
+
+    public void DeleteRemoteModel(string modelName)
+    {
+        _remoteModelManager.DeleteRemoteModel(modelName);
+    }
+
+    public Task<IEmbeddingSession> CreateEmbeddingSessionAsync(
+        EmbeddingModelSettingConfig settings,
+        string modelPath,
+        CancellationToken cancellationToken)
+    {
+        return _runtimeService.CreateEmbeddingSessionAsync(settings, modelPath, cancellationToken);
+    }
 }

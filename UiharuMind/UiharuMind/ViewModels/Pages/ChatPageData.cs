@@ -63,7 +63,7 @@ public partial class ChatPageData : PageDataBase
     [RelayCommand]
     public async Task AddChat()
     {
-        var item = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFoucusWindow());
+        var item = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFocusWindow());
         item?.StartChat();
     }
 

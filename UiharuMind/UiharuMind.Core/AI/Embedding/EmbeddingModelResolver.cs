@@ -18,8 +18,8 @@ public static class EmbeddingModelResolver
     public static IReadOnlyList<EmbeddingModelCandidate> GetManagedCandidates(EmbeddingModelSettingConfig config)
     {
         List<EmbeddingModelCandidate> candidates = new();
-        AddCandidates(candidates, config.ExternalEmbededModelPath, EmbeddingModelCandidateSource.Application);
-        AddCandidates(candidates, config.DefaultEmbededModelPath, EmbeddingModelCandidateSource.BuiltIn);
+        AddCandidates(candidates, config.ExternalEmbeddedModelPath, EmbeddingModelCandidateSource.Application);
+        AddCandidates(candidates, config.DefaultEmbeddedModelPath, EmbeddingModelCandidateSource.BuiltIn);
         return candidates
             .GroupBy(x => System.IO.Path.GetFullPath(x.Path), StringComparer.OrdinalIgnoreCase)
             .Select(x => x.First())

@@ -42,7 +42,7 @@ public partial class ImportCharacterWindow : Window
 
     public async Task<CharacterInfoViewData?> ImportCharacter()
     {
-        var file = await App.FilesService.OpenFileAsync(UIManager.GetFoucusWindow(), "*.json");
+        var file = await App.FilesService.OpenFileAsync(UIManager.GetFocusWindow(), "*.json");
         if (file == null) return null;
         try
         {

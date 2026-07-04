@@ -14,10 +14,11 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
-public class LLamaCppSettingConfig : ConfigBase
+public class LLamaCppSettingConfig : TConfigBase<LLamaCppSettingConfig>
 {
     public const string ServerWinExeName = "llama-server.exe";
     public const string LookupStatsWinExeName = "llama-lookup-stats.exe";
@@ -27,39 +28,16 @@ public class LLamaCppSettingConfig : ConfigBase
     /// <summary>
     /// 默认运行端口
     /// </summary>
-    public int DefautPort { get; set; } = 1369;
+    public int DefaultPort { get; set; } = 1369;
+    
+    [JsonIgnore] public string DefaultRuntimePath { get; set; } = "./InternalRuntime";
 
-    public int DefaultEmbededPort => DefautPort + 1;
-    public int DefaultEmbededProxyPort => DefaultEmbededPort + 1;
+    public int DefaultEmbeddedPort => DefaultPort + 1;
 
     public string? LLamaCppPath { get; set; }
 
-    public string LocalModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "Models"); //"./Models";
-
-
-    [JsonIgnore] public string DefaultRuntimePath { get; set; } = "./InternalRuntime";
-    [JsonIgnore] public string DefaultLocalModelPath { get; set; } = "./InternalModels";
+    public string? SelectedRuntimeVersion { get; set; }
     
-    public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();
-
-    // public string ExeLookupStats => Path.Combine(LLamaCppPath!, "llama-lookup-stats");
-    // public string ExeServer => Path.Combine(LLamaCppPath!, ServerExeName);
-
-    // public LLamaCppServerConfig ServerConfig { get; set; } = new();
-    public LLamaCppServerDebugConfig DebugConfig { get; set; } = new();
-    public LLamaCppServerCpuConfig CpuConfig { get; set; } = new();
-    public LLamaCppServerGeneralConfig GeneralConfig { get; set; } = new();
-    public LLamaCppServerParamsConfig ParamsConfig { get; set; } = new();
-    public LLamaCppServerSpecialConfig SpecialConfig { get; set; } = new();
-    public LLamaCppSamplingStrategiesConfig SamplingStrategiesConfig { get; set; } = new();
-    public LLamaCppServerRAGConfig RagConfig { get; set; } = new();
-
-    public string GetExeParams()
-    {
-        return
-            $"{CommandLineHelper.GenerateCommandLineArgs(DebugConfig)} {CommandLineHelper.GenerateCommandLineArgs(CpuConfig)} {CommandLineHelper.GenerateCommandLineArgs(GeneralConfig)} {CommandLineHelper.GenerateCommandLineArgs(ParamsConfig)} {CommandLineHelper.GenerateCommandLineArgs(SpecialConfig)} {CommandLineHelper.GenerateCommandLineArgs(SamplingStrategiesConfig)} {CommandLineHelper.GenerateCommandLineArgs(RagConfig)}";
-    }
-
     public string? GetExeLookupStatsPath(string? executablePath)
     {
         if (executablePath == null) return null;

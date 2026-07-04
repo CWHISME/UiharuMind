@@ -538,12 +538,12 @@ public class MemoryData : IUniquieContainerItem
 
     private string GetDatabasePath()
     {
-        return Path.Combine(SettingConfig.MemoryEmbededPath, $"{GetSafeFileName(Name)}.sqlite");
+        return Path.Combine(SettingConfig.MemoryEmbeddedPath, $"{GetSafeFileName(Name)}.sqlite");
     }
 
     private string GetTemporaryDatabasePath()
     {
-        return Path.Combine(SettingConfig.MemoryEmbededPath, $"{GetSafeFileName(Name)}.updating.sqlite");
+        return Path.Combine(SettingConfig.MemoryEmbeddedPath, $"{GetSafeFileName(Name)}.updating.sqlite");
     }
 
     private static void DeleteDatabaseFiles(string databasePath)

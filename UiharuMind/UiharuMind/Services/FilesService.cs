@@ -39,7 +39,7 @@ public class FilesService //: IStorageFolder
     {
         // _filePickerOption.Title = "Select Folder";
         // _path = new Uri(defaultPath);
-        if (owner == null) owner = UIManager.GetFoucusWindow();
+        if (owner == null) owner = UIManager.GetFocusWindow();
         if (defaultPath != null && Directory.Exists(defaultPath))
         {
             var folder = await owner.StorageProvider.TryGetFolderFromPathAsync(new Uri(Path.GetFullPath(defaultPath)));
@@ -76,7 +76,7 @@ public class FilesService //: IStorageFolder
     public async Task<IStorageFile?> OpenFileAsync(Window? owner, string? defaultPath = null,
         params string[] fileTypeFilter)
     {
-        if (owner == null) owner = UIManager.GetFoucusWindow();
+        if (owner == null) owner = UIManager.GetFocusWindow();
         FilePickerFileType fileType = new FilePickerFileType("Filter") { Patterns = fileTypeFilter };
         var defaultUri = string.IsNullOrEmpty(defaultPath)
             ? null
@@ -96,7 +96,7 @@ public class FilesService //: IStorageFolder
     public async Task<IReadOnlyList<IStorageFile>> SelectFileAsync(Window? owner = null, string? defaultPath = null,
         string? title = null, string? filterName = null, params string[] fileTypeFilter)
     {
-        if (owner == null) owner = UIManager.GetFoucusWindow();
+        if (owner == null) owner = UIManager.GetFocusWindow();
         FilePickerFileType fileType = new FilePickerFileType(filterName ?? "Filter") { Patterns = fileTypeFilter };
         var defaultUri = string.IsNullOrEmpty(defaultPath)
             ? null
@@ -131,7 +131,7 @@ public class FilesService //: IStorageFolder
     /// <param name="defaultName"></param>
     public async Task SaveImageAsync(Bitmap bitmap, Window? owner = null, string? defaultName = null)
     {
-        if (owner == null) owner = UIManager.GetFoucusWindow();
+        if (owner == null) owner = UIManager.GetFocusWindow();
         var path = await App.FilesService.SaveFileAsync(owner,
             defaultName ?? $"Uiharu_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         if (path == null) return;

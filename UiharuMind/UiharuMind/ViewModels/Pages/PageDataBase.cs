@@ -31,8 +31,6 @@ public abstract partial class PageDataBase : ViewModelBase, IViewControl
         get { return _view ??= CreateView; }
     }
     
-    // public LLamaCppSettingConfig LLamaConfig => LlmManager.Instance.LLamaCppServer.Config;
-    
     // public void ShowNotification(string message)
     // {
     // }

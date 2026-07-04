@@ -22,7 +22,7 @@ public class ChatSession : IUniquieContainerItem
     public string Name { get; set; } = "Empty";
     public string Description { get; set; } = "Empty";
     public string CharaterId { get; set; } = "Empty";
-    public string MemeryName { get; set; } = "";
+    public string MemoryName { get; set; } = "";
     public List<ChatMessageData> History { get; set; } = [];
     /// <summary>
     /// 是否不携带历史对话的上下文，如果为true则不携带，每次只有最后一句用户消息
@@ -36,17 +36,17 @@ public class ChatSession : IUniquieContainerItem
     public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharaterId);
 
     [JsonIgnore]
-    public MemoryData? Memery
+    public MemoryData? Memory
     {
         get
         {
             if (_memory != null) return _memory;
             //如果没有指定记忆，则使用角色的默认记忆，同时将对话记忆设置为角色的默认记忆
-            if (string.IsNullOrEmpty(MemeryName) ||
-                !MemoryManager.Instance.TryGetMemoryData(MemeryName, out _memory))
+            if (string.IsNullOrEmpty(MemoryName) ||
+                !MemoryManager.Instance.TryGetMemoryData(MemoryName, out _memory))
             {
-                _memory = CharacterData.Memery;
-                if (_memory != null) MemeryName = CharacterData.MemeryName;
+                _memory = CharacterData.Memory;
+                if (_memory != null) MemoryName = CharacterData.MemoryName;
             }
 
             return _memory;
@@ -55,7 +55,7 @@ public class ChatSession : IUniquieContainerItem
         {
             if (_memory == value) return;
             _memory = value;
-            MemeryName = value?.Name ?? "";
+            MemoryName = value?.Name ?? "";
             Save();
         }
     }
@@ -207,9 +207,9 @@ public class ChatSession : IUniquieContainerItem
             StringBuilderPool.Release(sb);
         }
 
-        if (Memery != null && History.Count > 0)
+        if (Memory != null && History.Count > 0)
         {
-            string longTermMemory = await Memery.GetLongTermMemory(History[^1].Content);
+            string longTermMemory = await Memory.GetLongTermMemory(History[^1].Content);
             if (!string.IsNullOrEmpty(longTermMemory))
             {
                 messages.Add(new AIChatMessage(ChatRole.System,

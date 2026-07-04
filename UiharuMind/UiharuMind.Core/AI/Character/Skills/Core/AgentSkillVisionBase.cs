@@ -19,10 +19,7 @@ public abstract class AgentSkillVisionBase : AgentSkillConvertableBase
     {
         if (!modelRunningData.IsVisionModel)
         {
-            // var visionModel = LlmManager.Instance.RemoteModelManager.FindVisionModel();
-            // if (visionModel == null)
             return new AsyncEnumerableWithMessage("Not support vision model.");
-            // modelRunningData = visionModel;
         }
 
         _chatHistory =

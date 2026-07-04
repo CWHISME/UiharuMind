@@ -7,7 +7,7 @@ namespace UiharuMind.ViewModels.ViewData;
 
 public class SettingViewModel : ViewModelBase
 {
-    public LLamaCppSettingConfig LLamaCppSettingConfig => LlmManager.Instance.LLamaCppServer.Config;
+    // public LLamaCppSettingConfig LLamaCppSettingConfig => LlmManager.Instance.LLamaCppConfig;
 
     public QuickToolSetting QuickToolSettingConfig => ConfigManager.Instance.QuickToolSetting;
 

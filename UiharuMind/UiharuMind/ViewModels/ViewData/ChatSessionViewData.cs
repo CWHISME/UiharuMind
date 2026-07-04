@@ -101,7 +101,7 @@ public partial class ChatSessionViewData : ObservableObject
         Name = ChatSession.Name;
         Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         TimeString = CalcTimeString();
-        MemoryData = ChatSession.Memery;
+        MemoryData = ChatSession.Memory;
         MemoryTipsName = "";
         RefreshMemoryInfo();
     }
@@ -339,7 +339,7 @@ public partial class ChatSessionViewData : ObservableObject
     [RelayCommand]
     private void MemoryEditor()
     {
-        UIManager.ShowMemorySelectWindow(UIManager.GetFoucusWindow(), x => { MemoryData = x; },
+        UIManager.ShowMemorySelectWindow(UIManager.GetFocusWindow(), x => { MemoryData = x; },
             MemoryData);
     }
 
@@ -415,7 +415,7 @@ public partial class ChatSessionViewData : ObservableObject
     {
         if (oldValue != null) oldValue.StateChanged -= OnMemoryStateChanged;
         if (newValue != null) newValue.StateChanged += OnMemoryStateChanged;
-        ChatSession.Memery = newValue;
+        ChatSession.Memory = newValue;
         RefreshMemoryInfo();
     }
 

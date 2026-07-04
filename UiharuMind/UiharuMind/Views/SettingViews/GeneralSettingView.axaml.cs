@@ -35,7 +35,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
     [ObservableProperty] private LanguageOption? _selectedLanguage;
     [ObservableProperty] private ThemeOption? _selectedTheme;
     [ObservableProperty] private string[] _logLevelList;
-    [ObservableProperty] private int _logSelecetedTypeIndex;
+    [ObservableProperty] private int _logSelectedTypeIndex;
     [ObservableProperty] private bool _enableFullscreenGameInputSupport;
     [ObservableProperty] private bool _isCheckingForAppUpdate;
     [ObservableProperty] private bool _hasAppUpdate;
@@ -85,7 +85,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
             LogLevelList[i] = ((ELogType)i).ToString();
         }
 
-        LogSelecetedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
+        LogSelectedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
         EnableFullscreenGameInputSupport = ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport;
         RefreshThemeOptions();
         RefreshSelectedLanguage();
@@ -108,7 +108,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
         ApplicationThemeManager.ApplyTheme(value.ThemeMode, true);
     }
 
-    partial void OnLogSelecetedTypeIndexChanged(int value)
+    partial void OnLogSelectedTypeIndexChanged(int value)
     {
         ConfigManager.Instance.DebugSetting.LogTypeInfo = (ELogType)value;
         ConfigManager.Instance.DebugSetting.Save();

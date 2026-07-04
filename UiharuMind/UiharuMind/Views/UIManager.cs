@@ -147,7 +147,7 @@ public static class UIManager
     /// 当前焦点窗口
     /// </summary>
     /// <returns></returns>
-    public static Window GetFoucusWindow()
+    public static Window GetFocusWindow()
     {
         if (_windowStack.Count > 0) return _windowStack.Peek();
         Window? selectedWindow = null;
@@ -262,7 +262,7 @@ public static class UIManager
         StringContentEditWindow window = new StringContentEditWindow();
         if (IconUtils.DefaultAppIcon != null) window.Icon = new WindowIcon(IconUtils.DefaultAppIcon);
         window.DataContext = new StringContentEditWindowViewModel(content, null);
-        return await window.ShowDialog<string?>(owner ?? UIManager.GetFoucusWindow());
+        return await window.ShowDialog<string?>(owner ?? UIManager.GetFocusWindow());
     }
 
     public static void ShowEditCharacterWindow(CharacterInfoViewData? characterInfo,

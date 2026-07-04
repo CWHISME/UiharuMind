@@ -12,12 +12,12 @@ using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
-public sealed class LLamaSharpRuntimeBackend : IModelRuntimeBackend
+internal sealed class LLamaSharpRuntimeBackend : IModelRuntimeBackend
 {
-    public const string ProviderId = "LLamaSharp";
+    public const string BackendId = "LLamaSharp";
     private readonly LLamaSharpRuntimeEngine _engine = new();
 
-    public string Id => ProviderId;
+    public string Id => BackendId;
     public string DisplayName => "LLamaSharp";
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
         new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
@@ -30,7 +30,7 @@ public sealed class LLamaSharpRuntimeBackend : IModelRuntimeBackend
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)
     {
         return !EmbeddingModelResolver.IsRemote(settings) &&
-               string.Equals(settings.Backend, ProviderId, StringComparison.OrdinalIgnoreCase);
+               string.Equals(settings.Backend, BackendId, StringComparison.OrdinalIgnoreCase);
     }
 
     public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(

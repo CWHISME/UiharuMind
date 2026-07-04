@@ -483,10 +483,10 @@
     <data name="FavoriteRemoteModelDelTips" xml:space="preserve">
         <value>Remove favorite remote model {0} successfully.</value>
     </data>
-    <data name="ModelPageEmbededModelName" xml:space="preserve">
-        <value>Embeded Model: </value>
+    <data name="ModelPageEmbeddedModelName" xml:space="preserve">
+        <value>Embedded Model: </value>
     </data>
-    <data name="ModelPageEmbedeTips" xml:space="preserve">
+    <data name="ModelPageEmbeddedTips" xml:space="preserve">
         <value />
     </data>
     <data name="ShowInExplorer" xml:space="preserve">

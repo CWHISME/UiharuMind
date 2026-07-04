@@ -31,6 +31,7 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 
     public override KeyValuePair<string, JsonNode?>? GetExtraParams()
     {
+        
         return IsThinking ? null : new KeyValuePair<string, JsonNode?>("thinking", new JsonObject { ["type"] = "disabled" });
     }
 

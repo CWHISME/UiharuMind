@@ -7,22 +7,18 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Models;
-using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.AI.Runtime.Backends;
-using UiharuMind.Core.AI.Models;
-using UiharuMind.Core.AI.Runtime.Backends;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
-public sealed class LLamaCppRuntimeBackend(
-    LLamaCppServerKernal server,
+internal sealed class LLamaCppRuntimeBackend(
+    LLamaCppRuntimeService server,
     Func<VersionInfo?> selectedVersionProvider) : IModelRuntimeBackend
 {
-    public const string ProviderId = "LLamaCpp";
+    public const string BackendId = "LLamaCpp";
 
-    public string Id => ProviderId;
+    public string Id => BackendId;
     public string DisplayName => "llama.cpp";
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
         new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
@@ -35,7 +31,7 @@ public sealed class LLamaCppRuntimeBackend(
     public bool CanHandleEmbedding(EmbeddingModelSettingConfig settings)
     {
         return !EmbeddingModelResolver.IsRemote(settings) &&
-               string.Equals(settings.Backend, ProviderId, StringComparison.OrdinalIgnoreCase);
+               string.Equals(settings.Backend, BackendId, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(
@@ -60,8 +56,7 @@ public sealed class LLamaCppRuntimeBackend(
             return;
         }
 
-        ApplyResolvedParameters(request.Parameters);
-        await server.Run(version, request.Model, onLoading, onLoadOver, token: cancellationToken)
+        await server.Run(version, request.Model, request.Parameters, onLoading, onLoadOver, token: cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -75,20 +70,10 @@ public sealed class LLamaCppRuntimeBackend(
 
         return await LLamaCppEmbeddingSession.StartAsync(
             version,
-            server.Config,
+            LLamaCppSettingConfig.Current,
             request.ModelPath,
             request.Parameters,
             cancellationToken).ConfigureAwait(false);
     }
 
-    private void ApplyResolvedParameters(RuntimeResolvedParameters parameters)
-    {
-        LLamaCppSettingConfig config = server.Config;
-        config.ParamsConfig.CtxSize = parameters.ContextSize;
-        config.ParamsConfig.BatchSize = parameters.BatchSize;
-        config.ParamsConfig.UbatchSize = parameters.UBatchSize;
-        config.GeneralConfig.GpuLayers = parameters.GpuLayers;
-        config.GeneralConfig.FlashAttn = parameters.FlashAttention;
-        config.Save();
-    }
 }

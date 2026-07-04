@@ -45,7 +45,7 @@ public class SettingConfig : TConfigBase<SettingConfig>
     /// <summary>
     /// 知识库路径
     /// </summary>
-    public static readonly string MemoryEmbededPath = Path.Combine(MemoryDataPath, "MemoryEmbededCache/");
+    public static readonly string MemoryEmbeddedPath = Path.Combine(MemoryDataPath, "MemoryEmbeddedCache/");
 
     /// <summary>
     /// 是否是本地服务模式

@@ -154,7 +154,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     private async Task AddText()
     {
         MemoryTextSource? source =
-            await UIManager.ShowMemoryTextSourceEditWindow(UIManager.GetFoucusWindow());
+            await UIManager.ShowMemoryTextSourceEditWindow(UIManager.GetFocusWindow());
         if (source == null) return;
 
         TextSources.Add(source);
@@ -179,7 +179,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     private async Task EditText(MemoryTextSource source)
     {
         MemoryTextSource? edited =
-            await UIManager.ShowMemoryTextSourceEditWindow(UIManager.GetFoucusWindow(), source);
+            await UIManager.ShowMemoryTextSourceEditWindow(UIManager.GetFocusWindow(), source);
         if (edited == null) return;
 
         source.Title = edited.Title;
@@ -216,7 +216,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         if (IndexUpdater.IsUpdating) return;
 
         IReadOnlyList<IStorageFile> files = await App.FilesService.SelectFileAsync(
-            UIManager.GetFoucusWindow(), null,
+            UIManager.GetFocusWindow(), null,
             L("MemorySelectTextFilesTitle"), L("MemoryTextFileFilter"), "*");
         if (files.Count == 0) return;
 

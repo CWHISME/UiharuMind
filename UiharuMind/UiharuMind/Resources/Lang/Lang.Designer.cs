@@ -807,15 +807,15 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string ModelPageEmbededModelName {
+        public static string ModelPageEmbeddedModelName {
             get {
-                return ResourceManager.GetString("ModelPageEmbededModelName", resourceCulture);
+                return ResourceManager.GetString("ModelPageEmbeddedModelName", resourceCulture);
             }
         }
         
-        public static string ModelPageEmbedeTips {
+        public static string ModelPageEmbeddedTips {
             get {
-                return ResourceManager.GetString("ModelPageEmbedeTips", resourceCulture);
+                return ResourceManager.GetString("ModelPageEmbeddedTips", resourceCulture);
             }
         }
         

@@ -322,7 +322,7 @@ public partial class CharacterInfoViewData : ObservableObject
     public async Task AddMountCharacter()
     {
         HashSet<string> alreadySelectedList = new HashSet<string>(MountCharacters);
-        var result = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFoucusWindow(), alreadySelectedList,
+        var result = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFocusWindow(), alreadySelectedList,
             CharacterSelectWindow.CharacterType.Tool, Name);
         if (result != null)
         {

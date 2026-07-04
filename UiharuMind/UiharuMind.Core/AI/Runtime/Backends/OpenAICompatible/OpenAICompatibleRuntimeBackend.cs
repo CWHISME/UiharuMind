@@ -12,11 +12,11 @@ using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
-public sealed class OpenAICompatibleRuntimeBackend(RemoteModelManager remoteModelManager) : IModelRuntimeBackend
+internal sealed class OpenAICompatibleRuntimeBackend(RemoteModelManager remoteModelManager) : IModelRuntimeBackend
 {
-    public const string ProviderId = "OpenAICompatible";
+    public const string BackendId = "OpenAICompatible";
 
-    public string Id => ProviderId;
+    public string Id => BackendId;
     public string DisplayName => "OpenAI Compatible";
     public IReadOnlySet<RuntimeCapability> Capabilities { get; } =
         new HashSet<RuntimeCapability> { RuntimeCapability.Chat, RuntimeCapability.Embedding };
@@ -31,8 +31,7 @@ public sealed class OpenAICompatibleRuntimeBackend(RemoteModelManager remoteMode
     public Task<IReadOnlyDictionary<string, ILlmModel>> DiscoverModelsAsync(
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyDictionary<string, ILlmModel> models =
-            remoteModelManager.Config.ModelInfos.ToDictionary(x => x.Key, x => (ILlmModel)x.Value);
+        IReadOnlyDictionary<string, ILlmModel> models = RemoteModelSettingConfig.Current.ModelInfos.ToDictionary(x => x.Key, x => (ILlmModel)x.Value);
         return Task.FromResult(models);
     }
 

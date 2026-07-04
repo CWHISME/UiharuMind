@@ -8,18 +8,17 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
-using UiharuMind.Core.Core.ServerKernal;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.RemoteOpenAI;
 
-public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteModelSettingConfig>
+internal sealed class RemoteModelManager
 {
-    public readonly Dictionary<string, ModelRunningData> RemoteListModels = new Dictionary<string, ModelRunningData>();
+    public readonly Dictionary<string, ModelRunningData> RemoteListModels = new();
 
     public RemoteModelManager()
     {
-        foreach (var info in Config.ModelInfos)
+        foreach (var info in RemoteModelSettingConfig.Current.ModelInfos)
         {
             var config = info.Value;
             if (config.Config is { ConfigType: not null } &&
@@ -55,17 +54,6 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
     {
         onLoadOver?.Invoke(CreateChatClient(model));
         return Task.CompletedTask;
-        // while (!token.IsCancellationRequested)
-        // {
-        //     try
-        //     {
-        //         // 使用 Task.Delay 无限期地等待，直到 CancellationToken 被触发
-        //         await Task.Delay(Timeout.Infinite, token);
-        //     }
-        //     catch (OperationCanceledException)
-        //     {
-        //     }
-        // }
     }
 
     private IChatClient CreateChatClient(ILlmModel model)
@@ -82,12 +70,12 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
 
     public void AddRemoteModel(RemoteModelInfo model)
     {
-        Config.ModelInfos[model.ModelName] = model;
+        RemoteModelSettingConfig.Current.ModelInfos[model.ModelName] = model;
         if (RemoteListModels.TryGetValue(model.ModelName, out var data))
             data.ForceUpdateModelInfo(model);
         else RemoteListModels[model.ModelName] = new ModelRunningData(model);
         var list = SimpleObjectPool<List<string>>.Get();
-        foreach (var info in Config.ModelInfos)
+        foreach (var info in RemoteModelSettingConfig.Current.ModelInfos)
         {
             if (info.Key != info.Value.ModelName) list.Add(info.Key);
         }
@@ -96,18 +84,18 @@ public class RemoteModelManager : ServerKernalBase<RemoteModelManager, RemoteMod
         foreach (var del in list)
         {
             RemoteListModels.Remove(del);
-            Config.ModelInfos.Remove(del);
+            RemoteModelSettingConfig.Current.ModelInfos.Remove(del);
         }
 
         list.Clear();
         SimpleObjectPool<List<string>>.Release(list);
-        SaveConfig();
+        RemoteModelSettingConfig.Current.Save();
     }
 
     public void DeleteRemoteModel(string modelName)
     {
-        Config.ModelInfos.Remove(modelName);
+        RemoteModelSettingConfig.Current.ModelInfos.Remove(modelName);
         RemoteListModels.Remove(modelName);
-        SaveConfig();
+        RemoteModelSettingConfig.Current.Save();
     }
 }

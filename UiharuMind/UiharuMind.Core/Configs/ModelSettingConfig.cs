@@ -9,14 +9,24 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 
 public class ModelSettingConfig : TConfigBase<ModelSettingConfig>
 {
-    /// <summary>
-    /// 收藏模型
-    /// </summary>
+    //收藏模型
     public string FavoriteModel { get; set; } = "";
+
+    //内置模型目录路径(不可修改)
+    [JsonIgnore] public string DefaultLocalModelPath { get; set; } = "./InternalModels";
+
+    //外部模型目录路径(可修改)
+    public string LocalModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "Models");
+
+    //之前扫描到的模型信息
+    public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();
 }

@@ -15,7 +15,7 @@
     <StackPanel>
         <StackPanel Orientation="Horizontal">
             <TextBlock Text="{loc:Loc SettingLogLevelTitle}" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding LogLevelList}" SelectedIndex="{Binding LogSelecetedTypeIndex}"></ComboBox>
+            <ComboBox ItemsSource="{Binding LogLevelList}" SelectedIndex="{Binding LogSelectedTypeIndex}"></ComboBox>
         </StackPanel>
     </StackPanel>
 

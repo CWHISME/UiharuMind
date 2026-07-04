@@ -36,13 +36,13 @@ public partial class SettingPageData : PageDataBase
     
     public SettingPageData()
     {
-        // LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppServer.Config;
+        // LlamaSettingModel.ServerSettingData = LlmManager.Instance.LLamaCppConfig;
     }
     
     public override void OnDisable()
     {
         base.OnDisable();
-        LlmManager.Instance.LLamaCppServer.SaveConfig();
+        // LlmManager.Instance.SaveLLamaCppConfig();
     }
 
     protected override Control CreateView => new SettingPage();
