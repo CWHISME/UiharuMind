@@ -9,7 +9,8 @@
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
-             x:DataType="pages:ModelPageData">
+              x:DataType="pages:ModelPageData"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <pages:ModelPageData />
@@ -79,28 +80,28 @@
                                                   CommandParameter="{Binding ModelName}"
                                                   Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
-                                            <PathIcon Data="{StaticResource StarRegular}" />
+                                            <controls:ThemedSvgIcon IconName="star" />
                                         </u:IconButton.Icon>
                                     </u:IconButton>
                                     <u:IconButton CornerRadius="20"
                                                   CommandParameter="{Binding ModelPath}"
                                                   Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
-                                            <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
+                                            <controls:ThemedSvgIcon IconName="refresh-cw" />
                                         </u:IconButton.Icon>
                                     </u:IconButton>
                                     <u:IconButton CornerRadius="20"
                                                   CommandParameter="{Binding ModelPath}"
                                                   Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
-                                            <PathIcon Data="{StaticResource OpenFolderRegular}" />
+                                            <controls:ThemedSvgIcon IconName="square-arrow-out-up-right" />
                                         </u:IconButton.Icon>
                                     </u:IconButton>
                                     <u:IconButton CornerRadius="20"
                                                   CommandParameter="{Binding ModelPath}"
                                                   Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
-                                            <PathIcon Data="{StaticResource InfoRegular}" />
+                                            <controls:ThemedSvgIcon IconName="info" />
                                         </u:IconButton.Icon>
                                     </u:IconButton>
                                 </StackPanel>
@@ -112,7 +113,7 @@
                                                   CommandParameter="{Binding ModelName}"
                                                   Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <u:IconButton.Icon>
-                                            <PathIcon Data="{StaticResource StarRegular}" />
+                                            <controls:ThemedSvgIcon IconName="star" />
                                         </u:IconButton.Icon>
                                     </u:IconButton>
                                     <Button

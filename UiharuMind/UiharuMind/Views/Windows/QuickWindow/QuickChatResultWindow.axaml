@@ -8,6 +8,7 @@
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
         x:Class="UiharuMind.Views.Windows.QuickChatResultWindow"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
         Width="400"
         Height="400"
         Title="QuickChatResultWindow">
@@ -20,11 +21,11 @@
                 <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
                     <u:LoadingIcon Name="LoadingEffect" />
                     <Button Classes="SimpleSolidButton" Click="OnStopButtonClick">
-                        <PathIcon Data="{StaticResource StopRegular}" Width="15" Height="15" Background="Red" Foreground="Red"/>
+                        <controls:ThemedSvgIcon IconName="square" Width="15" Height="15"/>
                     </Button>
                 </StackPanel>
                 <Button Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton">
-                    <PathIcon Data="{StaticResource ArrowRepeatAllRegular}" Width="20" Height="20" />
+                    <controls:ThemedSvgIcon IconName="repeat" Width="20" Height="20" />
                 </Button>
                 <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
                         Click="CloseButton_Click" />

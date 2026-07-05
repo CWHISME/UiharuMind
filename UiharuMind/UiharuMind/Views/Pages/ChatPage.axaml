@@ -6,8 +6,9 @@
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
-             x:Class="UiharuMind.Views.Pages.ChatPage">
+              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+              x:Class="UiharuMind.Views.Pages.ChatPage"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <pages:ChatPageData />
@@ -54,7 +55,7 @@
                         Classes="icon"
                         Command="{Binding ToggleLeftPaneCommand}"
                         IsVisible="{Binding IsLeftPaneOpen}">
-                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowExportRegular}" />
+                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-right" />
                     <ToolTip.Tip>
                         <TextBlock Text="{loc:Loc ChatSessions}" />
                     </ToolTip.Tip>
@@ -63,7 +64,7 @@
                         Classes="icon"
                         Command="{Binding ToggleLeftPaneCommand}"
                         IsVisible="{Binding !IsLeftPaneOpen}">
-                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowImportRegular}" />
+                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-left" />
                     <ToolTip.Tip>
                         <TextBlock Text="{loc:Loc ChatSessions}" />
                     </ToolTip.Tip>
@@ -79,7 +80,7 @@
                         Classes="icon"
                         Command="{Binding ToggleRightPaneCommand}"
                         IsVisible="{Binding IsRightPaneOpen}">
-                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowImportRegular}" />
+                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-left" />
                     <ToolTip.Tip>
                         <TextBlock Text="{loc:Loc ChatDetails}" />
                     </ToolTip.Tip>
@@ -88,7 +89,7 @@
                         Classes="icon"
                         Command="{Binding ToggleRightPaneCommand}"
                         IsVisible="{Binding !IsRightPaneOpen}">
-                    <PathIcon Width="18" Height="18" Data="{StaticResource ArrowExportRegular}" />
+                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-right" />
                     <ToolTip.Tip>
                         <TextBlock Text="{loc:Loc ChatDetails}" />
                     </ToolTip.Tip>
@@ -108,7 +109,7 @@
                             <TextBlock Classes="muted" Text="{loc:Loc ChatSessionsHint}" />
                         </StackPanel>
                         <Button Grid.Column="1" Classes="icon" Command="{Binding AddChatCommand}">
-                            <PathIcon Width="16" Height="16" Data="{StaticResource Chat}" />
+                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
                         </Button>
                     </Grid>
                     <otherViews:ChatListView Margin="8,0,8,8" />

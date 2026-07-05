@@ -6,17 +6,15 @@
              xmlns:vm="clr-namespace:UiharuMind.ViewModels"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.MainView"
-             x:DataType="vm:MainViewModel">
+              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="UiharuMind.Views.MainView"
+              x:DataType="vm:MainViewModel"
+              >
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
          to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainViewModel />
     </Design.DataContext>
-    <UserControl.Resources>
-        <vm:IconNameToPathConverter x:Key="IconConverter" />
-    </UserControl.Resources>
 
     <!-- 如果需要模糊 -->
     <!-- Classes.Blur="{Binding MessageService.IsBusy}" -->
@@ -47,12 +45,6 @@
                 </Style>
                 <Style Selector="Button.nav-item.selected">
                     <Setter Property="Background" Value="{DynamicResource SemiBlue1}" />
-                </Style>
-                <Style Selector="Button.nav-item PathIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-                </Style>
-                <Style Selector="Button.nav-item.selected PathIcon">
-                    <Setter Property="Foreground" Value="{DynamicResource SemiBlue5}" />
                 </Style>
             </Grid.Styles>
 
@@ -85,9 +77,9 @@
                                 <Button Classes.nav-item="True"
                                         Classes.selected="{Binding IsSelected}"
                                         Command="{Binding ActivateCommand}">
-                                    <PathIcon Width="20"
+                                    <controls:ThemedSvgIcon Width="20"
                                               Height="20"
-                                              Data="{Binding MenuIconName, Converter={StaticResource IconConverter}}" />
+                                              IconName="{Binding MenuIconName}" />
                                     <ToolTip.Tip>
                                         <TextBlock Text="{Binding MenuHeader}" />
                                     </ToolTip.Tip>

@@ -6,8 +6,9 @@
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:u="https://irihi.tech/ursa"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.OtherViews.ModelSelectComboBoxView">
+              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="UiharuMind.Views.OtherViews.ModelSelectComboBoxView"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <services:ModelService />
@@ -70,7 +71,7 @@
                 Height="34"
                 Padding="0"
                 VerticalAlignment="Center">
-            <PathIcon Width="17" Height="17" Data="{StaticResource Setting}" />
+            <controls:ThemedSvgIcon Width="17" Height="17" IconName="settings" />
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ModelRuntimeQuickSettings}" />
             </ToolTip.Tip>

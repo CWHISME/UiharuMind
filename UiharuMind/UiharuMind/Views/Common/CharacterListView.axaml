@@ -5,8 +5,9 @@
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:u="https://irihi.tech/ursa"
-             mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="620"
-             x:Class="UiharuMind.Views.Common.CharacterListView">
+              mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="620"
+              x:Class="UiharuMind.Views.Common.CharacterListView"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <viewData:CharacterListViewData />
@@ -54,22 +55,22 @@
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource SemiGrey6}" />
                     <StackPanel Name="FilterPanel" Orientation="Horizontal" Spacing="6" />
-                    <PathIcon Data="{StaticResource InfoRegular}" Height="18" Width="18" VerticalAlignment="Center">
+                    <controls:ThemedSvgIcon IconName="info" Height="18" Width="18" VerticalAlignment="Center">
                         <ToolTip.Tip>
                             <TextBlock Text="{loc:Loc CharacterCompareToolTips}" FontSize="14" />
                         </ToolTip.Tip>
-                    </PathIcon>
+                    </controls:ThemedSvgIcon>
                 </StackPanel>
 
                 <StackPanel Name="AddPanel" Grid.Column="1" Orientation="Horizontal" Spacing="6">
                     <Button Classes="icon" Command="{Binding AddCharacterCommand}">
-                        <PathIcon Width="17" Height="17" Data="{StaticResource DocumentAddRegular}" />
+                        <controls:ThemedSvgIcon Width="17" Height="17" IconName="file-plus-corner" />
                         <ToolTip.Tip>
                             <TextBlock Text="{loc:Loc CreateBtn}" />
                         </ToolTip.Tip>
                     </Button>
                     <Button Classes="icon" Command="{Binding ImportCharacterCommand}">
-                        <PathIcon Width="17" Height="17" Data="{StaticResource OpenRegular}" />
+                        <controls:ThemedSvgIcon Width="17" Height="17" IconName="import" />
                         <ToolTip.Tip>
                             <TextBlock Text="{loc:Loc ImportBtn}" />
                         </ToolTip.Tip>
@@ -176,7 +177,7 @@
                                 <Button Grid.Column="2"
                                         VerticalAlignment="Center"
                                         Command="{Binding StartChatCommand}">
-                                    <PathIcon Width="16" Height="16" Data="{StaticResource Chat}" />
+                                    <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
                                 </Button>
                             </Grid>
                         </Border>

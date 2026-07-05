@@ -6,8 +6,9 @@
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.ClipboardView.ClipboardHistoryView">
+              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="UiharuMind.Views.ClipboardView.ClipboardHistoryView"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <UserControl.Resources>
         <converters:FilePathToImageConverter x:Key="FilePathToImageConverter" />
@@ -41,7 +42,7 @@
                               MinHeight="20"
                               MinWidth="20"
                               Padding="2,1">
-                    <PathIcon Data="{StaticResource SearchRegular}" />
+                    <controls:ThemedSvgIcon IconName="search" />
                 </ToggleButton>
                 <ToggleButton IsChecked="{Binding IsImageFilterActive}" 
                               VerticalAlignment="Center"
@@ -50,7 +51,7 @@
                               MinHeight="20"
                               MinWidth="20"
                               Padding="2,1">
-                    <PathIcon Data="{StaticResource ImageRegular}" />
+                    <controls:ThemedSvgIcon IconName="image" />
                 </ToggleButton>
             </StackPanel>
         </Grid>

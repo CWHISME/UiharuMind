@@ -6,6 +6,7 @@
         xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d"
         x:Class="UiharuMind.Views.Windows.Common.MemoryEditorWindow"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
         Width="1040"
         Height="740"
         MinWidth="840"
@@ -74,8 +75,7 @@
             <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="13">
                 <Border Width="56" Height="56" CornerRadius="8"
                         Background="{DynamicResource SemiBlue0}">
-                    <PathIcon Width="27" Height="27" Data="{StaticResource BookStarRegular}"
-                              Foreground="{DynamicResource SemiBlue5}" />
+                    <controls:ThemedSvgIcon Width="27" Height="27" IconName="database" />
                 </Border>
                 <StackPanel Grid.Column="1"
                             VerticalAlignment="Center"
@@ -99,7 +99,7 @@
                         MinWidth="154"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="7">
-                        <PathIcon Width="17" Height="17" Data="{StaticResource ArrowSyncCircleRegular}" />
+                        <controls:ThemedSvgIcon Width="17" Height="17" IconName="refresh-cw" />
                         <TextBlock Text="{Binding IndexUpdater.ActionText}" />
                     </StackPanel>
                 </Button>
@@ -129,14 +129,12 @@
 
                     <StackPanel Grid.Row="1" Spacing="8">
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                            <PathIcon Width="15" Height="15" Data="{StaticResource TextFieldRegular}"
-                                      Foreground="{DynamicResource SemiGrey5}" />
+                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="file-text" />
                             <TextBlock Grid.Column="1" Text="{Binding SourceCountText}" Classes="muted"
                                        TextWrapping="Wrap" />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                            <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}"
-                                      Foreground="{DynamicResource SemiGrey5}" />
+                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
                             <TextBlock Grid.Column="1" Text="{Binding LastIndexedText}" Classes="muted"
                                        TextWrapping="Wrap" />
                         </Grid>
@@ -159,7 +157,7 @@
                                 IsEnabled="{Binding CanSaveDescription}"
                                 Command="{Binding SaveDescriptionCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="5">
-                                <PathIcon Width="14" Height="14" Data="{StaticResource SaveRegular}" />
+                                <controls:ThemedSvgIcon Width="14" Height="14" IconName="save" />
                                 <TextBlock Text="{loc:Loc MemorySaveDescriptionAction}" />
                             </StackPanel>
                         </Button>
@@ -229,7 +227,7 @@
                         <TabItem>
                             <TabItem.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <PathIcon Width="15" Height="15" Data="{StaticResource TextFieldRegular}" />
+                                    <controls:ThemedSvgIcon Width="15" Height="15" IconName="file-text" />
                                     <TextBlock Text="{loc:Loc MemoryManualTextTab}" />
                                 </StackPanel>
                             </TabItem.Header>
@@ -243,7 +241,7 @@
                                     <Button Grid.Column="1" Command="{Binding AddTextCommand}"
                                             IsEnabled="{Binding !IsBusy}">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <PathIcon Width="16" Height="16" Data="{StaticResource TextFieldRegular}" />
+                                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="file-text" />
                                             <TextBlock Text="{loc:Loc MemoryAddManualText}" />
                                         </StackPanel>
                                     </Button>
@@ -257,9 +255,8 @@
                                                     <Grid ColumnDefinitions="38,*,Auto" ColumnSpacing="11">
                                                         <Border Width="38" Height="38" CornerRadius="7"
                                                                 Background="{DynamicResource SemiBlue0}">
-                                                            <PathIcon Width="18" Height="18"
-                                                                      Data="{StaticResource TextFieldRegular}"
-                                                                      Foreground="{DynamicResource SemiBlue5}" />
+                                                            <controls:ThemedSvgIcon Width="18" Height="18"
+                                                                      IconName="file-text" />
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Spacing="4">
                                                             <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
@@ -273,14 +270,14 @@
                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     Command="{Binding DataContext.EditTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     CommandParameter="{Binding}">
-                                                                <PathIcon Data="{StaticResource EditRegular}" />
+                                                                <controls:ThemedSvgIcon IconName="pencil" />
                                                                 <ToolTip.Tip><TextBlock Text="{loc:Loc Edit}" /></ToolTip.Tip>
                                                             </Button>
                                                             <Button Classes="icon-action"
                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     Command="{Binding DataContext.DeleteTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     CommandParameter="{Binding}">
-                                                                <PathIcon Data="{StaticResource DeleteRegular}" />
+                                                                <controls:ThemedSvgIcon IconName="trash-2" />
                                                                 <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
                                                             </Button>
                                                         </StackPanel>
@@ -295,8 +292,7 @@
                                                 VerticalAlignment="Center"
                                                 MaxWidth="320"
                                                 Spacing="8">
-                                        <PathIcon Width="38" Height="38" Data="{StaticResource TextFieldRegular}"
-                                                  Foreground="{DynamicResource SemiGrey4}" />
+                                        <controls:ThemedSvgIcon Width="38" Height="38" IconName="file-text" />
                                         <TextBlock Text="{loc:Loc MemoryManualTextEmptyTitle}"
                                                    FontWeight="SemiBold" HorizontalAlignment="Center" />
                                         <TextBlock Text="{loc:Loc MemoryManualTextEmptyHint}"
@@ -309,7 +305,7 @@
                         <TabItem>
                             <TabItem.Header>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <PathIcon Width="15" Height="15" Data="{StaticResource DocumentAddRegular}" />
+                                    <controls:ThemedSvgIcon Width="15" Height="15" IconName="file-plus-corner" />
                                     <TextBlock Text="{loc:Loc MemoryTextFilesTab}" />
                                 </StackPanel>
                             </TabItem.Header>
@@ -323,7 +319,7 @@
                                     <Button Grid.Column="1" Command="{Binding AddFileCommand}"
                                             IsEnabled="{Binding CanImportFiles}">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <PathIcon Width="16" Height="16" Data="{StaticResource DocumentAddRegular}" />
+                                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="file-plus-corner" />
                                             <TextBlock Text="{Binding AddFileActionText}" />
                                         </StackPanel>
                                     </Button>
@@ -337,9 +333,8 @@
                                                     <Grid ColumnDefinitions="38,*,Auto" ColumnSpacing="11">
                                                         <Border Width="38" Height="38" CornerRadius="7"
                                                                 Background="{DynamicResource SemiBlue0}">
-                                                            <PathIcon Width="18" Height="18"
-                                                                      Data="{StaticResource DocumentAddRegular}"
-                                                                      Foreground="{DynamicResource SemiBlue5}" />
+                                                            <controls:ThemedSvgIcon Width="18" Height="18"
+                                                                      IconName="file-plus-corner" />
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Spacing="3">
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
@@ -358,14 +353,14 @@
                                                             <Button Classes="icon-action"
                                                                     Command="{Binding DataContext.OpenFileFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     CommandParameter="{Binding}">
-                                                                <PathIcon Data="{StaticResource OpenFolderRegular}" />
+                                                                <controls:ThemedSvgIcon IconName="square-arrow-out-up-right" />
                                                                 <ToolTip.Tip><TextBlock Text="{loc:Loc OpenDirectory}" /></ToolTip.Tip>
                                                             </Button>
                                                             <Button Classes="icon-action"
                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                                     CommandParameter="{Binding}">
-                                                                <PathIcon Data="{StaticResource DeleteRegular}" />
+                                                                <controls:ThemedSvgIcon IconName="trash-2" />
                                                                 <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
                                                             </Button>
                                                         </StackPanel>
@@ -380,8 +375,7 @@
                                                 VerticalAlignment="Center"
                                                 MaxWidth="330"
                                                 Spacing="8">
-                                        <PathIcon Width="38" Height="38" Data="{StaticResource DocumentAddRegular}"
-                                                  Foreground="{DynamicResource SemiGrey4}" />
+                                        <controls:ThemedSvgIcon Width="38" Height="38" IconName="file-plus-corner" />
                                         <TextBlock Text="{loc:Loc MemoryTextFilesEmptyTitle}"
                                                    FontWeight="SemiBold" HorizontalAlignment="Center" />
                                         <TextBlock Text="{loc:Loc MemoryTextFilesEmptyHint}"

@@ -23,13 +23,13 @@ public class MenuViewData
     {
         MenuItems = new ObservableCollection<MenuItemViewData>
         {
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuMainKey), MenuIconName = "Home", Key = MenuPages.MenuMainKey },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuChatKey), MenuIconName = "Chat", Key = MenuPages.MenuChatKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuMainKey), MenuIconName = "house", Key = MenuPages.MenuMainKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuChatKey), MenuIconName = "message-circle-more", Key = MenuPages.MenuChatKey },
         // new() { MenuHeader = Lang.MenuTranslateKey, MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "FolderRegular", Key = MenuPages.MenuModelKey },
-            new() { MenuHeaderResourceKey = "MenuServicesKey", MenuIconName = "DeveloperBoardRegular", Key = MenuPages.MenuServicesKey },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuLogKey), MenuIconName = "BookQuestionMarkRegular", Key = MenuPages.MenuLogKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "folder-cog", Key = MenuPages.MenuModelKey },
+            new() { MenuHeaderResourceKey = "MenuServicesKey", MenuIconName = "cog", Key = MenuPages.MenuServicesKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuLogKey), MenuIconName = "book-search", Key = MenuPages.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
         };
 

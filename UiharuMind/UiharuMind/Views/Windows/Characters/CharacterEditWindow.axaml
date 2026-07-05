@@ -10,7 +10,8 @@
         MinWidth="920"
         MinHeight="620"
         x:Class="UiharuMind.Views.Windows.Characters.CharacterEditWindow"
-        Title="{loc:Loc CharacterEditor}">
+        Title="{loc:Loc CharacterEditor}"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Window.Styles>
         <Style Selector="Button.nav-section">
@@ -48,7 +49,7 @@
                     <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
                     <Button Click="OkButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}" />
+                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
                             <TextBlock Text="{loc:Loc SaveBtn}" />
                         </StackPanel>
                     </Button>

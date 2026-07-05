@@ -6,33 +6,28 @@
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="50"
         x:Class="UiharuMind.Views.Windows.ScreenCapture.ScreenCaptureDockWindow"
-        Title="ScreenCaptureDockWindow">
+        Title="ScreenCaptureDockWindow"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Window.Styles>
         <Style Selector="Button">
             <!-- <Setter Property="Width" Value="32" /> -->
             <Setter Property="Height" Value="32" />
         </Style>
-        <Style Selector="PathIcon">
-            <Setter Property="Width" Value="20" />
-            <Setter Property="Height" Value="20" />
-            <Setter Property="Padding" Value="5" />
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
     </Window.Styles>
 
     <StackPanel Orientation="Horizontal">
         <Button Click="OnEditBtnClick">
-            <PathIcon Data="{StaticResource ImageEditRegular}" />
+            <controls:ThemedSvgIcon IconName="image-edit" />
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnEdit}" />
             </ToolTip.Tip>
         </Button>
         <Button Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick">
-            <PathIcon Data="{StaticResource ArrowSyncCircleRegular}" />
+            <controls:ThemedSvgIcon IconName="refresh-cw" />
         </Button>
         <!-- <Button Name="OcrBtn" Click="OnOcrBtnClick"> -->
-        <!--     <PathIcon Data="{StaticResource TextFieldRegular}" /> -->
+        <!--     <PathIcon Data="{StaticResource file-text}" /> -->
         <!--     <ToolTip.Tip> -->
         <!--         <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnOldOcr}" /> -->
         <!--     </ToolTip.Tip> -->
@@ -41,7 +36,7 @@
             <Panel>
                 <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
                            Margin="0,-3,0,0" />
-                <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Margin="0,5,0,0" />
+                <controls:ThemedSvgIcon IconName="book-search" Margin="0,5,0,0" />
             </Panel>
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnExplain}" />
@@ -51,7 +46,7 @@
             <Panel>
                 <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
                            Margin="0,-3,0,0" />
-                <PathIcon Data="{StaticResource TextFieldRegular}" Margin="0,5,0,0" />
+                <controls:ThemedSvgIcon IconName="file-text" Margin="0,5,0,0" />
             </Panel>
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnOcr}" />
@@ -61,20 +56,20 @@
             <Panel>
                 <TextBlock Text="AI" FontSize="8" VerticalAlignment="Top" HorizontalAlignment="Center"
                            Margin="0,-3,0,0" />
-                <PathIcon Data="{StaticResource Chat}" Margin="0,5,0,0" />
+                <controls:ThemedSvgIcon IconName="message-circle-more" Margin="0,5,0,0" />
             </Panel>
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnVision}" />
             </ToolTip.Tip>
         </Button>
         <Button Click="OnCopyBtnClick">
-            <PathIcon Data="{StaticResource CopyRegular}" />
+            <controls:ThemedSvgIcon IconName="copy" />
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnCopy}" />
             </ToolTip.Tip>
         </Button>
         <Button Click="OnSaveBtnClick">
-            <PathIcon Data="{StaticResource SaveRegular}" />
+            <controls:ThemedSvgIcon IconName="save" />
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc SaveBtn}" />
             </ToolTip.Tip>

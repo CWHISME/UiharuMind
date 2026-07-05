@@ -9,8 +9,9 @@
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:extends="clr-namespace:UiharuMind.Extends"
-             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="620"
-             x:Class="UiharuMind.Views.OtherViews.ChatView">
+              mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="620"
+              x:Class="UiharuMind.Views.OtherViews.ChatView"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <UserControl.Resources>
         <converters:UserColumIndexConverter x:Key="UserColumIndexConverter" />
@@ -30,18 +31,6 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
-        <Style Selector="Button.memory-status PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusNeutralBrush}" />
-        </Style>
-        <Style Selector="Button.memory-status[Tag=Dirty] PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusDangerBrush}" />
-        </Style>
-        <Style Selector="Button.memory-status[Tag=Error] PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusDangerBrush}" />
-        </Style>
-        <Style Selector="Button.memory-status[Tag=Ready] PathIcon">
-            <Setter Property="Foreground" Value="{DynamicResource MemoryStatusSuccessBrush}" />
         </Style>
         <Style Selector="Button.message-action">
             <Setter Property="Width" Value="18" />
@@ -195,7 +184,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                     <Button Classes="icon" Command="{Binding RegenerateMessageCommand}"
                             IsVisible="{Binding IsVisibleRegenerateButton}">
-                        <PathIcon Width="17" Height="17" Data="{StaticResource ArrowRepeatAllRegular}" />
+                        <controls:ThemedSvgIcon Width="17" Height="17" IconName="repeat" />
                         <ToolTip.Tip>
                             <TextBlock Text="{loc:Loc RegenerateBtn}" />
                         </ToolTip.Tip>
@@ -203,7 +192,7 @@
                     <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
                         <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
                         <Button Classes="icon" Command="{Binding StopSendingCommand}">
-                            <PathIcon Width="16" Height="16" Data="{StaticResource StopRegular}" />
+                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="square" />
                             <ToolTip.Tip>
                                 <TextBlock Text="{loc:Loc StopGenerating}" />
                             </ToolTip.Tip>
@@ -290,31 +279,31 @@
                                             HorizontalAlignment="{Binding Role, Converter={StaticResource UserLeftRightConverter}}">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <Button Classes="message-action" Command="{Binding BranchCommand}">
-                                                <PathIcon Width="11" Height="11" Data="{StaticResource BranchRegular}" />
+                                                <controls:ThemedSvgIcon Width="11" Height="11" IconName="split" />
                                                 <ToolTip.Tip>
                                                     <TextBlock Text="{loc:Loc BranchChatAfterMessage}" />
                                                 </ToolTip.Tip>
                                             </Button>
                                             <Button Classes="message-action" Command="{Binding RetryCommand}">
-                                                <PathIcon Width="11" Height="11" Data="{StaticResource ArrowRepeatAllRegular}" />
+                                                <controls:ThemedSvgIcon Width="11" Height="11" IconName="repeat" />
                                                 <ToolTip.Tip>
                                                     <TextBlock Text="{loc:Loc RetryMessage}" />
                                                 </ToolTip.Tip>
                                             </Button>
                                             <Button Classes="message-action" Command="{Binding CopyCommand}">
-                                                <PathIcon Width="11" Height="11" Data="{StaticResource CopyRegular}" />
+                                                <controls:ThemedSvgIcon Width="11" Height="11" IconName="copy" />
                                                 <ToolTip.Tip>
                                                     <TextBlock Text="{loc:Loc Copy}" />
                                                 </ToolTip.Tip>
                                             </Button>
                                             <Button Classes="message-action" Command="{Binding EditCommand}">
-                                                <PathIcon Width="11" Height="11" Data="{StaticResource EditRegular}" />
+                                                <controls:ThemedSvgIcon Width="11" Height="11" IconName="pencil" />
                                                 <ToolTip.Tip>
                                                     <TextBlock Text="{loc:Loc Edit}" />
                                                 </ToolTip.Tip>
                                             </Button>
                                             <Button Classes="message-action" Command="{Binding DeleteCommand}">
-                                                <PathIcon Width="11" Height="11" Data="{StaticResource DeleteRegular}" />
+                                                <controls:ThemedSvgIcon Width="11" Height="11" IconName="trash-2" />
                                                 <ToolTip.Tip>
                                                     <TextBlock Text="{loc:Loc Delete}" />
                                                 </ToolTip.Tip>
@@ -359,8 +348,8 @@
                         <Button Classes="icon memory-status"
                                 Tag="{Binding ChatSession.MemoryStatusKey}"
                                 Command="{Binding ChatSession.MemoryEditorCommand}">
-                            <PathIcon Width="18" Height="18"
-                                      Data="{StaticResource BookStarRegular}" />
+                            <controls:ThemedSvgIcon Width="18" Height="18"
+                                      IconName="database" />
                             <ToolTip.Tip>
                                 <TextBlock Text="{Binding ChatSession.MemoryIndexTips}" />
                             </ToolTip.Tip>
@@ -368,10 +357,10 @@
                         <Button Classes="icon"
                                 IsVisible="{Binding IsSurportImage}"
                                 Command="{Binding UploadImageCommand}">
-                            <PathIcon Width="18" Height="18" Data="{StaticResource ImageRegular}" />
+                            <controls:ThemedSvgIcon Width="18" Height="18" IconName="image" />
                         </Button>
                         <Button Classes="icon">
-                            <PathIcon Width="18" Height="18" Data="{StaticResource Setting}" />
+                            <controls:ThemedSvgIcon Width="18" Height="18" IconName="settings" />
                             <Button.Flyout>
                                 <Flyout Placement="Top">
                                     <Border Padding="10"
@@ -381,10 +370,10 @@
                                             BorderThickness="1">
                                         <StackPanel Spacing="10">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <PathIcon Width="16"
-                                                          Height="16"
-                                                          VerticalAlignment="Center"
-                                                          Data="{StaticResource Setting}" />
+<controls:ThemedSvgIcon Width="16"
+          Height="16"
+          VerticalAlignment="Center"
+          IconName="settings" />
                                                 <TextBlock Text="{loc:Loc Settings}"
                                                            FontWeight="SemiBold"
                                                            Foreground="{DynamicResource SemiGrey7}" />
@@ -420,7 +409,7 @@
                             IsVisible="{Binding !IsGenerating}"
                             IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                             Command="{Binding SendMessageCommand}">
-                        <PathIcon Width="18" Height="18" Data="{StaticResource Chat}" />
+                        <controls:ThemedSvgIcon Width="18" Height="18" IconName="message-circle-more" />
                         <ToolTip.Tip>
                             <TextBlock Text="{loc:Loc Send}" />
                         </ToolTip.Tip>
@@ -430,7 +419,7 @@
                             Classes="icon"
                             IsVisible="{Binding IsGenerating}"
                             Command="{Binding StopSendingCommand}">
-                        <PathIcon Width="18" Height="18" Data="{StaticResource StopRegular}" />
+                        <controls:ThemedSvgIcon Width="18" Height="18" IconName="square" />
                         <ToolTip.Tip>
                             <TextBlock Text="{loc:Loc StopGenerating}" />
                         </ToolTip.Tip>

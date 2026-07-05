@@ -5,8 +5,9 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
-             x:Class="UiharuMind.Views.Pages.HomePage">
+              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+              x:Class="UiharuMind.Views.Pages.HomePage"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <pages:HomePageData />
@@ -47,7 +48,7 @@
                 </StackPanel>
 
                 <Button Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}">
-                    <PathIcon Width="18" Height="18" Data="{StaticResource InfoRegular}" />
+                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="info" />
                     <ToolTip.Tip>
                         <TextBlock Text="{loc:Loc CharacterPreview}" />
                     </ToolTip.Tip>
@@ -83,7 +84,7 @@
                             <TextBlock Classes="muted" Text="{Binding CharacterListViewData.SelectedCharacter.Name}" />
                         </StackPanel>
                         <Button Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}">
-                            <PathIcon Width="16" Height="16" Data="{StaticResource StopRegular}" />
+                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="square" />
                         </Button>
                     </Grid>
                     <common:CharacterInfoView DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}" />

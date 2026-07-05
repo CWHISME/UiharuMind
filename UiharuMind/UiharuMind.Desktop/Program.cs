@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Svg.Skia;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Services;
@@ -19,6 +20,8 @@ class Program
 
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
+        GC.KeepAlive(typeof(SvgImageExtension).Assembly);
+        GC.KeepAlive(typeof(Avalonia.Svg.Skia.Svg).Assembly);
     }
 
     private static bool TryRelaunchAsAdministrator(string[] args)

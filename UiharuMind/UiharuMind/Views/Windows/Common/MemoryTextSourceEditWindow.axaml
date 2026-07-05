@@ -6,6 +6,7 @@
         xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d"
         x:Class="UiharuMind.Views.Windows.Common.MemoryTextSourceEditWindow"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
         Width="800"
         Height="620"
         MinWidth="640"
@@ -32,8 +33,7 @@
             <Grid ColumnDefinitions="52,*" ColumnSpacing="12">
                 <Border Width="52" Height="52" CornerRadius="8"
                         Background="{DynamicResource SemiBlue0}">
-                    <PathIcon Width="24" Height="24" Data="{StaticResource TextFieldRegular}"
-                              Foreground="{DynamicResource SemiBlue5}" />
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="file-text" />
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
                     <TextBlock Text="{loc:Loc MemoryTextEditorTitle}" FontSize="20" FontWeight="SemiBold" />
@@ -125,7 +125,7 @@
                     <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
                     <Button IsEnabled="{Binding CanSave}" Click="SaveButton_Click">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}" />
+                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
                             <TextBlock Text="{loc:Loc SaveBtn}" />
                         </StackPanel>
                     </Button>

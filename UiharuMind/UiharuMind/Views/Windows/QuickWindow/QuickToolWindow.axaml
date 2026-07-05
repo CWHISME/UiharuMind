@@ -6,7 +6,8 @@
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.Windows.QuickToolWindow"
-        Title="QuickToolWindow">
+        Title="QuickToolWindow"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <StackPanel Orientation="Horizontal" Background="Transparent" Height="50">
         <Button Name="MainButton"
@@ -26,7 +27,7 @@
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
             </Button.Styles>
-            <PathIcon Data="{StaticResource BookQuestionMarkRegular}" Width="25" Height="25" />
+            <controls:ThemedSvgIcon IconName="book-search" Width="25" Height="25" />
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc Explain}" />
             </ToolTip.Tip>

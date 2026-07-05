@@ -10,7 +10,8 @@
         MinWidth="560"
         MinHeight="460"
         x:Class="UiharuMind.Views.Windows.Characters.UserCardEditWindow"
-        Title="{loc:Loc UserCardEditor}">
+        Title="{loc:Loc UserCardEditor}"
+        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <viewData:CharacterInfoViewData />
@@ -86,7 +87,7 @@
                 <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
                 <Button Click="OkButton_Click">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <PathIcon Width="15" Height="15" Data="{StaticResource SaveRegular}" />
+                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
                         <TextBlock Text="{loc:Loc SaveBtn}" />
                     </StackPanel>
                 </Button>

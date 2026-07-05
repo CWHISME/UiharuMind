@@ -6,8 +6,9 @@
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:u="https://irihi.tech/ursa"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.SettingViews.GeneralSettingView">
+              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="UiharuMind.Views.SettingViews.GeneralSettingView"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <settingViews:GeneralSettingViewModel />
@@ -44,13 +45,13 @@
                                 <Button Command="{Binding CheckApplicationUpdateCommand}"
                                         IsEnabled="{Binding !IsCheckingForAppUpdate}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <PathIcon Width="14" Height="14" Data="{StaticResource ArrowSyncCircleRegular}" />
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="refresh-cw" />
                                         <TextBlock Text="{loc:Loc CheckUpdate}" />
                                     </StackPanel>
                                 </Button>
                                 <Button Command="{Binding OpenUpdatePageCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <PathIcon Width="14" Height="14" Data="{StaticResource OpenFolderRegular}" />
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />
                                         <TextBlock Text="{loc:Loc ApplicationUpdateGoTo}" />
                                     </StackPanel>
                                 </Button>
@@ -62,11 +63,11 @@
                                 BorderBrush="{DynamicResource MessageStatusInfoBrush}"
                                 Background="{DynamicResource SemiGrey1}">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                <PathIcon Width="16"
+                                <controls:ThemedSvgIcon Width="16"
                                           Height="16"
                                           VerticalAlignment="Top"
-                                          Data="{StaticResource ArrowSyncCircleRegular}"
-                                          Foreground="{DynamicResource MessageStatusInfoBrush}" />
+                                          IconName="refresh-cw"
+                                           />
                                 <StackPanel Grid.Column="1" Spacing="3">
                                     <TextBlock Text="{Binding AppUpdateStatusText}"
                                                FontWeight="SemiBold"
@@ -213,7 +214,7 @@
                                     Command="{Binding OpenSaveFolderCommand}"
                                     VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <PathIcon Width="14" Height="14" Data="{StaticResource OpenFolderRegular}" />
+                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />
                                     <TextBlock Text="{loc:Loc OpenDirectory}" />
                                 </StackPanel>
                             </Button>

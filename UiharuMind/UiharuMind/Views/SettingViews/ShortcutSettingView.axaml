@@ -4,8 +4,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Views.SettingViews.ShortcutSettingView">
+              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="UiharuMind.Views.SettingViews.ShortcutSettingView"
+                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <Design.DataContext>
         <settingViews:ShortcutSettingViewModel />
@@ -100,13 +101,13 @@
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Command="{Binding ApplyCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <PathIcon Width="14" Height="14" Data="{StaticResource SaveRegular}" />
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="save" />
                         <TextBlock Text="{loc:Loc SaveBtn}" />
                     </StackPanel>
                 </Button>
                 <Button Command="{Binding ResetDefaultsCommand}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <PathIcon Width="14" Height="14" Data="{StaticResource ArrowRepeatAllRegular}" />
+                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="repeat" />
                         <TextBlock Text="{loc:Loc ResetDefaults}" />
                     </StackPanel>
                 </Button>

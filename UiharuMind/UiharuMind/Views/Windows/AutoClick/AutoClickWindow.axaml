@@ -6,6 +6,7 @@
     xmlns:vm="clr-namespace:UiharuMind.ViewModels.ViewData"
     xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
     xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+    xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
     mc:Ignorable="d"
     d:DesignWidth="1180"
     d:DesignHeight="760"
@@ -144,7 +145,7 @@
                     <Button Classes="ToolbarButton"
                             Command="{Binding SaveSessionCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Width="14" Height="14" Data="{StaticResource SaveRegular}" />
+                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="save" />
                             <TextBlock Text="{loc:Loc SaveBtn}" />
                             <TextBlock Text="{Binding UnsavedMarker}"
                                        Foreground="{DynamicResource SemiRed5}"
@@ -171,7 +172,7 @@
                                 Classes="IconButton"
                                 Click="NewSessionButton_Click"
                                 ToolTip.Tip="{loc:Loc AutoClickNewSession}">
-                            <PathIcon Width="16" Height="16" Data="{StaticResource DocumentAddRegular}" />
+                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="file-plus-corner" />
                         </Button>
                     </Grid>
 
@@ -247,7 +248,7 @@
                                 <TextBlock Text="↓" FontSize="16" />
                             </Button>
                             <Button Classes="IconButton" Command="{Binding DuplicateSelectedStepCommand}" ToolTip.Tip="{loc:Loc AutoClickDuplicateStep}">
-                                <PathIcon Width="15" Height="15" Data="{StaticResource CopyRegular}" />
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="copy" />
                             </Button>
                             <Button Classes="IconButton" Command="{Binding RemoveSelectedStepCommand}" ToolTip.Tip="{loc:Loc AutoClickRemoveStep}">
                                 <TextBlock Text="×" FontSize="18" />
@@ -284,7 +285,7 @@
                                     VerticalAlignment="Center"
                                     Spacing="8"
                                     IsVisible="{Binding HasNoSteps}">
-                            <PathIcon Width="42" Height="42" Data="{StaticResource ArrowRepeatAllRegular}" Foreground="{DynamicResource SemiGrey5}" />
+                             <controls:ThemedSvgIcon Width="42" Height="42" IconName="repeat" />
                             <TextBlock Text="{loc:Loc AutoClickEmptyTimelineTitle}"
                                        FontSize="15"
                                        FontWeight="SemiBold"
