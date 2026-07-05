@@ -63,13 +63,13 @@
             </ToolTip.Tip>
         </Button>
         <Button Click="OnCopyBtnClick">
-            <controls:ThemedSvgIcon IconName="copy" />
+            <controls:ThemedSvgIcon IconName="copy" Margin="0,2"/>
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnCopy}" />
             </ToolTip.Tip>
         </Button>
         <Button Click="OnSaveBtnClick">
-            <controls:ThemedSvgIcon IconName="save" />
+            <controls:ThemedSvgIcon IconName="save" Margin="0,2"/>
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc SaveBtn}" />
             </ToolTip.Tip>
