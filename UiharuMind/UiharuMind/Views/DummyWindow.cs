@@ -18,6 +18,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Utils;
 using SharpHook.Data;
 using UiharuMind.Core.Input;
 using UiharuMind.Core.Core.SimpleLog;
@@ -102,12 +103,16 @@ public class DummyWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            _ = App.Services.GetRequiredService<IMessageService>().ShowWarningAsync(
-                "Failed to bind system shortcut keys. If you are using a Mac, please ensure you have the required permissions and follow the instructions provided, then try again!\n\nNote:Please be aware that if the permission list is already in place but is not functioning correctly, you should first remove the permissions and then re-add them.",
-                "UiharuMind: Ops!").ContinueWith(_ =>
-                {
-                    InputManager.Instance.Start(OnQuickKeyInitFailure);
-                }, TaskScheduler.FromCurrentSynchronizationContext());
+            if (PlatformUtils.IsMacOS)
+            {
+                UIManager.ShowWindow<PermissionGuideWindow>();
+            }
+            else
+            {
+                _ = App.Services.GetRequiredService<IMessageService>().ShowWarningAsync(
+                    "Failed to bind system shortcut keys. Please make sure the application has the required permissions and try again.",
+                    "UiharuMind: Ops!");
+            }
         });
     }
 

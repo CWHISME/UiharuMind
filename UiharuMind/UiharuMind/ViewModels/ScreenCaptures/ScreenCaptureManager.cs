@@ -21,6 +21,7 @@ using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Views;
+using UiharuMind.Views.Windows;
 using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.ViewModels.ScreenCaptures;
@@ -71,13 +72,13 @@ public static class ScreenCaptureManager
     public static async Task GetMacScreenCaptureFromClipboard()
     {
         App.Clipboard.IsSelfCopying = true;
-        try
+
+        var isCaptured = await ScreenCaptureMac.Capture();
+
+        if (!isCaptured)
         {
-            await ScreenCaptureMac.Capture();
-        }
-        catch (Exception e)
-        {
-            Log.Error(e.Message);
+            UIManager.ShowWindow<PermissionGuideWindow>();
+            return;
         }
 
         var image = await App.Clipboard.GetImageFromClipboard();

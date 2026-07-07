@@ -1,6 +1,7 @@
 using System;
 using Avalonia.Controls;
 using UiharuMind.Core.Core.Extensions;
+using UiharuMind.Utils;
 using Ursa.Controls;
 
 namespace UiharuMind.Views.Common;
@@ -13,6 +14,12 @@ public class UiharuMessageBoxWindow : MessageBoxWindow
         messageBoxButton)
     {
         _callback = callback;
+    }
+
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        this.SetScreenCenterPosition();
     }
 
     protected override void OnClosed(EventArgs e)

@@ -16,35 +16,20 @@ namespace UiharuMind.Core.Core.UiharuScreenCapture;
 
 public class ScreenCaptureMac
 {
-    public static async Task Capture()
+    public static async Task<bool> Capture()
     {
-        try
-        {
-            await ProcessHelper.StartProcess("screencapture", "-i -x -c capturecache");
-            // await Cli.Wrap("screencapture").WithArguments("-i -x -c capturecache").ExecuteAsync();
-        }
-        catch (Exception e)
-        {
-            Log.Error(e.Message);
-        }
+        return await ProcessHelper.StartProcess("screencapture", "-i -x -c capturecache");
     }
 
-    public static async Task Capture(int screenId)
+    public static async Task<bool> Capture(int screenId)
     {
-        try
-        {
-            await ProcessHelper.StartProcess("screencapture", $"-x -c -D {screenId} capturecache");
-        }
-        catch (Exception e)
-        {
-            Log.Error(e.Message);
-        }
+        return await ProcessHelper.StartProcess("screencapture", $"-x -c -D {screenId} capturecache");
     }
 
-    public static async Task CaptureWindow()
+    public static async Task<bool> CaptureWindow()
     {
         //窗口
-        await ProcessHelper.StartProcess("screencapture", "-i -x -c -w -o capturecache");
+        return await ProcessHelper.StartProcess("screencapture", "-i -x -c -w -o capturecache");
         // await Cli.Wrap("screencapture").WithArguments("-i -x -c -w -o capturecache").ExecuteAsync();
     }
 }

@@ -1878,4 +1878,52 @@
     <data name="ServicesRuntimeRiskDetailFormat" xml:space="preserve">
         <value>Estimated total: {0}&#x0a;KV cache: {1}&#x0a;Reason: {2}</value>
     </data>
+    <data name="PermissionGuideTitle" xml:space="preserve">
+        <value>Permissions Required</value>
+    </data>
+    <data name="PermissionGuideDesc" xml:space="preserve">
+        <value>To enable global shortcuts and screen capture, UiharuMind needs the following permissions:</value>
+    </data>
+    <data name="PermissionAccessibility" xml:space="preserve">
+        <value>Accessibility</value>
+    </data>
+    <data name="PermissionAccessibilityDesc" xml:space="preserve">
+        <value>Required for global keyboard shortcuts</value>
+    </data>
+    <data name="PermissionScreenRecording" xml:space="preserve">
+        <value>Screen Recording</value>
+    </data>
+    <data name="PermissionScreenRecordingDesc" xml:space="preserve">
+        <value>Required for screen capture feature</value>
+    </data>
+    <data name="PermissionGranted" xml:space="preserve">
+        <value>Granted</value>
+    </data>
+    <data name="PermissionNotGranted" xml:space="preserve">
+        <value>Not Granted</value>
+    </data>
+    <data name="PermissionOpenSettings" xml:space="preserve">
+        <value>Open Settings</value>
+    </data>
+    <data name="PermissionSkip" xml:space="preserve">
+        <value>Skip for Now</value>
+    </data>
+    <data name="PermissionRecheck" xml:space="preserve">
+        <value>Recheck</value>
+    </data>
+    <data name="PermissionSkipConfirm" xml:space="preserve">
+        <value>Skipping permissions may cause some features to not work properly. Are you sure you want to skip?</value>
+    </data>
+    <data name="PermissionSkipConfirmTitle" xml:space="preserve">
+        <value>Confirm</value>
+    </data>
+    <data name="PermissionHintText" xml:space="preserve">
+        <value>Tip: If you recently renamed or copied the app, the old permission entry may be stale. Granting permission again or resetting it in System Settings may help.</value>
+    </data>
+    <data name="PermissionRestart" xml:space="preserve">
+        <value>Restart</value>
+    </data>
+    <data name="PermissionRestartConfirm" xml:space="preserve">
+        <value>Permission is granted. The app needs to restart for it to take effect. Restart now?</value>
+    </data>
 </root>

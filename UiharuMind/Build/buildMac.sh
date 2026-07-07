@@ -22,6 +22,10 @@ INFO_PLIST="Info.plist"
 ICON_FILE="../UiharuMind/Assets/Icon.png"
 EXEC="Exec"
 
+# Extract version from App.axaml.cs
+APP_VERSION=$(grep "public static Version Version" ../UiharuMind/App.axaml.cs | grep -o 'new Version([0-9, ]*' | sed 's/new Version(//' | tr -d ' ' | tr ',' '.')
+APP_SHORT_VERSION=$APP_VERSION
+
 if [ -d "$APP_NAME" ]
 then
     rm -rf "$APP_NAME"
@@ -33,7 +37,17 @@ mkdir "$APP_NAME/Contents"
 mkdir "$APP_NAME/Contents/MacOS"
 mkdir "$APP_NAME/Contents/Resources"
 
-cp "$INFO_PLIST" "$APP_NAME/Contents/Info.plist"
+# Patch Info.plist with correct version
+if command -v /usr/libexec/PlistBuddy &> /dev/null; then
+    TEMP_INFO_PLIST=$(mktemp)
+    cp "$INFO_PLIST" "$TEMP_INFO_PLIST"
+    /usr/libexec/PlistBuddy -c "Set CFBundleVersion $APP_VERSION" "$TEMP_INFO_PLIST"
+    /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $APP_SHORT_VERSION" "$TEMP_INFO_PLIST"
+    cp "$TEMP_INFO_PLIST" "$APP_NAME/Contents/Info.plist"
+    rm "$TEMP_INFO_PLIST"
+else
+    cp "$INFO_PLIST" "$APP_NAME/Contents/Info.plist"
+fi
 cp "$EXEC" "$APP_NAME/Contents/MacOS/$EXEC"
 cp "$ICON_FILE" "$APP_NAME/Contents/Resources/Icon.png"
 cp -a "$PUBLISH_OUTPUT_DIRECTORY/." "$APP_NAME/Contents/MacOS"

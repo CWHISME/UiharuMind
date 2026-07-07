@@ -99,8 +99,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
         }
         catch (Exception e)
         {
-            Log.Error("Input hook failed. On Windows, games running as administrator require UiharuMind to run with the same privilege.");
-            Log.Warning(e.Message);
+            Log.Warning(e.ToString());
             Stop();
             if (!_isEnabled) onFailed.Invoke();
         }

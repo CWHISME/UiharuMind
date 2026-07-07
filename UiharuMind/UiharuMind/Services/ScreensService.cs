@@ -10,11 +10,17 @@
  ****************************************************************************/
 
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using SharpHook.Data;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
+using UiharuMind.Views;
+using UiharuMind.Views.Common;
+using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.Services;
 
@@ -97,5 +103,30 @@ public class ScreensService
         }
 
         return -1;
+    }
+
+    public Window? GetActiveWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        return desktop.Windows
+            .Where(window =>
+                window is not DummyWindow and not ApplicationNotificationWindow and not UiharuMessageBoxWindow &&
+                window.IsVisible &&
+                window.WindowState != WindowState.Minimized)
+            .OrderByDescending(window => window.IsActive || window.IsFocused)
+            .FirstOrDefault();
+    }
+
+    public Screen GetSafeActivationScreen()
+    {
+        Window? activeWindow = GetActiveWindow();
+        // if (activeWindow != null) Log.Warning("找到激活的窗口:" + activeWindow.GetType().FullName);
+        Screen? screen = activeWindow?.Screens.ScreenFromWindow(activeWindow);
+        // if (screen != null) Log.Warning("找到激活的窗口所在屏幕:" + screen.DisplayName);
+        screen ??= MouseScreen;
+        screen ??= App.DummyWindow.Screens.Primary;
+        return screen ?? App.DummyWindow.Screens.All[0];
     }
 }

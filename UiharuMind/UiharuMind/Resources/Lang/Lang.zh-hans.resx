@@ -1871,4 +1871,52 @@
     <data name="ServicesRuntimeRiskDetailFormat" xml:space="preserve">
         <value>估算总占用：{0}&#x0a;KV 缓存：{1}&#x0a;原因：{2}</value>
     </data>
+    <data name="PermissionGuideTitle" xml:space="preserve">
+        <value>需要权限</value>
+    </data>
+    <data name="PermissionGuideDesc" xml:space="preserve">
+        <value>为启用全局快捷键和屏幕截图功能，UiharuMind 需要以下权限：</value>
+    </data>
+    <data name="PermissionAccessibility" xml:space="preserve">
+        <value>辅助功能</value>
+    </data>
+    <data name="PermissionAccessibilityDesc" xml:space="preserve">
+        <value>全局键盘快捷键需要此权限</value>
+    </data>
+    <data name="PermissionScreenRecording" xml:space="preserve">
+        <value>屏幕录制</value>
+    </data>
+    <data name="PermissionScreenRecordingDesc" xml:space="preserve">
+        <value>屏幕截图功能需要此权限</value>
+    </data>
+    <data name="PermissionGranted" xml:space="preserve">
+        <value>已授权</value>
+    </data>
+    <data name="PermissionNotGranted" xml:space="preserve">
+        <value>未授权</value>
+    </data>
+    <data name="PermissionOpenSettings" xml:space="preserve">
+        <value>打开设置</value>
+    </data>
+    <data name="PermissionSkip" xml:space="preserve">
+        <value>跳过</value>
+    </data>
+    <data name="PermissionRecheck" xml:space="preserve">
+        <value>重新检查</value>
+    </data>
+    <data name="PermissionSkipConfirm" xml:space="preserve">
+        <value>跳过权限设置可能导致部分功能无法正常使用。确定要跳过吗？</value>
+    </data>
+    <data name="PermissionSkipConfirmTitle" xml:space="preserve">
+        <value>确认</value>
+    </data>
+    <data name="PermissionHintText" xml:space="preserve">
+        <value>提示：如果你最近重命名或复制了应用，旧的权限条目可能已失效。重新授权或在系统设置中重置权限可能会有帮助。</value>
+    </data>
+    <data name="PermissionRestart" xml:space="preserve">
+        <value>重启</value>
+    </data>
+    <data name="PermissionRestartConfirm" xml:space="preserve">
+        <value>权限已授权，需要重启应用才能生效。是否立即重启？</value>
+    </data>
 </root>

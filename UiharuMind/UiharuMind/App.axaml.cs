@@ -40,7 +40,7 @@ public partial class App : Application, ILogger, IDisposable
         AvaloniaXamlLoader.Load(this);
 
         LogManager.Instance.Logger = this;
-        
+
         // 捕获未处理的异常
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         Dispatcher.UIThread.UnhandledException += UIThread_UnhandledException;
@@ -103,8 +103,7 @@ public partial class App : Application, ILogger, IDisposable
         DummyWindow.LaunchMainWindow();
 #endif
         DeliverTrayFunc();
-        if (Services != null)
-            _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
+        _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
         Log.Debug("UiharuMind started.");
     }
 
@@ -141,13 +140,8 @@ public partial class App : Application, ILogger, IDisposable
     public void Error(string rawStr, LogItem message)
     {
         Console.WriteLine(message);
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (Services?.GetService<IMessageService>() is { } messageService)
-                _ = messageService.ShowErrorAsync(rawStr);
-            else
-                Console.Error.WriteLine(rawStr);
-        });
+        if (Services?.GetService<IMessageService>() is { } messageService)
+            _ = messageService.ShowErrorAsync(rawStr);
     }
 
     private static void DeliverTrayFunc()

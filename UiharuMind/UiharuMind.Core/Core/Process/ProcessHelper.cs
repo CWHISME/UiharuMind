@@ -203,13 +203,13 @@ public static class ProcessHelper
     /// <param name="args"></param>
     /// <param name="onLogCallback"></param>
     /// <param name="token"></param>
-    public static async Task StartProcess(string? exePath, string args, Action<string>? onLogCallback = null,
+    public static async Task<bool> StartProcess(string? exePath, string args, Action<string>? onLogCallback = null,
         CancellationToken token = default)
     {
         if (exePath == null)
         {
             Log.Error("No executable path specified.");
-            return;
+            return false;
         }
 
         var cmd = Cli.Wrap(exePath).WithArguments(args).WithValidation(CommandResultValidation.None);
@@ -228,13 +228,13 @@ public static class ProcessHelper
                 if (result.ExitCode == 0)
                 {
                     Log.Debug($"Process {exePath} executed successfully.");
+                    return true;
                 }
                 else
                 {
                     Log.Error($"Process {exePath} executed failed with exit code {result.ExitCode}.");
+                    return false;
                 }
-
-                return;
             }
 
             await foreach (var cmdEvent in cmd.ListenAsync(token).ConfigureAwait(false))
@@ -280,5 +280,6 @@ public static class ProcessHelper
         {
             _processIds.TryTake(out processId);
         }
+        return true;
     }
 }
