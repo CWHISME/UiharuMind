@@ -21,7 +21,7 @@
                 <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
                     <u:LoadingIcon Name="LoadingEffect" />
                     <Button Classes="SimpleSolidButton" Click="OnStopButtonClick">
-                        <controls:ThemedSvgIcon IconName="square" Width="15" Height="15"/>
+                        <controls:ThemedSvgIcon IconName="stop" Width="20" Height="20" CurrentColor="Red"/>
                     </Button>
                 </StackPanel>
                 <Button Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton">

@@ -83,9 +83,6 @@
                             <TextBlock Classes="section-title" Text="{loc:Loc CharacterPreview}" />
                             <TextBlock Classes="muted" Text="{Binding CharacterListViewData.SelectedCharacter.Name}" />
                         </StackPanel>
-                        <Button Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="square" />
-                        </Button>
                     </Grid>
                     <common:CharacterInfoView DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}" />
                 </DockPanel>
