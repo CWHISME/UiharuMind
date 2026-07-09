@@ -1926,4 +1926,13 @@
     <data name="PermissionRestartConfirm" xml:space="preserve">
         <value>Permission is granted. The app needs to restart for it to take effect. Restart now?</value>
     </data>
+    <data name="OpenLink" xml:space="preserve">
+        <value>Open link</value>
+    </data>
+    <data name="CopyLink" xml:space="preserve">
+        <value>Copy link</value>
+    </data>
+    <data name="ToggleTextWrap" xml:space="preserve">
+        <value>Toggle text wrap</value>
+    </data>
 </root>

@@ -17,6 +17,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Avalonia.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core;
 using UiharuMind.Core.Configs;
@@ -102,6 +103,10 @@ public partial class App : Application, ILogger, IDisposable
 #if !DEBUG
         DummyWindow.LaunchMainWindow();
 #endif
+#if DEBUG
+        this.AttachDevTools();
+#endif
+
         DeliverTrayFunc();
         _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
         Log.Debug("UiharuMind started.");

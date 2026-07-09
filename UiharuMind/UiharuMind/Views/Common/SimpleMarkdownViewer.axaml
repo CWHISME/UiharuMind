@@ -7,35 +7,136 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
              xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
-             xmlns:avalonia1="clr-namespace:TheArtOfDev.HtmlRenderer.Avalonia;assembly=Avalonia.HtmlRenderer"
              xmlns:avalonia2="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:markup="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.SimpleMarkdownViewer">
-    
-    <UserControl.Resources>
-        <Thickness x:Key="MarkdownBlockMargin">0</Thickness>
-    </UserControl.Resources>
-    
+
+    <UserControl.Styles>
+        <Style Selector="avalonia2|CodeBlock">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="avalonia2:CodeBlock">
+                        <StackPanel Orientation="Vertical" Spacing="0">
+                            <Border Background="{DynamicResource CodeBlockBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CodeBlockBorderBrush}"
+                                    BorderThickness="1" CornerRadius="4,4,0,0">
+                                <DockPanel Margin="4,2" LastChildFill="True">
+                                    <TextBlock x:Name="PART_LanguageTextBlock" DockPanel.Dock="Left"
+                                               VerticalAlignment="Center"
+                                               Text="{TemplateBinding Language}"/>
+                                    <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                                Orientation="Horizontal" Spacing="0">
+                                        <ToggleButton x:Name="PART_ToggleTextWrapButton"
+                                                      Width="20" Height="20"
+                                                      Focusable="False"
+                                                      IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}"
+                                                      ToolTip.Tip="{markup:Loc ToggleTextWrap}">
+                                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="text-wrap"/>
+                                        </ToggleButton>
+                                        <Button x:Name="PART_CopyButton" Width="20" Height="20"
+                                                Focusable="False"
+                                                ToolTip.Tip="{markup:Loc Copy}"
+                                                Command="{Binding $parent[avalonia2:MarkdownRenderer].Copy}">
+                                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="copy"/>
+                                        </Button>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Background="{DynamicResource CodeBlockContentBackgroundBrush}"
+                                    BorderBrush="{DynamicResource CodeBlockBorderBrush}"
+                                    BorderThickness="1,0,1,1" CornerRadius="0,0,4,4">
+                                <ScrollViewer x:Name="PART_ScrollViewer"
+                                              HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                              VerticalScrollBarVisibility="Auto">
+                                    <avalonia2:MarkdownTextBlock x:Name="PART_CodeTextBlock" Margin="4"
+                                                                 FontFamily="{TemplateBinding FontFamily}"
+                                                                 TextWrapping="{TemplateBinding TextWrapping}"/>
+                                </ScrollViewer>
+                            </Border>
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style Selector="^ ToggleButton">
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style Selector="^ Button">
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- 右上角折叠按钮点击后变色 -->
+            <Style Selector="^ ToggleButton:checked controls|ThemedSvgIcon">
+                <Setter Property="CurrentColor" Value="{DynamicResource CodeBlockActiveColor}"/>
+            </Style>
+        </Style>
+    </UserControl.Styles>
+
     <Panel Name="MainPanel">
         <Border Background="Transparent">
             <Panel>
-                <!-- 普通文字显示 -->
                 <SelectableTextBlock Name="PlainTextBlock"
                                      Background="Transparent"
                                      TextWrapping="Wrap"
-                                     HorizontalAlignment="Left">
-                </SelectableTextBlock>
-                <!-- <avalonia1:HtmlLabel Name="MarkdownTextBlock" -->
-                <!--                      AutoSize="True" -->
-                <!--                      HorizontalAlignment="Left" /> -->
-                <!-- <ComboBox Name="ThemeComboBox"/> -->
-                <avalonia2:MarkdownRenderer x:Name="MarkdownTextBlock"/>
+                                     HorizontalAlignment="Left"/>
+                <avalonia2:MarkdownRenderer x:Name="MarkdownTextRender">
+                    <avalonia2:MarkdownRenderer.ContextFlyout>
+                        <MenuFlyout Placement="Bottom">
+                            <MenuItem
+                                x:Name="MarkdownRendererContextFlyoutCopyItem"
+                                Command="{Binding $parent[avalonia2:MarkdownRenderer].Copy}"
+                                Cursor="Hand"
+                                Header="{markup:Loc Copy}"
+                                InputGesture="{Binding $parent[avalonia2:MarkdownRenderer].CopyGesture}"
+                                IsEnabled="{Binding $parent[avalonia2:MarkdownRenderer].CanCopy}"/>
+                        </MenuFlyout>
+                    </avalonia2:MarkdownRenderer.ContextFlyout>
+                    <avalonia2:MarkdownRenderer.LinkContextMenu>
+                        <ContextMenu>
+                            <MenuItem
+                                Command="{Binding OpenCommand, x:DataType=avalonia2:Link}"
+                                Cursor="Hand"
+                                Header="{markup:Loc OpenLink}"/>
+                            <MenuItem
+                                Command="{Binding CopyCommand, x:DataType=avalonia2:Link}"
+                                Cursor="Hand"
+                                Header="{markup:Loc CopyLink}"/>
+                            <Separator IsVisible="{Binding $parent[avalonia2:MarkdownRenderer].CanCopy}"/>
+                            <MenuItem
+                                Command="{Binding $parent[avalonia2:MarkdownRenderer].Copy}"
+                                Cursor="Hand"
+                                Header="{markup:Loc Copy}"
+                                InputGesture="{Binding $parent[avalonia2:MarkdownRenderer].CopyGesture}"
+                                IsVisible="{Binding $parent[avalonia2:MarkdownRenderer].CanCopy}"/>
+                        </ContextMenu>
+                    </avalonia2:MarkdownRenderer.LinkContextMenu>
+                </avalonia2:MarkdownRenderer>
 
                 <u:LoadingIcon Name="LoadingEffect" />
             </Panel>
         </Border>
 
     </Panel>
-
 
 </UserControl>

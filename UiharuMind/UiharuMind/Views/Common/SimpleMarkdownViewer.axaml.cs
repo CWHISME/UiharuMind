@@ -10,30 +10,14 @@
  ****************************************************************************/
 
 using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Diagnostics;
-using System.Text;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml;
-using Avalonia.Media;
-using Avalonia.Styling;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
-using TheArtOfDev.HtmlRenderer.Avalonia;
-using TheArtOfDev.HtmlRenderer.Core.Entities;
-using UiharuMind.Core.AI.Runtime.Backends;
-using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Services;
 using UiharuMind.Utils.Tools;
-using UiharuMind.ViewModels.UIHolder;
 
 namespace UiharuMind.Views.Common;
 
@@ -111,17 +95,9 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         base.OnLoaded(e);
         _isLoaded = true;
-        // _themeNames.AddRange(EnumHelper.GetValues<ThemeName>());
-        // ThemeComboBox.ItemsSource = _themeNames;
-        // ThemeComboBox.SelectionChanged += (x, y) =>
-        // {
-        //     ThemeName themeName = (ThemeName)ThemeComboBox.SelectedItem;
-        //     MarkdownTextBlock.CodeBlockColorTheme = themeName;
-        // };
 
-        MarkdownTextBlock.MarkdownBuilder = _markdownBuilder;
-        // MarkdownTextBlock.CodeBlockColorTheme = ThemeName.LightPlus;
-        // CheckUpdateValid();
+        MarkdownTextRender.MarkdownBuilder = _markdownBuilder;
+        UpdateCodeBlockTheme();
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)
@@ -145,10 +121,10 @@ public partial class SimpleMarkdownViewer : UserControl
         {
             // Log.Debug($"IsPlaintext changed: {_isPlaintextCache}");
             var isPlainText = change.GetNewValue<bool>();
-            if (PlainTextBlock.IsVisible != isPlainText || MarkdownTextBlock.IsVisible == isPlainText)
+            if (PlainTextBlock.IsVisible != isPlainText || MarkdownTextRender.IsVisible == isPlainText)
             {
                 PlainTextBlock.IsVisible = isPlainText;
-                MarkdownTextBlock.IsVisible = !isPlainText;
+                MarkdownTextRender.IsVisible = !isPlainText;
             }
 
             _isPlaintextCache = isPlainText;
@@ -208,7 +184,7 @@ public partial class SimpleMarkdownViewer : UserControl
     protected override Size MeasureOverride(Size availableSize)
     {
         var maxWidth = Math.Clamp(availableSize.Width - 30, 0, int.MaxValue);
-        MarkdownTextBlock.MaxWidth = Math.Clamp(maxWidth - 1, 0, int.MaxValue);
+        MarkdownTextRender.MaxWidth = Math.Clamp(maxWidth - 1, 0, int.MaxValue);
         MainPanel.MaxWidth = maxWidth;
         return base.MeasureOverride(availableSize);
     }
@@ -254,7 +230,10 @@ public partial class SimpleMarkdownViewer : UserControl
         //     "#JetBrains Mono"));
         // MarkdownTextBlock.StylesheetLoad += OnStylesheetLoad;
         // MarkdownTextBlock.Container.AddFontFamily(PlainTextBlock.FontFamily);
-
+        // MarkdownTextBlock.AddHandler(
+        //     MarkdownRenderer.LinkCommandProperty,
+        //     new EventHandler<LinkClickedEventArgs>(OnLinkClick),
+        //     handledEventsToo: true);
 
         // _stopwatch.Start();
         // _scrollViewerAutoScrollHolder =
@@ -284,15 +263,21 @@ public partial class SimpleMarkdownViewer : UserControl
 
     private void OnThemeChanged(object? sender, EventArgs e)
     {
-        // MarkdownTextBlock.CodeBlockColorTheme = ApplicationThemeManager.IsDarkTheme() ? ThemeName.DarkPlus : ThemeName.LightPlus;
-        // CheckUpdateValid();
+        UpdateCodeBlockTheme();
     }
 
-
-    private string GetThemeSpecificHtml(ThemeVariant? theme, string text)
+    private void UpdateCodeBlockTheme()
     {
-        if (theme == null) return text;
-        return MarkdownUtils.ToHtml(text, ApplicationThemeManager.IsDarkTheme(theme),
-            ChatSettingConfig.Current.IsChatNotShowThinking, out _isThinking);
+        MarkdownTextRender.CodeBlockColorTheme = ApplicationThemeManager.IsDarkTheme()
+            ? ThemeName.DarkPlus
+            : ThemeName.LightPlus;
     }
+
+
+    // private string GetThemeSpecificHtml(ThemeVariant? theme, string text)
+    // {
+    //     if (theme == null) return text;
+    //     return MarkdownUtils.ToHtml(text, ApplicationThemeManager.IsDarkTheme(theme),
+    //         ChatSettingConfig.Current.IsChatNotShowThinking, out _isThinking);
+    // }
 }

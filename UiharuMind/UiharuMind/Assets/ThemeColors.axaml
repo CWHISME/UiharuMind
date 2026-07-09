@@ -27,6 +27,10 @@
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#067647</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#B54708</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#D92D20</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBackgroundBrush'>#E5E6EB</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#F0F1F3</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBorderBrush'>#D0D1D5</SolidColorBrush>
+                    <Color x:Key='CodeBlockActiveColor'>#1769E0</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key='Dark'>
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#1D2129</SolidColorBrush>
@@ -40,6 +44,10 @@
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#75E0A7</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEC84B</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FDA29B</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBackgroundBrush'>#36383D</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#2D2F33</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBorderBrush'>#404247</SolidColorBrush>
+                    <Color x:Key='CodeBlockActiveColor'>#84ADFF</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Aquatic}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#EAF7FA</SolidColorBrush>
@@ -53,6 +61,10 @@
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#087443</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#9A6700</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#C4320A</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBackgroundBrush'>#C8E2EA</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#DAEEF4</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBorderBrush'>#B0D4DE</SolidColorBrush>
+                    <Color x:Key='CodeBlockActiveColor'>#087EA4</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Desert}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#FAF2E7</SolidColorBrush>
@@ -66,6 +78,10 @@
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#067647</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#A15C00</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#B42318</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBackgroundBrush'>#E0D4C0</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#EDE0CF</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBorderBrush'>#D4C4B0</SolidColorBrush>
+                    <Color x:Key='CodeBlockActiveColor'>#175CD3</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Dusk}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#282235</SolidColorBrush>
@@ -79,6 +95,10 @@
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#A6F4C5</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEDF89</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FECDCA</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBackgroundBrush'>#3D3650</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#322C44</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBorderBrush'>#4A4358</SolidColorBrush>
+                    <Color x:Key='CodeBlockActiveColor'>#A4BCFD</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.NightSky}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#202633</SolidColorBrush>
@@ -92,6 +112,10 @@
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#75E0A7</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEC84B</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FDA29B</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBackgroundBrush'>#32394A</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#2A3142</SolidColorBrush>
+                    <SolidColorBrush x:Key='CodeBlockBorderBrush'>#3D4457</SolidColorBrush>
+                    <Color x:Key='CodeBlockActiveColor'>#84CAFF</Color>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
