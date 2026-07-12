@@ -20,13 +20,9 @@
                 <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
                 <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
                     <u:LoadingIcon Name="LoadingEffect" />
-                    <Button Classes="SimpleSolidButton" Click="OnStopButtonClick">
-                        <controls:ThemedSvgIcon IconName="stop" Width="20" Height="20" CurrentColor="Red"/>
-                    </Button>
+                    <ThemedIconButton Classes="SimpleSolidButton" Click="OnStopButtonClick" IconName="stop"  CurrentColor="Red"/>
                 </StackPanel>
-                <Button Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton">
-                    <controls:ThemedSvgIcon IconName="repeat" Width="20" Height="20" />
-                </Button>
+                <ThemedIconButton Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton" IconName="repeat" />
                 <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
                         Click="CloseButton_Click" />
             </DockPanel>

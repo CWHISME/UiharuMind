@@ -168,12 +168,12 @@
                                        Foreground="{DynamicResource SemiGrey6}"
                                        Text="{Binding SavedSessions.Count, StringFormat='{}{0}'}" />
                         </StackPanel>
-                        <Button Grid.Column="1"
+                        <ThemedIconButton Grid.Column="1"
                                 Classes="IconButton"
                                 Click="NewSessionButton_Click"
-                                ToolTip.Tip="{loc:Loc AutoClickNewSession}">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="file-plus-corner" />
-                        </Button>
+                                IconName="file-plus-corner"
+                                 ToolTips="{loc:Loc AutoClickNewSession}">
+                        </ThemedIconButton>
                     </Grid>
 
                     <TextBox Grid.Row="1"
@@ -247,9 +247,8 @@
                             <Button Classes="IconButton" Command="{Binding MoveSelectedStepDownCommand}" ToolTip.Tip="{loc:Loc AutoClickMoveDown}">
                                 <TextBlock Text="↓" FontSize="16" />
                             </Button>
-                            <Button Classes="IconButton" Command="{Binding DuplicateSelectedStepCommand}" ToolTip.Tip="{loc:Loc AutoClickDuplicateStep}">
-                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="copy" />
-                            </Button>
+                            <ThemedIconButton Classes="IconButton" Command="{Binding DuplicateSelectedStepCommand}" IconName="copy"  ToolTips="{loc:Loc AutoClickDuplicateStep}">
+                            </ThemedIconButton>
                             <Button Classes="IconButton" Command="{Binding RemoveSelectedStepCommand}" ToolTip.Tip="{loc:Loc AutoClickRemoveStep}">
                                 <TextBlock Text="×" FontSize="18" />
                             </Button>

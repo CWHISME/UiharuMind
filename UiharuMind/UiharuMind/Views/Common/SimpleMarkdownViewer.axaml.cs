@@ -10,12 +10,14 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Services;
 using UiharuMind.Utils.Tools;
 
@@ -95,6 +97,14 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         base.OnLoaded(e);
         _isLoaded = true;
+
+        // _themeNames.AddRange(EnumHelper.GetValues<ThemeName>());
+        // ThemeComboBox.ItemsSource = _themeNames;
+        // ThemeComboBox.SelectionChanged += (x, y) =>
+        // {
+        //     ThemeName themeName = (ThemeName)ThemeComboBox.SelectedItem;
+        //     MarkdownTextRender.CodeBlockColorTheme = themeName;
+        // };
 
         MarkdownTextRender.MarkdownBuilder = _markdownBuilder;
         UpdateCodeBlockTheme();
@@ -248,12 +258,14 @@ public partial class SimpleMarkdownViewer : UserControl
         _markdownBuilder.Clear();
         _markdownBuilder.Append(text);
         if (IsPlaintext == true) PlainTextBlock.Text = text;
+        SetLoadingState(string.IsNullOrEmpty(text));
     }
 
     public void AppendText(string text)
     {
         _markdownBuilder.Append(text);
         if (IsPlaintext == true) PlainTextBlock.Text = _markdownBuilder.ToString();
+        SetLoadingState(false);
     }
 
     public void Clear()

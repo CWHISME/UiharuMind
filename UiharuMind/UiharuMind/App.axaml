@@ -4,6 +4,7 @@
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              xmlns:semi="https://irihi.tech/semi"
+             xmlns:u="https://irihi.tech/ursa"
              x:Class="UiharuMind.App"
              Name="UiharuMind"
              RequestedThemeVariant="Default">
@@ -13,10 +14,18 @@
         <ResourceDictionary>
             <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
             <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
-            
+            <FontFamily x:Key="CodeFontFamily">Maple Mono, Cascadia Mono, Consolas, Menlo, monospace,avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
+
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <ControlTheme x:Key="{x:Type ThemedIconButton}"
+                          TargetType="ThemedIconButton"
+                          BasedOn="{StaticResource {x:Type u:IconButton}}" />
+            <ControlTheme x:Key="{x:Type ThemedIconToggleButton}"
+                          TargetType="ThemedIconToggleButton"
+                          BasedOn="{StaticResource {x:Type u:IconButton}}" />
         </ResourceDictionary>
     </Application.Resources>
 

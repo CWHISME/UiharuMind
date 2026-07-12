@@ -11,26 +11,21 @@
 
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Avalonia.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core;
-using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.Utils;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views;
 using UiharuMind.Views.Windows;
-using Ursa.Controls;
 
 namespace UiharuMind;
 

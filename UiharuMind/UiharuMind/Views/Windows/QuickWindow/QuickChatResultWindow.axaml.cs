@@ -102,6 +102,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
     public void SetRequestInfo(string? title, string content, AgentSkillBase agentSkill)
     {
         TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+        SetContent("");
         _askContent = content;
         _agentSkill = agentSkill;
 
@@ -149,7 +150,6 @@ public partial class QuickChatResultWindow : QuickWindowBase
     protected override void OnPreClose()
     {
         base.OnPreClose();
-        SetContent("");
         if (_cts?.IsCancellationRequested == false) _cts?.Cancel();
     }
 

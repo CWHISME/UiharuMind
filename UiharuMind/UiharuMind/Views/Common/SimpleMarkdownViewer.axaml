@@ -28,20 +28,24 @@
                                                VerticalAlignment="Center"
                                                Text="{TemplateBinding Language}"/>
                                     <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right"
-                                                Orientation="Horizontal" Spacing="0">
-                                        <ToggleButton x:Name="PART_ToggleTextWrapButton"
-                                                      Width="20" Height="20"
-                                                      Focusable="False"
-                                                      IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}"
-                                                      ToolTip.Tip="{markup:Loc ToggleTextWrap}">
-                                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="text-wrap"/>
-                                        </ToggleButton>
-                                        <Button x:Name="PART_CopyButton" Width="20" Height="20"
-                                                Focusable="False"
-                                                ToolTip.Tip="{markup:Loc Copy}"
-                                                Command="{Binding $parent[avalonia2:MarkdownRenderer].Copy}">
-                                            <controls:ThemedSvgIcon Width="14" Height="14" IconName="copy"/>
-                                        </Button>
+                                                Orientation="Horizontal" Spacing="2">
+                                        <!-- <ToggleButton x:Name="PART_ToggleTextWrapButton" -->
+                                        <!--               Width="20" Height="20" -->
+                                        <!--               Focusable="False" -->
+                                        <!--               IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}" -->
+                                        <!--               ToolTip.Tip="{markup:Loc ToggleTextWrap}"> -->
+                                        <!--     <controls:ThemedSvgIcon Width="14" Height="14" IconName="text-wrap"/> -->
+                                        <!-- </ToggleButton> -->
+                                        <ThemedIconToggleButton Width="20" Height="20"
+                                                                IconName="text-wrap" ToolTips="{markup:Loc ToggleTextWrap}"
+                                                                Focusable="False"
+                                                                CheckedForeground="{DynamicResource CodeBlockActiveColor}"
+                                                                IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}"/>
+                                        <ThemedIconButton x:Name="PART_CopyButton" Width="20" Height="20"
+                                                              Focusable="False"
+                                                              IconName="copy"
+                                                              ToolTip.Tip="{markup:Loc Copy}"
+                                                              Command="{Binding $parent[avalonia2:MarkdownRenderer].Copy}"/>
                                     </StackPanel>
                                 </DockPanel>
                             </Border>
@@ -52,7 +56,7 @@
                                               HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
                                               VerticalScrollBarVisibility="Auto">
                                     <avalonia2:MarkdownTextBlock x:Name="PART_CodeTextBlock" Margin="4"
-                                                                 FontFamily="{TemplateBinding FontFamily}"
+                                                                 FontFamily="{StaticResource CodeFontFamily}"
                                                                  TextWrapping="{TemplateBinding TextWrapping}"/>
                                 </ScrollViewer>
                             </Border>
@@ -60,36 +64,39 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style Selector="^ ToggleButton">
-                <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="MinWidth" Value="0"/>
-                <Setter Property="MinHeight" Value="0"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            <Style Selector="^ Button">
-                <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="MinWidth" Value="0"/>
-                <Setter Property="MinHeight" Value="0"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
+            <!-- <Style Selector="^ ToggleButton"> -->
+            <!--     <Setter Property="BorderThickness" Value="0"/> -->
+            <!--     <Setter Property="MinWidth" Value="0"/> -->
+            <!--     <Setter Property="MinHeight" Value="0"/> -->
+            <!--     <Setter Property="Template"> -->
+            <!--         <Setter.Value> -->
+            <!--             <ControlTemplate TargetType="ToggleButton"> -->
+            <!--                 <ContentPresenter Content="{TemplateBinding Content}" -->
+            <!--                                   ContentTemplate="{TemplateBinding ContentTemplate}"/> -->
+            <!--             </ControlTemplate> -->
+            <!--         </Setter.Value> -->
+            <!--     </Setter> -->
+            <!-- </Style> -->
+            <!-- <Style Selector="^ Button"> -->
+            <!--     <Setter Property="BorderThickness" Value="0"/> -->
+            <!--     <Setter Property="MinWidth" Value="0"/> -->
+            <!--     <Setter Property="MinHeight" Value="0"/> -->
+            <!--     <Setter Property="Template"> -->
+            <!--         <Setter.Value> -->
+            <!--             <ControlTemplate TargetType="Button"> -->
+            <!--                 <ContentPresenter Content="{TemplateBinding Content}" -->
+            <!--                                   ContentTemplate="{TemplateBinding ContentTemplate}"/> -->
+            <!--             </ControlTemplate> -->
+            <!--         </Setter.Value> -->
+            <!--     </Setter> -->
+            <!-- </Style> -->
             <!-- 右上角折叠按钮点击后变色 -->
-            <Style Selector="^ ToggleButton:checked controls|ThemedSvgIcon">
-                <Setter Property="CurrentColor" Value="{DynamicResource CodeBlockActiveColor}"/>
-            </Style>
+            <!-- <Style Selector="^ ToggleButton:checked controls|ThemedSvgIcon"> -->
+            <!--     <Setter Property="CurrentColor" Value="{DynamicResource CodeBlockActiveColor}"/> -->
+            <!-- </Style> -->
+        </Style>
+        <Style Selector="InlineUIContainer.Code Border">
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
     </UserControl.Styles>
 
@@ -100,6 +107,7 @@
                                      Background="Transparent"
                                      TextWrapping="Wrap"
                                      HorizontalAlignment="Left"/>
+                <!-- <ComboBox Name="ThemeComboBox"/> -->
                 <avalonia2:MarkdownRenderer x:Name="MarkdownTextRender">
                     <avalonia2:MarkdownRenderer.ContextFlyout>
                         <MenuFlyout Placement="Bottom">

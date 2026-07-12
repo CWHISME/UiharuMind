@@ -6,7 +6,8 @@
              xmlns:vm="clr-namespace:UiharuMind.ViewModels"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
-              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:markup="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Views.MainView"
               x:DataType="vm:MainViewModel"
               >
@@ -27,33 +28,35 @@
                 <Style Selector="Grid.Blur">
                     <Setter Property="Effect" Value="blur(20)" />
                 </Style>
-                <Style Selector="Button.nav-item">
-                    <Setter Property="Width" Value="42" />
-                    <Setter Property="Height" Value="42" />
-                    <Setter Property="MinWidth" Value="42" />
-                    <Setter Property="MinHeight" Value="42" />
-                    <Setter Property="Padding" Value="0" />
-                    <Setter Property="Margin" Value="0,2" />
-                    <Setter Property="CornerRadius" Value="6" />
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="BorderThickness" Value="0" />
-                    <Setter Property="HorizontalContentAlignment" Value="Center" />
-                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                </Style>
-                <Style Selector="Button.nav-item:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-                </Style>
-                <Style Selector="Button.nav-item.selected">
-                    <Setter Property="Background" Value="{DynamicResource SemiBlue1}" />
-                </Style>
+                <!-- <Style Selector="ThemedIconButton.nav-item"> -->
+                <!--     <Setter Property="Width" Value="42" /> -->
+                <!--     <Setter Property="Height" Value="42" /> -->
+                <!--     <Setter Property="MinWidth" Value="42" /> -->
+                <!--     <Setter Property="MinHeight" Value="42" /> -->
+                <!--     <Setter Property="Padding" Value="0" /> -->
+                <!--     <Setter Property="Margin" Value="0,2" /> -->
+                <!--     <Setter Property="CornerRadius" Value="6" /> -->
+                <!--     <Setter Property="Background" Value="Transparent" /> -->
+                <!--     <Setter Property="BorderThickness" Value="0" /> -->
+                <!--     <Setter Property="HorizontalContentAlignment" Value="Center" /> -->
+                <!--     <Setter Property="VerticalContentAlignment" Value="Center" /> -->
+                <!-- </Style> -->
+                <!-- <Style Selector="ThemedIconButton.nav-item:pointerover"> -->
+                <!--     <Setter Property="Background" Value="{DynamicResource SemiGrey1}" /> -->
+                <!-- </Style> -->
+                <!-- <Style Selector="ThemedIconButton.nav-item.selected"> -->
+                <!--     <Setter Property="Background" Value="{DynamicResource SemiBlue1}" /> -->
+                <!-- </Style> -->
             </Grid.Styles>
 
             <Border
                 IsVisible="{Binding IsMenuVisible}"
                 Padding="4 4"
                 Grid.RowSpan="2"
-                VerticalAlignment="Stretch"
-                Theme="{DynamicResource CardBorder}">
+                VerticalAlignment="Stretch">
+                <Border.Theme>
+                    <DynamicResource ResourceKey="CardBorder" />
+                </Border.Theme>
                 <DockPanel Width="42" LastChildFill="True">
                     <!-- <Grid DockPanel.Dock="Top" HorizontalAlignment="Center" Width="42" Height="42" Margin="0,0,0,8"> -->
                     <!--     <Image -->
@@ -64,7 +67,19 @@
                     <!--         Source="../Assets/Icon.png" /> -->
                     <!-- </Grid> -->
 
-                    <controls:Footer DockPanel.Dock="Bottom" DataContext="{Binding}" />
+                    <!-- <controls:Footer DockPanel.Dock="Bottom" DataContext="{Binding}" /> -->
+                    <!-- 原本的 Footer，没啥东西，直接放过来 -->
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Vertical" HorizontalAlignment="Center">
+                        <ThemedIconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
+                                          Height="42"
+                                          Width="42"
+                                          IconWidth="20"
+                                          IconHeight="20"
+                                          IconName="settings"
+                                          Command="{Binding OpenSettingCommand}" ToolTips="{markup:Loc MenuSettingKey}">
+                        </ThemedIconButton>
+                        <TextBlock Text="{Binding Version}" HorizontalAlignment="Center" />
+                    </StackPanel>
 
                     <ItemsControl ItemsSource="{Binding Menus.MenuItems}">
                         <ItemsControl.ItemsPanel>
@@ -74,16 +89,19 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:MenuItemViewData">
-                                <Button Classes.nav-item="True"
-                                        Classes.selected="{Binding IsSelected}"
-                                        Command="{Binding ActivateCommand}">
-                                    <controls:ThemedSvgIcon Width="20"
-                                              Height="20"
-                                              IconName="{Binding MenuIconName}" />
-                                    <ToolTip.Tip>
-                                        <TextBlock Text="{Binding MenuHeader}" />
-                                    </ToolTip.Tip>
-                                </Button>
+                                <!-- Classes.selected="{Binding IsSelected}" -->
+                                <ThemedIconToggleButton Classes.nav-item="True"
+                                                        Width="42"
+                                                        Height="42"
+                                                        IconWidth="20"
+                                                        IconHeight="20"
+                                                        Margin="0,2"
+                                                        IsChecked="{Binding IsSelected}"
+                                                        CheckedBackground="{DynamicResource SemiBlue1}"
+                                                        Command="{Binding ActivateCommand}"
+                                                        IconName="{Binding MenuIconName}"
+                                                        ToolTips="{Binding MenuHeader}">
+                                </ThemedIconToggleButton>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

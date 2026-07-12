@@ -16,17 +16,39 @@
     <Style Selector="Button.SimpleSolidButton:pointerover /template/ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
     </Style>
-
     <!-- 移除 Button 的选中效果 -->
     <Style Selector="Button.SimpleSolidButton:pressed /template/ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
     </Style>
-
     <!-- 确保覆盖 Button 默认样式 -->
     <Style Selector="Button.SimpleSolidButton">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    
+    <!-- ThemedIconButton-->
+    <Style Selector="ThemedIconButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="12" />
+        <Setter Property="MinHeight" Value="12" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ThemedIconToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="12" />
+        <Setter Property="MinHeight" Value="12" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="CornerRadius" Value="4" />
     </Style>
 
     <!-- 变成圆形按钮 -->

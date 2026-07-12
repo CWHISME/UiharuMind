@@ -10,7 +10,7 @@
         xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
 
     <StackPanel Orientation="Horizontal" Background="Transparent" Height="50">
-        <Button Name="MainButton"
+        <ThemedIconButton Name="MainButton"
                 Click="OnMainButtonClock"
                 PointerEntered="OnMainButtonPointerEntered"
                 Background="Transparent"
@@ -18,20 +18,20 @@
                 Height="50"
                 MinWidth="50"
                 MinHeight="50"
-                Padding="0">
-            <Button.Styles>
+                Padding="0"
+                IconName="book-search" >
+            <ThemedIconButton.Styles>
                 <Style Selector="Button:pointerover /template/ ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
                 <Style Selector="Button:pressed /template/ ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
-            </Button.Styles>
-            <controls:ThemedSvgIcon IconName="book-search" Width="25" Height="25" />
+            </ThemedIconButton.Styles>
             <ToolTip.Tip>
                 <TextBlock Text="{loc:Loc Explain}" />
             </ToolTip.Tip>
-        </Button>
+        </ThemedIconButton>
 
         <!-- 隐藏的菜单 -->
         <Border Name="MainMenu" IsVisible="True" IsHitTestVisible="False" CornerRadius="5" Opacity="0">

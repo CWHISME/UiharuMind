@@ -51,16 +51,16 @@
             <Setter Property="Width" Value="8" />
             <Setter Property="Height" Value="8" />
             <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Background" Value="{DynamicResource MemoryStatusWarningBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MessageStatusWarningBrush}" />
         </Style>
         <Style Selector="Border.status-dot[Tag=Ready]">
-            <Setter Property="Background" Value="{DynamicResource MemoryStatusSuccessBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MessageStatusSuccessBrush}" />
         </Style>
         <Style Selector="Border.status-dot[Tag=Error]">
-            <Setter Property="Background" Value="{DynamicResource MemoryStatusDangerBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MessageStatusErrorBrush}" />
         </Style>
         <Style Selector="Border.status-dot[Tag=Progress]">
-            <Setter Property="Background" Value="{DynamicResource MemoryStatusProgressBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MessageStatusInfoBrush}" />
         </Style>
         <Style Selector="Border.detail-panel">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
@@ -258,10 +258,8 @@
                     </Border>
 
                     <Grid Grid.Row="6" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                        <Button Command="{Binding DeleteMemoryCommand}">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="trash-2" />
-                            <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
-                        </Button>
+                        <ThemedIconButton Command="{Binding DeleteMemoryCommand}" IconName="trash-2"  ToolTips="{loc:Loc Delete}">
+                        </ThemedIconButton>
                         <Button Grid.Column="2"
                                 IsEnabled="{Binding !IndexUpdater.IsUpdating}"
                                 Command="{Binding AttachMemoryCommand}"

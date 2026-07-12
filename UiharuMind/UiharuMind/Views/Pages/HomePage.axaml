@@ -47,12 +47,8 @@
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterWorkspaceHint}" />
                 </StackPanel>
 
-                <Button Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}">
-                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="info" />
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc CharacterPreview}" />
-                    </ToolTip.Tip>
-                </Button>
+                <ThemedIconButton Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}" IconName="panel-right"  ToolTips="{loc:Loc CharacterPreview}">
+                </ThemedIconButton>
             </Grid>
         </Border>
 

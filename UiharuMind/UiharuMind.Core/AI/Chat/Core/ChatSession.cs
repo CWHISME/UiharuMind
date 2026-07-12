@@ -24,16 +24,17 @@ public class ChatSession : IUniquieContainerItem
     public string CharaterId { get; set; } = "Empty";
     public string MemoryName { get; set; } = "";
     public List<ChatMessageData> History { get; set; } = [];
+
     /// <summary>
     /// 是否不携带历史对话的上下文，如果为true则不携带，每次只有最后一句用户消息
     /// 注：仅工具角色有效，角色扮演 必定携带历史上下文
     /// </summary>
     public bool IsNotTakeHistoryContext { get; set; }
+
     //自定义参数
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 
-    [JsonIgnore]
-    public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharaterId);
+    [JsonIgnore] public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharaterId);
 
     [JsonIgnore]
     public MemoryData? Memory
@@ -75,7 +76,8 @@ public class ChatSession : IUniquieContainerItem
     /// <summary>
     /// 如果该字段为 true，则表示该对话为临时对话，触发存储时将会保存为一个全新的 Session
     /// </summary>
-    [JsonIgnore] public bool IsDirty { get; set; }
+    [JsonIgnore]
+    public bool IsDirty { get; set; }
 
     public DateTime FirstTime => History.Count > 0
         ? new DateTime(History[0].Timestamp, DateTimeKind.Utc).ToLocalTime()
@@ -158,6 +160,7 @@ public class ChatSession : IUniquieContainerItem
 
     public void RemoveMessageAt(int index)
     {
+        if (index >= History.Count) return;
         History.RemoveAt(index);
         Save();
     }
@@ -262,6 +265,9 @@ public class ChatSession : IUniquieContainerItem
         }
 
         public void Reset() => _index = -1;
-        public void Dispose() { }
+
+        public void Dispose()
+        {
+        }
     }
 }

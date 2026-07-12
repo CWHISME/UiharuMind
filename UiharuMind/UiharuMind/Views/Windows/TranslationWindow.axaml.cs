@@ -134,6 +134,8 @@ public partial class TranslationWindow : UiharuWindowBase
         _cts = new CancellationTokenSource();
         IsFinished = false;
 
+        ResultTextBlock.Text = "";
+
         async void Action()
         {
             try

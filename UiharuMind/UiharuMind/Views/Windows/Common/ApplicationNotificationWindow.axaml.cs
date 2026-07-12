@@ -84,13 +84,13 @@ public partial class ApplicationNotificationWindow : Window
         }
     }
 
-    private static void Notification_OnPointerEntered(object? sender, PointerEventArgs e)
+    private void Notification_OnPointerEntered(object? sender, PointerEventArgs e)
     {
         if (sender is Border { DataContext: ApplicationNotification notification })
             notification.IsPaused = true;
     }
 
-    private static void Notification_OnPointerExited(object? sender, PointerEventArgs e)
+    private void Notification_OnPointerExited(object? sender, PointerEventArgs e)
     {
         if (sender is Border { DataContext: ApplicationNotification notification })
             notification.IsPaused = false;

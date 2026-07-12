@@ -266,20 +266,18 @@
                                                                        TextWrapping="Wrap" Classes="muted" />
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
-                                                            <Button Classes="icon-action"
-                                                                    IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    Command="{Binding DataContext.EditTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    CommandParameter="{Binding}">
-                                                                <controls:ThemedSvgIcon IconName="pencil" />
-                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc Edit}" /></ToolTip.Tip>
-                                                            </Button>
-                                                            <Button Classes="icon-action"
-                                                                    IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    Command="{Binding DataContext.DeleteTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    CommandParameter="{Binding}">
-                                                                <controls:ThemedSvgIcon IconName="trash-2" />
-                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
-                                                            </Button>
+                                                            <ThemedIconButton Classes="icon-action"
+                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding DataContext.EditTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     CommandParameter="{Binding}"
+                                                                     IconName="pencil" ToolTips="{loc:Loc Edit}">
+                                                            </ThemedIconButton>
+                                                            <ThemedIconButton Classes="icon-action"
+                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding DataContext.DeleteTextCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     CommandParameter="{Binding}"
+                                                                     IconName="trash-2" ToolTips="{loc:Loc Delete}">
+                                                            </ThemedIconButton>
                                                         </StackPanel>
                                                     </Grid>
                                                 </Border>
@@ -350,19 +348,17 @@
                                                             </StackPanel>
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5">
-                                                            <Button Classes="icon-action"
-                                                                    Command="{Binding DataContext.OpenFileFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    CommandParameter="{Binding}">
-                                                                <controls:ThemedSvgIcon IconName="square-arrow-out-up-right" />
-                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc OpenDirectory}" /></ToolTip.Tip>
-                                                            </Button>
-                                                            <Button Classes="icon-action"
-                                                                    IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                                    CommandParameter="{Binding}">
-                                                                <controls:ThemedSvgIcon IconName="trash-2" />
-                                                                <ToolTip.Tip><TextBlock Text="{loc:Loc Delete}" /></ToolTip.Tip>
-                                                            </Button>
+                                                            <ThemedIconButton Classes="icon-action"
+                                                                     Command="{Binding DataContext.OpenFileFolderCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     CommandParameter="{Binding}"
+                                                                     IconName="square-arrow-out-up-right" ToolTips="{loc:Loc OpenDirectory}">
+                                                            </ThemedIconButton>
+                                                            <ThemedIconButton Classes="icon-action"
+                                                                     IsEnabled="{Binding !DataContext.IsBusy, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     Command="{Binding DataContext.DeleteFileCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                     CommandParameter="{Binding}"
+                                                                     IconName="trash-2" ToolTips="{loc:Loc Delete}">
+                                                            </ThemedIconButton>
                                                         </StackPanel>
                                                     </Grid>
                                                 </Border>

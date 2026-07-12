@@ -29,7 +29,8 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
     private readonly IServiceProvider _services;
     public MenuViewData Menus { get; set; } = new MenuViewData();
 
-    public Footer Footers { get; set; } = new Footer();
+    // public Footer Footers { get; set; } = new Footer();
+    public string Version => App.Version.ToString();
 
     [ObservableProperty] private bool _isMenuVisible = true;
 

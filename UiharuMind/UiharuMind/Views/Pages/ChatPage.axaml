@@ -15,13 +15,13 @@
     </Design.DataContext>
 
     <UserControl.Styles>
-        <Style Selector="Button.icon">
-            <Setter Property="Width" Value="34" />
-            <Setter Property="Height" Value="34" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+        <!-- <Style Selector="Button.icon"> -->
+        <!--     <Setter Property="Width" Value="34" /> -->
+        <!--     <Setter Property="Height" Value="34" /> -->
+        <!--     <Setter Property="Padding" Value="0" /> -->
+        <!--     <Setter Property="HorizontalContentAlignment" Value="Center" /> -->
+        <!--     <Setter Property="VerticalContentAlignment" Value="Center" /> -->
+        <!-- </Style> -->
         <Style Selector="Border.workspace-pane">
             <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
@@ -51,24 +51,20 @@
                 BorderThickness="0,0,0,1"
                 Background="{DynamicResource SemiGrey0}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
-                <Button Grid.Column="0"
-                        Classes="icon"
-                        Command="{Binding ToggleLeftPaneCommand}"
-                        IsVisible="{Binding IsLeftPaneOpen}">
-                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-right" />
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc ChatSessions}" />
-                    </ToolTip.Tip>
-                </Button>
-                <Button Grid.Column="0"
-                        Classes="icon"
-                        Command="{Binding ToggleLeftPaneCommand}"
-                        IsVisible="{Binding !IsLeftPaneOpen}">
-                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-left" />
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc ChatSessions}" />
-                    </ToolTip.Tip>
-                </Button>
+                <ThemedIconButton Grid.Column="0"
+                                     Classes="icon"
+                                     Command="{Binding ToggleLeftPaneCommand}"
+                                     IsVisible="{Binding IsLeftPaneOpen}"
+                                     IconName="panel-right"
+                                      ToolTips="{loc:Loc ChatSessions}">
+                </ThemedIconButton>
+                <ThemedIconButton Grid.Column="0"
+                                     Classes="icon"
+                                     Command="{Binding ToggleLeftPaneCommand}"
+                                     IsVisible="{Binding !IsLeftPaneOpen}"
+                                     IconName="panel-left"
+                                      ToolTips="{loc:Loc ChatSessions}">
+                </ThemedIconButton>
 
                 <Border Grid.Column="1"
                         HorizontalAlignment="Stretch"
@@ -76,24 +72,20 @@
                     <otherViews:ModelSelectComboBoxView />
                 </Border>
 
-                <Button Grid.Column="2"
-                        Classes="icon"
-                        Command="{Binding ToggleRightPaneCommand}"
-                        IsVisible="{Binding IsRightPaneOpen}">
-                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-left" />
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc ChatDetails}" />
-                    </ToolTip.Tip>
-                </Button>
-                <Button Grid.Column="2"
-                        Classes="icon"
-                        Command="{Binding ToggleRightPaneCommand}"
-                        IsVisible="{Binding !IsRightPaneOpen}">
-                    <controls:ThemedSvgIcon Width="18" Height="18" IconName="panel-right" />
-                    <ToolTip.Tip>
-                        <TextBlock Text="{loc:Loc ChatDetails}" />
-                    </ToolTip.Tip>
-                </Button>
+                <ThemedIconButton Grid.Column="2"
+                                     Classes="icon"
+                                     Command="{Binding ToggleRightPaneCommand}"
+                                     IsVisible="{Binding IsRightPaneOpen}"
+                                     IconName="panel-left"
+                                      ToolTips="{loc:Loc ChatDetails}">
+                </ThemedIconButton>
+                <ThemedIconButton Grid.Column="2"
+                                     Classes="icon"
+                                     Command="{Binding ToggleRightPaneCommand}"
+                                     IsVisible="{Binding !IsRightPaneOpen}"
+                                     IconName="panel-right"
+                                      ToolTips="{loc:Loc ChatDetails}">
+                </ThemedIconButton>
             </Grid>
         </Border>
 
@@ -108,9 +100,7 @@
                             <TextBlock Classes="section-title" Text="{loc:Loc ChatSessions}" />
                             <TextBlock Classes="muted" Text="{loc:Loc ChatSessionsHint}" />
                         </StackPanel>
-                        <Button Grid.Column="1" Classes="icon" Command="{Binding AddChatCommand}">
-                            <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
-                        </Button>
+                        <ThemedIconButton Grid.Column="1" Classes="icon" Command="{Binding AddChatCommand}" IconName="message-circle-more"  />
                     </Grid>
                     <otherViews:ChatListView Margin="8,0,8,8" />
                 </DockPanel>

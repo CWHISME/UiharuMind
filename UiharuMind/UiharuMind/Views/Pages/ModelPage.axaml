@@ -75,47 +75,32 @@
 
                                 <!-- 本地模型 -->
                                 <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsRemoteModel,Mode=OneWay}">
-                                    <u:IconButton CornerRadius="20"
-                                                  Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
-                                                  CommandParameter="{Binding ModelName}"
-                                                  Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
-                                        <u:IconButton.Icon>
-                                            <controls:ThemedSvgIcon IconName="star" />
-                                        </u:IconButton.Icon>
-                                    </u:IconButton>
-                                    <u:IconButton CornerRadius="20"
-                                                  CommandParameter="{Binding ModelPath}"
-                                                  Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
-                                        <u:IconButton.Icon>
-                                            <controls:ThemedSvgIcon IconName="refresh-cw" />
-                                        </u:IconButton.Icon>
-                                    </u:IconButton>
-                                    <u:IconButton CornerRadius="20"
-                                                  CommandParameter="{Binding ModelPath}"
-                                                  Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
-                                        <u:IconButton.Icon>
-                                            <controls:ThemedSvgIcon IconName="square-arrow-out-up-right" />
-                                        </u:IconButton.Icon>
-                                    </u:IconButton>
-                                    <u:IconButton CornerRadius="20"
-                                                  CommandParameter="{Binding ModelPath}"
-                                                  Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
-                                        <u:IconButton.Icon>
-                                            <controls:ThemedSvgIcon IconName="info" />
-                                        </u:IconButton.Icon>
-                                    </u:IconButton>
+                                    <ThemedIconButton CornerRadius="20"
+                                                         Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
+                                                         CommandParameter="{Binding ModelName}"
+                                                         IconName="star"
+                                                         Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                    <ThemedIconButton CornerRadius="20"
+                                                         CommandParameter="{Binding ModelPath}"
+                                                         IconName="refresh-cw"
+                                                         Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                    <ThemedIconButton CornerRadius="20"
+                                                         CommandParameter="{Binding ModelPath}"
+                                                         IconName="square-arrow-out-up-right"
+                                                         Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                    <ThemedIconButton CornerRadius="20"
+                                                         CommandParameter="{Binding ModelPath}"
+                                                         IconName="info"
+                                                         Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                 </StackPanel>
 
                                 <!-- 远程模型 -->
                                 <StackPanel Orientation="Horizontal" IsVisible="{Binding IsRemoteModel,Mode=OneWay}">
-                                    <u:IconButton CornerRadius="20"
-                                                  Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
-                                                  CommandParameter="{Binding ModelName}"
-                                                  Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}">
-                                        <u:IconButton.Icon>
-                                            <controls:ThemedSvgIcon IconName="star" />
-                                        </u:IconButton.Icon>
-                                    </u:IconButton>
+                                    <ThemedIconButton CornerRadius="20"
+                                                         Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
+                                                         CommandParameter="{Binding ModelName}"
+                                                         IconName="star"
+                                                         Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                     <Button
                                         CornerRadius="15"
                                         Content="{loc:Loc ModifyBtn}"

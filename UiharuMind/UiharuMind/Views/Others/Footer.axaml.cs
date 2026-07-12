@@ -23,6 +23,6 @@ public partial class Footer : UserControl
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        VersionText.Text = App.Version.ToString();
+        // VersionText.Text = App.Version.ToString();
     }
 }

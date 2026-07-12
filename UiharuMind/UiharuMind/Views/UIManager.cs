@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
@@ -37,8 +38,8 @@ public static class UIManager
     // public static bool IsClosing => ClosingWindowSet.Count > 0; //{ get; set; } = false;
     // public static HashSet<UiharuWindowBase> ClosingWindowSet { get; set; } = new HashSet<UiharuWindowBase>();
 
-    private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows =
-        new Dictionary<Type, List<UiharuWindowBase>>();
+    private static ConcurrentDictionary<Type, List<UiharuWindowBase>> _multiWindows =
+        new ConcurrentDictionary<Type, List<UiharuWindowBase>>();
 
     private static Stack<Window> _windowStack = new Stack<Window>();
 

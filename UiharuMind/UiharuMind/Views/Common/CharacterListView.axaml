@@ -63,18 +63,10 @@
                 </StackPanel>
 
                 <StackPanel Name="AddPanel" Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                    <Button Classes="icon" Command="{Binding AddCharacterCommand}">
-                        <controls:ThemedSvgIcon Width="17" Height="17" IconName="file-plus-corner" />
-                        <ToolTip.Tip>
-                            <TextBlock Text="{loc:Loc CreateBtn}" />
-                        </ToolTip.Tip>
-                    </Button>
-                    <Button Classes="icon" Command="{Binding ImportCharacterCommand}">
-                        <controls:ThemedSvgIcon Width="17" Height="17" IconName="import" />
-                        <ToolTip.Tip>
-                            <TextBlock Text="{loc:Loc ImportBtn}" />
-                        </ToolTip.Tip>
-                    </Button>
+                    <ThemedIconButton Classes="icon" Command="{Binding AddCharacterCommand}" IconName="file-plus-corner"  ToolTips="{loc:Loc CreateBtn}">
+                    </ThemedIconButton>
+                    <ThemedIconButton Classes="icon" Command="{Binding ImportCharacterCommand}" IconName="import"  ToolTips="{loc:Loc ImportBtn}">
+                    </ThemedIconButton>
                 </StackPanel>
             </Grid>
 
@@ -174,11 +166,11 @@
                                                MaxLines="2" />
                                 </StackPanel>
 
-                                <Button Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        Command="{Binding StartChatCommand}">
-                                    <controls:ThemedSvgIcon Width="16" Height="16" IconName="message-circle-more" />
-                                </Button>
+                                <ThemedIconButton Grid.Column="2"
+                                                     VerticalAlignment="Center"
+                                                     Command="{Binding StartChatCommand}"
+                                                     IconName="message-circle-more"
+                                                      />
                             </Grid>
                         </Border>
                     </DataTemplate>

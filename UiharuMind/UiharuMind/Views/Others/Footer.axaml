@@ -8,29 +8,19 @@
                xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
               x:Class="UiharuMind.Views.Controls.Footer">
 
-    <UserControl.Styles>
-        <Style Selector="u|IconButton">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="Gray" />
-        </Style>
-    </UserControl.Styles>
-
-    <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-        <u:IconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
-                      Height="42"
-                      Width="42"
-                      Padding="0"
-                      Command="{Binding OpenSettingCommand}">
-            <u:IconButton.Icon>
-                <!-- <TextBlock -->
-                <!--     HorizontalAlignment="Center" -->
-                <!--     Text="🌱" /> -->
-                <controls:ThemedSvgIcon IconName="settings" Width="20" Height="20" />
-            </u:IconButton.Icon>
-            <ToolTip.Tip>
-                <TextBlock Text="{loc:Loc MenuSettingKey}" />
-            </ToolTip.Tip>
-        </u:IconButton>
-        <TextBlock Name="VersionText" HorizontalAlignment="Center" />
-    </StackPanel>
+    <!-- <UserControl.Styles> -->
+    <!--     <Style Selector="u|IconButton"> -->
+    <!--         <Setter Property="Background" Value="Transparent" /> -->
+    <!--         <Setter Property="Foreground" Value="Gray" /> -->
+    <!--     </Style> -->
+    <!-- </UserControl.Styles> -->
+    <!-- -->
+    <!-- <StackPanel Orientation="Vertical" HorizontalAlignment="Center"> -->
+    <!--     <ThemedIconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center" -->
+    <!--                          Height="42" Width="42" Padding="0" -->
+    <!--                          IconName="settings"  -->
+    <!--                          Command="{Binding OpenSettingCommand}" ToolTips="{loc:Loc MenuSettingKey}"> -->
+    <!--     </ThemedIconButton> -->
+    <!--     <TextBlock Name="VersionText" HorizontalAlignment="Center" /> -->
+    <!-- </StackPanel> -->
 </UserControl>

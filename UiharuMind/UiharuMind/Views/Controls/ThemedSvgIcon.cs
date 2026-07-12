@@ -31,9 +31,13 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
             icon.OnIconNameChanged());
     }
 
-    public ThemedSvgIcon() : base((Uri?)null) { }
+    public ThemedSvgIcon() : base(new Uri("avares://UiharuMind/Assets/Icons"))
+    {
+    }
 
-    public ThemedSvgIcon(IServiceProvider serviceProvider) : base(serviceProvider) { }
+    public ThemedSvgIcon(IServiceProvider serviceProvider) : base(serviceProvider)
+    {
+    }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -46,7 +50,8 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
         else if (change.Property == CurrentColorProperty && !_isUpdatingCurrentColor)
         {
             // 任何非内部引发的 CurrentColor 变化都视为外部设置
-            _externalColorSet = true;
+            _externalColorSet = change.NewValue != null;
+            UpdateCurrentColor();
         }
     }
 
@@ -85,7 +90,7 @@ public class ThemedSvgIcon : global::Avalonia.Svg.Skia.Svg
     private void UpdateCurrentColor()
     {
         // 如果已显式设置过颜色，则不再自动覆盖
-        if (_externalColorSet)
+        if (_externalColorSet || _isUpdatingCurrentColor)
             return;
 
         _isUpdatingCurrentColor = true;
