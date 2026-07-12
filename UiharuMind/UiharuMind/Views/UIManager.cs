@@ -38,10 +38,9 @@ public static class UIManager
     // public static bool IsClosing => ClosingWindowSet.Count > 0; //{ get; set; } = false;
     // public static HashSet<UiharuWindowBase> ClosingWindowSet { get; set; } = new HashSet<UiharuWindowBase>();
 
-    private static ConcurrentDictionary<Type, List<UiharuWindowBase>> _multiWindows =
-        new ConcurrentDictionary<Type, List<UiharuWindowBase>>();
-
+    private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows = new();
     private static Stack<Window> _windowStack = new Stack<Window>();
+    private static HashSet<Type> _creatingWindows = new();
 
     /// <summary>
     /// 开启一个界面
@@ -80,14 +79,26 @@ public static class UIManager
             }
             else if (windowsList.Count == 0 || isMulti)
             {
-                window = new T();
-                // _multiWindows[typeof(T)] = [window];
-                windowsList.Add(window);
-                onCreateCallback?.Invoke(window);
-                action?.Invoke(window);
-                window.WindowStartupLocation = WindowStartupLocation.Manual;
-                window.Awake();
-                window.RequestShow(true);
+                if (!_creatingWindows.Add(typeof(T)))
+                {
+                    Log.Warning($"[{typeof(T).Name}] Creation already in progress, skipping duplicate.");
+                    return;
+                }
+
+                try
+                {
+                    window = new T();
+                    windowsList.Add(window);
+                    window.WindowStartupLocation = WindowStartupLocation.Manual;
+                    onCreateCallback?.Invoke(window);
+                    action?.Invoke(window);
+                    window.Awake();
+                    window.RequestShow(true);
+                }
+                finally
+                {
+                    _creatingWindows.Remove(typeof(T));
+                }
             }
             else
             {
@@ -96,22 +107,8 @@ public static class UIManager
             }
 
             RefreshMacApplicationActivationPolicy();
-            if (isActivate && window?.ContributesToMacRegularMode == true) MacApplicationActivationService.ActivateIgnoringOtherApps();
-            // if (_multiWindows.ContainsKey(typeof(T)))
-            // {
-            //     var window = _multiWindows[typeof(T)][0];
-            //     action?.Invoke((T)window);
-            //     window.RequestShow();
-            // }
-            // else
-            // {
-            //     var window = new T();
-            //     _multiWindows[typeof(T)] = [window];
-            //     onCreateCallback?.Invoke(window);
-            //     action?.Invoke(window);
-            //     window.Awake();
-            //     window.RequestShow();
-            // }
+            if (isActivate && window?.ContributesToMacRegularMode == true)
+                MacApplicationActivationService.ActivateIgnoringOtherApps();
         }, DispatcherPriority.Render);
     }
 
@@ -211,7 +208,8 @@ public static class UIManager
     /// <param name="image"></param>
     /// <param name="startMousePos">开始截图的鼠标位置</param>
     /// <param name="endMousePos">结束截图的鼠标位置</param>
-    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, PixelPoint startMousePos, PixelPoint endMousePos)
+    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, PixelPoint startMousePos,
+        PixelPoint endMousePos)
     {
         ShowPreviewImageWindowAtMousePosition(image, null,
             endMousePos.X > startMousePos.X ? HorizontalAlignment.Left : HorizontalAlignment.Right,
@@ -221,7 +219,8 @@ public static class UIManager
     /// <summary>
     /// 在屏幕显示一张图(当前鼠标位置)
     /// </summary>
-    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, Size? size = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
+    public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, Size? size = null,
+        HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment verticalAlignment = VerticalAlignment.Top)
     {
         if (image == null)
@@ -236,7 +235,8 @@ public static class UIManager
             return;
         }
 
-        ShowWindow<ScreenCapturePreviewWindow>((window) => { window.SetImage(image, size, null, horizontalAlignment, verticalAlignment); }, isMulti: true);
+        ShowWindow<ScreenCapturePreviewWindow>(
+            (window) => { window.SetImage(image, size, null, horizontalAlignment, verticalAlignment); }, isMulti: true);
     }
 
     public static async void ShowDialogStackWindow(this Window target, Window owner)
