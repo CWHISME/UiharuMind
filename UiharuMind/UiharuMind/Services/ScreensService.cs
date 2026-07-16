@@ -21,6 +21,7 @@ using UiharuMind.Core.Input;
 using UiharuMind.Views;
 using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows.Common;
+using UiharuMind.Views.Windows.ScreenCapture;
 
 namespace UiharuMind.Services;
 
@@ -75,7 +76,7 @@ public class ScreensService
     /// 获取当前鼠标所在的屏幕
     /// </summary>
     /// <returns></returns>
-    public Screen? MouseScreen => _target.Screens.ScreenFromPoint(MousePosition);
+    public Screen MouseScreen => _target.Screens.ScreenFromPoint(MousePosition) ?? App.DummyWindow.Screens.Primary ?? App.DummyWindow.Screens.All[0];
 
     /// <summary>
     /// 当前屏幕缩放比例
@@ -112,7 +113,7 @@ public class ScreensService
 
         return desktop.Windows
             .Where(window =>
-                window is not DummyWindow and not ApplicationNotificationWindow and not UiharuMessageBoxWindow &&
+                window is not DummyWindow and not ApplicationNotificationWindow and not UiharuMessageBoxWindow and not ScreenCapturePreviewWindow &&
                 window.IsVisible &&
                 window.WindowState != WindowState.Minimized)
             .OrderByDescending(window => window.IsActive || window.IsFocused)
@@ -126,7 +127,6 @@ public class ScreensService
         Screen? screen = activeWindow?.Screens.ScreenFromWindow(activeWindow);
         // if (screen != null) Log.Warning("找到激活的窗口所在屏幕:" + screen.DisplayName);
         screen ??= MouseScreen;
-        screen ??= App.DummyWindow.Screens.Primary;
-        return screen ?? App.DummyWindow.Screens.All[0];
+        return screen;
     }
 }

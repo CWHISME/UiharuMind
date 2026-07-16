@@ -133,7 +133,7 @@ public static class WindowUtils
     public static void SetScreenCenterPosition(this Window window)
     {
         // 获取当前激活的屏幕
-        var screen = App.ScreensService.GetSafeActivationScreen();
+        var screen = App.ScreensService.MouseScreen;
         // 计算窗口在屏幕中心的坐标
         var winSize = window.ClientSize;
         var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + winSize.Width) / 2;
