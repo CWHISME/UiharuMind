@@ -55,10 +55,18 @@ public static class WindowActivationService
 
         try
         {
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            // if (window.Topmost)
+            // {
+            //     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+            //         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            // }
+            // else
+            // {
+            //     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+            //         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            //     SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+            //         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            // }
             BringWindowToTop(hwnd);
             SetForegroundWindow(hwnd);
             SetFocus(hwnd);
