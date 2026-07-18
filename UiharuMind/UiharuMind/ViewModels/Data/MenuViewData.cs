@@ -23,8 +23,9 @@ public class MenuViewData
     {
         MenuItems = new ObservableCollection<MenuItemViewData>
         {
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuMainKey), MenuIconName = "house", Key = MenuPages.MenuMainKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuMainKey), MenuIconName = "house", Key = MenuPages.MenuAgentKey },
             new() { MenuHeaderResourceKey = nameof(Lang.MenuChatKey), MenuIconName = "message-circle-more", Key = MenuPages.MenuChatKey },
+            new() { MenuHeaderResourceKey = nameof(Lang.MenuCharacterKey), MenuIconName = "users-round", Key = MenuPages.MenuCharacterKey },
         // new() { MenuHeader = Lang.MenuTranslateKey, MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
             new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "folder-cog", Key = MenuPages.MenuModelKey },

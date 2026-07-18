@@ -32,6 +32,7 @@ public class SettingConfig : TConfigBase<SettingConfig>
     public static readonly string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
     public static readonly string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
     public static readonly string SaveAutoClickDataPath = SaveDataPath + "AutoClickData/";
+    public static readonly string SaveAgentDataPath = SaveDataPath + "AgentData/";
     public static readonly string LogDataPath = Path.Combine(RootDataPath, "SaveLog/");
     public static readonly string MemoryDataPath = Path.Combine(SaveDataPath, "MemoryData/");
     public static readonly string SaveClipboardHistoryImagePath = Path.Combine(SaveDataPath, "ClipboardHistoryImage/");

@@ -2,6 +2,8 @@
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
+		<!-- MAAI001: Microsoft.Agents.AI Harness 面为 Experimental API -->
+		<NoWarn>$(NoWarn);MAAI001</NoWarn>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 	

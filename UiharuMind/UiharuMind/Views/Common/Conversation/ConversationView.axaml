@@ -1,0 +1,230 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:conv="clr-namespace:UiharuMind.ViewModels.Conversation"
+             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+             xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
+             xmlns:extends="clr-namespace:UiharuMind.Extends"
+             xmlns:common="clr-namespace:UiharuMind.Views.Common"
+             xmlns:views="clr-namespace:UiharuMind.Views.Common.Conversation"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="640"
+             x:Class="UiharuMind.Views.Common.Conversation.ConversationView"
+             x:DataType="conv:ConversationViewModelBase">
+
+    <UserControl.Resources>
+        <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Border.message-bubble">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="Border.message-actions">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Grid.message-row:pointerover Border.message-actions">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="ThemedIconButton.message-action">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="MinWidth" Value="18" />
+            <Setter Property="MinHeight" Value="18" />
+            <Setter Property="MaxWidth" Value="18" />
+            <Setter Property="MaxHeight" Value="18" />
+        </Style>
+        <Style Selector="Border.tool-row">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+        <Style Selector="TextBox.composer-input">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:pointerover /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input:focus-within /template/ Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.composer-input /template/ Panel">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 头部:标题 + 宿主注入的动作区 -->
+        <Border Grid.Row="0" Padding="14,10"
+                BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16"
+                           TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"
+                           Foreground="{DynamicResource SemiGrey7}" />
+                <ContentPresenter Grid.Column="1"
+                                  Content="{Binding HeaderExtra, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+            </Grid>
+        </Border>
+
+        <!-- 消息列表 -->
+        <ScrollViewer Grid.Row="1" Name="Viewer"
+                      Padding="18,18,18,0"
+                      u:ScrollTo.Direction="Bottom"
+                      BringIntoViewOnFocusChange="False"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
+            <StackPanel>
+                <!-- 空状态(宿主注入) -->
+                <ContentPresenter IsVisible="{Binding !Items.Count}"
+                                  Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.DataTemplates>
+                        <!-- 标准文本气泡(控件按条目缓存复用,保障流式渲染性能);
+                             特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
+                        <extends:ReuseDataTemplate DataType="{x:Type conv:TextConversationItem}">
+                            <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
+                                  Margin="0,0,0,16" Background="Transparent"
+                                  x:DataType="conv:TextConversationItem">
+                                <Ellipse Width="34" Height="34"
+                                         Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
+                                         VerticalAlignment="Top"
+                                         IsVisible="{Binding ShowAvatar}"
+                                         Grid.Column="{Binding AvatarColumn}">
+                                    <Ellipse.Fill>
+                                        <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+                                    </Ellipse.Fill>
+                                </Ellipse>
+
+                                <Grid Grid.Column="1" Margin="10,0" MinHeight="34"
+                                      RowDefinitions="Auto,18" Background="Transparent"
+                                      HorizontalAlignment="{Binding Alignment}">
+                                    <StackPanel HorizontalAlignment="{Binding Alignment}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                                    HorizontalAlignment="{Binding Alignment}">
+                                            <TextBlock Text="{Binding SenderName}" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource SemiGrey7}" />
+                                            <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                                        </StackPanel>
+
+                                        <Border Classes="message-bubble" Margin="0,5,0,0"
+                                                BorderBrush="{Binding SenderColor}"
+                                                HorizontalAlignment="{Binding Alignment}">
+                                            <common:SimpleMarkdownViewer HorizontalAlignment="Left"
+                                                                         MarkdownText="{Binding Message}">
+                                                <common:SimpleMarkdownViewer.IsPlaintext>
+                                                    <MultiBinding
+                                                        Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                        <Binding Path="IsUser" />
+                                                        <Binding Path="!IsDone" />
+                                                    </MultiBinding>
+                                                </common:SimpleMarkdownViewer.IsPlaintext>
+                                            </common:SimpleMarkdownViewer>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <Border Classes="message-actions" Grid.Row="1"
+                                            HorizontalAlignment="{Binding Alignment}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <ThemedIconButton Classes="message-action" IconName="repeat"
+                                                              IsVisible="{Binding CanRetry}"
+                                                              Command="{Binding RetryCommand}"
+                                                              ToolTips="{loc:Loc RetryMessage}" />
+                                            <ThemedIconButton Classes="message-action" IconName="copy"
+                                                              Command="{Binding CopyCommand}"
+                                                              ToolTips="{loc:Loc Copy}" />
+                                            <ThemedIconButton Classes="message-action" IconName="pencil"
+                                                              IsVisible="{Binding CanEdit}"
+                                                              Command="{Binding EditCommand}"
+                                                              ToolTips="{loc:Loc Edit}" />
+                                            <ThemedIconButton Classes="message-action" IconName="trash-2"
+                                                              IsVisible="{Binding CanDelete}"
+                                                              Command="{Binding DeleteCommand}"
+                                                              ToolTips="{loc:Loc Delete}" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </extends:ReuseDataTemplate>
+                    </ItemsControl.DataTemplates>
+                </ItemsControl>
+                <Border Height="28" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- composer -->
+        <Border Grid.Row="2" Margin="14" Padding="8" Classes="tool-row">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="4">
+                <!-- 宿主注入:输入框上方区域(如附件 chips) -->
+                <ContentPresenter Grid.Row="0"
+                                  Content="{Binding ComposerTop, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+
+                <TextBox Grid.Row="1" Name="InputBox" Classes="composer-input"
+                         Text="{Binding InputText, Mode=TwoWay}"
+                         AcceptsReturn="True" VerticalContentAlignment="Top" MaxHeight="240"
+                         PlaceholderText="{Binding InputPlaceholder}">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
+                        <KeyBinding Command="{Binding InputExtraCommand}" Gesture="Tab" />
+                    </TextBox.KeyBindings>
+                </TextBox>
+
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <!-- 宿主注入:工具行(模式/权限/附件…) -->
+                    <ContentPresenter VerticalAlignment="Center"
+                                      Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                        <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
+                            <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
+                            <ThemedIconButton IconName="stop"
+                                              Command="{Binding StopSendingCommand}"
+                                              ToolTips="{loc:Loc StopGenerating}" />
+                        </StackPanel>
+                        <Button Classes="Primary" CornerRadius="10" Padding="14,6"
+                                IsVisible="{Binding !IsGenerating}"
+                                IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Command="{Binding SendMessageCommand}"
+                                Content="{loc:Loc Send}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

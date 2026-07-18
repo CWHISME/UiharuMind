@@ -5,6 +5,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <!-- MAAI001: Microsoft.Agents.AI Harness 面为 Experimental API -->
+        <NoWarn>$(NoWarn);MAAI001</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,8 +16,11 @@
       <PackageReference Include="LLamaSharp" Version="0.27.0" />
       <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
       <PackageReference Include="Markdown.ColorCode" Version="3.0.0" />
-      <PackageReference Include="Microsoft.Agents.AI" Version="1.11.0" />
-      <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.11.0" />
+      <PackageReference Include="Microsoft.Agents.AI" Version="1.13.0" />
+      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.13.0-preview.260703.1" />
+      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.13.0-preview.260703.1" />
+      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.13.0-alpha.260703.1" />
+      <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.13.0" />
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />

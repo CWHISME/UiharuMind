@@ -1,0 +1,490 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+             xmlns:agent="clr-namespace:UiharuMind.ViewModels.Agent"
+             xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
+             xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
+             xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+             x:Class="UiharuMind.Views.Pages.AgentPage"
+             x:DataType="pages:AgentPageData">
+
+    <Design.DataContext>
+        <pages:AgentPageData />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="Border.workspace-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Thumb.resize-thumb">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Border.tool-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+        <Style Selector="Border.result-panel">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.todo-completed">
+            <Setter Property="TextDecorations" Value="Strikethrough" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey4}" />
+        </Style>
+        <Style Selector="ListBoxItem Button.session-delete">
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover Button.session-delete">
+            <Setter Property="Opacity" Value="0.7" />
+        </Style>
+        <Style Selector="Border.spin">
+            <Style.Animations>
+                <Animation Duration="0:0:1.2" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Agent 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到 -->
+    <UserControl.DataTemplates>
+
+        <!-- 思考过程:弱化折叠条 -->
+        <DataTemplate DataType="agent:ThinkingItem">
+            <Expander Margin="0,2,40,2" IsExpanded="{Binding IsExpanded}"
+                      Background="Transparent" Padding="8,4" MinHeight="0">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="💭" FontSize="11" Opacity="0.6" />
+                        <TextBlock Classes="muted" Text="{loc:Loc AgentThinking}" />
+                    </StackPanel>
+                </Expander.Header>
+                <SelectableTextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+            </Expander>
+        </DataTemplate>
+
+        <!-- 工具调用卡片 -->
+        <DataTemplate DataType="agent:ToolCallItem">
+            <Border Classes="tool-card" Margin="0,4,40,4">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
+                                   VerticalAlignment="Center" Text="{Binding ToolName}" />
+                        <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding ArgumentSummary}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
+                                <TextBlock Text="◠" FontSize="11"
+                                           Foreground="{DynamicResource SemiBlue5}" />
+                            </Border>
+                            <Ellipse Width="8" Height="8" Fill="#4CAF50">
+                                <Ellipse.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="!IsRunning" />
+                                        <Binding Path="IsSuccess" />
+                                    </MultiBinding>
+                                </Ellipse.IsVisible>
+                            </Ellipse>
+                            <Ellipse Width="8" Height="8" Fill="IndianRed">
+                                <Ellipse.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="!IsRunning" />
+                                        <Binding Path="!IsSuccess" />
+                                    </MultiBinding>
+                                </Ellipse.IsVisible>
+                            </Ellipse>
+                            <ToggleButton Padding="4,0" FontSize="10" Background="Transparent"
+                                          IsChecked="{Binding IsExpanded}" Content="⌄" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
+                        <TextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
+                        <Border Classes="result-panel"
+                                IsVisible="{Binding ResultText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Auto">
+                                <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" />
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- 审批卡片 -->
+        <DataTemplate DataType="agent:ApprovalRequestItem">
+            <Border Classes="tool-card" Margin="0,6,40,6"
+                    BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="🔐" FontSize="13" />
+                        <TextBlock FontWeight="SemiBold" Text="{loc:Loc AgentApprovalTitle}" />
+                        <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding ToolName}" />
+                    </StackPanel>
+                    <Border Classes="result-panel"
+                            IsVisible="{Binding ArgumentSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <SelectableTextBlock Classes="mono" Text="{Binding ArgumentSummary}"
+                                             TextWrapping="Wrap" MaxHeight="120" />
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsResolved}">
+                        <Button Classes="Primary" CornerRadius="6"
+                                Command="{Binding ResolveCommand}" CommandParameter="once"
+                                Content="{loc:Loc AgentApproveOnce}" />
+                        <Button CornerRadius="6"
+                                Command="{Binding ResolveCommand}" CommandParameter="session"
+                                Content="{loc:Loc AgentApproveSession}" />
+                        <Button CornerRadius="6" Foreground="IndianRed"
+                                Command="{Binding ResolveCommand}" CommandParameter="deny"
+                                Content="{loc:Loc AgentDeny}" />
+                    </StackPanel>
+                    <TextBlock Classes="muted" IsVisible="{Binding IsResolved}"
+                               Text="{Binding ResolvedText}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- 错误 -->
+        <DataTemplate DataType="agent:ErrorItem">
+            <Border Classes="tool-card" BorderBrush="IndianRed" Margin="0,4,40,4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="⚠" Foreground="IndianRed" />
+                    <SelectableTextBlock Foreground="IndianRed" Text="{Binding Message}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+    </UserControl.DataTemplates>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+
+        <!-- ===================== 顶栏(与 ChatPage 同构) ===================== -->
+        <Border Grid.Row="0" Height="50" Padding="10,6"
+                BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1"
+                Background="{DynamicResource SemiGrey0}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                <ThemedIconButton Grid.Column="0" Classes="icon"
+                                  Command="{Binding ToggleLeftPaneCommand}"
+                                  IsVisible="{Binding IsLeftPaneOpen}"
+                                  IconName="panel-right"
+                                  ToolTips="{loc:Loc AgentNewSession}" />
+                <ThemedIconButton Grid.Column="0" Classes="icon"
+                                  Command="{Binding ToggleLeftPaneCommand}"
+                                  IsVisible="{Binding !IsLeftPaneOpen}"
+                                  IconName="panel-left"
+                                  ToolTips="{loc:Loc AgentNewSession}" />
+
+                <Border Grid.Column="1" HorizontalAlignment="Stretch" MinWidth="260">
+                    <otherViews:ModelSelectComboBoxView />
+                </Border>
+
+                <ThemedIconButton Grid.Column="2" Classes="icon"
+                                  Command="{Binding ToggleRightPaneCommand}"
+                                  IsVisible="{Binding IsRightPaneOpen}"
+                                  IconName="panel-left"
+                                  ToolTips="{loc:Loc AgentTodoTitle}" />
+                <ThemedIconButton Grid.Column="2" Classes="icon"
+                                  Command="{Binding ToggleRightPaneCommand}"
+                                  IsVisible="{Binding !IsRightPaneOpen}"
+                                  IconName="panel-right"
+                                  ToolTips="{loc:Loc AgentTodoTitle}" />
+            </Grid>
+        </Border>
+
+        <!-- ===================== 主体 ===================== -->
+        <Grid Grid.Row="1" Margin="10" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+
+            <!-- 会话列表 pane -->
+            <Border Grid.Column="0" Classes="workspace-pane"
+                    Width="{Binding LeftPaneWidth, Mode=TwoWay}"
+                    IsVisible="{Binding IsLeftPaneOpen}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,12,10,8">
+                        <StackPanel>
+                            <TextBlock Classes="section-title" Text="{loc:Loc AgentSessions}" />
+                            <TextBlock Classes="muted" Text="{loc:Loc AgentSessionsHint}" />
+                        </StackPanel>
+                        <ThemedIconButton Grid.Column="1" Classes="icon"
+                                          Command="{Binding NewSessionCommand}"
+                                          IconName="file-plus-corner"
+                                          ToolTips="{loc:Loc AgentNewSession}" />
+                    </Grid>
+                    <ListBox Margin="8,0,8,8"
+                             ItemsSource="{Binding Sessions}"
+                             SelectedItem="{Binding SelectedSession}"
+                             Background="Transparent">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="CornerRadius" Value="8" />
+                                <Setter Property="Padding" Value="8,6" />
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="agent:AgentSessionItemViewData">
+                                <Grid ColumnDefinitions="*,Auto" Background="Transparent">
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="{loc:Loc Rename}"
+                                                      Command="{Binding RenameCommand}" />
+                                            <MenuItem Header="{loc:Loc Delete}"
+                                                      Command="{Binding DeleteCommand}" />
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Text="{Binding Title}" FontSize="13"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Classes="muted" FontSize="11"
+                                                   Text="{Binding TimeString}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="session-delete" Padding="4"
+                                            FontSize="10" Background="Transparent" Content="✕"
+                                            Command="{Binding DeleteCommand}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <Thumb Grid.Column="1" Classes="resize-thumb"
+                   IsVisible="{Binding IsLeftPaneOpen}"
+                   DragDelta="OnLeftThumbDragDelta"
+                   Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <Grid Background="Transparent">
+                            <Border Width="1" HorizontalAlignment="Center"
+                                    Background="{DynamicResource SemiGrey2}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <!-- 会话内容:通用组件 -->
+            <Border Grid.Column="2" Classes="workspace-pane" ClipToBounds="True" MinWidth="260">
+                <convView:ConversationView DataContext="{Binding Conversation}">
+
+                    <convView:ConversationView.EmptyContent>
+                        <StackPanel Spacing="12" HorizontalAlignment="Center" Margin="0,90,0,0">
+                            <controls:ThemedSvgIcon IconName="bot" Width="52" Height="52"
+                                                    HorizontalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc AgentEmptyTitle}" FontSize="17"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Classes="muted" Text="{loc:Loc AgentEmptyHint}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </convView:ConversationView.EmptyContent>
+
+                    <convView:ConversationView.ComposerTop>
+                        <ItemsControl ItemsSource="{Binding Attachments}"
+                                      IsVisible="{Binding Attachments.Count}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
+                                            Padding="8,3" Margin="0,0,6,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="🖼" FontSize="10" />
+                                            <TextBlock FontSize="11" Text="{Binding}" MaxWidth="180"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Padding="2,0" FontSize="9" Background="Transparent"
+                                                    Content="✕"
+                                                    Command="{Binding $parent[ItemsControl].((agent:AgentConversationViewModel)DataContext).RemoveAttachmentCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </convView:ConversationView.ComposerTop>
+
+                    <convView:ConversationView.ComposerTools>
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                    x:DataType="agent:AgentConversationViewModel">
+                            <Button Content="{Binding ModeLabel}" Command="{Binding CycleModeCommand}">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{loc:Loc AgentModeSwitchHint}" />
+                                </ToolTip.Tip>
+                            </Button>
+                            <ComboBox FontSize="12" MinWidth="104"
+                                      SelectedIndex="{Binding PermissionModeIndex}">
+                                <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
+                                <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
+                                <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
+                            </ComboBox>
+                            <ThemedIconButton IconName="image" Command="{Binding AddAttachmentCommand}" />
+                        </StackPanel>
+                    </convView:ConversationView.ComposerTools>
+
+                </convView:ConversationView>
+            </Border>
+
+            <Thumb Grid.Column="3" Classes="resize-thumb"
+                   IsVisible="{Binding IsRightPaneOpen}"
+                   DragDelta="OnRightThumbDragDelta"
+                   Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <Grid Background="Transparent">
+                            <Border Width="1" HorizontalAlignment="Center"
+                                    Background="{DynamicResource SemiGrey2}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <!-- 右侧栏:workspace + todo/定时任务 -->
+            <Border Grid.Column="4" Classes="workspace-pane"
+                    Width="{Binding RightPaneWidth, Mode=TwoWay}"
+                    MinWidth="260" MaxWidth="380"
+                    IsVisible="{Binding IsRightPaneOpen}">
+                <Grid RowDefinitions="Auto,*" Margin="12">
+                    <!-- workspace 卡片:目录展示与切换 -->
+                    <Border Grid.Row="0" Background="{DynamicResource SemiGrey1}" CornerRadius="10"
+                            Padding="10" Margin="0,0,0,10">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                         Fill="#4CAF50" IsVisible="{Binding Conversation.IsGenerating}" />
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                         Fill="{DynamicResource SemiGrey4}"
+                                         IsVisible="{Binding !Conversation.IsGenerating}" />
+                                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
+                                           IsVisible="{Binding Conversation.IsGenerating}" />
+                                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
+                                           IsVisible="{Binding !Conversation.IsGenerating}" />
+                            </StackPanel>
+                            <TextBlock Classes="muted" Margin="0,4,0,0"
+                                       Text="{loc:Loc AgentWorkspaceLabel}" />
+                            <TextBlock FontSize="11" TextWrapping="Wrap"
+                                       Text="{Binding Conversation.WorkspacePath}"
+                                       IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <TextBlock FontSize="11" Classes="muted"
+                                       Text="{loc:Loc AgentWorkspaceNone}"
+                                       IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button FontSize="11" Padding="8,3" CornerRadius="6"
+                                        Command="{Binding Conversation.SelectWorkspaceCommand}"
+                                        Content="{loc:Loc AgentWorkspaceChange}" />
+                                <Button FontSize="11" Padding="8,3" CornerRadius="6"
+                                        Command="{Binding Conversation.ClearWorkspaceCommand}"
+                                        IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                        Content="{loc:Loc AgentWorkspaceClear}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Todo / 定时任务 页签 -->
+                    <TabControl Grid.Row="1" Padding="0">
+                        <TabItem Header="{loc:Loc AgentTodoTitle}" FontSize="13">
+                            <ScrollViewer Margin="0,6,0,0">
+                                <StackPanel>
+                                    <TextBlock Classes="muted"
+                                               IsVisible="{Binding !Conversation.HasTodos}"
+                                               Text="{loc:Loc AgentTodoEmpty}" />
+                                    <ItemsControl ItemsSource="{Binding Conversation.Todos}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="agent:TodoDisplayItem">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,3">
+                                                    <TextBlock Text="{Binding StatusGlyph}" FontSize="12"
+                                                               Foreground="{DynamicResource SemiBlue5}" />
+                                                    <TextBlock Text="{Binding Content}" FontSize="12"
+                                                               TextWrapping="Wrap" MaxWidth="220"
+                                                               Classes.todo-completed="{Binding IsCompleted}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                        <TabItem Header="{loc:Loc AgentScheduledTitle}" FontSize="13">
+                            <ScrollViewer Margin="0,6,0,0">
+                                <StackPanel>
+                                    <TextBlock Classes="muted"
+                                               IsVisible="{Binding !ScheduledTasks.Count}"
+                                               Text="{loc:Loc AgentScheduledEmpty}" />
+                                    <ItemsControl ItemsSource="{Binding ScheduledTasks}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="pages:ScheduledTaskDisplayItem">
+                                                <Border Background="{DynamicResource SemiGrey1}"
+                                                        CornerRadius="8" Padding="10,8" Margin="0,3">
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock FontSize="12" FontWeight="SemiBold"
+                                                                   Text="{Binding DisplayName}"
+                                                                   TextWrapping="Wrap" />
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Classes="muted"
+                                                                       Text="{Binding FireAtText}" />
+                                                            <TextBlock Classes="muted"
+                                                                       Text="{Binding StatusText}" />
+                                                        </StackPanel>
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                    IsVisible="{Binding CanRunNow}"
+                                                                    Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).RunTaskNowCommand}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Content="{loc:Loc AgentTaskRunNow}" />
+                                                            <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                    IsVisible="{Binding CanCancel}"
+                                                                    Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).CancelTaskCommand}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Content="{loc:Loc AgentTaskCancel}" />
+                                                            <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                    IsVisible="{Binding HasResultSession}"
+                                                                    Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).OpenTaskSessionCommand}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Content="{loc:Loc AgentTaskOpenSession}" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

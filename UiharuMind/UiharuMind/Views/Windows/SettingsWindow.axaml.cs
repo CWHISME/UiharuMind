@@ -14,6 +14,7 @@ public partial class SettingsWindow : UiharuWindowBase
     private readonly GeneralSettingView _generalSettingView = new();
     private readonly RuntimeEngineSettingView _runtimeEngineSettingView = new();
     private readonly ShortcutSettingView _shortcutSettingView = new();
+    private readonly AgentSettingView _agentSettingView = new();
     private readonly HelpPageData _helpPageData = (HelpPageData)App.ViewModel.GetPage(MenuPages.MenuHelpKey);
     private readonly AboutPage _aboutPage = new();
 
@@ -42,6 +43,11 @@ public partial class SettingsWindow : UiharuWindowBase
         Select(ShortcutsButton, _shortcutSettingView, "ShortcutsSetting");
     }
 
+    private void OnAgentClick(object? sender, RoutedEventArgs e)
+    {
+        Select(AgentButton, _agentSettingView, "AgentSetting");
+    }
+
     private void OnHelpClick(object? sender, RoutedEventArgs e)
     {
         Select(HelpButton, _helpPageData.View, "TrayMenuHelp");
@@ -64,6 +70,7 @@ public partial class SettingsWindow : UiharuWindowBase
         _selectedTitleKey = titleKey;
         GeneralButton.Classes.Set("selected", selectedButton == GeneralButton);
         RuntimeButton.Classes.Set("selected", selectedButton == RuntimeButton);
+        AgentButton.Classes.Set("selected", selectedButton == AgentButton);
         ShortcutsButton.Classes.Set("selected", selectedButton == ShortcutsButton);
         HelpButton.Classes.Set("selected", selectedButton == HelpButton);
         AboutButton.Classes.Set("selected", selectedButton == AboutButton);

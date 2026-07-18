@@ -45,6 +45,225 @@
     <data name="MenuChatKey" xml:space="preserve">
         <value>Chat</value>
     </data>
+    <data name="MenuCharacterKey" xml:space="preserve">
+        <value>Character</value>
+    </data>
+    <data name="AgentNewSession" xml:space="preserve">
+        <value>New Session</value>
+    </data>
+    <data name="AgentEmptyHint" xml:space="preserve">
+        <value>Bind a workspace and describe a task to get started.</value>
+    </data>
+    <data name="AgentThinking" xml:space="preserve">
+        <value>Thinking</value>
+    </data>
+    <data name="AgentApprovalTitle" xml:space="preserve">
+        <value>Approval required</value>
+    </data>
+    <data name="AgentApproveOnce" xml:space="preserve">
+        <value>Allow once</value>
+    </data>
+    <data name="AgentApproveSession" xml:space="preserve">
+        <value>Always allow (session)</value>
+    </data>
+    <data name="AgentDeny" xml:space="preserve">
+        <value>Deny</value>
+    </data>
+    <data name="AgentPlanTitle" xml:space="preserve">
+        <value>Proposed plan</value>
+    </data>
+    <data name="AgentPlanApprove" xml:space="preserve">
+        <value>Approve &amp; execute</value>
+    </data>
+    <data name="AgentSubAgent" xml:space="preserve">
+        <value>Sub agent:</value>
+    </data>
+    <data name="AgentWorkspaceNone" xml:space="preserve">
+        <value>No workspace</value>
+    </data>
+    <data name="AgentWorkspaceLabel" xml:space="preserve">
+        <value>Workspace</value>
+    </data>
+    <data name="AgentStatusLabel" xml:space="preserve">
+        <value>Status</value>
+    </data>
+    <data name="AgentStatusRunning" xml:space="preserve">
+        <value>Running…</value>
+    </data>
+    <data name="AgentStatusIdle" xml:space="preserve">
+        <value>Idle</value>
+    </data>
+    <data name="AgentTodoTitle" xml:space="preserve">
+        <value>Todos</value>
+    </data>
+    <data name="AgentTodoEmpty" xml:space="preserve">
+        <value>No todos yet</value>
+    </data>
+    <data name="AgentPermissionReadOnly" xml:space="preserve">
+        <value>Read-only</value>
+    </data>
+    <data name="AgentPermissionAutoEdit" xml:space="preserve">
+        <value>Auto edit</value>
+    </data>
+    <data name="AgentPermissionFullAuto" xml:space="preserve">
+        <value>Full auto</value>
+    </data>
+    <data name="AgentPlanMode" xml:space="preserve">
+        <value>Plan</value>
+    </data>
+    <data name="AgentInputWatermark" xml:space="preserve">
+        <value>Describe a task… (Enter to send, Tab to switch mode)</value>
+    </data>
+    <data name="AgentModeExecute" xml:space="preserve">
+        <value>Build</value>
+    </data>
+    <data name="AgentModeSwitchHint" xml:space="preserve">
+        <value>Switch between Plan / Build mode (Tab)</value>
+    </data>
+    <data name="AgentSessions" xml:space="preserve">
+        <value>Agent Sessions</value>
+    </data>
+    <data name="AgentSessionsHint" xml:space="preserve">
+        <value>Task conversations with the agent</value>
+    </data>
+    <data name="AgentWorkspaceChange" xml:space="preserve">
+        <value>Change…</value>
+    </data>
+    <data name="AgentWorkspaceClear" xml:space="preserve">
+        <value>Clear</value>
+    </data>
+    <data name="AgentSenderUser" xml:space="preserve">
+        <value>You</value>
+    </data>
+    <data name="AgentSend" xml:space="preserve">
+        <value>Send</value>
+    </data>
+    <data name="AgentStop" xml:space="preserve">
+        <value>Stop</value>
+    </data>
+    <data name="AgentScheduledTitle" xml:space="preserve">
+        <value>Scheduled</value>
+    </data>
+    <data name="AgentScheduledEmpty" xml:space="preserve">
+        <value>No scheduled tasks</value>
+    </data>
+    <data name="AgentTaskRunNow" xml:space="preserve">
+        <value>Run now</value>
+    </data>
+    <data name="AgentTaskCancel" xml:space="preserve">
+        <value>Cancel</value>
+    </data>
+    <data name="AgentTaskOpenSession" xml:space="preserve">
+        <value>View run</value>
+    </data>
+    <data name="AgentTaskStatusPending" xml:space="preserve">
+        <value>Pending</value>
+    </data>
+    <data name="AgentTaskStatusRunning" xml:space="preserve">
+        <value>Running</value>
+    </data>
+    <data name="AgentTaskStatusCompleted" xml:space="preserve">
+        <value>Completed</value>
+    </data>
+    <data name="AgentTaskStatusFailed" xml:space="preserve">
+        <value>Failed</value>
+    </data>
+    <data name="AgentTaskStatusCancelled" xml:space="preserve">
+        <value>Cancelled</value>
+    </data>
+    <data name="AgentTaskStatusMissed" xml:space="preserve">
+        <value>Missed</value>
+    </data>
+    <data name="AgentSetting" xml:space="preserve">
+        <value>Agent</value>
+    </data>
+    <data name="AgentSettingGeneral" xml:space="preserve">
+        <value>General</value>
+    </data>
+    <data name="AgentSettingProfiles" xml:space="preserve">
+        <value>Profiles</value>
+    </data>
+    <data name="AgentSettingMcp" xml:space="preserve">
+        <value>MCP Servers</value>
+    </data>
+    <data name="AgentSettingSkills" xml:space="preserve">
+        <value>Skills</value>
+    </data>
+    <data name="AgentSettingDefaultPermission" xml:space="preserve">
+        <value>Default permission mode</value>
+    </data>
+    <data name="AgentSettingDefaultWorkspace" xml:space="preserve">
+        <value>Default workspace</value>
+    </data>
+    <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
+        <value>Start new sessions in plan mode</value>
+    </data>
+    <data name="AgentProfileName" xml:space="preserve">
+        <value>Name</value>
+    </data>
+    <data name="AgentProfileDescription" xml:space="preserve">
+        <value>Description</value>
+    </data>
+    <data name="AgentProfileModel" xml:space="preserve">
+        <value>Model</value>
+    </data>
+    <data name="AgentProfileModelHint" xml:space="preserve">
+        <value>Empty = follow the global current model</value>
+    </data>
+    <data name="AgentProfileSystemPrompt" xml:space="preserve">
+        <value>System prompt</value>
+    </data>
+    <data name="AgentProfileExposeAsTool" xml:space="preserve">
+        <value>Expose as a tool for other agents</value>
+    </data>
+    <data name="AgentProfileNewName" xml:space="preserve">
+        <value>New profile</value>
+    </data>
+    <data name="AgentSave" xml:space="preserve">
+        <value>Save</value>
+    </data>
+    <data name="AgentMcpName" xml:space="preserve">
+        <value>Name</value>
+    </data>
+    <data name="AgentMcpTransport" xml:space="preserve">
+        <value>Transport</value>
+    </data>
+    <data name="AgentMcpCommand" xml:space="preserve">
+        <value>Command (stdio)</value>
+    </data>
+    <data name="AgentMcpArguments" xml:space="preserve">
+        <value>Arguments (stdio)</value>
+    </data>
+    <data name="AgentMcpUrl" xml:space="preserve">
+        <value>URL (HTTP)</value>
+    </data>
+    <data name="AgentMcpEnabled" xml:space="preserve">
+        <value>Enabled</value>
+    </data>
+    <data name="AgentMcpTest" xml:space="preserve">
+        <value>Test connection</value>
+    </data>
+    <data name="AgentMcpStateDisconnected" xml:space="preserve">
+        <value>Disconnected</value>
+    </data>
+    <data name="AgentMcpStateConnecting" xml:space="preserve">
+        <value>Connecting…</value>
+    </data>
+    <data name="AgentMcpStateConnected" xml:space="preserve">
+        <value>Connected</value>
+    </data>
+    <data name="AgentMcpStateFailed" xml:space="preserve">
+        <value>Connection failed</value>
+    </data>
+    <data name="AgentSkillsOpenFolder" xml:space="preserve">
+        <value>Open skills folder</value>
+    </data>
+    <data name="AgentSkillsReload" xml:space="preserve">
+        <value>Rescan</value>
+    </data>
+    <data name="AgentEmptyTitle" xml:space="preserve">
+        <value>What should the agent do?</value>
+    </data>
     <data name="MenuTranslateKey" xml:space="preserve">
         <value>Translate</value>
     </data>

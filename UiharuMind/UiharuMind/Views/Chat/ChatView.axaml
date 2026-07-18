@@ -48,25 +48,6 @@
             <Setter Property="MinHeight" Value="18" />
             <Setter Property="MaxWidth" Value="18" />
             <Setter Property="MaxHeight" Value="18" />
-
-            <!-- <Setter Property="Padding" Value="0" /> -->
-            <!-- <Setter Property="HorizontalContentAlignment" Value="Center" /> -->
-            <!-- <Setter Property="VerticalContentAlignment" Value="Center" /> -->
-            <!-- <Setter Property="Background" Value="Transparent" /> -->
-            <!-- <Setter Property="BorderThickness" Value="0" /> -->
-            <!-- <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" /> -->
-            <!-- <Setter Property="Template"> -->
-            <!--     <ControlTemplate> -->
-            <!--         <Border Width="18" -->
-            <!--                 Height="18" -->
-            <!--                 CornerRadius="4" -->
-            <!--                 Background="{TemplateBinding Background}"> -->
-            <!--             <ContentPresenter HorizontalAlignment="Center" -->
-            <!--                               VerticalAlignment="Center" -->
-            <!--                               Content="{TemplateBinding Content}" /> -->
-            <!--         </Border> -->
-            <!--     </ControlTemplate> -->
-            <!-- </Setter> -->
         </Style>
         <!-- <Style Selector="ThemedIconButton.message-action:pointerover"> -->
         <!--     <Setter Property="Background" Value="{DynamicResource SemiGrey2}" /> -->

@@ -26,6 +26,7 @@ public class ConfigManager : Singleton<ConfigManager>
     public ModelRuntimeSettingConfig ModelRuntimeSetting => ModelRuntimeSettingConfig.Current;
     public DebugSettingConfig DebugSetting => DebugSettingConfig.Current;
     public EmbeddingModelSettingConfig EmbeddingModelSetting => EmbeddingModelSettingConfig.Current;
+    public AgentSettingConfig AgentSetting => AgentSettingConfig.Current;
 
     // public ConfigManager()
     // {

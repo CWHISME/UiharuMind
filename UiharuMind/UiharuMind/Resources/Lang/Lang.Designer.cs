@@ -98,6 +98,12 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("MenuChatKey", resourceCulture);
             }
         }
+
+        public static string MenuCharacterKey {
+            get {
+                return ResourceManager.GetString("MenuCharacterKey", resourceCulture);
+            }
+        }
         
         public static string MenuTranslateKey {
             get {

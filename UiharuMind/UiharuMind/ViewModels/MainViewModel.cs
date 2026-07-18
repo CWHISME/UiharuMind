@@ -50,7 +50,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         {
             // Receive(MenuKeys.MenuMainKey);
             // OnPropertyChanged();
-            JumpToPage(MenuPages.MenuChatKey);
+            JumpToPage(MenuPages.MenuAgentKey);
         }, DispatcherPriority.ApplicationIdle);
     }
 
@@ -89,7 +89,8 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         {
             vmPage = message switch
             {
-                MenuPages.MenuMainKey => ActivatorUtilities.CreateInstance<HomePageData>(_services),
+                MenuPages.MenuAgentKey => ActivatorUtilities.CreateInstance<AgentPageData>(_services),
+                MenuPages.MenuCharacterKey => ActivatorUtilities.CreateInstance<HomePageData>(_services),
                 MenuPages.MenuChatKey => ActivatorUtilities.CreateInstance<ChatPageData>(_services),
                 MenuPages.MenuTranslateKey => ActivatorUtilities.CreateInstance<TranslatePageData>(_services),
                 MenuPages.MenuModelKey => ActivatorUtilities.CreateInstance<ModelPageData>(_services),
@@ -139,7 +140,8 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 
 public enum MenuPages
 {
-    MenuMainKey,
+    MenuAgentKey,
+    MenuCharacterKey,
     MenuChatKey,
     MenuTranslateKey,
     MenuModelKey,
