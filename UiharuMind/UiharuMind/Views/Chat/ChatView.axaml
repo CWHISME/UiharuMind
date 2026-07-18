@@ -41,18 +41,6 @@
         <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="LawnGreen" />
         </Style>
-        <Style Selector="ThemedIconButton.message-action">
-            <Setter Property="Width" Value="18" />
-            <Setter Property="Height" Value="18" />
-            <Setter Property="MinWidth" Value="18" />
-            <Setter Property="MinHeight" Value="18" />
-            <Setter Property="MaxWidth" Value="18" />
-            <Setter Property="MaxHeight" Value="18" />
-        </Style>
-        <!-- <Style Selector="ThemedIconButton.message-action:pointerover"> -->
-        <!--     <Setter Property="Background" Value="{DynamicResource SemiGrey2}" /> -->
-        <!--     <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" /> -->
-        <!-- </Style> -->
         <Style Selector="Border.message-actions">
             <Setter Property="Opacity" Value="0" />
             <Setter Property="IsHitTestVisible" Value="False" />
@@ -83,73 +71,6 @@
             <Setter Property="Padding" Value="10" />
             <Setter Property="MaxWidth" Value="640" />
             <Setter Property="HorizontalAlignment" Value="Left" />
-        </Style>
-        <Style Selector="TextBox.composer-input">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="MinHeight" Value="72" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="VerticalContentAlignment" Value="Top" />
-            <Setter Property="VerticalAlignment" Value="Stretch" />
-        </Style>
-        <Style Selector="TextBox.composer-input:pointerover">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
-        <Style Selector="TextBox.composer-input:focus">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
-        <Style Selector="TextBox.composer-input /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input:pointerover /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input:focus /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input:focus-within /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input /template/ Border">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input:pointerover /template/ Border">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input:focus /template/ Border">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input:focus-within /template/ Border">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.composer-input /template/ Panel">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="TextBox.composer-input:pointerover /template/ Panel">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="TextBox.composer-input:focus-within /template/ Panel">
-            <Setter Property="Background" Value="Transparent" />
         </Style>
     </UserControl.Styles>
 
@@ -392,7 +313,7 @@
                     <!-- </Button> -->
                     <StackPanel Grid.Column="1" IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
                         <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
-                        <ThemedIconButton Classes="icon" IconName="stop" 
+                        <ThemedIconButton IconName="stop" 
                                               CurrentColor="Red"
                                               Command="{Binding StopSendingCommand}" ToolTips="{loc:Loc StopGenerating}">
                         </ThemedIconButton>

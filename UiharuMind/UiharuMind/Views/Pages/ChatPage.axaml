@@ -52,14 +52,12 @@
                 Background="{DynamicResource SemiGrey0}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
                 <ThemedIconButton Grid.Column="0"
-                                     Classes="icon"
                                      Command="{Binding ToggleLeftPaneCommand}"
                                      IsVisible="{Binding IsLeftPaneOpen}"
                                      IconName="panel-right"
                                       ToolTips="{loc:Loc ChatSessions}">
                 </ThemedIconButton>
                 <ThemedIconButton Grid.Column="0"
-                                     Classes="icon"
                                      Command="{Binding ToggleLeftPaneCommand}"
                                      IsVisible="{Binding !IsLeftPaneOpen}"
                                      IconName="panel-left"
@@ -73,14 +71,12 @@
                 </Border>
 
                 <ThemedIconButton Grid.Column="2"
-                                     Classes="icon"
                                      Command="{Binding ToggleRightPaneCommand}"
                                      IsVisible="{Binding IsRightPaneOpen}"
                                      IconName="panel-left"
                                       ToolTips="{loc:Loc ChatDetails}">
                 </ThemedIconButton>
                 <ThemedIconButton Grid.Column="2"
-                                     Classes="icon"
                                      Command="{Binding ToggleRightPaneCommand}"
                                      IsVisible="{Binding !IsRightPaneOpen}"
                                      IconName="panel-right"
@@ -100,7 +96,7 @@
                             <TextBlock Classes="section-title" Text="{loc:Loc ChatSessions}" />
                             <TextBlock Classes="muted" Text="{loc:Loc ChatSessionsHint}" />
                         </StackPanel>
-                        <ThemedIconButton Grid.Column="1" Classes="icon" Command="{Binding AddChatCommand}" IconName="message-circle-more"  />
+                        <ThemedIconButton Grid.Column="1" Command="{Binding AddChatCommand}" IconName="message-circle-more"  />
                     </Grid>
                     <otherViews:ChatListView Margin="8,0,8,8" />
                 </DockPanel>

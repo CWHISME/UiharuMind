@@ -111,7 +111,7 @@
             <ContentControl
                 Grid.Row="1"
                 Grid.Column="1"
-                Margin="0,10,5,0"
+                Margin="0,5,5,5"
                 Content="{Binding Content}">
                 <ContentControl.ContentTemplate>
                     <converters:ViewLocator />
