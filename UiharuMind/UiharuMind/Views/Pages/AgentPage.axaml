@@ -4,7 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:agent="clr-namespace:UiharuMind.ViewModels.Agent"
-             xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
+              xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
+              xmlns:convs="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
@@ -98,43 +99,56 @@
 
         <!-- 工具调用卡片 -->
         <DataTemplate DataType="agent:ToolCallItem">
-            <Border Classes="tool-card" Margin="0,4,40,4">
+            <Border Classes="tool-card" Margin="10">
                 <StackPanel Spacing="6">
-                    <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
-                                   VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
-                                   VerticalAlignment="Center" Text="{Binding ToolName}" />
-                        <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding ArgumentSummary}"
-                                   TextTrimming="CharacterEllipsis" />
-                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
-                                    VerticalAlignment="Center">
-                            <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
-                                <TextBlock Text="◠" FontSize="11"
-                                           Foreground="{DynamicResource SemiBlue5}" />
-                            </Border>
-                            <Ellipse Width="8" Height="8" Fill="#4CAF50">
-                                <Ellipse.IsVisible>
-                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                        <Binding Path="!IsRunning" />
-                                        <Binding Path="IsSuccess" />
-                                    </MultiBinding>
-                                </Ellipse.IsVisible>
-                            </Ellipse>
-                            <Ellipse Width="8" Height="8" Fill="IndianRed">
-                                <Ellipse.IsVisible>
-                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                        <Binding Path="!IsRunning" />
-                                        <Binding Path="!IsSuccess" />
-                                    </MultiBinding>
-                                </Ellipse.IsVisible>
-                            </Ellipse>
-                            <ToggleButton Padding="4,0" FontSize="10" Background="Transparent"
-                                          IsChecked="{Binding IsExpanded}" Content="⌄" />
-                        </StackPanel>
-                    </Grid>
+                    <ThemedIconToggleButton Grid.Column="0"
+                                            Classes="NoneStyle"
+                                            Cursor="Hand"
+                                            Width="NaN"
+                                            Background="Transparent" Padding="0"
+                                            BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
+                                       VerticalAlignment="Center" Text="{Binding ToolName}" />
+                            <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding ArgumentSummary}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center">
+                                <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
+                                    <TextBlock Text="◠" FontSize="11"
+                                               Foreground="{DynamicResource SemiBlue5}" />
+                                </Border>
+                                <Ellipse Width="8" Height="8" Fill="#4CAF50">
+                                    <Ellipse.IsVisible>
+                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                            <Binding Path="!IsRunning" />
+                                            <Binding Path="IsSuccess" />
+                                        </MultiBinding>
+                                    </Ellipse.IsVisible>
+                                </Ellipse>
+                                <Ellipse Width="8" Height="8" Fill="IndianRed">
+                                    <Ellipse.IsVisible>
+                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                            <Binding Path="!IsRunning" />
+                                            <Binding Path="!IsSuccess" />
+                                        </MultiBinding>
+                                    </Ellipse.IsVisible>
+                                </Ellipse>
+                                    <ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
+                                        <ThemedSvgIcon.RenderTransform>
+                                            <RotateTransform Angle="{Binding IsExpanded,
+                                            Converter={x:Static convs:BoolToDoubleConverter.Instance},
+                                            ConverterParameter='180:0'}" />
+                                        </ThemedSvgIcon.RenderTransform>
+                                    </ThemedSvgIcon>
+                            </StackPanel>
+                        </Grid>
+                    </ThemedIconToggleButton>
                     <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
                         <TextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
                         <Border Classes="result-panel"
@@ -246,7 +260,7 @@
             </DockPanel>
         </Border>
 
-        <Thumb Grid.Column="1" 
+        <Thumb Grid.Column="1"
                Classes="resize-thumb"
                IsVisible="{Binding IsLeftPaneOpen}"
                DragDelta="OnLeftThumbDragDelta"
