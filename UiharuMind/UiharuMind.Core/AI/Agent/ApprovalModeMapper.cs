@@ -46,16 +46,14 @@ public static class ApprovalModeMapper
     {
         List<Func<FunctionCallContent, ValueTask<bool>>> rules = new()
         {
-            // 任何档位:只读文件工具与技能只读工具自动放行
-            FileAccessProvider.ReadOnlyToolsAutoApprovalRule,
+            // 任何档位:技能只读工具自动放行
+            // 注意:file_access_* 工具已由 PermissiveFileAccessTools 自行包 ApprovalRequiredAIFunction,
+            // 始终要求用户审批,故不再加入 FileAccessProvider.* 的按名自动放行规则(否则会被 AutoEdit 档自动放行)。
             AgentSkillsProvider.ReadOnlyToolsAutoApprovalRule,
         };
 
         switch (mode)
         {
-            case EAgentPermissionMode.AutoEdit:
-                rules.Add(FileAccessProvider.AllToolsAutoApprovalRule);
-                break;
             case EAgentPermissionMode.FullAuto:
                 rules.Add(ToolApprovalAgent.AllToolsAutoApprovalRule);
                 break;

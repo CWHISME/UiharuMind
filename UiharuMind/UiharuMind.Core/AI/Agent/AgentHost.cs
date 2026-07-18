@@ -116,6 +116,9 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         };
         extraTools.AddRange(await McpManager.Instance.GetToolsAsync(cancellationToken).ConfigureAwait(false));
 
+        // 自带的 file_access_* 工具:相对路径落工作区,绝对路径经用户审批后访问真实文件系统
+        extraTools.AddRange(new PermissiveFileAccessTools(workingDirectory).Create());
+
         HarnessAgentOptions options = new()
         {
             Name = "UiharuAgent",
@@ -124,8 +127,11 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             // 远程 OpenAI 兼容端普遍不支持托管 WebSearch;遥测导出本版不接
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
+            DisableFileAccess = true,
             FileMemoryStore = new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory")),
-            FileAccessStore = new FileSystemAgentFileStore(workingDirectory),
+            // 禁用 MFA 内置 FileAccessProvider(其会拒绝一切绝对路径且为 internal 不可复用);
+            // 改由下方 PermissiveFileAccessTools 提供 file_access_* 工具,支持绝对路径。
+            FileAccessStore = null,
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,
             AgentSkillsSource = SkillCatalog.Instance.BuildSkillsSource(),
@@ -142,7 +148,11 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             },
         };
 
-        return new AgentHandle(client.AsHarnessAgent(options), history, shellExecutor);
+        // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
+        MfaLoggerFactory loggerFactory = new();
+        IServiceProvider services = new MfaServiceProvider(loggerFactory);
+
+        return new AgentHandle(client.AsHarnessAgent(options, loggerFactory, services), history, shellExecutor);
     }
 
     private static string GetScratchDirectory()
