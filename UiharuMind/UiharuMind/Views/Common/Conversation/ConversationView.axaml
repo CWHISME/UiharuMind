@@ -66,13 +66,12 @@
 
         <!-- 消息列表 -->
         <ScrollViewer Grid.Row="1" Name="Viewer"
-                      Padding="18,18,18,18"
                       u:ScrollTo.Direction="Bottom"
                       BringIntoViewOnFocusChange="False"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
-            <Grid>
+            <Grid Margin="10">
                 <!-- 空状态(宿主注入) -->
                 <ContentPresenter IsVisible="{Binding !Items.Count}"
                                   Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
@@ -83,7 +82,7 @@
                              特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
                         <extends:ReuseDataTemplate DataType="{x:Type conv:TextConversationItem}">
                             <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
-                                  Margin="0,0,0,16" Background="Transparent"
+                                  Background="Transparent"
                                   x:DataType="conv:TextConversationItem">
                                 <Ellipse Width="34" Height="34"
                                          Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"

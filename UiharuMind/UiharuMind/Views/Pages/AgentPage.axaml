@@ -30,14 +30,6 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
-        <Style Selector="TextBlock.mono">
-            <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
         <Style Selector="Thumb.resize-thumb">
             <Setter Property="Width" Value="18" />
             <Setter Property="Margin" Value="-7" />
@@ -101,12 +93,14 @@
 
         <!-- 工具调用卡片 -->
         <DataTemplate DataType="agent:ToolCallItem">
-            <Border Classes="tool-card" Margin="10" MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+            <Border Classes="tool-card" Margin="10" 
+                    MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
                     Converter={x:Static AddConverter.Instance},
                     ConverterParameter=-10}">
                 <StackPanel Spacing="6">
                     <ToggleButton Classes="NoneStyle"
                                   Cursor="Hand"
+                                  MaxHeight="32"
                                   Background="Transparent" Padding="0"
                                   BorderThickness="0" IsChecked="{Binding IsExpanded}"
                                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
@@ -152,7 +146,7 @@
                         </Grid>
                     </ToggleButton>
                     <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
-                        <TextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
+                        <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
                         <Border Classes="result-panel"
                                 IsVisible="{Binding ResultText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">

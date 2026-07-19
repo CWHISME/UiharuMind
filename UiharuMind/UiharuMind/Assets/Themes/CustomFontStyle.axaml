@@ -22,4 +22,22 @@
     <Style Selector="Button">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
+    
+    <!-- 淡淡的灰色字体 -->
+    <Style Selector="TextBlock.muted">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+        <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="SelectableTextBlock.muted">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+    </Style>
+    <Style Selector="SelectableTextBlock.mono">
+        <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
 </Styles>
