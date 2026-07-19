@@ -38,12 +38,14 @@ internal sealed class PermissiveFileAccessTools
 
     private readonly string _workspaceRoot;
     private readonly SimpleGlobber _glob;
+    private readonly SimpleGrepper _grepper;
 
 
     public PermissiveFileAccessTools(string workspaceRoot)
     {
         _workspaceRoot = Path.GetFullPath(workspaceRoot);
         _glob = new SimpleGlobber(workspaceRoot);
+        _grepper = new SimpleGrepper(workspaceRoot);
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -58,9 +60,9 @@ internal sealed class PermissiveFileAccessTools
 
         if (!disableWriteTools)
         {
-            tools.Add(Wrap(AIFunctionFactory.Create(WriteImpl, new AIFunctionFactoryOptions { Name = WriteToolName })));
+            tools.Add(Wrap(AIFunctionFactory.Create(Write, new AIFunctionFactoryOptions { Name = WriteToolName })));
             tools.Add(Wrap(AIFunctionFactory.Create(DeleteImpl, new AIFunctionFactoryOptions { Name = DeleteToolName })));
-            tools.Add(Wrap(AIFunctionFactory.Create(EditImpl, new AIFunctionFactoryOptions { Name = EditToolName })));
+            tools.Add(Wrap(AIFunctionFactory.Create(Edit, new AIFunctionFactoryOptions { Name = EditToolName })));
         }
 
         return tools;
@@ -68,11 +70,38 @@ internal sealed class PermissiveFileAccessTools
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
     }
 
-    [Description("Read the content of a file.")]
+    [Description("Find files/folders by glob. Trailing '/' = directories only. Supports *, ?, [a-z], {a,b}, **.")]
+    private Task<List<string>> Glob(
+        [Description("Pattern, e.g. 'src/**/*.cs'")] string pattern,
+        [Description("Absolute path or sub-folder (optional)")] string? root = null)
+        => _glob.SearchAsync(pattern, root);
+
+    [Description("""
+                 Search file contents by pattern.
+                 - By default the query is treated as a literal string; set is_regex=true for regex.
+                 - Use file_globs to narrow file types, e.g. ["*.cs", "*.md"]. Supports standard glob wildcards (*, ?, **).
+                 """)]
+    private Task<List<FileSearchResult>> Grep(
+        string query,
+        [Description("Enable regex mode (default is literal)")] bool isRegex = false,
+        [Description("Case-sensitive")] bool caseSensitive = false,
+        [Description("Surrounding context lines")] int contextLines = 0,
+        [Description("Surrounding context lines")] int? maxDepth = null,
+        [Description("Glob filters")] string[]? fileGlobs = null,
+        [Description("Target directory (relative or absolute)")] string? directory = null,
+        CancellationToken ct = default)
+    {
+        return _grepper.SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct);
+    }
+
+    [Description("""
+                 Read a file's raw content.
+                 - Lines are separated by newlines. The first line of your mental model is line 1.
+                 """)]    
     private Task<string> Read(
-        [Description("Path to the file, relative to the workspace root or an absolute path.")] string filePath,
-        [Description("1-based line to start reading from. Use to skip to a region of a large file.")] int offset = 1,
-        [Description("Maximum number of lines to return. Omit to read the rest of the file.")] int? limit = null,
+        [Description("File path (relative or absolute).")] string filePath,
+        [Description("1-based starting line.")] int offset = 1,
+        [Description("Max lines to return.")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
         string full = ResolvePath(filePath);
@@ -96,168 +125,142 @@ internal sealed class PermissiveFileAccessTools
         if (lines.Count == 0) return Task.FromResult($"File '{filePath}' is empty or offset is beyond its end.");
         return Task.FromResult(string.Join('\n', lines));
     }
-
-    [Description("Find files/folders by glob. Trailing '/' = directories only. Supports *, ?, [a-z], {a,b}, **.")]
-    private Task<List<string>> Glob(
-        [Description("Pattern, e.g. 'src/**/*.cs'")] string pattern,
-        [Description("Absolute path or sub-folder (optional)")] string? root = null)
-        => _glob.SearchAsync(pattern, root);
-
-    [Description("Search file contents using a literal or regular expression pattern.")]
-    private async Task<List<FileSearchResult>> Grep(
-        [Description("The search query. Treated as a literal string unless is_regex is true.")] string pattern,
-        [Description("Treat the pattern as a regular expression instead of a literal string.")] bool isRegex = false,
-        [Description("Match case-sensitively. By default the search is case-insensitive.")] bool caseSensitive = false,
-        [Description("Number of context lines to include before and after each match.")] int contextLines = 0,
-        [Description("Glob patterns to restrict which files are searched, e.g. [\"*.cs\", \"*.md\"].")] string[]? fileGlobs = null,
-        [Description("Base directory to search, relative to the workspace root. Omit to search the whole workspace.")] string? directory = null,
-        CancellationToken cancellationToken = default)
-    {
-        string target = string.IsNullOrWhiteSpace(directory) ? _workspaceRoot : ResolvePath(directory!);
-        if (string.IsNullOrWhiteSpace(target) || !Directory.Exists(target))
-            return new List<FileSearchResult>();
-
-        List<SearchResult> matches;
-        try
-        {
-            var engine = new SearchEngine(target);
-            matches = await engine.SearchAsync(
-                pattern,
-                isRegex: isRegex,
-                caseSensitive: caseSensitive,
-                contextLines: contextLines,
-                fileGlobs: fileGlobs).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            return new List<FileSearchResult> { new() { FileName = string.Empty, Snippet = $"Search failed: {ex.Message}" } };
-        }
-
-        var results = new List<FileSearchResult>();
-        foreach (SearchResult match in matches)
-        {
-            var relativeName = Path.GetRelativePath(target, match.FilePath);
-            var matchingLines = new List<FileSearchMatch>
-            {
-                new() { LineNumber = match.LineNumber, Line = match.MatchContent },
-            };
-
-            results.Add(new FileSearchResult
-            {
-                FileName = relativeName,
-                Snippet = match.MatchContent,
-                MatchingLines = matchingLines,
-            });
-        }
-
-        return results;
-    }
-
-    [Description("Create or overwrite a file with the given content.")]
-    private async Task<string> WriteImpl(
+    
+    [Description("Create or fully overwrite a file. Prefer 'edit' for partial changes.")]
+    private async Task<string> Write(
+        [Description("File path (relative or absolute).")]
         string filePath,
-        string content,
-        [Description("If false (default) and the file already exists, the write is rejected to avoid accidental overwrite.")] bool overwrite = false,
-        CancellationToken cancellationToken = default)
+        [Description("Full file content.")] string content,
+        [Description("Must be true to overwrite an existing file.")]
+        bool overwrite = false,
+        CancellationToken ct = default)
     {
         string full = ResolvePath(filePath);
         if (!overwrite && File.Exists(full))
-            return $"File '{filePath}' already exists. To replace it, write again with overwrite set to true.";
-        string? parent = Path.GetDirectoryName(full);
-        if (parent is not null) Directory.CreateDirectory(parent);
-        await File.WriteAllTextAsync(full, content, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return $"File '{filePath}' written.";
+            return $"File exists. Set overwrite=true to replace, or use 'edit' to patch it.";
+
+        await SaveAsync(full, content, ct);
+        return $"Saved '{filePath}' ({content.Split('\n').Length} lines).";
+    }
+
+    [Description("""
+                 Patch an existing file.
+                 - old_string must match exactly. Whitespace and line endings are matched literally.
+                 - If replace_all=false and old_string appears more than once, the edit is rejected.
+                 - Returns a clear error if no match is found so the model can adjust.
+                 """)]
+    private async Task<string> Edit(
+        [Description("File path.")] string filePath,
+        [Description("Exact text to find.")] string? oldString = null,
+        [Description("Replacement text.")] string? newString = null,
+        [Description("Replace every occurrence.")]
+        bool replaceAll = false,
+        [Description("Line-level edits (ignores old_string if provided).")]
+        List<FileLineEdit>? lineEdits = null,
+        CancellationToken ct = default)
+    {
+        string full = ResolvePath(filePath);
+        if (!File.Exists(full))
+            return $"File '{filePath}' not found.";
+
+        // 1. 读入并归一化，MFA 内部按 \n 算就不会失配
+        var raw = await File.ReadAllTextAsync(full, ct).ConfigureAwait(false);
+        var normalized = Norm(raw);
+
+        try
+        {
+            string newContent;
+
+            if (lineEdits is { Count: > 0 })
+            {
+                // MFA 自己管行号校验，直接透传
+                newContent = MfaFileEditor.ApplyReplaceLines(normalized, lineEdits);
+            }
+            else if (!string.IsNullOrEmpty(oldString))
+            {
+                // 归一化 needle，防 LLM 用 \n 撞文件里的 \r\n
+                var (patched, count) = MfaFileEditor.ApplyReplace(
+                    normalized,
+                    Norm(oldString!),
+                    newString ?? "",
+                    replaceAll);
+
+                newContent = patched;
+                string verb = replaceAll ? "occurrence(s)" : "single occurrence";
+                return await FlushAndReply(full, raw, newContent, $"Replaced {count} {verb} in '{filePath}'.", ct);
+            }
+            else
+            {
+                return "Error: provide either line_edits or old_string.";
+            }
+
+            return await FlushAndReply(full, raw, newContent,
+                $"Applied {lineEdits!.Count} line edit(s) to '{filePath}'.", ct);
+        }
+        catch (ArgumentException ex)
+        {
+            // MFA 抛的校验异常，转成 Tool 返回，不断 Function Call 链路
+            return $"[Edit failed] {ex.Message}";
+        }
     }
 
     [Description("Delete a file.")]
-    private Task<string> DeleteImpl(string filePath)
+    private Task<string> DeleteImpl(string path,
+        [Description("If true and the target is a non-empty directory, recursively delete all contents.")] bool recursive = false)
     {
-        string full = ResolvePath(filePath);
-        if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
-        File.Delete(full);
-        return Task.FromResult($"File '{filePath}' deleted.");
+        string full = ResolvePath(path);
+    
+        if (File.Exists(full))
+        {
+            File.Delete(full);
+            return Task.FromResult($"File '{path}' deleted.");
+        }
+    
+        if (Directory.Exists(full))
+        {
+            // 若为非空目录且未指定递归，拒绝操作
+            if (!recursive && Directory.EnumerateFileSystemEntries(full).Any())
+            {
+                return Task.FromResult($"Directory '{path}' is not empty. Set 'recursive=true' to delete all contents.");
+            }
+        
+            Directory.Delete(full, recursive);
+            return Task.FromResult($"Directory '{path}' {(recursive ? "and its contents " : "")}deleted.");
+        }
+    
+        return Task.FromResult($"'{path}' does not exist.");
+
     }
 
-    [Description("Edit a file via line-level edits or a string replacement.")]
-    private async Task<string> EditImpl(
-        [Description("Path to the file, relative to the workspace root or an absolute path.")] string filePath,
-        [Description("Text to find and replace. Required when line_edits is not provided. Must appear exactly once unless replace_all is true.")] string? oldString = null,
-        [Description("Replacement text for old_string. Defaults to empty (i.e. delete the matched text).")] string? newString = null,
-        [Description("Replace every occurrence of old_string instead of requiring a single match.")] bool replaceAll = false,
-        [Description("Line-level edits; each has a 1-based line_number and a literal new_line (include your own trailing newline); an empty new_line deletes the line. Takes precedence over old_string/new_string when provided.")] List<FileLineEdit>? lineEdits = null,
-        CancellationToken cancellationToken = default)
+    //写盘 + 友好话术
+    private async Task<string> FlushAndReply(string full, string before, string after, string okMsg, CancellationToken ct)
     {
-        string full = ResolvePath(filePath);
-        if (!File.Exists(full)) return $"File '{filePath}' not found.";
-        string content = await File.ReadAllTextAsync(full, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-
-        string newContent;
-        string message;
-        if (lineEdits is { Count: > 0 })
-        {
-            newContent = MfaFileEditor.ApplyReplaceLines(content, lineEdits);
-            message = $"Replaced {lineEdits.Count} line(s) in '{filePath}'.";
-        }
-        else if (!string.IsNullOrEmpty(oldString))
-        {
-            (newContent, int count) = MfaFileEditor.ApplyReplace(content, oldString!, newString ?? string.Empty, replaceAll);
-            message = $"Replaced {count} occurrence(s) in '{filePath}'.";
-        }
-        else
-        {
-            return "Error: provide either line_edits or old_string (with optional new_string).";
-        }
-
-        await File.WriteAllTextAsync(full, newContent, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return message;
+        if (before == after) return $"[No change] Content was identical after substitution.";
+        await SaveAsync(full, after, ct);
+        return okMsg;
+    }
+    
+    //统一落盘
+    private Task SaveAsync(string full, string content, CancellationToken ct)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        return File.WriteAllTextAsync(full, content, Encoding.UTF8, ct);
     }
 
-    // ---- 路径解析与符号链接防护 ----
+    //换行抹平
+    private static string Norm(string s) => s.Replace("\r\n", "\n");
+    
+    // ---- 路径解析 ----
 
     private string ResolvePath(string path)
     {
         if (Path.IsPathRooted(path))
         {
             string full = Path.GetFullPath(path);
-            ThrowIfContainsSymlink(full);
             return full;
         }
 
         string combined = Path.GetFullPath(Path.Combine(_workspaceRoot, path));
-        ThrowIfContainsSymlink(combined);
         return combined;
-    }
-
-    private static void ThrowIfContainsSymlink(string fullPath)
-    {
-        var stack = new Stack<string>();
-        string? seg = fullPath;
-        while (!string.IsNullOrEmpty(seg) && seg != Path.GetPathRoot(seg))
-        {
-            stack.Push(seg);
-            seg = Path.GetDirectoryName(seg);
-        }
-
-        foreach (string dir in stack)
-        {
-            FileAttributes attributes;
-            try
-            {
-                attributes = File.GetAttributes(dir);
-            }
-            catch (FileNotFoundException)
-            {
-                break;
-            }
-            catch (DirectoryNotFoundException)
-            {
-                break;
-            }
-
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new ArgumentException("Invalid path: the resolved path contains a symbolic link or reparse point.");
-            }
-        }
     }
 }
