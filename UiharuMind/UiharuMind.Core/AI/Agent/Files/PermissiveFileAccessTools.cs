@@ -7,21 +7,14 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.FileSystemGlobbing;
-using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Agent;
+namespace UiharuMind.Core.AI.Agent.Files;
 
 /// <summary>
 /// 自带的 file_access_* 工具集,替代 MFA 内置的 FileAccessProvider。
@@ -35,13 +28,14 @@ namespace UiharuMind.Core.AI.Agent;
 /// </summary>
 internal sealed class PermissiveFileAccessTools
 {
-    public const string WriteToolName = "file_access_write";
-    public const string ReadToolName = "file_access_read";
-    public const string DeleteToolName = "file_access_delete";
-    public const string LsToolName = "file_access_ls";
-    public const string GrepToolName = "file_access_grep";
-    public const string ReplaceToolName = "file_access_replace";
-    public const string ReplaceLinesToolName = "file_access_replace_lines";
+    public const string ReadToolName = "Read";
+    public const string WriteToolName = "Write";
+    public const string DeleteToolName = "Delete";
+    public const string LsToolName = "List";
+    public const string GrepToolName = "Grep";
+    public const string GlobToolName = "Glob";
+    public const string ReplaceToolName = "Replace";
+    public const string ReplaceLinesToolName = "ReplaceLines";
 
     private readonly string _workspaceRoot;
 
@@ -55,9 +49,9 @@ internal sealed class PermissiveFileAccessTools
     {
         var tools = new List<AITool>
         {
-            Wrap(AIFunctionFactory.Create(ReadImpl, new AIFunctionFactoryOptions { Name = ReadToolName })),
-            Wrap(AIFunctionFactory.Create(LsImpl, new AIFunctionFactoryOptions { Name = LsToolName })),
-            Wrap(AIFunctionFactory.Create(GrepImpl, new AIFunctionFactoryOptions { Name = GrepToolName })),
+           AIFunctionFactory.Create(ReadImpl, new AIFunctionFactoryOptions { Name = ReadToolName }),
+           AIFunctionFactory.Create(LsImpl, new AIFunctionFactoryOptions { Name = LsToolName }),
+           AIFunctionFactory.Create(GrepImpl, new AIFunctionFactoryOptions { Name = GrepToolName }),
         };
 
         if (!disableWriteTools)
@@ -73,15 +67,15 @@ internal sealed class PermissiveFileAccessTools
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
     }
 
-    [Description("Read the content of a file by name. Returns the file content or a message indicating the file was not found.")]
-    private Task<string> ReadImpl(string fileName, CancellationToken cancellationToken = default)
+    [Description("Read the content of a file.")]
+    private Task<string> ReadImpl(string filePath, CancellationToken cancellationToken = default)
     {
-        string full = ResolvePath(fileName);
-        return Task.FromResult(File.Exists(full) ? File.ReadAllText(full, Encoding.UTF8) : $"File '{fileName}' not found.");
+        string full = ResolvePath(filePath);
+        return Task.FromResult(File.Exists(full) ? File.ReadAllText(full, Encoding.UTF8) : $"File '{filePath}' not found.");
     }
 
-    [Description("List the direct child files and subdirectories of a directory. Omit the directory (or pass an empty string) to list the root. To enumerate a subdirectory, pass its relative path, for example \"reports\" or \"reports/2024\". Optionally filter entries with a glob_pattern (e.g. \"*.md\"). Subdirectories are listed before files, and each entry has a name and a type of \"file\" or \"directory\".")]
-    private Task<List<FileStoreEntry>> LsImpl(string? directory = null, string? globPattern = null)
+    [Description("列出指定目录文件")]
+    private Task<List<FileStoreEntry>> LsImpl(string? directory = null, [Description("(e.g. \"*.md\")")]string? globPattern = null)
     {
         string target = string.IsNullOrWhiteSpace(directory) ? _workspaceRoot : ResolvePath(directory!);
         if (!Directory.Exists(target)) return Task.FromResult(new List<FileStoreEntry>());
@@ -106,39 +100,39 @@ internal sealed class PermissiveFileAccessTools
         return Task.FromResult(entries.Where(e => Regex.IsMatch(e.Name, regex, RegexOptions.IgnoreCase)).ToList());
     }
 
-    [Description("Write a file with the given name and content. By default, does not overwrite an existing file unless overwrite is set to true.")]
-    private async Task<string> WriteImpl(string fileName, string content, bool overwrite = false, CancellationToken cancellationToken = default)
+    [Description("Write a file with the given name and content.")]
+    private async Task<string> WriteImpl(string filePath, string content, bool overwrite = false, CancellationToken cancellationToken = default)
     {
-        string full = ResolvePath(fileName);
+        string full = ResolvePath(filePath);
         if (!overwrite && File.Exists(full))
-            return $"File '{fileName}' already exists. To replace it, write again with overwrite set to true.";
+            return $"File '{filePath}' already exists. To replace it, write again with overwrite set to true.";
         string? parent = Path.GetDirectoryName(full);
         if (parent is not null) Directory.CreateDirectory(parent);
         await File.WriteAllTextAsync(full, content, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return $"File '{fileName}' written.";
+        return $"File '{filePath}' written.";
     }
 
-    [Description("Delete a file by name.")]
-    private Task<string> DeleteImpl(string fileName)
+    [Description("Delete a file.")]
+    private Task<string> DeleteImpl(string filePath)
     {
-        string full = ResolvePath(fileName);
-        if (!File.Exists(full)) return Task.FromResult($"File '{fileName}' not found.");
+        string full = ResolvePath(filePath);
+        if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
         File.Delete(full);
-        return Task.FromResult($"File '{fileName}' deleted.");
+        return Task.FromResult($"File '{filePath}' deleted.");
     }
 
-    [Description("Replace occurrences of old_string with new_string in a file. Fails if old_string is not found, or if it occurs more than once and replace_all is false. Returns the number of occurrences replaced.")]
-    private async Task<string> ReplaceImpl(string fileName, string oldString, string newString, bool replaceAll = false, CancellationToken cancellationToken = default)
+    [Description("Replace occurrences of old_string with new_string in a file.")]
+    private async Task<string> ReplaceImpl(string filePath, string oldString, string newString, bool replaceAll = false, CancellationToken cancellationToken = default)
     {
-        string full = ResolvePath(fileName);
-        if (!File.Exists(full)) return $"File '{fileName}' not found.";
+        string full = ResolvePath(filePath);
+        if (!File.Exists(full)) return $"File '{filePath}' not found.";
         string content = await File.ReadAllTextAsync(full, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
         (string newContent, int count) = MfaFileEditor.ApplyReplace(content, oldString, newString, replaceAll);
         await File.WriteAllTextAsync(full, newContent, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
-        return $"Replaced {count} occurrence(s) in '{fileName}'.";
+        return $"Replaced {count} occurrence(s) in '{filePath}'.";
     }
 
-    [Description("Replace lines in a file. Provide a list of edits, each with a 1-based line_number and a literal new_line (include your own trailing newline); an empty new_line deletes the line, including its line break. Fails on out-of-range or duplicate line numbers.")]
+    [Description("Replace lines in a file. Provide a list of edits, each with a 1-based line_number and a literal new_line (include your own trailing newline); an empty new_line deletes the line, including its line break.")]
     private async Task<string> ReplaceLinesImpl(string fileName, List<FileLineEdit> edits, CancellationToken cancellationToken = default)
     {
         string full = ResolvePath(fileName);

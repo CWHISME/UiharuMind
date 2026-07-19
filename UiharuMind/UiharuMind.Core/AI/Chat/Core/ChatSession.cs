@@ -215,7 +215,7 @@ public class ChatSession : IUniquieContainerItem
             string longTermMemory = await Memory.GetLongTermMemory(History[^1].Content);
             if (!string.IsNullOrEmpty(longTermMemory))
             {
-                messages.Add(new AIChatMessage(ChatRole.System,
+                messages.Add(new AIChatMessage(ChatRole.Tool,
                     "以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" +
                     longTermMemory));
             }

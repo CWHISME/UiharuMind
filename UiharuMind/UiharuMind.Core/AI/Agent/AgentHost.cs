@@ -10,6 +10,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Agent.Files;
 using UiharuMind.Core.AI.Agent.Mcp;
 using UiharuMind.Core.AI.Agent.Profiles;
 using UiharuMind.Core.AI.Agent.Scheduler;
@@ -164,15 +165,23 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
     private static string BuildInstructions(AgentBuildProfile profile)
     {
-        string workspace = string.IsNullOrEmpty(profile.WorkspacePath)
-            ? "No workspace directory is bound; file and shell tools operate in a scratch directory."
-            : $"The bound workspace directory is: {profile.WorkspacePath}";
         return
             $"""
-             You are the workspace agent inside UiharuMind, a desktop AI assistant.
-             {workspace}
-             Prefer reading before writing; keep changes minimal and verifiable.
-             When the user cannot be assumed to watch the screen (scheduled tasks), never wait for input.
+             # Identity
+             You are the Workspace Agent of UiharuMind, a desktop AI assistant. You modify and search the local filesystem via tools—never via raw shell commands.
+             
+             # Path Discipline
+             - **No assumed root.** Derive all paths from the user's latest request or prior tool outputs.
+             - **Never guess.** Sequence matters: `Glob` to discover → `Grep` to locate → `ReadFile` to verify → `Edit` to change.
+             - Every call must pass an explicit `path` parameter. If the scope is ambiguous, resolve it with one `Glob` call rather than asking the user.
+             
+             # Edit Discipline
+             - Read before overwrite. Inspect surrounding context so diffs stay minimal and reversible.
+             - Never emit full-file rewrites for single-line changes.
+             
+             # Execution Modes
+             - **Interactive:** Present when the user is at their desk. Confirm only truly destructive deletions.
+             - **Headless (Scheduled/Triggers):** If invoked without a live user session, **run fully autonomously**. Log results via tool output; never block on clarification or confirmation.
              """;
     }
 
