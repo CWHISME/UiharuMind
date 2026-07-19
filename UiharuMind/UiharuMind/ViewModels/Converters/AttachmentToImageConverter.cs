@@ -18,6 +18,7 @@ public class AttachmentToImageConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not ConversationAttachment attachment) return null;
+        if (!attachment.IsImage) return null;
 
         try
         {

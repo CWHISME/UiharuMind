@@ -338,19 +338,33 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="conv:ConversationAttachment">
                                     <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
-                                            Padding="4" Margin="0,0,6,4">
+                                            Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
                                         <Grid>
                                             <Button Classes="NoneStyle" Padding="0"
-                                                    CornerRadius="6" Cursor="Hand"
+                                                    Cursor="Hand" HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
                                                     Command="{Binding $parent[ItemsControl].((conv:ConversationViewModelBase)DataContext).PreviewAttachmentCommand}"
                                                     CommandParameter="{Binding}">
-                                                <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
-                                                       MaxHeight="48" MaxWidth="48" Stretch="Uniform" />
+                                                <Grid VerticalAlignment="Center">
+                                                    <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
+                                                           MaxHeight="48" MaxWidth="48" Stretch="Uniform"
+                                                           IsVisible="{Binding IsImage}" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                                                IsVisible="{Binding !IsImage}"
+                                                                VerticalAlignment="Center">
+                                                        <ThemedSvgIcon IconName="file-text" Width="16" Height="16"
+                                                                      VerticalAlignment="Center" />
+                                                        <TextBlock FontSize="11" Text="{Binding FileName}"
+                                                                   Margin="0,3,0,0"
+                                                                   MaxWidth="120" TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Grid>
                                             </Button>
                                             <ThemedIconButton Classes="message-action"
                                                               IconName="trash-2"
                                                               HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                              Content="X"
+                                                              Margin="0,-8,-8,0"
                                                               Command="{Binding $parent[ItemsControl].((conv:ConversationViewModelBase)DataContext).RemoveAttachmentCommand}"
                                                               CommandParameter="{Binding}" />
                                         </Grid>

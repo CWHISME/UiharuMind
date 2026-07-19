@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace UiharuMind.ViewModels.Conversation;
@@ -16,11 +17,11 @@ public class ConversationAttachment
     /// <summary>展示名称</summary>
     public string FileName { get; init; } = string.Empty;
 
-    /// <summary>MIME 类型,如 image/png</summary>
+    /// <summary>MIME 类型,如 image/png;非图片文件为 application/octet-stream 等</summary>
     public string MediaType { get; init; } = "image/png";
 
-    /// <summary>是否为图片(当前附件均为图片)</summary>
-    public bool IsImage { get; init; } = true;
+    /// <summary>是否为图片(可内联为视觉内容)</summary>
+    public bool IsImage => MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>是否仅存在于内存(未落盘)</summary>
     public bool IsInMemory => Bytes != null;

@@ -113,6 +113,14 @@ public abstract partial class ConversationViewModelBase : ViewModelBase
     [RelayCommand]
     private void PreviewAttachment(ConversationAttachment item)
     {
+        // 非图片文件:打开其所在目录
+        if (!item.IsImage)
+        {
+            if (!string.IsNullOrEmpty(item.FilePath))
+                App.FilesService.OpenFolder(Path.GetDirectoryName(item.FilePath) ?? item.FilePath);
+            return;
+        }
+
         Bitmap? bitmap = null;
         try
         {
@@ -135,7 +143,7 @@ public abstract partial class ConversationViewModelBase : ViewModelBase
         if (bitmap != null) UIManager.ShowPreviewImageWindowAtMousePosition(bitmap);
     }
 
-    /// <summary>根据路径推断 MIME 类型</summary>
+    /// <summary>根据路径推断 MIME 类型;非图片返回通用二进制类型</summary>
     protected static string GetMediaType(string path)
     {
         return Path.GetExtension(path).ToLowerInvariant() switch
@@ -144,7 +152,8 @@ public abstract partial class ConversationViewModelBase : ViewModelBase
             ".gif" => "image/gif",
             ".webp" => "image/webp",
             ".bmp" => "image/bmp",
-            _ => "image/jpeg",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "application/octet-stream",
         };
     }
 }

@@ -373,31 +373,40 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     {
         if (attachments == null || attachments.Count == 0) return new ChatMessage(ChatRole.User, text);
 
-        // 主模型支持视觉则内联图片;否则文本提及路径,由 agent 转交 ask_vision 工具
-        if (LlmManager.Instance.CurrentRunningModel?.IsVisionModel == true)
+        bool isVision = LlmManager.Instance.CurrentRunningModel?.IsVisionModel == true;
+        List<AIContent>? contents = isVision ? new() { new TextContent(text) } : null;
+        List<string> fileReferences = new();
+
+        foreach (ConversationAttachment attachment in attachments)
         {
-            List<AIContent> contents = new() { new TextContent(text) };
-            foreach (ConversationAttachment attachment in attachments)
+            // 仅图片且为视觉模型时内联字节;其余文件一律以路径文本引用
+            if (isVision && attachment.IsImage)
             {
                 try
                 {
                     byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
-                    string mediaType = attachment.MediaType;
-                    if (string.IsNullOrEmpty(attachment.FilePath) && mediaType == "image/png" && attachment.FilePath != null)
-                        mediaType = GetMediaType(attachment.FilePath);
-                    contents.Add(new DataContent(data, mediaType));
+                    contents!.Add(new DataContent(data, attachment.MediaType));
                 }
                 catch (Exception e)
                 {
                     Log.Warning($"Attachment load failed '{attachment.FileName}': {e.Message}");
+                    fileReferences.Add(attachment.FilePath ?? attachment.FileName);
                 }
             }
+            else
+            {
+                fileReferences.Add(attachment.FilePath ?? attachment.FileName);
+            }
+        }
 
+        if (isVision && (contents!.Count > 1 || fileReferences.Count == 0))
+        {
+            if (fileReferences.Count > 0)
+                contents.Add(new TextContent(string.Join('\n', fileReferences.Select(x => $"[Attached file: {x}]"))));
             return new ChatMessage(ChatRole.User, contents);
         }
 
-        string reference = string.Join('\n', attachments.Select(x =>
-            $"[Attached image file: {(string.IsNullOrEmpty(x.FilePath) ? x.FileName : x.FilePath)}]"));
+        string reference = string.Join('\n', fileReferences.Select(x => $"[Attached file: {x}]"));
         return new ChatMessage(ChatRole.User, $"{text}\n{reference}");
     }
 
