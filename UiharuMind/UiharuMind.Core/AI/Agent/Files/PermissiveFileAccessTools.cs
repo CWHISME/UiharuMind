@@ -31,6 +31,7 @@ internal sealed class PermissiveFileAccessTools
 {
     public const string ReadToolName = "Read";
     public const string WriteToolName = "Write";
+    public const string ReplaceToolName = "Replace";
     public const string DeleteToolName = "Delete";
     public const string GrepToolName = "Grep";
     public const string GlobToolName = "Glob";
@@ -61,6 +62,7 @@ internal sealed class PermissiveFileAccessTools
         if (!disableWriteTools)
         {
             tools.Add(Wrap(AIFunctionFactory.Create(Write, new AIFunctionFactoryOptions { Name = WriteToolName })));
+            tools.Add(Wrap(AIFunctionFactory.Create(Replace, new AIFunctionFactoryOptions { Name = ReplaceToolName })));
             tools.Add(Wrap(AIFunctionFactory.Create(DeleteImpl, new AIFunctionFactoryOptions { Name = DeleteToolName })));
             tools.Add(Wrap(AIFunctionFactory.Create(Edit, new AIFunctionFactoryOptions { Name = EditToolName })));
         }
@@ -70,7 +72,18 @@ internal sealed class PermissiveFileAccessTools
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
     }
 
-    [Description("Find files/folders by glob. Trailing '/' = directories only. Supports *, ?, [a-z], {a,b}, **.")]
+    [Description("""
+                 List paths by GLOB pattern (NOT a fuzzy keyword or regex).
+                 Rules:
+                 - '*' matches anything EXCEPT the '.' separator. It is NOT a substring wildcard.
+                 - To find files by extension, use: '**/*.ext'
+                 - To search subdirectories, you MUST lead with '**/'
+
+                 Correct examples:
+                   '**/*.gguf'       → all GGUF models anywhere
+                   '**/gguf*'        → files STARTING with 'gguf' anywhere
+                   'models/**/*.bin' → .bin files inside models/
+                """)]
     private Task<List<string>> Glob(
         [Description("Pattern, e.g. 'src/**/*.cs'")] string pattern,
         [Description("Absolute path or sub-folder (optional)")] string? root = null)
@@ -143,21 +156,19 @@ internal sealed class PermissiveFileAccessTools
         return $"Saved '{filePath}' ({content.Split('\n').Length} lines).";
     }
 
-    [Description("""
-                 Patch an existing file.
-                 - old_string must match exactly. Whitespace and line endings are matched literally.
-                 - If replace_all=false and old_string appears more than once, the edit is rejected.
-                 - Returns a clear error if no match is found so the model can adjust.
-                 """)]
-    private async Task<string> Edit(
-        [Description("File path.")] string filePath,
-        [Description("Exact text to find.")] string? oldString = null,
-        [Description("Replacement text.")] string? newString = null,
-        [Description("Replace every occurrence.")]
-        bool replaceAll = false,
-        [Description("Line-level edits (ignores old_string if provided).")]
-        List<FileLineEdit>? lineEdits = null,
-        CancellationToken ct = default)
+    [Description("Replace occurrences of old_string with new_string in a file. Fails if old_string is not found, or if it occurs more than once and replace_all is false. Returns the number of occurrences replaced.")]
+    private async Task<string> Replace(string filePath, string oldString, string newString, bool replaceAll = false, CancellationToken ct = default)
+    {
+        string full = ResolvePath(filePath);
+        if (!File.Exists(full)) return $"File '{filePath}' not found.";
+        string content = await File.ReadAllTextAsync(full, Encoding.UTF8, ct).ConfigureAwait(false);
+        (string newContent, int count) = MfaFileEditor.ApplyReplace(content, oldString, newString, replaceAll);
+        await SaveAsync(full, newContent, ct);
+        return $"Replaced {count} occurrence(s) in '{filePath}'.";
+    }
+    
+    [Description("Edit lines in a file. Provide a list of edits, each with a 1-based line_number and a literal new_line (include your own trailing newline); an empty new_line deletes the line, including its line break. Fails on out-of-range or duplicate line numbers.")]
+    private async Task<string> Edit(string filePath, List<FileLineEdit>? lineEdits = null, CancellationToken ct = default)
     {
         string full = ResolvePath(filePath);
         if (!File.Exists(full))
@@ -176,26 +187,12 @@ internal sealed class PermissiveFileAccessTools
                 // MFA 自己管行号校验，直接透传
                 newContent = MfaFileEditor.ApplyReplaceLines(normalized, lineEdits);
             }
-            else if (!string.IsNullOrEmpty(oldString))
-            {
-                // 归一化 needle，防 LLM 用 \n 撞文件里的 \r\n
-                var (patched, count) = MfaFileEditor.ApplyReplace(
-                    normalized,
-                    Norm(oldString!),
-                    newString ?? "",
-                    replaceAll);
-
-                newContent = patched;
-                string verb = replaceAll ? "occurrence(s)" : "single occurrence";
-                return await FlushAndReply(full, raw, newContent, $"Replaced {count} {verb} in '{filePath}'.", ct);
-            }
             else
             {
-                return "Error: provide either line_edits or old_string.";
+                return "Error: provide lineedits.";
             }
 
-            return await FlushAndReply(full, raw, newContent,
-                $"Applied {lineEdits!.Count} line edit(s) to '{filePath}'.", ct);
+            return await FlushAndReply(full, raw, newContent, $"Applied {lineEdits!.Count} line edit(s) to '{filePath}'.", ct);
         }
         catch (ArgumentException ex)
         {

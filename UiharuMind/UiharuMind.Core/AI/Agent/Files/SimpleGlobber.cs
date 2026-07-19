@@ -30,22 +30,43 @@ public sealed class SimpleGlobber
         int maxResults = 300,
         CancellationToken ct = default)
     {
-        string target = string.IsNullOrWhiteSpace(root)
+        // 解析搜索根
+        string searchRoot = string.IsNullOrWhiteSpace(root)
             ? _rootDirectory
             : Path.IsPathFullyQualified(root)
                 ? root
-                : Path.GetFullPath(root);
+                : Path.GetFullPath(Path.Combine(_rootDirectory, root));
 
-        if (!Directory.Exists(target))
-            return new List<string> { $"[Error] Directory not found: '{root}'" };
+        if (!Directory.Exists(searchRoot)) return new List<string> { $"[Error] Directory not found: '{root}'" };
 
+        // 无通配符退化：LLM 经常把绝对路径当 pattern 传
+        if (!LooksLikeGlob(pattern))
+        {
+            string candidate = ResolveCandidate(pattern, searchRoot);
+            if (File.Exists(candidate))
+            {
+                // 直接透传返回，不进 Glob 引擎
+                return new List<string> 
+                { 
+                    $"[FILE] {Path.GetRelativePath(searchRoot, candidate).Replace('\\', '/')}" 
+                };
+            }
+
+            // 文件不存在，友好提示切 Tool
+            return new List<string>
+            {
+                $"[Hint] '{pattern}' has no wildcards. If you know the exact file, use the 'read' tool instead."
+            };
+        }
+
+        // 正常走 Glob
         Glob glob;
         try { glob = Glob.Parse(pattern.TrimEnd('/'), GlobOptions.IgnoreCase); }
-        catch { return new List<string> { $"[Error] Invalid pattern: '{pattern}'" }; }
+        catch { return new List<string> { $"[Error] Invalid glob pattern: '{pattern}'" }; }
 
         bool dirsOnly = pattern.EndsWith('/');
 
-        using var enumerator = new GlobEnum(glob, HardSkips, target, dirsOnly, maxResults);
+        using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, dirsOnly, maxResults);
         var list = new List<string>(Math.Min(maxResults, 60));
 
         while (enumerator.MoveNext())
@@ -61,6 +82,14 @@ public sealed class SimpleGlobber
         list.Sort();
         return list;
     }
+    
+    private static bool LooksLikeGlob(string s)
+        => s.IndexOfAny(['*', '?', '{', '[']) >= 0 || s.Contains("**");
+
+    private static string ResolveCandidate(string pattern, string root)
+        => Path.IsPathFullyQualified(pattern)
+            ? Path.GetFullPath(pattern)
+            : Path.GetFullPath(Path.Combine(root, pattern));
 
     // ── 核心：零分配剪枝枚举 ──
     private sealed class GlobEnum : FileSystemEnumerator<string>
