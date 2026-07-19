@@ -66,13 +66,13 @@
 
         <!-- 消息列表 -->
         <ScrollViewer Grid.Row="1" Name="Viewer"
-                      Padding="18,18,18,0"
+                      Padding="18,18,18,18"
                       u:ScrollTo.Direction="Bottom"
                       BringIntoViewOnFocusChange="False"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
-            <StackPanel>
+            <Grid>
                 <!-- 空状态(宿主注入) -->
                 <ContentPresenter IsVisible="{Binding !Items.Count}"
                                   Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
@@ -147,8 +147,8 @@
                         </extends:ReuseDataTemplate>
                     </ItemsControl.DataTemplates>
                 </ItemsControl>
-                <Border Height="28" />
-            </StackPanel>
+                <!-- <Border Height="28" /> -->
+            </Grid>
         </ScrollViewer>
 
         <!-- composer -->

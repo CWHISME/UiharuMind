@@ -81,6 +81,8 @@
     </UserControl.Styles>
 
     <!-- Agent 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到 -->
+    <!-- Avalonia 的 DataTemplate 查找机制：*ItemsControl 查找模板时不仅看自己的 DataTemplates，还会沿逻辑树（Logical Tree）向上查找祖先节点定义的 DataTemplate。* -->
+    <!-- 当 Items 集合里出现一个 ToolCallItem 类型的对象时，ItemsControl 用自己的 DataTemplates 找不到匹配，就会沿逻辑树向上找，一路找到父级 ConversationView，再找到 AgentPage 的 UserControl.DataTemplates，命中 DataType="agent:XXX" 这个模板并渲染。 -->
     <UserControl.DataTemplates>
 
         <!-- 思考过程:弱化折叠条 -->
@@ -99,15 +101,15 @@
 
         <!-- 工具调用卡片 -->
         <DataTemplate DataType="agent:ToolCallItem">
-            <Border Classes="tool-card" Margin="10">
+            <Border Classes="tool-card" Margin="10" MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+                    Converter={x:Static AddConverter.Instance},
+                    ConverterParameter=-10}">
                 <StackPanel Spacing="6">
-                    <ThemedIconToggleButton Grid.Column="0"
-                                            Classes="NoneStyle"
-                                            Cursor="Hand"
-                                            Width="NaN"
-                                            Background="Transparent" Padding="0"
-                                            BorderThickness="0" IsChecked="{Binding IsExpanded}"
-                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <ToggleButton Classes="NoneStyle"
+                                  Cursor="Hand"
+                                  Background="Transparent" Padding="0"
+                                  BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                         <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                             <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -148,13 +150,13 @@
                                     </ThemedSvgIcon>
                             </StackPanel>
                         </Grid>
-                    </ThemedIconToggleButton>
+                    </ToggleButton>
                     <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
                         <TextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
                         <Border Classes="result-panel"
                                 IsVisible="{Binding ResultText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Auto">
-                                <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" />
+                            <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
+                                <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" TextWrapping="Wrap"/>
                             </ScrollViewer>
                         </Border>
                     </StackPanel>
