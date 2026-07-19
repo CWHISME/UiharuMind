@@ -2,9 +2,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
-             xmlns:agent="clr-namespace:UiharuMind.ViewModels.Agent"
-              xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
+              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
+              xmlns:agent="clr-namespace:UiharuMind.ViewModels.Agent"
+              xmlns:conv="clr-namespace:UiharuMind.ViewModels.Conversation"
+               xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
               xmlns:convs="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
@@ -71,6 +72,10 @@
             </Style.Animations>
         </Style>
     </UserControl.Styles>
+
+    <UserControl.Resources>
+        <convs:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
+    </UserControl.Resources>
 
     <!-- Agent 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到 -->
     <!-- Avalonia 的 DataTemplate 查找机制：*ItemsControl 查找模板时不仅看自己的 DataTemplates，还会沿逻辑树（Logical Tree）向上查找祖先节点定义的 DataTemplate。* -->
@@ -331,18 +336,24 @@
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="x:String">
+                                <DataTemplate x:DataType="conv:ConversationAttachment">
                                     <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
-                                            Padding="8,3" Margin="0,0,6,4">
-                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="🖼" FontSize="10" />
-                                            <TextBlock FontSize="11" Text="{Binding}" MaxWidth="180"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <Button Padding="2,0" FontSize="9" Background="Transparent"
-                                                    Content="✕"
-                                                    Command="{Binding $parent[ItemsControl].((agent:AgentConversationViewModel)DataContext).RemoveAttachmentCommand}"
-                                                    CommandParameter="{Binding}" />
-                                        </StackPanel>
+                                            Padding="4" Margin="0,0,6,4">
+                                        <Grid>
+                                            <Button Classes="NoneStyle" Padding="0"
+                                                    CornerRadius="6" Cursor="Hand"
+                                                    Command="{Binding $parent[ItemsControl].((conv:ConversationViewModelBase)DataContext).PreviewAttachmentCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
+                                                       MaxHeight="48" MaxWidth="48" Stretch="Uniform" />
+                                            </Button>
+                                            <ThemedIconButton Classes="message-action"
+                                                              IconName="trash-2"
+                                                              HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                              Content="X"
+                                                              Command="{Binding $parent[ItemsControl].((conv:ConversationViewModelBase)DataContext).RemoveAttachmentCommand}"
+                                                              CommandParameter="{Binding}" />
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

@@ -76,6 +76,19 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- 什么表现都没有 -->
+    <Style Selector="Button.NoneStyle">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <!-- 变成圆形按钮 -->
     <Style Selector="Button.CircleButton">

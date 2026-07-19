@@ -9,6 +9,11 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using System.Threading.Tasks;
+using UiharuMind.Services;
+using UiharuMind.Utils;
+using UiharuMind.ViewModels.Conversation;
 using UiharuMind.ViewModels.UIHolder;
 
 namespace UiharuMind.Views.Common.Conversation;
@@ -64,5 +69,18 @@ public partial class ConversationView : UserControl
     {
         InitializeComponent();
         _ = new ScrollViewerAutoScrollHolder(Viewer);
+        InputBox.PastingFromClipboard += OnPastingFromClipboard;
+    }
+
+    private async void OnPastingFromClipboard(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ConversationViewModelBase vm) return;
+
+        // 剪贴板含图片:以内存字节加入附件,并拦截默认文本粘贴
+        var bitmap = await App.Clipboard.GetImageFromClipboard();
+        if (bitmap == null) return;
+
+        vm.AddAttachmentBytes(bitmap.BitmapToBytes());
+        e.Handled = true;
     }
 }

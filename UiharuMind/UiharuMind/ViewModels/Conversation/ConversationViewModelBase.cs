@@ -7,11 +7,17 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Utils;
+using UiharuMind.Views;
 
 namespace UiharuMind.ViewModels.Conversation;
 
@@ -22,6 +28,9 @@ namespace UiharuMind.ViewModels.Conversation;
 public abstract partial class ConversationViewModelBase : ViewModelBase
 {
     public ObservableCollection<ConversationItemBase> Items { get; } = new();
+
+    /// <summary>附件集合(文件路径或内存字节),由输入框上方区域展示</summary>
+    public ObservableCollection<ConversationAttachment> Attachments { get; } = new();
 
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _inputText = string.Empty;
@@ -68,4 +77,74 @@ public abstract partial class ConversationViewModelBase : ViewModelBase
     /// 停止当前生成
     /// </summary>
     protected abstract void OnStopSending();
+
+    //================= 附件 =================
+
+    /// <summary>添加文件附件</summary>
+    public void AddAttachmentPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        Attachments.Add(new ConversationAttachment
+        {
+            FilePath = path,
+            FileName = Path.GetFileName(path),
+            MediaType = GetMediaType(path),
+        });
+    }
+
+    /// <summary>添加内存字节附件(如粘贴图片)</summary>
+    public void AddAttachmentBytes(byte[] bytes, string mediaType = "image/png", string? fileName = null)
+    {
+        if (bytes == null || bytes.Length == 0) return;
+        Attachments.Add(new ConversationAttachment
+        {
+            Bytes = bytes,
+            FileName = fileName ?? $"pasted_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+            MediaType = mediaType,
+        });
+    }
+
+    [RelayCommand]
+    private void RemoveAttachment(ConversationAttachment item)
+    {
+        Attachments.Remove(item);
+    }
+
+    [RelayCommand]
+    private void PreviewAttachment(ConversationAttachment item)
+    {
+        Bitmap? bitmap = null;
+        try
+        {
+            if (item.Bytes != null)
+            {
+                using var stream = new MemoryStream(item.Bytes);
+                bitmap = new Bitmap(stream);
+            }
+            else if (!string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
+            {
+                bitmap = new Bitmap(item.FilePath);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Preview attachment failed '{item.FileName}': {e.Message}");
+            return;
+        }
+
+        if (bitmap != null) UIManager.ShowPreviewImageWindowAtMousePosition(bitmap);
+    }
+
+    /// <summary>根据路径推断 MIME 类型</summary>
+    protected static string GetMediaType(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            _ => "image/jpeg",
+        };
+    }
 }

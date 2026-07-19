@@ -36,7 +36,6 @@ namespace UiharuMind.ViewModels.Agent;
 /// </summary>
 public partial class AgentConversationViewModel : ConversationViewModelBase
 {
-    public ObservableCollection<string> Attachments { get; } = new();
     public ObservableCollection<TodoDisplayItem> Todos { get; } = new();
 
     [ObservableProperty] private int _permissionModeIndex = 1; //默认 AutoEdit
@@ -134,13 +133,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     {
         var file = await App.FilesService.OpenFileAsync(UIManager.GetFocusWindow());
         string? path = file?.TryGetLocalPath();
-        if (!string.IsNullOrEmpty(path)) Attachments.Add(path);
-    }
-
-    [RelayCommand]
-    private void RemoveAttachment(string path)
-    {
-        Attachments.Remove(path);
+        if (!string.IsNullOrEmpty(path)) AddAttachmentPath(path);
     }
 
     //================= 发送与运行循环 =================
@@ -159,7 +152,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
             return;
         }
 
-        List<string>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
+        List<ConversationAttachment>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
         Attachments.Clear();
         Items.Add(CreateUserItem(text));
         ScrollToEnd = true;
@@ -376,7 +369,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         }
     }
 
-    private ChatMessage BuildUserMessage(string text, List<string>? attachments)
+    private ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
     {
         if (attachments == null || attachments.Count == 0) return new ChatMessage(ChatRole.User, text);
 
@@ -384,35 +377,28 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         if (LlmManager.Instance.CurrentRunningModel?.IsVisionModel == true)
         {
             List<AIContent> contents = new() { new TextContent(text) };
-            foreach (string path in attachments)
+            foreach (ConversationAttachment attachment in attachments)
             {
                 try
                 {
-                    contents.Add(new DataContent(File.ReadAllBytes(path), GetMediaType(path)));
+                    byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
+                    string mediaType = attachment.MediaType;
+                    if (string.IsNullOrEmpty(attachment.FilePath) && mediaType == "image/png" && attachment.FilePath != null)
+                        mediaType = GetMediaType(attachment.FilePath);
+                    contents.Add(new DataContent(data, mediaType));
                 }
                 catch (Exception e)
                 {
-                    Log.Warning($"Attachment load failed '{path}': {e.Message}");
+                    Log.Warning($"Attachment load failed '{attachment.FileName}': {e.Message}");
                 }
             }
 
             return new ChatMessage(ChatRole.User, contents);
         }
 
-        string reference = string.Join('\n', attachments.Select(x => $"[Attached image file: {x}]"));
+        string reference = string.Join('\n', attachments.Select(x =>
+            $"[Attached image file: {(string.IsNullOrEmpty(x.FilePath) ? x.FileName : x.FilePath)}]"));
         return new ChatMessage(ChatRole.User, $"{text}\n{reference}");
-    }
-
-    private static string GetMediaType(string path)
-    {
-        return Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".bmp" => "image/bmp",
-            _ => "image/jpeg",
-        };
     }
 
     //================= 加载与回放 =================
