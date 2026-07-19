@@ -151,7 +151,7 @@
         </ScrollViewer>
 
         <!-- composer -->
-        <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row">
+        <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder">
             <Grid RowDefinitions="Auto,*,Auto" RowSpacing="4">
                 <!-- 宿主注入:输入框上方区域(如附件 chips) -->
                 <ContentPresenter Grid.Row="0"

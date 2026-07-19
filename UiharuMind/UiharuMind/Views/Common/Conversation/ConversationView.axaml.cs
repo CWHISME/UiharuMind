@@ -9,9 +9,10 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
-using System.Threading.Tasks;
-using UiharuMind.Services;
+using Avalonia.Platform.Storage;
+using System.Linq;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.Conversation;
 using UiharuMind.ViewModels.UIHolder;
@@ -70,6 +71,9 @@ public partial class ConversationView : UserControl
         InitializeComponent();
         _ = new ScrollViewerAutoScrollHolder(Viewer);
         InputBox.PastingFromClipboard += OnPastingFromClipboard;
+        DragDrop.SetAllowDrop(ComposerBorder, true);
+        ComposerBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        ComposerBorder.AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     private async void OnPastingFromClipboard(object? sender, RoutedEventArgs e)
@@ -81,6 +85,30 @@ public partial class ConversationView : UserControl
         if (bitmap == null) return;
 
         vm.AddAttachmentBytes(bitmap.BitmapToBytes());
+        e.Handled = true;
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.DataTransfer.Formats.Any(f => f == DataFormat.File)
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not ConversationViewModelBase vm) return;
+
+        foreach (var item in e.DataTransfer.Items)
+        {
+            if (item.TryGetRaw(DataFormat.File) is IStorageItem storageItem)
+            {
+                string? path = storageItem.TryGetLocalPath();
+                if (!string.IsNullOrEmpty(path)) vm.AddAttachmentPath(path);
+            }
+        }
+
         e.Handled = true;
     }
 }
