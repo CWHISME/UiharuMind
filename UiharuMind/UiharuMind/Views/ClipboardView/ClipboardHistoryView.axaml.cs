@@ -61,6 +61,12 @@ public partial class ClipboardHistoryView : UserControl
             .Delete((ClipboardItem)((Control)(e.Source!))!.DataContext!);
     }
 
+    private void MenuItemToggleFavorite_Click(object? sender, RoutedEventArgs e)
+    {
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
+            .ToggleFavorite((ClipboardItem)((Control)(e.Source!))!.DataContext!);
+    }
+
     private async void MenuItemDeleteAll_Click(object? sender, RoutedEventArgs e)
     {
         if (await _messageService.ConfirmAsync(Lang.DeleteAllClipboardHistoryTips))

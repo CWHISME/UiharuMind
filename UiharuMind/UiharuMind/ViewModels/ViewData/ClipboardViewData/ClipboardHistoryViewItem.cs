@@ -37,6 +37,7 @@ public partial class ClipboardItem : ObservableObject
     [ObservableProperty] private string _date;
     [ObservableProperty] private string _imageSource;
     [ObservableProperty] private bool _isImage;
+    [ObservableProperty] private bool _isFavorite;
 
     public ClipboardItem() : this("", "")
     {

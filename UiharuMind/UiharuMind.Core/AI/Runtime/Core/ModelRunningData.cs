@@ -9,9 +9,12 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.AI.Models;
@@ -20,8 +23,16 @@ using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Core;
 
-public class ModelRunningData
+public class ModelRunningData : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public bool IsFavorite => ModelSettingConfig.Current.FavoriteModel == ModelName;
     private ILlmModel _modelInfo;
 
     private IChatClient? _chatClient;
@@ -78,6 +89,11 @@ public class ModelRunningData
     public ModelRunningData(ILlmModel modelInfo)
     {
         _modelInfo = modelInfo;
+    }
+
+    public void NotifyFavoriteChanged()
+    {
+        OnPropertyChanged(nameof(IsFavorite));
     }
 
     public void ForceUpdateModelInfo(ILlmModel modelInfo)

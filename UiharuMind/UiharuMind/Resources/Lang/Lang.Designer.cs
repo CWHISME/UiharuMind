@@ -813,6 +813,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string Favorite {
+            get {
+                return ResourceManager.GetString("Favorite", resourceCulture);
+            }
+        }
+        
         public static string ModelPageEmbeddedModelName {
             get {
                 return ResourceManager.GetString("ModelPageEmbeddedModelName", resourceCulture);

@@ -21,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Services;
@@ -69,6 +70,7 @@ public partial class ModelService : ObservableObject
         LlmManager.Instance.OnCurrentModelStartLoading += OnCurrentModelStartLoading;
         LlmManager.Instance.OnCurrentModelLoading += OnCurrentModelLoading;
         LlmManager.Instance.OnCurrentModelLoaded += OnCurrentModelLoaded;
+        ModelSettingConfig.Current.PropertyChanged += OnFavoriteModelConfigChanged;
         LoadModelListAsync();
     }
 
@@ -198,6 +200,15 @@ public partial class ModelService : ObservableObject
         }
 
         Refresh();
+    }
+
+    private void OnFavoriteModelConfigChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ModelSettingConfig.FavoriteModel)) return;
+        foreach (var item in ModelSources)
+        {
+            item.NotifyFavoriteChanged();
+        }
     }
 
     private void Refresh()

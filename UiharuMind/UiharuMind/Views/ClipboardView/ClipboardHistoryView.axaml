@@ -53,6 +53,15 @@
                               Padding="2,1">
                     <controls:ThemedSvgIcon IconName="image" />
                 </ToggleButton>
+                <ToggleButton IsChecked="{Binding IsFavoriteFilterActive}" 
+                              VerticalAlignment="Center"
+                              Height="20"
+                              Width="20"
+                              MinHeight="20"
+                              MinWidth="20"
+                              Padding="2,1">
+                    <controls:ThemedSvgIcon IconName="star" />
+                </ToggleButton>
             </StackPanel>
         </Grid>
         
@@ -78,6 +87,7 @@
                         <Grid Height="80" RowDefinitions="Auto,*,Auto" Background="Transparent" PointerReleased="InputElement_OnPointerReleased">
                             <Grid.ContextMenu>
                                 <ContextMenu>
+                                    <MenuItem Header="{loc:Loc Favorite}" Click="MenuItemToggleFavorite_Click" />
                                     <MenuItem Header="{loc:Loc Delete}" Click="MenuItemDelete_Click" />
                                     <MenuItem Header="{loc:Loc DeleteAll}" Click="MenuItemDeleteAll_Click" />
                                 </ContextMenu>
@@ -86,6 +96,8 @@
                             <TextBlock Grid.Row="1" Text="{Binding Text}" IsVisible="{Binding !IsImage}"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
+                            <controls:ThemedSvgIcon Grid.Row="2" IconName="star" IsVisible="{Binding IsFavorite}" 
+                                                     Height="12" Width="12" HorizontalAlignment="Left" Margin="2,0" />
                             <ToolTip.Tip>
                                 <Panel>
                                     <Image Source="{Binding ImageSource,Converter={StaticResource FilePathToImageConverter}}" IsVisible="{Binding IsImage}"></Image>

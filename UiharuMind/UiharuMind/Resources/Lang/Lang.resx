@@ -696,6 +696,9 @@
     <data name="HideThnkingTextTips" xml:space="preserve">
         <value>Do not display AI thingking</value>
     </data>
+    <data name="Favorite" xml:space="preserve">
+        <value>Favorite</value>
+    </data>
     <data name="FavoriteRemoteModelSetTips" xml:space="preserve">
         <value>Set favorite remote model {0} successfully.</value>
     </data>

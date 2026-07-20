@@ -18,8 +18,18 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 public class ModelSettingConfig : TConfigBase<ModelSettingConfig>
 {
-    //收藏模型
-    public string FavoriteModel { get; set; } = "";
+    private string _favoriteModel = "";
+
+    public string FavoriteModel
+    {
+        get => _favoriteModel;
+        set
+        {
+            if (_favoriteModel == value) return;
+            _favoriteModel = value;
+            OnPropertyChanged();
+        }
+    }
 
     //内置模型目录路径(不可修改)
     [JsonIgnore] public string DefaultLocalModelPath { get; set; } = "./InternalModels";

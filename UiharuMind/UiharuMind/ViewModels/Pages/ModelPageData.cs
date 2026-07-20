@@ -142,7 +142,6 @@ public partial class ModelPageData : PageDataBase
         _messageService.ShowNotification(isRemove
             ? string.Format(Lang.FavoriteRemoteModelDelTips, name)
             : string.Format(Lang.FavoriteRemoteModelSetTips, name));
-        LoadModels();
     }
 
     partial void OnModelPathChanged(string? value)

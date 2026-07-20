@@ -26,24 +26,29 @@ public class ModelToBrushConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        if (value is bool isFavorite)
+        {
+            return isFavorite ? Colors.Gold : Colors.Gray;
+        }
+
         if (value is ILlmModel modelRunningData)
         {
             if (ModelSettingConfig.Current.FavoriteModel == modelRunningData.ModelName)
-                return Brushes.Gold;
+                return Colors.Gold; //Brushes.Gold;
         }
 
-        if (value is MemoryData memoryData)
+        if (value is MemoryData)
         {
-            return Brushes.Gold;
+            return Colors.Gold;
         }
 
         if (value is List<object> list)
         {
             // 检查列表数量是否不为 0
-            return list.Count > 0 ? Brushes.Gold : Brushes.Gray;
+            return list.Count > 0 ? Colors.Gold : Colors.Gray;
         }
 
-        return Brushes.Gray;
+        return Colors.Gray;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

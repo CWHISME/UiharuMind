@@ -688,6 +688,9 @@
     <data name="HideThnkingTextTips" xml:space="preserve">
         <value>不显示 AI 的思考过程，适用于会自我思考的模型。相当于主动去掉 Think 标签内容。</value>
     </data>
+    <data name="Favorite" xml:space="preserve">
+        <value>收藏</value>
+    </data>
     <data name="FavoriteRemoteModelSetTips" xml:space="preserve">
         <value>成功将 {0} 设置收藏！</value>
     </data>

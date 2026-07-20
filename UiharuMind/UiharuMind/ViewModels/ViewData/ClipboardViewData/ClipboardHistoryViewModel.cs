@@ -41,23 +41,45 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         set
         {
             SetProperty(ref _isSearchActive, value);
-            if (value) IsImageFilterActive = false;
+            if (value)
+            {
+                IsImageFilterActive = false;
+                IsFavoriteFilterActive = false;
+            }
             else PerformSearch(false);
         }
     }
 
     private bool _isImageFilterActive;
 
-    /// <summary>
-    /// 筛选仅显示图片
-    /// </summary>
     public bool IsImageFilterActive
     {
         get => _isImageFilterActive;
         set
         {
             SetProperty(ref _isImageFilterActive, value);
-            if (value) IsSearchActive = false;
+            if (value)
+            {
+                IsSearchActive = false;
+                IsFavoriteFilterActive = false;
+            }
+            else PerformSearch(false);
+        }
+    }
+
+    private bool _isFavoriteFilterActive;
+
+    public bool IsFavoriteFilterActive
+    {
+        get => _isFavoriteFilterActive;
+        set
+        {
+            SetProperty(ref _isFavoriteFilterActive, value);
+            if (value)
+            {
+                IsSearchActive = false;
+                IsImageFilterActive = false;
+            }
             else PerformSearch(false);
         }
     }
@@ -101,10 +123,16 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         App.Clipboard.DeleteClipboardHistoryItem(item);
     }
 
+    public void ToggleFavorite(ClipboardItem item)
+    {
+        item.IsFavorite = !item.IsFavorite;
+        PerformSearch(false);
+    }
+
     public void DeleteAll()
     {
         //如果处于搜索中，仅删除所有搜索结果
-        if (IsSearchActive || IsImageFilterActive)
+        if (IsSearchActive || IsImageFilterActive || IsFavoriteFilterActive)
         {
             App.Clipboard.DeleteClipboardHistoryItem(FilteredClipboardHistoryItems);
         }
@@ -133,7 +161,7 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         var sourceItems = App.Clipboard.ClipboardHistoryItems;
 
         // 如果没有激活任何过滤条件，显示所有项目
-        if (!IsSearchActive && !IsImageFilterActive)
+        if (!IsSearchActive && !IsImageFilterActive && !IsFavoriteFilterActive)
         {
             if (IsCollectionEqual(FilteredClipboardHistoryItems, sourceItems))
             {
@@ -152,6 +180,12 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         if (IsImageFilterActive)
         {
             filtered = filtered.Where(item => item.IsImage);
+        }
+
+        // 收藏过滤
+        if (IsFavoriteFilterActive)
+        {
+            filtered = filtered.Where(item => item.IsFavorite);
         }
 
         // 文本搜索过滤
@@ -200,7 +234,7 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
 
     private void RefreshTitle()
     {
-        if (IsSearchActive || IsImageFilterActive)
+        if (IsSearchActive || IsImageFilterActive || IsFavoriteFilterActive)
         {
             Title = string.Format(Lang.ClipboardHistoryCount, FilteredClipboardHistoryItems.Count + "/" + App.Clipboard.ClipboardHistoryItems.Count);
             return;

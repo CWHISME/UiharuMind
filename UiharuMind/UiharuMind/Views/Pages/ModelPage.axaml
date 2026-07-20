@@ -76,31 +76,31 @@
                                 <!-- 本地模型 -->
                                 <StackPanel Orientation="Horizontal" IsVisible="{Binding !IsRemoteModel,Mode=OneWay}">
                                     <ThemedIconButton CornerRadius="20"
-                                                         Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
-                                                         CommandParameter="{Binding ModelName}"
-                                                         IconName="star"
-                                                         Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                                       CurrentColor="{Binding IsFavorite,Converter={StaticResource ModelToBrushConverter}}"
+                                                       CommandParameter="{Binding ModelName}"
+                                                       IconName="star"
+                                                       Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                     <ThemedIconButton CornerRadius="20"
-                                                         CommandParameter="{Binding ModelPath}"
-                                                         IconName="refresh-cw"
-                                                         Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                                          CommandParameter="{Binding ModelPath}"
+                                                          IconName="refresh-cw"
+                                                          Command="{Binding DataContext.RefreshSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                     <ThemedIconButton CornerRadius="20"
-                                                         CommandParameter="{Binding ModelPath}"
-                                                         IconName="square-arrow-out-up-right"
-                                                         Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                                          CommandParameter="{Binding ModelPath}"
+                                                          IconName="square-arrow-out-up-right"
+                                                          Command="{Binding DataContext.OpenSelectModelFolderCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                     <ThemedIconButton CornerRadius="20"
-                                                         CommandParameter="{Binding ModelPath}"
-                                                         IconName="info"
-                                                         Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                                          CommandParameter="{Binding ModelPath}"
+                                                          IconName="info"
+                                                          Command="{Binding DataContext.OpenSelectModelInfoCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                 </StackPanel>
 
                                 <!-- 远程模型 -->
                                 <StackPanel Orientation="Horizontal" IsVisible="{Binding IsRemoteModel,Mode=OneWay}">
                                     <ThemedIconButton CornerRadius="20"
-                                                         Foreground="{Binding ModelInfo,Converter={StaticResource ModelToBrushConverter}}"
-                                                         CommandParameter="{Binding ModelName}"
-                                                         IconName="star"
-                                                         Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                                       CurrentColor="{Binding IsFavorite,Converter={StaticResource ModelToBrushConverter}}"
+                                                       CommandParameter="{Binding ModelName}"
+                                                       IconName="star"
+                                                       Command="{Binding DataContext.SetFavoriteModelCommand,RelativeSource={RelativeSource AncestorType=ListBox}}"/>
                                     <Button
                                         CornerRadius="15"
                                         Content="{loc:Loc ModifyBtn}"
