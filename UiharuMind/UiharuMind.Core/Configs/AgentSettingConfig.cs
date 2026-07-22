@@ -25,4 +25,19 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 
     /// <summary>禁用的技能名列表(SKILL.md 技能目录名)</summary>
     public List<string> DisabledSkills { get; set; } = new();
+
+    /// <summary>启用文件操作工具(Glob/Read/Write/Edit/Replace/Delete/Grep)</summary>
+    public bool EnableFileAccess { get; set; } = true;
+
+    /// <summary>启用 Shell 执行工具</summary>
+    public bool EnableShellExecution { get; set; } = true;
+
+    /// <summary>启用网络搜索工具</summary>
+    public bool EnableWebSearch { get; set; } = true;
+
+    /// <summary>启用持久化记忆</summary>
+    public bool EnableMemory { get; set; } = true;
+
+    /// <summary>启用定时任务(Todo/Scheduler)</summary>
+    public bool EnableTodo { get; set; } = true;
 }

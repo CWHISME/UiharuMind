@@ -52,7 +52,7 @@
                          PasswordChar="*" />
                 <!-- <u:Divider Content="设置" /> -->
                 <settingViews:SettingPanelView SettingConfig="{Binding RemoteModelInfo.Config}" />
-                <Button Content="{loc:Loc SureBtn}" Theme="{DynamicResource SolidButton}"
+                <Button Content="{loc:Loc SureBtn}"
                         u:FormItem.NoLabel="True"
                         HorizontalAlignment="Stretch" Click="Button_OnClick" />
             </StackPanel>

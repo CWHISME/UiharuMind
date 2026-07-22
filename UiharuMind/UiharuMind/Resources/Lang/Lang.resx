@@ -198,6 +198,24 @@
     <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
         <value>Start new sessions in plan mode</value>
     </data>
+    <data name="AgentSettingCapabilities" xml:space="preserve">
+        <value>Capabilities</value>
+    </data>
+    <data name="AgentSettingCapFileAccess" xml:space="preserve">
+        <value>File operations (read/write/edit/search)</value>
+    </data>
+    <data name="AgentSettingCapShellExecution" xml:space="preserve">
+        <value>Shell execution</value>
+    </data>
+    <data name="AgentSettingCapWebSearch" xml:space="preserve">
+        <value>Web search</value>
+    </data>
+    <data name="AgentSettingCapMemory" xml:space="preserve">
+        <value>Persistent memory</value>
+    </data>
+    <data name="AgentSettingCapTodo" xml:space="preserve">
+        <value>Scheduled tasks (Todo)</value>
+    </data>
     <data name="AgentProfileName" xml:space="preserve">
         <value>Name</value>
     </data>

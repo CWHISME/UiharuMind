@@ -47,6 +47,33 @@
                     <ToggleSwitch IsChecked="{Binding DefaultPlanMode}" />
                     <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingDefaultPlanMode}" />
                 </StackPanel>
+
+                <Border Classes="form-pane" Margin="0,16,0,0" Padding="14">
+                    <StackPanel Spacing="4">
+                        <TextBlock FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"
+                                   Text="{loc:Loc AgentSettingCapabilities}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableFileAccess}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapFileAccess}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableShellExecution}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapShellExecution}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableWebSearch}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapWebSearch}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableMemory}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapMemory}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableTodo}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapTodo}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </TabItem>
 

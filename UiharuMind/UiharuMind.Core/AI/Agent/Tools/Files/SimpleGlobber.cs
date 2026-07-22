@@ -55,7 +55,7 @@ public sealed class SimpleGlobber
             // 文件不存在，友好提示切 Tool
             return new List<string>
             {
-                $"[Hint] '{pattern}' has no wildcards. If you know the exact file, use the 'read' tool instead."
+                $"[Error] glob pattern '{pattern}' has no wildcards."
             };
         }
 

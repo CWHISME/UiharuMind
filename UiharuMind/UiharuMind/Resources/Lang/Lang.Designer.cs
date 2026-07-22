@@ -1322,5 +1322,41 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("KeySelectionWaiting", resourceCulture);
             }
         }
+        
+        public static string AgentSettingCapabilities {
+            get {
+                return ResourceManager.GetString("AgentSettingCapabilities", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapFileAccess {
+            get {
+                return ResourceManager.GetString("AgentSettingCapFileAccess", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapShellExecution {
+            get {
+                return ResourceManager.GetString("AgentSettingCapShellExecution", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapWebSearch {
+            get {
+                return ResourceManager.GetString("AgentSettingCapWebSearch", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapMemory {
+            get {
+                return ResourceManager.GetString("AgentSettingCapMemory", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapTodo {
+            get {
+                return ResourceManager.GetString("AgentSettingCapTodo", resourceCulture);
+            }
+        }
     }
 }

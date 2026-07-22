@@ -15,6 +15,7 @@ using UiharuMind.Core.AI.Agent.Mcp;
 using UiharuMind.Core.AI.Agent.Profiles;
 using UiharuMind.Core.AI.Agent.Scheduler;
 using UiharuMind.Core.AI.Agent.Skills;
+using UiharuMind.Core.AI.Agent.Tools.WebTools;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
@@ -100,38 +101,53 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     public async Task<AgentHandle> CreateAgentAsync(AgentBuildProfile profile,
         CancellationToken cancellationToken = default)
     {
-        // 惰性客户端:构建/加载会话不要求模型就绪,请求发起时才解析当前模型
+        var config = AgentSettingConfig.Current;
+
         IChatClient client = new LazyChatClient();
         InMemoryChatHistoryProvider history = new();
 
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
-        LocalShellExecutor shellExecutor = new(new LocalShellExecutorOptions
+        LocalShellExecutor? shellExecutor = null;
+        if (config.EnableShellExecution)
         {
-            WorkingDirectory = workingDirectory,
-        });
+            shellExecutor = new(new LocalShellExecutorOptions
+            {
+                WorkingDirectory = workingDirectory,
+            });
+        }
 
         List<AITool> extraTools = new()
         {
             VisionTool.Create(),
-            SchedulerTools.CreateScheduledTaskTool(profile.WorkspacePath),
         };
+        if (config.EnableTodo)
+        {
+            extraTools.Add(SchedulerTools.CreateScheduledTaskTool(profile.WorkspacePath));
+        }
         extraTools.AddRange(await McpManager.Instance.GetToolsAsync(cancellationToken).ConfigureAwait(false));
 
-        // 自带的 file_access_* 工具:相对路径落工作区,绝对路径经用户审批后访问真实文件系统
-        extraTools.AddRange(new PermissiveFileAccessTools(workingDirectory).Create());
+        if (config.EnableFileAccess)
+        {
+            extraTools.AddRange(new PermissiveFileAccessTools(workingDirectory).Create());
+        }
+
+        if (config.EnableWebSearch)
+        {
+            extraTools.Add(WebSearchTool.Create());
+            extraTools.Add(WebFetchTool.Create());
+        }
 
         HarnessAgentOptions options = new()
         {
             Name = "UiharuAgent",
             Description = "UiharuMind workspace agent.",
             ChatHistoryProvider = history,
-            // 远程 OpenAI 兼容端普遍不支持托管 WebSearch;遥测导出本版不接
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
-            FileMemoryStore = new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory")),
-            // 禁用 MFA 内置 FileAccessProvider(其会拒绝一切绝对路径且为 internal 不可复用);
-            // 改由下方 PermissiveFileAccessTools 提供 file_access_* 工具,支持绝对路径。
+            FileMemoryStore = config.EnableMemory
+                ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
+                : null,
             FileAccessStore = null,
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,

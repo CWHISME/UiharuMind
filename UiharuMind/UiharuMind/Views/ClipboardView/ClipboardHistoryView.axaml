@@ -97,7 +97,7 @@
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
                             <controls:ThemedSvgIcon Grid.Row="2" IconName="star" IsVisible="{Binding IsFavorite}" 
-                                                     Height="12" Width="12" HorizontalAlignment="Left" Margin="2,0" />
+                                                     Height="12" Width="12" HorizontalAlignment="Left" />
                             <ToolTip.Tip>
                                 <Panel>
                                     <Image Source="{Binding ImageSource,Converter={StaticResource FilePathToImageConverter}}" IsVisible="{Binding IsImage}"></Image>

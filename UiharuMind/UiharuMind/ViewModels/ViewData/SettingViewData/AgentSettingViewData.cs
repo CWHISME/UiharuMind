@@ -29,6 +29,13 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
     [ObservableProperty] private bool _defaultPlanMode;
 
+    //================= 能力开关 =================
+    [ObservableProperty] private bool _enableFileAccess = true;
+    [ObservableProperty] private bool _enableShellExecution = true;
+    [ObservableProperty] private bool _enableWebSearch = true;
+    [ObservableProperty] private bool _enableMemory = true;
+    [ObservableProperty] private bool _enableTodo = true;
+
     //================= 子 agent 档案 =================
     public ObservableCollection<AgentProfile> Profiles { get; } = new();
     [ObservableProperty] private AgentProfile? _selectedProfile;
@@ -51,6 +58,11 @@ public partial class AgentSettingViewData : ViewModelBase
         _defaultPermissionModeIndex = config.DefaultPermissionModeIndex;
         _defaultWorkspacePath = config.DefaultWorkspacePath;
         _defaultPlanMode = config.DefaultPlanMode;
+        _enableFileAccess = config.EnableFileAccess;
+        _enableShellExecution = config.EnableShellExecution;
+        _enableWebSearch = config.EnableWebSearch;
+        _enableMemory = config.EnableMemory;
+        _enableTodo = config.EnableTodo;
 
         RefreshProfiles();
         RefreshServers();
@@ -73,6 +85,37 @@ public partial class AgentSettingViewData : ViewModelBase
     partial void OnDefaultPlanModeChanged(bool value)
     {
         AgentSettingConfig.Current.DefaultPlanMode = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    //================= 能力开关:变更即存 =================
+    partial void OnEnableFileAccessChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableFileAccess = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnEnableShellExecutionChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableShellExecution = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnEnableWebSearchChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableWebSearch = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnEnableMemoryChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableMemory = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnEnableTodoChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableTodo = value;
         AgentSettingConfig.Current.Save();
     }
 

@@ -10,7 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="AngleSharp" Version="1.1.2" />
+      <PackageReference Include="AngleSharp" Version="1.5.2" />
       <PackageReference Include="CliWrap" Version="3.8.1" />
       <PackageReference Include="Downloader" Version="3.3.3" />
       <PackageReference Include="Glacier.Grep" Version="1.0.0" />
@@ -30,6 +30,7 @@
       <PackageReference Include="SharpCompress" Version="0.49.1" />
       <PackageReference Include="SharpHook" Version="7.1.1" />
       <PackageReference Include="UTF.Unknown" Version="2.6.0" />
+      <PackageReference Include="WebLookup" Version="0.2.1" />
     </ItemGroup>
 
     <ItemGroup>

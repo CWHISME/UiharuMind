@@ -188,6 +188,24 @@
     <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
         <value>新会话默认开启计划模式</value>
     </data>
+    <data name="AgentSettingCapabilities" xml:space="preserve">
+        <value>能力开关</value>
+    </data>
+    <data name="AgentSettingCapFileAccess" xml:space="preserve">
+        <value>文件操作(读/写/编辑/搜索)</value>
+    </data>
+    <data name="AgentSettingCapShellExecution" xml:space="preserve">
+        <value>Shell 执行</value>
+    </data>
+    <data name="AgentSettingCapWebSearch" xml:space="preserve">
+        <value>网络搜索</value>
+    </data>
+    <data name="AgentSettingCapMemory" xml:space="preserve">
+        <value>持久化记忆</value>
+    </data>
+    <data name="AgentSettingCapTodo" xml:space="preserve">
+        <value>定时任务(Todo)</value>
+    </data>
     <data name="AgentProfileName" xml:space="preserve">
         <value>名称</value>
     </data>
