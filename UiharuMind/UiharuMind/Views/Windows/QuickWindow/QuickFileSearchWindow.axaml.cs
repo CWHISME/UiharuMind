@@ -44,6 +44,7 @@ public partial class QuickFileSearchWindow : UiharuWindowBase
     private void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
         _searchCts?.Cancel();
+        _searchCts?.Dispose();
         _searchCts = new CancellationTokenSource();
         
         var query = SearchBox.Text?.Trim() ?? "";
