@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="200"
+        Width="200"
+        Height="200"
+        WindowStartupLocation="CenterOwner"
+        Background="Transparent"
+        TransparencyLevelHint="AcrylicBlur"
+        x:Class="UiharuMind.Views.Windows.QuickWheelWindow">
+
+    <Panel>
+        <!-- Center circle background -->
+        <Ellipse Width="180" Height="180"
+                 Fill="{DynamicResource SystemControlBackgroundChromeMediumBrush}"
+                 Opacity="0.9"/>
+
+        <!-- Wheel items container -->
+        <Canvas Name="WheelCanvas" Width="180" Height="180"/>
+
+        <!-- Center dot -->
+        <Ellipse Width="20" Height="20"
+                 Fill="{DynamicResource SystemControlForegroundAccentBrush}"
+                 Canvas.Left="80" Canvas.Top="80"/>
+    </Panel>
+</Window>
