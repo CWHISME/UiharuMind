@@ -42,7 +42,7 @@ public partial class QuickWheelWindow : QuickWindowBase
     private PixelPoint GetCenterPosition()
     {
         var screens = Screens?.All;
-        if (screens == null || screens.Length == 0)
+        if (screens == null || screens.Count == 0)
             return new PixelPoint(500, 500);
 
         var screen = screens[0];
@@ -105,10 +105,10 @@ public partial class QuickWheelWindow : QuickWindowBase
         // If Alt released without selection, will be handled by DummyWindow
     }
 
-    public void ExecuteDefaultAction()
+    public static void ExecuteDefaultAction()
     {
         QuickStartChatWindow.Show("");
-        CloseByAnimation();
+        UIManager.CloseWindow<QuickWheelWindow>();
     }
 
     private class WheelItem

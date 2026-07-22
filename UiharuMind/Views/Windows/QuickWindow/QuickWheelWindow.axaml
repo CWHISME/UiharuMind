@@ -6,9 +6,6 @@
         Width="200"
         Height="200"
         WindowStartupLocation="CenterOwner"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="-1"
         Background="Transparent"
         TransparencyLevelHint="AcrylicBlur"
         x:Class="UiharuMind.Views.Windows.QuickWheelWindow">
