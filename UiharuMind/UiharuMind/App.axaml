@@ -32,7 +32,7 @@
     <Application.Styles>
         <!-- <StyleInclude Source="avares://Semi.Avalonia/Themes/Index.axaml" /> -->
         <StyleInclude Source="avares://Semi.Avalonia.ColorPicker/Index.axaml" />
-        <StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude>
+        <!-- <StyleInclude Source="avares://UiharuMind/Assets/Icons.axaml"></StyleInclude> -->
         <StyleInclude Source="/Assets/Themes/CustomButtonStyle.axaml"></StyleInclude>
         <StyleInclude Source="/Assets/Themes/CustomFontStyle.axaml"></StyleInclude>
         <StyleInclude Source="/Assets/Themes/CustomInputStyle.axaml"></StyleInclude>

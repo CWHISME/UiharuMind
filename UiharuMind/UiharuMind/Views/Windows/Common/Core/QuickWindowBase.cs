@@ -9,8 +9,11 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System;
+using Avalonia.Input;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using SharpHook.Data;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
 using UiharuMind.Utils;
 
@@ -27,11 +30,11 @@ public class QuickWindowBase : UiharuWindowBase
         this.SetSimpledecorationWindow();
     }
 
-    protected override void OnOpened(EventArgs e)
-    {
-        PlayOpenAnimation();
-        base.OnOpened(e);
-    }
+    // protected override void OnOpened(EventArgs e)
+    // {
+    //     PlayOpenAnimation();
+    //     base.OnOpened(e);
+    // }
 
     protected override void OnInitWindowPosition()
     {
@@ -54,16 +57,21 @@ public class QuickWindowBase : UiharuWindowBase
     protected void OnMouseClicked(MouseEventData obj)
     {
         // if (SubMenuComboBox.IsFocused) return;
-        this.CheckMouseOutsideWindow(CloseByAnimation);
+        // this.CheckMouseOutsideWindow(CloseByAnimation);
+        // Dispatcher.UIThread.Post(() =>
+        // {
+        // });
+        if(!this.IsPointerOver) SafeClose();
     }
 
-    public void PlayOpenAnimation(Action? action = null)
-    {
-        UiAnimationUtils.PlayAlphaTransitionAnimation(this, true, action);
-    }
-
+    // public void PlayOpenAnimation(Action? action = null)
+    // {
+    //     UiAnimationUtils.PlayAlphaTransitionAnimation(this, true, action);
+    // }
+    //
     public void CloseByAnimation()
     {
-        UiAnimationUtils.PlayAlphaTransitionAnimation(this, false, SafeClose);
+        // UiAnimationUtils.PlayAlphaTransitionAnimation(this, false, SafeClose);
+        SafeClose();
     }
 }

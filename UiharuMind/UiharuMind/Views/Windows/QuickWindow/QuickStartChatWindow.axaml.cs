@@ -109,7 +109,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
         base.OnOpened(e);
         this.SetScreenCenterPosition();
         InputBox.Focus();
-        PlayOpenAnimation(() => { InputBox.Focus(); });
+        // PlayOpenAnimation(() => { InputBox.Focus(); });
     }
 
     private void ResetInfo()

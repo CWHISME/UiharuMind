@@ -84,14 +84,8 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 TranslationAgentSkill skill = new TranslationAgentSkill();
                 QuickChatResultWindow.Show(Lang.Translation, _answerString, skill);
             });
-        AddFunctionMenu(nameof(Lang.SyntacticAnalysis), () =>
-        {
-            QuickChatResultWindow.Show(Lang.SyntacticAnalysis, _answerString, new AssistantSyntacticAnalysisAgentSkill());
-        });
-        AddFunctionMenu(nameof(Lang.Think), () =>
-        {
-            QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainofThoughtAgentSkill());
-        });
+        AddFunctionMenu(nameof(Lang.SyntacticAnalysis), () => { QuickChatResultWindow.Show(Lang.SyntacticAnalysis, _answerString, new AssistantSyntacticAnalysisAgentSkill()); });
+        AddFunctionMenu(nameof(Lang.Think), () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainofThoughtAgentSkill()); });
         AddFunctionMenu(nameof(Lang.Ask), () => { QuickStartChatWindow.Show(_answerString); });
     }
 
@@ -102,7 +96,11 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
             Content = LocalizationManager.Instance.GetString(textKey),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center,
-            Command = new RelayCommand(action),
+            Command = new RelayCommand(() =>
+            {
+                action();
+                SafeClose();
+            }),
             Margin = new Thickness(xMargin, 0, 0, 0),
             MinHeight = 25,
         };

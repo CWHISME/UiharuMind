@@ -6,6 +6,9 @@ using Microsoft.Agents.AI;
 
 namespace UiharuMind.Core.AI.Agent.Files;
 
+/// <summary>
+/// 文本搜索：标准 ripgrep 语法
+/// </summary>
 public sealed class SimpleGrepper
 {
     

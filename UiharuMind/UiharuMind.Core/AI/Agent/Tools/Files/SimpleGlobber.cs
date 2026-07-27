@@ -5,6 +5,9 @@ namespace UiharuMind.Core.AI.Agent.Files;
 using System.IO;
 using Meziantou.Framework.Globbing;
 
+/// <summary>
+/// 搜索文件：标准 glob 语法
+/// </summary>
 public sealed class SimpleGlobber
 {
     private static readonly GlobCollection HardSkips = new(
@@ -69,17 +72,20 @@ public sealed class SimpleGlobber
         using var enumerator = new GlobEnum(glob, HardSkips, searchRoot, dirsOnly, maxResults);
         var list = new List<string>(Math.Min(maxResults, 60));
 
+        bool hitLimit = false;
         while (enumerator.MoveNext())
         {
             ct.ThrowIfCancellationRequested();
             list.Add(enumerator.Current!);
-            if (list.Count >= maxResults) break;
+            if (list.Count >= maxResults)
+            {
+                hitLimit = true;
+                break;
+            }
         }
-
-        if (enumerator.HitLimit)
-            list.Add($"... truncated (>{maxResults})");
-
+        
         list.Sort();
+        if (hitLimit) list.Add($"... truncated (>{maxResults})");
         return list;
     }
     

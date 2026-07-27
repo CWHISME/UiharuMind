@@ -35,7 +35,6 @@ public class DummyWindow : Window
 {
     // public MainWindow? MainWindow { get; private set; }
     public MainViewModel? MainViewModel { get; private set; }
-    private bool _wheelShowing;
 
     // public QuickStartChatWindow? QuickStartChatWindow { get; private set; }
     // public QuickToolWindow? QuickToolWindow { get; private set; }
@@ -93,7 +92,6 @@ public class DummyWindow : Window
         InputManager.Instance.Start(OnQuickKeyInitFailure);
         RegistryShortcut();
         RegistryClipboardTool();
-        InputManager.Instance.EventOnKeyUp += OnKeyUp;
         Hide();
 
         //if(UiharuCoreManager.Instance.IsWindows) 
@@ -122,7 +120,6 @@ public class DummyWindow : Window
     {
         e.Cancel = true;
         base.OnClosing(e);
-        InputManager.Instance.EventOnKeyUp -= OnKeyUp;
     }
 
     private void OnActivated(object? sender, EventArgs e)
@@ -172,18 +169,6 @@ public class DummyWindow : Window
     {
         // _isActive = false;
         // Log.Debug("失活窗口" + WindowState);
-    }
-
-    private void OnKeyUp(SharpHook.Data.KeyCode keyCode)
-    {
-        if (_wheelShowing && keyCode == SharpHook.Data.KeyCode.VcA)
-        {
-            _wheelShowing = false;
-            if (!QuickWheelWindow.HasSelection)
-            {
-                QuickWheelWindow.ExecuteDefaultAction();
-            }
-        }
     }
 
     // private void OnKeyDown(object? sender, KeyEventArgs e)
@@ -268,8 +253,8 @@ public class DummyWindow : Window
 
     public void LaunchQuickStartChatWindow()
     {
-        _wheelShowing = true;
-        QuickWheelWindow.Show();
+        // QuickWheelWindow.Show();
+        UIManager.ShowWindow<RadialMenuWindow>();
     }
 
     public void LaunchQuickToolWindow(string answerStr)

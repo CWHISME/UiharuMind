@@ -1,0 +1,78 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:UiharuMind.Controls"
+        xmlns:icons="clr-namespace:UiharuMind.Views.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" 
+        Width="300" Height="300"
+        x:Class="UiharuMind.Views.Windows.RadialMenuWindow"
+        TransparencyLevelHint="Transparent"
+        WindowDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- RadialMenu 容器样式 -->
+        <Style Selector="controls|RadialMenu">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- 使用 Grid 或 Panel 作为容器 -->
+                    <Panel x:Name="PART_Container" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- RadialMenuItem 扇形样式 -->
+        <Style Selector="controls|RadialMenuItem">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <ToolTip.Tip>
+                            <TextBlock Text="{TemplateBinding Text}" />
+                        </ToolTip.Tip>
+
+                        <Path Data="{TemplateBinding SliceGeometry}"
+                              Fill="{TemplateBinding SliceFill}"
+                              Stroke="#44FFFFFF"
+                              StrokeThickness="2"
+                              RenderTransformOrigin="0.5, 0.5">
+                            <Path.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1" />
+                            </Path.RenderTransform>
+                        </Path>
+
+                        <Canvas>
+                            <icons:ThemedSvgIcon IconName="{TemplateBinding Icon}"
+                                                 Width="24" Height="24"
+                                                 Canvas.Left="{Binding IconPosition.X, RelativeSource={RelativeSource TemplatedParent}}"
+                                                 Canvas.Top="{Binding IconPosition.Y, RelativeSource={RelativeSource TemplatedParent}}">
+                                <icons:ThemedSvgIcon.RenderTransform>
+                                    <TranslateTransform X="-12" Y="-12" />
+                                </icons:ThemedSvgIcon.RenderTransform>
+                            </icons:ThemedSvgIcon>
+                        </Canvas>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <!-- 窗口内容 -->
+    <Panel>
+        <!-- 中间放一个可选的小圆点，美化中心 -->
+        <Border Background="#E02D2D3D" 
+                Width="60" Height="60" 
+                CornerRadius="30"
+                BorderBrush="#44FFFFFF"
+                BorderThickness="2" />
+
+        <!-- 轮盘控件 -->
+        <controls:RadialMenu Name="RadialMenuControl"
+                             ItemsSource="{Binding MenuItems}"
+                             Radius="140"
+                             InnerRadius="40" />
+    </Panel>
+</Window>
+

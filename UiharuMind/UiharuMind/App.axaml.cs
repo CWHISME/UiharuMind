@@ -65,6 +65,7 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<IMessageService, MessageService>()
                 .AddSingleton<ApplicationUpdateService>()
                 .AddSingleton<MainViewModel>()
+                .AddSingleton<SearchService>()
                 .BuildServiceProvider();
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());
 

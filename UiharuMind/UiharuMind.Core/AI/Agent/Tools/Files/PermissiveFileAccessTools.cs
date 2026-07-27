@@ -72,35 +72,20 @@ internal sealed class PermissiveFileAccessTools
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
     }
 
-    [Description("""
-                 List paths by GLOB pattern (NOT a fuzzy keyword or regex).
-                 Rules:
-                 - '*' matches anything EXCEPT the '.' separator. It is NOT a substring wildcard.
-                 - To find files by extension, use: '**/*.ext'
-                 - To search subdirectories, you MUST lead with '**/'
-
-                 Correct examples:
-                   '**/*.gguf'       → all GGUF models anywhere
-                   '**/gguf*'        → files STARTING with 'gguf' anywhere
-                   'models/**/*.bin' → .bin files inside models/
-                """)]
+    [Description("搜索文件：标准 glob 语法")]
     private Task<List<string>> Glob(
-        [Description("Pattern, e.g. 'src/**/*.cs'")] string pattern,
+        string pattern,
         [Description("Absolute path or sub-folder (optional)")] string? root = null)
         => _glob.SearchAsync(pattern, root);
 
-    [Description("""
-                 Search file contents by pattern.
-                 - By default the query is treated as a literal string; set is_regex=true for regex.
-                 - Use file_globs to narrow file types, e.g. ["*.cs", "*.md"]. Supports standard glob wildcards (*, ?, **).
-                 """)]
+    [Description("文本搜索：标准 ripgrep 语法")]
     private Task<List<FileSearchResult>> Grep(
         string query,
         [Description("Enable regex mode (default is literal)")] bool isRegex = false,
-        [Description("Case-sensitive")] bool caseSensitive = false,
-        [Description("Surrounding context lines")] int contextLines = 0,
-        [Description("Surrounding context lines")] int? maxDepth = null,
-        [Description("Glob filters")] string[]? fileGlobs = null,
+        [Description("是否区分大小写")] bool caseSensitive = false,
+        [Description("匹配行上下各显示多少个上下文行")] int contextLines = 0,
+        [Description("目录遍历最大深度（null 表示不限制）")] int? maxDepth = null,
+        [Description("按文件名（不含路径）过滤要搜索的文件")] string[]? fileGlobs = null,
         [Description("Target directory (relative or absolute)")] string? directory = null,
         CancellationToken ct = default)
     {

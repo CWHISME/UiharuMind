@@ -2175,4 +2175,55 @@
     <data name="ToggleTextWrap" xml:space="preserve">
         <value>Toggle text wrap</value>
     </data>
+    <data name="FileSearchTitle" xml:space="preserve">
+        <value>File Search</value>
+    </data>
+    <data name="FileSearchInputWatermark" xml:space="preserve">
+        <value>Enter search content...</value>
+    </data>
+    <data name="FileSearchBtn" xml:space="preserve">
+        <value>Search</value>
+    </data>
+    <data name="FileSearchContentSearchMode" xml:space="preserve">
+        <value>Content search</value>
+    </data>
+    <data name="FileSearchContentSearchModeTip" xml:space="preserve">
+        <value>Uncheck for file name search</value>
+    </data>
+    <data name="FileSearchRegexMode" xml:space="preserve">
+        <value>Regex mode</value>
+    </data>
+    <data name="FileSearchCaseSensitive" xml:space="preserve">
+        <value>Case sensitive</value>
+    </data>
+    <data name="FileSearchSearching" xml:space="preserve">
+        <value>Searching...</value>
+    </data>
+    <data name="FileSearchSelectDirectory" xml:space="preserve">
+        <value>Select search directory</value>
+    </data>
+    <data name="FileSearchCurrentDirectory" xml:space="preserve">
+        <value>Directory:</value>
+    </data>
+    <data name="FileSearchOpenDirectory" xml:space="preserve">
+        <value>Open</value>
+    </data>
+    <data name="FileSearchStatusReady" xml:space="preserve">
+        <value>Ready</value>
+    </data>
+    <data name="FileSearchStatusSearching" xml:space="preserve">
+        <value>Searching...</value>
+    </data>
+    <data name="FileSearchStatusResultFormat" xml:space="preserve">
+        <value>Found {0} results</value>
+    </data>
+    <data name="FileSearchStatusCancelled" xml:space="preserve">
+        <value>Cancelled</value>
+    </data>
+    <data name="FileSearchStatusNeedInput" xml:space="preserve">
+        <value>Please enter search content</value>
+    </data>
+    <data name="FileSearchAutoSearch" xml:space="preserve">
+        <value>Auto search</value>
+    </data>
 </root>
