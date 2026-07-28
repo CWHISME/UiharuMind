@@ -121,6 +121,8 @@ public sealed class SimpleGlobber
 
         protected override string TransformEntry(ref FileSystemEntry e)
         {
+            if (++_count > _cap) { HitLimit = true; }
+
             string full = Path.Join(e.Directory, e.FileName);
             string rel = Path.GetRelativePath(_root, full).Replace('\\', '/');
             return e.Attributes.HasFlag(FileAttributes.Directory)
@@ -130,8 +132,6 @@ public sealed class SimpleGlobber
 
         protected override bool ShouldIncludeEntry(ref FileSystemEntry e)
         {
-            if (++_count > _cap) { HitLimit = true; return false; }
-
             string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/');
             if (_skip.IsMatch(rel)) return false;
 
@@ -142,7 +142,7 @@ public sealed class SimpleGlobber
         protected override bool ShouldRecurseIntoEntry(ref FileSystemEntry e)
         {
             // 剪枝：被硬排除 or 不可能命中用户 pattern，直接不进目录
-            string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/');
+            string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/').TrimEnd('/');
             return !_skip.IsMatch(rel) && _glob.IsPartialMatch(rel.AsSpan());
         }
     }

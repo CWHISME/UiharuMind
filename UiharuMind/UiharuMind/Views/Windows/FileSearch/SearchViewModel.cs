@@ -16,7 +16,7 @@ public partial class SearchViewModel : ViewModelBase
     private const int MaxResults = 200;
     private const int MaxHistoryItems = 10;
 
-    private readonly SearchService? _searchService;
+    private readonly SearchService _searchService;
     private CancellationTokenSource? _searchCts;
     private DispatcherTimer? _debounceTimer;
     private bool _isInitialized;
@@ -29,6 +29,7 @@ public partial class SearchViewModel : ViewModelBase
     [ObservableProperty] private string _statusMessage = LocalizationManager.Instance.GetString("FileSearchStatusReady");
     [ObservableProperty] private string _currentDirectory = string.Empty;
     [ObservableProperty] private bool _autoSearch = true;
+    [ObservableProperty] private bool _hasNoResults = true;
 
     public ObservableCollection<SearchItem> Results { get; } = new();
     public ObservableCollection<string> HistoryDirectories { get; } = new();
@@ -40,8 +41,6 @@ public partial class SearchViewModel : ViewModelBase
     public SearchViewModel(SearchService searchService)
     {
         _searchService = searchService;
-        _currentDirectory = Environment.CurrentDirectory;
-        _searchService.SetSearchRoot(_currentDirectory);
         LoadHistory();
     }
 
@@ -88,6 +87,7 @@ public partial class SearchViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
             Results.Clear();
+            HasNoResults = true;
             StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusNeedInput");
             return;
         }
@@ -96,12 +96,12 @@ public partial class SearchViewModel : ViewModelBase
         _searchCts = new CancellationTokenSource();
 
         IsSearching = true;
+        HasNoResults = false;
         StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusSearching");
         Results.Clear();
 
         try
         {
-            _searchService.SetSearchRoot(CurrentDirectory);
             var results = await _searchService.SearchAsync(
                 SearchQuery,
                 IsContentMode,
@@ -116,6 +116,7 @@ public partial class SearchViewModel : ViewModelBase
             }
 
             var count = results.Count;
+            HasNoResults = count == 0;
             StatusMessage = count > MaxResults
                 ? string.Format(LocalizationManager.Instance.GetString("FileSearchStatusResultFormat"), count) + $" (top {MaxResults})"
                 : string.Format(LocalizationManager.Instance.GetString("FileSearchStatusResultFormat"), count);
@@ -134,37 +135,40 @@ public partial class SearchViewModel : ViewModelBase
     private async Task SelectDirectoryAsync()
     {
         var path = await App.FilesService.OpenSelectFolderAsync(CurrentDirectory, UIManager.GetFocusWindow());
-        if (!string.IsNullOrEmpty(path))
-        {
-            CurrentDirectory = path;
-            ApplyDirectory();
-        }
+        if (!string.IsNullOrEmpty(path)) ApplyDirectory(path);
     }
 
     [RelayCommand]
     private void SetDirectory(string path)
     {
-        if (!string.IsNullOrEmpty(path))
-        {
-            CurrentDirectory = path;
-            ApplyDirectory();
-        }
+        if (!string.IsNullOrEmpty(path)) ApplyDirectory(path);
     }
 
-    private void ApplyDirectory()
+    private void ApplyDirectory(string path)
     {
-        _searchService.SetSearchRoot(CurrentDirectory);
-
-        Dispatcher.UIThread.Post(() => UpdateHistory(CurrentDirectory));
-
+        _searchService.AddHistory(path);
+        UpdateHistory(path);
         if (AutoSearch && !string.IsNullOrWhiteSpace(SearchQuery))
             DebounceSearch();
     }
 
     private void UpdateHistory(string path)
     {
-        HistoryDirectories.Remove(path);
-        HistoryDirectories.Insert(0, path);
+        var existingIndex = HistoryDirectories.IndexOf(path);
+        if (existingIndex == 0) return; // 已经是第一项
+
+        if (existingIndex > 0)
+        {
+            // 移动到首位
+            HistoryDirectories.Move(existingIndex, 0);
+        }
+        else
+        {
+            // 新项插入首位
+            HistoryDirectories.Insert(0, path);
+        }
+
+        CurrentDirectory = path;
         while (HistoryDirectories.Count > MaxHistoryItems)
             HistoryDirectories.RemoveAt(HistoryDirectories.Count - 1);
     }
@@ -188,5 +192,7 @@ public partial class SearchViewModel : ViewModelBase
         {
             HistoryDirectories.Add(dir);
         }
+
+        CurrentDirectory = HistoryDirectories.FirstOrDefault() ?? "";
     }
 }

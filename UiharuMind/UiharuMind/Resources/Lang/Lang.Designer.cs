@@ -98,10 +98,478 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("MenuChatKey", resourceCulture);
             }
         }
-
+        
         public static string MenuCharacterKey {
             get {
                 return ResourceManager.GetString("MenuCharacterKey", resourceCulture);
+            }
+        }
+        
+        public static string AgentNewSession {
+            get {
+                return ResourceManager.GetString("AgentNewSession", resourceCulture);
+            }
+        }
+        
+        public static string AgentEmptyHint {
+            get {
+                return ResourceManager.GetString("AgentEmptyHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentThinking {
+            get {
+                return ResourceManager.GetString("AgentThinking", resourceCulture);
+            }
+        }
+        
+        public static string AgentApprovalTitle {
+            get {
+                return ResourceManager.GetString("AgentApprovalTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentApproveOnce {
+            get {
+                return ResourceManager.GetString("AgentApproveOnce", resourceCulture);
+            }
+        }
+        
+        public static string AgentApproveSession {
+            get {
+                return ResourceManager.GetString("AgentApproveSession", resourceCulture);
+            }
+        }
+        
+        public static string AgentDeny {
+            get {
+                return ResourceManager.GetString("AgentDeny", resourceCulture);
+            }
+        }
+        
+        public static string AgentPlanTitle {
+            get {
+                return ResourceManager.GetString("AgentPlanTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentPlanApprove {
+            get {
+                return ResourceManager.GetString("AgentPlanApprove", resourceCulture);
+            }
+        }
+        
+        public static string AgentSubAgent {
+            get {
+                return ResourceManager.GetString("AgentSubAgent", resourceCulture);
+            }
+        }
+        
+        public static string AgentWorkspaceNone {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceNone", resourceCulture);
+            }
+        }
+        
+        public static string AgentWorkspaceLabel {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceLabel", resourceCulture);
+            }
+        }
+        
+        public static string AgentStatusLabel {
+            get {
+                return ResourceManager.GetString("AgentStatusLabel", resourceCulture);
+            }
+        }
+        
+        public static string AgentStatusRunning {
+            get {
+                return ResourceManager.GetString("AgentStatusRunning", resourceCulture);
+            }
+        }
+        
+        public static string AgentStatusIdle {
+            get {
+                return ResourceManager.GetString("AgentStatusIdle", resourceCulture);
+            }
+        }
+        
+        public static string AgentTodoTitle {
+            get {
+                return ResourceManager.GetString("AgentTodoTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentTodoEmpty {
+            get {
+                return ResourceManager.GetString("AgentTodoEmpty", resourceCulture);
+            }
+        }
+        
+        public static string AgentPermissionReadOnly {
+            get {
+                return ResourceManager.GetString("AgentPermissionReadOnly", resourceCulture);
+            }
+        }
+        
+        public static string AgentPermissionAutoEdit {
+            get {
+                return ResourceManager.GetString("AgentPermissionAutoEdit", resourceCulture);
+            }
+        }
+        
+        public static string AgentPermissionFullAuto {
+            get {
+                return ResourceManager.GetString("AgentPermissionFullAuto", resourceCulture);
+            }
+        }
+        
+        public static string AgentPlanMode {
+            get {
+                return ResourceManager.GetString("AgentPlanMode", resourceCulture);
+            }
+        }
+        
+        public static string AgentInputWatermark {
+            get {
+                return ResourceManager.GetString("AgentInputWatermark", resourceCulture);
+            }
+        }
+        
+        public static string AgentModeExecute {
+            get {
+                return ResourceManager.GetString("AgentModeExecute", resourceCulture);
+            }
+        }
+        
+        public static string AgentModeSwitchHint {
+            get {
+                return ResourceManager.GetString("AgentModeSwitchHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentSessions {
+            get {
+                return ResourceManager.GetString("AgentSessions", resourceCulture);
+            }
+        }
+        
+        public static string AgentSessionsHint {
+            get {
+                return ResourceManager.GetString("AgentSessionsHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentWorkspaceChange {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceChange", resourceCulture);
+            }
+        }
+        
+        public static string AgentWorkspaceClear {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceClear", resourceCulture);
+            }
+        }
+        
+        public static string AgentSenderUser {
+            get {
+                return ResourceManager.GetString("AgentSenderUser", resourceCulture);
+            }
+        }
+        
+        public static string AgentSend {
+            get {
+                return ResourceManager.GetString("AgentSend", resourceCulture);
+            }
+        }
+        
+        public static string AgentStop {
+            get {
+                return ResourceManager.GetString("AgentStop", resourceCulture);
+            }
+        }
+        
+        public static string AgentScheduledTitle {
+            get {
+                return ResourceManager.GetString("AgentScheduledTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentScheduledEmpty {
+            get {
+                return ResourceManager.GetString("AgentScheduledEmpty", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskRunNow {
+            get {
+                return ResourceManager.GetString("AgentTaskRunNow", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskCancel {
+            get {
+                return ResourceManager.GetString("AgentTaskCancel", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskOpenSession {
+            get {
+                return ResourceManager.GetString("AgentTaskOpenSession", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskStatusPending {
+            get {
+                return ResourceManager.GetString("AgentTaskStatusPending", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskStatusRunning {
+            get {
+                return ResourceManager.GetString("AgentTaskStatusRunning", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskStatusCompleted {
+            get {
+                return ResourceManager.GetString("AgentTaskStatusCompleted", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskStatusFailed {
+            get {
+                return ResourceManager.GetString("AgentTaskStatusFailed", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskStatusCancelled {
+            get {
+                return ResourceManager.GetString("AgentTaskStatusCancelled", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskStatusMissed {
+            get {
+                return ResourceManager.GetString("AgentTaskStatusMissed", resourceCulture);
+            }
+        }
+        
+        public static string AgentSetting {
+            get {
+                return ResourceManager.GetString("AgentSetting", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingGeneral {
+            get {
+                return ResourceManager.GetString("AgentSettingGeneral", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingProfiles {
+            get {
+                return ResourceManager.GetString("AgentSettingProfiles", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingMcp {
+            get {
+                return ResourceManager.GetString("AgentSettingMcp", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSkills {
+            get {
+                return ResourceManager.GetString("AgentSettingSkills", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingDefaultPermission {
+            get {
+                return ResourceManager.GetString("AgentSettingDefaultPermission", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingDefaultWorkspace {
+            get {
+                return ResourceManager.GetString("AgentSettingDefaultWorkspace", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingDefaultPlanMode {
+            get {
+                return ResourceManager.GetString("AgentSettingDefaultPlanMode", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapabilities {
+            get {
+                return ResourceManager.GetString("AgentSettingCapabilities", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapFileAccess {
+            get {
+                return ResourceManager.GetString("AgentSettingCapFileAccess", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapShellExecution {
+            get {
+                return ResourceManager.GetString("AgentSettingCapShellExecution", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapWebSearch {
+            get {
+                return ResourceManager.GetString("AgentSettingCapWebSearch", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapMemory {
+            get {
+                return ResourceManager.GetString("AgentSettingCapMemory", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapTodo {
+            get {
+                return ResourceManager.GetString("AgentSettingCapTodo", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileName {
+            get {
+                return ResourceManager.GetString("AgentProfileName", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileDescription {
+            get {
+                return ResourceManager.GetString("AgentProfileDescription", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileModel {
+            get {
+                return ResourceManager.GetString("AgentProfileModel", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileModelHint {
+            get {
+                return ResourceManager.GetString("AgentProfileModelHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileSystemPrompt {
+            get {
+                return ResourceManager.GetString("AgentProfileSystemPrompt", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileExposeAsTool {
+            get {
+                return ResourceManager.GetString("AgentProfileExposeAsTool", resourceCulture);
+            }
+        }
+        
+        public static string AgentProfileNewName {
+            get {
+                return ResourceManager.GetString("AgentProfileNewName", resourceCulture);
+            }
+        }
+        
+        public static string AgentSave {
+            get {
+                return ResourceManager.GetString("AgentSave", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpName {
+            get {
+                return ResourceManager.GetString("AgentMcpName", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpTransport {
+            get {
+                return ResourceManager.GetString("AgentMcpTransport", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpCommand {
+            get {
+                return ResourceManager.GetString("AgentMcpCommand", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpArguments {
+            get {
+                return ResourceManager.GetString("AgentMcpArguments", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpUrl {
+            get {
+                return ResourceManager.GetString("AgentMcpUrl", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpEnabled {
+            get {
+                return ResourceManager.GetString("AgentMcpEnabled", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpTest {
+            get {
+                return ResourceManager.GetString("AgentMcpTest", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpStateDisconnected {
+            get {
+                return ResourceManager.GetString("AgentMcpStateDisconnected", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpStateConnecting {
+            get {
+                return ResourceManager.GetString("AgentMcpStateConnecting", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpStateConnected {
+            get {
+                return ResourceManager.GetString("AgentMcpStateConnected", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpStateFailed {
+            get {
+                return ResourceManager.GetString("AgentMcpStateFailed", resourceCulture);
+            }
+        }
+        
+        public static string AgentSkillsOpenFolder {
+            get {
+                return ResourceManager.GetString("AgentSkillsOpenFolder", resourceCulture);
+            }
+        }
+        
+        public static string AgentSkillsReload {
+            get {
+                return ResourceManager.GetString("AgentSkillsReload", resourceCulture);
+            }
+        }
+        
+        public static string AgentEmptyTitle {
+            get {
+                return ResourceManager.GetString("AgentEmptyTitle", resourceCulture);
             }
         }
         
@@ -204,6 +672,168 @@ namespace UiharuMind.Resources.Lang {
         public static string LLamaCppSetting {
             get {
                 return ResourceManager.GetString("LLamaCppSetting", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeEngine {
+            get {
+                return ResourceManager.GetString("ModelRuntimeEngine", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLLamaSharpBackend {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLLamaSharpBackend", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeChangeHint {
+            get {
+                return ResourceManager.GetString("ModelRuntimeChangeHint", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeSectionTitle {
+            get {
+                return ResourceManager.GetString("ModelRuntimeSectionTitle", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeSectionDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeSectionDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLLamaSharpTitle {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLLamaSharpTitle", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLLamaSharpDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLLamaSharpDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLLamaCppTitle {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLLamaCppTitle", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLLamaCppDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLLamaCppDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeContextSize {
+            get {
+                return ResourceManager.GetString("ModelRuntimeContextSize", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeContextSizeDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeContextSizeDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeGpuLayers {
+            get {
+                return ResourceManager.GetString("ModelRuntimeGpuLayers", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeGpuLayersDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeGpuLayersDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeBatchSize {
+            get {
+                return ResourceManager.GetString("ModelRuntimeBatchSize", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeBatchSizeDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeBatchSizeDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeUBatchSize {
+            get {
+                return ResourceManager.GetString("ModelRuntimeUBatchSize", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeUBatchSizeDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeUBatchSizeDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeThreads {
+            get {
+                return ResourceManager.GetString("ModelRuntimeThreads", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeThreadsDesc {
+            get {
+                return ResourceManager.GetString("ModelRuntimeThreadsDesc", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeFlashAttention {
+            get {
+                return ResourceManager.GetString("ModelRuntimeFlashAttention", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeQuickSettings {
+            get {
+                return ResourceManager.GetString("ModelRuntimeQuickSettings", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeEstimatedMemoryUsage {
+            get {
+                return ResourceManager.GetString("ModelRuntimeEstimatedMemoryUsage", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeBeta {
+            get {
+                return ResourceManager.GetString("ModelRuntimeBeta", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeGpuMemory {
+            get {
+                return ResourceManager.GetString("ModelRuntimeGpuMemory", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeTotalMemory {
+            get {
+                return ResourceManager.GetString("ModelRuntimeTotalMemory", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeContextLimitHint {
+            get {
+                return ResourceManager.GetString("ModelRuntimeContextLimitHint", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeShowAdvancedSettings {
+            get {
+                return ResourceManager.GetString("ModelRuntimeShowAdvancedSettings", resourceCulture);
             }
         }
         
@@ -801,6 +1431,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string Favorite {
+            get {
+                return ResourceManager.GetString("Favorite", resourceCulture);
+            }
+        }
+        
         public static string FavoriteRemoteModelSetTips {
             get {
                 return ResourceManager.GetString("FavoriteRemoteModelSetTips", resourceCulture);
@@ -810,12 +1446,6 @@ namespace UiharuMind.Resources.Lang {
         public static string FavoriteRemoteModelDelTips {
             get {
                 return ResourceManager.GetString("FavoriteRemoteModelDelTips", resourceCulture);
-            }
-        }
-        
-        public static string Favorite {
-            get {
-                return ResourceManager.GetString("Favorite", resourceCulture);
             }
         }
         
@@ -872,82 +1502,322 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("MemoryTips", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexUpdate {
             get {
                 return ResourceManager.GetString("MemoryIndexUpdate", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexUpdating {
             get {
                 return ResourceManager.GetString("MemoryIndexUpdating", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexNeedUpdate {
             get {
                 return ResourceManager.GetString("MemoryIndexNeedUpdate", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexReady {
             get {
                 return ResourceManager.GetString("MemoryIndexReady", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexNotBuilt {
             get {
                 return ResourceManager.GetString("MemoryIndexNotBuilt", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexLastIndexed {
             get {
                 return ResourceManager.GetString("MemoryIndexLastIndexed", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexLastError {
             get {
                 return ResourceManager.GetString("MemoryIndexLastError", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexUpdateSuccess {
             get {
                 return ResourceManager.GetString("MemoryIndexUpdateSuccess", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexUpdateFailed {
             get {
                 return ResourceManager.GetString("MemoryIndexUpdateFailed", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexEmbeddingServerUnavailable {
             get {
                 return ResourceManager.GetString("MemoryIndexEmbeddingServerUnavailable", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexEmbeddingServerTimeout {
             get {
                 return ResourceManager.GetString("MemoryIndexEmbeddingServerTimeout", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexMemoryNameMissing {
             get {
                 return ResourceManager.GetString("MemoryIndexMemoryNameMissing", resourceCulture);
             }
         }
-
+        
         public static string MemoryIndexVectorStoreUnavailable {
             get {
                 return ResourceManager.GetString("MemoryIndexVectorStoreUnavailable", resourceCulture);
+            }
+        }
+        
+        public static string MemoryWorkspaceTitle {
+            get {
+                return ResourceManager.GetString("MemoryWorkspaceTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManualTextTab {
+            get {
+                return ResourceManager.GetString("MemoryManualTextTab", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManualTextTitle {
+            get {
+                return ResourceManager.GetString("MemoryManualTextTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManualTextHint {
+            get {
+                return ResourceManager.GetString("MemoryManualTextHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryAddManualText {
+            get {
+                return ResourceManager.GetString("MemoryAddManualText", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFilesTab {
+            get {
+                return ResourceManager.GetString("MemoryTextFilesTab", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFilesTitle {
+            get {
+                return ResourceManager.GetString("MemoryTextFilesTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFilesHint {
+            get {
+                return ResourceManager.GetString("MemoryTextFilesHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryAddTextFile {
+            get {
+                return ResourceManager.GetString("MemoryAddTextFile", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextEditorTitle {
+            get {
+                return ResourceManager.GetString("MemoryTextEditorTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextEditorHint {
+            get {
+                return ResourceManager.GetString("MemoryTextEditorHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextTitleLabel {
+            get {
+                return ResourceManager.GetString("MemoryTextTitleLabel", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextTitlePlaceholder {
+            get {
+                return ResourceManager.GetString("MemoryTextTitlePlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextContentLabel {
+            get {
+                return ResourceManager.GetString("MemoryTextContentLabel", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextContentPlaceholder {
+            get {
+                return ResourceManager.GetString("MemoryTextContentPlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStop {
+            get {
+                return ResourceManager.GetString("MemoryIndexStop", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexCancelledOldIndexKept {
+            get {
+                return ResourceManager.GetString("MemoryIndexCancelledOldIndexKept", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexNeverUpdated {
+            get {
+                return ResourceManager.GetString("MemoryIndexNeverUpdated", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceCountFormat {
+            get {
+                return ResourceManager.GetString("MemorySourceCountFormat", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStagePreparing {
+            get {
+                return ResourceManager.GetString("MemoryIndexStagePreparing", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStageReadingSources {
+            get {
+                return ResourceManager.GetString("MemoryIndexStageReadingSources", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStageSplittingText {
+            get {
+                return ResourceManager.GetString("MemoryIndexStageSplittingText", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStageGeneratingEmbeddings {
+            get {
+                return ResourceManager.GetString("MemoryIndexStageGeneratingEmbeddings", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStageWritingDatabase {
+            get {
+                return ResourceManager.GetString("MemoryIndexStageWritingDatabase", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStageCompleted {
+            get {
+                return ResourceManager.GetString("MemoryIndexStageCompleted", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexProgressFormat {
+            get {
+                return ResourceManager.GetString("MemoryIndexProgressFormat", resourceCulture);
+            }
+        }
+        
+        public static string MemorySelectTextFilesTitle {
+            get {
+                return ResourceManager.GetString("MemorySelectTextFilesTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFileFilter {
+            get {
+                return ResourceManager.GetString("MemoryTextFileFilter", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceEmpty {
+            get {
+                return ResourceManager.GetString("MemorySourceEmpty", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceFileMissing {
+            get {
+                return ResourceManager.GetString("MemorySourceFileMissing", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceEncodingUnknown {
+            get {
+                return ResourceManager.GetString("MemorySourceEncodingUnknown", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceNotPlainText {
+            get {
+                return ResourceManager.GetString("MemorySourceNotPlainText", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceReadFailed {
+            get {
+                return ResourceManager.GetString("MemorySourceReadFailed", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceUnsupported {
+            get {
+                return ResourceManager.GetString("MemorySourceUnsupported", resourceCulture);
+            }
+        }
+        
+        public static string MemorySourceValidationFailed {
+            get {
+                return ResourceManager.GetString("MemorySourceValidationFailed", resourceCulture);
+            }
+        }
+        
+        public static string MemoryImportStop {
+            get {
+                return ResourceManager.GetString("MemoryImportStop", resourceCulture);
+            }
+        }
+        
+        public static string MemoryImportValidating {
+            get {
+                return ResourceManager.GetString("MemoryImportValidating", resourceCulture);
+            }
+        }
+        
+        public static string MemoryImportProgressFormat {
+            get {
+                return ResourceManager.GetString("MemoryImportProgressFormat", resourceCulture);
+            }
+        }
+        
+        public static string MemoryImportCompleted {
+            get {
+                return ResourceManager.GetString("MemoryImportCompleted", resourceCulture);
+            }
+        }
+        
+        public static string MemoryImportCancelled {
+            get {
+                return ResourceManager.GetString("MemoryImportCancelled", resourceCulture);
             }
         }
         
@@ -1137,6 +2007,96 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ApplicationUpdateGoTo {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateGoTo", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateAvailableFormat {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateAvailableFormat", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateCheckFailed {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateCheckFailed", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateAlreadyLatest {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateAlreadyLatest", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateAutoCheckPending {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateAutoCheckPending", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateDownloadTitle {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateDownloadTitle", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateDownloadDesc {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateDownloadDesc", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateNoAsset {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateNoAsset", resourceCulture);
+            }
+        }
+        
+        public static string ConfirmDeleteApplicationUpdate {
+            get {
+                return ResourceManager.GetString("ConfirmDeleteApplicationUpdate", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateInstall {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateInstall", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateInstallConfirm {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateInstallConfirm", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateInstallFileMissing {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateInstallFileMissing", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateInstallFailed {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateInstallFailed", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateInstallPackageDeleted {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateInstallPackageDeleted", resourceCulture);
+            }
+        }
+        
+        public static string ApplicationUpdateExtractFailed {
+            get {
+                return ResourceManager.GetString("ApplicationUpdateExtractFailed", resourceCulture);
+            }
+        }
+        
         public static string UserInterfaceSetting {
             get {
                 return ResourceManager.GetString("UserInterfaceSetting", resourceCulture);
@@ -1146,6 +2106,60 @@ namespace UiharuMind.Resources.Lang {
         public static string LanguageSettingDesc {
             get {
                 return ResourceManager.GetString("LanguageSettingDesc", resourceCulture);
+            }
+        }
+        
+        public static string ThemeSetting {
+            get {
+                return ResourceManager.GetString("ThemeSetting", resourceCulture);
+            }
+        }
+        
+        public static string ThemeSettingDesc {
+            get {
+                return ResourceManager.GetString("ThemeSettingDesc", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeDefault {
+            get {
+                return ResourceManager.GetString("ThemeModeDefault", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeLight {
+            get {
+                return ResourceManager.GetString("ThemeModeLight", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeDark {
+            get {
+                return ResourceManager.GetString("ThemeModeDark", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeAquatic {
+            get {
+                return ResourceManager.GetString("ThemeModeAquatic", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeDesert {
+            get {
+                return ResourceManager.GetString("ThemeModeDesert", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeDusk {
+            get {
+                return ResourceManager.GetString("ThemeModeDusk", resourceCulture);
+            }
+        }
+        
+        public static string ThemeModeNightSky {
+            get {
+                return ResourceManager.GetString("ThemeModeNightSky", resourceCulture);
             }
         }
         
@@ -1160,19 +2174,19 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("SettingLogLevelDesc", resourceCulture);
             }
         }
-
+        
         public static string FullscreenGameInputSupport {
             get {
                 return ResourceManager.GetString("FullscreenGameInputSupport", resourceCulture);
             }
         }
-
+        
         public static string FullscreenGameInputSupportDesc {
             get {
                 return ResourceManager.GetString("FullscreenGameInputSupportDesc", resourceCulture);
             }
         }
-
+        
         public static string FullscreenGameInputRestartConfirm {
             get {
                 return ResourceManager.GetString("FullscreenGameInputRestartConfirm", resourceCulture);
@@ -1299,6 +2313,696 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AutoClickWindowTitleFormat {
+            get {
+                return ResourceManager.GetString("AutoClickWindowTitleFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickUntitledSession {
+            get {
+                return ResourceManager.GetString("AutoClickUntitledSession", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDefaultSessionName {
+            get {
+                return ResourceManager.GetString("AutoClickDefaultSessionName", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStartRecording {
+            get {
+                return ResourceManager.GetString("AutoClickStartRecording", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStopRecording {
+            get {
+                return ResourceManager.GetString("AutoClickStopRecording", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickPlay {
+            get {
+                return ResourceManager.GetString("AutoClickPlay", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStop {
+            get {
+                return ResourceManager.GetString("AutoClickStop", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickSessions {
+            get {
+                return ResourceManager.GetString("AutoClickSessions", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickNewSession {
+            get {
+                return ResourceManager.GetString("AutoClickNewSession", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickSearchSession {
+            get {
+                return ResourceManager.GetString("AutoClickSearchSession", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRenameSession {
+            get {
+                return ResourceManager.GetString("AutoClickRenameSession", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDuplicateSession {
+            get {
+                return ResourceManager.GetString("AutoClickDuplicateSession", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDeleteSessionConfirm {
+            get {
+                return ResourceManager.GetString("AutoClickDeleteSessionConfirm", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDiscardUnsavedConfirm {
+            get {
+                return ResourceManager.GetString("AutoClickDiscardUnsavedConfirm", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickTimeline {
+            get {
+                return ResourceManager.GetString("AutoClickTimeline", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickInspector {
+            get {
+                return ResourceManager.GetString("AutoClickInspector", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickNoStepSelected {
+            get {
+                return ResourceManager.GetString("AutoClickNoStepSelected", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepCountFormat {
+            get {
+                return ResourceManager.GetString("AutoClickStepCountFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepUnit {
+            get {
+                return ResourceManager.GetString("AutoClickStepUnit", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRecordedCountFormat {
+            get {
+                return ResourceManager.GetString("AutoClickRecordedCountFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRecordedCountZero {
+            get {
+                return ResourceManager.GetString("AutoClickRecordedCountZero", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMoveUp {
+            get {
+                return ResourceManager.GetString("AutoClickMoveUp", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMoveDown {
+            get {
+                return ResourceManager.GetString("AutoClickMoveDown", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDuplicateStep {
+            get {
+                return ResourceManager.GetString("AutoClickDuplicateStep", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRemoveStep {
+            get {
+                return ResourceManager.GetString("AutoClickRemoveStep", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAddLeftClick {
+            get {
+                return ResourceManager.GetString("AutoClickAddLeftClick", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAddRightClick {
+            get {
+                return ResourceManager.GetString("AutoClickAddRightClick", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAddKey {
+            get {
+                return ResourceManager.GetString("AutoClickAddKey", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAddText {
+            get {
+                return ResourceManager.GetString("AutoClickAddText", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAddDelay {
+            get {
+                return ResourceManager.GetString("AutoClickAddDelay", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAddLoop {
+            get {
+                return ResourceManager.GetString("AutoClickAddLoop", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickEmptyTimelineTitle {
+            get {
+                return ResourceManager.GetString("AutoClickEmptyTimelineTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickEmptyTimelineDesc {
+            get {
+                return ResourceManager.GetString("AutoClickEmptyTimelineDesc", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickPlaybackSettings {
+            get {
+                return ResourceManager.GetString("AutoClickPlaybackSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRepeatCount {
+            get {
+                return ResourceManager.GetString("AutoClickRepeatCount", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDefaultDelay {
+            get {
+                return ResourceManager.GetString("AutoClickDefaultDelay", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickPlaybackSpeed {
+            get {
+                return ResourceManager.GetString("AutoClickPlaybackSpeed", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRepeatCountHint {
+            get {
+                return ResourceManager.GetString("AutoClickRepeatCountHint", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickAdvancedSettings {
+            get {
+                return ResourceManager.GetString("AutoClickAdvancedSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRecordMouseMovement {
+            get {
+                return ResourceManager.GetString("AutoClickRecordMouseMovement", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMouseMovementFrameRate {
+            get {
+                return ResourceManager.GetString("AutoClickMouseMovementFrameRate", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRecordMouseMovementOnlyWhenPressed {
+            get {
+                return ResourceManager.GetString("AutoClickRecordMouseMovementOnlyWhenPressed", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRecordMouseMovementHint {
+            get {
+                return ResourceManager.GetString("AutoClickRecordMouseMovementHint", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepSettings {
+            get {
+                return ResourceManager.GetString("AutoClickStepSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickEnabled {
+            get {
+                return ResourceManager.GetString("AutoClickEnabled", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDelayMs {
+            get {
+                return ResourceManager.GetString("AutoClickDelayMs", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDurationMs {
+            get {
+                return ResourceManager.GetString("AutoClickDurationMs", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMouseSettings {
+            get {
+                return ResourceManager.GetString("AutoClickMouseSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickWheelSettings {
+            get {
+                return ResourceManager.GetString("AutoClickWheelSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickWheelDelta {
+            get {
+                return ResourceManager.GetString("AutoClickWheelDelta", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKeyboardSettings {
+            get {
+                return ResourceManager.GetString("AutoClickKeyboardSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKey {
+            get {
+                return ResourceManager.GetString("AutoClickKey", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickTextSettings {
+            get {
+                return ResourceManager.GetString("AutoClickTextSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickLoopSettings {
+            get {
+                return ResourceManager.GetString("AutoClickLoopSettings", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickLoopCount {
+            get {
+                return ResourceManager.GetString("AutoClickLoopCount", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickLoopHint {
+            get {
+                return ResourceManager.GetString("AutoClickLoopHint", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusReady {
+            get {
+                return ResourceManager.GetString("AutoClickStatusReady", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusCreated {
+            get {
+                return ResourceManager.GetString("AutoClickStatusCreated", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusLoaded {
+            get {
+                return ResourceManager.GetString("AutoClickStatusLoaded", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusSaved {
+            get {
+                return ResourceManager.GetString("AutoClickStatusSaved", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusDeleted {
+            get {
+                return ResourceManager.GetString("AutoClickStatusDeleted", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusDuplicated {
+            get {
+                return ResourceManager.GetString("AutoClickStatusDuplicated", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusRenamed {
+            get {
+                return ResourceManager.GetString("AutoClickStatusRenamed", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusStepAdded {
+            get {
+                return ResourceManager.GetString("AutoClickStatusStepAdded", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusStepRemoved {
+            get {
+                return ResourceManager.GetString("AutoClickStatusStepRemoved", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusStepDuplicated {
+            get {
+                return ResourceManager.GetString("AutoClickStatusStepDuplicated", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusCleared {
+            get {
+                return ResourceManager.GetString("AutoClickStatusCleared", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusRecording {
+            get {
+                return ResourceManager.GetString("AutoClickStatusRecording", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusRecorded {
+            get {
+                return ResourceManager.GetString("AutoClickStatusRecorded", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusPlaying {
+            get {
+                return ResourceManager.GetString("AutoClickStatusPlaying", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusPlaybackFinished {
+            get {
+                return ResourceManager.GetString("AutoClickStatusPlaybackFinished", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusPlaybackStopped {
+            get {
+                return ResourceManager.GetString("AutoClickStatusPlaybackStopped", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStatusPlaybackFailed {
+            get {
+                return ResourceManager.GetString("AutoClickStatusPlaybackFailed", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickRecordingIndicatorTitle {
+            get {
+                return ResourceManager.GetString("AutoClickRecordingIndicatorTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickPlaybackIndicatorTitle {
+            get {
+                return ResourceManager.GetString("AutoClickPlaybackIndicatorTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickPlaybackRoundFormat {
+            get {
+                return ResourceManager.GetString("AutoClickPlaybackRoundFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickPlaybackInfiniteRoundFormat {
+            get {
+                return ResourceManager.GetString("AutoClickPlaybackInfiniteRoundFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindMouseClick {
+            get {
+                return ResourceManager.GetString("AutoClickKindMouseClick", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindMouseDown {
+            get {
+                return ResourceManager.GetString("AutoClickKindMouseDown", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindMouseUp {
+            get {
+                return ResourceManager.GetString("AutoClickKindMouseUp", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindMouseMove {
+            get {
+                return ResourceManager.GetString("AutoClickKindMouseMove", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindMouseWheel {
+            get {
+                return ResourceManager.GetString("AutoClickKindMouseWheel", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindKeyClick {
+            get {
+                return ResourceManager.GetString("AutoClickKindKeyClick", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindKeyDown {
+            get {
+                return ResourceManager.GetString("AutoClickKindKeyDown", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindKeyUp {
+            get {
+                return ResourceManager.GetString("AutoClickKindKeyUp", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindText {
+            get {
+                return ResourceManager.GetString("AutoClickKindText", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindDelay {
+            get {
+                return ResourceManager.GetString("AutoClickKindDelay", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickKindLoop {
+            get {
+                return ResourceManager.GetString("AutoClickKindLoop", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMouseLeft {
+            get {
+                return ResourceManager.GetString("AutoClickMouseLeft", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMouseRight {
+            get {
+                return ResourceManager.GetString("AutoClickMouseRight", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMouseMiddle {
+            get {
+                return ResourceManager.GetString("AutoClickMouseMiddle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickMouseButton {
+            get {
+                return ResourceManager.GetString("AutoClickMouseButton", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickWheelUp {
+            get {
+                return ResourceManager.GetString("AutoClickWheelUp", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickWheelDown {
+            get {
+                return ResourceManager.GetString("AutoClickWheelDown", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickNoKey {
+            get {
+                return ResourceManager.GetString("AutoClickNoKey", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickNoDuration {
+            get {
+                return ResourceManager.GetString("AutoClickNoDuration", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickEmptyText {
+            get {
+                return ResourceManager.GetString("AutoClickEmptyText", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDelayFormat {
+            get {
+                return ResourceManager.GetString("AutoClickDelayFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickDurationFormat {
+            get {
+                return ResourceManager.GetString("AutoClickDurationFormat", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepMouseClickTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepMouseClickTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepMouseDownTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepMouseDownTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepMouseUpTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepMouseUpTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepMouseMoveTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepMouseMoveTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepMouseWheelTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepMouseWheelTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepKeyClickTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepKeyClickTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepKeyDownTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepKeyDownTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepKeyUpTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepKeyUpTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepTextTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepTextTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepDelayTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepDelayTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepLoopTitle {
+            get {
+                return ResourceManager.GetString("AutoClickStepLoopTitle", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepMouseSummary {
+            get {
+                return ResourceManager.GetString("AutoClickStepMouseSummary", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepPositionSummary {
+            get {
+                return ResourceManager.GetString("AutoClickStepPositionSummary", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepWheelSummary {
+            get {
+                return ResourceManager.GetString("AutoClickStepWheelSummary", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepKeySummary {
+            get {
+                return ResourceManager.GetString("AutoClickStepKeySummary", resourceCulture);
+            }
+        }
+        
+        public static string AutoClickStepLoopSummary {
+            get {
+                return ResourceManager.GetString("AutoClickStepLoopSummary", resourceCulture);
+            }
+        }
+        
         public static string KeySelectionWindowTitle {
             get {
                 return ResourceManager.GetString("KeySelectionWindowTitle", resourceCulture);
@@ -1323,39 +3027,1443 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentSettingCapabilities {
+        public static string ChatWorkspace {
             get {
-                return ResourceManager.GetString("AgentSettingCapabilities", resourceCulture);
+                return ResourceManager.GetString("ChatWorkspace", resourceCulture);
             }
         }
         
-        public static string AgentSettingCapFileAccess {
+        public static string ChatWorkspaceEmpty {
             get {
-                return ResourceManager.GetString("AgentSettingCapFileAccess", resourceCulture);
+                return ResourceManager.GetString("ChatWorkspaceEmpty", resourceCulture);
             }
         }
         
-        public static string AgentSettingCapShellExecution {
+        public static string ChatSessions {
             get {
-                return ResourceManager.GetString("AgentSettingCapShellExecution", resourceCulture);
+                return ResourceManager.GetString("ChatSessions", resourceCulture);
             }
         }
         
-        public static string AgentSettingCapWebSearch {
+        public static string ChatSessionsHint {
             get {
-                return ResourceManager.GetString("AgentSettingCapWebSearch", resourceCulture);
+                return ResourceManager.GetString("ChatSessionsHint", resourceCulture);
             }
         }
         
-        public static string AgentSettingCapMemory {
+        public static string ChatDetails {
             get {
-                return ResourceManager.GetString("AgentSettingCapMemory", resourceCulture);
+                return ResourceManager.GetString("ChatDetails", resourceCulture);
             }
         }
         
-        public static string AgentSettingCapTodo {
+        public static string NewChat {
             get {
-                return ResourceManager.GetString("AgentSettingCapTodo", resourceCulture);
+                return ResourceManager.GetString("NewChat", resourceCulture);
+            }
+        }
+        
+        public static string RetryMessage {
+            get {
+                return ResourceManager.GetString("RetryMessage", resourceCulture);
+            }
+        }
+        
+        public static string BranchChatAfterMessage {
+            get {
+                return ResourceManager.GetString("BranchChatAfterMessage", resourceCulture);
+            }
+        }
+        
+        public static string ChatBranchSuffix {
+            get {
+                return ResourceManager.GetString("ChatBranchSuffix", resourceCulture);
+            }
+        }
+        
+        public static string StopGenerating {
+            get {
+                return ResourceManager.GetString("StopGenerating", resourceCulture);
+            }
+        }
+        
+        public static string CharacterWorkspace {
+            get {
+                return ResourceManager.GetString("CharacterWorkspace", resourceCulture);
+            }
+        }
+        
+        public static string CharacterWorkspaceHint {
+            get {
+                return ResourceManager.GetString("CharacterWorkspaceHint", resourceCulture);
+            }
+        }
+        
+        public static string CharacterPreview {
+            get {
+                return ResourceManager.GetString("CharacterPreview", resourceCulture);
+            }
+        }
+        
+        public static string CharacterLibraryHint {
+            get {
+                return ResourceManager.GetString("CharacterLibraryHint", resourceCulture);
+            }
+        }
+        
+        public static string CharacterEditor {
+            get {
+                return ResourceManager.GetString("CharacterEditor", resourceCulture);
+            }
+        }
+        
+        public static string CharacterEditorHint {
+            get {
+                return ResourceManager.GetString("CharacterEditorHint", resourceCulture);
+            }
+        }
+        
+        public static string CharacterEditorSections {
+            get {
+                return ResourceManager.GetString("CharacterEditorSections", resourceCulture);
+            }
+        }
+        
+        public static string EditorBasicInfo {
+            get {
+                return ResourceManager.GetString("EditorBasicInfo", resourceCulture);
+            }
+        }
+        
+        public static string EditorPrompt {
+            get {
+                return ResourceManager.GetString("EditorPrompt", resourceCulture);
+            }
+        }
+        
+        public static string EditorPreview {
+            get {
+                return ResourceManager.GetString("EditorPreview", resourceCulture);
+            }
+        }
+        
+        public static string EditorPreviewHint {
+            get {
+                return ResourceManager.GetString("EditorPreviewHint", resourceCulture);
+            }
+        }
+        
+        public static string CharacterName {
+            get {
+                return ResourceManager.GetString("CharacterName", resourceCulture);
+            }
+        }
+        
+        public static string ImportCharacter {
+            get {
+                return ResourceManager.GetString("ImportCharacter", resourceCulture);
+            }
+        }
+        
+        public static string ImportFileTitle {
+            get {
+                return ResourceManager.GetString("ImportFileTitle", resourceCulture);
+            }
+        }
+        
+        public static string ImportFileHint {
+            get {
+                return ResourceManager.GetString("ImportFileHint", resourceCulture);
+            }
+        }
+        
+        public static string ImportUrlDisabledTitle {
+            get {
+                return ResourceManager.GetString("ImportUrlDisabledTitle", resourceCulture);
+            }
+        }
+        
+        public static string ImportUrlDisabledHint {
+            get {
+                return ResourceManager.GetString("ImportUrlDisabledHint", resourceCulture);
+            }
+        }
+        
+        public static string UserCardEditor {
+            get {
+                return ResourceManager.GetString("UserCardEditor", resourceCulture);
+            }
+        }
+        
+        public static string UserCardEditorHint {
+            get {
+                return ResourceManager.GetString("UserCardEditorHint", resourceCulture);
+            }
+        }
+        
+        public static string ChatSelectSessionWarning {
+            get {
+                return ResourceManager.GetString("ChatSelectSessionWarning", resourceCulture);
+            }
+        }
+        
+        public static string ChatInputRequiredWarning {
+            get {
+                return ResourceManager.GetString("ChatInputRequiredWarning", resourceCulture);
+            }
+        }
+        
+        public static string ChatGenerationInProgressWarning {
+            get {
+                return ResourceManager.GetString("ChatGenerationInProgressWarning", resourceCulture);
+            }
+        }
+        
+        public static string ChatModelRequiredWarning {
+            get {
+                return ResourceManager.GetString("ChatModelRequiredWarning", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexDimensionMismatch {
+            get {
+                return ResourceManager.GetString("MemoryIndexDimensionMismatch", resourceCulture);
+            }
+        }
+        
+        public static string MemoryLibraryTitle {
+            get {
+                return ResourceManager.GetString("MemoryLibraryTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryLibraryHint {
+            get {
+                return ResourceManager.GetString("MemoryLibraryHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryCreateAction {
+            get {
+                return ResourceManager.GetString("MemoryCreateAction", resourceCulture);
+            }
+        }
+        
+        public static string MemorySearchPlaceholder {
+            get {
+                return ResourceManager.GetString("MemorySearchPlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string MemoryAttachedBadge {
+            get {
+                return ResourceManager.GetString("MemoryAttachedBadge", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManageAction {
+            get {
+                return ResourceManager.GetString("MemoryManageAction", resourceCulture);
+            }
+        }
+        
+        public static string MemoryLastIndexedLabel {
+            get {
+                return ResourceManager.GetString("MemoryLastIndexedLabel", resourceCulture);
+            }
+        }
+        
+        public static string MemoryRoleUsageTitle {
+            get {
+                return ResourceManager.GetString("MemoryRoleUsageTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryRoleUsageHint {
+            get {
+                return ResourceManager.GetString("MemoryRoleUsageHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryAttachAction {
+            get {
+                return ResourceManager.GetString("MemoryAttachAction", resourceCulture);
+            }
+        }
+        
+        public static string MemoryLibraryEmptyTitle {
+            get {
+                return ResourceManager.GetString("MemoryLibraryEmptyTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryLibraryEmptyHint {
+            get {
+                return ResourceManager.GetString("MemoryLibraryEmptyHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryDeleteConfirm {
+            get {
+                return ResourceManager.GetString("MemoryDeleteConfirm", resourceCulture);
+            }
+        }
+        
+        public static string MemoryDescriptionFallback {
+            get {
+                return ResourceManager.GetString("MemoryDescriptionFallback", resourceCulture);
+            }
+        }
+        
+        public static string MemoryLibrarySourceSummary {
+            get {
+                return ResourceManager.GetString("MemoryLibrarySourceSummary", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexHasError {
+            get {
+                return ResourceManager.GetString("MemoryIndexHasError", resourceCulture);
+            }
+        }
+        
+        public static string MemoryCreateTitle {
+            get {
+                return ResourceManager.GetString("MemoryCreateTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryCreateHint {
+            get {
+                return ResourceManager.GetString("MemoryCreateHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryNameLabel {
+            get {
+                return ResourceManager.GetString("MemoryNameLabel", resourceCulture);
+            }
+        }
+        
+        public static string MemoryNamePlaceholder {
+            get {
+                return ResourceManager.GetString("MemoryNamePlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string MemoryNameHint {
+            get {
+                return ResourceManager.GetString("MemoryNameHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryDescriptionLabel {
+            get {
+                return ResourceManager.GetString("MemoryDescriptionLabel", resourceCulture);
+            }
+        }
+        
+        public static string MemoryDescriptionPlaceholder {
+            get {
+                return ResourceManager.GetString("MemoryDescriptionPlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexOverviewTitle {
+            get {
+                return ResourceManager.GetString("MemoryIndexOverviewTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexRoleHintTitle {
+            get {
+                return ResourceManager.GetString("MemoryIndexRoleHintTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexRoleHint {
+            get {
+                return ResourceManager.GetString("MemoryIndexRoleHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexSafeUpdateTitle {
+            get {
+                return ResourceManager.GetString("MemoryIndexSafeUpdateTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexSafeUpdateHint {
+            get {
+                return ResourceManager.GetString("MemoryIndexSafeUpdateHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryEditorFooterHint {
+            get {
+                return ResourceManager.GetString("MemoryEditorFooterHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManualTextRoleHint {
+            get {
+                return ResourceManager.GetString("MemoryManualTextRoleHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManualTextEmptyTitle {
+            get {
+                return ResourceManager.GetString("MemoryManualTextEmptyTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryManualTextEmptyHint {
+            get {
+                return ResourceManager.GetString("MemoryManualTextEmptyHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFilesRoleHint {
+            get {
+                return ResourceManager.GetString("MemoryTextFilesRoleHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFilesEmptyTitle {
+            get {
+                return ResourceManager.GetString("MemoryTextFilesEmptyTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextFilesEmptyHint {
+            get {
+                return ResourceManager.GetString("MemoryTextFilesEmptyHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextEditorRoleHint {
+            get {
+                return ResourceManager.GetString("MemoryTextEditorRoleHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextWritingGuideTitle {
+            get {
+                return ResourceManager.GetString("MemoryTextWritingGuideTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextWritingGuideHint {
+            get {
+                return ResourceManager.GetString("MemoryTextWritingGuideHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextGuideIdentity {
+            get {
+                return ResourceManager.GetString("MemoryTextGuideIdentity", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextGuideIdentityHint {
+            get {
+                return ResourceManager.GetString("MemoryTextGuideIdentityHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextGuideRelationship {
+            get {
+                return ResourceManager.GetString("MemoryTextGuideRelationship", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextGuideRelationshipHint {
+            get {
+                return ResourceManager.GetString("MemoryTextGuideRelationshipHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextGuideWorld {
+            get {
+                return ResourceManager.GetString("MemoryTextGuideWorld", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextGuideWorldHint {
+            get {
+                return ResourceManager.GetString("MemoryTextGuideWorldHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextIndexHint {
+            get {
+                return ResourceManager.GetString("MemoryTextIndexHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextCharacterCount {
+            get {
+                return ResourceManager.GetString("MemoryTextCharacterCount", resourceCulture);
+            }
+        }
+        
+        public static string MemoryTextSaveHint {
+            get {
+                return ResourceManager.GetString("MemoryTextSaveHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryNameInvalid {
+            get {
+                return ResourceManager.GetString("MemoryNameInvalid", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexEmbeddingInputTooLarge {
+            get {
+                return ResourceManager.GetString("MemoryIndexEmbeddingInputTooLarge", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexPendingShort {
+            get {
+                return ResourceManager.GetString("MemoryIndexPendingShort", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexNotBuiltShort {
+            get {
+                return ResourceManager.GetString("MemoryIndexNotBuiltShort", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexPreparingShort {
+            get {
+                return ResourceManager.GetString("MemoryIndexPreparingShort", resourceCulture);
+            }
+        }
+        
+        public static string MemoryDescriptionSectionTitle {
+            get {
+                return ResourceManager.GetString("MemoryDescriptionSectionTitle", resourceCulture);
+            }
+        }
+        
+        public static string MemoryEditDescriptionAction {
+            get {
+                return ResourceManager.GetString("MemoryEditDescriptionAction", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexCancelHint {
+            get {
+                return ResourceManager.GetString("MemoryIndexCancelHint", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexUpdatingDetail {
+            get {
+                return ResourceManager.GetString("MemoryIndexUpdatingDetail", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexReadyDetail {
+            get {
+                return ResourceManager.GetString("MemoryIndexReadyDetail", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexEmbeddingRequestFailed {
+            get {
+                return ResourceManager.GetString("MemoryIndexEmbeddingRequestFailed", resourceCulture);
+            }
+        }
+        
+        public static string MemorySaveDescriptionAction {
+            get {
+                return ResourceManager.GetString("MemorySaveDescriptionAction", resourceCulture);
+            }
+        }
+        
+        public static string MemoryDescriptionSaved {
+            get {
+                return ResourceManager.GetString("MemoryDescriptionSaved", resourceCulture);
+            }
+        }
+        
+        public static string MemoryIndexStorageFailed {
+            get {
+                return ResourceManager.GetString("MemoryIndexStorageFailed", resourceCulture);
+            }
+        }
+        
+        public static string MessageSuccessTitle {
+            get {
+                return ResourceManager.GetString("MessageSuccessTitle", resourceCulture);
+            }
+        }
+        
+        public static string NotificationClose {
+            get {
+                return ResourceManager.GetString("NotificationClose", resourceCulture);
+            }
+        }
+        
+        public static string MenuServicesKey {
+            get {
+                return ResourceManager.GetString("MenuServicesKey", resourceCulture);
+            }
+        }
+        
+        public static string ServicesPageTitle {
+            get {
+                return ResourceManager.GetString("ServicesPageTitle", resourceCulture);
+            }
+        }
+        
+        public static string ServicesPageSubtitle {
+            get {
+                return ResourceManager.GetString("ServicesPageSubtitle", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRefresh {
+            get {
+                return ResourceManager.GetString("ServicesRefresh", resourceCulture);
+            }
+        }
+        
+        public static string ServicesChatModelService {
+            get {
+                return ResourceManager.GetString("ServicesChatModelService", resourceCulture);
+            }
+        }
+        
+        public static string ServicesChatModelServiceDesc {
+            get {
+                return ResourceManager.GetString("ServicesChatModelServiceDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingModelService {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingModelService", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingModelServiceDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingModelServiceDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRuntimeBackendService {
+            get {
+                return ResourceManager.GetString("ServicesRuntimeBackendService", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteApiService {
+            get {
+                return ResourceManager.GetString("ServicesRemoteApiService", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStatusRunning {
+            get {
+                return ResourceManager.GetString("ServicesStatusRunning", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStatusStopped {
+            get {
+                return ResourceManager.GetString("ServicesStatusStopped", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStatusLoading {
+            get {
+                return ResourceManager.GetString("ServicesStatusLoading", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStatusError {
+            get {
+                return ResourceManager.GetString("ServicesStatusError", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStart {
+            get {
+                return ResourceManager.GetString("ServicesStart", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStop {
+            get {
+                return ResourceManager.GetString("ServicesStop", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRestart {
+            get {
+                return ResourceManager.GetString("ServicesRestart", resourceCulture);
+            }
+        }
+        
+        public static string ServicesReload {
+            get {
+                return ResourceManager.GetString("ServicesReload", resourceCulture);
+            }
+        }
+        
+        public static string ServicesSaveSettings {
+            get {
+                return ResourceManager.GetString("ServicesSaveSettings", resourceCulture);
+            }
+        }
+        
+        public static string ServicesOpenFolder {
+            get {
+                return ResourceManager.GetString("ServicesOpenFolder", resourceCulture);
+            }
+        }
+        
+        public static string ServicesSelect {
+            get {
+                return ResourceManager.GetString("ServicesSelect", resourceCulture);
+            }
+        }
+        
+        public static string ServicesSelectFolder {
+            get {
+                return ResourceManager.GetString("ServicesSelectFolder", resourceCulture);
+            }
+        }
+        
+        public static string ServicesCurrentModel {
+            get {
+                return ResourceManager.GetString("ServicesCurrentModel", resourceCulture);
+            }
+        }
+        
+        public static string ServicesModelPath {
+            get {
+                return ResourceManager.GetString("ServicesModelPath", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEndpoint {
+            get {
+                return ResourceManager.GetString("ServicesEndpoint", resourceCulture);
+            }
+        }
+        
+        public static string ServicesBackend {
+            get {
+                return ResourceManager.GetString("ServicesBackend", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDimensions {
+            get {
+                return ResourceManager.GetString("ServicesDimensions", resourceCulture);
+            }
+        }
+        
+        public static string ServicesLastStarted {
+            get {
+                return ResourceManager.GetString("ServicesLastStarted", resourceCulture);
+            }
+        }
+        
+        public static string ServicesLastError {
+            get {
+                return ResourceManager.GetString("ServicesLastError", resourceCulture);
+            }
+        }
+        
+        public static string ServicesNoModelRunning {
+            get {
+                return ResourceManager.GetString("ServicesNoModelRunning", resourceCulture);
+            }
+        }
+        
+        public static string ServicesNoError {
+            get {
+                return ResourceManager.GetString("ServicesNoError", resourceCulture);
+            }
+        }
+        
+        public static string ServicesModelCount {
+            get {
+                return ResourceManager.GetString("ServicesModelCount", resourceCulture);
+            }
+        }
+        
+        public static string ServicesModelCountFormat {
+            get {
+                return ResourceManager.GetString("ServicesModelCountFormat", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRunningCountFormat {
+            get {
+                return ResourceManager.GetString("ServicesRunningCountFormat", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteModelCountFormat {
+            get {
+                return ResourceManager.GetString("ServicesRemoteModelCountFormat", resourceCulture);
+            }
+        }
+        
+        public static string ServicesFavoriteRemoteModel {
+            get {
+                return ResourceManager.GetString("ServicesFavoriteRemoteModel", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRuntimeVersion {
+            get {
+                return ResourceManager.GetString("ServicesRuntimeVersion", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRuntimePath {
+            get {
+                return ResourceManager.GetString("ServicesRuntimePath", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteModels {
+            get {
+                return ResourceManager.GetString("ServicesRemoteModels", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteApiHint {
+            get {
+                return ResourceManager.GetString("ServicesRemoteApiHint", resourceCulture);
+            }
+        }
+        
+        public static string ServicesNoRuntimeSelected {
+            get {
+                return ResourceManager.GetString("ServicesNoRuntimeSelected", resourceCulture);
+            }
+        }
+        
+        public static string ServicesContextSize {
+            get {
+                return ResourceManager.GetString("ServicesContextSize", resourceCulture);
+            }
+        }
+        
+        public static string ServicesBatchSize {
+            get {
+                return ResourceManager.GetString("ServicesBatchSize", resourceCulture);
+            }
+        }
+        
+        public static string ServicesUBatchSize {
+            get {
+                return ResourceManager.GetString("ServicesUBatchSize", resourceCulture);
+            }
+        }
+        
+        public static string ServicesGpuLayers {
+            get {
+                return ResourceManager.GetString("ServicesGpuLayers", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteEndpoint {
+            get {
+                return ResourceManager.GetString("ServicesRemoteEndpoint", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteModelId {
+            get {
+                return ResourceManager.GetString("ServicesRemoteModelId", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRemoteApiKey {
+            get {
+                return ResourceManager.GetString("ServicesRemoteApiKey", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingModelPathWatermark {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingModelPathWatermark", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSettingsSaved {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSettingsSaved", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSettingsDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSettingsDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingAdvanced {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingAdvanced", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingAdvancedDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingAdvancedDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesContextSizeDesc {
+            get {
+                return ResourceManager.GetString("ServicesContextSizeDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesBatchSizeDesc {
+            get {
+                return ResourceManager.GetString("ServicesBatchSizeDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesUBatchSizeDesc {
+            get {
+                return ResourceManager.GetString("ServicesUBatchSizeDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesGpuLayersDesc {
+            get {
+                return ResourceManager.GetString("ServicesGpuLayersDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRuntimeHint {
+            get {
+                return ResourceManager.GetString("ServicesRuntimeHint", resourceCulture);
+            }
+        }
+        
+        public static string ServicesStatusNeedsConfig {
+            get {
+                return ResourceManager.GetString("ServicesStatusNeedsConfig", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRunningDetails {
+            get {
+                return ResourceManager.GetString("ServicesRunningDetails", resourceCulture);
+            }
+        }
+        
+        public static string ServicesChatRuntimeDetails {
+            get {
+                return ResourceManager.GetString("ServicesChatRuntimeDetails", resourceCulture);
+            }
+        }
+        
+        public static string ServicesChatRuntimeDetailsDesc {
+            get {
+                return ResourceManager.GetString("ServicesChatRuntimeDetailsDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingRuntimeDetails {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingRuntimeDetails", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingRuntimeDetailsDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingRuntimeDetailsDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSource {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSource", resourceCulture);
+            }
+        }
+        
+        public static string ServicesConfiguredModel {
+            get {
+                return ResourceManager.GetString("ServicesConfiguredModel", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRuntimeModel {
+            get {
+                return ResourceManager.GetString("ServicesRuntimeModel", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRecentIssue {
+            get {
+                return ResourceManager.GetString("ServicesRecentIssue", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingConfiguration {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingConfiguration", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceLocal {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceLocal", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceLocalDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceLocalDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceManagedLocal {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceManagedLocal", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceManagedLocalDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceManagedLocalDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceCustomLocal {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceCustomLocal", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceCustomLocalDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceCustomLocalDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceRemoteApi {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceRemoteApi", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceRemoteApiDesc {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceRemoteApiDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceApplication {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceApplication", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingSourceBuiltIn {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingSourceBuiltIn", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRefreshModels {
+            get {
+                return ResourceManager.GetString("ServicesRefreshModels", resourceCulture);
+            }
+        }
+        
+        public static string ServicesManagedEmbeddingSummaryFormat {
+            get {
+                return ResourceManager.GetString("ServicesManagedEmbeddingSummaryFormat", resourceCulture);
+            }
+        }
+        
+        public static string ServicesNoManagedEmbeddingModels {
+            get {
+                return ResourceManager.GetString("ServicesNoManagedEmbeddingModels", resourceCulture);
+            }
+        }
+        
+        public static string ServicesChatModelNotSelected {
+            get {
+                return ResourceManager.GetString("ServicesChatModelNotSelected", resourceCulture);
+            }
+        }
+        
+        public static string ServicesGoToModelPage {
+            get {
+                return ResourceManager.GetString("ServicesGoToModelPage", resourceCulture);
+            }
+        }
+        
+        public static string ServicesEmbeddingStartFailed {
+            get {
+                return ResourceManager.GetString("ServicesEmbeddingStartFailed", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeAvailableMemory {
+            get {
+                return ResourceManager.GetString("ModelRuntimeAvailableMemory", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeRiskLevel {
+            get {
+                return ResourceManager.GetString("ModelRuntimeRiskLevel", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeRiskLow {
+            get {
+                return ResourceManager.GetString("ModelRuntimeRiskLow", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeRiskWarning {
+            get {
+                return ResourceManager.GetString("ModelRuntimeRiskWarning", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeRiskDanger {
+            get {
+                return ResourceManager.GetString("ModelRuntimeRiskDanger", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeRiskUnknown {
+            get {
+                return ResourceManager.GetString("ModelRuntimeRiskUnknown", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeRiskDetailFormat {
+            get {
+                return ResourceManager.GetString("ModelRuntimeRiskDetailFormat", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLoadRiskConfirmTitle {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLoadRiskConfirmTitle", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLoadRiskConfirmFormat {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLoadRiskConfirmFormat", resourceCulture);
+            }
+        }
+        
+        public static string ModelRuntimeLoadRiskNativeCrashHint {
+            get {
+                return ResourceManager.GetString("ModelRuntimeLoadRiskNativeCrashHint", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceResourceTitle {
+            get {
+                return ResourceManager.GetString("ServicesDeviceResourceTitle", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceResourceDesc {
+            get {
+                return ResourceManager.GetString("ServicesDeviceResourceDesc", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceCpuUsage {
+            get {
+                return ResourceManager.GetString("ServicesDeviceCpuUsage", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceMemory {
+            get {
+                return ResourceManager.GetString("ServicesDeviceMemory", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceTotalMemory {
+            get {
+                return ResourceManager.GetString("ServicesDeviceTotalMemory", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceAvailableMemory {
+            get {
+                return ResourceManager.GetString("ServicesDeviceAvailableMemory", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceCpu {
+            get {
+                return ResourceManager.GetString("ServicesDeviceCpu", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceGpu {
+            get {
+                return ResourceManager.GetString("ServicesDeviceGpu", resourceCulture);
+            }
+        }
+        
+        public static string ServicesDeviceGpuMemory {
+            get {
+                return ResourceManager.GetString("ServicesDeviceGpuMemory", resourceCulture);
+            }
+        }
+        
+        public static string ServicesRuntimeRiskDetailFormat {
+            get {
+                return ResourceManager.GetString("ServicesRuntimeRiskDetailFormat", resourceCulture);
+            }
+        }
+        
+        public static string PermissionGuideTitle {
+            get {
+                return ResourceManager.GetString("PermissionGuideTitle", resourceCulture);
+            }
+        }
+        
+        public static string PermissionGuideDesc {
+            get {
+                return ResourceManager.GetString("PermissionGuideDesc", resourceCulture);
+            }
+        }
+        
+        public static string PermissionAccessibility {
+            get {
+                return ResourceManager.GetString("PermissionAccessibility", resourceCulture);
+            }
+        }
+        
+        public static string PermissionAccessibilityDesc {
+            get {
+                return ResourceManager.GetString("PermissionAccessibilityDesc", resourceCulture);
+            }
+        }
+        
+        public static string PermissionScreenRecording {
+            get {
+                return ResourceManager.GetString("PermissionScreenRecording", resourceCulture);
+            }
+        }
+        
+        public static string PermissionScreenRecordingDesc {
+            get {
+                return ResourceManager.GetString("PermissionScreenRecordingDesc", resourceCulture);
+            }
+        }
+        
+        public static string PermissionGranted {
+            get {
+                return ResourceManager.GetString("PermissionGranted", resourceCulture);
+            }
+        }
+        
+        public static string PermissionNotGranted {
+            get {
+                return ResourceManager.GetString("PermissionNotGranted", resourceCulture);
+            }
+        }
+        
+        public static string PermissionOpenSettings {
+            get {
+                return ResourceManager.GetString("PermissionOpenSettings", resourceCulture);
+            }
+        }
+        
+        public static string PermissionSkip {
+            get {
+                return ResourceManager.GetString("PermissionSkip", resourceCulture);
+            }
+        }
+        
+        public static string PermissionRecheck {
+            get {
+                return ResourceManager.GetString("PermissionRecheck", resourceCulture);
+            }
+        }
+        
+        public static string PermissionSkipConfirm {
+            get {
+                return ResourceManager.GetString("PermissionSkipConfirm", resourceCulture);
+            }
+        }
+        
+        public static string PermissionSkipConfirmTitle {
+            get {
+                return ResourceManager.GetString("PermissionSkipConfirmTitle", resourceCulture);
+            }
+        }
+        
+        public static string PermissionHintText {
+            get {
+                return ResourceManager.GetString("PermissionHintText", resourceCulture);
+            }
+        }
+        
+        public static string PermissionRestart {
+            get {
+                return ResourceManager.GetString("PermissionRestart", resourceCulture);
+            }
+        }
+        
+        public static string PermissionRestartConfirm {
+            get {
+                return ResourceManager.GetString("PermissionRestartConfirm", resourceCulture);
+            }
+        }
+        
+        public static string OpenLink {
+            get {
+                return ResourceManager.GetString("OpenLink", resourceCulture);
+            }
+        }
+        
+        public static string CopyLink {
+            get {
+                return ResourceManager.GetString("CopyLink", resourceCulture);
+            }
+        }
+        
+        public static string ToggleTextWrap {
+            get {
+                return ResourceManager.GetString("ToggleTextWrap", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchTitle {
+            get {
+                return ResourceManager.GetString("FileSearchTitle", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchInputWatermark {
+            get {
+                return ResourceManager.GetString("FileSearchInputWatermark", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchBtn {
+            get {
+                return ResourceManager.GetString("FileSearchBtn", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchContentSearchMode {
+            get {
+                return ResourceManager.GetString("FileSearchContentSearchMode", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchContentSearchModeTip {
+            get {
+                return ResourceManager.GetString("FileSearchContentSearchModeTip", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchRegexMode {
+            get {
+                return ResourceManager.GetString("FileSearchRegexMode", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchCaseSensitive {
+            get {
+                return ResourceManager.GetString("FileSearchCaseSensitive", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchSearching {
+            get {
+                return ResourceManager.GetString("FileSearchSearching", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchSelectDirectory {
+            get {
+                return ResourceManager.GetString("FileSearchSelectDirectory", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchCurrentDirectory {
+            get {
+                return ResourceManager.GetString("FileSearchCurrentDirectory", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusReady {
+            get {
+                return ResourceManager.GetString("FileSearchStatusReady", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusSearching {
+            get {
+                return ResourceManager.GetString("FileSearchStatusSearching", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusResultFormat {
+            get {
+                return ResourceManager.GetString("FileSearchStatusResultFormat", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusCancelled {
+            get {
+                return ResourceManager.GetString("FileSearchStatusCancelled", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusNeedInput {
+            get {
+                return ResourceManager.GetString("FileSearchStatusNeedInput", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchCtxOpenFile {
+            get {
+                return ResourceManager.GetString("FileSearchCtxOpenFile", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchCtxOpenDir {
+            get {
+                return ResourceManager.GetString("FileSearchCtxOpenDir", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchAutoSearch {
+            get {
+                return ResourceManager.GetString("FileSearchAutoSearch", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchEmptyHint {
+            get {
+                return ResourceManager.GetString("FileSearchEmptyHint", resourceCulture);
             }
         }
     }

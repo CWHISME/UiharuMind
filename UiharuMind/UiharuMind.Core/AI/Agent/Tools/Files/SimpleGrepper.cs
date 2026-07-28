@@ -11,9 +11,8 @@ namespace UiharuMind.Core.AI.Agent.Files;
 /// </summary>
 public sealed class SimpleGrepper
 {
-    
     private string _rootDirectory;
-    
+
     public SimpleGrepper(string workspaceRoot)
     {
         _rootDirectory = workspaceRoot;
@@ -58,7 +57,7 @@ public sealed class SimpleGrepper
                 isRegex: isRegex,
                 caseSensitive: caseSensitive,
                 contextLines: contextLines,
-                maxDepth:maxDepth,
+                maxDepth: maxDepth,
                 fileGlobs: fileGlobs ?? Array.Empty<string>());
 
             var results = new List<FileSearchResult>();
@@ -66,7 +65,7 @@ public sealed class SimpleGrepper
             {
                 results.Add(new FileSearchResult
                 {
-                    FileName = Path.GetRelativePath(target, match.FilePath).Replace('\\', '/'),
+                    FileName = match.FilePath,
                     Snippet = match.MatchContent?.TrimEnd() ?? "",
                     MatchingLines = new List<FileSearchMatch>
                     {

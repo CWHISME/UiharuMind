@@ -19,7 +19,7 @@ public class SearchService
 
     private SimpleGlobber _globber;
     private SimpleGrepper _grepper;
-    private List<string> _searchHistory;
+    private readonly List<string> _searchHistory;
 
     public SearchService()
     {
@@ -28,7 +28,7 @@ public class SearchService
                          new List<string>();
 
 
-        var rootDir = _searchHistory.FirstOrDefault() ?? "";
+        var rootDir = _searchHistory.FirstOrDefault() ?? Environment.CurrentDirectory;
         _globber = new SimpleGlobber(rootDir);
         _grepper = new SimpleGrepper(rootDir);
     }
@@ -56,17 +56,7 @@ public class SearchService
         if (raw.StartsWith("[DIR]  ")) return raw[7..];
         return raw;
     }
-
-    public void SetSearchRoot(string path)
-    {
-        if (Directory.Exists(path))
-        {
-            _globber = new SimpleGlobber(path);
-            _grepper = new SimpleGrepper(path);
-            AddHistory(path);
-        }
-    }
-
+    
     public async Task<List<SearchItem>> SearchAsync(
         string query,
         bool isContentMode,
@@ -88,7 +78,7 @@ public class SearchService
                     contextLines: 2,
                     maxDepth: null,
                     fileGlobs: null,
-                    directory: null,
+                    directory: _searchHistory.FirstOrDefault(),
                     ct).ConfigureAwait(false);
 
                 results = grepResults.Select(r => new SearchItem(
@@ -102,7 +92,7 @@ public class SearchService
             else
             {
                 var pattern = query.Contains('*') || query.Contains('?') ? query : $"**/*{query}*";
-                var globResults = await _globber.SearchAsync(pattern, null, ct: ct).ConfigureAwait(false);
+                var globResults = await _globber.SearchAsync(pattern, _searchHistory.FirstOrDefault(), ct: ct).ConfigureAwait(false);
 
                 results = globResults.Select(raw =>
                 {

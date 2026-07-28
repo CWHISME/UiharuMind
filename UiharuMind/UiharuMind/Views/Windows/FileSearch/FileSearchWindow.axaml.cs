@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
@@ -5,6 +7,10 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using CliWrap;
+using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.Utils;
 using UiharuMind.Services;
 using UiharuMind.ViewModels;
 using UiharuMind.Views.Common;
@@ -28,20 +34,20 @@ public partial class FileSearchWindow : UiharuWindowBase
         ViewModel.Initialize();
     }
 
-    private void OnDirectorySelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ComboBox comboBox && comboBox.SelectedItem is string path)
-        {
-            ViewModel.SetDirectoryCommand.Execute(path);
-        }
-    }
+    // private void OnDirectorySelectionChanged(object? sender, SelectionChangedEventArgs e)
+    // {
+    //     if (sender is ComboBox comboBox && comboBox.SelectedItem is string path)
+    //     {
+    //         ViewModel.SetDirectoryCommand.Execute(path);
+    //     }
+    // }
 
     private void OnDirectoryLostFocus(object? sender, RoutedEventArgs e)
     {
         if (sender is ComboBox comboBox)
         {
             var text = comboBox.Text;
-            if (!string.IsNullOrEmpty(text) && text != ViewModel.CurrentDirectory)
+            if (!string.IsNullOrEmpty(text))
             {
                 ViewModel.SetDirectoryCommand.Execute(text);
             }
@@ -57,6 +63,7 @@ public partial class FileSearchWindow : UiharuWindowBase
             {
                 ViewModel.SetDirectoryCommand.Execute(text);
             }
+
             e.Handled = true;
         }
     }
@@ -70,6 +77,14 @@ public partial class FileSearchWindow : UiharuWindowBase
         }
     }
 
+    private void OnContextMenuItemClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem && menuItem.DataContext is SearchItem item)
+        {
+            OpenTarget(item, menuItem.Tag?.ToString());
+        }
+    }
+
     private void OnResultDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (e.Source is Control source)
@@ -77,11 +92,7 @@ public partial class FileSearchWindow : UiharuWindowBase
             var listBox = source.FindAncestorOfType<ListBox>();
             if (listBox?.SelectedItem is SearchItem item)
             {
-                var dir = Path.GetDirectoryName(item.Path);
-                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
-                {
-                    App.FilesService.OpenFolder(dir);
-                }
+                OpenTarget(item);
             }
         }
     }
@@ -115,10 +126,60 @@ public partial class FileSearchWindow : UiharuWindowBase
                             ViewModel.SetDirectoryCommand.Execute(dir);
                         }
                     }
+
                     return;
                 }
             }
         }
+
         e.Handled = true;
+    }
+
+    private async void OpenTarget(SearchItem item, string? tag = null)
+    {
+        var fullPath = Path.GetFullPath(Path.Combine(ViewModel.CurrentDirectory, item.Path));
+
+        tag ??= "OpenFile";
+        switch (tag)
+        {
+            case "OpenFile":
+                if (File.Exists(fullPath))
+                {
+                    if (PlatformUtils.IsMacOS)
+                    {
+                        var result = await Cli.Wrap("open")
+                            .WithArguments($"\"{fullPath}\"")
+                            // 设置为 None，这样当 ExitCode != 0 时，CliWrap 不会抛出异常，
+                            .WithValidation(CommandResultValidation.None)
+                            .ExecuteAsync();
+                        if (result.ExitCode != 0) OpenTarget(item, "OpenDir");
+                        return;
+                    }
+
+                    Process.Start(new ProcessStartInfo(fullPath) { UseShellExecute = true });
+                }
+                else
+                    OpenTarget(item, "OpenDir");
+
+                break;
+            case "OpenDir":
+                var dir = Directory.Exists(fullPath) ? fullPath : Path.GetDirectoryName(fullPath);
+                if (Directory.Exists(dir))
+                {
+                    if (PlatformUtils.IsWindows)
+                    {
+                        Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
+                    }
+                    else if (PlatformUtils.IsMacOS)
+                    {
+                        Process.Start("open", $"-R \"{fullPath}\"");
+                    }
+                    else App.FilesService.OpenFolder(dir);
+                }
+                else
+                    App.Services.GetRequiredService<IMessageService>().ShowNotification("Directory not found");
+
+                break;
+        }
     }
 }

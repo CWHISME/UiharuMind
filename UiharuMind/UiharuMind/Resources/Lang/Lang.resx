@@ -2205,9 +2205,6 @@
     <data name="FileSearchCurrentDirectory" xml:space="preserve">
         <value>Directory:</value>
     </data>
-    <data name="FileSearchOpenDirectory" xml:space="preserve">
-        <value>Open</value>
-    </data>
     <data name="FileSearchStatusReady" xml:space="preserve">
         <value>Ready</value>
     </data>
@@ -2223,7 +2220,16 @@
     <data name="FileSearchStatusNeedInput" xml:space="preserve">
         <value>Please enter search content</value>
     </data>
+    <data name="FileSearchCtxOpenFile" xml:space="preserve">
+        <value>Open File</value>
+    </data>
+    <data name="FileSearchCtxOpenDir" xml:space="preserve">
+        <value>Open Directory</value>
+    </data>
     <data name="FileSearchAutoSearch" xml:space="preserve">
         <value>Auto search</value>
+    </data>
+    <data name="FileSearchEmptyHint" xml:space="preserve">
+        <value>No search results</value>
     </data>
 </root>
