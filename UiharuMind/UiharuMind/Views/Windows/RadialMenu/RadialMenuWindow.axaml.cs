@@ -24,6 +24,7 @@ namespace UiharuMind.Views.Windows
         {
             base.OnPreShow();
             InputManager.Instance.EventOnKeyUp += OnGlobalKeyUp;
+            InputManager.Instance.EventOnMouseClicked += OnGlobalMouseClick;
         }
 
         protected override void OnPostShow()
@@ -36,9 +37,20 @@ namespace UiharuMind.Views.Windows
         {
             base.OnPreClose();
             InputManager.Instance.EventOnKeyUp -= OnGlobalKeyUp;
+            InputManager.Instance.EventOnMouseClicked -= OnGlobalMouseClick;
         }
 
         private void OnGlobalKeyUp(KeyCode keyCode)
+        {
+            DoCheck();
+        }
+
+        private void OnGlobalMouseClick(MouseEventData obj)
+        {
+            DoCheck();
+        }
+
+        private void DoCheck()
         {
             Dispatcher.UIThread.Post(() =>
             {

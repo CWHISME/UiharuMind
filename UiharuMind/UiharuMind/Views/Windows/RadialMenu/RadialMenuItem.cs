@@ -133,7 +133,7 @@ namespace UiharuMind.Controls
 
         public void Execute()
         {
-            if (Command != null && Command.CanExecute(null))
+            if (Command.CanExecute(null))
             {
                 Command.Execute(null);
             }

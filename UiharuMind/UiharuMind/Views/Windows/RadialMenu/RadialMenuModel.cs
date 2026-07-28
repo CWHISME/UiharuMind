@@ -31,8 +31,16 @@ namespace UiharuMind.Services
 
             _menuItems.Add(new MenuItemModel
             {
-                Icon = "book-search",
-                Text = "笔记",
+                Icon = "message-circle-more",
+                Text = "询问",
+                Action = () => QuickStartChatWindow.Show()
+            });
+
+            _menuItems.Add(new MenuItemModel
+            {
+                Icon = "house",
+                Text = "主页",
+                Action = () => App.DummyWindow.LaunchMainWindow()
             });
         }
 
