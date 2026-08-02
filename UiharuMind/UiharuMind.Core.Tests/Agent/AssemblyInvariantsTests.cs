@@ -81,6 +81,47 @@ public class HistoryAttributionTests
 }
 
 /// <summary>
+/// 不变量之五：<b>harness 指令以框架默认工作循环开头</b>。
+/// 显式设置 HarnessInstructions 会顶掉框架默认(先想再做/边做边说/失败换路/收尾总结),
+/// 那段恰是弱模型最依赖的部分——一旦拼接被删,症状是"笨模型不会用工具",实机难归因。
+/// </summary>
+public class HarnessInstructionsCompositionTests
+{
+    [Fact]
+    public void AgentHarnessInstructions_StartWithFrameworkDefaults()
+    {
+        CharacterData character = new() { CharacterId = "agent", Kind = ECharacterKind.Agent };
+        string skillsDir = Path.Combine(Path.GetTempPath(), "uiharu-skills-test");
+        Directory.CreateDirectory(skillsDir);
+
+        HarnessAgentOptions options = AgentHost.BuildAgentOptions(character, new AgentSettingConfig(),
+            new StubHistoryProvider(), [], new ChatOptions(),
+            new AgentFileSkillsSource(skillsDir), agentNotesStore: null,
+            EAgentPermissionMode.AutoEdit, preAuthorizedShellPatterns: null);
+
+        Assert.StartsWith(HarnessAgent.DefaultInstructions, options.HarnessInstructions);
+        Assert.Contains("## File operations", options.HarnessInstructions); //默认开关下纪律段仍在
+    }
+
+    private sealed class StubHistoryProvider : ChatHistoryProvider
+    {
+        public override IReadOnlyList<string> StateKeys => [];
+
+        protected override ValueTask<IEnumerable<ChatMessage>> ProvideChatHistoryAsync(
+            InvokingContext context, CancellationToken cancellationToken = default)
+        {
+            return new ValueTask<IEnumerable<ChatMessage>>([]);
+        }
+
+        protected override ValueTask StoreChatHistoryAsync(
+            InvokedContext context, CancellationToken cancellationToken = default)
+        {
+            return default;
+        }
+    }
+}
+
+/// <summary>
 /// 不变量之四：<b>调研员子代理只读</b>。
 /// 它在主 agent 的工具调用内部无头运行,没有审批通道——任何可变更工具混入都是越权。
 /// </summary>

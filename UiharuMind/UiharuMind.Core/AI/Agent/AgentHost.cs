@@ -221,11 +221,19 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
         AIAgent? researcher = BuildResearcherAgent(client, config, workingDirectory);
 
+        // 工作区规矩属任务上下文而非平台机制:放 agent 侧指令尾部——
+        // 即整个系统提示的最尾,遵循权重最高;内容变化仍经装配快照捕获
+        string workspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath);
+        if (workspaceInstructions.Length > 0)
+        {
+            chatOptions.Instructions =
+                $"{chatOptions.Instructions}\n\n# Workspace Instructions (from the project's AGENTS.md)\n{workspaceInstructions}";
+        }
+
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
-            researcher == null ? null : [researcher], profile.SessionShellApprovalSource,
-            WorkspaceInstructionsLoader.Load(profile.WorkspacePath)), shellExecutor);
+            researcher == null ? null : [researcher], profile.SessionShellApprovalSource), shellExecutor);
     }
 
     /// <summary>
@@ -283,7 +291,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             Description = "Read-only researcher: surveys the workspace files and/or the web, inspects images, " +
                           "and returns a focused report. Delegate broad exploration or research tasks to it " +
                           "to keep the main context small. It cannot modify anything.",
-            HarnessInstructions = string.Empty,
+            // 调研员同样是工具循环 agent,框架默认工作循环指令照拿;自己的方法论在 ChatOptions.Instructions
+            HarnessInstructions = HarnessAgent.DefaultInstructions,
             // 与角色扮演档同一原则:框架有状态能力全关,子代理是一次性的纯工具循环
             // (1.16 起框架文件工具只随 FileAccessStore 出现,不设即无,无需显式关闭)
             DisableWebSearch = true,
@@ -382,22 +391,20 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
     /// <param name="backgroundAgents">背景子代理(内置调研员),无则 null</param>
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
-    /// <param name="workspaceInstructions">工作区说明文件内容,无则空串</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         List<AIAgent>? backgroundAgents = null,
-        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        string workspaceInstructions = "")
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
     {
         return new HarnessAgentOptions
         {
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            HarnessInstructions = BuildToolDisciplines(config, workspaceInstructions: workspaceInstructions),
+            HarnessInstructions = BuildToolDisciplines(config),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             FileMemoryStore = agentNotesStore,
@@ -432,59 +439,43 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     }
 
     /// <summary>
-    /// 工具纪律段：按<b>实际装配的工具集</b>派生，而不是一段固定文本。
-    /// 这些内容不是人格而是"这套工具怎么用才不出错"的约束，与工具是否启用强耦合——
-    /// 用户关掉文件工具后还讲 Glob/Read/Edit 就是纯噪声，因此归属是代码而非角色卡。
-    /// 角色自身的人格/任务段由框架拼在本段之后。
+    /// harness 层指令 = 框架默认工作循环 + 按<b>实际装配的工具集</b>派生的使用纪律。
+    ///
+    /// 显式设置 HarnessInstructions 会<b>顶掉</b>框架默认指令,而默认那段
+    /// (先想再做、工具间解释进展、失败换路、收尾总结)恰是弱模型最依赖的工作循环,
+    /// 因此把 <see cref="HarnessAgent.DefaultInstructions"/> 拼回开头,框架升级措辞自动跟随。
+    /// 纪律行面向弱模型:短句、祈使、指名工具;关掉的工具绝不出现(纯噪声)。
+    /// 角色人格/任务与工作区规矩属 agent 侧指令(ChatOptions.Instructions),框架拼在本段之后。
     /// </summary>
     /// <param name="config">agent 能力配置</param>
-    /// <param name="workspaceInstructions">工作区说明文件内容,无则空串</param>
-    /// <returns>纪律段文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config,string workspaceInstructions = "")
+    /// <returns>harness 层指令文本</returns>
+    private static string BuildToolDisciplines(AgentSettingConfig config)
     {
         StringBuilder sb = new();
-        if (config.EnableFileAccess)
-        {
-            sb.AppendLine("# Identity");
-            sb.Append(" You manage the local filesystem primarily through tools(Glob/Grep/Read/Edit)");
-        }
-
-        sb.AppendLine();
+        sb.Append(HarnessAgent.DefaultInstructions);
 
         if (config.EnableFileAccess)
         {
             sb.AppendLine();
-            sb.AppendLine("# Path Discipline");
-            sb.AppendLine("- **No assumed root.** Derive all paths from the user's latest request or prior tool outputs.");
-            sb.AppendLine("- Every call must pass an explicit `path` parameter. If the scope is ambiguous, resolve it with one `Glob` call rather than asking the user.");
             sb.AppendLine();
-            sb.AppendLine("# Edit Discipline");
-            sb.AppendLine("- Read before overwrite. Inspect surrounding context so diffs stay minimal and reversible.");
-            sb.AppendLine("- Never emit full-file rewrites for single-line changes.");
+            sb.AppendLine("## File operations");
+            sb.AppendLine("- Use `Glob` to find files, `Grep` to search text, and `Read` a file before you change it.");
+            sb.AppendLine("- Always pass explicit paths. If the location is unclear, run one `Glob` first instead of asking.");
+            sb.AppendLine("- Make the smallest edit that works. Never rewrite a whole file for a small change.");
         }
 
-        // 纪律段严格随门控派生:关掉的工具绝不出现在提示词里,否则是纯噪声
         if (config.EnableVisionTool)
         {
             sb.AppendLine();
-            sb.AppendLine("# Images");
-            sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. When the path is an image and you need to know what it shows, call `{VisionToolName}` with that path — do not guess from the file name.");
+            sb.AppendLine("## Images");
+            sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. To see what an image shows, call `{VisionToolName}` with that path. Never guess from the file name.");
         }
 
         if (config.EnableMemorySearchTool)
         {
             sb.AppendLine();
-            sb.AppendLine("# Memory Recall");
-            sb.AppendLine($"- A long-term memory library may be bound to this session. When past context matters, call `{MemoryToolName}` with a focused query instead of guessing; it returns relevant snippets or reports that no library is bound.");
-        }
-        
-        if (!string.IsNullOrEmpty(workspaceInstructions))
-        {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.AppendLine("# Workspace Instructions (from the project's AGENTS.md)");
-            sb.AppendLine("Follow these project-specific rules while working in this workspace:");
-            sb.Append(workspaceInstructions);
+            sb.AppendLine("## Memory");
+            sb.AppendLine($"- To recall past context, call `{MemoryToolName}` with a short focused query. It returns snippets, or reports that no library is bound.");
         }
 
         return sb.ToString();
