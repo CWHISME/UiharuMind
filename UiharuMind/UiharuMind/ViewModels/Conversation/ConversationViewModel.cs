@@ -278,8 +278,6 @@ public partial class ConversationViewModel : ViewModelBase
 
     private const string ThinkingModeParamName = "ThinkingMode"; //CustomParams 中的思考力度键
 
-    private readonly ICharacterRunner _runner = AgentHost.Instance.CreateRunner();
-
     private CancellationTokenSource? _runCancellation;
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
@@ -451,7 +449,7 @@ public partial class ConversationViewModel : ViewModelBase
         // 运行中输入 = 插话:入注入队列,agent 下一次机会消费
         if (IsGenerating)
         {
-            if (_runner.TryInject(new[] { new ChatMessage(ChatRole.User, text) }))
+            if (CurrentRunner?.TryInject(new[] { new ChatMessage(ChatRole.User, text) }) == true)
             {
                 Items.Add(CreateUserItem(text));
             }
@@ -479,9 +477,17 @@ public partial class ConversationViewModel : ViewModelBase
     /// </summary>
     private async Task AppendAssistantMessageAsync(string text)
     {
-        ChatSessionMeta meta = await EnsureSessionAsync(text, CancellationToken.None);
-        ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
-        if (session == null) return;
+        ChatSession session;
+        try
+        {
+            session = await EnsureSessionAsync(text, CancellationToken.None);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Append assistant message failed: {e}");
+            Items.Add(new ErrorItem { Message = e.Message });
+            return;
+        }
 
         ChatMessage message = session.CreateMessage(ChatRole.Assistant, text);
         session.History.Add(message);
@@ -515,7 +521,7 @@ public partial class ConversationViewModel : ViewModelBase
         CancellationToken cancellationToken = _runCancellation.Token;
         try
         {
-            ChatSessionMeta meta = await EnsureSessionAsync(titleSeed, cancellationToken);
+            ChatSession session = await EnsureSessionAsync(titleSeed, cancellationToken);
             FlushOwnedFiles();
             List<ChatMessage>? nextMessages = new() { userMessage };
 
@@ -524,7 +530,7 @@ public partial class ConversationViewModel : ViewModelBase
                 List<ApprovalRequestItem> turnApprovals = new();
                 try
                 {
-                    await foreach (AIContent content in _runner.RunAsync(nextMessages, cancellationToken))
+                    await foreach (AIContent content in session.Runner.RunAsync(nextMessages, cancellationToken))
                     {
                         ApplyContent(content, turnApprovals);
                     }
@@ -550,7 +556,7 @@ public partial class ConversationViewModel : ViewModelBase
                 if (cancellationToken.IsCancellationRequested) break;
             }
 
-            await _runner.SaveStateAsync();
+            await session.Runner.SaveStateAsync();
             WireStreamedItems();
         }
         catch (Exception e)
@@ -635,7 +641,11 @@ public partial class ConversationViewModel : ViewModelBase
 
     //================= agent / 会话装配 =================
 
-    private async Task<ChatSessionMeta> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken)
+    /// <summary>
+    /// 确保当前会话存在并已挂接其执行者，返回会话本体。
+    /// 会话本体缺失（文件损坏）属于不可继续的状态，直接抛出由运行循环渲染为错误条目。
+    /// </summary>
+    private async Task<ChatSession> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken)
     {
         if (CurrentMeta == null)
         {
@@ -654,34 +664,38 @@ public partial class ConversationViewModel : ViewModelBase
             Title = CurrentMeta.Title;
             OnPropertyChanged(nameof(IsAgentSession));
             MemoryPanel = new ConversationMemoryViewData(created);
-            await _runner.AttachAsync(created, cancellationToken);
+            await created.Runner.AttachAsync(created, cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
-            return CurrentMeta;
+            return created;
         }
 
-        await AttachAsync(CurrentMeta, cancellationToken);
+        ChatSession session = await AttachAsync(CurrentMeta, cancellationToken)
+                              ?? throw new InvalidOperationException(
+                                  $"Session '{CurrentMeta.SessionId}' could not be loaded.");
         ApplyMode();
-        return CurrentMeta;
+        return session;
     }
 
     /// <summary>
-    /// 绑定执行者到给定会话。工作目录与权限档取自会话本体，
+    /// 加载会话本体并挂接其执行者。工作目录与权限档取自界面当前值，
     /// 变化时由执行者内部按装配指纹重建并迁移框架附加状态。
     /// </summary>
-    private async Task AttachAsync(ChatSessionMeta meta, CancellationToken cancellationToken)
+    /// <returns>会话本体；文件缺失或损坏为 null</returns>
+    private async Task<ChatSession?> AttachAsync(ChatSessionMeta meta, CancellationToken cancellationToken)
     {
         ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
-        if (session == null) return;
+        if (session == null) return null;
 
         session.WorkspacePath = WorkspacePath;
         session.PermissionModeIndex = PermissionModeIndex;
-        await _runner.AttachAsync(session, cancellationToken);
+        await session.Runner.AttachAsync(session, cancellationToken);
+        return session;
     }
 
     private void ApplyMode()
     {
-        _runner.SetMode(CurrentMode);
+        CurrentRunner?.SetMode(CurrentMode);
     }
 
     /// <summary>
@@ -755,7 +769,7 @@ public partial class ConversationViewModel : ViewModelBase
         int loadVersion = ++_loadVersion; //期间再次切换会话时,旧加载在每个悬挂点后自行放弃
         _runCancellation?.Cancel();
         ClearStreamState();
-        _runner.ClearSession();
+        // 执行者归会话本体持有,切走不需要清理什么——旧会话的执行者随它的会话留在原处
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
@@ -792,26 +806,28 @@ public partial class ConversationViewModel : ViewModelBase
 
         try
         {
-            await AttachAsync(meta, CancellationToken.None);
+            ChatSession? body = await AttachAsync(meta, CancellationToken.None);
             if (loadVersion != _loadVersion) return;
-
-            if (SessionManager.Instance.Load(meta.SessionId) is { } body)
+            if (body == null)
             {
-                MemoryPanel?.Detach();
-                MemoryPanel = new ConversationMemoryViewData(body);
-                _isLoadingSession = true;
-                try
-                {
-                    ThinkingModeIndex = ReadThinkingModeIndex(body);
-                }
-                finally
-                {
-                    _isLoadingSession = false;
-                }
+                Items.Add(new ErrorItem { Message = $"Session '{meta.SessionId}' could not be loaded." });
+                return;
             }
 
-            CurrentMode = _runner.GetMode();
-            ReplayMessages(_runner.GetHistory());
+            MemoryPanel?.Detach();
+            MemoryPanel = new ConversationMemoryViewData(body);
+            _isLoadingSession = true;
+            try
+            {
+                ThinkingModeIndex = ReadThinkingModeIndex(body);
+            }
+            finally
+            {
+                _isLoadingSession = false;
+            }
+
+            CurrentMode = body.Runner.GetMode();
+            ReplayMessages(body.Runner.GetHistory());
             await RefreshTodosAsync();
         }
         catch (Exception e)
@@ -854,7 +870,7 @@ public partial class ConversationViewModel : ViewModelBase
     /// </summary>
     public void LoadEarlierMessages()
     {
-        IReadOnlyList<ChatMessage> history = _runner.GetHistory();
+        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
         int end = Math.Min(_historyStart, history.Count);
         if (end <= 0)
         {
@@ -954,7 +970,7 @@ public partial class ConversationViewModel : ViewModelBase
     /// </summary>
     private void WireStreamedItems()
     {
-        IReadOnlyList<ChatMessage> history = _runner.GetHistory();
+        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
         int cursor = history.Count - 1;
 
         for (int i = Items.Count - 1; i >= 0 && cursor >= 0; i--)
@@ -976,6 +992,9 @@ public partial class ConversationViewModel : ViewModelBase
 
     private ChatSession? CurrentSession =>
         CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);
+
+    /// <summary>当前会话的执行者(会话本体持有);无会话为 null</summary>
+    private ICharacterRunner? CurrentRunner => CurrentSession?.Runner;
 
     //================= token 统计 =================
 
@@ -1187,10 +1206,10 @@ public partial class ConversationViewModel : ViewModelBase
 
     private async Task RefreshTodosAsync()
     {
-        if (!_runner.HasSession) return;
+        if (CurrentRunner is not { HasSession: true } runner) return;
         try
         {
-            IReadOnlyList<TodoSnapshot> todos = await _runner.GetTodosAsync();
+            IReadOnlyList<TodoSnapshot> todos = await runner.GetTodosAsync();
             Todos.Clear();
             foreach (TodoSnapshot todo in todos)
             {

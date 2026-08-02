@@ -95,6 +95,13 @@ public class ChatSession
     [JsonIgnore]
     public bool IsTransient { get; set; }
 
+    /// <summary>
+    /// 无人值守 shell 预授权命令模式（glob）。定时任务在挂接执行者前设置，
+    /// 只属于"这一次无头运行"而非会话本身，因此仅运行期有效、不落盘。
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; set; }
+
     /// <summary>所属角色</summary>
     [JsonIgnore]
     public CharacterData CharacterData =>
@@ -264,11 +271,23 @@ public class ChatSession
     }
 
     /// <summary>
-    /// 本会话的执行者（惰性创建）。角色扮演与 agent 共用它，
-    /// 由角色的 <see cref="ECharacterKind"/> 决定装配形态。
+    /// 本会话的<b>唯一</b>执行者（惰性创建）。页面、快捷技能、调度等一切入口都必须经它运行，
+    /// 一个会话绝不允许有第二个执行者——它内部对同会话的并发请求排队。
+    /// 角色扮演与 agent 共用它，由角色的 <see cref="ECharacterKind"/> 决定装配形态。
     /// </summary>
     [JsonIgnore]
     public ICharacterRunner Runner => _runner ??= AgentHost.Instance.CreateRunner();
+
+    /// <summary>
+    /// 释放本会话的执行者（若从未创建则无事发生）。会话被删除或从缓存卸载时调用；
+    /// 之后再次访问 <see cref="Runner"/> 会重新惰性创建。
+    /// </summary>
+    public async ValueTask DisposeRunnerAsync()
+    {
+        ICharacterRunner? runner = _runner;
+        _runner = null;
+        if (runner != null) await runner.DisposeAsync().ConfigureAwait(false);
+    }
 
     /// <summary>
     /// 流式生成一条回复。

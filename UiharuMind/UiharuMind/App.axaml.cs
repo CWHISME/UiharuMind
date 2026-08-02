@@ -212,6 +212,7 @@ public partial class App : Application, ILogger, IDisposable
     {
         Log.CloseAndFlush();
         Clipboard.Dispose();
+        UiharuMind.Core.AI.Chat.SessionManager.Instance.DisposeAllRunners();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();
     }

@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System.Text.Json;
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
@@ -21,7 +20,7 @@ namespace UiharuMind.Core.AI.Agent.Scheduler;
 /// <summary>
 /// 进程内调度后端:任务列表 JSON 持久化,应用运行期内存计时器轮询触发;
 /// 应用未运行不触发,启动时对过期任务按 MissedFirePolicy 处理(第一版:标记 Missed 等用户决定)。
-/// 到点执行 = 构建带预授权规则的 HarnessAgent 无头跑一轮,规则之外的审批请求一律回拒。
+/// 到点执行 = 建正式会话后经其唯一执行者(带 shell 预授权)无头跑一轮,规则之外的审批请求一律回拒。
 /// </summary>
 public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 {
@@ -142,36 +141,27 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
         NotifyUpdated(task);
         Log.Debug($"Scheduled agent task '{task.DisplayName}' started.");
 
-        AgentHandle? handle = null;
+        // 无人值守跑出来的结果也是一个正式会话,与手动对话同一套存储。
+        // 执行必须经会话的唯一执行者——运行中用户从列表点开该会话时,
+        // 界面拿到的是同一个执行者,请求排队而不是出现第二条执行链交错写历史。
+        ChatSession? chatSession = null;
         try
         {
-            handle = await AgentHost.Instance.CreateAgentAsync(new AgentBuildProfile
-            {
-                Character = DefaultCharacterManager.Instance
-                    .GetCharacterData(DefaultCharacter.WorkspaceAgent),
-                WorkspacePath = task.WorkspacePath,
-                PermissionMode = EAgentPermissionMode.AutoEdit,
-                PreAuthorizedShellPatterns = task.PreAuthorizedCommands,
-            }).ConfigureAwait(false);
-
-            // 无人值守跑出来的结果也是一个正式会话,与手动对话同一套存储
-            ChatSession chatSession = new()
+            chatSession = new ChatSession
             {
                 CharacterId = nameof(DefaultCharacter.WorkspaceAgent),
                 Title = $"⏰ {task.DisplayName}",
                 Description = task.Prompt,
                 WorkspacePath = task.WorkspacePath,
                 PermissionModeIndex = (int)EAgentPermissionMode.AutoEdit,
+                PreAuthorizedShellPatterns = task.PreAuthorizedCommands,
             };
             SessionManager.Instance.Add(chatSession);
             task.ResultSessionId = chatSession.SessionId;
 
-            AgentSession session = await handle.Agent.CreateSessionAsync().ConfigureAwait(false);
-            SessionChatHistoryProvider.Bind(session, chatSession.SessionId);
-
-            bool succeeded = await RunHeadlessAsync(handle.Agent, session, task.Prompt).ConfigureAwait(false);
-            JsonElement state = await handle.Agent.SerializeSessionAsync(session).ConfigureAwait(false);
-            await SessionManager.Instance.SaveAgentStateAsync(chatSession.SessionId, state).ConfigureAwait(false);
+            await chatSession.Runner.AttachAsync(chatSession).ConfigureAwait(false);
+            bool succeeded = await RunHeadlessAsync(chatSession.Runner, task.Prompt).ConfigureAwait(false);
+            await chatSession.Runner.SaveStateAsync().ConfigureAwait(false);
 
             task.Status = succeeded ? EScheduledTaskStatus.Completed : EScheduledTaskStatus.Failed;
         }
@@ -182,7 +172,9 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
         }
         finally
         {
-            if (handle != null) await handle.DisposeAsync().ConfigureAwait(false);
+            // 任务结束就释放执行者(含 shell executor),不让它挂到应用退出;
+            // 之后用户打开该会话会重新惰性创建
+            if (chatSession != null) await chatSession.DisposeRunnerAsync().ConfigureAwait(false);
         }
 
         Save();
@@ -192,17 +184,16 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
     /// <summary>
     /// 无头执行一轮:预授权规则之外的审批请求一律拒绝(绝不静默挂起等待)
     /// </summary>
-    private static async Task<bool> RunHeadlessAsync(AIAgent agent, AgentSession session, string prompt)
+    private static async Task<bool> RunHeadlessAsync(ICharacterRunner runner, string prompt)
     {
         List<ChatMessage> nextMessages = new() { new ChatMessage(ChatRole.User, prompt) };
         // 拒绝造成的追加轮次设上限,防御模型反复请求同一授权
         for (int round = 0; round < 5 && nextMessages.Count > 0; round++)
         {
             List<ToolApprovalRequestContent> approvalRequests = new();
-            await foreach (AgentResponseUpdate update in agent.RunStreamingAsync(nextMessages, session)
-                               .ConfigureAwait(false))
+            await foreach (AIContent content in runner.RunAsync(nextMessages).ConfigureAwait(false))
             {
-                approvalRequests.AddRange(update.Contents.OfType<ToolApprovalRequestContent>());
+                if (content is ToolApprovalRequestContent request) approvalRequests.Add(request);
             }
 
             nextMessages = approvalRequests

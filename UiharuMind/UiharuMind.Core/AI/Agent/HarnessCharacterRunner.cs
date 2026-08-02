@@ -25,6 +25,10 @@ namespace UiharuMind.Core.AI.Agent;
 /// </summary>
 internal sealed class HarnessCharacterRunner : ICharacterRunner
 {
+    // 同一会话的挂接/运行/存档/释放串行化:并发请求排队而非交错,
+    // 避免流式进行中重建装配把使用中的 handle(含 shell executor)当场释放
+    private readonly SemaphoreSlim _gate = new(1, 1);
+
     private AgentHandle? _handle;
     private AgentSession? _session;
     private string? _boundSessionId;
@@ -35,15 +39,23 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     public async Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default)
     {
-        _attachedSession = session;
-        await EnsureHandleAsync(session, cancellationToken).ConfigureAwait(false);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _attachedSession = session;
+            await EnsureHandleAsync(session, cancellationToken).ConfigureAwait(false);
 
-        if (_boundSessionId == session.SessionId && _session != null) return;
+            if (_boundSessionId == session.SessionId && _session != null) return;
 
-        _session = await RestoreOrCreateSessionAsync(RequireHandle(), session.SessionId, cancellationToken)
-            .ConfigureAwait(false);
-        SessionChatHistoryProvider.Bind(_session, session.SessionId);
-        _boundSessionId = session.SessionId;
+            _session = await RestoreOrCreateSessionAsync(RequireHandle(), session.SessionId, cancellationToken)
+                .ConfigureAwait(false);
+            SessionChatHistoryProvider.Bind(_session, session.SessionId);
+            _boundSessionId = session.SessionId;
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     /// <summary>
@@ -60,6 +72,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             Character = session.CharacterData,
             WorkspacePath = session.WorkspacePath,
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
+            PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
             // 按请求时的挂接会话取会话级模型/记忆库(识图技能等会给临时会话绑定视觉模型),
             // 闭包读字段而非捕获参数:同一 handle 会跨会话复用
@@ -91,19 +104,14 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         _handleFingerprint = fingerprint;
     }
 
-    public void ClearSession()
-    {
-        _session = null;
-        _boundSessionId = null;
-        _attachedSession = null;
-    }
-
     public async Task SaveStateAsync()
     {
         if (_handle == null || _session == null || _boundSessionId == null) return;
         // 角色扮演档禁用了 todo/mode/审批等全部有状态提供器,框架 blob 无内容可存;
         // 恢复路径找不到该文件时会新建框架会话并重新 Bind,行为不变
         if (_attachedSession?.CharacterData.Kind != ECharacterKind.Agent) return;
+
+        await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             JsonElement state = await _handle.Agent.SerializeSessionAsync(_session).ConfigureAwait(false);
@@ -113,6 +121,10 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         {
             // 附加状态可丢弃:历史已由 SessionChatHistoryProvider 写进会话本体
             Log.Warning($"Save agent state failed: {e.Message}");
+        }
+        finally
+        {
+            _gate.Release();
         }
     }
 
@@ -140,16 +152,29 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public async IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (_handle == null || _session == null) yield break;
-
-        await foreach (AgentResponseUpdate update in _handle.Agent
-                           .RunStreamingAsync(messages, _session, cancellationToken: cancellationToken)
-                           .ConfigureAwait(false))
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            foreach (AIContent content in update.Contents)
+            // 误用即炸:未挂接就运行是编程错误,静默无输出的症状("点了没反应")远比异常难查
+            if (_handle == null || _session == null)
             {
-                yield return content;
+                throw new InvalidOperationException(
+                    $"{nameof(ICharacterRunner)} 尚未挂接会话,请先调用 {nameof(AttachAsync)}。");
             }
+
+            await foreach (AgentResponseUpdate update in _handle.Agent
+                               .RunStreamingAsync(messages, _session, cancellationToken: cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                foreach (AIContent content in update.Contents)
+                {
+                    yield return content;
+                }
+            }
+        }
+        finally
+        {
+            _gate.Release();
         }
     }
 
@@ -202,10 +227,20 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     public async ValueTask DisposeAsync()
     {
-        if (_handle != null) await _handle.DisposeAsync().ConfigureAwait(false);
-        _handle = null;
-        _session = null;
-        _boundSessionId = null;
+        // 与运行同闸:进行中的轮次结束后才释放 handle,不把使用中的 shell executor 抽走
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_handle != null) await _handle.DisposeAsync().ConfigureAwait(false);
+            _handle = null;
+            _session = null;
+            _boundSessionId = null;
+            _attachedSession = null;
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private AgentHandle RequireHandle()

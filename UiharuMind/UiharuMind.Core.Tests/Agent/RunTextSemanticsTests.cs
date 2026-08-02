@@ -54,10 +54,6 @@ public class RunTextSemanticsTests
         public Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
-        public void ClearSession()
-        {
-        }
-
         public Task SaveStateAsync() => Task.CompletedTask;
 
         public IReadOnlyList<ChatMessage> GetHistory() => [];

@@ -50,7 +50,9 @@ public class LazyChatClient : IChatClient
 
     public object? GetService(Type serviceType, object? serviceKey = null)
     {
-        return LlmManager.Instance.CurrentRunningModel?.ChatClient?.GetService(serviceType, serviceKey);
+        // 与 ResolveAsync 同一优先级:会话绑定模型优先,否则框架读到的能力元数据来自另一个模型
+        ModelRunningData? model = _sessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
+        return model?.ChatClient?.GetService(serviceType, serviceKey);
     }
 
     public void Dispose()

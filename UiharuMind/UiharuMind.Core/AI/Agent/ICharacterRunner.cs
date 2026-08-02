@@ -23,6 +23,11 @@ public readonly record struct TodoSnapshot(string Title, bool IsComplete);
 /// 一次对话的执行者：持有底层 agent 与其会话，对外只暴露稳定类型
 /// (<see cref="ChatMessage"/> / <see cref="AIContent"/> 来自 Microsoft.Extensions.AI)。
 ///
+/// 一个会话只有一个执行者，由会话本体持有（<see cref="ChatSession.Runner"/>），
+/// 所有入口（页面、快捷技能、调度）都必须经它执行；实现内部串行——
+/// 同一会话的并发请求排队而非交错。会话卸载/删除时由
+/// <see cref="ChatSession.DisposeRunnerAsync"/> 释放。
+///
 /// 角色扮演与 agent 共用这一个执行者，差异由角色的 <see cref="Character.ECharacterKind"/> 决定。
 /// 存在的意义同时也是划定编译期边界——Agent Framework 的 preview/alpha 面被 PrivateAssets
 /// 挡在 Core 内，UI 层无法直接引用；框架若发生破坏性变更，需要重写的只有本接口的实现。
@@ -42,11 +47,6 @@ public interface ICharacterRunner : IAsyncDisposable
     Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 丢弃当前会话引用（切换会话前调用，不影响磁盘数据）
-    /// </summary>
-    void ClearSession();
-
-    /// <summary>
     /// 持久化当前会话的框架附加状态
     /// </summary>
     Task SaveStateAsync();
@@ -59,6 +59,7 @@ public interface ICharacterRunner : IAsyncDisposable
     /// <param name="messages">本轮输入消息</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>内容增量流</returns>
+    /// <exception cref="InvalidOperationException">未先调用 <see cref="AttachAsync"/> 即运行</exception>
     IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,
         CancellationToken cancellationToken = default);
 

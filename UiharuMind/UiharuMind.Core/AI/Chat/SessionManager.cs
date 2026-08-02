@@ -309,6 +309,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         // 附件路径记在本体里,所以要在删文件之前把它读出来
         ChatSession? session = Load(sessionId);
         DeleteOwnedAttachments(session);
+        DisposeRunner(session);
 
         _loaded.Remove(sessionId);
         bool wasIndexed = _metas.Remove(sessionId);
@@ -332,6 +333,42 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         {
             SaveUtility.Delete(path);
         }
+    }
+
+    /// <summary>
+    /// 把会话从内存缓存卸载并释放其执行者。临时会话用完（快捷窗口关闭且未保留）时调用；
+    /// 已落盘的会话卸载后可随时经 <see cref="Load"/> 重新加载。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    public void Release(string sessionId)
+    {
+        if (!_loaded.Remove(sessionId, out ChatSession? session)) return;
+        DisposeRunner(session);
+    }
+
+    /// <summary>
+    /// 释放全部已加载会话的执行者（应用退出时调用，尽力而为不等待）
+    /// </summary>
+    public void DisposeAllRunners()
+    {
+        foreach (ChatSession session in _loaded.Values)
+        {
+            DisposeRunner(session);
+        }
+    }
+
+    /// <summary>
+    /// 释放执行者。删除/卸载是同步流程,释放挂后台尽力而为;
+    /// 执行者内部与运行同闸,进行中的轮次结束后才真正释放。
+    /// </summary>
+    private static void DisposeRunner(ChatSession? session)
+    {
+        if (session == null) return;
+        ValueTask task = session.DisposeRunnerAsync();
+        if (task.IsCompleted) return;
+        _ = task.AsTask().ContinueWith(
+            t => Log.Warning($"Dispose runner failed: {t.Exception?.GetBaseException().Message}"),
+            TaskContinuationOptions.OnlyOnFaulted);
     }
 
     /// <summary>
