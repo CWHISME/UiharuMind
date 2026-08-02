@@ -32,12 +32,18 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <summary>启用 Shell 执行工具</summary>
     public bool EnableShellExecution { get; set; } = true;
 
-    /// <summary>启用网络搜索工具</summary>
+    /// <summary>启用网络搜索工具(web_search/web_fetch)</summary>
     public bool EnableWebSearch { get; set; } = true;
 
-    /// <summary>启用持久化记忆</summary>
-    public bool EnableMemory { get; set; } = true;
+    /// <summary>启用 agent 笔记(框架文件记忆,agent 跨会话自记;与会话挂载的嵌入知识库是两回事)</summary>
+    public bool EnableAgentNotes { get; set; } = true;
 
-    /// <summary>启用定时任务(Todo/Scheduler)</summary>
-    public bool EnableTodo { get; set; } = true;
+    /// <summary>启用定时任务工具(create_scheduled_task)</summary>
+    public bool EnableScheduledTasks { get; set; } = true;
+
+    /// <summary>启用识图工具(ask_vision,委托视觉模型答图片问题)</summary>
+    public bool EnableVisionTool { get; set; } = true;
+
+    /// <summary>启用记忆检索工具(memory_search,检索会话挂载的嵌入知识库)</summary>
+    public bool EnableMemorySearchTool { get; set; } = true;
 }

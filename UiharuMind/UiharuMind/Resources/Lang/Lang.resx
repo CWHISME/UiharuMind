@@ -264,11 +264,17 @@
     <data name="AgentSettingCapWebSearch" xml:space="preserve">
         <value>Web search</value>
     </data>
-    <data name="AgentSettingCapMemory" xml:space="preserve">
-        <value>Persistent memory</value>
+    <data name="AgentSettingCapAgentNotes" xml:space="preserve">
+        <value>Agent notes (file memory)</value>
     </data>
-    <data name="AgentSettingCapTodo" xml:space="preserve">
-        <value>Scheduled tasks (Todo)</value>
+    <data name="AgentSettingCapScheduledTasks" xml:space="preserve">
+        <value>Scheduled tasks</value>
+    </data>
+    <data name="AgentSettingCapVisionTool" xml:space="preserve">
+        <value>Vision tool (ask_vision)</value>
+    </data>
+    <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
+        <value>Memory search tool (memory_search)</value>
     </data>
     <data name="AgentSave" xml:space="preserve">
         <value>Save</value>

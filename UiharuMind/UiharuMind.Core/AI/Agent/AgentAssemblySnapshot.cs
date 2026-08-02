@@ -47,9 +47,6 @@ public sealed record AgentAssemblySnapshot
     /// <summary>无人值守 shell 预授权模式(换行拼接);无则空串</summary>
     public string PreAuthorizedShellPatterns { get; init; } = string.Empty;
 
-    /// <summary>委托挂载的子 agent 列表(换行拼接);无则空串</summary>
-    public string MountedAgents { get; init; } = string.Empty;
-
     /// <summary>文件工具开关</summary>
     public bool FileAccess { get; init; }
 
@@ -59,11 +56,17 @@ public sealed record AgentAssemblySnapshot
     /// <summary>网络搜索工具开关</summary>
     public bool WebSearch { get; init; }
 
-    /// <summary>框架文件记忆开关</summary>
-    public bool FileMemory { get; init; }
+    /// <summary>agent 笔记(框架文件记忆)开关</summary>
+    public bool AgentNotes { get; init; }
 
     /// <summary>定时任务工具开关</summary>
     public bool ScheduledTasks { get; init; }
+
+    /// <summary>识图工具开关</summary>
+    public bool VisionTool { get; init; }
+
+    /// <summary>记忆检索工具开关</summary>
+    public bool MemorySearchTool { get; init; }
 
     /// <summary>禁用的技能名(换行拼接);过滤在装配时固化,故属装配输入</summary>
     public string DisabledSkills { get; init; } = string.Empty;
@@ -113,12 +116,13 @@ public sealed record AgentAssemblySnapshot
             PreAuthorizedShellPatterns = isAgent && preAuthorizedShellPatterns is { Count: > 0 }
                 ? string.Join('\n', preAuthorizedShellPatterns)
                 : string.Empty,
-            MountedAgents = isAgent ? string.Join('\n', character.MountAgents) : string.Empty,
             FileAccess = isAgent && config.EnableFileAccess,
             Shell = isAgent && config.EnableShellExecution,
             WebSearch = isAgent && config.EnableWebSearch,
-            FileMemory = isAgent && config.EnableMemory,
-            ScheduledTasks = isAgent && config.EnableTodo,
+            AgentNotes = isAgent && config.EnableAgentNotes,
+            ScheduledTasks = isAgent && config.EnableScheduledTasks,
+            VisionTool = isAgent && config.EnableVisionTool,
+            MemorySearchTool = isAgent && config.EnableMemorySearchTool,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
             McpRevision = isAgent ? mcpRevision : 0,
         };

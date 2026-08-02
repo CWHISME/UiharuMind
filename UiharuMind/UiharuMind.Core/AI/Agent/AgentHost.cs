@@ -33,7 +33,7 @@ public class AgentBuildProfile
 {
     /// <summary>
     /// 驱动整个装配的角色：<see cref="CharacterData.Kind"/> 决定是否装配工具与工作目录，
-    /// Template 与挂载列表决定系统提示，<see cref="CharacterData.MountAgents"/> 决定子 agent。
+    /// Template 与对话模板决定系统提示。
     /// </summary>
     public required CharacterData Character { get; init; }
 
@@ -107,13 +107,6 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <summary>记忆检索工具名(纪律段引用)</summary>
     private const string MemoryToolName = "memory_search";
 
-    /// <summary>
-    /// 未指定委托挂载时的默认子 agent：识图助手。
-    /// 取代了原先内置的 vision AgentProfile —— 同一能力现在就是一个普通角色。
-    /// </summary>
-    public static readonly IReadOnlyList<string> DefaultMountedAgentIds =
-        [nameof(DefaultCharacter.Vision)];
-
     /// <summary>定时任务调度后端(框架无对应能力,自建保留)</summary>
     public ISchedulerBackend Scheduler { get; private set; } = null!;
 
@@ -149,14 +142,18 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
         SessionChatHistoryProvider history = new();
         CharacterData character = profile.Character;
+        AgentSettingConfig config = AgentSettingConfig.Current;
 
-        // 角色自身的提示词(挂载片段 + Template + 对话模板)始终作为 ChatOptions.Instructions;
+        // 角色自身的提示词(Template + 对话模板)始终作为 ChatOptions.Instructions;
         // 框架会把 HarnessInstructions 拼在它前面
         ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();
         chatOptions.Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments);
 
         List<AIContextProvider> contextProviders =
-            [new MemoryContextProvider(hasMemoryTool: character.Kind == ECharacterKind.Agent)];
+        [
+            new MemoryContextProvider(hasMemoryTool:
+                character.Kind == ECharacterKind.Agent && config.EnableMemorySearchTool),
+        ];
 
         if (character.Kind == ECharacterKind.Roleplay)
         {
@@ -181,7 +178,6 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             }, null);
         }
 
-        AgentSettingConfig config = AgentSettingConfig.Current;
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
         LocalShellExecutor? shellExecutor = null;
         if (config.EnableShellExecution)
@@ -192,15 +188,22 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             });
         }
 
-        List<AITool> extraTools = new()
+        List<AITool> extraTools = new();
+        if (config.EnableVisionTool)
         {
-            VisionTool.Create(),
-            MemoryTool.Create(profile.SessionMemorySource),
-        };
-        if (config.EnableTodo)
+            extraTools.Add(VisionTool.Create());
+        }
+
+        if (config.EnableMemorySearchTool)
+        {
+            extraTools.Add(MemoryTool.Create(profile.SessionMemorySource));
+        }
+
+        if (config.EnableScheduledTasks)
         {
             extraTools.Add(SchedulerTools.CreateScheduledTaskTool(profile.WorkspacePath));
         }
+
         extraTools.AddRange(McpManager.Instance.GetCachedTools());
 
         if (config.EnableFileAccess)
@@ -226,15 +229,13 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
-            FileMemoryStore = config.EnableMemory
+            FileMemoryStore = config.EnableAgentNotes
                 ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
                 : null,
             FileAccessStore = null,
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,
             AgentSkillsSource = SkillCatalog.Instance.BuildSkillsSource(),
-            BackgroundAgents = BuildBackgroundAgents(client,
-                character.MountAgents.Count > 0 ? character.MountAgents : DefaultMountedAgentIds),
             AIContextProviders = contextProviders,
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
@@ -299,10 +300,20 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             sb.AppendLine("- Never emit full-file rewrites for single-line changes.");
         }
 
-        sb.AppendLine();
-        sb.AppendLine("# Images");
-        sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. When the path is an image and you need to know what it shows, call `{VisionToolName}` with that path — do not guess from the file name.");
-        sb.AppendLine($"- A long-term memory library may be bound to this session. When past context matters, call `{MemoryToolName}` with a focused query instead of guessing; it returns relevant snippets or reports that no library is bound.");
+        // 纪律段严格随门控派生:关掉的工具绝不出现在提示词里,否则是纯噪声
+        if (config.EnableVisionTool)
+        {
+            sb.AppendLine();
+            sb.AppendLine("# Images");
+            sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. When the path is an image and you need to know what it shows, call `{VisionToolName}` with that path — do not guess from the file name.");
+        }
+
+        if (config.EnableMemorySearchTool)
+        {
+            sb.AppendLine();
+            sb.AppendLine("# Memory Recall");
+            sb.AppendLine($"- A long-term memory library may be bound to this session. When past context matters, call `{MemoryToolName}` with a focused query instead of guessing; it returns relevant snippets or reports that no library is bound.");
+        }
 
         sb.AppendLine();
         sb.AppendLine("# Execution Modes");
@@ -310,40 +321,6 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         sb.Append("- **Headless (Scheduled/Triggers):** If invoked without a live user session, **run fully autonomously**. Log results via tool output; never block on clarification or confirmation.");
 
         return sb.ToString();
-    }
-
-    /// <summary>
-    /// 把委托挂载的角色组装为后台子 agent(识图等专职助手)。
-    /// 主 agent 依据各子 agent 的 Description 自主决定何时委托。
-    /// </summary>
-    private static List<AIAgent> BuildBackgroundAgents(IChatClient defaultClient, IReadOnlyList<string> characterIds)
-    {
-        List<AIAgent> agents = new();
-        foreach (string characterId in characterIds)
-        {
-            CharacterData character = CharacterManager.Instance.GetCharacterData(characterId);
-
-            // Agent 类角色作子 agent 需要嵌套一层 Harness(工具集、审批链、workspace 全要再套),本次不支持
-            if (character.Kind == ECharacterKind.Agent)
-            {
-                Log.Warning($"Skip background agent '{characterId}': nesting an agent character is not supported.");
-                continue;
-            }
-
-            try
-            {
-                agents.Add(new ChatClientAgent(defaultClient,
-                    instructions: CharacterPromptBuilder.Build(character),
-                    name: SanitizeAgentName(character.CharacterName, character.CharacterId),
-                    description: character.Description));
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"Skip background agent '{characterId}': {e.Message}");
-            }
-        }
-
-        return agents;
     }
 
     private static string SanitizeAgentName(string displayName, string fallback)

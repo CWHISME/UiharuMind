@@ -64,12 +64,20 @@
                             <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapWebSearch}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableMemory}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapMemory}" />
+                            <ToggleSwitch IsChecked="{Binding EnableAgentNotes}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapAgentNotes}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableTodo}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapTodo}" />
+                            <ToggleSwitch IsChecked="{Binding EnableScheduledTasks}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapScheduledTasks}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableVisionTool}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapVisionTool}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleSwitch IsChecked="{Binding EnableMemorySearchTool}" />
+                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapMemorySearchTool}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

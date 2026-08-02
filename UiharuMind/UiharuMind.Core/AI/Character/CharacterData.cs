@@ -60,8 +60,9 @@ public class CharacterData
     public List<string> MountPrompts { get; set; } = [];
 
     /// <summary>
-    /// 委托挂载：把这些角色注册为可被本 agent 自主调度的子 agent，
-    /// 由子 agent 的 Description 作为能力广告。仅 <see cref="ECharacterKind.Agent"/> 生效。
+    /// 【已退役,仅为旧存档兼容保留】曾用于把角色注册为背景子 agent。
+    /// 该机制无编辑入口且默认挂载的识图子代理是条假通路(子代理看不到图),
+    /// 识图已归一到 ask_vision 工具;装配不再读取本字段。
     /// </summary>
     public List<string> MountAgents { get; set; } = [];
 
@@ -84,8 +85,7 @@ public class CharacterData
     }
 
     /// <summary>
-    /// 单纯的描述。被 <see cref="MountAgents"/> 委托挂载时，作为该子 agent 的能力广告，
-    /// 主 agent 据此决定何时委托。
+    /// 单纯的描述
     /// </summary>
     [JsonIgnore]
     public string Description

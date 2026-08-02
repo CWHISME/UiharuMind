@@ -254,11 +254,17 @@
     <data name="AgentSettingCapWebSearch" xml:space="preserve">
         <value>网络搜索</value>
     </data>
-    <data name="AgentSettingCapMemory" xml:space="preserve">
-        <value>持久化记忆</value>
+    <data name="AgentSettingCapAgentNotes" xml:space="preserve">
+        <value>Agent 笔记（文件记忆）</value>
     </data>
-    <data name="AgentSettingCapTodo" xml:space="preserve">
-        <value>定时任务(Todo)</value>
+    <data name="AgentSettingCapScheduledTasks" xml:space="preserve">
+        <value>定时任务</value>
+    </data>
+    <data name="AgentSettingCapVisionTool" xml:space="preserve">
+        <value>识图工具（ask_vision）</value>
+    </data>
+    <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
+        <value>记忆检索工具（memory_search）</value>
     </data>
     <data name="AgentSave" xml:space="preserve">
         <value>保存</value>

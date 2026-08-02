@@ -32,11 +32,10 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private bool _enableFileAccess = true;
     [ObservableProperty] private bool _enableShellExecution = true;
     [ObservableProperty] private bool _enableWebSearch = true;
-    [ObservableProperty] private bool _enableMemory = true;
-    [ObservableProperty] private bool _enableTodo = true;
-
-    // 子 agent 档案已废除:子 agent 就是一个普通角色,由角色编辑器维护,
-    // 由 agent 角色的 MountAgents(委托挂载)决定启用哪些。
+    [ObservableProperty] private bool _enableAgentNotes = true;
+    [ObservableProperty] private bool _enableScheduledTasks = true;
+    [ObservableProperty] private bool _enableVisionTool = true;
+    [ObservableProperty] private bool _enableMemorySearchTool = true;
 
     //================= MCP =================
     public ObservableCollection<McpServerConfig> McpServers { get; } = new();
@@ -56,8 +55,10 @@ public partial class AgentSettingViewData : ViewModelBase
         _enableFileAccess = config.EnableFileAccess;
         _enableShellExecution = config.EnableShellExecution;
         _enableWebSearch = config.EnableWebSearch;
-        _enableMemory = config.EnableMemory;
-        _enableTodo = config.EnableTodo;
+        _enableAgentNotes = config.EnableAgentNotes;
+        _enableScheduledTasks = config.EnableScheduledTasks;
+        _enableVisionTool = config.EnableVisionTool;
+        _enableMemorySearchTool = config.EnableMemorySearchTool;
 
         RefreshServers();
         RefreshSkills();
@@ -101,15 +102,27 @@ public partial class AgentSettingViewData : ViewModelBase
         AgentSettingConfig.Current.Save();
     }
 
-    partial void OnEnableMemoryChanged(bool value)
+    partial void OnEnableAgentNotesChanged(bool value)
     {
-        AgentSettingConfig.Current.EnableMemory = value;
+        AgentSettingConfig.Current.EnableAgentNotes = value;
         AgentSettingConfig.Current.Save();
     }
 
-    partial void OnEnableTodoChanged(bool value)
+    partial void OnEnableScheduledTasksChanged(bool value)
     {
-        AgentSettingConfig.Current.EnableTodo = value;
+        AgentSettingConfig.Current.EnableScheduledTasks = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnEnableVisionToolChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableVisionTool = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnEnableMemorySearchToolChanged(bool value)
+    {
+        AgentSettingConfig.Current.EnableMemorySearchTool = value;
         AgentSettingConfig.Current.Save();
     }
 
