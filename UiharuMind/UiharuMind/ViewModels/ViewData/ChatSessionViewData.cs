@@ -50,6 +50,9 @@ public partial class ChatSessionViewData : ObservableObject
     private readonly ChatSessionMeta _meta;
     private ChatSession? _session;
 
+    /// <summary>会话标识（列表比对用它，不必为此加载本体）</summary>
+    public string SessionId => _meta.SessionId;
+
     /// <summary>
     /// 会话本体，首次访问时按需加载。
     /// 列表展示所需的字段全部取自元数据，因此启动时不必反序列化任何本体——

@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Agent;
 using UiharuMind.Views.Pages;
@@ -75,7 +76,7 @@ public partial class AgentPageData : ConversationPageDataBase
         {
             string? selectedId = Conversation.CurrentMeta?.SessionId;
             Sessions.Clear();
-            foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions())
+            foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions(ECharacterKind.Agent))
             {
                 Sessions.Add(new AgentSessionItemViewData(meta, OnSessionDeleted));
             }

@@ -19,7 +19,7 @@ namespace UiharuMind.Core.Core;
 
 public static class SaveUtility
 {
-    private static readonly JsonSerializerOptions _options = new()
+    public static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull, // 忽略 JSON 中的 null 值
@@ -54,7 +54,7 @@ public static class SaveUtility
             if (dir == null) return;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            string jsonString = JsonSerializer.Serialize(target, _options);
+            string jsonString = JsonSerializer.Serialize(target, JsonOptions);
 
             File.WriteAllText(filePath, jsonString);
         }
@@ -124,7 +124,7 @@ public static class SaveUtility
     public static string SaveToString(object target)
     {
         // JsonSerializer.SerializeAsync(target, _options)
-        return JsonSerializer.Serialize(target, _options);
+        return JsonSerializer.Serialize(target, JsonOptions);
     }
 
     /// <summary>
@@ -174,7 +174,7 @@ public static class SaveUtility
     {
         try
         {
-            return JsonSerializer.Deserialize<T>(jsonString, _options) ?? new T();
+            return JsonSerializer.Deserialize<T>(jsonString, JsonOptions) ?? new T();
         }
         catch (Exception e)
         {
@@ -189,7 +189,7 @@ public static class SaveUtility
         if (type == null) return null;
         try
         {
-            return JsonSerializer.Deserialize(jsonString, type, _options) ?? null;
+            return JsonSerializer.Deserialize(jsonString, type, JsonOptions) ?? null;
         }
         catch (Exception e)
         {

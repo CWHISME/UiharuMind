@@ -72,6 +72,31 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
+    /// 按角色种类筛选会话，按最后更新时间倒序。
+    /// 角色对话与 agent 对话共用同一个索引，各页面只应列出属于自己那一类的会话。
+    /// 种类由角色实时派生而非存进元数据——角色的 Kind 改变时会话随之归类，不会留下过期副本。
+    /// </summary>
+    /// <param name="kind">角色种类</param>
+    /// <returns>元数据列表</returns>
+    public List<ChatSessionMeta> GetSessions(ECharacterKind kind)
+    {
+        return _metas.Values
+            .Where(x => KindOf(x) == kind)
+            .OrderByDescending(x => x.UpdatedAt)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 取会话所属角色的种类
+    /// </summary>
+    /// <param name="meta">会话元数据</param>
+    /// <returns>角色种类；角色已被删除时按对话角色处理</returns>
+    public static ECharacterKind KindOf(ChatSessionMeta meta)
+    {
+        return CharacterManager.Instance.GetCharacterData(meta.CharacterId).Kind;
+    }
+
+    /// <summary>
     /// 取元数据
     /// </summary>
     /// <param name="sessionId">会话标识</param>
