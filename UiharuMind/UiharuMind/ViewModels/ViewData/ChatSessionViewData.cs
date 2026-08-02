@@ -184,13 +184,13 @@ public partial class ChatSessionViewData : ObservableObject
 
         try
         {
-            await foreach (var item in ChatSession.GenerateCompletionStreaming(input, token))
+            // 流出来的是增量,气泡绑定需要全文,因此在此处累积
+            // (SimpleMarkdownViewer 内部会与上次的文本做前缀比对,只把增量喂给 Markdown 渲染器)
+            StringBuilder streamed = new();
+            await foreach (var delta in ChatSession.GenerateCompletionStreaming(input, token))
             {
-                if (CurrentChatItem != null)
-                {
-                    //TODO:绑定方式全量更新 Markdown 比较费，需要优化
-                    CurrentChatItem.Message = item;
-                }
+                streamed.Append(delta);
+                if (CurrentChatItem != null) CurrentChatItem.Message = streamed.ToString();
             }
         }
         catch (IOException)

@@ -263,7 +263,7 @@ public class ChatSession
     /// </summary>
     /// <param name="input">本轮用户输入；为 null 表示基于现有历史重新生成</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>累积文本流</returns>
+    /// <returns>文本<b>增量</b>流；需要全文请由调用方累积</returns>
     public async IAsyncEnumerable<string> GenerateCompletionStreaming(ChatMessage? input = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -279,12 +279,12 @@ public class ChatSession
         StringBuilder finalText = StringBuilderPool.Get();
         try
         {
-            await foreach (string text in Runner.RunTextAsync(turnInput, cancellationToken)
+            await foreach (string delta in Runner.RunTextAsync(turnInput, cancellationToken)
                                .ConfigureAwait(false))
             {
-                finalText.Clear();
-                finalText.Append(text);
-                yield return text;
+                // 只在本地累积一份用于取消时补存,对外透出的仍是增量
+                finalText.Append(delta);
+                yield return delta;
             }
         }
         finally

@@ -95,30 +95,28 @@ public interface ICharacterRunner : IAsyncDisposable
 }
 
 /// <summary>
-/// 把内容流折叠成"累积全文"的文本流。
-/// 快捷工具的各个窗口把收到的字符串直接赋给显示控件，语义要求是全文而非增量；
-/// 若直接透出增量，界面会只显示最后一小段。
+/// 从内容流中筛出正文文本。
 /// </summary>
 public static class CharacterRunnerExtensions
 {
     /// <summary>
-    /// 运行一轮并把文本内容折叠为累积全文流（思考内容与工具调用不计入）
+    /// 运行一轮，只产出正文文本的<b>增量</b>（思考内容与工具调用不计入）。
+    /// 增量是原语，累积是消费方的事：快捷工具的各个窗口是把收到的字符串
+    /// <b>追加</b>到显示控件上的（AppendContent），若在此处折叠成累积全文，
+    /// 窗口会把每次的全文再追加一遍，内容重复且随长度二次膨胀。
     /// </summary>
     /// <param name="runner">执行者</param>
     /// <param name="messages">本轮输入</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>累积全文流</returns>
+    /// <returns>文本增量流</returns>
     public static async IAsyncEnumerable<string> RunTextAsync(this ICharacterRunner runner,
         IEnumerable<ChatMessage> messages,
         [System.Runtime.CompilerServices.EnumeratorCancellation]
         CancellationToken cancellationToken = default)
     {
-        System.Text.StringBuilder builder = new();
         await foreach (AIContent content in runner.RunAsync(messages, cancellationToken).ConfigureAwait(false))
         {
-            if (content is not TextContent { Text.Length: > 0 } text) continue;
-            builder.Append(text.Text);
-            yield return builder.ToString();
+            if (content is TextContent { Text.Length: > 0 } text) yield return text.Text;
         }
     }
 }
