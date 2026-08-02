@@ -11,11 +11,13 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -30,8 +32,7 @@ namespace UiharuMind.ViewModels.ViewData;
 /// </summary>
 public partial class ChatViewItemData : ObservableObject, IPoolAble
 {
-    // [ObservableProperty] private bool _isUser;
-    [ObservableProperty] private ECharacter _role;
+    [ObservableProperty] private ChatRole _role;
     [ObservableProperty] private string? _message;
     [ObservableProperty] private Bitmap? _icon;
     [ObservableProperty] private Bitmap? _messageImage;
@@ -39,16 +40,17 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     [ObservableProperty] private string? _timestamp;
     [ObservableProperty] private bool _isDone = true;
 
-    private ChatMessageData? _cachedContent;
-    public ChatMessageData? CachedContent => _cachedContent;
+    private ChatMessage? _cachedContent;
+
+    /// <summary>底层消息（编辑时就地改写它的文本）</summary>
+    public ChatMessage? CachedContent => _cachedContent;
 
     public string SenderIcon => "None";
 
-    public bool IsSystem => Role == ECharacter.System;
-    public bool IsUser => Role == ECharacter.User;
+    public bool IsSystem => Role == ChatRole.System;
+    public bool IsUser => Role == ChatRole.User;
 
-    // public bool IsImageContent => (_cachedContent?.Items.Count > 0 && _cachedContent.Items[0] is ImageContent);
-    //是否是图片
+    /// <summary>是否含图片</summary>
     public bool IsImageContent { get; private set; }
 
     public string SenderName
@@ -56,10 +58,10 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
         get
         {
             if (!string.IsNullOrEmpty(_cachedContent?.AuthorName)) return _cachedContent.AuthorName;
-            if (Role == ECharacter.System) return "System";
-            if (Role == ECharacter.User) return "User";
-            if (Role == ECharacter.Assistant) return "Assistant";
-            if (Role == ECharacter.Tool) return "Tool";
+            if (Role == ChatRole.System) return "System";
+            if (Role == ChatRole.User) return "User";
+            if (Role == ChatRole.Assistant) return "Assistant";
+            if (Role == ChatRole.Tool) return "Tool";
             return "Unknown";
         }
     }
@@ -68,10 +70,10 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     {
         get
         {
-            if (Role == ECharacter.System) return Brushes.Gray;
-            if (Role == ECharacter.User) return Brushes.LightGreen;
-            if (Role == ECharacter.Assistant) return Brushes.DeepSkyBlue;
-            if (Role == ECharacter.Tool) return Brushes.MediumPurple;
+            if (Role == ChatRole.System) return Brushes.Gray;
+            if (Role == ChatRole.User) return Brushes.LightGreen;
+            if (Role == ChatRole.Assistant) return Brushes.DeepSkyBlue;
+            if (Role == ChatRole.Tool) return Brushes.MediumPurple;
             return Brushes.Black;
         }
     }
@@ -80,23 +82,32 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     public Action<ChatViewItemData>? RetryCallback { get; set; }
     public Action<ChatViewItemData>? BranchCallback { get; set; }
 
+    /// <summary>
+    /// 绑定一条消息
+    /// </summary>
+    /// <param name="item">消息</param>
     public void SetChatItem(ChatMessage item)
     {
-        Role = item.Character;
-        // IsUser = item.Character == ECharacter.User;
-        Message = item.Message.Content;
-        Timestamp = item.LocalTimeString;
-        _cachedContent = item.Message;
-        if (item.Message.HasImage)
+        Role = item.Role;
+        Message = item.Text;
+        Timestamp = (item.CreatedAt ?? DateTimeOffset.Now).LocalDateTime.ToString("yyyy/MM/dd HH:mm:ss");
+        _cachedContent = item;
+
+        DataContent? image = item.Contents.OfType<DataContent>()
+            .FirstOrDefault(x => x.HasTopLevelMediaType("image"));
+        if (image == null) return;
+
+        IsImageContent = true;
+        try
         {
-            IsImageContent = true;
-            using MemoryStream stream = new(item.Message.ImageBytes!);
+            using MemoryStream stream = new(image.Data.ToArray());
             MessageImage = new Bitmap(stream);
-            if (MessageImage == null)
-            {
-                IsImageContent = false;
-                Message = "[Image] load failed";
-            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Load message image failed: {e.Message}");
+            IsImageContent = false;
+            Message = "[Image] load failed";
         }
     }
 
@@ -113,7 +124,6 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     [RelayCommand]
     public void Delete()
     {
-        // Log.Debug("DeleteCommand" + Message);
         DeleteCallback?.Invoke(this);
     }
 
@@ -140,15 +150,22 @@ public partial class ChatViewItemData : ObservableObject, IPoolAble
     {
         Message = null;
         Timestamp = null;
+        IsImageContent = false;
+        MessageImage = null;
+        _cachedContent = null;
     }
 
     partial void OnMessageChanged(string? value)
     {
         if (_cachedContent == null) return;
-        _cachedContent.Content = value ?? "";
+        // ChatMessage.Text 是只读的(它是所有 TextContent 的拼接),改写要落到 TextContent 上,
+        // 这样图片等其他内容不受影响
+        TextContent? text = _cachedContent.Contents.OfType<TextContent>().FirstOrDefault();
+        if (text != null) text.Text = value ?? "";
+        else _cachedContent.Contents.Add(new TextContent(value ?? ""));
     }
 
-    partial void OnRoleChanged(ECharacter value)
+    partial void OnRoleChanged(ChatRole value)
     {
         OnPropertyChanged(nameof(IsSystem));
         OnPropertyChanged(nameof(IsUser));

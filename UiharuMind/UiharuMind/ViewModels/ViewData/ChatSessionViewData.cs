@@ -24,7 +24,9 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Chat;
@@ -84,7 +86,7 @@ public partial class ChatSessionViewData : ObservableObject
         _messageService = messageService;
         ChatSession = chatSession;
         Description = ChatSession.Description;
-        Name = ChatSession.Name;
+        Name = ChatSession.Title;
         Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
         TimeString = CalcTimeString();
         MemoryData = ChatSession.Memory;
@@ -92,7 +94,7 @@ public partial class ChatSessionViewData : ObservableObject
         RefreshMemoryInfo();
     }
 
-    public async Task AddMessageWithGenerate(ECharacter role, string message, CancellationToken token)
+    public async Task AddMessageWithGenerate(ChatRole role, string message, CancellationToken token)
     {
         // _chatSession.AddMessage(role, message);
         // //添加用户消息
@@ -102,7 +104,7 @@ public partial class ChatSessionViewData : ObservableObject
         // if (role != AuthorRole.User) return;
         //生成AI回复
         // _chatSession.GenerateCompletion(OnStartGenerate,OnStepGenerated,OnCompletionGenerated,new CancellationToken());
-        if (role != ECharacter.User) return;
+        if (role != ChatRole.User) return;
         await GenerateMessage(token);
     }
 
@@ -113,7 +115,7 @@ public partial class ChatSessionViewData : ObservableObject
     public async Task GenerateMessage(CancellationToken token)
     {
         var lastMessage = ChatSession[^1];
-        if (lastMessage.Character == ECharacter.Assistant)
+        if (lastMessage.Role == ChatRole.Assistant)
         {
             Log.Error("Error: Assistant cannot generate message");
             return;
@@ -137,7 +139,7 @@ public partial class ChatSessionViewData : ObservableObject
         }
         
         //与逻辑层一致，没问题，添加占位，先添加表现层的空消息
-        CurrentChatItem = AddMessage(ChatSession.CreateMessage(ECharacter.Assistant, ""));
+        CurrentChatItem = AddMessage(ChatSession.CreateMessage(ChatRole.Assistant, ""));
 
         try
         {
@@ -164,7 +166,7 @@ public partial class ChatSessionViewData : ObservableObject
         if (CurrentChatItem != null)
         {
             if (ChatSession.Count == ChatItems.Count &&
-                ChatSession[^1].Character == ECharacter.Assistant)
+                ChatSession[^1].Role == ChatRole.Assistant)
             {
                 CurrentChatItem.SetChatItem(ChatSession[^1]);
             }
@@ -205,7 +207,7 @@ public partial class ChatSessionViewData : ObservableObject
     //重命名
     public async Task Rename()
     {
-        var result = await UIManager.ShowStringEditWindow(ChatSession.Name);
+        var result = await UIManager.ShowStringEditWindow(ChatSession.Title);
         if (!string.IsNullOrEmpty(result)) ModifySessionName(result);
     }
 
@@ -213,7 +215,7 @@ public partial class ChatSessionViewData : ObservableObject
     //复制整个对话
     public void Copy()
     {
-        ChatManager.Instance.Copy(ChatSession);
+        SessionManager.Instance.Copy(ChatSession);
     }
 
     public void BranchFromChatItem(ChatViewItemData itemData)
@@ -221,9 +223,9 @@ public partial class ChatSessionViewData : ObservableObject
         int index = ChatItems.IndexOf(itemData);
         if (index < 0) return;
 
-        var branchSession = GameUtils.Copy(ChatSession);
+        var branchSession = SessionManager.Instance.DeepCopy(ChatSession);
         var suffix = LocalizationManager.Instance.GetString("ChatBranchSuffix");
-        branchSession.Name = $"{ChatSession.Name} {suffix}";
+        branchSession.Title = $"{ChatSession.Title} {suffix}";
         branchSession.Description = ChatSession.Description;
 
         while (branchSession.Count > index + 1)
@@ -232,7 +234,7 @@ public partial class ChatSessionViewData : ObservableObject
             branchSession.History.RemoveAt(lastIndex);
         }
 
-        ChatManager.Instance.Add(branchSession);
+        SessionManager.Instance.Add(branchSession);
     }
 
     [RelayCommand]
@@ -240,7 +242,7 @@ public partial class ChatSessionViewData : ObservableObject
     public async Task Delete()
     {
         if (await _messageService.ConfirmAsync(Lang.DeleteAllClipboardHistoryTips))
-            ChatManager.Instance.Delete(ChatSession);
+            SessionManager.Instance.Delete(ChatSession);
     }
 
     /// <summary>
@@ -258,15 +260,13 @@ public partial class ChatSessionViewData : ObservableObject
 
     public void ModifySessionName(string newName)
     {
-        Name = ChatManager.Instance.ModifyName(ChatSession, newName);
+        // 标题是纯显示字段:改名不动文件、不删不加、不再触发列表的 移除+新增 事件
+        ChatSession.Title = newName;
+        ChatSession.Save();
+        Name = newName;
     }
 
-    // public void ModifySessionDescription(string newName)
-    // {
-    //     Description = ChatManager.Instance.ModifySessionDescription(ChatSession, newName);
-    // }
-
-    public ChatViewItemData AddMessage(ECharacter role, string message, byte[]? imageBytes = null)
+    public ChatViewItemData AddMessage(ChatRole role, string message, byte[]? imageBytes = null)
     {
         ChatSession.AddMessage(role, message, imageBytes);
         return AddMessage(ChatSession[^1]);

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using UiharuMind.Core.AI.Chat;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -20,6 +21,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Services;
@@ -43,7 +45,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     [ObservableProperty] private bool _hasTodos;
 
     /// <summary>当前会话元数据(未开始首轮前为空)</summary>
-    public AgentSessionMeta? CurrentMeta { get; private set; }
+    public ChatSessionMeta? CurrentMeta { get; private set; }
 
     /// <summary>会话集合变化(新会话创建/一轮结束),页面据此刷新左侧列表</summary>
     public event Action? SessionsChanged;
@@ -101,14 +103,14 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     {
         if (CurrentMeta == null) return;
         CurrentMeta.PermissionModeIndex = value;
-        AgentSessionIndex.Instance.SaveMeta(CurrentMeta);
+        SessionManager.Instance.Save(SessionManager.Instance.Load(CurrentMeta.SessionId)!);
     }
 
     partial void OnWorkspacePathChanged(string? value)
     {
         if (CurrentMeta == null) return;
         CurrentMeta.WorkspacePath = value;
-        AgentSessionIndex.Instance.SaveMeta(CurrentMeta);
+        SessionManager.Instance.Save(SessionManager.Instance.Load(CurrentMeta.SessionId)!);
     }
 
     [RelayCommand]
@@ -170,7 +172,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         CancellationToken cancellationToken = _runCancellation.Token;
         try
         {
-            AgentSessionMeta meta = await EnsureSessionAsync(titleSeed, cancellationToken);
+            ChatSessionMeta meta = await EnsureSessionAsync(titleSeed, cancellationToken);
             List<ChatMessage>? nextMessages = new() { userMessage };
 
             while (nextMessages is { Count: > 0 })
@@ -204,7 +206,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
                 if (cancellationToken.IsCancellationRequested) break;
             }
 
-            await _runner.SaveSessionAsync(meta);
+            await _runner.SaveSessionAsync();
         }
         catch (Exception e)
         {
@@ -284,22 +286,30 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
     //================= agent / 会话装配 =================
 
-    private async Task<AgentSessionMeta> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken)
+    private async Task<ChatSessionMeta> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken)
     {
         await ConfigureRunnerAsync(cancellationToken);
 
         if (CurrentMeta == null)
         {
             string title = titleSeed.Length > 30 ? titleSeed[..30] + "…" : titleSeed;
-            CurrentMeta = AgentSessionIndex.Instance.CreateMeta(title, WorkspacePath, PermissionModeIndex);
+            ChatSession created = new()
+            {
+                Title = title,
+                Description = titleSeed,
+                WorkspacePath = WorkspacePath,
+                PermissionModeIndex = PermissionModeIndex,
+            };
+            SessionManager.Instance.Add(created);
+            CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
-            await _runner.EnsureSessionAsync(cancellationToken);
+            await _runner.AttachSessionAsync(CurrentMeta.SessionId, cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
             return CurrentMeta;
         }
 
-        await _runner.EnsureSessionAsync(cancellationToken);
+        await _runner.AttachSessionAsync(CurrentMeta.SessionId, cancellationToken);
         ApplyMode();
         return CurrentMeta;
     }
@@ -365,7 +375,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     /// 切换到指定会话(null = 新会话空态);运行中的轮次会被打断
     /// </summary>
     /// <param name="meta">会话元数据</param>
-    public async Task LoadSessionAsync(AgentSessionMeta? meta)
+    public async Task LoadSessionAsync(ChatSessionMeta? meta)
     {
         _runCancellation?.Cancel();
         ClearStreamState();
@@ -380,7 +390,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         try
         {
             await ConfigureRunnerAsync(CancellationToken.None);
-            if (!await _runner.TryLoadSessionAsync(meta.SessionId)) return;
+            await _runner.AttachSessionAsync(meta.SessionId);
 
             CurrentMode = _runner.GetMode();
             ReplayMessages(_runner.GetHistory());

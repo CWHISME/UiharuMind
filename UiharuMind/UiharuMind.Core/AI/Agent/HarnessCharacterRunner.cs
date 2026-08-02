@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Agent;
@@ -23,6 +24,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 {
     private AgentHandle? _handle;
     private AgentSession? _session;
+    private string? _boundSessionId;
     private string? _handleWorkspace;
     private EAgentPermissionMode? _handlePermissionMode;
 
@@ -66,28 +68,56 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         _handlePermissionMode = permissionMode;
     }
 
-    public async Task EnsureSessionAsync(CancellationToken cancellationToken = default)
+    public async Task AttachSessionAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         AgentHandle handle = RequireHandle();
-        _session ??= await handle.Agent.CreateSessionAsync(cancellationToken).ConfigureAwait(false);
-    }
+        if (_boundSessionId == sessionId && _session != null) return;
 
-    public async Task<bool> TryLoadSessionAsync(string sessionId, CancellationToken cancellationToken = default)
-    {
-        AgentHandle handle = RequireHandle();
-        _session = await AgentSessionIndex.Instance.LoadSessionAsync(handle.Agent, sessionId).ConfigureAwait(false);
-        return _session != null;
+        _session = await RestoreOrCreateSessionAsync(handle, sessionId, cancellationToken).ConfigureAwait(false);
+        SessionChatHistoryProvider.Bind(_session, sessionId);
+        _boundSessionId = sessionId;
     }
 
     public void ClearSession()
     {
         _session = null;
+        _boundSessionId = null;
     }
 
-    public async Task SaveSessionAsync(AgentSessionMeta meta)
+    public async Task SaveSessionAsync()
     {
-        if (_handle == null || _session == null) return;
-        await AgentSessionIndex.Instance.SaveSessionAsync(_handle.Agent, _session, meta).ConfigureAwait(false);
+        if (_handle == null || _session == null || _boundSessionId == null) return;
+        try
+        {
+            JsonElement state = await _handle.Agent.SerializeSessionAsync(_session).ConfigureAwait(false);
+            await SessionManager.Instance.SaveAgentStateAsync(_boundSessionId, state).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            // 附加状态可丢弃:历史已由 SessionChatHistoryProvider 写进会话本体
+            Log.Warning($"Save agent state failed: {e.Message}");
+        }
+    }
+
+    private async Task<AgentSession> RestoreOrCreateSessionAsync(AgentHandle handle, string sessionId,
+        CancellationToken cancellationToken)
+    {
+        using JsonDocument? state = await SessionManager.Instance.LoadAgentStateAsync(sessionId).ConfigureAwait(false);
+        if (state != null)
+        {
+            try
+            {
+                return await handle.Agent
+                    .DeserializeSessionAsync(state.RootElement, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"Restore agent state '{sessionId}' failed, starting fresh: {e.Message}");
+            }
+        }
+
+        return await handle.Agent.CreateSessionAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,
@@ -108,8 +138,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     public IReadOnlyList<ChatMessage> GetHistory()
     {
-        if (_handle == null || _session == null) return [];
-        return _handle.History.GetMessages(_session);
+        // 历史住在自有会话里,不再向框架索取
+        if (_boundSessionId == null) return [];
+        return SessionManager.Instance.Load(_boundSessionId)?.History ?? [];
     }
 
     public EAgentMode GetMode()

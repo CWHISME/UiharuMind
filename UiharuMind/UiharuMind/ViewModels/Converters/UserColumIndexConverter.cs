@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using Microsoft.Extensions.AI;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using UiharuMind.Core.Core.Chat;
@@ -25,7 +26,8 @@ public class UserColumIndexConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is ECharacter.User)
+        // ChatRole 是 struct 而非枚举，不能用常量模式匹配
+        if (value is ChatRole role && role == ChatRole.User)
         {
             int.TryParse(parameter as string, out int index);
             return index;

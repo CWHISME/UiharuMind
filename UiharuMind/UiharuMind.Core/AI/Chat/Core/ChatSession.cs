@@ -1,54 +1,104 @@
+/****************************************************************************
+ * Copyright (c) 2024 CWHISME
+ *
+ * UiharuMind v0.0.1
+ *
+ * https://wangjiaying.top
+ * https://github.com/CWHISME/UiharuMind
+ ****************************************************************************/
+
 using System.Collections;
-using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Process;
-using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.Core.Utils;
-using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace UiharuMind.Core.Core.Chat;
 
 /// <summary>
-/// 表示一个对话。持久化数据使用项目自有消息模型，不依赖具体 AI SDK。
+/// 表示一个对话。历史直接以 <see cref="ChatMessage"/> 持久化——
+/// 存储、请求与渲染共用同一个模型，不再需要任何映射层，
+/// 也因此能无损承载工具调用、思考内容与审批请求（旧的单文本模型表达不了这些）。
 /// </summary>
-public class ChatSession : IUniquieContainerItem
+public class ChatSession : IEnumerable<ChatMessage>
 {
-    public int FormatVersion { get; set; } = 2;
-    public string Name { get; set; } = "Empty";
+    /// <summary>AI 作为首条消息时的作者名（界面据此做旁白式展示）</summary>
+    public const string NarratorName = "Narrator";
+
+    /// <summary>存档格式版本</summary>
+    public int FormatVersion { get; set; } = 3;
+
+    /// <summary>会话唯一标识，同时是存档文件名</summary>
+    public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
+
+    /// <summary>标题（纯显示，允许重复，改名不动文件）</summary>
+    public string Title { get; set; } = "Empty";
+
+    /// <summary>列表副标题</summary>
     public string Description { get; set; } = "Empty";
+
     /// <summary>
-    /// 所属角色的标识(<see cref="CharacterData.CharacterId"/>)。角色改名不会断开该引用。
+    /// 所属角色的标识（<see cref="CharacterData.CharacterId"/>）。角色改名不会断开该引用。
     /// </summary>
     public string CharacterId { get; set; } = nameof(DefaultCharacter.Empty);
 
+    /// <summary>记忆库名</summary>
     public string MemoryName { get; set; } = "";
-    public List<ChatMessageData> History { get; set; } = [];
 
-    //自定义参数
+    /// <summary>绑定的工作目录（仅 agent 会话有意义）</summary>
+    public string? WorkspacePath { get; set; }
+
+    /// <summary>权限档索引（仅 agent 会话有意义）</summary>
+    public int PermissionModeIndex { get; set; } = 1;
+
+    /// <summary>创建时间</summary>
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+
+    /// <summary>最后更新时间</summary>
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
+
+    /// <summary>对话历史</summary>
+    public List<ChatMessage> History { get; set; } = [];
+
+    /// <summary>自定义模板参数</summary>
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 
-    [JsonIgnore] public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharacterId);
+    /// <summary>
+    /// 临时会话：不落盘、不进索引、不出现在会话列表，但在内存中可按标识解析
+    /// （自定义 ChatHistoryProvider 需要靠标识反查本会话）。
+    /// 快捷翻译/解释等一次性调用即为临时会话，用户点"转为对话"时调用 <see cref="Persist"/> 提升为正式会话。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsTransient { get; set; }
 
+    /// <summary>所属角色</summary>
+    [JsonIgnore]
+    public CharacterData CharacterData =>
+        _characterData ??= CharacterManager.Instance.GetCharacterData(CharacterId);
+
+    /// <summary>
+    /// 记忆库。未显式指定时回退到角色的默认记忆——
+    /// 该回退只影响运行时解析，不再偷偷改写 <see cref="MemoryName"/> 字段
+    /// （旧实现在 getter 里改字段却不落盘，使该字段的值取决于本次运行有没有读过它）。
+    /// </summary>
     [JsonIgnore]
     public MemoryData? Memory
     {
         get
         {
             if (_memory != null) return _memory;
-            //如果没有指定记忆，则使用角色的默认记忆，同时将对话记忆设置为角色的默认记忆
-            if (string.IsNullOrEmpty(MemoryName) ||
-                !MemoryManager.Instance.TryGetMemoryData(MemoryName, out _memory))
+            if (!string.IsNullOrEmpty(MemoryName) &&
+                MemoryManager.Instance.TryGetMemoryData(MemoryName, out _memory))
             {
-                _memory = CharacterData.Memory;
-                if (_memory != null) MemoryName = CharacterData.MemoryName;
+                return _memory;
             }
 
-            return _memory;
+            return _memory = CharacterData.Memory;
         }
         set
         {
@@ -61,9 +111,7 @@ public class ChatSession : IUniquieContainerItem
 
     [JsonIgnore] private ModelRunningData? _modelRunningData;
 
-    /// <summary>
-    /// 该对话对应的模型
-    /// </summary>
+    /// <summary>该对话对应的模型</summary>
     [JsonIgnore]
     public ModelRunningData? ChatModelRunningData
     {
@@ -71,175 +119,218 @@ public class ChatSession : IUniquieContainerItem
         set => _modelRunningData = value;
     }
 
-    /// <summary>
-    /// 如果该字段为 true，则表示该对话为临时对话，触发存储时将会保存为一个全新的 Session
-    /// </summary>
+    /// <summary>首条消息时间</summary>
     [JsonIgnore]
-    public bool IsDirty { get; set; }
+    public DateTime FirstTime => History.Count > 0 ? LocalTimeOf(History[0]) : CreatedAt.LocalDateTime;
 
-    public DateTime FirstTime => History.Count > 0
-        ? new DateTime(History[0].Timestamp, DateTimeKind.Utc).ToLocalTime()
-        : DateTime.MinValue;
-
-    public DateTime LastTime => History.Count > 0
-        ? new DateTime(History[^1].Timestamp, DateTimeKind.Utc).ToLocalTime()
-        : DateTime.MinValue;
+    /// <summary>末条消息时间</summary>
+    [JsonIgnore]
+    public DateTime LastTime => History.Count > 0 ? LocalTimeOf(History[^1]) : UpdatedAt.LocalDateTime;
 
     private CharacterData? _characterData;
     private MemoryData? _memory;
-    private readonly SessionEnumerator _enumerator;
 
     public ChatSession()
     {
-        _enumerator = new SessionEnumerator(this);
     }
 
-    public ChatSession(string sessionName, CharacterData characterData) : this()
+    public ChatSession(string title, CharacterData characterData)
     {
         _characterData = characterData;
         CharacterId = characterData.CharacterId;
-        Name = sessionName;
+        Title = title;
         Description = string.IsNullOrEmpty(characterData.FirstGreeting)
             ? characterData.Description
             : characterData.FirstGreeting;
-        //开场白，处理逻辑待定
         if (!string.IsNullOrEmpty(characterData.FirstGreeting))
-            AddMessage(ECharacter.Assistant, characterData.TryRender(characterData.FirstGreeting));
+            AddMessage(ChatRole.Assistant, characterData.TryRender(characterData.FirstGreeting));
     }
 
-    public void ReInitHistory(IEnumerable<ChatMessageData> history)
+    /// <summary>
+    /// 投影为索引用的元数据
+    /// </summary>
+    /// <returns>元数据</returns>
+    public ChatSessionMeta ToMeta()
+    {
+        return new ChatSessionMeta
+        {
+            SessionId = SessionId,
+            Title = Title,
+            Description = Description,
+            CharacterId = CharacterId,
+            MemoryName = MemoryName,
+            WorkspacePath = WorkspacePath,
+            PermissionModeIndex = PermissionModeIndex,
+            CreatedAt = CreatedAt,
+            UpdatedAt = UpdatedAt,
+            MessageCount = History.Count,
+        };
+    }
+
+    /// <summary>
+    /// 用给定历史替换现有历史
+    /// </summary>
+    /// <param name="history">新历史</param>
+    public void ReInitHistory(IEnumerable<ChatMessage> history)
     {
         History = history.ToList();
     }
 
     public int Count => History.Count;
 
-    public ChatMessage this[int index] => new() { Message = History[index] };
+    public ChatMessage this[int index] => History[index];
 
-    public void AddMessage(ECharacter authorRole, string message, byte[]? imageBytes = null)
+    /// <summary>
+    /// 追加一条消息并落盘
+    /// </summary>
+    /// <param name="role">角色</param>
+    /// <param name="message">文本</param>
+    /// <param name="imageBytes">可选图片</param>
+    /// <param name="imageMediaType">图片 MIME 类型</param>
+    public void AddMessage(ChatRole role, string message, byte[]? imageBytes = null,
+        string imageMediaType = "image/jpeg")
     {
-        ChatMessageData data = CreateMessage(authorRole, message, imageBytes).Message;
+        ChatMessage data = CreateMessage(role, message, imageBytes, imageMediaType);
         //如果AI作为第一条消息，那么特殊处理下(特殊显示)
-        if (History.Count == 0 && authorRole == ECharacter.Assistant)
-            data.AuthorName = ChatMessage.NarratorName;
+        if (History.Count == 0 && role == ChatRole.Assistant) data.AuthorName = NarratorName;
 
         History.Add(data);
         Save();
     }
 
-    public ChatMessage CreateMessage(ECharacter authorRole, string message, byte[]? imageBytes = null,
-        long? timestamp = null)
+    /// <summary>
+    /// 构造一条消息（不入历史）
+    /// </summary>
+    /// <param name="role">角色</param>
+    /// <param name="message">文本</param>
+    /// <param name="imageBytes">可选图片</param>
+    /// <param name="imageMediaType">图片 MIME 类型</param>
+    /// <param name="createdAt">时间戳，默认当前</param>
+    /// <returns>消息</returns>
+    public ChatMessage CreateMessage(ChatRole role, string message, byte[]? imageBytes = null,
+        string imageMediaType = "image/jpeg", DateTimeOffset? createdAt = null)
     {
-        return new ChatMessage
+        List<AIContent> contents = [];
+        if (imageBytes is { Length: > 0 }) contents.Add(new DataContent(imageBytes, imageMediaType));
+        contents.Add(new TextContent(message));
+
+        return new ChatMessage(role, contents)
         {
-            Message = new ChatMessageData
-            {
-                Role = authorRole,
-                AuthorName = authorRole switch
-                {
-                    ECharacter.User => CharacterManager.Instance.UserCharacterName,
-                    ECharacter.System => "System",
-                    _ => CharacterData.CharacterName
-                },
-                Content = message,
-                ImageBytes = imageBytes,
-                Timestamp = timestamp ?? DateTime.UtcNow.Ticks
-            }
+            AuthorName = AuthorNameOf(role),
+            CreatedAt = createdAt ?? DateTimeOffset.Now,
         };
     }
 
+    /// <summary>
+    /// 追加一条模型生成的回复；内容为空则忽略
+    /// </summary>
+    /// <param name="content">回复文本</param>
     public void AddGeneratedAssistantMessage(string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return;
-        History.Add(CreateMessage(ECharacter.Assistant, content).Message);
+        History.Add(CreateMessage(ChatRole.Assistant, content));
         Save();
     }
 
+    /// <summary>
+    /// 删除指定位置的消息
+    /// </summary>
+    /// <param name="index">下标</param>
     public void RemoveMessageAt(int index)
     {
-        if (index >= History.Count) return;
+        if (index < 0 || index >= History.Count) return;
         History.RemoveAt(index);
         Save();
     }
 
+    /// <summary>
+    /// 流式生成一条回复
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>累积文本流</returns>
     public IAsyncEnumerable<string> GenerateCompletionStreaming(CancellationToken cancellationToken = default)
     {
         if (Count == 0) return new AsyncEnumerableWithMessage("Error: No message");
 
         ChatMessage lastMessage = this[^1];
-        if (lastMessage.Character == ECharacter.Assistant && Count > 1)
+        if (lastMessage.Role == ChatRole.Assistant && Count > 1)
         {
             ChatMessage previous = this[^2];
-            if (previous.Character == ECharacter.Assistant &&
-                previous.CharacterName == lastMessage.CharacterName)
+            if (previous.Role == ChatRole.Assistant && previous.AuthorName == lastMessage.AuthorName)
                 return new AsyncEnumerableWithMessage("Error:A same assistant cannot generate message");
         }
 
         return ChatModelRunningData.InvokeAgentStreamingAsync(this, cancellationToken);
     }
 
-    public async Task<List<AIChatMessage>> BuildRequestMessagesAsync()
+    /// <summary>
+    /// 组装一次请求的完整消息列表
+    /// </summary>
+    /// <returns>消息列表</returns>
+    public async Task<List<ChatMessage>> BuildRequestMessagesAsync()
     {
-        List<AIChatMessage> messages = [];
+        List<ChatMessage> messages = [];
 
-        // 系统提示由 CharacterPromptBuilder 统一装配(挂载片段 + 自身 Template + 对话模板),
-        // 只产生一条 System 消息 —— 旧实现在这里拼一条、ChatThread 又插一条,同一轮发了两条。
+        // 系统提示由 CharacterPromptBuilder 统一装配(挂载片段 + 自身 Template + 对话模板)
         string instructions = CharacterPromptBuilder.Build(CharacterData, CustomParams);
         if (!string.IsNullOrWhiteSpace(instructions))
-            messages.Add(new AIChatMessage(ChatRole.System, instructions));
+            messages.Add(new ChatMessage(ChatRole.System, instructions));
 
         if (Memory != null && History.Count > 0)
         {
-            string longTermMemory = await Memory.GetLongTermMemory(History[^1].Content);
+            string longTermMemory = await Memory.GetLongTermMemory(History[^1].Text);
             if (!string.IsNullOrEmpty(longTermMemory))
             {
-                messages.Add(new AIChatMessage(ChatRole.Tool,
+                messages.Add(new ChatMessage(ChatRole.Tool,
                     "以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" +
                     longTermMemory));
             }
         }
 
-        messages.AddRange(History.Select(x => x.ToAIMessage()));
+        messages.AddRange(History);
         return messages;
     }
 
+    /// <summary>
+    /// 落盘。临时会话为空操作。
+    /// </summary>
     public void Save()
     {
-        ChatManager.Instance.Save(this, IsDirty);
-        IsDirty = false;
+        SessionManager.Instance.Save(this);
     }
 
+    /// <summary>
+    /// 把临时会话提升为正式会话并落盘
+    /// </summary>
+    public void Persist()
+    {
+        if (!IsTransient) return;
+        IsTransient = false;
+        SessionManager.Instance.Add(this);
+    }
+
+    /// <summary>
+    /// 清空历史
+    /// </summary>
     public void Clear()
     {
         History.Clear();
         Save();
     }
 
-    public IEnumerator<ChatMessage> GetEnumerator()
+    public IEnumerator<ChatMessage> GetEnumerator() => History.GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    private string AuthorNameOf(ChatRole role)
     {
-        _enumerator.Reset();
-        return _enumerator;
+        if (role == ChatRole.User) return CharacterManager.Instance.UserCharacterName;
+        if (role == ChatRole.System) return "System";
+        return CharacterData.CharacterName;
     }
 
-    private sealed class SessionEnumerator(ChatSession session) : IEnumerator<ChatMessage>
+    private static DateTime LocalTimeOf(ChatMessage message)
     {
-        private int _index = -1;
-        private ChatMessage _current;
-
-        public ChatMessage Current => _current;
-        object IEnumerator.Current => Current;
-
-        public bool MoveNext()
-        {
-            if (++_index >= session.Count) return false;
-            _current = session[_index];
-            return true;
-        }
-
-        public void Reset() => _index = -1;
-
-        public void Dispose()
-        {
-        }
+        return (message.CreatedAt ?? DateTimeOffset.Now).LocalDateTime;
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 
@@ -10,7 +11,7 @@ public class TranslationAgentSkill : AgentSkillConvertableBase
         CancellationToken cancellationToken = default)
     {
         // AddParams("content", text);
-        _chatHistory = [new ChatMessageData { Role = ECharacter.User, Content = text }];
+        _chatHistory = [new ChatMessage(ChatRole.User, text)];
         return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
     

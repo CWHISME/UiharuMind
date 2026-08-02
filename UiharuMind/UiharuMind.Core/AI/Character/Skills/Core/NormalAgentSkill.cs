@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Utils;
@@ -25,7 +26,7 @@ public class NormalAgentSkill : AgentSkillConvertableBase
         // AddParams("content", text);
         _chatHistory =
         [
-            new ChatMessageData { Role = ECharacter.User, Content = text }
+            new ChatMessage(ChatRole.User, text)
         ];
         return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
         // JsonNode.Parse(ModelReaderWriter.Write(content.InnerContent!))["choices"]![0]!["delta"]!["reasoning_content"]

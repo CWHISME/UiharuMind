@@ -8,6 +8,8 @@
  ****************************************************************************/
 
 using System.Collections.ObjectModel;
+using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -100,7 +102,7 @@ public partial class AgentPageData : PageDataBase
         {
             string? selectedId = Conversation.CurrentMeta?.SessionId;
             Sessions.Clear();
-            foreach (AgentSessionMeta meta in AgentSessionIndex.Instance.GetSessions())
+            foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions())
             {
                 Sessions.Add(new AgentSessionItemViewData(meta, OnSessionDeleted));
             }

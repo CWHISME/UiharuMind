@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using Microsoft.Extensions.AI;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
@@ -25,16 +26,10 @@ public class UserLeftRightConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is ECharacter.System)
-        {
-            return HorizontalAlignment.Center;
-        }
-
-        if (value is ECharacter.User)
-        {
-            return HorizontalAlignment.Right;
-        }
-
+        // ChatRole 是 struct 而非枚举，不能用常量模式匹配
+        if (value is not ChatRole role) return HorizontalAlignment.Left;
+        if (role == ChatRole.System) return HorizontalAlignment.Center;
+        if (role == ChatRole.User) return HorizontalAlignment.Right;
         return HorizontalAlignment.Left;
     }
 

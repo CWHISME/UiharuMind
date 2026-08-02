@@ -53,9 +53,6 @@ public sealed class AgentHandle : IAsyncDisposable
     /// <summary>Harness agent(标准 AIAgent 契约)</summary>
     public AIAgent Agent { get; }
 
-    /// <summary>聊天历史提供器(消息存于 session StateBag,回放用)</summary>
-    public InMemoryChatHistoryProvider History { get; }
-
     private readonly ShellExecutor? _shellExecutor;
 
     /// <summary>todo 提供器(侧栏进度)</summary>
@@ -67,10 +64,9 @@ public sealed class AgentHandle : IAsyncDisposable
     /// <summary>运行中插话通道</summary>
     public MessageInjectingChatClient? MessageInjector => Agent.GetService<MessageInjectingChatClient>();
 
-    public AgentHandle(AIAgent agent, InMemoryChatHistoryProvider history, ShellExecutor? shellExecutor)
+    public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor)
     {
         Agent = agent;
-        History = history;
         _shellExecutor = shellExecutor;
     }
 
@@ -126,7 +122,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         var config = AgentSettingConfig.Current;
 
         IChatClient client = new LazyChatClient();
-        InMemoryChatHistoryProvider history = new();
+        // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
+        SessionChatHistoryProvider history = new();
 
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
         LocalShellExecutor? shellExecutor = null;
@@ -191,7 +188,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
 
-        return new AgentHandle(client.AsHarnessAgent(options, loggerFactory, services), history, shellExecutor);
+        return new AgentHandle(client.AsHarnessAgent(options, loggerFactory, services), shellExecutor);
     }
 
     private static string GetScratchDirectory()

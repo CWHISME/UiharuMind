@@ -67,7 +67,7 @@ public static class ChatThread
     }
 
     public static IAsyncEnumerable<string> InvokeAgentStreamingAsync(this ModelRunningData? modelRunning,
-        CharacterData characterData, IEnumerable<ChatMessageData>? history = null,
+        CharacterData characterData, IEnumerable<ChatMessage>? history = null,
         Dictionary<string, object?>? arguments = null,
         CancellationToken cancellationToken = default)
     {
@@ -75,7 +75,7 @@ public static class ChatThread
             return new AsyncEnumerableWithMessage("Model is not running.");
 
         ChatClientAgent agent = characterData.ToAgent(client!, arguments);
-        List<AIChatMessage> messages = history?.Select(x => x.ToAIMessage()).ToList() ?? [];
+        List<AIChatMessage> messages = history?.ToList() ?? [];
         return InvokeAgentStreamingAsync(agent, messages, cancellationToken);
     }
 

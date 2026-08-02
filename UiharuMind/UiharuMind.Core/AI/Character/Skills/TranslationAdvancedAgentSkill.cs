@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 
@@ -11,7 +12,7 @@ public class TranslationAdvancedAgentSkill : AgentSkillConvertableBase
     {
         TrySetParams("user_request", "None");
 
-        _chatHistory = [new ChatMessageData { Role = ECharacter.User, Content = text }];
+        _chatHistory = [new ChatMessage(ChatRole.User, text)];
         return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
 

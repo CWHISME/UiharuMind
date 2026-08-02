@@ -1,4 +1,5 @@
 using System;
+using UiharuMind.Core.AI.Chat;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -285,7 +286,7 @@ public partial class CharacterInfoViewData : ObservableObject
     {
         // Log.Debug("Start chat with " + Name);
         // App.ViewModel.GetViewModel<ChatListViewModel>().StartNewSession(_characterData);
-        ChatManager.Instance.StartNewSession(_characterData);
+        SessionManager.Instance.StartNewSession(_characterData);
         App.JumpToPage(MenuPages.MenuChatKey);
         // WeakReferenceMessenger.Default.Send(MenuKeys.MenuChatKey);
     }

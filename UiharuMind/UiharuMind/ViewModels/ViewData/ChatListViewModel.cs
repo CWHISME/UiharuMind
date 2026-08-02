@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using UiharuMind.Core.AI.Chat;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
@@ -31,16 +32,18 @@ public partial class ChatListViewModel : ViewModelBase
 
     public ChatListViewModel()
     {
-        foreach (var session in ChatManager.Instance.GetOrderedItems())
+        // 只读索引,本体按需加载(agent 会话的工具结果是全量持久化的,启动时全量反序列化会卡死)
+        foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions())
         {
-            ChatSessions.Add(new ChatSessionViewData(session));
+            ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
+            if (session != null) ChatSessions.Add(new ChatSessionViewData(session));
         }
 
-        ChatManager.Instance.OnItemAdded += OnChatSessionAdded;
-        ChatManager.Instance.OnItemRemoved += OnChatSessionRemoved;
+        SessionManager.Instance.OnSessionAdded += OnChatSessionAdded;
+        SessionManager.Instance.OnSessionRemoved += OnChatSessionRemoved;
 
         if (ChatSessions.Count == 0)
-            ChatManager.Instance.StartNewSession(CharacterManager.Instance.GetCharacterData(""));
+            SessionManager.Instance.StartNewSession(CharacterManager.Instance.GetCharacterData(""));
         else SelectedSession = ChatSessions[0];
     }
 

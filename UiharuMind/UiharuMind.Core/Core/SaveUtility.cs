@@ -64,6 +64,51 @@ public static class SaveUtility
         }
     }
 
+    /// <summary>
+    /// 用指定序列化配置保存。会话存档需要 Microsoft.Extensions.AI 的 TypeInfoResolver
+    /// 才能正确写入多态 AIContent，不能复用通用配置。
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="target">对象</param>
+    /// <param name="options">序列化配置</param>
+    public static void Save(string filePath, object target, JsonSerializerOptions options)
+    {
+        try
+        {
+            string? dir = Path.GetDirectoryName(filePath);
+            if (dir == null) return;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            File.WriteAllText(filePath, JsonSerializer.Serialize(target, options));
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
+        }
+    }
+
+    /// <summary>
+    /// 用指定序列化配置读取。与通用 Load 不同，解析失败返回 null 而不是空对象——
+    /// 调用方需要区分"文件不存在/已损坏"与"内容确实是空的"，才能决定是否走重建流程。
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="options">序列化配置</param>
+    /// <typeparam name="T">目标类型</typeparam>
+    /// <returns>对象；文件缺失或解析失败为 null</returns>
+    public static T? Load<T>(string filePath, JsonSerializerOptions options) where T : class
+    {
+        if (!File.Exists(filePath)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<T>(File.ReadAllText(filePath), options);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Load File Error:{e.Message},Path:{filePath}");
+            return null;
+        }
+    }
+
     public static void Delete(string filePath)
     {
         try

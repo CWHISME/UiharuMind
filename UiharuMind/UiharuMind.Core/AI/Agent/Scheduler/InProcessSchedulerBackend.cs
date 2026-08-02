@@ -7,11 +7,13 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text.Json;
 using Microsoft.Agents.AI;
+using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
-using AgentSessionMeta = UiharuMind.Core.AI.Agent.AgentSessionMeta;
 
 namespace UiharuMind.Core.AI.Agent.Scheduler;
 
@@ -149,13 +151,23 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
                 PreAuthorizedShellPatterns = task.PreAuthorizedCommands,
             }).ConfigureAwait(false);
 
+            // 无人值守跑出来的结果也是一个正式会话,与手动对话同一套存储
+            ChatSession chatSession = new()
+            {
+                Title = $"⏰ {task.DisplayName}",
+                Description = task.Prompt,
+                WorkspacePath = task.WorkspacePath,
+                PermissionModeIndex = (int)EAgentPermissionMode.AutoEdit,
+            };
+            SessionManager.Instance.Add(chatSession);
+            task.ResultSessionId = chatSession.SessionId;
+
             AgentSession session = await handle.Agent.CreateSessionAsync().ConfigureAwait(false);
-            AgentSessionMeta meta = AgentSessionIndex.Instance.CreateMeta(
-                $"⏰ {task.DisplayName}", task.WorkspacePath, (int)EAgentPermissionMode.AutoEdit);
-            task.ResultSessionId = meta.SessionId;
+            SessionChatHistoryProvider.Bind(session, chatSession.SessionId);
 
             bool succeeded = await RunHeadlessAsync(handle.Agent, session, task.Prompt).ConfigureAwait(false);
-            await AgentSessionIndex.Instance.SaveSessionAsync(handle.Agent, session, meta).ConfigureAwait(false);
+            JsonElement state = await handle.Agent.SerializeSessionAsync(session).ConfigureAwait(false);
+            await SessionManager.Instance.SaveAgentStateAsync(chatSession.SessionId, state).ConfigureAwait(false);
 
             task.Status = succeeded ? EScheduledTaskStatus.Completed : EScheduledTaskStatus.Failed;
         }

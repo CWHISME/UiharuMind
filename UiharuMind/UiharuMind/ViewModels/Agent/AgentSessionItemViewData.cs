@@ -8,11 +8,13 @@
  ****************************************************************************/
 
 using System;
+using UiharuMind.Core.AI.Chat;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Views;
@@ -28,14 +30,14 @@ public partial class AgentSessionItemViewData : ObservableObject
     private readonly Action<AgentSessionItemViewData> _onDeleted;
 
     /// <summary>会话元数据</summary>
-    public AgentSessionMeta Meta { get; }
+    public ChatSessionMeta Meta { get; }
 
     [ObservableProperty] private string _title;
 
     /// <summary>更新时间文本</summary>
     public string TimeString => Meta.UpdatedAt.ToString("MM-dd HH:mm");
 
-    public AgentSessionItemViewData(AgentSessionMeta meta, Action<AgentSessionItemViewData> onDeleted)
+    public AgentSessionItemViewData(ChatSessionMeta meta, Action<AgentSessionItemViewData> onDeleted)
     {
         Meta = meta;
         _title = meta.Title;
@@ -50,14 +52,19 @@ public partial class AgentSessionItemViewData : ObservableObject
         if (string.IsNullOrWhiteSpace(name) || name == Meta.Title) return;
         Meta.Title = name;
         Title = name;
-        AgentSessionIndex.Instance.SaveMeta(Meta);
+        ChatSession? session = SessionManager.Instance.Load(Meta.SessionId);
+        if (session != null)
+        {
+            session.Title = name;
+            session.Save();
+        }
     }
 
     [RelayCommand]
     private async Task Delete()
     {
         if (!await _messageService.ConfirmAsync(Lang.DeleteTips)) return;
-        AgentSessionIndex.Instance.Delete(Meta.SessionId);
+        SessionManager.Instance.Delete(Meta.SessionId);
         _onDeleted(this);
     }
 }

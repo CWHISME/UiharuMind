@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using Microsoft.Extensions.AI;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -144,7 +145,7 @@ public partial class ChatViewModel : ViewModelBase
             return;
         }
 
-        ChatSession.AddMessage(ECharacter.User, "", bitmap.BitmapToBytes());
+        ChatSession.AddMessage(ChatRole.User, "", bitmap.BitmapToBytes());
     }
 
     [RelayCommand]
@@ -184,7 +185,7 @@ public partial class ChatViewModel : ViewModelBase
 
         //添加 first message
 
-        if (ChatSession.ChatSession.History.Count > 0 && ChatSession.ChatSession.History[^1].Role == ECharacter.User &&
+        if (ChatSession.ChatSession.History.Count > 0 && ChatSession.ChatSession.History[^1].Role == ChatRole.User &&
             //两者不同步了，不添加新输入，直接执行重新生成
             ChatSession.ChatItems.Count != ChatSession.ChatSession.History.Count)
         {
@@ -217,9 +218,9 @@ public partial class ChatViewModel : ViewModelBase
         {
             if (ChatSession == null || ChatSession.ChatSession.Count == 0) return;
             ChatMessage lastMessage = ChatSession.ChatSession[^1];
-            if (lastMessage.Character == ECharacter.User)
+            if (lastMessage.Role == ChatRole.User)
                 break;
-            if (lastMessage.Character == ECharacter.System)
+            if (lastMessage.Role == ChatRole.System)
                 break;
 
             ChatSession.ChatSession.RemoveMessageAt(ChatSession.ChatSession.Count - 1);
@@ -244,7 +245,7 @@ public partial class ChatViewModel : ViewModelBase
             ChatSession.ChatSession.RemoveMessageAt(lastIndex);
         }
 
-        if (itemData.Role == ECharacter.Assistant)
+        if (itemData.Role == ChatRole.Assistant)
         {
             ChatSession.ChatItems.RemoveAt(index);
             ChatSession.ChatSession.RemoveMessageAt(index);
@@ -279,7 +280,7 @@ public partial class ChatViewModel : ViewModelBase
         if (ChatSession == null) return;
         IsGenerating = true;
         _cancelTokenSource = new CancellationTokenSource();
-        await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? ECharacter.User : ECharacter.Assistant,
+        await ChatSession.AddMessageWithGenerate(SenderMode == SendMode.User ? ChatRole.User : ChatRole.Assistant,
             message, _cancelTokenSource.Token);
         IsGenerating = false;
     }
@@ -387,7 +388,7 @@ public partial class ChatViewModel : ViewModelBase
         else
             IsVisibleRegenerateButton = ChatSession.ChatSession.Count > 1
                                         || ChatSession.ChatSession.Count == 1 &&
-                                        ChatSession.ChatSession[0].Character != ECharacter.System;
+                                        ChatSession.ChatSession[0].Role != ChatRole.System;
     }
 
     private bool IsModelRunning()

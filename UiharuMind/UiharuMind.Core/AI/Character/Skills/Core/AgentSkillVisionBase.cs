@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.Chat;
@@ -24,13 +25,8 @@ public abstract class AgentSkillVisionBase : AgentSkillConvertableBase
 
         _chatHistory =
         [
-            new ChatMessageData
-            {
-                Role = ECharacter.User,
-                Content = text,
-                ImageBytes = _imageBytes,
-                ImageMediaType = "image/jpeg"
-            }
+            new ChatMessage(ChatRole.User,
+                [new DataContent(_imageBytes, "image/jpeg"), new TextContent(text)])
         ];
         return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }

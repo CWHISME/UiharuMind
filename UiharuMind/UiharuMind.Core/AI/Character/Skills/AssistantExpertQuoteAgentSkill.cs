@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Utils;
@@ -22,7 +23,7 @@ public class AssistantExpertQuoteAgentSkill : NormalAgentSkill
         builder.Append(text);
         builder.AppendLine("\n***\n以下为参考内容：");
         builder.AppendLine(_quoteStr);
-        _chatHistory = [new ChatMessageData { Role = ECharacter.User, Content = builder.ToString() }];
+        _chatHistory = [new ChatMessage(ChatRole.User, builder.ToString())];
         return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
     }
 }

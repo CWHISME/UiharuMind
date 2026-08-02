@@ -45,9 +45,9 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     /// </summary>
     public void Init()
     {
-        // Agent 子系统:Harness 宿主(含调度器)、会话索引、MCP 配置
+        // 会话索引(角色对话与 agent 对话共用)、Harness 宿主(含调度器)、MCP 配置
+        _ = AI.Chat.SessionManager.Instance;
         _ = AI.Agent.AgentHost.Instance;
-        _ = AI.Agent.AgentSessionIndex.Instance;
         _ = AI.Agent.Mcp.McpManager.Instance;
         Log.Debug("UiharuCoreManager initialized");
     }

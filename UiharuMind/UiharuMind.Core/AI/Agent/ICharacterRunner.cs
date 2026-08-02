@@ -40,18 +40,13 @@ public interface ICharacterRunner : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 当前无会话时新建一个空会话
-    /// </summary>
-    /// <param name="cancellationToken">取消令牌</param>
-    Task EnsureSessionAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 载入已持久化的会话
+    /// 绑定到指定会话：已有框架附加状态则恢复，否则新建。
+    /// 历史不在框架状态里——它的权威来源是 <see cref="Core.Chat.ChatSession"/>，
+    /// 因此附加状态缺失只会丢 todos/mode，不会丢对话。
     /// </summary>
     /// <param name="sessionId">会话标识</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>载入成功返回 true；文件缺失或损坏返回 false</returns>
-    Task<bool> TryLoadSessionAsync(string sessionId, CancellationToken cancellationToken = default);
+    Task AttachSessionAsync(string sessionId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 丢弃当前会话引用（切换会话前调用，不影响磁盘数据）
@@ -59,10 +54,9 @@ public interface ICharacterRunner : IAsyncDisposable
     void ClearSession();
 
     /// <summary>
-    /// 持久化当前会话
+    /// 持久化当前会话的框架附加状态
     /// </summary>
-    /// <param name="meta">会话元数据</param>
-    Task SaveSessionAsync(AgentSessionMeta meta);
+    Task SaveSessionAsync();
 
     /// <summary>
     /// 运行一轮，产出内容流。审批往返由调用方驱动：
