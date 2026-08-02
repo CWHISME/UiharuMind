@@ -98,7 +98,6 @@ public enum DefaultCharacter
     
     Translator,
     TranslatorAdvanced,
-    TranslateReviwer,
     VisionOcr,
     Vision,
     Max

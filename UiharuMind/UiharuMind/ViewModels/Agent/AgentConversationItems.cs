@@ -12,8 +12,8 @@ using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Agent;
 using UiharuMind.ViewModels.Conversation;
 
 namespace UiharuMind.ViewModels.Agent;
@@ -103,9 +103,10 @@ public partial class ApprovalRequestItem : ConversationItemBase
         if (IsResolved) return;
         AIContent response = decision switch
         {
-            "session" => _request.CreateAlwaysApproveToolResponse("User chose to always approve this tool"),
-            "deny" => _request.CreateResponse(approved: false, reason: "User denied"),
-            _ => _request.CreateResponse(approved: true, reason: "User approved"),
+            "session" => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.AlwaysInSession,
+                "User chose to always approve this tool"),
+            "deny" => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Deny, "User denied"),
+            _ => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Once, "User approved"),
         };
         ResolvedText = decision;
         IsResolved = true;
@@ -121,7 +122,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
         IsResolved = true;
         ResolvedText = "deny";
         _completion.TrySetResult(new ChatMessage(ChatRole.User,
-            new[] { (AIContent)_request.CreateResponse(approved: false, reason: "Run stopped") }));
+            new[] { ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Deny, "Run stopped") }));
     }
 }
 

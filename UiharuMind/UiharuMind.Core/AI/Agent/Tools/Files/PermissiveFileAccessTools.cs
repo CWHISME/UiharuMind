@@ -79,7 +79,7 @@ internal sealed class PermissiveFileAccessTools
         => _glob.SearchAsync(pattern, root);
 
     [Description("文本搜索：标准 ripgrep 语法")]
-    private Task<List<FileSearchResult>> Grep(
+    private async Task<List<FileSearchResult>> Grep(
         string query,
         [Description("Enable regex mode (default is literal)")] bool isRegex = false,
         [Description("是否区分大小写")] bool caseSensitive = false,
@@ -89,7 +89,19 @@ internal sealed class PermissiveFileAccessTools
         [Description("Target directory (relative or absolute)")] string? directory = null,
         CancellationToken ct = default)
     {
-        return _grepper.SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct);
+        List<GrepFileResult> results = await _grepper
+            .SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
+            .ConfigureAwait(false);
+
+        // 自有结果 → 框架工具结果的转换只发生在这里
+        return results.Select(x => new FileSearchResult
+        {
+            FileName = x.FileName,
+            Snippet = x.Snippet,
+            MatchingLines = x.MatchingLines
+                .Select(line => new FileSearchMatch { LineNumber = line.LineNumber, Line = line.Line })
+                .ToList(),
+        }).ToList();
     }
 
     [Description("""

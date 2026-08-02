@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Agent;
@@ -53,10 +52,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     public string ModeLabel => LocalizationManager.Instance.GetString(
         CurrentMode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
 
-    private AgentHandle? _handle; //当前构建的 agent(配置变化时重建)
-    private AgentSession? _session; //当前框架会话
-    private string? _handleWorkspace;
-    private int _handleModeIndex = -1;
+    private readonly ICharacterRunner _runner = AgentHost.Instance.CreateRunner();
 
     private CancellationTokenSource? _runCancellation;
     private TextConversationItem? _streamingText;
@@ -143,9 +139,8 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         // 运行中输入 = 插话:入注入队列,agent 下一次机会消费
         if (IsGenerating)
         {
-            if (_handle?.MessageInjector != null && _session != null)
+            if (_runner.TryInject(new[] { new ChatMessage(ChatRole.User, text) }))
             {
-                _handle.MessageInjector.EnqueueMessages(_session, new[] { new ChatMessage(ChatRole.User, text) });
                 Items.Add(CreateUserItem(text));
             }
 
@@ -183,14 +178,9 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
                 List<ApprovalRequestItem> turnApprovals = new();
                 try
                 {
-                    await foreach (AgentResponseUpdate update in _handle!.Agent
-                                       .RunStreamingAsync(nextMessages, _session!,
-                                           cancellationToken: cancellationToken))
+                    await foreach (AIContent content in _runner.RunAsync(nextMessages, cancellationToken))
                     {
-                        foreach (AIContent content in update.Contents)
-                        {
-                            ApplyContent(content, turnApprovals);
-                        }
+                        ApplyContent(content, turnApprovals);
                     }
                 }
                 catch (OperationCanceledException)
@@ -214,10 +204,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
                 if (cancellationToken.IsCancellationRequested) break;
             }
 
-            if (_handle != null && _session != null)
-            {
-                await AgentSessionIndex.Instance.SaveSessionAsync(_handle.Agent, _session, meta);
-            }
+            await _runner.SaveSessionAsync(meta);
         }
         catch (Exception e)
         {
@@ -299,74 +286,36 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
     private async Task<AgentSessionMeta> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken)
     {
-        await EnsureHandleAsync(cancellationToken);
+        await ConfigureRunnerAsync(cancellationToken);
 
         if (CurrentMeta == null)
         {
             string title = titleSeed.Length > 30 ? titleSeed[..30] + "…" : titleSeed;
             CurrentMeta = AgentSessionIndex.Instance.CreateMeta(title, WorkspacePath, PermissionModeIndex);
             Title = CurrentMeta.Title;
-            _session = await _handle!.Agent.CreateSessionAsync(cancellationToken);
+            await _runner.EnsureSessionAsync(cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
             return CurrentMeta;
         }
 
-        _session ??= await _handle!.Agent.CreateSessionAsync(cancellationToken);
+        await _runner.EnsureSessionAsync(cancellationToken);
         ApplyMode();
         return CurrentMeta;
     }
 
     /// <summary>
-    /// 构建/重建 agent:workspace 或权限档变化时重建(模型经惰性客户端按请求解析,切换无需重建);
-    /// 已有会话经序列化迁移到新 agent(状态按 provider 键存取,可跨实例)。
+    /// 把当前的 workspace 与权限档同步给执行者(变化时由其内部重建并迁移会话)
     /// </summary>
-    private async Task EnsureHandleAsync(CancellationToken cancellationToken)
+    private Task ConfigureRunnerAsync(CancellationToken cancellationToken)
     {
-        bool needRebuild = _handle == null ||
-                           _handleWorkspace != WorkspacePath ||
-                           _handleModeIndex != PermissionModeIndex;
-        if (!needRebuild) return;
-
-        AgentHandle newHandle = await AgentHost.Instance.CreateAgentAsync(new AgentBuildProfile
-        {
-            WorkspacePath = WorkspacePath,
-            PermissionMode = (EAgentPermissionMode)Math.Clamp(PermissionModeIndex, 0, 2),
-        }, cancellationToken);
-
-        if (_handle != null && _session != null)
-        {
-            try
-            {
-                var serialized = await _handle.Agent
-                    .SerializeSessionAsync(_session, cancellationToken: cancellationToken);
-                _session = await newHandle.Agent
-                    .DeserializeSessionAsync(serialized, cancellationToken: cancellationToken);
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"Session migration failed, starting fresh session state: {e.Message}");
-                _session = null;
-            }
-        }
-
-        if (_handle != null) await _handle.DisposeAsync();
-        _handle = newHandle;
-        _handleWorkspace = WorkspacePath;
-        _handleModeIndex = PermissionModeIndex;
+        return _runner.ConfigureAsync(WorkspacePath,
+            (EAgentPermissionMode)Math.Clamp(PermissionModeIndex, 0, 2), cancellationToken);
     }
 
     private void ApplyMode()
     {
-        if (_handle?.Mode == null || _session == null) return;
-        try
-        {
-            _handle.Mode.SetMode(_session, CurrentMode.ToModeString());
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Set agent mode failed: {e.Message}");
-        }
+        _runner.SetMode(CurrentMode);
     }
 
     private ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
@@ -420,7 +369,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     {
         _runCancellation?.Cancel();
         ClearStreamState();
-        _session = null;
+        _runner.ClearSession();
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         if (meta == null) return;
@@ -430,12 +379,11 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
         try
         {
-            await EnsureHandleAsync(CancellationToken.None);
-            _session = await AgentSessionIndex.Instance.LoadSessionAsync(_handle!.Agent, meta.SessionId);
-            if (_session == null) return;
+            await ConfigureRunnerAsync(CancellationToken.None);
+            if (!await _runner.TryLoadSessionAsync(meta.SessionId)) return;
 
-            CurrentMode = AgentModeExtensions.FromModeString(_handle.Mode?.GetMode(_session));
-            ReplayMessages(_handle.History.GetMessages(_session));
+            CurrentMode = _runner.GetMode();
+            ReplayMessages(_runner.GetHistory());
             await RefreshTodosAsync();
         }
         catch (Exception e)
@@ -497,12 +445,12 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
     private async Task RefreshTodosAsync()
     {
-        if (_handle?.Todos == null || _session == null) return;
+        if (!_runner.HasSession) return;
         try
         {
-            IReadOnlyList<TodoItem> todos = await _handle.Todos.GetAllTodosAsync(_session);
+            IReadOnlyList<TodoSnapshot> todos = await _runner.GetTodosAsync();
             Todos.Clear();
-            foreach (TodoItem todo in todos)
+            foreach (TodoSnapshot todo in todos)
             {
                 Todos.Add(new TodoDisplayItem(todo));
             }
@@ -574,7 +522,7 @@ public class TodoDisplayItem
     /// <summary>是否已完成(删除线样式)</summary>
     public bool IsCompleted { get; }
 
-    public TodoDisplayItem(TodoItem todo)
+    public TodoDisplayItem(TodoSnapshot todo)
     {
         Content = todo.Title;
         IsCompleted = todo.IsComplete;

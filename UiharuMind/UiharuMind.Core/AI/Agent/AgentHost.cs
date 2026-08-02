@@ -93,6 +93,15 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     }
 
     /// <summary>
+    /// 创建一个对话执行者。框架类型止步于实现内部,调用方只见稳定类型。
+    /// </summary>
+    /// <returns>执行者;使用前需先调用 <see cref="ICharacterRunner.ConfigureAsync"/></returns>
+    public ICharacterRunner CreateRunner()
+    {
+        return new HarnessCharacterRunner();
+    }
+
+    /// <summary>
     /// 按配置构建一个 HarnessAgent
     /// </summary>
     /// <param name="profile">构建配置</param>

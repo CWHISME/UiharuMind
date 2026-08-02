@@ -18,11 +18,24 @@
       <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
       <PackageReference Include="Markdown.ColorCode" Version="3.0.0" />
       <PackageReference Include="Meziantou.Framework.Globbing" Version="4.0.0" />
-      <PackageReference Include="Microsoft.Agents.AI" Version="1.13.0" />
-      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.13.0-preview.260703.1" />
-      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.13.0-preview.260703.1" />
-      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.13.0-alpha.260703.1" />
-      <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.13.0" />
+      <!-- Agent Framework 面(含 preview/alpha 包)只挡编译期外流:UI 层若直接引用其类型将变成编译错误,
+           迫使一切经 ICharacterRunner 收口。
+           必须是 compile 而非 all —— all 会连 runtime 资产一起挡掉,
+           导致这些包及其传递依赖(如 ModelContextProtocol.Core)不进 app head 输出目录,运行时抛 FileNotFoundException。
+           后三项是 PrivateAssets 的默认值,显式写出以免被覆盖。
+           Microsoft.Extensions.AI 是稳定的公共货币,完全不设限。 -->
+      <PackageReference Include="Microsoft.Agents.AI" Version="1.13.0">
+        <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.13.0-preview.260703.1">
+        <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.13.0-preview.260703.1">
+        <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
+      </PackageReference>
+      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.13.0-alpha.260703.1">
+        <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
+      </PackageReference>
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
@@ -49,12 +62,9 @@
       <EmbeddedResource Include="Resources\Vision.json" />
       <None Remove="Resources\UiharuKazari.json" />
       <EmbeddedResource Include="Resources\AssistantExpert.json" />
-      <EmbeddedResource Include="Resources\Actor.json" />
       <EmbeddedResource Include="Resources\UiharuKazari.json" />
       <None Remove="Resources\Translator.json" />
       <EmbeddedResource Include="Resources\Translator.json" />
-      <None Remove="Resources\TranslateReviwer.json" />
-      <EmbeddedResource Include="Resources\TranslateReviwer.json" />
       <None Remove="Resources\Help*.md" />
       <EmbeddedResource Include="Resources\Help*.md" />
     </ItemGroup>

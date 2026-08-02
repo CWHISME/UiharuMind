@@ -2,9 +2,47 @@ using System.IO.Enumeration;
 using System.Text.RegularExpressions;
 using Glacier.Grep;
 using Meziantou.Framework.Globbing;
-using Microsoft.Agents.AI;
 
 namespace UiharuMind.Core.AI.Agent.Files;
+
+/// <summary>
+/// 一条命中的行
+/// </summary>
+public sealed class GrepMatchLine
+{
+    /// <summary>
+    /// 行号
+    /// </summary>
+    public int LineNumber { get; set; }
+
+    /// <summary>
+    /// 该行内容
+    /// </summary>
+    public string Line { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// 一个文件的搜索结果。
+/// 项目自有类型：本类型也服务于界面的文件搜索功能，不应绑定 Agent Framework 的工具结果形状，
+/// 框架形状的转换只发生在工具边界（PermissiveFileAccessTools）。
+/// </summary>
+public sealed class GrepFileResult
+{
+    /// <summary>
+    /// 文件路径
+    /// </summary>
+    public string FileName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 命中片段（用于预览）
+    /// </summary>
+    public string Snippet { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 命中的各行
+    /// </summary>
+    public List<GrepMatchLine> MatchingLines { get; set; } = [];
+}
 
 /// <summary>
 /// 文本搜索：标准 ripgrep 语法
@@ -18,7 +56,7 @@ public sealed class SimpleGrepper
         _rootDirectory = workspaceRoot;
     }
 
-    public async Task<List<FileSearchResult>> SearchAsync(
+    public async Task<List<GrepFileResult>> SearchAsync(
         string query,
         bool isRegex = false,
         bool caseSensitive = false,
@@ -60,14 +98,14 @@ public sealed class SimpleGrepper
                 maxDepth: maxDepth,
                 fileGlobs: fileGlobs ?? Array.Empty<string>());
 
-            var results = new List<FileSearchResult>();
+            var results = new List<GrepFileResult>();
             foreach (var match in matches)
             {
-                results.Add(new FileSearchResult
+                results.Add(new GrepFileResult
                 {
                     FileName = match.FilePath,
                     Snippet = match.MatchContent?.TrimEnd() ?? "",
-                    MatchingLines = new List<FileSearchMatch>
+                    MatchingLines = new List<GrepMatchLine>
                     {
                         new() { LineNumber = match.LineNumber, Line = match.MatchContent?.TrimEnd() ?? "" }
                     }

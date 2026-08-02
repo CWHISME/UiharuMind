@@ -1,13 +1,10 @@
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.Process;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Core.Utils.Tools;
 using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
@@ -125,39 +122,6 @@ public static class ChatThread
         }
 
         // yield return builder.ToString();
-    }
-
-    public static async IAsyncEnumerable<string> InvokeSequentialAgentWorkflowStreamingAsync(
-        this ModelRunningData? modelRunning, string input,
-        CharacterData firstCharacter, CharacterData secondCharacter,
-        Dictionary<string, object?>? arguments = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        if (!TryGetChatClient(modelRunning, out IChatClient? client))
-        {
-            yield return "Model is not running.";
-            yield break;
-        }
-
-        ChatClientAgent first = firstCharacter.ToAgent(client!, arguments);
-        ChatClientAgent second = secondCharacter.ToAgent(client!, arguments);
-
-        // 顺序 Workflow 会把翻译初稿交给审核 Agent，UI 只接收最终节点的输出。
-        Workflow workflow = AgentWorkflowBuilder.BuildSequential([first, second]);
-        AIAgent workflowAgent = workflow.AsAIAgent(
-            name: "TranslationReviewWorkflow",
-            description: "Translate and review text in two deterministic steps.");
-
-        StringBuilder builder = new(64);
-        await foreach (AgentResponseUpdate update in workflowAgent.RunStreamingAsync(
-                           input, null, null, cancellationToken).ConfigureAwait(false))
-        {
-            if (string.IsNullOrEmpty(update.Text)) continue;
-            builder.Append(update.Text);
-            yield return builder.ToString();
-        }
-
-        Log.Debug("Translation review workflow completed.");
     }
 
     private static void ConfigureDelay(EmptyDelayUpdater updater, int length)
