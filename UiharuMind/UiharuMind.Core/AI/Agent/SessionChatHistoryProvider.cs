@@ -7,9 +7,11 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Runtime.CompilerServices;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -68,8 +70,93 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         InvokingContext context, CancellationToken cancellationToken = default)
     {
         ChatSession? session = Resolve(context.Session);
-        IEnumerable<ChatMessage> history = session == null ? [] : session.History.ToList();
+        if (session == null) return new ValueTask<IEnumerable<ChatMessage>>([]);
+
+        IEnumerable<ChatMessage> history = TrimToTokenBudget(session.History,
+            ChatSettingConfig.Current.HistoryTokenBudget, CountTokensCached);
         return new ValueTask<IEnumerable<ChatMessage>>(history);
+    }
+
+    /// <summary>
+    /// 按 token 预算裁剪历史——模型输入侧的开窗,UI 渲染与磁盘历史始终全量。
+    /// 框架的在环压缩需要 MaxContextWindowTokens+MaxOutputTokens 才会构造,我们从未配置
+    /// (等于不存在),模型侧也没有上下文长度元数据,因此预算走配置、裁剪在历史供给处统一做:
+    /// 从最新往回装到预算为止;窗口起点不得落在工具调用组内部——孤儿工具结果会被模型 API 拒绝;
+    /// 发生裁剪时窗口头部注入一条带 _attribution 标记的提示,它既不会被持久化也不会渲染为用户气泡。
+    /// </summary>
+    /// <param name="history">完整历史</param>
+    /// <param name="budgetTokens">token 预算;&lt;=0 表示不限</param>
+    /// <param name="countTokens">单条消息的 token 估算器</param>
+    /// <returns>预算内的历史窗口(始终为新列表)</returns>
+    internal static List<ChatMessage> TrimToTokenBudget(IReadOnlyList<ChatMessage> history,
+        int budgetTokens, Func<ChatMessage, int> countTokens)
+    {
+        if (budgetTokens <= 0 || history.Count == 0) return new List<ChatMessage>(history);
+
+        int start = history.Count;
+        long used = 0;
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            used += countTokens(history[i]);
+            if (used > budgetTokens && start < history.Count) break;
+            start = i;
+            if (used > budgetTokens) break; //最新一条独自超预算:也只保它,当前轮次不能没有上文
+        }
+
+        // 起点若是孤儿工具结果,向更新方向跳过直到干净的组边界
+        while (start < history.Count && IsToolResultMessage(history[start])) start++;
+
+        if (start == 0) return new List<ChatMessage>(history);
+
+        List<ChatMessage> window = new(history.Count - start + 1) { CreateTrimNotice(start) };
+        for (int i = start; i < history.Count; i++) window.Add(history[i]);
+        return window;
+    }
+
+    private static bool IsToolResultMessage(ChatMessage message)
+    {
+        return message.Role == ChatRole.Tool || message.Contents.Any(x => x is FunctionResultContent);
+    }
+
+    private static ChatMessage CreateTrimNotice(int omittedCount)
+    {
+        return new ChatMessage(ChatRole.User,
+            $"[Context notice: {omittedCount} earlier messages were trimmed to fit the context budget. " +
+            "The conversation continues below.]")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary { [AttributionKey] = "HistoryTrim" },
+        };
+    }
+
+    private static readonly ConditionalWeakTable<ChatMessage, object> TokenCountCache = new(); //消息不可变,估算一次终身复用
+
+    private static int CountTokensCached(ChatMessage message)
+    {
+        if (TokenCountCache.TryGetValue(message, out object? cached)) return (int)cached;
+        int count = EstimateTokens(message);
+        TokenCountCache.AddOrUpdate(message, count);
+        return count;
+    }
+
+    private static int EstimateTokens(ChatMessage message)
+    {
+        int total = 8; //角色与消息结构的固定开销
+        foreach (AIContent content in message.Contents)
+        {
+            total += content switch
+            {
+                TextContent text => LlmTokenizer.CountTokens(text.Text),
+                TextReasoningContent reasoning => LlmTokenizer.CountTokens(reasoning.Text),
+                FunctionCallContent call => 16 + LlmTokenizer.CountTokens(call.Name) +
+                                            LlmTokenizer.CountTokens(call.Arguments == null
+                                                ? string.Empty
+                                                : string.Join(' ', call.Arguments.Values)),
+                FunctionResultContent result => 16 + LlmTokenizer.CountTokens(result.Result?.ToString() ?? string.Empty),
+                _ => 256, //图片等二进制内容按固定开销粗估
+            };
+        }
+
+        return total;
     }
 
     protected override ValueTask StoreChatHistoryAsync(
