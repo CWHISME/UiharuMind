@@ -206,6 +206,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         copy.SessionId = Guid.NewGuid().ToString("N");
         copy.Title += titleSuffix;
         copy.CreatedAt = DateTimeOffset.Now;
+        // 附件文件仍归原会话所有:两边都登记会导致删除任一方时打断另一方
+        copy.OwnedAttachmentFiles.Clear();
         Add(copy);
         return copy;
     }
@@ -237,7 +239,11 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <param name="sessionId">会话标识</param>
     public void Delete(string sessionId)
     {
-        _loaded.Remove(sessionId, out ChatSession? session);
+        // 附件路径记在本体里,所以要在删文件之前把它读出来
+        ChatSession? session = Load(sessionId);
+        DeleteOwnedAttachments(session);
+
+        _loaded.Remove(sessionId);
         bool wasIndexed = _metas.Remove(sessionId);
 
         SaveUtility.Delete(GetBodyPath(sessionId));
@@ -245,6 +251,18 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         if (wasIndexed) SaveIndex();
 
         if (session != null) OnSessionRemoved?.Invoke(session);
+    }
+
+    /// <summary>
+    /// 清理本会话自己落盘的附件。只删应用创建的文件，用户从磁盘选中的原始文件不在此列。
+    /// </summary>
+    private static void DeleteOwnedAttachments(ChatSession? session)
+    {
+        if (session == null) return;
+        foreach (string path in session.OwnedAttachmentFiles)
+        {
+            SaveUtility.Delete(path);
+        }
     }
 
     /// <summary>

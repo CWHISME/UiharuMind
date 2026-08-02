@@ -178,6 +178,7 @@ public partial class ConversationViewModel : ViewModelBase
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
     private readonly List<ApprovalRequestItem> _pendingApprovals = new();
+    private readonly List<string> _pendingOwnedFiles = new();
 
     public ConversationViewModel()
     {
@@ -292,6 +293,7 @@ public partial class ConversationViewModel : ViewModelBase
         try
         {
             ChatSessionMeta meta = await EnsureSessionAsync(titleSeed, cancellationToken);
+            FlushOwnedFiles();
             List<ChatMessage>? nextMessages = new() { userMessage };
 
             while (nextMessages is { Count: > 0 })
@@ -669,6 +671,8 @@ public partial class ConversationViewModel : ViewModelBase
         branch.SessionId = Guid.NewGuid().ToString("N");
         branch.Title = $"{session.Title} {LocalizationManager.Instance.GetString("ChatBranchSuffix")}";
         branch.CreatedAt = DateTimeOffset.Now;
+        // 附件文件仍归原会话所有:两边都登记会导致删除任一方时打断另一方
+        branch.OwnedAttachmentFiles.Clear();
         // 保留到该条消息为止
         branch.History.RemoveRange(index + 1, branch.History.Count - index - 1);
         SessionManager.Instance.Add(branch);
@@ -703,9 +707,32 @@ public partial class ConversationViewModel : ViewModelBase
     /// 附件的文本引用。粘贴来的图片会先落盘再引用其路径——否则模型只会收到一个
     /// 自动生成的文件名，既没有内容也没有可读取的位置，识图工具也用不了它。
     /// </summary>
-    private static string ReferenceOf(ConversationAttachment attachment)
+    private string ReferenceOf(ConversationAttachment attachment)
     {
-        return attachment.ResolveFilePath() ?? attachment.FileName;
+        string? path = attachment.ResolveFilePath();
+        if (path == null) return attachment.FileName;
+
+        // 只有应用自己落盘的文件才登记为会话所有物;用户从磁盘选的原始文件不能跟着会话被删
+        if (attachment.IsInMemory) _pendingOwnedFiles.Add(path);
+        return path;
+    }
+
+    /// <summary>
+    /// 把本轮落盘的附件登记到会话上。首轮发送时会话还不存在
+    /// (EnsureSessionAsync 在 RunTurnAsync 内部才建会话)，所以先攒着，会话就绪后再写入。
+    /// </summary>
+    private void FlushOwnedFiles()
+    {
+        if (_pendingOwnedFiles.Count == 0) return;
+
+        ChatSession? session = CurrentSession;
+        if (session != null)
+        {
+            session.OwnedAttachmentFiles.AddRange(_pendingOwnedFiles);
+            session.Save();
+        }
+
+        _pendingOwnedFiles.Clear();
     }
 
     private static ReadOnlyMemory<byte> ReadAttachmentBytes(ConversationAttachment attachment)

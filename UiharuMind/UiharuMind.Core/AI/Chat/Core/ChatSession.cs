@@ -75,6 +75,12 @@ public class ChatSession
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 
     /// <summary>
+    /// 本会话产生的、由应用自己落盘的附件文件（粘贴的图片等），删除会话时一并清理。
+    /// 只记录应用创建的文件——用户从磁盘选中的附件是他的原始文件，绝不能跟着会话被删掉。
+    /// </summary>
+    public List<string> OwnedAttachmentFiles { get; set; } = [];
+
+    /// <summary>
     /// 临时会话：不落盘、不进索引、不出现在会话列表，但在内存中可按标识解析
     /// （自定义 ChatHistoryProvider 需要靠标识反查本会话）。
     /// 快捷翻译/解释等一次性调用即为临时会话，用户点"转为对话"时调用 <see cref="Persist"/> 提升为正式会话。
