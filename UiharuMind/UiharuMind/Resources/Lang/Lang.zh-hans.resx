@@ -29,6 +29,36 @@
     <data name="ThinkingModeHigh" xml:space="preserve">
         <value>思考:高</value>
     </data>
+    <data name="ThinkingModeMax" xml:space="preserve">
+        <value>思考:最大</value>
+    </data>
+    <data name="ClickToSwitch" xml:space="preserve">
+        <value>点击切换</value>
+    </data>
+    <data name="AgentPermissionReadOnlyDesc" xml:space="preserve">
+        <value>只读:不执行任何修改类操作</value>
+    </data>
+    <data name="AgentPermissionAutoEditDesc" xml:space="preserve">
+        <value>自动编辑:文件修改自动执行,高危命令需确认</value>
+    </data>
+    <data name="AgentPermissionFullAutoDesc" xml:space="preserve">
+        <value>全自动:所有操作自动执行,不再询问</value>
+    </data>
+    <data name="ThinkingModeDefaultDesc" xml:space="preserve">
+        <value>跟随模型配置,不额外干预</value>
+    </data>
+    <data name="ThinkingModeNoneDesc" xml:space="preserve">
+        <value>显式关闭思考</value>
+    </data>
+    <data name="ThinkingModeMediumDesc" xml:space="preserve">
+        <value>中等推理力度</value>
+    </data>
+    <data name="ThinkingModeHighDesc" xml:space="preserve">
+        <value>高推理力度</value>
+    </data>
+    <data name="ThinkingModeMaxDesc" xml:space="preserve">
+        <value>最大推理力度(不支持的后端会忽略)</value>
+    </data>
     <data name="ThinkingModeTips" xml:space="preserve">
         <value>本会话的思考力度。默认跟随模型配置;其余档位随每次请求下发(不支持的后端会忽略)。</value>
     </data>

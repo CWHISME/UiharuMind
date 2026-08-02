@@ -49,6 +49,51 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="14" />
         </Style>
+        <Style Selector="ListBox.option-list">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.option-list ListBoxItem">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <!-- 工具行图标态:Tag 驱动颜色区分当前状态 -->
+        <Style Selector="ThemedIconButton.mode-state[Tag=Plan] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DodgerBlue" />
+        </Style>
+        <Style Selector="ThemedIconButton.mode-state[Tag=Execute] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="MediumSeaGreen" />
+        </Style>
+        <Style Selector="ThemedIconButton.permission-state[Tag=ReadOnly] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.permission-state[Tag=AutoEdit] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Orange" />
+        </Style>
+        <Style Selector="ThemedIconButton.permission-state[Tag=FullAuto] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="OrangeRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=Default] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=None] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DimGray" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=Medium] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DodgerBlue" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=High] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Orange" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=Max] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="OrangeRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.sender-state[Tag=User] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="LightGreen" />
+        </Style>
+        <Style Selector="ThemedIconButton.sender-state[Tag=Assistant] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DeepSkyBlue" />
+        </Style>
         <Style Selector="ThemedIconButton.memory-status controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="Gray" />
         </Style>
@@ -100,7 +145,6 @@
 
             <ScrollViewer Name="Viewer"
                           Margin="0,0,3,0"
-                          u:ScrollTo.Direction="Bottom"
                           BringIntoViewOnFocusChange="False"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
@@ -303,43 +347,118 @@
                 <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <!-- 工具行:两类会话共用,按 IsAgentSession 切换差异项;ComposerTools 槽保留给宿主追加 -->
                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                        <Button Content="{Binding ModeLabel}"
-                                Command="{Binding CycleModeCommand}"
-                                IsVisible="{Binding IsAgentSession}">
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc AgentModeSwitchHint}" />
-                            </ToolTip.Tip>
-                        </Button>
-                        <ComboBox FontSize="12" MinWidth="104"
-                                  SelectedIndex="{Binding PermissionModeIndex}"
-                                  IsVisible="{Binding IsAgentSession}">
-                            <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
-                            <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
-                            <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
-                        </ComboBox>
-                        <Button Content="{Binding SenderMode}"
-                                Command="{Binding ChangeSendModeCommand}"
-                                IsVisible="{Binding !IsAgentSession}">
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc SendUserDesc}" />
-                            </ToolTip.Tip>
-                        </Button>
+                        <ThemedIconButton Classes="mode-state"
+                                          IconName="route"
+                                          Tag="{Binding ModeKey}"
+                                          Command="{Binding CycleModeCommand}"
+                                          ToolTips="{Binding ModeTooltip}"
+                                          IsVisible="{Binding IsAgentSession}" />
+                        <ThemedIconButton Classes="permission-state"
+                                          IconName="shield"
+                                          Tag="{Binding PermissionModeKey}"
+                                          ToolTips="{Binding PermissionTooltip}"
+                                          IsVisible="{Binding IsAgentSession}">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Padding="6" CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <ListBox Classes="option-list"
+                                                 SelectedIndex="{Binding PermissionModeIndex}">
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc AgentPermissionReadOnly}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc AgentPermissionReadOnlyDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc AgentPermissionAutoEdit}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc AgentPermissionAutoEditDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc AgentPermissionFullAuto}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc AgentPermissionFullAutoDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                        </ListBox>
+                                    </Border>
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                        </ThemedIconButton>
+                        <ThemedIconButton Classes="sender-state"
+                                          IconName="{Binding SenderIconName}"
+                                          Tag="{Binding SenderModeKey}"
+                                          Command="{Binding ChangeSendModeCommand}"
+                                          ToolTips="{Binding SenderTooltip}"
+                                          IsVisible="{Binding !IsAgentSession}" />
+
+                        <ThemedIconButton Classes="thinking-state"
+                                          IconName="brain"
+                                          Tag="{Binding ThinkingModeKey}"
+                                          ToolTips="{Binding ThinkingTooltip}">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Padding="6" CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <ListBox Classes="option-list"
+                                                 SelectedIndex="{Binding ThinkingModeIndex}">
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeDefault}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeDefaultDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeNone}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeNoneDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeMedium}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeMediumDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeHigh}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeHighDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeMax}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeMaxDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                        </ListBox>
+                                    </Border>
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                        </ThemedIconButton>
+
                         <ThemedIconButton Classes="memory-status"
                                           IconName="database"
                                           ToolTips="{Binding MemoryPanel.MemoryTooltip}"
                                           Tag="{Binding MemoryPanel.MemoryStatusKey}"
                                           Command="{Binding MemoryPanel.MemoryEditorCommand}"
                                           IsVisible="{Binding MemoryPanel, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                        <ThemedIconButton IconName="image" Command="{Binding AddAttachmentCommand}" />
-                        <ComboBox FontSize="12" MinWidth="96" SelectedIndex="{Binding ThinkingModeIndex}">
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc ThinkingModeTips}" />
-                            </ToolTip.Tip>
-                            <ComboBoxItem Content="{loc:Loc ThinkingModeDefault}" />
-                            <ComboBoxItem Content="{loc:Loc ThinkingModeNone}" />
-                            <ComboBoxItem Content="{loc:Loc ThinkingModeMedium}" />
-                            <ComboBoxItem Content="{loc:Loc ThinkingModeHigh}" />
-                        </ComboBox>
+                        <ThemedIconButton IconName="paperclip" Command="{Binding AddAttachmentCommand}" />
                         <ThemedIconButton IconName="settings">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">

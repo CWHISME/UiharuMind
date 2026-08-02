@@ -13,6 +13,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using System;
+using System.Collections.Specialized;
 using System.Linq;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.Conversation;
@@ -67,14 +69,37 @@ public partial class ConversationView : UserControl
         set => SetValue(EmptyContentProperty, value);
     }
 
+    private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
+    private ConversationViewModel? _viewModel;
+
     public ConversationView()
     {
         InitializeComponent();
-        _ = new ScrollViewerAutoScrollHolder(Viewer);
+        _autoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
+        DataContextChanged += OnDataContextChanged;
         InputBox.PastingFromClipboard += OnPastingFromClipboard;
         DragDrop.SetAllowDrop(ComposerBorder, true);
         ComposerBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
         ComposerBorder.AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (_viewModel != null) _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        _viewModel = DataContext as ConversationViewModel;
+        if (_viewModel != null) _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // 会话构建完成后恢复跟底。不能在集合 Reset 时恢复——
+        // 清空布局把 Offset 钳回去的事件可能晚于 Reset 到达,会把刚恢复的跟随再关掉;
+        // 构建完成之后只剩内容增长事件,跟随不会再被误关
+        if (e.PropertyName == nameof(ConversationViewModel.IsSessionLoading) &&
+            _viewModel is { IsSessionLoading: false })
+        {
+            _autoScrollHolder.Resume();
+        }
     }
 
     private void OnLoadEarlierClick(object? sender, RoutedEventArgs e)

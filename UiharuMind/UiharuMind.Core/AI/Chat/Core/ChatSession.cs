@@ -62,6 +62,12 @@ public class ChatSession
     /// <summary>权限档索引（仅 agent 会话有意义）</summary>
     public int PermissionModeIndex { get; set; } = 1;
 
+    /// <summary>会话累计输入 token（响应 usage 不随消息持久化，累计值记在本体上）</summary>
+    public long TotalInputTokens { get; set; }
+
+    /// <summary>会话累计输出 token</summary>
+    public long TotalOutputTokens { get; set; }
+
     /// <summary>创建时间</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 

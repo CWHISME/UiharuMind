@@ -184,14 +184,19 @@ public partial class ConversationViewModel : ViewModelBase
     /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主 agent,聊天页由页面壳指定</summary>
     public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.WorkspaceAgent);
 
-    /// <summary>当前会话是否 agent 类型(决定工具行显示模式/权限还是发送身份)</summary>
-    public bool IsAgentSession => _currentCharacter?.Kind == ECharacterKind.Agent;
+    /// <summary>
+    /// 当前会话是否 agent 类型(决定工具行显示模式/权限还是发送身份)。
+    /// 尚无会话时按页面的新建默认角色判定,agent 页的空会话也应显示 agent 工具
+    /// </summary>
+    public bool IsAgentSession =>
+        (_currentCharacter ?? CharacterManager.Instance.GetCharacterData(NewSessionCharacterId)).Kind ==
+        ECharacterKind.Agent;
 
     /// <summary>当前会话的记忆库面板(未挂接会话时为空)</summary>
     [ObservableProperty] private ConversationMemoryViewData? _memoryPanel;
 
-    /// <summary>是否有可重新生成的目标(存在可重试的用户消息且未在生成中)</summary>
-    public bool CanRegenerate => !IsGenerating && Items.Any(x => x.CanRetry);
+    /// <summary>是否有可重新生成的目标。会话构建中沿用可见状态,避免切会话时按钮闪烁</summary>
+    public bool CanRegenerate => !IsGenerating && (IsSessionLoading || Items.Any(x => x.CanRetry));
 
     private CharacterData? _currentCharacter; //当前会话所属角色,决定助手气泡的名字与头像
 
@@ -201,6 +206,62 @@ public partial class ConversationViewModel : ViewModelBase
     /// <summary>当前模式显示标签</summary>
     public string ModeLabel => LocalizationManager.Instance.GetString(
         CurrentMode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
+
+    //================= 工具行图标态(Tag 驱动颜色 + 悬停提示当前值) =================
+
+    /// <summary>模式状态键(Plan/Execute)</summary>
+    public string ModeKey => CurrentMode.ToString();
+
+    /// <summary>模式悬停提示</summary>
+    public string ModeTooltip =>
+        $"{ModeLabel}\n{LocalizationManager.Instance.GetString("ClickToSwitch")}";
+
+    /// <summary>权限档状态键(ReadOnly/AutoEdit/FullAuto)</summary>
+    public string PermissionModeKey => PermissionModeIndex switch
+    {
+        0 => "ReadOnly",
+        2 => "FullAuto",
+        _ => "AutoEdit",
+    };
+
+    /// <summary>权限档悬停提示</summary>
+    public string PermissionTooltip =>
+        LocalizationManager.Instance.GetString(PermissionModeIndex switch
+        {
+            0 => "AgentPermissionReadOnly",
+            2 => "AgentPermissionFullAuto",
+            _ => "AgentPermissionAutoEdit",
+        });
+
+    /// <summary>思考力度状态键(EThinkingMode 名)</summary>
+    public string ThinkingModeKey => ((EThinkingMode)ThinkingModeIndex).ToString();
+
+    /// <summary>思考力度悬停提示</summary>
+    public string ThinkingTooltip =>
+        LocalizationManager.Instance.GetString($"ThinkingMode{(EThinkingMode)ThinkingModeIndex}") +
+        $"\n{LocalizationManager.Instance.GetString("ThinkingModeTips")}";
+
+    /// <summary>发送身份对应的图标名(user/bot)</summary>
+    public string SenderIconName => SenderMode == SendMode.User ? "user" : "bot";
+
+    /// <summary>发送身份状态键(User/Assistant)</summary>
+    public string SenderModeKey => SenderMode.ToString();
+
+    /// <summary>发送身份悬停提示</summary>
+    public string SenderTooltip =>
+        $"{SenderMode}\n{LocalizationManager.Instance.GetString("SendUserDesc")}";
+
+    partial void OnIsSessionLoadingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRegenerate));
+    }
+
+    partial void OnSenderModeChanged(SendMode value)
+    {
+        OnPropertyChanged(nameof(SenderIconName));
+        OnPropertyChanged(nameof(SenderModeKey));
+        OnPropertyChanged(nameof(SenderTooltip));
+    }
 
     /// <summary>初始渲染与"加载更早"每批的历史窗口大小</summary>
     private const int HistoryWindowSize = 20;
@@ -249,6 +310,10 @@ public partial class ConversationViewModel : ViewModelBase
         {
             InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
             OnPropertyChanged(nameof(ModeLabel));
+            OnPropertyChanged(nameof(ModeTooltip));
+            OnPropertyChanged(nameof(PermissionTooltip));
+            OnPropertyChanged(nameof(ThinkingTooltip));
+            OnPropertyChanged(nameof(SenderTooltip));
         };
     }
 
@@ -316,10 +381,14 @@ public partial class ConversationViewModel : ViewModelBase
     {
         ApplyMode();
         OnPropertyChanged(nameof(ModeLabel));
+        OnPropertyChanged(nameof(ModeKey));
+        OnPropertyChanged(nameof(ModeTooltip));
     }
 
     partial void OnThinkingModeIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(ThinkingModeKey));
+        OnPropertyChanged(nameof(ThinkingTooltip));
         if (CurrentMeta == null || _isLoadingSession) return;
         ChatSession? session = CurrentSession;
         if (session == null) return;
@@ -329,6 +398,8 @@ public partial class ConversationViewModel : ViewModelBase
 
     partial void OnPermissionModeIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(PermissionModeKey));
+        OnPropertyChanged(nameof(PermissionTooltip));
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.PermissionModeIndex = value;
         PersistSessionSettings();
@@ -681,6 +752,9 @@ public partial class ConversationViewModel : ViewModelBase
         {
             IsSessionLoading = false;
             ThinkingModeIndex = (int)EThinkingMode.Default; //CurrentMeta 为空,处理器自然不落盘
+            MemoryPanel?.Detach();
+            MemoryPanel = null;
+            RefreshTokenUsageText();
             return;
         }
 
@@ -710,6 +784,7 @@ public partial class ConversationViewModel : ViewModelBase
 
             if (SessionManager.Instance.Load(meta.SessionId) is { } body)
             {
+                MemoryPanel?.Detach();
                 MemoryPanel = new ConversationMemoryViewData(body);
                 _isLoadingSession = true;
                 try
@@ -751,14 +826,11 @@ public partial class ConversationViewModel : ViewModelBase
             Items.Add(item);
         }
 
-        // 会话累计用量按全量历史统计(渲染窗口只覆盖尾部)
-        foreach (ChatMessage message in messages)
+        // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
+        if (CurrentSession is { } session)
         {
-            foreach (UsageContent usage in message.Contents.OfType<UsageContent>())
-            {
-                _sessionInputTokens += usage.Details.InputTokenCount ?? 0;
-                _sessionOutputTokens += usage.Details.OutputTokenCount ?? 0;
-            }
+            _sessionInputTokens = session.TotalInputTokens;
+            _sessionOutputTokens = session.TotalOutputTokens;
         }
 
         RefreshTokenUsageText();
@@ -919,10 +991,21 @@ public partial class ConversationViewModel : ViewModelBase
 
     private void AccumulateUsage(UsageDetails details)
     {
-        _turnInputTokens += details.InputTokenCount ?? 0;
-        _turnOutputTokens += details.OutputTokenCount ?? 0;
-        _sessionInputTokens += details.InputTokenCount ?? 0;
-        _sessionOutputTokens += details.OutputTokenCount ?? 0;
+        long input = details.InputTokenCount ?? 0;
+        long output = details.OutputTokenCount ?? 0;
+        _turnInputTokens += input;
+        _turnOutputTokens += output;
+        _sessionInputTokens += input;
+        _sessionOutputTokens += output;
+
+        // 响应 usage 不随消息持久化,累计值写回会话本体(随轮末的历史保存一并落盘)
+        ChatSession? session = CurrentSession;
+        if (session != null)
+        {
+            session.TotalInputTokens += input;
+            session.TotalOutputTokens += output;
+        }
+
         RefreshTokenUsageText();
     }
 
@@ -938,8 +1021,8 @@ public partial class ConversationViewModel : ViewModelBase
 
         if (_sessionInputTokens + _sessionOutputTokens > 0)
         {
-            if (sb.Length > 0) sb.Append("  ");
-            sb.Append($"Σ{FormatTokenCount(_sessionInputTokens + _sessionOutputTokens)}");
+            if (sb.Length > 0) sb.Append(' ');
+            sb.Append($"({FormatTokenCount(_sessionInputTokens + _sessionOutputTokens)})");
         }
 
         TokenUsageText = sb.ToString();
@@ -1187,8 +1270,6 @@ public partial class ConversationViewModel : ViewModelBase
         HasTodos = false;
         HasEarlierMessages = false;
         _historyStart = 0;
-        MemoryPanel?.Detach();
-        MemoryPanel = null;
         _pendingApprovals.Clear();
         _streamingText = null;
         _streamingThinking = null;
@@ -1197,7 +1278,8 @@ public partial class ConversationViewModel : ViewModelBase
         _turnOutputTokens = 0;
         _sessionInputTokens = 0;
         _sessionOutputTokens = 0;
-        RefreshTokenUsageText();
+        // 记忆库面板与 token 文本不在此清空:切会话时先空后填会让工具行闪烁,
+        // 由 LoadSessionAsync 在新值就绪时一次性替换
     }
 }
 

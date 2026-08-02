@@ -9,6 +9,7 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using UiharuMind.Core.Core.SimpleLog;
@@ -20,13 +21,25 @@ namespace UiharuMind.ViewModels.UIHolder;
 /// </summary>
 public class ScrollViewerAutoScrollHolder
 {
+    private readonly ScrollViewer _scrollViewer;
     private bool _isAutoScrolling = true;
 
     public ScrollViewerAutoScrollHolder(ScrollViewer scrollViewer)
     {
+        _scrollViewer = scrollViewer;
         scrollViewer.ScrollToEnd();
         scrollViewer.ScrollChanged += OnScrollChanged;
         scrollViewer.PointerWheelChanged += OnPointerWheelChanged;
+    }
+
+    /// <summary>
+    /// 恢复自动跟底。内容整体重建(如切换会话)时 Offset 回零会被误读为用户上滚,
+    /// 由调用方在集合 Reset 后显式恢复。
+    /// </summary>
+    public void Resume()
+    {
+        _isAutoScrolling = true;
+        _scrollViewer.ScrollToEnd();
     }
 
     private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -38,21 +51,18 @@ public class ScrollViewerAutoScrollHolder
     {
         var scrollViewer = e.Source as ScrollViewer;
         if (scrollViewer == null) return;
-        // bool isManualScroll = e.ExtentDelta.Y == 0;
-        if (e.OffsetDelta.Y > 0)
+
+        // 只有内容高度未收缩时的位移才视为用户滚动;
+        // 内容重建/清空(切会话)会把 Offset 钳回去,那不是用户意图,误判会让新会话停在顶部
+        if (e.OffsetDelta.Y != 0 && e.ExtentDelta.Y >= 0)
         {
-            // 用户向下滚动
             _isAutoScrolling = false;
         }
-        else if (e.OffsetDelta.Y < 0)
+
+        if (e.ViewportDelta.Y == 0 && scrollViewer.ScrollBarMaximum.Y > 0 &&
+            scrollViewer.Offset.Y >= scrollViewer.ScrollBarMaximum.Y - Math.Max(0, e.ExtentDelta.Y))
         {
-            // 用户向上滚动
-            _isAutoScrolling = false;
-        }
-        else if (e.ViewportDelta.Y == 0 && scrollViewer.ScrollBarMaximum.Y > 0 &&
-                 scrollViewer.Offset.Y >= scrollViewer.ScrollBarMaximum.Y - e.ExtentDelta.Y)
-        {
-            // 有进度条，且用户手动或自动滚动到了底部，继续自动滚动
+            // 有进度条,且用户手动或自动滚动到了底部,继续自动滚动
             _isAutoScrolling = true;
         }
 
@@ -61,8 +71,5 @@ public class ScrollViewerAutoScrollHolder
         {
             scrollViewer.ScrollToEnd();
         }
-
-        // Log.Debug(
-        //     $"Scroll changed: ExtentHeight={e.ExtentDelta}, ViewportHeight={e.OffsetDelta}, VerticalOffset={e.ViewportDelta}");
     }
 }

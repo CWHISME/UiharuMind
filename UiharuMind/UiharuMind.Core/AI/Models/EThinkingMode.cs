@@ -10,4 +10,5 @@ public enum EThinkingMode
     None,
     Medium,
     High,
+    Max,
 }

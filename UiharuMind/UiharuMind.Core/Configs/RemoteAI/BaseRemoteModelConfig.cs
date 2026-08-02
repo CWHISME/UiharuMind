@@ -43,6 +43,11 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
                 new("thinking", new JsonObject { ["type"] = "enabled" }),
                 new("reasoning_effort", JsonValue.Create("high")),
             ],
+            EThinkingMode.Max =>
+            [
+                new("thinking", new JsonObject { ["type"] = "enabled" }),
+                new("reasoning_effort", JsonValue.Create("max")),
+            ],
             _ => null,
         };
     }

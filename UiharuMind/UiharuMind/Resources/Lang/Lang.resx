@@ -36,6 +36,36 @@
     <data name="ThinkingModeHigh" xml:space="preserve">
         <value>Think: high</value>
     </data>
+    <data name="ThinkingModeMax" xml:space="preserve">
+        <value>Think: max</value>
+    </data>
+    <data name="ClickToSwitch" xml:space="preserve">
+        <value>Click to switch</value>
+    </data>
+    <data name="AgentPermissionReadOnlyDesc" xml:space="preserve">
+        <value>Read-only: no modifying operations</value>
+    </data>
+    <data name="AgentPermissionAutoEditDesc" xml:space="preserve">
+        <value>Auto edit: file edits run automatically, risky commands need approval</value>
+    </data>
+    <data name="AgentPermissionFullAutoDesc" xml:space="preserve">
+        <value>Full auto: everything runs without prompts</value>
+    </data>
+    <data name="ThinkingModeDefaultDesc" xml:space="preserve">
+        <value>Follow the model config, no override</value>
+    </data>
+    <data name="ThinkingModeNoneDesc" xml:space="preserve">
+        <value>Explicitly disable thinking</value>
+    </data>
+    <data name="ThinkingModeMediumDesc" xml:space="preserve">
+        <value>Medium reasoning effort</value>
+    </data>
+    <data name="ThinkingModeHighDesc" xml:space="preserve">
+        <value>High reasoning effort</value>
+    </data>
+    <data name="ThinkingModeMaxDesc" xml:space="preserve">
+        <value>Max reasoning effort (ignored if unsupported)</value>
+    </data>
     <data name="ThinkingModeTips" xml:space="preserve">
         <value>Thinking effort for this session. Default follows the model config; other levels are sent with each request (backends that don't support it will ignore it).</value>
     </data>
