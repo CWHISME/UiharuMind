@@ -8,6 +8,8 @@
  ****************************************************************************/
 
 using System;
+using UiharuMind.Core.Core.SimpleLog;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Layout;
@@ -121,6 +123,12 @@ public partial class TextConversationItem : ConversationItemBase
 
     public override bool IsUser => _isUser;
 
+    /// <summary>随消息一同显示的图片（多模态消息里的 DataContent）</summary>
+    [ObservableProperty] private Bitmap? _messageImage;
+
+    /// <summary>是否含图片</summary>
+    public bool HasImage => MessageImage != null;
+
     public TextConversationItem(bool isUser)
     {
         _isUser = isUser;
@@ -134,5 +142,28 @@ public partial class TextConversationItem : ConversationItemBase
     {
         _buffer.Append(delta);
         Message = _buffer.ToString();
+    }
+
+    /// <summary>
+    /// 装载消息里的图片；解码失败则不显示
+    /// </summary>
+    /// <param name="bytes">图片字节</param>
+    public void SetImage(ReadOnlyMemory<byte> bytes)
+    {
+        if (bytes.IsEmpty) return;
+        try
+        {
+            using MemoryStream stream = new(bytes.ToArray());
+            MessageImage = new Bitmap(stream);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Load message image failed: {e.Message}");
+        }
+    }
+
+    partial void OnMessageImageChanged(Bitmap? value)
+    {
+        OnPropertyChanged(nameof(HasImage));
     }
 }

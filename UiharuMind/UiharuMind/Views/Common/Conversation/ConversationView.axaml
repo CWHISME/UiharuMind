@@ -105,9 +105,20 @@
                                             <TextBlock Classes="muted" Text="{Binding Timestamp}" />
                                         </StackPanel>
 
+                                        <!-- 多模态消息里的图片(粘贴/附加的图) -->
+                                        <Border Classes="message-bubble" Margin="0,5,0,0" Padding="4"
+                                                BorderBrush="{Binding SenderColor}"
+                                                HorizontalAlignment="{Binding Alignment}"
+                                                IsVisible="{Binding HasImage}">
+                                            <Image Source="{Binding MessageImage}"
+                                                   MaxWidth="320" MaxHeight="320"
+                                                   Stretch="Uniform" />
+                                        </Border>
+
                                         <Border Classes="message-bubble" Margin="0,5,0,0"
                                                 BorderBrush="{Binding SenderColor}"
-                                                HorizontalAlignment="{Binding Alignment}">
+                                                HorizontalAlignment="{Binding Alignment}"
+                                                IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                             <common:SimpleMarkdownViewer HorizontalAlignment="Left"
                                                                          MarkdownText="{Binding Message}">
                                                 <common:SimpleMarkdownViewer.IsPlaintext>

@@ -269,9 +269,10 @@ public partial class ConversationViewModel : ViewModelBase
 
         List<ConversationAttachment>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
         Attachments.Clear();
-        Items.Add(CreateUserItem(text));
+        ChatMessage userMessage = BuildUserMessage(text, attachments);
+        Items.Add(CreateUserItem(text, userMessage));
         ScrollToEnd = true;
-        await RunTurnAsync(BuildUserMessage(text, attachments), text);
+        await RunTurnAsync(userMessage, text);
     }
 
     private void OnStopSending()
@@ -547,9 +548,9 @@ public partial class ConversationViewModel : ViewModelBase
             if (message.Role == ChatRole.User)
             {
                 string text = message.Text;
-                if (!IsFrameworkInjected(message) && !string.IsNullOrWhiteSpace(text))
+                if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
                 {
-                    Items.Add(CreateUserItem(text));
+                    Items.Add(CreateUserItem(text, message));
                 }
 
                 continue;
@@ -579,6 +580,11 @@ public partial class ConversationViewModel : ViewModelBase
     /// (todo 快照、模式切换通知等)带 _attribution 溯源标记;审批回应为控制消息。
     /// 它们是模型上下文的一部分(持久化属正常),但不应渲染为用户气泡。
     /// </summary>
+    private static bool HasImage(ChatMessage message)
+    {
+        return message.Contents.OfType<DataContent>().Any(x => x.HasTopLevelMediaType("image"));
+    }
+
     private static bool IsFrameworkInjected(ChatMessage message)
     {
         if (message.AdditionalProperties?.ContainsKey("_attribution") == true) return true;
@@ -609,16 +615,24 @@ public partial class ConversationViewModel : ViewModelBase
 
     //================= 条目构造 =================
 
-    private static TextConversationItem CreateUserItem(string text)
+    private static TextConversationItem CreateUserItem(string text, ChatMessage? source = null)
     {
-        return new TextConversationItem(true)
+        TextConversationItem item = new(true)
         {
             Message = text,
             SenderName = LocalizationManager.Instance.GetString("AgentSenderUser"),
             SenderColor = Avalonia.Media.Brushes.LightGreen,
             Icon = IconUtils.DefaultUserIcon,
-            Timestamp = DateTime.Now.ToString("HH:mm"),
+            Timestamp = (source?.CreatedAt ?? DateTimeOffset.Now).LocalDateTime.ToString("HH:mm"),
         };
+
+        // 多模态消息里的图片:此前发出去的附件图在界面上看不到
+        DataContent? image = source?.Contents
+            .OfType<DataContent>()
+            .FirstOrDefault(x => x.HasTopLevelMediaType("image"));
+        if (image != null) item.SetImage(image.Data);
+
+        return item;
     }
 
     /// <summary>助手条目;头像暂用默认角色图,阶段 3 接入 agent 角色自身的头像</summary>
