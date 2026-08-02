@@ -89,6 +89,9 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <summary>shell 工具名(供预授权规则匹配)</summary>
     public const string ShellToolName = "run_shell";
 
+    /// <summary>识图工具名(纪律段里要指名道姓地告诉模型可以用它)</summary>
+    private const string VisionToolName = "ask_vision";
+
     /// <summary>
     /// 未指定委托挂载时的默认子 agent：识图助手。
     /// 取代了原先内置的 vision AgentProfile —— 同一能力现在就是一个普通角色。
@@ -277,6 +280,10 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             sb.AppendLine("- Read before overwrite. Inspect surrounding context so diffs stay minimal and reversible.");
             sb.AppendLine("- Never emit full-file rewrites for single-line changes.");
         }
+
+        sb.AppendLine();
+        sb.AppendLine("# Images");
+        sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. When the path is an image and you need to know what it shows, call `{VisionToolName}` with that path — do not guess from the file name.");
 
         sb.AppendLine();
         sb.AppendLine("# Execution Modes");

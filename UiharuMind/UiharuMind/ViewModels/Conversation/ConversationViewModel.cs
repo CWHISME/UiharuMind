@@ -486,12 +486,12 @@ public partial class ConversationViewModel : ViewModelBase
                 catch (Exception e)
                 {
                     Log.Warning($"Attachment load failed '{attachment.FileName}': {e.Message}");
-                    fileReferences.Add(attachment.FilePath ?? attachment.FileName);
+                    fileReferences.Add(ReferenceOf(attachment));
                 }
             }
             else
             {
-                fileReferences.Add(attachment.FilePath ?? attachment.FileName);
+                fileReferences.Add(ReferenceOf(attachment));
             }
         }
 
@@ -697,6 +697,15 @@ public partial class ConversationViewModel : ViewModelBase
         Items.Add(WireItemActions(CreateUserItem(input.Text, input), input));
         ScrollToEnd = true;
         _ = RunTurnAsync(input, input.Text);
+    }
+
+    /// <summary>
+    /// 附件的文本引用。粘贴来的图片会先落盘再引用其路径——否则模型只会收到一个
+    /// 自动生成的文件名，既没有内容也没有可读取的位置，识图工具也用不了它。
+    /// </summary>
+    private static string ReferenceOf(ConversationAttachment attachment)
+    {
+        return attachment.ResolveFilePath() ?? attachment.FileName;
     }
 
     private static ReadOnlyMemory<byte> ReadAttachmentBytes(ConversationAttachment attachment)
