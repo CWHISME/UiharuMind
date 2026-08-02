@@ -269,6 +269,12 @@
     <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
         <value>记忆检索工具（memory_search）</value>
     </data>
+    <data name="AgentSettingWebSearchKeys" xml:space="preserve">
+        <value>网络搜索 API key</value>
+    </data>
+    <data name="AgentSettingWebSearchKeysDesc" xml:space="preserve">
+        <value>可选。填入后搜索优先走官方 API，未填时使用免费的网页抓取兜底链。</value>
+    </data>
     <data name="AgentSave" xml:space="preserve">
         <value>保存</value>
     </data>

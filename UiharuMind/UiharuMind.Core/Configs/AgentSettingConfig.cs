@@ -46,4 +46,10 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 
     /// <summary>启用记忆检索工具(memory_search,检索会话挂载的嵌入知识库)</summary>
     public bool EnableMemorySearchTool { get; set; } = true;
+
+    /// <summary>Tavily 搜索 API key(填入后搜索优先走正规 API,空则用爬页面兜底链)</summary>
+    public string TavilyApiKey { get; set; } = string.Empty;
+
+    /// <summary>Brave Search API key(同上,优先级次于 Tavily)</summary>
+    public string BraveSearchApiKey { get; set; } = string.Empty;
 }

@@ -36,6 +36,8 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private bool _enableScheduledTasks = true;
     [ObservableProperty] private bool _enableVisionTool = true;
     [ObservableProperty] private bool _enableMemorySearchTool = true;
+    [ObservableProperty] private string _tavilyApiKey = string.Empty;
+    [ObservableProperty] private string _braveSearchApiKey = string.Empty;
 
     //================= MCP =================
     public ObservableCollection<McpServerConfig> McpServers { get; } = new();
@@ -59,6 +61,8 @@ public partial class AgentSettingViewData : ViewModelBase
         _enableScheduledTasks = config.EnableScheduledTasks;
         _enableVisionTool = config.EnableVisionTool;
         _enableMemorySearchTool = config.EnableMemorySearchTool;
+        _tavilyApiKey = config.TavilyApiKey;
+        _braveSearchApiKey = config.BraveSearchApiKey;
 
         RefreshServers();
         RefreshSkills();
@@ -123,6 +127,18 @@ public partial class AgentSettingViewData : ViewModelBase
     partial void OnEnableMemorySearchToolChanged(bool value)
     {
         AgentSettingConfig.Current.EnableMemorySearchTool = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnTavilyApiKeyChanged(string value)
+    {
+        AgentSettingConfig.Current.TavilyApiKey = value;
+        AgentSettingConfig.Current.Save();
+    }
+
+    partial void OnBraveSearchApiKeyChanged(string value)
+    {
+        AgentSettingConfig.Current.BraveSearchApiKey = value;
         AgentSettingConfig.Current.Save();
     }
 

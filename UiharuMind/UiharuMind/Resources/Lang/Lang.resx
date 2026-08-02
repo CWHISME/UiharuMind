@@ -279,6 +279,12 @@
     <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
         <value>Memory search tool (memory_search)</value>
     </data>
+    <data name="AgentSettingWebSearchKeys" xml:space="preserve">
+        <value>Web search API keys</value>
+    </data>
+    <data name="AgentSettingWebSearchKeysDesc" xml:space="preserve">
+        <value>Optional. With a key, web search uses the official API first; otherwise the free scraping fallbacks are used.</value>
+    </data>
     <data name="AgentSave" xml:space="preserve">
         <value>Save</value>
     </data>

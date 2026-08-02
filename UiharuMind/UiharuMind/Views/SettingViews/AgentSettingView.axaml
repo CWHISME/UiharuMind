@@ -81,6 +81,23 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+
+                <Border Classes="form-pane" Margin="0,16,0,0" Padding="14">
+                    <StackPanel Spacing="6">
+                        <TextBlock FontSize="12" FontWeight="SemiBold" Margin="0,0,0,2"
+                                   Text="{loc:Loc AgentSettingWebSearchKeys}" />
+                        <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                   Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Width="80" VerticalAlignment="Center" Text="Tavily" />
+                            <TextBox Width="320" PasswordChar="●" Text="{Binding TavilyApiKey}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Width="80" VerticalAlignment="Center" Text="Brave" />
+                            <TextBox Width="320" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </TabItem>
 
