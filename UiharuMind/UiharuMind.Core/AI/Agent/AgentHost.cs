@@ -137,12 +137,13 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// 差异全部落在 HarnessAgentOptions 上：
     /// 角色扮演档把框架的每一项能力都关掉、工具集为空、HarnessInstructions 为空串，
     /// 使框架不向系统提示里添加任何内容——等价于一次纯聊天调用，外加白拿的运行中插话能力。
+    ///
+    /// 装配是纯同步的内存组装：MCP 工具取常驻缓存(见 <see cref="Mcp.McpManager.GetCachedTools"/>)，
+    /// 绝不等待网络。重建时机由 <see cref="AgentAssemblySnapshot"/> 差异决定。
     /// </summary>
     /// <param name="profile">构建配置</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>agent 句柄</returns>
-    public async Task<AgentHandle> CreateAgentAsync(AgentBuildProfile profile,
-        CancellationToken cancellationToken = default)
+    public AgentHandle CreateAgent(AgentBuildProfile profile)
     {
         IChatClient client = new LazyChatClient(profile.SessionModelSource);
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
@@ -200,7 +201,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         {
             extraTools.Add(SchedulerTools.CreateScheduledTaskTool(profile.WorkspacePath));
         }
-        extraTools.AddRange(await McpManager.Instance.GetToolsAsync(cancellationToken).ConfigureAwait(false));
+        extraTools.AddRange(McpManager.Instance.GetCachedTools());
 
         if (config.EnableFileAccess)
         {

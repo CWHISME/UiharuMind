@@ -163,8 +163,8 @@ public partial class AgentSettingViewData : ViewModelBase
     {
         if (SelectedServer == null) return;
         ServerStatusText = LocalizationManager.Instance.GetString("AgentMcpStateConnecting");
-        // 触发一次工具枚举以建立连接
-        await McpManager.Instance.GetToolsAsync();
+        // 强制刷新工具缓存以建立连接
+        await McpManager.Instance.RefreshAsync();
         RefreshServerStatus();
     }
 

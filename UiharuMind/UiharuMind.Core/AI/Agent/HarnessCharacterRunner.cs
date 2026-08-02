@@ -33,7 +33,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private AgentSession? _session;
     private string? _boundSessionId;
     private ChatSession? _attachedSession; //当前挂接的会话本体,供惰性客户端按请求解析会话级模型
-    private string _handleFingerprint = string.Empty;
+    private AgentAssemblySnapshot? _lastSnapshot; //上次装配消费的输入快照
 
     public bool HasSession => _session != null;
 
@@ -59,15 +59,16 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     }
 
     /// <summary>
-    /// 装配指纹变化时重建 agent。模型经惰性客户端按请求解析，切换模型无需重建；
-    /// 影响装配的是角色、工作目录与权限档。
+    /// 装配快照变化时重建 agent。快照收录装配消费的全部输入(含重算好的系统提示词)，
+    /// 角色卡编辑、会话参数、能力开关、MCP 工具集变化都被捕获；
+    /// 模型经惰性客户端按请求解析，切换模型无需重建。
     /// </summary>
     private async Task EnsureHandleAsync(ChatSession session, CancellationToken cancellationToken)
     {
-        string fingerprint = $"{session.CharacterId}|{session.WorkspacePath}|{session.PermissionModeIndex}";
-        if (_handle != null && _handleFingerprint == fingerprint) return;
+        AgentAssemblySnapshot snapshot = AgentAssemblySnapshot.Capture(session);
+        if (_handle != null && snapshot.Equals(_lastSnapshot)) return;
 
-        AgentHandle newHandle = await AgentHost.Instance.CreateAgentAsync(new AgentBuildProfile
+        AgentHandle newHandle = AgentHost.Instance.CreateAgent(new AgentBuildProfile
         {
             Character = session.CharacterData,
             WorkspacePath = session.WorkspacePath,
@@ -78,7 +79,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             // 闭包读字段而非捕获参数:同一 handle 会跨会话复用
             SessionModelSource = () => _attachedSession?.ChatModelRunningData,
             SessionMemorySource = () => _attachedSession?.Memory,
-        }, cancellationToken).ConfigureAwait(false);
+        });
 
         if (_handle != null && _session != null)
         {
@@ -101,7 +102,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
         if (_handle != null) await _handle.DisposeAsync().ConfigureAwait(false);
         _handle = newHandle;
-        _handleFingerprint = fingerprint;
+        _lastSnapshot = snapshot;
     }
 
     public async Task SaveStateAsync()
