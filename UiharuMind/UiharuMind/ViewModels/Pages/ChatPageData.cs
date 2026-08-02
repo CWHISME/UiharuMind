@@ -20,17 +20,13 @@ using UiharuMind.Views.Windows.Characters;
 
 namespace UiharuMind.ViewModels.Pages;
 
-public partial class ChatPageData : PageDataBase
+public partial class ChatPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new ChatPage();
 
     public ChatViewModel ChatViewModel { get; }
     public ChatListViewModel ChatListViewModel { get; }
 
-    [ObservableProperty] private float _leftPaneWidth = 260;
-    [ObservableProperty] private float _rightPaneWidth = 320;
-    [ObservableProperty] private bool _isLeftPaneOpen = true;
-    [ObservableProperty] private bool _isRightPaneOpen = true;
 
     // private List<ChatSession> _chatSessions = new List<ChatSession>();
 
@@ -67,29 +63,4 @@ public partial class ChatPageData : PageDataBase
         item?.StartChat();
     }
 
-    [RelayCommand]
-    private void ToggleLeftPane()
-    {
-        IsLeftPaneOpen = !IsLeftPaneOpen;
-    }
-
-    [RelayCommand]
-    private void ToggleRightPane()
-    {
-        IsRightPaneOpen = !IsRightPaneOpen;
-    }
-
-    public void UpdateResponsiveState(double width)
-    {
-        if (width <= 0) return;
-        if (width < 860)
-        {
-            IsLeftPaneOpen = false;
-            IsRightPaneOpen = false;
-        }
-        else if (width < 1040)
-        {
-            IsRightPaneOpen = false;
-        }
-    }
 }

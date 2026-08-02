@@ -58,6 +58,12 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// <summary>重试回调(为空则隐藏重试按钮)</summary>
     public Action<ConversationItemBase>? RetryCallback { get; set; }
 
+    /// <summary>
+    /// 分叉回调：从本条消息处复制出一个新对话（为空则隐藏分叉按钮）。
+    /// 聊天页原有能力，统一到本条目体系时必须保留，否则是功能回退。
+    /// </summary>
+    public Action<ConversationItemBase>? BranchCallback { get; set; }
+
     /// <summary>是否可编辑</summary>
     public bool CanEdit => EditedCallback != null;
 
@@ -66,6 +72,9 @@ public abstract partial class ConversationItemBase : ObservableObject
 
     /// <summary>是否可重试</summary>
     public bool CanRetry => RetryCallback != null;
+
+    /// <summary>是否可分叉</summary>
+    public bool CanBranch => BranchCallback != null;
 
     [RelayCommand]
     private void Copy()
@@ -93,6 +102,12 @@ public abstract partial class ConversationItemBase : ObservableObject
     private void Retry()
     {
         RetryCallback?.Invoke(this);
+    }
+
+    [RelayCommand]
+    private void Branch()
+    {
+        BranchCallback?.Invoke(this);
     }
 }
 

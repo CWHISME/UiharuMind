@@ -35,8 +35,7 @@ public partial class ChatListViewModel : ViewModelBase
         // 只读索引,本体按需加载(agent 会话的工具结果是全量持久化的,启动时全量反序列化会卡死)
         foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions())
         {
-            ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
-            if (session != null) ChatSessions.Add(new ChatSessionViewData(session));
+            ChatSessions.Add(new ChatSessionViewData(meta));
         }
 
         SessionManager.Instance.OnSessionAdded += OnChatSessionAdded;

@@ -26,7 +26,7 @@ namespace UiharuMind.ViewModels.Pages;
 /// Agent 工作区页面壳(对齐 ChatPageData):面板开合/宽度、会话列表、右侧栏;
 /// 会话内容由 AgentConversationViewModel + 通用 ConversationView 承载。
 /// </summary>
-public partial class AgentPageData : PageDataBase
+public partial class AgentPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new AgentPage();
 
@@ -37,10 +37,6 @@ public partial class AgentPageData : PageDataBase
     public ObservableCollection<ScheduledTaskDisplayItem> ScheduledTasks { get; } = new();
 
     [ObservableProperty] private AgentSessionItemViewData? _selectedSession;
-    [ObservableProperty] private float _leftPaneWidth = 260;
-    [ObservableProperty] private float _rightPaneWidth = 300;
-    [ObservableProperty] private bool _isLeftPaneOpen = true;
-    [ObservableProperty] private bool _isRightPaneOpen = true;
 
     private bool _suppressSelectionChange; //列表刷新期间抑制选择联动,避免 Clear() 误清界面
 
@@ -53,29 +49,6 @@ public partial class AgentPageData : PageDataBase
         Conversation.SessionsChanged += RefreshSessions;
         AgentHost.Instance.Scheduler.OnTaskUpdated += _ =>
             Avalonia.Threading.Dispatcher.UIThread.Post(RefreshScheduledTasks);
-    }
-
-    /// <summary>
-    /// 窗口宽度响应:过窄时自动收起面板(与 ChatPage 一致)
-    /// </summary>
-    /// <param name="width">当前宽度</param>
-    public void UpdateResponsiveState(double width)
-    {
-        if (width <= 0) return;
-        if (width < 1040) IsRightPaneOpen = false;
-        if (width < 860) IsLeftPaneOpen = false;
-    }
-
-    [RelayCommand]
-    private void ToggleLeftPane()
-    {
-        IsLeftPaneOpen = !IsLeftPaneOpen;
-    }
-
-    [RelayCommand]
-    private void ToggleRightPane()
-    {
-        IsRightPaneOpen = !IsRightPaneOpen;
     }
 
     //================= 会话列表 =================

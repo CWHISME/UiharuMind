@@ -26,6 +26,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memory;
@@ -46,7 +47,16 @@ namespace UiharuMind.ViewModels.ViewData;
 public partial class ChatSessionViewData : ObservableObject
 {
     private readonly IMessageService _messageService;
-    public readonly ChatSession ChatSession;
+    private readonly ChatSessionMeta _meta;
+    private ChatSession? _session;
+
+    /// <summary>
+    /// 会话本体，首次访问时按需加载。
+    /// 列表展示所需的字段全部取自元数据，因此启动时不必反序列化任何本体——
+    /// agent 会话的工具结果是全量持久化的，全量加载会卡死。
+    /// </summary>
+    public ChatSession ChatSession => _session ??=
+        SessionManager.Instance.Load(_meta.SessionId) ?? new ChatSession { SessionId = _meta.SessionId };
 
     [ObservableProperty] private string _name;
     [ObservableProperty] private Bitmap? _icon;
@@ -82,16 +92,42 @@ public partial class ChatSessionViewData : ObservableObject
     }
 
     public ChatSessionViewData(ChatSession chatSession, IMessageService messageService)
+        : this(chatSession.ToMeta(), messageService)
+    {
+        _session = chatSession;
+    }
+
+    public ChatSessionViewData(ChatSessionMeta meta)
+        : this(meta, App.Services.GetRequiredService<IMessageService>())
+    {
+    }
+
+    public ChatSessionViewData(ChatSessionMeta meta, IMessageService messageService)
     {
         _messageService = messageService;
-        ChatSession = chatSession;
-        Description = ChatSession.Description;
-        Name = ChatSession.Title;
-        Icon = IconUtils.GetCharacterBitmapOrDefault(ChatSession.CharacterData);
+        _meta = meta;
+        Description = meta.Description;
+        Name = meta.Title;
+        Icon = IconUtils.GetCharacterBitmapOrDefault(
+            CharacterManager.Instance.GetCharacterData(meta.CharacterId));
         TimeString = CalcTimeString();
-        MemoryData = ChatSession.Memory;
+        MemoryData = ResolveMemory(meta);
         MemoryTipsName = "";
         RefreshMemoryInfo();
+    }
+
+    /// <summary>
+    /// 解析记忆库而不触发本体加载
+    /// </summary>
+    private static MemoryData? ResolveMemory(ChatSessionMeta meta)
+    {
+        if (!string.IsNullOrEmpty(meta.MemoryName) &&
+            MemoryManager.Instance.TryGetMemoryData(meta.MemoryName, out MemoryData? memory))
+        {
+            return memory;
+        }
+
+        return CharacterManager.Instance.GetCharacterData(meta.CharacterId).Memory;
     }
 
     /// <summary>
@@ -347,11 +383,11 @@ public partial class ChatSessionViewData : ObservableObject
 
     private string CalcTimeString()
     {
-        DateTime currentDate = DateTime.Now.Date;
-        DateTime lastChatDate = ChatSession.LastTime.Date;
-
-        if (currentDate == lastChatDate) return ChatSession.LastTime.ToString("HH:mm");
-        return ChatSession.LastTime.ToString("yyyy/MM/dd");
+        // 已加载则用末条消息时间,否则用元数据的更新时间——不为一行时间去加载本体
+        DateTime lastTime = _session?.LastTime ?? _meta.UpdatedAt.LocalDateTime;
+        return DateTime.Now.Date == lastTime.Date
+            ? lastTime.ToString("HH:mm")
+            : lastTime.ToString("yyyy/MM/dd");
     }
 
     partial void OnMemoryDataChanged(MemoryData? oldValue, MemoryData? newValue)
