@@ -10,6 +10,7 @@
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
@@ -65,6 +66,7 @@ public partial class ConversationViewModel : ViewModelBase
     [ObservableProperty] private bool _isPlaintext;
     [ObservableProperty] private bool _isNotShowThinking;
     [ObservableProperty] private bool _hasEarlierMessages;
+    [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
 
     [RelayCommand]
     private async Task SendMessage()
@@ -203,6 +205,8 @@ public partial class ConversationViewModel : ViewModelBase
     private readonly List<string> _pendingOwnedFiles = new();
     private int _historyStart; //当前渲染窗口在完整历史中的起点
     private IList<ConversationItemBase>? _renderTarget; //历史回放的构建缓冲,为空直写 Items
+    private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
+    private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
 
     /// <summary>条目落点:实时流直写 Items,历史回放写入构建缓冲(支持前插)</summary>
     private IList<ConversationItemBase> RenderTarget => _renderTarget ?? Items;
@@ -298,14 +302,14 @@ public partial class ConversationViewModel : ViewModelBase
 
     partial void OnPermissionModeIndexChanged(int value)
     {
-        if (CurrentMeta == null) return;
+        if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.PermissionModeIndex = value;
         PersistSessionSettings();
     }
 
     partial void OnWorkspacePathChanged(string? value)
     {
-        if (CurrentMeta == null) return;
+        if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
         PersistSessionSettings();
     }
@@ -628,20 +632,42 @@ public partial class ConversationViewModel : ViewModelBase
     /// <param name="meta">会话元数据</param>
     public async Task LoadSessionAsync(ChatSessionMeta? meta)
     {
+        int loadVersion = ++_loadVersion; //期间再次切换会话时,旧加载在每个悬挂点后自行放弃
         _runCancellation?.Cancel();
         ClearStreamState();
         _runner.ClearSession();
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
-        if (meta == null) return;
+        if (meta == null)
+        {
+            IsSessionLoading = false;
+            return;
+        }
 
-        WorkspacePath = meta.WorkspacePath;
-        PermissionModeIndex = meta.PermissionModeIndex;
+        IsSessionLoading = true;
+
+        // 加载是读取会话状态,抑制变更处理器的写回——
+        // 否则每次切入都会对刚加载的会话做一次同步全量 JSON 保存,还刷新 UpdatedAt 扰动列表排序
+        _isLoadingSession = true;
+        try
+        {
+            WorkspacePath = meta.WorkspacePath;
+            PermissionModeIndex = meta.PermissionModeIndex;
+        }
+        finally
+        {
+            _isLoadingSession = false;
+        }
+
+        // 分帧:先让"清空旧会话"渲染出去,再构建新会话,把一次长冻结拆成两段短的
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+        if (loadVersion != _loadVersion) return;
 
         try
         {
             await AttachAsync(meta, CancellationToken.None);
+            if (loadVersion != _loadVersion) return;
 
             CurrentMode = _runner.GetMode();
             ReplayMessages(_runner.GetHistory());
@@ -650,7 +676,12 @@ public partial class ConversationViewModel : ViewModelBase
         catch (Exception e)
         {
             Log.Warning($"Load session failed: {e.Message}");
-            Items.Add(new ErrorItem { Message = e.Message });
+            if (loadVersion == _loadVersion) Items.Add(new ErrorItem { Message = e.Message });
+        }
+        finally
+        {
+            // 被更新的切换取代时不动状态,由接手的那次加载收尾
+            if (loadVersion == _loadVersion) IsSessionLoading = false;
         }
     }
 

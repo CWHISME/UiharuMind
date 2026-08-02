@@ -68,10 +68,16 @@
              虚拟化面板在不定高气泡下 Extent 是估算值,进度条跳变/滚动回跳/跟底互搏均源于此,
              已实测不可用;开窗后布局全为真实测量,自动跟底直接复用 ScrollViewerAutoScrollHolder -->
         <Grid Grid.Row="1">
-            <!-- 空状态(宿主注入) -->
+            <!-- 空状态(宿主注入):切会话分帧会先渲染一帧空列表,加载中不算"空",否则空态图标闪烁 -->
             <ContentPresenter Margin="10"
-                              IsVisible="{Binding !Items.Count}"
-                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}">
+                <ContentPresenter.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="!Items.Count" />
+                        <Binding Path="!IsSessionLoading" />
+                    </MultiBinding>
+                </ContentPresenter.IsVisible>
+            </ContentPresenter>
 
             <ScrollViewer Name="Viewer"
                           Margin="0,0,3,0"
@@ -173,27 +179,35 @@
 
                                     <Border Classes="message-actions" Grid.Row="1"
                                             HorizontalAlignment="{Binding Alignment}">
-                                        <StackPanel Orientation="Horizontal" Spacing="5">
-                                            <ThemedIconButton Classes="message-action" IconName="repeat"
-                                                              IsVisible="{Binding CanRetry}"
-                                                              Command="{Binding RetryCommand}"
-                                                              ToolTips="{loc:Loc RetryMessage}" />
-                                            <ThemedIconButton Classes="message-action" IconName="copy"
-                                                              Command="{Binding CopyCommand}"
-                                                              ToolTips="{loc:Loc Copy}" />
-                                            <ThemedIconButton Classes="message-action" IconName="pencil"
-                                                              IsVisible="{Binding CanEdit}"
-                                                              Command="{Binding EditCommand}"
-                                                              ToolTips="{loc:Loc Edit}" />
-                                            <ThemedIconButton Classes="message-action" IconName="split"
-                                                              IsVisible="{Binding CanBranch}"
-                                                              Command="{Binding BranchCommand}"
-                                                              ToolTips="{loc:Loc BranchChatAfterMessage}" />
-                                            <ThemedIconButton Classes="message-action" IconName="trash-2"
-                                                              IsVisible="{Binding CanDelete}"
-                                                              Command="{Binding DeleteCommand}"
-                                                              ToolTips="{loc:Loc Delete}" />
-                                        </StackPanel>
+                                        <!-- 操作按钮悬停到本行时才实例化:
+                                             每行 5 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
+                                        <HoverDeferredContent>
+                                            <HoverDeferredContent.ContentTemplate>
+                                                <DataTemplate x:DataType="conv:TextConversationItem">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <ThemedIconButton Classes="message-action" IconName="repeat"
+                                                                          IsVisible="{Binding CanRetry}"
+                                                                          Command="{Binding RetryCommand}"
+                                                                          ToolTips="{loc:Loc RetryMessage}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="copy"
+                                                                          Command="{Binding CopyCommand}"
+                                                                          ToolTips="{loc:Loc Copy}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="pencil"
+                                                                          IsVisible="{Binding CanEdit}"
+                                                                          Command="{Binding EditCommand}"
+                                                                          ToolTips="{loc:Loc Edit}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="split"
+                                                                          IsVisible="{Binding CanBranch}"
+                                                                          Command="{Binding BranchCommand}"
+                                                                          ToolTips="{loc:Loc BranchChatAfterMessage}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="trash-2"
+                                                                          IsVisible="{Binding CanDelete}"
+                                                                          Command="{Binding DeleteCommand}"
+                                                                          ToolTips="{loc:Loc Delete}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </HoverDeferredContent.ContentTemplate>
+                                        </HoverDeferredContent>
                                     </Border>
                                 </Grid>
                             </Grid>
