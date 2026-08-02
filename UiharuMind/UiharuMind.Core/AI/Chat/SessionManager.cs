@@ -182,6 +182,27 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// 落盘并刷新索引。临时会话为空操作。
     /// </summary>
     /// <param name="session">会话</param>
+    /// <summary>
+    /// 会话是否仍在索引中(防抖保存据此避免复活已删除的会话)
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>存在返回 true</returns>
+    public bool Exists(string sessionId)
+    {
+        return _metas.ContainsKey(sessionId);
+    }
+
+    /// <summary>
+    /// 冲刷所有防抖中的保存(应用退出前调用,避免尾部丢失)
+    /// </summary>
+    public void FlushPendingSaves()
+    {
+        foreach (ChatSession session in _loaded.Values.Where(x => x.HasPendingSave).ToList())
+        {
+            session.SaveNow();
+        }
+    }
+
     public void Save(ChatSession session)
     {
         if (session.IsTransient) return;
