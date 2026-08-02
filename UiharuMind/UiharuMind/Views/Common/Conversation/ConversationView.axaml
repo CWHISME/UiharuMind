@@ -8,6 +8,7 @@
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:views="clr-namespace:UiharuMind.Views.Common.Conversation"
+             xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="640"
              x:Class="UiharuMind.Views.Common.Conversation.ConversationView"
@@ -48,6 +49,18 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="14" />
         </Style>
+        <Style Selector="ThemedIconButton.memory-status controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Dirty] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DarkRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Error] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Red" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="LawnGreen" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
@@ -59,8 +72,14 @@
                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16"
                            TextTrimming="CharacterEllipsis" MaxLines="1" VerticalAlignment="Center"
                            Foreground="{DynamicResource SemiGrey7}" />
-                <ContentPresenter Grid.Column="1"
-                                  Content="{Binding HeaderExtra, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <ThemedIconButton IconName="repeat"
+                                      Command="{Binding RegenerateLastCommand}"
+                                      IsVisible="{Binding CanRegenerate}"
+                                      ToolTips="{loc:Loc RegenerateBtn}" />
+                    <ContentPresenter
+                        Content="{Binding HeaderExtra, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -283,8 +302,69 @@
                 </TextBox>
 
                 <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <!-- 宿主注入:工具行(模式/权限/附件…) -->
-                    <ContentPresenter VerticalAlignment="Center" Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                    <!-- 工具行:两类会话共用,按 IsAgentSession 切换差异项;ComposerTools 槽保留给宿主追加 -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Button Content="{Binding ModeLabel}"
+                                Command="{Binding CycleModeCommand}"
+                                IsVisible="{Binding IsAgentSession}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc AgentModeSwitchHint}" />
+                            </ToolTip.Tip>
+                        </Button>
+                        <ComboBox FontSize="12" MinWidth="104"
+                                  SelectedIndex="{Binding PermissionModeIndex}"
+                                  IsVisible="{Binding IsAgentSession}">
+                            <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
+                            <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
+                            <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
+                        </ComboBox>
+                        <Button Content="{Binding SenderMode}"
+                                Command="{Binding ChangeSendModeCommand}"
+                                IsVisible="{Binding !IsAgentSession}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc SendUserDesc}" />
+                            </ToolTip.Tip>
+                        </Button>
+                        <ThemedIconButton Classes="memory-status"
+                                          IconName="database"
+                                          ToolTips="{Binding MemoryPanel.MemoryTooltip}"
+                                          Tag="{Binding MemoryPanel.MemoryStatusKey}"
+                                          Command="{Binding MemoryPanel.MemoryEditorCommand}"
+                                          IsVisible="{Binding MemoryPanel, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <ThemedIconButton IconName="image" Command="{Binding AddAttachmentCommand}" />
+                        <ThemedIconButton IconName="settings">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Padding="10"
+                                            CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="10">
+                                            <CheckBox Content="{loc:Loc HideThnkingText}"
+                                                      IsChecked="{Binding IsNotShowThinking}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc HideThnkingTextTips}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+                                            <CheckBox Content="{loc:Loc Plaintext}"
+                                                      IsChecked="{Binding IsPlaintext}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc ChatPlaintextTooltip}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+                                        </StackPanel>
+                                    </Border>
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc Settings}" />
+                            </ToolTip.Tip>
+                        </ThemedIconButton>
+                        <!-- 宿主注入 -->
+                        <ContentPresenter VerticalAlignment="Center"
+                                          Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                    </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                 VerticalAlignment="Center">

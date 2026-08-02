@@ -301,23 +301,6 @@
                         </StackPanel>
                     </convView:ConversationView.EmptyContent>
 
-                    <convView:ConversationView.ComposerTools>
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
-                                    x:DataType="conv:ConversationViewModel">
-                            <Button Content="{Binding ModeLabel}" Command="{Binding CycleModeCommand}">
-                                <ToolTip.Tip>
-                                    <TextBlock Text="{loc:Loc AgentModeSwitchHint}" />
-                                </ToolTip.Tip>
-                            </Button>
-                            <ComboBox FontSize="12" MinWidth="104"
-                                      SelectedIndex="{Binding PermissionModeIndex}">
-                                <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
-                                <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
-                                <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
-                            </ComboBox>
-                            <ThemedIconButton IconName="image" Command="{Binding AddAttachmentCommand}" />
-                        </StackPanel>
-                    </convView:ConversationView.ComposerTools>
 
                 </convView:ConversationView>
             </Border>

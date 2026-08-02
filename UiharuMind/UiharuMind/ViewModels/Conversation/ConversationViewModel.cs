@@ -181,6 +181,12 @@ public partial class ConversationViewModel : ViewModelBase
     /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主 agent,聊天页由页面壳指定</summary>
     public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.WorkspaceAgent);
 
+    /// <summary>当前会话是否 agent 类型(决定工具行显示模式/权限还是发送身份)</summary>
+    public bool IsAgentSession => _currentCharacter?.Kind == ECharacterKind.Agent;
+
+    /// <summary>当前会话的记忆库面板(未挂接会话时为空)</summary>
+    [ObservableProperty] private ConversationMemoryViewData? _memoryPanel;
+
     /// <summary>是否有可重新生成的目标(存在可重试的用户消息且未在生成中)</summary>
     public bool CanRegenerate => !IsGenerating && Items.Any(x => x.CanRetry);
 
@@ -534,6 +540,8 @@ public partial class ConversationViewModel : ViewModelBase
             SessionManager.Instance.Add(created);
             CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
+            OnPropertyChanged(nameof(IsAgentSession));
+            MemoryPanel = new ConversationMemoryViewData(created);
             await _runner.AttachAsync(created, cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
@@ -639,6 +647,7 @@ public partial class ConversationViewModel : ViewModelBase
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
+        OnPropertyChanged(nameof(IsAgentSession));
         if (meta == null)
         {
             IsSessionLoading = false;
@@ -668,6 +677,11 @@ public partial class ConversationViewModel : ViewModelBase
         {
             await AttachAsync(meta, CancellationToken.None);
             if (loadVersion != _loadVersion) return;
+
+            if (SessionManager.Instance.Load(meta.SessionId) is { } body)
+            {
+                MemoryPanel = new ConversationMemoryViewData(body);
+            }
 
             CurrentMode = _runner.GetMode();
             ReplayMessages(_runner.GetHistory());
@@ -1040,6 +1054,8 @@ public partial class ConversationViewModel : ViewModelBase
         HasTodos = false;
         HasEarlierMessages = false;
         _historyStart = 0;
+        MemoryPanel?.Detach();
+        MemoryPanel = null;
         _pendingApprovals.Clear();
         _streamingText = null;
         _streamingThinking = null;
