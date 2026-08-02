@@ -11,11 +11,13 @@ using System;
 using Microsoft.Extensions.Logging;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Agent;
+namespace UiharuMind.Core.AI.Agent.Harness;
 
+// [MFA绕坑] 绕:框架内部日志(含工具执行失败的真实异常)默认无处可去 因:框架只认 ILoggerFactory/IServiceProvider 注入 删除条件:框架提供更直接的日志回调
 /// <summary>
-/// �?Microsoft.Agents.AI / Microsoft.Extensions.AI 等插件库的内部日志转发到 UiharuMind 自有日志,
-/// 使框架运行期异常(如工具执行失�?可见�?/// </summary>
+/// 把 Microsoft.Agents.AI / Microsoft.Extensions.AI 等插件库的内部日志转发到 UiharuMind 自有日志,
+/// 使框架运行期异常(如工具执行失败)可见。
+/// </summary>
 internal sealed class MfaLogger : Microsoft.Extensions.Logging.ILogger
 {
     private readonly string _category;

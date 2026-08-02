@@ -44,6 +44,7 @@ internal sealed class MemoryContextProvider : AIContextProvider
     protected override async ValueTask<AIContext> ProvideAIContextAsync(
         InvokingContext context, CancellationToken cancellationToken = default)
     {
+        // [MFA绕坑] 绕:回传 context.AIContext 会使消息翻倍/系统提示拼接两次 因:基类把返回的 Messages/Instructions 全量追加回输入 删除条件:框架区分"透传"与"新增"
         // 返回值只能装本 provider 自己的产出,绝不能回传 context.AIContext。
         // 基类 InvokingCoreAsync 会把 provided.Messages 全部打上本 provider 的来源标记后
         // 追加到输入消息上,并把 provided.Instructions 追加到输入 instructions 上;

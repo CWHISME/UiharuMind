@@ -90,6 +90,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         return default;
     }
 
+    // [MFA绕坑] 绕:框架注入消息混进待持久化列表 因:基类 ChatHistory 过滤挡不住 AIContextProvider 来源,per-service-call 路径下更是全漏 删除条件:框架把注入消息与真实对话分流
     /// <summary>
     /// 只有真正的用户输入与模型输出属于我们的历史。
     /// 框架注入的消息（回放用的历史副本、todo 快照、mode 切换通知、记忆片段等）
@@ -98,7 +99,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     /// 不能只依赖基类默认的 ChatHistory 过滤——它挡不住 AIContextProvider 来源，
     /// 而 per-service-call 持久化路径下连 ChatHistory 来源的也会漏进来。
     /// </summary>
-    private static bool IsOwnedByUs(ChatMessage message)
+    internal static bool IsOwnedByUs(ChatMessage message)
     {
         return message.AdditionalProperties?.ContainsKey(AttributionKey) != true;
     }

@@ -2,11 +2,9 @@
 
 using Microsoft.Agents.AI;
 
-namespace UiharuMind.Core.AI.Agent.Files;
+namespace UiharuMind.Core.AI.Agent.Harness;
 
-/// MFA 内部静态类 Microsoft.Agents.AI.FileEditor 的 replace 逻辑,
-/// FileEditor 为 internal,外部调用不了，直接先复制一份过来。
-
+// [MFA绕坑] 绕:Microsoft.Agents.AI.FileEditor 的 replace/replace_lines 逻辑 因:该类为 internal 无法引用,只能整份复制 删除条件:框架把 FileEditor 公开
 /// <summary>
 /// Internal helpers shared by <see cref="FileAccessProvider"/> and <see cref="FileMemoryProvider"/>
 /// for the <c>replace</c> and <c>replace_lines</c> tools.

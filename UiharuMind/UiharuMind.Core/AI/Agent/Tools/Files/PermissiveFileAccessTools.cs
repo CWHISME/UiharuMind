@@ -13,9 +13,11 @@ using Glacier.Grep;
 using Meziantou.Framework.Globbing;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Agent.Harness;
 
 namespace UiharuMind.Core.AI.Agent.Files;
 
+// [MFA绕坑] 绕:框架 FileAccessProvider 拒绝一切绝对路径 因:该类 internal 无法继承修改 删除条件:框架允许配置路径策略
 /// <summary>
 /// 自带的 file_access_* 工具集,替代 MFA 内置的 FileAccessProvider。
 /// MFA 的 FileAccessProvider 在调用存储前会用 StorePaths.NormalizeRelativePath 拒绝一切绝对路径,

@@ -12,6 +12,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Agent.Files;
+using UiharuMind.Core.AI.Agent.Harness;
 using UiharuMind.Core.AI.Agent.Mcp;
 using UiharuMind.Core.AI.Agent.Scheduler;
 using UiharuMind.Core.AI.Agent.Skills;
@@ -157,25 +158,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
         if (character.Kind == ECharacterKind.Roleplay)
         {
-            return BuildHandle(client, new HarnessAgentOptions
-            {
-                Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
-                Description = character.Description,
-                ChatHistoryProvider = history,
-                // 框架侧一律关闭:任何一项漏关都会向角色扮演的上下文里注入内容
-                HarnessInstructions = string.Empty,
-                DisableWebSearch = true,
-                DisableFileAccess = true,
-                DisableFileMemory = true,
-                DisableTodoProvider = true,
-                DisableAgentModeProvider = true,
-                DisableAgentSkillsProvider = true,
-                DisableCompaction = true,
-                DisableToolAutoApproval = true,
-                DisableOpenTelemetry = true,
-                AIContextProviders = contextProviders,
-                ChatOptions = chatOptions,
-            }, null);
+            return BuildHandle(client,
+                BuildRoleplayOptions(character, history, contextProviders, chatOptions), null);
         }
 
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
@@ -219,31 +203,89 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
         chatOptions.Tools = extraTools;
 
-        return BuildHandle(client, new HarnessAgentOptions
+        FileSystemAgentFileStore? agentNotesStore = config.EnableAgentNotes
+            ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
+            : null;
+
+        return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
+            shellExecutor, SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
+            profile.PermissionMode, profile.PreAuthorizedShellPatterns), shellExecutor);
+    }
+
+    // [MFA绕坑] 绕:框架默认向系统提示注入自身内容 因:无"纯透传"档,只能逐项 Disable 删除条件:框架提供 passthrough 模式
+    /// <summary>
+    /// 角色扮演档选项(纯函数,不碰单例)。不变量:框架侧一律关闭、HarnessInstructions 为空——
+    /// 任何一项漏关都会向角色扮演的上下文里注入内容,该不变量由测试钉住。
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <param name="history">历史提供器</param>
+    /// <param name="contextProviders">上下文提供器</param>
+    /// <param name="chatOptions">对话选项(含角色系统提示,工具应为空)</param>
+    /// <returns>框架选项</returns>
+    internal static HarnessAgentOptions BuildRoleplayOptions(CharacterData character,
+        ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions)
+    {
+        return new HarnessAgentOptions
         {
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            // 工具纪律段随实际装配的工具集派生;角色的人格/任务段由框架拼在其后
+            HarnessInstructions = string.Empty,
+            DisableWebSearch = true,
+            DisableFileAccess = true,
+            DisableFileMemory = true,
+            DisableTodoProvider = true,
+            DisableAgentModeProvider = true,
+            DisableAgentSkillsProvider = true,
+            DisableCompaction = true,
+            DisableToolAutoApproval = true,
+            DisableOpenTelemetry = true,
+            AIContextProviders = contextProviders,
+            ChatOptions = chatOptions,
+        };
+    }
+
+    /// <summary>
+    /// agent 档选项(纯函数,不碰单例)。工具纪律段随实际装配的工具集派生,
+    /// 角色的人格/任务段由框架拼在其后;框架自带的搜索/文件访问关闭,由自装配工具替代。
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <param name="config">能力配置</param>
+    /// <param name="history">历史提供器</param>
+    /// <param name="contextProviders">上下文提供器</param>
+    /// <param name="chatOptions">对话选项(含角色系统提示与已装配工具集)</param>
+    /// <param name="shellExecutor">shell 执行器,禁用时为 null</param>
+    /// <param name="skillsSource">技能来源</param>
+    /// <param name="agentNotesStore">agent 笔记存储,禁用时为 null</param>
+    /// <param name="permissionMode">权限档</param>
+    /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
+    /// <returns>框架选项</returns>
+    internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
+        ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
+        ShellExecutor? shellExecutor, AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
+        EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns)
+    {
+        return new HarnessAgentOptions
+        {
+            Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
+            Description = character.Description,
+            ChatHistoryProvider = history,
             HarnessInstructions = BuildToolDisciplines(config, shellExecutor != null),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
-            FileMemoryStore = config.EnableAgentNotes
-                ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
-                : null,
+            FileMemoryStore = agentNotesStore,
             FileAccessStore = null,
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,
-            AgentSkillsSource = SkillCatalog.Instance.BuildSkillsSource(),
+            AgentSkillsSource = skillsSource,
             AIContextProviders = contextProviders,
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
-                AutoApprovalRules = ApprovalModeMapper.BuildRules(profile.PermissionMode,
-                    profile.PreAuthorizedShellPatterns),
+                AutoApprovalRules = ApprovalModeMapper.BuildRules(permissionMode, preAuthorizedShellPatterns),
             },
             ChatOptions = chatOptions,
-        }, shellExecutor);
+        };
     }
 
     private static AgentHandle BuildHandle(IChatClient client, HarnessAgentOptions options,

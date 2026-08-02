@@ -75,13 +75,16 @@ public sealed record AgentAssemblySnapshot
     public int McpRevision { get; init; }
 
     /// <summary>
-    /// 从会话捕获快照(装配输入的常规入口)
+    /// 从会话捕获快照(装配输入的常规入口)。
+    /// 系统提示词在此重算——角色卡与会话参数的编辑因此天然被捕获。
     /// </summary>
     /// <param name="session">目标会话</param>
     /// <returns>快照</returns>
     public static AgentAssemblySnapshot Capture(ChatSession session)
     {
-        return Capture(session.CharacterData, session.CustomParams, session.WorkspacePath,
+        CharacterData character = session.CharacterData;
+        return Capture(character, CharacterPromptBuilder.Build(character, session.CustomParams),
+            session.WorkspacePath,
             (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             session.PreAuthorizedShellPatterns,
             AgentSettingConfig.Current, McpManager.Instance.Revision);
@@ -91,7 +94,7 @@ public sealed record AgentAssemblySnapshot
     /// 显式入参捕获快照(可单测,不触碰任何单例)
     /// </summary>
     /// <param name="character">角色</param>
-    /// <param name="promptArguments">提示词模板参数</param>
+    /// <param name="instructions">重算好的系统提示词</param>
     /// <param name="workspacePath">工作目录</param>
     /// <param name="permission">权限档</param>
     /// <param name="preAuthorizedShellPatterns">shell 预授权模式</param>
@@ -99,7 +102,7 @@ public sealed record AgentAssemblySnapshot
     /// <param name="mcpRevision">MCP 工具集修订号</param>
     /// <returns>快照</returns>
     public static AgentAssemblySnapshot Capture(CharacterData character,
-        IReadOnlyDictionary<string, object?>? promptArguments, string? workspacePath,
+        string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
         AgentSettingConfig config, int mcpRevision)
     {
@@ -109,7 +112,7 @@ public sealed record AgentAssemblySnapshot
         {
             CharacterId = character.CharacterId,
             Kind = character.Kind,
-            Instructions = CharacterPromptBuilder.Build(character, promptArguments),
+            Instructions = instructions,
             ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),
             WorkspacePath = isAgent ? workspacePath : null,
             Permission = isAgent ? permission : default,

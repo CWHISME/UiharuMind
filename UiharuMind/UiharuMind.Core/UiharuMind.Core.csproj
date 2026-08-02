@@ -10,6 +10,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <!-- 装配不变量测试需要访问 internal 装配函数 -->
+      <InternalsVisibleTo Include="UiharuMind.Core.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <PackageReference Include="AngleSharp" Version="1.5.2" />
       <!-- tiktoken o200k 词表数据:Microsoft.ML.Tokenizers 本体已由 Agents.AI 传递引入 -->
       <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="6.0.0" />

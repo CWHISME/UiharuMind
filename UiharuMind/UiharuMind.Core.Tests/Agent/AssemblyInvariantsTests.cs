@@ -1,0 +1,165 @@
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.Configs;
+
+namespace UiharuMind.Core.Tests.Agent;
+
+/// <summary>
+/// 钉死装配的三个不变量之一：<b>角色扮演档零注入</b>。
+/// 框架的每一项能力都必须关掉、HarnessInstructions 必须为空——
+/// 任何一项漏关都会向角色扮演的上下文里悄悄注入内容,
+/// 而这种污染在实机上几乎不可见(模型行为变化无法归因)。
+/// </summary>
+public class RoleplayZeroInjectionTests
+{
+    [Fact]
+    public void BuildRoleplayOptions_DisablesEveryFrameworkCapability()
+    {
+        CharacterData character = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
+        ChatOptions chatOptions = new();
+
+        HarnessAgentOptions options = AgentHost.BuildRoleplayOptions(
+            character, new StubHistoryProvider(), [], chatOptions);
+
+        Assert.Equal(string.Empty, options.HarnessInstructions);
+        Assert.True(options.DisableWebSearch);
+        Assert.True(options.DisableFileAccess);
+        Assert.True(options.DisableFileMemory);
+        Assert.True(options.DisableTodoProvider);
+        Assert.True(options.DisableAgentModeProvider);
+        Assert.True(options.DisableAgentSkillsProvider);
+        Assert.True(options.DisableCompaction);
+        Assert.True(options.DisableToolAutoApproval);
+        Assert.True(options.DisableOpenTelemetry);
+        Assert.Null(options.ChatOptions!.Tools); //角色扮演不装配任何工具
+    }
+
+    private sealed class StubHistoryProvider : ChatHistoryProvider
+    {
+        public override IReadOnlyList<string> StateKeys => [];
+
+        protected override ValueTask<IEnumerable<ChatMessage>> ProvideChatHistoryAsync(
+            InvokingContext context, CancellationToken cancellationToken = default)
+        {
+            return new ValueTask<IEnumerable<ChatMessage>>([]);
+        }
+
+        protected override ValueTask StoreChatHistoryAsync(
+            InvokedContext context, CancellationToken cancellationToken = default)
+        {
+            return default;
+        }
+    }
+}
+
+/// <summary>
+/// 不变量之二：<b>历史只写我们自己的消息</b>。
+/// 框架各 provider 注入的消息(todo 快照、mode 通知、记忆片段)带 _attribution 溯源标记,
+/// 一旦写进历史就会逐轮累积并被回灌,历史文件以指数式膨胀。
+/// </summary>
+public class HistoryAttributionTests
+{
+    [Fact]
+    public void OwnMessages_AreOwnedByUs()
+    {
+        Assert.True(SessionChatHistoryProvider.IsOwnedByUs(new ChatMessage(ChatRole.User, "hello")));
+        Assert.True(SessionChatHistoryProvider.IsOwnedByUs(new ChatMessage(ChatRole.Assistant, "hi")));
+    }
+
+    [Fact]
+    public void FrameworkInjectedMessages_AreFilteredOut()
+    {
+        ChatMessage injected = new(ChatRole.User, "todo snapshot")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary { ["_attribution"] = "TodoProvider" },
+        };
+
+        Assert.False(SessionChatHistoryProvider.IsOwnedByUs(injected));
+    }
+}
+
+/// <summary>
+/// 不变量之三：<b>装配快照的相等性语义</b>。
+/// 相等 = 不重建;任一装配输入变化 = 重建;
+/// 角色扮演档对 agent 侧配置免疫(工具类输入归零)。
+/// </summary>
+public class AssemblySnapshotTests
+{
+    private static CharacterData NewAgentCharacter()
+    {
+        return new CharacterData { CharacterId = "agent", Kind = ECharacterKind.Agent };
+    }
+
+    [Fact]
+    public void SameInputs_ProduceEqualSnapshots()
+    {
+        AgentSettingConfig config = new();
+        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, config, mcpRevision: 1);
+        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, config, mcpRevision: 1);
+
+        Assert.Equal(first, second);
+    }
+
+    [Theory]
+    [InlineData("shell")]
+    [InlineData("mcp")]
+    [InlineData("permission")]
+    [InlineData("workspace")]
+    [InlineData("preauth")]
+    [InlineData("instructions")]
+    public void ChangedInput_ProducesDifferentSnapshot(string dimension)
+    {
+        AgentSettingConfig config = new();
+        AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, config, mcpRevision: 1);
+
+        AgentSettingConfig changedConfig = new();
+        string instructions = "prompt";
+        string? workspace = "/ws";
+        EAgentPermissionMode permission = EAgentPermissionMode.AutoEdit;
+        IReadOnlyList<string>? preAuthorized = null;
+        int mcpRevision = 1;
+        switch (dimension)
+        {
+            case "shell": changedConfig.EnableShellExecution = false; break;
+            case "mcp": mcpRevision = 2; break;
+            case "permission": permission = EAgentPermissionMode.FullAuto; break;
+            case "workspace": workspace = "/other"; break;
+            case "preauth": preAuthorized = ["git status*"]; break;
+            case "instructions": instructions = "edited prompt"; break; //角色卡/会话参数编辑经此显形
+        }
+
+        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), instructions,
+            workspace, permission, preAuthorized, changedConfig, mcpRevision);
+
+        Assert.NotEqual(baseline, changed);
+    }
+
+    [Fact]
+    public void RoleplaySnapshot_IsImmuneToAgentConfigChanges()
+    {
+        CharacterData roleplay = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
+        AgentSettingConfig configA = new();
+        AgentSettingConfig configB = new()
+        {
+            EnableFileAccess = false,
+            EnableShellExecution = false,
+            EnableWebSearch = false,
+            EnableAgentNotes = false,
+            EnableScheduledTasks = false,
+            EnableVisionTool = false,
+            EnableMemorySearchTool = false,
+        };
+
+        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(roleplay, "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, configA, mcpRevision: 1);
+        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(roleplay, "prompt", "/other",
+            EAgentPermissionMode.FullAuto, ["*"], configB, mcpRevision: 99);
+
+        Assert.Equal(first, second);
+    }
+}
