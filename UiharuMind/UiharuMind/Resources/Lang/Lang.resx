@@ -2277,4 +2277,91 @@
     <data name="FileSearchEmptyHint" xml:space="preserve">
         <value>No search results</value>
     </data>
+    <data name="RemoteModelWindowTitle" xml:space="preserve">
+        <value>Remote Model Configuration</value>
+    </data>
+    <data name="RemoteModelSelectProviderTitle" xml:space="preserve">
+        <value>Choose a Provider</value>
+    </data>
+    <data name="RemoteModelSelectProviderHint" xml:space="preserve">
+        <value>Pick a preset provider, or use a custom configuration.</value>
+    </data>
+    <data name="RemoteModelCreateTitle" xml:space="preserve">
+        <value>Create Remote Model</value>
+    </data>
+    <data name="RemoteModelEditTitle" xml:space="preserve">
+        <value>Edit Remote Model</value>
+    </data>
+    <data name="RemoteModelConfigHint" xml:space="preserve">
+        <value>Fill in the connection details for this model.</value>
+    </data>
+    <data name="RemoteModelNameLabel" xml:space="preserve">
+        <value>Model Name</value>
+    </data>
+    <data name="RemoteModelNamePlaceholder" xml:space="preserve">
+        <value>Display name, e.g. My-DeepSeek</value>
+    </data>
+    <data name="RemoteModelNameHint" xml:space="preserve">
+        <value>Only used for display; must be unique.</value>
+    </data>
+    <data name="RemoteModelPathLabel" xml:space="preserve">
+        <value>API Endpoint</value>
+    </data>
+    <data name="RemoteModelPathPlaceholder" xml:space="preserve">
+        <value>https://api.example.com/v1/chat/completions</value>
+    </data>
+    <data name="RemoteModelPathHint" xml:space="preserve">
+        <value>Full request URL, should start with http or https.</value>
+    </data>
+    <data name="RemoteModelIdLabel" xml:space="preserve">
+        <value>Model ID</value>
+    </data>
+    <data name="RemoteModelIdPlaceholder" xml:space="preserve">
+        <value>e.g. deepseek-chat</value>
+    </data>
+    <data name="RemoteModelIdHint" xml:space="preserve">
+        <value>Identifier sent with API requests to select the model.</value>
+    </data>
+    <data name="RemoteModelDescriptionLabel" xml:space="preserve">
+        <value>Description</value>
+    </data>
+    <data name="RemoteModelDescriptionPlaceholder" xml:space="preserve">
+        <value>Optional notes about this model</value>
+    </data>
+    <data name="RemoteModelVisionLabel" xml:space="preserve">
+        <value>Vision Support</value>
+    </data>
+    <data name="RemoteModelVisionHint" xml:space="preserve">
+        <value>Enable if the model accepts image input.</value>
+    </data>
+    <data name="RemoteModelApiKeyPlaceholder" xml:space="preserve">
+        <value>Paste your API key</value>
+    </data>
+    <data name="RemoteModelApiKeyHint" xml:space="preserve">
+        <value>Stored encrypted on this device.</value>
+    </data>
+    <data name="RemoteModelContextLengthLabel" xml:space="preserve">
+        <value>Context Length</value>
+    </data>
+    <data name="RemoteModelContextLengthPlaceholder" xml:space="preserve">
+        <value>Optional, e.g. 131072</value>
+    </data>
+    <data name="RemoteModelContextLengthHint" xml:space="preserve">
+        <value>Maximum context window in tokens; pick a preset or type a number, leave empty if unknown.</value>
+    </data>
+    <data name="RemoteModelContextLengthInvalid" xml:space="preserve">
+        <value>Context length must be a positive integer.</value>
+    </data>
+    <data name="RepeatModelNameTips" xml:space="preserve">
+        <value>Model name already exists!</value>
+    </data>
+    <data name="RemoteModelAdvancedSettings" xml:space="preserve">
+        <value>Advanced Settings</value>
+    </data>
+    <data name="RemoteModelCopyFromExisting" xml:space="preserve">
+        <value>Copy from an existing model</value>
+    </data>
+    <data name="RemoteModelCopyFromExistingHint" xml:space="preserve">
+        <value>Reuses its API key and settings, no need to re-enter.</value>
+    </data>
 </root>

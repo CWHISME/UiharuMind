@@ -2270,4 +2270,91 @@
     <data name="FileSearchEmptyHint" xml:space="preserve">
         <value>暂无搜索结果</value>
     </data>
+    <data name="RemoteModelWindowTitle" xml:space="preserve">
+        <value>远程模型配置</value>
+    </data>
+    <data name="RemoteModelSelectProviderTitle" xml:space="preserve">
+        <value>选择服务商</value>
+    </data>
+    <data name="RemoteModelSelectProviderHint" xml:space="preserve">
+        <value>选择一个预设服务商，或使用自定义配置。</value>
+    </data>
+    <data name="RemoteModelCreateTitle" xml:space="preserve">
+        <value>创建远程模型</value>
+    </data>
+    <data name="RemoteModelEditTitle" xml:space="preserve">
+        <value>编辑远程模型</value>
+    </data>
+    <data name="RemoteModelConfigHint" xml:space="preserve">
+        <value>填写该模型的连接信息。</value>
+    </data>
+    <data name="RemoteModelNameLabel" xml:space="preserve">
+        <value>模型名称</value>
+    </data>
+    <data name="RemoteModelNamePlaceholder" xml:space="preserve">
+        <value>显示用名称，例如 My-DeepSeek</value>
+    </data>
+    <data name="RemoteModelNameHint" xml:space="preserve">
+        <value>仅用于显示，不能与已有模型重名。</value>
+    </data>
+    <data name="RemoteModelPathLabel" xml:space="preserve">
+        <value>接口地址</value>
+    </data>
+    <data name="RemoteModelPathPlaceholder" xml:space="preserve">
+        <value>https://api.example.com/v1/chat/completions</value>
+    </data>
+    <data name="RemoteModelPathHint" xml:space="preserve">
+        <value>完整请求地址，应以 http 或 https 开头。</value>
+    </data>
+    <data name="RemoteModelIdLabel" xml:space="preserve">
+        <value>模型 ID</value>
+    </data>
+    <data name="RemoteModelIdPlaceholder" xml:space="preserve">
+        <value>例如 deepseek-chat</value>
+    </data>
+    <data name="RemoteModelIdHint" xml:space="preserve">
+        <value>调用接口时用于指定模型的标识。</value>
+    </data>
+    <data name="RemoteModelDescriptionLabel" xml:space="preserve">
+        <value>模型描述</value>
+    </data>
+    <data name="RemoteModelDescriptionPlaceholder" xml:space="preserve">
+        <value>可选，关于该模型的备注</value>
+    </data>
+    <data name="RemoteModelVisionLabel" xml:space="preserve">
+        <value>视觉能力</value>
+    </data>
+    <data name="RemoteModelVisionHint" xml:space="preserve">
+        <value>模型支持图片输入时开启。</value>
+    </data>
+    <data name="RemoteModelApiKeyPlaceholder" xml:space="preserve">
+        <value>粘贴你的 API Key</value>
+    </data>
+    <data name="RemoteModelApiKeyHint" xml:space="preserve">
+        <value>在本机加密存储。</value>
+    </data>
+    <data name="RemoteModelContextLengthLabel" xml:space="preserve">
+        <value>上下文长度</value>
+    </data>
+    <data name="RemoteModelContextLengthPlaceholder" xml:space="preserve">
+        <value>可选，例如 131072</value>
+    </data>
+    <data name="RemoteModelContextLengthHint" xml:space="preserve">
+        <value>模型最大上下文窗口(token 数)，可选内置档位或手动填写，不确定可留空。</value>
+    </data>
+    <data name="RemoteModelContextLengthInvalid" xml:space="preserve">
+        <value>上下文长度需为正整数。</value>
+    </data>
+    <data name="RepeatModelNameTips" xml:space="preserve">
+        <value>模型名称已存在！</value>
+    </data>
+    <data name="RemoteModelAdvancedSettings" xml:space="preserve">
+        <value>高级设置</value>
+    </data>
+    <data name="RemoteModelCopyFromExisting" xml:space="preserve">
+        <value>从已有模型复制</value>
+    </data>
+    <data name="RemoteModelCopyFromExistingHint" xml:space="preserve">
+        <value>复用其密钥与配置，无需重新填写。</value>
+    </data>
 </root>

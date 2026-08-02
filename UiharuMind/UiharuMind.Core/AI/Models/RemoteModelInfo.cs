@@ -27,6 +27,7 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public string ModelDescription => Config.ModelDescription;
     [JsonIgnore] public string ModelId => Config.ModelId;
     [JsonIgnore] public int Port => Config.Port;
+    [JsonIgnore] public int ContextLength => Config.ContextLength;
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams(EThinkingMode thinkingMode) =>
         Config.GetExtraParams(thinkingMode);
 
