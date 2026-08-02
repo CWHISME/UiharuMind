@@ -22,6 +22,13 @@ public class LazyChatClient : IChatClient
 {
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(30);
 
+    private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
+
+    public LazyChatClient(Func<ModelRunningData?>? sessionModelSource = null)
+    {
+        _sessionModelSource = sessionModelSource;
+    }
+
     public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
@@ -54,10 +61,11 @@ public class LazyChatClient : IChatClient
     /// <summary>
     /// 解析当前模型客户端;远程模型启动中时限时等待就绪
     /// </summary>
-    private static async Task<IChatClient> ResolveAsync(CancellationToken cancellationToken)
+    private async Task<IChatClient> ResolveAsync(CancellationToken cancellationToken)
     {
-        ModelRunningData? model = LlmManager.Instance.CurrentRunningModel;
-        // 无选中模型时按偏好自动选一个(优先运行中/收藏/远程)
+        // 会话绑定的模型优先(如识图技能为临时会话解析的视觉模型),否则用全局当前模型
+        ModelRunningData? model = _sessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
+        // 无模型时按偏好自动选一个(优先运行中/收藏/远程);已有模型但远程未启动时顺带拉起
         if (model == null) LlmManager.Instance.TryCheckModelRunning(false, ref model);
         if (model == null) throw new InvalidOperationException("Model is not running.");
 

@@ -47,6 +47,12 @@ public class AgentBuildProfile
 
     /// <summary>额外的提示词模板参数(会话的 CustomParams)</summary>
     public IReadOnlyDictionary<string, object?>? PromptArguments { get; init; }
+
+    /// <summary>
+    /// 会话级模型来源。会话可绑定专属模型(如识图技能解析出的视觉模型),
+    /// 惰性客户端每次请求时经此取值,优先于全局当前模型;为空则只用全局模型。
+    /// </summary>
+    public Func<ModelRunningData?>? SessionModelSource { get; init; }
 }
 
 /// <summary>
@@ -129,7 +135,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     public async Task<AgentHandle> CreateAgentAsync(AgentBuildProfile profile,
         CancellationToken cancellationToken = default)
     {
-        IChatClient client = new LazyChatClient();
+        IChatClient client = new LazyChatClient(profile.SessionModelSource);
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
         SessionChatHistoryProvider history = new();
         CharacterData character = profile.Character;
