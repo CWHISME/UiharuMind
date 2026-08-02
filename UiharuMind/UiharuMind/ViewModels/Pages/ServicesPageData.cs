@@ -169,7 +169,18 @@ public partial class ServicesPageData : PageDataBase
     public ServicesPageData(IMessageService messageService)
     {
         _messageService = messageService;
-        App.ModelService.PropertyChanged += (_, _) => RefreshStatus();
+        // 只认真正改变状态展示的属性:LoadingProgress 在加载期间逐帧变化,
+        // 无过滤时每帧都会跑一次全量 RefreshStatus(含设备采集)
+        App.ModelService.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(App.ModelService.CurModelRunningData)
+                or nameof(App.ModelService.CurIsRunning)
+                or nameof(App.ModelService.CurRunningCount)
+                or nameof(App.ModelService.IsLoading))
+            {
+                RefreshStatus();
+            }
+        };
         _embeddingService.StateChanged += RefreshStatus;
         InitializeSourceModes();
         InitializeLocalEmbeddingBackends();

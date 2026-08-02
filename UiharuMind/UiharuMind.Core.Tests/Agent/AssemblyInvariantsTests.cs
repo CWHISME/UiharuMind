@@ -203,16 +203,17 @@ public class AssemblySnapshotTests
         IReadOnlyList<string>? preAuthorized = null;
         int mcpRevision = 1;
         bool modelSupportsVision = false;
+        // 布尔维度一律翻转默认值,不写死 true/false——默认值调整不该让测试失效
         switch (dimension)
         {
-            case "shell": changedConfig.EnableShellExecution = false; break;
+            case "shell": changedConfig.EnableShellExecution = !changedConfig.EnableShellExecution; break;
             case "mcp": mcpRevision = 2; break;
             case "permission": permission = EAgentPermissionMode.FullAuto; break;
             case "workspace": workspace = "/other"; break;
             case "preauth": preAuthorized = ["git status*"]; break;
             case "instructions": instructions = "edited prompt"; break; //角色卡/会话参数编辑经此显形
-            case "todolist": changedConfig.EnableTodoList = false; break;
-            case "agentmode": changedConfig.EnableAgentMode = false; break;
+            case "todolist": changedConfig.EnableTodoList = !changedConfig.EnableTodoList; break;
+            case "agentmode": changedConfig.EnableAgentMode = !changedConfig.EnableAgentMode; break;
             case "vision-model": modelSupportsVision = true; break; //视觉↔非视觉模型切换触发重建
             case "prompt-override": changedConfig.VisionToolPrompt = "custom vision prompt"; break;
         }

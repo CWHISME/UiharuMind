@@ -17,7 +17,44 @@ public static class RuntimeDeviceInfoProvider
     private static TimeSpan _lastProcessCpuTime;
     private static double _lastCpuUsage;
 
-    public static RuntimeDeviceInfo Capture()
+    // 一次采集要跑数个外部进程(macOS 上 sysctl×2 + vm_stat,实测约 60ms),
+    // 而调用方多是绑定 getter 与属性变更处理器——切一次模型能连打十几次。
+    // 设备内存/CPU 本就是采样值,秒级粒度对显示与风险评估都够用。
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(1);
+    private static readonly object CacheLock = new();
+    private static RuntimeDeviceInfo? _cached;
+    private static long _cachedAtTimestamp;
+
+    /// <summary>
+    /// 采集设备信息。默认返回 1 秒内的缓存值，避免高频调用打爆外部进程。
+    /// </summary>
+    /// <param name="forceRefresh">true 时忽略缓存强制重采</param>
+    /// <returns>设备信息</returns>
+    public static RuntimeDeviceInfo Capture(bool forceRefresh = false)
+    {
+        if (!forceRefresh)
+        {
+            lock (CacheLock)
+            {
+                if (_cached != null &&
+                    Stopwatch.GetElapsedTime(_cachedAtTimestamp) < CacheTtl)
+                {
+                    return _cached;
+                }
+            }
+        }
+
+        RuntimeDeviceInfo info = CaptureCore();
+        lock (CacheLock)
+        {
+            _cached = info;
+            _cachedAtTimestamp = Stopwatch.GetTimestamp();
+        }
+
+        return info;
+    }
+
+    private static RuntimeDeviceInfo CaptureCore()
     {
         (long total, long available) = CaptureMemory();
         RuntimeGpuMemoryInfo gpu = CaptureGpuMemory(total, available);
@@ -128,7 +165,14 @@ public static class RuntimeDeviceInfoProvider
         }
     }
 
+    private static string? _cpuName; //型号名进程生命周期内不变,只探一次
+
     private static string CaptureCpuName()
+    {
+        return _cpuName ??= CaptureCpuNameCore();
+    }
+
+    private static string CaptureCpuNameCore()
     {
         try
         {
