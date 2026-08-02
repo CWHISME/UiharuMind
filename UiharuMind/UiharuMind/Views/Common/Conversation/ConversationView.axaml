@@ -360,6 +360,15 @@
                                           Command="{Binding CycleModeCommand}"
                                           ToolTips="{Binding ModeTooltip}"
                                           IsVisible="{Binding IsAgentSession}" />
+                        <ThemedIconButton Classes="sender-state"
+                                          IconName="{Binding SenderIconName}"
+                                          Tag="{Binding SenderModeKey}"
+                                          Command="{Binding ChangeSendModeCommand}"
+                                          ToolTips="{Binding SenderTooltip}"
+                                          IsVisible="{Binding !IsAgentSession}" />
+                        <!-- 垂直分隔线 -->
+                        <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center"/>
+                        
                         <ThemedIconButton Classes="permission-state"
                                           IconName="shield"
                                           Tag="{Binding PermissionModeKey}"
@@ -399,13 +408,6 @@
                                 </Flyout>
                             </ThemedIconButton.Flyout>
                         </ThemedIconButton>
-                        <ThemedIconButton Classes="sender-state"
-                                          IconName="{Binding SenderIconName}"
-                                          Tag="{Binding SenderModeKey}"
-                                          Command="{Binding ChangeSendModeCommand}"
-                                          ToolTips="{Binding SenderTooltip}"
-                                          IsVisible="{Binding !IsAgentSession}" />
-
                         <ThemedIconButton Classes="thinking-state"
                                           IconName="brain"
                                           Tag="{Binding ThinkingModeKey}"
