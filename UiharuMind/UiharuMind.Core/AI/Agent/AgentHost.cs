@@ -393,9 +393,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            HarnessInstructions = BuildToolDisciplines(config, shellExecutor != null,
-                hasResearcher: backgroundAgents is { Count: > 0 },
-                workspaceInstructions: workspaceInstructions),
+            HarnessInstructions = BuildToolDisciplines(config, workspaceInstructions: workspaceInstructions),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
@@ -438,24 +436,15 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// 角色自身的人格/任务段由框架拼在本段之后。
     /// </summary>
     /// <param name="config">agent 能力配置</param>
-    /// <param name="hasShell">是否装配了 shell</param>
-    /// <param name="hasResearcher">是否挂载了调研员子代理</param>
     /// <param name="workspaceInstructions">工作区说明文件内容,无则空串</param>
     /// <returns>纪律段文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config, bool hasShell, bool hasResearcher,
-        string workspaceInstructions = "")
+    private static string BuildToolDisciplines(AgentSettingConfig config,string workspaceInstructions = "")
     {
         StringBuilder sb = new();
-        sb.AppendLine("# Identity");
-        sb.Append("You are the Workspace Agent of UiharuMind.");
         if (config.EnableFileAccess)
         {
+            sb.AppendLine("# Identity");
             sb.Append(" You manage the local filesystem primarily through tools(Glob/Grep/Read/Edit)");
-            sb.Append(hasShell ? ", and fall back to shell only for non-file system interactions." : ".");
-        }
-        else if (hasShell)
-        {
-            sb.Append(" You interact with the local machine through the shell tool.");
         }
 
         sb.AppendLine();
@@ -486,19 +475,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             sb.AppendLine("# Memory Recall");
             sb.AppendLine($"- A long-term memory library may be bound to this session. When past context matters, call `{MemoryToolName}` with a focused query instead of guessing; it returns relevant snippets or reports that no library is bound.");
         }
-
-        if (hasResearcher)
-        {
-            sb.AppendLine();
-            sb.AppendLine("# Delegation");
-            sb.AppendLine("- A read-only sub-agent `Researcher` is available. Delegate broad exploration (codebase surveys, multi-page web research) to it and work from its report — this keeps your own context focused. Anything that modifies state stays with you.");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("# Execution Modes");
-        sb.AppendLine("- **Interactive:** Present when the user is at their desk. Confirm only truly destructive deletions.");
-        sb.Append("- **Headless (Scheduled/Triggers):** If invoked without a live user session, **run fully autonomously**. Log results via tool output; never block on clarification or confirmation.");
-
+        
         if (!string.IsNullOrEmpty(workspaceInstructions))
         {
             sb.AppendLine();
