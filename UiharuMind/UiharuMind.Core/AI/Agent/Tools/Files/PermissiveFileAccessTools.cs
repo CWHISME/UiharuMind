@@ -39,6 +39,14 @@ internal sealed class PermissiveFileAccessTools
     public const string GlobToolName = "Glob";
     public const string EditToolName = "Edit";
 
+    // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
+    //    Glob 已在 SimpleGlobber 内限 300 条;shell 由框架 MaxOutputBytes(64KiB)截断。——
+    internal const int DefaultReadLineLimit = 2000; //未显式传 limit 时的行数上限
+    internal const int MaxReadLineChars = 2000; //单行截断(压缩产物一行可达数百 KB)
+    internal const int MaxReadTotalChars = 120_000; //总量保险(约 3 万 token)
+    internal const int MaxGrepMatches = 200; //Grep 命中上限(只限工具边界,UI 文件搜索仍全量)
+    internal const int MaxGrepLineChars = 500; //Grep 单行截断
+
     private readonly string _workspaceRoot;
     private readonly SimpleGlobber _glob;
     private readonly SimpleGrepper _grepper;
@@ -81,7 +89,7 @@ internal sealed class PermissiveFileAccessTools
         => _glob.SearchAsync(pattern, root);
 
     [Description("文本搜索：标准 ripgrep 语法")]
-    private async Task<List<FileSearchResult>> Grep(
+    internal async Task<List<FileSearchResult>> Grep(
         string query,
         [Description("Enable regex mode (default is literal)")] bool isRegex = false,
         [Description("是否区分大小写")] bool caseSensitive = false,
@@ -95,32 +103,59 @@ internal sealed class PermissiveFileAccessTools
             .SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
             .ConfigureAwait(false);
 
-        // 自有结果 → 框架工具结果的转换只发生在这里
-        return results.Select(x => new FileSearchResult
+        // 自有结果 → 框架工具结果的转换只发生在这里,命中限幅也只发生在这里
+        bool truncated = results.Count > MaxGrepMatches;
+        List<FileSearchResult> converted = results.Take(MaxGrepMatches).Select(x => new FileSearchResult
         {
             FileName = x.FileName,
-            Snippet = x.Snippet,
+            Snippet = TruncateLine(x.Snippet, MaxGrepLineChars),
             MatchingLines = x.MatchingLines
-                .Select(line => new FileSearchMatch { LineNumber = line.LineNumber, Line = line.Line })
+                .Select(line => new FileSearchMatch
+                    { LineNumber = line.LineNumber, Line = TruncateLine(line.Line, MaxGrepLineChars) })
                 .ToList(),
         }).ToList();
+
+        if (truncated)
+        {
+            converted.Add(new FileSearchResult
+            {
+                FileName = "[truncated]",
+                Snippet = $"Showing first {MaxGrepMatches} of {results.Count} matches. " +
+                          "Narrow the query, or scope it with fileGlobs/directory.",
+            });
+        }
+
+        return converted;
+    }
+
+    /// <summary>超长行截断(限幅只服务工具输出,不改动底层搜索结果)</summary>
+    internal static string TruncateLine(string text, int maxChars)
+    {
+        return text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
     }
 
     [Description("""
                  Read a file's raw content.
                  - Lines are separated by newlines. The first line of your mental model is line 1.
-                 """)]    
-    private Task<string> Read(
+                 - At most 2000 lines are returned per call; a trailing notice tells you the offset to continue from.
+                 """)]
+    internal Task<string> Read(
         [Description("File path (relative or absolute).")] string filePath,
         [Description("1-based starting line.")] int offset = 1,
-        [Description("Max lines to return.")] int? limit = null,
+        [Description("Max lines to return (capped by the default window).")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
         string full = ResolvePath(filePath);
         if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
 
         if (offset < 1) offset = 1;
+        // 上限从"模型自觉"改为强制:不传 limit 时套默认窗口,总量另设保险——
+        // 编码会话一次误读大文件就是几万 token,截断必须由工具侧兜底
+        int effectiveLimit = Math.Max(1, limit ?? DefaultReadLineLimit);
+
         var lines = new List<string>();
+        bool hasMore = false;
+        int totalChars = 0;
         using var reader = new StreamReader(full, Encoding.UTF8);
         for (int current = 1; current < offset; current++)
         {
@@ -130,12 +165,25 @@ internal sealed class PermissiveFileAccessTools
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
+            if (lines.Count >= effectiveLimit || totalChars >= MaxReadTotalChars)
+            {
+                hasMore = true;
+                break;
+            }
+
+            if (line.Length > MaxReadLineChars) line = TruncateLine(line, MaxReadLineChars);
+            totalChars += line.Length + 1;
             lines.Add(line);
-            if (limit is not null && lines.Count >= limit) break;
         }
 
         if (lines.Count == 0) return Task.FromResult($"File '{filePath}' is empty or offset is beyond its end.");
-        return Task.FromResult(string.Join('\n', lines));
+
+        string content = string.Join('\n', lines);
+        if (!hasMore) return Task.FromResult(content);
+
+        int nextOffset = offset + lines.Count;
+        return Task.FromResult(
+            $"{content}\n…[truncated: showing lines {offset}–{nextOffset - 1}; continue with offset={nextOffset}]");
     }
     
     [Description("Create or fully overwrite a file. Prefer 'edit' for partial changes.")]
