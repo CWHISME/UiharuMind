@@ -183,11 +183,11 @@
                         <Border Background="{DynamicResource SemiGrey1}"
                                 BorderBrush="IndianRed" BorderThickness="1"
                                 CornerRadius="8" Padding="10" Margin="0,4,0,4">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="⚠" Foreground="IndianRed" />
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="IndianRed" Margin="0,0,8,0"/>
                                 <SelectableTextBlock Foreground="IndianRed" Text="{Binding Message}"
                                                      TextWrapping="Wrap" />
-                            </StackPanel>
+                            </DockPanel>
                         </Border>
                     </DataTemplate>
 
