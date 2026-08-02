@@ -8,19 +8,19 @@
  ****************************************************************************/
 
 using System.ComponentModel;
+using System.Text;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Character.Skills;
 
 namespace UiharuMind.Core.AI.Agent;
 
 /// <summary>
-/// 识图工具:主模型不支持多模态时,把图片问题转交给已配置的视觉模型回答。
-/// 只读能力,无需审批。
+/// 识图工具:主模型不支持多模态时,把图片问题转交给视觉模型回答。
+/// 内部复用 Vision 角色的技能链路(ImageVisionSkill)——提示词、视觉模型解析与
+/// 会话级模型绑定只存在一份,不再与快捷识图各写一套。只读能力,无需审批。
 /// </summary>
 public static class VisionTool
 {
-    private const int ModelReadyTimeoutSeconds = 60;
-
     /// <summary>
     /// 创建识图 AIFunction
     /// </summary>
@@ -41,46 +41,15 @@ public static class VisionTool
     {
         if (!File.Exists(imagePath)) return $"Image file not found: {imagePath}";
 
-        IChatClient? client = await ResolveVisionClientAsync(cancellationToken).ConfigureAwait(false);
-        if (client == null) return "No vision-capable model is available.";
+        byte[] imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
+        ImageVisionSkill skill = new(imageBytes);
 
-        ChatMessage message = new(ChatRole.User, new List<AIContent>
+        StringBuilder result = new();
+        await foreach (string delta in skill.DoSkill(question, cancellationToken).ConfigureAwait(false))
         {
-            new TextContent(question),
-            new DataContent(await File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false),
-                GetMediaType(imagePath)),
-        });
-
-        ChatResponse response = await client.GetResponseAsync([message], cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-        return string.IsNullOrEmpty(response.Text) ? "(vision model returned no answer)" : response.Text;
-    }
-
-    private static async Task<IChatClient?> ResolveVisionClientAsync(CancellationToken cancellationToken)
-    {
-        ModelRunningData? model = null;
-        if (!LlmManager.Instance.TryCheckModelRunning(true, ref model) || model == null) return null;
-
-        // 远程模型的 ChatClient 可能仍在启动中,限时等待就绪
-        DateTimeOffset deadline = DateTimeOffset.Now.AddSeconds(ModelReadyTimeoutSeconds);
-        while (model.ChatClient == null && DateTimeOffset.Now < deadline)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            result.Append(delta);
         }
 
-        return model.ChatClient;
-    }
-
-    private static string GetMediaType(string path)
-    {
-        return Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".bmp" => "image/bmp",
-            _ => "image/jpeg",
-        };
+        return result.Length == 0 ? "(vision model returned no answer)" : result.ToString();
     }
 }
