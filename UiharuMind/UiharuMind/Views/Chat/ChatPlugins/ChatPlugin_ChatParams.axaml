@@ -17,11 +17,6 @@
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
         <StackPanel>
             <u:Divider Content="{loc:Loc ParameterSettings}" />
-            <ToggleSwitch OffContent="{loc:Loc IsNotTakeHistoryContext}"
-                          OnContent="{loc:Loc IsNotTakeHistoryContext}"
-                          HorizontalAlignment="Center"
-                          IsVisible="{Binding Character.IsTool}"
-                          IsChecked="{Binding ChatSessionCurrentViewData.IsNotTakeHistoryContext}" />
             <settingViews:SettingPanelView Padding="10,0"
                                            IsVerticleTitle="True"
                                            SettingConfig="{Binding Character.Config.ExecutionSettings}" />

@@ -26,33 +26,34 @@ namespace UiharuMind.ViewModels.ViewData;
 public partial class CharacterInfoViewData : ObservableObject
 {
     private readonly IMessageService _messageService;
-    public ObservableCollection<string> MountCharacters { get; }
+
+    /// <summary>
+    /// 内联挂载的角色。存的是标识，界面显示解析后的名字。
+    /// </summary>
+    public ObservableCollection<MountedCharacterItem> MountPrompts { get; }
+
+    /// <summary>
+    /// 角色标识（挂载引用与会话引用都用它，改名不会断链）
+    /// </summary>
+    public string CharacterId => _characterData.CharacterId;
 
     public bool IsDefault => _characterData.IsDefaultCharacter;
 
     /// <summary>
-    /// 是否为普通角色，否则为工具人
+    /// 是否为普通(扮演)角色。由挂载列表派生——挂了提示词片段就是扮演角色，
+    /// 没挂就是纯提示词的工具型角色。要改变它请增删挂载项，而不是翻一个旗标。
     /// </summary>
-    public bool IsRole
-    {
-        get => !_characterData.IsTool;
-        set
-        {
-            _characterData.IsTool = !value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Icon));
-        }
-    }
+    public bool IsRole => !_characterData.IsPurePromptCharacter;
 
     /// <summary>
-    /// 是否携带历史消息(仅工具人有效)
+    /// 是否为 agent 类角色(装配工具与工作目录)
     /// </summary>
-    public bool IsNotTakeHistoryContext
+    public bool IsAgent
     {
-        get => _characterData.IsNotTakeHistoryContext;
+        get => _characterData.Kind == ECharacterKind.Agent;
         set
         {
-            _characterData.IsNotTakeHistoryContext = value;
+            _characterData.Kind = value ? ECharacterKind.Agent : ECharacterKind.Roleplay;
             OnPropertyChanged();
         }
     }
@@ -232,10 +233,13 @@ public partial class CharacterInfoViewData : ObservableObject
         Name = characterData.CharacterName;
         Description = characterData.Description;
 
-        MountCharacters = new ObservableCollection<string>(characterData.MountCharacters);
-        MountCharacters.CollectionChanged += (sender, args) =>
+        MountPrompts = new ObservableCollection<MountedCharacterItem>(
+            characterData.MountPrompts.Select(MountedCharacterItem.FromId));
+        MountPrompts.CollectionChanged += (sender, args) =>
         {
-            _characterData.MountCharacters = MountCharacters.ToList();
+            _characterData.MountPrompts = MountPrompts.Select(x => x.Id).ToList();
+            OnPropertyChanged(nameof(IsRole));
+            OnPropertyChanged(nameof(Icon));
         };
     }
 
@@ -321,16 +325,17 @@ public partial class CharacterInfoViewData : ObservableObject
     [RelayCommand]
     public async Task AddMountCharacter()
     {
-        HashSet<string> alreadySelectedList = new HashSet<string>(MountCharacters);
-        var result = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFocusWindow(), alreadySelectedList,
-            CharacterSelectWindow.CharacterType.Tool, Name);
+        HashSet<string> alreadySelectedList = new HashSet<string>(MountPrompts.Select(x => x.Id));
+        var result = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFocusWindow(),
+            alreadySelectedList, CharacterSelectWindow.CharacterType.Tool, CharacterId);
         if (result != null)
         {
-            MountCharacters.Clear();
+            MountPrompts.Clear();
             //排除重复及自己
-            HashSet<string> selectedList = new HashSet<string>(result.Select(x => x.Name).Where(x => x != Name));
+            HashSet<string> selectedList = new HashSet<string>(
+                result.Select(x => x.CharacterId).Where(x => x != CharacterId));
             foreach (var selected in selectedList)
-                MountCharacters.Add(selected);
+                MountPrompts.Add(MountedCharacterItem.FromId(selected));
         }
     }
 
@@ -348,8 +353,37 @@ public partial class CharacterInfoViewData : ObservableObject
     //     DialogTemplate = target.DialogTemplate;
     //     FirstGreeting = target.FirstGreeting;
     //     ChatPromptExecutionSettings.Temperature= target.ChatPromptExecutionSettings.Temperature;
-    //     
-    //     MountCharacters.Clear();
-    //     MountCharacters.AddRange(target.MountCharacters);
+    //
+    //     MountPrompts.Clear();
+    //     MountPrompts.AddRange(target.MountPrompts);
     // }
+}
+
+/// <summary>
+/// 挂载项的显示包装：数据里存的是角色标识，界面上要显示可读的角色名
+/// </summary>
+public sealed class MountedCharacterItem
+{
+    /// <summary>被挂载角色的标识</summary>
+    public string Id { get; }
+
+    /// <summary>被挂载角色的显示名；角色不存在时回退为标识本身</summary>
+    public string Name { get; }
+
+    private MountedCharacterItem(string id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    /// <summary>
+    /// 由角色标识解析出显示名
+    /// </summary>
+    /// <param name="characterId">角色标识</param>
+    /// <returns>挂载项</returns>
+    public static MountedCharacterItem FromId(string characterId)
+    {
+        string name = CharacterManager.Instance.GetCharacterData(characterId).CharacterName;
+        return new MountedCharacterItem(characterId, string.IsNullOrEmpty(name) ? characterId : name);
+    }
 }

@@ -21,20 +21,18 @@ public class ChatSession : IUniquieContainerItem
     public int FormatVersion { get; set; } = 2;
     public string Name { get; set; } = "Empty";
     public string Description { get; set; } = "Empty";
-    public string CharaterId { get; set; } = "Empty";
+    /// <summary>
+    /// 所属角色的标识(<see cref="CharacterData.CharacterId"/>)。角色改名不会断开该引用。
+    /// </summary>
+    public string CharacterId { get; set; } = nameof(DefaultCharacter.Empty);
+
     public string MemoryName { get; set; } = "";
     public List<ChatMessageData> History { get; set; } = [];
-
-    /// <summary>
-    /// 是否不携带历史对话的上下文，如果为true则不携带，每次只有最后一句用户消息
-    /// 注：仅工具角色有效，角色扮演 必定携带历史上下文
-    /// </summary>
-    public bool IsNotTakeHistoryContext { get; set; }
 
     //自定义参数
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 
-    [JsonIgnore] public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharaterId);
+    [JsonIgnore] public CharacterData CharacterData => _characterData ??= CharacterManager.Instance.GetCharacterData(CharacterId);
 
     [JsonIgnore]
     public MemoryData? Memory
@@ -99,9 +97,8 @@ public class ChatSession : IUniquieContainerItem
     public ChatSession(string sessionName, CharacterData characterData) : this()
     {
         _characterData = characterData;
-        CharaterId = characterData.CharacterName;
+        CharacterId = characterData.CharacterId;
         Name = sessionName;
-        IsNotTakeHistoryContext = characterData.IsNotTakeHistoryContext;
         Description = string.IsNullOrEmpty(characterData.FirstGreeting)
             ? characterData.Description
             : characterData.FirstGreeting;
@@ -185,30 +182,11 @@ public class ChatSession : IUniquieContainerItem
     {
         List<AIChatMessage> messages = [];
 
-        if (!CharacterData.IsTool)
-        {
-            StringBuilder sb = StringBuilderPool.Get();
-            foreach (string mountCharacter in CharacterData.MountCharacters)
-            {
-                CharacterData mounted = CharacterManager.Instance.GetCharacterData(mountCharacter);
-                if (string.IsNullOrEmpty(mounted.Template)) continue;
-                sb.AppendLine(CharacterData.TryRender(mounted.Template));
-                sb.AppendLine();
-            }
-
-            CharacterData user = CharacterManager.Instance.UserCharacterData;
-            sb.Append($"{user.Description}的个人信息： ");
-            sb.AppendLine(user.Template.Replace("{{$char}}", user.Description));
-
-            if (!string.IsNullOrEmpty(CharacterData.DialogTemplate))
-            {
-                sb.AppendLine("Dialog Template:");
-                sb.AppendLine(CharacterData.TryRender(CharacterData.DialogTemplate));
-            }
-
-            messages.Add(new AIChatMessage(ChatRole.System, sb.ToString()));
-            StringBuilderPool.Release(sb);
-        }
+        // 系统提示由 CharacterPromptBuilder 统一装配(挂载片段 + 自身 Template + 对话模板),
+        // 只产生一条 System 消息 —— 旧实现在这里拼一条、ChatThread 又插一条,同一轮发了两条。
+        string instructions = CharacterPromptBuilder.Build(CharacterData, CustomParams);
+        if (!string.IsNullOrWhiteSpace(instructions))
+            messages.Add(new AIChatMessage(ChatRole.System, instructions));
 
         if (Memory != null && History.Count > 0)
         {
@@ -219,12 +197,6 @@ public class ChatSession : IUniquieContainerItem
                     "以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" +
                     longTermMemory));
             }
-        }
-
-        if (CharacterData.IsTool && IsNotTakeHistoryContext)
-        {
-            messages.Add(History[^1].ToAIMessage());
-            return messages;
         }
 
         messages.AddRange(History.Select(x => x.ToAIMessage()));

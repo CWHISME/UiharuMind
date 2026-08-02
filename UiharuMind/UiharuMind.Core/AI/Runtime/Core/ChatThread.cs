@@ -45,11 +45,8 @@ public static class ChatThread
             yield break;
         }
 
+        // 系统提示已由 BuildRequestMessagesAsync 经 CharacterPromptBuilder 装配好,此处不再另插一条
         List<AIChatMessage> messages = await chatSession.BuildRequestMessagesAsync();
-        string instructions = CharacterPromptRenderer.Render(
-            chatSession.CharacterData.Template, chatSession.CharacterData.BuildPromptArguments(chatSession.CustomParams));
-        if (!string.IsNullOrWhiteSpace(instructions))
-            messages.Insert(0, new AIChatMessage(ChatRole.System, instructions));
 
         StringBuilder finalText = StringBuilderPool.Get();
         try

@@ -1,7 +1,5 @@
 {
   "IsHideDefault": true,
-  "IsTool": true,
-  "IsNotTakeHistoryContext": true,
   "Config": {
     "PromptConfig": {
       "name": "翻译工具(高级)",

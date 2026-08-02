@@ -477,7 +477,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         };
     }
 
-    /// <summary>助手条目;头像暂用默认角色图,后续 AgentProfile 与角色合并时在此接入档案头像</summary>
+    /// <summary>助手条目;头像暂用默认角色图,阶段 3 接入 agent 角色自身的头像</summary>
     private static TextConversationItem CreateAssistantItem()
     {
         return new TextConversationItem(false)

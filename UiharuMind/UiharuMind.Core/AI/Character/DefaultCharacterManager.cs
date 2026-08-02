@@ -12,13 +12,17 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 
     public void OnInitialize()
     {
+        // 幂等:重复初始化(如重载内置角色)不该抛"键已存在"
+        Characters.Clear();
+
         const int max = (int)DefaultCharacter.Max;
         for (int i = 0; i < max; i++)
         {
             var character = (DefaultCharacter)i;
-            var characterName = character.ToString();
+            // 枚举名即内置角色的 CharacterId,也是内置资源与覆盖文件的文件名
+            var characterId = character.ToString();
 
-            string fileName = characterName + ".json";
+            string fileName = characterId + ".json";
             string externalFileName = Path.Combine(SettingConfig.SaveDefaultCharacterDataPath, fileName);
             CharacterData characterData = File.Exists(externalFileName)
                 ? SaveUtility.Load<CharacterData>(externalFileName) ??
@@ -26,6 +30,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
                 : EmbeddedResourcesUtils.ReadFromJson<CharacterData>(fileName);
 
             characterData.IsDefaultCharacter = true;
+            characterData.CharacterId = characterId;
             Characters.Add(character, characterData);
         }
     }

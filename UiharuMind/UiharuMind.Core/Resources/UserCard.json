@@ -1,12 +1,11 @@
 {
   "IsHide": true,
-  "IsTool": true,
   "Config": {
     "PromptConfig": {
       "name": "UserCard",
       "description": "黑猫",
       "template_format": "semantic-kernel",
-      "template": "{{$char}}是一只可爱的黑猫，喜欢找人聊天并帮助他们实现愿望。",
+      "template": "{{$user}}的个人信息：{{$user}}是一只可爱的黑猫，喜欢找人聊天并帮助他们实现愿望。",
       "input_variables": [],
       "execution_settings": {},
       "allow_dangerously_set_content": false

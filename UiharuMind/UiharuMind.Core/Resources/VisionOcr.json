@@ -1,6 +1,6 @@
 {
   "IsHideDefault": true,
-  "IsTool": true,
+  "RequiresVisionModel": true,
   "Config": {
     "PromptConfig": {
       "name": "VisionOcr",

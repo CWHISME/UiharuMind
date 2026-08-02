@@ -1,4 +1,8 @@
 {
+  "MountPrompts": [
+    "Roleplay_ThirdPerson",
+    "UserCard"
+  ],
   "Config": {
     "PromptConfig": {
       "name": "初春",

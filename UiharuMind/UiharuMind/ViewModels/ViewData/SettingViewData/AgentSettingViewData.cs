@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Agent.Mcp;
-using UiharuMind.Core.AI.Agent.Profiles;
 using UiharuMind.Core.AI.Agent.Skills;
 using UiharuMind.Core.Configs;
 using UiharuMind.Services;
@@ -36,12 +35,8 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private bool _enableMemory = true;
     [ObservableProperty] private bool _enableTodo = true;
 
-    //================= 子 agent 档案 =================
-    public ObservableCollection<AgentProfile> Profiles { get; } = new();
-    [ObservableProperty] private AgentProfile? _selectedProfile;
-
-    /// <summary>选中档案是否为内置档案(不可删除)</summary>
-    [ObservableProperty] private bool _isBuiltinProfile;
+    // 子 agent 档案已废除:子 agent 就是一个普通角色,由角色编辑器维护,
+    // 由 agent 角色的 MountAgents(委托挂载)决定启用哪些。
 
     //================= MCP =================
     public ObservableCollection<McpServerConfig> McpServers { get; } = new();
@@ -64,7 +59,6 @@ public partial class AgentSettingViewData : ViewModelBase
         _enableMemory = config.EnableMemory;
         _enableTodo = config.EnableTodo;
 
-        RefreshProfiles();
         RefreshServers();
         RefreshSkills();
     }
@@ -124,51 +118,6 @@ public partial class AgentSettingViewData : ViewModelBase
     {
         string path = await App.FilesService.OpenSelectFolderAsync(DefaultWorkspacePath);
         if (!string.IsNullOrEmpty(path)) DefaultWorkspacePath = path;
-    }
-
-    //================= 子 agent 档案 =================
-    partial void OnSelectedProfileChanged(AgentProfile? value)
-    {
-        IsBuiltinProfile = value?.ProfileId is AgentProfileManager.VisionProfileId;
-    }
-
-    [RelayCommand]
-    private void NewProfile()
-    {
-        AgentProfile profile = new()
-        {
-            DisplayName = LocalizationManager.Instance.GetString("AgentProfileNewName"),
-        };
-        AgentProfileManager.Instance.SaveProfile(profile);
-        RefreshProfiles();
-        SelectedProfile = Profiles.FirstOrDefault(x => x.ProfileId == profile.ProfileId);
-    }
-
-    [RelayCommand]
-    private void SaveProfile()
-    {
-        if (SelectedProfile == null) return;
-        AgentProfileManager.Instance.SaveProfile(SelectedProfile);
-        RefreshProfiles(SelectedProfile.ProfileId);
-    }
-
-    [RelayCommand]
-    private void DeleteProfile()
-    {
-        if (SelectedProfile == null) return;
-        AgentProfileManager.Instance.DeleteProfile(SelectedProfile.ProfileId);
-        RefreshProfiles();
-    }
-
-    private void RefreshProfiles(string? keepSelectedId = null)
-    {
-        Profiles.Clear();
-        foreach (AgentProfile profile in AgentProfileManager.Instance.GetProfiles())
-        {
-            Profiles.Add(profile);
-        }
-
-        SelectedProfile = Profiles.FirstOrDefault(x => x.ProfileId == keepSelectedId) ?? Profiles.FirstOrDefault();
     }
 
     //================= MCP =================

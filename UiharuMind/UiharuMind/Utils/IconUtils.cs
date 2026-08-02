@@ -28,7 +28,7 @@ public class IconUtils
         {
             return characterData.IsHide
                 ? DefaultUserIcon
-                : characterData.IsTool
+                : characterData.IsPurePromptCharacter
                     ? DefaultToolCharIcon
                     : DefaultCharIcon;
         }

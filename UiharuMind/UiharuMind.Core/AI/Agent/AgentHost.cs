@@ -12,10 +12,10 @@ using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Agent.Files;
 using UiharuMind.Core.AI.Agent.Mcp;
-using UiharuMind.Core.AI.Agent.Profiles;
 using UiharuMind.Core.AI.Agent.Scheduler;
 using UiharuMind.Core.AI.Agent.Skills;
 using UiharuMind.Core.AI.Agent.Tools.WebTools;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
@@ -37,6 +37,12 @@ public class AgentBuildProfile
 
     /// <summary>预授权 shell 命令模式(定时任务无人值守用)</summary>
     public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
+
+    /// <summary>
+    /// 委托挂载的子 agent 角色标识。null 表示用 <see cref="AgentHost.DefaultMountedAgentIds"/>；
+    /// 阶段 3 起改由 agent 角色自身的 <see cref="CharacterData.MountAgents"/> 提供。
+    /// </summary>
+    public IReadOnlyList<string>? MountedAgentIds { get; init; }
 }
 
 /// <summary>
@@ -82,6 +88,13 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 {
     /// <summary>shell 工具名(供预授权规则匹配)</summary>
     public const string ShellToolName = "run_shell";
+
+    /// <summary>
+    /// 未指定委托挂载时的默认子 agent：识图助手。
+    /// 取代了原先内置的 vision AgentProfile —— 同一能力现在就是一个普通角色。
+    /// </summary>
+    public static readonly IReadOnlyList<string> DefaultMountedAgentIds =
+        [nameof(DefaultCharacter.Vision)];
 
     /// <summary>定时任务调度后端(框架无对应能力,自建保留)</summary>
     public ISchedulerBackend Scheduler { get; private set; } = null!;
@@ -161,7 +174,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,
             AgentSkillsSource = SkillCatalog.Instance.BuildSkillsSource(),
-            BackgroundAgents = BuildBackgroundAgents(client),
+            BackgroundAgents = BuildBackgroundAgents(client, profile.MountedAgentIds ?? DefaultMountedAgentIds),
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
                 AutoApprovalRules = ApprovalModeMapper.BuildRules(profile.PermissionMode,
@@ -210,23 +223,33 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     }
 
     /// <summary>
-    /// 将暴露为工具的配置档案组装为后台子 agent(识图等专职助手)
+    /// 把委托挂载的角色组装为后台子 agent(识图等专职助手)。
+    /// 主 agent 依据各子 agent 的 Description 自主决定何时委托。
     /// </summary>
-    private static List<AIAgent> BuildBackgroundAgents(IChatClient defaultClient)
+    private static List<AIAgent> BuildBackgroundAgents(IChatClient defaultClient, IReadOnlyList<string> characterIds)
     {
         List<AIAgent> agents = new();
-        foreach (AgentProfile profile in AgentProfileManager.Instance.GetProfiles().Where(x => x.ExposeAsTool))
+        foreach (string characterId in characterIds)
         {
+            CharacterData character = CharacterManager.Instance.GetCharacterData(characterId);
+
+            // Agent 类角色作子 agent 需要嵌套一层 Harness(工具集、审批链、workspace 全要再套),本次不支持
+            if (character.Kind == ECharacterKind.Agent)
+            {
+                Log.Warning($"Skip background agent '{characterId}': nesting an agent character is not supported.");
+                continue;
+            }
+
             try
             {
                 agents.Add(new ChatClientAgent(defaultClient,
-                    instructions: profile.SystemPrompt,
-                    name: SanitizeAgentName(profile.DisplayName, profile.ProfileId),
-                    description: profile.Description));
+                    instructions: CharacterPromptBuilder.Build(character),
+                    name: SanitizeAgentName(character.CharacterName, character.CharacterId),
+                    description: character.Description));
             }
             catch (Exception e)
             {
-                Log.Warning($"Skip background agent '{profile.DisplayName}': {e.Message}");
+                Log.Warning($"Skip background agent '{characterId}': {e.Message}");
             }
         }
 

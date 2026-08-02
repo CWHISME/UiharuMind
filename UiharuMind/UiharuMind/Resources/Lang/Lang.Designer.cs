@@ -369,12 +369,6 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentSettingProfiles {
-            get {
-                return ResourceManager.GetString("AgentSettingProfiles", resourceCulture);
-            }
-        }
-        
         public static string AgentSettingMcp {
             get {
                 return ResourceManager.GetString("AgentSettingMcp", resourceCulture);
@@ -438,48 +432,6 @@ namespace UiharuMind.Resources.Lang {
         public static string AgentSettingCapTodo {
             get {
                 return ResourceManager.GetString("AgentSettingCapTodo", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileName {
-            get {
-                return ResourceManager.GetString("AgentProfileName", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileDescription {
-            get {
-                return ResourceManager.GetString("AgentProfileDescription", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileModel {
-            get {
-                return ResourceManager.GetString("AgentProfileModel", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileModelHint {
-            get {
-                return ResourceManager.GetString("AgentProfileModelHint", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileSystemPrompt {
-            get {
-                return ResourceManager.GetString("AgentProfileSystemPrompt", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileExposeAsTool {
-            get {
-                return ResourceManager.GetString("AgentProfileExposeAsTool", resourceCulture);
-            }
-        }
-        
-        public static string AgentProfileNewName {
-            get {
-                return ResourceManager.GetString("AgentProfileNewName", resourceCulture);
             }
         }
         
@@ -1176,12 +1128,6 @@ namespace UiharuMind.Resources.Lang {
         public static string ParamsLang {
             get {
                 return ResourceManager.GetString("ParamsLang", resourceCulture);
-            }
-        }
-        
-        public static string IsNotTakeHistoryContext {
-            get {
-                return ResourceManager.GetString("IsNotTakeHistoryContext", resourceCulture);
             }
         }
         

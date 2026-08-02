@@ -87,11 +87,6 @@
                                   OffContent="{loc:Loc ToolCharacter}"
                                   OnContent="{loc:Loc RoleplayCharacter}"
                                   IsEnabled="False" />
-                    <ToggleSwitch OffContent="{loc:Loc IsNotTakeHistoryContext}"
-                                  OnContent="{loc:Loc IsNotTakeHistoryContext}"
-                                  IsVisible="{Binding !IsRole}"
-                                  IsEnabled="False"
-                                  IsChecked="{Binding IsNotTakeHistoryContext}" />
                 </StackPanel>
             </Border>
 
@@ -105,7 +100,7 @@
                             </ToolTip.Tip>
                         </controls:ThemedSvgIcon>
                     </StackPanel>
-                    <ItemsControl ItemsSource="{Binding MountCharacters}">
+                    <ItemsControl ItemsSource="{Binding MountPrompts}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel />
@@ -113,7 +108,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <u:Badge Header="{Binding}" Background="{DynamicResource SemiBlue5}" />
+                                <u:Badge Header="{Binding Name}" Background="{DynamicResource SemiBlue5}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

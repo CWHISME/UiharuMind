@@ -76,12 +76,13 @@ public partial class CharacterListViewData : ObservableObject
         foreach (var characterData in CharacterManager.Instance.CharacterDataDictionary)
         {
             // 筛选
-            if (FilterTag == Lang.All || (FilterTag == Lang.Tool && characterData.Value.IsTool) ||
-                (FilterTag == Lang.Character && !characterData.Value.IsTool))
+            // "工具"与"角色"的区分现在由挂载列表派生:未挂载任何提示词片段的即工具型角色
+            if (FilterTag == Lang.All ||
+                (FilterTag == Lang.Tool && characterData.Value.IsPurePromptCharacter) ||
+                (FilterTag == Lang.Character && !characterData.Value.IsPurePromptCharacter))
             {
                 if (characterData.Value.IsHideDefault && !IsDisplayAllCharacters) continue;
                 var characterInfo = new CharacterInfoViewData(characterData.Value);
-                // if (characterData.Value.IsTool) _characterChacheList.Add(characterInfo);
                 // // else Characters.Insert(0, characterInfo);
                 // else 
                 _characterChacheList.Add(characterInfo);
@@ -125,8 +126,9 @@ public partial class CharacterListViewData : ObservableObject
 
     private void OnCharacterRemoved(CharacterData obj)
     {
-        Characters.RemvoeItem(x => x.Name == obj.CharacterName);
-        _characterChacheList.RemoveAll(x => x.Name == obj.CharacterName);
+        // 按标识匹配:显示名允许重复,按名字删会误伤同名角色
+        Characters.RemvoeItem(x => x.CharacterId == obj.CharacterId);
+        _characterChacheList.RemoveAll(x => x.CharacterId == obj.CharacterId);
         RefreshSelectedCharacter();
     }
 

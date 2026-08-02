@@ -180,9 +180,6 @@
     <data name="AgentSettingGeneral" xml:space="preserve">
         <value>General</value>
     </data>
-    <data name="AgentSettingProfiles" xml:space="preserve">
-        <value>Profiles</value>
-    </data>
     <data name="AgentSettingMcp" xml:space="preserve">
         <value>MCP Servers</value>
     </data>
@@ -215,27 +212,6 @@
     </data>
     <data name="AgentSettingCapTodo" xml:space="preserve">
         <value>Scheduled tasks (Todo)</value>
-    </data>
-    <data name="AgentProfileName" xml:space="preserve">
-        <value>Name</value>
-    </data>
-    <data name="AgentProfileDescription" xml:space="preserve">
-        <value>Description</value>
-    </data>
-    <data name="AgentProfileModel" xml:space="preserve">
-        <value>Model</value>
-    </data>
-    <data name="AgentProfileModelHint" xml:space="preserve">
-        <value>Empty = follow the global current model</value>
-    </data>
-    <data name="AgentProfileSystemPrompt" xml:space="preserve">
-        <value>System prompt</value>
-    </data>
-    <data name="AgentProfileExposeAsTool" xml:space="preserve">
-        <value>Expose as a tool for other agents</value>
-    </data>
-    <data name="AgentProfileNewName" xml:space="preserve">
-        <value>New profile</value>
     </data>
     <data name="AgentSave" xml:space="preserve">
         <value>Save</value>
@@ -587,9 +563,6 @@
     </data>
     <data name="ParamsLang" xml:space="preserve">
         <value>Params Lang($lang)</value>
-    </data>
-    <data name="IsNotTakeHistoryContext" xml:space="preserve">
-        <value>Is Not Take Histor yContext</value>
     </data>
     <data name="ConvertToTempChat" xml:space="preserve">
         <value>ConvertToChat</value>

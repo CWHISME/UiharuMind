@@ -29,6 +29,15 @@ public partial class CharacterSelectWindow : Window
         return await win.ShowDialog<CharacterInfoViewData?>(parent);
     }
 
+    /// <summary>
+    /// 多选角色。选中集与排除集都以 <see cref="CharacterInfoViewData.CharacterId"/> 标识，
+    /// 而非显示名——显示名允许重复且可随时改动。
+    /// </summary>
+    /// <param name="parent">父窗口</param>
+    /// <param name="alreadySelectedList">已选中的角色标识</param>
+    /// <param name="type">可选类型过滤</param>
+    /// <param name="excludeArray">要排除的角色标识</param>
+    /// <returns>选中的角色；取消则为 null</returns>
     public static async Task<List<CharacterInfoViewData>?> ShowCharacterSelectWindow(Window parent,
         HashSet<string>? alreadySelectedList, CharacterType type = CharacterType.All, params string[] excludeArray)
     {
@@ -42,7 +51,7 @@ public partial class CharacterSelectWindow : Window
         if (type != CharacterType.All)
             excludeList.AddRange(win._listViewData.Characters.Where(x =>
                     type == CharacterType.Roleplay && !x.IsRole || type == CharacterType.Tool && x.IsRole)
-                .Select(x => x.Name));
+                .Select(x => x.CharacterId));
         win.ExcludeCharacters(excludeList.ToArray());
 
         IList? alreadySelected = null;
@@ -54,7 +63,7 @@ public partial class CharacterSelectWindow : Window
             alreadySelected = new List<CharacterInfoViewData>();
             foreach (var data in win._listViewData.Characters)
             {
-                if (alreadySelectedList.Contains(data.Name)) alreadySelected.Add(data);
+                if (alreadySelectedList.Contains(data.CharacterId)) alreadySelected.Add(data);
             }
         }
 
@@ -81,17 +90,17 @@ public partial class CharacterSelectWindow : Window
     }
 
     /// <summary>
-    /// 排除角色
+    /// 从列表中排除指定角色
     /// </summary>
-    /// <param name="excludeList"></param>
+    /// <param name="excludeList">要排除的角色标识</param>
     public void ExcludeCharacters(params string[] excludeList)
     {
         List<CharacterInfoViewData> excludeListData = new List<CharacterInfoViewData>();
-        foreach (var name in excludeList)
+        foreach (var characterId in excludeList)
         {
             foreach (var data in _listViewData.Characters)
             {
-                if (data.Name == name)
+                if (data.CharacterId == characterId)
                 {
                     excludeListData.Add(data);
                     break;

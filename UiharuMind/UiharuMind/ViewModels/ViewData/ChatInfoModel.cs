@@ -30,13 +30,12 @@ public partial class ChatInfoModel : ViewModelBase
 
     private void OnChatSessionChanged(ChatSessionViewData? chatSessionViewData)
     {
-        // HasUserCard = !chatSessionViewData.ChatSession.CharacterData.IsTool;
         ChatPluginList.Clear();
 
         if (chatSessionViewData != null)
         {
-            //用户角色
-            if (!chatSessionViewData.ChatSession.CharacterData.IsTool)
+            //用户角色:纯提示词角色(翻译、识图等)不注入用户人格,也就不需要这块面板
+            if (!chatSessionViewData.ChatSession.CharacterData.IsPurePromptCharacter)
             {
                 var plugin = GetPlugin<ChatPlugin_UserCharacterCardData>(chatSessionViewData);
                 ChatPluginList.Add(plugin);

@@ -58,24 +58,10 @@ public partial class ChatSessionViewData : ObservableObject
     [ObservableProperty] private string? _memoryIndexTips;
     [ObservableProperty] private string _memoryStatusKey = "None";
 
-    // public ECharacter Character => _chatSession.CharaterId == 0 ? ECharacter.User : ECharacter.Assistant;
     // //如果是当天，返回具体时间，否则返回日期
     // public string Time => _chatSession.LastTime - DateTime.UtcNow.Ticks < TimeSpan.FromDays(1).Ticks
     //     ? _chatSession.LastTime.ToString("HH:mm")
     //     : _chatSession.LastTime.ToString("yyyy-MM-dd");
-
-    /// <summary>
-    /// 是否携带对话历史，仅工具人有效
-    /// </summary>
-    public bool IsNotTakeHistoryContext
-    {
-        get => ChatSession.IsNotTakeHistoryContext;
-        set
-        {
-            ChatSession.IsNotTakeHistoryContext = value;
-            OnPropertyChanged();
-        }
-    }
 
     public ObservableCollection<ChatViewItemData> ChatItems { get; } = new();
     public ChatViewItemData? CurrentChatItem { get; set; }

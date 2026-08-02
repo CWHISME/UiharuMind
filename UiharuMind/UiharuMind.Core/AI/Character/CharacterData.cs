@@ -14,8 +14,26 @@ public class CharacterData
 
     public CharacterConfig Config { get; set; } = new CharacterConfig();
 
+    /// <summary>
+    /// 组装为一个 ChatClientAgent，系统提示词经 <see cref="CharacterPromptBuilder"/> 统一装配
+    /// </summary>
+    /// <param name="chatClient">聊天客户端</param>
+    /// <param name="arguments">额外的模板参数</param>
+    /// <returns>agent</returns>
     public ChatClientAgent ToAgent(IChatClient chatClient, Dictionary<string, object?>? arguments = null) =>
-        Config.ToAgent(chatClient, BuildPromptArguments(arguments));
+        Config.ToAgent(chatClient, CharacterPromptBuilder.Build(this, arguments));
+
+    /// <summary>
+    /// 角色的稳定标识，同时是存档文件名。
+    /// 内置角色为 <see cref="DefaultCharacter"/> 的枚举名，用户角色为 GUID。
+    /// 显示名(<see cref="CharacterName"/>)可随意改动而不断开会话与挂载引用。
+    /// </summary>
+    public string CharacterId { get; set; } = Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// 角色种类
+    /// </summary>
+    public ECharacterKind Kind { get; set; } = ECharacterKind.Roleplay;
 
     /// <summary>
     /// 记忆库
@@ -38,27 +56,31 @@ public class CharacterData
     public bool IsHideDefault { get; set; }
 
     /// <summary>
-    /// 是否是工具人
-    /// 当该值为 false 时，才会使用 MountCharacters
-    /// 当该值为 true 时，则只会使用 Template 作为系统提示，其它参数将会直接忽略
+    /// 是否要求视觉模型（识图类角色）
     /// </summary>
-    public bool IsTool { get; set; }
+    public bool RequiresVisionModel { get; set; }
 
     /// <summary>
-    /// 是否携带历史对话的上下文，如果为false则不携带，每次只有最后一句用户消息
-    /// 注：仅工具角色有效，角色扮演 必定携带历史上下文
+    /// 内联挂载：按顺序取这些角色的 Template，render 后拼进本角色的系统提示。
+    /// 挂载 <see cref="DefaultCharacter.Roleplay_ThirdPerson"/> 之类即"带角色扮演脚手架"，
+    /// 挂载 <see cref="DefaultCharacter.UserCard"/> 即"注入用户人格"。
+    /// 默认为空——纯提示词角色(翻译、识图等)不该被塞进扮演模板。
     /// </summary>
-    public bool IsNotTakeHistoryContext { get; set; }
+    public List<string> MountPrompts { get; set; } = [];
 
     /// <summary>
-    /// 额外挂载工具角色(只能挂载没有挂载过对象的角色、即纯工具角色)
-    /// 若挂载对象被挂载了额外角色，则该挂载对象将会失效
+    /// 委托挂载：把这些角色注册为可被本 agent 自主调度的子 agent，
+    /// 由子 agent 的 Description 作为能力广告。仅 <see cref="ECharacterKind.Agent"/> 生效。
     /// </summary>
-    public List<string> MountCharacters { get; set; } =
-        new List<string>()
-        {
-            nameof(DefaultCharacter.Roleplay_ThirdPerson),
-        };
+    public List<string> MountAgents { get; set; } = [];
+
+    /// <summary>
+    /// 是否为纯提示词角色：未挂载任何提示词片段，因而不带角色扮演脚手架、不注入用户卡。
+    /// 取代原先的 IsTool 旗标——"工具人"与"扮演角色"的区别现在由挂载列表决定，
+    /// 界面的分类、图标与筛选据此派生。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsPurePromptCharacter => MountPrompts.Count == 0;
 
     /// <summary>
     /// 角色名
@@ -71,7 +93,8 @@ public class CharacterData
     }
 
     /// <summary>
-    /// 单纯的描述，在作为工具人被某个agent调用时，会作为其功能描述
+    /// 单纯的描述。被 <see cref="MountAgents"/> 委托挂载时，作为该子 agent 的能力广告，
+    /// 主 agent 据此决定何时委托。
     /// </summary>
     [JsonIgnore]
     public string Description
@@ -145,12 +168,12 @@ public class CharacterData
 
     public void Copy()
     {
+        // 主键是 CharacterId,显示名允许重复,因此不再需要靠改名试探唯一性
         var newCharData = DeepCopy();
-        int index = 0;
-        do
-        {
-            newCharData.CharacterName = newCharData.CharacterName + "_Copy" + index++;
-        } while (!CharacterManager.Instance.TryAddNewCharacterData(newCharData));
+        newCharData.CharacterId = Guid.NewGuid().ToString("N");
+        newCharData.IsDefaultCharacter = false;
+        newCharData.CharacterName += "_Copy";
+        CharacterManager.Instance.TryAddNewCharacterData(newCharData);
     }
 
     public void Delete()

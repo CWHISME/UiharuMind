@@ -34,9 +34,14 @@ public class CharacterConfig
     public CharacterPromptConfig PromptConfig { get; set; } = new();
     public ChatPromptExecutionSettings ExecutionSettings { get; set; } = new();
 
-    public ChatClientAgent ToAgent(IChatClient chatClient, IReadOnlyDictionary<string, object?>? arguments = null)
+    /// <summary>
+    /// 组装为一个 ChatClientAgent
+    /// </summary>
+    /// <param name="chatClient">聊天客户端</param>
+    /// <param name="instructions">已装配完成的系统提示词，由 CharacterPromptBuilder 产出</param>
+    /// <returns>agent</returns>
+    public ChatClientAgent ToAgent(IChatClient chatClient, string instructions)
     {
-        string instructions = CharacterPromptRenderer.Render(PromptConfig.Template ?? "", arguments);
         ChatOptions chatOptions = ExecutionSettings.ToChatOptions();
         chatOptions.Instructions = instructions;
 

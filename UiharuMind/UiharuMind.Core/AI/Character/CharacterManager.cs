@@ -8,6 +8,9 @@ namespace UiharuMind.Core.AI.Character;
 
 public class CharacterManager : Singleton<CharacterManager>, IInitialize
 {
+    /// <summary>
+    /// 已装载的角色，键为 <see cref="CharacterData.CharacterId"/>
+    /// </summary>
     public readonly Dictionary<string, CharacterData> CharacterDataDictionary = new Dictionary<string, CharacterData>();
 
     public event Action<CharacterData>? OnCharacterAdded;
@@ -30,6 +33,9 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
 
     public void OnInitialize()
     {
+        // 幂等:重复初始化不该抛"键已存在"
+        CharacterDataDictionary.Clear();
+
         var files = Directory.Exists(SettingConfig.SaveCharacterDataPath)
             ? Directory.GetFiles(SettingConfig.SaveCharacterDataPath, "*.json", SearchOption.AllDirectories)
             : null;
@@ -50,9 +56,12 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
                         Log.Error(e);
                     }
 
+                    // 文件名即 CharacterId;旧存档没有该字段时用文件名补上,避免每次加载生成新 Id
+                    if (string.IsNullOrEmpty(characterData.CharacterId))
+                        characterData.CharacterId = Path.GetFileNameWithoutExtension(file);
                     if (string.IsNullOrEmpty(characterData.CharacterName))
-                        characterData.CharacterName = Path.GetFileNameWithoutExtension(file);
-                    CharacterDataDictionary.Add(characterData.CharacterName, characterData);
+                        characterData.CharacterName = characterData.CharacterId;
+                    CharacterDataDictionary[characterData.CharacterId] = characterData;
                 }
             }
         }
@@ -60,9 +69,9 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         //装载默认角色
         foreach (var defCharacter in DefaultCharacterManager.Instance.Characters)
         {
-            if (CharacterDataDictionary.ContainsKey(defCharacter.Value.CharacterName)) continue;
+            if (CharacterDataDictionary.ContainsKey(defCharacter.Value.CharacterId)) continue;
             if (defCharacter.Value.IsHide) continue;
-            CharacterDataDictionary.Add(defCharacter.Value.CharacterName, defCharacter.Value);
+            CharacterDataDictionary.Add(defCharacter.Value.CharacterId, defCharacter.Value);
         }
 
         // if (CharacterDataDictionary.Count == 0)
@@ -86,29 +95,32 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     }
 
     /// <summary>
-    /// 获取角色，如果不存在，则返回默认角色
+    /// 按标识获取角色，不存在则返回空角色
     /// </summary>
-    /// <param name="characterName"></param>
-    /// <returns></returns>
-    public CharacterData GetCharacterData(string characterName)
+    /// <param name="characterId">角色标识</param>
+    /// <returns>角色数据</returns>
+    public CharacterData GetCharacterData(string characterId)
     {
-        if (CharacterDataDictionary.TryGetValue(characterName, out var characterData)) return characterData;
-        if (Enum.TryParse(typeof(DefaultCharacter), characterName, out var defaultCharacter))
+        if (CharacterDataDictionary.TryGetValue(characterId, out var characterData)) return characterData;
+
+        // 始终隐藏的内置角色(Empty / UserCard)不进字典,只能从这里取。
+        // 判据是 CharacterId 而非显示名,因此用户角色(GUID)不可能撞上内置角色。
+        if (Enum.TryParse(characterId, out DefaultCharacter defaultCharacter))
         {
-            return DefaultCharacterManager.Instance.GetCharacterData((DefaultCharacter)defaultCharacter);
+            return DefaultCharacterManager.Instance.GetCharacterData(defaultCharacter);
         }
 
         return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Empty);
     }
 
     /// <summary>
-    /// 添加新角色，如果失败，则返回false
+    /// 添加新角色，标识重复则返回 false
     /// </summary>
-    /// <param name="characterData"></param>
-    /// <returns></returns>
+    /// <param name="characterData">角色数据</param>
+    /// <returns>是否添加成功</returns>
     public bool TryAddNewCharacterData(CharacterData characterData)
     {
-        if (CharacterDataDictionary.TryAdd(characterData.CharacterName, characterData))
+        if (CharacterDataDictionary.TryAdd(characterData.CharacterId, characterData))
         {
             SaveCharacterData(characterData);
             OnCharacterAdded?.Invoke(characterData);
@@ -118,34 +130,46 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         return false;
     }
 
+    /// <summary>
+    /// 删除角色及其存档
+    /// </summary>
+    /// <param name="characterData">角色数据</param>
     public void DeleteCharacterData(CharacterData characterData)
     {
-        DeleteCharacterData(characterData.CharacterName);
+        DeleteCharacterData(characterData.CharacterId);
     }
 
-    public void DeleteCharacterData(string characterName)
+    /// <summary>
+    /// 删除角色及其存档
+    /// </summary>
+    /// <param name="characterId">角色标识</param>
+    public void DeleteCharacterData(string characterId)
     {
-        if (CharacterDataDictionary.ContainsKey(characterName))
-        {
-            var characterData = CharacterDataDictionary[characterName];
-            CharacterDataDictionary.Remove(characterName);
-            SaveUtility.Delete(Path.Combine(SettingConfig.SaveCharacterDataPath,
-                characterData.CharacterName + ".json"));
-            OnCharacterRemoved?.Invoke(characterData);
-        }
+        if (!CharacterDataDictionary.Remove(characterId, out CharacterData? characterData)) return;
+        SaveUtility.Delete(GetSavePath(characterData));
+        OnCharacterRemoved?.Invoke(characterData);
     }
 
+    /// <summary>
+    /// 保存角色存档
+    /// </summary>
+    /// <param name="characterData">角色数据</param>
     public void SaveCharacterData(CharacterData characterData)
     {
-        string path = SettingConfig.SaveCharacterDataPath;
-        if (Enum.TryParse(characterData.CharacterName, out DefaultCharacter defaultCharacter))
-        {
-            //默认角色单独存储
-            path = SettingConfig.SaveDefaultCharacterDataPath;
-        }
+        SaveUtility.Save(GetSavePath(characterData), characterData);
+        if (!characterData.IsHide) CharacterDataDictionary.TryAdd(characterData.CharacterId, characterData);
+    }
 
-        var savePath = Path.Combine(path, characterData.CharacterName + ".json");
-        SaveUtility.Save(savePath, characterData);
-        if (!characterData.IsHide) CharacterDataDictionary.TryAdd(characterData.CharacterName, characterData);
+    /// <summary>
+    /// 存档路径。文件名即 CharacterId，因此角色改名不动文件，
+    /// 显示名里的非法字符也不再可能造成路径穿越。
+    /// </summary>
+    private static string GetSavePath(CharacterData characterData)
+    {
+        // 内置角色的覆盖文件单独放一个目录:清空该目录 = 全部恢复出厂
+        string path = Enum.TryParse(characterData.CharacterId, out DefaultCharacter _)
+            ? SettingConfig.SaveDefaultCharacterDataPath
+            : SettingConfig.SaveCharacterDataPath;
+        return Path.Combine(path, characterData.CharacterId + ".json");
     }
 }

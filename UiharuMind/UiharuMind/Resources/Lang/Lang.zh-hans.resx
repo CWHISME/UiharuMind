@@ -170,9 +170,6 @@
     <data name="AgentSettingGeneral" xml:space="preserve">
         <value>常规</value>
     </data>
-    <data name="AgentSettingProfiles" xml:space="preserve">
-        <value>配置档案</value>
-    </data>
     <data name="AgentSettingMcp" xml:space="preserve">
         <value>MCP 服务</value>
     </data>
@@ -205,27 +202,6 @@
     </data>
     <data name="AgentSettingCapTodo" xml:space="preserve">
         <value>定时任务(Todo)</value>
-    </data>
-    <data name="AgentProfileName" xml:space="preserve">
-        <value>名称</value>
-    </data>
-    <data name="AgentProfileDescription" xml:space="preserve">
-        <value>描述</value>
-    </data>
-    <data name="AgentProfileModel" xml:space="preserve">
-        <value>模型</value>
-    </data>
-    <data name="AgentProfileModelHint" xml:space="preserve">
-        <value>留空 = 跟随全局当前模型</value>
-    </data>
-    <data name="AgentProfileSystemPrompt" xml:space="preserve">
-        <value>系统提示词</value>
-    </data>
-    <data name="AgentProfileExposeAsTool" xml:space="preserve">
-        <value>暴露为其他 agent 可调用的工具</value>
-    </data>
-    <data name="AgentProfileNewName" xml:space="preserve">
-        <value>新档案</value>
     </data>
     <data name="AgentSave" xml:space="preserve">
         <value>保存</value>
@@ -579,9 +555,6 @@
     </data>
     <data name="ParamsLang" xml:space="preserve">
         <value>语言参数($lang)</value>
-    </data>
-    <data name="IsNotTakeHistoryContext" xml:space="preserve">
-        <value>是否不携带对话历史</value>
     </data>
     <data name="ConvertToTempChat" xml:space="preserve">
         <value>转为对话</value>
