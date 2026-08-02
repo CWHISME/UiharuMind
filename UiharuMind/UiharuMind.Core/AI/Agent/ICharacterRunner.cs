@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.Core.Chat;
 
 namespace UiharuMind.Core.AI.Agent;
 
@@ -21,8 +22,10 @@ public readonly record struct TodoSnapshot(string Title, bool IsComplete);
 /// <summary>
 /// 一次对话的执行者：持有底层 agent 与其会话，对外只暴露稳定类型
 /// (<see cref="ChatMessage"/> / <see cref="AIContent"/> 来自 Microsoft.Extensions.AI)。
-/// 存在的意义是划定编译期边界——Agent Framework 的 preview/alpha 面被 PrivateAssets 挡在 Core 内，
-/// UI 层无法直接引用；框架若发生破坏性变更，需要重写的只有本接口的实现。
+///
+/// 角色扮演与 agent 共用这一个执行者，差异由角色的 <see cref="Character.ECharacterKind"/> 决定。
+/// 存在的意义同时也是划定编译期边界——Agent Framework 的 preview/alpha 面被 PrivateAssets
+/// 挡在 Core 内，UI 层无法直接引用；框架若发生破坏性变更，需要重写的只有本接口的实现。
 /// </summary>
 public interface ICharacterRunner : IAsyncDisposable
 {
@@ -30,23 +33,13 @@ public interface ICharacterRunner : IAsyncDisposable
     bool HasSession { get; }
 
     /// <summary>
-    /// 确保底层 agent 与给定配置一致；workspace 或权限档变化时重建，
-    /// 已有会话经序列化迁移到新实例（迁移失败则丢弃会话状态）。
-    /// </summary>
-    /// <param name="workspacePath">绑定的工作目录，null 表示通用助手模式</param>
-    /// <param name="permissionMode">权限档</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    Task ConfigureAsync(string? workspacePath, EAgentPermissionMode permissionMode,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 绑定到指定会话：已有框架附加状态则恢复，否则新建。
-    /// 历史不在框架状态里——它的权威来源是 <see cref="Core.Chat.ChatSession"/>，
+    /// 绑定到指定会话：按会话的角色、工作目录与权限档装配 agent（变化时重建），
+    /// 并恢复框架附加状态。历史不在附加状态里——它的权威来源是会话本体，
     /// 因此附加状态缺失只会丢 todos/mode，不会丢对话。
     /// </summary>
-    /// <param name="sessionId">会话标识</param>
+    /// <param name="session">目标会话</param>
     /// <param name="cancellationToken">取消令牌</param>
-    Task AttachSessionAsync(string sessionId, CancellationToken cancellationToken = default);
+    Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 丢弃当前会话引用（切换会话前调用，不影响磁盘数据）
@@ -56,11 +49,12 @@ public interface ICharacterRunner : IAsyncDisposable
     /// <summary>
     /// 持久化当前会话的框架附加状态
     /// </summary>
-    Task SaveSessionAsync();
+    Task SaveStateAsync();
 
     /// <summary>
     /// 运行一轮，产出内容流。审批往返由调用方驱动：
     /// 流中出现 <see cref="ToolApprovalRequestContent"/> 时，把用户的回应作为下一轮消息再次调用。
+    /// 本轮的输入与输出消息由历史提供器自动写入会话，调用方不要重复追加。
     /// </summary>
     /// <param name="messages">本轮输入消息</param>
     /// <param name="cancellationToken">取消令牌</param>
@@ -98,4 +92,33 @@ public interface ICharacterRunner : IAsyncDisposable
     /// <param name="messages">插入的消息</param>
     /// <returns>成功入队返回 true；当前不支持插话返回 false</returns>
     bool TryInject(IEnumerable<ChatMessage> messages);
+}
+
+/// <summary>
+/// 把内容流折叠成"累积全文"的文本流。
+/// 快捷工具的各个窗口把收到的字符串直接赋给显示控件，语义要求是全文而非增量；
+/// 若直接透出增量，界面会只显示最后一小段。
+/// </summary>
+public static class CharacterRunnerExtensions
+{
+    /// <summary>
+    /// 运行一轮并把文本内容折叠为累积全文流（思考内容与工具调用不计入）
+    /// </summary>
+    /// <param name="runner">执行者</param>
+    /// <param name="messages">本轮输入</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>累积全文流</returns>
+    public static async IAsyncEnumerable<string> RunTextAsync(this ICharacterRunner runner,
+        IEnumerable<ChatMessage> messages,
+        [System.Runtime.CompilerServices.EnumeratorCancellation]
+        CancellationToken cancellationToken = default)
+    {
+        System.Text.StringBuilder builder = new();
+        await foreach (AIContent content in runner.RunAsync(messages, cancellationToken).ConfigureAwait(false))
+        {
+            if (content is not TextContent { Text.Length: > 0 } text) continue;
+            builder.Append(text.Text);
+            yield return builder.ToString();
+        }
+    }
 }

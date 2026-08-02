@@ -10,9 +10,20 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
     public readonly Dictionary<DefaultCharacter, CharacterData> Characters =
         new Dictionary<DefaultCharacter, CharacterData>();
 
+    private readonly object _initLocker = new();
+
     public void OnInitialize()
     {
-        // 幂等:重复初始化(如重载内置角色)不该抛"键已存在"
+        // 幂等且原子:重复初始化(如重载内置角色)不该抛"键已存在",
+        // Clear 与 Add 之间被并发穿插同样会抛
+        lock (_initLocker)
+        {
+            LoadDefaultCharacters();
+        }
+    }
+
+    private void LoadDefaultCharacters()
+    {
         Characters.Clear();
 
         const int max = (int)DefaultCharacter.Max;
@@ -101,6 +112,11 @@ public enum DefaultCharacter
     // /// </summary>
     // TextThinker,
     
+    /// <summary>
+    /// 工作区 agent(Kind = Agent)
+    /// </summary>
+    WorkspaceAgent,
+
     Translator,
     TranslatorAdvanced,
     VisionOcr,

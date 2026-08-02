@@ -11,8 +11,7 @@ public class TranslationAgentSkill : AgentSkillConvertableBase
         CancellationToken cancellationToken = default)
     {
         // AddParams("content", text);
-        _chatHistory = [new ChatMessage(ChatRole.User, text)];
-        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
+        return RunTransientAsync(text, args, cancellationToken: cancellationToken);
     }
     
     public override CharacterData GetCharacterData()

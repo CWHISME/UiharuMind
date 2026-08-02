@@ -94,28 +94,31 @@ public partial class ChatSessionViewData : ObservableObject
         RefreshMemoryInfo();
     }
 
+    /// <summary>
+    /// 追加一条用户消息并生成回复
+    /// </summary>
+    /// <param name="role">角色</param>
+    /// <param name="message">文本</param>
+    /// <param name="token">取消令牌</param>
     public async Task AddMessageWithGenerate(ChatRole role, string message, CancellationToken token)
     {
-        // _chatSession.AddMessage(role, message);
-        // //添加用户消息
-        // AddMessage(_chatSession[^1]);
-        AddMessage(role, message);
-        //只有用户消息才生成AI回复
-        // if (role != AuthorRole.User) return;
-        //生成AI回复
-        // _chatSession.GenerateCompletion(OnStartGenerate,OnStepGenerated,OnCompletionGenerated,new CancellationToken());
+        // 本轮输入不预先写入历史:历史由 SessionChatHistoryProvider 在轮次结束时
+        // 连同回复一起写入,预先加会导致重复。界面条目照常立即显示。
+        ChatMessage input = ChatSession.CreateMessage(role, message);
+        AddMessage(input);
+
         if (role != ChatRole.User) return;
-        await GenerateMessage(token);
+        await GenerateMessage(input, token);
     }
 
     /// <summary>
-    /// 如果最后一条为 Assistant 则移除最后一条，并重新生成回复
+    /// 生成一条回复
     /// </summary>
-    /// <param name="token"></param>
-    public async Task GenerateMessage(CancellationToken token)
+    /// <param name="input">本轮用户输入；为 null 表示基于现有历史重新生成</param>
+    /// <param name="token">取消令牌</param>
+    public async Task GenerateMessage(ChatMessage? input, CancellationToken token)
     {
-        var lastMessage = ChatSession[^1];
-        if (lastMessage.Role == ChatRole.Assistant)
+        if (input == null && ChatSession.Count > 0 && ChatSession[^1].Role == ChatRole.Assistant)
         {
             Log.Error("Error: Assistant cannot generate message");
             return;
@@ -130,12 +133,14 @@ public partial class ChatSessionViewData : ObservableObject
 
         // ChatViewItemData currentChatItem = null;
 
-        // if (Math.Abs(ChatItems.Count - _chatSession.Count) > 0)
-        if (ChatItems.Count != ChatSession.Count)
+        // 本轮输入已在界面上但还未进历史,因此期望值要带上它
+        int expectedItems = ChatSession.Count + (input != null ? 1 : 0);
+        if (ChatItems.Count != expectedItems)
         {
             //不同步，说明出问题了，强行重载
             SyncSession(ChatSession);
             Log.Warning("SyncSession(Different count): " + Name);
+            if (input != null) AddMessage(input);
         }
         
         //与逻辑层一致，没问题，添加占位，先添加表现层的空消息
@@ -143,7 +148,7 @@ public partial class ChatSessionViewData : ObservableObject
 
         try
         {
-            await foreach (var item in ChatSession.GenerateCompletionStreaming(token))
+            await foreach (var item in ChatSession.GenerateCompletionStreaming(input, token))
             {
                 if (CurrentChatItem != null)
                 {

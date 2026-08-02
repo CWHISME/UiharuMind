@@ -290,7 +290,8 @@ public partial class ChatViewModel : ViewModelBase
         if (ChatSession == null) return;
         IsGenerating = true;
         _cancelTokenSource = new CancellationTokenSource();
-        await ChatSession.GenerateMessage(_cancelTokenSource.Token);
+        // 重新生成:不带新输入,基于现有历史再跑一轮
+        await ChatSession.GenerateMessage(null, _cancelTokenSource.Token);
         IsGenerating = false;
     }
 

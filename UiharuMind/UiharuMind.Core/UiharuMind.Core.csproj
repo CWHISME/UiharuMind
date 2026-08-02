@@ -63,6 +63,8 @@
       <None Remove="Resources\UiharuKazari.json" />
       <EmbeddedResource Include="Resources\AssistantExpert.json" />
       <EmbeddedResource Include="Resources\UiharuKazari.json" />
+      <None Remove="Resources\WorkspaceAgent.json" />
+      <EmbeddedResource Include="Resources\WorkspaceAgent.json" />
       <None Remove="Resources\Translator.json" />
       <EmbeddedResource Include="Resources\Translator.json" />
       <None Remove="Resources\Help*.md" />

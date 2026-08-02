@@ -24,11 +24,7 @@ public class NormalAgentSkill : AgentSkillConvertableBase
         CancellationToken cancellationToken = default)
     {
         // AddParams("content", text);
-        _chatHistory =
-        [
-            new ChatMessage(ChatRole.User, text)
-        ];
-        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
+        return RunTransientAsync(text, args, cancellationToken: cancellationToken);
         // JsonNode.Parse(ModelReaderWriter.Write(content.InnerContent!))["choices"]![0]!["delta"]!["reasoning_content"]
         // return modelRunningData.InvokeQuickToolPromptStreamingAsync("你好", "你是一只猫");
     }

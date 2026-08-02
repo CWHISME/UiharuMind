@@ -12,6 +12,7 @@ using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Agent;
@@ -25,29 +26,43 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private AgentHandle? _handle;
     private AgentSession? _session;
     private string? _boundSessionId;
-    private string? _handleWorkspace;
-    private EAgentPermissionMode? _handlePermissionMode;
+    private string _handleFingerprint = string.Empty;
 
     public bool HasSession => _session != null;
 
-    public async Task ConfigureAsync(string? workspacePath, EAgentPermissionMode permissionMode,
-        CancellationToken cancellationToken = default)
+    public async Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default)
     {
-        // 模型经惰性客户端按请求解析,切换模型无需重建;只有 workspace 与权限档影响装配
-        bool needRebuild = _handle == null ||
-                           _handleWorkspace != workspacePath ||
-                           _handlePermissionMode != permissionMode;
-        if (!needRebuild) return;
+        await EnsureHandleAsync(session, cancellationToken).ConfigureAwait(false);
+
+        if (_boundSessionId == session.SessionId && _session != null) return;
+
+        _session = await RestoreOrCreateSessionAsync(RequireHandle(), session.SessionId, cancellationToken)
+            .ConfigureAwait(false);
+        SessionChatHistoryProvider.Bind(_session, session.SessionId);
+        _boundSessionId = session.SessionId;
+    }
+
+    /// <summary>
+    /// 装配指纹变化时重建 agent。模型经惰性客户端按请求解析，切换模型无需重建；
+    /// 影响装配的是角色、工作目录与权限档。
+    /// </summary>
+    private async Task EnsureHandleAsync(ChatSession session, CancellationToken cancellationToken)
+    {
+        string fingerprint = $"{session.CharacterId}|{session.WorkspacePath}|{session.PermissionModeIndex}";
+        if (_handle != null && _handleFingerprint == fingerprint) return;
 
         AgentHandle newHandle = await AgentHost.Instance.CreateAgentAsync(new AgentBuildProfile
         {
-            WorkspacePath = workspacePath,
-            PermissionMode = permissionMode,
+            Character = session.CharacterData,
+            WorkspacePath = session.WorkspacePath,
+            PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
+            PromptArguments = session.CustomParams,
         }, cancellationToken).ConfigureAwait(false);
 
         if (_handle != null && _session != null)
         {
-            // 会话状态按 provider 键存取,可跨 agent 实例迁移
+            // 附加状态按 provider 键存取,可跨 agent 实例迁移。
+            // 历史不在其中,所以迁移失败最坏只丢 todos/mode。
             try
             {
                 JsonElement serialized = await _handle.Agent
@@ -57,25 +72,15 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             }
             catch (Exception e)
             {
-                Log.Warning($"Session migration failed, starting fresh session state: {e.Message}");
+                Log.Warning($"Agent state migration failed, starting fresh: {e.Message}");
                 _session = null;
+                _boundSessionId = null;
             }
         }
 
         if (_handle != null) await _handle.DisposeAsync().ConfigureAwait(false);
         _handle = newHandle;
-        _handleWorkspace = workspacePath;
-        _handlePermissionMode = permissionMode;
-    }
-
-    public async Task AttachSessionAsync(string sessionId, CancellationToken cancellationToken = default)
-    {
-        AgentHandle handle = RequireHandle();
-        if (_boundSessionId == sessionId && _session != null) return;
-
-        _session = await RestoreOrCreateSessionAsync(handle, sessionId, cancellationToken).ConfigureAwait(false);
-        SessionChatHistoryProvider.Bind(_session, sessionId);
-        _boundSessionId = sessionId;
+        _handleFingerprint = fingerprint;
     }
 
     public void ClearSession()
@@ -84,7 +89,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         _boundSessionId = null;
     }
 
-    public async Task SaveSessionAsync()
+    public async Task SaveStateAsync()
     {
         if (_handle == null || _session == null || _boundSessionId == null) return;
         try
@@ -188,11 +193,12 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         if (_handle != null) await _handle.DisposeAsync().ConfigureAwait(false);
         _handle = null;
         _session = null;
+        _boundSessionId = null;
     }
 
     private AgentHandle RequireHandle()
     {
         return _handle ?? throw new InvalidOperationException(
-            $"{nameof(ICharacterRunner)} 尚未配置,请先调用 {nameof(ConfigureAsync)}。");
+            $"{nameof(ICharacterRunner)} 尚未配置,请先调用 {nameof(AttachAsync)}。");
     }
 }

@@ -23,12 +23,7 @@ public abstract class AgentSkillVisionBase : AgentSkillConvertableBase
             return new AsyncEnumerableWithMessage("Not support vision model.");
         }
 
-        _chatHistory =
-        [
-            new ChatMessage(ChatRole.User,
-                [new DataContent(_imageBytes, "image/jpeg"), new TextContent(text)])
-        ];
-        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
+        return RunTransientAsync(text, args, _imageBytes, cancellationToken);
     }
 
     protected override bool IsVision => true;

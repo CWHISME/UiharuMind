@@ -21,9 +21,8 @@ public class CustomAgentSkill : AgentSkillConvertableBase
         CancellationToken cancellationToken = default)
     {
         // AddParams("content", text);
-        _chatHistory = [new ChatMessage(ChatRole.User, text)];
         //TODO：存在问题，此处未保存 AI 回复，会导致选择转换对话丢失
-        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
+        return RunTransientAsync(text, args, cancellationToken: cancellationToken);
     }
 
     public override CharacterData GetCharacterData()

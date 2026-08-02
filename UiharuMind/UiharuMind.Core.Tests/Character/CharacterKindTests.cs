@@ -1,0 +1,64 @@
+using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.Core;
+
+namespace UiharuMind.Core.Tests.Character;
+
+/// <summary>
+/// 角色种类的序列化往返。这是单引擎切换后最容易静默失效的一点：
+/// Kind 若解析不出来会退化为默认值 Roleplay，而 Roleplay 档是零工具的，
+/// 于是工作区 agent 会变成一个连文件都读不了的普通聊天角色，且不报任何错。
+/// </summary>
+public class CharacterKindTests
+{
+    public CharacterKindTests()
+    {
+        DefaultCharacterManager.Instance.OnInitialize();
+    }
+
+    [Fact]
+    public void WorkspaceAgent_IsAgentKind()
+    {
+        CharacterData agent = DefaultCharacterManager.Instance
+            .GetCharacterData(DefaultCharacter.WorkspaceAgent);
+
+        Assert.Equal(ECharacterKind.Agent, agent.Kind);
+        Assert.Equal(nameof(DefaultCharacter.WorkspaceAgent), agent.CharacterId);
+        Assert.False(string.IsNullOrWhiteSpace(agent.Template));
+    }
+
+    [Fact]
+    public void RoleplayCharacters_DefaultToRoleplayKind()
+    {
+        foreach (DefaultCharacter value in Enum.GetValues<DefaultCharacter>())
+        {
+            if (value is DefaultCharacter.Max or DefaultCharacter.WorkspaceAgent) continue;
+
+            CharacterData character = DefaultCharacterManager.Instance.GetCharacterData(value);
+            Assert.Equal(ECharacterKind.Roleplay, character.Kind);
+        }
+    }
+
+    [Fact]
+    public void Kind_RoundTripsAsReadableString()
+    {
+        CharacterData original = new() { Kind = ECharacterKind.Agent };
+
+        string json = SaveUtility.SaveToString(original);
+        CharacterData restored = SaveUtility.LoadFromString<CharacterData>(json);
+
+        // 存成可读字符串而非数字：内置角色卡是手写的，数字枚举既不可读也易错
+        Assert.Contains("\"Agent\"", json);
+        Assert.Equal(ECharacterKind.Agent, restored.Kind);
+    }
+
+    [Fact]
+    public void VisionCharacters_RequireVisionModel()
+    {
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision)
+            .RequiresVisionModel);
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.VisionOcr)
+            .RequiresVisionModel);
+        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator)
+            .RequiresVisionModel);
+    }
+}

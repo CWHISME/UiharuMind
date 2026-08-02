@@ -23,7 +23,6 @@ public class AssistantExpertQuoteAgentSkill : NormalAgentSkill
         builder.Append(text);
         builder.AppendLine("\n***\n以下为参考内容：");
         builder.AppendLine(_quoteStr);
-        _chatHistory = [new ChatMessage(ChatRole.User, builder.ToString())];
-        return modelRunningData.InvokeAgentStreamingAsync(GetCharacterData(), _chatHistory, args, cancellationToken);
+        return RunTransientAsync(builder.ToString(), args, cancellationToken: cancellationToken);
     }
 }

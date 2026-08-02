@@ -8,9 +8,12 @@
  ****************************************************************************/
 
 using System.Collections;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Agent;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
@@ -129,6 +132,7 @@ public class ChatSession : IEnumerable<ChatMessage>
 
     private CharacterData? _characterData;
     private MemoryData? _memory;
+    private ICharacterRunner? _runner;
 
     public ChatSession()
     {
@@ -244,23 +248,55 @@ public class ChatSession : IEnumerable<ChatMessage>
     }
 
     /// <summary>
-    /// 流式生成一条回复
+    /// 本会话的执行者（惰性创建）。角色扮演与 agent 共用它，
+    /// 由角色的 <see cref="ECharacterKind"/> 决定装配形态。
     /// </summary>
+    [JsonIgnore]
+    public ICharacterRunner Runner => _runner ??= AgentHost.Instance.CreateRunner();
+
+    /// <summary>
+    /// 流式生成一条回复。
+    /// 本轮的输入与输出由历史提供器统一写入历史，调用方不要预先把输入加进 <see cref="History"/>。
+    /// </summary>
+    /// <param name="input">本轮用户输入；为 null 表示基于现有历史重新生成</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>累积文本流</returns>
-    public IAsyncEnumerable<string> GenerateCompletionStreaming(CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<string> GenerateCompletionStreaming(ChatMessage? input = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (Count == 0) return new AsyncEnumerableWithMessage("Error: No message");
-
-        ChatMessage lastMessage = this[^1];
-        if (lastMessage.Role == ChatRole.Assistant && Count > 1)
+        if (input == null && Count == 0)
         {
-            ChatMessage previous = this[^2];
-            if (previous.Role == ChatRole.Assistant && previous.AuthorName == lastMessage.AuthorName)
-                return new AsyncEnumerableWithMessage("Error:A same assistant cannot generate message");
+            yield return "Error: No message";
+            yield break;
         }
 
-        return ChatModelRunningData.InvokeAgentStreamingAsync(this, cancellationToken);
+        await Runner.AttachAsync(this, cancellationToken).ConfigureAwait(false);
+
+        List<ChatMessage> turnInput = input == null ? [] : [input];
+        StringBuilder finalText = StringBuilderPool.Get();
+        try
+        {
+            await foreach (string text in Runner.RunTextAsync(turnInput, cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                finalText.Clear();
+                finalText.Append(text);
+                yield return text;
+            }
+        }
+        finally
+        {
+            // 取消时框架不会写入历史(InvokedAsync 收到异常即跳过存储),
+            // 手动补上本轮输入与已收到的部分内容,与旧行为一致:取消也保留已生成的文本。
+            if (cancellationToken.IsCancellationRequested)
+            {
+                if (input != null) History.Add(input);
+                if (finalText.Length > 0) History.Add(CreateMessage(ChatRole.Assistant, finalText.ToString()));
+                if (input != null || finalText.Length > 0) Save();
+            }
+
+            StringBuilderPool.Release(finalText);
+        }
     }
 
     /// <summary>

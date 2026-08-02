@@ -9,6 +9,7 @@
 
 using System.Text.Json;
 using Microsoft.Agents.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.AI.Chat;
 using Microsoft.Extensions.AI;
@@ -146,6 +147,8 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
         {
             handle = await AgentHost.Instance.CreateAgentAsync(new AgentBuildProfile
             {
+                Character = DefaultCharacterManager.Instance
+                    .GetCharacterData(DefaultCharacter.WorkspaceAgent),
                 WorkspacePath = task.WorkspacePath,
                 PermissionMode = EAgentPermissionMode.AutoEdit,
                 PreAuthorizedShellPatterns = task.PreAuthorizedCommands,
@@ -154,6 +157,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
             // 无人值守跑出来的结果也是一个正式会话,与手动对话同一套存储
             ChatSession chatSession = new()
             {
+                CharacterId = nameof(DefaultCharacter.WorkspaceAgent),
                 Title = $"⏰ {task.DisplayName}",
                 Description = task.Prompt,
                 WorkspacePath = task.WorkspacePath,

@@ -15,15 +15,6 @@ public class CharacterData
     public CharacterConfig Config { get; set; } = new CharacterConfig();
 
     /// <summary>
-    /// 组装为一个 ChatClientAgent，系统提示词经 <see cref="CharacterPromptBuilder"/> 统一装配
-    /// </summary>
-    /// <param name="chatClient">聊天客户端</param>
-    /// <param name="arguments">额外的模板参数</param>
-    /// <returns>agent</returns>
-    public ChatClientAgent ToAgent(IChatClient chatClient, Dictionary<string, object?>? arguments = null) =>
-        Config.ToAgent(chatClient, CharacterPromptBuilder.Build(this, arguments));
-
-    /// <summary>
     /// 角色的稳定标识，同时是存档文件名。
     /// 内置角色为 <see cref="DefaultCharacter"/> 的枚举名，用户角色为 GUID。
     /// 显示名(<see cref="CharacterName"/>)可随意改动而不断开会话与挂载引用。

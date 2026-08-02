@@ -13,6 +13,7 @@ namespace UiharuMind.Core.AI.Character;
 /// 角色种类。决定执行时是否装配工具与工作目录，其余差异(是否带角色扮演脚手架、
 /// 是否注入用户卡)由挂载列表决定，不再靠独立旗标。
 /// </summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
 public enum ECharacterKind
 {
     /// <summary>

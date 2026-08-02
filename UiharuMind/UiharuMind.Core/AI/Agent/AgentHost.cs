@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
@@ -29,6 +30,12 @@ namespace UiharuMind.Core.AI.Agent;
 /// </summary>
 public class AgentBuildProfile
 {
+    /// <summary>
+    /// 驱动整个装配的角色：<see cref="CharacterData.Kind"/> 决定是否装配工具与工作目录，
+    /// Template 与挂载列表决定系统提示，<see cref="CharacterData.MountAgents"/> 决定子 agent。
+    /// </summary>
+    public required CharacterData Character { get; init; }
+
     /// <summary>绑定的工作目录;为空表示通用助手模式(文件/shell 工具落到沙箱目录)</summary>
     public string? WorkspacePath { get; init; }
 
@@ -38,11 +45,8 @@ public class AgentBuildProfile
     /// <summary>预授权 shell 命令模式(定时任务无人值守用)</summary>
     public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
 
-    /// <summary>
-    /// 委托挂载的子 agent 角色标识。null 表示用 <see cref="AgentHost.DefaultMountedAgentIds"/>；
-    /// 阶段 3 起改由 agent 角色自身的 <see cref="CharacterData.MountAgents"/> 提供。
-    /// </summary>
-    public IReadOnlyList<string>? MountedAgentIds { get; init; }
+    /// <summary>额外的提示词模板参数(会话的 CustomParams)</summary>
+    public IReadOnlyDictionary<string, object?>? PromptArguments { get; init; }
 }
 
 /// <summary>
@@ -104,14 +108,17 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <summary>
     /// 创建一个对话执行者。框架类型止步于实现内部,调用方只见稳定类型。
     /// </summary>
-    /// <returns>执行者;使用前需先调用 <see cref="ICharacterRunner.ConfigureAsync"/></returns>
+    /// <returns>执行者;使用前需先调用 <see cref="ICharacterRunner.AttachAsync"/></returns>
     public ICharacterRunner CreateRunner()
     {
         return new HarnessCharacterRunner();
     }
 
     /// <summary>
-    /// 按配置构建一个 HarnessAgent
+    /// 按配置构建一个 HarnessAgent。角色扮演与 agent 走同一个引擎，
+    /// 差异全部落在 HarnessAgentOptions 上：
+    /// 角色扮演档把框架的每一项能力都关掉、工具集为空、HarnessInstructions 为空串，
+    /// 使框架不向系统提示里添加任何内容——等价于一次纯聊天调用，外加白拿的运行中插话能力。
     /// </summary>
     /// <param name="profile">构建配置</param>
     /// <param name="cancellationToken">取消令牌</param>
@@ -119,12 +126,42 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     public async Task<AgentHandle> CreateAgentAsync(AgentBuildProfile profile,
         CancellationToken cancellationToken = default)
     {
-        var config = AgentSettingConfig.Current;
-
         IChatClient client = new LazyChatClient();
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
         SessionChatHistoryProvider history = new();
+        CharacterData character = profile.Character;
 
+        // 角色自身的提示词(挂载片段 + Template + 对话模板)始终作为 ChatOptions.Instructions;
+        // 框架会把 HarnessInstructions 拼在它前面
+        ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();
+        chatOptions.Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments);
+
+        List<AIContextProvider> contextProviders = [new MemoryContextProvider()];
+
+        if (character.Kind == ECharacterKind.Roleplay)
+        {
+            return BuildHandle(client, new HarnessAgentOptions
+            {
+                Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
+                Description = character.Description,
+                ChatHistoryProvider = history,
+                // 框架侧一律关闭:任何一项漏关都会向角色扮演的上下文里注入内容
+                HarnessInstructions = string.Empty,
+                DisableWebSearch = true,
+                DisableFileAccess = true,
+                DisableFileMemory = true,
+                DisableTodoProvider = true,
+                DisableAgentModeProvider = true,
+                DisableAgentSkillsProvider = true,
+                DisableCompaction = true,
+                DisableToolAutoApproval = true,
+                DisableOpenTelemetry = true,
+                AIContextProviders = contextProviders,
+                ChatOptions = chatOptions,
+            }, null);
+        }
+
+        AgentSettingConfig config = AgentSettingConfig.Current;
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
         LocalShellExecutor? shellExecutor = null;
         if (config.EnableShellExecution)
@@ -156,11 +193,15 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             extraTools.Add(WebFetchTool.Create());
         }
 
-        HarnessAgentOptions options = new()
+        chatOptions.Tools = extraTools;
+
+        return BuildHandle(client, new HarnessAgentOptions
         {
-            Name = "UiharuAgent",
-            Description = "UiharuMind workspace agent.",
+            Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
+            Description = character.Description,
             ChatHistoryProvider = history,
+            // 工具纪律段随实际装配的工具集派生;角色的人格/任务段由框架拼在其后
+            HarnessInstructions = BuildToolDisciplines(config, shellExecutor != null),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
@@ -171,23 +212,24 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,
             AgentSkillsSource = SkillCatalog.Instance.BuildSkillsSource(),
-            BackgroundAgents = BuildBackgroundAgents(client, profile.MountedAgentIds ?? DefaultMountedAgentIds),
+            BackgroundAgents = BuildBackgroundAgents(client,
+                character.MountAgents.Count > 0 ? character.MountAgents : DefaultMountedAgentIds),
+            AIContextProviders = contextProviders,
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
                 AutoApprovalRules = ApprovalModeMapper.BuildRules(profile.PermissionMode,
                     profile.PreAuthorizedShellPatterns),
             },
-            ChatOptions = new ChatOptions
-            {
-                Instructions = BuildInstructions(profile),
-                Tools = extraTools,
-            },
-        };
+            ChatOptions = chatOptions,
+        }, shellExecutor);
+    }
 
+    private static AgentHandle BuildHandle(IChatClient client, HarnessAgentOptions options,
+        ShellExecutor? shellExecutor)
+    {
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-
         return new AgentHandle(client.AsHarnessAgent(options, loggerFactory, services), shellExecutor);
     }
 
@@ -198,25 +240,50 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         return path;
     }
 
-    private static string BuildInstructions(AgentBuildProfile profile)
+    /// <summary>
+    /// 工具纪律段：按<b>实际装配的工具集</b>派生，而不是一段固定文本。
+    /// 这些内容不是人格而是"这套工具怎么用才不出错"的约束，与工具是否启用强耦合——
+    /// 用户关掉文件工具后还讲 Glob/Read/Edit 就是纯噪声，因此归属是代码而非角色卡。
+    /// 角色自身的人格/任务段由框架拼在本段之后。
+    /// </summary>
+    /// <param name="config">agent 能力配置</param>
+    /// <param name="hasShell">是否装配了 shell</param>
+    /// <returns>纪律段文本</returns>
+    private static string BuildToolDisciplines(AgentSettingConfig config, bool hasShell)
     {
-        return
-            $"""
-             # Identity
-             You are the Workspace Agent of UiharuMind. You manage the local filesystem primarily through tools(Glob/Grep/Read/Edit), and fall back to shell only for non-file system interactions.
-             
-             # Path Discipline
-             - **No assumed root.** Derive all paths from the user's latest request or prior tool outputs.
-             - Every call must pass an explicit `path` parameter. If the scope is ambiguous, resolve it with one `Glob` call rather than asking the user.
-             
-             # Edit Discipline
-             - Read before overwrite. Inspect surrounding context so diffs stay minimal and reversible.
-             - Never emit full-file rewrites for single-line changes.
-             
-             # Execution Modes
-             - **Interactive:** Present when the user is at their desk. Confirm only truly destructive deletions.
-             - **Headless (Scheduled/Triggers):** If invoked without a live user session, **run fully autonomously**. Log results via tool output; never block on clarification or confirmation.
-             """;
+        StringBuilder sb = new();
+        sb.AppendLine("# Identity");
+        sb.Append("You are the Workspace Agent of UiharuMind.");
+        if (config.EnableFileAccess)
+        {
+            sb.Append(" You manage the local filesystem primarily through tools(Glob/Grep/Read/Edit)");
+            sb.Append(hasShell ? ", and fall back to shell only for non-file system interactions." : ".");
+        }
+        else if (hasShell)
+        {
+            sb.Append(" You interact with the local machine through the shell tool.");
+        }
+
+        sb.AppendLine();
+
+        if (config.EnableFileAccess)
+        {
+            sb.AppendLine();
+            sb.AppendLine("# Path Discipline");
+            sb.AppendLine("- **No assumed root.** Derive all paths from the user's latest request or prior tool outputs.");
+            sb.AppendLine("- Every call must pass an explicit `path` parameter. If the scope is ambiguous, resolve it with one `Glob` call rather than asking the user.");
+            sb.AppendLine();
+            sb.AppendLine("# Edit Discipline");
+            sb.AppendLine("- Read before overwrite. Inspect surrounding context so diffs stay minimal and reversible.");
+            sb.AppendLine("- Never emit full-file rewrites for single-line changes.");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("# Execution Modes");
+        sb.AppendLine("- **Interactive:** Present when the user is at their desk. Confirm only truly destructive deletions.");
+        sb.Append("- **Headless (Scheduled/Triggers):** If invoked without a live user session, **run fully autonomously**. Log results via tool output; never block on clarification or confirmation.");
+
+        return sb.ToString();
     }
 
     /// <summary>

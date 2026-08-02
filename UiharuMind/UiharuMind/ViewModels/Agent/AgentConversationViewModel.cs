@@ -21,6 +21,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -103,14 +104,14 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     {
         if (CurrentMeta == null) return;
         CurrentMeta.PermissionModeIndex = value;
-        SessionManager.Instance.Save(SessionManager.Instance.Load(CurrentMeta.SessionId)!);
+        PersistSessionSettings();
     }
 
     partial void OnWorkspacePathChanged(string? value)
     {
         if (CurrentMeta == null) return;
         CurrentMeta.WorkspacePath = value;
-        SessionManager.Instance.Save(SessionManager.Instance.Load(CurrentMeta.SessionId)!);
+        PersistSessionSettings();
     }
 
     [RelayCommand]
@@ -206,7 +207,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
                 if (cancellationToken.IsCancellationRequested) break;
             }
 
-            await _runner.SaveSessionAsync();
+            await _runner.SaveStateAsync();
         }
         catch (Exception e)
         {
@@ -288,13 +289,12 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
     private async Task<ChatSessionMeta> EnsureSessionAsync(string titleSeed, CancellationToken cancellationToken)
     {
-        await ConfigureRunnerAsync(cancellationToken);
-
         if (CurrentMeta == null)
         {
             string title = titleSeed.Length > 30 ? titleSeed[..30] + "…" : titleSeed;
             ChatSession created = new()
             {
+                CharacterId = nameof(DefaultCharacter.WorkspaceAgent),
                 Title = title,
                 Description = titleSeed,
                 WorkspacePath = WorkspacePath,
@@ -303,29 +303,47 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
             SessionManager.Instance.Add(created);
             CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
-            await _runner.AttachSessionAsync(CurrentMeta.SessionId, cancellationToken);
+            await _runner.AttachAsync(created, cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
             return CurrentMeta;
         }
 
-        await _runner.AttachSessionAsync(CurrentMeta.SessionId, cancellationToken);
+        await AttachAsync(CurrentMeta, cancellationToken);
         ApplyMode();
         return CurrentMeta;
     }
 
     /// <summary>
-    /// 把当前的 workspace 与权限档同步给执行者(变化时由其内部重建并迁移会话)
+    /// 绑定执行者到给定会话。工作目录与权限档取自会话本体，
+    /// 变化时由执行者内部按装配指纹重建并迁移框架附加状态。
     /// </summary>
-    private Task ConfigureRunnerAsync(CancellationToken cancellationToken)
+    private async Task AttachAsync(ChatSessionMeta meta, CancellationToken cancellationToken)
     {
-        return _runner.ConfigureAsync(WorkspacePath,
-            (EAgentPermissionMode)Math.Clamp(PermissionModeIndex, 0, 2), cancellationToken);
+        ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
+        if (session == null) return;
+
+        session.WorkspacePath = WorkspacePath;
+        session.PermissionModeIndex = PermissionModeIndex;
+        await _runner.AttachAsync(session, cancellationToken);
     }
 
     private void ApplyMode()
     {
         _runner.SetMode(CurrentMode);
+    }
+
+    /// <summary>
+    /// 把界面上改动的工作目录与权限档写回会话本体
+    /// </summary>
+    private void PersistSessionSettings()
+    {
+        if (CurrentMeta == null) return;
+        ChatSession? session = SessionManager.Instance.Load(CurrentMeta.SessionId);
+        if (session == null) return;
+        session.WorkspacePath = CurrentMeta.WorkspacePath;
+        session.PermissionModeIndex = CurrentMeta.PermissionModeIndex;
+        session.Save();
     }
 
     private ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
@@ -389,8 +407,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
         try
         {
-            await ConfigureRunnerAsync(CancellationToken.None);
-            await _runner.AttachSessionAsync(meta.SessionId);
+            await AttachAsync(meta, CancellationToken.None);
 
             CurrentMode = _runner.GetMode();
             ReplayMessages(_runner.GetHistory());
