@@ -63,6 +63,12 @@ public class ModelRunningData : INotifyPropertyChanged
     public bool IsVisionModel => _modelInfo.IsVision;
 
     /// <summary>
+    /// 是否支持工具调用。本地 LLamaSharp 路径把消息拍平成 prompt、
+    /// 完全忽略 ChatOptions.Tools,因此只有远程模型算支持。
+    /// </summary>
+    public bool SupportsToolCalling => IsRemoteModel;
+
+    /// <summary>
     /// 模型路径
     /// </summary>
     public string ModelPath => _modelInfo.ModelPath;

@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Agent.Skills;
 using UiharuMind.Core.AI.Agent.Tools.WebTools;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -53,6 +54,11 @@ public class AgentBuildProfile
     /// 惰性客户端每次请求时经此取值,优先于全局当前模型;为空则只用全局模型。
     /// </summary>
     public Func<ModelRunningData?>? SessionModelSource { get; init; }
+
+    /// <summary>
+    /// 会话级记忆库来源(memory_search 工具执行时解析,锁定当前挂接会话的单库)
+    /// </summary>
+    public Func<MemoryData?>? SessionMemorySource { get; init; }
 }
 
 /// <summary>
@@ -97,6 +103,9 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
     /// <summary>识图工具名(纪律段里要指名道姓地告诉模型可以用它)</summary>
     private const string VisionToolName = "ask_vision";
+
+    /// <summary>记忆检索工具名(纪律段引用)</summary>
+    private const string MemoryToolName = "memory_search";
 
     /// <summary>
     /// 未指定委托挂载时的默认子 agent：识图助手。
@@ -145,7 +154,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();
         chatOptions.Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments);
 
-        List<AIContextProvider> contextProviders = [new MemoryContextProvider()];
+        List<AIContextProvider> contextProviders =
+            [new MemoryContextProvider(hasMemoryTool: character.Kind == ECharacterKind.Agent)];
 
         if (character.Kind == ECharacterKind.Roleplay)
         {
@@ -184,6 +194,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         List<AITool> extraTools = new()
         {
             VisionTool.Create(),
+            MemoryTool.Create(profile.SessionMemorySource),
         };
         if (config.EnableTodo)
         {
@@ -290,6 +301,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         sb.AppendLine();
         sb.AppendLine("# Images");
         sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. When the path is an image and you need to know what it shows, call `{VisionToolName}` with that path — do not guess from the file name.");
+        sb.AppendLine($"- A long-term memory library may be bound to this session. When past context matters, call `{MemoryToolName}` with a focused query instead of guessing; it returns relevant snippets or reports that no library is bound.");
 
         sb.AppendLine();
         sb.AppendLine("# Execution Modes");

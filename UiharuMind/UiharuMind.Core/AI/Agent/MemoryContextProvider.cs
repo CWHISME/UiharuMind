@@ -32,6 +32,13 @@ internal sealed class MemoryContextProvider : AIContextProvider
         "以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，" +
         "请根据片段的相关性(Relevance)参数高低酌情参考。";
 
+    private readonly bool _hasMemoryTool; //本 agent 是否装配了 memory_search(agent 档才有)
+
+    public MemoryContextProvider(bool hasMemoryTool = false)
+    {
+        _hasMemoryTool = hasMemoryTool;
+    }
+
     public override IReadOnlyList<string> StateKeys => [];
 
     protected override async ValueTask<AIContext> ProvideAIContextAsync(
@@ -49,6 +56,10 @@ internal sealed class MemoryContextProvider : AIContextProvider
         ChatSession? session = SessionManager.Instance.Load(sessionId);
         MemoryData? memory = session?.Memory;
         if (memory == null) return empty;
+
+        // 装配了 memory_search 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入;
+        // 本地 LLamaSharp 完全忽略 ChatOptions.Tools,只能留在注入模式
+        if (_hasMemoryTool && session!.ChatModelRunningData?.SupportsToolCalling == true) return empty;
 
         // 传入的 AIContext.Messages 已含调用方消息与历史消息(框架契约),取最后一条用户输入作查询
         string? query = context.AIContext.Messages?

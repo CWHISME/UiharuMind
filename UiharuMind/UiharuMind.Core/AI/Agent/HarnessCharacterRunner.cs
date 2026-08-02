@@ -59,9 +59,10 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             WorkspacePath = session.WorkspacePath,
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             PromptArguments = session.CustomParams,
-            // 按请求时的挂接会话取会话级模型(识图技能等会给临时会话绑定视觉模型),
+            // 按请求时的挂接会话取会话级模型/记忆库(识图技能等会给临时会话绑定视觉模型),
             // 闭包读字段而非捕获参数:同一 handle 会跨会话复用
             SessionModelSource = () => _attachedSession?.ChatModelRunningData,
+            SessionMemorySource = () => _attachedSession?.Memory,
         }, cancellationToken).ConfigureAwait(false);
 
         if (_handle != null && _session != null)
