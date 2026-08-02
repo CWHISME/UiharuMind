@@ -8,13 +8,16 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.ViewModels.Conversation;
 
@@ -75,6 +78,12 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>shell 审批时按命令派生的"同类命令"放行模式;非 shell 或取不到命令为空串</summary>
     public string SuggestedCommandPattern { get; }
 
+    /// <summary>编辑类工具(Write/Replace/Edit)的变更 diff;其余工具为空</summary>
+    public IReadOnlyList<DiffLineView> DiffLines { get; } = [];
+
+    /// <summary>是否有 diff 可展示(编码场景的审批体验就是 diff 体验)</summary>
+    public bool HasDiff => DiffLines.Count > 0;
+
     /// <summary>是否提供"记住同类命令"选项(工具级的"本会话总是允许"对 shell 过粗)</summary>
     public bool CanRememberCommandPattern => SuggestedCommandPattern.Length > 0;
 
@@ -98,6 +107,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
                 : string.Empty;
+            DiffLines = DiffLineView.BuildForToolCall(call);
         }
         else
         {
@@ -152,6 +162,148 @@ public partial class ApprovalRequestItem : ConversationItemBase
 /// </summary>
 public partial class ErrorItem : ConversationItemBase
 {
+}
+
+/// <summary>
+/// 编辑审批卡片的一条 diff 行。编码场景的审批体验就是 diff 体验——
+/// 裸拼的 old/new 参数文本看不出改了什么,等于逼人盲批。
+/// </summary>
+public sealed class DiffLineView
+{
+    private const int MaxDisplayLines = 300; //展示上限,超出折叠为提示行
+
+    /// <summary>行前缀(+/-/空格)</summary>
+    public string Prefix { get; private init; } = " ";
+
+    /// <summary>行内容</summary>
+    public string Text { get; private init; } = string.Empty;
+
+    /// <summary>是否新增行</summary>
+    public bool IsAdded { get; private init; }
+
+    /// <summary>是否删除行</summary>
+    public bool IsRemoved { get; private init; }
+
+    /// <summary>
+    /// 从编辑类工具调用构建 diff 行;非编辑类工具返回空
+    /// </summary>
+    /// <param name="call">工具调用</param>
+    /// <returns>diff 行列表</returns>
+    public static IReadOnlyList<DiffLineView> BuildForToolCall(FunctionCallContent call)
+    {
+        try
+        {
+            List<DiffLineView> lines = call.Name switch
+            {
+                "Replace" => BuildReplaceDiff(call.Arguments),
+                "Write" => BuildWriteDiff(call.Arguments),
+                "Edit" => BuildLineEditsDiff(call.Arguments),
+                _ => [],
+            };
+            return Cap(lines);
+        }
+        catch
+        {
+            return []; //diff 只是展示增强,构建失败回退为原始参数摘要
+        }
+    }
+
+    private static List<DiffLineView> BuildReplaceDiff(IDictionary<string, object?>? args)
+    {
+        string? oldText = GetString(args, "oldString");
+        string? newText = GetString(args, "newString");
+        if (oldText == null || newText == null) return [];
+
+        List<DiffLineView> lines = WithHeader(args);
+        foreach (LineDiffEntry entry in LineDiff.Compute(oldText, newText))
+        {
+            lines.Add(entry.Kind switch
+            {
+                ELineDiffKind.Added => Added(entry.Text),
+                ELineDiffKind.Removed => Removed(entry.Text),
+                _ => Context(entry.Text),
+            });
+        }
+
+        return lines;
+    }
+
+    private static List<DiffLineView> BuildWriteDiff(IDictionary<string, object?>? args)
+    {
+        string? content = GetString(args, "content");
+        if (content == null) return [];
+
+        List<DiffLineView> lines = WithHeader(args);
+        foreach (string line in content.Replace("\r\n", "\n").Split('\n'))
+        {
+            lines.Add(Added(line));
+        }
+
+        return lines;
+    }
+
+    private static List<DiffLineView> BuildLineEditsDiff(IDictionary<string, object?>? args)
+    {
+        if (args?.TryGetValue("lineEdits", out object? value) != true) return [];
+        if (value is not JsonElement { ValueKind: JsonValueKind.Array } array) return [];
+
+        List<DiffLineView> lines = WithHeader(args);
+        foreach (JsonElement edit in array.EnumerateArray())
+        {
+            int lineNumber = GetInt(edit, "line_number") ?? GetInt(edit, "lineNumber") ?? 0;
+            string newLine = (GetJsonString(edit, "new_line") ?? GetJsonString(edit, "newLine") ?? string.Empty)
+                .TrimEnd('\n');
+            lines.Add(newLine.Length == 0
+                ? Removed($"@{lineNumber}: (delete line)")
+                : Added($"@{lineNumber}: {newLine}"));
+        }
+
+        return lines;
+    }
+
+    private static List<DiffLineView> WithHeader(IDictionary<string, object?>? args)
+    {
+        string? path = GetString(args, "filePath");
+        return string.IsNullOrEmpty(path) ? [] : [Context($"@ {path}")];
+    }
+
+    private static IReadOnlyList<DiffLineView> Cap(List<DiffLineView> lines)
+    {
+        if (lines.Count <= MaxDisplayLines) return lines;
+        int omitted = lines.Count - MaxDisplayLines;
+        lines.RemoveRange(MaxDisplayLines, omitted);
+        lines.Add(Context($"…(+{omitted} more lines)"));
+        return lines;
+    }
+
+    private static DiffLineView Added(string text) => new() { Prefix = "+", Text = text, IsAdded = true };
+    private static DiffLineView Removed(string text) => new() { Prefix = "-", Text = text, IsRemoved = true };
+    private static DiffLineView Context(string text) => new() { Prefix = " ", Text = text };
+
+    private static string? GetString(IDictionary<string, object?>? args, string name)
+    {
+        if (args == null || !args.TryGetValue(name, out object? value)) return null;
+        return value switch
+        {
+            string text => text,
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString(),
+            _ => value?.ToString(),
+        };
+    }
+
+    private static string? GetJsonString(JsonElement element, string name)
+    {
+        return element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+    }
+
+    private static int? GetInt(JsonElement element, string name)
+    {
+        return element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetInt32()
+            : null;
+    }
 }
 
 /// <summary>
