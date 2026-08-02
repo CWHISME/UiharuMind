@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Utils;
 
@@ -29,10 +30,17 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
     ])]
     public override string ModelId { get; set; } = "glm-4-flash";
 
-    public override KeyValuePair<string, JsonNode?>? GetExtraParams()
+    public override IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams(EThinkingMode thinkingMode)
     {
-        
-        return IsThinking ? null : new KeyValuePair<string, JsonNode?>("thinking", new JsonObject { ["type"] = "disabled" });
+        // Default 沿用配置的"是否思考模型"开关:非思考模型显式关掉,避免服务端默认开启
+        if (thinkingMode == EThinkingMode.Default)
+        {
+            return IsThinking
+                ? null
+                : [new KeyValuePair<string, JsonNode?>("thinking", new JsonObject { ["type"] = "disabled" })];
+        }
+
+        return base.GetExtraParams(thinkingMode);
     }
 
     public override int Port { get; set; }

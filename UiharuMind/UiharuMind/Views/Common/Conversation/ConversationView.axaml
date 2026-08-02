@@ -332,6 +332,15 @@
                                           Command="{Binding MemoryPanel.MemoryEditorCommand}"
                                           IsVisible="{Binding MemoryPanel, Converter={x:Static ObjectConverters.IsNotNull}}" />
                         <ThemedIconButton IconName="image" Command="{Binding AddAttachmentCommand}" />
+                        <ComboBox FontSize="12" MinWidth="96" SelectedIndex="{Binding ThinkingModeIndex}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc ThinkingModeTips}" />
+                            </ToolTip.Tip>
+                            <ComboBoxItem Content="{loc:Loc ThinkingModeDefault}" />
+                            <ComboBoxItem Content="{loc:Loc ThinkingModeNone}" />
+                            <ComboBoxItem Content="{loc:Loc ThinkingModeMedium}" />
+                            <ComboBoxItem Content="{loc:Loc ThinkingModeHigh}" />
+                        </ComboBox>
                         <ThemedIconButton IconName="settings">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">

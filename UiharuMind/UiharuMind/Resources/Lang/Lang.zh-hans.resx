@@ -17,6 +17,21 @@
     <data name="SendUserDesc" xml:space="preserve">
         <value>在用户与机器人的对话中，选择发送者身份。如果是 Assistant，则相当于插入机器人回复；如果是 User，则相当于输入自己的消息。因此，只有在 User 模式下，才会触发推理。</value>
     </data>
+    <data name="ThinkingModeDefault" xml:space="preserve">
+        <value>思考:默认</value>
+    </data>
+    <data name="ThinkingModeNone" xml:space="preserve">
+        <value>思考:关</value>
+    </data>
+    <data name="ThinkingModeMedium" xml:space="preserve">
+        <value>思考:中</value>
+    </data>
+    <data name="ThinkingModeHigh" xml:space="preserve">
+        <value>思考:高</value>
+    </data>
+    <data name="ThinkingModeTips" xml:space="preserve">
+        <value>本会话的思考力度。默认跟随模型配置;其余档位随每次请求下发(不支持的后端会忽略)。</value>
+    </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
         <value>加载更早的消息</value>
     </data>

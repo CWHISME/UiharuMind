@@ -23,6 +23,7 @@ using System.Threading;
 using System;
 using UiharuMind.Core.AI.Agent;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Runtime.Backends;
@@ -67,6 +68,7 @@ public partial class ConversationViewModel : ViewModelBase
     [ObservableProperty] private bool _isNotShowThinking;
     [ObservableProperty] private bool _hasEarlierMessages;
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
+    [ObservableProperty] private int _thinkingModeIndex; //本会话思考力度,序号即 EThinkingMode
 
     [RelayCommand]
     private async Task SendMessage()
@@ -202,6 +204,8 @@ public partial class ConversationViewModel : ViewModelBase
     /// <summary>初始渲染与"加载更早"每批的历史窗口大小</summary>
     private const int HistoryWindowSize = 20;
 
+    private const string ThinkingModeParamName = "ThinkingMode"; //CustomParams 中的思考力度键
+
     private readonly ICharacterRunner _runner = AgentHost.Instance.CreateRunner();
 
     private CancellationTokenSource? _runCancellation;
@@ -306,6 +310,15 @@ public partial class ConversationViewModel : ViewModelBase
         OnPropertyChanged(nameof(ModeLabel));
     }
 
+    partial void OnThinkingModeIndexChanged(int value)
+    {
+        if (CurrentMeta == null || _isLoadingSession) return;
+        ChatSession? session = CurrentSession;
+        if (session == null) return;
+        session.CustomParams[ThinkingModeParamName] = ((EThinkingMode)value).ToString();
+        session.Save();
+    }
+
     partial void OnPermissionModeIndexChanged(int value)
     {
         if (CurrentMeta == null || _isLoadingSession) return;
@@ -403,6 +416,8 @@ public partial class ConversationViewModel : ViewModelBase
     private async Task RunTurnAsync(ChatMessage userMessage, string titleSeed)
     {
         IsGenerating = true;
+        // 思考力度随本次异步流下发到 HTTP 层(SDK 无逐请求参数通道)
+        LlmRequestContext.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
         _runCancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = _runCancellation.Token;
         try
@@ -651,6 +666,7 @@ public partial class ConversationViewModel : ViewModelBase
         if (meta == null)
         {
             IsSessionLoading = false;
+            ThinkingModeIndex = (int)EThinkingMode.Default; //CurrentMeta 为空,处理器自然不落盘
             return;
         }
 
@@ -681,6 +697,15 @@ public partial class ConversationViewModel : ViewModelBase
             if (SessionManager.Instance.Load(meta.SessionId) is { } body)
             {
                 MemoryPanel = new ConversationMemoryViewData(body);
+                _isLoadingSession = true;
+                try
+                {
+                    ThinkingModeIndex = ReadThinkingModeIndex(body);
+                }
+                finally
+                {
+                    _isLoadingSession = false;
+                }
             }
 
             CurrentMode = _runner.GetMode();
@@ -840,6 +865,17 @@ public partial class ConversationViewModel : ViewModelBase
 
     private ChatSession? CurrentSession =>
         CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);
+
+    private static int ReadThinkingModeIndex(ChatSession session)
+    {
+        if (session.CustomParams.TryGetValue(ThinkingModeParamName, out object? value) &&
+            Enum.TryParse(value?.ToString(), out EThinkingMode mode))
+        {
+            return (int)mode;
+        }
+
+        return (int)EThinkingMode.Default;
+    }
 
     private void OnItemEdited(ConversationItemBase item)
     {

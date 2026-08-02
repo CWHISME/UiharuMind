@@ -24,6 +24,21 @@
     <data name="SendUserDesc" xml:space="preserve">
         <value />
     </data>
+    <data name="ThinkingModeDefault" xml:space="preserve">
+        <value>Think: default</value>
+    </data>
+    <data name="ThinkingModeNone" xml:space="preserve">
+        <value>Think: off</value>
+    </data>
+    <data name="ThinkingModeMedium" xml:space="preserve">
+        <value>Think: medium</value>
+    </data>
+    <data name="ThinkingModeHigh" xml:space="preserve">
+        <value>Think: high</value>
+    </data>
+    <data name="ThinkingModeTips" xml:space="preserve">
+        <value>Thinking effort for this session. Default follows the model config; other levels are sent with each request (backends that don't support it will ignore it).</value>
+    </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
         <value>Load earlier messages</value>
     </data>

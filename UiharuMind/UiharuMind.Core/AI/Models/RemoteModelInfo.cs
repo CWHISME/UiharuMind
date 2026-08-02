@@ -29,7 +29,8 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public int Port => Config.Port;
     [JsonIgnore] public bool IsThinking => Config.IsThinking;
 
-    public virtual KeyValuePair<string, JsonNode?>? GetExtraParams() => Config.GetExtraParams();
+    public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams(EThinkingMode thinkingMode) =>
+        Config.GetExtraParams(thinkingMode);
 
     private string _apiKey = "";
 

@@ -13,6 +13,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -82,15 +83,18 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         {
             var jsonContent = await request.Content.ReadAsStringAsync(cancellationToken);
 
-            var extraParams = _model?.GetExtraParams();
-            if (extraParams != null)
+            var extraParams = _model?.GetExtraParams(LlmRequestContext.ThinkingMode);
+            if (extraParams is { Count: > 0 })
             {
                 var jsonNode = JsonNode.Parse(jsonContent)?.AsObject();
 
                 if (jsonNode != null)
                 {
-                    // jsonNode["thinking"] = new JsonObject { ["type"] = "disabled" };
-                    jsonNode.Add((KeyValuePair<string, JsonNode?>)extraParams);
+                    foreach (var extraParam in extraParams)
+                    {
+                        jsonNode[extraParam.Key] = extraParam.Value;
+                    }
+
                     jsonContent = jsonNode.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
                     request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
                 }
