@@ -218,7 +218,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             shellExecutor, SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
-            researcher == null ? null : [researcher], profile.SessionShellApprovalSource), shellExecutor);
+            researcher == null ? null : [researcher], profile.SessionShellApprovalSource,
+            WorkspaceInstructionsLoader.Load(profile.WorkspacePath)), shellExecutor);
     }
 
     /// <summary>
@@ -377,13 +378,15 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
     /// <param name="backgroundAgents">背景子代理(内置调研员),无则 null</param>
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
+    /// <param name="workspaceInstructions">工作区说明文件内容,无则空串</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         ShellExecutor? shellExecutor, AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         List<AIAgent>? backgroundAgents = null,
-        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
+        string workspaceInstructions = "")
     {
         return new HarnessAgentOptions
         {
@@ -391,7 +394,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             Description = character.Description,
             ChatHistoryProvider = history,
             HarnessInstructions = BuildToolDisciplines(config, shellExecutor != null,
-                hasResearcher: backgroundAgents is { Count: > 0 }),
+                hasResearcher: backgroundAgents is { Count: > 0 },
+                workspaceInstructions: workspaceInstructions),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
@@ -436,8 +440,10 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="config">agent 能力配置</param>
     /// <param name="hasShell">是否装配了 shell</param>
     /// <param name="hasResearcher">是否挂载了调研员子代理</param>
+    /// <param name="workspaceInstructions">工作区说明文件内容,无则空串</param>
     /// <returns>纪律段文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config, bool hasShell, bool hasResearcher)
+    private static string BuildToolDisciplines(AgentSettingConfig config, bool hasShell, bool hasResearcher,
+        string workspaceInstructions = "")
     {
         StringBuilder sb = new();
         sb.AppendLine("# Identity");
@@ -492,6 +498,15 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         sb.AppendLine("# Execution Modes");
         sb.AppendLine("- **Interactive:** Present when the user is at their desk. Confirm only truly destructive deletions.");
         sb.Append("- **Headless (Scheduled/Triggers):** If invoked without a live user session, **run fully autonomously**. Log results via tool output; never block on clarification or confirmation.");
+
+        if (!string.IsNullOrEmpty(workspaceInstructions))
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("# Workspace Instructions (from the project's AGENTS.md)");
+            sb.AppendLine("Follow these project-specific rules while working in this workspace:");
+            sb.Append(workspaceInstructions);
+        }
 
         return sb.ToString();
     }
