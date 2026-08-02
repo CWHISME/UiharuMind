@@ -146,6 +146,10 @@
                                                               IsVisible="{Binding CanEdit}"
                                                               Command="{Binding EditCommand}"
                                                               ToolTips="{loc:Loc Edit}" />
+                                            <ThemedIconButton Classes="message-action" IconName="split"
+                                                              IsVisible="{Binding CanBranch}"
+                                                              Command="{Binding BranchCommand}"
+                                                              ToolTips="{loc:Loc BranchChatAfterMessage}" />
                                             <ThemedIconButton Classes="message-action" IconName="trash-2"
                                                               IsVisible="{Binding CanDelete}"
                                                               Command="{Binding DeleteCommand}"

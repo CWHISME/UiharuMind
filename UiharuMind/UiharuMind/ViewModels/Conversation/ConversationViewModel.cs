@@ -270,7 +270,7 @@ public partial class ConversationViewModel : ViewModelBase
         List<ConversationAttachment>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
         Attachments.Clear();
         ChatMessage userMessage = BuildUserMessage(text, attachments);
-        Items.Add(CreateUserItem(text, userMessage));
+        Items.Add(CreateUserItem(text, userMessage, attachments));
         ScrollToEnd = true;
         await RunTurnAsync(userMessage, text);
     }
@@ -326,6 +326,7 @@ public partial class ConversationViewModel : ViewModelBase
             }
 
             await _runner.SaveStateAsync();
+            WireStreamedItems();
         }
         catch (Exception e)
         {
@@ -550,18 +551,25 @@ public partial class ConversationViewModel : ViewModelBase
                 string text = message.Text;
                 if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
                 {
-                    Items.Add(CreateUserItem(text, message));
+                    Items.Add(WireItemActions(CreateUserItem(text, message), message));
                 }
 
                 continue;
             }
 
+            int before = Items.Count;
             foreach (AIContent content in message.Contents)
             {
                 ApplyContent(content, null);
             }
 
             CloseStreamSegment();
+
+            // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
+            for (int i = before; i < Items.Count; i++)
+            {
+                if (Items[i] is TextConversationItem textItem) WireItemActions(textItem, message);
+            }
         }
 
         foreach (ToolCallItem item in Items.OfType<ToolCallItem>().Where(x => x.IsRunning))
@@ -580,6 +588,133 @@ public partial class ConversationViewModel : ViewModelBase
     /// (todo 快照、模式切换通知等)带 _attribution 溯源标记;审批回应为控制消息。
     /// 它们是模型上下文的一部分(持久化属正常),但不应渲染为用户气泡。
     /// </summary>
+    //================= 消息级操作 =================
+
+    /// <summary>
+    /// 给条目接上编辑/删除/分叉/重试。只有能定位回历史消息的条目才提供这些操作，
+    /// 因此流式进行中的占位条目与框架注入的内容不会出现这些按钮。
+    /// </summary>
+    private T WireItemActions<T>(T item, ChatMessage source) where T : ConversationItemBase
+    {
+        item.SourceMessage = source;
+        item.EditedCallback = OnItemEdited;
+        item.DeleteCallback = OnItemDeleted;
+        item.BranchCallback = OnItemBranch;
+        // 重试语义是"从这条用户输入起重新生成",因此只挂在用户消息上
+        if (source.Role == ChatRole.User) item.RetryCallback = OnItemRetry;
+        return item;
+    }
+
+    /// <summary>
+    /// 一轮结束后，历史已由提供器写入（本轮输入 + 回复）。
+    /// 把界面上刚产出的、还没有来源消息的文本气泡按角色与历史尾部配对，使其也能被操作。
+    /// </summary>
+    private void WireStreamedItems()
+    {
+        IReadOnlyList<ChatMessage> history = _runner.GetHistory();
+        int cursor = history.Count - 1;
+
+        for (int i = Items.Count - 1; i >= 0 && cursor >= 0; i--)
+        {
+            if (Items[i] is not TextConversationItem item) continue;
+            if (item.SourceMessage != null) break; //再往前都是回放来的,已经关联过
+
+            // 只在角色一致时配对,不一致说明界面与历史的形状对不上,宁可不提供操作
+            ChatRole expected = item.IsUser ? ChatRole.User : ChatRole.Assistant;
+            while (cursor >= 0 && history[cursor].Role != expected) cursor--;
+            if (cursor < 0) break;
+
+            WireItemActions(item, history[cursor]);
+            cursor--;
+        }
+    }
+
+    private ChatSession? CurrentSession =>
+        CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);
+
+    private void OnItemEdited(ConversationItemBase item)
+    {
+        if (item.SourceMessage == null) return;
+
+        // 就地改写 TextContent:ChatMessage.Text 是只读的(所有 TextContent 的拼接),
+        // 且不能整体替换 Contents,否则会丢掉同一条消息里的图片
+        TextContent? text = item.SourceMessage.Contents.OfType<TextContent>().FirstOrDefault();
+        if (text != null) text.Text = item.Message;
+        else item.SourceMessage.Contents.Add(new TextContent(item.Message));
+
+        CurrentSession?.Save();
+    }
+
+    private void OnItemDeleted(ConversationItemBase item)
+    {
+        ChatSession? session = CurrentSession;
+        if (session != null && item.SourceMessage != null)
+        {
+            session.History.Remove(item.SourceMessage);
+            session.Save();
+        }
+
+        Items.Remove(item);
+    }
+
+    private void OnItemBranch(ConversationItemBase item)
+    {
+        ChatSession? session = CurrentSession;
+        if (session == null || item.SourceMessage == null) return;
+
+        int index = session.History.IndexOf(item.SourceMessage);
+        if (index < 0) return;
+
+        ChatSession branch = SessionManager.Instance.DeepCopy(session);
+        branch.SessionId = Guid.NewGuid().ToString("N");
+        branch.Title = $"{session.Title} {LocalizationManager.Instance.GetString("ChatBranchSuffix")}";
+        branch.CreatedAt = DateTimeOffset.Now;
+        // 保留到该条消息为止
+        branch.History.RemoveRange(index + 1, branch.History.Count - index - 1);
+        SessionManager.Instance.Add(branch);
+        SessionsChanged?.Invoke();
+    }
+
+    private void OnItemRetry(ConversationItemBase item)
+    {
+        ChatSession? session = CurrentSession;
+        if (session == null || item.SourceMessage == null || IsGenerating) return;
+
+        int index = session.History.IndexOf(item.SourceMessage);
+        if (index < 0) return;
+
+        // 丢弃该条用户输入之后的全部历史,再以它为输入重跑一轮
+        ChatMessage input = session.History[index];
+        session.History.RemoveRange(index, session.History.Count - index);
+        session.Save();
+
+        int itemIndex = Items.IndexOf(item);
+        if (itemIndex >= 0)
+        {
+            for (int i = Items.Count - 1; i >= itemIndex; i--) Items.RemoveAt(i);
+        }
+
+        Items.Add(WireItemActions(CreateUserItem(input.Text, input), input));
+        ScrollToEnd = true;
+        _ = RunTurnAsync(input, input.Text);
+    }
+
+    private static ReadOnlyMemory<byte> ReadAttachmentBytes(ConversationAttachment attachment)
+    {
+        if (attachment.Bytes != null) return attachment.Bytes;
+        try
+        {
+            return string.IsNullOrEmpty(attachment.FilePath)
+                ? ReadOnlyMemory<byte>.Empty
+                : File.ReadAllBytes(attachment.FilePath);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Read attachment failed '{attachment.FileName}': {e.Message}");
+            return ReadOnlyMemory<byte>.Empty;
+        }
+    }
+
     private static bool HasImage(ChatMessage message)
     {
         return message.Contents.OfType<DataContent>().Any(x => x.HasTopLevelMediaType("image"));
@@ -615,7 +750,8 @@ public partial class ConversationViewModel : ViewModelBase
 
     //================= 条目构造 =================
 
-    private static TextConversationItem CreateUserItem(string text, ChatMessage? source = null)
+    private static TextConversationItem CreateUserItem(string text, ChatMessage? source = null,
+        List<ConversationAttachment>? attachments = null)
     {
         TextConversationItem item = new(true)
         {
@@ -626,7 +762,16 @@ public partial class ConversationViewModel : ViewModelBase
             Timestamp = (source?.CreatedAt ?? DateTimeOffset.Now).LocalDateTime.ToString("HH:mm"),
         };
 
-        // 多模态消息里的图片:此前发出去的附件图在界面上看不到
+        // 显示与传输解耦:非视觉模型下 BuildUserMessage 会把附件降级为文本引用而不内联字节,
+        // 但用户附了图就该在界面上看到,与模型能否看图无关。因此优先用附件本身。
+        ConversationAttachment? attached = attachments?.FirstOrDefault(x => x.IsImage);
+        if (attached != null)
+        {
+            item.SetImage(ReadAttachmentBytes(attached));
+            return item;
+        }
+
+        // 历史回放时没有附件对象,从消息里的 DataContent 取
         DataContent? image = source?.Contents
             .OfType<DataContent>()
             .FirstOrDefault(x => x.HasTopLevelMediaType("image"));

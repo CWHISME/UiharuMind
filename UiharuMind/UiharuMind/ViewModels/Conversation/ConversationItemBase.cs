@@ -51,6 +51,12 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// <summary>是否显示头像</summary>
     public bool ShowAvatar => !IsSystem && Icon != null;
 
+    /// <summary>
+    /// 本条目对应的历史消息。编辑/删除/重试/分叉都需要据此定位到历史里的那一条；
+    /// 为空表示该条目不对应单条消息（如流式进行中的占位、框架注入的内容），此时不提供这些操作。
+    /// </summary>
+    public Microsoft.Extensions.AI.ChatMessage? SourceMessage { get; set; }
+
     /// <summary>编辑完成回调(为空则隐藏编辑按钮)</summary>
     public Action<ConversationItemBase>? EditedCallback { get; set; }
 
