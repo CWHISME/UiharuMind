@@ -15,6 +15,8 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
+using UiharuMind.Core.AI.Character;
+
 namespace UiharuMind.Core.AI.Agent;
 
 /// <summary>
@@ -99,6 +101,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public async Task SaveStateAsync()
     {
         if (_handle == null || _session == null || _boundSessionId == null) return;
+        // 角色扮演档禁用了 todo/mode/审批等全部有状态提供器,框架 blob 无内容可存;
+        // 恢复路径找不到该文件时会新建框架会话并重新 Bind,行为不变
+        if (_attachedSession?.CharacterData.Kind != ECharacterKind.Agent) return;
         try
         {
             JsonElement state = await _handle.Agent.SerializeSessionAsync(_session).ConfigureAwait(false);
