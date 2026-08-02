@@ -7,37 +7,154 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System;
-using UiharuMind.Core.AI.Chat;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Threading;
+using System;
 using UiharuMind.Core.AI.Agent;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Services;
 using UiharuMind.Utils;
-using UiharuMind.ViewModels.Conversation;
 using UiharuMind.Views;
 
-namespace UiharuMind.ViewModels.Agent;
+namespace UiharuMind.ViewModels.Conversation;
 
 /// <summary>
-/// Agent 会话视图模型:ConversationView 的 agent 宿主实现。
-/// 直接消费 Harness agent 的 AIContent 流(标准 AIAgent 契约)。
+/// 一次对话的视图模型，角色扮演与 agent 共用这一个实现。
+/// 阶段 3 之后两者跑的是同一条路：session.Runner.RunAsync() → AIContent 流 → ApplyContent()，
+/// 差异只剩"暴露哪些操作面板"(workspace / 权限档 / todo 侧栏 vs 角色卡 / 参数 / 翻译插件)，
+/// 由角色的 ECharacterKind 控制显隐，因此不需要为此分出子类；
+/// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
-public partial class AgentConversationViewModel : ConversationViewModelBase
+public partial class ConversationViewModel : ViewModelBase
 {
+
+    public ObservableCollection<ConversationItemBase> Items { get; } = new();
+
+    /// <summary>附件集合(文件路径或内存字节),由输入框上方区域展示</summary>
+    public ObservableCollection<ConversationAttachment> Attachments { get; } = new();
+
+    [ObservableProperty] private string _title = string.Empty;
+    [ObservableProperty] private string _inputText = string.Empty;
+    [ObservableProperty] private string _inputPlaceholder = string.Empty;
+    [ObservableProperty] private bool _isGenerating;
+    [ObservableProperty] private bool _scrollToEnd;
+    [ObservableProperty] private KeyGesture _sendGesture = new(Key.Enter);
+
+    [RelayCommand]
+    private async Task SendMessage()
+    {
+        string text = InputText.Trim();
+        if (string.IsNullOrEmpty(text)) return;
+        InputText = string.Empty;
+        await SendCoreAsync(text);
+    }
+
+    [RelayCommand]
+    private void StopSending()
+    {
+        OnStopSending();
+    }
+
+    [RelayCommand]
+    private void InputExtra()
+    {
+        OnInputExtra();
+    }
+
+    //================= 附件 =================
+
+    /// <summary>添加文件附件</summary>
+    public void AddAttachmentPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        Attachments.Add(new ConversationAttachment
+        {
+            FilePath = path,
+            FileName = Path.GetFileName(path),
+            MediaType = GetMediaType(path),
+        });
+    }
+
+    /// <summary>添加内存字节附件(如粘贴图片)</summary>
+    public void AddAttachmentBytes(byte[] bytes, string mediaType = "image/png", string? fileName = null)
+    {
+        if (bytes == null || bytes.Length == 0) return;
+        Attachments.Add(new ConversationAttachment
+        {
+            Bytes = bytes,
+            FileName = fileName ?? $"pasted_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
+            MediaType = mediaType,
+        });
+    }
+
+    [RelayCommand]
+    private void RemoveAttachment(ConversationAttachment item)
+    {
+        Attachments.Remove(item);
+    }
+
+    [RelayCommand]
+    private void PreviewAttachment(ConversationAttachment item)
+    {
+        // 非图片文件:打开其所在目录
+        if (!item.IsImage)
+        {
+            if (!string.IsNullOrEmpty(item.FilePath))
+                App.FilesService.OpenFolder(Path.GetDirectoryName(item.FilePath) ?? item.FilePath);
+            return;
+        }
+
+        Bitmap? bitmap = null;
+        try
+        {
+            if (item.Bytes != null)
+            {
+                using var stream = new MemoryStream(item.Bytes);
+                bitmap = new Bitmap(stream);
+            }
+            else if (!string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
+            {
+                bitmap = new Bitmap(item.FilePath);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Preview attachment failed '{item.FileName}': {e.Message}");
+            return;
+        }
+
+        if (bitmap != null) UIManager.ShowPreviewImageWindowAtMousePosition(bitmap);
+    }
+
+    /// <summary>根据路径推断 MIME 类型;非图片返回通用二进制类型</summary>
+    protected static string GetMediaType(string path)
+    {
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "application/octet-stream",
+        };
+    }
+
     public ObservableCollection<TodoDisplayItem> Todos { get; } = new();
 
     [ObservableProperty] private int _permissionModeIndex = 1; //默认 AutoEdit
@@ -62,7 +179,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
     private ThinkingItem? _streamingThinking;
     private readonly List<ApprovalRequestItem> _pendingApprovals = new();
 
-    public AgentConversationViewModel()
+    public ConversationViewModel()
     {
         var agentSetting = AgentSettingConfig.Current;
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
@@ -89,7 +206,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         CurrentMode = CurrentMode.Next();
     }
 
-    protected override void OnInputExtra()
+    private void OnInputExtra()
     {
         CycleMode();
     }
@@ -137,7 +254,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
 
     //================= 发送与运行循环 =================
 
-    protected override async Task SendCoreAsync(string text)
+    private async Task SendCoreAsync(string text)
     {
         // 运行中输入 = 插话:入注入队列,agent 下一次机会消费
         if (IsGenerating)
@@ -157,7 +274,7 @@ public partial class AgentConversationViewModel : ConversationViewModelBase
         await RunTurnAsync(BuildUserMessage(text, attachments), text);
     }
 
-    protected override void OnStopSending()
+    private void OnStopSending()
     {
         _runCancellation?.Cancel();
         foreach (ApprovalRequestItem approval in _pendingApprovals.ToList())

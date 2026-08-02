@@ -12,7 +12,7 @@
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="640"
              x:Class="UiharuMind.Views.Common.Conversation.ConversationView"
-             x:DataType="conv:ConversationViewModelBase">
+             x:DataType="conv:ConversationViewModel">
 
     <UserControl.Resources>
         <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />

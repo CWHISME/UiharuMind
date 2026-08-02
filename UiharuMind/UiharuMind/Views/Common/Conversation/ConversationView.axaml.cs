@@ -22,7 +22,7 @@ namespace UiharuMind.Views.Common.Conversation;
 /// <summary>
 /// 通用会话组件(以 ChatView 为模板):头部/消息流/composer 三段式,
 /// 经 HeaderExtra / ComposerTop / ComposerTools / EmptyContent 四个内容槽由宿主页定制。
-/// 绑定契约为 ConversationViewModelBase;特型条目模板由宿主页资源提供。
+/// 绑定契约为 ConversationViewModel;特型条目模板由宿主页资源提供。
 /// </summary>
 public partial class ConversationView : UserControl
 {
@@ -78,7 +78,7 @@ public partial class ConversationView : UserControl
 
     private async void OnPastingFromClipboard(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not ConversationViewModelBase vm) return;
+        if (DataContext is not ConversationViewModel vm) return;
 
         // 剪贴板含图片:以内存字节加入附件,并拦截默认文本粘贴
         var bitmap = await App.Clipboard.GetImageFromClipboard();
@@ -98,7 +98,7 @@ public partial class ConversationView : UserControl
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is not ConversationViewModelBase vm) return;
+        if (DataContext is not ConversationViewModel vm) return;
 
         foreach (var item in e.DataTransfer.Items)
         {

@@ -19,20 +19,21 @@ using UiharuMind.Core.AI.Agent;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Agent;
+using UiharuMind.ViewModels.Conversation;
 using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;
 
 /// <summary>
 /// Agent 工作区页面壳(对齐 ChatPageData):面板开合/宽度、会话列表、右侧栏;
-/// 会话内容由 AgentConversationViewModel + 通用 ConversationView 承载。
+/// 会话内容由 ConversationViewModel + 通用 ConversationView 承载。
 /// </summary>
 public partial class AgentPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new AgentPage();
 
     /// <summary>会话内容视图模型(ConversationView 的 DataContext)</summary>
-    public AgentConversationViewModel Conversation { get; } = new();
+    public ConversationViewModel Conversation { get; } = new();
 
     public ObservableCollection<AgentSessionItemViewData> Sessions { get; } = new();
     public ObservableCollection<ScheduledTaskDisplayItem> ScheduledTasks { get; } = new();

@@ -7,24 +7,23 @@ namespace UiharuMind.Core.AI.Character;
 
 public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInitialize
 {
-    public readonly Dictionary<DefaultCharacter, CharacterData> Characters =
+    /// <summary>
+    /// 已装载的内置角色。整体替换而非就地清空重填——
+    /// 后者会让重建期间的读取方看到半填充状态(读到"键不存在"),
+    /// 只给写入方加锁是挡不住这个的。
+    /// </summary>
+    public IReadOnlyDictionary<DefaultCharacter, CharacterData> Characters { get; private set; } =
         new Dictionary<DefaultCharacter, CharacterData>();
-
-    private readonly object _initLocker = new();
 
     public void OnInitialize()
     {
-        // 幂等且原子:重复初始化(如重载内置角色)不该抛"键已存在",
-        // Clear 与 Add 之间被并发穿插同样会抛
-        lock (_initLocker)
-        {
-            LoadDefaultCharacters();
-        }
+        // 幂等:重复初始化(如重载内置角色)不该抛"键已存在"
+        Characters = LoadDefaultCharacters();
     }
 
-    private void LoadDefaultCharacters()
+    private static Dictionary<DefaultCharacter, CharacterData> LoadDefaultCharacters()
     {
-        Characters.Clear();
+        Dictionary<DefaultCharacter, CharacterData> loaded = new();
 
         const int max = (int)DefaultCharacter.Max;
         for (int i = 0; i < max; i++)
@@ -42,8 +41,10 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
 
             characterData.IsDefaultCharacter = true;
             characterData.CharacterId = characterId;
-            Characters.Add(character, characterData);
+            loaded[character] = characterData;
         }
+
+        return loaded;
     }
 
     /// <summary>

@@ -14,9 +14,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Agent;
-using UiharuMind.ViewModels.Conversation;
 
-namespace UiharuMind.ViewModels.Agent;
+namespace UiharuMind.ViewModels.Conversation;
 
 /// <summary>
 /// 思考过程条目(默认折叠,弱化展示)
