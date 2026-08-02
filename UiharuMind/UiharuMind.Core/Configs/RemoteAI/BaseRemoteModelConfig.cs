@@ -15,10 +15,6 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual string ModelId { get; set; }
     public virtual bool IsVision { get; set; }
 
-    [SettingConfigDesc("Is Thinking")]
-    [SettingConfigDesc("是否是思考模型", LanguageUtils.ChineseSimplified)]
-    public virtual bool IsThinking { get; set; }
-
     /// <summary>
     /// 思考力度 → 请求参数的通用翻译:同时给出智谱系 thinking 与 OpenAI 系 reasoning_effort,
     /// 不认识对应字段的服务端会忽略;有更严格要求的后端自行覆写。
