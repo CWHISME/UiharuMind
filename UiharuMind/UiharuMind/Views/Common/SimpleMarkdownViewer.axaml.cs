@@ -91,9 +91,6 @@ public partial class SimpleMarkdownViewer : UserControl
     private ValueUiDelayUpdater<string> _valueUiDelayUpdater;
     private ObservableStringBuilder _markdownBuilder = new ObservableStringBuilder();
 
-    /// <summary>已送入 markdown 构建器的文本，用于判断本次是流式追加还是整体替换</summary>
-    private string _lastText = "";
-
     // private List<ThemeName> _themeNames = new List<ThemeName>(); 
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -259,27 +256,37 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         text ??= "";
 
-        // 流式生成时收到的是逐步变长的累积全文。LiveMarkdown 的 ObservableStringBuilder
-        // 本就是为增量追加设计的——若每次都 Clear + Append 全文,它会在每个 token 上
-        // 重解析整篇并重建视觉树,成本随回复长度二次增长。
-        // 因此新文本是旧文本的延长时只追加增量,其余情况(编辑、切换会话)才整体重填。
-        if (text.Length > _lastText.Length && text.StartsWith(_lastText, StringComparison.Ordinal))
+        // 以 _markdownBuilder 的实际内容为准,不另外维护一份镜像字符串——
+        // 该控件有 ForceSetText 与 AppendText 两个写入口,任何镜像状态都要求两处同步维护,
+        // 漏一处就会静默失效(曾表现为新会话清不掉上一次的内容)。
+        string current = _markdownBuilder.ToString();
+        if (text == current)
         {
-            _markdownBuilder.Append(text[_lastText.Length..]);
+            if (IsPlaintext == true) PlainTextBlock.Text = text;
+            SetLoadingState(string.IsNullOrEmpty(text));
+            return;
         }
-        else if (text != _lastText)
+
+        // 传入累积全文时只追加增量:LiveMarkdown 的 ObservableStringBuilder 本就是为
+        // 增量追加设计的,每次 Clear + Append 全文会让它在每个 token 上重解析整篇
+        // 并重建视觉树,成本随长度二次增长。
+        if (text.Length > current.Length && text.StartsWith(current, StringComparison.Ordinal))
+        {
+            _markdownBuilder.Append(text[current.Length..]);
+        }
+        else
         {
             _markdownBuilder.Clear();
             _markdownBuilder.Append(text);
         }
 
-        _lastText = text;
         if (IsPlaintext == true) PlainTextBlock.Text = text;
         SetLoadingState(string.IsNullOrEmpty(text));
     }
 
     public void AppendText(string text)
     {
+        if (string.IsNullOrEmpty(text)) return;
         _markdownBuilder.Append(text);
         if (IsPlaintext == true) PlainTextBlock.Text = _markdownBuilder.ToString();
         SetLoadingState(false);
