@@ -449,7 +449,8 @@ public partial class ConversationViewModel : ViewModelBase
         // 运行中输入 = 插话:入注入队列,agent 下一次机会消费
         if (IsGenerating)
         {
-            if (CurrentRunner?.TryInject(new[] { new ChatMessage(ChatRole.User, text) }) == true)
+            if (CurrentRunner is { } runner &&
+                await runner.TryInjectAsync(new[] { new ChatMessage(ChatRole.User, text) }))
             {
                 Items.Add(CreateUserItem(text));
             }
@@ -700,7 +701,8 @@ public partial class ConversationViewModel : ViewModelBase
 
     private void ApplyMode()
     {
-        CurrentRunner?.SetMode(CurrentMode);
+        // 模式是装饰性状态:后台写入,失败由实现内部记日志
+        if (CurrentRunner is { } runner) _ = runner.SetModeAsync(CurrentMode);
     }
 
     /// <summary>
@@ -831,7 +833,7 @@ public partial class ConversationViewModel : ViewModelBase
                 _isLoadingSession = false;
             }
 
-            CurrentMode = body.Runner.GetMode();
+            CurrentMode = await body.Runner.GetModeAsync();
             ReplayMessages(body.Runner.GetHistory());
             await RefreshTodosAsync();
         }
