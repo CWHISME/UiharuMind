@@ -81,6 +81,40 @@ public class HistoryAttributionTests
 }
 
 /// <summary>
+/// 不变量之四：<b>调研员子代理只读</b>。
+/// 它在主 agent 的工具调用内部无头运行,没有审批通道——任何可变更工具混入都是越权。
+/// </summary>
+public class ResearcherReadOnlyTests
+{
+    [Fact]
+    public void ResearcherTools_AreReadOnly()
+    {
+        string workingDirectory = Path.Combine(Path.GetTempPath(), "uiharu-researcher-test");
+        HarnessAgentOptions? options = AgentHost.BuildResearcherOptions(new AgentSettingConfig(), workingDirectory);
+
+        Assert.NotNull(options);
+        List<string> names = options!.ChatOptions!.Tools!.OfType<AIFunction>().Select(x => x.Name).ToList();
+        Assert.Contains("Read", names);
+        Assert.Contains("WebSearch", names);
+        string[] forbidden = ["Write", "Edit", "Replace", "Delete", AgentHost.ShellToolName];
+        Assert.DoesNotContain(names, name => forbidden.Contains(name));
+    }
+
+    [Fact]
+    public void Researcher_NotMounted_WhenAllReadCapabilitiesDisabled()
+    {
+        AgentSettingConfig config = new()
+        {
+            EnableFileAccess = false,
+            EnableWebSearch = false,
+            EnableVisionTool = false,
+        };
+
+        Assert.Null(AgentHost.BuildResearcherOptions(config, Path.GetTempPath()));
+    }
+}
+
+/// <summary>
 /// 不变量之三：<b>装配快照的相等性语义</b>。
 /// 相等 = 不重建;任一装配输入变化 = 重建;
 /// 角色扮演档对 agent 侧配置免疫(工具类输入归零)。

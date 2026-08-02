@@ -207,9 +207,119 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
             : null;
 
+        AIAgent? researcher = BuildResearcherAgent(client, config, workingDirectory);
+
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             shellExecutor, SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
-            profile.PermissionMode, profile.PreAuthorizedShellPatterns), shellExecutor);
+            profile.PermissionMode, profile.PreAuthorizedShellPatterns,
+            researcher == null ? null : [researcher]), shellExecutor);
+    }
+
+    /// <summary>
+    /// 内置"调研员"只读子代理:主 agent 可把大范围的探查/调研任务委托给它,
+    /// 结论以报告返回,不吃主上下文。零配置面——工具集尊重全局能力开关,
+    /// 全部只读能力都被关掉时不挂载。
+    /// 只读因而免审批,不涉及嵌套审批通道;无 shell/写/技能/todo/mode,一次性会话不落盘。
+    /// </summary>
+    /// <param name="client">模型客户端(与主 agent 同一惰性客户端)</param>
+    /// <param name="config">能力配置</param>
+    /// <param name="workingDirectory">工作目录(只读文件工具的根)</param>
+    /// <returns>子代理;无任何只读能力可用时为 null</returns>
+    private static AIAgent? BuildResearcherAgent(IChatClient client, AgentSettingConfig config,
+        string workingDirectory)
+    {
+        HarnessAgentOptions? options = BuildResearcherOptions(config, workingDirectory);
+        if (options == null) return null;
+
+        MfaLoggerFactory loggerFactory = new();
+        return client.AsHarnessAgent(options, loggerFactory, new MfaServiceProvider(loggerFactory));
+    }
+
+    /// <summary>
+    /// 调研员装配选项(纯函数,不碰单例)。不变量:工具集只含只读工具——
+    /// 它在主 agent 的工具调用内部无头运行,没有审批通道,任何可变更工具混入都是越权。
+    /// </summary>
+    /// <param name="config">能力配置</param>
+    /// <param name="workingDirectory">只读文件工具的根目录</param>
+    /// <returns>框架选项;无任何只读能力启用时为 null</returns>
+    internal static HarnessAgentOptions? BuildResearcherOptions(AgentSettingConfig config,
+        string workingDirectory)
+    {
+        List<AITool> tools = new();
+        if (config.EnableFileAccess)
+        {
+            tools.AddRange(new PermissiveFileAccessTools(workingDirectory).Create(disableWriteTools: true));
+        }
+
+        if (config.EnableWebSearch)
+        {
+            tools.Add(WebSearchTool.Create());
+            tools.Add(WebFetchTool.Create());
+        }
+
+        if (config.EnableVisionTool)
+        {
+            tools.Add(VisionTool.Create());
+        }
+
+        if (tools.Count == 0) return null;
+
+        return new HarnessAgentOptions
+        {
+            Name = "Researcher",
+            Description = "Read-only researcher: surveys the workspace files and/or the web, inspects images, " +
+                          "and returns a focused report. Delegate broad exploration or research tasks to it " +
+                          "to keep the main context small. It cannot modify anything.",
+            HarnessInstructions = string.Empty,
+            // 与角色扮演档同一原则:框架有状态能力全关,子代理是一次性的纯工具循环
+            DisableWebSearch = true,
+            DisableFileAccess = true,
+            DisableFileMemory = true,
+            DisableTodoProvider = true,
+            DisableAgentModeProvider = true,
+            DisableAgentSkillsProvider = true,
+            DisableCompaction = true,
+            DisableToolAutoApproval = true,
+            DisableOpenTelemetry = true,
+            ChatOptions = new ChatOptions
+            {
+                Instructions = BuildResearcherInstructions(config),
+                Tools = tools,
+            },
+        };
+    }
+
+    /// <summary>
+    /// 调研员的系统提示:身份 + 只读边界 + 报告体例,按启用的能力裁剪。
+    /// </summary>
+    /// <param name="config">能力配置</param>
+    /// <returns>提示词</returns>
+    private static string BuildResearcherInstructions(AgentSettingConfig config)
+    {
+        StringBuilder sb = new();
+        sb.AppendLine("# Role");
+        sb.AppendLine("You are the Researcher, a read-only sub-agent of UiharuMind. " +
+                      "You investigate and report; you never modify anything and you have no shell.");
+        sb.AppendLine();
+        sb.AppendLine("# Method");
+        if (config.EnableFileAccess)
+        {
+            sb.AppendLine("- Explore workspace files with Glob/Grep/Read. Pass explicit paths.");
+        }
+
+        if (config.EnableWebSearch)
+        {
+            sb.AppendLine("- Research the web with web_search, then web_fetch the promising results.");
+        }
+
+        if (config.EnableVisionTool)
+        {
+            sb.AppendLine($"- For image files, call `{VisionToolName}` with the file path.");
+        }
+
+        sb.AppendLine("- Work autonomously; never ask for clarification.");
+        sb.Append("- Return a focused report: conclusions first, then the evidence (paths, URLs, quotes).");
+        return sb.ToString();
     }
 
     // [MFA绕坑] 绕:框架默认向系统提示注入自身内容 因:无"纯透传"档,只能逐项 Disable 删除条件:框架提供 passthrough 模式
@@ -259,18 +369,21 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="agentNotesStore">agent 笔记存储,禁用时为 null</param>
     /// <param name="permissionMode">权限档</param>
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
+    /// <param name="backgroundAgents">背景子代理(内置调研员),无则 null</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         ShellExecutor? shellExecutor, AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
-        EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns)
+        EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
+        List<AIAgent>? backgroundAgents = null)
     {
         return new HarnessAgentOptions
         {
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            HarnessInstructions = BuildToolDisciplines(config, shellExecutor != null),
+            HarnessInstructions = BuildToolDisciplines(config, shellExecutor != null,
+                hasResearcher: backgroundAgents is { Count: > 0 }),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableFileAccess = true,
@@ -279,6 +392,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             ShellExecutor = shellExecutor,
             ShellToolName = ShellToolName,
             AgentSkillsSource = skillsSource,
+            BackgroundAgents = backgroundAgents,
             AIContextProviders = contextProviders,
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
@@ -312,8 +426,9 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// </summary>
     /// <param name="config">agent 能力配置</param>
     /// <param name="hasShell">是否装配了 shell</param>
+    /// <param name="hasResearcher">是否挂载了调研员子代理</param>
     /// <returns>纪律段文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config, bool hasShell)
+    private static string BuildToolDisciplines(AgentSettingConfig config, bool hasShell, bool hasResearcher)
     {
         StringBuilder sb = new();
         sb.AppendLine("# Identity");
@@ -355,6 +470,13 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             sb.AppendLine();
             sb.AppendLine("# Memory Recall");
             sb.AppendLine($"- A long-term memory library may be bound to this session. When past context matters, call `{MemoryToolName}` with a focused query instead of guessing; it returns relevant snippets or reports that no library is bound.");
+        }
+
+        if (hasResearcher)
+        {
+            sb.AppendLine();
+            sb.AppendLine("# Delegation");
+            sb.AppendLine("- A read-only sub-agent `Researcher` is available. Delegate broad exploration (codebase surveys, multi-page web research) to it and work from its report — this keeps your own context focused. Anything that modifies state stays with you.");
         }
 
         sb.AppendLine();
