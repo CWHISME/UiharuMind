@@ -269,6 +269,45 @@
     <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
         <value>记忆检索工具（memory_search）</value>
     </data>
+    <data name="AgentSettingCapTodoList" xml:space="preserve">
+        <value>任务清单</value>
+    </data>
+    <data name="AgentSettingCapAgentMode" xml:space="preserve">
+        <value>计划模式</value>
+    </data>
+    <data name="AgentGateDescFileAccess" xml:space="preserve">
+        <value>工作区文件工具：Glob 找文件、Grep 搜文本、Read/Write/Edit/Replace/Delete 查看与修改。写操作始终需要审批。下方提示词用于教 agent 正确使用它们。</value>
+    </data>
+    <data name="AgentGateDescShell" xml:space="preserve">
+        <value>在工作区执行 shell 命令（run_shell）。每条命令都需审批；可在审批卡片上"本会话放行同类命令"降低打扰。输出超过 64 KiB 自动截断。</value>
+    </data>
+    <data name="AgentGateDescWebSearch" xml:space="preserve">
+        <value>网络搜索与网页抓取（WebSearch / WebFetch）。填入 API key 后优先走官方搜索接口，未填时使用免费的网页抓取兜底。</value>
+    </data>
+    <data name="AgentGateDescVisionTool" xml:space="preserve">
+        <value>让不识图的模型把图片问题转交给视觉模型（ask_vision）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
+    </data>
+    <data name="AgentGateDescMemorySearch" xml:space="preserve">
+        <value>检索会话挂载的记忆库（memory_search）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。</value>
+    </data>
+    <data name="AgentGateDescAgentNotes" xml:space="preserve">
+        <value>Agent 自己的持久化笔记（文件记忆），跨会话共享。与会话挂载的记忆库是两回事。</value>
+    </data>
+    <data name="AgentGateDescScheduledTasks" xml:space="preserve">
+        <value>创建定时任务（create_scheduled_task），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>
+    </data>
+    <data name="AgentGateDescTodoList" xml:space="preserve">
+        <value>侧栏展示的 agent 任务清单。关闭后侧栏面板隐藏，agent 也不再维护待办。</value>
+    </data>
+    <data name="AgentGateDescAgentMode" xml:space="preserve">
+        <value>计划/执行模式切换。关闭后输入框的模式切换按钮隐藏，agent 始终直接执行。</value>
+    </data>
+    <data name="AgentGatePromptLabel" xml:space="preserve">
+        <value>提示词（可编辑）</value>
+    </data>
+    <data name="AgentGatePromptReset" xml:space="preserve">
+        <value>重置为默认</value>
+    </data>
     <data name="AgentSettingWebSearchKeys" xml:space="preserve">
         <value>网络搜索 API key</value>
     </data>

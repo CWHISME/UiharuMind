@@ -45,11 +45,26 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public bool EnableVisionTool { get; set; } = true;
 
     /// <summary>启用记忆检索工具(memory_search,检索会话挂载的嵌入知识库)</summary>
-    public bool EnableMemorySearchTool { get; set; } = true;
+    public bool EnableMemorySearchTool { get; set; } = false;
+
+    /// <summary>启用任务清单(框架 TodoProvider;关闭时对话侧栏的任务清单同步隐藏)</summary>
+    public bool EnableTodoList { get; set; } = false;
+
+    /// <summary>启用计划模式(框架 AgentModeProvider 的 plan/execute;关闭时输入框的模式切换同步隐藏)</summary>
+    public bool EnableAgentMode { get; set; } = true;
 
     /// <summary>Tavily 搜索 API key(填入后搜索优先走正规 API,空则用爬页面兜底链)</summary>
     public string TavilyApiKey { get; set; } = string.Empty;
 
     /// <summary>Brave Search API key(同上,优先级次于 Tavily)</summary>
     public string BraveSearchApiKey { get; set; } = string.Empty;
+
+    /// <summary>文件工具纪律段的自定义提示词(空 = 用内置默认,见 AgentToolPrompts)</summary>
+    public string FileAccessPrompt { get; set; } = string.Empty;
+
+    /// <summary>识图工具纪律段的自定义提示词(空 = 用内置默认)</summary>
+    public string VisionToolPrompt { get; set; } = string.Empty;
+
+    /// <summary>记忆检索工具纪律段的自定义提示词(空 = 用内置默认)</summary>
+    public string MemorySearchPrompt { get; set; } = string.Empty;
 }

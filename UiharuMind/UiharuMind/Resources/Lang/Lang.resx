@@ -279,6 +279,45 @@
     <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
         <value>Memory search tool (memory_search)</value>
     </data>
+    <data name="AgentSettingCapTodoList" xml:space="preserve">
+        <value>Task list</value>
+    </data>
+    <data name="AgentSettingCapAgentMode" xml:space="preserve">
+        <value>Plan mode</value>
+    </data>
+    <data name="AgentGateDescFileAccess" xml:space="preserve">
+        <value>File tools for the workspace: Glob to find files, Grep to search text, Read/Write/Edit/Replace/Delete to view and modify. Write operations always ask for approval. The prompt below teaches the agent how to use them.</value>
+    </data>
+    <data name="AgentGateDescShell" xml:space="preserve">
+        <value>Run shell commands in the workspace (run_shell). Every command asks for approval; use "Allow similar commands" on the approval card to reduce prompts. Output is truncated at 64 KiB.</value>
+    </data>
+    <data name="AgentGateDescWebSearch" xml:space="preserve">
+        <value>Web search and page fetching (WebSearch / WebFetch). With an API key the official search API is used first; otherwise free scraping fallbacks are used.</value>
+    </data>
+    <data name="AgentGateDescVisionTool" xml:space="preserve">
+        <value>Lets a text-only model ask a vision model about image files (ask_vision). Only mounted when the current model cannot see images itself. The prompt below tells the agent when to use it.</value>
+    </data>
+    <data name="AgentGateDescMemorySearch" xml:space="preserve">
+        <value>Search the memory library bound to the session (memory_search). When disabled, or when the model cannot call tools, relevant snippets are injected automatically each turn instead.</value>
+    </data>
+    <data name="AgentGateDescAgentNotes" xml:space="preserve">
+        <value>The agent's own persistent notes (file memory), shared across sessions. Different from the session-bound memory library.</value>
+    </data>
+    <data name="AgentGateDescScheduledTasks" xml:space="preserve">
+        <value>Create scheduled tasks (create_scheduled_task) that run headlessly at a later time with pre-authorized shell commands only.</value>
+    </data>
+    <data name="AgentGateDescTodoList" xml:space="preserve">
+        <value>The agent's task list shown in the sidebar. When disabled, the sidebar panel is hidden and the agent no longer maintains todos.</value>
+    </data>
+    <data name="AgentGateDescAgentMode" xml:space="preserve">
+        <value>Plan/execute mode switching. When disabled, the mode toggle in the composer is hidden and the agent always executes directly.</value>
+    </data>
+    <data name="AgentGatePromptLabel" xml:space="preserve">
+        <value>Prompt (editable)</value>
+    </data>
+    <data name="AgentGatePromptReset" xml:space="preserve">
+        <value>Reset to default</value>
+    </data>
     <data name="AgentSettingWebSearchKeys" xml:space="preserve">
         <value>Web search API keys</value>
     </data>

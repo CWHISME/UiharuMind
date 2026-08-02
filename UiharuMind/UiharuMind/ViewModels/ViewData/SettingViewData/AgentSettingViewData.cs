@@ -13,6 +13,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.AI.Agent;
 using UiharuMind.Core.AI.Agent.Mcp;
 using UiharuMind.Core.AI.Agent.Skills;
 using UiharuMind.Core.Configs;
@@ -21,6 +22,90 @@ using UiharuMind.ViewModels;
 
 namespace UiharuMind.ViewModels.ViewData.SettingViewData;
 
+/// <summary>
+/// 能力门控条目：左列 toggle+名称，右栏描述/可编辑提示词/专属设置。
+/// 变更即写配置并保存；提示词只存"覆盖"（与默认相同或为空 = 用默认），
+/// 因此重置=清空覆盖，默认措辞升级时未覆盖的用户自动跟随。
+/// </summary>
+public sealed partial class AgentGateItem : ObservableObject
+{
+    private readonly Func<bool> _getEnabled; //现读现写 Current,配置对象可能被重载替换
+    private readonly Action<bool> _setEnabled;
+    private readonly Func<string>? _getPromptOverride;
+    private readonly Action<string>? _setPromptOverride;
+
+    /// <summary>显示名</summary>
+    public string Name { get; }
+
+    /// <summary>详细描述</summary>
+    public string Description { get; }
+
+    /// <summary>默认提示词(无提示词的门控为空串)</summary>
+    public string DefaultPrompt { get; }
+
+    /// <summary>是否带可编辑提示词</summary>
+    public bool HasPrompt => _setPromptOverride != null;
+
+    /// <summary>是否为网络搜索门控(右栏追加 API key 面板)</summary>
+    public bool IsWebSearchGate { get; init; }
+
+    public AgentGateItem(string name, string description,
+        Func<bool> getEnabled, Action<bool> setEnabled,
+        string defaultPrompt = "",
+        Func<string>? getPromptOverride = null, Action<string>? setPromptOverride = null)
+    {
+        Name = name;
+        Description = description;
+        DefaultPrompt = defaultPrompt;
+        _getEnabled = getEnabled;
+        _setEnabled = setEnabled;
+        _getPromptOverride = getPromptOverride;
+        _setPromptOverride = setPromptOverride;
+    }
+
+    /// <summary>开关(变更即存)</summary>
+    public bool IsEnabled
+    {
+        get => _getEnabled();
+        set
+        {
+            if (_getEnabled() == value) return;
+            _setEnabled(value);
+            AgentSettingConfig.Current.Save();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>生效中的提示词(覆盖为空时显示默认;编辑即存)</summary>
+    public string PromptText
+    {
+        get
+        {
+            string overrideText = _getPromptOverride?.Invoke() ?? string.Empty;
+            return string.IsNullOrWhiteSpace(overrideText) ? DefaultPrompt : overrideText;
+        }
+        set
+        {
+            if (_setPromptOverride == null || value == PromptText) return;
+            _setPromptOverride(value.Trim() == DefaultPrompt ? string.Empty : value);
+            AgentSettingConfig.Current.Save();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// 重置为默认提示词(清空覆盖)
+    /// </summary>
+    [RelayCommand]
+    private void ResetPrompt()
+    {
+        if (_setPromptOverride == null) return;
+        _setPromptOverride(string.Empty);
+        AgentSettingConfig.Current.Save();
+        OnPropertyChanged(nameof(PromptText));
+    }
+}
+
 public partial class AgentSettingViewData : ViewModelBase
 {
     //================= 常规 =================
@@ -28,14 +113,9 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
     [ObservableProperty] private bool _defaultPlanMode;
 
-    //================= 能力开关 =================
-    [ObservableProperty] private bool _enableFileAccess = true;
-    [ObservableProperty] private bool _enableShellExecution = true;
-    [ObservableProperty] private bool _enableWebSearch = true;
-    [ObservableProperty] private bool _enableAgentNotes = true;
-    [ObservableProperty] private bool _enableScheduledTasks = true;
-    [ObservableProperty] private bool _enableVisionTool = true;
-    [ObservableProperty] private bool _enableMemorySearchTool = true;
+    //================= 能力门控(左列表右详情) =================
+    public ObservableCollection<AgentGateItem> Gates { get; } = new();
+    [ObservableProperty] private AgentGateItem? _selectedGate;
     [ObservableProperty] private string _tavilyApiKey = string.Empty;
     [ObservableProperty] private string _braveSearchApiKey = string.Empty;
 
@@ -54,18 +134,71 @@ public partial class AgentSettingViewData : ViewModelBase
         _defaultPermissionModeIndex = config.DefaultPermissionModeIndex;
         _defaultWorkspacePath = config.DefaultWorkspacePath;
         _defaultPlanMode = config.DefaultPlanMode;
-        _enableFileAccess = config.EnableFileAccess;
-        _enableShellExecution = config.EnableShellExecution;
-        _enableWebSearch = config.EnableWebSearch;
-        _enableAgentNotes = config.EnableAgentNotes;
-        _enableScheduledTasks = config.EnableScheduledTasks;
-        _enableVisionTool = config.EnableVisionTool;
-        _enableMemorySearchTool = config.EnableMemorySearchTool;
         _tavilyApiKey = config.TavilyApiKey;
         _braveSearchApiKey = config.BraveSearchApiKey;
 
+        BuildGates();
         RefreshServers();
         RefreshSkills();
+    }
+
+    /// <summary>
+    /// 构建门控列表。开关与提示词的读写都现取 <see cref="AgentSettingConfig.Current"/>,
+    /// 不缓存配置对象引用。
+    /// </summary>
+    private void BuildGates()
+    {
+        string L(string key) => LocalizationManager.Instance.GetString(key);
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapFileAccess"), L("AgentGateDescFileAccess"),
+            () => AgentSettingConfig.Current.EnableFileAccess,
+            v => AgentSettingConfig.Current.EnableFileAccess = v,
+            AgentToolPrompts.FileAccessDefault,
+            () => AgentSettingConfig.Current.FileAccessPrompt,
+            v => AgentSettingConfig.Current.FileAccessPrompt = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapShellExecution"), L("AgentGateDescShell"),
+            () => AgentSettingConfig.Current.EnableShellExecution,
+            v => AgentSettingConfig.Current.EnableShellExecution = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapWebSearch"), L("AgentGateDescWebSearch"),
+            () => AgentSettingConfig.Current.EnableWebSearch,
+            v => AgentSettingConfig.Current.EnableWebSearch = v)
+        {
+            IsWebSearchGate = true,
+        });
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapVisionTool"), L("AgentGateDescVisionTool"),
+            () => AgentSettingConfig.Current.EnableVisionTool,
+            v => AgentSettingConfig.Current.EnableVisionTool = v,
+            AgentToolPrompts.VisionToolDefault,
+            () => AgentSettingConfig.Current.VisionToolPrompt,
+            v => AgentSettingConfig.Current.VisionToolPrompt = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapMemorySearchTool"), L("AgentGateDescMemorySearch"),
+            () => AgentSettingConfig.Current.EnableMemorySearchTool,
+            v => AgentSettingConfig.Current.EnableMemorySearchTool = v,
+            AgentToolPrompts.MemorySearchDefault,
+            () => AgentSettingConfig.Current.MemorySearchPrompt,
+            v => AgentSettingConfig.Current.MemorySearchPrompt = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapAgentNotes"), L("AgentGateDescAgentNotes"),
+            () => AgentSettingConfig.Current.EnableAgentNotes,
+            v => AgentSettingConfig.Current.EnableAgentNotes = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapScheduledTasks"), L("AgentGateDescScheduledTasks"),
+            () => AgentSettingConfig.Current.EnableScheduledTasks,
+            v => AgentSettingConfig.Current.EnableScheduledTasks = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapTodoList"), L("AgentGateDescTodoList"),
+            () => AgentSettingConfig.Current.EnableTodoList,
+            v => AgentSettingConfig.Current.EnableTodoList = v));
+
+        Gates.Add(new AgentGateItem(L("AgentSettingCapAgentMode"), L("AgentGateDescAgentMode"),
+            () => AgentSettingConfig.Current.EnableAgentMode,
+            v => AgentSettingConfig.Current.EnableAgentMode = v));
+
+        SelectedGate = Gates.FirstOrDefault();
     }
 
     //================= 常规:变更即存 =================
@@ -87,49 +220,7 @@ public partial class AgentSettingViewData : ViewModelBase
         AgentSettingConfig.Current.Save();
     }
 
-    //================= 能力开关:变更即存 =================
-    partial void OnEnableFileAccessChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableFileAccess = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnEnableShellExecutionChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableShellExecution = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnEnableWebSearchChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableWebSearch = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnEnableAgentNotesChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableAgentNotes = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnEnableScheduledTasksChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableScheduledTasks = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnEnableVisionToolChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableVisionTool = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnEnableMemorySearchToolChanged(bool value)
-    {
-        AgentSettingConfig.Current.EnableMemorySearchTool = value;
-        AgentSettingConfig.Current.Save();
-    }
-
+    //================= 能力门控:开关/提示词的写入在 AgentGateItem 内完成 =================
     partial void OnTavilyApiKeyChanged(string value)
     {
         AgentSettingConfig.Current.TavilyApiKey = value;

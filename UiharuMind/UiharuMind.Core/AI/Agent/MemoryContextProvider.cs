@@ -29,8 +29,8 @@ namespace UiharuMind.Core.AI.Agent;
 internal sealed class MemoryContextProvider : AIContextProvider
 {
     private const string InstructionsHeader =
-        "以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，" +
-        "请根据片段的相关性(Relevance)参数高低酌情参考。";
+        "以下是通过用户当前的问题 RAG 搜索到的相关信息片段，" +
+        "请根据片段的相关性(Relevance)参数高低参考回答。";
 
     private readonly bool _hasMemoryTool; //本 agent 是否装配了 memory_search(agent 档才有)
 

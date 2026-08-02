@@ -400,7 +400,8 @@
 
                 <!-- Todo / 定时任务 页签 -->
                 <TabControl Grid.Row="1" Padding="0">
-                    <TabItem Header="{loc:Loc AgentTodoTitle}" FontSize="13">
+                    <TabItem Header="{loc:Loc AgentTodoTitle}" FontSize="13"
+                             IsVisible="{Binding Conversation.IsTodoListVisible}">
                         <ScrollViewer Margin="0,6,0,0">
                             <StackPanel>
                                 <TextBlock Classes="muted"

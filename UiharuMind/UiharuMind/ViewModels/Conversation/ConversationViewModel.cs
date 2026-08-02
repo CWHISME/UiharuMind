@@ -192,6 +192,12 @@ public partial class ConversationViewModel : ViewModelBase
         (_currentCharacter ?? CharacterManager.Instance.GetCharacterData(NewSessionCharacterId)).Kind ==
         ECharacterKind.Agent;
 
+    /// <summary>输入框的模式切换是否可见(agent 会话且计划模式门控开启);随会话切换刷新</summary>
+    public bool IsModeSwitchVisible => IsAgentSession && AgentSettingConfig.Current.EnableAgentMode;
+
+    /// <summary>侧栏任务清单是否可见(任务清单门控开启);随会话切换刷新</summary>
+    public bool IsTodoListVisible => AgentSettingConfig.Current.EnableTodoList;
+
     /// <summary>当前会话的记忆库面板(未挂接会话时为空)</summary>
     [ObservableProperty] private ConversationMemoryViewData? _memoryPanel;
 
@@ -669,6 +675,8 @@ public partial class ConversationViewModel : ViewModelBase
             CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
             OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(IsModeSwitchVisible));
+        OnPropertyChanged(nameof(IsTodoListVisible));
             MemoryPanel = new ConversationMemoryViewData(created);
             await created.Runner.AttachAsync(created, cancellationToken);
             ApplyMode();
@@ -781,6 +789,8 @@ public partial class ConversationViewModel : ViewModelBase
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
         OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(IsModeSwitchVisible));
+        OnPropertyChanged(nameof(IsTodoListVisible));
         OnPropertyChanged(nameof(SessionModelLabel));
         if (meta == null)
         {

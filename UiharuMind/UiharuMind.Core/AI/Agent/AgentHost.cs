@@ -185,7 +185,12 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             extraTools.Add(shellExecutor.AsAIFunction());
         }
 
-        if (config.EnableVisionTool)
+        // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,ask_vision 是多余的绕路。
+        // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
+        bool modelSupportsVision =
+            (profile.SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel)?.IsVisionModel == true;
+        bool mountVisionTool = config.EnableVisionTool && !modelSupportsVision;
+        if (mountVisionTool)
         {
             extraTools.Add(VisionTool.Create(workingDirectory));
         }
@@ -219,7 +224,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
             : null;
 
-        AIAgent? researcher = BuildResearcherAgent(client, config, workingDirectory);
+        AIAgent? researcher = BuildResearcherAgent(client, config, workingDirectory, mountVisionTool);
 
         // 工作区规矩属任务上下文而非平台机制:放 agent 侧指令尾部——
         // 即整个系统提示的最尾,遵循权重最高;内容变化仍经装配快照捕获
@@ -233,7 +238,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
-            researcher == null ? null : [researcher], profile.SessionShellApprovalSource), shellExecutor);
+            researcher == null ? null : [researcher], profile.SessionShellApprovalSource,
+            visionToolMounted: mountVisionTool), shellExecutor);
     }
 
     /// <summary>
@@ -245,11 +251,12 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="client">模型客户端(与主 agent 同一惰性客户端)</param>
     /// <param name="config">能力配置</param>
     /// <param name="workingDirectory">工作目录(只读文件工具的根)</param>
+    /// <param name="visionToolAvailable">识图工具是否可挂(开关开且当前模型不自带视觉)</param>
     /// <returns>子代理;无任何只读能力可用时为 null</returns>
     private static AIAgent? BuildResearcherAgent(IChatClient client, AgentSettingConfig config,
-        string workingDirectory)
+        string workingDirectory, bool visionToolAvailable)
     {
-        HarnessAgentOptions? options = BuildResearcherOptions(config, workingDirectory);
+        HarnessAgentOptions? options = BuildResearcherOptions(config, workingDirectory, visionToolAvailable);
         if (options == null) return null;
 
         MfaLoggerFactory loggerFactory = new();
@@ -262,9 +269,10 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// </summary>
     /// <param name="config">能力配置</param>
     /// <param name="workingDirectory">只读文件工具的根目录</param>
+    /// <param name="visionToolAvailable">识图工具是否可挂(开关开且当前模型不自带视觉)</param>
     /// <returns>框架选项;无任何只读能力启用时为 null</returns>
     internal static HarnessAgentOptions? BuildResearcherOptions(AgentSettingConfig config,
-        string workingDirectory)
+        string workingDirectory, bool visionToolAvailable = true)
     {
         List<AITool> tools = new();
         if (config.EnableFileAccess)
@@ -278,7 +286,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             tools.Add(WebFetchTool.Create());
         }
 
-        if (config.EnableVisionTool)
+        bool hasVision = config.EnableVisionTool && visionToolAvailable;
+        if (hasVision)
         {
             tools.Add(VisionTool.Create(workingDirectory));
         }
@@ -305,7 +314,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             DisableOpenTelemetry = true,
             ChatOptions = new ChatOptions
             {
-                Instructions = BuildResearcherInstructions(config),
+                Instructions = BuildResearcherInstructions(config, hasVision),
                 Tools = tools,
             },
         };
@@ -315,8 +324,9 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// 调研员的系统提示:身份 + 只读边界 + 报告体例,按启用的能力裁剪。
     /// </summary>
     /// <param name="config">能力配置</param>
+    /// <param name="hasVision">识图工具是否已装配</param>
     /// <returns>提示词</returns>
-    private static string BuildResearcherInstructions(AgentSettingConfig config)
+    private static string BuildResearcherInstructions(AgentSettingConfig config, bool hasVision)
     {
         StringBuilder sb = new();
         sb.AppendLine("# Role");
@@ -334,7 +344,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             sb.AppendLine("- Research the web with web_search, then web_fetch the promising results.");
         }
 
-        if (config.EnableVisionTool)
+        if (hasVision)
         {
             sb.AppendLine($"- For image files, call `{VisionToolName}` with the file path.");
         }
@@ -391,22 +401,26 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
     /// <param name="backgroundAgents">背景子代理(内置调研员),无则 null</param>
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
+    /// <param name="visionToolMounted">识图工具是否已装配(开关开且当前模型不自带视觉)</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         List<AIAgent>? backgroundAgents = null,
-        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
+        bool visionToolMounted = true)
     {
         return new HarnessAgentOptions
         {
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            HarnessInstructions = BuildToolDisciplines(config),
+            HarnessInstructions = BuildToolDisciplines(config, visionToolMounted),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
+            DisableTodoProvider = !config.EnableTodoList,
+            DisableAgentModeProvider = !config.EnableAgentMode,
             FileMemoryStore = agentNotesStore,
             // 1.16:框架文件工具只随 FileAccessStore 出现;shell 改为普通工具挂在 ChatOptions.Tools
             FileAccessStore = null,
@@ -448,34 +462,34 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// 角色人格/任务与工作区规矩属 agent 侧指令(ChatOptions.Instructions),框架拼在本段之后。
     /// </summary>
     /// <param name="config">agent 能力配置</param>
+    /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <returns>harness 层指令文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config)
+    private static string BuildToolDisciplines(AgentSettingConfig config, bool visionToolMounted)
     {
         StringBuilder sb = new();
         sb.Append(HarnessAgent.DefaultInstructions);
 
+        // 各段正文可在设置页覆盖(空 = 用 AgentToolPrompts 默认),段落标题固定由此处统一挂
         if (config.EnableFileAccess)
         {
             sb.AppendLine();
             sb.AppendLine();
             sb.AppendLine("## File operations");
-            sb.AppendLine("- Use `Glob` to find files, `Grep` to search text, and `Read` a file before you change it.");
-            sb.AppendLine("- Always pass explicit paths. If the location is unclear, run one `Glob` first instead of asking.");
-            sb.AppendLine("- Make the smallest edit that works. Never rewrite a whole file for a small change.");
+            sb.AppendLine(AgentToolPrompts.ResolveFileAccess(config));
         }
 
-        if (config.EnableVisionTool)
+        if (config.EnableVisionTool && visionToolMounted)
         {
             sb.AppendLine();
             sb.AppendLine("## Images");
-            sb.AppendLine($"- Attachments arrive as `[Attached file: <path>]`. To see what an image shows, call `{VisionToolName}` with that path. Never guess from the file name.");
+            sb.AppendLine(AgentToolPrompts.ResolveVisionTool(config));
         }
 
         if (config.EnableMemorySearchTool)
         {
             sb.AppendLine();
             sb.AppendLine("## Memory");
-            sb.AppendLine($"- To recall past context, call `{MemoryToolName}` with a short focused query. It returns snippets, or reports that no library is bound.");
+            sb.AppendLine(AgentToolPrompts.ResolveMemorySearch(config));
         }
 
         return sb.ToString();

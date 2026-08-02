@@ -68,6 +68,18 @@ public sealed record AgentAssemblySnapshot
     /// <summary>记忆检索工具开关</summary>
     public bool MemorySearchTool { get; init; }
 
+    /// <summary>当前模型是否自带视觉(决定识图工具挂不挂;视觉↔非视觉切换经此触发重建)</summary>
+    public bool ModelSupportsVision { get; init; }
+
+    /// <summary>任务清单开关(框架 TodoProvider)</summary>
+    public bool TodoList { get; init; }
+
+    /// <summary>计划模式开关(框架 AgentModeProvider)</summary>
+    public bool AgentMode { get; init; }
+
+    /// <summary>工具纪律段的自定义提示词覆盖(拼接;设置页编辑经此触发重建)</summary>
+    public string ToolPromptOverrides { get; init; } = string.Empty;
+
     /// <summary>工作区说明文件内容(AGENTS.md/CLAUDE.md);文件编辑经此触发重建</summary>
     public string WorkspaceInstructions { get; init; } = string.Empty;
 
@@ -93,7 +105,9 @@ public sealed record AgentAssemblySnapshot
             AgentSettingConfig.Current, McpManager.Instance.Revision,
             character.Kind == ECharacterKind.Agent
                 ? WorkspaceInstructionsLoader.Load(session.WorkspacePath)
-                : string.Empty);
+                : string.Empty,
+            // 与 LazyChatClient 同一解析次序:会话绑定模型优先,回落全局当前模型
+            session.ChatModelRunningData?.IsVisionModel == true);
     }
 
     /// <summary>
@@ -107,11 +121,13 @@ public sealed record AgentAssemblySnapshot
     /// <param name="config">agent 能力配置</param>
     /// <param name="mcpRevision">MCP 工具集修订号</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
+    /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
     /// <returns>快照</returns>
     public static AgentAssemblySnapshot Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
-        AgentSettingConfig config, int mcpRevision, string workspaceInstructions = "")
+        AgentSettingConfig config, int mcpRevision, string workspaceInstructions = "",
+        bool modelSupportsVision = false)
     {
         // 角色扮演档不装配工具,工具相关输入一律归零——agent 侧配置变化不连累角色扮演重建
         bool isAgent = character.Kind == ECharacterKind.Agent;
@@ -133,6 +149,12 @@ public sealed record AgentAssemblySnapshot
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
             MemorySearchTool = isAgent && config.EnableMemorySearchTool,
+            ModelSupportsVision = isAgent && modelSupportsVision,
+            TodoList = isAgent && config.EnableTodoList,
+            AgentMode = isAgent && config.EnableAgentMode,
+            ToolPromptOverrides = isAgent
+                ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt, config.MemorySearchPrompt)
+                : string.Empty,
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
             McpRevision = isAgent ? mcpRevision : 0,

@@ -359,7 +359,7 @@
                                           Tag="{Binding ModeKey}"
                                           Command="{Binding CycleModeCommand}"
                                           ToolTips="{Binding ModeTooltip}"
-                                          IsVisible="{Binding IsAgentSession}" />
+                                          IsVisible="{Binding IsModeSwitchVisible}" />
                         <ThemedIconButton Classes="sender-state"
                                           IconName="{Binding SenderIconName}"
                                           Tag="{Binding SenderModeKey}"
@@ -367,8 +367,8 @@
                                           ToolTips="{Binding SenderTooltip}"
                                           IsVisible="{Binding !IsAgentSession}" />
                         <!-- 垂直分隔线 -->
-                        <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center"/>
-                        
+                        <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center" IsVisible="{Binding !IsAgentSession}"/>
+
                         <ThemedIconButton Classes="permission-state"
                                           IconName="shield"
                                           Tag="{Binding PermissionModeKey}"

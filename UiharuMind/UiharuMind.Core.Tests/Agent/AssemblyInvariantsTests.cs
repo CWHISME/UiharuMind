@@ -186,6 +186,10 @@ public class AssemblySnapshotTests
     [InlineData("workspace")]
     [InlineData("preauth")]
     [InlineData("instructions")]
+    [InlineData("todolist")]
+    [InlineData("agentmode")]
+    [InlineData("vision-model")]
+    [InlineData("prompt-override")]
     public void ChangedInput_ProducesDifferentSnapshot(string dimension)
     {
         AgentSettingConfig config = new();
@@ -198,6 +202,7 @@ public class AssemblySnapshotTests
         EAgentPermissionMode permission = EAgentPermissionMode.AutoEdit;
         IReadOnlyList<string>? preAuthorized = null;
         int mcpRevision = 1;
+        bool modelSupportsVision = false;
         switch (dimension)
         {
             case "shell": changedConfig.EnableShellExecution = false; break;
@@ -206,10 +211,15 @@ public class AssemblySnapshotTests
             case "workspace": workspace = "/other"; break;
             case "preauth": preAuthorized = ["git status*"]; break;
             case "instructions": instructions = "edited prompt"; break; //角色卡/会话参数编辑经此显形
+            case "todolist": changedConfig.EnableTodoList = false; break;
+            case "agentmode": changedConfig.EnableAgentMode = false; break;
+            case "vision-model": modelSupportsVision = true; break; //视觉↔非视觉模型切换触发重建
+            case "prompt-override": changedConfig.VisionToolPrompt = "custom vision prompt"; break;
         }
 
         AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), instructions,
-            workspace, permission, preAuthorized, changedConfig, mcpRevision);
+            workspace, permission, preAuthorized, changedConfig, mcpRevision,
+            modelSupportsVision: modelSupportsVision);
 
         Assert.NotEqual(baseline, changed);
     }

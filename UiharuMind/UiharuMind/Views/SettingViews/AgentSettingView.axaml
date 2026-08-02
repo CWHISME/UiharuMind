@@ -47,58 +47,66 @@
                     <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingDefaultPlanMode}" />
                 </StackPanel>
 
-                <Border Classes="form-pane" Margin="0,16,0,0" Padding="14">
-                    <StackPanel Spacing="4">
-                        <TextBlock FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"
-                                   Text="{loc:Loc AgentSettingCapabilities}" />
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableFileAccess}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapFileAccess}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableShellExecution}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapShellExecution}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableWebSearch}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapWebSearch}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableAgentNotes}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapAgentNotes}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableScheduledTasks}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapScheduledTasks}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableVisionTool}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapVisionTool}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <ToggleSwitch IsChecked="{Binding EnableMemorySearchTool}" />
-                            <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingCapMemorySearchTool}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Classes="form-pane" Margin="0,16,0,0" Padding="14">
-                    <StackPanel Spacing="6">
-                        <TextBlock FontSize="12" FontWeight="SemiBold" Margin="0,0,0,2"
-                                   Text="{loc:Loc AgentSettingWebSearchKeys}" />
-                        <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                   Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Width="80" VerticalAlignment="Center" Text="Tavily" />
-                            <TextBox Width="320" PasswordChar="●" Text="{Binding TavilyApiKey}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Width="80" VerticalAlignment="Center" Text="Brave" />
-                            <TextBox Width="320" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
             </StackPanel>
+        </TabItem>
+
+        <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
+        <TabItem Header="{loc:Loc AgentSettingCapabilities}">
+            <Grid ColumnDefinitions="240,16,*" Margin="0,12">
+                <ListBox Grid.Column="0"
+                         ItemsSource="{Binding Gates}"
+                         SelectedItem="{Binding SelectedGate}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ToggleSwitch IsChecked="{Binding IsEnabled}" />
+                                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Column="2" Classes="form-pane" Padding="14"
+                        VerticalAlignment="Top"
+                        IsVisible="{Binding SelectedGate, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="10">
+                            <TextBlock FontSize="13" FontWeight="SemiBold"
+                                       Text="{Binding SelectedGate.Name, FallbackValue=''}" />
+                            <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                                       Text="{Binding SelectedGate.Description, FallbackValue=''}" />
+
+                            <StackPanel Spacing="6"
+                                        IsVisible="{Binding SelectedGate.HasPrompt, FallbackValue=False}">
+                                <TextBlock Classes="field-label" Text="{loc:Loc AgentGatePromptLabel}" />
+                                <TextBox AcceptsReturn="True" TextWrapping="Wrap"
+                                         MinHeight="140" MaxHeight="260"
+                                         FontSize="12"
+                                         Text="{Binding SelectedGate.PromptText, FallbackValue=''}" />
+                                <Button HorizontalAlignment="Right"
+                                        Content="{loc:Loc AgentGatePromptReset}"
+                                        Command="{Binding SelectedGate.ResetPromptCommand, FallbackValue={x:Null}}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6"
+                                        IsVisible="{Binding SelectedGate.IsWebSearchGate, FallbackValue=False}">
+                                <TextBlock FontSize="12" FontWeight="SemiBold"
+                                           Text="{loc:Loc AgentSettingWebSearchKeys}" />
+                                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                           Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Width="60" VerticalAlignment="Center" Text="Tavily" />
+                                    <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Width="60" VerticalAlignment="Center" Text="Brave" />
+                                    <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
         </TabItem>
 
         <!-- 子 agent 档案页已移除:子 agent 就是普通角色,在角色编辑器里维护,
