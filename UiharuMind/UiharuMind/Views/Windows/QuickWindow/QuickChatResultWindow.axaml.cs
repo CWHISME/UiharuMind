@@ -205,7 +205,6 @@ public partial class QuickChatResultWindow : QuickWindowBase
             return;
         }
 
-        QuickChatViewWindow.Show(new ChatViewModel()
-            { ChatSession = new ChatSessionViewData(chatSession) });
+        QuickChatViewWindow.Show(chatSession);
     }
 }

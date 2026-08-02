@@ -6,6 +6,9 @@
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:conv="clr-namespace:UiharuMind.ViewModels.Conversation"
+             xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
+             xmlns:viewsPages="clr-namespace:UiharuMind.Views.Pages"
               mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
               x:Class="UiharuMind.Views.Pages.ChatPage"
                              xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
@@ -40,6 +43,18 @@
         <Style Selector="Thumb.resize-thumb">
             <Setter Property="Width" Value="18" />
             <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Dirty] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DarkRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Error] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Red" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="LawnGreen" />
         </Style>
     </UserControl.Styles>
 
@@ -117,7 +132,88 @@
             </Thumb>
 
             <Border Grid.Column="2" Classes="workspace-pane" ClipToBounds="True" MinWidth="260">
-                <otherViews:ChatView Name="ChatView" DataContext="{Binding ChatViewModel}" />
+                <convView:ConversationView DataContext="{Binding Conversation}">
+
+                    <convView:ConversationView.EmptyContent>
+                        <StackPanel Spacing="12" HorizontalAlignment="Center" Margin="0,90,0,0">
+                            <controls:ThemedSvgIcon IconName="message-circle-more" Width="52" Height="52"
+                                                    HorizontalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc ChatWorkspaceEmpty}" FontSize="17"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </convView:ConversationView.EmptyContent>
+
+                    <convView:ConversationView.HeaderExtra>
+                        <StackPanel Orientation="Horizontal" Spacing="8" x:DataType="conv:ConversationViewModel">
+                            <TextBlock Classes="muted" VerticalAlignment="Center"
+                                       Text="{Binding DataContext.ChatListViewModel.SelectedSession.MemoryTipsName, RelativeSource={RelativeSource AncestorType=viewsPages:ChatPage}}" />
+                            <ThemedIconButton IconName="repeat"
+                                              Command="{Binding RegenerateLastCommand}"
+                                              IsVisible="{Binding CanRegenerate}"
+                                              ToolTips="{loc:Loc RegenerateBtn}" />
+                        </StackPanel>
+                    </convView:ConversationView.HeaderExtra>
+
+                    <convView:ConversationView.ComposerTools>
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                                    x:DataType="conv:ConversationViewModel">
+                            <Button Content="{Binding SenderMode}" Command="{Binding ChangeSendModeCommand}">
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{loc:Loc SendUserDesc}" />
+                                </ToolTip.Tip>
+                            </Button>
+                            <ThemedIconButton Classes="memory-status"
+                                              IconName="database"
+                                              ToolTips="{Binding DataContext.ChatListViewModel.SelectedSession.MemoryIndexTips, RelativeSource={RelativeSource AncestorType=viewsPages:ChatPage}}"
+                                              Tag="{Binding DataContext.ChatListViewModel.SelectedSession.MemoryStatusKey, RelativeSource={RelativeSource AncestorType=viewsPages:ChatPage}}"
+                                              Command="{Binding DataContext.ChatListViewModel.SelectedSession.MemoryEditorCommand, RelativeSource={RelativeSource AncestorType=viewsPages:ChatPage}}" />
+                            <ThemedIconButton IconName="image" Command="{Binding AddAttachmentCommand}" />
+                            <ThemedIconButton IconName="settings">
+                                <ThemedIconButton.Flyout>
+                                    <Flyout Placement="Top">
+                                        <Border Padding="10"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource SemiGrey0}"
+                                                BorderBrush="{DynamicResource SemiGrey2}"
+                                                BorderThickness="1">
+                                            <StackPanel Spacing="10">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <controls:ThemedSvgIcon Width="16"
+                                                              Height="16"
+                                                              VerticalAlignment="Center"
+                                                              IconName="settings" />
+                                                    <TextBlock Text="{loc:Loc Settings}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource SemiGrey7}" />
+                                                </StackPanel>
+
+                                                <Border Height="1" Background="{DynamicResource SemiGrey2}" />
+
+                                                <CheckBox Content="{loc:Loc HideThnkingText}"
+                                                          IsChecked="{Binding IsNotShowThinking}">
+                                                    <ToolTip.Tip>
+                                                        <TextBlock Text="{loc:Loc HideThnkingTextTips}" />
+                                                    </ToolTip.Tip>
+                                                </CheckBox>
+
+                                                <CheckBox Content="{loc:Loc Plaintext}"
+                                                          IsChecked="{Binding IsPlaintext}">
+                                                    <ToolTip.Tip>
+                                                        <TextBlock Text="{loc:Loc ChatPlaintextTooltip}" />
+                                                    </ToolTip.Tip>
+                                                </CheckBox>
+                                            </StackPanel>
+                                        </Border>
+                                    </Flyout>
+                                </ThemedIconButton.Flyout>
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{loc:Loc Settings}" />
+                                </ToolTip.Tip>
+                            </ThemedIconButton>
+                        </StackPanel>
+                    </convView:ConversationView.ComposerTools>
+
+                </convView:ConversationView>
             </Border>
 
             <Thumb Grid.Column="3"
@@ -145,7 +241,7 @@
                         <StackPanel MinWidth="0">
                             <TextBlock Classes="section-title" Text="{loc:Loc ChatDetails}" />
                             <TextBlock Classes="muted"
-                                       Text="{Binding ChatViewModel.ChatSession.Name}"
+                                       Text="{Binding ChatListViewModel.SelectedSession.Name}"
                                        TextTrimming="CharacterEllipsis"
                                        MaxLines="1" />
                         </StackPanel>

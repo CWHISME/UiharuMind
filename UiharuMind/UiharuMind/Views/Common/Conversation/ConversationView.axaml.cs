@@ -9,6 +9,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -69,11 +70,21 @@ public partial class ConversationView : UserControl
     public ConversationView()
     {
         InitializeComponent();
-        _ = new ScrollViewerAutoScrollHolder(Viewer);
+        MessageList.TemplateApplied += OnMessageListTemplateApplied;
         InputBox.PastingFromClipboard += OnPastingFromClipboard;
         DragDrop.SetAllowDrop(ComposerBorder, true);
         ComposerBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
         ComposerBorder.AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    private void OnMessageListTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        // 消息列表的 ScrollViewer 在 ItemsControl 模板内部(虚拟化要求它自持滚动),
+        // 只能在模板应用后拿到;每次应用都是新的 ScrollViewer 实例,重复挂接不会叠加
+        if (e.NameScope.Find<ScrollViewer>("PART_MessageScroll") is { } scroll)
+        {
+            _ = new VirtualizedAutoScrollHolder(MessageList, scroll);
+        }
     }
 
     private async void OnPastingFromClipboard(object? sender, RoutedEventArgs e)

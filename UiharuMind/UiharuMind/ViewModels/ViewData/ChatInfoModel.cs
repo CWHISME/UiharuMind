@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.ViewModels.Chat;
 using UiharuMind.Views;
 using UiharuMind.Views.Chat.ChatPlugins;
 using UiharuMind.Views.Common.ChatPlugins;
@@ -19,16 +20,38 @@ public partial class ChatInfoModel : ViewModelBase
 
     public event Action? OnEventChatSessionChanged;
 
-    public ChatInfoModel()
+    /// <summary>
+    /// 切换插件面板对应的会话(由聊天页面壳在会话选择变化时调用)
+    /// </summary>
+    /// <param name="chatSessionViewData">会话视图数据,为空清空面板</param>
+    public void SetSession(ChatSessionItemViewData? chatSessionViewData)
     {
-        var viewModel = App.ViewModel.GetViewModel<ChatViewModel>();
-        OnChatSessionChanged(viewModel.ChatSession);
-        viewModel.OnEventChatSessionChanged += OnChatSessionChanged;
-        viewModel.OnEventBeginChat += OnBeginChat;
-        viewModel.OnEventEndChat += OnEndChat;
+        OnChatSessionChanged(chatSessionViewData);
     }
 
-    private void OnChatSessionChanged(ChatSessionViewData? chatSessionViewData)
+    /// <summary>
+    /// 通知一轮生成开始
+    /// </summary>
+    public void NotifyChatBegin()
+    {
+        foreach (var plugin in ChatPluginList)
+        {
+            plugin.OnChatBegin();
+        }
+    }
+
+    /// <summary>
+    /// 通知一轮生成结束
+    /// </summary>
+    public void NotifyChatEnd()
+    {
+        foreach (var plugin in ChatPluginList)
+        {
+            plugin.OnChatEnd();
+        }
+    }
+
+    private void OnChatSessionChanged(ChatSessionItemViewData? chatSessionViewData)
     {
         ChatPluginList.Clear();
 
@@ -54,33 +77,17 @@ public partial class ChatInfoModel : ViewModelBase
         OnEventChatSessionChanged?.Invoke();
     }
 
-    private void OnEndChat(ChatSessionViewData? obj)
-    {
-        foreach (var plugin in ChatPluginList)
-        {
-            plugin.OnChatBegin();
-        }
-    }
-
-    private void OnBeginChat(ChatSessionViewData? obj)
-    {
-        foreach (var plugin in ChatPluginList)
-        {
-            plugin.OnChatEnd();
-        }
-    }
-
-    private ChatPluginBase GetPlugin<T>(ChatSessionViewData chatSessionViewData) where T : ChatPluginBase, new()
+    private ChatPluginBase GetPlugin<T>(ChatSessionItemViewData chatSessionViewData) where T : ChatPluginBase, new()
     {
         if (ChatPluginsCacheDict.TryGetValue(typeof(T), out var chatPlugin))
         {
-            chatPlugin.SetSessonData(chatSessionViewData);
+            chatPlugin.SetSessionData(chatSessionViewData);
             return chatPlugin;
         }
 
         var plugin = new T();
         ChatPluginsCacheDict[typeof(T)] = plugin;
-        plugin.SetSessonData(chatSessionViewData);
+        plugin.SetSessionData(chatSessionViewData);
         return plugin;
     }
 }

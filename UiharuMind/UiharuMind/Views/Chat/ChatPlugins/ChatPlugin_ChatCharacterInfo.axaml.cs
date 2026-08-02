@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.ViewModels.Chat;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common.ChatPlugins;
 using UiharuMind.Views.Windows.Characters;
@@ -23,7 +24,7 @@ public partial class ChatPlugin_ChatCharacterInfoData : ChatPluginDataBase<ChatP
     [ObservableProperty] private string _characterDescription = string.Empty;
     // [ObservableProperty] private string _characterTemplete;
 
-    protected override void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
+    protected override void OnChatSessionChanged(ChatSessionItemViewData chatSessionViewData)
     {
         base.OnChatSessionChanged(chatSessionViewData);
         CharacterName = chatSessionViewData.ChatSession.CharacterData.CharacterName;

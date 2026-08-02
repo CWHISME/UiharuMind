@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
+using UiharuMind.ViewModels.Chat;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common.ChatPlugins;
 using UiharuMind.Views.Windows.Characters;
@@ -38,7 +39,7 @@ public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_
         }
     }
 
-    protected override void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
+    protected override void OnChatSessionChanged(ChatSessionItemViewData chatSessionViewData)
     {
         base.OnChatSessionChanged(chatSessionViewData);
         string? lastLanguage = null;

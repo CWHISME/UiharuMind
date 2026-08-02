@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Utils;
+using UiharuMind.ViewModels.Chat;
 
 namespace UiharuMind.ViewModels.ViewData;
 
@@ -24,11 +25,11 @@ namespace UiharuMind.ViewModels.ViewData;
 /// </summary>
 public partial class ChatListViewModel : ViewModelBase
 {
-    public ObservableCollection<ChatSessionViewData> ChatSessions { get; } = new();
+    public ObservableCollection<ChatSessionItemViewData> ChatSessions { get; } = new();
 
-    [ObservableProperty] private ChatSessionViewData? _selectedSession;
+    [ObservableProperty] private ChatSessionItemViewData? _selectedSession;
 
-    public event Action<ChatSessionViewData?>? EventOnSelectedSessionChanged;
+    public event Action<ChatSessionItemViewData?>? EventOnSelectedSessionChanged;
 
     public ChatListViewModel()
     {
@@ -36,7 +37,7 @@ public partial class ChatListViewModel : ViewModelBase
         // 只列出对话角色的会话 —— 索引是与 agent 页共用的
         foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions(ECharacterKind.Roleplay))
         {
-            ChatSessions.Add(new ChatSessionViewData(meta));
+            ChatSessions.Add(CreateItem(new ChatSessionItemViewData(meta)));
         }
 
         SessionManager.Instance.OnSessionAdded += OnChatSessionAdded;
@@ -52,7 +53,7 @@ public partial class ChatListViewModel : ViewModelBase
         // agent 会话归 agent 页,不进本列表
         if (obj.CharacterData.Kind != ECharacterKind.Roleplay) return;
 
-        ChatSessions.Insert(0, new ChatSessionViewData(obj));
+        ChatSessions.Insert(0, CreateItem(new ChatSessionItemViewData(obj)));
         SelectedSession = ChatSessions[0];
     }
 
@@ -63,9 +64,20 @@ public partial class ChatListViewModel : ViewModelBase
         SelectedSession = ChatSessions.Count > 0 ? ChatSessions[0] : null;
     }
 
-    partial void OnSelectedSessionChanged(ChatSessionViewData? value)
+    partial void OnSelectedSessionChanged(ChatSessionItemViewData? value)
     {
-        value?.Active();
         EventOnSelectedSessionChanged?.Invoke(value);
+    }
+
+    private ChatSessionItemViewData CreateItem(ChatSessionItemViewData item)
+    {
+        item.OnSessionMutated += OnItemMutated;
+        return item;
+    }
+
+    private void OnItemMutated(ChatSessionItemViewData item)
+    {
+        // 被展示中的会话在条目上被就地改写(改名/清空),重发选中事件让内容区重载
+        if (item == SelectedSession) EventOnSelectedSessionChanged?.Invoke(item);
     }
 }

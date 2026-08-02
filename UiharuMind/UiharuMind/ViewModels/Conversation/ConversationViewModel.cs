@@ -24,6 +24,7 @@ using UiharuMind.Core.AI.Agent;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
@@ -42,6 +43,12 @@ namespace UiharuMind.ViewModels.Conversation;
 /// </summary>
 public partial class ConversationViewModel : ViewModelBase
 {
+    /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
+    public enum SendMode
+    {
+        User,
+        Assistant
+    }
 
     public ObservableCollection<ConversationItemBase> Items { get; } = new();
 
@@ -54,6 +61,9 @@ public partial class ConversationViewModel : ViewModelBase
     [ObservableProperty] private bool _isGenerating;
     [ObservableProperty] private bool _scrollToEnd;
     [ObservableProperty] private KeyGesture _sendGesture = new(Key.Enter);
+    [ObservableProperty] private SendMode _senderMode = SendMode.User;
+    [ObservableProperty] private bool _isPlaintext;
+    [ObservableProperty] private bool _isNotShowThinking;
 
     [RelayCommand]
     private async Task SendMessage()
@@ -165,6 +175,14 @@ public partial class ConversationViewModel : ViewModelBase
     /// <summary>当前会话元数据(未开始首轮前为空)</summary>
     public ChatSessionMeta? CurrentMeta { get; private set; }
 
+    /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主 agent,聊天页由页面壳指定</summary>
+    public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.WorkspaceAgent);
+
+    /// <summary>是否有可重新生成的目标(存在可重试的用户消息且未在生成中)</summary>
+    public bool CanRegenerate => !IsGenerating && Items.Any(x => x.CanRetry);
+
+    private CharacterData? _currentCharacter; //当前会话所属角色,决定助手气泡的名字与头像
+
     /// <summary>会话集合变化(新会话创建/一轮结束),页面据此刷新左侧列表</summary>
     public event Action? SessionsChanged;
 
@@ -191,12 +209,63 @@ public partial class ConversationViewModel : ViewModelBase
             _workspacePath = agentSetting.DefaultWorkspacePath;
         }
 
-        InputPlaceholder = LocalizationManager.Instance.GetString("AgentInputWatermark");
+        _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
+        _isNotShowThinking = ChatSettingConfig.Current.IsChatNotShowThinking;
+        Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanRegenerate));
+
+        InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
         LocalizationManager.Instance.LanguageChanged += () =>
         {
-            InputPlaceholder = LocalizationManager.Instance.GetString("AgentInputWatermark");
+            InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
             OnPropertyChanged(nameof(ModeLabel));
         };
+    }
+
+    private string _inputPlaceholderKey = "AgentInputWatermark";
+
+    /// <summary>输入框占位文案的本地化键,页面壳按场景覆盖(agent 页描述任务,聊天页输入消息)</summary>
+    public string InputPlaceholderKey
+    {
+        get => _inputPlaceholderKey;
+        set
+        {
+            _inputPlaceholderKey = value;
+            InputPlaceholder = LocalizationManager.Instance.GetString(value);
+        }
+    }
+
+    [RelayCommand]
+    private void ChangeSendMode()
+    {
+        SenderMode = SenderMode == SendMode.User ? SendMode.Assistant : SendMode.User;
+    }
+
+    partial void OnIsGeneratingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRegenerate));
+    }
+
+    partial void OnIsPlaintextChanged(bool value)
+    {
+        ChatSettingConfig.Current.IsChatPlainText = value;
+        ChatSettingConfig.Current.Save();
+    }
+
+    partial void OnIsNotShowThinkingChanged(bool value)
+    {
+        ChatSettingConfig.Current.IsChatNotShowThinking = value;
+        ChatSettingConfig.Current.Save();
+    }
+
+    /// <summary>
+    /// 重新生成最后一条回复:等价于对最后一条可重试的用户消息执行重试
+    /// </summary>
+    [RelayCommand]
+    private void RegenerateLast()
+    {
+        if (IsGenerating) return;
+        ConversationItemBase? target = Items.LastOrDefault(x => x.CanRetry);
+        if (target != null) OnItemRetry(target);
     }
 
     //================= 模式 / 配置 =================
@@ -268,12 +337,39 @@ public partial class ConversationViewModel : ViewModelBase
             return;
         }
 
+        // 以角色身份发送:直接写入一条回复,不触发生成
+        if (SenderMode == SendMode.Assistant)
+        {
+            await AppendAssistantMessageAsync(text);
+            return;
+        }
+
         List<ConversationAttachment>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
         Attachments.Clear();
         ChatMessage userMessage = BuildUserMessage(text, attachments);
         Items.Add(CreateUserItem(text, userMessage, attachments));
         ScrollToEnd = true;
         await RunTurnAsync(userMessage, text);
+    }
+
+    /// <summary>
+    /// 以角色身份写入一条回复(角色扮演的"替角色说话"),写入历史并立即持久化
+    /// </summary>
+    private async Task AppendAssistantMessageAsync(string text)
+    {
+        ChatSessionMeta meta = await EnsureSessionAsync(text, CancellationToken.None);
+        ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
+        if (session == null) return;
+
+        ChatMessage message = session.CreateMessage(ChatRole.Assistant, text);
+        session.History.Add(message);
+        session.Save();
+
+        TextConversationItem item = CreateAssistantItem();
+        item.Append(text);
+        item.IsDone = true;
+        Items.Add(WireItemActions(item, message));
+        ScrollToEnd = true;
     }
 
     private void OnStopSending()
@@ -413,9 +509,10 @@ public partial class ConversationViewModel : ViewModelBase
         if (CurrentMeta == null)
         {
             string title = titleSeed.Length > 30 ? titleSeed[..30] + "…" : titleSeed;
+            _currentCharacter = CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
             ChatSession created = new()
             {
-                CharacterId = nameof(DefaultCharacter.WorkspaceAgent),
+                CharacterId = _currentCharacter.CharacterId,
                 Title = title,
                 Description = titleSeed,
                 WorkspacePath = WorkspacePath,
@@ -521,6 +618,7 @@ public partial class ConversationViewModel : ViewModelBase
         _runner.ClearSession();
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
+        _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
         if (meta == null) return;
 
         WorkspacePath = meta.WorkspacePath;
@@ -629,6 +727,8 @@ public partial class ConversationViewModel : ViewModelBase
             WireItemActions(item, history[cursor]);
             cursor--;
         }
+
+        OnPropertyChanged(nameof(CanRegenerate)); //接线不触发集合事件,需手动刷新
     }
 
     private ChatSession? CurrentSession =>
@@ -816,14 +916,18 @@ public partial class ConversationViewModel : ViewModelBase
         return item;
     }
 
-    /// <summary>助手条目;头像暂用默认角色图,阶段 3 接入 agent 角色自身的头像</summary>
-    private static TextConversationItem CreateAssistantItem()
+    /// <summary>助手条目:名字与头像取自当前会话的角色</summary>
+    private TextConversationItem CreateAssistantItem()
     {
         return new TextConversationItem(false)
         {
-            SenderName = "Agent",
+            SenderName = string.IsNullOrEmpty(_currentCharacter?.CharacterName)
+                ? "Agent"
+                : _currentCharacter!.CharacterName,
             SenderColor = Avalonia.Media.Brushes.DeepSkyBlue,
-            Icon = IconUtils.DefaultCharIcon,
+            Icon = _currentCharacter == null
+                ? IconUtils.DefaultCharIcon
+                : IconUtils.GetCharacterBitmapOrDefault(_currentCharacter),
             Timestamp = DateTime.Now.ToString("HH:mm"),
             IsDone = false,
         };

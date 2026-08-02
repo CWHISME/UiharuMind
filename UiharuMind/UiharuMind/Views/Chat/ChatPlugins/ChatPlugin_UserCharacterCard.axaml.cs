@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.ViewModels.Chat;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Windows.Characters;
 

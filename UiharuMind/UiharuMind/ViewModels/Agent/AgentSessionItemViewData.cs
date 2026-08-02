@@ -22,7 +22,7 @@ using UiharuMind.Views;
 namespace UiharuMind.ViewModels.Agent;
 
 /// <summary>
-/// Agent 会话列表条目:承载重命名/删除等条目级操作(参考 ChatSessionViewData)
+/// Agent 会话列表条目:承载重命名/删除等条目级操作(聊天页对应 ChatSessionItemViewData)
 /// </summary>
 public partial class AgentSessionItemViewData : ObservableObject
 {

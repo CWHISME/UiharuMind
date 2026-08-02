@@ -6,7 +6,6 @@
              xmlns:conv="clr-namespace:UiharuMind.ViewModels.Conversation"
              xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.ViewModels.UIHolder"
-             xmlns:extends="clr-namespace:UiharuMind.Extends"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:views="clr-namespace:UiharuMind.Views.Common.Conversation"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
@@ -16,6 +15,7 @@
 
     <UserControl.Resources>
         <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
+        <converters:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -64,23 +64,67 @@
             </Grid>
         </Border>
 
-        <!-- 消息列表 -->
-        <ScrollViewer Grid.Row="1" Name="Viewer"
-                      u:ScrollTo.Direction="Bottom"
-                      BringIntoViewOnFocusChange="False"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled"
-                      uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
-            <Grid Margin="10">
-                <!-- 空状态(宿主注入) -->
-                <ContentPresenter IsVisible="{Binding !Items.Count}"
-                                  Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+        <!-- 消息列表:ItemsControl 重模板为自己拥有滚动(ScrollViewer 直接包 ItemsPresenter),
+             这是 VirtualizingStackPanel 生效的前提——外置 ScrollViewer 会给面板无限高度,虚拟化失效。
+             不用 ListBox 是为了避开选中态/键盘导航这些消息流不需要的行为 -->
+        <Grid Grid.Row="1">
+            <!-- 空状态(宿主注入) -->
+            <ContentPresenter Margin="10"
+                              IsVisible="{Binding !Items.Count}"
+                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
 
-                <ItemsControl ItemsSource="{Binding Items}">
-                    <ItemsControl.DataTemplates>
-                        <!-- 标准文本气泡(控件按条目缓存复用,保障流式渲染性能);
-                             特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
-                        <extends:ReuseDataTemplate DataType="{x:Type conv:TextConversationItem}">
+            <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer Name="PART_MessageScroll"
+                                      u:ScrollTo.Direction="Bottom"
+                                      BringIntoViewOnFocusChange="False"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
+                            <ItemsPresenter Name="PART_ItemsPresenter"
+                                            ItemsPanel="{TemplateBinding ItemsPanel}"
+                                            Margin="10" />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <!-- CacheLength:视口外额外实例化的范围(视口倍数)。调大让估算区
+                             远离正在滚动的区域,减少进度条突变与实例化修正带来的抖动 -->
+                        <VirtualizingStackPanel CacheLength="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.DataTemplates>
+                    <!-- 思考过程:弱化折叠条(两个页面通用,agent 特有条目模板仍由宿主页提供) -->
+                    <DataTemplate DataType="{x:Type conv:ThinkingItem}">
+                        <Expander Margin="0,2,40,2" IsExpanded="{Binding IsExpanded}"
+                                  Background="Transparent" Padding="8,4" MinHeight="0">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="💭" FontSize="11" Opacity="0.6" />
+                                    <TextBlock Classes="muted" Text="{loc:Loc AgentThinking}" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <SelectableTextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+                        </Expander>
+                    </DataTemplate>
+
+                    <!-- 错误条目(两个页面通用) -->
+                    <DataTemplate DataType="{x:Type conv:ErrorItem}">
+                        <Border Background="{DynamicResource SemiGrey1}"
+                                BorderBrush="IndianRed" BorderThickness="1"
+                                CornerRadius="8" Padding="10" Margin="0,4,40,4">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="⚠" Foreground="IndianRed" />
+                                <SelectableTextBlock Foreground="IndianRed" Text="{Binding Message}"
+                                                     TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 标准文本气泡;特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
+                    <DataTemplate DataType="{x:Type conv:TextConversationItem}">
                             <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
                                   Background="Transparent"
                                   x:DataType="conv:TextConversationItem">
@@ -120,12 +164,15 @@
                                                 HorizontalAlignment="{Binding Alignment}"
                                                 IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                             <common:SimpleMarkdownViewer HorizontalAlignment="Left"
-                                                                         MarkdownText="{Binding Message}">
+                                                                         MarkdownText="{Binding Message}"
+                                                                         IsThinkingRemove="{Binding DataContext.IsNotShowThinking, RelativeSource={RelativeSource AncestorType=views:ConversationView}}">
                                                 <common:SimpleMarkdownViewer.IsPlaintext>
                                                     <MultiBinding
                                                         Converter="{StaticResource MultiConditionBoolOrConverter}">
                                                         <Binding Path="IsUser" />
                                                         <Binding Path="!IsDone" />
+                                                        <Binding Path="DataContext.IsPlaintext"
+                                                                 RelativeSource="{RelativeSource AncestorType=views:ConversationView}" />
                                                     </MultiBinding>
                                                 </common:SimpleMarkdownViewer.IsPlaintext>
                                             </common:SimpleMarkdownViewer>
@@ -158,21 +205,66 @@
                                     </Border>
                                 </Grid>
                             </Grid>
-                        </extends:ReuseDataTemplate>
-                    </ItemsControl.DataTemplates>
-                </ItemsControl>
-                <!-- <Border Height="28" /> -->
-            </Grid>
-        </ScrollViewer>
+                        </DataTemplate>
+                </ItemsControl.DataTemplates>
+            </ItemsControl>
+        </Grid>
 
         <!-- composer -->
         <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder">
-            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="4">
-                <!-- 宿主注入:输入框上方区域(如附件 chips) -->
-                <ContentPresenter Grid.Row="0"
+            <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="4">
+                <!-- 附件 chips:附件集合在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置 -->
+                <ItemsControl Grid.Row="0"
+                              ItemsSource="{Binding Attachments}"
+                              IsVisible="{Binding Attachments.Count}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="conv:ConversationAttachment">
+                            <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
+                                    Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
+                                <Grid>
+                                    <Button Classes="NoneStyle" Padding="0"
+                                            Cursor="Hand" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).PreviewAttachmentCommand}"
+                                            CommandParameter="{Binding}">
+                                        <Grid VerticalAlignment="Center">
+                                            <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
+                                                   MaxHeight="48" MaxWidth="48" Stretch="Uniform"
+                                                   IsVisible="{Binding IsImage}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="4"
+                                                        IsVisible="{Binding !IsImage}"
+                                                        VerticalAlignment="Center">
+                                                <ThemedSvgIcon IconName="file-text" Width="16" Height="16"
+                                                               VerticalAlignment="Center" />
+                                                <TextBlock FontSize="11" Text="{Binding FileName}"
+                                                           Margin="0,3,0,0"
+                                                           MaxWidth="120" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                    <ThemedIconButton Classes="message-action"
+                                                      IconName="trash-2"
+                                                      HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                      Margin="0,-8,-8,0"
+                                                      Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveAttachmentCommand}"
+                                                      CommandParameter="{Binding}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 宿主注入:输入框上方区域 -->
+                <ContentPresenter Grid.Row="1"
                                   Content="{Binding ComposerTop, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
 
-                <TextBox Grid.Row="1" Name="InputBox" Classes="composer-input"
+                <TextBox Grid.Row="2" Name="InputBox" Classes="composer-input"
                          Text="{Binding InputText, Mode=TwoWay}"
                          AcceptsReturn="True"
                          PlaceholderText="{Binding InputPlaceholder}">
@@ -182,7 +274,7 @@
                     </TextBox.KeyBindings>
                 </TextBox>
 
-                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <!-- 宿主注入:工具行(模式/权限/附件…) -->
                     <ContentPresenter VerticalAlignment="Center" Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
 

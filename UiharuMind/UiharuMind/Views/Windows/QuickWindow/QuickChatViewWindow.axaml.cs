@@ -4,7 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using UiharuMind.ViewModels.ViewData;
+using UiharuMind.Core.Core.Chat;
+using UiharuMind.ViewModels.Conversation;
 using UiharuMind.Views.Common;
 
 namespace UiharuMind.Views.Windows;
@@ -14,10 +15,13 @@ namespace UiharuMind.Views.Windows;
 /// </summary>
 public partial class QuickChatViewWindow : QuickWindowBase
 {
-    public static void Show(ChatViewModel model)
+    /// <summary>
+    /// 打开一个承载给定会话的临时对话窗口
+    /// </summary>
+    /// <param name="chatSession">会话本体(转临时对话前已持久化)</param>
+    public static void Show(ChatSession chatSession)
     {
-        model.ChatSession!.Active();
-        UIManager.ShowWindow<QuickChatViewWindow>(x => x.ChatModel = model, isMulti: true);
+        UIManager.ShowWindow<QuickChatViewWindow>(x => x.SetSession(chatSession), isMulti: true);
     }
 
     public QuickChatViewWindow()
@@ -25,16 +29,17 @@ public partial class QuickChatViewWindow : QuickWindowBase
         InitializeComponent();
     }
 
-    public ChatViewModel? ChatModel
+    /// <summary>
+    /// 装载会话:窗口标题取自会话与其模型,内容交给通用对话组件
+    /// </summary>
+    /// <param name="chatSession">会话本体</param>
+    public void SetSession(ChatSession chatSession)
     {
-        get => DataContext as ChatViewModel;
-        set
-        {
-            DataContext = value;
-            TitleTextBlock.Text =
-                $"{ChatModel!.ChatSession!.Name}";
-            TitleSecondaryTextBlock.Text = $"({ChatModel!.ChatSession!.ChatSession.ChatModelRunningData?.ModelName})";
-        }
+        ConversationViewModel conversation = new();
+        DataContext = conversation;
+        TitleTextBlock.Text = chatSession.Title;
+        TitleSecondaryTextBlock.Text = $"({chatSession.ChatModelRunningData?.ModelName})";
+        _ = conversation.LoadSessionAsync(chatSession.ToMeta());
     }
 
     public override void Awake()

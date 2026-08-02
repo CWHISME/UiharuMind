@@ -73,28 +73,10 @@
         </Style>
     </UserControl.Styles>
 
-    <UserControl.Resources>
-        <convs:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
-    </UserControl.Resources>
-
     <!-- Agent 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到 -->
     <!-- Avalonia 的 DataTemplate 查找机制：*ItemsControl 查找模板时不仅看自己的 DataTemplates，还会沿逻辑树（Logical Tree）向上查找祖先节点定义的 DataTemplate。* -->
     <!-- 当 Items 集合里出现一个 ToolCallItem 类型的对象时，ItemsControl 用自己的 DataTemplates 找不到匹配，就会沿逻辑树向上找，一路找到父级 ConversationView，再找到 AgentPage 的 UserControl.DataTemplates，命中 DataType="conv:XXX" 这个模板并渲染。 -->
     <UserControl.DataTemplates>
-
-        <!-- 思考过程:弱化折叠条 -->
-        <DataTemplate DataType="conv:ThinkingItem">
-            <Expander Margin="0,2,40,2" IsExpanded="{Binding IsExpanded}"
-                      Background="Transparent" Padding="8,4" MinHeight="0">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="💭" FontSize="11" Opacity="0.6" />
-                        <TextBlock Classes="muted" Text="{loc:Loc AgentThinking}" />
-                    </StackPanel>
-                </Expander.Header>
-                <SelectableTextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
-            </Expander>
-        </DataTemplate>
 
         <!-- 工具调用卡片 -->
         <DataTemplate DataType="conv:ToolCallItem">
@@ -196,15 +178,6 @@
         </DataTemplate>
 
         <!-- 错误 -->
-        <DataTemplate DataType="conv:ErrorItem">
-            <Border Classes="tool-card" BorderBrush="IndianRed" Margin="0,4,40,4">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="⚠" Foreground="IndianRed" />
-                    <SelectableTextBlock Foreground="IndianRed" Text="{Binding Message}" TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-
     </UserControl.DataTemplates>
 
     <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Background="{DynamicResource SemiGrey0}">
@@ -326,53 +299,6 @@
                                        HorizontalAlignment="Center" />
                         </StackPanel>
                     </convView:ConversationView.EmptyContent>
-
-                    <convView:ConversationView.ComposerTop>
-                        <ItemsControl ItemsSource="{Binding Attachments}"
-                                      IsVisible="{Binding Attachments.Count}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="conv:ConversationAttachment">
-                                    <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
-                                            Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
-                                        <Grid>
-                                            <Button Classes="NoneStyle" Padding="0"
-                                                    Cursor="Hand" HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).PreviewAttachmentCommand}"
-                                                    CommandParameter="{Binding}">
-                                                <Grid VerticalAlignment="Center">
-                                                    <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
-                                                           MaxHeight="48" MaxWidth="48" Stretch="Uniform"
-                                                           IsVisible="{Binding IsImage}" />
-                                                    <StackPanel Orientation="Horizontal" Spacing="4"
-                                                                IsVisible="{Binding !IsImage}"
-                                                                VerticalAlignment="Center">
-                                                        <ThemedSvgIcon IconName="file-text" Width="16" Height="16"
-                                                                      VerticalAlignment="Center" />
-                                                        <TextBlock FontSize="11" Text="{Binding FileName}"
-                                                                   Margin="0,3,0,0"
-                                                                   MaxWidth="120" TextTrimming="CharacterEllipsis"
-                                                                   VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Button>
-                                            <ThemedIconButton Classes="message-action"
-                                                              IconName="trash-2"
-                                                              HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                              Margin="0,-8,-8,0"
-                                                              Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveAttachmentCommand}"
-                                                              CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </convView:ConversationView.ComposerTop>
 
                     <convView:ConversationView.ComposerTools>
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"

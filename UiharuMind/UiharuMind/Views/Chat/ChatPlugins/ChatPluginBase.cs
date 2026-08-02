@@ -1,34 +1,22 @@
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
-using UiharuMind.ViewModels.ViewData;
+using UiharuMind.ViewModels.Chat;
 
 namespace UiharuMind.Views.Common.ChatPlugins;
-
-// public abstract class ChatPluginBase<T> : UserControl where T : ChatPluginDataBase, new()
-// {
-//     private readonly T _data;
-//
-//     public ChatPluginBase()
-//     {
-//         _data = new T();
-//         DataContext = _data;
-//     }
-//
-//     public void SetSessonData(ChatSessionViewData chatSessionViewData)
-//     {
-//         _data.SetSessonData(chatSessionViewData);
-//     }
-// }
 
 public partial class ChatPluginBase : ObservableObject
 {
     public virtual UserControl View => null!;
 
-    [ObservableProperty] private ChatSessionViewData _chatSessionCurrentViewData = null!;
+    [ObservableProperty] private ChatSessionItemViewData _chatSessionCurrentViewData = null!;
 
-    public void SetSessonData(ChatSessionViewData chatSessionViewData)
+    /// <summary>
+    /// 设置插件面板对应的会话条目
+    /// </summary>
+    /// <param name="chatSessionItemViewData">会话列表条目</param>
+    public void SetSessionData(ChatSessionItemViewData chatSessionItemViewData)
     {
-        ChatSessionCurrentViewData = chatSessionViewData;
+        ChatSessionCurrentViewData = chatSessionItemViewData;
     }
 
     public virtual void OnChatBegin()
@@ -39,12 +27,12 @@ public partial class ChatPluginBase : ObservableObject
     {
     }
 
-    partial void OnChatSessionCurrentViewDataChanged(ChatSessionViewData value)
+    partial void OnChatSessionCurrentViewDataChanged(ChatSessionItemViewData value)
     {
         OnChatSessionChanged(value);
     }
 
-    protected virtual void OnChatSessionChanged(ChatSessionViewData chatSessionViewData)
+    protected virtual void OnChatSessionChanged(ChatSessionItemViewData chatSessionItemViewData)
     {
     }
 }
