@@ -37,37 +37,40 @@ internal sealed class MemoryContextProvider : AIContextProvider
     protected override async ValueTask<AIContext> ProvideAIContextAsync(
         InvokingContext context, CancellationToken cancellationToken = default)
     {
-        AIContext aiContext = context.AIContext;
+        // 返回值只能装本 provider 自己的产出,绝不能回传 context.AIContext。
+        // 基类 InvokingCoreAsync 会把 provided.Messages 全部打上本 provider 的来源标记后
+        // 追加到输入消息上,并把 provided.Instructions 追加到输入 instructions 上;
+        // 回传输入会导致每条消息重复一遍、系统提示词拼接两次。
+        AIContext empty = new();
 
         string? sessionId = SessionChatHistoryProvider.GetBoundSessionId(context.Session);
-        if (string.IsNullOrEmpty(sessionId)) return aiContext;
+        if (string.IsNullOrEmpty(sessionId)) return empty;
 
         ChatSession? session = SessionManager.Instance.Load(sessionId);
         MemoryData? memory = session?.Memory;
-        if (memory == null) return aiContext;
+        if (memory == null) return empty;
 
-        // AIContext.Messages 此时已含调用方消息与历史消息(框架契约),取最后一条用户输入作查询
-        string? query = aiContext.Messages?
+        // 传入的 AIContext.Messages 已含调用方消息与历史消息(框架契约),取最后一条用户输入作查询
+        string? query = context.AIContext.Messages?
             .LastOrDefault(x => x.Role == ChatRole.User)?.Text;
-        if (string.IsNullOrWhiteSpace(query)) return aiContext;
+        if (string.IsNullOrWhiteSpace(query)) return empty;
 
         try
         {
             string snippets = await memory.GetLongTermMemory(query).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(snippets)) return aiContext;
+            if (string.IsNullOrEmpty(snippets)) return empty;
 
-            aiContext.Instructions = string.IsNullOrEmpty(aiContext.Instructions)
-                ? InstructionsHeader
-                : aiContext.Instructions + "\n\n" + InstructionsHeader;
-            aiContext.Messages = (aiContext.Messages ?? [])
-                .Append(new ChatMessage(ChatRole.Tool, snippets)).ToList();
+            return new AIContext
+            {
+                Instructions = InstructionsHeader,
+                Messages = [new ChatMessage(ChatRole.Tool, snippets)],
+            };
         }
         catch (Exception e)
         {
             // 记忆检索失败不该让整轮对话失败
             Log.Warning($"Long term memory lookup failed: {e.Message}");
+            return empty;
         }
-
-        return aiContext;
     }
 }

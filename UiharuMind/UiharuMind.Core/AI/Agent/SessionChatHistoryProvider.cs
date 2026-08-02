@@ -30,6 +30,9 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
 {
     private const string SessionIdKey = "UiharuSessionId";
 
+    /// <summary>框架给注入消息打的溯源标记键</summary>
+    private const string AttributionKey = "_attribution";
+
     /// <summary>
     /// 把框架会话与项目会话绑定。必须在首次运行前调用。
     /// </summary>
@@ -75,11 +78,28 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         ChatSession? session = Resolve(context.Session);
         if (session == null) return default;
 
-        // 基类默认已把标记为 ChatHistory 来源的消息滤掉,这里收到的都是本轮新产生的
-        session.History.AddRange(context.RequestMessages);
-        if (context.ResponseMessages != null) session.History.AddRange(context.ResponseMessages);
-        session.Save();
+        int before = session.History.Count;
+        session.History.AddRange(context.RequestMessages.Where(IsOwnedByUs));
+        if (context.ResponseMessages != null)
+        {
+            session.History.AddRange(context.ResponseMessages.Where(IsOwnedByUs));
+        }
+
+        if (session.History.Count != before) session.Save();
         return default;
+    }
+
+    /// <summary>
+    /// 只有真正的用户输入与模型输出属于我们的历史。
+    /// 框架注入的消息（回放用的历史副本、todo 快照、mode 切换通知、记忆片段等）
+    /// 都带 _attribution 溯源标记：它们每轮由各 provider 重新生成，
+    /// 一旦写进历史就会逐轮累积，并在下一轮又经历史回灌一次。
+    /// 不能只依赖基类默认的 ChatHistory 过滤——它挡不住 AIContextProvider 来源，
+    /// 而 per-service-call 持久化路径下连 ChatHistory 来源的也会漏进来。
+    /// </summary>
+    private static bool IsOwnedByUs(ChatMessage message)
+    {
+        return message.AdditionalProperties?.ContainsKey(AttributionKey) != true;
     }
 
     private static ChatSession? Resolve(AgentSession? agentSession)

@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -28,7 +27,11 @@ namespace UiharuMind.Core.Core.Chat;
 /// 存储、请求与渲染共用同一个模型，不再需要任何映射层，
 /// 也因此能无损承载工具调用、思考内容与审批请求（旧的单文本模型表达不了这些）。
 /// </summary>
-public class ChatSession : IEnumerable<ChatMessage>
+// 注意:不要让本类实现 IEnumerable<ChatMessage>。System.Text.Json 会把实现了
+// IEnumerable<T> 的类型序列化成一个数组,于是所有属性(SessionId/Title/CharacterId/
+// CustomParams/WorkspacePath...)全部丢失,存档退化成一个裸消息数组且无法反序列化回来。
+// 需要遍历历史请直接用 History。
+public class ChatSession
 {
     /// <summary>AI 作为首条消息时的作者名（界面据此做旁白式展示）</summary>
     public const string NarratorName = "Narrator";
@@ -353,10 +356,6 @@ public class ChatSession : IEnumerable<ChatMessage>
         History.Clear();
         Save();
     }
-
-    public IEnumerator<ChatMessage> GetEnumerator() => History.GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     private string AuthorNameOf(ChatRole role)
     {

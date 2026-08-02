@@ -375,7 +375,7 @@ public partial class ChatSessionViewData : ObservableObject
             return;
         }
 
-        foreach (var item in value)
+        foreach (var item in value.History)
         {
             AddMessage(item);
         }
