@@ -39,6 +39,9 @@
     <data name="ThinkingModeTips" xml:space="preserve">
         <value>Thinking effort for this session. Default follows the model config; other levels are sent with each request (backends that don't support it will ignore it).</value>
     </data>
+    <data name="TokenUsageTips" xml:space="preserve">
+        <value>Tokens: ≈input estimate · ↑in ↓out (last turn) · Σ session total</value>
+    </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
         <value>Load earlier messages</value>
     </data>

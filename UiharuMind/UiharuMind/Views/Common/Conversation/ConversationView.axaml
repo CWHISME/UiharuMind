@@ -377,6 +377,13 @@
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                 VerticalAlignment="Center">
+                        <TextBlock Classes="muted" VerticalAlignment="Center"
+                                   Text="{Binding TokenUsageText}"
+                                   IsVisible="{Binding TokenUsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc TokenUsageTips}" />
+                            </ToolTip.Tip>
+                        </TextBlock>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
                             <ThemedIconButton IconName="stop"

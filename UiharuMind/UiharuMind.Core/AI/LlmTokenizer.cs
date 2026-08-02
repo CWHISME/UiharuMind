@@ -9,35 +9,27 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-// using Tiktoken;
-// using UiharuMind.Core.Configs;
-//
-// namespace UiharuMind.Core.AI;
-//
-// public static class LlmTokenizer
-// {
-//     private static string _modelName = "";
-//     private static Encoder? _modelEncoder;
-//
-//     /// <summary>
-//     /// 计算指定字符串的 Token 数量
-//     /// </summary>
-//     /// <param name="input"></param>
-//     /// <returns></returns>
-//     public static int GetInputTokenCount(string input)
-//     {
-//         if (_modelName != ConfigManager.Instance.ChatSetting.TokenForModelName)
-//             _modelEncoder = ModelToEncoder.For(ConfigManager.Instance.ChatSetting.TokenForModelName);
-//         if (_modelEncoder == null)
-//         {
-//             _modelEncoder = ModelToEncoder.For("gpt-4o");
-//             ConfigManager.Instance.ChatSetting.TokenForModelName = "gpt-4o";
-//             ConfigManager.Instance.ChatSetting.Save();
-//         }
-//
-//         // var tokens = _modelEncoder.Encode(input); // [15339, 1917]
-//         // var text = _modelEncoder.Decode(tokens); // hello world
-//         // var stringTokens = _modelEncoder.Explore(input); // ["hello", " world"]
-//         return _modelEncoder.CountTokens(input); // 2
-//     }
-// }
+using Microsoft.ML.Tokenizers;
+
+namespace UiharuMind.Core.AI;
+
+/// <summary>
+/// 文本 token 估算。统一用 o200k_base(GPT-4o 系)编码作近似——
+/// 各家模型分词各异,此处只求量级参考。首次使用加载词表(数十毫秒级),故延迟初始化,
+/// 调用方应避免在 UI 线程首触。
+/// </summary>
+public static class LlmTokenizer
+{
+    private static readonly Lazy<Tokenizer> _tokenizer =
+        new(() => TiktokenTokenizer.CreateForEncoding("o200k_base"));
+
+    /// <summary>
+    /// 估算文本的 token 数
+    /// </summary>
+    /// <param name="text">文本</param>
+    /// <returns>token 数,空文本为 0</returns>
+    public static int CountTokens(string text)
+    {
+        return string.IsNullOrEmpty(text) ? 0 : _tokenizer.Value.CountTokens(text);
+    }
+}

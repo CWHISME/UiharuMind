@@ -69,6 +69,7 @@ public partial class ConversationViewModel : ViewModelBase
     [ObservableProperty] private bool _hasEarlierMessages;
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
     [ObservableProperty] private int _thinkingModeIndex; //本会话思考力度,序号即 EThinkingMode
+    [ObservableProperty] private string _tokenUsageText = string.Empty; //token 统计(输入估算/本轮/会话累计)
 
     [RelayCommand]
     private async Task SendMessage()
@@ -217,6 +218,12 @@ public partial class ConversationViewModel : ViewModelBase
     private IList<ConversationItemBase>? _renderTarget; //历史回放的构建缓冲,为空直写 Items
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
+    private long _turnInputTokens; //本轮输入 token(来自响应 usage)
+    private long _turnOutputTokens; //本轮输出 token
+    private long _sessionInputTokens; //会话累计输入 token
+    private long _sessionOutputTokens; //会话累计输出 token
+    private int _inputTokenEstimate; //输入框文本的 token 估算
+    private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
 
     /// <summary>条目落点:实时流直写 Items,历史回放写入构建缓冲(支持前插)</summary>
     private IList<ConversationItemBase> RenderTarget => _renderTarget ?? Items;
@@ -418,6 +425,8 @@ public partial class ConversationViewModel : ViewModelBase
         IsGenerating = true;
         // 思考力度随本次异步流下发到 HTTP 层(SDK 无逐请求参数通道)
         LlmRequestContext.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
+        _turnInputTokens = 0;
+        _turnOutputTokens = 0;
         _runCancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = _runCancellation.Token;
         try
@@ -532,6 +541,11 @@ public partial class ConversationViewModel : ViewModelBase
 
             case ErrorContent error:
                 RenderTarget.Add(new ErrorItem { Message = error.Message });
+                break;
+
+            case UsageContent usage:
+                // 历史回放的累计口径由 ReplayMessages 全量统计(窗口只覆盖尾部),实时流才在此累计
+                if (_renderTarget == null) AccumulateUsage(usage.Details);
                 break;
         }
     }
@@ -736,6 +750,18 @@ public partial class ConversationViewModel : ViewModelBase
         {
             Items.Add(item);
         }
+
+        // 会话累计用量按全量历史统计(渲染窗口只覆盖尾部)
+        foreach (ChatMessage message in messages)
+        {
+            foreach (UsageContent usage in message.Contents.OfType<UsageContent>())
+            {
+                _sessionInputTokens += usage.Details.InputTokenCount ?? 0;
+                _sessionOutputTokens += usage.Details.OutputTokenCount ?? 0;
+            }
+        }
+
+        RefreshTokenUsageText();
     }
 
     /// <summary>
@@ -865,6 +891,62 @@ public partial class ConversationViewModel : ViewModelBase
 
     private ChatSession? CurrentSession =>
         CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);
+
+    //================= token 统计 =================
+
+    partial void OnInputTextChanged(string value)
+    {
+        int version = ++_inputCountVersion;
+        if (string.IsNullOrEmpty(value))
+        {
+            _inputTokenEstimate = 0;
+            RefreshTokenUsageText();
+            return;
+        }
+
+        // 后台估算(首次会加载词表),只采纳最新一次的结果
+        _ = Task.Run(() =>
+        {
+            int count = LlmTokenizer.CountTokens(value);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (version != _inputCountVersion) return;
+                _inputTokenEstimate = count;
+                RefreshTokenUsageText();
+            });
+        });
+    }
+
+    private void AccumulateUsage(UsageDetails details)
+    {
+        _turnInputTokens += details.InputTokenCount ?? 0;
+        _turnOutputTokens += details.OutputTokenCount ?? 0;
+        _sessionInputTokens += details.InputTokenCount ?? 0;
+        _sessionOutputTokens += details.OutputTokenCount ?? 0;
+        RefreshTokenUsageText();
+    }
+
+    private void RefreshTokenUsageText()
+    {
+        System.Text.StringBuilder sb = new();
+        if (_inputTokenEstimate > 0) sb.Append($"≈{FormatTokenCount(_inputTokenEstimate)}");
+        if (_turnInputTokens + _turnOutputTokens > 0)
+        {
+            if (sb.Length > 0) sb.Append("  ");
+            sb.Append($"↑{FormatTokenCount(_turnInputTokens)} ↓{FormatTokenCount(_turnOutputTokens)}");
+        }
+
+        if (_sessionInputTokens + _sessionOutputTokens > 0)
+        {
+            if (sb.Length > 0) sb.Append("  ");
+            sb.Append($"Σ{FormatTokenCount(_sessionInputTokens + _sessionOutputTokens)}");
+        }
+
+        TokenUsageText = sb.ToString();
+    }
+
+    private static string FormatTokenCount(long count) =>
+        count >= 10000 ? $"{count / 1000.0:0.#}k" : count.ToString();
 
     private static int ReadThinkingModeIndex(ChatSession session)
     {
@@ -1095,6 +1177,11 @@ public partial class ConversationViewModel : ViewModelBase
         _pendingApprovals.Clear();
         _streamingText = null;
         _streamingThinking = null;
+        _turnInputTokens = 0;
+        _turnOutputTokens = 0;
+        _sessionInputTokens = 0;
+        _sessionOutputTokens = 0;
+        RefreshTokenUsageText();
     }
 }
 

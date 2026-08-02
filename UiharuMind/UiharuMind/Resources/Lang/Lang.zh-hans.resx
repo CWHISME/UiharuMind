@@ -32,6 +32,9 @@
     <data name="ThinkingModeTips" xml:space="preserve">
         <value>本会话的思考力度。默认跟随模型配置;其余档位随每次请求下发(不支持的后端会忽略)。</value>
     </data>
+    <data name="TokenUsageTips" xml:space="preserve">
+        <value>Token 统计:≈输入估算 · ↑输入 ↓输出(本轮) · Σ会话累计</value>
+    </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
         <value>加载更早的消息</value>
     </data>
