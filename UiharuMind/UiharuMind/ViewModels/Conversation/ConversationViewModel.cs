@@ -622,7 +622,12 @@ public partial class ConversationViewModel : ViewModelBase
 
             case ToolApprovalRequestContent approvalRequest:
                 CloseStreamSegment();
-                ApprovalRequestItem approvalItem = new(approvalRequest);
+                ApprovalRequestItem approvalItem = new(approvalRequest)
+                {
+                    // "记住同类命令"写进会话放行清单并持久化,后续同类 shell 命令由审批规则直接放行
+                    RememberShellPatternCallback = pattern =>
+                        CurrentSession?.AddSessionApprovedShellPattern(pattern),
+                };
                 RenderTarget.Add(approvalItem);
                 _pendingApprovals.Add(approvalItem);
                 approvalCollector?.Add(approvalItem);

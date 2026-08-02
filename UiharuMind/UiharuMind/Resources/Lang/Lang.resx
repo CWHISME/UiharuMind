@@ -123,6 +123,9 @@
     <data name="AgentApproveSession" xml:space="preserve">
         <value>Always allow (session)</value>
     </data>
+    <data name="AgentApproveSessionCommand" xml:space="preserve">
+        <value>Allow similar commands (session)</value>
+    </data>
     <data name="AgentDeny" xml:space="preserve">
         <value>Deny</value>
     </data>

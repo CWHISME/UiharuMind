@@ -113,6 +113,9 @@
     <data name="AgentApproveSession" xml:space="preserve">
         <value>本会话总是允许</value>
     </data>
+    <data name="AgentApproveSessionCommand" xml:space="preserve">
+        <value>本会话放行同类命令</value>
+    </data>
     <data name="AgentDeny" xml:space="preserve">
         <value>拒绝</value>
     </data>

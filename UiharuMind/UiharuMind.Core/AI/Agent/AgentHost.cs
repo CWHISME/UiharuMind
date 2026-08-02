@@ -60,6 +60,12 @@ public class AgentBuildProfile
     /// 会话级记忆库来源(memory_search 工具执行时解析,锁定当前挂接会话的单库)
     /// </summary>
     public Func<MemoryData?>? SessionMemorySource { get; init; }
+
+    /// <summary>
+    /// 会话级 shell 放行模式来源(审批规则每次执行时解析,
+    /// 用户点"记住同类命令"后立即生效,无需重建装配)
+    /// </summary>
+    public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
 }
 
 /// <summary>
@@ -212,7 +218,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             shellExecutor, SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
-            researcher == null ? null : [researcher]), shellExecutor);
+            researcher == null ? null : [researcher], profile.SessionShellApprovalSource), shellExecutor);
     }
 
     /// <summary>
@@ -370,12 +376,14 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="permissionMode">权限档</param>
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
     /// <param name="backgroundAgents">背景子代理(内置调研员),无则 null</param>
+    /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         ShellExecutor? shellExecutor, AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
-        List<AIAgent>? backgroundAgents = null)
+        List<AIAgent>? backgroundAgents = null,
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
     {
         return new HarnessAgentOptions
         {
@@ -396,7 +404,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             AIContextProviders = contextProviders,
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
-                AutoApprovalRules = ApprovalModeMapper.BuildRules(permissionMode, preAuthorizedShellPatterns),
+                AutoApprovalRules = ApprovalModeMapper.BuildRules(permissionMode, preAuthorizedShellPatterns,
+                    sessionShellApprovalSource),
             },
             ChatOptions = chatOptions,
         };

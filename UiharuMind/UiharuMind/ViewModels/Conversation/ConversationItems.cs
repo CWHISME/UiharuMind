@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -71,6 +72,15 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>参数摘要(审批展示)</summary>
     public string ArgumentSummary { get; }
 
+    /// <summary>shell 审批时按命令派生的"同类命令"放行模式;非 shell 或取不到命令为空串</summary>
+    public string SuggestedCommandPattern { get; }
+
+    /// <summary>是否提供"记住同类命令"选项(工具级的"本会话总是允许"对 shell 过粗)</summary>
+    public bool CanRememberCommandPattern => SuggestedCommandPattern.Length > 0;
+
+    /// <summary>用户点"记住同类命令"时回调(由会话侧写入并持久化)</summary>
+    public Action<string>? RememberShellPatternCallback { get; set; }
+
     [ObservableProperty] private bool _isResolved;
     [ObservableProperty] private string _resolvedText = string.Empty;
 
@@ -84,22 +94,34 @@ public partial class ApprovalRequestItem : ConversationItemBase
         {
             ToolName = call.Name;
             ArgumentSummary = AgentContentFormatter.SummarizeArguments(call);
+            SuggestedCommandPattern = call.Name == AgentHost.ShellToolName
+                ? ApprovalModeMapper.DeriveCommandPattern(
+                    ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
+                : string.Empty;
         }
         else
         {
             ToolName = request.ToolCall?.ToString() ?? "unknown";
             ArgumentSummary = string.Empty;
+            SuggestedCommandPattern = string.Empty;
         }
     }
 
     /// <summary>
-    /// 审批动作:once / session / deny
+    /// 审批动作:once / session / session-command / deny
     /// </summary>
     /// <param name="decision">决定代号</param>
     [RelayCommand]
     private void Resolve(string decision)
     {
         if (IsResolved) return;
+
+        // "记住同类命令":先入会话放行清单(后续同类命令由审批规则直接放行),本次按普通允许回应
+        if (decision == "session-command" && CanRememberCommandPattern)
+        {
+            RememberShellPatternCallback?.Invoke(SuggestedCommandPattern);
+        }
+
         AIContent response = decision switch
         {
             "session" => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.AlwaysInSession,

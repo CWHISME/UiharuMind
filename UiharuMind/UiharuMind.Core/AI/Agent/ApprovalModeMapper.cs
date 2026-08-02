@@ -40,9 +40,12 @@ public static class ApprovalModeMapper
     /// </summary>
     /// <param name="mode">权限档</param>
     /// <param name="preAuthorizedShellPatterns">预授权的 shell 命令 glob 模式(定时任务用),可空</param>
+    /// <param name="sessionShellApprovalSource">会话级放行的 shell 命令模式来源
+    /// (审批卡片"记住同类命令"写入,规则每次执行时现取现用,变化无需重建装配),可空</param>
     /// <returns>规则列表</returns>
     public static List<Func<FunctionCallContent, ValueTask<bool>>> BuildRules(
-        EAgentPermissionMode mode, IReadOnlyList<string>? preAuthorizedShellPatterns = null)
+        EAgentPermissionMode mode, IReadOnlyList<string>? preAuthorizedShellPatterns = null,
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
     {
         List<Func<FunctionCallContent, ValueTask<bool>>> rules = new()
         {
@@ -65,18 +68,44 @@ public static class ApprovalModeMapper
             rules.Add(functionCall => new ValueTask<bool>(MatchesShellPattern(functionCall, patterns)));
         }
 
+        if (sessionShellApprovalSource != null)
+        {
+            rules.Add(functionCall =>
+                new ValueTask<bool>(MatchesShellPattern(functionCall, sessionShellApprovalSource())));
+        }
+
         return rules;
     }
 
-    private static bool MatchesShellPattern(FunctionCallContent functionCall, List<string> patterns)
+    /// <summary>
+    /// 从一条 shell 命令派生"同类命令"的放行模式:取前两个词加通配
+    /// (如 "git status --short" → "git status*";单词命令 "ls" → "ls*")。
+    /// 只取头部是刻意的——"git*" 会连 push 一起放行,过宽;前两词恰好圈住"同一子命令"。
+    /// </summary>
+    /// <param name="command">命令原文</param>
+    /// <returns>glob 模式;空命令返回空串</returns>
+    public static string DeriveCommandPattern(string command)
     {
+        string[] tokens = command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (tokens.Length == 0) return string.Empty;
+        return tokens.Length == 1 ? $"{tokens[0]}*" : $"{tokens[0]} {tokens[1]}*";
+    }
+
+    private static bool MatchesShellPattern(FunctionCallContent functionCall, IReadOnlyList<string>? patterns)
+    {
+        if (patterns is not { Count: > 0 }) return false;
         if (functionCall.Name != AgentHost.ShellToolName) return false;
         string? command = ExtractCommand(functionCall.Arguments);
         if (string.IsNullOrEmpty(command)) return false;
         return patterns.Any(pattern => GlobMatch(pattern, command));
     }
 
-    private static string? ExtractCommand(IDictionary<string, object?>? arguments)
+    /// <summary>
+    /// 从 shell 工具调用参数中取命令原文(审批卡片派生放行模式也用它)
+    /// </summary>
+    /// <param name="arguments">工具调用参数</param>
+    /// <returns>命令文本;取不到为 null</returns>
+    public static string? ExtractCommand(IDictionary<string, object?>? arguments)
     {
         if (arguments == null || !arguments.TryGetValue("command", out object? value)) return null;
         return value switch

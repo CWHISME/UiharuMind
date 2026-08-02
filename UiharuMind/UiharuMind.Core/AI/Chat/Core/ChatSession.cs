@@ -102,6 +102,42 @@ public class ChatSession
     [JsonIgnore]
     public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; set; }
 
+    /// <summary>
+    /// 本会话内用户点"记住同类命令"放行的 shell 命令模式（glob）。
+    /// 随会话持久化；审批规则每次执行现取现用，追加无需重建装配。
+    /// 工具级的"本会话总是允许"由框架审批状态承担，这里只管 shell 的命令粒度。
+    /// </summary>
+    public List<string> SessionApprovedShellPatterns { get; set; } = [];
+
+    /// <summary>
+    /// 记住一条会话级 shell 放行模式并立即持久化（重复添加忽略）。
+    /// 加锁写、审批规则侧快照读——放行发生在用户交互线程，规则跑在运行线程。
+    /// </summary>
+    /// <param name="pattern">glob 模式</param>
+    public void AddSessionApprovedShellPattern(string pattern)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) return;
+        lock (SessionApprovedShellPatterns)
+        {
+            if (SessionApprovedShellPatterns.Contains(pattern)) return;
+            SessionApprovedShellPatterns.Add(pattern);
+        }
+
+        SaveMeta();
+    }
+
+    /// <summary>
+    /// 会话级 shell 放行模式的线程安全快照（审批规则读取用）
+    /// </summary>
+    /// <returns>模式列表副本</returns>
+    public IReadOnlyList<string> SnapshotSessionApprovedShellPatterns()
+    {
+        lock (SessionApprovedShellPatterns)
+        {
+            return SessionApprovedShellPatterns.ToArray();
+        }
+    }
+
     /// <summary>所属角色</summary>
     [JsonIgnore]
     public CharacterData CharacterData =>

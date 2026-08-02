@@ -79,6 +79,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             // 闭包读字段而非捕获参数:同一 handle 会跨会话复用
             SessionModelSource = () => _attachedSession?.ChatModelRunningData,
             SessionMemorySource = () => _attachedSession?.Memory,
+            SessionShellApprovalSource = () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
         });
 
         if (_handle != null && _session != null)

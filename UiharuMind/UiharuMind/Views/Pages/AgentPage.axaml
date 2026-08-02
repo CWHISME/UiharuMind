@@ -167,6 +167,11 @@
                         <Button CornerRadius="6"
                                 Command="{Binding ResolveCommand}" CommandParameter="session"
                                 Content="{loc:Loc AgentApproveSession}" />
+                        <Button CornerRadius="6"
+                                IsVisible="{Binding CanRememberCommandPattern}"
+                                Command="{Binding ResolveCommand}" CommandParameter="session-command"
+                                Content="{loc:Loc AgentApproveSessionCommand}"
+                                ToolTip.Tip="{Binding SuggestedCommandPattern}" />
                         <Button CornerRadius="6" Foreground="IndianRed"
                                 Command="{Binding ResolveCommand}" CommandParameter="deny"
                                 Content="{loc:Loc AgentDeny}" />
