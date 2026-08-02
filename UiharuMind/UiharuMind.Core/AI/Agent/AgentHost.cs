@@ -187,7 +187,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
         if (config.EnableVisionTool)
         {
-            extraTools.Add(VisionTool.Create());
+            extraTools.Add(VisionTool.Create(workingDirectory));
         }
 
         if (config.EnableMemorySearchTool)
@@ -280,7 +280,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
 
         if (config.EnableVisionTool)
         {
-            tools.Add(VisionTool.Create());
+            tools.Add(VisionTool.Create(workingDirectory));
         }
 
         if (tools.Count == 0) return null;

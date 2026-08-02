@@ -24,24 +24,27 @@ public static class VisionTool
     /// <summary>
     /// 创建识图 AIFunction
     /// </summary>
+    /// <param name="workspaceRoot">工作目录根,相对路径的解析基准(与文件/shell 工具同一规则)</param>
     /// <returns>工具实例</returns>
-    public static AITool Create()
+    public static AITool Create(string workspaceRoot)
     {
-        return AIFunctionFactory.Create(AskVisionAsync, "ask_vision",
+        return AIFunctionFactory.Create(
+            async ([Description("Absolute or workspace-relative path of the image file.")] string imagePath,
+                    [Description("The question to answer about the image.")] string question,
+                    CancellationToken cancellationToken = default) =>
+                await AskVisionAsync(workspaceRoot, imagePath, question, cancellationToken).ConfigureAwait(false),
+            "ask_vision",
             "Answer a question about an image file by delegating to a vision-capable model. " +
             "Use this when you cannot see images yourself.");
     }
 
-    private static async Task<string> AskVisionAsync(
-        [Description("Absolute or workspace-relative path of the image file.")]
-        string imagePath,
-        [Description("The question to answer about the image.")]
-        string question,
-        CancellationToken cancellationToken = default)
+    private static async Task<string> AskVisionAsync(string workspaceRoot, string imagePath, string question,
+        CancellationToken cancellationToken)
     {
-        if (!File.Exists(imagePath)) return $"Image file not found: {imagePath}";
+        string full = ResolvePath(workspaceRoot, imagePath);
+        if (!File.Exists(full)) return $"Image file not found: {imagePath}";
 
-        byte[] imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken).ConfigureAwait(false);
+        byte[] imageBytes = await File.ReadAllBytesAsync(full, cancellationToken).ConfigureAwait(false);
         ImageVisionSkill skill = new(imageBytes);
 
         StringBuilder result = new();
@@ -51,5 +54,12 @@ public static class VisionTool
         }
 
         return result.Length == 0 ? "(vision model returned no answer)" : result.ToString();
+    }
+
+    // 相对路径解析到工作区根,绝对路径直接访问(与 PermissiveFileAccessTools.ResolvePath 同规则)
+    private static string ResolvePath(string workspaceRoot, string path)
+    {
+        if (Path.IsPathRooted(path)) return Path.GetFullPath(path);
+        return Path.GetFullPath(Path.Combine(workspaceRoot, path));
     }
 }
