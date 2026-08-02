@@ -34,7 +34,7 @@ public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
     public bool IsChatPlainText { get; set; } = false;
 
     /// <summary>
-    /// 聊天是否隐藏模型思考过程
+    /// 思考段结束后是否自动折叠(流式进行中始终展开)
     /// </summary>
-    public bool IsChatNotShowThinking { get; set; } = false;
+    public bool IsChatAutoCollapseThinking { get; set; } = true;
 }

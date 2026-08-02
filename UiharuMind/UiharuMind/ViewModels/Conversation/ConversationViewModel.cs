@@ -65,7 +65,7 @@ public partial class ConversationViewModel : ViewModelBase
     [ObservableProperty] private KeyGesture _sendGesture = new(Key.Enter);
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private bool _isPlaintext;
-    [ObservableProperty] private bool _isNotShowThinking;
+    [ObservableProperty] private bool _isAutoCollapseThinking;
     [ObservableProperty] private bool _hasEarlierMessages;
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
     [ObservableProperty] private int _thinkingModeIndex; //本会话思考力度,序号即 EThinkingMode
@@ -224,6 +224,7 @@ public partial class ConversationViewModel : ViewModelBase
     private long _sessionOutputTokens; //会话累计输出 token
     private int _inputTokenEstimate; //输入框文本的 token 估算
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
+    private readonly ThinkTagStreamParser _thinkParser = new(); //正文流里 <think> 段的分离器
 
     /// <summary>条目落点:实时流直写 Items,历史回放写入构建缓冲(支持前插)</summary>
     private IList<ConversationItemBase> RenderTarget => _renderTarget ?? Items;
@@ -240,7 +241,7 @@ public partial class ConversationViewModel : ViewModelBase
         }
 
         _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
-        _isNotShowThinking = ChatSettingConfig.Current.IsChatNotShowThinking;
+        _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanRegenerate));
 
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
@@ -281,9 +282,9 @@ public partial class ConversationViewModel : ViewModelBase
         ChatSettingConfig.Current.Save();
     }
 
-    partial void OnIsNotShowThinkingChanged(bool value)
+    partial void OnIsAutoCollapseThinkingChanged(bool value)
     {
-        ChatSettingConfig.Current.IsChatNotShowThinking = value;
+        ChatSettingConfig.Current.IsChatAutoCollapseThinking = value;
         ChatSettingConfig.Current.Save();
     }
 
@@ -492,13 +493,12 @@ public partial class ConversationViewModel : ViewModelBase
         switch (content)
         {
             case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                if (_streamingThinking == null) RenderTarget.Add(_streamingThinking = new ThinkingItem());
-                _streamingThinking.Append(reasoning.Text);
+                AppendStreamThinking(reasoning.Text);
                 break;
 
             case TextContent text when !string.IsNullOrEmpty(text.Text):
-                if (_streamingText == null) RenderTarget.Add(_streamingText = CreateAssistantItem());
-                _streamingText.Append(text.Text);
+                // 本地/部分远程模型把 <think> 混在正文流里,经解析器分离成思考条目
+                _thinkParser.Feed(text.Text, AppendStreamText, AppendStreamThinking);
                 break;
 
             case FunctionCallContent call:
@@ -1158,9 +1158,24 @@ public partial class ConversationViewModel : ViewModelBase
         };
     }
 
+    private void AppendStreamText(string delta)
+    {
+        if (_streamingText == null) RenderTarget.Add(_streamingText = CreateAssistantItem());
+        _streamingText.Append(delta);
+    }
+
+    private void AppendStreamThinking(string delta)
+    {
+        // 流式进行中保持展开,能看到它在想什么;段落收尾时按设置折叠
+        if (_streamingThinking == null) RenderTarget.Add(_streamingThinking = new ThinkingItem { IsExpanded = true });
+        _streamingThinking.Append(delta);
+    }
+
     private void CloseStreamSegment()
     {
+        _thinkParser.Complete(AppendStreamText, AppendStreamThinking);
         if (_streamingText != null) _streamingText.IsDone = true;
+        if (_streamingThinking != null && IsAutoCollapseThinking) _streamingThinking.IsExpanded = false;
         _streamingText = null;
         _streamingThinking = null;
     }
@@ -1177,6 +1192,7 @@ public partial class ConversationViewModel : ViewModelBase
         _pendingApprovals.Clear();
         _streamingText = null;
         _streamingThinking = null;
+        _thinkParser.Reset();
         _turnInputTokens = 0;
         _turnOutputTokens = 0;
         _sessionInputTokens = 0;

@@ -181,8 +181,7 @@
                                                 HorizontalAlignment="{Binding Alignment}"
                                                 IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                             <common:SimpleMarkdownViewer HorizontalAlignment="Left"
-                                                                         MarkdownText="{Binding Message}"
-                                                                         IsThinkingRemove="{Binding DataContext.IsNotShowThinking, RelativeSource={RelativeSource AncestorType=views:ConversationView}}">
+                                                                         MarkdownText="{Binding Message}">
                                                 <common:SimpleMarkdownViewer.IsPlaintext>
                                                     <MultiBinding
                                                         Converter="{StaticResource MultiConditionBoolOrConverter}">
@@ -350,10 +349,10 @@
                                             BorderBrush="{DynamicResource SemiGrey2}"
                                             BorderThickness="1">
                                         <StackPanel Spacing="10">
-                                            <CheckBox Content="{loc:Loc HideThnkingText}"
-                                                      IsChecked="{Binding IsNotShowThinking}">
+                                            <CheckBox Content="{loc:Loc ChatAutoCollapseThinking}"
+                                                      IsChecked="{Binding IsAutoCollapseThinking}">
                                                 <ToolTip.Tip>
-                                                    <TextBlock Text="{loc:Loc HideThnkingTextTips}" />
+                                                    <TextBlock Text="{loc:Loc ChatAutoCollapseThinkingTips}" />
                                                 </ToolTip.Tip>
                                             </CheckBox>
                                             <CheckBox Content="{loc:Loc Plaintext}"

@@ -42,6 +42,12 @@
     <data name="TokenUsageTips" xml:space="preserve">
         <value>Tokens: ≈input estimate · ↑in ↓out (last turn) · Σ session total</value>
     </data>
+    <data name="ChatAutoCollapseThinking" xml:space="preserve">
+        <value>Auto-collapse thinking</value>
+    </data>
+    <data name="ChatAutoCollapseThinkingTips" xml:space="preserve">
+        <value>Thinking stays expanded while streaming and collapses when the segment finishes; uncheck to keep it expanded.</value>
+    </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
         <value>Load earlier messages</value>
     </data>
