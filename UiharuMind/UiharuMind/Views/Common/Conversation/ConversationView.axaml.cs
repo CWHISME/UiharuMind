@@ -70,21 +70,23 @@ public partial class ConversationView : UserControl
     public ConversationView()
     {
         InitializeComponent();
-        MessageList.TemplateApplied += OnMessageListTemplateApplied;
+        _ = new ScrollViewerAutoScrollHolder(Viewer);
         InputBox.PastingFromClipboard += OnPastingFromClipboard;
         DragDrop.SetAllowDrop(ComposerBorder, true);
         ComposerBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
         ComposerBorder.AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
-    private void OnMessageListTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    private void OnLoadEarlierClick(object? sender, RoutedEventArgs e)
     {
-        // 消息列表的 ScrollViewer 在 ItemsControl 模板内部(虚拟化要求它自持滚动),
-        // 只能在模板应用后拿到;每次应用都是新的 ScrollViewer 实例,重复挂接不会叠加
-        if (e.NameScope.Find<ScrollViewer>("PART_MessageScroll") is { } scroll)
-        {
-            _ = new VirtualizedAutoScrollHolder(MessageList, scroll);
-        }
+        if (DataContext is not ConversationViewModel vm) return;
+
+        // 前插会把现有内容整体下推,按前插高度补偿 Offset 以保持视口内容不动
+        double extentBefore = Viewer.Extent.Height;
+        double offsetBefore = Viewer.Offset.Y;
+        vm.LoadEarlierMessages();
+        Viewer.UpdateLayout();
+        Viewer.Offset = new Vector(Viewer.Offset.X, offsetBefore + Viewer.Extent.Height - extentBefore);
     }
 
     private async void OnPastingFromClipboard(object? sender, RoutedEventArgs e)

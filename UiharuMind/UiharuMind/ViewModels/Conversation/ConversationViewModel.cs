@@ -64,6 +64,7 @@ public partial class ConversationViewModel : ViewModelBase
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private bool _isPlaintext;
     [ObservableProperty] private bool _isNotShowThinking;
+    [ObservableProperty] private bool _hasEarlierMessages;
 
     [RelayCommand]
     private async Task SendMessage()
@@ -190,6 +191,9 @@ public partial class ConversationViewModel : ViewModelBase
     public string ModeLabel => LocalizationManager.Instance.GetString(
         CurrentMode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
 
+    /// <summary>初始渲染与"加载更早"每批的历史窗口大小</summary>
+    private const int HistoryWindowSize = 20;
+
     private readonly ICharacterRunner _runner = AgentHost.Instance.CreateRunner();
 
     private CancellationTokenSource? _runCancellation;
@@ -197,6 +201,11 @@ public partial class ConversationViewModel : ViewModelBase
     private ThinkingItem? _streamingThinking;
     private readonly List<ApprovalRequestItem> _pendingApprovals = new();
     private readonly List<string> _pendingOwnedFiles = new();
+    private int _historyStart; //当前渲染窗口在完整历史中的起点
+    private IList<ConversationItemBase>? _renderTarget; //历史回放的构建缓冲,为空直写 Items
+
+    /// <summary>条目落点:实时流直写 Items,历史回放写入构建缓冲(支持前插)</summary>
+    private IList<ConversationItemBase> RenderTarget => _renderTarget ?? Items;
 
     public ConversationViewModel()
     {
@@ -449,12 +458,12 @@ public partial class ConversationViewModel : ViewModelBase
         switch (content)
         {
             case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                if (_streamingThinking == null) Items.Add(_streamingThinking = new ThinkingItem());
+                if (_streamingThinking == null) RenderTarget.Add(_streamingThinking = new ThinkingItem());
                 _streamingThinking.Append(reasoning.Text);
                 break;
 
             case TextContent text when !string.IsNullOrEmpty(text.Text):
-                if (_streamingText == null) Items.Add(_streamingText = CreateAssistantItem());
+                if (_streamingText == null) RenderTarget.Add(_streamingText = CreateAssistantItem());
                 _streamingText.Append(text.Text);
                 break;
 
@@ -466,7 +475,7 @@ public partial class ConversationViewModel : ViewModelBase
                     break;
                 }
 
-                Items.Add(new ToolCallItem
+                RenderTarget.Add(new ToolCallItem
                 {
                     CallId = call.CallId,
                     ToolName = call.Name,
@@ -479,7 +488,7 @@ public partial class ConversationViewModel : ViewModelBase
                 break;
 
             case FunctionResultContent result:
-                if (Items.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == result.CallId) is { } item)
+                if (RenderTarget.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == result.CallId) is { } item)
                 {
                     item.IsRunning = false;
                     item.IsSuccess = result.Exception == null;
@@ -491,13 +500,13 @@ public partial class ConversationViewModel : ViewModelBase
             case ToolApprovalRequestContent approvalRequest:
                 CloseStreamSegment();
                 ApprovalRequestItem approvalItem = new(approvalRequest);
-                Items.Add(approvalItem);
+                RenderTarget.Add(approvalItem);
                 _pendingApprovals.Add(approvalItem);
                 approvalCollector?.Add(approvalItem);
                 break;
 
             case ErrorContent error:
-                Items.Add(new ErrorItem { Message = error.Message });
+                RenderTarget.Add(new ErrorItem { Message = error.Message });
                 break;
         }
     }
@@ -567,6 +576,12 @@ public partial class ConversationViewModel : ViewModelBase
     private ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
     {
         if (attachments == null || attachments.Count == 0) return new ChatMessage(ChatRole.User, text);
+
+        // 带图片时在此处主动解析一次视觉模型:当前模型不支持识图就切到偏好的视觉模型
+        // (写回 CurrentRunningModel,后续 LazyChatClient 直接使用)。
+        // 不能指望发送链路下游——LazyChatClient 只在无模型时按 isVision=false 兜底,
+        // 会挑中不支持识图的偏好模型;找不到视觉模型则维持原状,走路径引用 + ask_vision 降级
+        if (attachments.Any(x => x.IsImage)) LlmManager.Instance.TryCheckModelRunning(true);
 
         bool isVision = LlmManager.Instance.CurrentRunningModel?.IsVisionModel == true;
         List<AIContent>? contents = isVision ? new() { new TextContent(text) } : null;
@@ -640,47 +655,94 @@ public partial class ConversationViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 历史消息回放:与实时流共用 ApplyContent 管道
+    /// 历史消息回放:与实时流共用 ApplyContent 管道。
+    /// 只渲染最近一窗,更早的由"加载更早"按批前插——非虚拟化列表靠数据开窗保住长会话性能
     /// </summary>
-    private void ReplayMessages(IEnumerable<ChatMessage> messages)
+    private void ReplayMessages(IReadOnlyList<ChatMessage> messages)
     {
-        foreach (ChatMessage message in messages)
+        _historyStart = Math.Max(0, messages.Count - HistoryWindowSize);
+        HasEarlierMessages = _historyStart > 0;
+        foreach (ConversationItemBase item in BuildHistoryItems(messages, _historyStart, messages.Count))
         {
-            if (message.Role == ChatRole.User)
+            Items.Add(item);
+        }
+    }
+
+    /// <summary>
+    /// 向前扩展一窗历史。由视图层调用,滚动位置的保持由调用方负责
+    /// </summary>
+    public void LoadEarlierMessages()
+    {
+        IReadOnlyList<ChatMessage> history = _runner.GetHistory();
+        int end = Math.Min(_historyStart, history.Count);
+        if (end <= 0)
+        {
+            HasEarlierMessages = false;
+            return;
+        }
+
+        int from = Math.Max(0, end - HistoryWindowSize);
+        List<ConversationItemBase> buffer = BuildHistoryItems(history, from, end);
+        for (int i = 0; i < buffer.Count; i++)
+        {
+            Items.Insert(i, buffer[i]);
+        }
+
+        _historyStart = from;
+        HasEarlierMessages = _historyStart > 0;
+    }
+
+    private List<ConversationItemBase> BuildHistoryItems(IReadOnlyList<ChatMessage> messages, int from, int to)
+    {
+        List<ConversationItemBase> buffer = new();
+        _renderTarget = buffer;
+        try
+        {
+            for (int index = from; index < to; index++)
             {
-                string text = message.Text;
-                if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
+                ChatMessage message = messages[index];
+                if (message.Role == ChatRole.User)
                 {
-                    Items.Add(WireItemActions(CreateUserItem(text, message), message));
+                    string text = message.Text;
+                    if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
+                    {
+                        buffer.Add(WireItemActions(CreateUserItem(text, message), message));
+                    }
+
+                    continue;
                 }
 
-                continue;
+                int before = buffer.Count;
+                foreach (AIContent content in message.Contents)
+                {
+                    ApplyContent(content, null);
+                }
+
+                CloseStreamSegment();
+
+                // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
+                for (int i = before; i < buffer.Count; i++)
+                {
+                    if (buffer[i] is TextConversationItem textItem) WireItemActions(textItem, message);
+                }
             }
 
-            int before = Items.Count;
-            foreach (AIContent content in message.Contents)
+            foreach (ToolCallItem item in buffer.OfType<ToolCallItem>().Where(x => x.IsRunning))
             {
-                ApplyContent(content, null);
+                item.IsRunning = false;
             }
 
-            CloseStreamSegment();
-
-            // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
-            for (int i = before; i < Items.Count; i++)
+            foreach (ApprovalRequestItem item in buffer.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved))
             {
-                if (Items[i] is TextConversationItem textItem) WireItemActions(textItem, message);
+                item.CancelAsDeny();
             }
         }
-
-        foreach (ToolCallItem item in Items.OfType<ToolCallItem>().Where(x => x.IsRunning))
+        finally
         {
-            item.IsRunning = false;
+            _renderTarget = null;
         }
 
-        foreach (ApprovalRequestItem item in Items.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved))
-        {
-            item.CancelAsDeny();
-        }
+        return buffer;
     }
 
     /// <summary>
@@ -945,6 +1007,8 @@ public partial class ConversationViewModel : ViewModelBase
         Items.Clear();
         Todos.Clear();
         HasTodos = false;
+        HasEarlierMessages = false;
+        _historyStart = 0;
         _pendingApprovals.Clear();
         _streamingText = null;
         _streamingThinking = null;

@@ -64,38 +64,30 @@
             </Grid>
         </Border>
 
-        <!-- 消息列表:ItemsControl 重模板为自己拥有滚动(ScrollViewer 直接包 ItemsPresenter),
-             这是 VirtualizingStackPanel 生效的前提——外置 ScrollViewer 会给面板无限高度,虚拟化失效。
-             不用 ListBox 是为了避开选中态/键盘导航这些消息流不需要的行为 -->
+        <!-- 消息列表:非虚拟化 + 数据层开窗(只渲染最近一窗,顶部按批加载更早)。
+             虚拟化面板在不定高气泡下 Extent 是估算值,进度条跳变/滚动回跳/跟底互搏均源于此,
+             已实测不可用;开窗后布局全为真实测量,自动跟底直接复用 ScrollViewerAutoScrollHolder -->
         <Grid Grid.Row="1">
             <!-- 空状态(宿主注入) -->
             <ContentPresenter Margin="10"
                               IsVisible="{Binding !Items.Count}"
                               Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
 
-            <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
-                <ItemsControl.Template>
-                    <ControlTemplate TargetType="ItemsControl">
-                        <ScrollViewer Name="PART_MessageScroll"
-                                      u:ScrollTo.Direction="Bottom"
-                                      BringIntoViewOnFocusChange="False"
-                                      VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Disabled"
-                                      uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
-                            <ItemsPresenter Name="PART_ItemsPresenter"
-                                            ItemsPanel="{TemplateBinding ItemsPanel}"
-                                            Margin="10" />
-                        </ScrollViewer>
-                    </ControlTemplate>
-                </ItemsControl.Template>
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <!-- CacheLength:视口外额外实例化的范围(视口倍数)。调大让估算区
-                             远离正在滚动的区域,减少进度条突变与实例化修正带来的抖动 -->
-                        <VirtualizingStackPanel CacheLength="2" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.DataTemplates>
+            <ScrollViewer Name="Viewer"
+                          Margin="0,0,3,0"
+                          u:ScrollTo.Direction="Bottom"
+                          BringIntoViewOnFocusChange="False"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
+                <StackPanel Margin="10">
+                    <Button HorizontalAlignment="Center"
+                            Margin="0,0,0,10"
+                            IsVisible="{Binding HasEarlierMessages}"
+                            Click="OnLoadEarlierClick"
+                            Content="{loc:Loc ChatLoadEarlier}" />
+                    <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
+                        <ItemsControl.DataTemplates>
                     <!-- 思考过程:弱化折叠条(两个页面通用,agent 特有条目模板仍由宿主页提供) -->
                     <DataTemplate DataType="{x:Type conv:ThinkingItem}">
                         <Expander Margin="0,2,40,2" IsExpanded="{Binding IsExpanded}"
@@ -206,8 +198,10 @@
                                 </Grid>
                             </Grid>
                         </DataTemplate>
-                </ItemsControl.DataTemplates>
-            </ItemsControl>
+                        </ItemsControl.DataTemplates>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- composer -->

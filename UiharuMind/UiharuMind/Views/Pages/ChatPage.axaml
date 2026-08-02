@@ -124,7 +124,8 @@
                    Cursor="SizeWestEast">
                 <Thumb.Template>
                     <ControlTemplate>
-                        <Grid Background="Transparent">
+                        <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                        <Grid Background="Transparent" Margin="8,0,0,0">
                             <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
                         </Grid>
                     </ControlTemplate>
@@ -223,7 +224,8 @@
                    Cursor="SizeWestEast">
                 <Thumb.Template>
                     <ControlTemplate>
-                        <Grid Background="Transparent">
+                        <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                        <Grid Background="Transparent" Margin="8,0,0,0">
                             <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
                         </Grid>
                     </ControlTemplate>

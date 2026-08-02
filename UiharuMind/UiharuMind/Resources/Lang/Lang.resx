@@ -24,6 +24,9 @@
     <data name="SendUserDesc" xml:space="preserve">
         <value />
     </data>
+    <data name="ChatLoadEarlier" xml:space="preserve">
+        <value>Load earlier messages</value>
+    </data>
     <data name="ChatInputTips" xml:space="preserve">
         <value>Shift+Enter</value>
     </data>
