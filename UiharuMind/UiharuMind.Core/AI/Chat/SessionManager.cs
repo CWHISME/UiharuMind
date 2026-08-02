@@ -199,7 +199,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     {
         foreach (ChatSession session in _loaded.Values.Where(x => x.HasPendingSave).ToList())
         {
-            session.SaveNow();
+            session.Save();
         }
     }
 

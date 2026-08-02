@@ -54,14 +54,23 @@ public static class SaveUtility
             if (dir == null) return;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            string jsonString = JsonSerializer.Serialize(target, JsonOptions);
-
-            File.WriteAllText(filePath, jsonString);
+            WriteAtomic(filePath, JsonSerializer.Serialize(target, JsonOptions));
         }
         catch (Exception e)
         {
             Log.Error($"Save File Error:{e.Message},Path:{filePath}");
         }
+    }
+
+    /// <summary>
+    /// 原子写盘:先写临时文件再替换。进程死在写一半时,
+    /// 目标文件仍是完整的旧版本,而不是半截损坏的 JSON。
+    /// </summary>
+    private static void WriteAtomic(string filePath, string content)
+    {
+        string tempPath = filePath + ".tmp";
+        File.WriteAllText(tempPath, content);
+        File.Move(tempPath, filePath, true);
     }
 
     /// <summary>
@@ -79,7 +88,7 @@ public static class SaveUtility
             if (dir == null) return;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-            File.WriteAllText(filePath, JsonSerializer.Serialize(target, options));
+            WriteAtomic(filePath, JsonSerializer.Serialize(target, options));
         }
         catch (Exception e)
         {

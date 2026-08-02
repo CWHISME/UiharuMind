@@ -393,7 +393,7 @@ public partial class ConversationViewModel : ViewModelBase
         ChatSession? session = CurrentSession;
         if (session == null) return;
         session.CustomParams[ThinkingModeParamName] = ((EThinkingMode)value).ToString();
-        session.Save();
+        session.SaveDebounced(); //界面偏好,可容忍崩溃丢失,换取连续切档只写一次盘
     }
 
     partial void OnPermissionModeIndexChanged(int value)
