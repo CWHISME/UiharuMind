@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:vm="clr-namespace:UiharuMind.ViewModels"
-             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
              xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
              xmlns:markup="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -108,15 +107,13 @@
                 </DockPanel>
             </Border>
 
-            <ContentControl
-                Grid.Row="1"
-                Grid.Column="1"
-                Margin="0,5,5,5"
-                Content="{Binding Content}">
-                <ContentControl.ContentTemplate>
-                    <converters:ViewLocator />
-                </ContentControl.ContentTemplate>
-            </ContentControl>
+            <!-- 页面宿主:视图常驻视觉树,切页只切可见性(见 code-behind)。
+                 用 ContentControl 换页会让整棵页面子树脱挂/重挂,
+                 长会话页有大量气泡时每次切换都要重新套样式与布局,卡顿明显 -->
+            <Panel Name="PageHost"
+                   Grid.Row="1"
+                   Grid.Column="1"
+                   Margin="0,5,5,5" />
 
             <!-- <u:ToolBarPanel Grid.Row="1" Grid.Column="1"></u:ToolBarPanel> -->
         </Grid>
