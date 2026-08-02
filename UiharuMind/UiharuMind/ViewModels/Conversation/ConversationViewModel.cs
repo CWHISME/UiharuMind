@@ -207,10 +207,14 @@ public partial class ConversationViewModel : ViewModelBase
     public string ModeLabel => LocalizationManager.Instance.GetString(
         CurrentMode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
 
-    /// <summary>当前会话对应的模型名(会话未绑定专属模型时跟随全局当前模型)</summary>
+    /// <summary>
+    /// 当前会话对应的模型名:会话绑定的专属模型 → 全局当前模型 →
+    /// 将被自动解析的偏好模型(未选模型时发送会走同一解析函数,显示与实际使用一致)
+    /// </summary>
     public string SessionModelLabel =>
         CurrentSession?.ChatModelRunningData?.ModelName
         ?? LlmManager.Instance.CurrentRunningModel?.ModelName
+        ?? LlmManager.Instance.GetPreferredModelName(false)
         ?? string.Empty;
 
     //================= 工具行图标态(Tag 驱动颜色 + 悬停提示当前值) =================
@@ -506,6 +510,7 @@ public partial class ConversationViewModel : ViewModelBase
         LlmRequestContext.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
         _turnInputTokens = 0;
         _turnOutputTokens = 0;
+        OnPropertyChanged(nameof(SessionModelLabel)); //本轮实际使用的模型此刻可解析
         _runCancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = _runCancellation.Token;
         try
