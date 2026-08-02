@@ -10,16 +10,13 @@
         Title="QuickChatViewWindow">
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*" Margin="10">
-        <Border Height="50" Background="Transparent"
+        <!-- 标题与模型已由 ConversationView 头部展示,此处只留拖拽区与关闭按钮 -->
+        <Border Height="34" Background="Transparent"
                 PointerPressed="InputElement_OnPointerPressed">
-            <StackPanel>
-                <DockPanel LastChildFill="False">
-                    <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
-                    <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
-                            Click="CloseButton_Click" />
-                </DockPanel>
-                <TextBlock Name="TitleSecondaryTextBlock" TextAlignment="Left" />
-            </StackPanel>
+            <DockPanel LastChildFill="False">
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                        Click="CloseButton_Click" />
+            </DockPanel>
         </Border>
         <Border Grid.Row="1" Margin="5">
             <convView:ConversationView />

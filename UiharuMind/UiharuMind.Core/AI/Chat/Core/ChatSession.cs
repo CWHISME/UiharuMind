@@ -346,14 +346,6 @@ public class ChatSession
     /// <summary>
     /// 落盘。临时会话为空操作。
     /// </summary>
-    /// <summary>防抖窗口:窗内的多次保存合并为一次尾部写盘</summary>
-    private const int SaveDebounceMilliseconds = 300;
-
-    [JsonIgnore] private bool _savePending;
-
-    /// <summary>是否有一次防抖保存尚未落盘(退出前冲刷用)</summary>
-    [JsonIgnore]
-    public bool HasPendingSave => _savePending;
 
     /// <summary>
     /// 立即全量保存(头文件 + 历史整写)。这是默认路径——历史、编辑等有价值数据
@@ -361,7 +353,6 @@ public class ChatSession
     /// </summary>
     public void Save()
     {
-        _savePending = false; //有立即保存兜底,悬挂中的防抖作废
         SessionManager.Instance.Save(this);
     }
 
@@ -370,7 +361,6 @@ public class ChatSession
     /// </summary>
     public void SaveMeta()
     {
-        _savePending = false;
         SessionManager.Instance.SaveMeta(this);
     }
 
@@ -384,37 +374,6 @@ public class ChatSession
         SessionManager.Instance.Append(this, fromIndex);
     }
 
-    /// <summary>
-    /// 防抖保存:短窗内的连续调用合并为一次尾部写盘。
-    /// 崩溃/强杀会丢掉窗内改动,因此只许用于可容忍丢失的界面偏好类字段。
-    /// </summary>
-    public void SaveDebounced()
-    {
-        if (IsTransient || _savePending) return;
-
-        SynchronizationContext? context = SynchronizationContext.Current;
-        if (context == null)
-        {
-            // 无同步上下文(后台线程):退化为立即保存,避免线程上的序列化竞争
-            Save();
-            return;
-        }
-
-        _savePending = true;
-        Task.Delay(SaveDebounceMilliseconds).ContinueWith(_ => context.Post(static state =>
-        {
-            ChatSession self = (ChatSession)state!;
-            if (!self._savePending) return; //已被立即保存兜底或会话已删除
-            if (!SessionManager.Instance.Exists(self.SessionId))
-            {
-                // 防抖窗内会话被删除,写盘会让它复活
-                self._savePending = false;
-                return;
-            }
-
-            self.SaveMeta(); //防抖只承接偏好类字段,都在会话头里
-        }, this), CancellationToken.None);
-    }
 
     /// <summary>
     /// 把临时会话提升为正式会话并落盘

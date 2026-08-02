@@ -207,6 +207,12 @@ public partial class ConversationViewModel : ViewModelBase
     public string ModeLabel => LocalizationManager.Instance.GetString(
         CurrentMode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
 
+    /// <summary>当前会话对应的模型名(会话未绑定专属模型时跟随全局当前模型)</summary>
+    public string SessionModelLabel =>
+        CurrentSession?.ChatModelRunningData?.ModelName
+        ?? LlmManager.Instance.CurrentRunningModel?.ModelName
+        ?? string.Empty;
+
     //================= 工具行图标态(Tag 驱动颜色 + 悬停提示当前值) =================
 
     /// <summary>模式状态键(Plan/Execute)</summary>
@@ -304,6 +310,7 @@ public partial class ConversationViewModel : ViewModelBase
         _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanRegenerate));
+        LlmManager.Instance.OnCurrentModelChanged += _ => OnPropertyChanged(nameof(SessionModelLabel));
 
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
         LocalizationManager.Instance.LanguageChanged += () =>
@@ -393,7 +400,7 @@ public partial class ConversationViewModel : ViewModelBase
         ChatSession? session = CurrentSession;
         if (session == null) return;
         session.CustomParams[ThinkingModeParamName] = ((EThinkingMode)value).ToString();
-        session.SaveDebounced(); //界面偏好,可容忍崩溃丢失,换取连续切档只写一次盘
+        session.SaveMeta(); //头字段小文件,直接原子写
     }
 
     partial void OnPermissionModeIndexChanged(int value)
@@ -748,6 +755,7 @@ public partial class ConversationViewModel : ViewModelBase
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
         OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(SessionModelLabel));
         if (meta == null)
         {
             IsSessionLoading = false;

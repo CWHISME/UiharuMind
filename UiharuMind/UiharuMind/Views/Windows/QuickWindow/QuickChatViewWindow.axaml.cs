@@ -30,15 +30,13 @@ public partial class QuickChatViewWindow : QuickWindowBase
     }
 
     /// <summary>
-    /// 装载会话:窗口标题取自会话与其模型,内容交给通用对话组件
+    /// 装载会话:标题与模型由通用对话组件的头部展示
     /// </summary>
     /// <param name="chatSession">会话本体</param>
     public void SetSession(ChatSession chatSession)
     {
         ConversationViewModel conversation = new();
         DataContext = conversation;
-        TitleTextBlock.Text = chatSession.Title;
-        TitleSecondaryTextBlock.Text = $"({chatSession.ChatModelRunningData?.ModelName})";
         _ = conversation.LoadSessionAsync(chatSession.ToMeta());
     }
 

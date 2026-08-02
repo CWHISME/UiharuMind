@@ -182,8 +182,6 @@ public partial class App : Application, ILogger, IDisposable
 
     private void OnExit(object? sender, EventArgs e)
     {
-        // 冲刷仍在防抖窗内的会话保存,避免尾部改动丢失
-        UiharuMind.Core.AI.Chat.SessionManager.Instance.FlushPendingSaves();
         Dispose();
     }
 
