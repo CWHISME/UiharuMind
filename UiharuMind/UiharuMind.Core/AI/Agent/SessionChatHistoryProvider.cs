@@ -85,7 +85,8 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             session.History.AddRange(context.ResponseMessages.Where(IsOwnedByUs));
         }
 
-        if (session.History.Count != before) session.Save();
+        // 常规轮次只追加新消息,落盘成本与会话长度无关
+        if (session.History.Count != before) session.SaveAppended(before);
         return default;
     }
 

@@ -63,6 +63,27 @@ public static class SaveUtility
     }
 
     /// <summary>
+    /// 原子保存一段文本
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="content">文本内容</param>
+    public static void SaveText(string filePath, string content)
+    {
+        try
+        {
+            string? dir = Path.GetDirectoryName(filePath);
+            if (dir == null) return;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            WriteAtomic(filePath, content);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Save File Error:{e.Message},Path:{filePath}");
+        }
+    }
+
+    /// <summary>
     /// 原子写盘:先写临时文件再替换。进程死在写一半时,
     /// 目标文件仍是完整的旧版本,而不是半截损坏的 JSON。
     /// </summary>

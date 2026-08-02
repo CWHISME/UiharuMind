@@ -36,8 +36,8 @@ public class ChatSession
     /// <summary>AI 作为首条消息时的作者名（界面据此做旁白式展示）</summary>
     public const string NarratorName = "Narrator";
 
-    /// <summary>存档格式版本</summary>
-    public int FormatVersion { get; set; } = 3;
+    /// <summary>存档格式版本(4 起:头文件 .meta.json + 历史 .history.jsonl 分离)</summary>
+    public int FormatVersion { get; set; } = 4;
 
     /// <summary>会话唯一标识，同时是存档文件名</summary>
     public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
@@ -74,7 +74,8 @@ public class ChatSession
     /// <summary>最后更新时间</summary>
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
 
-    /// <summary>对话历史</summary>
+    /// <summary>对话历史。不随会话头序列化——单独以 JSONL 追加式持久化</summary>
+    [JsonIgnore]
     public List<ChatMessage> History { get; set; } = [];
 
     /// <summary>自定义模板参数</summary>
@@ -355,13 +356,32 @@ public class ChatSession
     public bool HasPendingSave => _savePending;
 
     /// <summary>
-    /// 立即保存。这是默认路径——历史、编辑等有价值数据不能坐在任何延迟窗里等崩溃/强杀,
-    /// 只有明确低价值且高频的调用点才允许用 <see cref="SaveDebounced"/>。
+    /// 立即全量保存(头文件 + 历史整写)。这是默认路径——历史、编辑等有价值数据
+    /// 不能坐在任何延迟窗里等崩溃/强杀,只有低价值高频的偏好类字段才允许用 <see cref="SaveDebounced"/>。
     /// </summary>
     public void Save()
     {
         _savePending = false; //有立即保存兜底,悬挂中的防抖作废
         SessionManager.Instance.Save(this);
+    }
+
+    /// <summary>
+    /// 只保存会话头(标题/参数/统计等),不动历史文件
+    /// </summary>
+    public void SaveMeta()
+    {
+        _savePending = false;
+        SessionManager.Instance.SaveMeta(this);
+    }
+
+    /// <summary>
+    /// 追加保存:把 History 中自 fromIndex 起的新消息追加进历史文件并刷新会话头。
+    /// 轮次结束的常规落盘走这里,成本与会话长度无关。
+    /// </summary>
+    /// <param name="fromIndex">新消息在 History 中的起始下标</param>
+    public void SaveAppended(int fromIndex)
+    {
+        SessionManager.Instance.Append(this, fromIndex);
     }
 
     /// <summary>
@@ -392,7 +412,7 @@ public class ChatSession
                 return;
             }
 
-            self.Save();
+            self.SaveMeta(); //防抖只承接偏好类字段,都在会话头里
         }, this), CancellationToken.None);
     }
 

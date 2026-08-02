@@ -31,6 +31,8 @@ public class ChatSessionSerializationTests
         string json = JsonSerializer.Serialize(session, SessionJsonOptions.Default);
 
         Assert.StartsWith("{", json.TrimStart());
+        // 历史不随会话头序列化(单独走 JSONL),混进来意味着每次头保存都回到全量成本
+        Assert.DoesNotContain("你好", json);
 
         ChatSession restored = JsonSerializer.Deserialize<ChatSession>(json, SessionJsonOptions.Default)!;
 
@@ -42,8 +44,7 @@ public class ChatSessionSerializationTests
         Assert.Equal("/tmp/work", restored.WorkspacePath);
         Assert.Equal(2, restored.PermissionModeIndex);
         Assert.Equal("中文", restored.CustomParams["lang"]!.ToString());
-        Assert.Single(restored.History);
-        Assert.Equal("你好", restored.History[0].Text);
+        Assert.Empty(restored.History);
     }
 
     [Fact]

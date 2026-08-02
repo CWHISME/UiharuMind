@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.Json;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Chat;
@@ -30,6 +31,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 {
     private const string IndexFileName = "index.json";
     private const string AgentStateSuffix = ".agentstate.json";
+    private const string MetaSuffix = ".meta.json"; //会话头(小,原子重写)
+    private const string HistorySuffix = ".history.jsonl"; //历史(一行一条消息,追加式)
 
     /// <summary>会话新增</summary>
     public event Action<ChatSession>? OnSessionAdded;
@@ -116,7 +119,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         if (string.IsNullOrEmpty(sessionId)) return null;
         if (_loaded.TryGetValue(sessionId, out ChatSession? cached)) return cached;
 
-        ChatSession? session = SaveUtility.Load<ChatSession>(GetBodyPath(sessionId), SessionJsonOptions.Default);
+        ChatSession? session = SaveUtility.Load<ChatSession>(GetMetaPath(sessionId), SessionJsonOptions.Default);
         if (session == null)
         {
             Log.Warning($"Load chat session '{sessionId}' failed.");
@@ -124,8 +127,24 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         }
 
         session.SessionId = sessionId;
+        session.History = LoadHistory(sessionId);
         _loaded[sessionId] = session;
         return session;
+    }
+
+    private static List<ChatMessage> LoadHistory(string sessionId)
+    {
+        string path = GetHistoryPath(sessionId);
+        if (!File.Exists(path)) return [];
+        try
+        {
+            return HistoryJsonl.Parse(File.ReadLines(path));
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Load history of '{sessionId}' failed: {e.Message}");
+            return [];
+        }
     }
 
     /// <summary>
@@ -206,13 +225,56 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public void Save(ChatSession session)
     {
         if (session.IsTransient) return;
+        SaveUtility.SaveText(GetHistoryPath(session.SessionId), HistoryJsonl.SerializeLines(session.History));
+        SaveMeta(session);
+    }
+
+    /// <summary>
+    /// 只保存会话头与索引,不动历史文件(标题/参数/统计等头字段变更用)
+    /// </summary>
+    /// <param name="session">会话</param>
+    public void SaveMeta(ChatSession session)
+    {
+        if (session.IsTransient) return;
 
         session.UpdatedAt = DateTimeOffset.Now;
         _loaded[session.SessionId] = session;
-        // 本体冗余保存同一份元数据,索引损坏时可据此重建
-        SaveUtility.Save(GetBodyPath(session.SessionId), session, SessionJsonOptions.Default);
+        // 会话头冗余保存同一份元数据,索引损坏时可据此重建
+        SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
         _metas[session.SessionId] = session.ToMeta();
         SaveIndex();
+    }
+
+    /// <summary>
+    /// 追加保存:把 History 自 fromIndex 起的新消息追加到历史文件,并刷新会话头。
+    /// 常规轮次落盘走这里——追加成本与会话长度无关;
+    /// 进程中断最坏留下残缺尾行,读取端逐行容错,旧数据不受影响。
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <param name="fromIndex">新消息起始下标</param>
+    public void Append(ChatSession session, int fromIndex)
+    {
+        if (session.IsTransient) return;
+
+        int from = Math.Clamp(fromIndex, 0, session.History.Count);
+        string path = GetHistoryPath(session.SessionId);
+        if (from == 0 || !File.Exists(path))
+        {
+            // 从头写或文件缺失:退化为全量,保证文件与内存一致
+            Save(session);
+            return;
+        }
+
+        try
+        {
+            File.AppendAllText(path, HistoryJsonl.SerializeLines(session.History.Skip(from)));
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Append history of '{session.SessionId}' failed: {e.Message}");
+        }
+
+        SaveMeta(session);
     }
 
     /// <summary>
@@ -242,6 +304,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     {
         string json = JsonSerializer.Serialize(session, SessionJsonOptions.Default);
         ChatSession copy = JsonSerializer.Deserialize<ChatSession>(json, SessionJsonOptions.Default)!;
+        // History 不随会话头序列化(JsonIgnore),单独往返一次拿到完全独立的副本
+        string history = JsonSerializer.Serialize(session.History, SessionJsonOptions.Default);
+        copy.History = JsonSerializer.Deserialize<List<ChatMessage>>(history, SessionJsonOptions.Default) ?? [];
         return copy;
     }
 
@@ -267,7 +332,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         _loaded.Remove(sessionId);
         bool wasIndexed = _metas.Remove(sessionId);
 
-        SaveUtility.Delete(GetBodyPath(sessionId));
+        SaveUtility.Delete(GetMetaPath(sessionId));
+        SaveUtility.Delete(GetHistoryPath(sessionId));
+        SaveUtility.Delete(GetBodyPath(sessionId)); //旧单文件格式残留
         SaveUtility.Delete(GetAgentStatePath(sessionId));
         if (wasIndexed) SaveIndex();
 
@@ -298,15 +365,12 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
             return;
         }
 
-        foreach (string file in Directory.GetFiles(SettingConfig.SaveSessionDataPath, "*.json"))
+        foreach (string file in Directory.GetFiles(SettingConfig.SaveSessionDataPath, "*" + MetaSuffix))
         {
-            string name = Path.GetFileName(file);
-            if (name == IndexFileName || name.EndsWith(AgentStateSuffix, StringComparison.Ordinal)) continue;
-
             ChatSession? session = SaveUtility.Load<ChatSession>(file, SessionJsonOptions.Default);
             if (session == null) continue;
 
-            session.SessionId = Path.GetFileNameWithoutExtension(file);
+            session.SessionId = Path.GetFileName(file)[..^MetaSuffix.Length];
             _metas[session.SessionId] = session.ToMeta();
         }
 
@@ -371,6 +435,16 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private static string GetBodyPath(string sessionId)
     {
         return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + ".json");
+    }
+
+    private static string GetMetaPath(string sessionId)
+    {
+        return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + MetaSuffix);
+    }
+
+    private static string GetHistoryPath(string sessionId)
+    {
+        return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + HistorySuffix);
     }
 
     private static string GetAgentStatePath(string sessionId)
