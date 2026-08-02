@@ -33,7 +33,17 @@ public class LazyChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
-        return await client.GetResponseAsync(messages, options, cancellationToken).ConfigureAwait(false);
+        ChatResponse response = await client.GetResponseAsync(messages, options, cancellationToken)
+            .ConfigureAwait(false);
+
+        HashSet<string>? toolNames = CollectToolNames(options);
+        if (toolNames == null) return response;
+        foreach (ChatMessage message in response.Messages)
+        {
+            message.Contents = RecoverTextToolCalls(message.Contents, toolNames);
+        }
+
+        return response;
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -41,11 +51,109 @@ public class LazyChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
+
+        HashSet<string>? toolNames = CollectToolNames(options);
+        if (toolNames == null)
+        {
+            await foreach (ChatResponseUpdate update in client
+                               .GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
+            {
+                yield return update;
+            }
+
+            yield break;
+        }
+
+        // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
+        // (服务端未翻译成结构化 tool_calls 时),在此转回 FunctionCallContent,
+        // 使上层框架的函数调用循环照常执行。两通道各持解析器,互不串流。
+        TextToolCallStreamParser textParser = new(toolNames);
+        TextToolCallStreamParser reasoningParser = new(toolNames);
+
         await foreach (ChatResponseUpdate update in client
                            .GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
         {
+            List<AIContent> rebuilt = new(update.Contents.Count);
+            foreach (AIContent content in update.Contents)
+            {
+                switch (content)
+                {
+                    case TextContent { Text.Length: > 0 } tc:
+                        Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
+                        break;
+                    case TextReasoningContent { Text.Length: > 0 } rc:
+                        Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
+                        break;
+                    default:
+                        rebuilt.Add(content);
+                        break;
+                }
+            }
+
+            update.Contents = rebuilt;
             yield return update;
         }
+
+        List<AIContent> tail = new();
+        Append(tail, textParser.Flush(), isReasoning: false);
+        Append(tail, reasoningParser.Flush(), isReasoning: true);
+        if (tail.Count > 0)
+        {
+            yield return new ChatResponseUpdate(ChatRole.Assistant, tail);
+        }
+    }
+
+    /// <summary>
+    /// 请求带工具时收集工具名集合(恢复器的启用条件与命中闸);无工具返回 null
+    /// </summary>
+    private static HashSet<string>? CollectToolNames(ChatOptions? options)
+    {
+        if (options?.Tools is not { Count: > 0 } tools) return null;
+        HashSet<string> names = new(StringComparer.Ordinal);
+        foreach (AITool tool in tools)
+        {
+            if (!string.IsNullOrEmpty(tool.Name)) names.Add(tool.Name);
+        }
+
+        return names.Count > 0 ? names : null;
+    }
+
+    private static void Append(List<AIContent> target,
+        (string Text, List<FunctionCallContent> Calls) parsed, bool isReasoning)
+    {
+        if (parsed.Text.Length > 0)
+        {
+            target.Add(isReasoning ? new TextReasoningContent(parsed.Text) : new TextContent(parsed.Text));
+        }
+
+        target.AddRange(parsed.Calls);
+    }
+
+    /// <summary>非流式响应的同款恢复(每条消息独立解析并冲刷)</summary>
+    private static IList<AIContent> RecoverTextToolCalls(IList<AIContent> contents, HashSet<string> toolNames)
+    {
+        TextToolCallStreamParser textParser = new(toolNames);
+        TextToolCallStreamParser reasoningParser = new(toolNames);
+        List<AIContent> rebuilt = new(contents.Count);
+        foreach (AIContent content in contents)
+        {
+            switch (content)
+            {
+                case TextContent { Text.Length: > 0 } tc:
+                    Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
+                    break;
+                case TextReasoningContent { Text.Length: > 0 } rc:
+                    Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
+                    break;
+                default:
+                    rebuilt.Add(content);
+                    break;
+            }
+        }
+
+        Append(rebuilt, textParser.Flush(), isReasoning: false);
+        Append(rebuilt, reasoningParser.Flush(), isReasoning: true);
+        return rebuilt;
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null)
