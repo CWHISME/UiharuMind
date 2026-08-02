@@ -58,16 +58,14 @@ public class RunTextSemanticsTests
 
         public IReadOnlyList<ChatMessage> GetHistory() => [];
 
-        public EAgentMode GetMode() => EAgentMode.Execute;
+        public Task<EAgentMode> GetModeAsync() => Task.FromResult(EAgentMode.Execute);
 
-        public void SetMode(EAgentMode mode)
-        {
-        }
+        public Task SetModeAsync(EAgentMode mode) => Task.CompletedTask;
 
         public Task<IReadOnlyList<TodoSnapshot>> GetTodosAsync() =>
             Task.FromResult<IReadOnlyList<TodoSnapshot>>([]);
 
-        public bool TryInject(IEnumerable<ChatMessage> messages) => false;
+        public Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages) => Task.FromResult(false);
 
         public ValueTask DisposeAsync() => default;
     }

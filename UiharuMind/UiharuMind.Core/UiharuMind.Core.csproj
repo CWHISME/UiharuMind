@@ -31,16 +31,16 @@
            导致这些包及其传递依赖(如 ModelContextProtocol.Core)不进 app head 输出目录,运行时抛 FileNotFoundException。
            后三项是 PrivateAssets 的默认值,显式写出以免被覆盖。
            Microsoft.Extensions.AI 是稳定的公共货币,完全不设限。 -->
-      <PackageReference Include="Microsoft.Agents.AI" Version="1.13.0">
+      <PackageReference Include="Microsoft.Agents.AI" Version="1.16.0">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.13.0-preview.260703.1">
+      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.16.0">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.13.0-preview.260703.1">
+      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.16.0-preview.260730.1">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.13.0-alpha.260703.1">
+      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.16.0-alpha.260730.1">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />

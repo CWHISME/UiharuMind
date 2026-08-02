@@ -73,13 +73,13 @@ public interface ICharacterRunner : IAsyncDisposable
     /// 读取当前会话的 plan/execute 模式
     /// </summary>
     /// <returns>模式；无会话时返回 <see cref="EAgentMode.Execute"/></returns>
-    EAgentMode GetMode();
+    Task<EAgentMode> GetModeAsync();
 
     /// <summary>
     /// 设置当前会话的 plan/execute 模式；无会话时不做任何事
     /// </summary>
     /// <param name="mode">目标模式</param>
-    void SetMode(EAgentMode mode);
+    Task SetModeAsync(EAgentMode mode);
 
     /// <summary>
     /// 获取当前会话的 todo 快照
@@ -92,7 +92,7 @@ public interface ICharacterRunner : IAsyncDisposable
     /// </summary>
     /// <param name="messages">插入的消息</param>
     /// <returns>成功入队返回 true；当前不支持插话返回 false</returns>
-    bool TryInject(IEnumerable<ChatMessage> messages);
+    Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages);
 }
 
 /// <summary>

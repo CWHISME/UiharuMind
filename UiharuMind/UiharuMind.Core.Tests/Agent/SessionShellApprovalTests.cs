@@ -1,5 +1,7 @@
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Agent;
+using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace UiharuMind.Core.Tests.Agent;
 
@@ -54,13 +56,41 @@ public class SessionShellApprovalTests
     }
 
     private static async Task<bool> EvaluateAsync(
-        IEnumerable<Func<FunctionCallContent, ValueTask<bool>>> rules, FunctionCallContent call)
+        IEnumerable<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules, FunctionCallContent call)
     {
+        // 1.16 起规则收上下文对象;用最小桩 agent/session 构造之
+        ChatClientAgent agent = new(new NullChatClient());
+        AgentSession session = await agent.CreateSessionAsync();
+        ToolAutoApprovalRuleContext context = new(call, agent, session, [], null);
         foreach (var rule in rules)
         {
-            if (await rule(call)) return true;
+            if (await rule(context)) return true;
         }
 
         return false;
+    }
+
+    private sealed class NullChatClient : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new ChatResponse());
+        }
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation]
+            CancellationToken cancellationToken = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
     }
 }

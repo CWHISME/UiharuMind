@@ -25,7 +25,7 @@ public class RoleplayZeroInjectionTests
 
         Assert.Equal(string.Empty, options.HarnessInstructions);
         Assert.True(options.DisableWebSearch);
-        Assert.True(options.DisableFileAccess);
+        Assert.Null(options.FileAccessStore); //1.16:框架文件工具只随 FileAccessStore 出现
         Assert.True(options.DisableFileMemory);
         Assert.True(options.DisableTodoProvider);
         Assert.True(options.DisableAgentModeProvider);

@@ -43,11 +43,11 @@ public static class ApprovalModeMapper
     /// <param name="sessionShellApprovalSource">会话级放行的 shell 命令模式来源
     /// (审批卡片"记住同类命令"写入,规则每次执行时现取现用,变化无需重建装配),可空</param>
     /// <returns>规则列表</returns>
-    public static List<Func<FunctionCallContent, ValueTask<bool>>> BuildRules(
+    public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
     {
-        List<Func<FunctionCallContent, ValueTask<bool>>> rules = new()
+        List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules = new()
         {
             // 任何档位:技能只读工具自动放行
             // 注意:file_access_* 工具已由 PermissiveFileAccessTools 自行包 ApprovalRequiredAIFunction,
@@ -65,13 +65,13 @@ public static class ApprovalModeMapper
         if (preAuthorizedShellPatterns is { Count: > 0 })
         {
             List<string> patterns = new(preAuthorizedShellPatterns);
-            rules.Add(functionCall => new ValueTask<bool>(MatchesShellPattern(functionCall, patterns)));
+            rules.Add(context => new ValueTask<bool>(MatchesShellPattern(context.FunctionCallContent, patterns)));
         }
 
         if (sessionShellApprovalSource != null)
         {
-            rules.Add(functionCall =>
-                new ValueTask<bool>(MatchesShellPattern(functionCall, sessionShellApprovalSource())));
+            rules.Add(context =>
+                new ValueTask<bool>(MatchesShellPattern(context.FunctionCallContent, sessionShellApprovalSource())));
         }
 
         return rules;

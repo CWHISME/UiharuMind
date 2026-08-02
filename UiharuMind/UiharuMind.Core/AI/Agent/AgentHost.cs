@@ -179,6 +179,12 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         }
 
         List<AITool> extraTools = new();
+        if (shellExecutor != null)
+        {
+            // 1.16:shell 作为普通工具挂载,默认名即 run_shell、默认自包审批,预授权规则按名匹配不变
+            extraTools.Add(shellExecutor.AsAIFunction());
+        }
+
         if (config.EnableVisionTool)
         {
             extraTools.Add(VisionTool.Create());
@@ -216,7 +222,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
         AIAgent? researcher = BuildResearcherAgent(client, config, workingDirectory);
 
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
-            shellExecutor, SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
+            SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
             researcher == null ? null : [researcher], profile.SessionShellApprovalSource,
             WorkspaceInstructionsLoader.Load(profile.WorkspacePath)), shellExecutor);
@@ -279,8 +285,8 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
                           "to keep the main context small. It cannot modify anything.",
             HarnessInstructions = string.Empty,
             // 与角色扮演档同一原则:框架有状态能力全关,子代理是一次性的纯工具循环
+            // (1.16 起框架文件工具只随 FileAccessStore 出现,不设即无,无需显式关闭)
             DisableWebSearch = true,
-            DisableFileAccess = true,
             DisableFileMemory = true,
             DisableTodoProvider = true,
             DisableAgentModeProvider = true,
@@ -349,7 +355,6 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             ChatHistoryProvider = history,
             HarnessInstructions = string.Empty,
             DisableWebSearch = true,
-            DisableFileAccess = true,
             DisableFileMemory = true,
             DisableTodoProvider = true,
             DisableAgentModeProvider = true,
@@ -370,8 +375,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <param name="config">能力配置</param>
     /// <param name="history">历史提供器</param>
     /// <param name="contextProviders">上下文提供器</param>
-    /// <param name="chatOptions">对话选项(含角色系统提示与已装配工具集)</param>
-    /// <param name="shellExecutor">shell 执行器,禁用时为 null</param>
+    /// <param name="chatOptions">对话选项(含角色系统提示与已装配工具集,shell 工具已在其中)</param>
     /// <param name="skillsSource">技能来源</param>
     /// <param name="agentNotesStore">agent 笔记存储,禁用时为 null</param>
     /// <param name="permissionMode">权限档</param>
@@ -382,7 +386,7 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
-        ShellExecutor? shellExecutor, AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
+        AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         List<AIAgent>? backgroundAgents = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
@@ -396,11 +400,9 @@ public class AgentHost : Singleton<AgentHost>, IInitialize
             HarnessInstructions = BuildToolDisciplines(config, workspaceInstructions: workspaceInstructions),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
-            DisableFileAccess = true,
             FileMemoryStore = agentNotesStore,
+            // 1.16:框架文件工具只随 FileAccessStore 出现;shell 改为普通工具挂在 ChatOptions.Tools
             FileAccessStore = null,
-            ShellExecutor = shellExecutor,
-            ShellToolName = ShellToolName,
             AgentSkillsSource = skillsSource,
             BackgroundAgents = backgroundAgents,
             AIContextProviders = contextProviders,

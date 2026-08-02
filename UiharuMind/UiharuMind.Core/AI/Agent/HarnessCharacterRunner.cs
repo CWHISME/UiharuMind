@@ -187,18 +187,19 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         return SessionManager.Instance.Load(_boundSessionId)?.History ?? [];
     }
 
-    public EAgentMode GetMode()
+    public async Task<EAgentMode> GetModeAsync()
     {
         if (_handle?.Mode == null || _session == null) return EAgentMode.Execute;
-        return AgentModeExtensions.FromModeString(_handle.Mode.GetMode(_session));
+        string mode = await _handle.Mode.GetModeAsync(_session).ConfigureAwait(false);
+        return AgentModeExtensions.FromModeString(mode);
     }
 
-    public void SetMode(EAgentMode mode)
+    public async Task SetModeAsync(EAgentMode mode)
     {
         if (_handle?.Mode == null || _session == null) return;
         try
         {
-            _handle.Mode.SetMode(_session, mode.ToModeString());
+            await _handle.Mode.SetModeAsync(_session, mode.ToModeString()).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -220,10 +221,10 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         return snapshots;
     }
 
-    public bool TryInject(IEnumerable<ChatMessage> messages)
+    public async Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages)
     {
         if (_handle?.MessageInjector == null || _session == null) return false;
-        _handle.MessageInjector.EnqueueMessages(_session, messages);
+        await _handle.MessageInjector.EnqueueMessagesAsync(_session, messages).ConfigureAwait(false);
         return true;
     }
 
