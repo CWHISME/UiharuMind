@@ -64,7 +64,8 @@ internal sealed class RemoteModelManager
         {
             Transport = new HttpClientPipelineTransport(new HttpClient(handler))
         };
-        var client = new ChatClient(model.ModelId, new ApiKeyCredential(model.ApiKey), options);
+        var client = new ChatClient(model.ModelId,
+            new ApiKeyCredential(model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : ""), options);
         return client.AsIChatClient();
     }
 

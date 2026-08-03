@@ -1,17 +1,14 @@
-using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core.Utils;
 
 public class AesEncryptionUtils
 {
-    private static readonly string MacAddress = GetDeviceMacAddress();
-    private static readonly byte[] Key = GenerateEncryptionKey(MacAddress, 32); // 256位密钥
-    private static readonly byte[] Iv = GenerateEncryptionKey("IV_CAT", 16); // 128位IV
+    // 固定盐派生密钥:与设备无关,配置文件复制到其他设备后仍可正常解密
+    private static readonly byte[] Key = GenerateEncryptionKey("UiharuMind_FixedKey_Salt", 32); // 256位密钥
+    private static readonly byte[] Iv = GenerateEncryptionKey("UiharuMind_FixedIv_Salt", 16); // 128位IV
 
-    // 加密字符串
     public static string EncryptString(string plainText)
     {
         if (string.IsNullOrEmpty(plainText)) return string.Empty;
@@ -20,11 +17,10 @@ public class AesEncryptionUtils
             aesAlg.Key = Key;
             aesAlg.IV = Iv;
 
-            ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
-
             using (MemoryStream msEncrypt = new MemoryStream())
             {
-                using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                using (CryptoStream csEncrypt = new CryptoStream(
+                           msEncrypt, aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV), CryptoStreamMode.Write))
                 using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
                 {
                     swEncrypt.Write(plainText);
@@ -35,58 +31,44 @@ public class AesEncryptionUtils
         }
     }
 
-    // 解密字符串
+    /// <summary>
+    /// 解密字符串。密文非法(如旧版明文配置)时返回空字符串,不抛异常
+    /// </summary>
+    /// <param name="cipherText">密文</param>
+    /// <returns>明文;解密失败返回空字符串</returns>
     public static string DecryptString(string? cipherText)
     {
         if (string.IsNullOrEmpty(cipherText)) return string.Empty;
-        using (Aes aesAlg = Aes.Create())
+        try
         {
-            //已知问题：不同的 key 和 iv 加解密的结果相同，相当于只是明文混淆，不知道是什么原因
-            //调用 GenerateKey 和 GenerateIV 方法会报错？什么情况...
-            aesAlg.Key = Key;
-            aesAlg.IV = Iv;
-            // aesAlg.GenerateKey();
-            // aesAlg.GenerateIV();
-
-            ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-
-            byte[] cipher = Convert.FromBase64String(cipherText);
-
-            using (MemoryStream msDecrypt = new MemoryStream(cipher))
+            using (Aes aesAlg = Aes.Create())
             {
-                using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                aesAlg.Key = Key;
+                aesAlg.IV = Iv;
+
+                byte[] cipher = Convert.FromBase64String(cipherText);
+                using (MemoryStream msDecrypt = new MemoryStream(cipher))
                 {
-                    var plainText = srDecrypt.ReadToEnd();
-                    // Log.Warning(
-                    //     $"MacAddress:{MacAddress}  plainText:{plainText}  Key:{BitConverter.ToString(aesAlg.Key)}  Iv:{BitConverter.ToString(aesAlg.IV)}");
-                    return plainText;
+                    using (CryptoStream csDecrypt = new CryptoStream(
+                               msDecrypt, aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV), CryptoStreamMode.Read))
+                    using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                    {
+                        return srDecrypt.ReadToEnd();
+                    }
                 }
             }
         }
-    }
-
-    // 获取设备的MAC地址
-    private static string GetDeviceMacAddress()
-    {
-        var nic = NetworkInterface
-            .GetAllNetworkInterfaces()
-            .FirstOrDefault(n =>
-                n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback);
-
-        if (nic == null)
+        catch
         {
-            return ("No network interfaces found.");
+            return string.Empty;
         }
-
-        return nic.GetPhysicalAddress().ToString();
     }
 
-    private static byte[] GenerateEncryptionKey(string macAddress, int length)
+    private static byte[] GenerateEncryptionKey(string salt, int length)
     {
         using (SHA256 sha256 = SHA256.Create())
         {
-            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(macAddress));
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(salt));
             byte[] output = new byte[length];
             Buffer.BlockCopy(hash, 0, output, 0, Math.Min(hash.Length, length));
             return output;

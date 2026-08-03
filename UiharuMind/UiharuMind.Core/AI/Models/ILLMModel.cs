@@ -21,7 +21,6 @@ public interface ILlmModel
     string ModelDescription { get; }
     string ModelId { get; }
     int Port { get; }
-    string ApiKey { get; }
 
     /// <summary>
     /// 追加到请求体的额外参数。按本次请求的思考力度产出,一档可对应多个参数

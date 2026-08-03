@@ -29,7 +29,6 @@ public class GGufModelInfo : ILlmModel
     public string ModelDescription { get; }
     public string ModelId { get; }
     public int Port { get; set; }
-    public string ApiKey { get; }
     public bool IsFavorite { get; set; }
     public string Architecture { get; set; } = "";
     public string DisplayName { get; set; } = "";

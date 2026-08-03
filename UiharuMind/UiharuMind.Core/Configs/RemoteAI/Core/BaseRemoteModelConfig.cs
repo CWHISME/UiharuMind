@@ -55,7 +55,6 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     }
 
     [SettingConfigIgnoreDisplay] public virtual int Port { get; set; }
-    [SettingConfigIgnoreDisplay] public virtual string ApiKey { get; set; }
 
     public BaseRemoteModelConfig()
     {

@@ -31,11 +31,26 @@ public class RemoteModelInfo : ILlmModel
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams(EThinkingMode thinkingMode) =>
         Config.GetExtraParams(thinkingMode);
 
-    private string _apiKey = "";
+    private string _encryptedApiKey = "";
 
+    /// <summary>
+    /// 加密后的 ApiKey,序列化到配置文件时使用
+    /// </summary>
+    [JsonInclude]
+    [JsonPropertyName("ApiKey")]
+    private string EncryptedApiKey
+    {
+        get => _encryptedApiKey;
+        set => _encryptedApiKey = value;
+    }
+
+    /// <summary>
+    /// ApiKey 明文,读取时自动解密,写入时加密存储
+    /// </summary>
+    [JsonIgnore]
     public string ApiKey
     {
-        get => AesEncryptionUtils.DecryptString(_apiKey);
-        set => _apiKey = AesEncryptionUtils.EncryptString(value);
+        get => AesEncryptionUtils.DecryptString(_encryptedApiKey);
+        set => _encryptedApiKey = AesEncryptionUtils.EncryptString(value);
     }
 }
