@@ -2356,7 +2356,7 @@
         <value>Model ID</value>
     </data>
     <data name="RemoteModelIdPlaceholder" xml:space="preserve">
-        <value>e.g. deepseek-chat</value>
+        <value>e.g. deepseek-v4-flash</value>
     </data>
     <data name="RemoteModelIdHint" xml:space="preserve">
         <value>Identifier sent with API requests to select the model.</value>

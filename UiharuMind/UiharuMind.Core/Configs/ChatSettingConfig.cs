@@ -44,5 +44,5 @@ public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
     /// 模型侧没有上下文长度元数据可依,默认值按"128k 级远程模型留足输出/工具空间、
     /// 小上下文本地模型不至于溢出"取中。
     /// </summary>
-    public int HistoryTokenBudget { get; set; } = 32_000;
+    public int HistoryTokenBudget { get; set; } = 128_000;
 }

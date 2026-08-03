@@ -32,7 +32,7 @@ public class ModelRunningData : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    public bool IsFavorite => ModelSettingConfig.Current.FavoriteModel == ModelName;
+    public bool IsFavorite => ModelSettingConfig.Current.IsFavorite(ModelName);
     private ILlmModel _modelInfo;
 
     private IChatClient? _chatClient;

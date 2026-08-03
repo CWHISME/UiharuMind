@@ -7,7 +7,7 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 [SettingConfigDesc("DeepSeek", LanguageUtils.ChineseSimplified)]
 public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 {
-    public override string ModelName { get; set; } = "Deepseek-Reasoner";
+    public override string ModelName { get; set; } = "Deepseek-V4-Flash";
 
     public override string ModelPath { get; set; } = "https://api.deepseek.com/chat/completions";
 

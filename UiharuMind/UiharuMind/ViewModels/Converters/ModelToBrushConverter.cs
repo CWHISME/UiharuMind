@@ -33,7 +33,7 @@ public class ModelToBrushConverter : IValueConverter
 
         if (value is ILlmModel modelRunningData)
         {
-            if (ModelSettingConfig.Current.FavoriteModel == modelRunningData.ModelName)
+            if (ModelSettingConfig.Current.IsFavorite(modelRunningData.ModelName))
                 return Colors.Gold; //Brushes.Gold;
         }
 

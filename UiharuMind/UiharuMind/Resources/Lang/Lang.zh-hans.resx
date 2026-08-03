@@ -2349,7 +2349,7 @@
         <value>模型 ID</value>
     </data>
     <data name="RemoteModelIdPlaceholder" xml:space="preserve">
-        <value>例如 deepseek-chat</value>
+        <value>例如 deepseek-v4-flash</value>
     </data>
     <data name="RemoteModelIdHint" xml:space="preserve">
         <value>调用接口时用于指定模型的标识。</value>

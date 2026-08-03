@@ -22,8 +22,7 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual int ContextLength { get; set; }
 
     /// <summary>
-    /// 思考力度 → 请求参数的通用翻译:同时给出智谱系 thinking 与 OpenAI 系 reasoning_effort,
-    /// 不认识对应字段的服务端会忽略;有更严格要求的后端自行覆写。
+    /// 思考力度
     /// </summary>
     /// <param name="thinkingMode">本次请求的思考力度</param>
     /// <returns>要写入请求 JSON 的键值对;Default 不干预返回空</returns>

@@ -204,7 +204,7 @@ public partial class ModelService : ObservableObject
 
     private void OnFavoriteModelConfigChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(ModelSettingConfig.FavoriteModel)) return;
+        if (e.PropertyName != nameof(ModelSettingConfig.FavoriteModels)) return;
         foreach (var item in ModelSources)
         {
             item.NotifyFavoriteChanged();

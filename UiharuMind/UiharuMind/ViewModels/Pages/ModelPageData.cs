@@ -135,8 +135,8 @@ public partial class ModelPageData : PageDataBase
     private void SetFavoriteModel(string? name)
     {
         if (name == null) return;
-        bool isRemove = ModelSettingConfig.Current.FavoriteModel == name;
-        ModelSettingConfig.Current.FavoriteModel = isRemove ? "" : name;
+        bool isRemove = ModelSettingConfig.Current.IsFavorite(name);
+        ModelSettingConfig.Current.ToggleFavorite(name);
         ModelSettingConfig.Current.Save();
 
         _messageService.ShowNotification(isRemove

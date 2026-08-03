@@ -195,13 +195,23 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         if (CurrentRunningModel != null && IsModelCompatible(CurrentRunningModel, isVision))
             return CurrentRunningModel.ModelName;
 
-        string favoriteModel = ModelSettingConfig.Current.FavoriteModel;
-        if (!string.IsNullOrEmpty(favoriteModel) &&
-            _cacheModels.TryGetValue(favoriteModel, out var favorite) &&
-            IsModelCompatible(favorite, isVision))
-            return favorite.ModelName;
+        //优先收藏中的远程模型
+        foreach (string favorite in ModelSettingConfig.Current.FavoriteModels)
+        {
+            if (_cacheModels.TryGetValue(favorite, out var model) &&
+                model.IsRemoteModel && IsModelCompatible(model, isVision))
+                return model.ModelName;
+        }
 
-        //自动选未收藏的只会选远程模型
+        //其次收藏中的本地模型
+        foreach (string favorite in ModelSettingConfig.Current.FavoriteModels)
+        {
+            if (_cacheModels.TryGetValue(favorite, out var model) &&
+                !model.IsRemoteModel && IsModelCompatible(model, isVision))
+                return model.ModelName;
+        }
+
+        //最后未收藏的远程模型;不自动加载未收藏的本地模型
         return _modelList.FirstOrDefault(model => IsModelCompatible(model, isVision) && model.IsRemoteModel)?.ModelName;
     }
 
