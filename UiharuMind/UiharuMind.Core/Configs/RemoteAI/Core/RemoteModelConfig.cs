@@ -13,7 +13,6 @@ public class RemoteModelConfig : BaseRemoteModelConfig
 
     public override string ModelDescription { get; set; } = "";
 
-    [SettingConfigOptions(["model1", "model1"])]
     public override string ModelId { get; set; } = "";
 
     public override int Port { get; set; }

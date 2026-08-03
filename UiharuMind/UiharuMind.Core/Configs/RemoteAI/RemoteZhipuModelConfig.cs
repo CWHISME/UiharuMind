@@ -17,10 +17,24 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 
     public override string ModelDescription { get; set; } = "";
 
-    [SettingConfigOptions([
-        "glm-4-flash", "glm-4.7-flash", "glm-4", "glm-4-plus", "glm-4-air", "glm-4-airx", "glm-4-long", "glm-4-flashx"
-    ])]
     public override string ModelId { get; set; } = "glm-4-flash";
+
+    public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
+        new Dictionary<string, RemoteModelIdVariant>
+        {
+            ["glm-4-flash"] = new(ContextLength: 128000),
+            ["glm-4.7-flash"] = new(ContextLength: 128000),
+            ["glm-4"] = new(ContextLength: 128000),
+            ["glm-4-plus"] = new(ContextLength: 128000),
+            ["glm-4-air"] = new(ContextLength: 128000),
+            ["glm-4-airx"] = new(ContextLength: 128000),
+            ["glm-4-long"] = new(ContextLength: 1048576),
+            ["glm-4-flashx"] = new(ContextLength: 128000),
+            ["glm-4v-flash"] = new(ContextLength: 128000, IsVision: true),
+            ["glm-4.6v-flash"] = new(ContextLength: 128000, IsVision: true),
+            ["glm-4v-plus"] = new(ContextLength: 128000, IsVision: true),
+            ["glm-4v"] = new(ContextLength: 128000, IsVision: true),
+        };
 
     public override int Port { get; set; }
 }

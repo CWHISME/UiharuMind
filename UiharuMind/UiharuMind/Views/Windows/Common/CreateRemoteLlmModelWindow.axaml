@@ -5,6 +5,7 @@
         xmlns:common="clr-namespace:UiharuMind.Views.Windows.Common"
         xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
         xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="860" d:DesignHeight="620"
         x:Class="UiharuMind.Views.Windows.Common.CreateRemoteLlmModelWindow"
         Width="860"
@@ -117,10 +118,21 @@
                         <TextBlock Text="{loc:Loc RemoteModelIdLabel}" FontWeight="SemiBold" />
                         <ComboBox IsEditable="True"
                                   ItemsSource="{Binding ModelIdOptions}"
+                                  SelectedItem="{Binding SelectedModelIdOption}"
                                   Text="{Binding ModelId}"
                                   PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
                                   HorizontalAlignment="Stretch"
-                                  IsVisible="{Binding HasModelIdOptions}" />
+                                  IsVisible="{Binding HasModelIdOptions}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Id}" VerticalAlignment="Center" />
+                                        <u:Badge Header="{loc:Loc ModelStateVision}" Background="Gold"
+                                                 IsVisible="{Binding IsVision}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                         <TextBox Text="{Binding ModelId}"
                                  PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
                                  IsVisible="{Binding !HasModelIdOptions}" />

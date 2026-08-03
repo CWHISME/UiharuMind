@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Configs;
@@ -20,6 +21,13 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     /// </summary>
     [SettingConfigIgnoreDisplay]
     public virtual int ContextLength { get; set; }
+
+    /// <summary>
+    /// 各 ModelId 的预设能力(默认上下文、是否支持视觉),键为 ModelId。
+    /// 供创建/编辑窗口在选择下拉框时预填默认值并展示视觉标记,不参与序列化。
+    /// </summary>
+    [JsonIgnore]
+    public virtual IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants => RemoteModelIdVariant.Empty;
 
     /// <summary>
     /// 思考力度

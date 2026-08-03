@@ -1,7 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -10,7 +9,6 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
-using UiharuMind.Core.Core.Attributes;
 using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Resources.Lang;
@@ -82,6 +80,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     [ObservableProperty] private bool _hasModelIdOptions;
     [ObservableProperty] private bool _isPresetProvider;
     [ObservableProperty] private bool _hasCopySources;
+    private bool _suppressModelIdPrefill;
 
     /// <summary>
     /// 可选服务商列表
@@ -94,9 +93,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     public ObservableCollection<RemoteModelInfo> CopySources { get; } = new();
 
     /// <summary>
-    /// 当前服务商的模型 ID 候选列表
+    /// 当前服务商的模型 ID 候选列表,含预设能力(视觉/默认上下文)
     /// </summary>
-    public ObservableCollection<string> ModelIdOptions { get; } = new();
+    public ObservableCollection<ModelIdOptionItem> ModelIdOptions { get; } = new();
+
+    [ObservableProperty] private ModelIdOptionItem? _selectedModelIdOption;
 
     /// <summary>
     /// 上下文长度内置档位
@@ -262,17 +263,52 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         IsVisionEditable = ProbeIsVisionWritable(config);
         IsPresetProvider = config.GetType() != typeof(RemoteModelConfig);
         ModelIdOptions.Clear();
-        var options = config.GetType().GetProperty(nameof(BaseRemoteModelConfig.ModelId))
-            ?.GetCustomAttribute<SettingConfigOptionsAttribute>()?.Options;
-        if (options != null)
+        foreach (string option in config.ModelIdVariants.Keys)
         {
-            foreach (var option in options)
+            bool isVision = false;
+            int contextLength = 0;
+            if (config.ModelIdVariants.TryGetValue(option, out var variant))
             {
-                ModelIdOptions.Add(option);
+                isVision = variant.IsVision;
+                contextLength = variant.ContextLength;
             }
+
+            ModelIdOptions.Add(new ModelIdOptionItem
+            {
+                Id = option,
+                IsVision = isVision,
+                ContextLength = contextLength,
+            });
         }
 
         HasModelIdOptions = ModelIdOptions.Count > 0;
+
+        // 让下拉框定位到当前 ModelId;创建/复制模式按预设预填默认上下文与视觉
+        _suppressModelIdPrefill = true;
+        SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == ModelId);
+        _suppressModelIdPrefill = false;
+
+        if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
+    }
+
+    /// <summary>
+    /// 下拉选择模型时:同步 ModelId,并按预设默认值预填上下文与视觉状态
+    /// </summary>
+    /// <param name="value">选中的模型条目</param>
+    partial void OnSelectedModelIdOptionChanged(ModelIdOptionItem? value)
+    {
+        if (value == null || _suppressModelIdPrefill) return;
+        _suppressModelIdPrefill = true;
+        ModelId = value.Id;
+        _suppressModelIdPrefill = false;
+        ApplyModelIdPreset(value);
+    }
+
+    private void ApplyModelIdPreset(ModelIdOptionItem? option)
+    {
+        if (option == null) return;
+        if (option.ContextLength > 0) ContextLengthText = option.ContextLength.ToString();
+        if (IsVisionEditable) IsVision = option.IsVision;
     }
 
     /// <summary>
@@ -286,6 +322,32 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         var writable = config.IsVision != original;
         config.IsVision = original;
         return writable;
+    }
+
+    /// <summary>
+    /// 模型 ID 候选条目,携带该模型的预设能力(是否支持视觉、默认上下文)
+    /// </summary>
+    public sealed class ModelIdOptionItem
+    {
+        /// <summary>
+        /// 模型 ID
+        /// </summary>
+        public required string Id { get; init; }
+
+        /// <summary>
+        /// 是否支持视觉
+        /// </summary>
+        public bool IsVision { get; init; }
+
+        /// <summary>
+        /// 默认上下文长度,0 表示未预设
+        /// </summary>
+        public int ContextLength { get; init; }
+
+        /// <summary>
+        /// 下拉框显示的文本
+        /// </summary>
+        public override string ToString() => Id;
     }
 
     /// <summary>

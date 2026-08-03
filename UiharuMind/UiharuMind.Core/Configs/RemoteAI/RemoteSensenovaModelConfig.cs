@@ -3,13 +3,13 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Configs.RemoteAI;
 
-[SettingConfigDesc("DeepSeek")]
-[SettingConfigDesc("DeepSeek", LanguageUtils.ChineseSimplified)]
-public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
+[SettingConfigDesc("Sensenova")]
+[SettingConfigDesc("商汤科技(Sensenova)", LanguageUtils.ChineseSimplified)]
+public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 {
     public override string ModelName { get; set; } = "Deepseek-V4-Flash";
 
-    public override string ModelPath { get; set; } = "https://api.deepseek.com/chat/completions";
+    public override string ModelPath { get; set; } = "https://token.sensenova.cn/v1/chat/completions";
 
     public override string ModelDescription { get; set; } = "";
 
@@ -19,7 +19,7 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
         new Dictionary<string, RemoteModelIdVariant>
         {
             ["deepseek-v4-flash"] = new(ContextLength: 1048576),
-            ["deepseek-v4-pro"] = new(ContextLength: 1048576),
+            ["sensenova-6.7-flash-lite"] = new(ContextLength: 262144, true),
         };
 
     public override int Port { get; set; }
