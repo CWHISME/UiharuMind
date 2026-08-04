@@ -45,6 +45,9 @@ public partial class AgentPageData : ConversationPageDataBase
         // 启动时恢复最近会话(历史加载不依赖模型状态)
         if (Sessions.Count > 0) SelectedSession = Sessions[0];
         Conversation.SessionsChanged += RefreshSessions;
+        // 会话可能由本页之外的动作产生(条目菜单里的"复制"、调度器新建),
+        // 不订阅这个事件的话列表要等到下次发消息才刷新
+        SessionManager.Instance.OnSessionAdded += OnSessionAdded;
         CharacterRunnerFactory.Instance.Scheduler.OnTaskUpdated += _ =>
             Avalonia.Threading.Dispatcher.UIThread.Post(RefreshScheduledTasks);
     }
@@ -90,6 +93,18 @@ public partial class AgentPageData : ConversationPageDataBase
         {
             _suppressSelectionChange = false;
         }
+    }
+
+    /// <summary>
+    /// 新会话入索引。只刷列表不改选中——<see cref="RefreshSessions"/> 走
+    /// <see cref="SetSelectedWithoutLoad"/>，不会触发 LoadSessionAsync，
+    /// 因此首轮发消息时新建会话的这条通知不会打断正在跑的那一轮。
+    /// </summary>
+    private void OnSessionAdded(ChatSession session)
+    {
+        // agent 页只列 agent 会话；聊天页的会话归 ChatListViewModel
+        if (session.CharacterData.Kind != ECharacterKind.Agent) return;
+        Avalonia.Threading.Dispatcher.UIThread.Post(RefreshSessions);
     }
 
     private void OnSessionDeleted(SessionListItem item)
