@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Services;
-using UiharuMind.Views;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
-namespace UiharuMind.ViewModels;
+namespace UiharuMind.Shared.Shell;
 
 public partial class SearchViewModel : ViewModelBase
 {

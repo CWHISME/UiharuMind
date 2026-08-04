@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Views.Windows.Common;
 

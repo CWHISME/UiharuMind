@@ -4,9 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Core.Configs;
-using UiharuMind.Services;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows.AutoClick;
 

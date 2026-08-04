@@ -7,8 +7,8 @@ using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
 using Avalonia.Threading;
-using UiharuMind.Services;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Views.Windows.Common;
 

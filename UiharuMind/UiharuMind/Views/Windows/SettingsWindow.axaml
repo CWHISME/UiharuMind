@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="680"
         Width="960"
         Height="680"
@@ -11,7 +11,7 @@
         x:Class="UiharuMind.Views.Windows.SettingsWindow"
         Icon="/Assets/Icon.png"
         Title="{loc:Loc SettingsWindowTitle}"
-        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Window.Styles>
         <Style Selector="Button.SettingsNavButton">

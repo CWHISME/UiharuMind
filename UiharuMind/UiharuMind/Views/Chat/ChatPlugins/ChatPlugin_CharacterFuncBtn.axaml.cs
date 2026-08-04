@@ -8,6 +8,7 @@ using UiharuMind.ViewModels.Chat;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common.ChatPlugins;
 using UiharuMind.Views.Windows.Characters;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Chat.ChatPlugins;
 

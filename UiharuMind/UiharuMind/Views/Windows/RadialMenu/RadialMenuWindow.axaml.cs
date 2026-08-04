@@ -3,9 +3,10 @@ using Avalonia.Threading;
 using SharpHook.Data;
 using UiharuMind.Controls;
 using UiharuMind.Core.Input;
-using UiharuMind.Services;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows
 {

@@ -20,9 +20,10 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
 

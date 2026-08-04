@@ -18,7 +18,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Windows;
 using Ursa.Controls;
 

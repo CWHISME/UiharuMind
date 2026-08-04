@@ -17,7 +17,7 @@ using CommunityToolkit.Mvvm.Input;
 using SharpHook.Native;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
 

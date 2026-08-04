@@ -18,9 +18,11 @@ using Avalonia.Layout;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows;
 

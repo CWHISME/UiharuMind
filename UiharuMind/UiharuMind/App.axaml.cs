@@ -21,10 +21,10 @@ using UiharuMind.Core;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Services;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.ViewModels.ScreenCaptures;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Windows;
 
 namespace UiharuMind;

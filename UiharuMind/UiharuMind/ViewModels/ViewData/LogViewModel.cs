@@ -15,7 +15,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Utils.Tools;
+using UiharuMind.Shared.Utils.Tools;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.ViewData;
 

@@ -20,9 +20,10 @@ using UiharuMind.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Windows;
 using UiharuMind.Views.Windows.ScreenCapture;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.ViewModels.ScreenCaptures;
 

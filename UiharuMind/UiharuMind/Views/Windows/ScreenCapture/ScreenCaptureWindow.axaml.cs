@@ -22,8 +22,10 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Core.Input;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
 

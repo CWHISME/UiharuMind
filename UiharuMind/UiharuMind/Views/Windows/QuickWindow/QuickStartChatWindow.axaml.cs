@@ -23,8 +23,10 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows;
 

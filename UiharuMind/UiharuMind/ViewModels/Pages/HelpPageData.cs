@@ -13,7 +13,7 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.IO;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;

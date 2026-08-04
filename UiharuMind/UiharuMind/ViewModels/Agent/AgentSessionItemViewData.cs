@@ -15,8 +15,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Views;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.Agent;
 

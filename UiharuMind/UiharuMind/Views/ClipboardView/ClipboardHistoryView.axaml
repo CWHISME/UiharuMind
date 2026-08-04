@@ -4,11 +4,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:clipboardViewData="clr-namespace:UiharuMind.ViewModels.ViewData.ClipboardViewData"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Views.ClipboardView.ClipboardHistoryView"
-                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <UserControl.Resources>
         <converters:FilePathToImageConverter x:Key="FilePathToImageConverter" />

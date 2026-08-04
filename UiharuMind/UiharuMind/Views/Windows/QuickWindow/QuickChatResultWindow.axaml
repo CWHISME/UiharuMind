@@ -5,10 +5,10 @@
         xmlns:u="https://irihi.tech/ursa"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
         x:Class="UiharuMind.Views.Windows.QuickChatResultWindow"
-        xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
         Width="400"
         Height="400"
         Title="QuickChatResultWindow">

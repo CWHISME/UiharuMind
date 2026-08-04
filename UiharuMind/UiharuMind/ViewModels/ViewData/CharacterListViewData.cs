@@ -8,8 +8,8 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Views.Windows.Characters;
-using UiharuMind.Utils;
-using UiharuMind.Views;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.ViewData;
 

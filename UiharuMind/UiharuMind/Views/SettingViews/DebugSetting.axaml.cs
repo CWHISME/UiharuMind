@@ -6,7 +6,7 @@ using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Shell;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.SettingViews;

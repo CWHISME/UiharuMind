@@ -9,8 +9,8 @@
              xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:avalonia2="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:markup="clr-namespace:UiharuMind.ViewModels.Markup"
-             xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
+             xmlns:markup="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Views.Common.SimpleMarkdownViewer">
 

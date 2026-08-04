@@ -15,7 +15,8 @@ using UiharuMind.Core.AutoClick;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.ViewData;
 

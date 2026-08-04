@@ -5,10 +5,10 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:settingViews="clr-namespace:UiharuMind.Views.SettingViews"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
               mc:Ignorable="d" d:DesignWidth="620" d:DesignHeight="720"
               x:Class="UiharuMind.Views.Common.CharacterEditView"
-                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Design.DataContext>
         <viewData:CharacterInfoViewData />

@@ -17,7 +17,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.ViewModels.Chat;
 using UiharuMind.ViewModels.Conversation;
 using UiharuMind.ViewModels.ViewData;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Pages;
 using UiharuMind.Views.Windows.Characters;
 

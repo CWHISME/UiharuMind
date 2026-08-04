@@ -17,8 +17,9 @@ using UiharuMind.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
-using UiharuMind.Services;
-using UiharuMind.ViewModels.Interfaces;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Interfaces;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.Pages;
 

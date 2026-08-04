@@ -11,9 +11,10 @@ using CliWrap;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Services;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows;
 

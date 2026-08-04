@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Media;
 using System;
 
-namespace UiharuMind.Utils
+namespace UiharuMind.Shared.Utils
 {
     public static class PieSliceHelper
     {

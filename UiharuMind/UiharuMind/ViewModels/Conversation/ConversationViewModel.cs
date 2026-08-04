@@ -29,9 +29,9 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Services;
-using UiharuMind.Utils;
-using UiharuMind.Views;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.Conversation;
 

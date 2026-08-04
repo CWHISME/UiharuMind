@@ -17,9 +17,9 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Services;
-using UiharuMind.ViewModels.Converters;
-using UiharuMind.ViewModels.UIHolder;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Converters;
+using UiharuMind.Shared.UIHolder;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.Common;

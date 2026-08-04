@@ -7,6 +7,8 @@ using Avalonia.Markup.Xaml;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.ViewModels.Conversation;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows;
 

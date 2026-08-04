@@ -11,6 +11,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.ViewData.ClipboardViewData;
 

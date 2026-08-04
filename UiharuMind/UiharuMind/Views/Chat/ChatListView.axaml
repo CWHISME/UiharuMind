@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewData="clr-namespace:UiharuMind.ViewModels.ViewData"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="520"
              x:Class="UiharuMind.Views.OtherViews.ChatListView">

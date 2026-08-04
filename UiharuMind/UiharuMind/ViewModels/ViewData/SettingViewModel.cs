@@ -2,6 +2,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.ViewModels.SettingViewData;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.ViewData;
 

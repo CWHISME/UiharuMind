@@ -6,7 +6,7 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Controls
 {

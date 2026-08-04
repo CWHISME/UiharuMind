@@ -15,8 +15,8 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Views;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.Conversation;
 

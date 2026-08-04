@@ -16,10 +16,10 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.ViewModels.ViewData;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.Chat;
 

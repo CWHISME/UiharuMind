@@ -4,14 +4,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:common="clr-namespace:UiharuMind.Views.Common"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         Width="666"
         Height="500"
         x:Class="UiharuMind.Views.Windows.TranslationWindow"
         Title="{loc:Loc Translation}"
-        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*" Margin="10">
         <!-- 这个 Border 会导致 window 平台上 ComboBox 弹不出来 -->

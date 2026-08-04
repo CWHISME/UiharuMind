@@ -27,8 +27,8 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Views;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Pages;
 
 namespace UiharuMind.ViewModels.Pages;

@@ -4,6 +4,8 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows;
 

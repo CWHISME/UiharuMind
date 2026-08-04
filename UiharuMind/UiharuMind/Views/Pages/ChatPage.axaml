@@ -5,11 +5,11 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
              xmlns:common="clr-namespace:UiharuMind.Views.Common"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
               mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
               x:Class="UiharuMind.Views.Pages.ChatPage"
-                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Design.DataContext>
         <pages:ChatPageData />

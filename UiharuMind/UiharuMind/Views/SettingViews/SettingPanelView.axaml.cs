@@ -20,7 +20,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Extensions;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Views.SettingViews;
 

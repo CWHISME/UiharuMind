@@ -1,0 +1,123 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:vm="clr-namespace:UiharuMind.Shared.Shell"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:markup="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+              x:Class="UiharuMind.Shared.Shell.MainView"
+              x:DataType="vm:MainViewModel"
+              >
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+         to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <!-- 如果需要模糊 -->
+    <!-- Classes.Blur="{Binding MessageService.IsBusy}" -->
+    <Panel>
+        <Grid
+            ColumnDefinitions="Auto, *"
+            RowDefinitions="Auto, *">
+            <!--模糊-->
+            <Grid.Styles>
+                <Style Selector="Grid.Blur">
+                    <Setter Property="Effect" Value="blur(20)" />
+                </Style>
+                <!-- <Style Selector="ThemedIconButton.nav-item"> -->
+                <!--     <Setter Property="Width" Value="42" /> -->
+                <!--     <Setter Property="Height" Value="42" /> -->
+                <!--     <Setter Property="MinWidth" Value="42" /> -->
+                <!--     <Setter Property="MinHeight" Value="42" /> -->
+                <!--     <Setter Property="Padding" Value="0" /> -->
+                <!--     <Setter Property="Margin" Value="0,2" /> -->
+                <!--     <Setter Property="CornerRadius" Value="6" /> -->
+                <!--     <Setter Property="Background" Value="Transparent" /> -->
+                <!--     <Setter Property="BorderThickness" Value="0" /> -->
+                <!--     <Setter Property="HorizontalContentAlignment" Value="Center" /> -->
+                <!--     <Setter Property="VerticalContentAlignment" Value="Center" /> -->
+                <!-- </Style> -->
+                <!-- <Style Selector="ThemedIconButton.nav-item:pointerover"> -->
+                <!--     <Setter Property="Background" Value="{DynamicResource SemiGrey1}" /> -->
+                <!-- </Style> -->
+                <!-- <Style Selector="ThemedIconButton.nav-item.selected"> -->
+                <!--     <Setter Property="Background" Value="{DynamicResource SemiBlue1}" /> -->
+                <!-- </Style> -->
+            </Grid.Styles>
+
+            <Border
+                IsVisible="{Binding IsMenuVisible}"
+                Padding="4 4"
+                Grid.RowSpan="2"
+                VerticalAlignment="Stretch">
+                <Border.Theme>
+                    <DynamicResource ResourceKey="CardBorder" />
+                </Border.Theme>
+                <DockPanel Width="42" LastChildFill="True">
+                    <!-- <Grid DockPanel.Dock="Top" HorizontalAlignment="Center" Width="42" Height="42" Margin="0,0,0,8"> -->
+                    <!--     <Image -->
+                    <!--         VerticalAlignment="Center" -->
+                    <!--         HorizontalAlignment="Center" -->
+                    <!--         MaxWidth="24" -->
+                    <!--         MaxHeight="24" -->
+                    <!--         Source="../Assets/Icon.png" /> -->
+                    <!-- </Grid> -->
+
+                    <!-- <controls:Footer DockPanel.Dock="Bottom" DataContext="{Binding}" /> -->
+                    <!-- 原本的 Footer，没啥东西，直接放过来 -->
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Vertical" HorizontalAlignment="Center">
+                        <ThemedIconButton HorizontalContentAlignment="Center" HorizontalAlignment="Center"
+                                          Height="42"
+                                          Width="42"
+                                          IconWidth="20"
+                                          IconHeight="20"
+                                          IconName="settings"
+                                          Command="{Binding OpenSettingCommand}" ToolTips="{markup:Loc MenuSettingKey}">
+                        </ThemedIconButton>
+                        <TextBlock Text="{Binding Version}" HorizontalAlignment="Center" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding Menus.MenuItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MenuItemViewData">
+                                <!-- Classes.selected="{Binding IsSelected}" -->
+                                <ThemedIconToggleButton Classes.nav-item="True"
+                                                        Width="42"
+                                                        Height="42"
+                                                        IconWidth="20"
+                                                        IconHeight="20"
+                                                        Margin="0,2"
+                                                        IsChecked="{Binding IsSelected}"
+                                                        CheckedBackground="{DynamicResource SemiBlue1}"
+                                                        Command="{Binding ActivateCommand}"
+                                                        IconName="{Binding MenuIconName}"
+                                                        ToolTips="{Binding MenuHeader}">
+                                </ThemedIconToggleButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
+
+            <!-- 页面宿主:视图常驻视觉树,切页只切可见性(见 code-behind)。
+                 用 ContentControl 换页会让整棵页面子树脱挂/重挂,
+                 长会话页有大量气泡时每次切换都要重新套样式与布局,卡顿明显 -->
+            <Panel Name="PageHost"
+                   Grid.Row="1"
+                   Grid.Column="1"
+                   Margin="0,5,5,5" />
+
+            <!-- <u:ToolBarPanel Grid.Row="1" Grid.Column="1"></u:ToolBarPanel> -->
+        </Grid>
+        <u:OverlayDialogHost Name="Host" SnapThickness="20" />
+    </Panel>
+
+</UserControl>

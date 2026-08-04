@@ -3,11 +3,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Views.Windows.QuickToolWindow"
         Title="QuickToolWindow"
-        xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <StackPanel Orientation="Horizontal" Background="Transparent" Height="50">
         <ThemedIconButton Name="MainButton"

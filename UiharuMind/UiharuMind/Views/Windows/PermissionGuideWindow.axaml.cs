@@ -11,8 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Input;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows;
 

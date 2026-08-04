@@ -9,7 +9,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows.Common;
 

@@ -16,9 +16,9 @@ using Avalonia.Platform.Storage;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 using UiharuMind.ViewModels.Conversation;
-using UiharuMind.ViewModels.UIHolder;
+using UiharuMind.Shared.UIHolder;
 
 namespace UiharuMind.Views.Common.Conversation;
 

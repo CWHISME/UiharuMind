@@ -12,10 +12,10 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Services;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.ViewModels.ViewData.Download;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.SettingViews;
 

@@ -14,6 +14,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows.Characters;
 

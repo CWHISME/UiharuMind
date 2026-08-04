@@ -6,7 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using SharpHook.Data;
 using UiharuMind.Core.Input;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Views.Windows.Common;
 

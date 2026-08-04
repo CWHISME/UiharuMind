@@ -14,7 +14,7 @@ using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Models;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.ViewModels.ViewData;
 

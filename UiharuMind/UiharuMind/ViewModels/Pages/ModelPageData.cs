@@ -25,8 +25,8 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Views;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Pages;
 using UiharuMind.Views.Windows.Common;
 

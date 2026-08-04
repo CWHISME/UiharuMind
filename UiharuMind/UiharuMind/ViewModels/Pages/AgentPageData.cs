@@ -16,7 +16,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.ViewModels.Agent;
 using UiharuMind.ViewModels.Conversation;
 using UiharuMind.Views.Pages;

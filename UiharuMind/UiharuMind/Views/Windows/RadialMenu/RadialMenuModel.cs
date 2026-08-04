@@ -2,11 +2,11 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.ViewModels;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Windows;
 
-namespace UiharuMind.Services
+namespace UiharuMind.Shared.Services
 {
     public class RadialMenuModel : ViewModelBase
     {

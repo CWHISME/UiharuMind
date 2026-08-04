@@ -6,11 +6,13 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AutoClick;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
 using UiharuMind.Views.Windows.AutoClick;
 using UiharuMind.Views.Windows.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows;
 

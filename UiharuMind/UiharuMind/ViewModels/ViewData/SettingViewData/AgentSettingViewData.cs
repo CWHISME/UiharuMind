@@ -17,8 +17,8 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.Configs;
-using UiharuMind.Services;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.ViewModels.ViewData.SettingViewData;
 

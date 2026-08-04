@@ -1,11 +1,12 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.Views.Common;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Shell;
 using UiharuMind.ViewModels.Pages;
 using UiharuMind.Views.Pages;
 using UiharuMind.Views.SettingViews;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows;
 

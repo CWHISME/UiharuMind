@@ -18,10 +18,11 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Utils;
-using UiharuMind.ViewModels.UIHolder;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.UIHolder;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows;
 

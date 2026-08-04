@@ -25,7 +25,7 @@ using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Views.SettingViews;
 

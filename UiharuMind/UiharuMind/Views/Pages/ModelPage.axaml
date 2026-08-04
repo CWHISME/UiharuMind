@@ -7,10 +7,10 @@
              xmlns:pages="clr-namespace:UiharuMind.ViewModels.Pages"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
-             xmlns:converters="clr-namespace:UiharuMind.ViewModels.Converters"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
               x:DataType="pages:ModelPageData"
-                             xmlns:controls="clr-namespace:UiharuMind.Views.Controls">
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <Design.DataContext>
         <pages:ModelPageData />

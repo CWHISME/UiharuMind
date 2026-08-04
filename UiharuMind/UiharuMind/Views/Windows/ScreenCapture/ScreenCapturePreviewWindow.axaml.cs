@@ -23,9 +23,10 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 using UiharuMind.ViewModels.ScreenCaptures;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows.ScreenCapture;
 

@@ -18,8 +18,8 @@ using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Services;
-using UiharuMind.Utils.Tools;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils.Tools;
 
 namespace UiharuMind.Views.Common;
 

@@ -16,9 +16,10 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Utils;
 using UiharuMind.ViewModels.ViewData.ClipboardViewData;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Views.Windows;
 

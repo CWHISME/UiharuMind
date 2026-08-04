@@ -7,8 +7,8 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Input;
-using UiharuMind.Services;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.Views.SettingViews;

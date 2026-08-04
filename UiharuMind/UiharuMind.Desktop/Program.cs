@@ -4,7 +4,7 @@ using Avalonia;
 using Avalonia.Svg.Skia;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Desktop;
 

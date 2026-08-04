@@ -1,4 +1,4 @@
 using Avalonia.Metadata;
 
-[assembly: XmlnsDefinition("https://github.com/avaloniaui", "UiharuMind.Views.Controls")]
-[assembly: XmlnsDefinition("https://github.com/avaloniaui", "UiharuMind.ViewModels.Converters")]
+[assembly: XmlnsDefinition("https://github.com/avaloniaui", "UiharuMind.Shared.Controls")]
+[assembly: XmlnsDefinition("https://github.com/avaloniaui", "UiharuMind.Shared.Converters")]

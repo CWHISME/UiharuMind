@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.ViewModels.Chat;
-using UiharuMind.Views;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Views.Chat.ChatPlugins;
 using UiharuMind.Views.Common.ChatPlugins;
 using UiharuMind.Views.Windows.Characters;

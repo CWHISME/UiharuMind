@@ -1,6 +1,6 @@
 using System;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Views.Windows.Common;
 

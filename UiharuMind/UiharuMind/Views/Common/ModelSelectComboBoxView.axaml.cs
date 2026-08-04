@@ -15,7 +15,7 @@ using Avalonia.Markup.Xaml;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Models;
-using UiharuMind.ViewModels;
+using UiharuMind.Shared.Shell;
 using UiharuMind.ViewModels.Pages;
 
 namespace UiharuMind.Views.OtherViews;

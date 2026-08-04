@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Microsoft.Extensions.DependencyInjection;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.ViewModels.ViewData;
 
 namespace UiharuMind.Views.Windows.Characters;

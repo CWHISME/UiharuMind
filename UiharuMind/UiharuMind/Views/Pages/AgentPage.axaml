@@ -6,10 +6,10 @@
               xmlns:agent="clr-namespace:UiharuMind.ViewModels.Agent"
               xmlns:conv="clr-namespace:UiharuMind.ViewModels.Conversation"
                xmlns:convView="clr-namespace:UiharuMind.Views.Common.Conversation"
-              xmlns:convs="clr-namespace:UiharuMind.ViewModels.Converters"
+              xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:otherViews="clr-namespace:UiharuMind.Views.OtherViews"
-             xmlns:controls="clr-namespace:UiharuMind.Views.Controls"
-             xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
              x:Class="UiharuMind.Views.Pages.AgentPage"
              x:DataType="pages:AgentPageData">

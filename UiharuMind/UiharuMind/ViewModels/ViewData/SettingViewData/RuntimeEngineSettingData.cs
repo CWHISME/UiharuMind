@@ -21,7 +21,7 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
+using UiharuMind.Shared.Services;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.ViewModels.ViewData.Download;
 

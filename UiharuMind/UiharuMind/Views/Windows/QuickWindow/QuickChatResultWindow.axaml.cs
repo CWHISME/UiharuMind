@@ -30,11 +30,13 @@ using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils.Tools;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Utils;
-using UiharuMind.Utils.Tools;
-using UiharuMind.ViewModels.UIHolder;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Utils.Tools;
+using UiharuMind.Shared.UIHolder;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Views.Windows;
 

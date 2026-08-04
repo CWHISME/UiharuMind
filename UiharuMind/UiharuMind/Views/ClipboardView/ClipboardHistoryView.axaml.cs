@@ -18,8 +18,8 @@ using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Services;
-using UiharuMind.Utils;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.ViewModels.ViewData.ClipboardViewData;
 
 namespace UiharuMind.Views.ClipboardView;
