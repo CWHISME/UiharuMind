@@ -36,11 +36,11 @@ public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_
         }
     }
 
-    protected override void OnChatSessionChanged(ChatSessionItemViewData chatSessionViewData)
+    protected override void OnChatSessionChanged(SessionListItem chatSessionViewData)
     {
         base.OnChatSessionChanged(chatSessionViewData);
         string? lastLanguage = null;
-        if (ChatSessionCurrentViewData.ChatSession.CustomParams.TryGetValue(CharacterData.ParamsNameLanguage,
+        if (ChatSessionCurrentViewData.Session.CustomParams.TryGetValue(CharacterData.ParamsNameLanguage,
                 out object? last))
         {
             lastLanguage = last?.ToString();
@@ -61,10 +61,10 @@ public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_
     {
         if (value == Lang.AutoDetect)
         {
-            ChatSessionCurrentViewData.ChatSession.CustomParams.Remove(CharacterData.ParamsNameLanguage);
+            ChatSessionCurrentViewData.Session.CustomParams.Remove(CharacterData.ParamsNameLanguage);
             return;
         }
 
-        ChatSessionCurrentViewData.ChatSession.CustomParams[CharacterData.ParamsNameLanguage] = value;
+        ChatSessionCurrentViewData.Session.CustomParams[CharacterData.ParamsNameLanguage] = value;
     }
 }

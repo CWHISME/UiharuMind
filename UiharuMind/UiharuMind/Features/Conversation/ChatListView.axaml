@@ -42,7 +42,7 @@
                 <Border Padding="10" Background="Transparent" CornerRadius="8">
                     <Border.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharaterCommand}" />
+                            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
                             <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
                             <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
                             <MenuItem Header="{loc:Loc ClearChatHistory}" Command="{Binding ClearChatHistoryCommand}" />

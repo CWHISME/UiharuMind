@@ -13,21 +13,24 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using UiharuMind.Resources.Lang;
-using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Characters;
+using UiharuMind.Resources.Lang;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Conversation;
 
 /// <summary>
-/// 聊天会话列表条目:元数据驱动的展示 + 条目级操作(改名/复制/删除/清空),
-/// 会话内容的展示与生成由 ConversationViewModel 承载,与本类无关。
+/// 会话列表条目：元数据驱动的展示 + 条目级操作（改名/复制/删除/清空历史/编辑角色）。
+/// 聊天页与 agent 页共用同一实现——两者的差异原本是「拷贝后各自演化」，
+/// 不是产品设计，因此这里不设能力开关。
+///
+/// 会话内容的展示与生成由 <see cref="ConversationViewModel"/> 承载，与本类无关。
 /// </summary>
-public partial class ChatSessionItemViewData : ObservableObject
+public partial class SessionListItem : ObservableObject
 {
     private readonly IMessageService _messageService;
     private readonly ChatSessionMeta _meta;
@@ -40,10 +43,10 @@ public partial class ChatSessionItemViewData : ObservableObject
     public string SessionId => _meta.SessionId;
 
     /// <summary>
-    /// 会话本体,首次访问时按需加载。列表展示所需字段全部取自元数据,
-    /// 只有条目级操作(清空/改名)才会触发加载。
+    /// 会话本体，首次访问时按需加载。列表展示所需字段全部取自元数据，
+    /// 只有条目级操作(清空/改名/复制/编辑角色)才会触发加载。
     /// </summary>
-    public ChatSession ChatSession => _session ??=
+    public ChatSession Session => _session ??=
         SessionManager.Instance.Load(_meta.SessionId) ?? new ChatSession { SessionId = _meta.SessionId };
 
     [ObservableProperty] private string _name;
@@ -52,20 +55,23 @@ public partial class ChatSessionItemViewData : ObservableObject
     [ObservableProperty] private string _timeString;
 
     /// <summary>会话内容被就地改写(改名/清空历史)。若该会话正被展示,页面壳据此刷新对话区</summary>
-    public event Action<ChatSessionItemViewData>? OnSessionMutated;
+    public event Action<SessionListItem>? Mutated;
 
-    public ChatSessionItemViewData(ChatSession chatSession)
+    /// <summary>会话已被删除。页面壳据此刷新列表并处理"删的正是当前会话"</summary>
+    public event Action<SessionListItem>? Deleted;
+
+    public SessionListItem(ChatSession chatSession)
         : this(chatSession.ToMeta())
     {
         _session = chatSession;
     }
 
-    public ChatSessionItemViewData(ChatSessionMeta meta)
+    public SessionListItem(ChatSessionMeta meta)
         : this(meta, App.Services.GetRequiredService<IMessageService>())
     {
     }
 
-    public ChatSessionItemViewData(ChatSessionMeta meta, IMessageService messageService)
+    public SessionListItem(ChatSessionMeta meta, IMessageService messageService)
     {
         _messageService = messageService;
         _meta = meta;
@@ -83,42 +89,46 @@ public partial class ChatSessionItemViewData : ObservableObject
     public async Task ClearChatHistory()
     {
         if (!await _messageService.ConfirmAsync(Lang.ClearTips)) return;
-        ChatSession.Clear();
+        Session.Clear();
         TimeString = "";
-        OnSessionMutated?.Invoke(this);
+        Mutated?.Invoke(this);
     }
 
     [RelayCommand]
-    public void EditCharater()
+    public void EditCharacter()
     {
-        UIManager.ShowEditCharacterWindow(new CharacterInfoViewData(ChatSession.CharacterData),
+        UIManager.ShowEditCharacterWindow(new CharacterInfoViewData(Session.CharacterData),
             x => x.SaveCharacter());
     }
 
     [RelayCommand]
     public async Task Rename()
     {
-        var result = await UIManager.ShowStringEditWindow(ChatSession.Title);
-        if (string.IsNullOrEmpty(result)) return;
+        string? result = await UIManager.ShowStringEditWindow(_meta.Title);
+        if (string.IsNullOrWhiteSpace(result) || result == _meta.Title) return;
 
-        // 标题是纯显示字段:改名不动文件、不删不加
-        ChatSession.Title = result;
-        ChatSession.Save();
+        // 标题是纯显示字段:改名不动文件、不删不加。
+        // 索引与本体各存一份,两边都要写——只写本体会让列表在重建索引前显示旧名
+        _meta.Title = result;
+        Session.Title = result;
+        Session.Save();
         Name = result;
-        OnSessionMutated?.Invoke(this);
+        Mutated?.Invoke(this);
     }
 
     [RelayCommand]
     public void Copy()
     {
-        SessionManager.Instance.Copy(ChatSession);
+        SessionManager.Instance.Copy(Session);
     }
 
     [RelayCommand]
     public async Task Delete()
     {
-        if (await _messageService.ConfirmAsync(Lang.DeleteAllClipboardHistoryTips))
-            SessionManager.Instance.Delete(ChatSession);
+        if (!await _messageService.ConfirmAsync(Lang.DeleteTips)) return;
+        // 按标识删除,不加载本体
+        SessionManager.Instance.Delete(_meta.SessionId);
+        Deleted?.Invoke(this);
     }
 
 

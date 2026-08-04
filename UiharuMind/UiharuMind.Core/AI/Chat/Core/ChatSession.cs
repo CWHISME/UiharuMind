@@ -441,12 +441,14 @@ public class ChatSession
     }
 
     /// <summary>
-    /// 清空历史
+    /// 清空历史。框架附加状态(todos/mode/审批)一并删除——它是围绕这段历史建立的，
+    /// 留着会让下次挂接把旧任务清单读回来，出现「历史空了但清单还在」。
     /// </summary>
     public void Clear()
     {
         History.Clear();
         Save();
+        SessionManager.Instance.DeleteAgentState(SessionId);
     }
 
     private string AuthorNameOf(ChatRole role)

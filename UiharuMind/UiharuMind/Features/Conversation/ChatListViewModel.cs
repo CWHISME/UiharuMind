@@ -24,11 +24,11 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 public partial class ChatListViewModel : ViewModelBase
 {
-    public ObservableCollection<ChatSessionItemViewData> ChatSessions { get; } = new();
+    public ObservableCollection<SessionListItem> ChatSessions { get; } = new();
 
-    [ObservableProperty] private ChatSessionItemViewData? _selectedSession;
+    [ObservableProperty] private SessionListItem? _selectedSession;
 
-    public event Action<ChatSessionItemViewData?>? EventOnSelectedSessionChanged;
+    public event Action<SessionListItem?>? EventOnSelectedSessionChanged;
 
     public ChatListViewModel()
     {
@@ -36,7 +36,7 @@ public partial class ChatListViewModel : ViewModelBase
         // 只列出对话角色的会话 —— 索引是与 agent 页共用的
         foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions(ECharacterKind.Roleplay))
         {
-            ChatSessions.Add(CreateItem(new ChatSessionItemViewData(meta)));
+            ChatSessions.Add(CreateItem(new SessionListItem(meta)));
         }
 
         SessionManager.Instance.OnSessionAdded += OnChatSessionAdded;
@@ -52,7 +52,7 @@ public partial class ChatListViewModel : ViewModelBase
         // agent 会话归 agent 页,不进本列表
         if (obj.CharacterData.Kind != ECharacterKind.Roleplay) return;
 
-        ChatSessions.Insert(0, CreateItem(new ChatSessionItemViewData(obj)));
+        ChatSessions.Insert(0, CreateItem(new SessionListItem(obj)));
         SelectedSession = ChatSessions[0];
     }
 
@@ -63,18 +63,18 @@ public partial class ChatListViewModel : ViewModelBase
         SelectedSession = ChatSessions.Count > 0 ? ChatSessions[0] : null;
     }
 
-    partial void OnSelectedSessionChanged(ChatSessionItemViewData? value)
+    partial void OnSelectedSessionChanged(SessionListItem? value)
     {
         EventOnSelectedSessionChanged?.Invoke(value);
     }
 
-    private ChatSessionItemViewData CreateItem(ChatSessionItemViewData item)
+    private SessionListItem CreateItem(SessionListItem item)
     {
-        item.OnSessionMutated += OnItemMutated;
+        item.Mutated += OnItemMutated;
         return item;
     }
 
-    private void OnItemMutated(ChatSessionItemViewData item)
+    private void OnItemMutated(SessionListItem item)
     {
         // 被展示中的会话在条目上被就地改写(改名/清空),重发选中事件让内容区重载
         if (item == SelectedSession) EventOnSelectedSessionChanged?.Invoke(item);

@@ -23,21 +23,21 @@ public partial class ChatPlugin_ChatCharacterInfoData : ChatPluginDataBase<ChatP
     [ObservableProperty] private string _characterDescription = string.Empty;
     // [ObservableProperty] private string _characterTemplete;
 
-    protected override void OnChatSessionChanged(ChatSessionItemViewData chatSessionViewData)
+    protected override void OnChatSessionChanged(SessionListItem chatSessionViewData)
     {
         base.OnChatSessionChanged(chatSessionViewData);
-        CharacterName = chatSessionViewData.ChatSession.CharacterData.CharacterName;
-        // CharacterTemplete = ChatSessionCurrentViewData.ChatSession.CharacterData.TryRender(ChatSessionCurrentViewData
+        CharacterName = chatSessionViewData.Session.CharacterData.CharacterName;
+        // CharacterTemplete = ChatSessionCurrentViewData.Session.CharacterData.TryRender(ChatSessionCurrentViewData
         //     .ChatSession
         //     .CharacterData.Template);
-        CharacterDescription = chatSessionViewData.ChatSession.CharacterData.Description;
+        CharacterDescription = chatSessionViewData.Session.CharacterData.Description;
     }
 
     [RelayCommand]
     public void EditCharacter()
     {
         UIManager.ShowEditCharacterWindow(
-            new CharacterInfoViewData(ChatSessionCurrentViewData.ChatSession.CharacterData),
+            new CharacterInfoViewData(ChatSessionCurrentViewData.Session.CharacterData),
             x => x.SaveCharacter());
     }
 }

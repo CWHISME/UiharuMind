@@ -48,7 +48,7 @@ public partial class ChatPageData : ConversationPageDataBase
         OnSelectedSessionChanged(ChatListViewModel.SelectedSession);
     }
 
-    private void OnSelectedSessionChanged(ChatSessionItemViewData? obj)
+    private void OnSelectedSessionChanged(SessionListItem? obj)
     {
         _ = Conversation.LoadSessionAsync(obj?.Meta);
         _chatInfoModel.SetSession(obj);

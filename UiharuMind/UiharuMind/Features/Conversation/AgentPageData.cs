@@ -31,10 +31,10 @@ public partial class AgentPageData : ConversationPageDataBase
     /// <summary>会话内容视图模型(ConversationView 的 DataContext)</summary>
     public ConversationViewModel Conversation { get; } = new();
 
-    public ObservableCollection<AgentSessionItemViewData> Sessions { get; } = new();
+    public ObservableCollection<SessionListItem> Sessions { get; } = new();
     public ObservableCollection<ScheduledTaskDisplayItem> ScheduledTasks { get; } = new();
 
-    [ObservableProperty] private AgentSessionItemViewData? _selectedSession;
+    [ObservableProperty] private SessionListItem? _selectedSession;
 
     private bool _suppressSelectionChange; //列表刷新期间抑制选择联动,避免 Clear() 误清界面
 
@@ -51,7 +51,7 @@ public partial class AgentPageData : ConversationPageDataBase
 
     //================= 会话列表 =================
 
-    partial void OnSelectedSessionChanged(AgentSessionItemViewData? value)
+    partial void OnSelectedSessionChanged(SessionListItem? value)
     {
         if (_suppressSelectionChange) return;
         _ = Conversation.LoadSessionAsync(value?.Meta);
@@ -75,7 +75,11 @@ public partial class AgentPageData : ConversationPageDataBase
             Sessions.Clear();
             foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions(ECharacterKind.Agent))
             {
-                Sessions.Add(new AgentSessionItemViewData(meta, OnSessionDeleted));
+                SessionListItem item = new(meta);
+                item.Deleted += OnSessionDeleted;
+                // 就地改写(改名/清空历史)命中当前会话时重载对话区
+                item.Mutated += OnSessionMutated;
+                Sessions.Add(item);
             }
 
             SetSelectedWithoutLoad(selectedId == null
@@ -88,14 +92,22 @@ public partial class AgentPageData : ConversationPageDataBase
         }
     }
 
-    private void OnSessionDeleted(AgentSessionItemViewData item)
+    private void OnSessionDeleted(SessionListItem item)
     {
         bool wasCurrent = Conversation.CurrentMeta?.SessionId == item.Meta.SessionId;
         RefreshSessions();
         if (wasCurrent) _ = NewSession();
     }
 
-    private void SetSelectedWithoutLoad(AgentSessionItemViewData? item)
+    private void OnSessionMutated(SessionListItem item)
+    {
+        if (Conversation.CurrentMeta?.SessionId == item.Meta.SessionId)
+        {
+            _ = Conversation.LoadSessionAsync(item.Meta);
+        }
+    }
+
+    private void SetSelectedWithoutLoad(SessionListItem? item)
     {
         _suppressSelectionChange = true;
         try

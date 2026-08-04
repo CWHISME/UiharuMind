@@ -21,7 +21,7 @@ public partial class ChatInfoModel : ViewModelBase
     /// 切换插件面板对应的会话(由聊天页面壳在会话选择变化时调用)
     /// </summary>
     /// <param name="chatSessionViewData">会话视图数据,为空清空面板</param>
-    public void SetSession(ChatSessionItemViewData? chatSessionViewData)
+    public void SetSession(SessionListItem? chatSessionViewData)
     {
         OnChatSessionChanged(chatSessionViewData);
     }
@@ -48,14 +48,14 @@ public partial class ChatInfoModel : ViewModelBase
         }
     }
 
-    private void OnChatSessionChanged(ChatSessionItemViewData? chatSessionViewData)
+    private void OnChatSessionChanged(SessionListItem? chatSessionViewData)
     {
         ChatPluginList.Clear();
 
         if (chatSessionViewData != null)
         {
             //用户角色:纯提示词角色(翻译、识图等)不注入用户人格,也就不需要这块面板
-            if (!chatSessionViewData.ChatSession.CharacterData.IsPurePromptCharacter)
+            if (!chatSessionViewData.Session.CharacterData.IsPurePromptCharacter)
             {
                 var plugin = GetPlugin<ChatPlugin_UserCharacterCardData>(chatSessionViewData);
                 ChatPluginList.Add(plugin);
@@ -74,7 +74,7 @@ public partial class ChatInfoModel : ViewModelBase
         OnEventChatSessionChanged?.Invoke();
     }
 
-    private ChatPluginBase GetPlugin<T>(ChatSessionItemViewData chatSessionViewData) where T : ChatPluginBase, new()
+    private ChatPluginBase GetPlugin<T>(SessionListItem chatSessionViewData) where T : ChatPluginBase, new()
     {
         if (ChatPluginsCacheDict.TryGetValue(typeof(T), out var chatPlugin))
         {

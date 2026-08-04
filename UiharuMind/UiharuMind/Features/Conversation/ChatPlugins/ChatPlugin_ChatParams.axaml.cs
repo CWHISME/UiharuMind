@@ -22,9 +22,9 @@ public partial class ChatPlugin_ChatParamsData : ChatPluginDataBase<ChatPlugin_C
     [ObservableProperty] private CharacterData _character = null!;
     // [ObservableProperty] private bool _isToolCharacter;
 
-    protected override void OnChatSessionChanged(ChatSessionItemViewData chatSessionViewData)
+    protected override void OnChatSessionChanged(SessionListItem chatSessionViewData)
     {
-        Character = chatSessionViewData.ChatSession.CharacterData;
+        Character = chatSessionViewData.Session.CharacterData;
     }
 
     public override void OnChatBegin()

@@ -26,7 +26,7 @@ public partial class ChatPlugin_CharacterFuncBtnData : ChatPluginDataBase<ChatPl
     public void EditCharacter()
     {
         UIManager.ShowEditCharacterWindow(
-            new CharacterInfoViewData(ChatSessionCurrentViewData.ChatSession.CharacterData),
+            new CharacterInfoViewData(ChatSessionCurrentViewData.Session.CharacterData),
             x => x.SaveCharacter());
     }
 }

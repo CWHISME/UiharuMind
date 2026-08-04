@@ -438,6 +438,16 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         }
     }
 
+    /// <summary>
+    /// 删除框架附加状态。清空历史时必须一并删除，否则 todos/mode/审批会残留，
+    /// 下次挂接又被读回来——出现「历史空了但任务清单还在」。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    public void DeleteAgentState(string sessionId)
+    {
+        SaveUtility.Delete(GetAgentStatePath(sessionId));
+    }
+
     //================= 路径 =================
 
     private void SaveIndex()

@@ -22,7 +22,7 @@ namespace UiharuMind.Features.Conversation;
 
 /// <summary>
 /// 当前会话的记忆库面板数据:库名/索引状态/编辑入口。
-/// 原属聊天列表项(ChatSessionItemViewData),合并输入区后由对话 VM 按会话持有,
+/// 原属聊天列表项(SessionListItem),合并输入区后由对话 VM 按会话持有,
 /// agent 会话与角色会话共用同一入口。
 /// </summary>
 public partial class ConversationMemoryViewData : ObservableObject

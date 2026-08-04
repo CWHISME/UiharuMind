@@ -8,13 +8,13 @@ public partial class ChatPluginBase : ObservableObject
 {
     public virtual UserControl View => null!;
 
-    [ObservableProperty] private ChatSessionItemViewData _chatSessionCurrentViewData = null!;
+    [ObservableProperty] private SessionListItem _chatSessionCurrentViewData = null!;
 
     /// <summary>
     /// 设置插件面板对应的会话条目
     /// </summary>
     /// <param name="chatSessionItemViewData">会话列表条目</param>
-    public void SetSessionData(ChatSessionItemViewData chatSessionItemViewData)
+    public void SetSessionData(SessionListItem chatSessionItemViewData)
     {
         ChatSessionCurrentViewData = chatSessionItemViewData;
     }
@@ -27,12 +27,12 @@ public partial class ChatPluginBase : ObservableObject
     {
     }
 
-    partial void OnChatSessionCurrentViewDataChanged(ChatSessionItemViewData value)
+    partial void OnChatSessionCurrentViewDataChanged(SessionListItem value)
     {
         OnChatSessionChanged(value);
     }
 
-    protected virtual void OnChatSessionChanged(ChatSessionItemViewData chatSessionItemViewData)
+    protected virtual void OnChatSessionChanged(SessionListItem chatSessionItemViewData)
     {
     }
 }
