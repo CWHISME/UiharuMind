@@ -21,7 +21,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Utils;
 using UiharuMind.Views.Common;
@@ -144,7 +144,7 @@ public partial class QuickStartChatWindow : QuickWindowBase
 
         if (_quoteImage != null)
         {
-            ImageVisionSkill skill = new ImageVisionSkill(_quoteImage.BitmapToBytes());
+            ImageVisionPromptAction skill = new ImageVisionPromptAction(_quoteImage.BitmapToBytes());
             QuickChatResultWindow.Show("Vision (AI)", inputText, skill);
             CloseByAnimation();
             return;
@@ -153,9 +153,9 @@ public partial class QuickStartChatWindow : QuickWindowBase
         // Log.Warning($"Quick chat: {inputText}");
         // UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(inputText));
         // QuickChatResultWindow.Show("询问", $"请根据内容 {_quoteStr} 进行回答：\n{inputText}");
-        AgentSkillBase askAgentSkill = string.IsNullOrEmpty(_quoteStr)
-            ? new AssistantExpertAgentSkill()
-            : new AssistantExpertQuoteAgentSkill(_quoteStr);
+        PromptActionBase askAgentSkill = string.IsNullOrEmpty(_quoteStr)
+            ? new AssistantExpertPromptAction()
+            : new AssistantExpertQuotePromptAction(_quoteStr);
         QuickChatResultWindow.Show("Answer", inputText, askAgentSkill);
         CloseByAnimation();
     }

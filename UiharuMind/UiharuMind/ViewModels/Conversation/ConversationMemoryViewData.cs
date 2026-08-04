@@ -13,7 +13,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Memory;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Views;

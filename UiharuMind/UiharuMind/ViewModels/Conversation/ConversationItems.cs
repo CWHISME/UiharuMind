@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.ViewModels.Conversation;
@@ -103,7 +103,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
         {
             ToolName = call.Name;
             ArgumentSummary = AgentContentFormatter.SummarizeArguments(call);
-            SuggestedCommandPattern = call.Name == AgentHost.ShellToolName
+            SuggestedCommandPattern = call.Name == CharacterRunnerFactory.ShellToolName
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
                 : string.Empty;

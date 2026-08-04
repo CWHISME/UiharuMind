@@ -12,7 +12,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Core;

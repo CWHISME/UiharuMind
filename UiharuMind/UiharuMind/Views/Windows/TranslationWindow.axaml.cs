@@ -13,7 +13,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -35,8 +35,8 @@ public partial class TranslationWindow : UiharuWindowBase
 
         DataContext = this;
 
-        _agentSkill = new TranslationAdvancedAgentSkill();
-        // _simpleAgentSkill = new TranslationAgentSkill();
+        _agentSkill = new TranslationAdvancedPromptAction();
+        // _simpleAgentSkill = new TranslationPromptAction();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(ScrollViewer);
     }
 
@@ -103,19 +103,19 @@ public partial class TranslationWindow : UiharuWindowBase
     }
 
     // private string _askContent;
-    // private readonly TranslationAgentSkill _simpleAgentSkill;
-    private readonly TranslationAdvancedAgentSkill _agentSkill;
-    private readonly List<AgentSkillConvertableBase> _customAgentSkills = new List<AgentSkillConvertableBase>();
+    // private readonly TranslationPromptAction _simpleAgentSkill;
+    private readonly TranslationAdvancedPromptAction _agentSkill;
+    private readonly List<PromptActionConvertableBase> _customAgentSkills = new List<PromptActionConvertableBase>();
     private int _lastCharacterCount;
 
-    private AgentSkillBase GetSkill()
+    private PromptActionBase GetSkill()
     {
         // if (string.IsNullOrEmpty(ExtraRequestTextBox.Text)) return _simpleAgentSkill;
         _agentSkill.SetExtraRequest(ExtraRequestTextBox.Text ?? "无");
-        return TargetCharacterComboBox.SelectedItem as AgentSkillBase ?? _agentSkill;
+        return TargetCharacterComboBox.SelectedItem as PromptActionBase ?? _agentSkill;
     }
 
-    public void SetRequestInfo(string? content, AgentSkillBase agentSkill)
+    public void SetRequestInfo(string? content, PromptActionBase agentSkill)
     {
         _cts.SafeStop();
         if (string.IsNullOrEmpty(content))
@@ -140,7 +140,7 @@ public partial class TranslationWindow : UiharuWindowBase
         {
             try
             {
-                await foreach (var message in agentSkill.DoSkill(content, _cts.Token))
+                await foreach (var message in agentSkill.RunAsync(content, _cts.Token))
                 {
                     AppendContent(message);
                 }
@@ -170,7 +170,7 @@ public partial class TranslationWindow : UiharuWindowBase
             {
                 // 只有纯提示词角色适合当一次性技能:扮演角色带着挂载模板与用户卡,不该出现在翻译下拉里
                 if (!item.Value.IsPurePromptCharacter || item.Value == defaultChar) continue;
-                var customAgentSkill = new CustomAgentSkill(item.Value);
+                var customAgentSkill = new CustomPromptAction(item.Value);
                 _customAgentSkills.Add(customAgentSkill);
             }
 

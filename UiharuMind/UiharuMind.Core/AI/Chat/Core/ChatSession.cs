@@ -12,7 +12,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
-using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
@@ -20,7 +20,7 @@ using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.Utils;
 
-namespace UiharuMind.Core.Core.Chat;
+namespace UiharuMind.Core.AI.Chat;
 
 /// <summary>
 /// 表示一个对话。历史直接以 <see cref="ChatMessage"/> 持久化——
@@ -312,7 +312,7 @@ public class ChatSession
     /// 角色扮演与 agent 共用它，由角色的 <see cref="ECharacterKind"/> 决定装配形态。
     /// </summary>
     [JsonIgnore]
-    public ICharacterRunner Runner => _runner ??= AgentHost.Instance.CreateRunner();
+    public ICharacterRunner Runner => _runner ??= CharacterRunnerFactory.Instance.CreateRunner();
 
     /// <summary>
     /// 释放本会话的执行者（若从未创建则无事发生）。会话被删除或从缓存卸载时调用；

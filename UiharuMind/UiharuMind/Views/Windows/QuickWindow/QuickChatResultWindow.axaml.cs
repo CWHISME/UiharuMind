@@ -21,11 +21,11 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.AI;
-using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils.Tools;
@@ -47,7 +47,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
     //         ConfigManager.Instance.ChatSetting.IsAllowMultiAnswerWindow);
     // }
 
-    public static void Show(string? title, string? answer, AgentSkillBase agentSkill)
+    public static void Show(string? title, string? answer, PromptActionBase agentSkill)
     {
         if (answer == null) return;
         UIManager.ShowWindow<QuickChatResultWindow>(x => x.SetRequestInfo(title, answer, agentSkill), null,
@@ -97,9 +97,9 @@ public partial class QuickChatResultWindow : QuickWindowBase
     public bool IsChatConvertable => _agentSkill.IsConvertableToChatSession;
 
     private string _askContent = string.Empty;
-    private AgentSkillBase _agentSkill = null!;
+    private PromptActionBase _agentSkill = null!;
 
-    public void SetRequestInfo(string? title, string content, AgentSkillBase agentSkill)
+    public void SetRequestInfo(string? title, string content, PromptActionBase agentSkill)
     {
         TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
         SetContent("");
@@ -114,7 +114,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
             try
             {
                 //讨论模式
-                await foreach (var message in agentSkill.DoSkill(content, _cts.Token))
+                await foreach (var message in agentSkill.RunAsync(content, _cts.Token))
                 {
                     AppendContent(message);
                 }

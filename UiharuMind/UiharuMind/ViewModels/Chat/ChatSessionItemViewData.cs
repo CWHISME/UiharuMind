@@ -15,7 +15,6 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
-using UiharuMind.Core.Core.Chat;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Utils;

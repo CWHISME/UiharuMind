@@ -11,7 +11,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 

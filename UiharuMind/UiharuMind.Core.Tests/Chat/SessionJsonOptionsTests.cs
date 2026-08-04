@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 // 项目自有的 struct ChatMessage 遮蔽了 Microsoft.Extensions.AI.ChatMessage，阶段 2 会删除它
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 

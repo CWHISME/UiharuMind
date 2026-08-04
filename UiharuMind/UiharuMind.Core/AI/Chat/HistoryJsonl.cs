@@ -10,7 +10,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Chat;

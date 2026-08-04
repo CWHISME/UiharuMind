@@ -14,7 +14,7 @@ using Microsoft.Extensions.AI;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.ViewModels.Converters;

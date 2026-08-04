@@ -15,7 +15,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime.Backends;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.LLM;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.RemoteOpenAI;

@@ -12,7 +12,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.Core.Chat;
+namespace UiharuMind.Core.AI.Chat;
 
 /// <summary>
 /// 会话持久化专用的序列化配置。

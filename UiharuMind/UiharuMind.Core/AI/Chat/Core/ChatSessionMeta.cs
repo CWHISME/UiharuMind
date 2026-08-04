@@ -9,7 +9,7 @@
 
 using UiharuMind.Core.AI.Character;
 
-namespace UiharuMind.Core.Core.Chat;
+namespace UiharuMind.Core.AI.Chat;
 
 /// <summary>
 /// 会话元数据。左侧列表只读索引文件里的这些字段，不必反序列化会话本体——

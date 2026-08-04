@@ -17,7 +17,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Utils;
@@ -64,7 +64,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnOcrAiBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        // ImageOcrSkill skill = new ImageOcrSkill(GetImageBytes());
+        // ImageOcrPromptAction skill = new ImageOcrPromptAction(GetImageBytes());
         CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.VisionOcr, GetImageBytes());
         QuickChatResultWindow.Show("OCR (AI)", "", skill);
     }

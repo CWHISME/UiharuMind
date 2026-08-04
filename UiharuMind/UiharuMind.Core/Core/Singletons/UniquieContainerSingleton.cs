@@ -10,7 +10,7 @@
  ****************************************************************************/
 
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Core.Singletons;

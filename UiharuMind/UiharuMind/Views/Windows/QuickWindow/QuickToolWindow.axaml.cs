@@ -16,7 +16,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Core.AI.Character.Skills;
+using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;
 using UiharuMind.Utils;
@@ -54,7 +54,7 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
 
     private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
-        AssistantExplainAgentSkill skill = new AssistantExplainAgentSkill();
+        AssistantExplainPromptAction skill = new AssistantExplainPromptAction();
         QuickChatResultWindow.Show(Lang.Explain, _answerString, skill);
         PlayAnimation(false, SafeClose);
     }
@@ -81,11 +81,11 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         AddFunctionMenu(nameof(Lang.Translation),
             () =>
             {
-                TranslationAgentSkill skill = new TranslationAgentSkill();
+                TranslationPromptAction skill = new TranslationPromptAction();
                 QuickChatResultWindow.Show(Lang.Translation, _answerString, skill);
             });
-        AddFunctionMenu(nameof(Lang.SyntacticAnalysis), () => { QuickChatResultWindow.Show(Lang.SyntacticAnalysis, _answerString, new AssistantSyntacticAnalysisAgentSkill()); });
-        AddFunctionMenu(nameof(Lang.Think), () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainofThoughtAgentSkill()); });
+        AddFunctionMenu(nameof(Lang.SyntacticAnalysis), () => { QuickChatResultWindow.Show(Lang.SyntacticAnalysis, _answerString, new AssistantSyntacticAnalysisPromptAction()); });
+        AddFunctionMenu(nameof(Lang.Think), () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainOfThoughtPromptAction()); });
         AddFunctionMenu(nameof(Lang.Ask), () => { QuickStartChatWindow.Show(_answerString); });
     }
 

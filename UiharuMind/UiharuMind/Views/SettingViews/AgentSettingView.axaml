@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:UiharuMind.ViewModels.ViewData.SettingViewData"
-             xmlns:mcp="clr-namespace:UiharuMind.Core.AI.Agent.Mcp;assembly=UiharuMind.Core"
+             xmlns:mcp="clr-namespace:UiharuMind.Core.AI.Execution.Mcp;assembly=UiharuMind.Core"
              xmlns:loc="clr-namespace:UiharuMind.ViewModels.Markup"
              mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="640"
              x:Class="UiharuMind.Views.SettingViews.AgentSettingView"

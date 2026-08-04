@@ -13,7 +13,6 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
-using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Services;

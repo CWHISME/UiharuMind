@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Core.Utils.Tools;

@@ -8,14 +8,13 @@
  ****************************************************************************/
 
 using System.Collections.ObjectModel;
-using UiharuMind.Core.Core.Chat;
 using UiharuMind.Core.AI.Chat;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Core.AI.Agent;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Services;
 using UiharuMind.ViewModels.Agent;
@@ -49,7 +48,7 @@ public partial class AgentPageData : ConversationPageDataBase
         // 启动时恢复最近会话(历史加载不依赖模型状态)
         if (Sessions.Count > 0) SelectedSession = Sessions[0];
         Conversation.SessionsChanged += RefreshSessions;
-        AgentHost.Instance.Scheduler.OnTaskUpdated += _ =>
+        CharacterRunnerFactory.Instance.Scheduler.OnTaskUpdated += _ =>
             Avalonia.Threading.Dispatcher.UIThread.Post(RefreshScheduledTasks);
     }
 
@@ -117,7 +116,7 @@ public partial class AgentPageData : ConversationPageDataBase
     private void RefreshScheduledTasks()
     {
         ScheduledTasks.Clear();
-        foreach (var task in AgentHost.Instance.Scheduler.GetTasks())
+        foreach (var task in CharacterRunnerFactory.Instance.Scheduler.GetTasks())
         {
             ScheduledTasks.Add(new ScheduledTaskDisplayItem(task));
         }
@@ -126,13 +125,13 @@ public partial class AgentPageData : ConversationPageDataBase
     [RelayCommand]
     private async Task CancelTask(ScheduledTaskDisplayItem item)
     {
-        await AgentHost.Instance.Scheduler.CancelAsync(item.TaskId);
+        await CharacterRunnerFactory.Instance.Scheduler.CancelAsync(item.TaskId);
     }
 
     [RelayCommand]
     private async Task RunTaskNow(ScheduledTaskDisplayItem item)
     {
-        await AgentHost.Instance.Scheduler.RunNowAsync(item.TaskId);
+        await CharacterRunnerFactory.Instance.Scheduler.RunNowAsync(item.TaskId);
     }
 
     [RelayCommand]
@@ -173,18 +172,18 @@ public class ScheduledTaskDisplayItem
     /// <summary>是否有结果会话可打开</summary>
     public bool HasResultSession { get; }
 
-    public ScheduledTaskDisplayItem(Core.AI.Agent.Scheduler.ScheduledAgentTask task)
+    public ScheduledTaskDisplayItem(Core.AI.Execution.Scheduler.ScheduledAgentTask task)
     {
         TaskId = task.TaskId;
         DisplayName = task.DisplayName;
         FireAtText = task.FireAt.ToString("MM-dd HH:mm");
         StatusText = LocalizationManager.Instance.GetString($"AgentTaskStatus{task.Status}");
         ResultSessionId = task.ResultSessionId;
-        CanCancel = task.Status is Core.AI.Agent.Scheduler.EScheduledTaskStatus.Pending
-            or Core.AI.Agent.Scheduler.EScheduledTaskStatus.Missed;
-        CanRunNow = task.Status is Core.AI.Agent.Scheduler.EScheduledTaskStatus.Pending
-            or Core.AI.Agent.Scheduler.EScheduledTaskStatus.Missed
-            or Core.AI.Agent.Scheduler.EScheduledTaskStatus.Failed;
+        CanCancel = task.Status is Core.AI.Execution.Scheduler.EScheduledTaskStatus.Pending
+            or Core.AI.Execution.Scheduler.EScheduledTaskStatus.Missed;
+        CanRunNow = task.Status is Core.AI.Execution.Scheduler.EScheduledTaskStatus.Pending
+            or Core.AI.Execution.Scheduler.EScheduledTaskStatus.Missed
+            or Core.AI.Execution.Scheduler.EScheduledTaskStatus.Failed;
         HasResultSession = !string.IsNullOrEmpty(task.ResultSessionId);
     }
 }

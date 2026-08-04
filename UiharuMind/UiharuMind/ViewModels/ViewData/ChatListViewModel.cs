@@ -14,7 +14,6 @@ using UiharuMind.Core.AI.Chat;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.Core.Chat;
 using UiharuMind.Utils;
 using UiharuMind.ViewModels.Chat;
 

@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace UiharuMind.Core.Tests.Chat;

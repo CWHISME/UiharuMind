@@ -10,7 +10,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.CharacterCards;
-using UiharuMind.Core.Core.Chat;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.ViewModels.ViewData;
 using UiharuMind.Views.Common;
