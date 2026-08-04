@@ -278,33 +278,25 @@ public partial class ConversationViewModel : ViewModelBase
         OnPropertyChanged(nameof(SenderTooltip));
     }
 
-    /// <summary>初始渲染与"加载更早"每批的历史窗口大小</summary>
-    private const int HistoryWindowSize = 20;
-
     private const string ThinkingModeParamName = "ThinkingMode"; //CustomParams 中的思考力度键
 
     private CancellationTokenSource? _runCancellation;
-    private TextConversationItem? _streamingText;
-    private ThinkingItem? _streamingThinking;
-    private readonly List<ApprovalRequestItem> _pendingApprovals = new();
     private readonly List<string> _pendingOwnedFiles = new();
-    private int _historyStart; //当前渲染窗口在完整历史中的起点
-    private IList<ConversationItemBase>? _renderTarget; //历史回放的构建缓冲,为空直写 Items
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
-    private long _turnInputTokens; //本轮输入 token(来自响应 usage)
-    private long _turnOutputTokens; //本轮输出 token
-    private long _sessionInputTokens; //会话累计输入 token
-    private long _sessionOutputTokens; //会话累计输出 token
-    private int _inputTokenEstimate; //输入框文本的 token 估算
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
-    private readonly ThinkTagStreamParser _thinkParser = new(); //正文流里 <think> 段的分离器
 
-    /// <summary>条目落点:实时流直写 Items,历史回放写入构建缓冲(支持前插)</summary>
-    private IList<ConversationItemBase> RenderTarget => _renderTarget ?? Items;
+    private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
+    private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
+    private readonly TurnUsageLedger _usage = new(); //token 账本
 
     public ConversationViewModel()
     {
+        _transcript = new ConversationTranscript(Items, CreateAssistantItem,
+            pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern));
+        _transcript.UsageObserved += OnUsageObserved;
+        _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
+
         var agentSetting = AgentSettingConfig.Current;
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
         _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
@@ -316,6 +308,7 @@ public partial class ConversationViewModel : ViewModelBase
 
         _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
+        _transcript.AutoCollapseThinking = _isAutoCollapseThinking;
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanRegenerate));
         LlmManager.Instance.OnCurrentModelChanged += _ => OnPropertyChanged(nameof(SessionModelLabel));
 
@@ -363,6 +356,7 @@ public partial class ConversationViewModel : ViewModelBase
 
     partial void OnIsAutoCollapseThinkingChanged(bool value)
     {
+        _transcript.AutoCollapseThinking = value;
         ChatSettingConfig.Current.IsChatAutoCollapseThinking = value;
         ChatSettingConfig.Current.Save();
     }
@@ -509,10 +503,7 @@ public partial class ConversationViewModel : ViewModelBase
     private void OnStopSending()
     {
         _runCancellation?.Cancel();
-        foreach (ApprovalRequestItem approval in _pendingApprovals.ToList())
-        {
-            approval.CancelAsDeny();
-        }
+        _transcript.CancelPendingApprovals();
     }
 
     private async Task RunTurnAsync(ChatMessage userMessage, string titleSeed)
@@ -520,8 +511,7 @@ public partial class ConversationViewModel : ViewModelBase
         IsGenerating = true;
         // 思考力度随本次异步流下发到 HTTP 层(SDK 无逐请求参数通道)
         LlmRequestContext.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
-        _turnInputTokens = 0;
-        _turnOutputTokens = 0;
+        _usage.BeginTurn();
         OnPropertyChanged(nameof(SessionModelLabel)); //本轮实际使用的模型此刻可解析
         _runCancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = _runCancellation.Token;
@@ -533,12 +523,11 @@ public partial class ConversationViewModel : ViewModelBase
 
             while (nextMessages is { Count: > 0 })
             {
-                List<ApprovalRequestItem> turnApprovals = new();
                 try
                 {
                     await foreach (AIContent content in session.Runner.RunAsync(nextMessages, cancellationToken))
                     {
-                        ApplyContent(content, turnApprovals);
+                        _transcript.Apply(content);
                     }
                 }
                 catch (OperationCanceledException)
@@ -546,9 +535,10 @@ public partial class ConversationViewModel : ViewModelBase
                     break;
                 }
 
-                CloseStreamSegment();
+                _transcript.CloseSegment();
                 await RefreshTodosAsync();
 
+                IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals();
                 if (turnApprovals.Count == 0) break;
 
                 // 审批往返:等待用户对每个请求做出决定,回应作为下一轮输入
@@ -558,7 +548,7 @@ public partial class ConversationViewModel : ViewModelBase
                     nextMessages.Add(await approval.Response);
                 }
 
-                _pendingApprovals.RemoveAll(turnApprovals.Contains);
+                _transcript.ResolveApprovals(turnApprovals);
                 if (cancellationToken.IsCancellationRequested) break;
             }
 
@@ -572,81 +562,11 @@ public partial class ConversationViewModel : ViewModelBase
         }
         finally
         {
-            CloseStreamSegment();
+            _transcript.CloseSegment();
             IsGenerating = false;
             _runCancellation = null;
-            _pendingApprovals.Clear();
+            _transcript.ResolveApprovals(_transcript.PendingApprovals.ToList());
             SessionsChanged?.Invoke();
-        }
-    }
-
-    /// <summary>
-    /// AIContent → 会话条目(实时流与历史回放共用)
-    /// </summary>
-    private void ApplyContent(AIContent content, List<ApprovalRequestItem>? approvalCollector)
-    {
-        switch (content)
-        {
-            case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                AppendStreamThinking(reasoning.Text);
-                break;
-
-            case TextContent text when !string.IsNullOrEmpty(text.Text):
-                // 本地/部分远程模型把 <think> 混在正文流里,经解析器分离成思考条目
-                _thinkParser.Feed(text.Text, AppendStreamText, AppendStreamThinking);
-                break;
-
-            case FunctionCallContent call:
-                CloseStreamSegment();
-                if (AgentContentFormatter.IsHousekeepingTool(call.Name))
-                {
-                    _ = RefreshTodosAsync();
-                    break;
-                }
-
-                RenderTarget.Add(new ToolCallItem
-                {
-                    CallId = call.CallId,
-                    ToolName = call.Name,
-                    IconGlyph = AgentContentFormatter.GetToolIcon(call.Name),
-                    ArgumentSummary = AgentContentFormatter.SummarizeArguments(call),
-                    ArgumentsJson = call.Arguments == null
-                        ? string.Empty
-                        : string.Join("\n", call.Arguments.Select(x => $"{x.Key}: {x.Value}")),
-                });
-                break;
-
-            case FunctionResultContent result:
-                if (RenderTarget.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == result.CallId) is { } item)
-                {
-                    item.IsRunning = false;
-                    item.IsSuccess = result.Exception == null;
-                    item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
-                }
-
-                break;
-
-            case ToolApprovalRequestContent approvalRequest:
-                CloseStreamSegment();
-                ApprovalRequestItem approvalItem = new(approvalRequest)
-                {
-                    // "记住同类命令"写进会话放行清单并持久化,后续同类 shell 命令由审批规则直接放行
-                    RememberShellPatternCallback = pattern =>
-                        CurrentSession?.AddSessionApprovedShellPattern(pattern),
-                };
-                RenderTarget.Add(approvalItem);
-                _pendingApprovals.Add(approvalItem);
-                approvalCollector?.Add(approvalItem);
-                break;
-
-            case ErrorContent error:
-                RenderTarget.Add(new ErrorItem { Message = error.Message });
-                break;
-
-            case UsageContent usage:
-                // 历史回放的累计口径由 ReplayMessages 全量统计(窗口只覆盖尾部),实时流才在此累计
-                if (_renderTarget == null) AccumulateUsage(usage.Details);
-                break;
         }
     }
 
@@ -864,9 +784,9 @@ public partial class ConversationViewModel : ViewModelBase
     /// </summary>
     private void ReplayMessages(IReadOnlyList<ChatMessage> messages)
     {
-        _historyStart = Math.Max(0, messages.Count - HistoryWindowSize);
-        HasEarlierMessages = _historyStart > 0;
-        foreach (ConversationItemBase item in BuildHistoryItems(messages, _historyStart, messages.Count))
+        (int from, int to) = _historyWindow.Reset(messages.Count);
+        HasEarlierMessages = _historyWindow.HasEarlier;
+        foreach (ConversationItemBase item in BuildHistoryItems(messages, from, to))
         {
             Items.Add(item);
         }
@@ -874,8 +794,7 @@ public partial class ConversationViewModel : ViewModelBase
         // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
         if (CurrentSession is { } session)
         {
-            _sessionInputTokens = session.TotalInputTokens;
-            _sessionOutputTokens = session.TotalOutputTokens;
+            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens);
         }
 
         RefreshTokenUsageText();
@@ -887,74 +806,63 @@ public partial class ConversationViewModel : ViewModelBase
     public void LoadEarlierMessages()
     {
         IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
-        int end = Math.Min(_historyStart, history.Count);
-        if (end <= 0)
+        if (_historyWindow.Extend(history.Count) is not { } range)
         {
             HasEarlierMessages = false;
             return;
         }
 
-        int from = Math.Max(0, end - HistoryWindowSize);
-        List<ConversationItemBase> buffer = BuildHistoryItems(history, from, end);
+        List<ConversationItemBase> buffer = BuildHistoryItems(history, range.From, range.To);
         for (int i = 0; i < buffer.Count; i++)
         {
             Items.Insert(i, buffer[i]);
         }
 
-        _historyStart = from;
-        HasEarlierMessages = _historyStart > 0;
+        HasEarlierMessages = _historyWindow.HasEarlier;
     }
 
+    /// <summary>
+    /// 回放一段历史到独立缓冲：用一个不订阅用量的转录器实例装配，
+    /// 因此不会污染本轮/累计计数（累计口径由 <see cref="ReplayMessages"/> 从会话本体恢复）。
+    /// </summary>
     private List<ConversationItemBase> BuildHistoryItems(IReadOnlyList<ChatMessage> messages, int from, int to)
     {
         List<ConversationItemBase> buffer = new();
-        _renderTarget = buffer;
-        try
+        ConversationTranscript replay = new(buffer, CreateAssistantItem)
         {
-            for (int index = from; index < to; index++)
+            AutoCollapseThinking = IsAutoCollapseThinking,
+        };
+
+        for (int index = from; index < to; index++)
+        {
+            ChatMessage message = messages[index];
+            if (message.Role == ChatRole.User)
             {
-                ChatMessage message = messages[index];
-                if (message.Role == ChatRole.User)
+                string text = message.Text;
+                if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
                 {
-                    string text = message.Text;
-                    if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
-                    {
-                        buffer.Add(WireItemActions(CreateUserItem(text, message), message));
-                    }
-
-                    continue;
+                    buffer.Add(WireItemActions(CreateUserItem(text, message), message));
                 }
 
-                int before = buffer.Count;
-                foreach (AIContent content in message.Contents)
-                {
-                    ApplyContent(content, null);
-                }
-
-                CloseStreamSegment();
-
-                // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
-                for (int i = before; i < buffer.Count; i++)
-                {
-                    if (buffer[i] is TextConversationItem textItem) WireItemActions(textItem, message);
-                }
+                continue;
             }
 
-            foreach (ToolCallItem item in buffer.OfType<ToolCallItem>().Where(x => x.IsRunning))
+            int before = buffer.Count;
+            foreach (AIContent content in message.Contents)
             {
-                item.IsRunning = false;
+                replay.Apply(content);
             }
 
-            foreach (ApprovalRequestItem item in buffer.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved))
+            replay.CloseSegment();
+
+            // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
+            for (int i = before; i < buffer.Count; i++)
             {
-                item.CancelAsDeny();
+                if (buffer[i] is TextConversationItem textItem) WireItemActions(textItem, message);
             }
         }
-        finally
-        {
-            _renderTarget = null;
-        }
 
+        replay.FinalizeReplay();
         return buffer;
     }
 
@@ -1019,7 +927,7 @@ public partial class ConversationViewModel : ViewModelBase
         int version = ++_inputCountVersion;
         if (string.IsNullOrEmpty(value))
         {
-            _inputTokenEstimate = 0;
+            _usage.InputEstimate = 0;
             RefreshTokenUsageText();
             return;
         }
@@ -1031,24 +939,20 @@ public partial class ConversationViewModel : ViewModelBase
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (version != _inputCountVersion) return;
-                _inputTokenEstimate = count;
+                _usage.InputEstimate = count;
                 RefreshTokenUsageText();
             });
         });
     }
 
-    private void AccumulateUsage(UsageDetails details)
+    /// <summary>
+    /// 账本记一次用量，并把增量写回会话本体——响应用量不随消息持久化，
+    /// 累计值记在本体上，随轮末的历史保存一并落盘。
+    /// </summary>
+    private void OnUsageObserved(UsageDetails details)
     {
-        long input = details.InputTokenCount ?? 0;
-        long output = details.OutputTokenCount ?? 0;
-        _turnInputTokens += input;
-        _turnOutputTokens += output;
-        _sessionInputTokens += input;
-        _sessionOutputTokens += output;
-
-        // 响应 usage 不随消息持久化,累计值写回会话本体(随轮末的历史保存一并落盘)
-        ChatSession? session = CurrentSession;
-        if (session != null)
+        (long input, long output) = _usage.Add(details);
+        if (CurrentSession is { } session)
         {
             session.TotalInputTokens += input;
             session.TotalOutputTokens += output;
@@ -1059,25 +963,8 @@ public partial class ConversationViewModel : ViewModelBase
 
     private void RefreshTokenUsageText()
     {
-        System.Text.StringBuilder sb = new();
-        if (_inputTokenEstimate > 0) sb.Append($"≈{FormatTokenCount(_inputTokenEstimate)}");
-        if (_turnInputTokens + _turnOutputTokens > 0)
-        {
-            if (sb.Length > 0) sb.Append("  ");
-            sb.Append($"↑{FormatTokenCount(_turnInputTokens)} ↓{FormatTokenCount(_turnOutputTokens)}");
-        }
-
-        if (_sessionInputTokens + _sessionOutputTokens > 0)
-        {
-            if (sb.Length > 0) sb.Append(' ');
-            sb.Append($"({FormatTokenCount(_sessionInputTokens + _sessionOutputTokens)})");
-        }
-
-        TokenUsageText = sb.ToString();
+        TokenUsageText = _usage.Text;
     }
-
-    private static string FormatTokenCount(long count) =>
-        count >= 10000 ? $"{count / 1000.0:0.#}k" : count.ToString();
 
     private static int ReadThinkingModeIndex(ChatSession session)
     {
@@ -1289,43 +1176,15 @@ public partial class ConversationViewModel : ViewModelBase
         };
     }
 
-    private void AppendStreamText(string delta)
-    {
-        if (_streamingText == null) RenderTarget.Add(_streamingText = CreateAssistantItem());
-        _streamingText.Append(delta);
-    }
-
-    private void AppendStreamThinking(string delta)
-    {
-        // 流式进行中保持展开,能看到它在想什么;段落收尾时按设置折叠
-        if (_streamingThinking == null) RenderTarget.Add(_streamingThinking = new ThinkingItem { IsExpanded = true });
-        _streamingThinking.Append(delta);
-    }
-
-    private void CloseStreamSegment()
-    {
-        _thinkParser.Complete(AppendStreamText, AppendStreamThinking);
-        if (_streamingText != null) _streamingText.IsDone = true;
-        if (_streamingThinking != null && IsAutoCollapseThinking) _streamingThinking.IsExpanded = false;
-        _streamingText = null;
-        _streamingThinking = null;
-    }
-
     private void ClearStreamState()
     {
         Items.Clear();
         Todos.Clear();
         HasTodos = false;
         HasEarlierMessages = false;
-        _historyStart = 0;
-        _pendingApprovals.Clear();
-        _streamingText = null;
-        _streamingThinking = null;
-        _thinkParser.Reset();
-        _turnInputTokens = 0;
-        _turnOutputTokens = 0;
-        _sessionInputTokens = 0;
-        _sessionOutputTokens = 0;
+        _historyWindow.Clear();
+        _transcript.Reset();
+        _usage.Reset();
         // 记忆库面板与 token 文本不在此清空:切会话时先空后填会让工具行闪烁,
         // 由 LoadSessionAsync 在新值就绪时一次性替换
     }

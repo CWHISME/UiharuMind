@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.CLI", "UiharuMin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Core.Tests", "UiharuMind.Core.Tests\UiharuMind.Core.Tests.csproj", "{054AF5EC-0D22-4DDC-8E79-04C72AAA68C1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.App.Tests", "UiharuMind.App.Tests\UiharuMind.App.Tests.csproj", "{310FE8DE-D20A-450D-8772-7C02435C0A23}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{054AF5EC-0D22-4DDC-8E79-04C72AAA68C1}.Release|x64.Build.0 = Release|Any CPU
 		{054AF5EC-0D22-4DDC-8E79-04C72AAA68C1}.Release|x86.ActiveCfg = Release|Any CPU
 		{054AF5EC-0D22-4DDC-8E79-04C72AAA68C1}.Release|x86.Build.0 = Release|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Debug|x64.Build.0 = Debug|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Debug|x86.Build.0 = Debug|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Release|Any CPU.Build.0 = Release|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Release|x64.ActiveCfg = Release|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Release|x64.Build.0 = Release|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Release|x86.ActiveCfg = Release|Any CPU
+		{310FE8DE-D20A-450D-8772-7C02435C0A23}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
