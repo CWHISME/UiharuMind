@@ -6,6 +6,8 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Shared.Shell.MainWindow"
         Icon="/Assets/Icon.png"
+        Height="760"
+        MinHeight="560"
         Title="UiharuMind">
     <views:MainView />
 </Window>

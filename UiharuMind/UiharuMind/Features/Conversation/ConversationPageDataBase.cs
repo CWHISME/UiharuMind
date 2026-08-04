@@ -15,20 +15,17 @@ namespace UiharuMind.Features.Conversation;
 
 /// <summary>
 /// 对话类页面壳的公共部分：左右面板的宽度、开合与窄宽响应式收起。
-/// 此前 ChatPageData 与 AgentPageData 各有一份逐行相同的实现
-/// （AgentPageData 的注释"对齐 ChatPageData"就是这份重复的自述），
-/// 且已经漂移出差异（右栏默认宽度一个 320 一个 300）。
 /// </summary>
 public abstract partial class ConversationPageDataBase : PageDataBase
 {
     /// <summary>低于此宽度收起右栏</summary>
-    private const double RightPaneCollapseWidth = 1040;
+    private const double RightPaneCollapseWidth = 888;
 
     /// <summary>低于此宽度同时收起左右栏</summary>
-    private const double BothPanesCollapseWidth = 860;
+    private const double BothPanesCollapseWidth = 666;
 
-    [ObservableProperty] private float _leftPaneWidth = 260;
-    [ObservableProperty] private float _rightPaneWidth = 320;
+    [ObservableProperty] private float _leftPaneWidth = 200;
+    [ObservableProperty] private float _rightPaneWidth = 200;
     [ObservableProperty] private bool _isLeftPaneOpen = true;
     [ObservableProperty] private bool _isRightPaneOpen = true;
 
