@@ -323,8 +323,8 @@ public class SkillInvocationMarkerRoundTripTests
         {
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                [SkillInvocation.MessageKey] = "git-auto-commit",
-                [SkillInvocation.MessageInputKey] = "/git-auto-commit 半小时后提交",
+                [ChatMessageAnnotations.NamedSkill] = "git-auto-commit",
+                [ChatMessageAnnotations.NamedSkillInput] = "/git-auto-commit 半小时后提交",
             },
         };
 
@@ -332,10 +332,10 @@ public class SkillInvocationMarkerRoundTripTests
         ChatMessage restored =
             System.Text.Json.JsonSerializer.Deserialize<ChatMessage>(json, SessionJsonOptions.Default)!;
 
-        Assert.True(restored.AdditionalProperties!.TryGetValue(SkillInvocation.MessageInputKey, out object? input));
+        Assert.True(restored.AdditionalProperties!.TryGetValue(ChatMessageAnnotations.NamedSkillInput, out object? input));
         Assert.IsNotType<string>(input); //钉住"往返后不再是 string"这条事实,读取端必须走 ToString
         Assert.Equal("/git-auto-commit 半小时后提交", input?.ToString());
-        Assert.True(restored.AdditionalProperties.TryGetValue(SkillInvocation.MessageKey, out object? name));
+        Assert.True(restored.AdditionalProperties.TryGetValue(ChatMessageAnnotations.NamedSkill, out object? name));
         Assert.Equal("git-auto-commit", name?.ToString());
         Assert.Equal("注入的技能正文", restored.Text);
     }

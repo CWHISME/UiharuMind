@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
@@ -73,7 +74,10 @@ public class HistoryAttributionTests
     {
         ChatMessage injected = new(ChatRole.User, "todo snapshot")
         {
-            AdditionalProperties = new AdditionalPropertiesDictionary { ["_attribution"] = "TodoProvider" },
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ChatMessageAnnotations.Attribution] = "TodoProvider",
+            },
         };
 
         Assert.False(SessionChatHistoryProvider.IsOwnedByUs(injected));

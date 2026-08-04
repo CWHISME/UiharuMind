@@ -1121,7 +1121,7 @@ public partial class ConversationViewModel : ViewModelBase
 
     private static bool IsFrameworkInjected(ChatMessage message)
     {
-        if (message.AdditionalProperties?.ContainsKey("_attribution") == true) return true;
+        if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true) return true;
         return message.Contents.Any(x => x is ToolApprovalResponseContent);
     }
 
@@ -1248,8 +1248,8 @@ public partial class ConversationViewModel : ViewModelBase
     private static void MarkNamedSkill(ChatMessage message, SkillInvocation invocation, string input)
     {
         message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
-        message.AdditionalProperties[SkillInvocation.MessageKey] = invocation.SkillName;
-        message.AdditionalProperties[SkillInvocation.MessageInputKey] = input;
+        message.AdditionalProperties[ChatMessageAnnotations.NamedSkill] = invocation.SkillName;
+        message.AdditionalProperties[ChatMessageAnnotations.NamedSkillInput] = input;
     }
 
     /// <summary>
@@ -1260,7 +1260,7 @@ public partial class ConversationViewModel : ViewModelBase
     /// <returns>用户输入;不是点名调用消息则为 null</returns>
     private static string? NamedSkillInputOf(ChatMessage message)
     {
-        if (message.AdditionalProperties?.TryGetValue(SkillInvocation.MessageInputKey, out object? value) != true)
+        if (message.AdditionalProperties?.TryGetValue(ChatMessageAnnotations.NamedSkillInput, out object? value) != true)
         {
             return null;
         }

@@ -31,9 +31,6 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
 {
     private const string SessionIdKey = "UiharuSessionId";
 
-    /// <summary>框架给注入消息打的溯源标记键</summary>
-    private const string AttributionKey = "_attribution";
-
     /// <summary>
     /// 把框架会话与项目会话绑定。必须在首次运行前调用。
     /// </summary>
@@ -123,7 +120,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             $"[Context notice: {omittedCount} earlier messages were trimmed to fit the context budget. " +
             "The conversation continues below.]")
         {
-            AdditionalProperties = new AdditionalPropertiesDictionary { [AttributionKey] = "HistoryTrim" },
+            AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Attribution] = "HistoryTrim" },
         };
     }
 
@@ -187,7 +184,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     /// </summary>
     internal static bool IsOwnedByUs(ChatMessage message)
     {
-        return message.AdditionalProperties?.ContainsKey(AttributionKey) != true;
+        return message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) != true;
     }
 
     private static ChatSession? Resolve(AgentSession? agentSession)

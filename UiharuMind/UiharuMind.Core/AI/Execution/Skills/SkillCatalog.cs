@@ -50,12 +50,6 @@ public class SkillCatalogEntry
 /// </summary>
 public sealed class SkillInvocation
 {
-    /// <summary>消息标记键:值为被点名的技能名。与 _attribution 无关——那个键会让消息不落盘</summary>
-    public const string MessageKey = "_namedSkill";
-
-    /// <summary>消息标记键:值为用户原样输入的那一行,气泡折叠显示用</summary>
-    public const string MessageInputKey = "_namedSkillInput";
-
     /// <summary>技能名</summary>
     public required string SkillName { get; init; }
 
