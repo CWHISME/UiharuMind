@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
@@ -143,6 +144,35 @@ public class ResearcherReadOnlyTests
         Assert.Contains("WebSearch", names);
         string[] forbidden = ["Write", "Edit", "Replace", "Delete", CharacterRunnerFactory.ShellToolName];
         Assert.DoesNotContain(names, name => forbidden.Contains(name));
+    }
+
+    /// <summary>
+    /// 提示语里用反引号指名的工具，必须真实存在于同一份装配出来的工具集里。
+    /// 这条曾经不成立：调研员指令写着 <c>web_search</c> / <c>web_fetch</c>，
+    /// 而工具实际叫 WebSearch / WebFetch——指挥模型去调不存在的工具，
+    /// 只会换来一次工具调用失败，实机上极难归因。
+    /// 约定因此是：提示语提到工具一律写 `反引号 + 工具的 ToolName 常量`。
+    /// </summary>
+    [Fact]
+    public void ResearcherInstructions_OnlyNameToolsThatExist()
+    {
+        HarnessAgentOptions? options =
+            CharacterRunnerFactory.BuildResearcherOptions(new AgentSettingConfig(), Path.GetTempPath());
+
+        Assert.NotNull(options);
+        ChatOptions chatOptions = options!.ChatOptions!;
+        HashSet<string> mounted = new(chatOptions.Tools!.OfType<AIFunction>().Select(x => x.Name),
+            StringComparer.Ordinal);
+
+        MatchCollection mentioned = Regex.Matches(chatOptions.Instructions ?? string.Empty, "`([^`]+)`");
+        Assert.NotEmpty(mentioned); //反引号写法本身也要在,否则这条不变量会空转
+
+        foreach (Match match in mentioned)
+        {
+            string name = match.Groups[1].Value;
+            Assert.True(mounted.Contains(name),
+                $"调研员指令里指名了工具 `{name}`,但装配出来的工具集里没有它。已装配:{string.Join(", ", mounted)}");
+        }
     }
 
     [Fact]

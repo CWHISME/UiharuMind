@@ -6,13 +6,16 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 public static class WebSearchTool
 {
+    /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
+    public const string ToolName = "WebSearch";
+
     private static readonly FallbackSearchEngine Engine = new();
 
     public static AITool Create()
     {
-        return AIFunctionFactory.Create(SearchAsync, "WebSearch",
+        return AIFunctionFactory.Create(SearchAsync, ToolName,
             "Search the web for current information. Returns concise titles, URLs and summaries. " +
-            "If the summary is insufficient, use fetch_web_page on a specific URL.");
+            $"If the summary is insufficient, use {WebFetchTool.ToolName} on a specific URL.");
     }
 
     private static async Task<string> SearchAsync(

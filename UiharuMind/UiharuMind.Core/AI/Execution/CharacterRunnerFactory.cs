@@ -105,14 +105,11 @@ public sealed class AgentHandle : IAsyncDisposable
 /// </summary>
 public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitialize
 {
-    /// <summary>shell 工具名(供预授权规则匹配)</summary>
+    /// <summary>
+    /// shell 工具名(供预授权规则匹配)。装配时显式传给 <c>AsAIFunction</c>,
+    /// 让这个常量成为唯一权威——否则它只是框架默认值的一份副本,框架改默认值就会静默失配。
+    /// </summary>
     public const string ShellToolName = "run_shell";
-
-    /// <summary>识图工具名(纪律段里要指名道姓地告诉模型可以用它)</summary>
-    private const string VisionToolName = "ask_vision";
-
-    /// <summary>记忆检索工具名(纪律段引用)</summary>
-    private const string MemoryToolName = "memory_search";
 
     /// <summary>定时任务调度后端(框架无对应能力,自建保留)</summary>
     public ISchedulerBackend Scheduler { get; private set; } = null!;
@@ -181,7 +178,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         if (shellExecutor != null)
         {
             // 1.16:shell 作为普通工具挂载,默认名即 run_shell、默认自包审批,预授权规则按名匹配不变
-            extraTools.Add(shellExecutor.AsAIFunction());
+            extraTools.Add(shellExecutor.AsAIFunction(ShellToolName));
         }
 
         // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,ask_vision 是多余的绕路。
@@ -340,12 +337,13 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
         if (config.EnableWebSearch)
         {
-            sb.AppendLine("- Research the web with web_search, then web_fetch the promising results.");
+            sb.AppendLine($"- Research the web with `{WebSearchTool.ToolName}`, "
+                          + $"then `{WebFetchTool.ToolName}` the promising results.");
         }
 
         if (hasVision)
         {
-            sb.AppendLine($"- For image files, call `{VisionToolName}` with the file path.");
+            sb.AppendLine($"- For image files, call `{VisionTool.ToolName}` with the file path.");
         }
 
         sb.AppendLine("- Work autonomously; never ask for clarification.");

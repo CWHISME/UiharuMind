@@ -21,6 +21,9 @@ namespace UiharuMind.Core.AI.Execution;
 /// </summary>
 public static class VisionTool
 {
+    /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
+    public const string ToolName = "ask_vision";
+
     /// <summary>
     /// 创建识图 AIFunction
     /// </summary>
@@ -33,7 +36,7 @@ public static class VisionTool
                     [Description("The question to answer about the image.")] string question,
                     CancellationToken cancellationToken = default) =>
                 await AskVisionAsync(workspaceRoot, imagePath, question, cancellationToken).ConfigureAwait(false),
-            "ask_vision",
+            ToolName,
             "Answer a question about an image file by delegating to a vision-capable model. " +
             "Use this when you cannot see images yourself.");
     }

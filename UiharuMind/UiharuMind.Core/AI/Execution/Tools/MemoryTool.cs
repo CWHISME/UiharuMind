@@ -21,6 +21,9 @@ namespace UiharuMind.Core.AI.Execution;
 /// </summary>
 public static class MemoryTool
 {
+    /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
+    public const string ToolName = "memory_search";
+
     /// <summary>
     /// 创建记忆检索 AIFunction
     /// </summary>
@@ -32,7 +35,7 @@ public static class MemoryTool
             async ([Description("A focused query describing what to recall from long-term memory.")] string query,
                     CancellationToken cancellationToken = default) =>
                 await SearchAsync(memorySource, query).ConfigureAwait(false),
-            "memory_search",
+            ToolName,
             "Search the session's long-term memory library for information relevant to the query. " +
             "Use a focused query, not the user's raw message.");
     }

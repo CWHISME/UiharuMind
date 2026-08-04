@@ -9,11 +9,14 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 public static partial class WebFetchTool
 {
 
+    /// <summary>工具名。提示词里提到本工具时一律引用这个常量</summary>
+    public const string ToolName = "WebFetch";
+
     private static readonly string[] NoiseTags =
         ["script", "style", "noscript", "iframe", "svg", "nav", "footer", "aside", "header"];
 
     public static AITool Create() => AIFunctionFactory.Create(
-        FetchAsync, "WebFetch",
+        FetchAsync, ToolName,
         "Read the primary text of a public web page.");
 
     private static async Task<string> FetchAsync(string url, CancellationToken ct = default)
