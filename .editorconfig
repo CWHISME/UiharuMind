@@ -1,0 +1,110 @@
+# 命名规范的机械强制，对应 AGENTS.md「代码规范」里的 [规则1-3] ~ [规则1-7]。
+#
+# 严重性一律 warning，不用 error：既不阻断构建、不违反「现有不符合规范的代码可以忽略」的口径，
+# 新写的代码又能在 IDE 里当时就看到提示。
+#
+# 只管命名，不设缩进/换行/编码规则——那些会对既有代码造成大面积格式改动。
+
+root = true
+
+[*.cs]
+
+# per-rule 的 severity 不足以让诊断在构建里冒出来：IDE1006 本身默认是 suggestion,
+# 必须显式提升，否则下面所有命名规则在 dotnet build 里静默无效（踩过这个坑）。
+dotnet_diagnostic.IDE1006.severity = warning
+
+# ================= 符号组 =================
+
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_symbols.interfaces.applicable_accessibilities = *
+
+dotnet_naming_symbols.enums.applicable_kinds = enum
+dotnet_naming_symbols.enums.applicable_accessibilities = *
+
+# 常量与静态字段：[规则1-4] 不按可访问性区分，私有的 const/static 同样是大驼峰。
+# 必须拆成两组：required_modifiers 是「同时满足」语义，写成 `const, static` 会要求
+# 一个字段既是 const 又带 static 关键字，结果永远匹配不上（踩过这个坑）。
+dotnet_naming_symbols.constant_fields.applicable_kinds = field
+dotnet_naming_symbols.constant_fields.applicable_accessibilities = *
+dotnet_naming_symbols.constant_fields.required_modifiers = const
+
+dotnet_naming_symbols.static_fields.applicable_kinds = field
+dotnet_naming_symbols.static_fields.applicable_accessibilities = *
+dotnet_naming_symbols.static_fields.required_modifiers = static
+
+dotnet_naming_symbols.non_private_fields.applicable_kinds = field
+dotnet_naming_symbols.non_private_fields.applicable_accessibilities = public, internal, protected, protected_internal, private_protected
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_symbols.types_and_members.applicable_kinds = class, struct, delegate, method, property, event
+dotnet_naming_symbols.types_and_members.applicable_accessibilities = *
+
+dotnet_naming_symbols.parameters_and_locals.applicable_kinds = parameter, local
+dotnet_naming_symbols.parameters_and_locals.applicable_accessibilities = *
+
+# ================= 命名风格 =================
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+dotnet_naming_style.i_prefixed_pascal_case.required_prefix = I
+dotnet_naming_style.i_prefixed_pascal_case.capitalization = pascal_case
+
+dotnet_naming_style.e_prefixed_pascal_case.required_prefix = E
+dotnet_naming_style.e_prefixed_pascal_case.capitalization = pascal_case
+
+dotnet_naming_style.camel_case.capitalization = camel_case
+
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+
+# ================= 规则 =================
+# 注意：第一条匹配的规则生效，所以更具体的必须写在前面。
+# 「常量与静态字段」必须排在「私有字段」之前，否则 private static 会被要求写成 _camelCase。
+
+# [规则1-6] 接口以大写字母 I 开头
+dotnet_naming_rule.interfaces_are_i_prefixed.symbols = interfaces
+dotnet_naming_rule.interfaces_are_i_prefixed.style = i_prefixed_pascal_case
+dotnet_naming_rule.interfaces_are_i_prefixed.severity = warning
+
+# [规则1-7] 枚举以大写字母 E 开头
+dotnet_naming_rule.enums_are_e_prefixed.symbols = enums
+dotnet_naming_rule.enums_are_e_prefixed.style = e_prefixed_pascal_case
+dotnet_naming_rule.enums_are_e_prefixed.severity = warning
+
+# [规则1-4] 常量 → 大驼峰
+dotnet_naming_rule.constant_fields_are_pascal.symbols = constant_fields
+dotnet_naming_rule.constant_fields_are_pascal.style = pascal_case
+dotnet_naming_rule.constant_fields_are_pascal.severity = warning
+
+# [规则1-4] 静态字段 → 大驼峰
+dotnet_naming_rule.static_fields_are_pascal.symbols = static_fields
+dotnet_naming_rule.static_fields_are_pascal.style = pascal_case
+dotnet_naming_rule.static_fields_are_pascal.severity = warning
+
+# [规则1-4] 非私有字段 → 大驼峰
+dotnet_naming_rule.non_private_fields_are_pascal.symbols = non_private_fields
+dotnet_naming_rule.non_private_fields_are_pascal.style = pascal_case
+dotnet_naming_rule.non_private_fields_are_pascal.severity = warning
+
+# [规则1-5] 私有字段 → 下划线开头的小驼峰。[规则1-3] 由此一并覆盖
+dotnet_naming_rule.private_fields_are_underscore_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_are_underscore_camel.style = underscore_camel_case
+dotnet_naming_rule.private_fields_are_underscore_camel.severity = warning
+
+# [规则1-4] 类、结构体、委托、方法、属性、事件 → 大驼峰
+dotnet_naming_rule.types_and_members_are_pascal.symbols = types_and_members
+dotnet_naming_rule.types_and_members_are_pascal.style = pascal_case
+dotnet_naming_rule.types_and_members_are_pascal.severity = warning
+
+# [规则1-5] 方法形参、局部变量 → 小驼峰
+dotnet_naming_rule.parameters_and_locals_are_camel.symbols = parameters_and_locals
+dotnet_naming_rule.parameters_and_locals_are_camel.style = camel_case
+dotnet_naming_rule.parameters_and_locals_are_camel.severity = warning
+
+# ================= 例外 =================
+# P/Invoke 的结构体字段与入参必须匹配原生布局与签名约定（cbSize / dwLength / hwnd / lParam …），
+# 改名就是错的，所以这些文件里的命名规则永久关闭——否则是永远修不掉的噪音。
+[**/{RuntimeDeviceInfoProvider,ScreenCaptureWindow.axaml,MacClipboardMonitor,WindowsClipboardMonitor,MacPermissionService,WindowActivationService,MacApplicationActivationService,OverlayWindowService}.cs]
+dotnet_diagnostic.IDE1006.severity = none
