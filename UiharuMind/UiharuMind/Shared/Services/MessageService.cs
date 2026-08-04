@@ -9,12 +9,10 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
-using UiharuMind.Views.Common;
-using UiharuMind.Views.Windows.Common;
 using Ursa.Controls;
 using UiharuMind.Shared.Windows;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Services;
 

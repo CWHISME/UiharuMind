@@ -12,10 +12,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Views.Common;
 using Ursa.Controls;
 using UiharuMind.Shared.Windows;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Shell;
 

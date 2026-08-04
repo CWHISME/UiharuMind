@@ -1,0 +1,208 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:mcp="clr-namespace:UiharuMind.Core.AI.Execution.Mcp;assembly=UiharuMind.Core"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="640"
+             x:Class="UiharuMind.Features.Settings.AgentSettingView"
+             x:DataType="vm:AgentSettingViewData">
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.field-label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+            <Setter Property="Margin" Value="0,8,0,2" />
+        </Style>
+        <Style Selector="Border.form-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+    </UserControl.Styles>
+
+    <TabControl>
+        <!-- ===================== 常规 ===================== -->
+        <TabItem Header="{loc:Loc AgentSettingGeneral}">
+            <StackPanel Margin="0,12" Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
+                <TextBlock Classes="field-label" Text="{loc:Loc AgentSettingDefaultPermission}" />
+                <ComboBox SelectedIndex="{Binding DefaultPermissionModeIndex}" MinWidth="200">
+                    <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
+                    <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
+                    <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
+                </ComboBox>
+
+                <TextBlock Classes="field-label" Text="{loc:Loc AgentSettingDefaultWorkspace}" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0" Text="{Binding DefaultWorkspacePath}" />
+                    <Button Grid.Column="1" Margin="6,0,0,0" Content="…"
+                            Command="{Binding BrowseDefaultWorkspaceCommand}" />
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+                    <ToggleSwitch IsChecked="{Binding DefaultPlanMode}" />
+                    <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentSettingDefaultPlanMode}" />
+                </StackPanel>
+
+            </StackPanel>
+        </TabItem>
+
+        <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
+        <TabItem Header="{loc:Loc AgentSettingCapabilities}">
+            <Grid ColumnDefinitions="240,16,*" Margin="0,12">
+                <ListBox Grid.Column="0"
+                         ItemsSource="{Binding Gates}"
+                         SelectedItem="{Binding SelectedGate}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ToggleSwitch IsChecked="{Binding IsEnabled}" />
+                                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Column="2" Classes="form-pane" Padding="14"
+                        VerticalAlignment="Top"
+                        IsVisible="{Binding SelectedGate, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="10">
+                            <TextBlock FontSize="13" FontWeight="SemiBold"
+                                       Text="{Binding SelectedGate.Name, FallbackValue=''}" />
+                            <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                                       Text="{Binding SelectedGate.Description, FallbackValue=''}" />
+
+                            <StackPanel Spacing="6"
+                                        IsVisible="{Binding SelectedGate.HasPrompt, FallbackValue=False}">
+                                <TextBlock Classes="field-label" Text="{loc:Loc AgentGatePromptLabel}" />
+                                <TextBox AcceptsReturn="True" TextWrapping="Wrap"
+                                         MinHeight="140" MaxHeight="260"
+                                         FontSize="12"
+                                         Text="{Binding SelectedGate.PromptText, FallbackValue=''}" />
+                                <Button HorizontalAlignment="Right"
+                                        Content="{loc:Loc AgentGatePromptReset}"
+                                        Command="{Binding SelectedGate.ResetPromptCommand, FallbackValue={x:Null}}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6"
+                                        IsVisible="{Binding SelectedGate.IsWebSearchGate, FallbackValue=False}">
+                                <TextBlock FontSize="12" FontWeight="SemiBold"
+                                           Text="{loc:Loc AgentSettingWebSearchKeys}" />
+                                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                           Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Width="60" VerticalAlignment="Center" Text="Tavily" />
+                                    <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Width="60" VerticalAlignment="Center" Text="Brave" />
+                                    <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- 子 agent 档案页已移除:子 agent 就是普通角色,在角色编辑器里维护,
+             由 agent 角色的委托挂载列表决定启用哪些。 -->
+
+        <!-- ===================== MCP Servers ===================== -->
+        <TabItem Header="{loc:Loc AgentSettingMcp}">
+            <Grid ColumnDefinitions="190,*" Margin="0,12">
+                <Grid Grid.Column="0" RowDefinitions="*,Auto">
+                    <ListBox Grid.Row="0" ItemsSource="{Binding McpServers}"
+                             SelectedItem="{Binding SelectedServer}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="mcp:McpServerConfig">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="●" FontSize="9" VerticalAlignment="Center"
+                                               Foreground="Green" IsVisible="{Binding IsEnabled}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                        <Button Content="＋" Command="{Binding NewServerCommand}" />
+                        <Button Content="－" Command="{Binding DeleteServerCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Column="1" Classes="form-pane" Margin="12,0,0,0"
+                        IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <ScrollViewer>
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpName}" />
+                            <TextBox Text="{Binding SelectedServer.Name}" />
+
+                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpTransport}" />
+                            <ComboBox SelectedIndex="{Binding ServerTransportIndex}" MinWidth="160">
+                                <ComboBoxItem Content="stdio" />
+                                <ComboBoxItem Content="HTTP" />
+                            </ComboBox>
+
+                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpCommand}" />
+                            <TextBox Text="{Binding SelectedServer.Command}" Watermark="npx" />
+
+                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpArguments}" />
+                            <TextBox Text="{Binding SelectedServer.Arguments}"
+                                     Watermark="-y @modelcontextprotocol/server-filesystem /path" />
+
+                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpUrl}" />
+                            <TextBox Text="{Binding SelectedServer.Url}" Watermark="http://localhost:3001/mcp" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                                <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
+                                <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpEnabled}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,14,0,0">
+                                <Button Classes="Primary" Content="{loc:Loc AgentSave}"
+                                        Command="{Binding SaveServerCommand}" />
+                                <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}" />
+                                <TextBlock VerticalAlignment="Center" FontSize="12"
+                                           Foreground="{DynamicResource SemiGrey5}"
+                                           Text="{Binding ServerStatusText}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- ===================== 技能包 ===================== -->
+        <TabItem Header="{loc:Loc AgentSettingSkills}">
+            <Grid RowDefinitions="Auto,*" Margin="0,12">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{loc:Loc AgentSkillsOpenFolder}" Command="{Binding OpenSkillsFolderCommand}" />
+                    <Button Content="{loc:Loc AgentSkillsReload}" Command="{Binding ReloadSkillsCommand}" />
+                </StackPanel>
+                <ScrollViewer Grid.Row="1" Margin="0,10,0,0">
+                    <ItemsControl ItemsSource="{Binding Skills}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SkillDisplayItem">
+                                <Border Classes="form-pane" Margin="0,4" Padding="12,8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                            <TextBlock FontSize="12"
+                                                       Foreground="{DynamicResource SemiGrey5}"
+                                                       Text="{Binding Description}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsEnabled}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </TabItem>
+    </TabControl>
+</UserControl>

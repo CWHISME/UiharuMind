@@ -4,7 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:vm="clr-namespace:UiharuMind.Shared.Shell"
-             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:vm1="clr-namespace:UiharuMind.Shared.Data"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Shell"
              xmlns:markup="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Shared.Shell.MainView"
@@ -87,7 +88,7 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:MenuItemViewData">
+                            <DataTemplate x:DataType="vm1:MenuItemViewData">
                                 <!-- Classes.selected="{Binding IsSelected}" -->
                                 <ThemedIconToggleButton Classes.nav-item="True"
                                                         Width="42"

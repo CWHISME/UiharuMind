@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Features.About.AboutPage">
+    <DockPanel Margin="10">
+        <ScrollViewer DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <StackPanel>
+                <Image
+                    MaxHeight="100"
+                    Tapped="OnTapedIcon"
+                    Source="/Assets/Icon.png" />
+                <SelectableTextBlock Text="UiharuMind" FontSize="26" HorizontalAlignment="Center" />
+                <HyperlinkButton Content="https://github.com/CWHISME/UiharuMind" HorizontalAlignment="Center"
+                                 NavigateUri="https://github.com/CWHISME/UiharuMind" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Name="VersionText" HorizontalAlignment="Center" />
+                    <TextBlock Text=" | " />
+                    <HyperlinkButton Content="Apache License"
+                                     Margin="5,-2,0,0"
+                                     NavigateUri="https://github.com/CWHISME/UiharuMind?tab=Apache-2.0-1-ov-file" />
+                </StackPanel>
+                <TextBlock Text="Made by WangJiaYing (ᓚᘏᗢ)" HorizontalAlignment="Center" TextDecorations="Underline"
+                           PointerPressed="AboutBtn_Click">
+                    <ToolTip.ShowDelay> 0 </ToolTip.ShowDelay>
+                    <ToolTip.Tip>
+                        <TextBlock Text="点我 (‾◡◝)" />
+                    </ToolTip.Tip>
+                </TextBlock>
+                <!-- 感谢、引用的开源项目 -->
+                <!-- <StackPanel> -->
+                <u:Divider Content="{loc:Loc Introduction}" FontSize="20" />
+                <SelectableTextBlock Margin="5"
+                                     Text="{loc:Loc AboutIntroductionText}"
+                                     HorizontalAlignment="Center"
+                                     TextWrapping="Wrap" />
+                <u:Divider Content="{loc:Loc Thanks}" FontSize="20" />
+                <StackPanel Margin="0,10">
+                    <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutDefaultIconCredit}" />
+                    <SelectableTextBlock HorizontalAlignment="Center" Text="{loc:Loc AboutFontCredit}" />
+                    <u:Divider Margin="0,10" />
+                </StackPanel>
+                <!-- </StackPanel> -->
+                <StackPanel Spacing="10" Name="LinksPanel" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

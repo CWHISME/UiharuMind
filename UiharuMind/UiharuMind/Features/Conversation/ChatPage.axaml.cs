@@ -1,0 +1,45 @@
+/****************************************************************************
+ * Copyright (c) 2024 CWHISME
+ *
+ * UiharuMind v0.0.1
+ *
+ * https://wangjiaying.top
+ * https://github.com/CWHISME/UiharuMind
+ *
+ * Latest Update: 2024.10.07
+ ****************************************************************************/
+
+using System;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
+
+namespace UiharuMind.Features.Conversation;
+
+public partial class ChatPage : UserControl
+{
+    public ChatPage()
+    {
+        InitializeComponent();
+        SizeChanged += OnSizeChanged;
+    }
+
+    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is ChatPageData data) data.UpdateResponsiveState(e.NewSize.Width);
+    }
+
+    private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
+    {
+        var data = (ChatPageData)DataContext!;
+        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 230, 340);
+    }
+
+    private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
+    {
+        var data = (ChatPageData)DataContext!;
+        data.RightPaneWidth = Math.Clamp(data.RightPaneWidth - (float)e.Vector.X, 280, 380);
+    }
+}

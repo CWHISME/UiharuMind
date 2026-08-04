@@ -1,0 +1,174 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:otherViews="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:common="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:convView="clr-namespace:UiharuMind.Features.Conversation"
+              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+              x:Class="UiharuMind.Features.Conversation.ChatPage"
+                             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
+
+    <Design.DataContext>
+        <pages:ChatPageData />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <!-- <Style Selector="Button.icon"> -->
+        <!--     <Setter Property="Width" Value="34" /> -->
+        <!--     <Setter Property="Height" Value="34" /> -->
+        <!--     <Setter Property="Padding" Value="0" /> -->
+        <!--     <Setter Property="HorizontalContentAlignment" Value="Center" /> -->
+        <!--     <Setter Property="VerticalContentAlignment" Value="Center" /> -->
+        <!-- </Style> -->
+        <Style Selector="Border.workspace-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Thumb.resize-thumb">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Height="50"
+                Padding="10,6"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1"
+                Background="{DynamicResource SemiGrey0}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                <ThemedIconButton Grid.Column="0"
+                                     Command="{Binding ToggleLeftPaneCommand}"
+                                     IsVisible="{Binding IsLeftPaneOpen}"
+                                     IconName="panel-right"
+                                      ToolTips="{loc:Loc ChatSessions}">
+                </ThemedIconButton>
+                <ThemedIconButton Grid.Column="0"
+                                     Command="{Binding ToggleLeftPaneCommand}"
+                                     IsVisible="{Binding !IsLeftPaneOpen}"
+                                     IconName="panel-left"
+                                      ToolTips="{loc:Loc ChatSessions}">
+                </ThemedIconButton>
+
+                <Border Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        MinWidth="260">
+                    <otherViews:ModelSelectComboBoxView />
+                </Border>
+
+                <ThemedIconButton Grid.Column="2"
+                                     Command="{Binding ToggleRightPaneCommand}"
+                                     IsVisible="{Binding IsRightPaneOpen}"
+                                     IconName="panel-left"
+                                      ToolTips="{loc:Loc ChatDetails}">
+                </ThemedIconButton>
+                <ThemedIconButton Grid.Column="2"
+                                     Command="{Binding ToggleRightPaneCommand}"
+                                     IsVisible="{Binding !IsRightPaneOpen}"
+                                     IconName="panel-right"
+                                      ToolTips="{loc:Loc ChatDetails}">
+                </ThemedIconButton>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="10" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+            <Border Grid.Column="0"
+                    Classes="workspace-pane"
+                    Width="{Binding LeftPaneWidth, Mode=TwoWay}"
+                    IsVisible="{Binding IsLeftPaneOpen}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,12,10,8">
+                        <StackPanel>
+                            <TextBlock Classes="section-title" Text="{loc:Loc ChatSessions}" />
+                            <TextBlock Classes="muted" Text="{loc:Loc ChatSessionsHint}" />
+                        </StackPanel>
+                        <ThemedIconButton Grid.Column="1" Command="{Binding AddChatCommand}" IconName="message-circle-more"  />
+                    </Grid>
+                    <otherViews:ChatListView Margin="8,0,8,8" />
+                </DockPanel>
+            </Border>
+
+            <Thumb Grid.Column="1"
+                   Classes="resize-thumb"
+                   IsVisible="{Binding IsLeftPaneOpen}"
+                   DragDelta="OnLeftThumbDragDelta"
+                   Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                        <Grid Background="Transparent" Margin="8,0,0,0">
+                            <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <Border Grid.Column="2" Classes="workspace-pane" ClipToBounds="True" MinWidth="260">
+                <convView:ConversationView DataContext="{Binding Conversation}">
+
+                    <convView:ConversationView.EmptyContent>
+                        <StackPanel Spacing="12" HorizontalAlignment="Center" Margin="0,90,0,0">
+                            <controls:ThemedSvgIcon IconName="message-circle-more" Width="52" Height="52"
+                                                    HorizontalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc ChatWorkspaceEmpty}" FontSize="17"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </convView:ConversationView.EmptyContent>
+
+
+
+                </convView:ConversationView>
+            </Border>
+
+            <Thumb Grid.Column="3"
+                   Classes="resize-thumb"
+                   IsVisible="{Binding IsRightPaneOpen}"
+                   DragDelta="OnRightThumbDragDelta"
+                   Cursor="SizeWestEast">
+                <Thumb.Template>
+                    <ControlTemplate>
+                        <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                        <Grid Background="Transparent" Margin="8,0,0,0">
+                            <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+
+            <Border Grid.Column="4"
+                    Classes="workspace-pane"
+                    Width="{Binding RightPaneWidth, Mode=TwoWay}"
+                    MinWidth="260"
+                    MaxWidth="360"
+                    IsVisible="{Binding IsRightPaneOpen}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*" Margin="14,12,14,8">
+                        <StackPanel MinWidth="0">
+                            <TextBlock Classes="section-title" Text="{loc:Loc ChatDetails}" />
+                            <TextBlock Classes="muted"
+                                       Text="{Binding ChatListViewModel.SelectedSession.Name}"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="1" />
+                        </StackPanel>
+                    </Grid>
+                    <common:ChatInfoView Margin="8,0,8,8" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:u="https://irihi.tech/ursa"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
+        Width="720"
+        Height="520"
+        MinWidth="620"
+        MinHeight="460"
+        x:Class="UiharuMind.Features.Characters.ImportCharacterWindow"
+        Title="{loc:Loc ImportCharacter}"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
+
+    <Window.Styles>
+        <Style Selector="Border.import-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Row="0"
+                Padding="16,12"
+                BorderBrush="{DynamicResource SemiGrey2}"
+                BorderThickness="0,0,0,1">
+            <StackPanel>
+                <TextBlock Classes="title" Text="{loc:Loc ImportCharacter}" />
+                <TextBlock Classes="muted" Text="{loc:Loc ImportCharacterTips}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <TabControl Grid.Row="1" Margin="12">
+            <TabItem Header="{loc:Loc ImportFromFileBtn}">
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="2,10,2,2">
+                    <Border Classes="import-card">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <controls:ThemedSvgIcon Width="22" Height="22" IconName="import" />
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc ImportFileTitle}" />
+                                <TextBlock Classes="muted" Text="{loc:Loc ImportFileHint}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="1" Classes="import-card">
+                        <ScrollViewer>
+                            <StackPanel Name="ImportListPanel" Spacing="6" />
+                        </ScrollViewer>
+                    </Border>
+
+                    <Button Grid.Row="2"
+                            HorizontalAlignment="Right"
+                            Click="OnImportFromFileBtnClick">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <controls:ThemedSvgIcon Width="15" Height="15" IconName="square-arrow-out-up-right" />
+                            <TextBlock Text="{loc:Loc ImportBtn}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="{loc:Loc ImportFromUrlBtn}">
+                <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12" Margin="2,10,2,2">
+                    <u:Banner Classes.Bordered="true"
+                              Header="{loc:Loc ImportUrlDisabledTitle}"
+                              Type="Information">
+                        <u:Banner.Content>
+                            <TextBlock Text="{loc:Loc ImportUrlDisabledHint}" TextWrapping="Wrap" />
+                        </u:Banner.Content>
+                    </u:Banner>
+
+                    <Border Grid.Row="1" Classes="import-card">
+                        <StackPanel Name="ImportUrlListPanel" Spacing="6">
+                            <TextBlock Classes="muted" Text="{loc:Loc ImportCharacterSupportUrl}" TextWrapping="Wrap" />
+                            <TextBlock Text="Chub / Pygmalion.chat / RisuRealm" Foreground="{DynamicResource SemiGrey6}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBox Grid.Row="2"
+                             Name="ImportUrlInput"
+                             Height="82"
+                             IsEnabled="False"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"
+                             PlaceholderText="{loc:Loc ImportUrlDisabledTitle}" />
+                    <Button Grid.Row="3"
+                            HorizontalAlignment="Right"
+                            IsEnabled="False"
+                            Content="{loc:Loc ImportBtn}"
+                            Click="OnImportFromUrlBtnClick" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

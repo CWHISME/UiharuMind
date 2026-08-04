@@ -4,7 +4,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using UiharuMind.Shared.Shell;
-using UiharuMind.Views.Windows.Common;
 
 namespace UiharuMind.Shared.Services;
 

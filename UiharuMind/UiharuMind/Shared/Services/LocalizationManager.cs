@@ -4,9 +4,9 @@ using System.Globalization;
 using System.Linq;
 using Avalonia;
 using Avalonia.Styling;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
-using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Shared.Services;
 

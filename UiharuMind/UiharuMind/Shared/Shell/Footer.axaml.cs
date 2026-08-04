@@ -11,7 +11,7 @@
 
 using Avalonia.Controls;
 
-namespace UiharuMind.Shared.Controls;
+namespace UiharuMind.Shared.Shell;
 
 public partial class Footer : UserControl
 {

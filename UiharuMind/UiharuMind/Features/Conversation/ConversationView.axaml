@@ -1,0 +1,531 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:uiHolder="clr-namespace:UiharuMind.Shared.UIHolder"
+             xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:views="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="640"
+             x:Class="UiharuMind.Features.Conversation.ConversationView"
+             x:DataType="conv:ConversationViewModel">
+
+    <UserControl.Resources>
+        <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
+        <converters:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="Border.message-bubble">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="Border.message-actions">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Grid.message-row:pointerover Border.message-actions">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+        <Style Selector="Border.tool-row">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+        <Style Selector="ListBox.option-list">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.option-list ListBoxItem">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <!-- 工具行图标态:Tag 驱动颜色区分当前状态 -->
+        <Style Selector="ThemedIconButton.mode-state[Tag=Plan] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DodgerBlue" />
+        </Style>
+        <Style Selector="ThemedIconButton.mode-state[Tag=Execute] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="MediumSeaGreen" />
+        </Style>
+        <Style Selector="ThemedIconButton.permission-state[Tag=ReadOnly] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.permission-state[Tag=AutoEdit] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Orange" />
+        </Style>
+        <Style Selector="ThemedIconButton.permission-state[Tag=FullAuto] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="OrangeRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=Default] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=None] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DimGray" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=Medium] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DodgerBlue" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=High] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Orange" />
+        </Style>
+        <Style Selector="ThemedIconButton.thinking-state[Tag=Max] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="OrangeRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.sender-state[Tag=User] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="LightGreen" />
+        </Style>
+        <Style Selector="ThemedIconButton.sender-state[Tag=Assistant] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DeepSkyBlue" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Gray" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Dirty] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="DarkRed" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Error] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="Red" />
+        </Style>
+        <Style Selector="ThemedIconButton.memory-status[Tag=Ready] controls|ThemedSvgIcon">
+            <Setter Property="CurrentColor" Value="LawnGreen" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 头部:标题 + 宿主注入的动作区 -->
+        <Border Grid.Row="0" Padding="14,10"
+                BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel MinWidth="0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"
+                               Foreground="{DynamicResource SemiGrey7}" />
+                    <!-- 模型跟随会话,当前会话用的模型在此处可见 -->
+                    <TextBlock Classes="muted"
+                               Text="{Binding SessionModelLabel}"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"
+                               IsVisible="{Binding SessionModelLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <ThemedIconButton IconName="repeat"
+                                      Command="{Binding RegenerateLastCommand}"
+                                      IsVisible="{Binding CanRegenerate}"
+                                      ToolTips="{loc:Loc RegenerateBtn}" />
+                    <ContentPresenter
+                        Content="{Binding HeaderExtra, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 消息列表:非虚拟化 + 数据层开窗(只渲染最近一窗,顶部按批加载更早)。
+             虚拟化面板在不定高气泡下 Extent 是估算值,进度条跳变/滚动回跳/跟底互搏均源于此,
+             已实测不可用;开窗后布局全为真实测量,自动跟底直接复用 ScrollViewerAutoScrollHolder -->
+        <Grid Grid.Row="1">
+            <!-- 空状态(宿主注入):切会话分帧会先渲染一帧空列表,加载中不算"空",否则空态图标闪烁 -->
+            <ContentPresenter Margin="10"
+                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}">
+                <ContentPresenter.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="!Items.Count" />
+                        <Binding Path="!IsSessionLoading" />
+                    </MultiBinding>
+                </ContentPresenter.IsVisible>
+            </ContentPresenter>
+
+            <ScrollViewer Name="Viewer"
+                          Margin="0,0,3,0"
+                          BringIntoViewOnFocusChange="False"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
+                <StackPanel Margin="10">
+                    <Button HorizontalAlignment="Center"
+                            Margin="0,0,0,10"
+                            IsVisible="{Binding HasEarlierMessages}"
+                            Click="OnLoadEarlierClick"
+                            Content="{loc:Loc ChatLoadEarlier}" />
+                    <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
+                        <ItemsControl.DataTemplates>
+                    <!-- 思考过程:弱化折叠条(两个页面通用,agent 特有条目模板仍由宿主页提供) -->
+                    <DataTemplate DataType="{x:Type conv:ThinkingItem}">
+                        <Expander Margin="0,2,40,2" IsExpanded="{Binding IsExpanded}"
+                                  Background="Transparent" Padding="8,4" MinHeight="0">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="💭" FontSize="11" Opacity="0.6" />
+                                    <TextBlock Classes="muted" Text="{loc:Loc AgentThinking}" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <SelectableTextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+                        </Expander>
+                    </DataTemplate>
+
+                    <!-- 错误条目(两个页面通用) -->
+                    <DataTemplate DataType="{x:Type conv:ErrorItem}">
+                        <Border Background="{DynamicResource SemiGrey1}"
+                                BorderBrush="IndianRed" BorderThickness="1"
+                                CornerRadius="8" Padding="10" Margin="0,4,0,4">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Left" Text="⚠" Foreground="IndianRed" Margin="0,0,8,0"/>
+                                <SelectableTextBlock Foreground="IndianRed" Text="{Binding Message}"
+                                                     TextWrapping="Wrap" />
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 标准文本气泡;特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
+                    <DataTemplate DataType="{x:Type conv:TextConversationItem}">
+                            <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
+                                  Background="Transparent"
+                                  x:DataType="conv:TextConversationItem">
+                                <Ellipse Width="34" Height="34"
+                                         Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
+                                         VerticalAlignment="Top"
+                                         IsVisible="{Binding ShowAvatar}"
+                                         Grid.Column="{Binding AvatarColumn}">
+                                    <Ellipse.Fill>
+                                        <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+                                    </Ellipse.Fill>
+                                </Ellipse>
+
+                                <Grid Grid.Column="1" Margin="10,0" MinHeight="34"
+                                      RowDefinitions="Auto,18" Background="Transparent"
+                                      HorizontalAlignment="{Binding Alignment}">
+                                    <StackPanel HorizontalAlignment="{Binding Alignment}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                                    HorizontalAlignment="{Binding Alignment}">
+                                            <TextBlock Text="{Binding SenderName}" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource SemiGrey7}" />
+                                            <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                                        </StackPanel>
+
+                                        <!-- 多模态消息里的图片(粘贴/附加的图) -->
+                                        <Border Classes="message-bubble" Margin="0,5,0,0" Padding="4"
+                                                BorderBrush="{Binding SenderColor}"
+                                                HorizontalAlignment="{Binding Alignment}"
+                                                IsVisible="{Binding HasImage}">
+                                            <Image Source="{Binding MessageImage}"
+                                                   MaxWidth="320" MaxHeight="320"
+                                                   Stretch="Uniform" />
+                                        </Border>
+
+                                        <Border Classes="message-bubble" Margin="0,5,0,0"
+                                                BorderBrush="{Binding SenderColor}"
+                                                HorizontalAlignment="{Binding Alignment}"
+                                                IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <common:SimpleMarkdownViewer HorizontalAlignment="Left"
+                                                                         MarkdownText="{Binding Message}">
+                                                <common:SimpleMarkdownViewer.IsPlaintext>
+                                                    <MultiBinding
+                                                        Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                                        <Binding Path="IsUser" />
+                                                        <Binding Path="!IsDone" />
+                                                        <Binding Path="DataContext.IsPlaintext"
+                                                                 RelativeSource="{RelativeSource AncestorType=views:ConversationView}" />
+                                                    </MultiBinding>
+                                                </common:SimpleMarkdownViewer.IsPlaintext>
+                                            </common:SimpleMarkdownViewer>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <Border Classes="message-actions" Grid.Row="1"
+                                            HorizontalAlignment="{Binding Alignment}">
+                                        <!-- 操作按钮悬停到本行时才实例化:
+                                             每行 5 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
+                                        <HoverDeferredContent>
+                                            <HoverDeferredContent.ContentTemplate>
+                                                <DataTemplate x:DataType="conv:TextConversationItem">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <ThemedIconButton Classes="message-action" IconName="repeat"
+                                                                          IsVisible="{Binding CanRetry}"
+                                                                          Command="{Binding RetryCommand}"
+                                                                          ToolTips="{loc:Loc RetryMessage}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="copy"
+                                                                          Command="{Binding CopyCommand}"
+                                                                          ToolTips="{loc:Loc Copy}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="pencil"
+                                                                          IsVisible="{Binding CanEdit}"
+                                                                          Command="{Binding EditCommand}"
+                                                                          ToolTips="{loc:Loc Edit}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="split"
+                                                                          IsVisible="{Binding CanBranch}"
+                                                                          Command="{Binding BranchCommand}"
+                                                                          ToolTips="{loc:Loc BranchChatAfterMessage}" />
+                                                        <ThemedIconButton Classes="message-action" IconName="trash-2"
+                                                                          IsVisible="{Binding CanDelete}"
+                                                                          Command="{Binding DeleteCommand}"
+                                                                          ToolTips="{loc:Loc Delete}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </HoverDeferredContent.ContentTemplate>
+                                        </HoverDeferredContent>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                        </ItemsControl.DataTemplates>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- composer -->
+        <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="4">
+                <!-- 附件 chips:附件集合在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置 -->
+                <ItemsControl Grid.Row="0"
+                              ItemsSource="{Binding Attachments}"
+                              IsVisible="{Binding Attachments.Count}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="conv:ConversationAttachment">
+                            <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
+                                    Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
+                                <Grid>
+                                    <Button Classes="NoneStyle" Padding="0"
+                                            Cursor="Hand" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).PreviewAttachmentCommand}"
+                                            CommandParameter="{Binding}">
+                                        <Grid VerticalAlignment="Center">
+                                            <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
+                                                   MaxHeight="48" MaxWidth="48" Stretch="Uniform"
+                                                   IsVisible="{Binding IsImage}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="4"
+                                                        IsVisible="{Binding !IsImage}"
+                                                        VerticalAlignment="Center">
+                                                <ThemedSvgIcon IconName="file-text" Width="16" Height="16"
+                                                               VerticalAlignment="Center" />
+                                                <TextBlock FontSize="11" Text="{Binding FileName}"
+                                                           Margin="0,3,0,0"
+                                                           MaxWidth="120" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                    <ThemedIconButton Classes="message-action"
+                                                      IconName="trash-2"
+                                                      HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                      Margin="0,-8,-8,0"
+                                                      Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveAttachmentCommand}"
+                                                      CommandParameter="{Binding}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 宿主注入:输入框上方区域 -->
+                <ContentPresenter Grid.Row="1"
+                                  Content="{Binding ComposerTop, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+
+                <TextBox Grid.Row="2" Name="InputBox" Classes="composer-input"
+                         Text="{Binding InputText, Mode=TwoWay}"
+                         AcceptsReturn="True"
+                         PlaceholderText="{Binding InputPlaceholder}">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
+                        <KeyBinding Command="{Binding InputExtraCommand}" Gesture="Tab" />
+                    </TextBox.KeyBindings>
+                </TextBox>
+
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <!-- 工具行:两类会话共用,按 IsAgentSession 切换差异项;ComposerTools 槽保留给宿主追加 -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <ThemedIconButton Classes="mode-state"
+                                          IconName="route"
+                                          Tag="{Binding ModeKey}"
+                                          Command="{Binding CycleModeCommand}"
+                                          ToolTips="{Binding ModeTooltip}"
+                                          IsVisible="{Binding IsModeSwitchVisible}" />
+                        <ThemedIconButton Classes="sender-state"
+                                          IconName="{Binding SenderIconName}"
+                                          Tag="{Binding SenderModeKey}"
+                                          Command="{Binding ChangeSendModeCommand}"
+                                          ToolTips="{Binding SenderTooltip}"
+                                          IsVisible="{Binding !IsAgentSession}" />
+                        <!-- 垂直分隔线 -->
+                        <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center" IsVisible="{Binding !IsAgentSession}"/>
+
+                        <ThemedIconButton Classes="permission-state"
+                                          IconName="shield"
+                                          Tag="{Binding PermissionModeKey}"
+                                          ToolTips="{Binding PermissionTooltip}"
+                                          IsVisible="{Binding IsAgentSession}">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Padding="6" CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <ListBox Classes="option-list"
+                                                 SelectedIndex="{Binding PermissionModeIndex}">
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc AgentPermissionReadOnly}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc AgentPermissionReadOnlyDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc AgentPermissionAutoEdit}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc AgentPermissionAutoEditDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc AgentPermissionFullAuto}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc AgentPermissionFullAutoDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                        </ListBox>
+                                    </Border>
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                        </ThemedIconButton>
+                        <ThemedIconButton Classes="thinking-state"
+                                          IconName="brain"
+                                          Tag="{Binding ThinkingModeKey}"
+                                          ToolTips="{Binding ThinkingTooltip}">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Padding="6" CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <ListBox Classes="option-list"
+                                                 SelectedIndex="{Binding ThinkingModeIndex}">
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeDefault}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeDefaultDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeNone}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeNoneDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeMedium}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeMediumDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeHigh}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeHighDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                            <ListBoxItem>
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Loc ThinkingModeMax}" />
+                                                    <TextBlock Classes="muted"
+                                                               Text="{loc:Loc ThinkingModeMaxDesc}" />
+                                                </StackPanel>
+                                            </ListBoxItem>
+                                        </ListBox>
+                                    </Border>
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                        </ThemedIconButton>
+
+                        <ThemedIconButton Classes="memory-status"
+                                          IconName="database"
+                                          ToolTips="{Binding MemoryPanel.MemoryTooltip}"
+                                          Tag="{Binding MemoryPanel.MemoryStatusKey}"
+                                          Command="{Binding MemoryPanel.MemoryEditorCommand}"
+                                          IsVisible="{Binding MemoryPanel, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <ThemedIconButton IconName="paperclip" Command="{Binding AddAttachmentCommand}" />
+                        <ThemedIconButton IconName="settings">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="Top">
+                                    <Border Padding="10"
+                                            CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey0}"
+                                            BorderBrush="{DynamicResource SemiGrey2}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="10">
+                                            <CheckBox Content="{loc:Loc ChatAutoCollapseThinking}"
+                                                      IsChecked="{Binding IsAutoCollapseThinking}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc ChatAutoCollapseThinkingTips}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+                                            <CheckBox Content="{loc:Loc Plaintext}"
+                                                      IsChecked="{Binding IsPlaintext}">
+                                                <ToolTip.Tip>
+                                                    <TextBlock Text="{loc:Loc ChatPlaintextTooltip}" />
+                                                </ToolTip.Tip>
+                                            </CheckBox>
+                                        </StackPanel>
+                                    </Border>
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc Settings}" />
+                            </ToolTip.Tip>
+                        </ThemedIconButton>
+                        <!-- 宿主注入 -->
+                        <ContentPresenter VerticalAlignment="Center"
+                                          Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                        <TextBlock Classes="muted" VerticalAlignment="Center"
+                                   Text="{Binding TokenUsageText}"
+                                   IsVisible="{Binding TokenUsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc TokenUsageTips}" />
+                            </ToolTip.Tip>
+                        </TextBlock>
+                        <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
+                            <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
+                            <ThemedIconButton IconName="stop"
+                                              CurrentColor="Red"
+                                              Command="{Binding StopSendingCommand}"
+                                              ToolTips="{loc:Loc StopGenerating}" />
+                        </StackPanel>
+                        <Button CornerRadius="10"
+                                IsVisible="{Binding !IsGenerating}"
+                                IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                Command="{Binding SendMessageCommand}"
+                                Content="{loc:Loc Send}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

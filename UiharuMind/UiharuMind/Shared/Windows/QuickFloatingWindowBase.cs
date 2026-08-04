@@ -15,8 +15,8 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using SharpHook.Data;
-using UiharuMind.Core.Input;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Core.Input;
 
 namespace UiharuMind.Shared.Windows;
 

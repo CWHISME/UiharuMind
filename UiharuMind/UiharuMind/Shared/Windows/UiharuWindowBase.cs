@@ -15,10 +15,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Windows;
 

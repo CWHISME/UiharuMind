@@ -17,8 +17,8 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Windows;
 

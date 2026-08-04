@@ -16,7 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 
-namespace UiharuMind.Shared.Shell;
+namespace UiharuMind.Shared.Converters;
 
 /// <summary>
 /// 将图标名称转换为 StreamGeometry 的转换器

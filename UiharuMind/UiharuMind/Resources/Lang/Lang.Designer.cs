@@ -7,6 +7,8 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+using UiharuMind.Features.Settings;
+
 namespace UiharuMind.Resources.Lang {
     using System;
     

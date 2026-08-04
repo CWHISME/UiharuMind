@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Services.VersionManagement;
 
 namespace UiharuMind.Shared.Services;
 

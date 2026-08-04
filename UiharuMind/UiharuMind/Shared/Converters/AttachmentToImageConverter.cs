@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media.Imaging;
-using UiharuMind.ViewModels.Conversation;
+using UiharuMind.Features.Conversation;
 
 namespace UiharuMind.Shared.Converters;
 

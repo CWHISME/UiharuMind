@@ -18,8 +18,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Shared.Services;
 

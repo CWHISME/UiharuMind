@@ -17,10 +17,17 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
-using UiharuMind.ViewModels.Pages;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Controls;
-using UiharuMind.Views.Windows;
+using UiharuMind.Features.LogViewer;
+using UiharuMind.Features.About;
+using UiharuMind.Features.Services;
+using UiharuMind.Features.Translate;
+using UiharuMind.Features.Models;
+using UiharuMind.Features.Characters;
+using UiharuMind.Features.Settings;
+using UiharuMind.Features.Conversation;
+using UiharuMind.Shared.Data;
 
 namespace UiharuMind.Shared.Shell;
 

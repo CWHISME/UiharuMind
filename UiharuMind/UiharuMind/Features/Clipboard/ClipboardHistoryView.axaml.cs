@@ -1,0 +1,96 @@
+/****************************************************************************
+ * Copyright (c) 2024 CWHISME
+ *
+ * UiharuMind v0.0.1
+ *
+ * https://wangjiaying.top
+ * https://github.com/CWHISME/UiharuMind
+ *
+ * Latest Update: 2024.10.07
+ ****************************************************************************/
+
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml;
+using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Resources.Lang;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Features.Clipboard;
+
+namespace UiharuMind.Features.Clipboard;
+
+public partial class ClipboardHistoryView : UserControl
+{
+    private readonly IMessageService _messageService;
+
+    public ClipboardHistoryView()
+    {
+        _messageService = App.Services.GetRequiredService<IMessageService>();
+        InitializeComponent();
+
+        DataContext = App.ViewModel.GetViewModel<ClipboardHistoryViewModel>();
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
+    }
+
+    // private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    // {
+    //     if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed) return;
+    //     App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
+    //         .Copy((ClipboardItem)((Control)(e.Source!))!.DataContext!);
+    // }
+
+    private void InputElement_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
+            .Copy((ClipboardItem)((Control)(e.Source!))!.DataContext!);
+    }
+
+    private void MenuItemDelete_Click(object? sender, RoutedEventArgs e)
+    {
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
+            .Delete((ClipboardItem)((Control)(e.Source!))!.DataContext!);
+    }
+
+    private void MenuItemToggleFavorite_Click(object? sender, RoutedEventArgs e)
+    {
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>()
+            .ToggleFavorite((ClipboardItem)((Control)(e.Source!))!.DataContext!);
+    }
+
+    private async void MenuItemDeleteAll_Click(object? sender, RoutedEventArgs e)
+    {
+        if (await _messageService.ConfirmAsync(Lang.DeleteAllClipboardHistoryTips))
+        {
+            App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().DeleteAll();
+        }
+    }
+
+    private void SearchToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        var toggleButton = (ToggleButton)sender;
+        bool isChecked = toggleButton.IsChecked == true;
+
+        if (isChecked)
+        {
+            SearchTextBox.Focus();
+        }
+    }
+
+    private void SearchTextBox_KeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            SearchToggleButton.IsChecked = false;
+        }
+    }
+}

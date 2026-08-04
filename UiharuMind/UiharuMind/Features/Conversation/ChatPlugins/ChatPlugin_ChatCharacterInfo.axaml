@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:chatPlugins="clr-namespace:UiharuMind.Features.Conversation.ChatPlugins"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Features.Conversation.ChatPlugins.ChatPlugin_ChatCharacterInfo">
+
+    <Design.DataContext>
+        <chatPlugins:ChatPlugin_ChatCharacterInfoData />
+    </Design.DataContext>
+
+    <!-- 角色信息 -->
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" Padding="5">
+        <StackPanel Spacing="10">
+            <u:Divider Content="{loc:Loc CharacterCard}" />
+            <Panel>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding CharacterName}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                
+                <Button DockPanel.Dock="Right" Content="{loc:Loc Edit}"
+                        Command="{Binding EditCharacterCommand}" HorizontalAlignment="Right"/>
+            </Panel>
+            <SelectableTextBlock Text="{Binding CharacterDescription}" TextWrapping="Wrap" />
+        </StackPanel>
+    </Border>
+
+</UserControl>

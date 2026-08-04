@@ -19,8 +19,8 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using UiharuMind.Core.Input;
 using UiharuMind.Shared.Services;
+using UiharuMind.Core.Input;
 
 namespace UiharuMind.Shared.Utils;
 

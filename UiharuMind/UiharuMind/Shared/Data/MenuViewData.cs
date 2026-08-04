@@ -12,8 +12,10 @@
 using System.Collections.ObjectModel;
 using UiharuMind.Shared.Services;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Shared.Data;
+using UiharuMind.Shared.Shell;
 
-namespace UiharuMind.Shared.Shell;
+namespace UiharuMind.Shared.Data;
 
 public class MenuViewData
 {

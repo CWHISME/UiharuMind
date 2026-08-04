@@ -4,8 +4,8 @@ using System.ComponentModel;
 using System.Reflection;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml;
-using UiharuMind.Core.Configs;
 using UiharuMind.Shared.Services;
+using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Shared.Markup;
 

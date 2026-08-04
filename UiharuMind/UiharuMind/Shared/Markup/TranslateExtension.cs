@@ -12,6 +12,7 @@
 using System;
 using Avalonia.Markup.Xaml;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Features.Translate;
 
 namespace UiharuMind.Shared.Markup;
 

@@ -18,17 +18,15 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Windows;
+using UiharuMind.Features.Memory;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.RemoteOpenAI;
-using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Utils;
-using UiharuMind.ViewModels.ViewData;
-using UiharuMind.Views.Common;
-using UiharuMind.Views.Windows.Characters;
-using UiharuMind.Views.Windows.Common;
-using UiharuMind.Views.Windows.ScreenCapture;
-using UiharuMind.Shared.Windows;
+using UiharuMind.Features.ScreenCapture;
+using UiharuMind.Features.Characters;
 
 namespace UiharuMind.Shared.Shell;
 

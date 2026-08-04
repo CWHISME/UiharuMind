@@ -1,3 +1,5 @@
+namespace UiharuMind.Shared.Data;
+
 /****************************************************************************
  * Copyright (c) 2024 CWHISME
  *

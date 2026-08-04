@@ -1,6 +1,7 @@
+
 using UiharuMind.Core.Core.Utils;
 
-namespace UiharuMind.Shared.Services;
+namespace UiharuMind.Shared.Services.VersionManagement;
 
 internal sealed class ApplicationUpdateVersionManager : ReleaseVersionManagerBase<ManagedVersionPackage>
 {

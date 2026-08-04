@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:u="https://irihi.tech/ursa"
+        xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        x:Class="UiharuMind.Features.Conversation.QuickChatResultWindow"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        Width="400"
+        Height="400"
+        Title="QuickChatResultWindow">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*" Margin="10">
+        <Border Height="30" Background="Transparent"
+                PointerPressed="InputElement_OnPointerPressed">
+            <DockPanel LastChildFill="False">
+                <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
+                <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
+                    <u:LoadingIcon Name="LoadingEffect" />
+                    <ThemedIconButton Classes="SimpleSolidButton" Click="OnStopButtonClick" IconName="stop"  CurrentColor="Red"/>
+                </StackPanel>
+                <ThemedIconButton Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton" IconName="repeat" />
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right" HorizontalAlignment="Right"
+                        Click="CloseButton_Click" />
+            </DockPanel>
+        </Border>
+        <!-- <TextBlock Grid.Row="1" Name="TokenTextBlock" TextAlignment="Left" /> -->
+        <!-- <ScrollViewer Name="ScrollViewer" Grid.Row="1" Margin="0,10,0,10"> -->
+        <!--     <SelectableTextBlock Name="ResultTextBlock" TextWrapping="Wrap" Background="Transparent" Margin="10,0,10,0"></SelectableTextBlock> -->
+        <!-- </ScrollViewer> -->
+        <ScrollViewer Grid.Row="2" Name="ScrollViewer" Margin="0,10">
+            <common:SimpleMarkdownViewer Name="ResultTextBlock" />
+        </ScrollViewer>
+        <DockPanel Grid.Row="3" Name="ToolPanel">
+            <CheckBox Content="{loc:Loc Plaintext}"
+                      VerticalAlignment="Center"
+                      Name="PlaintextCheckBox"
+                      DockPanel.Dock="Left">
+                <ToolTip.Tip>
+                    <TextBlock
+                        Text="{loc:Loc ChatPlaintextTooltip}" />
+                </ToolTip.Tip>
+            </CheckBox>
+            <Button Name="FuncBtn"
+                    Content="{loc:Loc ConvertToTempChat}"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Right"
+                    Click="OnConvertToTempChatButtonClick"
+                    DockPanel.Dock="Right" />
+        </DockPanel>
+
+    </Grid>
+
+</Window>

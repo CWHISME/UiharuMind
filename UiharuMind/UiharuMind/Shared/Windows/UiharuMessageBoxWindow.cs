@@ -1,8 +1,8 @@
 using System;
 using Avalonia.Controls;
-using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Shared.Utils;
 using Ursa.Controls;
+using UiharuMind.Core.Core.Extensions;
 
 namespace UiharuMind.Shared.Windows;
 

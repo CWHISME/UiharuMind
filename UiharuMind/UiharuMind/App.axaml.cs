@@ -17,15 +17,20 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
-using UiharuMind.Core;
+using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Shell;
+using UiharuMind.Features.Models;
+using UiharuMind.Features.Memory;
+using UiharuMind.Features.Clipboard;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
-using UiharuMind.ViewModels.ScreenCaptures;
-using UiharuMind.Shared.Shell;
-using UiharuMind.Views.Windows;
+using UiharuMind.Core;
+using UiharuMind.Features.ScreenCapture;
+using UiharuMind.Features.QuickTools;
+using UiharuMind.Features.Settings;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind;
 

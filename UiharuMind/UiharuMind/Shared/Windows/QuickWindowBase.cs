@@ -13,9 +13,9 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using SharpHook.Data;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Shared.Windows;
 

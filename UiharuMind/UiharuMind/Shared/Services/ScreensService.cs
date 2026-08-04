@@ -16,13 +16,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 using SharpHook.Data;
+using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
-using UiharuMind.Shared.Shell;
-using UiharuMind.Views.Common;
-using UiharuMind.Views.Windows.Common;
-using UiharuMind.Views.Windows.ScreenCapture;
-using UiharuMind.Shared.Windows;
+using UiharuMind.Features.ScreenCapture;
 
 namespace UiharuMind.Shared.Services;
 

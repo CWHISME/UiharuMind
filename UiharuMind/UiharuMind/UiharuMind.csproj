@@ -57,10 +57,10 @@
 	    <AutoGen>True</AutoGen>
 	    <DependentUpon>zh-CN.resx</DependentUpon>
 	  </Compile>
-	  <Compile Update="Views\Windows\Common\MemoryCreateWindow.axaml.cs">
+	  <Compile Update="Features\Memory\MemoryCreateWindow.axaml.cs">
 	    <DependentUpon>MemoryCreateWindow.axaml</DependentUpon>
 	  </Compile>
-	  <Compile Update="Views\Windows\Common\ApplicationNotificationWindow.axaml.cs">
+	  <Compile Update="Shared\Windows\ApplicationNotificationWindow.axaml.cs">
 	    <DependentUpon>ApplicationNotificationWindow.axaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
