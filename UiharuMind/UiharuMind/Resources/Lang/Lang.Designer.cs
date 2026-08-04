@@ -736,7 +736,43 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("AgentSkillsOpenFolder", resourceCulture);
             }
         }
-        
+
+        public static string AgentSkillsCreate {
+            get {
+                return ResourceManager.GetString("AgentSkillsCreate", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsUserInvoked {
+            get {
+                return ResourceManager.GetString("AgentSkillsUserInvoked", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsUserInvokedTip {
+            get {
+                return ResourceManager.GetString("AgentSkillsUserInvokedTip", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsNotLoaded {
+            get {
+                return ResourceManager.GetString("AgentSkillsNotLoaded", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsNotLoadedHint {
+            get {
+                return ResourceManager.GetString("AgentSkillsNotLoadedHint", resourceCulture);
+            }
+        }
+
+        public static string SkillInvocationInjected {
+            get {
+                return ResourceManager.GetString("SkillInvocationInjected", resourceCulture);
+            }
+        }
+
         public static string AgentSkillsReload {
             get {
                 return ResourceManager.GetString("AgentSkillsReload", resourceCulture);

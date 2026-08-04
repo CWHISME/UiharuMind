@@ -119,7 +119,6 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
     public void OnInitialize()
     {
-        SkillCatalog.Instance.EnsureDemoSkill();
         Scheduler = new InProcessSchedulerBackend();
     }
 

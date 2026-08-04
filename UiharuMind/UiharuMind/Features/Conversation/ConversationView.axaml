@@ -10,6 +10,7 @@
              xmlns:views="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:skills="clr-namespace:UiharuMind.Core.AI.Execution.Skills;assembly=UiharuMind.Core"
              mc:Ignorable="d" d:DesignWidth="760" d:DesignHeight="640"
              x:Class="UiharuMind.Features.Conversation.ConversationView"
              x:DataType="conv:ConversationViewModel">
@@ -244,6 +245,27 @@
                                                 </common:SimpleMarkdownViewer.IsPlaintext>
                                             </common:SimpleMarkdownViewer>
                                         </Border>
+
+                                        <!-- 点名调用注入的技能正文:气泡显示的是 /技能名 那一行,正文折在这里备查 -->
+                                        <StackPanel IsVisible="{Binding HasInjectedText}"
+                                                    HorizontalAlignment="{Binding Alignment}">
+                                            <ToggleButton Classes="NoneStyle" Cursor="Hand"
+                                                          Padding="0" Margin="0,3,0,0"
+                                                          HorizontalAlignment="{Binding Alignment}"
+                                                          IsChecked="{Binding IsInjectedTextExpanded}">
+                                                <TextBlock Classes="muted" FontSize="11"
+                                                           Text="{loc:Loc SkillInvocationInjected}" />
+                                            </ToggleButton>
+                                            <Border Classes="message-bubble" Margin="0,3,0,0" MaxHeight="260"
+                                                    BorderBrush="{DynamicResource SemiGrey2}"
+                                                    IsVisible="{Binding IsInjectedTextExpanded}">
+                                                <ScrollViewer>
+                                                    <SelectableTextBlock Classes="muted" FontSize="11"
+                                                                         Text="{Binding InjectedText}"
+                                                                         TextWrapping="Wrap" />
+                                                </ScrollViewer>
+                                            </Border>
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <Border Classes="message-actions" Grid.Row="1"
@@ -289,7 +311,7 @@
 
         <!-- composer -->
         <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder">
-            <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="4">
+            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="4">
                 <!-- 附件 chips:附件集合在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置 -->
                 <ItemsControl Grid.Row="0"
                               ItemsSource="{Binding Attachments}"
@@ -341,7 +363,40 @@
                 <ContentPresenter Grid.Row="1"
                                   Content="{Binding ComposerTop, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
 
-                <TextBox Grid.Row="2" Name="InputBox" Classes="composer-input"
+                <!-- 点名补全:整行以 / 开头且技能名未写完时弹出。上下移动、回车/Tab 采纳、Esc 收起。
+                     ↑↓/Esc 在 code-behind 拦;回车与 Tab 绑在下面的 KeyBindings 上,
+                     而 Avalonia 在 raise 路由事件之前就处理 KeyBindings,所以那两个键
+                     是在 SendMessage/InputExtra 命令入口改道的 -->
+                <Border Grid.Row="2" Padding="6" CornerRadius="8" MaxHeight="200"
+                        Background="{DynamicResource SemiGrey0}"
+                        BorderBrush="{DynamicResource SemiGrey2}"
+                        BorderThickness="1"
+                        IsVisible="{Binding IsSkillPickerOpen}">
+                    <ListBox Name="SkillPicker" Classes="option-list" Focusable="False"
+                             ItemsSource="{Binding SkillCandidates}"
+                             SelectedIndex="{Binding SkillCandidateIndex}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="skills:SkillCatalogEntry">
+                                <StackPanel Spacing="1" Margin="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock FontWeight="SemiBold"
+                                                   Text="{Binding Name, StringFormat='/{0}'}" />
+                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SemiBlue5}"
+                                                   IsVisible="{Binding !IsModelInvocable}"
+                                                   Text="{loc:Loc AgentSkillsUserInvoked}"
+                                                   ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
+                                    </StackPanel>
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource SemiGrey5}"
+                                               Text="{Binding Description}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <TextBox Grid.Row="3" Name="InputBox" Classes="composer-input"
                          Text="{Binding InputText, Mode=TwoWay}"
                          AcceptsReturn="True"
                          PlaceholderText="{Binding InputPlaceholder}">
@@ -351,7 +406,7 @@
                     </TextBox.KeyBindings>
                 </TextBox>
 
-                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <!-- 工具行:两类会话共用,按 IsAgentSession 切换差异项;ComposerTools 槽保留给宿主追加 -->
                     <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                         <ThemedIconButton Classes="mode-state"

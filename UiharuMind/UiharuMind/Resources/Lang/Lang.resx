@@ -363,6 +363,24 @@
     <data name="AgentSkillsOpenFolder" xml:space="preserve">
         <value>Open skills folder</value>
     </data>
+    <data name="AgentSkillsCreate" xml:space="preserve">
+        <value>New skill</value>
+    </data>
+    <data name="AgentSkillsUserInvoked" xml:space="preserve">
+        <value>user-invoked</value>
+    </data>
+    <data name="AgentSkillsUserInvokedTip" xml:space="preserve">
+        <value>Only you can trigger it, by typing /name in an agent chat. The model never reaches for it on its own.</value>
+    </data>
+    <data name="AgentSkillsNotLoaded" xml:space="preserve">
+        <value>not loaded</value>
+    </data>
+    <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
+        <value>Rejected by the SKILL.md spec check — the skill name must match its directory name. See the log for the exact reason.</value>
+    </data>
+    <data name="SkillInvocationInjected" xml:space="preserve">
+        <value>Skill instructions injected</value>
+    </data>
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>Rescan</value>
     </data>

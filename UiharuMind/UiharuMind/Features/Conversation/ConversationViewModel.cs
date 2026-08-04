@@ -25,6 +25,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
@@ -73,6 +74,11 @@ public partial class ConversationViewModel : ViewModelBase
     [RelayCommand]
     private async Task SendMessage()
     {
+        // 补全开着时回车应当是"采纳候选"而不是发送。这里必须在命令入口改道:
+        // Avalonia 的 KeyBindings 由 KeyboardDevice.ProcessRawEvent 沿视觉父链处理,
+        // 时机在 KeyDown 路由事件被 raise 之前,连 Tunnel 都拦不住它
+        if (AcceptSkillCandidate()) return;
+
         string text = InputText.Trim();
         if (string.IsNullOrEmpty(text)) return;
         InputText = string.Empty;
@@ -88,6 +94,8 @@ public partial class ConversationViewModel : ViewModelBase
     [RelayCommand]
     private void InputExtra()
     {
+        // Tab 同理:补全开着时先采纳候选,否则会去切 plan/execute 模式
+        if (AcceptSkillCandidate()) return;
         OnInputExtra();
     }
 
@@ -466,7 +474,15 @@ public partial class ConversationViewModel : ViewModelBase
 
         List<ConversationAttachment>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
         Attachments.Clear();
-        ChatMessage userMessage = BuildUserMessage(text, attachments);
+        CloseSkillPicker();
+
+        // 点名调用:/技能名 [参数]。技能正文直接进本轮并常驻历史,气泡只显示用户敲的那一行。
+        // 见 docs/adr/0001——框架的 load_skill 取不到退出模型自选的技能,所以不走它
+        SkillInvocation? invocation = await TryBuildSkillInvocationAsync(text);
+
+        ChatMessage userMessage = BuildUserMessage(invocation?.InjectedText ?? text, attachments);
+        if (invocation != null) MarkNamedSkill(userMessage, invocation, text);
+
         Items.Add(CreateUserItem(text, userMessage, attachments));
         ScrollToEnd = true;
         await RunTurnAsync(userMessage, text);
@@ -838,7 +854,7 @@ public partial class ConversationViewModel : ViewModelBase
             ChatMessage message = messages[index];
             if (message.Role == ChatRole.User)
             {
-                string text = message.Text;
+                string text = DisplayTextOf(message);
                 if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
                 {
                     buffer.Add(WireItemActions(CreateUserItem(text, message), message));
@@ -880,7 +896,9 @@ public partial class ConversationViewModel : ViewModelBase
     private T WireItemActions<T>(T item, ChatMessage source) where T : ConversationItemBase
     {
         item.SourceMessage = source;
-        item.EditedCallback = OnItemEdited;
+        // 点名调用的气泡显示的是 /技能名 那一行,而消息正文是注入的技能全文;
+        // 放开编辑会把正文改写成那一行,当场毁掉注入内容
+        if (NamedSkillInputOf(source) == null) item.EditedCallback = OnItemEdited;
         item.DeleteCallback = OnItemDeleted;
         item.BranchCallback = OnItemBranch;
         // 重试语义是"从这条用户输入起重新生成",因此只挂在用户消息上
@@ -924,6 +942,8 @@ public partial class ConversationViewModel : ViewModelBase
 
     partial void OnInputTextChanged(string value)
     {
+        _ = RefreshSkillCandidatesAsync(value); //点名补全:仅在整行以 / 开头且技能名未写完时弹出
+
         int version = ++_inputCountVersion;
         if (string.IsNullOrEmpty(value))
         {
@@ -1041,9 +1061,9 @@ public partial class ConversationViewModel : ViewModelBase
             for (int i = Items.Count - 1; i >= itemIndex; i--) Items.RemoveAt(i);
         }
 
-        Items.Add(WireItemActions(CreateUserItem(input.Text, input), input));
+        Items.Add(WireItemActions(CreateUserItem(DisplayTextOf(input), input), input));
         ScrollToEnd = true;
-        _ = RunTurnAsync(input, input.Text);
+        _ = RunTurnAsync(input, DisplayTextOf(input));
     }
 
     /// <summary>
@@ -1127,6 +1147,134 @@ public partial class ConversationViewModel : ViewModelBase
         }
     }
 
+    //================= 点名调用(/技能名) =================
+
+    /// <summary>/ 补全的候选技能;敲空格进入参数后收起</summary>
+    public ObservableCollection<SkillCatalogEntry> SkillCandidates { get; } = new();
+
+    /// <summary>补全采纳后触发。VM 不碰控件,由宿主把焦点与光标交还输入框末尾</summary>
+    public event Action? SkillCandidateAccepted;
+
+    [ObservableProperty] private bool _isSkillPickerOpen;
+    [ObservableProperty] private int _skillCandidateIndex;
+
+    private List<SkillCatalogEntry>? _skillCandidateCache; //一次点名期间复用,不每敲一个字读盘
+    private int _skillPickerVersion;
+
+    /// <summary>
+    /// 上下移动候选选择(补全开着时由输入框按键驱动)
+    /// </summary>
+    /// <param name="delta">移动量,可为负</param>
+    public void MoveSkillSelection(int delta)
+    {
+        if (!IsSkillPickerOpen || SkillCandidates.Count == 0) return;
+        int count = SkillCandidates.Count;
+        SkillCandidateIndex = (SkillCandidateIndex + delta % count + count) % count;
+    }
+
+    /// <summary>
+    /// 采纳当前候选:把输入补成 "/技能名 ",随即进入写参数状态
+    /// </summary>
+    /// <returns>是否采纳了候选(未开启或无候选时为 false,调用方据此决定是否改走原本的行为)</returns>
+    public bool AcceptSkillCandidate()
+    {
+        if (!IsSkillPickerOpen) return false;
+        if (SkillCandidateIndex < 0 || SkillCandidateIndex >= SkillCandidates.Count) return false;
+
+        InputText = $"/{SkillCandidates[SkillCandidateIndex].Name} ";
+        CloseSkillPicker();
+        SkillCandidateAccepted?.Invoke();
+        return true;
+    }
+
+    /// <summary>收起补全</summary>
+    public void CloseSkillPicker()
+    {
+        _skillPickerVersion++;
+        _skillCandidateCache = null;
+        IsSkillPickerOpen = false;
+        SkillCandidates.Clear();
+    }
+
+    private async Task RefreshSkillCandidatesAsync(string value)
+    {
+        if (!IsAgentSession || !SkillInvocation.TryParsePrefix(value, out string prefix))
+        {
+            if (IsSkillPickerOpen) CloseSkillPicker();
+            return;
+        }
+
+        int version = ++_skillPickerVersion;
+        List<SkillCatalogEntry> all =
+            _skillCandidateCache ?? await SkillCatalog.Instance.GetInvocableEntriesAsync();
+        if (version != _skillPickerVersion) return; //读盘期间输入又变了,丢弃本次结果
+        _skillCandidateCache = all;
+
+        SkillCandidates.Clear();
+        foreach (SkillCatalogEntry entry in all
+                     .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(x => x.Name, StringComparer.Ordinal))
+        {
+            SkillCandidates.Add(entry);
+        }
+
+        SkillCandidateIndex = 0;
+        IsSkillPickerOpen = SkillCandidates.Count > 0;
+    }
+
+    /// <summary>
+    /// 组装点名调用。只在 agent 会话开放——技能正文多在指挥工具,
+    /// 而角色扮演档工具集为空,注入过去只会让模型去调不存在的工具。
+    /// </summary>
+    /// <param name="text">用户输入的整行</param>
+    /// <returns>调用产物;不是点名调用、或技能不存在/已禁用时为 null</returns>
+    private async Task<SkillInvocation?> TryBuildSkillInvocationAsync(string text)
+    {
+        if (!IsAgentSession || !SkillInvocation.TryParse(text, out string skillName, out string arguments))
+        {
+            return null;
+        }
+
+        return await SkillCatalog.Instance.TryBuildInvocationAsync(skillName, arguments);
+    }
+
+    /// <summary>
+    /// 给消息打上点名调用标记。用的是专门的键而非 _attribution——
+    /// 后者会让消息不落盘,而点名调用的正文必须常驻历史才能持续生效。
+    /// </summary>
+    /// <param name="message">用户消息(正文已是注入内容)</param>
+    /// <param name="invocation">调用产物</param>
+    /// <param name="input">用户原样输入的那一行</param>
+    private static void MarkNamedSkill(ChatMessage message, SkillInvocation invocation, string input)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[SkillInvocation.MessageKey] = invocation.SkillName;
+        message.AdditionalProperties[SkillInvocation.MessageInputKey] = input;
+    }
+
+    /// <summary>
+    /// 取点名调用消息里用户原样输入的那一行。落盘往返后值会变成 JsonElement,
+    /// 因此一律经 ToString 读取,不能强转 string。
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>用户输入;不是点名调用消息则为 null</returns>
+    private static string? NamedSkillInputOf(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(SkillInvocation.MessageInputKey, out object? value) != true)
+        {
+            return null;
+        }
+
+        string? input = value?.ToString();
+        return string.IsNullOrEmpty(input) ? null : input;
+    }
+
+    /// <summary>条目与标题用的显示文本:点名调用取用户敲的那一行,其余取消息正文</summary>
+    private static string DisplayTextOf(ChatMessage message)
+    {
+        return NamedSkillInputOf(message) ?? message.Text;
+    }
+
     //================= 条目构造 =================
 
     private static TextConversationItem CreateUserItem(string text, ChatMessage? source = null,
@@ -1140,6 +1288,13 @@ public partial class ConversationViewModel : ViewModelBase
             Icon = IconUtils.DefaultUserIcon,
             Timestamp = (source?.CreatedAt ?? DateTimeOffset.Now).LocalDateTime.ToString("HH:mm"),
         };
+
+        // 点名调用:消息正文是注入的技能全文,气泡只显示用户敲的那一行,正文折叠备查
+        if (source != null && NamedSkillInputOf(source) is { } typedLine)
+        {
+            item.Message = typedLine;
+            item.InjectedText = source.Text;
+        }
 
         // 显示与传输解耦:非视觉模型下 BuildUserMessage 会把附件降级为文本引用而不内联字节,
         // 但用户附了图就该在界面上看到,与模型能否看图无关。因此优先用附件本身。

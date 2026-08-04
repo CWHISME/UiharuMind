@@ -353,6 +353,24 @@
     <data name="AgentSkillsOpenFolder" xml:space="preserve">
         <value>打开技能目录</value>
     </data>
+    <data name="AgentSkillsCreate" xml:space="preserve">
+        <value>新建技能</value>
+    </data>
+    <data name="AgentSkillsUserInvoked" xml:space="preserve">
+        <value>主动技能</value>
+    </data>
+    <data name="AgentSkillsUserInvokedTip" xml:space="preserve">
+        <value>只能由你在 agent 会话里敲 /技能名 触发，模型不会自己用它。</value>
+    </data>
+    <data name="AgentSkillsNotLoaded" xml:space="preserve">
+        <value>未加载</value>
+    </data>
+    <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
+        <value>不符合 SKILL.md 规范校验被拒——技能名必须与目录名一致。具体原因见日志。</value>
+    </data>
+    <data name="SkillInvocationInjected" xml:space="preserve">
+        <value>已注入技能正文</value>
+    </data>
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>重新扫描</value>
     </data>

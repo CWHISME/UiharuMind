@@ -85,9 +85,31 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 ### Skill（技能）
 
 遵循 [agentskills.io](https://agentskills.io) `SKILL.md` 规范的技能包，喂给 HarnessAgent。
-体现为 `SkillCatalog`、`SkillCatalogEntry`。
+体现为 `SkillCatalog`、`SkillCatalogEntry`、`SkillInvocation`。
 
 ⚠️ 这是本仓 `Skill` 一词的**唯一**含义。预设提示词动作叫 PromptAction，见上。
+
+技能有两条**触发链路**，见下。
+
+### 点名调用（Named Invocation）
+
+用户显式发起的技能触发链路：在输入框敲 `/技能名`，技能正文直接进本轮对话并常驻历史。
+不经框架的技能工具，因而**对所有启用的技能一律开放**——包括那些关掉了模型自选的。
+只在 `ECharacterKind.Agent` 会话里可用。
+
+### 模型自选（Model Invocation）
+
+模型读技能的 `description` 自行决定要不要加载的触发链路，由框架注入系统提示的技能广告列表驱动。
+技能可在自己的 `SKILL.md` 里声明关掉这条链路，那样它就只剩点名调用可达。
+
+⚠️ **代码与文档里不要说「主动技能 / 被动技能」。** 这两个是**链路**，不是技能的两个类别——
+关掉了模型自选的技能仍然能被点名调用，这正是整套设计的支点。成对使用「主动/被动」会让人
+以为技能分成两拨、各只有一种触发方式，而且这个词至少有三种读法（谁主动：用户？模型？技能自己？）。
+_Avoid_: 被动技能、自动技能、手动技能
+
+**界面用词是例外：** 退出了模型自选的技能，UI 上标为**主动技能**（取游戏里「主动技能要自己放」
+那个意思，比「仅点名」直观）。它只作为单个技能上的一个徽章出现，**从不与「被动技能」成对**，
+因此不会带来上面那种误解。代码里对应 `SkillDisplayItem.IsUserInvokedOnly`。
 
 ### Runtime（推理运行时）
 

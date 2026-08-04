@@ -180,6 +180,7 @@
         <TabItem Header="{loc:Loc AgentSettingSkills}">
             <Grid RowDefinitions="Auto,*" Margin="0,12">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                    <Button Content="{loc:Loc AgentSkillsCreate}" Command="{Binding CreateSkillCommand}" />
                     <Button Content="{loc:Loc AgentSkillsOpenFolder}" Command="{Binding OpenSkillsFolderCommand}" />
                     <Button Content="{loc:Loc AgentSkillsReload}" Command="{Binding ReloadSkillsCommand}" />
                 </StackPanel>
@@ -190,12 +191,29 @@
                                 <Border Classes="form-pane" Margin="0,4" Padding="12,8">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel Grid.Column="0" Spacing="2">
-                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                                <!-- 只读标记:模型自选由 SKILL.md 自己声明,用户不能覆盖 -->
+                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource SemiBlue5}"
+                                                           IsVisible="{Binding IsUserInvokedOnly}"
+                                                           Text="{loc:Loc AgentSkillsUserInvoked}"
+                                                           ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
+                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                           Foreground="IndianRed"
+                                                           IsVisible="{Binding !IsLoaded}"
+                                                           Text="{loc:Loc AgentSkillsNotLoaded}" />
+                                            </StackPanel>
                                             <TextBlock FontSize="12"
                                                        Foreground="{DynamicResource SemiGrey5}"
-                                                       Text="{Binding Description}" TextWrapping="Wrap" />
+                                                       Text="{Binding Description}" TextWrapping="Wrap"
+                                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            <TextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
+                                                       IsVisible="{Binding !IsLoaded}"
+                                                       Text="{loc:Loc AgentSkillsNotLoadedHint}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsEnabled}" />
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsEnabled}"
+                                                      IsEnabled="{Binding IsLoaded}" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -139,7 +140,7 @@ public partial class AgentSettingViewData : ViewModelBase
 
         BuildGates();
         RefreshServers();
-        RefreshSkills();
+        _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
     }
 
     /// <summary>
@@ -320,16 +321,28 @@ public partial class AgentSettingViewData : ViewModelBase
     }
 
     [RelayCommand]
-    private void ReloadSkills()
+    private async Task ReloadSkills()
     {
-        RefreshSkills();
+        await RefreshSkillsAsync();
     }
 
-    private void RefreshSkills()
+    /// <summary>新建一个技能模板目录并打开它,首次上手用</summary>
+    [RelayCommand]
+    private async Task CreateSkill()
     {
-        Skills.Clear();
+        string? directory = SkillCatalog.Instance.CreateSkillTemplate();
+        if (directory == null) return;
+        App.FilesService.OpenFolder(directory);
+        await RefreshSkillsAsync();
+    }
+
+    private async Task RefreshSkillsAsync()
+    {
+        List<SkillCatalogEntry> entries = await SkillCatalog.Instance.GetEntriesAsync();
         var disabled = AgentSettingConfig.Current.DisabledSkills;
-        foreach (SkillCatalogEntry entry in SkillCatalog.Instance.GetEntries())
+
+        Skills.Clear();
+        foreach (SkillCatalogEntry entry in entries)
         {
             bool isEnabled = !disabled.Any(x => string.Equals(x, entry.Name, StringComparison.OrdinalIgnoreCase));
             Skills.Add(new SkillDisplayItem(entry, isEnabled));
@@ -338,12 +351,22 @@ public partial class AgentSettingViewData : ViewModelBase
 }
 
 /// <summary>
-/// 技能列表显示项(启停即存)
+/// 技能列表显示项(启停即存)。「模型可自选」由 SKILL.md 自己声明,
+/// 属技能包的一部分而非用户偏好,因此这里只读展示,不给覆盖入口。
 /// </summary>
 public partial class SkillDisplayItem : ObservableObject
 {
     public string Name { get; }
     public string Description { get; }
+
+    /// <summary>是否参与模型自选(false = 只能由用户敲 / 点名触发)</summary>
+    public bool IsModelInvocable { get; }
+
+    /// <summary>框架是否接受加载(false = 目录里有 SKILL.md 但被规范校验拒掉)</summary>
+    public bool IsLoaded { get; }
+
+    /// <summary>是否显示「主动技能」标记(UI 用词,即退出了模型自选、只剩点名调用可达)</summary>
+    public bool IsUserInvokedOnly => IsLoaded && !IsModelInvocable;
 
     [ObservableProperty] private bool _isEnabled;
 
@@ -351,6 +374,8 @@ public partial class SkillDisplayItem : ObservableObject
     {
         Name = entry.Name;
         Description = entry.Description;
+        IsModelInvocable = entry.IsModelInvocable;
+        IsLoaded = entry.IsLoaded;
         _isEnabled = isEnabled;
     }
 

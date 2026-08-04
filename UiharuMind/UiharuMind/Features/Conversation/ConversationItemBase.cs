@@ -135,6 +135,18 @@ public partial class TextConversationItem : ConversationItemBase
     /// <summary>是否含图片</summary>
     public bool HasImage => MessageImage != null;
 
+    /// <summary>
+    /// 实际进入模型的正文，与 <see cref="ConversationItemBase.Message"/> 不同时才有值。
+    /// 目前只有点名调用会用到：气泡显示 <c>/技能名 参数</c> 那一行，注入的技能正文折在这里。
+    /// </summary>
+    [ObservableProperty] private string _injectedText = string.Empty;
+
+    /// <summary>注入正文是否展开</summary>
+    [ObservableProperty] private bool _isInjectedTextExpanded;
+
+    /// <summary>是否有折叠起来的注入正文</summary>
+    public bool HasInjectedText => InjectedText.Length > 0;
+
     public TextConversationItem(bool isUser)
     {
         _isUser = isUser;
@@ -171,5 +183,10 @@ public partial class TextConversationItem : ConversationItemBase
     partial void OnMessageImageChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(HasImage));
+    }
+
+    partial void OnInjectedTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasInjectedText));
     }
 }

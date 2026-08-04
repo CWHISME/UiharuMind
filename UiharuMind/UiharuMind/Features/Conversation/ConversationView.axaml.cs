@@ -80,13 +80,68 @@ public partial class ConversationView : UserControl
         DragDrop.SetAllowDrop(ComposerBorder, true);
         ComposerBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
         ComposerBorder.AddHandler(DragDrop.DropEvent, OnDrop);
+
+        // 点名补全:↑↓ 与 Esc 没有对应的 KeyBinding,走路由事件即可。
+        // 回车与 Tab 则相反——它们绑在输入框的 KeyBindings 上,而 Avalonia 由
+        // KeyboardDevice.ProcessRawEvent 沿视觉父链在 raise 路由事件之前就处理掉 KeyBindings,
+        // 因此那两个键是在 SendMessage/InputExtra 命令入口改道的,不在这里。
+        // 这里仍留一个回车分支作兜底:SendGesture 若改成 Ctrl+Enter,裸回车就没有 KeyBinding 了
+        ComposerBorder.AddHandler(KeyDownEvent, OnComposerKeyDown, RoutingStrategies.Tunnel);
+        SkillPicker.PointerReleased += OnSkillPickerPointerReleased;
+    }
+
+    private void OnComposerKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not ConversationViewModel vm || !vm.IsSkillPickerOpen) return;
+
+        switch (e.Key)
+        {
+            case Key.Down:
+                vm.MoveSkillSelection(1);
+                break;
+            case Key.Up:
+                vm.MoveSkillSelection(-1);
+                break;
+            case Key.Escape:
+                vm.CloseSkillPicker();
+                break;
+            case Key.Enter:
+                if (!vm.AcceptSkillCandidate()) return;
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnSkillPickerPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        // 选中在 PointerPressed 阶段已经落到 SelectedIndex,这里直接采纳
+        if (DataContext is ConversationViewModel vm) vm.AcceptSkillCandidate();
+    }
+
+    /// <summary>采纳补全后把焦点与光标交还输入框末尾,否则用户得自己点一下才能接着写参数</summary>
+    private void OnSkillCandidateAccepted()
+    {
+        InputBox.Focus();
+        InputBox.CaretIndex = InputBox.Text?.Length ?? 0;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        if (_viewModel != null) _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        if (_viewModel != null)
+        {
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            _viewModel.SkillCandidateAccepted -= OnSkillCandidateAccepted;
+        }
+
         _viewModel = DataContext as ConversationViewModel;
-        if (_viewModel != null) _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        if (_viewModel != null)
+        {
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _viewModel.SkillCandidateAccepted += OnSkillCandidateAccepted;
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
