@@ -16,13 +16,13 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 把会话绑定的记忆库检索结果注入本轮上下文。
-/// 与框架自带的 FileMemoryProvider 是互补而非重复：那个是模型主动读写记忆文件的工具式记忆，
-/// 这个是基于文本嵌入的被动 RAG 检索。
+/// 把会话绑定的知识库检索结果注入本轮上下文。
+/// 与框架自带的 FileMemoryProvider（agent 自己写的笔记，按角色分目录）是两种不同的东西：
+/// 那个由模型主动读写，这个是基于文本嵌入的被动 RAG 检索。
 ///
 /// 本阶段行为与旧实现一致（每轮拿最后一条用户消息去检索）。
 /// 已知问题：不管需不需要都会跑一次嵌入，且用用户原话作查询词的召回质量差。
-/// 改为由模型主动调用 memory_search 工具是后续独立一步——那需要按后端能力分流，
+/// 改为由模型主动调用 knowledge_search 工具是后续独立一步——那需要按后端能力分流，
 /// 因为 LLamaSharpChatClient 完全忽略 ChatOptions.Tools，本地模型下工具调用是零支持。
 /// </summary>
 internal sealed class MemoryContextProvider : AIContextProvider
@@ -31,11 +31,11 @@ internal sealed class MemoryContextProvider : AIContextProvider
         "以下是通过用户当前的问题 RAG 搜索到的相关信息片段，" +
         "请根据片段的相关性(Relevance)参数高低参考回答。";
 
-    private readonly bool _hasMemoryTool; //本 agent 是否装配了 memory_search(agent 档才有)
+    private readonly bool _hasKnowledgeTool; //本 agent 是否装配了 knowledge_search(agent 档才有)
 
-    public MemoryContextProvider(bool hasMemoryTool = false)
+    public MemoryContextProvider(bool hasKnowledgeTool = false)
     {
-        _hasMemoryTool = hasMemoryTool;
+        _hasKnowledgeTool = hasKnowledgeTool;
     }
 
     public override IReadOnlyList<string> StateKeys => [];
@@ -57,9 +57,9 @@ internal sealed class MemoryContextProvider : AIContextProvider
         MemoryData? memory = session?.Memory;
         if (memory == null) return empty;
 
-        // 装配了 memory_search 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入;
+        // 装配了 knowledge_search 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入;
         // 本地 LLamaSharp 完全忽略 ChatOptions.Tools,只能留在注入模式
-        if (_hasMemoryTool && session!.ChatModelRunningData?.SupportsToolCalling == true) return empty;
+        if (_hasKnowledgeTool && session!.ChatModelRunningData?.SupportsToolCalling == true) return empty;
 
         // 传入的 AIContext.Messages 已含调用方消息与历史消息(框架契约),取最后一条用户输入作查询
         string? query = context.AIContext.Messages?

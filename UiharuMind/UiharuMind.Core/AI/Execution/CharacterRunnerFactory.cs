@@ -58,9 +58,9 @@ public class AgentBuildProfile
     public Func<ModelRunningData?>? SessionModelSource { get; init; }
 
     /// <summary>
-    /// 会话级记忆库来源(memory_search 工具执行时解析,锁定当前挂接会话的单库)
+    /// 会话级知识库来源(knowledge_search 工具执行时解析,锁定当前挂接会话的单库)
     /// </summary>
-    public Func<MemoryData?>? SessionMemorySource { get; init; }
+    public Func<MemoryData?>? SessionKnowledgeSource { get; init; }
 
     /// <summary>
     /// 会话级 shell 放行模式来源(审批规则每次执行时解析,
@@ -161,8 +161,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
         List<AIContextProvider> contextProviders =
         [
-            new MemoryContextProvider(hasMemoryTool:
-                character.Kind == ECharacterKind.Agent && config.EnableMemorySearchTool),
+            new MemoryContextProvider(hasKnowledgeTool:
+                character.Kind == ECharacterKind.Agent && config.EnableKnowledgeSearchTool),
         ];
 
         if (character.Kind == ECharacterKind.Roleplay)
@@ -210,9 +210,9 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             : null;
         if (subAgentTool != null) extraTools.Add(subAgentTool);
 
-        if (config.EnableMemorySearchTool)
+        if (config.EnableKnowledgeSearchTool)
         {
-            extraTools.Add(MemoryTool.Create(profile.SessionMemorySource));
+            extraTools.Add(KnowledgeTool.Create(profile.SessionKnowledgeSource));
         }
 
         if (config.EnableScheduledTasks)
@@ -235,8 +235,10 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
         chatOptions.Tools = extraTools;
 
-        FileSystemAgentFileStore? agentNotesStore = config.EnableAgentNotes
-            ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
+        // 目录名(角色名_id8)由挂接时的对账决定并写进会话状态,见 FileMemoryLayout;
+        // store 只认这个父目录
+        FileSystemAgentFileStore? fileMemoryStore = config.EnableFileMemory
+            ? new FileSystemAgentFileStore(FileMemoryLayout.RootPath)
             : null;
 
         if (workspaceInstructions.Length > 0)
@@ -246,7 +248,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         }
 
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
-            SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
+            SkillCatalog.Instance.BuildSkillsSource(), fileMemoryStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
             profile.SessionShellApprovalSource,
             visionToolMounted: mountVisionTool, workingDirectory: workingDirectory), shellExecutor);
@@ -533,7 +535,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="contextProviders">上下文提供器</param>
     /// <param name="chatOptions">对话选项(含角色系统提示与已装配工具集,shell 工具已在其中)</param>
     /// <param name="skillsSource">技能来源</param>
-    /// <param name="agentNotesStore">agent 笔记存储,禁用时为 null</param>
+    /// <param name="fileMemoryStore">文件记忆存储(父目录),禁用时为 null</param>
     /// <param name="permissionMode">权限档</param>
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
@@ -542,7 +544,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
-        AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
+        AgentSkillsSource skillsSource, FileSystemAgentFileStore? fileMemoryStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         bool visionToolMounted = true, string workingDirectory = "")
@@ -557,7 +559,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             DisableOpenTelemetry = true,
             DisableTodoProvider = !config.EnableTodoList,
             DisableAgentModeProvider = !config.EnableAgentMode,
-            FileMemoryStore = agentNotesStore,
+            FileMemoryStore = fileMemoryStore,
             // 1.16:框架文件工具只随 FileAccessStore 出现;shell 改为普通工具挂在 ChatOptions.Tools
             FileAccessStore = null,
             AgentSkillsSource = skillsSource,
@@ -630,11 +632,25 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             sb.AppendLine(AgentToolPrompts.ResolveVisionTool(config));
         }
 
-        if (config.EnableMemorySearchTool)
+        if (config.EnableFileMemory)
         {
             sb.AppendLine();
-            sb.AppendLine("## Memory");
-            sb.AppendLine(AgentToolPrompts.ResolveMemorySearch(config));
+            sb.AppendLine("## Your notes");
+            sb.AppendLine(AgentToolPrompts.ResolveFileMemory(config));
+        }
+
+        if (config.EnableKnowledgeSearchTool)
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Knowledge base");
+            sb.AppendLine(AgentToolPrompts.ResolveKnowledgeSearch(config));
+        }
+
+        // 辨析句只在两者都挂载时才有意义,故不属于任何一段的正文(那两段各自可被用户覆盖)
+        if (config.EnableFileMemory && config.EnableKnowledgeSearchTool)
+        {
+            sb.AppendLine();
+            sb.AppendLine(AgentToolPrompts.MemoryDisambiguation);
         }
 
         if (config.EnableSubAgent)

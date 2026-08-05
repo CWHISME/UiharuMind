@@ -35,8 +35,8 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <summary>启用网络搜索工具(web_search/web_fetch)</summary>
     public bool EnableWebSearch { get; set; } = true;
 
-    /// <summary>启用 agent 笔记(框架文件记忆,agent 跨会话自记;与会话挂载的嵌入知识库是两回事)</summary>
-    public bool EnableAgentNotes { get; set; } = true;
+    /// <summary>启用文件记忆(框架 FileMemoryProvider,agent 自记的笔记,按角色分目录跨会话共享;与挂载的知识库是两回事)</summary>
+    public bool EnableFileMemory { get; set; } = true;
 
     /// <summary>启用定时任务工具(create_scheduled_task)</summary>
     public bool EnableScheduledTasks { get; set; } = true;
@@ -44,8 +44,8 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <summary>启用识图工具(ask_vision,委托视觉模型答图片问题)</summary>
     public bool EnableVisionTool { get; set; } = true;
 
-    /// <summary>启用记忆检索工具(memory_search,检索会话挂载的嵌入知识库)</summary>
-    public bool EnableMemorySearchTool { get; set; } = false;
+    /// <summary>启用知识库检索工具(knowledge_search,检索会话挂载的嵌入知识库)</summary>
+    public bool EnableKnowledgeSearchTool { get; set; } = false;
 
     /// <summary>启用子代理工具(run_subagent,把只读探查委派给子代理,过程不吃主上下文)</summary>
     public bool EnableSubAgent { get; set; } = true;
@@ -68,8 +68,11 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <summary>识图工具纪律段的自定义提示词(空 = 用内置默认)</summary>
     public string VisionToolPrompt { get; set; } = string.Empty;
 
-    /// <summary>记忆检索工具纪律段的自定义提示词(空 = 用内置默认)</summary>
-    public string MemorySearchPrompt { get; set; } = string.Empty;
+    /// <summary>知识库检索工具纪律段的自定义提示词(空 = 用内置默认)</summary>
+    public string KnowledgeSearchPrompt { get; set; } = string.Empty;
+
+    /// <summary>文件记忆纪律段的自定义提示词(空 = 用内置默认)</summary>
+    public string FileMemoryPrompt { get; set; } = string.Empty;
 
     /// <summary>子代理工具纪律段的自定义提示词(空 = 用内置默认)</summary>
     public string SubAgentPrompt { get; set; } = string.Empty;

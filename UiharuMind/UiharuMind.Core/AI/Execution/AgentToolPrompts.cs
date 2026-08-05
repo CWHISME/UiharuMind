@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Configs;
 
@@ -51,10 +52,25 @@ public static class AgentToolPrompts
         "- Attachments arrive as `[Attached file: <path>]`. To see what an image shows, " +
         "call `ask_vision` with that path. Never guess from the file name.";
 
-    /// <summary>记忆检索工具纪律段默认正文</summary>
-    public const string MemorySearchDefault =
-        "call `memory_search` with a short focused query by RAG." +
-        "It returns snippets, or reports that no library is bound.";
+    /// <summary>知识库检索工具纪律段默认正文</summary>
+    public const string KnowledgeSearchDefault =
+        "- To look something up in the documents the user attached to this session, call `" +
+        KnowledgeTool.ToolName + "` with a short focused query — it is an embedding search, " +
+        "so keywords beat whole sentences.\n" +
+        "- It returns passages, or reports that no knowledge base is attached. " +
+        "If nothing is attached, say so instead of guessing.";
+
+    /// <summary>
+    /// 文件记忆纪律段默认正文。工具名引用框架常量，框架改名编译期就会发现。
+    /// 「跨会话保留」这句是承重的：不说，模型就只把笔记当本轮的草稿纸，从不主动去读。
+    /// </summary>
+    public static readonly string FileMemoryDefault =
+        $"- You keep your own notes across sessions. At the start of a task, `{FileMemoryProvider.LsToolName}` " +
+        $"and `{FileMemoryProvider.GrepToolName}` them before assuming you know nothing.\n" +
+        $"- Write down what will still be true next time (how this project is laid out, decisions made, " +
+        $"the user's standing preferences) with `{FileMemoryProvider.WriteToolName}`, " +
+        $"one topic per file with a name that says what it holds.\n" +
+        "- Do not store what the code or git history already records, or what only matters this turn.";
 
     /// <summary>子代理工具纪律段默认正文</summary>
     public const string SubAgentDefault =
@@ -77,11 +93,26 @@ public static class AgentToolPrompts
         return Resolve(config.VisionToolPrompt, VisionToolDefault);
     }
 
-    /// <summary>记忆检索工具纪律段(覆盖优先,空则默认)</summary>
-    public static string ResolveMemorySearch(AgentSettingConfig config)
+    /// <summary>知识库检索工具纪律段(覆盖优先,空则默认)</summary>
+    public static string ResolveKnowledgeSearch(AgentSettingConfig config)
     {
-        return Resolve(config.MemorySearchPrompt, MemorySearchDefault);
+        return Resolve(config.KnowledgeSearchPrompt, KnowledgeSearchDefault);
     }
+
+    /// <summary>文件记忆纪律段(覆盖优先,空则默认)</summary>
+    public static string ResolveFileMemory(AgentSettingConfig config)
+    {
+        return Resolve(config.FileMemoryPrompt, FileMemoryDefault);
+    }
+
+    /// <summary>
+    /// 两种"记忆"都启用时的辨析句。<b>不可被设置页覆盖</b>，也只在两者都挂载时出现——
+    /// 模型这一侧同时看得见 <c>file_memory_*</c> 与 <c>knowledge_search</c>，
+    /// 名字都像"搜记忆"，而选错的表现是检索不到却不报错。
+    /// </summary>
+    public static readonly string MemoryDisambiguation =
+        $"Two different stores: `{FileMemoryProvider.GrepToolName}` searches notes you wrote yourself, " +
+        $"`{KnowledgeTool.ToolName}` searches documents the user attached. Never substitute one for the other.";
 
     /// <summary>子代理工具纪律段(覆盖优先,空则默认)</summary>
     public static string ResolveSubAgent(AgentSettingConfig config)

@@ -131,7 +131,7 @@ public class HarnessInstructionsCompositionTests
 
         return CharacterRunnerFactory.BuildAgentOptions(character, config ?? new AgentSettingConfig(),
             new StubHistoryProvider(), [], new ChatOptions(),
-            new AgentFileSkillsSource(skillsDir), agentNotesStore: null,
+            new AgentFileSkillsSource(skillsDir), fileMemoryStore: null,
             EAgentPermissionMode.AutoEdit, preAuthorizedShellPatterns: null,
             workingDirectory: workingDirectory);
     }
@@ -258,11 +258,11 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgentTools_ExcludeMainAgentOnlyTools()
     {
-        AgentSettingConfig config = new() { EnableMemorySearchTool = true, EnableScheduledTasks = true };
+        AgentSettingConfig config = new() { EnableKnowledgeSearchTool = true, EnableScheduledTasks = true };
         List<string> names = ToolNamesOf(CharacterRunnerFactory.BuildSubAgentOptions(
             NewInput(config, EAgentPermissionMode.FullAuto)));
 
-        Assert.DoesNotContain(MemoryTool.ToolName, names);
+        Assert.DoesNotContain(KnowledgeTool.ToolName, names);
         Assert.DoesNotContain(SchedulerTools.ToolName, names);
 
         HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(
@@ -509,10 +509,10 @@ public class AssemblySnapshotTests
             EnableFileAccess = false,
             EnableShellExecution = false,
             EnableWebSearch = false,
-            EnableAgentNotes = false,
+            EnableFileMemory = false,
             EnableScheduledTasks = false,
             EnableVisionTool = false,
-            EnableMemorySearchTool = false,
+            EnableKnowledgeSearchTool = false,
             EnableSubAgent = false,
         };
 

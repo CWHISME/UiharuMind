@@ -56,8 +56,8 @@ public sealed record AgentAssemblySnapshot
     /// <summary>网络搜索工具开关</summary>
     public bool WebSearch { get; init; }
 
-    /// <summary>agent 笔记(框架文件记忆)开关</summary>
-    public bool AgentNotes { get; init; }
+    /// <summary>文件记忆(框架 FileMemoryProvider)开关</summary>
+    public bool FileMemory { get; init; }
 
     /// <summary>定时任务工具开关</summary>
     public bool ScheduledTasks { get; init; }
@@ -65,8 +65,8 @@ public sealed record AgentAssemblySnapshot
     /// <summary>识图工具开关</summary>
     public bool VisionTool { get; init; }
 
-    /// <summary>记忆检索工具开关</summary>
-    public bool MemorySearchTool { get; init; }
+    /// <summary>知识库检索工具开关</summary>
+    public bool KnowledgeSearchTool { get; init; }
 
     /// <summary>子代理工具开关</summary>
     public bool SubAgent { get; init; }
@@ -148,17 +148,17 @@ public sealed record AgentAssemblySnapshot
             FileAccess = isAgent && config.EnableFileAccess,
             Shell = isAgent && config.EnableShellExecution,
             WebSearch = isAgent && config.EnableWebSearch,
-            AgentNotes = isAgent && config.EnableAgentNotes,
+            FileMemory = isAgent && config.EnableFileMemory,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
-            MemorySearchTool = isAgent && config.EnableMemorySearchTool,
+            KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
             ModelSupportsVision = isAgent && modelSupportsVision,
             TodoList = isAgent && config.EnableTodoList,
             AgentMode = isAgent && config.EnableAgentMode,
             ToolPromptOverrides = isAgent
-                ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt, config.MemorySearchPrompt,
-                    config.SubAgentPrompt)
+                ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt,
+                    config.KnowledgeSearchPrompt, config.FileMemoryPrompt, config.SubAgentPrompt)
                 : string.Empty,
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,

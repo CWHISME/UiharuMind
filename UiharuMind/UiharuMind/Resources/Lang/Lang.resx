@@ -267,8 +267,8 @@
     <data name="AgentSettingCapWebSearch" xml:space="preserve">
         <value>Web search</value>
     </data>
-    <data name="AgentSettingCapAgentNotes" xml:space="preserve">
-        <value>Agent notes (file memory)</value>
+    <data name="AgentSettingCapFileMemory" xml:space="preserve">
+        <value>File memory (the agent's own notes)</value>
     </data>
     <data name="AgentSettingCapScheduledTasks" xml:space="preserve">
         <value>Scheduled tasks</value>
@@ -276,8 +276,8 @@
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
         <value>Vision tool (ask_vision)</value>
     </data>
-    <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
-        <value>Memory search tool (memory_search)</value>
+    <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
+        <value>Knowledge search tool (knowledge_search)</value>
     </data>
     <data name="AgentSettingCapSubAgent" xml:space="preserve">
         <value>Sub-agent (run_subagent)</value>
@@ -306,14 +306,14 @@
     <data name="AgentGateDescVisionTool" xml:space="preserve">
         <value>Lets a text-only model ask a vision model about image files (ask_vision). Only mounted when the current model cannot see images itself. The prompt below tells the agent when to use it.</value>
     </data>
-    <data name="AgentGateDescMemorySearch" xml:space="preserve">
-        <value>Search the memory library bound to the session (memory_search). When disabled, or when the model cannot call tools, relevant snippets are injected automatically each turn instead.</value>
+    <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
+        <value>Search the knowledge base attached to the session (knowledge_search). When disabled, or when the model cannot call tools, relevant passages are injected automatically each turn instead. This searches the user's documents — the agent's own notes are file memory, a separate thing.</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
         <value>Delegate an investigation to a sub-agent (run_subagent) and get back a report, so the raw material never enters the main context. The sub-agent inherits this session's permission mode: under Full auto it gets write and shell tools too, otherwise read-only ones only — it runs headless and cannot stop to ask for approval. Its activity opens in a read-only window from the tool card, and is not saved with the session.</value>
     </data>
-    <data name="AgentGateDescAgentNotes" xml:space="preserve">
-        <value>The agent's own persistent notes (file memory), shared across sessions. Different from the session-bound memory library.</value>
+    <data name="AgentGateDescFileMemory" xml:space="preserve">
+        <value>The agent's own notes (file_memory_* tools), stored per character and shared across that character's sessions. Renaming a character moves its notes folder along with it. Different from the knowledge base attached to a session.</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>Create scheduled tasks (create_scheduled_task) that run headlessly at a later time with pre-authorized shell commands only.</value>

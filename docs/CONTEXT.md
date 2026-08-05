@@ -135,9 +135,29 @@ _Avoid_: 被动技能、自动技能、手动技能
 
 ## 记忆域
 
-### Memory（记忆库）
+本域有**两个互不相干的"记忆"**，混淆二者是这里唯一需要警惕的事：一个是用户给的资料，
+一个是 agent 自己写下的东西。
 
-可检索的文档集合，挂到角色或会话上。体现为 `MemoryData`；检索工具是 `memory_search`。
+### Knowledge（知识库）
+
+**用户提供**的可检索文档集合，挂到角色或会话上，靠文本嵌入做 RAG 检索。
+体现为 `MemoryData`（历史命名）、`MemoryManager`、`MemorySources`；检索工具是 `knowledge_search`，
+关闭工具时退化为每轮被动注入（`MemoryContextProvider`）。
+
+用户可见说法目前仍是**记忆库**，这是待改的历史包袱——认定说法是**知识库**（README 与产品简介
+已经这么写）。
+
+⚠️ 不要与 FileMemory 混淆。知识库是别人给它看的材料，不是它自己记下的东西。
+
+### FileMemory（文件记忆）
+
+**agent 自己写下**的笔记，一个角色一个目录、该角色的所有会话共享。由框架的
+`FileMemoryProvider` 提供 `file_memory_*` 工具供模型主动读写；目录归属由 `FileMemoryLayout` 决定
+（框架默认是每个新会话一个目录，那样就只是草稿纸，见 ADR 0002）。
+
+用户可见说法是**文件记忆**。只有 agent 档有，角色扮演档一律不挂。
+
+⚠️ 不要叫它 "AgentMemory"——去掉 `File` 这个限定词后，它和知识库在中文里几乎同名。
 
 ---
 

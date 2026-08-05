@@ -545,9 +545,9 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentSettingCapAgentNotes {
+        public static string AgentSettingCapFileMemory {
             get {
-                return ResourceManager.GetString("AgentSettingCapAgentNotes", resourceCulture);
+                return ResourceManager.GetString("AgentSettingCapFileMemory", resourceCulture);
             }
         }
         
@@ -563,9 +563,9 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentSettingCapMemorySearchTool {
+        public static string AgentSettingCapKnowledgeSearchTool {
             get {
-                return ResourceManager.GetString("AgentSettingCapMemorySearchTool", resourceCulture);
+                return ResourceManager.GetString("AgentSettingCapKnowledgeSearchTool", resourceCulture);
             }
         }
         
@@ -605,15 +605,15 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentGateDescMemorySearch {
+        public static string AgentGateDescKnowledgeSearch {
             get {
-                return ResourceManager.GetString("AgentGateDescMemorySearch", resourceCulture);
+                return ResourceManager.GetString("AgentGateDescKnowledgeSearch", resourceCulture);
             }
         }
         
-        public static string AgentGateDescAgentNotes {
+        public static string AgentGateDescFileMemory {
             get {
-                return ResourceManager.GetString("AgentGateDescAgentNotes", resourceCulture);
+                return ResourceManager.GetString("AgentGateDescFileMemory", resourceCulture);
             }
         }
         

@@ -257,8 +257,8 @@
     <data name="AgentSettingCapWebSearch" xml:space="preserve">
         <value>网络搜索</value>
     </data>
-    <data name="AgentSettingCapAgentNotes" xml:space="preserve">
-        <value>Agent 笔记（文件记忆）</value>
+    <data name="AgentSettingCapFileMemory" xml:space="preserve">
+        <value>文件记忆（Agent 自己的笔记）</value>
     </data>
     <data name="AgentSettingCapScheduledTasks" xml:space="preserve">
         <value>定时任务</value>
@@ -266,8 +266,8 @@
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
         <value>识图工具（ask_vision）</value>
     </data>
-    <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
-        <value>记忆检索工具（memory_search）</value>
+    <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
+        <value>知识库检索工具（knowledge_search）</value>
     </data>
     <data name="AgentSettingCapSubAgent" xml:space="preserve">
         <value>子代理（run_subagent）</value>
@@ -296,14 +296,14 @@
     <data name="AgentGateDescVisionTool" xml:space="preserve">
         <value>让不识图的模型把图片问题转交给视觉模型（ask_vision）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
     </data>
-    <data name="AgentGateDescMemorySearch" xml:space="preserve">
-        <value>检索会话挂载的记忆库（memory_search）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。</value>
+    <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
+        <value>检索会话挂载的知识库（knowledge_search）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记是"文件记忆"，两回事。</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
         <value>把探查委派给子代理（run_subagent），只有报告回到主对话，原始材料不进主上下文。子代理继承本会话的权限档：完全自动档下它也拿到写文件与 shell，其余档位下只拿只读工具——它无头运行，没法停下来等审批。它的过程从工具卡片上开一个只读窗口查看，不随会话存档。</value>
     </data>
-    <data name="AgentGateDescAgentNotes" xml:space="preserve">
-        <value>Agent 自己的持久化笔记（文件记忆），跨会话共享。与会话挂载的记忆库是两回事。</value>
+    <data name="AgentGateDescFileMemory" xml:space="preserve">
+        <value>Agent 自己记的笔记（file_memory_* 工具），按角色分目录存放，同一角色的所有会话共享。角色改名时笔记目录跟着一起改名。与会话挂载的知识库是两回事。</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>创建定时任务（create_scheduled_task），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>

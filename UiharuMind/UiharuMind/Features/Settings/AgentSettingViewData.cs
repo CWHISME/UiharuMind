@@ -176,12 +176,12 @@ public partial class AgentSettingViewData : ViewModelBase
             () => AgentSettingConfig.Current.VisionToolPrompt,
             v => AgentSettingConfig.Current.VisionToolPrompt = v));
 
-        Gates.Add(new AgentGateItem(L("AgentSettingCapMemorySearchTool"), L("AgentGateDescMemorySearch"),
-            () => AgentSettingConfig.Current.EnableMemorySearchTool,
-            v => AgentSettingConfig.Current.EnableMemorySearchTool = v,
-            AgentToolPrompts.MemorySearchDefault,
-            () => AgentSettingConfig.Current.MemorySearchPrompt,
-            v => AgentSettingConfig.Current.MemorySearchPrompt = v));
+        Gates.Add(new AgentGateItem(L("AgentSettingCapKnowledgeSearchTool"), L("AgentGateDescKnowledgeSearch"),
+            () => AgentSettingConfig.Current.EnableKnowledgeSearchTool,
+            v => AgentSettingConfig.Current.EnableKnowledgeSearchTool = v,
+            AgentToolPrompts.KnowledgeSearchDefault,
+            () => AgentSettingConfig.Current.KnowledgeSearchPrompt,
+            v => AgentSettingConfig.Current.KnowledgeSearchPrompt = v));
 
         Gates.Add(new AgentGateItem(L("AgentSettingCapSubAgent"), L("AgentGateDescSubAgent"),
             () => AgentSettingConfig.Current.EnableSubAgent,
@@ -190,9 +190,12 @@ public partial class AgentSettingViewData : ViewModelBase
             () => AgentSettingConfig.Current.SubAgentPrompt,
             v => AgentSettingConfig.Current.SubAgentPrompt = v));
 
-        Gates.Add(new AgentGateItem(L("AgentSettingCapAgentNotes"), L("AgentGateDescAgentNotes"),
-            () => AgentSettingConfig.Current.EnableAgentNotes,
-            v => AgentSettingConfig.Current.EnableAgentNotes = v));
+        Gates.Add(new AgentGateItem(L("AgentSettingCapFileMemory"), L("AgentGateDescFileMemory"),
+            () => AgentSettingConfig.Current.EnableFileMemory,
+            v => AgentSettingConfig.Current.EnableFileMemory = v,
+            AgentToolPrompts.FileMemoryDefault,
+            () => AgentSettingConfig.Current.FileMemoryPrompt,
+            v => AgentSettingConfig.Current.FileMemoryPrompt = v));
 
         Gates.Add(new AgentGateItem(L("AgentSettingCapScheduledTasks"), L("AgentGateDescScheduledTasks"),
             () => AgentSettingConfig.Current.EnableScheduledTasks,

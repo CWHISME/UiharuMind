@@ -13,6 +13,7 @@ using System.Threading.Channels;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 
 using UiharuMind.Core.AI.Character;
@@ -46,12 +47,15 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             _attachedSession = session;
             await EnsureHandleAsync(session, cancellationToken).ConfigureAwait(false);
 
-            if (_boundSessionId == session.SessionId && _session != null) return;
+            if (_boundSessionId != session.SessionId || _session == null)
+            {
+                _session = await RestoreOrCreateSessionAsync(RequireHandle(), session.SessionId, cancellationToken)
+                    .ConfigureAwait(false);
+                SessionChatHistoryProvider.Bind(_session, session.SessionId);
+                _boundSessionId = session.SessionId;
+            }
 
-            _session = await RestoreOrCreateSessionAsync(RequireHandle(), session.SessionId, cancellationToken)
-                .ConfigureAwait(false);
-            SessionChatHistoryProvider.Bind(_session, session.SessionId);
-            _boundSessionId = session.SessionId;
+            ApplyFileMemoryFolder(session, _session);
         }
         finally
         {
@@ -79,7 +83,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             // 按请求时的挂接会话取会话级模型/记忆库(识图技能等会给临时会话绑定视觉模型),
             // 闭包读字段而非捕获参数:同一 handle 会跨会话复用
             SessionModelSource = () => _attachedSession?.ChatModelRunningData,
-            SessionMemorySource = () => _attachedSession?.Memory,
+            SessionKnowledgeSource = () => _attachedSession?.Memory,
             SessionShellApprovalSource = () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
             // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
             ActivitySink = content => _activityChannel?.Writer.TryWrite(content),
@@ -130,6 +134,33 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         finally
         {
             _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 把文件记忆的工作目录钉成"该角色的那一个"。
+    ///
+    /// 必须每次挂接都做,不能只在新建会话时做:框架的默认 initializer 只对新会话生效,
+    /// 而目录名进了会话状态包并随会话持久化——恢复回来的老会话里躺着的是旧值
+    /// (框架默认给的 <c>{timestamp}_{guid}</c>,或改名前的目录名)。
+    /// 覆写与 <see cref="FileMemoryLayout.Reconcile(CharacterData)"/> 的搬迁必须成对:
+    /// 只搬不覆写,老会话仍指向旧名字,框架会照旧名重建一个空目录。
+    /// </summary>
+    private static void ApplyFileMemoryFolder(ChatSession session, AgentSession agentSession)
+    {
+        // 角色扮演档整个禁用了框架文件记忆,没有这份状态可写
+        if (session.CharacterData.Kind != ECharacterKind.Agent) return;
+        if (!AgentSettingConfig.Current.EnableFileMemory) return;
+
+        try
+        {
+            agentSession.StateBag.SetValue(FileMemoryLayout.StateKey,
+                new FileMemoryState { WorkingFolder = FileMemoryLayout.Reconcile(session.CharacterData) });
+        }
+        catch (Exception e)
+        {
+            // 写不进去最坏是这轮沿用框架默认目录,不该让挂接失败
+            Log.Warning($"Pin file memory folder failed: {e.Message}");
         }
     }
 
