@@ -279,6 +279,15 @@
     <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
         <value>Memory search tool (memory_search)</value>
     </data>
+    <data name="AgentSettingCapSubAgent" xml:space="preserve">
+        <value>Sub-agent (run_subagent)</value>
+    </data>
+    <data name="SubAgentViewActivity" xml:space="preserve">
+        <value>View activity</value>
+    </data>
+    <data name="SubAgentActivityTitle" xml:space="preserve">
+        <value>Sub-agent activity</value>
+    </data>
     <data name="AgentSettingCapTodoList" xml:space="preserve">
         <value>Task list</value>
     </data>
@@ -299,6 +308,9 @@
     </data>
     <data name="AgentGateDescMemorySearch" xml:space="preserve">
         <value>Search the memory library bound to the session (memory_search). When disabled, or when the model cannot call tools, relevant snippets are injected automatically each turn instead.</value>
+    </data>
+    <data name="AgentGateDescSubAgent" xml:space="preserve">
+        <value>Delegate an investigation to a sub-agent (run_subagent) and get back a report, so the raw material never enters the main context. The sub-agent inherits this session's permission mode: under Full auto it gets write and shell tools too, otherwise read-only ones only — it runs headless and cannot stop to ask for approval. Its activity opens in a read-only window from the tool card, and is not saved with the session.</value>
     </data>
     <data name="AgentGateDescAgentNotes" xml:space="preserve">
         <value>The agent's own persistent notes (file memory), shared across sessions. Different from the session-bound memory library.</value>

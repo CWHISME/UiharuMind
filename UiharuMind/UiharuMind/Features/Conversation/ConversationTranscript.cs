@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -31,6 +32,7 @@ public sealed class ConversationTranscript
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
+    private readonly Dictionary<string, ConversationTranscript> _nested = new(); //按 CallId 的嵌套转录器
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
 
@@ -104,6 +106,18 @@ public sealed class ConversationTranscript
                     item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
                 }
 
+                // 嵌套转录随本次调用一同收尾并弃用:过程条目留在卡片上,转录器不再累积
+                if (_nested.Remove(result.CallId, out ConversationTranscript? finished))
+                {
+                    finished.CloseSegment();
+                }
+
+                break;
+
+            // 子代理的内部过程。它只走执行者的输出流,不进历史也不回喂模型;
+            // 装配逻辑与顶层完全同一份——过程转录器就是本类的另一个实例,落点换成那张卡片
+            case ToolActivityContent activity:
+                if (ResolveNested(activity.CallId) is { } nested) nested.Apply(activity.Inner);
                 break;
 
             case ToolApprovalRequestContent approvalRequest:
@@ -128,15 +142,66 @@ public sealed class ConversationTranscript
     }
 
     /// <summary>
+    /// 取（必要时新建）某次工具调用的嵌套转录器。
+    /// 卡片还没到位就丢弃这段过程——它只影响显示,而且正常时序下调用先于过程。
+    /// </summary>
+    /// <param name="callId">工具调用标识</param>
+    /// <returns>嵌套转录器；找不到对应卡片时为 null</returns>
+    private ConversationTranscript? ResolveNested(string callId)
+    {
+        if (_nested.TryGetValue(callId, out ConversationTranscript? existing)) return existing;
+
+        ToolCallItem? card = _target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == callId);
+        if (card == null) return null;
+
+        // 过程里的助手气泡不带头像与名字:它是子代理的正文,不是本会话角色在说话
+        ConversationTranscript transcript = new(card.NestedItems, () => new TextConversationItem(false))
+        {
+            AutoCollapseThinking = AutoCollapseThinking,
+        };
+        _nested[callId] = transcript;
+        return transcript;
+    }
+
+    /// <summary>
     /// 收尾当前流段：冲刷解析器残留、标记文本气泡完成、按设置折叠思考段
     /// </summary>
     public void CloseSegment()
     {
         _thinkParser.Complete(AppendText, AppendThinking);
-        if (_streamingText != null) _streamingText.IsDone = true;
-        if (_streamingThinking != null && AutoCollapseThinking) _streamingThinking.IsExpanded = false;
+        // 两个条目的 Message 都是节流更新的,收尾必须显式冲刷,否则最后几个字会短暂缺失
+        if (_streamingText != null)
+        {
+            _streamingText.Flush();
+            _streamingText.IsDone = true;
+        }
+
+        if (_streamingThinking != null)
+        {
+            _streamingThinking.Flush();
+            if (AutoCollapseThinking) _streamingThinking.IsExpanded = false;
+        }
+
         _streamingText = null;
         _streamingThinking = null;
+    }
+
+    /// <summary>
+    /// 一轮结束时收尾嵌套过程。委派型工具是同步的，过程在本轮的内容流结束时必然已经跑完，
+    /// 所以此时残留的嵌套转录器只可能来自被取消的调用——不收尾会让卡片里最后一个气泡
+    /// 永远停在「正在输出」的形态。
+    ///
+    /// 不放在 <see cref="CloseSegment"/> 里：那个方法每遇到一次工具调用就会被调，
+    /// 并行工具调用时会把另一次调用尚在进行的嵌套段提前掐断。
+    /// </summary>
+    public void CloseNestedActivity()
+    {
+        foreach (ConversationTranscript nested in _nested.Values)
+        {
+            nested.CloseSegment();
+        }
+
+        _nested.Clear();
     }
 
     /// <summary>
@@ -196,6 +261,7 @@ public sealed class ConversationTranscript
     {
         _pending.Clear();
         _round.Clear();
+        _nested.Clear();
         _streamingText = null;
         _streamingThinking = null;
         _thinkParser.Reset();

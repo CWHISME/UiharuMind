@@ -579,6 +579,7 @@ public partial class ConversationViewModel : ViewModelBase
         finally
         {
             _transcript.CloseSegment();
+            _transcript.CloseNestedActivity();
             IsGenerating = false;
             _runCancellation = null;
             _transcript.ResolveApprovals(_transcript.PendingApprovals.ToList());

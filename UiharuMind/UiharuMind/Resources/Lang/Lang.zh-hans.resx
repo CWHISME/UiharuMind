@@ -269,6 +269,15 @@
     <data name="AgentSettingCapMemorySearchTool" xml:space="preserve">
         <value>记忆检索工具（memory_search）</value>
     </data>
+    <data name="AgentSettingCapSubAgent" xml:space="preserve">
+        <value>子代理（run_subagent）</value>
+    </data>
+    <data name="SubAgentViewActivity" xml:space="preserve">
+        <value>查看过程</value>
+    </data>
+    <data name="SubAgentActivityTitle" xml:space="preserve">
+        <value>子代理过程</value>
+    </data>
     <data name="AgentSettingCapTodoList" xml:space="preserve">
         <value>任务清单</value>
     </data>
@@ -289,6 +298,9 @@
     </data>
     <data name="AgentGateDescMemorySearch" xml:space="preserve">
         <value>检索会话挂载的记忆库（memory_search）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。</value>
+    </data>
+    <data name="AgentGateDescSubAgent" xml:space="preserve">
+        <value>把探查委派给子代理（run_subagent），只有报告回到主对话，原始材料不进主上下文。子代理继承本会话的权限档：完全自动档下它也拿到写文件与 shell，其余档位下只拿只读工具——它无头运行，没法停下来等审批。它的过程从工具卡片上开一个只读窗口查看，不随会话存档。</value>
     </data>
     <data name="AgentGateDescAgentNotes" xml:space="preserve">
         <value>Agent 自己的持久化笔记（文件记忆），跨会话共享。与会话挂载的记忆库是两回事。</value>

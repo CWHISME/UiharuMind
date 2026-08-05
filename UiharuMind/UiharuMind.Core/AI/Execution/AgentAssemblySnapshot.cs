@@ -68,6 +68,9 @@ public sealed record AgentAssemblySnapshot
     /// <summary>记忆检索工具开关</summary>
     public bool MemorySearchTool { get; init; }
 
+    /// <summary>子代理工具开关</summary>
+    public bool SubAgent { get; init; }
+
     /// <summary>当前模型是否自带视觉(决定识图工具挂不挂;视觉↔非视觉切换经此触发重建)</summary>
     public bool ModelSupportsVision { get; init; }
 
@@ -149,11 +152,13 @@ public sealed record AgentAssemblySnapshot
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
             MemorySearchTool = isAgent && config.EnableMemorySearchTool,
+            SubAgent = isAgent && config.EnableSubAgent,
             ModelSupportsVision = isAgent && modelSupportsVision,
             TodoList = isAgent && config.EnableTodoList,
             AgentMode = isAgent && config.EnableAgentMode,
             ToolPromptOverrides = isAgent
-                ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt, config.MemorySearchPrompt)
+                ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt, config.MemorySearchPrompt,
+                    config.SubAgentPrompt)
                 : string.Empty,
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,

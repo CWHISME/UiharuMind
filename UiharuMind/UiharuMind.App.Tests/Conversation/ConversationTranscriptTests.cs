@@ -22,6 +22,26 @@ public class ConversationTranscriptTests
         return (transcript, items);
     }
 
+    /// <summary>
+    /// 流式期间 <c>Message</c> 是<b>节流</b>更新的（每个 token 都重设全文会带来一次
+    /// 全量文本重排，成本随长度二次增长）。要读它的准确值必须先 <c>Flush</c>——
+    /// 生产代码里由 <c>CloseSegment</c> 负责，收尾之前谁都不该拿它当同步真值。
+    /// </summary>
+    private static string FlushedMessage(ConversationItemBase item)
+    {
+        switch (item)
+        {
+            case TextConversationItem text:
+                text.Flush();
+                return text.Message;
+            case ThinkingItem thinking:
+                thinking.Flush();
+                return thinking.Message;
+            default:
+                return item.Message;
+        }
+    }
+
     [Fact]
     public void TextDeltas_AccumulateIntoOneBubble()
     {
@@ -33,7 +53,7 @@ public class ConversationTranscriptTests
 
         ConversationItemBase item = Assert.Single(items);
         TextConversationItem text = Assert.IsType<TextConversationItem>(item);
-        Assert.Equal("你好世界", text.Message);
+        Assert.Equal("你好世界", FlushedMessage(text));
         Assert.False(text.IsDone); //未收尾
     }
 
@@ -48,8 +68,8 @@ public class ConversationTranscriptTests
 
         Assert.Equal(2, items.Count);
         Assert.True(((TextConversationItem)items[0]).IsDone);
-        Assert.Equal("第一段", ((TextConversationItem)items[0]).Message);
-        Assert.Equal("第二段", ((TextConversationItem)items[1]).Message);
+        Assert.Equal("第一段", FlushedMessage(items[0]));
+        Assert.Equal("第二段", FlushedMessage(items[1]));
     }
 
     [Fact]
@@ -109,8 +129,8 @@ public class ConversationTranscriptTests
 
         Assert.Equal(2, items.Count);
         Assert.IsType<ThinkingItem>(items[0]);
-        Assert.Equal("推理过程", ((ThinkingItem)items[0]).Message);
-        Assert.Equal("正式回答", ((TextConversationItem)items[1]).Message);
+        Assert.Equal("推理过程", FlushedMessage(items[0]));
+        Assert.Equal("正式回答", FlushedMessage(items[1]));
     }
 
     [Fact]
@@ -124,8 +144,8 @@ public class ConversationTranscriptTests
         transcript.Apply(new TextContent("nk>答案"));
         transcript.CloseSegment();
 
-        Assert.Equal("分段推理", ((ThinkingItem)items[0]).Message);
-        Assert.Equal("答案", ((TextConversationItem)items[1]).Message);
+        Assert.Equal("分段推理", FlushedMessage(items[0]));
+        Assert.Equal("答案", FlushedMessage(items[1]));
     }
 
     [Fact]
@@ -331,8 +351,8 @@ public class ConversationTranscriptTests
         transcript.Apply(new TextContent("新"));
 
         Assert.Equal(2, items.Count); //没有续写到旧气泡上
-        Assert.Equal("旧", ((TextConversationItem)items[0]).Message);
-        Assert.Equal("新", ((TextConversationItem)items[1]).Message);
+        Assert.Equal("旧", FlushedMessage(items[0]));
+        Assert.Equal("新", FlushedMessage(items[1]));
         Assert.Empty(transcript.PendingApprovals);
     }
 
@@ -350,7 +370,7 @@ public class ConversationTranscriptTests
         liveTranscript.Apply(new TextContent("实时"));
         replayTranscript.Apply(new TextContent("回放"));
 
-        Assert.Equal("实时", ((TextConversationItem)Assert.Single(live)).Message);
-        Assert.Equal("回放", ((TextConversationItem)Assert.Single(replay)).Message);
+        Assert.Equal("实时", FlushedMessage(Assert.Single(live)));
+        Assert.Equal("回放", FlushedMessage(Assert.Single(replay)));
     }
 }

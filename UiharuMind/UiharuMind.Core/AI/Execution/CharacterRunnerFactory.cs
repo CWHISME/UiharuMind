@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Scheduler;
 using UiharuMind.Core.AI.Execution.Skills;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
@@ -66,6 +67,12 @@ public class AgentBuildProfile
     /// 用户点"记住同类命令"后立即生效,无需重建装配)
     /// </summary>
     public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
+
+    /// <summary>
+    /// 委派型工具的过程上报口(子代理与识图)。由执行者提供,指向它本轮的输出通道;
+    /// 为空表示过程不外显。<b>只被渲染,不进历史也不回喂模型</b>——见 <see cref="ToolActivityContent"/>。
+    /// </summary>
+    public Action<AIContent>? ActivitySink { get; init; }
 }
 
 /// <summary>
@@ -191,6 +198,18 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             extraTools.Add(VisionTool.Create(workingDirectory));
         }
 
+        // 工作区规矩属任务上下文而非平台机制:放 agent 侧指令尾部——
+        // 即整个系统提示的最尾,遵循权重最高;内容变化仍经装配快照捕获。
+        // 在此提前读出,是因为子代理要继承同一份
+        string workspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath);
+
+        // 子代理:工具集与权限档都从主 agent 派生,全部能力都关掉时不挂载
+        AITool? subAgentTool = config.EnableSubAgent
+            ? TryCreateSubAgentTool(client, config, workingDirectory, mountVisionTool, profile,
+                workspaceInstructions)
+            : null;
+        if (subAgentTool != null) extraTools.Add(subAgentTool);
+
         if (config.EnableMemorySearchTool)
         {
             extraTools.Add(MemoryTool.Create(profile.SessionMemorySource));
@@ -220,11 +239,6 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             ? new FileSystemAgentFileStore(Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory"))
             : null;
 
-        AIAgent? researcher = BuildResearcherAgent(client, config, workingDirectory, mountVisionTool);
-
-        // 工作区规矩属任务上下文而非平台机制:放 agent 侧指令尾部——
-        // 即整个系统提示的最尾,遵循权重最高;内容变化仍经装配快照捕获
-        string workspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath);
         if (workspaceInstructions.Length > 0)
         {
             chatOptions.Instructions =
@@ -234,46 +248,117 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             SkillCatalog.Instance.BuildSkillsSource(), agentNotesStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
-            researcher == null ? null : [researcher], profile.SessionShellApprovalSource,
-            visionToolMounted: mountVisionTool), shellExecutor);
+            profile.SessionShellApprovalSource,
+            visionToolMounted: mountVisionTool, workingDirectory: workingDirectory), shellExecutor);
     }
 
     /// <summary>
-    /// 内置"调研员"只读子代理:主 agent 可把大范围的探查/调研任务委托给它,
-    /// 结论以报告返回,不吃主上下文。零配置面——工具集尊重全局能力开关,
-    /// 全部只读能力都被关掉时不挂载。
-    /// 只读因而免审批,不涉及嵌套审批通道;无 shell/写/技能/todo/mode,一次性会话不落盘。
+    /// 子代理装配的输入。与 <see cref="AgentBuildProfile"/> 同一风格:把装配消费的东西列全,
+    /// 使 <see cref="BuildSubAgentOptions"/> 成为不碰任何单例的纯函数。
+    /// </summary>
+    internal sealed record SubAgentAssemblyInput
+    {
+        /// <summary>能力配置(与主 agent 同一份,子代理的工具集由它派生)</summary>
+        public required AgentSettingConfig Config { get; init; }
+
+        /// <summary>文件工具的根目录</summary>
+        public required string WorkingDirectory { get; init; }
+
+        /// <summary>识图工具是否可挂(开关开且当前模型不自带视觉)</summary>
+        public bool VisionToolAvailable { get; init; } = true;
+
+        /// <summary>继承自主 agent 的权限档,决定可变更工具挂不挂</summary>
+        public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.ReadOnly;
+
+        /// <summary>工作区说明文件内容(与主 agent 同一份 AGENTS.md),拼在提示词最尾</summary>
+        public string WorkspaceInstructions { get; init; } = string.Empty;
+
+        /// <summary>
+        /// shell 工具。有生命周期的资源,故由调用方创建并负责释放,不在纯函数里造。
+        /// 只在完全自动档才该传进来。
+        /// </summary>
+        public AITool? ShellTool { get; init; }
+
+        /// <summary>MCP 工具集(完全自动档才挂;它们可能改东西,较低档位下会卡在无人回应的审批上)</summary>
+        public IReadOnlyList<AITool>? McpTools { get; init; }
+
+        /// <summary>无人值守 shell 预授权模式(与主 agent 同源)</summary>
+        public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
+
+        /// <summary>会话级 shell 放行模式来源(与主 agent 同源)</summary>
+        public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
+    }
+
+    /// <summary>
+    /// 创建子代理工具。每次调用重新装配:装配本身是纯内存组装代价可忽略,
+    /// 而 shell 执行器是有生命周期的资源,必须一次调用一个、用完即弃。
     /// </summary>
     /// <param name="client">模型客户端(与主 agent 同一惰性客户端)</param>
     /// <param name="config">能力配置</param>
-    /// <param name="workingDirectory">工作目录(只读文件工具的根)</param>
-    /// <param name="visionToolAvailable">识图工具是否可挂(开关开且当前模型不自带视觉)</param>
-    /// <returns>子代理;无任何只读能力可用时为 null</returns>
-    private static AIAgent? BuildResearcherAgent(IChatClient client, AgentSettingConfig config,
-        string workingDirectory, bool visionToolAvailable)
+    /// <param name="workingDirectory">文件工具的根目录</param>
+    /// <param name="visionToolAvailable">识图工具是否可挂</param>
+    /// <param name="profile">主 agent 的构建配置(权限档与 shell 放行来源由此继承)</param>
+    /// <param name="workspaceInstructions">工作区说明文件内容</param>
+    /// <returns>工具;无任何能力可用时为 null</returns>
+    private static AITool? TryCreateSubAgentTool(IChatClient client, AgentSettingConfig config,
+        string workingDirectory, bool visionToolAvailable, AgentBuildProfile profile,
+        string workspaceInstructions)
     {
-        HarnessAgentOptions? options = BuildResearcherOptions(config, workingDirectory, visionToolAvailable);
-        if (options == null) return null;
+        bool fullAuto = profile.PermissionMode == EAgentPermissionMode.FullAuto;
 
-        MfaLoggerFactory loggerFactory = new();
-        return client.AsHarnessAgent(options, loggerFactory, new MfaServiceProvider(loggerFactory));
+        SubAgentAssemblyInput Probe(AITool? shellTool, IReadOnlyList<AITool>? mcpTools) => new()
+        {
+            Config = config,
+            WorkingDirectory = workingDirectory,
+            VisionToolAvailable = visionToolAvailable,
+            PermissionMode = profile.PermissionMode,
+            WorkspaceInstructions = workspaceInstructions,
+            ShellTool = shellTool,
+            McpTools = mcpTools,
+            PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
+            SessionShellApprovalSource = profile.SessionShellApprovalSource,
+        };
+
+        // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
+        if (BuildSubAgentOptions(Probe(null, null)) == null) return null;
+
+        return SubAgentTool.Create(() =>
+        {
+            LocalShellExecutor? shellExecutor = fullAuto && config.EnableShellExecution
+                ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = workingDirectory })
+                : null;
+            AITool? shellTool = shellExecutor?.AsAIFunction(ShellToolName);
+            IReadOnlyList<AITool>? mcpTools = fullAuto ? McpManager.Instance.GetCachedTools() : null;
+
+            HarnessAgentOptions options = BuildSubAgentOptions(Probe(shellTool, mcpTools))!;
+            MfaLoggerFactory loggerFactory = new();
+            return new AgentHandle(
+                client.AsHarnessAgent(options, loggerFactory, new MfaServiceProvider(loggerFactory)),
+                shellExecutor);
+        }, profile.ActivitySink);
     }
 
     /// <summary>
-    /// 调研员装配选项(纯函数,不碰单例)。不变量:工具集只含只读工具——
-    /// 它在主 agent 的工具调用内部无头运行,没有审批通道,任何可变更工具混入都是越权。
+    /// 子代理装配选项(纯函数,不碰单例)。不变量,均由测试钉住:
+    /// 工具集<b>不含子代理工具自身</b>(无限递归);不含主代理特有的那批
+    /// (技能/定时任务/记忆检索——子代理拿的是一份任务书,不需要再自己装载指令或排定时任务);
+    /// <b>非完全自动档下必须只读</b>——子代理没有审批通道,给它一个必然要问用户的工具
+    /// 等于给一把静默失效的工具(框架遇到 <c>ApprovalRequiredAIFunction</c> 不执行,
+    /// 只产出一条无人回应的审批请求)。
     /// </summary>
-    /// <param name="config">能力配置</param>
-    /// <param name="workingDirectory">只读文件工具的根目录</param>
-    /// <param name="visionToolAvailable">识图工具是否可挂(开关开且当前模型不自带视觉)</param>
-    /// <returns>框架选项;无任何只读能力启用时为 null</returns>
-    internal static HarnessAgentOptions? BuildResearcherOptions(AgentSettingConfig config,
-        string workingDirectory, bool visionToolAvailable = true)
+    /// <param name="input">装配输入</param>
+    /// <returns>框架选项;无任何能力启用时为 null</returns>
+    internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
+        AgentSettingConfig config = input.Config;
+        // 完全自动档一律放行,子代理才可能真的写成东西;其余档位下写/shell 必然要问用户,故不挂
+        bool canMutate = input.PermissionMode == EAgentPermissionMode.FullAuto;
+
         List<AITool> tools = new();
         if (config.EnableFileAccess)
         {
-            tools.AddRange(new PermissiveFileAccessTools(workingDirectory).Create(disableWriteTools: true));
+            tools.AddRange(new PermissiveFileAccessTools(input.WorkingDirectory)
+                .Create(disableWriteTools: !canMutate));
         }
 
         if (config.EnableWebSearch)
@@ -282,23 +367,31 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             tools.Add(WebFetchTool.Create());
         }
 
-        bool hasVision = config.EnableVisionTool && visionToolAvailable;
+        bool hasVision = config.EnableVisionTool && input.VisionToolAvailable;
         if (hasVision)
         {
-            tools.Add(VisionTool.Create(workingDirectory));
+            tools.Add(VisionTool.Create(input.WorkingDirectory));
+        }
+
+        if (canMutate)
+        {
+            if (input.ShellTool != null) tools.Add(input.ShellTool);
+            if (input.McpTools != null) tools.AddRange(input.McpTools);
         }
 
         if (tools.Count == 0) return null;
 
         return new HarnessAgentOptions
         {
-            Name = "Researcher",
-            Description = "Read-only researcher: surveys the workspace files and/or the web, inspects images, " +
-                          "and returns a focused report. Delegate broad exploration or research tasks to it " +
-                          "to keep the main context small. It cannot modify anything.",
-            // 调研员同样是工具循环 agent,框架默认工作循环指令照拿;自己的方法论在 ChatOptions.Instructions
+            Name = "SubAgent",
+            Description = "Sub-agent: surveys workspace files and/or the web, inspects images, " +
+                          "and returns a focused report.",
+            // 子代理同样是工具循环 agent,框架默认工作循环指令照拿;自己的方法论在 ChatOptions.Instructions
             HarnessInstructions = HarnessAgent.DefaultInstructions,
-            // 与角色扮演档同一原则:框架有状态能力全关,子代理是一次性的纯工具循环
+            // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
+            // 子代理能改东西之后这条更承重
+            MaximumIterationsPerRequest = SubAgentTool.MaxIterations,
+            // 框架有状态能力全关,子代理是一次性的纯工具循环
             // (1.16 起框架文件工具只随 FileAccessStore 出现,不设即无,无需显式关闭)
             DisableWebSearch = true,
             DisableFileMemory = true,
@@ -306,33 +399,55 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             DisableAgentModeProvider = true,
             DisableAgentSkillsProvider = true,
             DisableCompaction = true,
-            DisableToolAutoApproval = true,
             DisableOpenTelemetry = true,
+            // 审批中间件照挂,规则与主 agent 同源——档位语义只有一处定义(ApprovalModeMapper)。
+            // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
+            ToolApprovalAgentOptions = new ToolApprovalAgentOptions
+            {
+                AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
+                    input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource),
+            },
             ChatOptions = new ChatOptions
             {
-                Instructions = BuildResearcherInstructions(config, hasVision),
+                Instructions = BuildSubAgentInstructions(config, hasVision, canMutate,
+                    input.WorkingDirectory, input.WorkspaceInstructions),
                 Tools = tools,
             },
         };
     }
 
     /// <summary>
-    /// 调研员的系统提示:身份 + 只读边界 + 报告体例,按启用的能力裁剪。
+    /// 子代理的系统提示:身份 + 权限边界 + 报告体例(按实际装配的工具集裁剪)
+    /// + 与主 agent 同一份工作区规矩。
+    ///
+    /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
+    /// 本仓 AGENTS.md 头一条就是"有四层同名目录,用绝对路径别数相对层数",
+    /// 拿着 Glob/Read 的子代理不知道这条就会直接踩进去。
+    ///
+    /// 全段由我们写死,不开放给调用方 AI:实测本地模型往自定义提示词里填的是与任务书重复的
+    /// 泛泛套话,而固定段里指名的工具由我们保证真实存在(有不变量测试钉住),
+    /// 调用方看不见子代理挂了哪些工具。
     /// </summary>
     /// <param name="config">能力配置</param>
     /// <param name="hasVision">识图工具是否已装配</param>
+    /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
+    /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
+    /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <returns>提示词</returns>
-    private static string BuildResearcherInstructions(AgentSettingConfig config, bool hasVision)
+    private static string BuildSubAgentInstructions(AgentSettingConfig config, bool hasVision, bool canMutate,
+        string workingDirectory, string workspaceInstructions)
     {
         StringBuilder sb = new();
         sb.AppendLine("# Role");
-        sb.AppendLine("You are the Researcher, a read-only sub-agent of UiharuMind. " +
-                      "You investigate and report; you never modify anything and you have no shell.");
+        sb.AppendLine("You are a sub-agent of UiharuMind, delegated one task by the main agent. "
+                      + "You work alone and report back.");
         sb.AppendLine();
         sb.AppendLine("# Method");
         if (config.EnableFileAccess)
         {
-            sb.AppendLine("- Explore workspace files with Glob/Grep/Read. Pass explicit paths.");
+            sb.AppendLine($"- Explore workspace files with `{PermissiveFileAccessTools.GlobToolName}`, "
+                          + $"`{PermissiveFileAccessTools.GrepToolName}` and "
+                          + $"`{PermissiveFileAccessTools.ReadToolName}`. Pass explicit paths.");
         }
 
         if (config.EnableWebSearch)
@@ -346,8 +461,33 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             sb.AppendLine($"- For image files, call `{VisionTool.ToolName}` with the file path.");
         }
 
-        sb.AppendLine("- Work autonomously; never ask for clarification.");
+        // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
+        sb.AppendLine(canMutate
+            ? "- You may change things, but only what the task asks for. Nothing else."
+            : "- You are read-only: you cannot write files and have no shell. Report what should change; "
+              + "the main agent makes the edits.");
+        sb.AppendLine("- You cannot ask for clarification and nobody will approve anything for you. "
+                      + "Work with what the task gives you.");
         sb.Append("- Return a focused report: conclusions first, then the evidence (paths, URLs, quotes).");
+
+        // 与主 agent 同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
+        // 没有任何线索能反推出根目录在哪
+        if (workingDirectory.Length > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("# Working directory");
+            sb.Append(AgentToolPrompts.BuildWorkingDirectory(workingDirectory));
+        }
+
+        if (workspaceInstructions.Length > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("# Workspace Instructions (from the project's AGENTS.md)");
+            sb.Append(workspaceInstructions);
+        }
+
         return sb.ToString();
     }
 
@@ -396,24 +536,23 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="agentNotesStore">agent 笔记存储,禁用时为 null</param>
     /// <param name="permissionMode">权限档</param>
     /// <param name="preAuthorizedShellPatterns">无人值守 shell 预授权模式</param>
-    /// <param name="backgroundAgents">背景子代理(内置调研员),无则 null</param>
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
     /// <param name="visionToolMounted">识图工具是否已装配(开关开且当前模型不自带视觉)</param>
+    /// <param name="workingDirectory">文件与 shell 工具的根目录;空串则提示词里不写工作目录段</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         AgentSkillsSource skillsSource, FileSystemAgentFileStore? agentNotesStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
-        List<AIAgent>? backgroundAgents = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        bool visionToolMounted = true)
+        bool visionToolMounted = true, string workingDirectory = "")
     {
         return new HarnessAgentOptions
         {
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            HarnessInstructions = BuildToolDisciplines(config, visionToolMounted),
+            HarnessInstructions = BuildToolDisciplines(config, visionToolMounted, workingDirectory),
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableTodoProvider = !config.EnableTodoList,
@@ -422,7 +561,6 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             // 1.16:框架文件工具只随 FileAccessStore 出现;shell 改为普通工具挂在 ChatOptions.Tools
             FileAccessStore = null,
             AgentSkillsSource = skillsSource,
-            BackgroundAgents = backgroundAgents,
             AIContextProviders = contextProviders,
             ToolApprovalAgentOptions = new ToolApprovalAgentOptions
             {
@@ -461,10 +599,20 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="config">agent 能力配置</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <returns>harness 层指令文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config, bool visionToolMounted)
+    private static string BuildToolDisciplines(AgentSettingConfig config, bool visionToolMounted,
+        string workingDirectory)
     {
         StringBuilder sb = new();
         sb.Append(HarnessAgent.DefaultInstructions);
+
+        // 工作目录排在最前:后面每一段纪律都以"路径怎么写"为前提
+        if (workingDirectory.Length > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("## Working directory");
+            sb.AppendLine(AgentToolPrompts.BuildWorkingDirectory(workingDirectory));
+        }
 
         // 各段正文可在设置页覆盖(空 = 用 AgentToolPrompts 默认),段落标题固定由此处统一挂
         if (config.EnableFileAccess)
@@ -487,6 +635,13 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             sb.AppendLine();
             sb.AppendLine("## Memory");
             sb.AppendLine(AgentToolPrompts.ResolveMemorySearch(config));
+        }
+
+        if (config.EnableSubAgent)
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Delegation");
+            sb.AppendLine(AgentToolPrompts.ResolveSubAgent(config));
         }
 
         return sb.ToString();

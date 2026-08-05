@@ -9,6 +9,7 @@
 
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Threading.Channels;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
@@ -33,6 +34,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private string? _boundSessionId;
     private ChatSession? _attachedSession; //当前挂接的会话本体,供惰性客户端按请求解析会话级模型
     private AgentAssemblySnapshot? _lastSnapshot; //上次装配消费的输入快照
+    private Channel<AIContent>? _activityChannel; //本轮的输出通道,委派型工具的过程经此并入内容流
 
     public bool HasSession => _session != null;
 
@@ -79,6 +81,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             SessionModelSource = () => _attachedSession?.ChatModelRunningData,
             SessionMemorySource = () => _attachedSession?.Memory,
             SessionShellApprovalSource = () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
+            // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
+            ActivitySink = content => _activityChannel?.Writer.TryWrite(content),
         });
 
         if (_handle != null && _session != null)
@@ -163,14 +167,53 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                     $"{nameof(ICharacterRunner)} 尚未挂接会话,请先调用 {nameof(AttachAsync)}。");
             }
 
-            await foreach (AgentResponseUpdate update in _handle.Agent
-                               .RunStreamingAsync(messages, _session, cancellationToken: cancellationToken)
-                               .ConfigureAwait(false))
+            // 框架流与委派型工具的过程合并成一条:两者都写进本轮通道,消费方只见一条有序流。
+            // 必须让框架流也走通道——工具执行发生在框架迭代的内部,若在外层"框架流的间隙"里
+            // 顺带排空通道,子代理的过程就只能等工具返回后才一次性冒出来,live 进度全丢。
+            // 通道是本轮专属的:迟到的推送落进已弃用的通道被丢弃,不会串到下一轮。
+            //
+            // 无界是承重的,不要为了背压改成 bounded:委派型工具在框架迭代的内部执行,
+            // 也就是在泵自己的执行流里往这个通道写——一旦写入会阻塞,泵就在等自己,当场死锁。
+            Channel<AIContent> channel = Channel.CreateUnbounded<AIContent>();
+            _activityChannel = channel;
+            AgentHandle handle = _handle;
+            AgentSession session = _session;
+            // 消费方提前 break(不取消令牌)时用它给泵收尾,否则末尾的 await 会挂死
+            CancellationTokenSource pumpSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            Task pump = Task.Run(async () =>
             {
-                foreach (AIContent content in update.Contents)
+                try
+                {
+                    await foreach (AgentResponseUpdate update in handle.Agent
+                                       .RunStreamingAsync(messages, session, cancellationToken: pumpSource.Token)
+                                       .ConfigureAwait(false))
+                    {
+                        foreach (AIContent content in update.Contents) channel.Writer.TryWrite(content);
+                    }
+
+                    channel.Writer.TryComplete();
+                }
+                catch (Exception e)
+                {
+                    // 异常经通道交给消费方抛出;本任务自身永不抛,故末尾 await 它是安全的
+                    channel.Writer.TryComplete(e);
+                }
+            }, CancellationToken.None);
+
+            try
+            {
+                await foreach (AIContent content in channel.Reader.ReadAllAsync(cancellationToken)
+                                   .ConfigureAwait(false))
                 {
                     yield return content;
                 }
+            }
+            finally
+            {
+                _activityChannel = null;
+                await pumpSource.CancelAsync().ConfigureAwait(false);
+                await pump.ConfigureAwait(false);
+                pumpSource.Dispose();
             }
         }
         finally

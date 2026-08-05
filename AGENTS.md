@@ -58,18 +58,6 @@ dotnet test  UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
 axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
 「App 项目编译通过」是很强的信号。
 
-## 不可破坏的约束
-
-`UiharuMind.Core.csproj` 给 Agent Framework 相关包打了 `PrivateAssets=compile`，
-**UI 层若直接引用其类型会变成编译错误**，迫使一切经 `ICharacterRunner` 收口。
-这是本仓最重要的架构约束。
-
-遇到「UI 层找不到某个 Agent Framework 类型」时，**正确做法是把需求收进 `ICharacterRunner`**，
-而不是给 App 项目加包引用——那会当场拆掉这条缝。
-
-注意 `PrivateAssets` 必须是 `compile` 而非 `all`：`all` 会连运行时资产一起挡掉，
-导致这些包及其传递依赖不进入 app 输出目录，运行时抛 `FileNotFoundException`。
-
 ## 结构约定
 
 **命名空间与目录严格对齐**（唯一例外是只放程序集级 attribute 的 `XmlnsDefinition.cs`）。

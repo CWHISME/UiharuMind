@@ -92,71 +92,10 @@
     <!-- 当 Items 集合里出现一个 ToolCallItem 类型的对象时，ItemsControl 用自己的 DataTemplates 找不到匹配，就会沿逻辑树向上找，一路找到父级 ConversationView，再找到 AgentPage 的 UserControl.DataTemplates，命中 DataType="conv:XXX" 这个模板并渲染。 -->
     <UserControl.DataTemplates>
 
-        <!-- 工具调用卡片 -->
+        <!-- 工具调用卡片:视觉与行为都在 ToolCallCardView 里,
+             会话流与子代理过程窗口共用同一份组件 -->
         <DataTemplate DataType="conv:ToolCallItem">
-            <Border Classes="tool-card" Margin="10" 
-                    MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
-                    Converter={x:Static AddConverter.Instance},
-                    ConverterParameter=-10}">
-                <StackPanel Spacing="6">
-                    <ToggleButton Classes="NoneStyle"
-                                  Cursor="Hand"
-                                  MaxHeight="32"
-                                  Background="Transparent" Padding="0"
-                                  BorderThickness="0" IsChecked="{Binding IsExpanded}"
-                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
-                                       VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
-                                       VerticalAlignment="Center" Text="{Binding ToolName}" />
-                            <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
-                                       VerticalAlignment="Center"
-                                       Text="{Binding ArgumentSummary}"
-                                       TextTrimming="CharacterEllipsis" />
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
-                                        VerticalAlignment="Center">
-                                <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
-                                    <TextBlock Text="◠" FontSize="11"
-                                               Foreground="{DynamicResource SemiBlue5}" />
-                                </Border>
-                                <Ellipse Width="8" Height="8" Fill="#4CAF50">
-                                    <Ellipse.IsVisible>
-                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                            <Binding Path="!IsRunning" />
-                                            <Binding Path="IsSuccess" />
-                                        </MultiBinding>
-                                    </Ellipse.IsVisible>
-                                </Ellipse>
-                                <Ellipse Width="8" Height="8" Fill="IndianRed">
-                                    <Ellipse.IsVisible>
-                                        <MultiBinding Converter="{x:Static BoolConverters.And}">
-                                            <Binding Path="!IsRunning" />
-                                            <Binding Path="!IsSuccess" />
-                                        </MultiBinding>
-                                    </Ellipse.IsVisible>
-                                </Ellipse>
-                                    <ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
-                                        <ThemedSvgIcon.RenderTransform>
-                                            <RotateTransform Angle="{Binding IsExpanded,
-                                            Converter={x:Static convs:BoolToDoubleConverter.Instance},
-                                            ConverterParameter='180:0'}" />
-                                        </ThemedSvgIcon.RenderTransform>
-                                    </ThemedSvgIcon>
-                            </StackPanel>
-                        </Grid>
-                    </ToggleButton>
-                    <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
-                        <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
-                        <Border Classes="result-panel"
-                                IsVisible="{Binding ResultText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
-                                <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" TextWrapping="Wrap"/>
-                            </ScrollViewer>
-                        </Border>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
+            <conv:ToolCallCardView />
         </DataTemplate>
 
         <!-- 审批卡片 -->

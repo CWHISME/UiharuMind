@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="120"
+             x:Class="UiharuMind.Features.Conversation.ToolCallCardView"
+             x:DataType="conv:ToolCallItem">
+
+    <!-- 一次工具调用的卡片。抽成组件而非各处一份模板:它同时长在会话流里和子代理过程窗口里,
+         而这两处不共享样式作用域(tool-card 等原先只定义在 AgentPage 内),
+         复制一份的结果就是两边观感不一致。样式随组件走,复制不出去也就飘不了。 -->
+    <UserControl.Styles>
+        <Style Selector="Border.tool-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+        <Style Selector="Border.result-panel">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+        <Style Selector="Border.spin">
+            <Style.Animations>
+                <Animation Duration="0:0:1.2" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="SelectableTextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <!-- NoneStyle 只换了 Template,没管配色:Semi 的 ToggleButton 未选中取
+             ButtonDefaultPrimaryForeground(蓝),选中切到 ButtonSolidForeground
+             ——那本是实心蓝底上的白字,而 NoneStyle 把底去掉了,于是展开就只剩白字。
+             这里只钉住选中态、让它取回未选中那支笔,未选中态一字不动。 -->
+        <Style Selector="ToggleButton.NoneStyle:checked">
+            <Setter Property="Foreground" Value="{DynamicResource ButtonDefaultPrimaryForeground}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- MaxWidth 不只是为了留白:它给了这张卡一个<b>有限</b>宽度,
+         下面那个 ColumnDefinitions 里的 * 列才算得出宽度。少了它,在无约束的容器
+         (比如过程窗口的 ItemsControl)里 * 列会塌成 0,症状是"只显示工具名、参数不见了" -->
+    <Border Classes="tool-card"
+            MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+            Converter={x:Static AddConverter.Instance},
+            ConverterParameter=-10}">
+        <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+                <!-- 子代理的内部过程走独立只读窗口:条目模板按整幅宽度设计,
+                     嵌进卡片里必然走形(宽度被层层削减、滚动区互相嵌套) -->
+                <Button Grid.Column="1" Classes="SimpleSolidButton" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Command="{Binding ShowActivityCommand}"
+                        Content="{loc:Loc SubAgentViewActivity}"
+                        IsVisible="{Binding NestedItems.Count,
+                        Converter={x:Static IntToBoolConverter.Instance}}" />
+                <ToggleButton Grid.Column="0" Classes="NoneStyle"
+                              Cursor="Hand"
+                              MaxHeight="32"
+                              Background="Transparent" Padding="0"
+                              BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <!-- 刻意不给 Foreground:让它继承 ToggleButton 的蓝色。
+                             展开变白那个 bug 由上面的 :checked 样式在源头解决 -->
+                        <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
+                                   VerticalAlignment="Center" Text="{Binding ToolName}" />
+                        <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding ArgumentSummary}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
+                                <TextBlock Text="◠" FontSize="11"
+                                           Foreground="{DynamicResource SemiBlue5}" />
+                            </Border>
+                            <Ellipse Width="8" Height="8" Fill="#4CAF50">
+                                <Ellipse.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="!IsRunning" />
+                                        <Binding Path="IsSuccess" />
+                                    </MultiBinding>
+                                </Ellipse.IsVisible>
+                            </Ellipse>
+                            <Ellipse Width="8" Height="8" Fill="IndianRed">
+                                <Ellipse.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="!IsRunning" />
+                                        <Binding Path="!IsSuccess" />
+                                    </MultiBinding>
+                                </Ellipse.IsVisible>
+                            </Ellipse>
+                            <ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
+                                <ThemedSvgIcon.RenderTransform>
+                                    <RotateTransform Angle="{Binding IsExpanded,
+                                    Converter={x:Static BoolToDoubleConverter.Instance},
+                                    ConverterParameter='180:0'}" />
+                                </ThemedSvgIcon.RenderTransform>
+                            </ThemedSvgIcon>
+                        </StackPanel>
+                    </Grid>
+                </ToggleButton>
+            </Grid>
+            <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
+                <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
+                <Border Classes="result-panel"
+                        IsVisible="{Binding ResultText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
+                        <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+
+</UserControl>

@@ -17,6 +17,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation;
@@ -127,6 +128,13 @@ public partial class TextConversationItem : ConversationItemBase
     private readonly StringBuilder _buffer = new();
     private readonly bool _isUser;
 
+    /// <summary>
+    /// UI 侧节流。流式期间每个 token 都把累积全文重设一次,渲染侧要么做全量文本重排、
+    /// 要么重解析整篇 markdown,成本随长度二次增长。50ms(~20Hz)肉眼仍是连续的,
+    /// 重排次数却降一个数量级。尾巴由 <see cref="Flush"/> 保证不丢。
+    /// </summary>
+    private readonly ValueUiDelayUpdater<object?> _throttle;
+
     public override bool IsUser => _isUser;
 
     /// <summary>随消息一同显示的图片（多模态消息里的 DataContent）</summary>
@@ -150,6 +158,8 @@ public partial class TextConversationItem : ConversationItemBase
     public TextConversationItem(bool isUser)
     {
         _isUser = isUser;
+        // 传 null 而非全文:值在真正触发时才从 buffer 取,免得每个 token 都白白拼一次全文
+        _throttle = new ValueUiDelayUpdater<object?>(_ => Message = _buffer.ToString(), 50);
     }
 
     /// <summary>
@@ -159,6 +169,15 @@ public partial class TextConversationItem : ConversationItemBase
     public void Append(string delta)
     {
         _buffer.Append(delta);
+        _ = _throttle.UpdateValue(null);
+    }
+
+    /// <summary>
+    /// 立即把缓冲同步到 <see cref="ConversationItemBase.Message"/>(段落收尾时调用)。
+    /// 节流器允许最后一次追加晚到 50ms，收尾处必须显式冲刷，否则最后几个字会短暂缺失。
+    /// </summary>
+    public void Flush()
+    {
         Message = _buffer.ToString();
     }
 

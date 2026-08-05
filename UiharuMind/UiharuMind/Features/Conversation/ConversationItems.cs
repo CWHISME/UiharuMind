@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -17,7 +18,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Scheduler;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Utils.Tools;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -28,7 +32,21 @@ public partial class ThinkingItem : ConversationItemBase
 {
     private readonly StringBuilder _buffer = new();
 
+    /// <summary>
+    /// UI 侧节流。思考流是全场最高频、最低价值的一路,而每次把累积全文重设给
+    /// TextBlock 都要一次全量文本重排,成本随长度二次增长——本地模型下子代理思考几千 token
+    /// 就足以把界面拖住。节流到 ~7Hz 仍然"看得见它在想",重排次数却降两个数量级。
+    /// 尾巴由 <see cref="Flush"/> 保证不丢。
+    /// </summary>
+    private readonly ValueUiDelayUpdater<object?> _throttle;
+
     [ObservableProperty] private bool _isExpanded;
+
+    public ThinkingItem()
+    {
+        // 传 null 而非全文:值在真正触发时才从 buffer 取,免得每个 token 都白白拼一次全文
+        _throttle = new ValueUiDelayUpdater<object?>(_ => Message = _buffer.ToString(), 150);
+    }
 
     /// <summary>
     /// 追加一段流式增量
@@ -37,6 +55,14 @@ public partial class ThinkingItem : ConversationItemBase
     public void Append(string delta)
     {
         _buffer.Append(delta);
+        _ = _throttle.UpdateValue(null);
+    }
+
+    /// <summary>
+    /// 立即把缓冲同步到 <see cref="ConversationItemBase.Message"/>(段落收尾时调用)
+    /// </summary>
+    public void Flush()
+    {
         Message = _buffer.ToString();
     }
 }
@@ -52,12 +78,27 @@ public partial class ToolCallItem : ConversationItemBase
     /// <summary>卡片图标(按工具类别)</summary>
     public string IconGlyph { get; init; } = "🔧";
 
+    /// <summary>
+    /// 本次调用<b>内部</b>的过程条目(目前只有子代理会产生)。空集合即普通工具,卡片上不出现入口。
+    ///
+    /// 不在卡片里就地渲染:条目模板是按整幅宽度设计的,嵌进卡片会被层层削宽、
+    /// 滚动区互相嵌套。改由 <see cref="SubAgentActivityWindow"/> 只读展开。
+    /// 只存内存,不落盘:过程的价值集中在刚跑完那几分钟,而它一旦进会话档就有回灌进模型上下文的风险。
+    /// </summary>
+    public ObservableCollection<ConversationItemBase> NestedItems { get; } = new();
+
     [ObservableProperty] private string _argumentSummary = string.Empty;
     [ObservableProperty] private string _argumentsJson = string.Empty;
     [ObservableProperty] private bool _isRunning = true;
     [ObservableProperty] private bool _isSuccess = true;
     [ObservableProperty] private string _resultText = string.Empty;
     [ObservableProperty] private bool _isExpanded;
+
+    [RelayCommand]
+    private void ShowActivity()
+    {
+        SubAgentActivityWindow.Show(this);
+    }
 }
 
 /// <summary>
@@ -328,9 +369,9 @@ public static class AgentContentFormatter
         if (toolName == "run_shell") return "❯";
         if (toolName.StartsWith("file_access_", System.StringComparison.Ordinal)) return "📄";
         if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script") return "✨";
-        if (toolName is "ask_vision") return "👁";
-        if (toolName is "create_scheduled_task") return "⏰";
-        if (toolName.StartsWith("background_agents_", System.StringComparison.Ordinal)) return "🤖";
+        if (toolName == VisionTool.ToolName) return "👁";
+        if (toolName == SchedulerTools.ToolName) return "⏰";
+        if (toolName == SubAgentTool.ToolName) return "🤖";
         return "🔧";
     }
 
@@ -342,7 +383,8 @@ public static class AgentContentFormatter
     public static string SummarizeArguments(FunctionCallContent call)
     {
         if (call.Arguments == null || call.Arguments.Count == 0) return string.Empty;
-        foreach (string key in new[] { "command", "path", "pattern", "skillName", "displayName", "imagePath" })
+        foreach (string key in new[]
+                 { "command", "path", "pattern", "skillName", "displayName", "imagePath", "task" })
         {
             if (call.Arguments.TryGetValue(key, out object? value) && value != null)
             {

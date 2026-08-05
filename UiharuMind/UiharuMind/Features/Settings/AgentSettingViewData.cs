@@ -183,6 +183,13 @@ public partial class AgentSettingViewData : ViewModelBase
             () => AgentSettingConfig.Current.MemorySearchPrompt,
             v => AgentSettingConfig.Current.MemorySearchPrompt = v));
 
+        Gates.Add(new AgentGateItem(L("AgentSettingCapSubAgent"), L("AgentGateDescSubAgent"),
+            () => AgentSettingConfig.Current.EnableSubAgent,
+            v => AgentSettingConfig.Current.EnableSubAgent = v,
+            AgentToolPrompts.SubAgentDefault,
+            () => AgentSettingConfig.Current.SubAgentPrompt,
+            v => AgentSettingConfig.Current.SubAgentPrompt = v));
+
         Gates.Add(new AgentGateItem(L("AgentSettingCapAgentNotes"), L("AgentGateDescAgentNotes"),
             () => AgentSettingConfig.Current.EnableAgentNotes,
             v => AgentSettingConfig.Current.EnableAgentNotes = v));

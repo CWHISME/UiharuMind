@@ -18,6 +18,9 @@ namespace UiharuMind.Core.AI.Execution.Scheduler;
 /// </summary>
 public static class SchedulerTools
 {
+    /// <summary>工具名。提示词与卡片图标等处提到本工具时一律引用这个常量</summary>
+    public const string ToolName = "create_scheduled_task";
+
     /// <summary>
     /// 创建"登记定时任务"工具
     /// </summary>
@@ -39,7 +42,7 @@ public static class SchedulerTools
                              "e.g. [\"git add*\", \"git commit*\"]. Anything else will be denied at run time.")]
                 string[]? preAuthorizedCommands
             ) => CreateTaskAsync(workspacePath, displayName, prompt, delayMinutes, fireAtIso, preAuthorizedCommands),
-            "create_scheduled_task",
+            ToolName,
             "Schedule an agent task to run automatically at a future time " +
             "(e.g. 'commit the repo in 30 minutes'). List every shell command pattern the task will need " +
             "in preAuthorizedCommands - unattended execution denies everything else.");
