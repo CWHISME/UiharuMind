@@ -158,7 +158,7 @@ public sealed record AgentAssemblySnapshot
             AgentMode = isAgent && config.EnableAgentMode,
             ToolPromptOverrides = isAgent
                 ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt,
-                    config.KnowledgeSearchPrompt, config.FileMemoryPrompt, config.SubAgentPrompt)
+                    config.KnowledgeSearchPrompt, config.SubAgentPrompt)
                 : string.Empty,
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,

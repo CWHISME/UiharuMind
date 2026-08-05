@@ -35,9 +35,40 @@ public class FileMemoryLayoutTests : IDisposable
     }
 
     [Fact]
-    public void FolderName_CombinesNameAndIdPrefix()
+    public void FolderName_CombinesNameAndId()
     {
-        Assert.Equal("Kuroko_1a2b3c4d", FileMemoryLayout.GetFolderName("Kuroko", CharacterId));
+        Assert.Equal("Kuroko_1a2b3c4d5e6f7788990011223344aabb", FileMemoryLayout.GetFolderName("Kuroko", CharacterId));
+    }
+
+    /// <summary>
+    /// id 后缀<b>不能截断</b>。内置角色的 CharacterId 是枚举名（见 <c>DefaultCharacterManager</c>），
+    /// 而它们大量共享前缀：Assistant / AssistantExplain / AssistantExpert…、
+    /// Roleplay_FirstPerson / Roleplay_ThirdPerson、Translator / TranslatorAdvanced。
+    /// 一旦后缀只取前几位，这些角色就会互相被认作"改名前的自己"，
+    /// 对账会把别人的笔记目录搬到自己名下——这曾经是真的。
+    /// </summary>
+    [Theory]
+    [InlineData("Assistant", "AssistantExplain")]
+    [InlineData("Assistant", "AssistantSyntacticAnalysis")]
+    [InlineData("Roleplay_FirstPerson", "Roleplay_ThirdPerson")]
+    [InlineData("Translator", "TranslatorAdvanced")]
+    public void FolderName_KeepsBuiltInIdsApartDespiteSharedPrefixes(string firstId, string secondId)
+    {
+        Assert.NotEqual(FileMemoryLayout.GetFolderName("Uiharu", firstId),
+            FileMemoryLayout.GetFolderName("Uiharu", secondId));
+    }
+
+    /// <summary>共前缀的两个内置角色之间，对账也绝不能把对方的目录认成自己的。</summary>
+    [Fact]
+    public void Reconcile_DoesNotClaimAFolderOfAnIdThatSharesItsPrefix()
+    {
+        string other = CreateFolder("Uiharu_AssistantExplain", "note.md");
+
+        string folder = FileMemoryLayout.Reconcile(_root, "Uiharu", "Assistant");
+
+        Assert.Equal("Uiharu_Assistant", folder);
+        Assert.True(Directory.Exists(other));
+        Assert.False(File.Exists(Path.Combine(_root, folder, "note.md")));
     }
 
     /// <summary>显示名允许重复，所以名字部分不足以定位；id 后缀才是身份。</summary>
@@ -57,7 +88,7 @@ public class FileMemoryLayoutTests : IDisposable
     [InlineData("!!! ???")]
     public void FolderName_FallsBackToIdSuffixWhenNameHasNothingUsable(string name)
     {
-        Assert.Equal("1a2b3c4d", FileMemoryLayout.GetFolderName(name, CharacterId));
+        Assert.Equal("1a2b3c4d5e6f7788990011223344aabb", FileMemoryLayout.GetFolderName(name, CharacterId));
     }
 
     [Fact]
@@ -65,14 +96,14 @@ public class FileMemoryLayoutTests : IDisposable
     {
         string folder = FileMemoryLayout.GetFolderName(new string('a', 100), CharacterId);
 
-        Assert.Equal($"{new string('a', 32)}_1a2b3c4d", folder);
+        Assert.Equal($"{new string('a', 32)}_1a2b3c4d5e6f7788990011223344aabb", folder);
     }
 
     /// <summary>中文名不该被过滤成空：char.IsLetterOrDigit 认中文，目录名要留得住它。</summary>
     [Fact]
     public void FolderName_KeepsCjkCharacters()
     {
-        Assert.Equal("御坂美琴_1a2b3c4d", FileMemoryLayout.GetFolderName("御坂 美琴", CharacterId));
+        Assert.Equal("御坂美琴_1a2b3c4d5e6f7788990011223344aabb", FileMemoryLayout.GetFolderName("御坂 美琴", CharacterId));
     }
 
     /// <summary>
@@ -82,11 +113,11 @@ public class FileMemoryLayoutTests : IDisposable
     [Fact]
     public void Reconcile_MovesTheFolderWhenTheCharacterWasRenamed()
     {
-        string old = CreateFolder("Kuroko_1a2b3c4d", "note.md");
+        string old = CreateFolder("Kuroko_1a2b3c4d5e6f7788990011223344aabb", "note.md");
 
         string folder = FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId);
 
-        Assert.Equal("Misaka_1a2b3c4d", folder);
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", folder);
         Assert.False(Directory.Exists(old));
         Assert.True(File.Exists(Path.Combine(_root, folder, "note.md")));
     }
@@ -95,11 +126,11 @@ public class FileMemoryLayoutTests : IDisposable
     [Fact]
     public void Reconcile_MovesTheIdOnlyFolderToo()
     {
-        CreateFolder("1a2b3c4d", "note.md");
+        CreateFolder("1a2b3c4d5e6f7788990011223344aabb", "note.md");
 
         string folder = FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId);
 
-        Assert.Equal("Misaka_1a2b3c4d", folder);
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", folder);
         Assert.True(File.Exists(Path.Combine(_root, folder, "note.md")));
     }
 
@@ -121,7 +152,7 @@ public class FileMemoryLayoutTests : IDisposable
 
         string folder = FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId);
 
-        Assert.Equal("Misaka_1a2b3c4d", folder);
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", folder);
         Assert.True(Directory.Exists(legacy));
     }
 
@@ -129,12 +160,12 @@ public class FileMemoryLayoutTests : IDisposable
     [Fact]
     public void Reconcile_DoesNotMergeIntoAnExistingTarget()
     {
-        string old = CreateFolder("Kuroko_1a2b3c4d", "old.md");
-        CreateFolder("Misaka_1a2b3c4d", "current.md");
+        string old = CreateFolder("Kuroko_1a2b3c4d5e6f7788990011223344aabb", "old.md");
+        CreateFolder("Misaka_1a2b3c4d5e6f7788990011223344aabb", "current.md");
 
         string folder = FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId);
 
-        Assert.Equal("Misaka_1a2b3c4d", folder);
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", folder);
         Assert.True(Directory.Exists(old));
         Assert.True(File.Exists(Path.Combine(_root, folder, "current.md")));
         Assert.False(File.Exists(Path.Combine(_root, folder, "old.md")));
@@ -144,12 +175,12 @@ public class FileMemoryLayoutTests : IDisposable
     [Fact]
     public void Reconcile_MovesNothingWhenSeveralStaleFoldersMatch()
     {
-        string first = CreateFolder("Kuroko_1a2b3c4d", "a.md");
-        string second = CreateFolder("Saten_1a2b3c4d", "b.md");
+        string first = CreateFolder("Kuroko_1a2b3c4d5e6f7788990011223344aabb", "a.md");
+        string second = CreateFolder("Saten_1a2b3c4d5e6f7788990011223344aabb", "b.md");
 
         string folder = FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId);
 
-        Assert.Equal("Misaka_1a2b3c4d", folder);
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", folder);
         Assert.True(Directory.Exists(first));
         Assert.True(Directory.Exists(second));
     }
@@ -158,11 +189,11 @@ public class FileMemoryLayoutTests : IDisposable
     [Fact]
     public void Reconcile_IsANoOpWhenNothingChanged()
     {
-        Assert.Equal("Misaka_1a2b3c4d", FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId));
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId));
 
-        CreateFolder("Misaka_1a2b3c4d", "note.md");
+        CreateFolder("Misaka_1a2b3c4d5e6f7788990011223344aabb", "note.md");
 
-        Assert.Equal("Misaka_1a2b3c4d", FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId));
+        Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId));
         Assert.Single(Directory.EnumerateDirectories(_root));
     }
 

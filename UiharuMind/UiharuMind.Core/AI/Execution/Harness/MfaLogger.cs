@@ -50,10 +50,13 @@ internal sealed class MfaLogger : Microsoft.Extensions.Logging.ILogger
                 break;
             case LogLevel.Error:
             case LogLevel.Critical:
+                // 刻意降级为 Warning:Log.Error 会弹一个模态错误框(见 App.Error),
+                // 而框架的 error 级日志是我们的诊断信息,不是用户需要处理的事故——
+                // 一次工具执行失败(模型下一轮就会换路)不该打断用户。异常全文照旧进日志。
                 if (exception is not null)
-                    UiharuMind.Core.Core.SimpleLog.Log.Error($"{prefix}\n{exception}");
+                    UiharuMind.Core.Core.SimpleLog.Log.Warning($"{prefix}\n{exception}");
                 else
-                    UiharuMind.Core.Core.SimpleLog.Log.Error(prefix);
+                    UiharuMind.Core.Core.SimpleLog.Log.Warning(prefix);
                 break;
             default:
                 UiharuMind.Core.Core.SimpleLog.Log.Debug(prefix);

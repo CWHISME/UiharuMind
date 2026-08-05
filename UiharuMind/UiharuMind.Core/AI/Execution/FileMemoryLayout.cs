@@ -14,13 +14,15 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 文件记忆(框架 <c>FileMemoryProvider</c>)的磁盘布局:<b>一个角色一个目录，跨会话共享</b>。
+/// 文件记忆(框架 <c>FileMemoryProvider</c>)的磁盘布局:<b>一个角色一个目录，跨会话共享</b>，
+/// 目录名是 <c>{角色名}_{角色id}</c>。
 ///
 /// 框架默认给每个新会话开一个 <c>{timestamp}_{guid}</c> 目录——那是草稿纸而不是记忆，
 /// 所以目录名由本类决定，并在挂接时覆写会话状态里的 <c>WorkingFolder</c>
 /// (见 <see cref="HarnessCharacterRunner"/>)。
 ///
-/// 目录名带角色名是为了让用户在文件管理器里认得出来，代价是改名要搬目录。
+/// 目录名带角色名是为了让用户在文件管理器里认得出来，代价是改名要搬目录；
+/// id 全写不截断，见 <see cref="GetFolderName(string,string)"/>。
 /// 搬迁不靠"改名事件"(角色名只是个透传 setter，没有变更通知)，而是每次挂接做一次
 /// <see cref="Reconcile(CharacterData)"/> 对账：比的是目标状态与磁盘现状，
 /// 因此外部导入角色卡、手改 json、旧会话恢复全都能自愈。
@@ -28,7 +30,6 @@ namespace UiharuMind.Core.AI.Execution;
 public static class FileMemoryLayout
 {
     private const int MaxNameLength = 32; //目录名里角色名部分的长度上限
-    private const int IdSuffixLength = 8; //取角色 id 前几位作后缀
 
     /// <summary>
     /// 框架状态包里存 <c>FileMemoryState</c> 的键。等于框架 <c>FileMemoryProvider.StateKeys</c>
@@ -54,11 +55,14 @@ public static class FileMemoryLayout
     /// </summary>
     /// <param name="characterName">角色显示名</param>
     /// <param name="characterId">角色标识</param>
-    /// <returns>目录名，形如 <c>名字_1a2b3c4d</c>；名字里没有可用字符时只剩 id 后缀</returns>
+    /// <returns>目录名，形如 <c>名字_角色id</c>；名字里没有可用字符时只剩 id</returns>
     public static string GetFolderName(string characterName, string characterId)
     {
-        string suffix = BuildIdSuffix(characterId);
-        string name = Sanitize(characterName);
+        // id 不截断:内置角色的 CharacterId 是枚举名(见 DefaultCharacterManager),
+        // 而 Assistant / AssistantExplain / AssistantExpert 这类共前缀的名字一截就撞,
+        // 撞了就会把别的角色的笔记目录当成自己改名前的目录搬走
+        string suffix = Sanitize(characterId, int.MaxValue);
+        string name = Sanitize(characterName, MaxNameLength);
         return name.Length == 0 ? suffix : $"{name}_{suffix}";
     }
 
@@ -85,7 +89,7 @@ public static class FileMemoryLayout
         string target = GetFolderName(characterName, characterId);
         if (!Directory.Exists(rootPath)) return target;
 
-        string suffix = BuildIdSuffix(characterId);
+        string suffix = Sanitize(characterId, int.MaxValue);
         List<string> owned = Directory.EnumerateDirectories(rootPath)
             .Where(path => IsOwnedBy(Path.GetFileName(path), suffix))
             .Where(path => !string.Equals(Path.GetFileName(path), target, StringComparison.Ordinal))
@@ -130,19 +134,13 @@ public static class FileMemoryLayout
                || folderName.EndsWith($"_{idSuffix}", StringComparison.Ordinal);
     }
 
-    private static string BuildIdSuffix(string characterId)
-    {
-        string sanitized = Sanitize(characterId);
-        return sanitized.Length <= IdSuffixLength ? sanitized : sanitized[..IdSuffixLength];
-    }
-
     /// <summary>
     /// 目录名安全化：只留字母与数字(中文属 Letter，会保留)，再截到长度上限。
-    /// 截断可能让两个角色的名字部分相同，但 id 后缀负责区分，不会撞车。
+    /// 名字部分截断后可能与另一个角色相同，但 id 后缀负责区分，不会撞车。
     /// </summary>
-    private static string Sanitize(string text)
+    private static string Sanitize(string text, int maxLength)
     {
         string kept = new(text.Where(char.IsLetterOrDigit).ToArray());
-        return kept.Length <= MaxNameLength ? kept : kept[..MaxNameLength];
+        return kept.Length <= maxLength ? kept : kept[..maxLength];
     }
 }

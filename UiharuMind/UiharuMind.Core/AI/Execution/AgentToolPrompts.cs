@@ -60,17 +60,10 @@ public static class AgentToolPrompts
         "- It returns passages, or reports that no knowledge base is attached. " +
         "If nothing is attached, say so instead of guessing.";
 
-    /// <summary>
-    /// 文件记忆纪律段默认正文。工具名引用框架常量，框架改名编译期就会发现。
-    /// 「跨会话保留」这句是承重的：不说，模型就只把笔记当本轮的草稿纸，从不主动去读。
-    /// </summary>
-    public static readonly string FileMemoryDefault =
-        $"- You keep your own notes across sessions. At the start of a task, `{FileMemoryProvider.LsToolName}` " +
-        $"and `{FileMemoryProvider.GrepToolName}` them before assuming you know nothing.\n" +
-        $"- Write down what will still be true next time (how this project is laid out, decisions made, " +
-        $"the user's standing preferences) with `{FileMemoryProvider.WriteToolName}`, " +
-        $"one topic per file with a name that says what it holds.\n" +
-        "- Do not store what the code or git history already records, or what only matters this turn.";
+    // 这里刻意没有"文件记忆纪律段":框架的 FileMemoryProvider 自己就会注入一整段
+    // ## File Based Memory(先 ls/grep 查已有记忆、用描述性文件名、写入时附描述、
+    // 大块数据落盘以免被压缩截断),我们再写一段只会让同样的话在系统提示里出现两遍。
+    // 要改那段措辞只能自建 provider —— HarnessAgentOptions 不暴露 FileMemoryProviderOptions。
 
     /// <summary>子代理工具纪律段默认正文</summary>
     public const string SubAgentDefault =
@@ -97,12 +90,6 @@ public static class AgentToolPrompts
     public static string ResolveKnowledgeSearch(AgentSettingConfig config)
     {
         return Resolve(config.KnowledgeSearchPrompt, KnowledgeSearchDefault);
-    }
-
-    /// <summary>文件记忆纪律段(覆盖优先,空则默认)</summary>
-    public static string ResolveFileMemory(AgentSettingConfig config)
-    {
-        return Resolve(config.FileMemoryPrompt, FileMemoryDefault);
     }
 
     /// <summary>

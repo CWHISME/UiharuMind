@@ -71,9 +71,6 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <summary>知识库检索工具纪律段的自定义提示词(空 = 用内置默认)</summary>
     public string KnowledgeSearchPrompt { get; set; } = string.Empty;
 
-    /// <summary>文件记忆纪律段的自定义提示词(空 = 用内置默认)</summary>
-    public string FileMemoryPrompt { get; set; } = string.Empty;
-
     /// <summary>子代理工具纪律段的自定义提示词(空 = 用内置默认)</summary>
     public string SubAgentPrompt { get; set; } = string.Empty;
 }

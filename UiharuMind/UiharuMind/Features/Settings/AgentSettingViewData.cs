@@ -192,10 +192,7 @@ public partial class AgentSettingViewData : ViewModelBase
 
         Gates.Add(new AgentGateItem(L("AgentSettingCapFileMemory"), L("AgentGateDescFileMemory"),
             () => AgentSettingConfig.Current.EnableFileMemory,
-            v => AgentSettingConfig.Current.EnableFileMemory = v,
-            AgentToolPrompts.FileMemoryDefault,
-            () => AgentSettingConfig.Current.FileMemoryPrompt,
-            v => AgentSettingConfig.Current.FileMemoryPrompt = v));
+            v => AgentSettingConfig.Current.EnableFileMemory = v));
 
         Gates.Add(new AgentGateItem(L("AgentSettingCapScheduledTasks"), L("AgentGateDescScheduledTasks"),
             () => AgentSettingConfig.Current.EnableScheduledTasks,

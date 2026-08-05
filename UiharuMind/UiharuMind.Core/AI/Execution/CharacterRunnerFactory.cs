@@ -332,11 +332,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             AITool? shellTool = shellExecutor?.AsAIFunction(ShellToolName);
             IReadOnlyList<AITool>? mcpTools = fullAuto ? McpManager.Instance.GetCachedTools() : null;
 
-            HarnessAgentOptions options = BuildSubAgentOptions(Probe(shellTool, mcpTools))!;
-            MfaLoggerFactory loggerFactory = new();
-            return new AgentHandle(
-                client.AsHarnessAgent(options, loggerFactory, new MfaServiceProvider(loggerFactory)),
-                shellExecutor);
+            // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
+            return BuildHandle(client, BuildSubAgentOptions(Probe(shellTool, mcpTools))!, shellExecutor);
         }, profile.ActivitySink);
     }
 
@@ -579,7 +576,19 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-        return new AgentHandle(client.AsHarnessAgent(options, loggerFactory, services), shellExecutor);
+        AIAgent agent = client.AsHarnessAgent(options, loggerFactory, services);
+
+        // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关
+        // 打开后回给模型的是"Error: Function failed. Exception: {e.Message}"(实测只有 Message,不含堆栈)。
+        // 承重之处在于框架自带的 file_memory_* 工具:它们直接抛异常,而失败原因多半是
+        // "要替换的原文没匹配上"这类模型自己能改的事——不告诉它,它只会原样重试。
+        // 我们自建的工具都是自己 catch 后返回文字说明,不依赖这个开关。
+        if (agent.GetService<FunctionInvokingChatClient>() is { } functionInvoker)
+        {
+            functionInvoker.IncludeDetailedErrors = true;
+        }
+
+        return new AgentHandle(agent, shellExecutor);
     }
 
     private static string GetScratchDirectory()
@@ -632,13 +641,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             sb.AppendLine(AgentToolPrompts.ResolveVisionTool(config));
         }
 
-        if (config.EnableFileMemory)
-        {
-            sb.AppendLine();
-            sb.AppendLine("## Your notes");
-            sb.AppendLine(AgentToolPrompts.ResolveFileMemory(config));
-        }
-
+        // 文件记忆没有自己的纪律段:框架的 FileMemoryProvider 已经注入了一整段,见 AgentToolPrompts
         if (config.EnableKnowledgeSearchTool)
         {
             sb.AppendLine();
