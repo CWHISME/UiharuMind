@@ -205,6 +205,25 @@ _Avoid_: 被动技能、自动技能、手动技能
 跑模型的后端。与 Execution 无关——Execution 装配「要问什么」，Runtime 负责「怎么问到模型」。
 包括本地 llama.cpp 进程、LLamaSharp、OpenAI 兼容 HTTP 等后端，以及 `ChatThread`。
 
+### 上下文预算（Context Budget）
+
+三个层层收缩的量，**不要混用**：
+
+| 词 | 是什么 | 从哪来 |
+|---|---|---|
+| **上下文上限**（context length） | 模型一次能吃下的 token 总量 | 远程：用户填的 → `ModelIdVariants` 预设表 → 200k 兜底；本地：运行期实际加载的 `ContextSize` → 8192 兜底。都收在 `ModelContextResolver` |
+| **输入预算**（input budget） | 上限减去给回复留的余量 | `HistoryCompaction.InputBudgetFor`，余量是 `Clamp(上限/8, 512, 8192)` |
+| **占用**（usage） | 这一刻实际吃进去了多少 | 服务端 usage 里最近一次响应的输入 token，即 `TurnUsageLedger.LastInput` |
+
+界面上进度条的**整条是上下文上限**（用户能跟官方文档对上的那个数），
+而压缩的两条水位是按**输入预算**算的——所以 tooltip 给的是绝对 token 数而不是百分比，
+50%/80% 并不落在进度条的半腰和八分处。
+
+⚠️ **「占用」不是 `TurnUsageLedger.TurnInput`。** 后者是本轮所有调用的累加（成本视角），
+一轮 agent 十几次工具往返能累到四十几万，与「现在多满」无关。
+
+压缩本身见 [ADR 0006](adr/0006-历史裁剪从自建改为框架在环压缩.md)。
+
 ---
 
 ## Agent 一词的三种用法

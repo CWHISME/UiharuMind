@@ -9,6 +9,7 @@
 
 using System.Text;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
@@ -166,12 +167,17 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
                 character.Kind.IsAgent() && config.EnableKnowledgeSearchTool),
         ];
 
+        // 压缩阈值现读当前模型的上下文上限,与 LazyChatClient 取模型的口径完全一致:
+        // agent 只在切工作区/权限档时重建,而模型随时可切,写死在构建期就会留下过期预算
+        CompactionStrategy compaction = HistoryCompaction.Create(() =>
+            (profile.SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0);
+
         // 只有 agent 档往下走装配。这里曾写作 == Roleplay:两档时代"非扮演即 agent"成立,
         // 四档之后工具人与用户卡会掉进 agent 分支,被装上文件/shell/技能与整套 harness
         if (!character.Kind.IsAgent())
         {
             return BuildHandle(client,
-                BuildPromptOnlyOptions(character, history, contextProviders, chatOptions), null);
+                BuildPromptOnlyOptions(character, history, contextProviders, chatOptions, compaction), null);
         }
 
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
@@ -210,7 +216,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         // 子代理:工具集与权限档都从主 agent 派生,全部能力都关掉时不挂载
         AITool? subAgentTool = config.EnableSubAgent
             ? TryCreateSubAgentTool(client, config, workingDirectory, mountVisionTool, profile,
-                workspaceInstructions)
+                workspaceInstructions, compaction)
             : null;
         if (subAgentTool != null) extraTools.Add(subAgentTool);
 
@@ -250,7 +256,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
             profile.SessionShellApprovalSource,
             visionToolMounted: mountVisionTool, workingDirectory: workingDirectory,
-            workspaceInstructions: workspaceInstructions), shellExecutor);
+            workspaceInstructions: workspaceInstructions, compaction: compaction), shellExecutor);
     }
 
     /// <summary>
@@ -301,6 +307,9 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
         /// <summary>会话级 shell 放行模式来源(与主 agent 同源)</summary>
         public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
+
+        /// <summary>历史压缩策略(与主 agent 同一份);为 null 则不压缩</summary>
+        public CompactionStrategy? Compaction { get; init; }
     }
 
     /// <summary>
@@ -316,13 +325,14 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <returns>工具;无任何能力可用时为 null</returns>
     private static AITool? TryCreateSubAgentTool(IChatClient client, AgentToolConfig config,
         string workingDirectory, bool visionToolAvailable, AgentBuildProfile profile,
-        string workspaceInstructions)
+        string workspaceInstructions, CompactionStrategy compaction)
     {
         bool fullAuto = profile.PermissionMode == EAgentPermissionMode.FullAuto;
 
         SubAgentAssemblyInput Probe(AITool? shellTool, IReadOnlyList<AITool>? mcpTools,
             AgentToolConfig effectiveConfig, string persona, string name) => new()
         {
+            Compaction = compaction,
             Config = effectiveConfig,
             Persona = persona,
             Name = name,
@@ -436,7 +446,10 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             DisableTodoProvider = true,
             DisableAgentModeProvider = true,
             DisableAgentSkillsProvider = true,
-            DisableCompaction = true,
+            // 压缩是唯一没关的框架能力:它只删不加,不往上下文里注入内容。
+            // 16 轮工具循环最容易把上下文塞爆,子代理反而比谁都需要工具结果折叠(ADR 0006)
+            DisableCompaction = input.Compaction == null,
+            CompactionStrategy = input.Compaction,
             DisableOpenTelemetry = true,
             // 审批中间件照挂,规则与主 agent 同源——档位语义只有一处定义(ApprovalModeMapper)。
             // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
@@ -550,7 +563,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="chatOptions">对话选项(含角色系统提示,工具应为空)</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildPromptOnlyOptions(CharacterData character,
-        ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions)
+        ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
+        CompactionStrategy? compaction = null)
     {
         return new HarnessAgentOptions
         {
@@ -563,7 +577,10 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             DisableTodoProvider = true,
             DisableAgentModeProvider = true,
             DisableAgentSkillsProvider = true,
-            DisableCompaction = true,
+            // 「零注入」不变量的唯一例外:压缩只做排除与工具结果折叠,不向上下文添加任何内容,
+            // 而扮演档的长对话同样会溢出——它没有工具调用,这里等价于纯截断(ADR 0006)
+            DisableCompaction = compaction == null,
+            CompactionStrategy = compaction,
             DisableToolAutoApproval = true,
             DisableOpenTelemetry = true,
             AIContextProviders = contextProviders,
@@ -597,7 +614,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         AgentSkillsSource skillsSource, FileSystemAgentFileStore? fileMemoryStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        bool visionToolMounted = true, string workingDirectory = "", string workspaceInstructions = "")
+        bool visionToolMounted = true, string workingDirectory = "", string workspaceInstructions = "",
+        CompactionStrategy? compaction = null)
     {
         chatOptions.Instructions = ComposeAgentInstructions(chatOptions.Instructions, config,
             visionToolMounted, workingDirectory, workspaceInstructions);
@@ -610,6 +628,9 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             // 空串是有意的:整段提示已由 ComposeAgentInstructions 按我们的顺序拼进 ChatOptions
             HarnessInstructions = string.Empty,
             DisableWebSearch = true,
+            // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
+            DisableCompaction = compaction == null,
+            CompactionStrategy = compaction,
             DisableOpenTelemetry = true,
             DisableTodoProvider = !config.EnableTodoList,
             DisableAgentModeProvider = !config.EnableAgentMode,

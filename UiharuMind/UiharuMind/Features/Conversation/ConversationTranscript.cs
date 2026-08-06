@@ -9,10 +9,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
+using Avalonia.Threading;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -33,8 +36,10 @@ public sealed class ConversationTranscript
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
     private readonly Dictionary<string, ConversationTranscript> _nested = new(); //按 CallId 的嵌套转录器
+    private readonly bool _isUiBound; //落点是否为界面绑定集合(回放缓冲是普通 List,不是)
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
+    private bool _offThreadReported; //跨线程写入只报一次,否则流式期间会刷屏
 
     /// <summary>思考段收尾时是否自动折叠（流式进行中一律保持展开）</summary>
     public bool AutoCollapseThinking { get; set; }
@@ -57,8 +62,22 @@ public sealed class ConversationTranscript
         Action<string>? rememberShellPattern = null)
     {
         _target = target;
+        _isUiBound = target is INotifyCollectionChanged;
         _createAssistantItem = createAssistantItem;
         _rememberShellPattern = rememberShellPattern;
+    }
+
+    // [诊断探针] 界面绑定集合必须在 UI 线程写入:Avalonia 的弱事件簿记不是线程安全的,
+    // 跨线程写会在 WeakHashList 内部抛 NullReferenceException(已实际撞到一次)。
+    // 这里只观测不纠正——先确认症状是否真是线程亲和性问题,再决定把 marshal 放在哪一层。
+    // 回放缓冲是普通 List,不触发通知,因此不参与判定。
+    private void VerifyUiAccess()
+    {
+        if (!_isUiBound || _offThreadReported || Dispatcher.UIThread.CheckAccess()) return;
+
+        _offThreadReported = true;
+        Log.Warning($"ConversationTranscript applied off the UI thread (managed thread " +
+                    $"{Environment.CurrentManagedThreadId}); Avalonia collection notifications are not thread-safe.");
     }
 
     /// <summary>
@@ -67,6 +86,7 @@ public sealed class ConversationTranscript
     /// <param name="content">来自执行者的一段内容</param>
     public void Apply(AIContent content)
     {
+        VerifyUiAccess();
         switch (content)
         {
             case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):

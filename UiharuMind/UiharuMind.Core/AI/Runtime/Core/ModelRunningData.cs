@@ -36,6 +36,7 @@ public class ModelRunningData : INotifyPropertyChanged
     private ILlmModel _modelInfo;
 
     private IChatClient? _chatClient;
+    private int _runtimeContextSize; //本地模型实际加载的上下文大小,0 表示未知(远程模型不用它)
 
     // private ChatThread? _chatThread;
     private CancellationTokenSource? _cts;
@@ -67,6 +68,14 @@ public class ModelRunningData : INotifyPropertyChanged
     /// 完全忽略 ChatOptions.Tools,因此只有远程模型算支持。
     /// </summary>
     public bool SupportsToolCalling => IsRemoteModel;
+
+    /// <summary>
+    /// 本模型的上下文窗口(token 数)。远程按配置/预设表解析，本地按实际加载值；
+    /// 是历史压缩预算与界面占用显示的共同依据。
+    /// </summary>
+    public int ContextLength => _modelInfo is RemoteModelInfo remote
+        ? ModelContextResolver.ResolveRemote(remote)
+        : ModelContextResolver.ResolveLocal(_runtimeContextSize);
 
     /// <summary>
     /// 模型路径
@@ -121,9 +130,10 @@ public class ModelRunningData : INotifyPropertyChanged
         LoadingPercent = loadingPercent;
     }
 
-    public void CompleteLoading(IChatClient chatClient)
+    public void CompleteLoading(IChatClient chatClient, int runtimeContextSize = 0)
     {
         _chatClient = chatClient;
+        _runtimeContextSize = runtimeContextSize;
         _isLoaded = true;
         LoadingPercent = 1;
     }

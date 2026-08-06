@@ -30,6 +30,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -303,6 +304,9 @@ public partial class ConversationViewModel : ViewModelBase
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly TurnUsageLedger _usage = new(); //token 账本
 
+    /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
+    public ContextUsageViewData ContextUsage { get; } = new();
+
     public ConversationViewModel()
     {
         _transcript = new ConversationTranscript(Items, CreateAssistantItem,
@@ -336,6 +340,7 @@ public partial class ConversationViewModel : ViewModelBase
             OnPropertyChanged(nameof(PermissionTooltip));
             OnPropertyChanged(nameof(ThinkingTooltip));
             OnPropertyChanged(nameof(SenderTooltip));
+            RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
         };
     }
 
@@ -776,13 +781,29 @@ public partial class ConversationViewModel : ViewModelBase
     {
         if (attachments == null || attachments.Count == 0) return new ChatMessage(ChatRole.User, text);
 
-        // 带图片时在此处主动解析一次视觉模型:当前模型不支持识图就切到偏好的视觉模型
+        // 带图片时在此处主动解析一次视觉模型:当前模型不支持识图才切到偏好的视觉模型
         // (写回 CurrentRunningModel,后续 LazyChatClient 直接使用)。
         // 不能指望发送链路下游——LazyChatClient 只在无模型时按 isVision=false 兜底,
-        // 会挑中不支持识图的偏好模型;找不到视觉模型则维持原状,走路径引用 + ask_vision 降级
-        if (attachments.Any(x => x.IsImage)) LlmManager.Instance.TryCheckModelRunning(true);
-
-        bool isVision = LlmManager.Instance.CurrentRunningModel?.IsVisionModel == true;
+        // 会挑中不支持识图的偏好模型;找不到视觉模型则维持原状,走路径引用 + ask_vision 降级。
+        //
+        // 判定必须走会话绑定的模型(与 SessionModelLabel / LazyChatClient 同口径):
+        // TryCheckModelRunning 只认全局当前模型,原先无条件调用等于把用户在本会话里
+        // 选定的视觉模型整个绕开,发图时被无声换掉
+        ModelRunningData? effectiveModel = CurrentSession?.ChatModelRunningData
+                                           ?? LlmManager.Instance.CurrentRunningModel;
+        bool isVision = effectiveModel?.IsVisionModel == true;
+        if (!isVision && attachments.Any(x => x.IsImage))
+        {
+            LlmManager.Instance.TryCheckModelRunning(true);
+            ModelRunningData? switched = LlmManager.Instance.CurrentRunningModel;
+            isVision = switched?.IsVisionModel == true;
+            // 换人这件事必须留痕:模型能力差异很大,静默切换会让"行为突然变了"无法归因
+            if (isVision && switched != effectiveModel)
+            {
+                Log.Warning($"Switched to vision model '{switched?.ModelName}' to send an image " +
+                            $"(was '{effectiveModel?.ModelName}').");
+            }
+        }
         List<AIContent>? contents = isVision ? new() { new TextContent(text) } : null;
         List<string> fileReferences = new();
 
@@ -794,7 +815,10 @@ public partial class ConversationViewModel : ViewModelBase
                 try
                 {
                     byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
-                    contents!.Add(new DataContent(data, attachment.MediaType));
+                    // 只缩发出去的那一份:磁盘附件与界面预览仍是原图,ask_vision 拿到的也还是原文件
+                    (byte[] inlineBytes, string inlineType) =
+                        ConversationImageDownscaler.Downscale(data, attachment.MediaType);
+                    contents!.Add(new DataContent(inlineBytes, inlineType));
                 }
                 catch (Exception e)
                 {
@@ -924,7 +948,7 @@ public partial class ConversationViewModel : ViewModelBase
         // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
         if (CurrentSession is { } session)
         {
-            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens);
+            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens);
         }
 
         RefreshTokenUsageText();
@@ -1090,6 +1114,7 @@ public partial class ConversationViewModel : ViewModelBase
         {
             session.TotalInputTokens += input;
             session.TotalOutputTokens += output;
+            session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
         }
 
         RefreshTokenUsageText();
@@ -1097,7 +1122,11 @@ public partial class ConversationViewModel : ViewModelBase
 
     private void RefreshTokenUsageText()
     {
+        // 上限每次刷新时现读:顶栏换模型不重建 agent,这里同样不能缓存
+        _usage.ContextLength = (CurrentSession?.ChatModelRunningData
+                                ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
         TokenUsageText = _usage.Text;
+        ContextUsage.Refresh(_usage, SessionModelLabel);
     }
 
     private static int ReadThinkingModeIndex(ChatSession session)

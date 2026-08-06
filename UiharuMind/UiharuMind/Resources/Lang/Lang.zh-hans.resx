@@ -65,6 +65,18 @@
     <data name="TokenUsageTips" xml:space="preserve">
         <value>Token 统计:≈输入估算 · ↑输入 ↓输出(本轮) · Σ会话累计</value>
     </data>
+    <data name="ContextUsageLabel" xml:space="preserve">
+        <value>上下文</value>
+    </data>
+    <data name="ContextTurnLabel" xml:space="preserve">
+        <value>本轮</value>
+    </data>
+    <data name="ContextSessionLabel" xml:space="preserve">
+        <value>会话</value>
+    </data>
+    <data name="ContextCompactionHint" xml:space="preserve">
+        <value>工具结果折叠于 {0}，最旧消息截断于 {1}</value>
+    </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>自动折叠思考</value>
     </data>

@@ -175,8 +175,14 @@ public class LazyChatClient : IChatClient
     {
         // 会话绑定的模型优先(如识图技能为临时会话解析的视觉模型),否则用全局当前模型
         ModelRunningData? model = _sessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
-        // 无模型时按偏好自动选一个(优先运行中/收藏/远程);已有模型但远程未启动时顺带拉起
-        if (model == null) LlmManager.Instance.TryCheckModelRunning(false, ref model);
+        // 无模型时按偏好自动选一个(优先运行中/收藏/远程);已有模型但远程未启动时顺带拉起。
+        // 必须走会写回全局的那个重载:传局部变量的 ref 只会填上局部变量,
+        // 全局当前模型仍是空——顶栏因此不跟着变,token 统计也拿不到模型与上下文上限
+        if (model == null)
+        {
+            LlmManager.Instance.TryCheckModelRunning(false);
+            model = LlmManager.Instance.CurrentRunningModel;
+        }
         if (model == null) throw new InvalidOperationException("Model is not running.");
 
         DateTimeOffset deadline = DateTimeOffset.Now + ReadyTimeout;
