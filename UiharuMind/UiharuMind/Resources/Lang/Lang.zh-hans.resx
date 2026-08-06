@@ -86,8 +86,8 @@
     <data name="MessageErrorTitle" xml:space="preserve">
         <value>错误</value>
     </data>
-    <data name="MenuMainKey" xml:space="preserve">
-        <value>主页</value>
+    <data name="MenuAgentKey" xml:space="preserve">
+        <value>智能体</value>
     </data>
     <data name="MenuChatKey" xml:space="preserve">
         <value>聊天</value>
@@ -1659,7 +1659,7 @@
         <value>角色工作台</value>
     </data>
     <data name="CharacterWorkspaceHint" xml:space="preserve">
-        <value>管理角色扮演人物与工具助手</value>
+        <value>管理角色扮演、工具人与智能体</value>
     </data>
     <data name="CharacterPreview" xml:space="preserve">
         <value>角色预览</value>
@@ -2497,5 +2497,8 @@
     </data>
     <data name="CharacterSubAgentsRemove" xml:space="preserve">
         <value>移出名单</value>
+    </data>
+    <data name="CharacterRenderedPreview" xml:space="preserve">
+        <value>查看替换后的效果</value>
     </data>
 </root>

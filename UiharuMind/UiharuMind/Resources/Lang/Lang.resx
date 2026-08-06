@@ -93,8 +93,8 @@
     <data name="MessageErrorTitle" xml:space="preserve">
         <value>Error</value>
     </data>
-    <data name="MenuMainKey" xml:space="preserve">
-        <value>Main</value>
+    <data name="MenuAgentKey" xml:space="preserve">
+        <value>Agent</value>
     </data>
     <data name="MenuModelKey" xml:space="preserve">
         <value>Model</value>
@@ -1666,7 +1666,7 @@
         <value>Character Workspace</value>
     </data>
     <data name="CharacterWorkspaceHint" xml:space="preserve">
-        <value>Manage roleplay characters and tool assistants</value>
+        <value>Manage roleplay characters, tool characters and agents</value>
     </data>
     <data name="CharacterPreview" xml:space="preserve">
         <value>Character Preview</value>
@@ -2504,5 +2504,8 @@
     </data>
     <data name="CharacterSubAgentsRemove" xml:space="preserve">
         <value>Remove from roster</value>
+    </data>
+    <data name="CharacterRenderedPreview" xml:space="preserve">
+        <value>Show the rendered result</value>
     </data>
 </root>

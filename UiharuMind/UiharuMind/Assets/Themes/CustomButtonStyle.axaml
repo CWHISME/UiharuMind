@@ -99,6 +99,19 @@
         <Setter Property="Height" Value="32" />
     </Style>
 
+    <!-- ==================== 内联选择器里的一行(角色选择器、片段选择器共用) ==================== -->
+    <Style Selector="Button.picker-row">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.picker-row:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+    </Style>
+
     <!-- ============================= 聊天信息下方的小图标按钮那种 ========================-->
     <Style Selector="ThemedIconButton.message-action">
         <Setter Property="Width" Value="18" />
