@@ -9,7 +9,7 @@
 
 using System.Text;
 using Microsoft.Agents.AI;
-using UiharuMind.Core.Configs;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -122,11 +122,12 @@ public class SkillCatalog : Singleton<SkillCatalog>
     /// 被滤掉的技能框架 <c>load_skill</c> 同样找不到(广告与加载共用一份列表),
     /// 所以退出自选的技能只能经点名调用注入——这正是设计的支点,别改成不过滤。
     /// </summary>
+    /// <param name="disabledSkills">本智能体禁用的技能名(角色自带,见 AgentToolConfig)</param>
     /// <returns>技能来源</returns>
-    public AgentSkillsSource BuildSkillsSource()
+    public AgentSkillsSource BuildSkillsSource(IEnumerable<string> disabledSkills)
     {
         AgentFileSkillsSource fileSource = new(SkillsRootPath);
-        HashSet<string> disabled = new(AgentSettingConfig.Current.DisabledSkills, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> disabled = new(disabledSkills, StringComparer.OrdinalIgnoreCase);
         return new FilteringAgentSkillsSource(fileSource, (skill, _) => IsAdvertised(skill, disabled));
     }
 
@@ -183,10 +184,11 @@ public class SkillCatalog : Singleton<SkillCatalog>
     /// 可点名调用的技能:已加载且未被用户禁用。是否参与模型自选不影响这里——
     /// 点名调用对两者一律开放。
     /// </summary>
+    /// <param name="disabledSkills">本智能体禁用的技能名</param>
     /// <returns>技能条目列表</returns>
-    public async Task<List<SkillCatalogEntry>> GetInvocableEntriesAsync()
+    public async Task<List<SkillCatalogEntry>> GetInvocableEntriesAsync(IEnumerable<string> disabledSkills)
     {
-        HashSet<string> disabled = new(AgentSettingConfig.Current.DisabledSkills, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> disabled = new(disabledSkills, StringComparer.OrdinalIgnoreCase);
         List<SkillCatalogEntry> entries = await GetEntriesAsync().ConfigureAwait(false);
         return entries.Where(x => x.IsLoaded && !disabled.Contains(x.Name)).ToList();
     }
@@ -201,12 +203,14 @@ public class SkillCatalog : Singleton<SkillCatalog>
     /// </summary>
     /// <param name="skillName">技能名</param>
     /// <param name="arguments">技能名之后用户写的参数,可为空</param>
+    /// <param name="tools">本智能体的能力配置(禁用清单与文件/shell 开关都从这里读)</param>
     /// <returns>调用产物;技能不存在或已被禁用时为 null</returns>
-    public async Task<SkillInvocation?> TryBuildInvocationAsync(string skillName, string arguments)
+    public async Task<SkillInvocation?> TryBuildInvocationAsync(string skillName, string arguments,
+        AgentToolConfig tools)
     {
         if (string.IsNullOrWhiteSpace(skillName)) return null;
 
-        HashSet<string> disabled = new(AgentSettingConfig.Current.DisabledSkills, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> disabled = new(tools.DisabledSkills, StringComparer.OrdinalIgnoreCase);
         if (disabled.Contains(skillName)) return null;
 
         foreach (AgentSkill skill in await LoadSkillsAsync().ConfigureAwait(false))
@@ -222,8 +226,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
             if (directory.Length > 0)
             {
                 sb.AppendLine($"Skill directory: {directory}");
-                AgentSettingConfig current = AgentSettingConfig.Current;
-                sb.Append(BuildResourceAccessLine(current.EnableFileAccess, current.EnableShellExecution,
+                sb.Append(BuildResourceAccessLine(tools.EnableFileAccess, tools.EnableShellExecution,
                     IsModelInvocable(skill)));
             }
 
@@ -282,29 +285,6 @@ public class SkillCatalog : Singleton<SkillCatalog>
         }
 
         return sb.ToString();
-    }
-
-    /// <summary>
-    /// 设置技能启停(持久化到 AgentSettingConfig.DisabledSkills)
-    /// </summary>
-    /// <param name="skillName">技能名</param>
-    /// <param name="isEnabled">是否启用</param>
-    public void SetSkillEnabled(string skillName, bool isEnabled)
-    {
-        List<string> disabled = AgentSettingConfig.Current.DisabledSkills;
-        int index = disabled.FindIndex(x => string.Equals(x, skillName, StringComparison.OrdinalIgnoreCase));
-        if (isEnabled)
-        {
-            if (index < 0) return;
-            disabled.RemoveAt(index);
-        }
-        else
-        {
-            if (index >= 0) return;
-            disabled.Add(skillName);
-        }
-
-        AgentSettingConfig.Current.Save();
     }
 
     /// <summary>

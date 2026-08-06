@@ -56,6 +56,12 @@ public class CharacterData
     public bool RequiresVisionModel { get; set; }
 
     /// <summary>
+    /// 本智能体的能力配置(装哪些工具、禁用哪些技能)。只对 <see cref="ECharacterKind.Agent"/> 有意义；
+    /// 运行时只读这一份，没有全局总闸(见 ADR 0003)。
+    /// </summary>
+    public AgentToolConfig Tools { get; set; } = new();
+
+    /// <summary>
     /// 可委派的子智能体名单(只对 <see cref="ECharacterKind.Agent"/> 有意义)：
     /// 名单里每一项是一个智能体档角色，<c>run_subagent</c> 据此让模型挑一个派活；
     /// 为空则退回内置的通用匿名子代理。

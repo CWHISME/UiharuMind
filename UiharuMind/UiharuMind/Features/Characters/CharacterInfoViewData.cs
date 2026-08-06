@@ -75,6 +75,18 @@ public partial class CharacterInfoViewData : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 智能体的能力面板(工具开关 + 技能勾选)。惰性建:非智能体档的编辑页不显示这块,
+    /// 建它要读盘解析技能包
+    /// </summary>
+    public AgentToolViewData AgentTools => _agentTools ??= new AgentToolViewData(_characterData.Tools);
+
+    /// <summary>可委派的子智能体(存的是标识,界面显示解析后的名字)</summary>
+    public ObservableCollection<MountedAgentItem> SubAgents { get; }
+
+    /// <summary>已挂的子智能体标识与自己(选择器据此排除,自己是为了防递归)</summary>
+    public IEnumerable<string> SubAgentAndSelfIds => SubAgents.Select(x => x.Id).Append(CharacterId);
+
     /// <summary>档位显示名(列表徽章)</summary>
     public string KindName => CharacterKindPresentation.NameOf(Kind);
 
@@ -231,6 +243,7 @@ public partial class CharacterInfoViewData : ObservableObject
     //=================================================
 
     private CharacterData _characterData;
+    private AgentToolViewData? _agentTools;
 
     public CharacterInfoViewData() : this(new CharacterData())
     {
@@ -247,6 +260,34 @@ public partial class CharacterInfoViewData : ObservableObject
         _characterData = characterData;
         Name = characterData.CharacterName;
         Description = characterData.Description;
+
+        SubAgents = new ObservableCollection<MountedAgentItem>(
+            characterData.MountAgents.Select(MountedAgentItem.FromId));
+        SubAgents.CollectionChanged += (sender, args) =>
+        {
+            _characterData.MountAgents = SubAgents.Select(x => x.Id).ToList();
+        };
+    }
+
+    /// <summary>
+    /// 把一个智能体挂进可委派名单
+    /// </summary>
+    /// <param name="character">要挂的角色;自己、非智能体档、已挂的一律忽略</param>
+    public void AddSubAgent(CharacterData character)
+    {
+        if (character.CharacterId == CharacterId) return; //防递归
+        if (!character.Kind.IsAgent()) return;
+        if (SubAgents.Any(x => x.Id == character.CharacterId)) return;
+
+        SubAgents.Add(MountedAgentItem.FromId(character.CharacterId));
+    }
+
+    /// <summary>把一个子智能体移出名单</summary>
+    /// <param name="item">名单项</param>
+    [RelayCommand]
+    public void RemoveSubAgent(MountedAgentItem item)
+    {
+        SubAgents.Remove(item);
     }
 
     public async void TryAddToNewCharacterData(Action? onSuccess = null)
@@ -356,4 +397,33 @@ public partial class CharacterInfoViewData : ObservableObject
     //     MountPrompts.Clear();
     //     MountPrompts.AddRange(target.MountPrompts);
     // }
+}
+
+/// <summary>
+/// 子智能体名单项的显示包装：数据里存的是角色标识，界面上要显示可读的名字
+/// </summary>
+public sealed class MountedAgentItem
+{
+    /// <summary>被挂角色的标识</summary>
+    public string Id { get; }
+
+    /// <summary>显示名；角色不存在时回退为标识本身</summary>
+    public string Name { get; }
+
+    private MountedAgentItem(string id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    /// <summary>
+    /// 由角色标识解析出显示名
+    /// </summary>
+    /// <param name="characterId">角色标识</param>
+    /// <returns>名单项</returns>
+    public static MountedAgentItem FromId(string characterId)
+    {
+        string name = CharacterManager.Instance.GetCharacterData(characterId).CharacterName;
+        return new MountedAgentItem(characterId, string.IsNullOrEmpty(name) ? characterId : name);
+    }
 }

@@ -63,12 +63,11 @@ public class WorkspaceInstructionsTests : IDisposable
     public void ChangedWorkspaceInstructions_ProduceDifferentSnapshot()
     {
         CharacterData character = new() { CharacterId = "agent", Kind = ECharacterKind.Agent };
-        AgentSettingConfig config = new();
 
         AgentAssemblySnapshot before = AgentAssemblySnapshot.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, config, 1, workspaceInstructions: "v1");
+            EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v1");
         AgentAssemblySnapshot after = AgentAssemblySnapshot.Capture(character, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, config, 1, workspaceInstructions: "v2");
+            EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v2");
 
         Assert.NotEqual(before, after); //文件编辑 → 下一次挂接重建装配
     }

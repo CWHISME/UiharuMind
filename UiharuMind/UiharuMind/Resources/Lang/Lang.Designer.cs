@@ -689,18 +689,6 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentGatePromptLabel {
-            get {
-                return ResourceManager.GetString("AgentGatePromptLabel", resourceCulture);
-            }
-        }
-        
-        public static string AgentGatePromptReset {
-            get {
-                return ResourceManager.GetString("AgentGatePromptReset", resourceCulture);
-            }
-        }
-        
         public static string AgentSettingWebSearchKeys {
             get {
                 return ResourceManager.GetString("AgentSettingWebSearchKeys", resourceCulture);
@@ -4939,6 +4927,66 @@ namespace UiharuMind.Resources.Lang {
         public static string SnippetDelete {
             get {
                 return ResourceManager.GetString("SnippetDelete", resourceCulture);
+            }
+        }
+
+        public static string AgentSettingCapabilitiesMoved {
+            get {
+                return ResourceManager.GetString("AgentSettingCapabilitiesMoved", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsPerAgentHint {
+            get {
+                return ResourceManager.GetString("AgentSkillsPerAgentHint", resourceCulture);
+            }
+        }
+
+        public static string CharacterToolsTitle {
+            get {
+                return ResourceManager.GetString("CharacterToolsTitle", resourceCulture);
+            }
+        }
+
+        public static string CharacterToolsDesc {
+            get {
+                return ResourceManager.GetString("CharacterToolsDesc", resourceCulture);
+            }
+        }
+
+        public static string CharacterSkillsTitle {
+            get {
+                return ResourceManager.GetString("CharacterSkillsTitle", resourceCulture);
+            }
+        }
+
+        public static string CharacterSkillsDesc {
+            get {
+                return ResourceManager.GetString("CharacterSkillsDesc", resourceCulture);
+            }
+        }
+
+        public static string CharacterSkillsEmpty {
+            get {
+                return ResourceManager.GetString("CharacterSkillsEmpty", resourceCulture);
+            }
+        }
+
+        public static string CharacterSubAgentsTitle {
+            get {
+                return ResourceManager.GetString("CharacterSubAgentsTitle", resourceCulture);
+            }
+        }
+
+        public static string CharacterSubAgentsDesc {
+            get {
+                return ResourceManager.GetString("CharacterSubAgentsDesc", resourceCulture);
+            }
+        }
+
+        public static string CharacterSubAgentsRemove {
+            get {
+                return ResourceManager.GetString("CharacterSubAgentsRemove", resourceCulture);
             }
         }
 

@@ -195,15 +195,20 @@ public partial class ConversationViewModel : ViewModelBase
     /// 当前会话是否 agent 类型(决定工具行显示模式/权限还是发送身份)。
     /// 尚无会话时按页面的新建默认角色判定,agent 页的空会话也应显示 agent 工具
     /// </summary>
-    public bool IsAgentSession =>
-        (_currentCharacter ?? CharacterManager.Instance.GetCharacterData(NewSessionCharacterId)).Kind ==
-        ECharacterKind.Agent;
+    public bool IsAgentSession => SessionCharacter.Kind.IsAgent();
+
+    /// <summary>
+    /// 本会话的角色。尚无会话时取页面的新建默认角色——工具开关、技能清单、
+    /// 计划模式与任务清单的可见性都按它判定(它们现在长在角色身上,见 ADR 0003)
+    /// </summary>
+    private CharacterData SessionCharacter =>
+        _currentCharacter ?? CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
 
     /// <summary>输入框的模式切换是否可见(agent 会话且计划模式门控开启);随会话切换刷新</summary>
-    public bool IsModeSwitchVisible => IsAgentSession && AgentSettingConfig.Current.EnableAgentMode;
+    public bool IsModeSwitchVisible => IsAgentSession && SessionCharacter.Tools.EnableAgentMode;
 
     /// <summary>侧栏任务清单是否可见(任务清单门控开启);随会话切换刷新</summary>
-    public bool IsTodoListVisible => AgentSettingConfig.Current.EnableTodoList;
+    public bool IsTodoListVisible => IsAgentSession && SessionCharacter.Tools.EnableTodoList;
 
     /// <summary>当前会话的记忆库面板(未挂接会话时为空)</summary>
     [ObservableProperty] private ConversationMemoryViewData? _memoryPanel;
@@ -1315,7 +1320,8 @@ public partial class ConversationViewModel : ViewModelBase
 
         int version = ++_skillPickerVersion;
         List<SkillCatalogEntry> all =
-            _skillCandidateCache ?? await SkillCatalog.Instance.GetInvocableEntriesAsync();
+            _skillCandidateCache ??
+            await SkillCatalog.Instance.GetInvocableEntriesAsync(SessionCharacter.Tools.DisabledSkills);
         if (version != _skillPickerVersion) return; //读盘期间输入又变了,丢弃本次结果
         _skillCandidateCache = all;
 
@@ -1344,7 +1350,8 @@ public partial class ConversationViewModel : ViewModelBase
             return null;
         }
 
-        return await SkillCatalog.Instance.TryBuildInvocationAsync(skillName, arguments);
+        return await SkillCatalog.Instance.TryBuildInvocationAsync(skillName, arguments,
+            SessionCharacter.Tools);
     }
 
     /// <summary>

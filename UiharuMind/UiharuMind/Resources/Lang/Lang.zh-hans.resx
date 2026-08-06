@@ -341,12 +341,6 @@
     <data name="AgentGateDescAgentMode" xml:space="preserve">
         <value>计划/执行模式切换。关闭后输入框的模式切换按钮隐藏，agent 始终直接执行。</value>
     </data>
-    <data name="AgentGatePromptLabel" xml:space="preserve">
-        <value>提示词（可编辑）</value>
-    </data>
-    <data name="AgentGatePromptReset" xml:space="preserve">
-        <value>重置为默认</value>
-    </data>
     <data name="AgentSettingWebSearchKeys" xml:space="preserve">
         <value>网络搜索 API key</value>
     </data>
@@ -2473,5 +2467,35 @@
     </data>
     <data name="SnippetDelete" xml:space="preserve">
         <value>删除片段</value>
+    </data>
+    <data name="AgentSettingCapabilitiesMoved" xml:space="preserve">
+        <value>工具开关与技能启停已改为按智能体各自配置——到「角色」页编辑某个智能体即可，那里能看到它实际会装配哪些工具。这里只保留全局共用的搜索 API 凭据。</value>
+    </data>
+    <data name="AgentSkillsPerAgentHint" xml:space="preserve">
+        <value>这里管理技能包本身；某个智能体启用哪些技能，在该角色的编辑页勾选。</value>
+    </data>
+    <data name="CharacterToolsTitle" xml:space="preserve">
+        <value>工具与能力</value>
+    </data>
+    <data name="CharacterToolsDesc" xml:space="preserve">
+        <value>这个智能体实际会装配哪些工具。没有全局总闸——运行时只看这一份。</value>
+    </data>
+    <data name="CharacterSkillsTitle" xml:space="preserve">
+        <value>技能</value>
+    </data>
+    <data name="CharacterSkillsDesc" xml:space="preserve">
+        <value>勾选这个智能体可用的技能。技能包本身在设置页的「技能」里管理。</value>
+    </data>
+    <data name="CharacterSkillsEmpty" xml:space="preserve">
+        <value>还没有技能包。到设置页的「技能」里新建一个。</value>
+    </data>
+    <data name="CharacterSubAgentsTitle" xml:space="preserve">
+        <value>可委派的子智能体</value>
+    </data>
+    <data name="CharacterSubAgentsDesc" xml:space="preserve">
+        <value>挂进来的智能体会出现在 run_subagent 的可选名单里，模型可以点名把探查派给它。它的能力取「它自己那份」与本智能体的交集——不会比本智能体更大。名单为空时仍有一个通用子代理可用。</value>
+    </data>
+    <data name="CharacterSubAgentsRemove" xml:space="preserve">
+        <value>移出名单</value>
     </data>
 </root>

@@ -351,12 +351,6 @@
     <data name="AgentGateDescAgentMode" xml:space="preserve">
         <value>Plan/execute mode switching. When disabled, the mode toggle in the composer is hidden and the agent always executes directly.</value>
     </data>
-    <data name="AgentGatePromptLabel" xml:space="preserve">
-        <value>Prompt (editable)</value>
-    </data>
-    <data name="AgentGatePromptReset" xml:space="preserve">
-        <value>Reset to default</value>
-    </data>
     <data name="AgentSettingWebSearchKeys" xml:space="preserve">
         <value>Web search API keys</value>
     </data>
@@ -2480,5 +2474,35 @@
     </data>
     <data name="SnippetDelete" xml:space="preserve">
         <value>Delete snippet</value>
+    </data>
+    <data name="AgentSettingCapabilitiesMoved" xml:space="preserve">
+        <value>Tool switches and skill toggles are now configured per agent — edit an agent on the Characters page to see what it actually assembles. Only the shared search API credentials live here.</value>
+    </data>
+    <data name="AgentSkillsPerAgentHint" xml:space="preserve">
+        <value>This page manages the skill packages themselves. Which skills an agent may use is chosen in that agent's editor.</value>
+    </data>
+    <data name="CharacterToolsTitle" xml:space="preserve">
+        <value>Tools and capabilities</value>
+    </data>
+    <data name="CharacterToolsDesc" xml:space="preserve">
+        <value>Which tools this agent actually assembles. There is no global master switch: only this is read at runtime.</value>
+    </data>
+    <data name="CharacterSkillsTitle" xml:space="preserve">
+        <value>Skills</value>
+    </data>
+    <data name="CharacterSkillsDesc" xml:space="preserve">
+        <value>Pick the skills this agent may use. The packages themselves are managed under Settings › Skills.</value>
+    </data>
+    <data name="CharacterSkillsEmpty" xml:space="preserve">
+        <value>No skill packages yet. Create one under Settings › Skills.</value>
+    </data>
+    <data name="CharacterSubAgentsTitle" xml:space="preserve">
+        <value>Delegatable sub-agents</value>
+    </data>
+    <data name="CharacterSubAgentsDesc" xml:space="preserve">
+        <value>Mounted agents appear in the run_subagent roster, so the model can delegate an investigation by name. Its capabilities are the intersection of its own and this agent's — never wider. With an empty roster a general-purpose sub-agent is still available.</value>
+    </data>
+    <data name="CharacterSubAgentsRemove" xml:space="preserve">
+        <value>Remove from roster</value>
     </data>
 </root>
