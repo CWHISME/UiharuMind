@@ -40,7 +40,7 @@ public class AgentToolConfig
     public bool EnableTodoList { get; set; }
 
     /// <summary>启用计划模式(框架 AgentModeProvider 的 plan/execute;关闭时输入框的模式切换同步隐藏)</summary>
-    public bool EnableAgentMode { get; set; } = true;
+    public bool EnableAgentMode { get; set; }
 
     /// <summary>
     /// 本智能体禁用的技能名(SKILL.md 技能目录名)。技能与工具同类，都是"这个智能体有什么能力"，
