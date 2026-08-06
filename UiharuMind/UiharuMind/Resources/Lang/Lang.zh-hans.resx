@@ -182,6 +182,15 @@
     <data name="AgentWorkspaceClear" xml:space="preserve">
         <value>清除</value>
     </data>
+    <data name="AgentWorkspaceRecent" xml:space="preserve">
+        <value>最近使用</value>
+    </data>
+    <data name="AgentWorkspaceRecentEmpty" xml:space="preserve">
+        <value>还没有用过其它目录</value>
+    </data>
+    <data name="AgentWorkspaceForget" xml:space="preserve">
+        <value>从最近列表移除</value>
+    </data>
     <data name="AgentSenderUser" xml:space="preserve">
         <value>你</value>
     </data>

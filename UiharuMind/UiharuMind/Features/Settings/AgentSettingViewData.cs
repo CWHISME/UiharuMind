@@ -245,7 +245,11 @@ public partial class AgentSettingViewData : ViewModelBase
     private async Task BrowseDefaultWorkspace()
     {
         string path = await App.FilesService.OpenSelectFolderAsync(DefaultWorkspacePath);
-        if (!string.IsNullOrEmpty(path)) DefaultWorkspacePath = path;
+        if (string.IsNullOrEmpty(path)) return;
+
+        DefaultWorkspacePath = path;
+        // 这里选的目录也进最近列表:两处都是"挑一个工作目录",没理由只有会话侧记得
+        AgentSettingConfig.Current.RememberWorkspace(path);
     }
 
     //================= MCP =================
