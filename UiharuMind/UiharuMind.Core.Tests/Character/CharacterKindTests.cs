@@ -62,6 +62,38 @@ public class CharacterKindTests
         Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.WorkspaceAgent).IsInternal);
     }
 
+    /// <summary>
+    /// 每个能开会话的档位都必须<b>恰好</b>落进一边：聊天页或智能体页。
+    ///
+    /// 这条是实机踩出来的：装配分支曾写作 <c>== Roleplay</c>、聊天页会话列表曾写作
+    /// <c>GetSessions(Roleplay)</c>——两档时代"非扮演即 agent"成立，四档之后工具人两处都漏：
+    /// 翻译/识图角色被装上文件、shell、技能与整套 harness，它们的会话则在两个页面都不显示。
+    /// 加第五档时这条会立刻炸，而不是等实机发现。
+    /// </summary>
+    [Fact]
+    public void EveryKind_LandsOnExactlyOneSurface()
+    {
+        foreach (ECharacterKind kind in Enum.GetValues<ECharacterKind>())
+        {
+            if (!kind.CanStartSession()) continue; //用户卡不开会话
+
+            Assert.True(kind.IsChat() ^ kind.IsAgent(), $"{kind} 没有归页或同时归了两页");
+        }
+    }
+
+    /// <summary>
+    /// 只有智能体档走 agent 装配。工具人是"一段纯提示词干一件事"，
+    /// 给它挂上工具与工作目录就是白吃一大段 harness 前言，还多出一堆它用不到的工具。
+    /// </summary>
+    [Fact]
+    public void OnlyAgentKind_TakesTheAgentAssembly()
+    {
+        Assert.True(ECharacterKind.Agent.IsAgent());
+        Assert.False(ECharacterKind.Tool.IsAgent());
+        Assert.False(ECharacterKind.Roleplay.IsAgent());
+        Assert.False(ECharacterKind.UserCard.IsAgent());
+    }
+
     [Fact]
     public void Kind_RoundTripsAsReadableString()
     {

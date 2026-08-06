@@ -46,7 +46,7 @@ public partial class AgentPage : UserControl
                 conversation.ChangeCharacter(character);
                 flyout?.Hide();
             },
-            filter: character => character.Kind == ECharacterKind.Agent,
+            filter: character => character.Kind.IsAgent(),
             excludedIds: [conversation.ActiveCharacterId]);
     }
 

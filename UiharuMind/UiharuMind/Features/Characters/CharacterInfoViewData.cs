@@ -60,7 +60,7 @@ public partial class CharacterInfoViewData : ObservableObject
     public bool IsRoleplay => Kind == ECharacterKind.Roleplay;
 
     /// <summary>是否为智能体档(装配工具与工作目录)</summary>
-    public bool IsAgent => Kind == ECharacterKind.Agent;
+    public bool IsAgent => Kind.IsAgent();
 
     /// <summary>
     /// 注入用户卡：活引用，改了用户卡所有开着的角色跟着变

@@ -162,13 +162,15 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         List<AIContextProvider> contextProviders =
         [
             new MemoryContextProvider(hasKnowledgeTool:
-                character.Kind == ECharacterKind.Agent && config.EnableKnowledgeSearchTool),
+                character.Kind.IsAgent() && config.EnableKnowledgeSearchTool),
         ];
 
-        if (character.Kind == ECharacterKind.Roleplay)
+        // 只有 agent 档往下走装配。这里曾写作 == Roleplay:两档时代"非扮演即 agent"成立,
+        // 四档之后工具人与用户卡会掉进 agent 分支,被装上文件/shell/技能与整套 harness
+        if (!character.Kind.IsAgent())
         {
             return BuildHandle(client,
-                BuildRoleplayOptions(character, history, contextProviders, chatOptions), null);
+                BuildPromptOnlyOptions(character, history, contextProviders, chatOptions), null);
         }
 
         string workingDirectory = profile.WorkspacePath ?? GetScratchDirectory();
@@ -491,7 +493,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
     // [MFA绕坑] 绕:框架默认向系统提示注入自身内容 因:无"纯透传"档,只能逐项 Disable 删除条件:框架提供 passthrough 模式
     /// <summary>
-    /// 角色扮演档选项(纯函数,不碰单例)。不变量:框架侧一律关闭、HarnessInstructions 为空——
+    /// 纯提示词档选项(扮演与工具人,纯函数,不碰单例)。不变量:框架侧一律关闭、HarnessInstructions 为空——
     /// 任何一项漏关都会向角色扮演的上下文里注入内容,该不变量由测试钉住。
     /// </summary>
     /// <param name="character">角色</param>
@@ -499,7 +501,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="contextProviders">上下文提供器</param>
     /// <param name="chatOptions">对话选项(含角色系统提示,工具应为空)</param>
     /// <returns>框架选项</returns>
-    internal static HarnessAgentOptions BuildRoleplayOptions(CharacterData character,
+    internal static HarnessAgentOptions BuildPromptOnlyOptions(CharacterData character,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions)
     {
         return new HarnessAgentOptions

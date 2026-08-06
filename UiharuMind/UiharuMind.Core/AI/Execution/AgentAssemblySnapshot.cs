@@ -106,7 +106,7 @@ public sealed record AgentAssemblySnapshot
             (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             session.PreAuthorizedShellPatterns,
             AgentSettingConfig.Current, McpManager.Instance.Revision,
-            character.Kind == ECharacterKind.Agent
+            character.Kind.IsAgent()
                 ? WorkspaceInstructionsLoader.Load(session.WorkspacePath)
                 : string.Empty,
             // 与 LazyChatClient 同一解析次序:会话绑定模型优先,回落全局当前模型
@@ -133,7 +133,7 @@ public sealed record AgentAssemblySnapshot
         bool modelSupportsVision = false)
     {
         // 角色扮演档不装配工具,工具相关输入一律归零——agent 侧配置变化不连累角色扮演重建
-        bool isAgent = character.Kind == ECharacterKind.Agent;
+        bool isAgent = character.Kind.IsAgent();
         return new AgentAssemblySnapshot
         {
             CharacterId = character.CharacterId,
