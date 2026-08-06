@@ -5,6 +5,7 @@ using OpenAI;
 using OpenAI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.LLM;
@@ -62,7 +63,9 @@ internal sealed class RemoteModelManager
             model, model.ModelPath + (model.Port > 0 ? ":" + model.Port : ""));
         var options = new OpenAIClientOptions
         {
-            Transport = new HttpClientPipelineTransport(new HttpClient(handler))
+            Transport = new HttpClientPipelineTransport(new HttpClient(handler)),
+            // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短
+            RetryPolicy = new RateLimitAwareRetryPolicy(),
         };
         var client = new ChatClient(model.ModelId,
             new ApiKeyCredential(model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : ""), options);
