@@ -26,7 +26,7 @@ public static class CharacterPromptBuilder
     private const string DialogTemplateHeader = "Dialog Template:";
 
     /// <summary>
-    /// 装配系统提示词：按顺序拼接用户卡 → 本角色 Template → 对话模板
+    /// 装配角色段：按顺序拼接本角色 Template → 用户卡 → 对话模板
     /// </summary>
     /// <param name="character">目标角色</param>
     /// <param name="arguments">额外的模板参数(会与角色的公共参数合并，不会被修改)</param>
@@ -43,15 +43,15 @@ public static class CharacterPromptBuilder
         StringBuilder sb = StringBuilderPool.Get();
         try
         {
-            // 用户卡在最前:先交代"用户是谁",再进角色自己的设定
+            // 角色自己的设定在最前:先交代"你是谁",再交代"用户是谁"
+            AppendBlock(sb, CharacterPromptRenderer.Render(character.Template, args));
+
             if (character.InjectUserCard)
             {
                 CharacterData userCard =
                     DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UserCard);
                 AppendBlock(sb, CharacterPromptRenderer.Render(userCard.Template, args));
             }
-
-            AppendBlock(sb, CharacterPromptRenderer.Render(character.Template, args));
 
             if (!string.IsNullOrEmpty(character.DialogTemplate))
             {

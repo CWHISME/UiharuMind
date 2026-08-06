@@ -21,6 +21,26 @@ namespace UiharuMind.Core.AI.Execution;
 public static class AgentToolPrompts
 {
     /// <summary>
+    /// 智能体的工作循环段：先弄清事实、边做边说、失败换路、收尾总结。弱模型最依赖这几条。
+    ///
+    /// 这段<b>不进 harness 层</b>，而是作为角色提示词的一部分（内置智能体的存档里就写着它，
+    /// 新建智能体档角色时预填这一段，片段库里也有一份可随时插回）。
+    /// 曾经的做法是把框架的 <see cref="HarnessAgent.DefaultInstructions"/> 拼在 harness 段开头，
+    /// 那样有两个毛病：用户在界面上看不到每轮都发出去的这段话；而且框架那段的第一句是
+    /// "You are a helpful AI assistant..."，harness 段又排在角色段之前，于是每个智能体的人格
+    /// 都要先跟一句"你是通用助手"抢身份。见 ADR 0004。
+    ///
+    /// 标题用一级：与角色卡里的 Task、Style 两节同级——它现在是角色提示词的一节。
+    /// </summary>
+    public const string AgentWorkLoop =
+        "# Work loop\n" +
+        "- Establish the facts before acting. Break complex work into explicit steps.\n" +
+        "- Between tool calls, say what you learned and what you will do next. " +
+        "Never fire more than 4 tool calls in a row without saying anything.\n" +
+        "- If a call fails or returns something unexpected, change approach instead of repeating it.\n" +
+        "- Finish with a short summary of what you did and what you found.";
+
+    /// <summary>
     /// 工作目录段。<b>不可被设置页覆盖</b>——这一段是事实而非建议,
     /// 用户覆盖掉文件工具的纪律文案不该顺带把"根目录在哪"一起删掉。
     ///

@@ -9,6 +9,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Features.Characters;
@@ -144,8 +145,13 @@ public partial class CharacterListViewData : ObservableObject
     [RelayCommand]
     private void AddCharacter(ECharacterKind? kind)
     {
-        CharacterInfoViewData data = new(new CharacterData { Kind = kind ?? ECharacterKind.Roleplay });
-        UIManager.ShowEditCharacterWindow(data, x => x.TryAddToNewCharacterData());
+        CharacterData character = new() { Kind = kind ?? ECharacterKind.Roleplay };
+        // 智能体预填工作循环那一节:它是弱模型最依赖的几条,而现在它归角色提示词管(ADR 0004),
+        // 不预填就等于新建出来的智能体默认少了这段。用户可以照常改写或删掉
+        if (character.Kind == ECharacterKind.Agent) character.Template = AgentToolPrompts.AgentWorkLoop;
+
+        UIManager.ShowEditCharacterWindow(new CharacterInfoViewData(character),
+            x => x.TryAddToNewCharacterData());
     }
 
     [RelayCommand]
