@@ -67,39 +67,37 @@
             <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsDefault}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterFuncType}" />
-                    <!-- 类型由挂载列表派生:挂了提示词片段即扮演角色,没挂即纯提示词的工具型角色。
-                         要改变它请在下方增删挂载项,而不是翻一个旗标。 -->
-                    <ToggleSwitch IsChecked="{Binding IsRole}"
-                                  OffContent="{loc:Loc ToolCharacter}"
-                                  OnContent="{loc:Loc RoleplayCharacter}"
-                                  IsEnabled="False" />
-                </StackPanel>
-            </Border>
-
-            <Border Name="MountsSection" Classes="edit-card">
-                <StackPanel Spacing="10">
+                    <!-- 档位是角色的唯一身份轴:决定表单长什么样、装不装工具、出现在哪一页 -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Classes="card-title" Text="{loc:Loc MountsTitle}" />
-                        <controls:ThemedSvgIcon Width="16" Height="16" IconName="info">
+                        <ComboBox Width="180"
+                                  ItemsSource="{Binding SelectableKinds}"
+                                  SelectedItem="{Binding Kind}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={x:Static viewData:CharacterKindNameConverter.Instance}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
+                                                VerticalAlignment="Center">
                             <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc MountsDesc}" FontSize="14" />
+                                <TextBlock Text="{loc:Loc CharacterKindDesc}" FontSize="14"
+                                           MaxWidth="360" TextWrapping="Wrap" />
                             </ToolTip.Tip>
                         </controls:ThemedSvgIcon>
                     </StackPanel>
-                    <ItemsControl ItemsSource="{Binding MountPrompts}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <u:Badge Header="{Binding Name}" Background="{DynamicResource SemiBlue5}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Classes="muted" Text="{loc:Loc MountsNullTips}" />
-                    <Button Content="{loc:Loc AddBtn}" Command="{Binding AddMountCharacterCommand}" />
+                    <!-- 用户卡是单例、活引用:改了用户卡,所有开着这个开关的角色下一轮跟着变 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsRoleplay}">
+                        <CheckBox IsChecked="{Binding InjectUserCard}"
+                                  Content="{loc:Loc CharacterInjectUserCard}" />
+                        <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
+                                                VerticalAlignment="Center">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc CharacterInjectUserCardDesc}" FontSize="14"
+                                           MaxWidth="360" TextWrapping="Wrap" />
+                            </ToolTip.Tip>
+                        </controls:ThemedSvgIcon>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -113,18 +111,29 @@
             <Border Name="PromptSection" Classes="edit-card">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title"
-                               IsVisible="{Binding IsRole}"
+                               IsVisible="{Binding IsRoleplay}"
                                Text="{loc:Loc CharacterDesc}" />
                     <TextBlock Classes="card-title"
-                               IsVisible="{Binding !IsRole}"
+                               IsVisible="{Binding !IsRoleplay}"
                                Text="{loc:Loc SystemPrompt}" />
                     <TextBox Text="{Binding Template}"
                              MinHeight="180"
                              AcceptsReturn="True" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{loc:Loc SnippetInsert}">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSnippetPickerOpening">
+                                    <viewData:PromptSnippetPickerView Name="SnippetPicker" />
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <TextBlock Classes="muted" Text="{loc:Loc SnippetInsertDesc}"
+                                   VerticalAlignment="Center" MaxWidth="380" TextWrapping="Wrap" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
-            <Border Name="GreetingSection" Classes="edit-card" IsVisible="{Binding IsRole}">
+            <Border Name="GreetingSection" Classes="edit-card" IsVisible="{Binding IsRoleplay}">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterFirstGreeting}" />
                     <TextBox Text="{Binding FirstGreeting}"
@@ -138,7 +147,7 @@
                     <TextBlock Classes="card-title" Text="{loc:Loc AdvancedOptions}" />
                 </Expander.Header>
                 <StackPanel Spacing="12" Margin="0,10,0,0">
-                    <Border Name="DialogTemplateSection" Classes="edit-card" IsVisible="{Binding IsRole}">
+                    <Border Name="DialogTemplateSection" Classes="edit-card" IsVisible="{Binding IsRoleplay}">
                         <StackPanel Spacing="8">
                             <TextBlock Classes="card-title" Text="{loc:Loc CharacterDialogTemplate}" />
                             <TextBox Text="{Binding DialogTemplate}"

@@ -10,6 +10,8 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Input;
+using UiharuMind.Core.AI.Character;
+using UiharuMind.Features.Characters;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -24,6 +26,28 @@ public partial class AgentPage : UserControl
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         if (DataContext is AgentPageData data) data.UpdateResponsiveState(e.NewSize.Width);
+    }
+
+    /// <summary>
+    /// 展开前给角色选择器换一份数据：角色可能刚被新建/删除/改名，
+    /// 而当前角色应当从候选里排除（选中自己是空操作）。
+    /// agent 页只列 agent 档角色——工具、权限档、文件记忆这些装配只对 agent 档生效，
+    /// 在这里选中一个角色扮演角色，得到的会是个没工具却带扮演脚手架的东西。
+    /// </summary>
+    private void OnCharacterPickerOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is not AgentPageData data) return;
+
+        ConversationViewModel conversation = data.Conversation;
+        Flyout? flyout = sender as Flyout; //Opening 的 sender 就是 Flyout 本身,拿它收起面板
+        CharacterPicker.DataContext = new CharacterPickerViewData(
+            character =>
+            {
+                conversation.ChangeCharacter(character);
+                flyout?.Hide();
+            },
+            filter: character => character.Kind == ECharacterKind.Agent,
+            excludedIds: [conversation.ActiveCharacterId]);
     }
 
     /// <summary>

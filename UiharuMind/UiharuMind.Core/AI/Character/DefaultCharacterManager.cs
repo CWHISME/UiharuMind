@@ -68,16 +68,10 @@ public enum DefaultCharacter
     /// 用户角色卡
     /// </summary>
     UserCard,
-    Roleplay_FirstPerson,
-    Roleplay_ThirdPerson,
-    // RoleplayDetailed,
-    // RoleplayImmersive,
-    UiharuKazari,
 
-    /// <summary>
-    /// 本地语言
-    /// </summary>
-    SystemLanguage,
+    // 角色扮演脚手架(第一/第三人称)已不是角色:它们只是可插入提示词框的文本,
+    // 现由 PromptSnippetManager 管，见 ADR 0003
+    UiharuKazari,
 
     /// <summary>
     /// 默认助手
@@ -114,7 +108,7 @@ public enum DefaultCharacter
     // TextThinker,
     
     /// <summary>
-    /// 工作区 agent(Kind = Agent)
+    /// 智能体(Kind = Agent)
     /// </summary>
     WorkspaceAgent,
 

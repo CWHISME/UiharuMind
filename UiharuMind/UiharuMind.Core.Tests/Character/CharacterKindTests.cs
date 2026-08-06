@@ -1,12 +1,13 @@
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Tests.Character;
 
 /// <summary>
-/// 角色种类的序列化往返。这是单引擎切换后最容易静默失效的一点：
+/// 角色档位的序列化往返与内置角色的定档。这是最容易静默失效的一点：
 /// Kind 若解析不出来会退化为默认值 Roleplay，而 Roleplay 档是零工具的，
-/// 于是工作区 agent 会变成一个连文件都读不了的普通聊天角色，且不报任何错。
+/// 于是智能体会变成一个连文件都读不了的普通聊天角色，且不报任何错。
 /// </summary>
 public class CharacterKindTests
 {
@@ -27,15 +28,38 @@ public class CharacterKindTests
     }
 
     [Fact]
-    public void RoleplayCharacters_DefaultToRoleplayKind()
+    public void EveryBuiltInCharacter_DeclaresItsKindExplicitly()
     {
         foreach (DefaultCharacter value in Enum.GetValues<DefaultCharacter>())
         {
-            if (value is DefaultCharacter.Max or DefaultCharacter.WorkspaceAgent) continue;
+            if (value is DefaultCharacter.Max) continue;
 
-            CharacterData character = DefaultCharacterManager.Instance.GetCharacterData(value);
-            Assert.Equal(ECharacterKind.Roleplay, character.Kind);
+            // 缺字段会静默落到默认档 Roleplay:智能体会变成读不了文件的聊天角色,
+            // 工具人会凭空长出开场白与用户卡开关。所以每张内置卡都必须自己写明档位
+            string json = EmbeddedResourcesUtils.Read(value + ".json");
+            Assert.Contains("\"Kind\"", json);
         }
+    }
+
+    [Theory]
+    [InlineData(DefaultCharacter.UiharuKazari, ECharacterKind.Roleplay)]
+    [InlineData(DefaultCharacter.WorkspaceAgent, ECharacterKind.Agent)]
+    [InlineData(DefaultCharacter.UserCard, ECharacterKind.UserCard)]
+    [InlineData(DefaultCharacter.Translator, ECharacterKind.Tool)]
+    [InlineData(DefaultCharacter.Assistant, ECharacterKind.Tool)]
+    public void BuiltInCharacters_LandOnTheirIntendedKind(DefaultCharacter character, ECharacterKind expected)
+    {
+        Assert.Equal(expected, DefaultCharacterManager.Instance.GetCharacterData(character).Kind);
+    }
+
+    [Fact]
+    public void SkillCharacters_AreInternal()
+    {
+        // 程序点名取用的技能角色不该出现在角色库默认视图与任何选择器候选里
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision).IsInternal);
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator).IsInternal);
+        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari).IsInternal);
+        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.WorkspaceAgent).IsInternal);
     }
 
     [Fact]

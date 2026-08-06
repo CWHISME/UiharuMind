@@ -15,6 +15,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Character;
+using UiharuMind.Features.Characters;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -29,6 +32,22 @@ public partial class ChatPage : UserControl
     private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         if (DataContext is ChatPageData data) data.UpdateResponsiveState(e.NewSize.Width);
+    }
+
+    /// <summary>
+    /// 新建会话前选角色。<b>只列扮演与工具人两档</b>：智能体属于智能体页——
+    /// 它要工作目录、权限档与右侧栏那套面板，在聊天页开出来是个缺零件的东西。
+    /// </summary>
+    private void OnNewChatCharacterPickerOpening(object? sender, EventArgs e)
+    {
+        Flyout? flyout = sender as Flyout;
+        NewChatCharacterPicker.DataContext = new CharacterPickerViewData(
+            character =>
+            {
+                flyout?.Hide();
+                SessionManager.Instance.StartNewSession(character);
+            },
+            filter: character => character.Kind is ECharacterKind.Roleplay or ECharacterKind.Tool);
     }
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)

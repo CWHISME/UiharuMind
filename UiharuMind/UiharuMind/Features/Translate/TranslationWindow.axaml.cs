@@ -167,8 +167,9 @@ public partial class TranslationWindow : UiharuWindowBase
             var defaultChar = _agentSkill.GetCharacterData();
             foreach (var item in CharacterManager.Instance.CharacterDataDictionary)
             {
-                // 只有纯提示词角色适合当一次性技能:扮演角色带着挂载模板与用户卡,不该出现在翻译下拉里
-                if (!item.Value.IsPurePromptCharacter || item.Value == defaultChar) continue;
+                // 只有工具人适合当一次性技能:扮演角色带着开场白与用户卡,智能体带着一整套工具,
+                // 都不该出现在翻译下拉里
+                if (item.Value.Kind != ECharacterKind.Tool || item.Value == defaultChar) continue;
                 var customAgentSkill = new CustomPromptAction(item.Value);
                 _customAgentSkills.Add(customAgentSkill);
             }

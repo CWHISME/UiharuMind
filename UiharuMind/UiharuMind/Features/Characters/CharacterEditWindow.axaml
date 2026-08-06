@@ -67,7 +67,6 @@
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterEditorSections}" Margin="2,0,0,10" />
                     <Button Name="BasicSectionButton" Classes="nav-section selected" Content="{loc:Loc EditorBasicInfo}" Tag="Basic" Click="SectionButton_Click" />
                     <Button Classes="nav-section" Content="{loc:Loc CharacterFuncType}" Tag="Function" Click="SectionButton_Click" />
-                    <Button Classes="nav-section" Content="{loc:Loc MountsTitle}" Tag="Mounts" Click="SectionButton_Click" />
                     <Button Classes="nav-section" Content="{loc:Loc EditorPrompt}" Tag="Prompt" Click="SectionButton_Click" />
                     <Button Classes="nav-section" Content="{loc:Loc CharacterFirstGreeting}" Tag="Greeting" Click="SectionButton_Click" />
                     <Button Classes="nav-section" Content="{loc:Loc CharacterDialogTemplate}" Tag="Dialog" Click="SectionButton_Click" />

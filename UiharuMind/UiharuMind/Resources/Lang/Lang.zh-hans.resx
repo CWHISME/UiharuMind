@@ -182,6 +182,24 @@
     <data name="AgentWorkspaceClear" xml:space="preserve">
         <value>清除</value>
     </data>
+    <data name="ChatNewSession" xml:space="preserve">
+        <value>新建会话</value>
+    </data>
+    <data name="CharacterKindAgent" xml:space="preserve">
+        <value>智能体</value>
+    </data>
+    <data name="CharacterKindDesc" xml:space="preserve">
+        <value>角色扮演带开场白、示例对话与用户卡；工具人是一段纯提示词只干一件事；智能体会装配工具、工作目录与权限档，出现在智能体页。</value>
+    </data>
+    <data name="CharacterPickerSearch" xml:space="preserve">
+        <value>搜索角色…</value>
+    </data>
+    <data name="CharacterPickerEmpty" xml:space="preserve">
+        <value>没有匹配的角色</value>
+    </data>
+    <data name="AgentCharacterSwitch" xml:space="preserve">
+        <value>切换角色（下一条消息起生效）</value>
+    </data>
     <data name="AgentWorkspaceRecent" xml:space="preserve">
         <value>最近使用</value>
     </data>
@@ -623,26 +641,11 @@
     <data name="ClearTips" xml:space="preserve">
         <value>确认清除？</value>
     </data>
-    <data name="MountsTitle" xml:space="preserve">
-        <value>挂载工具</value>
-    </data>
-    <data name="MountsDesc" xml:space="preserve">
-        <value>可以挂载其它“工具人角色”，工具人会以“系统”身份在最开始向该角色讲述要求。</value>
-    </data>
-    <data name="MountsNullTips" xml:space="preserve">
-        <value>未挂载其它工具人</value>
-    </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>系统提示</value>
     </data>
-    <data name="RoleplayCharacter" xml:space="preserve">
-        <value>角色</value>
-    </data>
-    <data name="ToolCharacter" xml:space="preserve">
-        <value>工具人</value>
-    </data>
     <data name="CharacterFuncType" xml:space="preserve">
-        <value>角色功能</value>
+        <value>角色档位</value>
     </data>
     <data name="AddDuplicateCharacterTips" xml:space="preserve">
         <value>似乎存在重复名字的角色，是否重新编辑？</value>
@@ -2434,5 +2437,41 @@
     </data>
     <data name="RemoteModelCopyFromExistingHint" xml:space="preserve">
         <value>复用其密钥与配置，无需重新填写。</value>
+    </data>
+    <data name="CharacterKindRoleplay" xml:space="preserve">
+        <value>角色扮演</value>
+    </data>
+    <data name="CharacterKindTool" xml:space="preserve">
+        <value>工具人</value>
+    </data>
+    <data name="CharacterKindUserCard" xml:space="preserve">
+        <value>用户卡</value>
+    </data>
+    <data name="CharacterInjectUserCard" xml:space="preserve">
+        <value>注入用户卡</value>
+    </data>
+    <data name="CharacterInjectUserCardDesc" xml:space="preserve">
+        <value>把用户卡的内容拼进系统提示，让角色知道你是谁。这是活引用——改了用户卡，所有开着这个开关的角色下一轮就跟着变。</value>
+    </data>
+    <data name="CharacterShowInternal" xml:space="preserve">
+        <value>显示内部角色</value>
+    </data>
+    <data name="SnippetInsert" xml:space="preserve">
+        <value>插入片段</value>
+    </data>
+    <data name="SnippetInsertDesc" xml:space="preserve">
+        <value>把一段现成的文本插到提示词开头；插进来之后就是你自己的文本，可随意改。</value>
+    </data>
+    <data name="SnippetEmpty" xml:space="preserve">
+        <value>还没有片段。在提示词框里写好，再用右边存成一个。</value>
+    </data>
+    <data name="SnippetNameWatermark" xml:space="preserve">
+        <value>片段名</value>
+    </data>
+    <data name="SnippetSaveCurrent" xml:space="preserve">
+        <value>存为片段</value>
+    </data>
+    <data name="SnippetDelete" xml:space="preserve">
+        <value>删除片段</value>
     </data>
 </root>

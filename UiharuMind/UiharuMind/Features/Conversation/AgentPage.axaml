@@ -9,6 +9,7 @@
               xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:otherViews="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
              x:Class="UiharuMind.Features.Conversation.AgentPage"
@@ -333,6 +334,29 @@
                             <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
                                        IsVisible="{Binding !Conversation.IsGenerating}" />
                         </StackPanel>
+                        <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
+                             换的是当前会话的角色,下一轮发送时装配自然重建 -->
+                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
+                                        ClipToBounds="True">
+                                    <Image Source="{Binding Conversation.ActiveCharacterIcon}"
+                                           Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Conversation.ActiveCharacterName}" />
+                                <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
+                                           VerticalAlignment="Center" Text="▾" />
+                            </Grid>
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft"
+                                        Opening="OnCharacterPickerOpening">
+                                    <chars:CharacterPickerView Name="CharacterPicker" />
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                         <TextBlock Classes="muted" Margin="0,4,0,0"
                                    Text="{loc:Loc AgentWorkspaceLabel}" />
                         <!-- 目录名单独一行,父路径省略号收在下面:工作区路径普遍很长,

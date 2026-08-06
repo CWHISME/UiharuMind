@@ -26,11 +26,12 @@ public class IconUtils
     {
         if (string.IsNullOrEmpty(characterData.CharacterIcon))
         {
-            return characterData.IsHide
-                ? DefaultUserIcon
-                : characterData.IsPurePromptCharacter
-                    ? DefaultToolCharIcon
-                    : DefaultCharIcon;
+            return characterData.Kind switch
+            {
+                ECharacterKind.UserCard => DefaultUserIcon,
+                ECharacterKind.Roleplay => DefaultCharIcon,
+                _ => DefaultToolCharIcon,
+            };
         }
 
         var icon = characterData.CharacterIcon.Base64ToBitmap();

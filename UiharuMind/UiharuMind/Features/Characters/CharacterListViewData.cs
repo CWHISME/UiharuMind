@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,9 +18,14 @@ public partial class CharacterListViewData : ObservableObject
     public ObservableCollection<CharacterInfoViewData> Characters { get; set; } = new();
 
     /// <summary>
-    /// 筛选
+    /// 筛选档位：全部 + 三个可建档位。第 0 档为「全部」，其余按
+    /// <see cref="CharacterKindPresentation.CreatableKinds"/> 顺序对齐。
     /// </summary>
-    public string[] FilterTags = new string[] { Lang.All, Lang.Tool, Lang.Character };
+    public string[] FilterTags =
+    [
+        Lang.All,
+        ..CharacterKindPresentation.CreatableKinds.Select(CharacterKindPresentation.NameOf),
+    ];
 
     public string FilterTag
     {
@@ -74,24 +80,18 @@ public partial class CharacterListViewData : ObservableObject
         _characterChacheList.Clear();
         foreach (var characterData in CharacterManager.Instance.CharacterDataDictionary)
         {
-            // 筛选
-            // "工具"与"角色"的区分现在由挂载列表派生:未挂载任何提示词片段的即工具型角色
-            if (FilterTag == Lang.All ||
-                (FilterTag == Lang.Tool && characterData.Value.IsPurePromptCharacter) ||
-                (FilterTag == Lang.Character && !characterData.Value.IsPurePromptCharacter))
-            {
-                if (characterData.Value.IsHideDefault && !IsDisplayAllCharacters) continue;
-                var characterInfo = new CharacterInfoViewData(characterData.Value);
-                // // else Characters.Insert(0, characterInfo);
-                // else 
-                _characterChacheList.Add(characterInfo);
-            }
+            // 筛选直读档位:一个角色只有一个身份,不再从挂载列表派生
+            if (FilterTagIndex > 0 &&
+                characterData.Value.Kind != CharacterKindPresentation.CreatableKinds[FilterTagIndex - 1]) continue;
+            if (characterData.Value.IsInternal && !IsDisplayAllCharacters) continue;
+
+            _characterChacheList.Add(new CharacterInfoViewData(characterData.Value));
         }
 
+        // 同档内按存档时间倒序,档间按枚举顺序(扮演 → 工具人 → 智能体)
         _characterChacheList.Sort((x, y) =>
         {
-            if (x.IsRole && !y.IsRole) return -1;
-            if (!x.IsRole && y.IsRole) return 1;
+            if (x.Kind != y.Kind) return x.Kind.CompareTo(y.Kind);
             return y.FileDateTime.CompareTo(x.FileDateTime);
         });
         foreach (var x in _characterChacheList)
@@ -136,10 +136,16 @@ public partial class CharacterListViewData : ObservableObject
         if (_isInit) EventOnSelectedCharacterChanged?.Invoke(value);
     }
 
+    /// <summary>
+    /// 新建角色。<b>先定档再进表单</b>——三个档位的表单面孔差得太多，
+    /// 进去再翻旗标会让人对着一堆当前档用不上的字段发愣。
+    /// </summary>
+    /// <param name="kind">档位；为空时按角色扮演建</param>
     [RelayCommand]
-    private void AddCharacter()
+    private void AddCharacter(ECharacterKind? kind)
     {
-        UIManager.ShowEditCharacterWindow(null, (data) => { data.TryAddToNewCharacterData(); });
+        CharacterInfoViewData data = new(new CharacterData { Kind = kind ?? ECharacterKind.Roleplay });
+        UIManager.ShowEditCharacterWindow(data, x => x.TryAddToNewCharacterData());
     }
 
     [RelayCommand]

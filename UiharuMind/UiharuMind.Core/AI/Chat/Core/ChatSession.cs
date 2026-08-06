@@ -144,6 +144,25 @@ public class ChatSession
         _characterData ??= CharacterManager.Instance.GetCharacterData(CharacterId);
 
     /// <summary>
+    /// 换绑角色。<b>不要只改 <see cref="CharacterId"/></b>——角色本体与记忆库都有缓存字段，
+    /// 漏清就会出现"系统提示已经换了人、记忆库还挂在旧角色上"这种半换状态。
+    ///
+    /// 执行者不在此处重挂：装配快照含角色标识与重算的系统提示，
+    /// 下一轮发送时挂接会自然重建，因此生成中换角色不会打断当前这一轮。
+    /// </summary>
+    /// <param name="character">新角色</param>
+    public void ChangeCharacter(CharacterData character)
+    {
+        if (character.CharacterId == CharacterId) return;
+
+        CharacterId = character.CharacterId;
+        _characterData = character;
+        // 用户手动挂过库时那份优先,不动;没挂过才让它回落到新角色自带的库
+        if (string.IsNullOrEmpty(MemoryName)) _memory = null;
+        Save();
+    }
+
+    /// <summary>
     /// 记忆库。未显式指定时回退到角色的默认记忆——
     /// 该回退只影响运行时解析，不再偷偷改写 <see cref="MemoryName"/> 字段
     /// （旧实现在 getter 里改字段却不落盘，使该字段的值取决于本次运行有没有读过它）。

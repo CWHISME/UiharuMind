@@ -192,6 +192,24 @@
     <data name="AgentWorkspaceClear" xml:space="preserve">
         <value>Clear</value>
     </data>
+    <data name="ChatNewSession" xml:space="preserve">
+        <value>New session</value>
+    </data>
+    <data name="CharacterKindAgent" xml:space="preserve">
+        <value>Agent</value>
+    </data>
+    <data name="CharacterKindDesc" xml:space="preserve">
+        <value>A roleplay character has a greeting, sample dialog and the user card. A tool character is a single system prompt doing one job. An agent gets tools, a working directory and a permission mode, and lives on the Agent page.</value>
+    </data>
+    <data name="CharacterPickerSearch" xml:space="preserve">
+        <value>Search characters…</value>
+    </data>
+    <data name="CharacterPickerEmpty" xml:space="preserve">
+        <value>No matching character</value>
+    </data>
+    <data name="AgentCharacterSwitch" xml:space="preserve">
+        <value>Switch character (takes effect on the next message)</value>
+    </data>
     <data name="AgentWorkspaceRecent" xml:space="preserve">
         <value>Recent</value>
     </data>
@@ -631,26 +649,11 @@
     <data name="ClearTips" xml:space="preserve">
         <value>Are you sure?</value>
     </data>
-    <data name="MountsTitle" xml:space="preserve">
-        <value>Mounts</value>
-    </data>
-    <data name="MountsDesc" xml:space="preserve">
-        <value />
-    </data>
-    <data name="MountsNullTips" xml:space="preserve">
-        <value>Null</value>
-    </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>SystemPrompt</value>
     </data>
-    <data name="RoleplayCharacter" xml:space="preserve">
-        <value>Role</value>
-    </data>
-    <data name="ToolCharacter" xml:space="preserve">
-        <value>Tool Character</value>
-    </data>
     <data name="CharacterFuncType" xml:space="preserve">
-        <value>CharacterFuncType</value>
+        <value>Character kind</value>
     </data>
     <data name="AddDuplicateCharacterTips" xml:space="preserve">
         <value>Duplicate Character,Edit?</value>
@@ -2441,5 +2444,41 @@
     </data>
     <data name="RemoteModelCopyFromExistingHint" xml:space="preserve">
         <value>Reuses its API key and settings, no need to re-enter.</value>
+    </data>
+    <data name="CharacterKindRoleplay" xml:space="preserve">
+        <value>Roleplay</value>
+    </data>
+    <data name="CharacterKindTool" xml:space="preserve">
+        <value>Tool character</value>
+    </data>
+    <data name="CharacterKindUserCard" xml:space="preserve">
+        <value>User card</value>
+    </data>
+    <data name="CharacterInjectUserCard" xml:space="preserve">
+        <value>Inject user card</value>
+    </data>
+    <data name="CharacterInjectUserCardDesc" xml:space="preserve">
+        <value>Appends the user card to the system prompt so the character knows who you are. It stays a live reference: edit the user card and every character with this on follows.</value>
+    </data>
+    <data name="CharacterShowInternal" xml:space="preserve">
+        <value>Show internal</value>
+    </data>
+    <data name="SnippetInsert" xml:space="preserve">
+        <value>Insert snippet</value>
+    </data>
+    <data name="SnippetInsertDesc" xml:space="preserve">
+        <value>Inserts ready-made text at the top of the prompt. Once inserted it is your own text, free to edit.</value>
+    </data>
+    <data name="SnippetEmpty" xml:space="preserve">
+        <value>No snippets yet. Write one in the prompt box, then save it on the right.</value>
+    </data>
+    <data name="SnippetNameWatermark" xml:space="preserve">
+        <value>Snippet name</value>
+    </data>
+    <data name="SnippetSaveCurrent" xml:space="preserve">
+        <value>Save current</value>
+    </data>
+    <data name="SnippetDelete" xml:space="preserve">
+        <value>Delete snippet</value>
     </data>
 </root>

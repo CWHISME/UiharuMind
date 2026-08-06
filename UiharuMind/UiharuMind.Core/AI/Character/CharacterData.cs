@@ -17,7 +17,7 @@ public class CharacterData
     /// <summary>
     /// 角色的稳定标识，同时是存档文件名。
     /// 内置角色为 <see cref="DefaultCharacter"/> 的枚举名，用户角色为 GUID。
-    /// 显示名(<see cref="CharacterName"/>)可随意改动而不断开会话与挂载引用。
+    /// 显示名(<see cref="CharacterName"/>)可随意改动而不断开会话与名单引用。
     /// </summary>
     public string CharacterId { get; set; } = Guid.NewGuid().ToString("N");
 
@@ -37,14 +37,18 @@ public class CharacterData
     public bool IsDefaultCharacter { get; set; }
 
     /// <summary>
-    /// 始终在角色列表隐藏
+    /// 内部角色：程序按 <see cref="DefaultCharacter"/> 点名取用(识图、翻译、解释等技能)。
+    /// 角色库默认不列，打开「显示内部角色」才可见并可编辑；
+    /// 不进任何选择器的候选。<b>只表示可见性</b>，身份仍由 <see cref="Kind"/> 说。
     /// </summary>
-    public bool IsHide { get; set; }
+    public bool IsInternal { get; set; }
 
     /// <summary>
-    /// 是否默认隐藏
+    /// 注入用户卡：把 <see cref="DefaultCharacter.UserCard"/> 的模板拼进本角色的系统提示。
+    /// 是<b>活引用</b>——改了用户卡，所有打开此开关的角色下一轮就跟着变。
+    /// 这是运行期<b>唯一</b>一处跨角色引用；其余提示词组合都在编辑期完成(插入片段)。
     /// </summary>
-    public bool IsHideDefault { get; set; }
+    public bool InjectUserCard { get; set; }
 
     /// <summary>
     /// 是否要求视觉模型（识图类角色）
@@ -52,27 +56,12 @@ public class CharacterData
     public bool RequiresVisionModel { get; set; }
 
     /// <summary>
-    /// 内联挂载：按顺序取这些角色的 Template，render 后拼进本角色的系统提示。
-    /// 挂载 <see cref="DefaultCharacter.Roleplay_ThirdPerson"/> 之类即"带角色扮演脚手架"，
-    /// 挂载 <see cref="DefaultCharacter.UserCard"/> 即"注入用户人格"。
-    /// 默认为空——纯提示词角色(翻译、识图等)不该被塞进扮演模板。
-    /// </summary>
-    public List<string> MountPrompts { get; set; } = [];
-
-    /// <summary>
-    /// 【已退役,仅为旧存档兼容保留】曾用于把角色注册为背景子 agent。
-    /// 该机制无编辑入口且默认挂载的识图子代理是条假通路(子代理看不到图),
-    /// 识图已归一到 ask_vision 工具;装配不再读取本字段。
+    /// 可委派的子智能体名单(只对 <see cref="ECharacterKind.Agent"/> 有意义)：
+    /// 名单里每一项是一个智能体档角色，<c>run_subagent</c> 据此让模型挑一个派活；
+    /// 为空则退回内置的通用匿名子代理。
+    /// 装配时按档位过滤而非信任存档——旧存档里这里可能躺着工具人角色。
     /// </summary>
     public List<string> MountAgents { get; set; } = [];
-
-    /// <summary>
-    /// 是否为纯提示词角色：未挂载任何提示词片段，因而不带角色扮演脚手架、不注入用户卡。
-    /// 取代原先的 IsTool 旗标——"工具人"与"扮演角色"的区别现在由挂载列表决定，
-    /// 界面的分类、图标与筛选据此派生。
-    /// </summary>
-    [JsonIgnore]
-    public bool IsPurePromptCharacter => MountPrompts.Count == 0;
 
     /// <summary>
     /// 角色名

@@ -1,5 +1,6 @@
 {
-  "IsHideDefault": true,
+  "Kind": "Tool",
+  "IsInternal": true,
   "RequiresVisionModel": true,
   "Config": {
     "PromptConfig": {

@@ -1,4 +1,5 @@
 {
+  "Kind": "Tool",
   "Config": {
     "PromptConfig": {
       "name": "白猫",

@@ -268,7 +268,7 @@ public static class UIManager
     public static void ShowEditCharacterWindow(CharacterInfoViewData? characterInfo,
         Action<CharacterInfoViewData>? onSureCallback)
     {
-        // 新角色默认无挂载,即纯提示词的工具型角色(旧写法是 IsRole = false,现由挂载列表派生)
+        // 传 null 即新建:档位由调用方在数据上定好(见 CharacterListViewData.AddCharacter)
         characterInfo ??= new CharacterInfoViewData();
         UIManager.ShowWindow<CharacterEditWindow>(x =>
         {

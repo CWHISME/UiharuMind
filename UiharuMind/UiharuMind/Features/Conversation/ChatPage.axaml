@@ -7,6 +7,7 @@
              xmlns:common="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:convView="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
               mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
               x:Class="UiharuMind.Features.Conversation.ChatPage"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
@@ -97,7 +98,16 @@
                             <TextBlock Classes="section-title" Text="{loc:Loc ChatSessions}" />
                             <TextBlock Classes="muted" Text="{loc:Loc ChatSessionsHint}" />
                         </StackPanel>
-                        <ThemedIconButton Grid.Column="1" Command="{Binding AddChatCommand}" IconName="message-circle-more"  />
+                        <!-- 新建会话:内联选角色,不再开模态选择窗 -->
+                        <ThemedIconButton Grid.Column="1" IconName="message-circle-more"
+                                          ToolTips="{loc:Loc ChatNewSession}">
+                            <ThemedIconButton.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight"
+                                        Opening="OnNewChatCharacterPickerOpening">
+                                    <chars:CharacterPickerView Name="NewChatCharacterPicker" />
+                                </Flyout>
+                            </ThemedIconButton.Flyout>
+                        </ThemedIconButton>
                     </Grid>
                     <otherViews:ChatListView Margin="8,0,8,8" />
                 </DockPanel>

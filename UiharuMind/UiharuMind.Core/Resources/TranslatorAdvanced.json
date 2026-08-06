@@ -1,5 +1,6 @@
 {
-  "IsHideDefault": true,
+  "Kind": "Tool",
+  "IsInternal": true,
   "Config": {
     "PromptConfig": {
       "name": "翻译工具(高级)",

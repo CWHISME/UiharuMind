@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="360"
+             x:Class="UiharuMind.Features.Characters.CharacterPickerView"
+             x:DataType="chars:CharacterPickerViewData">
+
+    <UserControl.Styles>
+        <Style Selector="Button.picker-row">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.picker-row:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel Width="300" MaxHeight="380">
+        <TextBox DockPanel.Dock="Top" Margin="0,0,0,6" FontSize="12"
+                 Text="{Binding SearchText}"
+                 Watermark="{loc:Loc CharacterPickerSearch}" />
+        <TextBlock DockPanel.Dock="Top" Classes="muted" FontSize="12" Margin="4,6"
+                   Text="{loc:Loc CharacterPickerEmpty}"
+                   IsVisible="{Binding IsEmpty}" />
+        <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="chars:CharacterPickerItem">
+                        <Button Classes="picker-row" Command="{Binding PickCommand}"
+                                ToolTip.Tip="{Binding Description}">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
+                                        ClipToBounds="True" VerticalAlignment="Top">
+                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                </Border>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
+                                               Text="{Binding Name}" />
+                                    <TextBlock FontSize="10" Classes="muted" MaxLines="2"
+                                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                               Text="{Binding Description}" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
