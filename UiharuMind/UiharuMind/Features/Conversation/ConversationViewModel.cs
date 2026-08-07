@@ -162,7 +162,7 @@ public partial class ConversationViewModel : ViewModelBase
             return;
         }
 
-        if (bitmap != null) UIManager.ShowPreviewImageWindowAtMousePosition(bitmap);
+        if (bitmap != null) UIManager.ShowPreviewImageCopyWindowAtMousePosition(bitmap);
     }
 
     /// <summary>根据路径推断 MIME 类型;非图片返回通用二进制类型</summary>
@@ -1572,19 +1572,24 @@ public partial class ConversationViewModel : ViewModelBase
         // 优先显示**真正发出去的那一份**(消息里的 DataContent):它是缩放重编码之后的结果,
         // 界面因此所见即所得——模型看到什么,你就看到什么。
         // 这同时消掉了一处不一致:原先实时发送显示原图、重载会话后显示压缩图,同一条消息两副面孔
-        DataContent? image = source?.Contents
+        // 一条消息可以带多张图,全都要显示——只取第一张的话,一次发四张图气泡里就只剩一张
+        List<DataContent> images = source?.Contents
             .OfType<DataContent>()
-            .FirstOrDefault(x => x.HasTopLevelMediaType("image"));
-        if (image != null)
+            .Where(x => x.HasTopLevelMediaType("image"))
+            .ToList() ?? [];
+        if (images.Count > 0)
         {
-            item.SetImage(image.Data);
+            foreach (DataContent image in images) item.AddImage(image.Data);
             return item;
         }
 
         // 没内联字节的情况:非视觉模型下 BuildUserMessage 把附件降级成了文本引用。
         // 但用户附了图就该在界面上看到,与模型能否看图无关,所以回落到附件本身
-        ConversationAttachment? attached = attachments?.FirstOrDefault(x => x.IsImage);
-        if (attached != null) item.SetImage(ReadAttachmentBytes(attached));
+        if (attachments == null) return item;
+        foreach (ConversationAttachment attached in attachments.Where(x => x.IsImage))
+        {
+            item.AddImage(ReadAttachmentBytes(attached));
+        }
 
         return item;
     }

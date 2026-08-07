@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -137,11 +138,14 @@ public partial class TextConversationItem : ConversationItemBase
 
     public override bool IsUser => _isUser;
 
-    /// <summary>随消息一同显示的图片（多模态消息里的 DataContent）</summary>
-    [ObservableProperty] private Bitmap? _messageImage;
+    /// <summary>随消息一同显示的图片（多模态消息里的 DataContent），一条消息可以带多张</summary>
+    public ObservableCollection<Bitmap> MessageImages { get; } = [];
 
     /// <summary>是否含图片</summary>
-    public bool HasImage => MessageImage != null;
+    public bool HasImage => MessageImages.Count > 0;
+
+    /// <summary>气泡里缩略图的边长:多图时缩小,免得几张图把气泡撑成一条长龙</summary>
+    public double ImageThumbSize => MessageImages.Count > 1 ? 160 : 320;
 
     /// <summary>
     /// 实际进入模型的正文，与 <see cref="ConversationItemBase.Message"/> 不同时才有值。
@@ -182,26 +186,25 @@ public partial class TextConversationItem : ConversationItemBase
     }
 
     /// <summary>
-    /// 装载消息里的图片；解码失败则不显示
+    /// 追加一张消息里的图片；解码失败则跳过这一张
     /// </summary>
     /// <param name="bytes">图片字节</param>
-    public void SetImage(ReadOnlyMemory<byte> bytes)
+    public void AddImage(ReadOnlyMemory<byte> bytes)
     {
         if (bytes.IsEmpty) return;
         try
         {
             using MemoryStream stream = new(bytes.ToArray());
-            MessageImage = new Bitmap(stream);
+            MessageImages.Add(new Bitmap(stream));
         }
         catch (Exception e)
         {
             Log.Warning($"Load message image failed: {e.Message}");
+            return;
         }
-    }
 
-    partial void OnMessageImageChanged(Bitmap? value)
-    {
         OnPropertyChanged(nameof(HasImage));
+        OnPropertyChanged(nameof(ImageThumbSize));
     }
 
     partial void OnInjectedTextChanged(string value)
