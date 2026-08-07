@@ -665,20 +665,13 @@ public partial class ConversationViewModel : ViewModelBase
     /// <b>只取文本，不取工具调用</b>：被掐断的调用没有对应的结果消息，
     /// 写进历史就是一条孤儿 tool_call，下一轮请求会被服务端直接拒掉。
     ///
-    /// 本轮若分了好几段（正文 → 工具 → 正文），合并成一条落库。分段的形状本就靠工具消息撑着，
-    /// 而工具那部分正是这里要丢掉的，勉强保留分段只会得到一份对不上的历史。
+    /// <b>只取正在流的那一段</b>：本轮更早的段落已经由框架逐次服务调用各自落过盘，
+    /// 再写一遍就会在会话里多出一句一模一样的话（切换会话回来才看得见）。
     /// </summary>
     /// <param name="session">当前会话</param>
     private void PersistPartialReply(ChatSession session)
     {
-        _transcript.CloseSegment(); //正文是节流更新的,不冲刷的话最后几个字还在缓冲里
-
-        // SourceMessage 为空 = 尚未与历史配对,也就是本轮新流出来的
-        string text = string.Join("\n\n", Items.OfType<TextConversationItem>()
-            .Where(x => !x.IsUser && x.SourceMessage == null)
-            .Select(x => x.Message)
-            .Where(x => !string.IsNullOrWhiteSpace(x)));
-        if (text.Length == 0) return;
+        if (_transcript.TakeStreamingText() is not { } text) return;
 
         int before = session.History.Count;
         session.History.Add(session.CreateMessage(ChatRole.Assistant, text));
@@ -744,6 +737,9 @@ public partial class ConversationViewModel : ViewModelBase
         finally
         {
             _transcript.CloseSegment();
+            // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
+            // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作
+            _transcript.StopRunningToolCalls(LocalizationManager.Instance.GetString("AgentToolCallStopped"));
             _transcript.CloseNestedActivity();
             IsGenerating = false;
             _runCancellation = null;
