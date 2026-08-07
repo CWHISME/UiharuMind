@@ -77,13 +77,19 @@ public partial class ContextUsageViewData : ObservableObject
             ? $"↑{TurnUsageLedger.FormatExact(ledger.SessionInput)}  ↓{TurnUsageLedger.FormatExact(ledger.SessionOutput)}"
             : string.Empty;
 
+        // 缓存命中与上限无关,有就报
+        CachedText = ledger.LastCachedInput > 0
+            ? $"{TurnUsageLedger.FormatExact(ledger.LastCachedInput)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
+            : string.Empty;
+
         if (contextLength <= 0)
         {
+            // 上限不知道,但占用可能是从会话本体恢复出来的——「这个会话现在有多大」
+            // 跟当前选没选模型无关,该显示的还是要显示,只是没有分母、也画不出进度条
             HasData = false;
             LimitText = string.Empty;
-            UsageText = string.Empty;
+            UsageText = ledger.LastInput > 0 ? TurnUsageLedger.FormatExact(ledger.LastInput) : string.Empty;
             ThresholdText = string.Empty;
-            CachedText = string.Empty;
             UsagePercent = 0;
             StateKey = NormalState;
             return;
@@ -111,15 +117,11 @@ public partial class ContextUsageViewData : ObservableObject
 
         // 配色按「接下来会发生什么」分档,不按水位数量分:
         // 折叠工具结果基本无损,不值得变色;真正该警示的是"要开始丢上下文了"
-        StateKey = ledger.LastInput >= truncation
+        StateKey = ledger.LastInput >= truncation 
             ? TruncatingState
             : ledger.LastInput >= handoff
                 ? EvictingState
                 : NormalState;
-
-        CachedText = ledger.LastCachedInput > 0
-            ? $"{TurnUsageLedger.FormatExact(ledger.LastCachedInput)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
-            : string.Empty;
     }
 
     private static double Percent(double value, int total)

@@ -335,7 +335,12 @@ public partial class ConversationViewModel : ViewModelBase
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
         _transcript.AutoCollapseThinking = _isAutoCollapseThinking;
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanRegenerate));
-        LlmManager.Instance.OnCurrentModelChanged += _ => OnPropertyChanged(nameof(SessionModelLabel));
+        LlmManager.Instance.OnCurrentModelChanged += _ =>
+        {
+            OnPropertyChanged(nameof(SessionModelLabel));
+            // 上限是跟着模型走的:换个模型,占用的分母、三条水位与配色档位全都变了
+            RefreshTokenUsageText();
+        };
 
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
         LocalizationManager.Instance.LanguageChanged += () =>
@@ -1212,6 +1217,13 @@ public partial class ConversationViewModel : ViewModelBase
 
     private void RefreshTokenUsageText()
     {
+        // 模型就绪的通知来自后台线程的异步续体,而绑定要求属性变更在 UI 线程上抛
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RefreshTokenUsageText);
+            return;
+        }
+
         // 上限每次刷新时现读:顶栏换模型不重建 agent,这里同样不能缓存
         _usage.ContextLength = (CurrentSession?.ChatModelRunningData
                                 ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;

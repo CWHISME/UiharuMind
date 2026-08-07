@@ -136,7 +136,13 @@ public sealed class TurnUsageLedger
         get
         {
             StringBuilder sb = new();
-            if (ContextLength > 0 && LastInput > 0) sb.Append($"{Format(LastInput)}/{Format(ContextLength)}");
+            // 上限未知(还没选模型)时也要显示占用:那个数是从会话本体恢复出来的,
+            // 「这个会话现在有多大」跟当前选没选模型无关,整段藏掉等于凭空少了一条信息
+            if (LastInput > 0)
+            {
+                sb.Append(ContextLength > 0 ? $"{Format(LastInput)}/{Format(ContextLength)}" : Format(LastInput));
+            }
+
             if (InputEstimate > 0)
             {
                 if (sb.Length > 0) sb.Append("  ");
@@ -164,5 +170,5 @@ public sealed class TurnUsageLedger
     /// </summary>
     /// <param name="count">token 数</param>
     /// <returns>显示用字符串</returns>
-    public static string FormatExact(long count) => count.ToString("N0");
+    public static string FormatExact(long count) => Format(count); //count.ToString("N0");
 }
