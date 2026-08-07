@@ -20,9 +20,17 @@ namespace UiharuMind.Features.Conversation;
 /// <list type="number">
 /// <item><b>缩尺寸</b>——超过视觉模型的有效分辨率之后，再大的图既不会更清楚，也只是徒增上传体积；
 /// 而框架的历史压缩把非文本内容按 <c>字节数 / 4</c> 估 token，一张大图会被估成十几万。</item>
-/// <item><b>转 JPEG</b>——只缩尺寸不换格式的话，一张 1568px 的照片存成 PNG 仍有 1~2MB，
-/// 是同尺寸 JPEG 的 5~10 倍。PNG 是无损格式，对照片本来就不合适。</item>
+/// <item><b>按内容选格式</b>——只缩尺寸不换格式的话，一张 1568px 的照片存成 PNG 仍有 1~2MB，
+/// 是同尺寸 JPEG 的 5~10 倍。</item>
 /// </list>
+///
+/// <b>格式不能一律用 JPEG。</b> 它的 DCT 分块与色度子采样正好打在高对比度细边缘上，
+/// 也就是文字——截图里的小字、代码、UI 标签会被啃出振铃与色晕，模型认错的风险是实打实的；
+/// 而截图恰恰是本应用的主场景。照片则相反，q85 几乎无损。
+///
+/// 分流规则用的是 PNG 自己的压缩率，不猜内容类型：<b>PNG 编完够小就直接用它</b>（无损，零风险）。
+/// 截图那种大片纯色的合成图 PNG 压得极好，天然走这条；照片压不动，才落到 JPEG。
+/// 这条规则同时优化了体积与质量，且不需要任何图像分类。
 ///
 /// 用 SkiaSharp 而不是 Avalonia 的 <c>Bitmap.Save</c>：后者只写 PNG，
 /// 它那个 quality 参数不改变格式（<c>Avalonia.Skia</c> 里 <c>SKEncodedImageFormat</c> 只出现一次）。
@@ -33,6 +41,13 @@ public static class ConversationImageDownscaler
     public const int MaxEdge = 1568;
 
     private const int JpegQuality = 85;
+
+    /// <summary>
+    /// PNG 编完不超过这个体积就直接用 PNG（无损）。
+    /// 定在这里是因为再往上就压不住框架那套 <c>字节数 / 4</c> 的估算了——
+    /// 150KB 约合 3.7 万 token，在 128k 模型的输入预算里还留得下余量。
+    /// </summary>
+    private const int LosslessLimitBytes = 150 * 1024;
 
     /// <summary>
     /// 按长边上限缩放并重编码为 JPEG
@@ -60,26 +75,46 @@ public static class ConversationImageDownscaler
             surface.Canvas.DrawBitmap(source, new SKRect(0, 0, size.Width, size.Height));
 
             using SKImage image = surface.Snapshot();
-            using SKData? encoded = image.Encode(SKEncodedImageFormat.Jpeg, JpegQuality);
-            if (encoded == null || encoded.Size == 0) return (original, mediaType);
+            (byte[] bytes, string type)? encoded = Encode(image);
+            if (encoded == null) return (original, mediaType);
 
-            byte[] bytes = encoded.ToArray();
-            if (bytes.Length >= original.Length)
+            if (encoded.Value.bytes.Length >= original.Length)
             {
                 //本来就小的图重编码后反而更大,那就别换
-                Log.Debug($"Image kept as-is ({original.Length:N0} bytes, re-encode would be {bytes.Length:N0}).");
+                Log.Debug($"Image kept as-is ({original.Length:N0} bytes, " +
+                          $"re-encode would be {encoded.Value.bytes.Length:N0}).");
                 return (original, mediaType);
             }
 
             Log.Debug($"Image downscaled: {source.Width}x{source.Height} {original.Length:N0} bytes → " +
-                      $"{size.Width}x{size.Height} {bytes.Length:N0} bytes (jpeg q{JpegQuality}).");
-            return (bytes, "image/jpeg");
+                      $"{size.Width}x{size.Height} {encoded.Value.bytes.Length:N0} bytes ({encoded.Value.type}).");
+            return encoded.Value;
         }
         catch (Exception e)
         {
             Log.Warning($"Downscale image failed, sending the original: {e.Message}");
             return (original, mediaType);
         }
+    }
+
+    /// <summary>
+    /// 选格式并编码：PNG 够小就无损送，压不动才退到 JPEG。
+    ///
+    /// 判据是 PNG 自己的压缩率而不是「这看起来像不像截图」——合成图（截图、UI、图表、
+    /// 线稿）大片纯色，PNG 压得极好，天然走无损这条；而它们正是 JPEG 最会啃坏的那类。
+    /// 照片压不动，落到 JPEG，那里 q85 又几乎无损。一条规则同时管住了体积与质量。
+    /// </summary>
+    /// <param name="image">已缩放好的图像</param>
+    /// <returns>编码结果与其 MIME 类型；两种都编不出来时为 null</returns>
+    private static (byte[] bytes, string type)? Encode(SKImage image)
+    {
+        using (SKData? png = image.Encode(SKEncodedImageFormat.Png, 100))
+        {
+            if (png is { Size: > 0 } && png.Size <= LosslessLimitBytes) return (png.ToArray(), "image/png");
+        }
+
+        using SKData? jpeg = image.Encode(SKEncodedImageFormat.Jpeg, JpegQuality);
+        return jpeg is { Size: > 0 } ? (jpeg.ToArray(), "image/jpeg") : null;
     }
 
     /// <summary>
