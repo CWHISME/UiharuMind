@@ -122,7 +122,9 @@ public sealed class ConversationTranscript
                 if (_target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == result.CallId) is { } item)
                 {
                     item.IsRunning = false;
-                    item.IsSuccess = result.Exception == null;
+                    // 取消补写的结果要显示成失败:它没跑完,绿点会是假消息。
+                    // 判据只能取正文——Exception 带 [JsonIgnore],存盘再读回来就没了
+                    item.IsSuccess = result.Exception == null && !ToolCallCancellation.IsCancelled(result);
                     item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
                 }
 
@@ -270,13 +272,15 @@ public sealed class ConversationTranscript
     /// <summary>
     /// 回放收尾：历史里的工具调用一律已结束，未回应的审批按拒绝处理
     /// </summary>
-    public void FinalizeReplay()
+    /// <param name="unfinishedNote">
+    /// 写进「历史里没有配对结果」那些卡片的说明。回放分不清它是被用户停掉的还是崩在半路，
+    /// 所以措辞要中性——新的取消会由 <see cref="ToolCallCancellation"/> 补上真正的结果消息，
+    /// 走到这里的多半是那之前留下的旧会话。
+    /// </param>
+    public void FinalizeReplay(string unfinishedNote)
     {
         CloseSegment();
-        foreach (ToolCallItem call in _target.OfType<ToolCallItem>().Where(x => x.IsRunning))
-        {
-            call.IsRunning = false;
-        }
+        StopRunningToolCalls(unfinishedNote);
 
         foreach (ApprovalRequestItem approval in _target.OfType<ApprovalRequestItem>().Where(x => !x.IsResolved))
         {

@@ -656,21 +656,24 @@ public partial class ConversationViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 取消时把已经吐出来的半截回复写进历史。
+    /// 收拾被取消的一轮，让历史回到自洽状态。两件事：
+    /// <list type="number">
+    /// <item>给没等到结果的工具调用补上取消结果——否则历史里留着孤儿 tool_call，
+    /// 严格的服务端（OpenAI、Anthropic）会直接 400，这个会话从此发不出话。</item>
+    /// <item>把已经吐出来的半截回复写进历史——框架在失败路径上不落任何响应消息
+    /// （<see cref="SessionChatHistoryProvider"/> 补回了请求消息，但响应侧它拿不到），
+    /// 不补的话界面上留着半截回复、重开会话却没了，模型也不知道自己说过什么。</item>
+    /// </list>
     ///
-    /// 框架在失败路径上不落任何响应消息（<see cref="SessionChatHistoryProvider"/> 已经补回了请求消息，
-    /// 但响应侧它拿不到）。不补这一下的结果是：界面上留着半截回复，重开会话却没了，
-    /// 而且模型下一轮完全不知道自己说过什么。
-    ///
-    /// <b>只取文本，不取工具调用</b>：被掐断的调用没有对应的结果消息，
-    /// 写进历史就是一条孤儿 tool_call，下一轮请求会被服务端直接拒掉。
-    ///
-    /// <b>只取正在流的那一段</b>：本轮更早的段落已经由框架逐次服务调用各自落过盘，
+    /// <b>正文只取正在流的那一段</b>：本轮更早的段落已经由框架逐次服务调用各自落过盘，
     /// 再写一遍就会在会话里多出一句一模一样的话（切换会话回来才看得见）。
     /// </summary>
     /// <param name="session">当前会话</param>
-    private void PersistPartialReply(ChatSession session)
+    private void SettleCancelledTurn(ChatSession session)
     {
+        // 先补工具结果再落正文:结果必须紧跟在它那条调用之后,顺序反了历史就对不上
+        ToolCallCancellation.CloseUnansweredAtTail(session);
+
         if (_transcript.TakeStreamingText() is not { } text) return;
 
         int before = session.History.Count;
@@ -705,7 +708,7 @@ public partial class ConversationViewModel : ViewModelBase
                 }
                 catch (OperationCanceledException)
                 {
-                    PersistPartialReply(session);
+                    SettleCancelledTurn(session);
                     break;
                 }
 
@@ -1129,7 +1132,7 @@ public partial class ConversationViewModel : ViewModelBase
             }
         }
 
-        replay.FinalizeReplay();
+        replay.FinalizeReplay(LocalizationManager.Instance.GetString("AgentToolCallUnfinished"));
         return buffer;
     }
 
