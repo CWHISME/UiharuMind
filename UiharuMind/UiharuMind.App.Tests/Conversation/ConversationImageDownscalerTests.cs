@@ -121,6 +121,67 @@ public class ConversationImageDownscalerTests
         Assert.True(pixel.Red > 200 && pixel.Green > 200 && pixel.Blue > 200, $"透明区应铺成白色,实际 {pixel}");
     }
 
+    /// <summary>
+    /// 照片走 JPEG 时也得进体积预算。只有 q85 一档的话，一张大照片会以 300~400KB 发出去——
+    /// 而图片是随历史每一轮重传的，那些字节要付很多次。
+    ///
+    /// 素材是特意挑的：这张图 q85=362KB、q70=156KB 都超预算，要一路降到 q55=87KB 才进得去，
+    /// 所以它真的会走完整个降质循环。换成压得动的素材，这条测试就是空的。
+    /// </summary>
+    [Fact]
+    public void PhotoLikeImage_FitsTheInlineByteBudget()
+    {
+        byte[] original = MakeTexturedPhoto(3840, 2160);
+
+        (byte[] bytes, string type) = ConversationImageDownscaler.Downscale(original, "image/png");
+
+        Assert.Equal("image/jpeg", type);
+        Assert.True(bytes.Length <= ConversationImageDownscaler.MaxInlineBytes,
+            $"应压进 {ConversationImageDownscaler.MaxInlineBytes:N0} 字节预算,实际 {bytes.Length:N0}");
+    }
+
+    /// <summary>
+    /// 最低档仍超预算时必须照发。发不出图比图大糟得多——那是一次静默的功能缺失。
+    /// 纯随机噪声是 JPEG 的最坏输入，真实照片不会这样。
+    /// </summary>
+    [Fact]
+    public void IncompressibleImage_IsStillSentAtTheLowestQuality()
+    {
+        byte[] original = MakeNoisyPhoto(3840, 2160);
+
+        (byte[] bytes, string type) = ConversationImageDownscaler.Downscale(original, "image/png");
+
+        Assert.Equal("image/jpeg", type);
+        Assert.NotEmpty(bytes);
+        Assert.True(bytes.Length < original.Length, "即使超预算,也总该比原图小");
+    }
+
+    /// <summary>
+    /// 渐变加较强抖动。PNG 压不动（逼它走有损这条路），JPEG 压得动但要降到最低档才进预算——
+    /// 细节丰富的真实照片就是这个量级。抖动幅度是量出来的，改小了这条测试会变空。
+    /// </summary>
+    private static byte[] MakeTexturedPhoto(int width, int height)
+    {
+        const int jitter = 60;
+        using SKBitmap bitmap = new(width, height);
+        Random random = new(4321); //固定种子,测试要可复现
+        SKColor[] pixels = new SKColor[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int shade = (x * 255 / width + y * 255 / height) / 2 + random.Next(-jitter, jitter + 1);
+                byte channel = (byte)Math.Clamp(shade, 0, 255);
+                pixels[y * width + x] = new SKColor(channel, (byte)(255 - channel), channel);
+            }
+        }
+
+        bitmap.Pixels = pixels;
+
+        using SKData data = SKImage.FromBitmap(bitmap).Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
+
     /// <summary>逐像素噪声，PNG 压不动——照片的代理</summary>
     private static byte[] MakeNoisyPhoto(int width, int height)
     {
