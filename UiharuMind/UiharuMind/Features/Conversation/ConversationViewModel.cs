@@ -1569,20 +1569,22 @@ public partial class ConversationViewModel : ViewModelBase
             item.InjectedText = source.Text;
         }
 
-        // 显示与传输解耦:非视觉模型下 BuildUserMessage 会把附件降级为文本引用而不内联字节,
-        // 但用户附了图就该在界面上看到,与模型能否看图无关。因此优先用附件本身。
-        ConversationAttachment? attached = attachments?.FirstOrDefault(x => x.IsImage);
-        if (attached != null)
-        {
-            item.SetImage(ReadAttachmentBytes(attached));
-            return item;
-        }
-
-        // 历史回放时没有附件对象,从消息里的 DataContent 取
+        // 优先显示**真正发出去的那一份**(消息里的 DataContent):它是缩放重编码之后的结果,
+        // 界面因此所见即所得——模型看到什么,你就看到什么。
+        // 这同时消掉了一处不一致:原先实时发送显示原图、重载会话后显示压缩图,同一条消息两副面孔
         DataContent? image = source?.Contents
             .OfType<DataContent>()
             .FirstOrDefault(x => x.HasTopLevelMediaType("image"));
-        if (image != null) item.SetImage(image.Data);
+        if (image != null)
+        {
+            item.SetImage(image.Data);
+            return item;
+        }
+
+        // 没内联字节的情况:非视觉模型下 BuildUserMessage 把附件降级成了文本引用。
+        // 但用户附了图就该在界面上看到,与模型能否看图无关,所以回落到附件本身
+        ConversationAttachment? attached = attachments?.FirstOrDefault(x => x.IsImage);
+        if (attached != null) item.SetImage(ReadAttachmentBytes(attached));
 
         return item;
     }
