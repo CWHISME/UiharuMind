@@ -8,57 +8,72 @@
  ****************************************************************************/
 
 using System;
-using System.IO;
-using Avalonia;
-using Avalonia.Media.Imaging;
+using SkiaSharp;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation;
 
 /// <summary>
-/// 内联给模型之前把图片缩到合理尺寸。只影响发出去的那一份——磁盘上的附件与界面预览始终是原图。
+/// 内联给模型之前把图片缩小并重编码。只影响发出去的那一份——磁盘上的附件与界面预览始终是原图。
 ///
-/// 两个理由，第二个更硬：
-/// 一是超过视觉模型的有效分辨率之后，再大的图既不会更清楚，也只是徒增 token 与上传体积；
-/// 二是框架的历史压缩把非文本内容按 <c>字节数 / 4</c> 估算 token，一张 3MB 截图会被估成
-/// 七十多万 token，不缩放的话带图会话一进来就会触发压缩。
+/// 两件事都要做，缺一件都白搭：
+/// <list type="number">
+/// <item><b>缩尺寸</b>——超过视觉模型的有效分辨率之后，再大的图既不会更清楚，也只是徒增上传体积；
+/// 而框架的历史压缩把非文本内容按 <c>字节数 / 4</c> 估 token，一张大图会被估成十几万。</item>
+/// <item><b>转 JPEG</b>——只缩尺寸不换格式的话，一张 1568px 的照片存成 PNG 仍有 1~2MB，
+/// 是同尺寸 JPEG 的 5~10 倍。PNG 是无损格式，对照片本来就不合适。</item>
+/// </list>
+///
+/// 用 SkiaSharp 而不是 Avalonia 的 <c>Bitmap.Save</c>：后者只写 PNG，
+/// 它那个 quality 参数不改变格式（<c>Avalonia.Skia</c> 里 <c>SKEncodedImageFormat</c> 只出现一次）。
 /// </summary>
 public static class ConversationImageDownscaler
 {
     /// <summary>长边上限。主流视觉模型在此之上不会看得更清楚</summary>
     public const int MaxEdge = 1568;
 
-    private const int EncodeQuality = 85;
+    private const int JpegQuality = 85;
 
     /// <summary>
-    /// 按长边上限缩放并重编码
+    /// 按长边上限缩放并重编码为 JPEG
     /// </summary>
     /// <param name="original">原始字节</param>
     /// <param name="mediaType">原始 MIME 类型</param>
-    /// <returns>要内联的字节与其 MIME 类型；无需缩放或处理失败时原样返回</returns>
+    /// <returns>要内联的字节与其 MIME 类型；处理失败或反而更大时原样返回</returns>
     public static (byte[] Bytes, string MediaType) Downscale(byte[] original, string mediaType)
     {
         if (original.Length == 0) return (original, mediaType);
 
         try
         {
-            using MemoryStream source = new(original);
-            using Bitmap bitmap = new(source);
+            using SKBitmap? source = SKBitmap.Decode(original);
+            if (source == null || source.Width <= 0 || source.Height <= 0) return (original, mediaType);
 
-            (int Width, int Height)? target = ComputeTargetSize(bitmap.PixelSize.Width, bitmap.PixelSize.Height, MaxEdge);
-            if (target == null) return (original, mediaType);
+            (int Width, int Height) size = ComputeTargetSize(source.Width, source.Height, MaxEdge)
+                                           ?? (source.Width, source.Height);
 
-            using Bitmap scaled = bitmap.CreateScaledBitmap(
-                new PixelSize(target.Value.Width, target.Value.Height), BitmapInterpolationMode.HighQuality);
-            using MemoryStream output = new();
-            scaled.Save(output, EncodeQuality);
-            byte[] bytes = output.ToArray();
+            using SKSurface surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height));
+            if (surface == null) return (original, mediaType);
 
-            // 重编码后反而更大就作废(本来就小的 JPEG 被编成 PNG 会这样)
-            if (bytes.Length == 0 || bytes.Length >= original.Length) return (original, mediaType);
+            // 先铺白:JPEG 没有 alpha 通道,带透明区域的截图不铺底会变成黑块
+            surface.Canvas.Clear(SKColors.White);
+            surface.Canvas.DrawBitmap(source, new SKRect(0, 0, size.Width, size.Height));
 
-            // 编码格式由 Avalonia 后端决定,不能想当然当成 JPEG:MIME 标错会被模型接口拒收
-            return (bytes, SniffMediaType(bytes) ?? mediaType);
+            using SKImage image = surface.Snapshot();
+            using SKData? encoded = image.Encode(SKEncodedImageFormat.Jpeg, JpegQuality);
+            if (encoded == null || encoded.Size == 0) return (original, mediaType);
+
+            byte[] bytes = encoded.ToArray();
+            if (bytes.Length >= original.Length)
+            {
+                //本来就小的图重编码后反而更大,那就别换
+                Log.Debug($"Image kept as-is ({original.Length:N0} bytes, re-encode would be {bytes.Length:N0}).");
+                return (original, mediaType);
+            }
+
+            Log.Debug($"Image downscaled: {source.Width}x{source.Height} {original.Length:N0} bytes → " +
+                      $"{size.Width}x{size.Height} {bytes.Length:N0} bytes (jpeg q{JpegQuality}).");
+            return (bytes, "image/jpeg");
         }
         catch (Exception e)
         {
@@ -73,7 +88,7 @@ public static class ConversationImageDownscaler
     /// <param name="width">原宽</param>
     /// <param name="height">原高</param>
     /// <param name="maxEdge">长边上限</param>
-    /// <returns>目标尺寸；长边已在上限内时为 null（表示不必缩放）</returns>
+    /// <returns>目标尺寸；长边已在上限内时为 null（表示不必缩放，但仍会重编码）</returns>
     internal static (int Width, int Height)? ComputeTargetSize(int width, int height, int maxEdge)
     {
         if (width <= 0 || height <= 0 || maxEdge <= 0) return null;
@@ -82,7 +97,7 @@ public static class ConversationImageDownscaler
         if (longest <= maxEdge) return null;
 
         double ratio = (double)maxEdge / longest;
-        //短边至少留 1 像素:极端长宽比下四舍五入会得到 0,那样构造 PixelSize 会抛
+        //短边至少留 1 像素:极端长宽比下四舍五入会得到 0,那样构造画布会失败
         return (Math.Max(1, (int)Math.Round(width * ratio)), Math.Max(1, (int)Math.Round(height * ratio)));
     }
 

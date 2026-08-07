@@ -16,6 +16,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+		<!-- 显式引用:Avalonia 自己在用它,但我们要的 JPEG 编码 Avalonia 的 Bitmap.Save 给不了
+		     (它只写 PNG,quality 参数不改格式),照片用 PNG 存下来是 JPEG 的 5~10 倍 -->
+		<PackageReference Include="SkiaSharp" Version="3.119.3-preview.1.1" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
