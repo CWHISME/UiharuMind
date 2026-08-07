@@ -216,7 +216,30 @@ public static class UIManager
     }
 
     /// <summary>
-    /// 在屏幕显示一张图(当前鼠标位置)
+    /// 预览一张调用方仍然持有的图（气泡里的图、剪贴板缓存的图等）。
+    /// 预览窗把图当成自己的、关窗即释放，所以这里只交给它一份副本——
+    /// 否则关掉预览之后调用方那张图已被释放，再点一次就炸。
+    /// </summary>
+    /// <param name="image">调用方持有的图，本方法不会改动或释放它</param>
+    /// <param name="size">显示尺寸，默认取图片原始尺寸</param>
+    /// <param name="horizontalAlignment">相对鼠标的水平对齐</param>
+    /// <param name="verticalAlignment">相对鼠标的垂直对齐</param>
+    public static void ShowPreviewImageCopyWindowAtMousePosition(Bitmap? image, Size? size = null,
+        HorizontalAlignment horizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment verticalAlignment = VerticalAlignment.Center)
+    {
+        if (image == null)
+        {
+            Log.Warning("image is null");
+            return;
+        }
+
+        ShowPreviewImageWindowAtMousePosition(image.CloneBitmap(), size, horizontalAlignment, verticalAlignment);
+    }
+
+    /// <summary>
+    /// 在屏幕显示一张图(当前鼠标位置)。图片的生命周期由预览窗接管，关闭时会被释放，
+    /// 调用方若还要继续使用这张图，请改用 <see cref="ShowPreviewImageCopyWindowAtMousePosition"/>。
     /// </summary>
     public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, Size? size = null,
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,

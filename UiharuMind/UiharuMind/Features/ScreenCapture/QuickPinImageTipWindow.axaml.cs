@@ -32,6 +32,7 @@ public partial class QuickPinImageTipWindow : QuickFloatingWindowBase
 
     private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
-        UIManager.ShowPreviewImageWindowAtMousePosition(_image);
+        // 传副本:这张图由剪贴板一侧持有,可能被再次固定
+        UIManager.ShowPreviewImageCopyWindowAtMousePosition(_image);
     }
 }
