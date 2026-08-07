@@ -84,20 +84,28 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         if (request.Method == HttpMethod.Post && request.Content != null)
         {
             var extraParams = _model?.GetExtraParams(LlmRequestContext.ThinkingMode);
+            bool forbidToolCalls = LlmRequestContext.ForbidToolCalls;
             string? jsonContent = null;
 
             // 注入额外参数必须整体读出来重建 JSON,这一份读取是功能要求,躲不掉
-            if (extraParams is { Count: > 0 })
+            if (extraParams is { Count: > 0 } || forbidToolCalls)
             {
                 jsonContent = await request.Content.ReadAsStringAsync(cancellationToken);
                 var jsonNode = JsonNode.Parse(jsonContent)?.AsObject();
 
                 if (jsonNode != null)
                 {
-                    foreach (var extraParam in extraParams)
+                    if (extraParams != null)
                     {
-                        jsonNode[extraParam.Key] = extraParam.Value;
+                        foreach (var extraParam in extraParams)
+                        {
+                            jsonNode[extraParam.Key] = extraParam.Value;
+                        }
                     }
+
+                    // 带着工具定义(前缀缓存要对齐)但不许调用。MEAI 的 ChatToolMode 没有 None,
+                    // 只能在这一层直接写进请求体
+                    if (forbidToolCalls) jsonNode["tool_choice"] = "none";
 
                     jsonContent = jsonNode.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
                     request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
@@ -155,8 +163,19 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         $@"""[A-Za-z0-9+/=]{{{Base64RedactThreshold},}}""",
         RegexOptions.Compiled, TimeSpan.FromSeconds(2));
 
+    //缩进 + 不转义非 ASCII。后者取代了原先那道 Regex.Unescape:
+    //不加的话中文会写成 \uXXXX,日志基本没法读——这是编码器该干的事,不该靠事后拿正则去还原
+    private static readonly JsonSerializerOptions LogJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     /// <summary>
-    /// 把正文整理成可写进日志的形态：抹掉 base64 载荷，其余不动
+    /// 把正文整理成可写进日志的形态：先抹掉 base64 载荷，再展开成缩进 JSON。
+    ///
+    /// 顺序不能反——先展开的话，那十几 MB 的 base64 会先被重新序列化一遍。
+    /// 抹完之后正文通常只剩几 KB，展开的代价可以忽略。
     /// </summary>
     /// <param name="body">原始正文</param>
     /// <returns>可写进日志的文本</returns>
@@ -173,9 +192,24 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             text = body; //抹不动就照原样,下面还有体量闸兜着
         }
 
+        text = Prettify(text);
         return text.Length <= LogSafetyLimit
             ? text
             : string.Concat(text.AsSpan(0, LogSafetyLimit), $"…(+{text.Length - LogSafetyLimit:N0} chars)");
+    }
+
+    // 不是 JSON(或已被截断成半截)就原样返回:日志格式化失败不该影响任何事
+    private static string Prettify(string text)
+    {
+        try
+        {
+            JsonNode? node = JsonNode.Parse(text);
+            return node?.ToJsonString(LogJsonOptions) ?? text;
+        }
+        catch (JsonException)
+        {
+            return text;
+        }
     }
 
     //各家名字都不一样(OpenAI 用 x-ratelimit-*,Anthropic 用 anthropic-ratelimit-*,

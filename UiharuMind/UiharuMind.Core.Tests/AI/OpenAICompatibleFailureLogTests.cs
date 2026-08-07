@@ -86,15 +86,39 @@ public class OpenAICompatibleFailureLogTests
 
         string logged = OpenAICompatibleHttpHandler.ForLog(body);
 
-        Assert.Equal(body, logged); //一个字都不能少
+        //内容一个字都不能少;中文必须是中文,不能是 \uXXXX——那样日志基本没法读
+        Assert.Contains("# Task 你是Uiharu，具备活泼的性格。", logged);
+        Assert.Contains("run_shell", logged);
+        Assert.Contains("0.5", logged);
+        Assert.DoesNotContain("\\u", logged);
+    }
+
+    [Fact]
+    public void JsonIsExpandedNotMinified()
+    {
+        //发出去的是压缩过的单行 JSON,直接写进日志就是挤成一坨的一大段
+        const string body = """{"a":1,"b":{"c":2}}""";
+
+        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+
+        Assert.Contains("\n", logged);
+    }
+
+    [Fact]
+    public void NonJsonBody_IsLeftAlone()
+    {
+        //错误响应未必是 JSON,格式化失败不该影响任何事
+        const string body = "upstream connect error";
+
+        Assert.Equal(body, OpenAICompatibleHttpHandler.ForLog(body));
     }
 
     [Fact]
     public void ShortBase64LikeString_IsLeftAlone()
     {
         //短的可能是真内容(id、哈希),抹掉反而丢信息
-        const string body = """{"id":"chatcmpl-abc123XYZ"}""";
+        string logged = OpenAICompatibleHttpHandler.ForLog("""{"id":"chatcmpl-abc123XYZ"}""");
 
-        Assert.Equal(body, OpenAICompatibleHttpHandler.ForLog(body));
+        Assert.Contains("chatcmpl-abc123XYZ", logged);
     }
 }

@@ -72,6 +72,46 @@ public class TurnUsageContextTests
         Assert.Equal(1500, ledger.LastInput);
     }
 
+    /// <summary>
+    /// 前缀缓存有没有生效，只能看服务端报的这个数——推理不出来。
+    /// 各家的键名不一样（OpenAI 系是 cached_tokens，经 MEAI 映射后还会再改名），
+    /// 所以按子串命中而不是写死键名。
+    /// </summary>
+    [Theory]
+    [InlineData("cached_tokens")]
+    [InlineData("InputTokenCount.CachedTokenCount")]
+    [InlineData("prompt_cache_hit_tokens")]
+    public void CachedTokens_AreFoundWhateverTheKeyIsCalled(string key)
+    {
+        UsageDetails details = new()
+        {
+            InputTokenCount = 8000,
+            AdditionalCounts = new() { [key] = 6000 },
+        };
+
+        Assert.Equal(6000, TurnUsageLedger.ReadCachedTokens(details));
+    }
+
+    [Fact]
+    public void CachedTokens_AreZeroWhenTheProviderDoesNotReportThem()
+    {
+        UsageDetails details = new() { InputTokenCount = 8000 };
+
+        Assert.Equal(0, TurnUsageLedger.ReadCachedTokens(details));
+    }
+
+    [Fact]
+    public void CachedTokens_DoNotSurviveIntoAResponseThatOmitsThem()
+    {
+        TurnUsageLedger ledger = new();
+        ledger.Add(new UsageDetails { InputTokenCount = 8000, AdditionalCounts = new() { ["cached_tokens"] = 6000 } });
+
+        ledger.Add(new UsageDetails { InputTokenCount = 9000 });
+
+        //留着上一次的数会让人以为这次也命中了缓存,那正是我们要测的东西
+        Assert.Equal(0, ledger.LastCachedInput);
+    }
+
     [Fact]
     public void Text_LeadsWithOccupancyWhenContextIsKnown()
     {

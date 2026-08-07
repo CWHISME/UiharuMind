@@ -36,14 +36,17 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>本轮输入/输出的显示文本</summary>
     [ObservableProperty] private string _turnText = string.Empty;
 
-    /// <summary>会话累计的显示文本</summary>
+    /// <summary>会话累计消耗的显示文本（与本轮同一形状，一眼看出是求和而非占用）</summary>
     [ObservableProperty] private string _sessionText = string.Empty;
 
     /// <summary>占用百分比（0~100），进度条的值</summary>
     [ObservableProperty] private double _usagePercent;
 
-    /// <summary>两条压缩水位的说明文本（折叠于多少、截断于多少）</summary>
+    /// <summary>三条水位的说明文本（折叠 → 交接 → 截断）</summary>
     [ObservableProperty] private string _thresholdText = string.Empty;
+
+    /// <summary>前缀缓存命中的显示文本；服务端不报时为空</summary>
+    [ObservableProperty] private string _cachedText = string.Empty;
 
     /// <summary>档位键，供样式选色：Normal / Evicting / Truncating</summary>
     [ObservableProperty] private string _stateKey = NormalState;
@@ -67,8 +70,11 @@ public partial class ContextUsageViewData : ObservableObject
         TurnText = ledger.TurnInput + ledger.TurnOutput > 0
             ? $"↑{TurnUsageLedger.Format(ledger.TurnInput)}  ↓{TurnUsageLedger.Format(ledger.TurnOutput)}"
             : string.Empty;
+        // 与本轮同一形状(↑输入 ↓输出)。原先只给一个合计数,跟上一行的「上下文」对不上——
+        // 那是占用(最近一次请求吃进去多少),这是累计消耗(每次请求的输入输出求和,
+        // 一轮十几次工具往返会全部计入),两个轴不同,长得像就一定会被误读
         SessionText = ledger.SessionInput + ledger.SessionOutput > 0
-            ? TurnUsageLedger.Format(ledger.SessionInput + ledger.SessionOutput)
+            ? $"↑{TurnUsageLedger.Format(ledger.SessionInput)}  ↓{TurnUsageLedger.Format(ledger.SessionOutput)}"
             : string.Empty;
 
         if (contextLength <= 0)
@@ -77,6 +83,7 @@ public partial class ContextUsageViewData : ObservableObject
             LimitText = string.Empty;
             UsageText = string.Empty;
             ThresholdText = string.Empty;
+            CachedText = string.Empty;
             UsagePercent = 0;
             StateKey = NormalState;
             return;
@@ -93,17 +100,26 @@ public partial class ContextUsageViewData : ObservableObject
 
         int budget = HistoryCompaction.InputBudgetFor(contextLength);
         double eviction = budget * HistoryCompaction.ToolEvictionThreshold;
+        double handoff = budget * HistoryHandoff.Threshold;
         double truncation = budget * HistoryCompaction.TruncationThreshold;
         // 水位按输入预算(总长减预留)算,而进度条整条是总长——所以给绝对 token 数而不是百分比,
-        // 免得用户拿 50%/80% 去对进度条的半腰和八分处,那两个位置对不上
+        // 两者的比例对不上。按量级排成一条递进的链,读起来就是"接下来会依次发生什么"
         ThresholdText = string.Format(LocalizationManager.Instance.GetString("ContextCompactionHint"),
-            TurnUsageLedger.Format((long)eviction), TurnUsageLedger.Format((long)truncation));
+            TurnUsageLedger.Format((long)eviction),
+            TurnUsageLedger.Format((long)handoff),
+            TurnUsageLedger.Format((long)truncation));
 
+        // 配色按「接下来会发生什么」分档,不按水位数量分:
+        // 折叠工具结果基本无损,不值得变色;真正该警示的是"要开始丢上下文了"
         StateKey = ledger.LastInput >= truncation
             ? TruncatingState
-            : ledger.LastInput >= eviction
+            : ledger.LastInput >= handoff
                 ? EvictingState
                 : NormalState;
+
+        CachedText = ledger.LastCachedInput > 0
+            ? $"{TurnUsageLedger.Format(ledger.LastCachedInput)} / {TurnUsageLedger.Format(ledger.LastInput)}"
+            : string.Empty;
     }
 
     private static double Percent(double value, int total)

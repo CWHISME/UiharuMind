@@ -35,10 +35,11 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
     internal const int MaxRetries = int.MaxValue;
 
     /// <summary>
-    /// 瞬时故障的重试次数上限（沿用 SDK 默认口径）。这里<b>不跟着放开</b>——
-    /// 5xx 多半是服务端真出了问题，无限重试只会把一个明确的失败拖成一次静默的挂起。
+    /// 瞬时故障的重试次数上限。同样给得很大（退避封顶 3.2s，撞满要几个小时），
+    /// 但<b>保留一个尽头</b>——5xx 一直失败说明服务端真坏了，
+    /// 彻底不设限会把一个明确的失败拖成一次静默的挂起。
     /// </summary>
-    internal const int TransientMaxRetries = 3;
+    internal const int TransientMaxRetries = 4096;
 
     /// <summary>抖动幅度（相对退避时长的比例）</summary>
     internal const double JitterRatio = 0.25;

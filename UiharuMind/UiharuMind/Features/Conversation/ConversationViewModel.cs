@@ -751,8 +751,9 @@ public partial class ConversationViewModel : ViewModelBase
         try
         {
             List<ChatMessage> supplied = session.History.Skip(start).ToList();
-            string? note = await HistoryHandoff.WriteAsync(client, supplied, _usage.ContextLength,
-                CancellationToken.None);
+            // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
+            string? note = await HistoryHandoff.WriteAsync(client, supplied, session.Runner.ChatOptions,
+                _usage.ContextLength, CancellationToken.None);
             if (note == null)
             {
                 Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffFailed") });
@@ -1186,8 +1187,18 @@ public partial class ConversationViewModel : ViewModelBase
     /// 账本记一次用量，并把增量写回会话本体——响应用量不随消息持久化，
     /// 累计值记在本体上，随轮末的历史保存一并落盘。
     /// </summary>
+    private static bool _usageKeysLogged; //附加计数的键名各家不同,只需在会话里认一次
+
     private void OnUsageObserved(UsageDetails details)
     {
+        // 前缀缓存到底有没有生效,只能看服务端报的这个数——推理不出来。
+        // 键名先打出来认一次:各家不同,MEAI 映射后还会再改一次名
+        if (!_usageKeysLogged && details.AdditionalCounts is { Count: > 0 } counts)
+        {
+            _usageKeysLogged = true;
+            Log.Debug($"Usage additional counts: {string.Join(", ", counts.Select(x => $"{x.Key}={x.Value}"))}");
+        }
+
         (long input, long output) = _usage.Add(details);
         if (CurrentSession is { } session)
         {

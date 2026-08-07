@@ -41,10 +41,11 @@ public class RateLimitAwareRetryPolicyTests
     /// 无限重试只会把明确的失败拖成静默的挂起。
     /// </summary>
     [Fact]
-    public void RateLimitRetriesAreUnbounded_TransientOnesAreNot()
+    public void RateLimitRetriesAreUnbounded_TransientOnesStillHaveACeiling()
     {
         Assert.Equal(int.MaxValue, RateLimitAwareRetryPolicy.MaxRetries);
-        Assert.True(RateLimitAwareRetryPolicy.TransientMaxRetries < 10);
+        //瞬时故障仍有个尽头:服务端真坏了的时候,无限重试会把明确的失败拖成静默的挂起
+        Assert.True(RateLimitAwareRetryPolicy.TransientMaxRetries < RateLimitAwareRetryPolicy.MaxRetries);
     }
 
     [Fact]

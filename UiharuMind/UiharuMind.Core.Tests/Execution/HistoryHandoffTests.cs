@@ -134,7 +134,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new("正文");
 
-        await HistoryHandoff.WriteAsync(client, [User("a")], 128_000);
+        await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000);
 
         string instruction = client.Seen[^1].Text;
         Assert.Contains(HistoryHandoff.NoteCharLimitFor(128_000).ToString(), instruction);
@@ -145,7 +145,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new(" \n ");
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], 128_000));
+        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000));
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class HistoryHandoffTests
     {
         ThrowingChatClient client = new();
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], 128_000));
+        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000));
     }
 
     [Fact]
@@ -161,12 +161,12 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new("交接正文");
 
-        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")], 128_000);
+        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000);
 
         Assert.Equal("交接正文", note);
         Assert.Equal(2, client.Seen.Count); //历史 + 指令
         Assert.Equal("聊天内容", client.Seen[0].Text);
-        Assert.Null(client.SeenOptions?.Tools); //不带工具:纯文本产出,给它工具只会跑偏并多烧配额
+        Assert.Null(client.SeenOptions?.Tools); //没给选项时不凭空造工具
     }
 
     private sealed class StubChatClient(string reply) : IChatClient

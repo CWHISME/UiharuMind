@@ -38,6 +38,15 @@ public interface ICharacterRunner : IAsyncDisposable
     bool HasSession { get; }
 
     /// <summary>
+    /// 本会话装配好的对话选项（系统提示词、工具集与采样参数）；未挂接时为 null。
+    ///
+    /// 旁路请求（写交接文档那一发）必须带上同一份。两个理由：模型不该在一个它没见过的身份下
+    /// 写这份文档；而请求体的前缀是「system + 工具定义 + 消息」，少任何一段前缀就从那里岔开，
+    /// 服务端的前缀缓存整个作废——旁路那一发恰好是占用最高时发出的、最大的一次请求。
+    /// </summary>
+    ChatOptions? ChatOptions { get; }
+
+    /// <summary>
     /// 绑定到指定会话：按会话的角色、工作目录与权限档装配 agent（变化时重建），
     /// 并恢复框架附加状态。历史不在附加状态里——它的权威来源是会话本体，
     /// 因此附加状态缺失只会丢 todos/mode，不会丢对话。
