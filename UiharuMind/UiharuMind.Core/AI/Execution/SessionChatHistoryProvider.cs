@@ -76,10 +76,18 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
 
         // 其余开窗交给框架的在环压缩(ADR 0006):按当前模型的上下文动态定预算,先折叠老的工具结果、
         // 必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。
-        // 图片是唯一在这里先处理的:压缩按字节数估 token,老图片不清掉会让估算一路虚高
-        IEnumerable<ChatMessage> history =
-            HistoryImageWindow.DemoteOldImages(supplied, HistoryImageWindow.KeepRecentImages);
-        return new ValueTask<IEnumerable<ChatMessage>>(history);
+        //
+        // 图片曾经在这里再过一道 HistoryImageWindow.DemoteOldImages(只留最近两条带图消息)。
+        // 现已停用,那道窗有两条理由,如今都不成立:
+        //   1. 防「字节数/4」的虚高估算——已由 HistoryCompaction.CorrectedTokenCount 从源头修掉,
+        //      而且那条路不改发出去的字节,零缓存代价;
+        //   2. 省上传体积——已由 ConversationImageDownscaler 把单张压到 150KB 级。
+        // 相反,它的代价很实:每来一张新图就改写一条靠前的历史,从那个位置往后的服务端前缀缓存
+        // 全部失效,等于一次近乎全量的缓存丢失;被降级的图模型也彻底够不着了。
+        //
+        // 代码与测试保留。若实测发现长对话里图片累积仍然吃掉太多真实上下文(状态栏占用涨得离谱),
+        // 接回去即可——届时更该按「图片总字节预算」触发,而不是现在这个按条数的窗口。
+        return new ValueTask<IEnumerable<ChatMessage>>(supplied);
     }
 
     // [MFA绕坑] 绕:取消轮次时自己补写请求消息 因:基类 InvokedCoreAsync 把"有异常"一律当作本轮没发生过,直接跳过持久化 删除条件:框架区分取消与真失败
