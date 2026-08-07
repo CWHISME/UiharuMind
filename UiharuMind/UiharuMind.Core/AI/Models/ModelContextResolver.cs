@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using UiharuMind.Core.Configs.RemoteAI;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Models;
 
@@ -55,14 +56,52 @@ public static class ModelContextResolver
         IReadOnlyDictionary<string, RemoteModelIdVariant>? variants)
     {
         if (configured > 0) return configured;
+        if (string.IsNullOrEmpty(modelId)) return RemoteFallback;
 
-        if (!string.IsNullOrEmpty(modelId) && variants != null &&
-            variants.TryGetValue(modelId, out RemoteModelIdVariant? variant) && variant.ContextLength > 0)
+        if (variants != null && variants.TryGetValue(modelId, out RemoteModelIdVariant? variant) &&
+            variant.ContextLength > 0)
         {
             return variant.ContextLength;
         }
 
+        // 自己那张表没命中就查全局表。配置类被改名或删掉之后,存档里的 ConfigType 会指向一个
+        // 不存在的类,RemoteModelManager 的类型修复对它无能为力,配置于是退化成通用的
+        // RemoteModelConfig——那个类的 ModelIdVariants 是空表,查什么都查不到。
+        // ModelId 本身是全局唯一的(各家的模型名不会撞),所以按它兜底既安全又能自愈
+        if (GlobalVariants.Value.TryGetValue(modelId, out int contextLength)) return contextLength;
+
         return RemoteFallback;
+    }
+
+    /// <summary>
+    /// 全供应商的 ModelId → 上下文长度总表，反射一次装配。
+    /// 新增供应商配置类时自动并入，不必登记。
+    /// </summary>
+    private static readonly Lazy<IReadOnlyDictionary<string, int>> GlobalVariants = new(BuildGlobalVariants);
+
+    private static Dictionary<string, int> BuildGlobalVariants()
+    {
+        Dictionary<string, int> map = new(StringComparer.OrdinalIgnoreCase);
+        foreach (Type type in typeof(BaseRemoteModelConfig).Assembly.GetTypes())
+        {
+            if (type.IsAbstract || !type.IsSubclassOf(typeof(BaseRemoteModelConfig))) continue;
+
+            try
+            {
+                if (Activator.CreateInstance(type) is not BaseRemoteModelConfig config) continue;
+                foreach (KeyValuePair<string, RemoteModelIdVariant> pair in config.ModelIdVariants)
+                {
+                    //先到先得:同一个 ModelId 在两家都声明过的话,谁先谁算,反正数值该一致
+                    if (pair.Value.ContextLength > 0) map.TryAdd(pair.Key, pair.Value.ContextLength);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"Collect model id variants from '{type.Name}' failed: {e.Message}");
+            }
+        }
+
+        return map;
     }
 
     /// <summary>
