@@ -273,7 +273,12 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
 
             if (modelRunning.ChatClient == null)
             {
-                _ = _runtimeService.StartChatModelAsync(modelRunning);
+                // 就绪后必须再通知一次。上面那次 OnCurrentModelChanged 是在模型「刚被选中、
+                // 还没跑起来」时发的,界面那一刻读到的 IsRunning 仍是 false;
+                // 而这里是即发即忘的启动,不补一次通知的话,顶栏的卸载按钮会一直停在禁用态
+                ModelRunningData starting = modelRunning;
+                _ = _runtimeService.StartChatModelAsync(starting,
+                    onLoaded: () => OnCurrentModelChanged?.Invoke(starting));
             }
         }
 

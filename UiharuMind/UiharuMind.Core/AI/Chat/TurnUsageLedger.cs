@@ -148,10 +148,21 @@ public sealed class TurnUsageLedger
     }
 
     /// <summary>
-    /// 千位以上折成 k，保留一位小数
+    /// 折成 k / M，保留一位小数。给状态栏那种寸土寸金的位置用。
     /// </summary>
     /// <param name="count">token 数</param>
     /// <returns>显示用字符串</returns>
-    public static string Format(long count) =>
-        count >= 1000 ? $"{count / 1000.0:0.#}k" : count.ToString();
+    public static string Format(long count)
+    {
+        if (count >= 1_000_000) return $"{count / 1_000_000.0:0.#}M";
+        return count >= 1000 ? $"{count / 1000.0:0.#}k" : count.ToString();
+    }
+
+    /// <summary>
+    /// 确切数值（带千位分隔）。悬停面板里用——那里有地方，而缩写会把
+    /// 「离下一道水位还有多远」这种要比大小的判断变模糊。
+    /// </summary>
+    /// <param name="count">token 数</param>
+    /// <returns>显示用字符串</returns>
+    public static string FormatExact(long count) => count.ToString("N0");
 }

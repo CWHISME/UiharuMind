@@ -214,6 +214,13 @@ public partial class ModelService : ObservableObject
 
     private void Refresh()
     {
+        // 模型就绪的通知来自后台线程的异步续体,而绑定要求属性变更在 UI 线程上抛
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(Refresh);
+            return;
+        }
+
         OnPropertyChanged(nameof(CurIsRunning));
         OnPropertyChanged(nameof(CurRunningCount));
         OnPropertyChanged(nameof(CurModelRunningData));

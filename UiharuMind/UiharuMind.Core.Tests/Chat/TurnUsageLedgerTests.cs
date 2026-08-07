@@ -128,8 +128,8 @@ public class TurnUsageLedgerTests
     }
 
     /// <summary>
-    /// 千位就折成 k。原先是万位，于是「8526 / 128k」这种一半原样一半缩写的写法会同框出现，
-    /// 一眼看不出量级关系。
+    /// 千位折 k、百万位折 M。原先只有 k，于是 1M 上下文会显示成「1048.6k」——
+    /// 位数一多就看不出量级了。悬停面板另走 FormatExact，那里要比大小，缩写反而碍事。
     /// </summary>
     [Theory]
     [InlineData(0, "0")]
@@ -138,7 +138,9 @@ public class TurnUsageLedgerTests
     [InlineData(8526, "8.5k")]
     [InlineData(10500, "10.5k")]
     [InlineData(123456, "123.5k")]
-    public void Format_SwitchesToKAtOneThousand(long count, string expected)
+    [InlineData(1_048_576, "1M")]
+    [InlineData(1_500_000, "1.5M")]
+    public void Format_SwitchesToKAtOneThousandAndMAtOneMillion(long count, string expected)
     {
         Assert.Equal(expected, TurnUsageLedger.Format(count));
     }
