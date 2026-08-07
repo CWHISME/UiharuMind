@@ -655,6 +655,37 @@ public partial class ConversationViewModel : ViewModelBase
         _transcript.CancelPendingApprovals();
     }
 
+    /// <summary>
+    /// 取消时把已经吐出来的半截回复写进历史。
+    ///
+    /// 框架在失败路径上不落任何响应消息（<see cref="SessionChatHistoryProvider"/> 已经补回了请求消息，
+    /// 但响应侧它拿不到）。不补这一下的结果是：界面上留着半截回复，重开会话却没了，
+    /// 而且模型下一轮完全不知道自己说过什么。
+    ///
+    /// <b>只取文本，不取工具调用</b>：被掐断的调用没有对应的结果消息，
+    /// 写进历史就是一条孤儿 tool_call，下一轮请求会被服务端直接拒掉。
+    ///
+    /// 本轮若分了好几段（正文 → 工具 → 正文），合并成一条落库。分段的形状本就靠工具消息撑着，
+    /// 而工具那部分正是这里要丢掉的，勉强保留分段只会得到一份对不上的历史。
+    /// </summary>
+    /// <param name="session">当前会话</param>
+    private void PersistPartialReply(ChatSession session)
+    {
+        _transcript.CloseSegment(); //正文是节流更新的,不冲刷的话最后几个字还在缓冲里
+
+        // SourceMessage 为空 = 尚未与历史配对,也就是本轮新流出来的
+        string text = string.Join("\n\n", Items.OfType<TextConversationItem>()
+            .Where(x => !x.IsUser && x.SourceMessage == null)
+            .Select(x => x.Message)
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+        if (text.Length == 0) return;
+
+        int before = session.History.Count;
+        session.History.Add(session.CreateMessage(ChatRole.Assistant, text));
+        session.SaveAppended(before);
+        //落库后交给既有的 WireStreamedItems 配对,气泡因此照常拿到编辑/重试/分叉
+    }
+
     private async Task RunTurnAsync(ChatMessage userMessage, string titleSeed)
     {
         IsGenerating = true;
@@ -681,6 +712,7 @@ public partial class ConversationViewModel : ViewModelBase
                 }
                 catch (OperationCanceledException)
                 {
+                    PersistPartialReply(session);
                     break;
                 }
 
