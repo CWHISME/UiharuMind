@@ -46,4 +46,14 @@ public static class ChatMessageAnnotations
     /// 落盘往返后值会变成 <c>JsonElement</c>，读取一律经 <c>ToString</c>，不能强转 string。
     /// </summary>
     public const string NamedSkillInput = "_namedSkillInput";
+
+    /// <summary>
+    /// 交接文档标记。带此键的消息<b>要落盘</b>——它是压缩后模型唯一能看到的前情，
+    /// 丢了等于那段历史白压；渲染成一张独立的交接卡片而不是普通气泡。
+    ///
+    /// 它同时是<b>历史供给的起点</b>：喂给模型的历史从最后一条带此键的消息开始，
+    /// 它之前的消息只留在会话文件与界面上。因此这个键落在「呈现」轴上，
+    /// 不能复用 <see cref="Attribution"/>——那个键的含义是「不落盘」，正好相反。
+    /// </summary>
+    public const string Handoff = "_handoff";
 }

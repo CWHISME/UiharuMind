@@ -206,6 +206,17 @@ public partial class ErrorItem : ConversationItemBase
 }
 
 /// <summary>
+/// 交接文档条目。压缩是会丢信息的操作，悄悄发生比丢信息本身更糟——
+/// 显示出来，既能让人知道「模型从这里往前看不见了」，也能当场发现文档写砸了。
+/// 默认折叠：它通常很长，展开是查证用的，不该挤占正常对话。
+/// </summary>
+public partial class HandoffItem : ConversationItemBase
+{
+    /// <summary>是否展开</summary>
+    [ObservableProperty] private bool _isExpanded;
+}
+
+/// <summary>
 /// 编辑审批卡片的一条 diff 行。编码场景的审批体验就是 diff 体验——
 /// 裸拼的 old/new 参数文本看不出改了什么,等于逼人盲批。
 /// </summary>
