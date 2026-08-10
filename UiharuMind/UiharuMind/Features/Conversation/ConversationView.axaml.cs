@@ -191,7 +191,8 @@ public partial class ConversationView : UserControl
     {
         if (sender is not Image { Source: Bitmap bitmap }) return;
 
-        UIManager.ShowPreviewImageWindowAtMousePosition(bitmap);
+        // 传副本:气泡这张图还挂在条目上,预览窗关闭时会释放它自己那份
+        UIManager.ShowPreviewImageCopyWindowAtMousePosition(bitmap);
         e.Handled = true;
     }
 

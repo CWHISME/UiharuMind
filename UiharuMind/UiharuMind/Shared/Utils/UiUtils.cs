@@ -96,6 +96,28 @@ public static class UiUtils
     }
 
     /// <summary>
+    /// 复制一份独立的 Bitmap。
+    /// 交给会自行释放图像的窗口（如预览窗）时用它，免得对方关窗时把调用方还在用的那张图释放掉。
+    /// </summary>
+    /// <param name="bitmap">源图</param>
+    /// <returns>与源图互不影响的副本；复制失败返回 null</returns>
+    public static Bitmap? CloneBitmap(this Bitmap bitmap)
+    {
+        try
+        {
+            using var memoryStream = new MemoryStream();
+            bitmap.Save(memoryStream);
+            memoryStream.Position = 0;
+            return new Bitmap(memoryStream);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Clone bitmap failed: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// 将 Bitmap 转换为 Base64 字符串
     /// </summary>
     /// <param name="image"></param>
