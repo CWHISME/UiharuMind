@@ -68,6 +68,12 @@ public class ChatSession
     /// <summary>会话累计输出 token</summary>
     public long TotalOutputTokens { get; set; }
 
+    /// <summary>
+    /// 最近一次响应的输入 token，即这个会话的上下文占用。
+    /// 与累计值一样记在本体上——不记的话每次切回会话都要等下一次响应才知道有多满。
+    /// </summary>
+    public long LastInputTokens { get; set; }
+
     /// <summary>创建时间</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
 

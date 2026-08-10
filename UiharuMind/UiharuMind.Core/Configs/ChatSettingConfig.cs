@@ -38,11 +38,4 @@ public class ChatSettingConfig : TConfigBase<ChatSettingConfig>
     /// </summary>
     public bool IsChatAutoCollapseThinking { get; set; } = true;
 
-    /// <summary>
-    /// 喂给模型的历史 token 预算(0 = 不限)。只影响模型输入侧的开窗,
-    /// UI 渲染与磁盘历史始终全量;超预算时保最新、裁最旧。
-    /// 模型侧没有上下文长度元数据可依,默认值按"128k 级远程模型留足输出/工具空间、
-    /// 小上下文本地模型不至于溢出"取中。
-    /// </summary>
-    public int HistoryTokenBudget { get; set; } = 128_000;
 }

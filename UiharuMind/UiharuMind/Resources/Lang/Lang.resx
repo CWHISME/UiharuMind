@@ -72,6 +72,18 @@
     <data name="TokenUsageTips" xml:space="preserve">
         <value>Tokens: ≈input estimate · ↑in ↓out (last turn) · Σ session total</value>
     </data>
+    <data name="ContextUsageLabel" xml:space="preserve">
+        <value>Context</value>
+    </data>
+    <data name="ContextTurnLabel" xml:space="preserve">
+        <value>This turn</value>
+    </data>
+    <data name="ContextSessionLabel" xml:space="preserve">
+        <value>Session</value>
+    </data>
+    <data name="ContextCompactionHint" xml:space="preserve">
+        <value>Tool results fold at {0}, oldest messages drop at {1}</value>
+    </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>Auto-collapse thinking</value>
     </data>

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
@@ -38,10 +39,31 @@ public class PromptOnlyZeroInjectionTests
         Assert.True(options.DisableTodoProvider);
         Assert.True(options.DisableAgentModeProvider);
         Assert.True(options.DisableAgentSkillsProvider);
-        Assert.True(options.DisableCompaction);
         Assert.True(options.DisableToolAutoApproval);
         Assert.True(options.DisableOpenTelemetry);
         Assert.Null(options.ChatOptions!.Tools); //角色扮演不装配任何工具
+    }
+
+    /// <summary>
+    /// 压缩是「零注入」的唯一例外，且这个例外必须是显式给的：
+    /// 它只做排除与工具结果折叠，不往上下文里添加内容，因此不违背零注入；
+    /// 但没传策略时必须仍是关的，免得哪天框架给它加了默认行为就悄悄生效（ADR 0006）。
+    /// </summary>
+    [Fact]
+    public void BuildPromptOnlyOptions_CompactionIsOptInOnly()
+    {
+        CharacterData character = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
+
+        HarnessAgentOptions without = CharacterRunnerFactory.BuildPromptOnlyOptions(
+            character, new StubHistoryProvider(), [], new ChatOptions());
+        Assert.True(without.DisableCompaction);
+        Assert.Null(without.CompactionStrategy);
+
+        CompactionStrategy strategy = HistoryCompaction.Create(() => 128_000);
+        HarnessAgentOptions with = CharacterRunnerFactory.BuildPromptOnlyOptions(
+            character, new StubHistoryProvider(), [], new ChatOptions(), strategy);
+        Assert.False(with.DisableCompaction);
+        Assert.Same(strategy, with.CompactionStrategy);
     }
 
     private sealed class StubHistoryProvider : ChatHistoryProvider

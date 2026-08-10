@@ -90,6 +90,7 @@ internal sealed class ModelRuntimeService
 
         CancellationToken token = runningData.BeginLoading();
         bool loaded = false;
+        int runtimeContextSize = 0; //本地模型的实际加载上下文,供历史预算按真实值开窗
         try
         {
             await Run(runningData.ModelInfo, loadingPercent =>
@@ -98,10 +99,10 @@ internal sealed class ModelRuntimeService
                 onLoading?.Invoke(loadingPercent);
             }, chatClient =>
             {
-                runningData.CompleteLoading(chatClient);
+                runningData.CompleteLoading(chatClient, runtimeContextSize);
                 loaded = true;
                 onLoaded?.Invoke();
-            }, token).ConfigureAwait(false);
+            }, token, parameters => runtimeContextSize = parameters.ContextSize).ConfigureAwait(false);
 
             return loaded;
         }
@@ -120,11 +121,14 @@ internal sealed class ModelRuntimeService
         }
     }
 
+    /// <param name="onParametersResolved">解析出运行参数时回调。本地模型的实际上下文只有这里知道——
+    /// auto 档按可用内存缩放，与元数据标称值可能差一个数量级，历史预算必须用这个真实值</param>
     public async Task Run(
         ILlmModel model,
         Action<float>? onLoading = null,
         Action<IChatClient>? onLoadOver = null,
-        CancellationToken token = default)
+        CancellationToken token = default,
+        Action<RuntimeResolvedParameters>? onParametersResolved = null)
     {
         ModelRuntimeSettingConfig settings = ModelRuntimeSettingConfig.Current;
         IModelRuntimeBackend? backend = _registry.FindChatBackend(model, GetPreferredChatBackendId(model, settings));
@@ -137,6 +141,7 @@ internal sealed class ModelRuntimeService
         ModelMetadata metadata = ModelMetadataService.Read(model);
         RuntimeParameterPolicy policy = CreateChatParameterPolicy(backend, settings);
         RuntimeResolvedParameters parameters = RuntimeParameterResolver.Resolve(settings, metadata, policy);
+        onParametersResolved?.Invoke(parameters);
         RuntimeLoadRisk risk = model is RemoteModelInfo
             ? RuntimeLoadRisk.Low
             : RuntimeLoadRiskEvaluator.Evaluate(model, metadata, parameters, policy, RuntimeDeviceInfoProvider.Capture());

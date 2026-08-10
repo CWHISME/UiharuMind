@@ -58,6 +58,16 @@
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
+        <!-- 上下文占用条:颜色即压缩档位,与两条水位一一对应 -->
+        <Style Selector="ProgressBar.contextUsage[Tag=Normal] /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="MediumSeaGreen" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage[Tag=Evicting] /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="Orange" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage[Tag=Truncating] /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="OrangeRed" />
+        </Style>
         <!-- 工具行图标态:Tag 驱动颜色区分当前状态 -->
         <Style Selector="ThemedIconButton.mode-state[Tag=Plan] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="DodgerBlue" />
@@ -563,7 +573,47 @@
                                    Text="{Binding TokenUsageText}"
                                    IsVisible="{Binding TokenUsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc TokenUsageTips}" />
+                                <StackPanel MinWidth="240" Spacing="6" DataContext="{Binding ContextUsage}">
+                                    <!-- 模型名 + 上下文上限 -->
+                                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasData}">
+                                        <TextBlock Text="{Binding ModelName}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Classes="muted" Margin="8,0,0,0"
+                                                   Text="{Binding LimitText}" />
+                                    </Grid>
+
+                                    <!-- 占用条：颜色随压缩档位变，Tag 由样式选择器取用 -->
+                                    <ProgressBar IsVisible="{Binding HasData}"
+                                                 Classes="contextUsage" Tag="{Binding StateKey}"
+                                                 Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
+                                                 Height="6" CornerRadius="3" />
+
+                                    <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasData}">
+                                        <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Text="{Binding UsageText}" />
+                                    </Grid>
+
+                                    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
+                                               IsVisible="{Binding HasData}" Text="{Binding ThresholdText}" />
+
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Classes="muted" Text="{loc:Loc ContextTurnLabel}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Text="{Binding TurnText}" />
+                                    </Grid>
+
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          IsVisible="{Binding SessionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Classes="muted" Text="{loc:Loc ContextSessionLabel}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Text="{Binding SessionText}" />
+                                    </Grid>
+
+                                    <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                               Text="{loc:Loc TokenUsageTips}" />
+                                </StackPanel>
                             </ToolTip.Tip>
                         </TextBlock>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">

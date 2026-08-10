@@ -19,8 +19,18 @@ namespace UiharuMind.Core.AI.Chat;
 /// </summary>
 public sealed class TurnUsageLedger
 {
-    /// <summary>本轮输入 token</summary>
+    /// <summary>本轮输入 token（一轮多次工具往返时为各次之和，是成本视角）</summary>
     public long TurnInput { get; private set; }
+
+    /// <summary>
+    /// 最近一次响应的输入 token。这是**上下文占用**的口径——服务端实际吃进去多少，
+    /// 压缩之后的真实结果，比任何本地估算都准。不能拿 <see cref="TurnInput"/> 顶替：
+    /// 那是本轮累加值，一轮十几次工具往返能累到四十几万，与占用无关。
+    /// </summary>
+    public long LastInput { get; private set; }
+
+    /// <summary>当前模型的上下文窗口，0 表示未知（占用段整段省略）</summary>
+    public int ContextLength { get; set; }
 
     /// <summary>本轮输出 token</summary>
     public long TurnOutput { get; private set; }
@@ -52,6 +62,7 @@ public sealed class TurnUsageLedger
     {
         long input = details.InputTokenCount ?? 0;
         long output = details.OutputTokenCount ?? 0;
+        if (input > 0) LastInput = input;
         TurnInput += input;
         TurnOutput += output;
         SessionInput += input;
@@ -64,10 +75,12 @@ public sealed class TurnUsageLedger
     /// </summary>
     /// <param name="input">累计输入</param>
     /// <param name="output">累计输出</param>
-    public void RestoreSession(long input, long output)
+    /// <param name="lastInput">最近一次响应的输入 token（上下文占用），未知传 0</param>
+    public void RestoreSession(long input, long output, long lastInput = 0)
     {
         SessionInput = input;
         SessionOutput = output;
+        LastInput = lastInput;
     }
 
     /// <summary>
@@ -77,19 +90,26 @@ public sealed class TurnUsageLedger
     {
         TurnInput = 0;
         TurnOutput = 0;
+        LastInput = 0; //占用是「这个会话现在多满」,换会话必须清掉,否则会挂着上一个会话的数
         SessionInput = 0;
         SessionOutput = 0;
     }
 
     /// <summary>
-    /// 显示文本：「≈输入估算  ↑本轮输入 ↓本轮输出 (会话累计)」，无数据的段落整段省略
+    /// 显示文本：「占用/上限  ≈输入估算  ↑本轮输入 ↓本轮输出 (会话累计)」，无数据的段落整段省略。
+    /// 占用排在最前——上限是最该一眼看到的那个数。
     /// </summary>
     public string Text
     {
         get
         {
             StringBuilder sb = new();
-            if (InputEstimate > 0) sb.Append($"≈{Format(InputEstimate)}");
+            if (ContextLength > 0 && LastInput > 0) sb.Append($"{Format(LastInput)}/{Format(ContextLength)}");
+            if (InputEstimate > 0)
+            {
+                if (sb.Length > 0) sb.Append("  ");
+                sb.Append($"≈{Format(InputEstimate)}");
+            }
             if (TurnInput + TurnOutput > 0)
             {
                 if (sb.Length > 0) sb.Append("  ");
