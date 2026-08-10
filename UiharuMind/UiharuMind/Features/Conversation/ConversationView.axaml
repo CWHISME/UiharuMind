@@ -614,7 +614,9 @@
                                     <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
                                                IsVisible="{Binding !HasData}" Text="{loc:Loc ContextNoModel}" />
 
-                                    <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasData}">
+                                    <!-- 没有上限时也显示占用(会话本体恢复出来的),只是没有分母 -->
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          IsVisible="{Binding UsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                         <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
                                                    Text="{Binding UsageText}" />

@@ -111,10 +111,11 @@ public class TurnUsageLedgerTests
     [Fact]
     public void Text_OmitsTurnAndSessionTotals()
     {
-        TurnUsageLedger ledger = new();
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
         ledger.Add(Usage(100, 200));
 
-        Assert.Equal(string.Empty, ledger.Text); //没有上下文上限时占用段也省掉,整行为空
+        //本轮 ↑100 ↓200 与累计都不出现在状态栏,它们只在悬停面板里
+        Assert.Equal("100/128k", ledger.Text);
     }
 
     [Fact]

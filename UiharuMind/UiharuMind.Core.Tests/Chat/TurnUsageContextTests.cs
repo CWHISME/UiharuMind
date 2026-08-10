@@ -121,12 +121,22 @@ public class TurnUsageContextTests
         Assert.StartsWith("12k/128k", ledger.Text);
     }
 
+    /// <summary>
+    /// 上限未知时仍要显示占用，只是没有分母。那个数是从会话本体恢复出来的，
+    /// 「这个会话现在有多大」跟当前选没选模型无关——整段藏掉等于凭空少一条信息。
+    /// </summary>
     [Fact]
-    public void Text_OmitsOccupancyWhenContextIsUnknown()
+    public void Text_ShowsOccupancyWithoutADenominatorWhenContextIsUnknown()
     {
         TurnUsageLedger ledger = new();
         ledger.Add(Usage(12_000, 800));
 
-        Assert.DoesNotContain("/", ledger.Text);
+        Assert.Equal("12k", ledger.Text);
+    }
+
+    [Fact]
+    public void Text_IsEmptyWhenThereIsNothingToShow()
+    {
+        Assert.Equal(string.Empty, new TurnUsageLedger().Text);
     }
 }
