@@ -39,6 +39,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     public bool HasSession => _session != null;
 
+    public ChatOptions? ChatOptions => _handle?.ChatOptions;
+
     public async Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);

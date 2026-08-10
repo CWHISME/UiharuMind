@@ -38,7 +38,7 @@ public static class HistoryHandoff
 
     private const double NoteBudgetRatio = 0.1; //交接文档自己占输入预算的比例
     private const int MinNoteTokens = 400;
-    private const int MaxNoteTokens = 4000;
+    private const int MaxNoteTokens = 8000;
     private const int CharsPerToken = 2; //中英混排的保守估计:英文约 4、中文约 1.5,取 2 不至于让模型写超
 
     /// <summary>
@@ -173,11 +173,12 @@ public static class HistoryHandoff
     /// </summary>
     /// <param name="client">模型客户端</param>
     /// <param name="history">要交接的历史（通常是当前供给给模型的那一份）</param>
+    /// <param name="agentOptions">本会话装配好的对话选项，见 <see cref="ICharacterRunner.ChatOptions"/></param>
     /// <param name="contextLength">当前模型的上下文上限，用于算出文档自己的篇幅上限</param>
     /// <param name="cancellationToken">取消标记</param>
     /// <returns>文档正文；失败或产出为空时返回 null</returns>
     public static async Task<string?> WriteAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
-        int contextLength, CancellationToken cancellationToken = default)
+        ChatOptions? agentOptions, int contextLength, CancellationToken cancellationToken = default)
     {
         if (history.Count == 0) return null;
 
@@ -186,11 +187,19 @@ public static class HistoryHandoff
         messages.AddRange(history);
         messages.Add(new ChatMessage(ChatRole.User, string.Format(Instruction, charLimit)));
 
+        // 选项**整份照搬**常规轮次的那一份(系统提示词 + 工具定义 + 采样参数):
+        // 请求体的前缀是「system + 工具定义 + 消息」,少任何一段前缀就从那里岔开,
+        // 服务端的前缀缓存整个作废——而这一发恰好是占用最高时发出的、最大的一次请求。
+        // Clone 是必须的:直接改会污染 agent 自己在用的那一份
+        ChatOptions options = agentOptions?.Clone() ?? new ChatOptions();
+
         try
         {
-            // 不带工具:这是一次纯文本产出,让它去调工具只会跑偏并多烧配额
+            // 工具带着但不许调:这是一次纯文本产出,真让它调工具会跑偏并多烧配额。
+            // MEAI 的 ChatToolMode 没有 None,只能经逐请求上下文让 HTTP 层写 tool_choice
+            LlmRequestContext.ForbidToolCalls = true;
             ChatResponse response = await client
-                .GetResponseAsync(messages, new ChatOptions(), cancellationToken)
+                .GetResponseAsync(messages, options, cancellationToken)
                 .ConfigureAwait(false);
             string text = response.Text.Trim();
             return text.Length == 0 ? null : Cap(text, charLimit);
@@ -203,6 +212,10 @@ public static class HistoryHandoff
         {
             Log.Warning($"Write context handoff failed: {e.Message}");
             return null;
+        }
+        finally
+        {
+            LlmRequestContext.ForbidToolCalls = false;
         }
     }
 }

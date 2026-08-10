@@ -39,6 +39,8 @@ public class RunTextSemanticsTests
     {
         public bool HasSession => true;
 
+        public ChatOptions? ChatOptions => null;
+
         public async IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,
             [System.Runtime.CompilerServices.EnumeratorCancellation]
             CancellationToken cancellationToken = default)

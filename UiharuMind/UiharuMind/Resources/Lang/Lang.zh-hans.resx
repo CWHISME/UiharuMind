@@ -87,10 +87,16 @@
         <value>本轮</value>
     </data>
     <data name="ContextSessionLabel" xml:space="preserve">
-        <value>会话</value>
+        <value>累计消耗</value>
     </data>
     <data name="ContextCompactionHint" xml:space="preserve">
-        <value>工具结果折叠于 {0}，最旧消息截断于 {1}</value>
+        <value>折叠工具结果 {0} → 交接文档 {1} → 截断最旧消息 {2}</value>
+    </data>
+    <data name="ContextNoModel" xml:space="preserve">
+        <value>未选择模型，无法计算上下文占用</value>
+    </data>
+    <data name="ContextCachedLabel" xml:space="preserve">
+        <value>缓存命中</value>
     </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>自动折叠思考</value>

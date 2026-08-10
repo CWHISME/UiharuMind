@@ -32,6 +32,12 @@ public sealed class TurnUsageLedger
     /// <summary>当前模型的上下文窗口，0 表示未知（占用段整段省略）</summary>
     public int ContextLength { get; set; }
 
+    /// <summary>
+    /// 最近一次响应里命中前缀缓存的输入 token，0 表示未命中或服务端不报。
+    /// 服务端不报这个数的话就无从判断缓存有没有生效——只能靠它来验证，不能靠推理。
+    /// </summary>
+    public long LastCachedInput { get; private set; }
+
     /// <summary>本轮输出 token</summary>
     public long TurnOutput { get; private set; }
 
@@ -62,12 +68,35 @@ public sealed class TurnUsageLedger
     {
         long input = details.InputTokenCount ?? 0;
         long output = details.OutputTokenCount ?? 0;
-        if (input > 0) LastInput = input;
+        if (input > 0)
+        {
+            LastInput = input;
+            LastCachedInput = ReadCachedTokens(details); //不报就归零,不能留着上一次的数冒充本次命中
+        }
+
         TurnInput += input;
         TurnOutput += output;
         SessionInput += input;
         SessionOutput += output;
         return (input, output);
+    }
+
+    /// <summary>
+    /// 从用量的附加计数里找缓存命中数。各家键名不同（OpenAI 系是 <c>cached_tokens</c>，
+    /// 经 MEAI 映射后还会再改一次名），所以按子串命中而不是写死键名；找不到就是 0。
+    /// </summary>
+    /// <param name="details">响应用量</param>
+    /// <returns>命中的输入 token 数</returns>
+    internal static long ReadCachedTokens(UsageDetails details)
+    {
+        if (details.AdditionalCounts == null) return 0;
+
+        foreach (KeyValuePair<string, long> pair in details.AdditionalCounts)
+        {
+            if (pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase)) return pair.Value;
+        }
+
+        return 0;
     }
 
     /// <summary>
@@ -91,13 +120,16 @@ public sealed class TurnUsageLedger
         TurnInput = 0;
         TurnOutput = 0;
         LastInput = 0; //占用是「这个会话现在多满」,换会话必须清掉,否则会挂着上一个会话的数
+        LastCachedInput = 0;
         SessionInput = 0;
         SessionOutput = 0;
     }
 
     /// <summary>
-    /// 显示文本：「占用/上限  ≈输入估算  ↑本轮输入 ↓本轮输出 (会话累计)」，无数据的段落整段省略。
-    /// 占用排在最前——上限是最该一眼看到的那个数。
+    /// 状态栏文本：「占用/上限  ≈输入估算」，无数据的段落整段省略。
+    ///
+    /// 刻意只留这两段。它紧挨发送按钮、位置很窄，四段堆进去会挤成一串看不出量级的数字；
+    /// 本轮用量与会话累计都在悬停面板里，那里有标签、读得懂。
     /// </summary>
     public string Text
     {
@@ -110,27 +142,16 @@ public sealed class TurnUsageLedger
                 if (sb.Length > 0) sb.Append("  ");
                 sb.Append($"≈{Format(InputEstimate)}");
             }
-            if (TurnInput + TurnOutput > 0)
-            {
-                if (sb.Length > 0) sb.Append("  ");
-                sb.Append($"↑{Format(TurnInput)} ↓{Format(TurnOutput)}");
-            }
-
-            if (SessionInput + SessionOutput > 0)
-            {
-                if (sb.Length > 0) sb.Append(' ');
-                sb.Append($"({Format(SessionInput + SessionOutput)})");
-            }
 
             return sb.ToString();
         }
     }
 
     /// <summary>
-    /// 万以上折成 k，保留一位小数
+    /// 千位以上折成 k，保留一位小数
     /// </summary>
     /// <param name="count">token 数</param>
     /// <returns>显示用字符串</returns>
     public static string Format(long count) =>
-        count >= 10000 ? $"{count / 1000.0:0.#}k" : count.ToString();
+        count >= 1000 ? $"{count / 1000.0:0.#}k" : count.ToString();
 }

@@ -95,45 +95,50 @@ public class TurnUsageLedgerTests
         Assert.Equal("≈42", ledger.Text);
     }
 
+    /// <summary>
+    /// 状态栏只留「占用 + 输入估算」两段。本轮与会话累计已挪进悬停面板——
+    /// 那一行紧挨发送按钮、位置很窄，四段堆进去会挤成一串看不出量级的数字。
+    /// </summary>
     [Fact]
-    public void Text_TurnAndSessionSegments()
+    public void Text_ShowsOccupancyAndEstimateOnly()
+    {
+        TurnUsageLedger ledger = new() { ContextLength = 128_000, InputEstimate = 5 };
+        ledger.Add(Usage(8526, 200));
+
+        Assert.Equal("8.5k/128k  ≈5", ledger.Text);
+    }
+
+    [Fact]
+    public void Text_OmitsTurnAndSessionTotals()
     {
         TurnUsageLedger ledger = new();
         ledger.Add(Usage(100, 200));
 
-        Assert.Equal("↑100 ↓200 (300)", ledger.Text);
+        Assert.Equal(string.Empty, ledger.Text); //没有上下文上限时占用段也省掉,整行为空
     }
 
     [Fact]
-    public void Text_AllThreeSegments()
+    public void Text_KeepsOccupancyAfterBeginTurn()
     {
-        TurnUsageLedger ledger = new() { InputEstimate = 5 };
-        ledger.Add(Usage(100, 200));
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        ledger.Add(Usage(8526, 200));
+        ledger.BeginTurn();
 
-        Assert.Equal("≈5  ↑100 ↓200 (300)", ledger.Text);
+        Assert.Equal("8.5k/128k", ledger.Text); //新一轮还没响应时,占用仍显示上一轮的结果
     }
 
     /// <summary>
-    /// 本轮归零后累计段仍要显示——切轮次时数字不该整块消失
+    /// 千位就折成 k。原先是万位，于是「8526 / 128k」这种一半原样一半缩写的写法会同框出现，
+    /// 一眼看不出量级关系。
     /// </summary>
-    [Fact]
-    public void Text_KeepsSessionSegmentAfterBeginTurn()
-    {
-        TurnUsageLedger ledger = new();
-        ledger.Add(Usage(100, 200));
-        ledger.BeginTurn();
-
-        Assert.Equal("(300)", ledger.Text);
-    }
-
     [Theory]
     [InlineData(0, "0")]
     [InlineData(999, "999")]
-    [InlineData(9999, "9999")]
-    [InlineData(10000, "10k")]
+    [InlineData(1000, "1k")]
+    [InlineData(8526, "8.5k")]
     [InlineData(10500, "10.5k")]
     [InlineData(123456, "123.5k")]
-    public void Format_SwitchesToKAtTenThousand(long count, string expected)
+    public void Format_SwitchesToKAtOneThousand(long count, string expected)
     {
         Assert.Equal(expected, TurnUsageLedger.Format(count));
     }

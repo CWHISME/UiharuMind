@@ -58,7 +58,12 @@
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
-        <!-- 上下文占用条:颜色即压缩档位,与两条水位一一对应 -->
+        <!-- 上下文占用条:颜色即压缩档位。轨道必须可见——占用低时进度块只有一两像素,
+             没有轨道衬着就看不出这是一根进度条,只像一个小色块 -->
+        <Style Selector="ProgressBar.contextUsage /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey3}" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
         <Style Selector="ProgressBar.contextUsage[Tag=Normal] /template/ Border#PART_Indicator">
             <Setter Property="Background" Value="MediumSeaGreen" />
         </Style>
@@ -602,12 +607,24 @@
                                     <ProgressBar IsVisible="{Binding HasData}"
                                                  Classes="contextUsage" Tag="{Binding StateKey}"
                                                  Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
-                                                 Height="6" CornerRadius="3" />
+                                                 Height="6" CornerRadius="3"
+                                                 Background="{DynamicResource SemiGrey3}" />
+
+                                    <!-- 没有模型就没有上限,整个面板算不出来:说清楚为什么,别只给一个空框 -->
+                                    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
+                                               IsVisible="{Binding !HasData}" Text="{loc:Loc ContextNoModel}" />
 
                                     <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasData}">
                                         <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
                                                    Text="{Binding UsageText}" />
+                                    </Grid>
+
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Text="{Binding CachedText}" />
                                     </Grid>
 
                                     <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
@@ -626,9 +643,6 @@
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
                                                    Text="{Binding SessionText}" />
                                     </Grid>
-
-                                    <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                               Text="{loc:Loc TokenUsageTips}" />
                                 </StackPanel>
                             </ToolTip.Tip>
                         </TextBlock>

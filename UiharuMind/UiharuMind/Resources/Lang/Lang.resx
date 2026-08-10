@@ -94,10 +94,16 @@
         <value>This turn</value>
     </data>
     <data name="ContextSessionLabel" xml:space="preserve">
-        <value>Session</value>
+        <value>Total spend</value>
     </data>
     <data name="ContextCompactionHint" xml:space="preserve">
-        <value>Tool results fold at {0}, oldest messages drop at {1}</value>
+        <value>Fold tool results at {0} → handoff at {1} → drop oldest at {2}</value>
+    </data>
+    <data name="ContextNoModel" xml:space="preserve">
+        <value>No model selected — context usage is unknown</value>
+    </data>
+    <data name="ContextCachedLabel" xml:space="preserve">
+        <value>Cached</value>
     </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>Auto-collapse thinking</value>
