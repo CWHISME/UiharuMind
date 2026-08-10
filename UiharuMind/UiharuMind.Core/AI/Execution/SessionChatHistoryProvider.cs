@@ -66,11 +66,19 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         ChatSession? session = Resolve(context.Session);
         if (session == null) return new ValueTask<IEnumerable<ChatMessage>>([]);
 
-        // 文本侧全量供给,开窗交给框架的在环压缩(ADR 0006):它按当前模型的上下文动态定预算,
-        // 先折叠老的工具结果、必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。
+        // 有交接文档就从它开始供给:它之前的历史已经被压进那份文档,只留在会话文件与界面上。
+        // 起点每次现算(扫最后一条交接消息)而不是记个下标——分支会话、删消息都不会把它算错
+        IReadOnlyList<ChatMessage> full = session.History;
+        int start = HistoryHandoff.SupplyStartIndex(full);
+        IReadOnlyList<ChatMessage> supplied = start == 0
+            ? full
+            : full.Skip(start).ToList();
+
+        // 其余开窗交给框架的在环压缩(ADR 0006):按当前模型的上下文动态定预算,先折叠老的工具结果、
+        // 必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。
         // 图片是唯一在这里先处理的:压缩按字节数估 token,老图片不清掉会让估算一路虚高
         IEnumerable<ChatMessage> history =
-            HistoryImageWindow.DemoteOldImages(session.History, HistoryImageWindow.KeepRecentImages);
+            HistoryImageWindow.DemoteOldImages(supplied, HistoryImageWindow.KeepRecentImages);
         return new ValueTask<IEnumerable<ChatMessage>>(history);
     }
 
@@ -103,6 +111,11 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     /// </summary>
     internal static bool IsOwnedByUs(ChatMessage message)
     {
+        // 交接文档是我们自己直接写进历史的,它没有 _attribution(那个键意味着不落盘,正好相反)。
+        // 一旦它随供给的历史回到 RequestMessages 里,这里就会把它当成新消息逐轮重复追加,
+        // 于是每轮多一份、下一轮又多一份。它永远不该从这条路进历史
+        if (HistoryHandoff.IsNote(message)) return false;
+
         return message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) != true;
     }
 

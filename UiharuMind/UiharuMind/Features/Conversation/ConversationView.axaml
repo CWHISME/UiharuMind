@@ -189,6 +189,22 @@
                         </Expander>
                     </DataTemplate>
 
+                    <!-- 交接文档:模型从这条往前看不见了,默认折叠 -->
+                    <DataTemplate DataType="{x:Type conv:HandoffItem}">
+                        <Border Background="{DynamicResource SemiGrey1}"
+                                BorderBrush="{DynamicResource SemiGrey3}" BorderThickness="1"
+                                CornerRadius="8" Padding="4,0" Margin="0,6,0,6">
+                            <Expander IsExpanded="{Binding IsExpanded}" Background="Transparent"
+                                      BorderThickness="0" HorizontalAlignment="Stretch">
+                                <Expander.Header>
+                                    <TextBlock Classes="muted" Text="{loc:Loc HandoffHeader}" />
+                                </Expander.Header>
+                                <SelectableTextBlock Classes="muted" Text="{Binding Message}"
+                                                     TextWrapping="Wrap" Margin="0,0,0,8" />
+                            </Expander>
+                        </Border>
+                    </DataTemplate>
+
                     <!-- 错误条目(两个页面通用) -->
                     <DataTemplate DataType="{x:Type conv:ErrorItem}">
                         <Border Background="{DynamicResource SemiGrey1}"
@@ -616,6 +632,12 @@
                                 </StackPanel>
                             </ToolTip.Tip>
                         </TextBlock>
+                        <StackPanel IsVisible="{Binding IsCompacting}" Orientation="Horizontal" Spacing="6"
+                                    VerticalAlignment="Center">
+                            <u:LoadingIcon IsLoading="{Binding IsCompacting}" />
+                            <TextBlock Classes="muted" VerticalAlignment="Center"
+                                       Text="{loc:Loc HandoffWriting}" />
+                        </StackPanel>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
                             <ThemedIconButton IconName="stop"

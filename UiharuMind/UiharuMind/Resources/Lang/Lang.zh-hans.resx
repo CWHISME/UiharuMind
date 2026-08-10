@@ -65,6 +65,18 @@
     <data name="TokenUsageTips" xml:space="preserve">
         <value>Token 统计:≈输入估算 · ↑输入 ↓输出(本轮) · Σ会话累计</value>
     </data>
+    <data name="HandoffHeader" xml:space="preserve">
+        <value>交接文档 —— 模型看不到这条之前的内容了</value>
+    </data>
+    <data name="HandoffWriting" xml:space="preserve">
+        <value>正在整理交接文档…</value>
+    </data>
+    <data name="HandoffFailed" xml:space="preserve">
+        <value>交接文档没能写成，改由截断丢弃最旧的消息。</value>
+    </data>
+    <data name="HandoffNothingToCompact" xml:space="preserve">
+        <value>当前没有可压缩的内容。</value>
+    </data>
     <data name="ContextUsageLabel" xml:space="preserve">
         <value>上下文</value>
     </data>

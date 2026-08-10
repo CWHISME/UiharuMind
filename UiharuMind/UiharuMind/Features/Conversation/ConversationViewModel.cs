@@ -304,8 +304,14 @@ public partial class ConversationViewModel : ViewModelBase
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly TurnUsageLedger _usage = new(); //token 账本
 
+    /// <summary>手动压缩命令</summary>
+    public const string CompactCommand = "/compact";
+
     /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
     public ContextUsageViewData ContextUsage { get; } = new();
+
+    /// <summary>正在整理交接文档（占用条旁显示，避免看起来像卡住）</summary>
+    [ObservableProperty] private bool _isCompacting;
 
     public ConversationViewModel()
     {
@@ -568,6 +574,13 @@ public partial class ConversationViewModel : ViewModelBase
 
     private async Task SendCoreAsync(string text)
     {
+        // 手动压缩:任务的自然边界由你比水位更清楚,在边界上压缩,交接文档质量高得多
+        if (string.Equals(text.Trim(), CompactCommand, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!IsGenerating) await TryWriteHandoffAsync(force: true);
+            return;
+        }
+
         // 运行中输入 = 插话:入注入队列,agent 下一次机会消费
         if (IsGenerating)
         {
@@ -700,7 +713,65 @@ public partial class ConversationViewModel : ViewModelBase
             _transcript.ResolveApprovals(_transcript.PendingApprovals.ToList());
             SessionsChanged?.Invoke();
         }
+
+        // 压缩放在轮次之间,不放在请求路径上:写交接文档本身要发一次请求,
+        // 塞进本轮会让用户多等一次完整往返
+        await TryWriteHandoffAsync();
     }
+
+    /// <summary>
+    /// 到水位就让当前模型写一份交接文档，之后的历史供给从它开始。
+    /// 失败不作声张——框架的截断仍挂着当兜底，最坏结果是回到「悄悄丢最旧的消息」。
+    /// </summary>
+    /// <param name="force">手动触发（<c>/compact</c>），跳过水位判定</param>
+    private async Task TryWriteHandoffAsync(bool force = false)
+    {
+        if (CurrentSession is not { } session) return;
+        // 本轮没拿到任何响应(撞限流、被停止)时不自动压缩:那一发交接请求多半也发不出去,
+        // 白白再走一遍五次退避
+        if (!force && (_usage.TurnInput == 0 ||
+                       !HistoryHandoff.ShouldWrite(_usage.LastInput, _usage.ContextLength)))
+        {
+            return;
+        }
+
+        int start = HistoryHandoff.SupplyStartIndex(session.History);
+        // 上一份交接之后没攒下几条,再压一次只会把已经压过的东西再压一遍
+        if (session.History.Count - start < MinMessagesToCompact)
+        {
+            if (force) Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffNothingToCompact") });
+            return;
+        }
+
+        IChatClient? client = (CurrentSession.ChatModelRunningData
+                               ?? LlmManager.Instance.CurrentRunningModel)?.ChatClient;
+        if (client == null) return;
+
+        IsCompacting = true;
+        try
+        {
+            List<ChatMessage> supplied = session.History.Skip(start).ToList();
+            string? note = await HistoryHandoff.WriteAsync(client, supplied, CancellationToken.None);
+            if (note == null)
+            {
+                Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffFailed") });
+                return;
+            }
+
+            ChatMessage message = HistoryHandoff.CreateNote(note);
+            int before = session.History.Count;
+            session.History.Add(message);
+            session.SaveAppended(before);
+            Items.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(DisplayTextOf(message)) });
+            ScrollToEnd = true;
+        }
+        finally
+        {
+            IsCompacting = false;
+        }
+    }
+
+    private const int MinMessagesToCompact = 4; //少于这个数压了也没意义
 
     //================= agent / 会话装配 =================
 
@@ -990,6 +1061,13 @@ public partial class ConversationViewModel : ViewModelBase
         for (int index = from; index < to; index++)
         {
             ChatMessage message = messages[index];
+            // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡,因此先于常规分派拦下
+            if (HistoryHandoff.IsNote(message))
+            {
+                buffer.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(DisplayTextOf(message)) });
+                continue;
+            }
+
             if (message.Role == ChatRole.User)
             {
                 string text = DisplayTextOf(message);
