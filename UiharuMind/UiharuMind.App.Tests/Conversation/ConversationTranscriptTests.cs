@@ -1,4 +1,5 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Features.Conversation;
 
 namespace UiharuMind.App.Tests.Conversation;
@@ -354,6 +355,69 @@ public class ConversationTranscriptTests
         Assert.Equal("旧", FlushedMessage(items[0]));
         Assert.Equal("新", FlushedMessage(items[1]));
         Assert.Empty(transcript.PendingApprovals);
+    }
+
+    /// <summary>
+    /// 取消落库只该拿「正在流的那一段」。更早的段落已经由框架逐次服务调用各自落过盘
+    /// （HarnessAgent 开着 RequirePerServiceCallChatHistoryPersistence），
+    /// 再写一遍就会在会话里多出一句一模一样的话。
+    /// </summary>
+    [Fact]
+    public void TakeStreamingText_ReturnsOnlyTheSegmentStillStreaming()
+    {
+        var (transcript, _) = Create();
+        transcript.Apply(new TextContent("第一段"));
+        //工具调用会收掉上一段:此后那一段已经随本次服务调用落过盘了
+        transcript.Apply(new FunctionCallContent("call-1", "run_shell", null));
+        transcript.Apply(new TextContent("第二段"));
+
+        Assert.Equal("第二段", transcript.TakeStreamingText());
+    }
+
+    [Fact]
+    public void TakeStreamingText_IsNullWhenStoppedOnAToolCall()
+    {
+        var (transcript, _) = Create();
+        transcript.Apply(new TextContent("第一段"));
+        transcript.Apply(new FunctionCallContent("call-1", "ask_vision", null));
+
+        //卡在工具调用上停止:没有任何在流的正文,一个字都不该落库
+        Assert.Null(transcript.TakeStreamingText());
+    }
+
+    [Fact]
+    public void StopRunningToolCalls_ClosesUnfinishedCardsAsFailed()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("done", "run_shell", null));
+        transcript.Apply(new FunctionResultContent("done", "ok"));
+        transcript.Apply(new FunctionCallContent("running", "ask_vision", null));
+
+        transcript.StopRunningToolCalls("已停止");
+
+        ToolCallItem finished = items.OfType<ToolCallItem>().Single(x => x.CallId == "done");
+        ToolCallItem stopped = items.OfType<ToolCallItem>().Single(x => x.CallId == "running");
+        Assert.True(finished.IsSuccess); //已经拿到结果的卡片不该被改判
+        Assert.Equal("ok", finished.ResultText);
+        Assert.False(stopped.IsRunning); //不收的话卡片会一直转圈,看着像还在跑
+        Assert.False(stopped.IsSuccess); //它确实没跑完,绿点会是假消息
+        Assert.Equal("已停止", stopped.ResultText);
+    }
+
+    [Fact]
+    public void StopRunningToolCalls_ReachesNestedActivity()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("outer", "sub_agent", null));
+        //子代理过程里自己又调了一个工具,同样停在半路
+        transcript.Apply(new ToolActivityContent("outer", new FunctionCallContent("inner", "run_shell", null)));
+
+        transcript.StopRunningToolCalls("已停止");
+
+        ToolCallItem outer = items.OfType<ToolCallItem>().Single();
+        ToolCallItem inner = outer.NestedItems.OfType<ToolCallItem>().Single();
+        Assert.False(outer.IsRunning);
+        Assert.False(inner.IsRunning);
     }
 
     /// <summary>

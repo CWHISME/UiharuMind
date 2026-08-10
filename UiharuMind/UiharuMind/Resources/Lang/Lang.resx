@@ -261,6 +261,9 @@
     <data name="AgentStop" xml:space="preserve">
         <value>Stop</value>
     </data>
+    <data name="AgentToolCallStopped" xml:space="preserve">
+        <value>Stopped before this tool returned.</value>
+    </data>
     <data name="AgentScheduledTitle" xml:space="preserve">
         <value>Scheduled</value>
     </data>

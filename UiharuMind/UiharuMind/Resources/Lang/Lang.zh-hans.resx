@@ -251,6 +251,9 @@
     <data name="AgentStop" xml:space="preserve">
         <value>停止</value>
     </data>
+    <data name="AgentToolCallStopped" xml:space="preserve">
+        <value>已在这个工具返回前停止</value>
+    </data>
     <data name="AgentScheduledTitle" xml:space="preserve">
         <value>定时任务</value>
     </data>
