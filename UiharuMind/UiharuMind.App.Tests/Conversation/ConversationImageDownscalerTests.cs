@@ -71,22 +71,39 @@ public class ConversationImageDownscalerTests
     /// <summary>
     /// 端到端:真造一张大图跑一遍。这条是整件事的支点——「缩了没有」以前只能靠推理，
     /// 而实测发现 Avalonia 的 Bitmap.Save 只写 PNG，照片缩到 1568px 仍有 1~2MB，
-    /// 等于没缩。改用 SkiaSharp 直接编 JPEG 之后，这里才真的能钉住。
+    /// 等于没缩。改用 SkiaSharp 之后，这里才真的能钉住。
     /// </summary>
     [Fact]
-    public void LargePng_ShrinksAndBecomesJpeg()
+    public void PhotoLikeImage_ShrinksAndFallsBackToJpeg()
     {
-        byte[] original = MakePng(3840, 2160);
+        byte[] original = MakeNoisyPhoto(3840, 2160);
 
         (byte[] bytes, string type) = ConversationImageDownscaler.Downscale(original, "image/png");
 
-        Assert.Equal("image/jpeg", type);
+        Assert.Equal("image/jpeg", type); //照片 PNG 压不动,只能退到有损
         Assert.True(bytes.Length < original.Length,
             $"重编码后应更小,实际 {original.Length} → {bytes.Length}");
 
         using SKBitmap decoded = SKBitmap.Decode(bytes);
         Assert.Equal(ConversationImageDownscaler.MaxEdge, decoded.Width);
         Assert.Equal(882, decoded.Height); //2160 * 1568 / 3840
+    }
+
+    /// <summary>
+    /// 截图这类合成图必须保持无损。JPEG 的 DCT 与色度子采样正好啃高对比度细边缘——
+    /// 也就是文字，而截图是本应用的主场景，认错字的代价远大于省下的那点体积。
+    /// </summary>
+    [Fact]
+    public void ScreenshotLikeImage_StaysLossless()
+    {
+        byte[] original = MakeFlatUiScreenshot(2560, 1440);
+
+        (byte[] bytes, string type) = ConversationImageDownscaler.Downscale(original, "image/png");
+
+        Assert.Equal("image/png", type);
+
+        using SKBitmap decoded = SKBitmap.Decode(bytes);
+        Assert.Equal(ConversationImageDownscaler.MaxEdge, decoded.Width);
     }
 
     [Fact]
@@ -104,18 +121,33 @@ public class ConversationImageDownscalerTests
         Assert.True(pixel.Red > 200 && pixel.Green > 200 && pixel.Blue > 200, $"透明区应铺成白色,实际 {pixel}");
     }
 
-    private static byte[] MakePng(int width, int height)
+    /// <summary>逐像素噪声，PNG 压不动——照片的代理</summary>
+    private static byte[] MakeNoisyPhoto(int width, int height)
+    {
+        using SKBitmap bitmap = new(width, height);
+        Random random = new(1234); //固定种子,测试要可复现
+        SKColor[] pixels = new SKColor[width * height];
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = new SKColor((byte)random.Next(256), (byte)random.Next(256), (byte)random.Next(256));
+        }
+
+        bitmap.Pixels = pixels; //整块写:逐像素 SetPixel 在 800 万像素上要好几秒
+
+        using SKData data = SKImage.FromBitmap(bitmap).Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
+
+    /// <summary>大片纯色加几个矩形，PNG 压得极好——截图/UI 的代理</summary>
+    private static byte[] MakeFlatUiScreenshot(int width, int height)
     {
         using SKBitmap bitmap = new(width, height);
         using (SKCanvas canvas = new(bitmap))
         {
             canvas.Clear(SKColors.White);
-            //画点噪声,免得整块纯色被 PNG 压到极小、显不出体积差异
             using SKPaint paint = new() { Color = SKColors.DarkSlateBlue };
-            for (int i = 0; i < width; i += 7)
-            {
-                canvas.DrawRect(i, i % height, 5, 40, paint);
-            }
+            canvas.DrawRect(40, 40, width - 80, 120, paint);
+            canvas.DrawRect(40, 220, 300, 60, paint);
         }
 
         using SKData data = SKImage.FromBitmap(bitmap).Encode(SKEncodedImageFormat.Png, 100);
