@@ -751,7 +751,8 @@ public partial class ConversationViewModel : ViewModelBase
         try
         {
             List<ChatMessage> supplied = session.History.Skip(start).ToList();
-            string? note = await HistoryHandoff.WriteAsync(client, supplied, CancellationToken.None);
+            string? note = await HistoryHandoff.WriteAsync(client, supplied, _usage.ContextLength,
+                CancellationToken.None);
             if (note == null)
             {
                 Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffFailed") });
@@ -1419,20 +1420,32 @@ public partial class ConversationViewModel : ViewModelBase
 
     private async Task RefreshSkillCandidatesAsync(string value)
     {
-        if (!IsAgentSession || !SkillInvocation.TryParsePrefix(value, out string prefix))
+        if (!SkillInvocation.TryParsePrefix(value, out string prefix))
         {
             if (IsSkillPickerOpen) CloseSkillPicker();
             return;
         }
 
         int version = ++_skillPickerVersion;
-        List<SkillCatalogEntry> all =
-            _skillCandidateCache ??
-            await SkillCatalog.Instance.GetInvocableEntriesAsync(SessionCharacter.Tools.DisabledSkills);
-        if (version != _skillPickerVersion) return; //读盘期间输入又变了,丢弃本次结果
-        _skillCandidateCache = all;
+        // 技能只在 agent 会话有意义(扮演档工具集为空,注入过去只会让模型去调不存在的工具);
+        // 内置命令则各档都有——压缩对角色扮演的长对话同样生效
+        List<SkillCatalogEntry> all = [];
+        if (IsAgentSession)
+        {
+            all = _skillCandidateCache ??
+                  await SkillCatalog.Instance.GetInvocableEntriesAsync(SessionCharacter.Tools.DisabledSkills);
+            if (version != _skillPickerVersion) return; //读盘期间输入又变了,丢弃本次结果
+            _skillCandidateCache = all;
+        }
 
         SkillCandidates.Clear();
+        // 内置命令排在最前:它们数量少且固定,混在技能里按字典序排会找不着
+        foreach (SkillCatalogEntry command in BuiltInCommands
+                     .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+        {
+            SkillCandidates.Add(command);
+        }
+
         foreach (SkillCatalogEntry entry in all
                      .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                      .OrderBy(x => x.Name, StringComparer.Ordinal))
@@ -1443,6 +1456,20 @@ public partial class ConversationViewModel : ViewModelBase
         SkillCandidateIndex = 0;
         IsSkillPickerOpen = SkillCandidates.Count > 0;
     }
+
+    /// <summary>
+    /// 内置命令。借技能条目的形状进同一个补全列表——它们对用户是同一件事（敲 <c>/</c> 弹出来的东西），
+    /// 为一条命令另开一套列表控件与键盘导航不值当。
+    /// </summary>
+    //每次现取而不是缓存成静态字段:描述要跟着语言切换走,而静态初始化只跑一次
+    private static IReadOnlyList<SkillCatalogEntry> BuiltInCommands =>
+    [
+        new()
+        {
+            Name = CompactCommand[1..], //列表里存的是不带斜杠的名字
+            Description = LocalizationManager.Instance.GetString("CompactCommandDescription"),
+        },
+    ];
 
     /// <summary>
     /// 组装点名调用。只在 agent 会话开放——技能正文多在指挥工具,

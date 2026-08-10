@@ -65,6 +65,9 @@
     <data name="TokenUsageTips" xml:space="preserve">
         <value>Token 统计:≈输入估算 · ↑输入 ↓输出(本轮) · Σ会话累计</value>
     </data>
+    <data name="CompactCommandDescription" xml:space="preserve">
+        <value>把当前对话压缩成一份交接文档</value>
+    </data>
     <data name="HandoffHeader" xml:space="preserve">
         <value>交接文档 —— 模型看不到这条之前的内容了</value>
     </data>

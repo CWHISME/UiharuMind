@@ -72,6 +72,9 @@
     <data name="TokenUsageTips" xml:space="preserve">
         <value>Tokens: ≈input estimate · ↑in ↓out (last turn) · Σ session total</value>
     </data>
+    <data name="CompactCommandDescription" xml:space="preserve">
+        <value>Compact the conversation into a handoff document</value>
+    </data>
     <data name="HandoffHeader" xml:space="preserve">
         <value>Context handoff — the model cannot see anything before this point</value>
     </data>

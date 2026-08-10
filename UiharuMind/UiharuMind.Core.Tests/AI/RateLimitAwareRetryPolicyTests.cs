@@ -35,6 +35,27 @@ public class RateLimitAwareRetryPolicyTests
         Assert.Equal(expectedSeconds, delay.TotalSeconds, 3);
     }
 
+    /// <summary>
+    /// 限流不限次数：撞的是平台侧共享容量，跟自己发多猛无关，等就是唯一的办法；
+    /// 放弃的代价是整轮 agent 任务作废。瞬时故障不跟着放开——那是服务端真坏了，
+    /// 无限重试只会把明确的失败拖成静默的挂起。
+    /// </summary>
+    [Fact]
+    public void RateLimitRetriesAreUnbounded_TransientOnesAreNot()
+    {
+        Assert.Equal(int.MaxValue, RateLimitAwareRetryPolicy.MaxRetries);
+        Assert.True(RateLimitAwareRetryPolicy.TransientMaxRetries < 10);
+    }
+
+    [Fact]
+    public void HugeTryCount_DoesNotOverflowTheBackoff()
+    {
+        //次数不设上限之后 tryCount 可以涨得很大,指数不夹住会溢出成负数或无穷
+        TimeSpan delay = RateLimitAwareRetryPolicy.ComputeDelay(true, int.MaxValue, null);
+
+        Assert.Equal(32, delay.TotalSeconds, 3);
+    }
+
     [Fact]
     public void RetryAfter_WinsOverLocalBackoff()
     {

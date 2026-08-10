@@ -16,17 +16,28 @@ namespace UiharuMind.Core.AI.Net;
 /// 远程模型的重试策略：把限流(429)和瞬时故障(5xx/网络)分开对待。
 ///
 /// SDK 默认是 3 次重试、0.8/1.6/3.2s，对限流太急——免费档模型的 TPM 是平台侧共享容量，
-/// 拥塞窗口远不止 6 秒，四次尝试挤在里面只会既失败又加重拥塞。限流因此改成 5 次、2→32s，
-/// 并加 ±25% 抖动：共享池里所有客户端同步重试比退避长度本身更致命。
+/// 拥塞窗口远不止 6 秒，四次尝试挤在里面只会既失败又加重拥塞。限流因此改成
+/// <b>不限次数</b>、2→32s 退避，并加 ±25% 抖动：共享池里所有客户端同步重试比退避长度本身更致命。
+/// 收手的唯一条件是用户按停止（<see cref="PipelineMessage.CancellationToken"/>）。
 ///
-/// 瞬时故障仍走短退避——502 多半几百毫秒就恢复，让它等一分钟纯属浪费。
+/// 瞬时故障仍走短退避且仍有次数上限——502 多半几百毫秒就恢复，
+/// 而它要是真的一直失败，那是服务端坏了，无限重试只会把明确的失败拖成静默的挂起。
 /// </summary>
 internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
 {
-    /// <summary>限流的重试次数上限</summary>
-    internal const int MaxRetries = 5;
+    /// <summary>
+    /// 限流<b>不限重试次数</b>，只有用户主动停止才收手。
+    ///
+    /// 依据是这个限额的性质：它是平台侧的共享容量，撞上它跟自己发多猛无关，等就是唯一的办法；
+    /// 而放弃的代价是整轮 agent 任务作废、要从头再跑一遍。退避到 32s 封顶之后，
+    /// 一直等的成本只是时间，界面上转圈图标与停止按钮都在，随时可以中断。
+    /// </summary>
+    internal const int MaxRetries = int.MaxValue;
 
-    /// <summary>瞬时故障的重试次数上限（沿用 SDK 默认口径）</summary>
+    /// <summary>
+    /// 瞬时故障的重试次数上限（沿用 SDK 默认口径）。这里<b>不跟着放开</b>——
+    /// 5xx 多半是服务端真出了问题，无限重试只会把一个明确的失败拖成一次静默的挂起。
+    /// </summary>
     internal const int TransientMaxRetries = 3;
 
     /// <summary>抖动幅度（相对退避时长的比例）</summary>

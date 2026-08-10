@@ -26,8 +26,8 @@ public static class HistoryCompaction
     /// <summary>工具结果折叠的水位（占输入预算的比例）</summary>
     public const double ToolEvictionThreshold = 0.5;
 
-    /// <summary>截断的水位（占输入预算的比例）</summary>
-    public const double TruncationThreshold = 0.8;
+    /// <summary>截断的水位（占输入预算的比例）。最后一道防线，必须高于交接文档的水位</summary>
+    public const double TruncationThreshold = 0.9;
 
     private const int MinReserve = 512;
     private const int MaxReserve = 8192;

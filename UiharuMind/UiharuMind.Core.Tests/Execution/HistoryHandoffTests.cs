@@ -19,8 +19,8 @@ public class HistoryHandoffTests
     {
         int budget = HistoryCompaction.InputBudgetFor(128_000); //119808
 
-        Assert.False(HistoryHandoff.ShouldWrite((long)(budget * 0.74), 128_000));
-        Assert.True(HistoryHandoff.ShouldWrite((long)(budget * 0.76), 128_000));
+        Assert.False(HistoryHandoff.ShouldWrite((long)(budget * 0.79), 128_000));
+        Assert.True(HistoryHandoff.ShouldWrite((long)(budget * 0.81), 128_000));
     }
 
     [Fact]
@@ -92,12 +92,60 @@ public class HistoryHandoffTests
         Assert.Equal(3, HistoryHandoff.SupplyStartIndex(history));
     }
 
+    /// <summary>
+    /// 交接文档自己的篇幅上限：它写完就是下一段历史的起点，太长等于压缩没做，
+    /// 极端情况下一写完又过水位，陷入「压缩→还是满→再压缩」的循环。
+    /// </summary>
+    [Fact]
+    public void NoteCharLimit_ScalesWithContextAndStaysClamped()
+    {
+        int small = HistoryHandoff.NoteCharLimitFor(4096);
+        int mid = HistoryHandoff.NoteCharLimitFor(128_000);
+        int huge = HistoryHandoff.NoteCharLimitFor(1_048_576);
+
+        Assert.True(small < mid); //小上下文给的篇幅也要小,否则交接文档自己就把窗口占满了
+        Assert.Equal(mid, huge); //到顶后不再涨:再长的交接文档也没有价值
+        Assert.True(small > 0);
+    }
+
+    [Fact]
+    public void Cap_LeavesReasonableOutputAloneAndCutsRunaways()
+    {
+        Assert.Equal("短文", HistoryHandoff.Cap("短文", 100));
+
+        string runaway = new('字', 1000);
+        string capped = HistoryHandoff.Cap(runaway, 100);
+
+        Assert.True(capped.Length < runaway.Length);
+        Assert.Contains("truncated", capped);
+    }
+
+    [Fact]
+    public void Cap_GivesTheModelSomeSlackBeforeCutting()
+    {
+        //稍微超一点不动刀:切在句子中间比让它多写两行更糟
+        string slightlyOver = new('字', 120);
+
+        Assert.Equal(slightlyOver, HistoryHandoff.Cap(slightlyOver, 100));
+    }
+
+    [Fact]
+    public async Task WriteAsync_TellsTheModelItsCharacterBudget()
+    {
+        StubChatClient client = new("正文");
+
+        await HistoryHandoff.WriteAsync(client, [User("a")], 128_000);
+
+        string instruction = client.Seen[^1].Text;
+        Assert.Contains(HistoryHandoff.NoteCharLimitFor(128_000).ToString(), instruction);
+    }
+
     [Fact]
     public async Task WriteAsync_ReturnsNullOnEmptyOutputInsteadOfWritingABlankNote()
     {
         StubChatClient client = new(" \n ");
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")]));
+        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], 128_000));
     }
 
     [Fact]
@@ -105,7 +153,7 @@ public class HistoryHandoffTests
     {
         ThrowingChatClient client = new();
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")]));
+        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], 128_000));
     }
 
     [Fact]
@@ -113,7 +161,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new("交接正文");
 
-        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")]);
+        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")], 128_000);
 
         Assert.Equal("交接正文", note);
         Assert.Equal(2, client.Seen.Count); //历史 + 指令

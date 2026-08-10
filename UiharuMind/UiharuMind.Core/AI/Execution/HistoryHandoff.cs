@@ -31,10 +31,31 @@ namespace UiharuMind.Core.AI.Execution;
 public static class HistoryHandoff
 {
     /// <summary>触发水位（占输入预算的比例）。低于框架截断的水位，好让截断几乎轮不到。</summary>
-    public const double Threshold = 0.75;
+    public const double Threshold = 0.8;
 
     /// <summary>交接文档在对话里的标题，界面与提示词共用一处</summary>
     public const string Title = "Context handoff";
+
+    private const double NoteBudgetRatio = 0.1; //交接文档自己占输入预算的比例
+    private const int MinNoteTokens = 400;
+    private const int MaxNoteTokens = 4000;
+    private const int CharsPerToken = 2; //中英混排的保守估计:英文约 4、中文约 1.5,取 2 不至于让模型写超
+
+    /// <summary>
+    /// 交接文档自己的篇幅上限（字符数）。
+    ///
+    /// 必须给，而且必须算出来告诉模型：文档写完就成了下一段历史的**起点**，
+    /// 它自己太长的话，压缩等于没做——极端情况下一写完就又过了水位，下一轮再压一次，
+    /// 陷入「压缩 → 还是满 → 再压缩」的循环。
+    /// </summary>
+    /// <param name="contextLength">当前模型的上下文上限</param>
+    /// <returns>建议的最大字符数</returns>
+    public static int NoteCharLimitFor(int contextLength)
+    {
+        int budget = HistoryCompaction.InputBudgetFor(contextLength);
+        int tokens = Math.Clamp((int)(budget * NoteBudgetRatio), MinNoteTokens, MaxNoteTokens);
+        return tokens * CharsPerToken;
+    }
 
     private const string Instruction = """
         You are about to lose access to the earlier part of this conversation: it is being
@@ -55,6 +76,9 @@ public static class HistoryHandoff
         - Do not address the user, do not ask questions, do not offer to continue.
         - Write in the language the conversation is in.
         - Output the document only. No preamble, no closing remarks.
+        - HARD LIMIT: at most {0} characters. This document replaces the conversation above,
+          so if it is too long it defeats its own purpose. Spend the budget on sections 3 and 5
+          (current progress and concrete details); compress sections 1 and 2 hard.
         """;
 
     /// <summary>
@@ -86,6 +110,25 @@ public static class HistoryHandoff
             CreatedAt = DateTimeOffset.Now,
             AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Handoff] = Title },
         };
+    }
+
+    private const double CapSlack = 1.5; //给模型一点余量,超过这个倍数才动刀
+
+    /// <summary>
+    /// 篇幅兜底。字数限制是写在提示词里的，模型经常无视——真放它写成一篇长文，
+    /// 压缩就等于没做，甚至一写完又过水位，陷入「压缩→还是满→再压缩」的循环。
+    /// 从尾部切（后面是"下一步"与关键细节，比开头的背景交代更该留），并明说被截断了。
+    /// </summary>
+    /// <param name="text">模型产出</param>
+    /// <param name="charLimit">建议上限</param>
+    /// <returns>不超过兜底长度的文本</returns>
+    internal static string Cap(string text, int charLimit)
+    {
+        int hardLimit = (int)(charLimit * CapSlack);
+        if (text.Length <= hardLimit) return text;
+
+        Log.Warning($"Context handoff ran long ({text.Length} chars, limit {charLimit}); truncated.");
+        return string.Concat(text.AsSpan(0, hardLimit), "\n…(truncated)");
     }
 
     /// <summary>
@@ -130,16 +173,18 @@ public static class HistoryHandoff
     /// </summary>
     /// <param name="client">模型客户端</param>
     /// <param name="history">要交接的历史（通常是当前供给给模型的那一份）</param>
+    /// <param name="contextLength">当前模型的上下文上限，用于算出文档自己的篇幅上限</param>
     /// <param name="cancellationToken">取消标记</param>
     /// <returns>文档正文；失败或产出为空时返回 null</returns>
     public static async Task<string?> WriteAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
-        CancellationToken cancellationToken = default)
+        int contextLength, CancellationToken cancellationToken = default)
     {
         if (history.Count == 0) return null;
 
+        int charLimit = NoteCharLimitFor(contextLength);
         List<ChatMessage> messages = new(history.Count + 1);
         messages.AddRange(history);
-        messages.Add(new ChatMessage(ChatRole.User, Instruction));
+        messages.Add(new ChatMessage(ChatRole.User, string.Format(Instruction, charLimit)));
 
         try
         {
@@ -148,7 +193,7 @@ public static class HistoryHandoff
                 .GetResponseAsync(messages, new ChatOptions(), cancellationToken)
                 .ConfigureAwait(false);
             string text = response.Text.Trim();
-            return text.Length == 0 ? null : text;
+            return text.Length == 0 ? null : Cap(text, charLimit);
         }
         catch (OperationCanceledException)
         {
