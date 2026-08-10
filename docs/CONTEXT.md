@@ -34,7 +34,7 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 
 ### Chat（聊天页）
 
-**只是页面名**，指「聊天工作台」那一页（角色扮演与助手对话），与 Agent 页并列。
+**只是页面名**，指「聊天工作台」那一页（扮演与工具人两档的会话），与智能体页并列。
 体现为 `ChatPage`、`ChatPageData`。用户可见说法是**聊天工作台**。
 
 ⚠️ Chat 不指会话、不指渲染层。`ChatSession` 是唯一例外——那是历史命名，保留不动。

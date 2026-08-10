@@ -8,18 +8,8 @@
              x:Class="UiharuMind.Features.Characters.PromptSnippetPickerView"
              x:DataType="chars:PromptSnippetPickerViewData">
 
+    <!-- picker-row 是全局样式(CustomButtonStyle.axaml),两个选择器共用 -->
     <UserControl.Styles>
-        <Style Selector="Button.picker-row">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-        </Style>
-        <Style Selector="Button.picker-row:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
-        </Style>
         <Style Selector="TextBlock.muted">
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
         </Style>

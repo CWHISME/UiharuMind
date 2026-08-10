@@ -197,9 +197,9 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string MenuMainKey {
+        public static string MenuAgentKey {
             get {
-                return ResourceManager.GetString("MenuMainKey", resourceCulture);
+                return ResourceManager.GetString("MenuAgentKey", resourceCulture);
             }
         }
         
@@ -4987,6 +4987,12 @@ namespace UiharuMind.Resources.Lang {
         public static string CharacterSubAgentsRemove {
             get {
                 return ResourceManager.GetString("CharacterSubAgentsRemove", resourceCulture);
+            }
+        }
+
+        public static string CharacterRenderedPreview {
+            get {
+                return ResourceManager.GetString("CharacterRenderedPreview", resourceCulture);
             }
         }
 

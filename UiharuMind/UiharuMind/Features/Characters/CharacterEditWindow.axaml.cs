@@ -10,12 +10,10 @@ namespace UiharuMind.Features.Characters;
 public partial class CharacterEditWindow : UiharuWindowBase
 {
     public Action<CharacterInfoViewData>? OnSureCallback;
-    private Button? _selectedSectionButton;
 
     public CharacterEditWindow()
     {
         InitializeComponent();
-        SetSelectedSectionButton(BasicSectionButton);
     }
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e)
@@ -33,19 +31,5 @@ public partial class CharacterEditWindow : UiharuWindowBase
         }
 
         Close();
-    }
-
-    private void SectionButton_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Button button) return;
-        SetSelectedSectionButton(button);
-        EditView.ScrollToSection(button.Tag as string);
-    }
-
-    private void SetSelectedSectionButton(Button button)
-    {
-        _selectedSectionButton?.Classes.Remove("selected");
-        _selectedSectionButton = button;
-        _selectedSectionButton.Classes.Add("selected");
     }
 }

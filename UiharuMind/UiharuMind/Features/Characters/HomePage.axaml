@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:u="https://irihi.tech/ursa"
              xmlns:common="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
               mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
@@ -72,16 +73,55 @@
             <Border Grid.Column="2"
                     Classes="workspace-pane"
                     Width="{Binding DetailPaneWidth, Mode=TwoWay}"
-                    IsVisible="{Binding IsDetailPaneOpen}">
-                <DockPanel>
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,12,10,8">
-                        <StackPanel>
-                            <TextBlock Classes="section-title" Text="{loc:Loc CharacterPreview}" />
-                            <TextBlock Classes="muted" Text="{Binding CharacterListViewData.SelectedCharacter.Name}" />
-                        </StackPanel>
+                    IsVisible="{Binding IsDetailPaneOpen}"
+                    Padding="14"
+                    DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}">
+                <!-- 紧凑信息卡。这里曾嵌一整份只读预览(与编辑窗里那份是同一个视图),
+                     同一份只读内容出现在两个层级;正文改到编辑页看,所见即所得 -->
+                <StackPanel Spacing="10" VerticalAlignment="Top">
+                    <Border Width="116" Height="154" CornerRadius="10" ClipToBounds="True"
+                            BorderBrush="{DynamicResource SemiGrey2}"
+                            BorderThickness="1"
+                            HorizontalAlignment="Center">
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                    </Border>
+
+                    <SelectableTextBlock Text="{Binding Name}"
+                                         FontSize="18"
+                                         FontWeight="SemiBold"
+                                         TextAlignment="Center"
+                                         TextWrapping="Wrap"
+                                         Background="Transparent"
+                                         Foreground="{DynamicResource SemiGrey7}" />
+                    <u:Badge Header="{Binding KindName}"
+                             Background="{Binding KindColor}"
+                             HorizontalAlignment="Center" />
+                    <SelectableTextBlock Text="{Binding Description}"
+                                         TextWrapping="Wrap"
+                                         Background="Transparent"
+                                         Foreground="{DynamicResource SemiGrey6}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,4,0,0">
+                        <Button Command="{Binding StartChatCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="message-circle-more" />
+                                <TextBlock Text="{loc:Loc StartChat}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="1" Command="{Binding EditCharacterCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="file-text" />
+                                <TextBlock Text="{loc:Loc EditCharacter}" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
-                    <common:CharacterInfoView DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}" />
-                </DockPanel>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Button Content="{loc:Loc Copy}" HorizontalContentAlignment="Center"
+                                Command="{Binding CopyCharacterCommand}" />
+                        <Button Grid.Column="1" Content="{loc:Loc Delete}" HorizontalContentAlignment="Center"
+                                Command="{Binding DeleteCharacterCommand}" />
+                    </Grid>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

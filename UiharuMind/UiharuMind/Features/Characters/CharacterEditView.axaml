@@ -220,6 +220,14 @@
                     <TextBox Text="{Binding Template}"
                              MinHeight="180"
                              AcceptsReturn="True" />
+                    <Expander IsExpanded="False">
+                        <Expander.Header>
+                            <TextBlock Classes="muted" Text="{loc:Loc CharacterRenderedPreview}" />
+                        </Expander.Header>
+                        <!-- 参数替换后的样子({{$char}}/{{$user}}/{{$lang}} 都已填好)。
+                             这个能力原先藏在只读预览里,预览退役后它落在这儿 -->
+                        <SelectableTextBlock Text="{Binding TemplateReadonly}" Margin="0,6,0,0" />
+                    </Expander>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="{loc:Loc SnippetInsert}">
                             <Button.Flyout>
@@ -240,6 +248,12 @@
                     <TextBox Text="{Binding FirstGreeting}"
                              MinHeight="120"
                              AcceptsReturn="True" />
+                    <Expander IsExpanded="False">
+                        <Expander.Header>
+                            <TextBlock Classes="muted" Text="{loc:Loc CharacterRenderedPreview}" />
+                        </Expander.Header>
+                        <SelectableTextBlock Text="{Binding FirstGreetingReadonly}" Margin="0,6,0,0" />
+                    </Expander>
                 </StackPanel>
             </Border>
 

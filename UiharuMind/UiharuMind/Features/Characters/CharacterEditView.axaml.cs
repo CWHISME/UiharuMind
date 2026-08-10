@@ -64,23 +64,4 @@ public partial class CharacterEditView : UserControl
             excludedIds: data.SubAgentAndSelfIds);
         SubAgentPicker.DataContext = picker;
     }
-
-    public void ScrollToSection(string? sectionKey)
-    {
-        Control? target = sectionKey switch
-        {
-            "Basic" => BasicInfoSection,
-            "Function" => FunctionTypeSection,
-            "Tools" => ToolsSection,
-            "Skills" => SkillsSection,
-            "SubAgents" => SubAgentsSection,
-            "Prompt" => PromptSection,
-            "Greeting" => GreetingSection,
-            "Dialog" => DialogTemplateSection,
-            "Parameters" => ParametersSection,
-            _ => BasicInfoSection
-        };
-
-        target.BringIntoView();
-    }
 }
