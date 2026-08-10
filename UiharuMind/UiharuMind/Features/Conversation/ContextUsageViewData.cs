@@ -68,13 +68,13 @@ public partial class ContextUsageViewData : ObservableObject
         int contextLength = ledger.ContextLength;
         ModelName = modelName;
         TurnText = ledger.TurnInput + ledger.TurnOutput > 0
-            ? $"↑{TurnUsageLedger.Format(ledger.TurnInput)}  ↓{TurnUsageLedger.Format(ledger.TurnOutput)}"
+            ? $"↑{TurnUsageLedger.FormatExact(ledger.TurnInput)}  ↓{TurnUsageLedger.FormatExact(ledger.TurnOutput)}"
             : string.Empty;
         // 与本轮同一形状(↑输入 ↓输出)。原先只给一个合计数,跟上一行的「上下文」对不上——
         // 那是占用(最近一次请求吃进去多少),这是累计消耗(每次请求的输入输出求和,
         // 一轮十几次工具往返会全部计入),两个轴不同,长得像就一定会被误读
         SessionText = ledger.SessionInput + ledger.SessionOutput > 0
-            ? $"↑{TurnUsageLedger.Format(ledger.SessionInput)}  ↓{TurnUsageLedger.Format(ledger.SessionOutput)}"
+            ? $"↑{TurnUsageLedger.FormatExact(ledger.SessionInput)}  ↓{TurnUsageLedger.FormatExact(ledger.SessionOutput)}"
             : string.Empty;
 
         if (contextLength <= 0)
@@ -94,8 +94,8 @@ public partial class ContextUsageViewData : ObservableObject
         // 还没收到过响应时占用是「未知」而不是「零」——显示 0/128k 会被读成「这个会话是空的」,
         // 而它可能只是刚切过来还没发过话
         UsageText = ledger.LastInput > 0
-            ? $"{TurnUsageLedger.Format(ledger.LastInput)} / {LimitText}"
-            : $"— / {LimitText}";
+            ? $"{TurnUsageLedger.FormatExact(ledger.LastInput)} / {TurnUsageLedger.FormatExact(contextLength)}"
+            : $"— / {TurnUsageLedger.FormatExact(contextLength)}";
         UsagePercent = Percent(ledger.LastInput, contextLength);
 
         int budget = HistoryCompaction.InputBudgetFor(contextLength);
@@ -105,9 +105,9 @@ public partial class ContextUsageViewData : ObservableObject
         // 水位按输入预算(总长减预留)算,而进度条整条是总长——所以给绝对 token 数而不是百分比,
         // 两者的比例对不上。按量级排成一条递进的链,读起来就是"接下来会依次发生什么"
         ThresholdText = string.Format(LocalizationManager.Instance.GetString("ContextCompactionHint"),
-            TurnUsageLedger.Format((long)eviction),
-            TurnUsageLedger.Format((long)handoff),
-            TurnUsageLedger.Format((long)truncation));
+            TurnUsageLedger.FormatExact((long)eviction),
+            TurnUsageLedger.FormatExact((long)handoff),
+            TurnUsageLedger.FormatExact((long)truncation));
 
         // 配色按「接下来会发生什么」分档,不按水位数量分:
         // 折叠工具结果基本无损,不值得变色;真正该警示的是"要开始丢上下文了"
@@ -118,7 +118,7 @@ public partial class ContextUsageViewData : ObservableObject
                 : NormalState;
 
         CachedText = ledger.LastCachedInput > 0
-            ? $"{TurnUsageLedger.Format(ledger.LastCachedInput)} / {TurnUsageLedger.Format(ledger.LastInput)}"
+            ? $"{TurnUsageLedger.FormatExact(ledger.LastCachedInput)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
             : string.Empty;
     }
 
