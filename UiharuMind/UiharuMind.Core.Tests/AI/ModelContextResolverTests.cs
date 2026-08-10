@@ -46,12 +46,36 @@ public class ModelContextResolverTests
         Assert.Equal(ModelContextResolver.RemoteFallback, resolved);
     }
 
+    /// <summary>
+    /// 自己那张表拿不到时要能查全局表。实机撞到过：存档里的 <c>ConfigType</c> 指向一个
+    /// 已被改名/删除的配置类，类型修复无能为力，配置退化成通用的 <c>RemoteModelConfig</c>——
+    /// 它的预设表是空的，于是一个标称 128k 的模型被当成 200k 兜底。
+    /// </summary>
     [Fact]
-    public void MissingVariantTable_FallsBackToRemoteConstant()
+    public void MissingVariantTable_StillFindsKnownModelIdsGlobally()
     {
-        int resolved = ModelContextResolver.ResolveRemote(0, "glm-4.7-flash", null);
+        Assert.Equal(128000, ModelContextResolver.ResolveRemote(0, "glm-4v-flash", null));
+        Assert.Equal(1048576, ModelContextResolver.ResolveRemote(0, "deepseek-v4-flash", null));
+    }
 
-        Assert.Equal(ModelContextResolver.RemoteFallback, resolved);
+    [Fact]
+    public void GlobalLookupIsCaseInsensitive()
+    {
+        Assert.Equal(128000, ModelContextResolver.ResolveRemote(0, "GLM-4V-Flash", null));
+    }
+
+    [Fact]
+    public void TrulyUnknownModelId_StillFallsBack()
+    {
+        Assert.Equal(ModelContextResolver.RemoteFallback,
+            ModelContextResolver.ResolveRemote(0, "some-self-hosted-model", null));
+    }
+
+    [Fact]
+    public void ConfiguredValue_WinsOverTheGlobalTableToo()
+    {
+        //用户填的永远优先,全局表也不许覆盖它
+        Assert.Equal(32000, ModelContextResolver.ResolveRemote(32000, "glm-4v-flash", null));
     }
 
     [Fact]
