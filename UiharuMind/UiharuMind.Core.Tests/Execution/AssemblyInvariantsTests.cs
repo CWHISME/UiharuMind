@@ -90,19 +90,58 @@ public class HistoryAttributionTests
 }
 
 /// <summary>
-/// 不变量之五：<b>harness 指令以框架默认工作循环开头</b>。
-/// 显式设置 HarnessInstructions 会顶掉框架默认(先想再做/边做边说/失败换路/收尾总结),
-/// 那段恰是弱模型最依赖的部分——一旦拼接被删,症状是"笨模型不会用工具",实机难归因。
+/// 不变量之五：<b>整段系统提示由我们按固定顺序拼，人格在最前，不带第二个身份</b>。
+/// 顺序是 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩(见 ADR 0005)。
+/// 框架对 HarnessInstructions 只做一件事——拼在角色段<b>之前</b>，因此那一层必须留空；
+/// 一旦有人把纪律段或框架默认塞回 HarnessInstructions，症状是小模型先读一大段英文工具纪律、
+/// 角色人格被压在后面，实机极难归因。
 /// </summary>
 public class HarnessInstructionsCompositionTests
 {
+    private const string PersonaMarker = "I am the persona line";
+
     [Fact]
-    public void AgentHarnessInstructions_StartWithFrameworkDefaults()
+    public void AgentInstructions_PutThePersonaBeforeTheToolDisciplines()
     {
         HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.StartsWith(HarnessAgent.DefaultInstructions, options.HarnessInstructions);
-        Assert.Contains("## File operations", options.HarnessInstructions); //默认开关下纪律段仍在
+        Assert.Equal(string.Empty, options.HarnessInstructions); //框架分层弃用,整段自己拼
+        int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
+        int disciplines = instructions.IndexOf("## File operations", StringComparison.Ordinal);
+        Assert.True(persona >= 0, "角色人格丢了");
+        Assert.True(disciplines > persona, "工具纪律必须排在角色人格之后");
+        Assert.DoesNotContain("helpful AI assistant", instructions); //身份只由角色说
+    }
+
+    /// <summary>
+    /// 工作区规矩排在我们这段的最尾(框架 provider 段仍在其后,那不由我们控制)。
+    /// 它是"这个项目的特殊规矩"，该压在通用纪律之后。
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_PutWorkspaceRulesLast()
+    {
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test",
+            workspaceInstructions: "never touch the vendor folder");
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.True(instructions.IndexOf("never touch the vendor folder", StringComparison.Ordinal) >
+                    instructions.IndexOf("## File operations", StringComparison.Ordinal),
+            "工作区规矩必须排在工具纪律之后");
+    }
+
+    /// <summary>
+    /// 工作循环必须真的在某处：它搬进了内置智能体的存档，
+    /// 若哪天被顺手删掉，模型侧就只剩工具纪律而没有工作方法，同样难归因。
+    /// </summary>
+    [Fact]
+    public void WorkspaceAgent_CarriesTheWorkLoopInItsPrompt()
+    {
+        DefaultCharacterManager.Instance.OnInitialize();
+        CharacterData agent = DefaultCharacterManager.Instance
+            .GetCharacterData(DefaultCharacter.WorkspaceAgent);
+
+        Assert.Contains(AgentToolPrompts.AgentWorkLoop, agent.Template);
     }
 
     /// <summary>
@@ -111,29 +150,33 @@ public class HarnessInstructionsCompositionTests
     /// 它是事实而非建议，用户改写文件工具的纪律文案不该顺带删掉"根目录在哪"。
     /// </summary>
     [Fact]
-    public void AgentHarnessInstructions_StateTheWorkingDirectory()
+    public void AgentInstructions_StateTheWorkingDirectory()
     {
         const string workingDirectory = "/tmp/uiharu-agent-test";
         AgentSettingConfig config = new() { FileAccessPrompt = "custom file prompt" };
 
         HarnessAgentOptions options = BuildAgentOptions(workingDirectory, config);
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(workingDirectory, options.HarnessInstructions);
-        Assert.Contains("custom file prompt", options.HarnessInstructions); //覆盖生效,但没吃掉工作目录段
+        Assert.Contains(workingDirectory, instructions);
+        Assert.Contains("custom file prompt", instructions); //覆盖生效,但没吃掉工作目录段
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
-        AgentSettingConfig? config = null)
+        AgentSettingConfig? config = null, string workspaceInstructions = "")
     {
         CharacterData character = new() { CharacterId = "agent", Kind = ECharacterKind.Agent };
         string skillsDir = Path.Combine(Path.GetTempPath(), "uiharu-skills-test");
         Directory.CreateDirectory(skillsDir);
 
+        // 角色段由调用方先填好(实机里是 CharacterPromptBuilder 的产物)
+        ChatOptions chatOptions = new() { Instructions = PersonaMarker };
+
         return CharacterRunnerFactory.BuildAgentOptions(character, config ?? new AgentSettingConfig(),
-            new StubHistoryProvider(), [], new ChatOptions(),
+            new StubHistoryProvider(), [], chatOptions,
             new AgentFileSkillsSource(skillsDir), fileMemoryStore: null,
             EAgentPermissionMode.AutoEdit, preAuthorizedShellPatterns: null,
-            workingDirectory: workingDirectory);
+            workingDirectory: workingDirectory, workspaceInstructions: workspaceInstructions);
     }
 
     private sealed class StubHistoryProvider : ChatHistoryProvider
@@ -283,6 +326,21 @@ public class SubAgentBoundaryTests
 
         Assert.NotNull(options);
         Assert.Equal(SubAgentTool.MaxIterations, options!.MaximumIterationsPerRequest);
+    }
+
+    /// <summary>
+    /// 子代理与主 agent 同一口径：工作循环归它自己那份指令，harness 段为空。
+    /// 框架默认那段的身份句会和子代理指令开头的 "# Role" 抢身份(见 ADR 0004)。
+    /// </summary>
+    [Fact]
+    public void SubAgent_KeepsTheWorkLoopInItsOwnInstructions()
+    {
+        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(NewInput());
+
+        Assert.NotNull(options);
+        Assert.Equal(string.Empty, options!.HarnessInstructions);
+        Assert.Contains(AgentToolPrompts.AgentWorkLoop, options.ChatOptions?.Instructions);
+        Assert.DoesNotContain("helpful AI assistant", options.ChatOptions?.Instructions);
     }
 
     /// <summary>

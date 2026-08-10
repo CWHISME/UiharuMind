@@ -76,6 +76,29 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 ⚠️ 它取代了旧的 `IsHide` + `IsHideDefault`。那两个旗标曾兼职表达四件不同的事
 （可对话角色 / 提示词片段 / 技能内部角色 / 用户卡），于是「谁能被挂载」根本无从判断。
 
+### 系统提示词的顺序
+
+智能体档的整段系统提示由 `CharacterRunnerFactory` 自己按固定顺序拼，**人格在最前**：
+
+| # | 段 | 来源 |
+|---|---|---|
+| 1 | 角色人格 / 任务（含 `# Work loop`） | 角色 `Template` |
+| 2 | 用户卡 | `InjectUserCard` 打开时注入 |
+| 3 | 对话模板 | 角色 `DialogTemplate`（扮演档才有） |
+| 4 | 工作目录、工具使用纪律 | 按**实际装配的工具集**派生 |
+| 5 | 工作区规矩 | 工作目录里的 `AGENTS.md` |
+| — | `## Todo Items` / `## Agent Mode` / `## File Based Memory` | **框架 provider 追加，排在以上全部之后** |
+
+⚠️ `HarnessInstructions` 一律为空串。框架对它只做一件事——拼在 `ChatOptions.Instructions`
+**之前**（1.16 实测：`harness + "\n\n" + 角色段`，无第二个用途）。人格既然要排最前，这一层就没用了。
+不要把纪律段或框架默认指令塞回去：症状是小模型先读一大段英文工具纪律、角色人格被压在后面。
+
+⚠️ 工作区规矩**不是**「整个系统提示的最尾」——provider 那三段在它之后，且 `## Agent Mode` 有 45 行。
+代码注释里曾这么写过，那是错的。
+
+⚠️ **工作循环属于角色层**（`AgentToolPrompts.AgentWorkLoop`），写在内置智能体的存档里、
+新建智能体时预填、片段库有一份可插回。见 ADR 0004。
+
 ### PromptSnippet（提示词片段）
 
 可插入提示词框的一段现成文本，只有名字与正文两个字段，整库一个 json。

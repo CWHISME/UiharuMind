@@ -38,7 +38,7 @@ public class CharacterPromptBuilderTests
     }
 
     [Fact]
-    public void RoleplayCharacter_ComposesUserCardThenOwnTemplate()
+    public void RoleplayCharacter_ComposesOwnTemplateThenUserCard()
     {
         CharacterData uiharu = Default(DefaultCharacter.UiharuKazari);
 
@@ -57,9 +57,9 @@ public class CharacterPromptBuilderTests
         Assert.True(scaffold >= 0, "缺少第三人称扮演脚手架(应已内联进 Template)");
         Assert.True(ownTemplate >= 0, "缺少角色自身的 Template");
 
-        // 顺序：用户卡在最前(先交代用户是谁)，随后是角色自己的 Template
-        Assert.True(userCard < scaffold, "用户卡应拼在角色自身 Template 之前");
+        // 顺序：角色自己的设定在最前(先交代"你是谁")，用户卡随后
         Assert.True(scaffold < ownTemplate, "脚手架应在 Template 开头");
+        Assert.True(ownTemplate < userCard, "用户卡应拼在角色自身 Template 之后");
     }
 
     [Fact]

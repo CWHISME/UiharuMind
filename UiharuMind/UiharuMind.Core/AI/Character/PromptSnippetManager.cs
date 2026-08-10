@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
@@ -32,6 +33,9 @@ public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
     /// <summary>内置预设的嵌入资源名(首次运行播种用)</summary>
     private const string SeedResourceName = "PromptSnippets.json";
 
+    /// <summary>智能体工作循环那条内置片段的名字</summary>
+    public const string WorkLoopSnippetName = "智能体工作循环";
+
     private List<PromptSnippet> _snippets = new();
 
     /// <summary>当前片段库(按加入顺序，界面直接展示)</summary>
@@ -51,6 +55,13 @@ public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
         try
         {
             _snippets = EmbeddedResourcesUtils.ReadFromJson<List<PromptSnippet>>(SeedResourceName);
+            // 工作循环那条不写在资源里:它的正文由 AgentToolPrompts.AgentWorkLoop 定,
+            // 新建智能体时也用同一份预填,抄两份迟早走样
+            _snippets.Add(new PromptSnippet
+            {
+                Name = WorkLoopSnippetName,
+                Text = AgentToolPrompts.AgentWorkLoop,
+            });
             Save();
         }
         catch (Exception e)

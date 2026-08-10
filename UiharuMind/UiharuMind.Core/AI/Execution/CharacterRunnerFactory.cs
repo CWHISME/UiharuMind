@@ -154,8 +154,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         CharacterData character = profile.Character;
         AgentSettingConfig config = AgentSettingConfig.Current;
 
-        // 角色自身的提示词(Template + 对话模板)始终作为 ChatOptions.Instructions;
-        // 框架会把 HarnessInstructions 拼在它前面
+        // 角色自身的提示词(人格 + 用户卡 + 对话模板)。agent 档随后会在它之后接上工具纪律与
+        // 工作区规矩(见 BuildAgentOptions)——顺序由我们说,不交给框架的分层
         ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();
         chatOptions.Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments);
 
@@ -198,8 +198,9 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             extraTools.Add(VisionTool.Create(workingDirectory));
         }
 
-        // 工作区规矩属任务上下文而非平台机制:放 agent 侧指令尾部——
-        // 即整个系统提示的最尾,遵循权重最高;内容变化仍经装配快照捕获。
+        // 工作区规矩属任务上下文而非平台机制:排在我们这段的最尾(见 BuildAgentOptions)。
+        // 注意它并非"整个系统提示的最尾"——框架的 provider 段(Todo / Agent Mode / File Based Memory)
+        // 还在它之后,1.16 实测如此。内容变化仍经装配快照捕获。
         // 在此提前读出,是因为子代理要继承同一份
         string workspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath);
 
@@ -241,17 +242,12 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             ? new FileSystemAgentFileStore(FileMemoryLayout.RootPath)
             : null;
 
-        if (workspaceInstructions.Length > 0)
-        {
-            chatOptions.Instructions =
-                $"{chatOptions.Instructions}\n\n# Workspace Instructions (from the project's AGENTS.md)\n{workspaceInstructions}";
-        }
-
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
             SkillCatalog.Instance.BuildSkillsSource(), fileMemoryStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
             profile.SessionShellApprovalSource,
-            visionToolMounted: mountVisionTool, workingDirectory: workingDirectory), shellExecutor);
+            visionToolMounted: mountVisionTool, workingDirectory: workingDirectory,
+            workspaceInstructions: workspaceInstructions), shellExecutor);
     }
 
     /// <summary>
@@ -385,8 +381,9 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             Name = "SubAgent",
             Description = "Sub-agent: surveys workspace files and/or the web, inspects images, " +
                           "and returns a focused report.",
-            // 子代理同样是工具循环 agent,框架默认工作循环指令照拿;自己的方法论在 ChatOptions.Instructions
-            HarnessInstructions = HarnessAgent.DefaultInstructions,
+            // 与主 agent 同一口径:工作循环归"角色段"(这里就是 BuildSubAgentInstructions 生成的那份),
+            // harness 段因此为空。框架默认那段的身份句会和下面的 "# Role" 抢身份,见 ADR 0004
+            HarnessInstructions = string.Empty,
             // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
             // 子代理能改东西之后这条更承重
             MaximumIterationsPerRequest = SubAgentTool.MaxIterations,
@@ -467,7 +464,9 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
               + "the main agent makes the edits.");
         sb.AppendLine("- You cannot ask for clarification and nobody will approve anything for you. "
                       + "Work with what the task gives you.");
-        sb.Append("- Return a focused report: conclusions first, then the evidence (paths, URLs, quotes).");
+        sb.AppendLine("- Return a focused report: conclusions first, then the evidence (paths, URLs, quotes).");
+        sb.AppendLine();
+        sb.Append(AgentToolPrompts.AgentWorkLoop);
 
         // 与主 agent 同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
         // 没有任何线索能反推出根目录在哪
@@ -523,8 +522,11 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     }
 
     /// <summary>
-    /// agent 档选项(纯函数,不碰单例)。工具纪律段随实际装配的工具集派生,
-    /// 角色的人格/任务段由框架拼在其后;框架自带的搜索/文件访问关闭,由自装配工具替代。
+    /// agent 档选项(纯函数,不碰单例)。<b>整段系统提示由本方法按固定顺序拼</b>：
+    /// 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩。
+    ///
+    /// 因此 <c>HarnessInstructions</c> 一律为空串：框架对它只做一件事——拼在角色段<b>之前</b>，
+    /// 而人格该排在最前(见 ADR 0005)。框架自带的搜索/文件访问关闭,由自装配工具替代。
     /// </summary>
     /// <param name="character">角色</param>
     /// <param name="config">能力配置</param>
@@ -538,20 +540,25 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源,可空</param>
     /// <param name="visionToolMounted">识图工具是否已装配(开关开且当前模型不自带视觉)</param>
     /// <param name="workingDirectory">文件与 shell 工具的根目录;空串则提示词里不写工作目录段</param>
+    /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         AgentSkillsSource skillsSource, FileSystemAgentFileStore? fileMemoryStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        bool visionToolMounted = true, string workingDirectory = "")
+        bool visionToolMounted = true, string workingDirectory = "", string workspaceInstructions = "")
     {
+        chatOptions.Instructions = ComposeAgentInstructions(chatOptions.Instructions, config,
+            visionToolMounted, workingDirectory, workspaceInstructions);
+
         return new HarnessAgentOptions
         {
             Name = SanitizeAgentName(character.CharacterName, character.CharacterId),
             Description = character.Description,
             ChatHistoryProvider = history,
-            HarnessInstructions = BuildToolDisciplines(config, visionToolMounted, workingDirectory),
+            // 空串是有意的:整段提示已由 ComposeAgentInstructions 按我们的顺序拼进 ChatOptions
+            HarnessInstructions = string.Empty,
             DisableWebSearch = true,
             DisableOpenTelemetry = true,
             DisableTodoProvider = !config.EnableTodoList,
@@ -599,13 +606,50 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     }
 
     /// <summary>
-    /// harness 层指令 = 框架默认工作循环 + 按<b>实际装配的工具集</b>派生的使用纪律。
+    /// 按固定顺序拼出 agent 档的整段系统提示：
+    /// 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → 工作区规矩。
     ///
-    /// 显式设置 HarnessInstructions 会<b>顶掉</b>框架默认指令,而默认那段
-    /// (先想再做、工具间解释进展、失败换路、收尾总结)恰是弱模型最依赖的工作循环,
-    /// 因此把 <see cref="HarnessAgent.DefaultInstructions"/> 拼回开头,框架升级措辞自动跟随。
+    /// <b>人格在最前</b>：小模型要先知道自己是谁，再读一大段英文工具纪律。
+    /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段之前，
+    /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
+    /// </summary>
+    /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
+    /// <param name="config">agent 能力配置</param>
+    /// <param name="visionToolMounted">识图工具是否已装配</param>
+    /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
+    /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
+    /// <returns>整段系统提示</returns>
+    private static string ComposeAgentInstructions(string? characterPrompt, AgentSettingConfig config,
+        bool visionToolMounted, string workingDirectory, string workspaceInstructions)
+    {
+        StringBuilder sb = new();
+        AppendSection(sb, characterPrompt);
+        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory));
+        if (workspaceInstructions.Length > 0)
+        {
+            AppendSection(sb,
+                "# Workspace Instructions (from the project's AGENTS.md)\n" + workspaceInstructions);
+        }
+
+        return sb.ToString();
+    }
+
+    private static void AppendSection(StringBuilder sb, string? section)
+    {
+        if (string.IsNullOrWhiteSpace(section)) return;
+        if (sb.Length > 0) sb.Append("\n\n");
+        sb.Append(section.TrimEnd());
+    }
+
+    /// <summary>
+    /// 工具纪律段 = 按<b>实际装配的工具集</b>派生的使用纪律(外加工作目录这一事实段)。
     /// 纪律行面向弱模型:短句、祈使、指名工具;关掉的工具绝不出现(纯噪声)。
-    /// 角色人格/任务与工作区规矩属 agent 侧指令(ChatOptions.Instructions),框架拼在本段之后。
+    ///
+    /// <b>刻意不含工作循环</b>(先想再做/边做边说/失败换路/收尾总结)。那段现在是角色提示词的一节
+    /// (<see cref="AgentToolPrompts.AgentWorkLoop"/>),理由见 ADR 0004:框架默认那段用户看不见,
+    /// 还带一句"You are a helpful AI assistant"抢在角色人格之前。
+    ///
+    /// 本段由 <see cref="ComposeAgentInstructions"/> 接在角色段之后。
     /// </summary>
     /// <param name="config">agent 能力配置</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
@@ -614,13 +658,10 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         string workingDirectory)
     {
         StringBuilder sb = new();
-        sb.Append(HarnessAgent.DefaultInstructions);
 
         // 工作目录排在最前:后面每一段纪律都以"路径怎么写"为前提
         if (workingDirectory.Length > 0)
         {
-            sb.AppendLine();
-            sb.AppendLine();
             sb.AppendLine("## Working directory");
             sb.AppendLine(AgentToolPrompts.BuildWorkingDirectory(workingDirectory));
         }
