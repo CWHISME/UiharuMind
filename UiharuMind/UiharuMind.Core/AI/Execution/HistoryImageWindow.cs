@@ -12,6 +12,9 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
+/// <b>当前已停用</b>——<see cref="SessionChatHistoryProvider"/> 不再调用它，那里写明了停用理由与接回条件。
+/// 保留实现与测试，是因为「图片累积吃掉上下文」这个问题本身没有消失，只是眼下有更划算的解法。
+///
 /// 只把最近几条带图消息的图片真的发给模型，更早的降级成一句占位文本。
 ///
 /// 图片一旦进了历史就会每一轮重传：第 20 轮对话还在重发第 1 轮那张截图，

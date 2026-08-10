@@ -9,6 +9,7 @@
 
 using System;
 using SkiaSharp;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation;
@@ -37,8 +38,12 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 public static class ConversationImageDownscaler
 {
-    /// <summary>长边上限。主流视觉模型在此之上不会看得更清楚</summary>
-    public const int MaxEdge = 1568;
+    /// <summary>
+    /// 长边上限。主流视觉模型在此之上不会看得更清楚。
+    /// 值住在 Core：压缩策略要按它推算图片的 token 上界（<see cref="InlineImageLimits.MaxTokensPerImage"/>），
+    /// 而 Core 看不见 App，两边各写一个字面量迟早无声漂移。
+    /// </summary>
+    public const int MaxEdge = InlineImageLimits.MaxEdge;
 
     private const int JpegQuality = 85;
 

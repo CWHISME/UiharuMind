@@ -7,7 +7,9 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text;
 using Microsoft.Agents.AI.Compaction;
+using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -75,7 +77,84 @@ public static class HistoryCompaction
         return index =>
         {
             int budget = InputBudgetFor(contextSource());
-            return budget > 0 && index.IncludedTokenCount > budget * fraction;
+            return budget > 0 && CorrectedTokenCount(index) > budget * fraction;
         };
+    }
+
+    // [MFA绕坑] 绕:自己重算图片的 token 数 因:框架把非文本内容一律按 字节数/4 估,且没有注入 Tokenizer 的口子 删除条件:CompactionProvider 允许传 Tokenizer 或框架按模态计价
+    /// <summary>
+    /// 修正框架估算后的已计入 token 数。
+    ///
+    /// 框架把图片按 <c>字节数 / 4</c> 估：一张 150KB 的截图会被算成 3.7 万 token，
+    /// 而它真实只值一两千——虚高二三十倍。后果不是多花钱，是<b>压缩被凭空提前触发</b>，
+    /// 三张图就能把 128k 模型顶过截断水位去砍真实对话。所以这里把图片那部分换成
+    /// <see cref="InlineImageLimits.MaxTokensPerImage"/>。
+    ///
+    /// <b>必须按组抵消而不是按条</b>：无 <c>Tokenizer</c> 时框架是「整组字节 ÷ 4」除一次
+    /// （<c>CompactionMessageIndex.CreateGroup</c>），逐条相减会带进舍入偏差。
+    ///
+    /// <b>单调性是承重的</b>：截断策略靠「排除一组 → 重问一次条件」收敛，条件必须随排除单调下降。
+    /// 每组修正后的贡献 =（非图片字节 ÷ 4）+ 图片数 × 上界 ≥ 0，因此排除任意一组都只会让总数变小。
+    /// </summary>
+    /// <param name="index">框架给出的消息分组索引</param>
+    /// <returns>修正后的 token 数</returns>
+    internal static long CorrectedTokenCount(CompactionMessageIndex index)
+    {
+        long total = 0;
+        foreach (CompactionMessageGroup group in index.Groups)
+        {
+            if (group.IsExcluded) continue;
+            total += CorrectedGroupTokens(group.ByteCount, group.TokenCount, group.Messages);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// 单个消息组修正后的 token 数。
+    /// 单独拆出来是为了可测：框架的 <c>CompactionMessageGroup</c> 构造函数是 internal，
+    /// 测试项目造不出 <see cref="CompactionMessageIndex"/>，而判断逻辑全在这一层。
+    /// </summary>
+    /// <param name="groupByteCount">框架算出的该组字节数</param>
+    /// <param name="groupTokenCount">框架算出的该组 token 数</param>
+    /// <param name="messages">该组的消息</param>
+    /// <returns>修正后的 token 数；不含图片时原样返回 <paramref name="groupTokenCount"/></returns>
+    internal static long CorrectedGroupTokens(int groupByteCount, int groupTokenCount,
+        IReadOnlyList<ChatMessage> messages)
+    {
+        (int imageBytes, int imageCount) = ImagePayloadOf(messages);
+        // 不含图片的组原样采用框架的数:那一侧的估算本来就够准,也不必假设它是怎么算出来的
+        if (imageCount == 0) return groupTokenCount;
+
+        return (groupByteCount - imageBytes) / 4 + (long)imageCount * InlineImageLimits.MaxTokensPerImage;
+    }
+
+    /// <summary>
+    /// 统计一组消息里图片内容的字节数与张数
+    /// </summary>
+    /// <param name="messages">消息</param>
+    /// <returns>图片总字节数与张数；字节口径与框架的 <c>ComputeContentByteCount</c> 一致</returns>
+    private static (int Bytes, int Count) ImagePayloadOf(IReadOnlyList<ChatMessage> messages)
+    {
+        int bytes = 0;
+        int count = 0;
+        foreach (ChatMessage message in messages)
+        {
+            foreach (AIContent content in message.Contents)
+            {
+                if (content is not DataContent data || !data.HasTopLevelMediaType("image")) continue;
+
+                // 与框架同口径:数据体 + MediaType + Name 的 UTF-8 字节数
+                bytes += data.Data.Length + ByteCountOf(data.MediaType) + ByteCountOf(data.Name);
+                count++;
+            }
+        }
+
+        return (bytes, count);
+    }
+
+    private static int ByteCountOf(string? value)
+    {
+        return string.IsNullOrEmpty(value) ? 0 : Encoding.UTF8.GetByteCount(value);
     }
 }
