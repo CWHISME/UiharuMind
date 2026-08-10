@@ -26,6 +26,15 @@ public partial class AgentPage : UserControl
         if (DataContext is AgentPageData data) data.UpdateResponsiveState(e.NewSize.Width);
     }
 
+    /// <summary>
+    /// 展开前重建最近工作区列表：这份列表也会被设置页(默认工作目录)写入，
+    /// 而那条路径不经过会话，光靠 WorkspacePath 变化刷新会漏掉。
+    /// </summary>
+    private void OnRecentWorkspacesOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is AgentPageData data) data.Conversation.RefreshRecentWorkspaces();
+    }
+
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
     {
         var data = (AgentPageData)DataContext!;

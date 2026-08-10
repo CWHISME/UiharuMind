@@ -314,6 +314,8 @@ public partial class ConversationViewModel : ViewModelBase
             _workspacePath = agentSetting.DefaultWorkspacePath;
         }
 
+        RefreshRecentWorkspaces(); //构造期直接给字段赋值,不会触发 partial 回调
+
         _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
         _transcript.AutoCollapseThinking = _isAutoCollapseThinking;
@@ -421,24 +423,84 @@ public partial class ConversationViewModel : ViewModelBase
         PersistSessionSettings();
     }
 
+    /// <summary>当前工作目录的目录名(卡片主行);未绑定时为空</summary>
+    public string WorkspaceName =>
+        string.IsNullOrEmpty(WorkspacePath) ? string.Empty : WorkspaceDisplay.NameOf(WorkspacePath);
+
+    /// <summary>当前工作目录的父路径(卡片副行,已折叠 home 前缀);未绑定时为空</summary>
+    public string WorkspaceParent =>
+        string.IsNullOrEmpty(WorkspacePath) ? string.Empty : WorkspaceDisplay.ParentOf(WorkspacePath);
+
+    /// <summary>最近用过的工作目录(下拉菜单数据源,已剔除当前目录与已不存在的目录)</summary>
+    public ObservableCollection<RecentWorkspaceItem> RecentWorkspaces { get; } = new();
+
     partial void OnWorkspacePathChanged(string? value)
     {
+        OnPropertyChanged(nameof(WorkspaceName));
+        OnPropertyChanged(nameof(WorkspaceParent));
+        RefreshRecentWorkspaces();
+
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
         PersistSessionSettings();
+    }
+
+    /// <summary>
+    /// 重建最近工作区列表。当前目录不出现在其中(切到自己是空操作),
+    /// 已经不存在的目录顺手从配置里剔除——列出一个点了会失败的条目没有意义。
+    /// </summary>
+    public void RefreshRecentWorkspaces()
+    {
+        RecentWorkspaces.Clear();
+        AgentSettingConfig config = AgentSettingConfig.Current;
+        foreach (string path in config.RecentWorkspaces.ToList())
+        {
+            if (!Directory.Exists(path))
+            {
+                config.ForgetWorkspace(path);
+                continue;
+            }
+
+            if (string.Equals(path, WorkspacePath, StringComparison.Ordinal)) continue;
+            RecentWorkspaces.Add(new RecentWorkspaceItem(path,
+                new RelayCommand(() => UseWorkspace(path)),
+                new RelayCommand(() => ForgetWorkspace(path))));
+        }
     }
 
     [RelayCommand]
     private async Task SelectWorkspace()
     {
         string path = await App.FilesService.OpenSelectFolderAsync(WorkspacePath);
-        if (!string.IsNullOrEmpty(path)) WorkspacePath = path;
+        if (!string.IsNullOrEmpty(path)) UseWorkspace(path);
+    }
+
+    /// <summary>切到某个工作目录并把它记为最近使用</summary>
+    /// <param name="path">工作目录</param>
+    private void UseWorkspace(string path)
+    {
+        AgentSettingConfig.Current.RememberWorkspace(path);
+        WorkspacePath = path;
+        RefreshRecentWorkspaces(); //路径没变化时上面的 partial 回调不会触发,列表仍要跟上置顶顺序
+    }
+
+    private void ForgetWorkspace(string path)
+    {
+        AgentSettingConfig.Current.ForgetWorkspace(path);
+        RefreshRecentWorkspaces();
     }
 
     [RelayCommand]
     private void ClearWorkspace()
     {
         WorkspacePath = null;
+    }
+
+    /// <summary>在系统文件管理器里打开当前工作目录</summary>
+    [RelayCommand]
+    private void RevealWorkspace()
+    {
+        if (!string.IsNullOrEmpty(WorkspacePath)) App.FilesService.OpenFolder(WorkspacePath);
     }
 
     [RelayCommand]

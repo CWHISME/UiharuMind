@@ -394,7 +394,25 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("AgentWorkspaceClear", resourceCulture);
             }
         }
-        
+
+        public static string AgentWorkspaceRecent {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceRecent", resourceCulture);
+            }
+        }
+
+        public static string AgentWorkspaceRecentEmpty {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceRecentEmpty", resourceCulture);
+            }
+        }
+
+        public static string AgentWorkspaceForget {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceForget", resourceCulture);
+            }
+        }
+
         public static string AgentSenderUser {
             get {
                 return ResourceManager.GetString("AgentSenderUser", resourceCulture);

@@ -53,6 +53,18 @@
             <Setter Property="TextDecorations" Value="Strikethrough" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey4}" />
         </Style>
+        <!-- 工作区卡片里的路径与最近条目:看着是文本,点起来是按钮 -->
+        <Style Selector="Button.workspace-reveal, Button.workspace-recent">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.workspace-reveal:pointerover /template/ ContentPresenter,
+                         Button.workspace-recent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+        </Style>
         <Style Selector="ListBoxItem Button.session-delete">
             <Setter Property="Opacity" Value="0" />
         </Style>
@@ -323,16 +335,68 @@
                         </StackPanel>
                         <TextBlock Classes="muted" Margin="0,4,0,0"
                                    Text="{loc:Loc AgentWorkspaceLabel}" />
-                        <TextBlock FontSize="11" TextWrapping="Wrap"
-                                   Text="{Binding Conversation.WorkspacePath}"
-                                   IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <!-- 目录名单独一行,父路径省略号收在下面:工作区路径普遍很长,
+                             全路径铺开会把卡片撑高,而用户认的是最后那一节。整块点击=在文件管理器打开 -->
+                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch"
+                                Command="{Binding Conversation.RevealWorkspaceCommand}"
+                                ToolTip.Tip="{Binding Conversation.WorkspacePath}"
+                                IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <StackPanel>
+                                <TextBlock FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Conversation.WorkspaceName}" />
+                                <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Conversation.WorkspaceParent}" />
+                            </StackPanel>
+                        </Button>
                         <TextBlock FontSize="11" Classes="muted"
                                    Text="{loc:Loc AgentWorkspaceNone}"
                                    IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Button FontSize="11" Padding="8,3" CornerRadius="6"
-                                    Command="{Binding Conversation.SelectWorkspaceCommand}"
-                                    Content="{loc:Loc AgentWorkspaceChange}" />
+                            <!-- 主按钮开系统选择器,下拉给最近用过的目录:切工作区是高频操作,
+                                 每次都翻一遍文件选择器太笨 -->
+                            <SplitButton FontSize="11" Padding="8,3" CornerRadius="6"
+                                         Command="{Binding Conversation.SelectWorkspaceCommand}"
+                                         Content="{loc:Loc AgentWorkspaceChange}">
+                                <SplitButton.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedLeft"
+                                            Opening="OnRecentWorkspacesOpening">
+                                        <StackPanel MinWidth="200" MaxWidth="320" Spacing="2">
+                                            <TextBlock Classes="muted" FontSize="11" Margin="6,2"
+                                                       Text="{loc:Loc AgentWorkspaceRecent}" />
+                                            <TextBlock Classes="muted" FontSize="11" Margin="6,2"
+                                                       Text="{loc:Loc AgentWorkspaceRecentEmpty}"
+                                                       IsVisible="{Binding Conversation.RecentWorkspaces.Count,
+                                                           Converter={x:Static convs:IntToBoolConverter.Inverted}}" />
+                                            <ItemsControl ItemsSource="{Binding Conversation.RecentWorkspaces}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="conv:RecentWorkspaceItem">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <Button Grid.Column="0" Classes="workspace-recent"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    Command="{Binding UseCommand}"
+                                                                    ToolTip.Tip="{Binding Path}">
+                                                                <StackPanel>
+                                                                    <TextBlock FontSize="12"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               Text="{Binding Name}" />
+                                                                    <TextBlock FontSize="10" Classes="muted"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               Text="{Binding Parent}" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <Button Grid.Column="1" Classes="workspace-recent"
+                                                                    VerticalAlignment="Center" FontSize="11"
+                                                                    Command="{Binding ForgetCommand}"
+                                                                    ToolTip.Tip="{loc:Loc AgentWorkspaceForget}"
+                                                                    Content="✕" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Flyout>
+                                </SplitButton.Flyout>
+                            </SplitButton>
                             <Button FontSize="11" Padding="8,3" CornerRadius="6"
                                     Command="{Binding Conversation.ClearWorkspaceCommand}"
                                     IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"

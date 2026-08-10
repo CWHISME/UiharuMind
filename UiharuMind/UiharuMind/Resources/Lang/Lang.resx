@@ -192,6 +192,15 @@
     <data name="AgentWorkspaceClear" xml:space="preserve">
         <value>Clear</value>
     </data>
+    <data name="AgentWorkspaceRecent" xml:space="preserve">
+        <value>Recent</value>
+    </data>
+    <data name="AgentWorkspaceRecentEmpty" xml:space="preserve">
+        <value>No recent workspaces yet</value>
+    </data>
+    <data name="AgentWorkspaceForget" xml:space="preserve">
+        <value>Remove from recent</value>
+    </data>
     <data name="AgentSenderUser" xml:space="preserve">
         <value>You</value>
     </data>
