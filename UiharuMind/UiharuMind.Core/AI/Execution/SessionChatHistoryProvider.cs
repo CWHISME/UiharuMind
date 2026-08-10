@@ -82,6 +82,22 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         return new ValueTask<IEnumerable<ChatMessage>>(history);
     }
 
+    // [MFA绕坑] 绕:取消轮次时自己补写请求消息 因:基类 InvokedCoreAsync 把"有异常"一律当作本轮没发生过,直接跳过持久化 删除条件:框架区分取消与真失败
+    /// <summary>
+    /// 用户点停止在框架眼里是一次失败的调用，基类于是跳过持久化——刚发出去的那条用户消息
+    /// 就此不进历史，界面上还留着，下一轮请求里却凭空少一条。取消不等于没发生，这里补上请求消息。
+    /// </summary>
+    protected override ValueTask InvokedCoreAsync(InvokedContext context, CancellationToken cancellationToken = default)
+    {
+        if (context.InvokeException is OperationCanceledException || cancellationToken.IsCancellationRequested)
+        {
+            // 令牌此刻已被取消,存盘本身是同步的,传 None 免得被后续 API 当作又一次取消
+            return StoreChatHistoryAsync(context, CancellationToken.None);
+        }
+
+        return base.InvokedCoreAsync(context, cancellationToken);
+    }
+
     protected override ValueTask StoreChatHistoryAsync(
         InvokedContext context, CancellationToken cancellationToken = default)
     {
