@@ -19,8 +19,8 @@ namespace UiharuMind.Features.Conversation;
 ///
 /// 两件事都要做，缺一件都白搭：
 /// <list type="number">
-/// <item><b>缩尺寸</b>——超过视觉模型的有效分辨率之后，再大的图既不会更清楚，也只是徒增上传体积；
-/// 而框架的历史压缩把非文本内容按 <c>字节数 / 4</c> 估 token，一张大图会被估成十几万。</item>
+/// <item><b>缩尺寸</b>——超过视觉模型的有效分辨率之后，再大的图既不会更清楚，也只是徒增上传体积。
+/// 而图片是随历史每一轮重传的，省下的不是一次，是每一次。</item>
 /// <item><b>按内容选格式</b>——只缩尺寸不换格式的话，一张 1568px 的照片存成 PNG 仍有 1~2MB，
 /// 是同尺寸 JPEG 的 5~10 倍。</item>
 /// </list>
@@ -45,14 +45,23 @@ public static class ConversationImageDownscaler
     /// </summary>
     public const int MaxEdge = InlineImageLimits.MaxEdge;
 
-    private const int JpegQuality = 85;
+    /// <summary>
+    /// 单张内联图片的体积预算。PNG 编完不超过它就直接无损送，超了才退到 JPEG，
+    /// 而 JPEG 也要逐档降质压进这个数以内。
+    ///
+    /// 这个上限原本是为了压住框架那套 <c>字节数 / 4</c> 的 token 估算，如今那条已由
+    /// <see cref="InlineImageLimits.MaxTokensPerImage"/> 从源头修掉，所以它现在的理由只剩一条：
+    /// <b>上传带宽</b>。图片每一轮都要随历史重传，家宽上行按 5Mbps 算，
+    /// 十张 150KB 的图就是每轮多等 2.5 秒。
+    /// </summary>
+    internal const int MaxInlineBytes = 150 * 1024;
 
     /// <summary>
-    /// PNG 编完不超过这个体积就直接用 PNG（无损）。
-    /// 定在这里是因为再往上就压不住框架那套 <c>字节数 / 4</c> 的估算了——
-    /// 150KB 约合 3.7 万 token，在 128k 模型的输入预算里还留得下余量。
+    /// JPEG 的降质档位。逐档往下试直到进预算——只有一档 85 的话，
+    /// 一张大照片会以 300~400KB 发出去，而这些字节每一轮都要重传。
+    /// 最低档仍超预算时按最低档发出去：图大总好过发不出图。
     /// </summary>
-    private const int LosslessLimitBytes = 150 * 1024;
+    private static readonly int[] JpegQualitySteps = [85, 70, 55];
 
     /// <summary>
     /// 按长边上限缩放并重编码为 JPEG
@@ -115,11 +124,23 @@ public static class ConversationImageDownscaler
     {
         using (SKData? png = image.Encode(SKEncodedImageFormat.Png, 100))
         {
-            if (png is { Size: > 0 } && png.Size <= LosslessLimitBytes) return (png.ToArray(), "image/png");
+            if (png is { Size: > 0 } && png.Size <= MaxInlineBytes) return (png.ToArray(), "image/png");
         }
 
-        using SKData? jpeg = image.Encode(SKEncodedImageFormat.Jpeg, JpegQuality);
-        return jpeg is { Size: > 0 } ? (jpeg.ToArray(), "image/jpeg") : null;
+        // 档位从高到低,所以最后拿到的那份也是最小的一份
+        byte[]? smallest = null;
+        foreach (int quality in JpegQualitySteps)
+        {
+            using SKData? jpeg = image.Encode(SKEncodedImageFormat.Jpeg, quality);
+            if (jpeg is not { Size: > 0 }) continue;
+            if (jpeg.Size <= MaxInlineBytes) return (jpeg.ToArray(), "image/jpeg");
+            smallest = jpeg.ToArray();
+        }
+
+        if (smallest == null) return null;
+
+        Log.Debug($"Image still {smallest.Length:N0} bytes at the lowest JPEG quality, sending it anyway.");
+        return (smallest, "image/jpeg");
     }
 
     /// <summary>
