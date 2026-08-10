@@ -12,10 +12,12 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.UIHolder;
 
@@ -177,6 +179,19 @@ public partial class ConversationView : UserControl
         if (bitmap == null) return;
 
         vm.AddAttachmentBytes(bitmap.BitmapToBytes());
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// 点击气泡里的图 → 原尺寸浮窗预览（可滚轮缩放、拖动）。
+    /// 显示的正是**发给模型的那一份**（缩放重编码之后的结果），
+    /// 「压缩之后文字还认得出吗」只能在这里对答案。
+    /// </summary>
+    private void OnMessageImagePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Image { Source: Bitmap bitmap }) return;
+
+        UIManager.ShowPreviewImageWindowAtMousePosition(bitmap);
         e.Handled = true;
     }
 

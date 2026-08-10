@@ -254,9 +254,12 @@
                                                 BorderBrush="{Binding SenderColor}"
                                                 HorizontalAlignment="{Binding Alignment}"
                                                 IsVisible="{Binding HasImage}">
+                                            <!-- 点击看原尺寸:气泡里是缩略图,而这张正是发给模型的那一份 -->
                                             <Image Source="{Binding MessageImage}"
                                                    MaxWidth="320" MaxHeight="320"
-                                                   Stretch="Uniform" />
+                                                   Stretch="Uniform"
+                                                   Cursor="Hand"
+                                                   PointerPressed="OnMessageImagePressed" />
                                         </Border>
 
                                         <Border Classes="message-bubble" Margin="0,5,0,0"
