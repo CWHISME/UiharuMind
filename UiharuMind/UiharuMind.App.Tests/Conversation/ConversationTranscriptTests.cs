@@ -335,11 +335,40 @@ public class ConversationTranscriptTests
         transcript.Apply(new ToolApprovalRequestContent("r", new FunctionCallContent("c", "run_shell", null)));
         transcript.Apply(new TextContent("尾巴"));
 
-        transcript.FinalizeReplay();
+        transcript.FinalizeReplay("没有结果");
 
-        Assert.False(items.OfType<ToolCallItem>().Single().IsRunning);
+        ToolCallItem call = items.OfType<ToolCallItem>().Single();
+        Assert.False(call.IsRunning);
+        Assert.False(call.IsSuccess); //历史里没有配对结果 = 它没跑完,显示成绿色的成功态是谎报
+        Assert.Equal("没有结果", call.ResultText);
         Assert.True(items.OfType<ApprovalRequestItem>().Single().IsResolved);
         Assert.True(items.OfType<TextConversationItem>().Single().IsDone);
+    }
+
+    /// <summary>
+    /// 取消补写的工具结果要显示成失败。判据只能取正文——<c>FunctionResultContent.Exception</c>
+    /// 带 <c>[JsonIgnore]</c>，存进会话文件再读回来就没了，卡片会重新变成绿色。
+    /// </summary>
+    [Fact]
+    public void CancelledToolResult_ShowsAsFailed()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("a", "ask_vision", null));
+        transcript.Apply(new FunctionResultContent("a", ToolCallCancellation.ResultText));
+
+        ToolCallItem call = items.OfType<ToolCallItem>().Single();
+        Assert.False(call.IsRunning);
+        Assert.False(call.IsSuccess);
+    }
+
+    [Fact]
+    public void NormalToolResult_StaysSuccessful()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("a", "run_shell", null));
+        transcript.Apply(new FunctionResultContent("a", "ok"));
+
+        Assert.True(items.OfType<ToolCallItem>().Single().IsSuccess);
     }
 
     [Fact]
