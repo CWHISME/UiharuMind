@@ -75,16 +75,24 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
-    /// 按角色种类筛选会话，按最后更新时间倒序。
-    /// 角色对话与 agent 对话共用同一个索引，各页面只应列出属于自己那一类的会话。
-    /// 种类由角色实时派生而非存进元数据——角色的 Kind 改变时会话随之归类，不会留下过期副本。
+    /// 聊天页的会话（扮演与工具人两档），按最后更新时间倒序。
+    /// 归类由角色实时派生而非存进元数据——角色的档位改变时会话随之换页，不会留下过期副本。
     /// </summary>
-    /// <param name="kind">角色种类</param>
     /// <returns>元数据列表</returns>
-    public List<ChatSessionMeta> GetSessions(ECharacterKind kind)
+    public List<ChatSessionMeta> GetChatSessions() => GetSessions(x => KindOf(x).IsChat());
+
+    /// <summary>
+    /// 智能体页的会话，按最后更新时间倒序
+    /// </summary>
+    /// <returns>元数据列表</returns>
+    public List<ChatSessionMeta> GetAgentSessions() => GetSessions(x => KindOf(x).IsAgent());
+
+    // 刻意不提供"传一个档位"的重载:那个形状邀请调用方写 GetSessions(Roleplay),
+    // 四档之后工具人的会话就会两页都不显示(实机踩过)。分区只有上面这两个出口
+    private List<ChatSessionMeta> GetSessions(Func<ChatSessionMeta, bool> predicate)
     {
         return _metas.Values
-            .Where(x => KindOf(x) == kind)
+            .Where(predicate)
             .OrderByDescending(x => x.UpdatedAt)
             .ToList();
     }

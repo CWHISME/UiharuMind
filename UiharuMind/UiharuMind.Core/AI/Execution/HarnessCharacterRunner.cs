@@ -118,7 +118,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         if (_handle == null || _session == null || _boundSessionId == null) return;
         // 角色扮演档禁用了 todo/mode/审批等全部有状态提供器,框架 blob 无内容可存;
         // 恢复路径找不到该文件时会新建框架会话并重新 Bind,行为不变
-        if (_attachedSession?.CharacterData.Kind != ECharacterKind.Agent) return;
+        if (_attachedSession?.CharacterData.Kind.IsAgent() != true) return;
 
         await _gate.WaitAsync().ConfigureAwait(false);
         try
@@ -149,7 +149,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private static void ApplyFileMemoryFolder(ChatSession session, AgentSession agentSession)
     {
         // 角色扮演档整个禁用了框架文件记忆,没有这份状态可写
-        if (session.CharacterData.Kind != ECharacterKind.Agent) return;
+        if (!session.CharacterData.Kind.IsAgent()) return;
         if (!AgentSettingConfig.Current.EnableFileMemory) return;
 
         try

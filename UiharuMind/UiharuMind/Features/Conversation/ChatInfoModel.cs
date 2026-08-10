@@ -54,8 +54,8 @@ public partial class ChatInfoModel : ViewModelBase
 
         if (chatSessionViewData != null)
         {
-            //用户角色:只有扮演角色会注入用户人格,工具人与智能体不需要这块面板
-            if (chatSessionViewData.Session.CharacterData.Kind == ECharacterKind.Roleplay)
+            //用户角色:这块面板编辑的就是用户卡,因此按"本角色是否注入用户卡"决定要不要它
+            if (chatSessionViewData.Session.CharacterData.InjectUserCard)
             {
                 var plugin = GetPlugin<ChatPlugin_UserCharacterCardData>(chatSessionViewData);
                 ChatPluginList.Add(plugin);

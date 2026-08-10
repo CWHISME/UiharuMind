@@ -13,20 +13,22 @@ using UiharuMind.Core.Configs;
 namespace UiharuMind.Core.Tests.Agent;
 
 /// <summary>
-/// 钉死装配的三个不变量之一：<b>角色扮演档零注入</b>。
-/// 框架的每一项能力都必须关掉、HarnessInstructions 必须为空——
-/// 任何一项漏关都会向角色扮演的上下文里悄悄注入内容,
+/// 钉死装配的三个不变量之一：<b>非智能体档零注入</b>。
+/// 扮演与工具人两档都只渲染提示词：框架的每一项能力都必须关掉、HarnessInstructions 必须为空——
+/// 任何一项漏关都会向它们的上下文里悄悄注入内容,
 /// 而这种污染在实机上几乎不可见(模型行为变化无法归因)。
 /// </summary>
-public class RoleplayZeroInjectionTests
+public class PromptOnlyZeroInjectionTests
 {
-    [Fact]
-    public void BuildRoleplayOptions_DisablesEveryFrameworkCapability()
+    [Theory]
+    [InlineData(ECharacterKind.Roleplay)]
+    [InlineData(ECharacterKind.Tool)]
+    public void BuildPromptOnlyOptions_DisablesEveryFrameworkCapability(ECharacterKind kind)
     {
-        CharacterData character = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
+        CharacterData character = new() { CharacterId = "rp", Kind = kind };
         ChatOptions chatOptions = new();
 
-        HarnessAgentOptions options = CharacterRunnerFactory.BuildRoleplayOptions(
+        HarnessAgentOptions options = CharacterRunnerFactory.BuildPromptOnlyOptions(
             character, new StubHistoryProvider(), [], chatOptions);
 
         Assert.Equal(string.Empty, options.HarnessInstructions);

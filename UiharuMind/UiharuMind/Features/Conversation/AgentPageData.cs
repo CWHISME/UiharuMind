@@ -76,7 +76,7 @@ public partial class AgentPageData : ConversationPageDataBase
         {
             string? selectedId = Conversation.CurrentMeta?.SessionId;
             Sessions.Clear();
-            foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions(ECharacterKind.Agent))
+            foreach (ChatSessionMeta meta in SessionManager.Instance.GetAgentSessions())
             {
                 SessionListItem item = new(meta);
                 item.Deleted += OnSessionDeleted;
@@ -102,8 +102,8 @@ public partial class AgentPageData : ConversationPageDataBase
     /// </summary>
     private void OnSessionAdded(ChatSession session)
     {
-        // agent 页只列 agent 会话；聊天页的会话归 ChatListViewModel
-        if (session.CharacterData.Kind != ECharacterKind.Agent) return;
+        // 智能体页只列智能体会话；聊天页那两档归 ChatListViewModel
+        if (!session.CharacterData.Kind.IsAgent()) return;
         Avalonia.Threading.Dispatcher.UIThread.Post(RefreshSessions);
     }
 

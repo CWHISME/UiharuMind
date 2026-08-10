@@ -67,6 +67,16 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 
 ⚠️ 不要再说「对话角色」——那个词曾同时指扮演与工具人两档，现在这两档是分开的。
 
+### 档位的归路（CharacterKindRouting）
+
+「哪个档走哪条装配、落在哪一页」的**唯一定义处**：`IsAgent()`（走工具/工作目录/harness）、
+`IsChat()`（只渲染提示词的扮演与工具人两档）、`CanStartSession()`（用户卡不能对话）。
+
+⚠️ **不要手写 `Kind == Roleplay` / `!= Roleplay` 当「是不是 agent」用。** 两档时代这么写是成立的，
+四档之后 `Tool` 与 `UserCard` 会掉进本该只属于智能体的那一边。实机症状：翻译/识图这类工具人角色
+被装上文件、shell、技能与整套 harness；它们的会话在聊天页与智能体页都不显示。
+判定一律走 `CharacterKindRouting`，并有不变量测试要求每个可开会话的档位**恰好**归一页。
+
 ### IsInternal（内部角色）
 
 只表示**可见性**：程序按 `DefaultCharacter` 点名取用的技能角色（识图、翻译、解释），

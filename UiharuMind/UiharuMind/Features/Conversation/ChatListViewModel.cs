@@ -33,8 +33,8 @@ public partial class ChatListViewModel : ViewModelBase
     public ChatListViewModel()
     {
         // 只读索引,本体按需加载(agent 会话的工具结果是全量持久化的,启动时全量反序列化会卡死);
-        // 只列出对话角色的会话 —— 索引是与 agent 页共用的
-        foreach (ChatSessionMeta meta in SessionManager.Instance.GetSessions(ECharacterKind.Roleplay))
+        // 只列出聊天页那两档的会话 —— 索引是与智能体页共用的
+        foreach (ChatSessionMeta meta in SessionManager.Instance.GetChatSessions())
         {
             ChatSessions.Add(CreateItem(new SessionListItem(meta)));
         }
@@ -49,8 +49,8 @@ public partial class ChatListViewModel : ViewModelBase
 
     private void OnChatSessionAdded(ChatSession obj)
     {
-        // agent 会话归 agent 页,不进本列表
-        if (obj.CharacterData.Kind != ECharacterKind.Roleplay) return;
+        // 智能体会话归智能体页,不进本列表
+        if (!obj.CharacterData.Kind.IsChat()) return;
 
         ChatSessions.Insert(0, CreateItem(new SessionListItem(obj)));
         SelectedSession = ChatSessions[0];

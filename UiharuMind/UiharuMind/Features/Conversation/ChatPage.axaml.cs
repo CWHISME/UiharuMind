@@ -47,7 +47,7 @@ public partial class ChatPage : UserControl
                 flyout?.Hide();
                 SessionManager.Instance.StartNewSession(character);
             },
-            filter: character => character.Kind is ECharacterKind.Roleplay or ECharacterKind.Tool);
+            filter: character => character.Kind.IsChat());
     }
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
