@@ -152,7 +152,8 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
         SessionChatHistoryProvider history = new();
         CharacterData character = profile.Character;
-        AgentSettingConfig config = AgentSettingConfig.Current;
+        // 能力配置来自角色本身:没有全局总闸,运行时只有这一份在说话(ADR 0003)
+        AgentToolConfig config = character.Tools;
 
         // 角色自身的提示词(人格 + 用户卡 + 对话模板)。agent 档随后会在它之后接上工具纪律与
         // 工作区规矩(见 BuildAgentOptions)——顺序由我们说,不交给框架的分层
@@ -245,7 +246,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             : null;
 
         return BuildHandle(client, BuildAgentOptions(character, config, history, contextProviders, chatOptions,
-            SkillCatalog.Instance.BuildSkillsSource(), fileMemoryStore,
+            SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills), fileMemoryStore,
             profile.PermissionMode, profile.PreAuthorizedShellPatterns,
             profile.SessionShellApprovalSource,
             visionToolMounted: mountVisionTool, workingDirectory: workingDirectory,
@@ -258,8 +259,21 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// </summary>
     internal sealed record SubAgentAssemblyInput
     {
-        /// <summary>能力配置(与主 agent 同一份,子代理的工具集由它派生)</summary>
-        public required AgentSettingConfig Config { get; init; }
+        /// <summary>
+        /// 生效的能力配置。通用子代理即主代理那份;点名的子智能体是"它自己那份与主代理的交集"
+        /// ——委派出去的不能比派活的能力更大
+        /// </summary>
+        public required AgentToolConfig Config { get; init; }
+
+        /// <summary>
+        /// 点名的子智能体的人格段(它自己的角色提示词);通用子代理为空串
+        /// </summary>
+        public string Persona { get; init; } = string.Empty;
+
+        /// <summary>
+        /// 子智能体名(框架侧 agent 名);空串则用通用的 "SubAgent"
+        /// </summary>
+        public string Name { get; init; } = string.Empty;
 
         /// <summary>文件工具的根目录</summary>
         public required string WorkingDirectory { get; init; }
@@ -300,15 +314,18 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="profile">主 agent 的构建配置(权限档与 shell 放行来源由此继承)</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <returns>工具;无任何能力可用时为 null</returns>
-    private static AITool? TryCreateSubAgentTool(IChatClient client, AgentSettingConfig config,
+    private static AITool? TryCreateSubAgentTool(IChatClient client, AgentToolConfig config,
         string workingDirectory, bool visionToolAvailable, AgentBuildProfile profile,
         string workspaceInstructions)
     {
         bool fullAuto = profile.PermissionMode == EAgentPermissionMode.FullAuto;
 
-        SubAgentAssemblyInput Probe(AITool? shellTool, IReadOnlyList<AITool>? mcpTools) => new()
+        SubAgentAssemblyInput Probe(AITool? shellTool, IReadOnlyList<AITool>? mcpTools,
+            AgentToolConfig effectiveConfig, string persona, string name) => new()
         {
-            Config = config,
+            Config = effectiveConfig,
+            Persona = persona,
+            Name = name,
             WorkingDirectory = workingDirectory,
             VisionToolAvailable = visionToolAvailable,
             PermissionMode = profile.PermissionMode,
@@ -320,19 +337,42 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         };
 
         // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
-        if (BuildSubAgentOptions(Probe(null, null)) == null) return null;
+        if (BuildSubAgentOptions(Probe(null, null, config, string.Empty, string.Empty)) == null) return null;
 
-        return SubAgentTool.Create(() =>
+        // 名单:角色挂的那些智能体。按档位过滤而非信任存档(旧存档里可能躺着工具人),并排除自己(递归)
+        List<CharacterData> mounted = profile.Character.MountAgents
+            .Select(id => CharacterManager.Instance.GetCharacterData(id))
+            .Where(x => x.Kind.IsAgent() && x.CharacterId != profile.Character.CharacterId)
+            .ToList();
+        List<SubAgentChoice> roster = mounted
+            .Select(x => new SubAgentChoice(SanitizeAgentName(x.CharacterName, x.CharacterId), x.Description))
+            .ToList();
+
+        return SubAgentTool.Create(agentName =>
         {
-            LocalShellExecutor? shellExecutor = fullAuto && config.EnableShellExecution
+            // 点名的那一个:人格取它的 Template,能力取"它与父代理的交集"——
+            // 挂一个开着 shell 的子智能体不该给关掉了 shell 的父代理开后门
+            CharacterData? child = agentName == null
+                ? null
+                : mounted.FirstOrDefault(x =>
+                    string.Equals(SanitizeAgentName(x.CharacterName, x.CharacterId), agentName,
+                        StringComparison.OrdinalIgnoreCase));
+            AgentToolConfig effective = child == null ? config : child.Tools.Intersect(config);
+            string persona = child == null ? string.Empty : CharacterPromptBuilder.Build(child);
+            string name = child == null
+                ? string.Empty
+                : SanitizeAgentName(child.CharacterName, child.CharacterId);
+
+            LocalShellExecutor? shellExecutor = fullAuto && effective.EnableShellExecution
                 ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = workingDirectory })
                 : null;
             AITool? shellTool = shellExecutor?.AsAIFunction(ShellToolName);
             IReadOnlyList<AITool>? mcpTools = fullAuto ? McpManager.Instance.GetCachedTools() : null;
 
             // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
-            return BuildHandle(client, BuildSubAgentOptions(Probe(shellTool, mcpTools))!, shellExecutor);
-        }, profile.ActivitySink);
+            return BuildHandle(client,
+                BuildSubAgentOptions(Probe(shellTool, mcpTools, effective, persona, name))!, shellExecutor);
+        }, roster, profile.ActivitySink);
     }
 
     /// <summary>
@@ -347,7 +387,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <returns>框架选项;无任何能力启用时为 null</returns>
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
-        AgentSettingConfig config = input.Config;
+        AgentToolConfig config = input.Config;
         // 完全自动档一律放行,子代理才可能真的写成东西;其余档位下写/shell 必然要问用户,故不挂
         bool canMutate = input.PermissionMode == EAgentPermissionMode.FullAuto;
 
@@ -380,7 +420,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
 
         return new HarnessAgentOptions
         {
-            Name = "SubAgent",
+            Name = input.Name.Length > 0 ? input.Name : "SubAgent",
             Description = "Sub-agent: surveys workspace files and/or the web, inspects images, " +
                           "and returns a focused report.",
             // 与主 agent 同一口径:工作循环归"角色段"(这里就是 BuildSubAgentInstructions 生成的那份),
@@ -408,7 +448,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             ChatOptions = new ChatOptions
             {
                 Instructions = BuildSubAgentInstructions(config, hasVision, canMutate,
-                    input.WorkingDirectory, input.WorkspaceInstructions),
+                    input.WorkingDirectory, input.WorkspaceInstructions, input.Persona),
                 Tools = tools,
             },
         };
@@ -432,10 +472,18 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <returns>提示词</returns>
-    private static string BuildSubAgentInstructions(AgentSettingConfig config, bool hasVision, bool canMutate,
-        string workingDirectory, string workspaceInstructions)
+    private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool canMutate,
+        string workingDirectory, string workspaceInstructions, string persona = "")
     {
         StringBuilder sb = new();
+        // 点名的子智能体先说自己是谁(与主 agent 同一口径:人格在最前,见 ADR 0005),
+        // 随后才是"你是被派活的子代理"这套边界与体例
+        if (persona.Length > 0)
+        {
+            sb.AppendLine(persona.TrimEnd());
+            sb.AppendLine();
+        }
+
         sb.AppendLine("# Role");
         sb.AppendLine("You are a sub-agent of UiharuMind, delegated one task by the main agent. "
                       + "You work alone and report back.");
@@ -544,7 +592,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// <param name="workingDirectory">文件与 shell 工具的根目录;空串则提示词里不写工作目录段</param>
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <returns>框架选项</returns>
-    internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentSettingConfig config,
+    internal static HarnessAgentOptions BuildAgentOptions(CharacterData character, AgentToolConfig config,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
         AgentSkillsSource skillsSource, FileSystemAgentFileStore? fileMemoryStore,
         EAgentPermissionMode permissionMode, IReadOnlyList<string>? preAuthorizedShellPatterns,
@@ -616,12 +664,12 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
     /// </summary>
     /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
-    /// <param name="config">agent 能力配置</param>
+    /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <returns>整段系统提示</returns>
-    private static string ComposeAgentInstructions(string? characterPrompt, AgentSettingConfig config,
+    private static string ComposeAgentInstructions(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions)
     {
         StringBuilder sb = new();
@@ -653,10 +701,10 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     ///
     /// 本段由 <see cref="ComposeAgentInstructions"/> 接在角色段之后。
     /// </summary>
-    /// <param name="config">agent 能力配置</param>
+    /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <returns>harness 层指令文本</returns>
-    private static string BuildToolDisciplines(AgentSettingConfig config, bool visionToolMounted,
+    private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
         string workingDirectory)
     {
         StringBuilder sb = new();
@@ -674,14 +722,14 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
             sb.AppendLine();
             sb.AppendLine();
             sb.AppendLine("## File operations");
-            sb.AppendLine(AgentToolPrompts.ResolveFileAccess(config));
+            sb.AppendLine(AgentToolPrompts.FileAccessDefault);
         }
 
         if (config.EnableVisionTool && visionToolMounted)
         {
             sb.AppendLine();
             sb.AppendLine("## Images");
-            sb.AppendLine(AgentToolPrompts.ResolveVisionTool(config));
+            sb.AppendLine(AgentToolPrompts.VisionToolDefault);
         }
 
         // 文件记忆没有自己的纪律段:框架的 FileMemoryProvider 已经注入了一整段,见 AgentToolPrompts
@@ -689,7 +737,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         {
             sb.AppendLine();
             sb.AppendLine("## Knowledge base");
-            sb.AppendLine(AgentToolPrompts.ResolveKnowledgeSearch(config));
+            sb.AppendLine(AgentToolPrompts.KnowledgeSearchDefault);
         }
 
         // 辨析句只在两者都挂载时才有意义,故不属于任何一段的正文(那两段各自可被用户覆盖)
@@ -703,7 +751,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         {
             sb.AppendLine();
             sb.AppendLine("## Delegation");
-            sb.AppendLine(AgentToolPrompts.ResolveSubAgent(config));
+            sb.AppendLine(AgentToolPrompts.SubAgentDefault);
         }
 
         return sb.ToString();

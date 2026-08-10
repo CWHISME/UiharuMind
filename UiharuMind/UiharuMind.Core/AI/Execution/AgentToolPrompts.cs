@@ -9,14 +9,14 @@
 
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Tools;
-using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 工具纪律段的默认提示词与解析。默认文本收在这里的目的：
-/// 设置页要展示默认值、允许覆盖并可一键重置——配置里只存"覆盖"(空 = 用默认)，
-/// 默认措辞升级时未覆盖的用户自动跟随。段落标题由装配侧统一加，这里只管正文。
+/// 工具纪律段的正文。段落标题由装配侧统一加，这里只管正文。
+///
+/// 曾经支持在设置页逐段覆盖，已退役：那四段调的是「模型怎么用工具」而非角色人格，
+/// 用得极少却让排查要看两处，还多养一个装配快照字段(见 ADR 0003)。
 /// </summary>
 public static class AgentToolPrompts
 {
@@ -41,8 +41,7 @@ public static class AgentToolPrompts
         "- Finish with a short summary of what you did and what you found.";
 
     /// <summary>
-    /// 工作目录段。<b>不可被设置页覆盖</b>——这一段是事实而非建议,
-    /// 用户覆盖掉文件工具的纪律文案不该顺带把"根目录在哪"一起删掉。
+    /// 工作目录段：这一段是事实而非建议。
     ///
     /// 这段曾经不存在:工作目录只被拿去构造工具,从没进过任何提示词。
     /// 后果是模型不知道根在哪,于是自己编一个占位路径(实机见过
@@ -94,41 +93,12 @@ public static class AgentToolPrompts
         "- It blocks until the sub-agent finishes. The sub-agent cannot ask you anything and nobody " +
         "will approve anything for it, so put everything it needs into the task.";
 
-    /// <summary>文件工具纪律段(覆盖优先,空则默认)</summary>
-    public static string ResolveFileAccess(AgentSettingConfig config)
-    {
-        return Resolve(config.FileAccessPrompt, FileAccessDefault);
-    }
-
-    /// <summary>识图工具纪律段(覆盖优先,空则默认)</summary>
-    public static string ResolveVisionTool(AgentSettingConfig config)
-    {
-        return Resolve(config.VisionToolPrompt, VisionToolDefault);
-    }
-
-    /// <summary>知识库检索工具纪律段(覆盖优先,空则默认)</summary>
-    public static string ResolveKnowledgeSearch(AgentSettingConfig config)
-    {
-        return Resolve(config.KnowledgeSearchPrompt, KnowledgeSearchDefault);
-    }
-
     /// <summary>
-    /// 两种"记忆"都启用时的辨析句。<b>不可被设置页覆盖</b>，也只在两者都挂载时出现——
+    /// 两种"记忆"都启用时的辨析句。只在两者都挂载时出现——
     /// 模型这一侧同时看得见 <c>file_memory_*</c> 与 <c>knowledge_search</c>，
     /// 名字都像"搜记忆"，而选错的表现是检索不到却不报错。
     /// </summary>
     public static readonly string MemoryDisambiguation =
         $"Two different stores: `{FileMemoryProvider.GrepToolName}` searches notes you wrote yourself, " +
         $"`{KnowledgeTool.ToolName}` searches documents the user attached. Never substitute one for the other.";
-
-    /// <summary>子代理工具纪律段(覆盖优先,空则默认)</summary>
-    public static string ResolveSubAgent(AgentSettingConfig config)
-    {
-        return Resolve(config.SubAgentPrompt, SubAgentDefault);
-    }
-
-    private static string Resolve(string overrideText, string defaultText)
-    {
-        return string.IsNullOrWhiteSpace(overrideText) ? defaultText : overrideText.Trim();
-    }
 }

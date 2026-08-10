@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using UiharuMind.Core.AI.Character;
 
 namespace UiharuMind.Features.Characters;
 
@@ -44,12 +45,35 @@ public partial class CharacterEditView : UserControl
             text => data.InsertSnippet(text));
     }
 
+    /// <summary>
+    /// 展开前给子智能体选择器换一份数据：只列智能体档，排除自己（防递归）与已挂的。
+    /// 选中即追加，面板留着不关。
+    /// </summary>
+    private void OnSubAgentPickerOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is not CharacterInfoViewData data) return;
+
+        CharacterPickerViewData picker = null!;
+        picker = new CharacterPickerViewData(
+            character =>
+            {
+                data.AddSubAgent(character);
+                picker.Exclude(character.CharacterId);
+            },
+            filter: character => character.Kind.IsAgent(),
+            excludedIds: data.SubAgentAndSelfIds);
+        SubAgentPicker.DataContext = picker;
+    }
+
     public void ScrollToSection(string? sectionKey)
     {
         Control? target = sectionKey switch
         {
             "Basic" => BasicInfoSection,
             "Function" => FunctionTypeSection,
+            "Tools" => ToolsSection,
+            "Skills" => SkillsSection,
+            "SubAgents" => SubAgentsSection,
             "Prompt" => PromptSection,
             "Greeting" => GreetingSection,
             "Dialog" => DialogTemplateSection,

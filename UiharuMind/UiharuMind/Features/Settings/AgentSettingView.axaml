@@ -52,61 +52,32 @@
 
         <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
         <TabItem Header="{loc:Loc AgentSettingCapabilities}">
-            <Grid ColumnDefinitions="240,16,*" Margin="0,12">
-                <ListBox Grid.Column="0"
-                         ItemsSource="{Binding Gates}"
-                         SelectedItem="{Binding SelectedGate}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <ToggleSwitch IsChecked="{Binding IsEnabled}" />
-                                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+            <ScrollViewer Margin="0,12">
+                <StackPanel Spacing="12">
+                    <!-- 工具开关与技能启停已下沉到角色(ADR 0003):这里只剩全局共用的搜索凭据 -->
+                    <Border Classes="form-pane" Padding="14">
+                        <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                                   Text="{loc:Loc AgentSettingCapabilitiesMoved}" />
+                    </Border>
 
-                <Border Grid.Column="2" Classes="form-pane" Padding="14"
-                        VerticalAlignment="Top"
-                        IsVisible="{Binding SelectedGate, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel Spacing="10">
+                    <Border Classes="form-pane" Padding="14">
+                        <StackPanel Spacing="6">
                             <TextBlock FontSize="13" FontWeight="SemiBold"
-                                       Text="{Binding SelectedGate.Name, FallbackValue=''}" />
-                            <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                                       Text="{Binding SelectedGate.Description, FallbackValue=''}" />
-
-                            <StackPanel Spacing="6"
-                                        IsVisible="{Binding SelectedGate.HasPrompt, FallbackValue=False}">
-                                <TextBlock Classes="field-label" Text="{loc:Loc AgentGatePromptLabel}" />
-                                <TextBox AcceptsReturn="True" TextWrapping="Wrap"
-                                         MinHeight="140" MaxHeight="260"
-                                         FontSize="12"
-                                         Text="{Binding SelectedGate.PromptText, FallbackValue=''}" />
-                                <Button HorizontalAlignment="Right"
-                                        Content="{loc:Loc AgentGatePromptReset}"
-                                        Command="{Binding SelectedGate.ResetPromptCommand, FallbackValue={x:Null}}" />
+                                       Text="{loc:Loc AgentSettingWebSearchKeys}" />
+                            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                       Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                <TextBlock Width="60" VerticalAlignment="Center" Text="Tavily" />
+                                <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
                             </StackPanel>
-
-                            <StackPanel Spacing="6"
-                                        IsVisible="{Binding SelectedGate.IsWebSearchGate, FallbackValue=False}">
-                                <TextBlock FontSize="12" FontWeight="SemiBold"
-                                           Text="{loc:Loc AgentSettingWebSearchKeys}" />
-                                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                           Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Width="60" VerticalAlignment="Center" Text="Tavily" />
-                                    <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Width="60" VerticalAlignment="Center" Text="Brave" />
-                                    <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
-                                </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Width="60" VerticalAlignment="Center" Text="Brave" />
+                                <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
                             </StackPanel>
                         </StackPanel>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
         </TabItem>
 
         <!-- 子 agent 档案页已移除:子 agent 就是普通角色,在角色编辑器里维护,
@@ -183,6 +154,9 @@
                     <Button Content="{loc:Loc AgentSkillsCreate}" Command="{Binding CreateSkillCommand}" />
                     <Button Content="{loc:Loc AgentSkillsOpenFolder}" Command="{Binding OpenSkillsFolderCommand}" />
                     <Button Content="{loc:Loc AgentSkillsReload}" Command="{Binding ReloadSkillsCommand}" />
+                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                               MaxWidth="420" TextWrapping="Wrap"
+                               Text="{loc:Loc AgentSkillsPerAgentHint}" />
                 </StackPanel>
                 <ScrollViewer Grid.Row="1" Margin="0,10,0,0">
                     <ItemsControl ItemsSource="{Binding Skills}">
@@ -212,8 +186,6 @@
                                                        IsVisible="{Binding !IsLoaded}"
                                                        Text="{loc:Loc AgentSkillsNotLoadedHint}" />
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsEnabled}"
-                                                      IsEnabled="{Binding IsLoaded}" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

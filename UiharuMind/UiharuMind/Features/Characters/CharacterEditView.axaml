@@ -101,6 +101,107 @@
                 </StackPanel>
             </Border>
 
+            <!-- 以下三块只对智能体档:它们描述"这个智能体有什么能力" -->
+            <Border Name="ToolsSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterToolsTitle}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterToolsDesc}" TextWrapping="Wrap" />
+                    <ItemsControl ItemsSource="{Binding AgentTools.Toggles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewData:AgentToolToggle">
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                    <ToggleSwitch IsChecked="{Binding IsEnabled}" MinWidth="0" />
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                               ToolTip.Tip="{Binding Description}" />
+                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="info"
+                                                            VerticalAlignment="Center">
+                                        <ToolTip.Tip>
+                                            <TextBlock Text="{Binding Description}" FontSize="14"
+                                                       MaxWidth="360" TextWrapping="Wrap" />
+                                        </ToolTip.Tip>
+                                    </controls:ThemedSvgIcon>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Name="SkillsSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterSkillsTitle}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsDesc}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsEmpty}"
+                               IsVisible="{Binding AgentTools.HasNoSkills}" />
+                    <ItemsControl ItemsSource="{Binding AgentTools.Skills}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewData:AgentSkillToggle">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                                    <CheckBox IsChecked="{Binding IsEnabled}" IsEnabled="{Binding IsLoaded}" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SemiBlue5}"
+                                                       IsVisible="{Binding IsUserInvokedOnly}"
+                                                       Text="{loc:Loc AgentSkillsUserInvoked}"
+                                                       ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
+                                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="IndianRed"
+                                                       IsVisible="{Binding !IsLoaded}"
+                                                       Text="{loc:Loc AgentSkillsNotLoaded}" />
+                                        </StackPanel>
+                                        <TextBlock Classes="muted" Text="{Binding Description}"
+                                                   TextWrapping="Wrap" MaxLines="2" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Name="SubAgentsSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterSubAgentsTitle}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterSubAgentsDesc}" TextWrapping="Wrap" />
+                    <ItemsControl ItemsSource="{Binding SubAgents}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewData:MountedAgentItem">
+                                <Border Background="{DynamicResource SemiBlue0}"
+                                        BorderBrush="{DynamicResource SemiBlue3}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="10,3,6,3" Margin="0,0,6,6">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SemiBlue7}" />
+                                        <ThemedIconButton Classes="message-action" IconName="trash-2"
+                                                          VerticalAlignment="Center"
+                                                          ToolTips="{loc:Loc CharacterSubAgentsRemove}"
+                                                          Command="{Binding $parent[ItemsControl].((viewData:CharacterInfoViewData)DataContext).RemoveSubAgentCommand}"
+                                                          CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- 内联单选,选一个加一个;已挂的与自己(防递归)不在候选里 -->
+                    <Button Content="{loc:Loc AddBtn}" HorizontalAlignment="Left">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft" Opening="OnSubAgentPickerOpening">
+                                <viewData:CharacterPickerView Name="SubAgentPicker" />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </Border>
+
             <Border Name="OptionalPromptSection" Classes="edit-card">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title" Text="{loc:Loc OptionalPromptParams}" />

@@ -23,90 +23,6 @@ using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Features.Settings;
 
-/// <summary>
-/// 能力门控条目：左列 toggle+名称，右栏描述/可编辑提示词/专属设置。
-/// 变更即写配置并保存；提示词只存"覆盖"（与默认相同或为空 = 用默认），
-/// 因此重置=清空覆盖，默认措辞升级时未覆盖的用户自动跟随。
-/// </summary>
-public sealed partial class AgentGateItem : ObservableObject
-{
-    private readonly Func<bool> _getEnabled; //现读现写 Current,配置对象可能被重载替换
-    private readonly Action<bool> _setEnabled;
-    private readonly Func<string>? _getPromptOverride;
-    private readonly Action<string>? _setPromptOverride;
-
-    /// <summary>显示名</summary>
-    public string Name { get; }
-
-    /// <summary>详细描述</summary>
-    public string Description { get; }
-
-    /// <summary>默认提示词(无提示词的门控为空串)</summary>
-    public string DefaultPrompt { get; }
-
-    /// <summary>是否带可编辑提示词</summary>
-    public bool HasPrompt => _setPromptOverride != null;
-
-    /// <summary>是否为网络搜索门控(右栏追加 API key 面板)</summary>
-    public bool IsWebSearchGate { get; init; }
-
-    public AgentGateItem(string name, string description,
-        Func<bool> getEnabled, Action<bool> setEnabled,
-        string defaultPrompt = "",
-        Func<string>? getPromptOverride = null, Action<string>? setPromptOverride = null)
-    {
-        Name = name;
-        Description = description;
-        DefaultPrompt = defaultPrompt;
-        _getEnabled = getEnabled;
-        _setEnabled = setEnabled;
-        _getPromptOverride = getPromptOverride;
-        _setPromptOverride = setPromptOverride;
-    }
-
-    /// <summary>开关(变更即存)</summary>
-    public bool IsEnabled
-    {
-        get => _getEnabled();
-        set
-        {
-            if (_getEnabled() == value) return;
-            _setEnabled(value);
-            AgentSettingConfig.Current.Save();
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>生效中的提示词(覆盖为空时显示默认;编辑即存)</summary>
-    public string PromptText
-    {
-        get
-        {
-            string overrideText = _getPromptOverride?.Invoke() ?? string.Empty;
-            return string.IsNullOrWhiteSpace(overrideText) ? DefaultPrompt : overrideText;
-        }
-        set
-        {
-            if (_setPromptOverride == null || value == PromptText) return;
-            _setPromptOverride(value.Trim() == DefaultPrompt ? string.Empty : value);
-            AgentSettingConfig.Current.Save();
-            OnPropertyChanged();
-        }
-    }
-
-    /// <summary>
-    /// 重置为默认提示词(清空覆盖)
-    /// </summary>
-    [RelayCommand]
-    private void ResetPrompt()
-    {
-        if (_setPromptOverride == null) return;
-        _setPromptOverride(string.Empty);
-        AgentSettingConfig.Current.Save();
-        OnPropertyChanged(nameof(PromptText));
-    }
-}
-
 public partial class AgentSettingViewData : ViewModelBase
 {
     //================= 常规 =================
@@ -114,9 +30,7 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
     [ObservableProperty] private bool _defaultPlanMode;
 
-    //================= 能力门控(左列表右详情) =================
-    public ObservableCollection<AgentGateItem> Gates { get; } = new();
-    [ObservableProperty] private AgentGateItem? _selectedGate;
+    //================= 搜索凭据(能力开关已下沉到角色,见 ADR 0003) =================
     [ObservableProperty] private string _tavilyApiKey = string.Empty;
     [ObservableProperty] private string _braveSearchApiKey = string.Empty;
 
@@ -138,75 +52,8 @@ public partial class AgentSettingViewData : ViewModelBase
         _tavilyApiKey = config.TavilyApiKey;
         _braveSearchApiKey = config.BraveSearchApiKey;
 
-        BuildGates();
         RefreshServers();
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
-    }
-
-    /// <summary>
-    /// 构建门控列表。开关与提示词的读写都现取 <see cref="AgentSettingConfig.Current"/>,
-    /// 不缓存配置对象引用。
-    /// </summary>
-    private void BuildGates()
-    {
-        string L(string key) => LocalizationManager.Instance.GetString(key);
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapFileAccess"), L("AgentGateDescFileAccess"),
-            () => AgentSettingConfig.Current.EnableFileAccess,
-            v => AgentSettingConfig.Current.EnableFileAccess = v,
-            AgentToolPrompts.FileAccessDefault,
-            () => AgentSettingConfig.Current.FileAccessPrompt,
-            v => AgentSettingConfig.Current.FileAccessPrompt = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapShellExecution"), L("AgentGateDescShell"),
-            () => AgentSettingConfig.Current.EnableShellExecution,
-            v => AgentSettingConfig.Current.EnableShellExecution = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapWebSearch"), L("AgentGateDescWebSearch"),
-            () => AgentSettingConfig.Current.EnableWebSearch,
-            v => AgentSettingConfig.Current.EnableWebSearch = v)
-        {
-            IsWebSearchGate = true,
-        });
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapVisionTool"), L("AgentGateDescVisionTool"),
-            () => AgentSettingConfig.Current.EnableVisionTool,
-            v => AgentSettingConfig.Current.EnableVisionTool = v,
-            AgentToolPrompts.VisionToolDefault,
-            () => AgentSettingConfig.Current.VisionToolPrompt,
-            v => AgentSettingConfig.Current.VisionToolPrompt = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapKnowledgeSearchTool"), L("AgentGateDescKnowledgeSearch"),
-            () => AgentSettingConfig.Current.EnableKnowledgeSearchTool,
-            v => AgentSettingConfig.Current.EnableKnowledgeSearchTool = v,
-            AgentToolPrompts.KnowledgeSearchDefault,
-            () => AgentSettingConfig.Current.KnowledgeSearchPrompt,
-            v => AgentSettingConfig.Current.KnowledgeSearchPrompt = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapSubAgent"), L("AgentGateDescSubAgent"),
-            () => AgentSettingConfig.Current.EnableSubAgent,
-            v => AgentSettingConfig.Current.EnableSubAgent = v,
-            AgentToolPrompts.SubAgentDefault,
-            () => AgentSettingConfig.Current.SubAgentPrompt,
-            v => AgentSettingConfig.Current.SubAgentPrompt = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapFileMemory"), L("AgentGateDescFileMemory"),
-            () => AgentSettingConfig.Current.EnableFileMemory,
-            v => AgentSettingConfig.Current.EnableFileMemory = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapScheduledTasks"), L("AgentGateDescScheduledTasks"),
-            () => AgentSettingConfig.Current.EnableScheduledTasks,
-            v => AgentSettingConfig.Current.EnableScheduledTasks = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapTodoList"), L("AgentGateDescTodoList"),
-            () => AgentSettingConfig.Current.EnableTodoList,
-            v => AgentSettingConfig.Current.EnableTodoList = v));
-
-        Gates.Add(new AgentGateItem(L("AgentSettingCapAgentMode"), L("AgentGateDescAgentMode"),
-            () => AgentSettingConfig.Current.EnableAgentMode,
-            v => AgentSettingConfig.Current.EnableAgentMode = v));
-
-        SelectedGate = Gates.FirstOrDefault();
     }
 
     //================= 常规:变更即存 =================
@@ -350,48 +197,39 @@ public partial class AgentSettingViewData : ViewModelBase
     private async Task RefreshSkillsAsync()
     {
         List<SkillCatalogEntry> entries = await SkillCatalog.Instance.GetEntriesAsync();
-        var disabled = AgentSettingConfig.Current.DisabledSkills;
 
         Skills.Clear();
         foreach (SkillCatalogEntry entry in entries)
         {
-            bool isEnabled = !disabled.Any(x => string.Equals(x, entry.Name, StringComparison.OrdinalIgnoreCase));
-            Skills.Add(new SkillDisplayItem(entry, isEnabled));
+            Skills.Add(new SkillDisplayItem(entry));
         }
     }
 }
 
 /// <summary>
-/// 技能列表显示项(启停即存)。「模型可自选」由 SKILL.md 自己声明,
-/// 属技能包的一部分而非用户偏好,因此这里只读展示,不给覆盖入口。
+/// 技能列表显示项（只读展示）。启停<b>不在这里</b>——技能与工具同类，属"这个智能体有什么能力"，
+/// 按角色配（见 <see cref="AgentToolConfig.DisabledSkills"/> 与角色编辑页）。
+/// 「模型可自选」由 SKILL.md 自己声明，属技能包的一部分而非用户偏好，同样只读。
 /// </summary>
-public partial class SkillDisplayItem : ObservableObject
+public class SkillDisplayItem
 {
+    /// <summary>技能名(即目录名)</summary>
     public string Name { get; }
+
+    /// <summary>技能描述(模型自选时的匹配依据)</summary>
     public string Description { get; }
 
-    /// <summary>是否参与模型自选(false = 只能由用户敲 / 点名触发)</summary>
-    public bool IsModelInvocable { get; }
-
-    /// <summary>框架是否接受加载(false = 目录里有 SKILL.md 但被规范校验拒掉)</summary>
+    /// <summary>是否已成功加载</summary>
     public bool IsLoaded { get; }
 
-    /// <summary>是否显示「主动技能」标记(UI 用词,即退出了模型自选、只剩点名调用可达)</summary>
-    public bool IsUserInvokedOnly => IsLoaded && !IsModelInvocable;
+    /// <summary>是否退出了模型自选(只能点名调用)</summary>
+    public bool IsUserInvokedOnly { get; }
 
-    [ObservableProperty] private bool _isEnabled;
-
-    public SkillDisplayItem(SkillCatalogEntry entry, bool isEnabled)
+    public SkillDisplayItem(SkillCatalogEntry entry)
     {
         Name = entry.Name;
         Description = entry.Description;
-        IsModelInvocable = entry.IsModelInvocable;
         IsLoaded = entry.IsLoaded;
-        _isEnabled = isEnabled;
-    }
-
-    partial void OnIsEnabledChanged(bool value)
-    {
-        SkillCatalog.Instance.SetSkillEnabled(Name, value);
+        IsUserInvokedOnly = !entry.IsModelInvocable;
     }
 }

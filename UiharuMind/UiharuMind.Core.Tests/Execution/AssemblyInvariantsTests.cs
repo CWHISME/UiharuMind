@@ -148,33 +148,50 @@ public class HarnessInstructionsCompositionTests
 
     /// <summary>
     /// 主 agent 也必须被告知工作目录的绝对路径。同一个坑：路径只被拿去构造工具，
-    /// 从没进过提示词，模型只能自己编。这一段刻意<b>不可</b>被设置页覆盖——
-    /// 它是事实而非建议，用户改写文件工具的纪律文案不该顺带删掉"根目录在哪"。
+    /// 从没进过提示词，模型只能自己编。
     /// </summary>
     [Fact]
     public void AgentInstructions_StateTheWorkingDirectory()
     {
         const string workingDirectory = "/tmp/uiharu-agent-test";
-        AgentSettingConfig config = new() { FileAccessPrompt = "custom file prompt" };
 
-        HarnessAgentOptions options = BuildAgentOptions(workingDirectory, config);
+        HarnessAgentOptions options = BuildAgentOptions(workingDirectory);
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
         Assert.Contains(workingDirectory, instructions);
-        Assert.Contains("custom file prompt", instructions); //覆盖生效,但没吃掉工作目录段
+        Assert.Contains(AgentToolPrompts.FileAccessDefault, instructions); //纪律段没吃掉工作目录段
+    }
+
+    /// <summary>
+    /// 关掉的工具其纪律段必须一并消失：留着就是纯噪声，还会指挥模型去调不存在的工具。
+    /// 能力配置来自角色，这条同时验证装配确实读的是角色那份。
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_OmitDisciplinesOfDisabledTools()
+    {
+        AgentToolConfig tools = new() { EnableFileAccess = false, EnableSubAgent = false };
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", tools)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.DoesNotContain("## File operations", instructions);
+        Assert.DoesNotContain(AgentToolPrompts.SubAgentDefault, instructions);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
-        AgentSettingConfig? config = null, string workspaceInstructions = "")
+        AgentToolConfig? tools = null, string workspaceInstructions = "")
     {
-        CharacterData character = new() { CharacterId = "agent", Kind = ECharacterKind.Agent };
+        CharacterData character = new()
+        {
+            CharacterId = "agent", Kind = ECharacterKind.Agent, Tools = tools ?? new AgentToolConfig(),
+        };
         string skillsDir = Path.Combine(Path.GetTempPath(), "uiharu-skills-test");
         Directory.CreateDirectory(skillsDir);
 
         // 角色段由调用方先填好(实机里是 CharacterPromptBuilder 的产物)
         ChatOptions chatOptions = new() { Instructions = PersonaMarker };
 
-        return CharacterRunnerFactory.BuildAgentOptions(character, config ?? new AgentSettingConfig(),
+        return CharacterRunnerFactory.BuildAgentOptions(character, character.Tools,
             new StubHistoryProvider(), [], chatOptions,
             new AgentFileSkillsSource(skillsDir), fileMemoryStore: null,
             EAgentPermissionMode.AutoEdit, preAuthorizedShellPatterns: null,
@@ -214,13 +231,13 @@ public class SubAgentBoundaryTests
     private const string TestWorkingDirectory = "/tmp/uiharu-subagent-test";
 
     private static CharacterRunnerFactory.SubAgentAssemblyInput NewInput(
-        AgentSettingConfig? config = null,
+        AgentToolConfig? config = null,
         EAgentPermissionMode mode = EAgentPermissionMode.AutoEdit,
         string workspaceInstructions = "")
     {
         return new CharacterRunnerFactory.SubAgentAssemblyInput
         {
-            Config = config ?? new AgentSettingConfig(),
+            Config = config ?? new AgentToolConfig(),
             WorkingDirectory = TestWorkingDirectory,
             PermissionMode = mode,
             WorkspaceInstructions = workspaceInstructions,
@@ -303,7 +320,7 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgentTools_ExcludeMainAgentOnlyTools()
     {
-        AgentSettingConfig config = new() { EnableKnowledgeSearchTool = true, EnableScheduledTasks = true };
+        AgentToolConfig config = new() { EnableKnowledgeSearchTool = true, EnableScheduledTasks = true };
         List<string> names = ToolNamesOf(CharacterRunnerFactory.BuildSubAgentOptions(
             NewInput(config, EAgentPermissionMode.FullAuto)));
 
@@ -343,6 +360,55 @@ public class SubAgentBoundaryTests
         Assert.Equal(string.Empty, options!.HarnessInstructions);
         Assert.Contains(AgentToolPrompts.AgentWorkLoop, options.ChatOptions?.Instructions);
         Assert.DoesNotContain("helpful AI assistant", options.ChatOptions?.Instructions);
+    }
+
+    /// <summary>
+    /// 子智能体<b>不能比派活的那一个能力更大</b>。名单里挂一个开着 shell 的子智能体，
+    /// 不该给关掉了 shell 的父智能体开后门——生效配置取两者交集。
+    /// </summary>
+    [Fact]
+    public void SubAgentCapabilities_NeverExceedTheParent()
+    {
+        AgentToolConfig parent = new() { EnableShellExecution = false, EnableWebSearch = false };
+        AgentToolConfig child = new() { EnableShellExecution = true, EnableWebSearch = true };
+
+        AgentToolConfig effective = child.Intersect(parent);
+
+        Assert.False(effective.EnableShellExecution);
+        Assert.False(effective.EnableWebSearch);
+        Assert.True(effective.EnableFileAccess); //两边都开的仍然开
+    }
+
+    /// <summary>
+    /// 交集对禁用清单取<b>并集</b>：任一侧禁掉的技能都不该出现在子智能体那儿。
+    /// </summary>
+    [Fact]
+    public void SubAgentDisabledSkills_AreTheUnionOfBothSides()
+    {
+        AgentToolConfig parent = new() { DisabledSkills = { "a" } };
+        AgentToolConfig child = new() { DisabledSkills = { "b" } };
+
+        List<string> effective = child.Intersect(parent).DisabledSkills;
+
+        Assert.Contains("a", effective);
+        Assert.Contains("b", effective);
+    }
+
+    /// <summary>
+    /// 点名的子智能体，人格排在那套"你是子代理"的边界与体例之前(与主 agent 同一口径,见 ADR 0005)。
+    /// </summary>
+    [Fact]
+    public void NamedSubAgent_PutsItsPersonaFirst()
+    {
+        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(
+            NewInput() with { Persona = "I am the research specialist", Name = "Researcher" });
+
+        Assert.NotNull(options);
+        string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
+        Assert.Equal("Researcher", options.Name);
+        Assert.True(instructions.IndexOf("I am the research specialist", StringComparison.Ordinal) <
+                    instructions.IndexOf("# Role", StringComparison.Ordinal),
+            "子智能体的人格必须排在子代理身份段之前");
     }
 
     /// <summary>
@@ -474,7 +540,7 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgent_NotMounted_WhenAllCapabilitiesDisabled()
     {
-        AgentSettingConfig config = new()
+        AgentToolConfig config = new()
         {
             EnableFileAccess = false,
             EnableWebSearch = false,
@@ -492,19 +558,21 @@ public class SubAgentBoundaryTests
 /// </summary>
 public class AssemblySnapshotTests
 {
-    private static CharacterData NewAgentCharacter()
+    private static CharacterData NewAgentCharacter(AgentToolConfig? tools = null)
     {
-        return new CharacterData { CharacterId = "agent", Kind = ECharacterKind.Agent };
+        return new CharacterData
+        {
+            CharacterId = "agent", Kind = ECharacterKind.Agent, Tools = tools ?? new AgentToolConfig(),
+        };
     }
 
     [Fact]
     public void SameInputs_ProduceEqualSnapshots()
     {
-        AgentSettingConfig config = new();
         AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, config, mcpRevision: 1);
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
         AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, config, mcpRevision: 1);
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
 
         Assert.Equal(first, second);
     }
@@ -519,16 +587,14 @@ public class AssemblySnapshotTests
     [InlineData("todolist")]
     [InlineData("agentmode")]
     [InlineData("vision-model")]
-    [InlineData("prompt-override")]
     [InlineData("subagent")]
-    [InlineData("subagent-prompt-override")]
+    [InlineData("skills")]
     public void ChangedInput_ProducesDifferentSnapshot(string dimension)
     {
-        AgentSettingConfig config = new();
         AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, config, mcpRevision: 1);
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
 
-        AgentSettingConfig changedConfig = new();
+        AgentToolConfig changedConfig = new();
         string instructions = "prompt";
         string? workspace = "/ws";
         EAgentPermissionMode permission = EAgentPermissionMode.AutoEdit;
@@ -547,24 +613,27 @@ public class AssemblySnapshotTests
             case "todolist": changedConfig.EnableTodoList = !changedConfig.EnableTodoList; break;
             case "agentmode": changedConfig.EnableAgentMode = !changedConfig.EnableAgentMode; break;
             case "vision-model": modelSupportsVision = true; break; //视觉↔非视觉模型切换触发重建
-            case "prompt-override": changedConfig.VisionToolPrompt = "custom vision prompt"; break;
             case "subagent": changedConfig.EnableSubAgent = !changedConfig.EnableSubAgent; break;
-            case "subagent-prompt-override": changedConfig.SubAgentPrompt = "custom subagent prompt"; break;
+            case "skills": changedConfig.DisabledSkills.Add("some-skill"); break;
         }
 
-        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), instructions,
-            workspace, permission, preAuthorized, changedConfig, mcpRevision,
+        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(changedConfig),
+            instructions, workspace, permission, preAuthorized, mcpRevision,
             modelSupportsVision: modelSupportsVision);
 
         Assert.NotEqual(baseline, changed);
     }
 
-    [Fact]
-    public void RoleplaySnapshot_IsImmuneToAgentConfigChanges()
+    /// <summary>
+    /// 非智能体档对能力配置免疫：它们本来就不装工具，能力配置怎么改都不该让它们重建装配。
+    /// </summary>
+    [Theory]
+    [InlineData(ECharacterKind.Roleplay)]
+    [InlineData(ECharacterKind.Tool)]
+    public void PromptOnlySnapshot_IsImmuneToToolConfigChanges(ECharacterKind kind)
     {
-        CharacterData roleplay = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
-        AgentSettingConfig configA = new();
-        AgentSettingConfig configB = new()
+        AgentToolConfig configA = new();
+        AgentToolConfig configB = new()
         {
             EnableFileAccess = false,
             EnableShellExecution = false,
@@ -576,10 +645,13 @@ public class AssemblySnapshotTests
             EnableSubAgent = false,
         };
 
-        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(roleplay, "prompt", "/ws",
-            EAgentPermissionMode.AutoEdit, null, configA, mcpRevision: 1);
-        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(roleplay, "prompt", "/other",
-            EAgentPermissionMode.FullAuto, ["*"], configB, mcpRevision: 99);
+        CharacterData a = new() { CharacterId = "rp", Kind = kind, Tools = configA };
+        CharacterData b = new() { CharacterId = "rp", Kind = kind, Tools = configB };
+
+        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(a, "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
+        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(b, "prompt", "/other",
+            EAgentPermissionMode.FullAuto, ["*"], mcpRevision: 99);
 
         Assert.Equal(first, second);
     }

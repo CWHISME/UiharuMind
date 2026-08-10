@@ -80,9 +80,6 @@ public sealed record AgentAssemblySnapshot
     /// <summary>计划模式开关(框架 AgentModeProvider)</summary>
     public bool AgentMode { get; init; }
 
-    /// <summary>工具纪律段的自定义提示词覆盖(拼接;设置页编辑经此触发重建)</summary>
-    public string ToolPromptOverrides { get; init; } = string.Empty;
-
     /// <summary>工作区说明文件内容(AGENTS.md/CLAUDE.md);文件编辑经此触发重建</summary>
     public string WorkspaceInstructions { get; init; } = string.Empty;
 
@@ -105,7 +102,7 @@ public sealed record AgentAssemblySnapshot
             session.WorkspacePath,
             (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             session.PreAuthorizedShellPatterns,
-            AgentSettingConfig.Current, McpManager.Instance.Revision,
+            McpManager.Instance.Revision,
             character.Kind.IsAgent()
                 ? WorkspaceInstructionsLoader.Load(session.WorkspacePath)
                 : string.Empty,
@@ -121,7 +118,6 @@ public sealed record AgentAssemblySnapshot
     /// <param name="workspacePath">工作目录</param>
     /// <param name="permission">权限档</param>
     /// <param name="preAuthorizedShellPatterns">shell 预授权模式</param>
-    /// <param name="config">agent 能力配置</param>
     /// <param name="mcpRevision">MCP 工具集修订号</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
@@ -129,11 +125,12 @@ public sealed record AgentAssemblySnapshot
     public static AgentAssemblySnapshot Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
-        AgentSettingConfig config, int mcpRevision, string workspaceInstructions = "",
+        int mcpRevision, string workspaceInstructions = "",
         bool modelSupportsVision = false)
     {
-        // 角色扮演档不装配工具,工具相关输入一律归零——agent 侧配置变化不连累角色扮演重建
+        // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.Kind.IsAgent();
+        AgentToolConfig config = character.Tools;
         return new AgentAssemblySnapshot
         {
             CharacterId = character.CharacterId,
@@ -156,10 +153,6 @@ public sealed record AgentAssemblySnapshot
             ModelSupportsVision = isAgent && modelSupportsVision,
             TodoList = isAgent && config.EnableTodoList,
             AgentMode = isAgent && config.EnableAgentMode,
-            ToolPromptOverrides = isAgent
-                ? string.Join('\x1F', config.FileAccessPrompt, config.VisionToolPrompt,
-                    config.KnowledgeSearchPrompt, config.SubAgentPrompt)
-                : string.Empty,
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
             McpRevision = isAgent ? mcpRevision : 0,

@@ -150,7 +150,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     {
         // 角色扮演档整个禁用了框架文件记忆,没有这份状态可写
         if (!session.CharacterData.Kind.IsAgent()) return;
-        if (!AgentSettingConfig.Current.EnableFileMemory) return;
+        if (!session.CharacterData.Tools.EnableFileMemory) return;
 
         try
         {
