@@ -15,6 +15,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -103,6 +104,33 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             Log.Debug($"OpenAI-compatible request: {Regex.Unescape(jsonContent)}");
         }
 
-        return await base.SendAsync(request, cancellationToken);
+        var response = await base.SendAsync(request, cancellationToken);
+        return await SanitizeResponseAsync(response, cancellationToken);
+    }
+
+    // 部分兼容服务(如商汤 Sensenova)会返回空的/非标准的 finish_reason，OpenAI SDK 解析枚举时会直接抛异常
+    private async Task<HttpResponseMessage> SanitizeResponseAsync(HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (!_baseUri.AbsolutePath.Contains("chat/completions", StringComparison.OrdinalIgnoreCase)) return response;
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (mediaType == "text/event-stream")
+        {
+            response.Content = new SseSanitizingContent(response.Content);
+        }
+        else if (mediaType == "application/json")
+        {
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var fixedJson = OpenAiCompatibleResponseFixer.FixJson(json);
+            if (fixedJson != null)
+            {
+                var contentType = response.Content.Headers.ContentType;
+                response.Content = new StringContent(fixedJson, Encoding.UTF8, "application/json");
+                if (contentType != null) response.Content.Headers.ContentType = contentType;
+            }
+        }
+
+        return response;
     }
 }
