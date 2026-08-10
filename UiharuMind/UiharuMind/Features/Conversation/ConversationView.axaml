@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:imaging="clr-namespace:Avalonia.Media.Imaging;assembly=Avalonia.Base"
              xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.Shared.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
@@ -254,12 +255,29 @@
                                                 BorderBrush="{Binding SenderColor}"
                                                 HorizontalAlignment="{Binding Alignment}"
                                                 IsVisible="{Binding HasImage}">
-                                            <!-- 点击看原尺寸:气泡里是缩略图,而这张正是发给模型的那一份 -->
-                                            <Image Source="{Binding MessageImage}"
-                                                   MaxWidth="320" MaxHeight="320"
-                                                   Stretch="Uniform"
-                                                   Cursor="Hand"
-                                                   PointerPressed="OnMessageImagePressed" />
+                                            <!-- 点击看原尺寸:气泡里是缩略图,而这些正是发给模型的那几份 -->
+                                            <ItemsControl ItemsSource="{Binding MessageImages}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel MaxWidth="340" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type imaging:Bitmap}">
+                                                        <!-- 每张图各自描边:多张浅色截图挨在一起时,没有边界就会被读成一整张长图 -->
+                                                        <Border Margin="4" CornerRadius="4" ClipToBounds="True"
+                                                                BorderThickness="1"
+                                                                BorderBrush="{DynamicResource SemiGrey3}">
+                                                            <Image Source="{Binding}"
+                                                                   MaxWidth="{Binding $parent[ItemsControl].((conv:TextConversationItem)DataContext).ImageThumbSize}"
+                                                                   MaxHeight="{Binding $parent[ItemsControl].((conv:TextConversationItem)DataContext).ImageThumbSize}"
+                                                                   Stretch="Uniform"
+                                                                   Cursor="Hand"
+                                                                   PointerPressed="OnMessageImagePressed" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                         </Border>
 
                                         <Border Classes="message-bubble" Margin="0,5,0,0"
