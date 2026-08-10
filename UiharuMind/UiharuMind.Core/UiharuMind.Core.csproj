@@ -59,9 +59,7 @@
       <EmbeddedResource Include="Resources\AssistantSyntacticAnalysis.json" />
       <EmbeddedResource Include="Resources\ChainofThought.json" />
       <EmbeddedResource Include="Resources\Empty.json" />
-      <EmbeddedResource Include="Resources\Roleplay_FirstPerson.json" />
-      <EmbeddedResource Include="Resources\Roleplay_ThirdPerson.json" />
-      <EmbeddedResource Include="Resources\SystemLanguage.json" />
+      <EmbeddedResource Include="Resources\PromptSnippets.json" />
       <EmbeddedResource Include="Resources\TranslatorAdvanced.json" />
       <EmbeddedResource Include="Resources\UserCard.json" />
       <EmbeddedResource Include="Resources\VisionOcr.json" />

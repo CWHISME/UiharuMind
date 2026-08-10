@@ -22,56 +22,55 @@ public class CharacterPromptBuilderTests
     }
 
     [Fact]
-    public void PurePromptCharacter_GetsOnlyItsOwnTemplate()
+    public void ToolCharacter_GetsOnlyItsOwnTemplate()
     {
         CharacterData translator = Default(DefaultCharacter.Translator);
 
-        Assert.True(translator.IsPurePromptCharacter);
+        Assert.Equal(ECharacterKind.Tool, translator.Kind);
+        Assert.False(translator.InjectUserCard);
 
         string prompt = CharacterPromptBuilder.Build(translator);
 
         // 关键回归点：旧实现给所有非工具角色无条件注入用户卡。
-        // 现在注入与否由挂载列表决定，翻译类角色不该被灌进用户人格。
+        // 现在注入与否由 InjectUserCard 决定，工具人不该被灌进用户人格。
         Assert.DoesNotContain("的个人信息", prompt);
         Assert.Contains("资深跨文化翻译家", prompt);
     }
 
     [Fact]
-    public void RoleplayCharacter_ComposesMountsThenOwnTemplate()
+    public void RoleplayCharacter_ComposesUserCardThenOwnTemplate()
     {
         CharacterData uiharu = Default(DefaultCharacter.UiharuKazari);
 
-        // 默认挂载值已改为空列表，扮演角色必须在自己的存档里显式声明挂载
-        Assert.Equal(
-            [nameof(DefaultCharacter.Roleplay_ThirdPerson), nameof(DefaultCharacter.UserCard)],
-            uiharu.MountPrompts);
-        Assert.False(uiharu.IsPurePromptCharacter);
+        // 脚手架已内联进 Template(所见即所得)，用户卡是开关(单例、活引用)。
+        // 运行期挂载机制已整体退役：跨角色引用只剩用户卡这一处
+        Assert.Equal(ECharacterKind.Roleplay, uiharu.Kind);
+        Assert.True(uiharu.InjectUserCard);
 
         string prompt = CharacterPromptBuilder.Build(uiharu);
 
-        int scaffold = prompt.IndexOf("第三人称角色扮演系统", StringComparison.Ordinal);
         int userCard = prompt.IndexOf("的个人信息", StringComparison.Ordinal);
+        int scaffold = prompt.IndexOf("第三人称角色扮演系统", StringComparison.Ordinal);
         int ownTemplate = prompt.IndexOf("初春饰利是《魔法禁书目录》", StringComparison.Ordinal);
 
-        Assert.True(scaffold >= 0, "缺少第三人称扮演脚手架");
         Assert.True(userCard >= 0, "缺少用户卡注入");
+        Assert.True(scaffold >= 0, "缺少第三人称扮演脚手架(应已内联进 Template)");
         Assert.True(ownTemplate >= 0, "缺少角色自身的 Template");
 
-        // 顺序：挂载片段按声明顺序在前，角色自身 Template 在后
-        Assert.True(scaffold < userCard, "挂载片段未按声明顺序拼接");
-        Assert.True(userCard < ownTemplate, "角色自身 Template 应拼在挂载片段之后");
+        // 顺序：用户卡在最前(先交代用户是谁)，随后是角色自己的 Template
+        Assert.True(userCard < scaffold, "用户卡应拼在角色自身 Template 之前");
+        Assert.True(scaffold < ownTemplate, "脚手架应在 Template 开头");
     }
 
     [Fact]
-    public void UserCardMount_ResolvesUserNameNotHostName()
+    public void UserCardInjection_ResolvesUserNameNotHostName()
     {
         CharacterData uiharu = Default(DefaultCharacter.UiharuKazari);
         string userName = CharacterManager.Instance.UserCharacterName;
 
         string prompt = CharacterPromptBuilder.Build(uiharu);
 
-        // 用户卡降级为普通挂载项后，其模板改用 {{$user}}；
-        // 若误用 {{$char}} 会被替换成宿主角色名(初春)，那是错的
+        // 用户卡模板用的是 {{$user}}；若误用 {{$char}} 会被替换成宿主角色名(初春)，那是错的
         Assert.Contains($"{userName}的个人信息", prompt);
     }
 

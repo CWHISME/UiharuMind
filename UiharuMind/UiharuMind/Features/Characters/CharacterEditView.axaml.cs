@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -30,13 +31,25 @@ public partial class CharacterEditView : UserControl
         InitializeComponent();
     }
 
+    /// <summary>
+    /// 展开前给片段选择器换一份数据。片段库可能刚被别处增删，且「存为片段」要取到
+    /// <b>当前</b>提示词框里的文本，所以每次展开都重新绑一份。
+    /// </summary>
+    private void OnSnippetPickerOpening(object? sender, EventArgs e)
+    {
+        if (DataContext is not CharacterInfoViewData data) return;
+
+        SnippetPicker.DataContext = new PromptSnippetPickerViewData(
+            () => data.Template,
+            text => data.InsertSnippet(text));
+    }
+
     public void ScrollToSection(string? sectionKey)
     {
         Control? target = sectionKey switch
         {
             "Basic" => BasicInfoSection,
             "Function" => FunctionTypeSection,
-            "Mounts" => MountsSection,
             "Prompt" => PromptSection,
             "Greeting" => GreetingSection,
             "Dialog" => DialogTemplateSection,

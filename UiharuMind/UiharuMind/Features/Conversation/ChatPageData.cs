@@ -61,10 +61,4 @@ public partial class ChatPageData : ConversationPageDataBase
         else _chatInfoModel.NotifyChatEnd();
     }
 
-    [RelayCommand]
-    public async Task AddChat()
-    {
-        var item = await CharacterSelectWindow.ShowCharacterSelectWindow(UIManager.GetFocusWindow());
-        item?.StartChat();
-    }
 }

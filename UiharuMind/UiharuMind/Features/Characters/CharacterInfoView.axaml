@@ -56,8 +56,8 @@
                                              FontWeight="SemiBold"
                                              TextAlignment="Center"
                                              Foreground="{DynamicResource SemiGrey7}" />
-                        <u:Badge Header="{Binding FuncName}"
-                                 Background="{Binding FuncColor}"
+                        <u:Badge Header="{Binding KindName}"
+                                 Background="{Binding KindColor}"
                                  HorizontalAlignment="Center" />
                         <SelectableTextBlock Text="{Binding Description}"
                                              Foreground="{DynamicResource SemiGrey6}" />
@@ -81,54 +81,18 @@
             </Border>
 
             <Border Classes="info-card">
-                <StackPanel Spacing="10">
-                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterFuncType}" />
-                    <ToggleSwitch IsChecked="{Binding IsRole}"
-                                  OffContent="{loc:Loc ToolCharacter}"
-                                  OnContent="{loc:Loc RoleplayCharacter}"
-                                  IsEnabled="False" />
-                </StackPanel>
-            </Border>
-
-            <Border Classes="info-card" IsVisible="{Binding IsRole}">
-                <StackPanel Spacing="10">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Classes="card-title" Text="{loc:Loc MountsTitle}" />
-                        <controls:ThemedSvgIcon Width="16" Height="16" IconName="info">
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc MountsDesc}" FontSize="14" />
-                            </ToolTip.Tip>
-                        </controls:ThemedSvgIcon>
-                    </StackPanel>
-                    <ItemsControl ItemsSource="{Binding MountPrompts}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <u:Badge Header="{Binding Name}" Background="{DynamicResource SemiBlue5}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Classes="muted" Text="{loc:Loc MountsNullTips}" />
-                </StackPanel>
-            </Border>
-
-            <Border Classes="info-card">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title"
-                               IsVisible="{Binding IsRole}"
+                               IsVisible="{Binding IsRoleplay}"
                                Text="{loc:Loc CharacterDesc}" />
                     <TextBlock Classes="card-title"
-                               IsVisible="{Binding !IsRole}"
+                               IsVisible="{Binding !IsRoleplay}"
                                Text="{loc:Loc SystemPrompt}" />
                     <common:SimpleMarkdownViewer MarkdownText="{Binding TemplateReadonly}" IsPlaintext="False" />
                 </StackPanel>
             </Border>
 
-            <Border Classes="info-card" IsVisible="{Binding IsRole}">
+            <Border Classes="info-card" IsVisible="{Binding IsRoleplay}">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterFirstGreeting}" />
                     <common:SimpleMarkdownViewer MarkdownText="{Binding FirstGreetingReadonly}" IsPlaintext="False" />
@@ -140,7 +104,7 @@
                     <TextBlock Classes="card-title" Text="{loc:Loc AdvancedOptions}" />
                 </Expander.Header>
                 <StackPanel Spacing="12" Margin="0,10,0,0">
-                    <Border Classes="info-card" IsVisible="{Binding IsRole}">
+                    <Border Classes="info-card" IsVisible="{Binding IsRoleplay}">
                         <StackPanel Spacing="8">
                             <TextBlock Classes="card-title" Text="{loc:Loc CharacterDialogTemplate}" />
                             <SelectableTextBlock Text="{Binding DialogTemplateReadonly}" />

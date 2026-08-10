@@ -395,6 +395,42 @@ namespace UiharuMind.Resources.Lang {
             }
         }
 
+        public static string CharacterKindAgent {
+            get {
+                return ResourceManager.GetString("CharacterKindAgent", resourceCulture);
+            }
+        }
+
+        public static string CharacterKindDesc {
+            get {
+                return ResourceManager.GetString("CharacterKindDesc", resourceCulture);
+            }
+        }
+
+        public static string CharacterPickerSearch {
+            get {
+                return ResourceManager.GetString("CharacterPickerSearch", resourceCulture);
+            }
+        }
+
+        public static string CharacterPickerEmpty {
+            get {
+                return ResourceManager.GetString("CharacterPickerEmpty", resourceCulture);
+            }
+        }
+
+        public static string AgentCharacterSwitch {
+            get {
+                return ResourceManager.GetString("AgentCharacterSwitch", resourceCulture);
+            }
+        }
+
+        public static string ChatNewSession {
+            get {
+                return ResourceManager.GetString("ChatNewSession", resourceCulture);
+            }
+        }
+
         public static string AgentWorkspaceRecent {
             get {
                 return ResourceManager.GetString("AgentWorkspaceRecent", resourceCulture);
@@ -1247,39 +1283,9 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string MountsTitle {
-            get {
-                return ResourceManager.GetString("MountsTitle", resourceCulture);
-            }
-        }
-        
-        public static string MountsDesc {
-            get {
-                return ResourceManager.GetString("MountsDesc", resourceCulture);
-            }
-        }
-        
-        public static string MountsNullTips {
-            get {
-                return ResourceManager.GetString("MountsNullTips", resourceCulture);
-            }
-        }
-        
         public static string SystemPrompt {
             get {
                 return ResourceManager.GetString("SystemPrompt", resourceCulture);
-            }
-        }
-        
-        public static string RoleplayCharacter {
-            get {
-                return ResourceManager.GetString("RoleplayCharacter", resourceCulture);
-            }
-        }
-        
-        public static string ToolCharacter {
-            get {
-                return ResourceManager.GetString("ToolCharacter", resourceCulture);
             }
         }
         
@@ -4864,5 +4870,77 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("RemoteModelCopyFromExistingHint", resourceCulture);
             }
         }
+        public static string CharacterKindRoleplay {
+            get {
+                return ResourceManager.GetString("CharacterKindRoleplay", resourceCulture);
+            }
+        }
+
+        public static string CharacterKindTool {
+            get {
+                return ResourceManager.GetString("CharacterKindTool", resourceCulture);
+            }
+        }
+
+        public static string CharacterKindUserCard {
+            get {
+                return ResourceManager.GetString("CharacterKindUserCard", resourceCulture);
+            }
+        }
+
+        public static string CharacterInjectUserCard {
+            get {
+                return ResourceManager.GetString("CharacterInjectUserCard", resourceCulture);
+            }
+        }
+
+        public static string CharacterInjectUserCardDesc {
+            get {
+                return ResourceManager.GetString("CharacterInjectUserCardDesc", resourceCulture);
+            }
+        }
+
+        public static string CharacterShowInternal {
+            get {
+                return ResourceManager.GetString("CharacterShowInternal", resourceCulture);
+            }
+        }
+
+        public static string SnippetInsert {
+            get {
+                return ResourceManager.GetString("SnippetInsert", resourceCulture);
+            }
+        }
+
+        public static string SnippetInsertDesc {
+            get {
+                return ResourceManager.GetString("SnippetInsertDesc", resourceCulture);
+            }
+        }
+
+        public static string SnippetEmpty {
+            get {
+                return ResourceManager.GetString("SnippetEmpty", resourceCulture);
+            }
+        }
+
+        public static string SnippetNameWatermark {
+            get {
+                return ResourceManager.GetString("SnippetNameWatermark", resourceCulture);
+            }
+        }
+
+        public static string SnippetSaveCurrent {
+            get {
+                return ResourceManager.GetString("SnippetSaveCurrent", resourceCulture);
+            }
+        }
+
+        public static string SnippetDelete {
+            get {
+                return ResourceManager.GetString("SnippetDelete", resourceCulture);
+            }
+        }
+
     }
 }

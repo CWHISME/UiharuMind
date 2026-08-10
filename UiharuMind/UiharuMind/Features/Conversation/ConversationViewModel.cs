@@ -423,6 +423,49 @@ public partial class ConversationViewModel : ViewModelBase
         PersistSessionSettings();
     }
 
+    /// <summary>当前会话的角色(尚无会话时是新建会话将使用的那个)</summary>
+    private CharacterData ActiveCharacter =>
+        _currentCharacter ?? CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
+
+    /// <summary>当前角色标识(选择器据此把自己排除掉)</summary>
+    public string ActiveCharacterId => ActiveCharacter.CharacterId;
+
+    /// <summary>当前角色名(右侧栏角色行)</summary>
+    public string ActiveCharacterName => ActiveCharacter.CharacterName;
+
+    /// <summary>当前角色描述(右侧栏角色行副文本)</summary>
+    public string ActiveCharacterDescription => ActiveCharacter.Description;
+
+    /// <summary>当前角色头像</summary>
+    public Bitmap? ActiveCharacterIcon => IconUtils.GetCharacterBitmapOrDefault(ActiveCharacter);
+
+    /// <summary>
+    /// 换角色。有会话就换会话的角色，还没有会话就只改新建默认值。
+    ///
+    /// 刻意不在此处重挂执行者：装配快照含角色标识与重算的系统提示，
+    /// <b>下一轮发送时自然重建</b>——因此生成中换角色不会打断当前这一轮。
+    /// </summary>
+    /// <param name="character">新角色</param>
+    public void ChangeCharacter(CharacterData character)
+    {
+        NewSessionCharacterId = character.CharacterId;
+        if (CurrentMeta != null && character.CharacterId != CurrentMeta.CharacterId)
+        {
+            CurrentMeta.CharacterId = character.CharacterId;
+            SessionManager.Instance.Load(CurrentMeta.SessionId)?.ChangeCharacter(character);
+            PersistSessionSettings();
+        }
+
+        _currentCharacter = character;
+        OnPropertyChanged(nameof(ActiveCharacterName));
+        OnPropertyChanged(nameof(ActiveCharacterDescription));
+        OnPropertyChanged(nameof(ActiveCharacterIcon));
+        OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(IsModeSwitchVisible));
+        OnPropertyChanged(nameof(IsTodoListVisible));
+        SessionsChanged?.Invoke(); //会话列表里的角色头像/名字跟着变
+    }
+
     /// <summary>当前工作目录的目录名(卡片主行);未绑定时为空</summary>
     public string WorkspaceName =>
         string.IsNullOrEmpty(WorkspacePath) ? string.Empty : WorkspaceDisplay.NameOf(WorkspacePath);
@@ -790,6 +833,9 @@ public partial class ConversationViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsModeSwitchVisible));
         OnPropertyChanged(nameof(IsTodoListVisible));
         OnPropertyChanged(nameof(SessionModelLabel));
+        OnPropertyChanged(nameof(ActiveCharacterName));
+        OnPropertyChanged(nameof(ActiveCharacterDescription));
+        OnPropertyChanged(nameof(ActiveCharacterIcon));
         if (meta == null)
         {
             IsSessionLoading = false;

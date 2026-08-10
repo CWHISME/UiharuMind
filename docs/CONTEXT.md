@@ -45,19 +45,63 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 
 ### Character（角色）
 
-决定系统提示、挂载片段、可用技能的实体。有稳定标识 `CharacterId`，显示名可随意改而不断引用。
+决定系统提示、工具集与可用技能的实体。有稳定标识 `CharacterId`，显示名可随意改而不断引用。
 
 体现为 `CharacterData`、`CharacterConfig`、`CharacterManager`、`CharacterPromptBuilder`、
 `CharacterPromptRenderer`；内置角色是 `DefaultCharacter` 枚举。
 
-### ECharacterKind（角色种类）
+### ECharacterKind（角色档位）
 
-| 值 | 含义 |
-|---|---|
-| `Roleplay` | 对话角色：无工具、无工作目录。既涵盖角色扮演，也涵盖纯提示词的工具型角色 |
-| `Agent` | 工作区 agent：装配文件/shell/技能等工具与权限档 |
+角色的**唯一身份轴**：一个角色只落一档。界面的分类、筛选、徽章、编辑表单的面孔、
+以及它出现在哪一页全部直读本枚举。
 
-差异只在「是否装配工具与工作目录」；是否带扮演脚手架、是否注入用户卡由**挂载列表**决定。
+| 值 | 用户可见叫法 | 含义 |
+|---|---|---|
+| `Roleplay` | 角色扮演 | 有人格、开场白、示例对话，可注入用户卡。不开 harness |
+| `Tool` | 工具人 | 一段纯系统提示词只干一件事（翻译、识图、解释）。不开 harness |
+| `Agent` | 智能体 | 装配工具与工作目录，开 harness（平台指令、技能目录、压缩、审批、权限档） |
+| `UserCard` | 用户卡 | 「我是谁」的单例，有专属编辑窗，不进角色库、不能对话 |
+
+⚠️ `Tool` 与 `Agent` 的分岔点是**「要不要 agent 平台那一套」，不是工具数量**——工具全关的
+智能体仍是智能体，它照样吃那段 harness 前言与压缩/审批机制。
+
+⚠️ 不要再说「对话角色」——那个词曾同时指扮演与工具人两档，现在这两档是分开的。
+
+### IsInternal（内部角色）
+
+只表示**可见性**：程序按 `DefaultCharacter` 点名取用的技能角色（识图、翻译、解释），
+角色库默认不列，打开「显示内部角色」才可见并可编辑；
+不进任何选择器的候选。身份仍由 `Kind` 说。
+
+⚠️ 它取代了旧的 `IsHide` + `IsHideDefault`。那两个旗标曾兼职表达四件不同的事
+（可对话角色 / 提示词片段 / 技能内部角色 / 用户卡），于是「谁能被挂载」根本无从判断。
+
+### PromptSnippet（提示词片段）
+
+可插入提示词框的一段现成文本，只有名字与正文两个字段，整库一个 json。
+**只在编辑期存在**——插进去之后就是角色自己的文本，运行期没有任何机制引用它。
+体现为 `PromptSnippet`、`PromptSnippetManager`；内置的扮演脚手架（第一/第三人称）
+是首次运行播下的预设数据，可改可删。
+
+⚠️ 它**不是角色**。曾用两个隐藏的内置角色充当脚手架文本来源，那让角色又开始兼职当文本片段。
+
+### 运行期跨角色引用只有一处
+
+`InjectUserCard`。改了用户卡，所有打开此开关的角色下一轮跟着变。
+
+⚠️ **已退役：`MountPrompts`（内联挂载）。** 它曾在装配时按顺序把别的角色的 `Template`
+拼进系统提示。退役的理由是**不可见**——编辑页那个框里看不到被挂载的一个字，模型却先收到它。
+角色间的提示词组合改到编辑期完成（插入片段），所见即所得。
+
+⚠️ `MountAgents` 是另一件事：智能体的**可委派子智能体名单**，见下。
+
+### 子智能体名单（MountAgents）
+
+只对智能体档有意义：名单里每一项是一个智能体档角色，`run_subagent` 据此让模型挑一个派活。
+人格取该角色的 `Template`，工具取它自己那份配置；名单为空则退回内置的通用匿名子代理。
+
+不变量：权限取**父会话档位与子角色的交集**（只能更小，否则挂一个"完全自动"的子智能体就绕过了
+当前会话的只读档）；子智能体自己不能再有子代理；装配时按档位过滤名单而不信任存档。
 
 ### PromptAction（预设提示词动作）
 
@@ -77,7 +121,7 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 ### Execution（执行层）
 
 把角色装配成可运行的东西，并驱动一轮对话。基于 `Microsoft.Agents.AI`（Agent Framework）实现。
-**服务所有角色种类**——`Roleplay` 与 `Agent` 都走这里，只是装配的工具集不同。
+**服务所有角色档位**——扮演、工具人、智能体都走这里，只是装配的工具集与开不开 harness 不同。
 
 唯一入口（缝）是 `ICharacterRunner`；工厂是 `CharacterRunnerFactory`；实现是 `HarnessCharacterRunner`。
 子域包括工具、MCP、调度器、技能与框架绕坑收容。
@@ -124,7 +168,7 @@ _Avoid_: 被动技能、自动技能、手动技能
 
 | 用法 | 指什么 |
 |---|---|
-| `ECharacterKind.Agent` | **一种角色**：有工具与工作目录。对应 `Roleplay` |
+| `ECharacterKind.Agent` | **一种角色档位**：有工具与工作目录，用户可见叫法是「智能体」 |
 | `EAgentMode` / `AgentSettingConfig` / `EnableAgentMode` | agent 的**工作模式与设置** |
 | `Microsoft.Agents.AI` | **vendor 的框架名**，Execution 层封装它 |
 
@@ -155,7 +199,7 @@ _Avoid_: 被动技能、自动技能、手动技能
 `FileMemoryProvider` 提供 `file_memory_*` 工具供模型主动读写；目录归属由 `FileMemoryLayout` 决定
 （框架默认是每个新会话一个目录，那样就只是草稿纸，见 ADR 0002）。
 
-用户可见说法是**文件记忆**。只有 agent 档有，角色扮演档一律不挂。
+用户可见说法是**文件记忆**。只有智能体档有，扮演与工具人一律不挂。
 
 ⚠️ 不要叫它 "AgentMemory"——去掉 `File` 这个限定词后，它和知识库在中文里几乎同名。
 

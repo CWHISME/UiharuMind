@@ -54,8 +54,8 @@ public partial class ChatInfoModel : ViewModelBase
 
         if (chatSessionViewData != null)
         {
-            //用户角色:纯提示词角色(翻译、识图等)不注入用户人格,也就不需要这块面板
-            if (!chatSessionViewData.Session.CharacterData.IsPurePromptCharacter)
+            //用户角色:只有扮演角色会注入用户人格,工具人与智能体不需要这块面板
+            if (chatSessionViewData.Session.CharacterData.Kind == ECharacterKind.Roleplay)
             {
                 var plugin = GetPlugin<ChatPlugin_UserCharacterCardData>(chatSessionViewData);
                 ChatPluginList.Add(plugin);

@@ -1,5 +1,5 @@
 {
-  "IsHide": true,
+  "Kind": "Tool",
   "Config": {
     "PromptConfig": {
       "name": "EmptyPrompt",

@@ -1,0 +1,63 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="320"
+             x:Class="UiharuMind.Features.Characters.PromptSnippetPickerView"
+             x:DataType="chars:PromptSnippetPickerViewData">
+
+    <UserControl.Styles>
+        <Style Selector="Button.picker-row">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.picker-row:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel Width="300" MaxHeight="340">
+        <!-- 存为片段:写在提示词框里的东西直接攒成常用开头,同名即覆盖 -->
+        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,8,0,0">
+            <TextBox FontSize="12" Text="{Binding NewSnippetName}"
+                     Watermark="{loc:Loc SnippetNameWatermark}" />
+            <Button Grid.Column="1" FontSize="12"
+                    Content="{loc:Loc SnippetSaveCurrent}"
+                    Command="{Binding SaveCurrentAsSnippetCommand}" />
+        </Grid>
+        <TextBlock DockPanel.Dock="Top" Classes="muted" FontSize="12" Margin="4,6"
+                   Text="{loc:Loc SnippetEmpty}"
+                   IsVisible="{Binding IsEmpty}" />
+        <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="chars:PromptSnippetItem">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                            <Button Classes="picker-row" Command="{Binding InsertCommand}">
+                                <TextBlock FontSize="12" Text="{Binding Name}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <ToolTip.Tip>
+                                    <TextBlock Text="{Binding Preview}" FontSize="12"
+                                               MaxWidth="360" TextWrapping="Wrap" />
+                                </ToolTip.Tip>
+                            </Button>
+                            <ThemedIconButton Grid.Column="1" Classes="message-action"
+                                              IconName="trash-2" VerticalAlignment="Center"
+                                              ToolTips="{loc:Loc SnippetDelete}"
+                                              Command="{Binding DeleteCommand}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
