@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Collections.ObjectModel;
@@ -126,6 +127,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <summary>固定开销已经吃到压缩水位的告警（上限未知时恒为 false）</summary>
     [ObservableProperty] private bool _isOverBudget;
 
+    /// <summary>
+    /// 预演装配之前的等待。取得比一次点击间隔长、又短到用户察觉不出"面板慢了半拍"：
+    /// 快速切过去的那些会话不会为它们建 agent、拉 MCP 子进程，停下来的那个才算。
+    /// </summary>
+    private static readonly TimeSpan PreviewDelay = TimeSpan.FromMilliseconds(600);
+
     /// 本次刷新的序号。切工作区与载入会话会同时触发刷新,而中间有 await——
     /// 靠它把作废的那一次挡在填充之前,否则列表里会出现两份同样的条目
     private int _refreshVersion;
@@ -146,12 +153,26 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         // 切快照要为每个工具的 schema 分词,放后台——与输入框那个字数统计同样的处置。
         // 没有执行者即会话还不存在(智能体页懒建):预演一次装配,首轮发送前也报得出
         // 角色提示/工作区规矩/工具这三档——它们全都只依赖角色与工作区,不依赖任何已发生的对话
-        AgentCapabilitySnapshot snapshot = runner != null
-            ? await Task.Run(runner.GetCapabilities)
-            : character != null
-                ? await Task.Run(() => CharacterRunnerFactory.Instance.PreviewCapabilitiesAsync(
-                    AgentBuildProfile.FromDraft(character, workspacePath, permissionModeIndex)))
-                : AgentCapabilitySnapshot.Empty;
+        AgentCapabilitySnapshot snapshot;
+        if (runner != null)
+        {
+            snapshot = await Task.Run(runner.GetCapabilities);
+        }
+        else if (character != null)
+        {
+            // 等界面落定再预演。预演不便宜:真建一次 agent,还会顺带把 MCP 子进程拉起来。
+            // 连点新建、在会话间快速划过时,中途那几次一次都不该发生——
+            // 停下来才算,而"停下来了没有"正是下面那个版本号在回答
+            await Task.Delay(PreviewDelay);
+            if (version != _refreshVersion) return;
+
+            snapshot = await Task.Run(() => CharacterRunnerFactory.Instance.PreviewCapabilitiesAsync(
+                AgentBuildProfile.FromDraft(character, workspacePath, permissionModeIndex)));
+        }
+        else
+        {
+            snapshot = AgentCapabilitySnapshot.Empty;
+        }
 
         // 预告区要读工作区里的 .mcp.json,同样不在 UI 线程上做
         List<McpPlannedServer> planned = character != null && character.Kind.IsAgent()
