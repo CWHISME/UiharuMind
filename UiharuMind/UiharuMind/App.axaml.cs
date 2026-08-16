@@ -217,6 +217,8 @@ public partial class App : Application, ILogger, IDisposable
     {
         Log.CloseAndFlush();
         Clipboard.Dispose();
+        // 先给还在跑的那些轮次补上取消结果,再放执行者:反过来的话补写会撞上正在被释放的执行者
+        UiharuMind.Features.Conversation.ConversationViewModel.SettleAllForShutdown();
         UiharuMind.Core.AI.Chat.SessionManager.Instance.DisposeAllRunners();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();

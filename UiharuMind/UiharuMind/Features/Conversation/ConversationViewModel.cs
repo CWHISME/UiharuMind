@@ -44,8 +44,14 @@ namespace UiharuMind.Features.Conversation;
 /// 由角色的 ECharacterKind 控制显隐，因此不需要为此分出子类；
 /// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
-public partial class ConversationViewModel : ViewModelBase
+public partial class ConversationViewModel : ViewModelBase, IDisposable
 {
+    /// <summary>
+    /// 还活着的实例。退出收尾要给每个仍在跑的对话补上取消结果，而实例可能挂在页面上，
+    /// 也可能挂在一个快速对话窗口上——没有一个统一的宿主可以遍历，索引记在这里。
+    /// </summary>
+    private static readonly List<ConversationViewModel> _liveInstances = new();
+
     /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
     public enum SendMode
     {
@@ -335,24 +341,83 @@ public partial class ConversationViewModel : ViewModelBase
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
         _transcript.AutoCollapseThinking = _isAutoCollapseThinking;
         Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(CanRegenerate));
-        LlmManager.Instance.OnCurrentModelChanged += _ =>
-        {
-            OnPropertyChanged(nameof(SessionModelLabel));
-            // 上限是跟着模型走的:换个模型,占用的分母、三条水位与配色档位全都变了
-            RefreshTokenUsageText();
-        };
 
+        // 这两个全局单例的事件必须能反注销,所以走具名方法而不是 lambda:
+        // 本类现在是每会话一个实例、随会话切换来去,挂了不卸就是一路泄漏
+        LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
+        LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
-        LocalizationManager.Instance.LanguageChanged += () =>
+
+        lock (_liveInstances) _liveInstances.Add(this);
+    }
+
+    private void OnCurrentModelChanged(ModelRunningData? model)
+    {
+        OnPropertyChanged(nameof(SessionModelLabel));
+        // 上限是跟着模型走的:换个模型,占用的分母、三条水位与配色档位全都变了
+        RefreshTokenUsageText();
+    }
+
+    private void OnLanguageChanged()
+    {
+        InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
+        OnPropertyChanged(nameof(ModeLabel));
+        OnPropertyChanged(nameof(ModeTooltip));
+        OnPropertyChanged(nameof(PermissionTooltip));
+        OnPropertyChanged(nameof(ThinkingTooltip));
+        OnPropertyChanged(nameof(SenderTooltip));
+        RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
+    }
+
+    /// <summary>
+    /// 弃用本实例：反注销全局事件、取消正在跑的那一轮。
+    ///
+    /// 只取消、不在这里补写取消结果——运行循环还活着，它自己会在取消分支里走
+    /// <see cref="SettleCancelledTurn"/>。要在进程即将消失时同步补写的场合用
+    /// <see cref="SettleForShutdown"/>。
+    /// </summary>
+    public void Dispose()
+    {
+        lock (_liveInstances) _liveInstances.Remove(this);
+        LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
+        LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+        _runCancellation?.Cancel();
+        MemoryPanel?.Detach();
+    }
+
+    /// <summary>
+    /// 退出收尾：取消本实例正在跑的那一轮并<b>当场</b>补上取消结果。
+    ///
+    /// 不能只取消了事——进程马上就没了，运行循环等不到观察取消的那一刻，
+    /// 历史里会留下没有配对结果的 tool_call，下次打开这个会话直接 400。
+    /// 重复调用安全：补写只针对没配对的调用，正文只取还在流的那一段，第二次两者都为空。
+    /// </summary>
+    public void SettleForShutdown()
+    {
+        if (!IsGenerating) return;
+        _runCancellation?.Cancel();
+        if (CurrentSession is { } session) SettleCancelledTurn(session);
+    }
+
+    /// <summary>
+    /// 给所有还在跑的对话补上取消结果（退出时调用）
+    /// </summary>
+    public static void SettleAllForShutdown()
+    {
+        ConversationViewModel[] instances;
+        lock (_liveInstances) instances = _liveInstances.ToArray();
+        foreach (ConversationViewModel instance in instances)
         {
-            InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
-            OnPropertyChanged(nameof(ModeLabel));
-            OnPropertyChanged(nameof(ModeTooltip));
-            OnPropertyChanged(nameof(PermissionTooltip));
-            OnPropertyChanged(nameof(ThinkingTooltip));
-            OnPropertyChanged(nameof(SenderTooltip));
-            RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
-        };
+            try
+            {
+                instance.SettleForShutdown();
+            }
+            catch (Exception e)
+            {
+                //退出路径上一个会话收尾失败不能拖累其余会话
+                Log.Warning($"Settle running turn on shutdown failed: {e.Message}");
+            }
+        }
     }
 
     private string _inputPlaceholderKey = "AgentInputWatermark";

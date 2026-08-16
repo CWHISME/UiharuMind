@@ -35,9 +35,23 @@ public partial class QuickChatViewWindow : QuickWindowBase
     /// <param name="chatSession">会话本体</param>
     public void SetSession(ChatSession chatSession)
     {
+        // 本窗口是缓存复用的,再次打开会重新装载:先弃用上一个视图模型,
+        // 否则它连着全局事件与可能还在跑的那一轮一起留在后台
+        DisposeConversation();
         ConversationViewModel conversation = new();
         DataContext = conversation;
         _ = conversation.LoadSessionAsync(chatSession.ToMeta());
+    }
+
+    protected override void OnPreClose()
+    {
+        base.OnPreClose();
+        DisposeConversation();
+    }
+
+    private void DisposeConversation()
+    {
+        if (DataContext is ConversationViewModel previous) previous.Dispose();
     }
 
     public override void Awake()
