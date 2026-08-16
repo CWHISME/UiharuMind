@@ -9,13 +9,12 @@
 
 using System.Text.Json;
 using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 /// <summary>
 /// Brave Search(自带 API key 的正规通路,免费档可用)。
-/// key 每次调用现读配置;未配置或失败时空过,由后续引擎兜底。
+/// key 每次调用现读配置;没填 key 时兜底链会直接跳过本环(见 IsAvailable)。
 /// </summary>
 internal sealed class BraveSearchProvider : ISearchProvider
 {
@@ -23,29 +22,24 @@ internal sealed class BraveSearchProvider : ISearchProvider
 
     public string Name => "Brave";
 
+    public bool IsAvailable => !string.IsNullOrWhiteSpace(AgentSettingConfig.Current.BraveSearchApiKey);
+
     public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int maxCount, CancellationToken ct)
     {
         string apiKey = AgentSettingConfig.Current.BraveSearchApiKey;
         if (string.IsNullOrWhiteSpace(apiKey)) return [];
 
-        try
-        {
-            string url = $"{Endpoint}?q={Uri.EscapeDataString(query)}&count={maxCount}";
-            using HttpRequestMessage request = new(HttpMethod.Get, url);
-            request.Headers.Add("X-Subscription-Token", apiKey.Trim());
-            request.Headers.Accept.ParseAdd("application/json");
+        //失败一律抛给兜底链:它负责记日志并落到下一环
+        string url = $"{Endpoint}?q={Uri.EscapeDataString(query)}&count={maxCount}";
+        using HttpRequestMessage request = new(HttpMethod.Get, url);
+        request.Headers.Add("X-Subscription-Token", apiKey.Trim());
+        request.Headers.Accept.ParseAdd("application/json");
 
-            using HttpResponseMessage response =
-                await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return Parse(json, maxCount);
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Brave search failed: {e.Message}");
-            return [];
-        }
+        using HttpResponseMessage response =
+            await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return Parse(json, maxCount);
     }
 
     /// <summary>
@@ -68,18 +62,12 @@ internal sealed class BraveSearchProvider : ISearchProvider
         foreach (JsonElement result in results.EnumerateArray())
         {
             if (items.Count >= maxCount) break;
-            string url = GetString(result, "url");
+            string url = WebShared.GetString(result, "url");
             if (url.Length == 0) continue;
-            items.Add(new SearchResultItem(GetString(result, "title"), url, GetString(result, "description")));
+            items.Add(new SearchResultItem(
+                WebShared.GetString(result, "title"), url, WebShared.GetString(result, "description")));
         }
 
         return items;
-    }
-
-    private static string GetString(JsonElement element, string name)
-    {
-        return element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString() ?? string.Empty
-            : string.Empty;
     }
 }

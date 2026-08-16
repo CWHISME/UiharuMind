@@ -33,6 +33,12 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// </summary>
     public List<string> RecentWorkspaces { get; set; } = new();
 
+    /// <summary>
+    /// Firecrawl API key。<b>可以不填</b>——Firecrawl 无 key 也能用(按 IP 限额),它是搜索与
+    /// 正文抓取两条兜底链的首选;填了只是把额度换成账号维度的。
+    /// </summary>
+    public string FirecrawlApiKey { get; set; } = string.Empty;
+
     /// <summary>Tavily 搜索 API key(填入后搜索优先走正规 API,空则用爬页面兜底链)</summary>
     public string TavilyApiKey { get; set; } = string.Empty;
 

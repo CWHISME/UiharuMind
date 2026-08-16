@@ -381,7 +381,7 @@
         <value>网络搜索 API key</value>
     </data>
     <data name="AgentSettingWebSearchKeysDesc" xml:space="preserve">
-        <value>可选。填入后搜索优先走官方 API，未填时使用免费的网页抓取兜底链。</value>
+        <value>全部可选。Firecrawl 不填 key 也能用（按 IP 限额），搜索与读网页都优先走它，失败再依次回退其它引擎。</value>
     </data>
     <data name="AgentSave" xml:space="preserve">
         <value>保存</value>

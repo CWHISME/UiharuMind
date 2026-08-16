@@ -391,7 +391,7 @@
         <value>Web search API keys</value>
     </data>
     <data name="AgentSettingWebSearchKeysDesc" xml:space="preserve">
-        <value>Optional. With a key, web search uses the official API first; otherwise the free scraping fallbacks are used.</value>
+        <value>All optional. Firecrawl works without a key (rate-limited per IP) and is tried first for both search and page reading; other engines are used as fallbacks.</value>
     </data>
     <data name="AgentSave" xml:space="preserve">
         <value>Save</value>

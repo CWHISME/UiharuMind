@@ -11,14 +11,12 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using UiharuMind.Core.Configs;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 /// <summary>
 /// Tavily 搜索(自带 API key 的正规通路,免费额度可用)。
-/// key 每次调用现读配置——设置页填入立即生效;未配置时直接空过,由后续引擎兜底。
-/// 任何失败只记日志并空过,绝不打断兜底链。
+/// key 每次调用现读配置——设置页填入立即生效;没填 key 时兜底链会直接跳过本环(见 IsAvailable)。
 /// </summary>
 internal sealed class TavilySearchProvider : ISearchProvider
 {
@@ -26,30 +24,25 @@ internal sealed class TavilySearchProvider : ISearchProvider
 
     public string Name => "Tavily";
 
+    public bool IsAvailable => !string.IsNullOrWhiteSpace(AgentSettingConfig.Current.TavilyApiKey);
+
     public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(string query, int maxCount, CancellationToken ct)
     {
         string apiKey = AgentSettingConfig.Current.TavilyApiKey;
         if (string.IsNullOrWhiteSpace(apiKey)) return [];
 
-        try
-        {
-            using HttpRequestMessage request = new(HttpMethod.Post, Endpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
-            request.Content = new StringContent(
-                JsonSerializer.Serialize(new { query, max_results = maxCount }),
-                Encoding.UTF8, "application/json");
+        //失败一律抛给兜底链:它负责记日志并落到下一环
+        using HttpRequestMessage request = new(HttpMethod.Post, Endpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+        request.Content = new StringContent(
+            JsonSerializer.Serialize(new { query, max_results = maxCount }),
+            Encoding.UTF8, "application/json");
 
-            using HttpResponseMessage response =
-                await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return Parse(json);
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Tavily search failed: {e.Message}");
-            return [];
-        }
+        using HttpResponseMessage response =
+            await WebShared.Http.SendAsync(request, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return Parse(json);
     }
 
     /// <summary>
@@ -69,18 +62,12 @@ internal sealed class TavilySearchProvider : ISearchProvider
 
         foreach (JsonElement result in results.EnumerateArray())
         {
-            string url = GetString(result, "url");
+            string url = WebShared.GetString(result, "url");
             if (url.Length == 0) continue;
-            items.Add(new SearchResultItem(GetString(result, "title"), url, GetString(result, "content")));
+            items.Add(new SearchResultItem(
+                WebShared.GetString(result, "title"), url, WebShared.GetString(result, "content")));
         }
 
         return items;
-    }
-
-    private static string GetString(JsonElement element, string name)
-    {
-        return element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString() ?? string.Empty
-            : string.Empty;
     }
 }

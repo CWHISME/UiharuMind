@@ -31,6 +31,7 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private bool _defaultPlanMode;
 
     //================= 搜索凭据(能力开关已下沉到角色,见 ADR 0003) =================
+    [ObservableProperty] private string _firecrawlApiKey = string.Empty;
     [ObservableProperty] private string _tavilyApiKey = string.Empty;
     [ObservableProperty] private string _braveSearchApiKey = string.Empty;
 
@@ -49,6 +50,7 @@ public partial class AgentSettingViewData : ViewModelBase
         _defaultPermissionModeIndex = config.DefaultPermissionModeIndex;
         _defaultWorkspacePath = config.DefaultWorkspacePath;
         _defaultPlanMode = config.DefaultPlanMode;
+        _firecrawlApiKey = config.FirecrawlApiKey;
         _tavilyApiKey = config.TavilyApiKey;
         _braveSearchApiKey = config.BraveSearchApiKey;
 
@@ -76,6 +78,12 @@ public partial class AgentSettingViewData : ViewModelBase
     }
 
     //================= 能力门控:开关/提示词的写入在 AgentGateItem 内完成 =================
+    partial void OnFirecrawlApiKeyChanged(string value)
+    {
+        AgentSettingConfig.Current.FirecrawlApiKey = value;
+        AgentSettingConfig.Current.Save();
+    }
+
     partial void OnTavilyApiKeyChanged(string value)
     {
         AgentSettingConfig.Current.TavilyApiKey = value;

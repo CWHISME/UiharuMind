@@ -67,6 +67,10 @@
                             <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                                        Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                <TextBlock Width="60" VerticalAlignment="Center" Text="Firecrawl" />
+                                <TextBox Width="300" PasswordChar="●" Text="{Binding FirecrawlApiKey}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Width="60" VerticalAlignment="Center" Text="Tavily" />
                                 <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
                             </StackPanel>
