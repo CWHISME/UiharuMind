@@ -14,18 +14,6 @@
         <converters:FilePathToImageConverter x:Key="FilePathToImageConverter" />
     </UserControl.Resources>
 
-    <UserControl.DataTemplates>
-        <!-- 悬停预览。挂成隐式模板而非内联在 ToolTip.Tip 里:内联那份随列表条目一起构造,
-             整屏截图会在没人悬停时就被解码;交给 ToolTip 这个 ContentControl 则弹出才 realize。
-             列表条目走 ListBox.ItemTemplate,显式模板优先,不会被这份顶掉 -->
-        <DataTemplate DataType="clipboardViewData:ClipboardItem">
-            <Panel>
-                <Image Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=400}"
-                       IsVisible="{Binding IsImage}" />
-                <TextBlock Text="{Binding Text}" IsVisible="{Binding !IsImage}" />
-            </Panel>
-        </DataTemplate>
-    </UserControl.DataTemplates>
 
     <Design.DataContext>
         <clipboardViewData:ClipboardHistoryViewModel />
@@ -111,9 +99,13 @@
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
                             <controls:ThemedSvgIcon Grid.Row="2" IconName="star" IsVisible="{Binding IsFavorite}" 
                                                      Height="12" Width="12" HorizontalAlignment="Left" />
-                            <!-- 内容交给上面那份隐式 DataTemplate,悬停时才解码 -->
+                            <!-- 内联控件的绑定要悬停才求值(实测未悬停时转换器零调用),故这里不必延迟,
+                                 只需限住解码高度:整屏截图的悬停预览没必要按原分辨率解 -->
                             <ToolTip.Tip>
-                                <Binding />
+                                <Panel>
+                                    <Image Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=400}" IsVisible="{Binding IsImage}"></Image>
+                                    <TextBlock Text="{Binding Text}" IsVisible="{Binding !IsImage}" />
+                                </Panel>
                             </ToolTip.Tip>
                         </Grid>
                     </DataTemplate>

@@ -109,6 +109,21 @@ public class ClipboardService : IDisposable
         return await Clipboard.TryGetValueAsync(DataFormat.Text);
     }
 
+    /// <summary>
+    /// 把图片放上系统剪贴板。
+    ///
+    /// <b>位图移交给剪贴板，调用方不得释放，也不要在别处共用同一张。</b>
+    /// 规则 2-3 的两档（确定性释放 / 进程级缓存）都不适用于这里：Avalonia 的
+    /// <c>SetBitmapAsync</c> 把位图包成 data transfer 交给平台，数据是<b>等到有人粘贴时才回头来取</b>的
+    /// （<c>IClipboard.SetDataAsync</c> 原文：provides data upon request、caller must NOT dispose），
+    /// 剪贴板一直持有到下次复制把它顶掉，而<b>那个时刻我们观测不到</b>——所以既不能当场释放，
+    /// 也不能 await 完再释放，只能交出去不管，等剪贴板放手后由 GC 收。
+    ///
+    /// 这一条已经踩过两次：一次是预览窗关闭时释放了共用的那张，一次是历史项复制后当场 using 释放，
+    /// 表现都是「复制静默失败、粘贴出不来」。要给别处继续用的图，先 <c>CloneBitmap</c> 一份再交过来。
+    /// </summary>
+    /// <param name="bitmap">要放上剪贴板的位图，<b>本方法接管</b></param>
+    /// <param name="ignoreSelfCopying">是否忽略由此引发的剪贴板变化通知</param>
     public void CopyImageToClipboard(Bitmap bitmap, bool ignoreSelfCopying = false)
     {
         if (ignoreSelfCopying) _isSelfCopying = true;

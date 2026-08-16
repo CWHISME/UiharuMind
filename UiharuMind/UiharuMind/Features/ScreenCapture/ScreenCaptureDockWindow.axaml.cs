@@ -53,7 +53,9 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnCopyBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        App.Clipboard.CopyImageToClipboard(CurrentSnapWindow!.ImageSource!, true);
+        // 预览窗自己会在换图/关窗时释放 ImageSource,不能把它交给剪贴板(剪贴板要留到有人粘贴),故复制一份移交
+        Bitmap? forClipboard = CurrentSnapWindow!.ImageSource!.CloneBitmap();
+        if (forClipboard != null) App.Clipboard.CopyImageToClipboard(forClipboard, true);
     }
 
     private async void OnSaveBtnClick(object? sender, RoutedEventArgs e)
@@ -101,7 +103,9 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
                 CurrentSnapWindow.SetImage(bitmap, pos: backupPos);
                 CurrentSnapWindow.ImageOriginSource = CurrentSnapWindow.ImageBackupSource = backup;
 
-                App.Clipboard.CopyImageToClipboard(bitmap, true);
+                // bitmap 已交给上面的 SetImage(预览窗接管并会释放),剪贴板那份必须是独立的一张
+                Bitmap? forClipboard = bitmap.CloneBitmap();
+                if (forClipboard != null) App.Clipboard.CopyImageToClipboard(forClipboard, true);
                 App.Clipboard.RecordImageToHistory(bitmap);
                 CurrentSnapWindow.Show();
             });

@@ -53,12 +53,10 @@ public partial class ClipboardItem : ObservableObject
         App.Clipboard.MoveClipboardHistoryItemFirst(this);
         if (IsImage)
         {
-            // 历史项只存路径,这里现解两张:一张写剪贴板(剪贴板只借用,故当场释放),
-            // 另一张交给预览窗——那个重载是接管语义,关窗时由它释放
-            using (Bitmap forClipboard = new Bitmap(ImageSource))
-            {
-                App.Clipboard.CopyImageToClipboard(forClipboard, true);
-            }
+            // 历史项只存路径,这里现解两张,两张都是移交、都不由本处释放:
+            // 一张交剪贴板(平台持有到下次复制顶掉,见 CopyImageToClipboard 的注释,当场释放会让粘贴取空),
+            // 另一张交预览窗(那个重载是接管语义,关窗时由它释放)
+            App.Clipboard.CopyImageToClipboard(new Bitmap(ImageSource), true);
 
             UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(ImageSource), horizontalAlignment: HorizontalAlignment.Center, verticalAlignment: VerticalAlignment.Center);
         }
