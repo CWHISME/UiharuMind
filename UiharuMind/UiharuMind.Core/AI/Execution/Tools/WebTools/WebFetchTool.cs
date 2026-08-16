@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.ComponentModel;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -25,14 +26,20 @@ public static class WebFetchTool
 
     public static AITool Create() => AIFunctionFactory.Create(
         FetchAsync, ToolName,
-        "Read the primary text of a public web page.");
+        "Read the main text of a web page, or the raw content of a plain-text/JSON/Markdown URL.");
 
-    private static async Task<string> FetchAsync(string url, CancellationToken ct = default)
+    private static async Task<string> FetchAsync(
+        [Description("Absolute URL of the page to read, including the scheme.")]
+        string url,
+        CancellationToken ct = default)
     {
         try
         {
             string text = await Reader.ReadAsync(url, ct);
-            return text.Length > MaxChars ? $"{text[..MaxChars]}\n\n---\n*[Truncated]*" : text;
+            if (text.Length <= MaxChars) return text;
+
+            // 说清截掉了多少:只丢一句 [Truncated],模型无从判断自己错过的是 5% 还是 95%
+            return $"{text[..MaxChars]}\n\n---\n*[Truncated: showing first {MaxChars} of {text.Length} characters]*";
         }
         catch (OperationCanceledException)
         {

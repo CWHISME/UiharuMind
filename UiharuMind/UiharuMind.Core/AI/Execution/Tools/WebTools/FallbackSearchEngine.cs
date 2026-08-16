@@ -4,7 +4,8 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 /// <summary>
 /// 搜索引擎兜底链:无 key 即可用的 Firecrawl 打头,其次是自带 API key 的正规通路
-/// (未配置 key 时秒过),爬页面的免费引擎殿后。单个引擎失败或空结果都只是落到下一环。
+/// (未配置 key 时秒过),爬页面的免费引擎殿后。单个引擎失败或空结果都只是落到下一环,
+/// 连续失败的引擎由 <see cref="WebServiceCircuit"/> 暂时摘掉。
 /// </summary>
 internal sealed class FallbackSearchEngine
 {
@@ -14,7 +15,6 @@ internal sealed class FallbackSearchEngine
         new TavilySearchProvider(),
         new BraveSearchProvider(),
         new DuckDuckGoLiteProvider(),
-        new DuckDuckGoHtmlProvider(),
         new BingHtmlProvider()
     };
 
@@ -29,15 +29,23 @@ internal sealed class FallbackSearchEngine
                 continue;
             }
 
+            if (WebServiceCircuit.IsTripped(p.Name, out TimeSpan cooldown))
+            {
+                Log.Debug($"[WebSearch] skip '{p.Name}': circuit open, {cooldown.TotalSeconds:F0}s left");
+                continue;
+            }
+
             try
             {
                 var r = await p.SearchAsync(query, maxCount, ct);
                 if (r.Count > 0)
                 {
+                    WebServiceCircuit.RecordSuccess(p.Name);
                     Log.Debug($"[WebSearch] hit '{p.Name}': {r.Count} results for \"{query}\"");
                     return r;
                 }
 
+                //空结果不计入熔断:冷门查询本来就可能一条都搜不到,不是引擎坏了
                 Log.Warning($"[WebSearch] miss '{p.Name}': no results for \"{query}\"");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -46,6 +54,7 @@ internal sealed class FallbackSearchEngine
             }
             catch (Exception e)
             {
+                if (WebServiceCircuit.IsServiceLevelFailure(e)) WebServiceCircuit.RecordFailure(p.Name);
                 Log.Warning($"[WebSearch] miss '{p.Name}': {e.Message}");
             }
         }

@@ -19,6 +19,12 @@ internal sealed class FirecrawlPageReader : IPageReader
 {
     private const int ScrapeTimeoutMs = 12_000; //服务端超时留在 WebShared.Http 的 15s 之内,好让失败以 JSON 回来而不是断线
 
+    /// <summary>
+    /// 服务端缓存可接受的最大年龄。Firecrawl 默认 48 小时,对"查最新版本/看今天的公告"
+    /// 这类问题会悄悄给出两天前的页面且不报错,所以收到 1 小时——仍能吃到重复抓取的便宜。
+    /// </summary>
+    private const int CacheMaxAgeMs = 3_600_000;
+
     public string Name => "Firecrawl";
 
     /// <summary>
@@ -33,7 +39,14 @@ internal sealed class FirecrawlPageReader : IPageReader
     {
         string json = await FirecrawlClient.PostAsync(
             "scrape",
-            new { url, formats = new[] { "markdown" }, onlyMainContent = true, timeout = ScrapeTimeoutMs },
+            new
+            {
+                url,
+                formats = new[] { "markdown" },
+                onlyMainContent = true,
+                timeout = ScrapeTimeoutMs,
+                maxAge = CacheMaxAgeMs
+            },
             ct).ConfigureAwait(false);
         return Parse(json);
     }

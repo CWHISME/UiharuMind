@@ -1,7 +1,4 @@
-using AngleSharp;
 using AngleSharp.Dom;
-using UiharuMind.Core.AI.Execution.Search;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -10,31 +7,33 @@ internal sealed class BingHtmlProvider : BaseSearchProvider
     protected override Uri DefaultReferer => new("https://www.bing.com/");
     public override string Name => "Bing HTML";
 
-    public override async Task<IReadOnlyList<SearchResultItem>> SearchAsync(
+    public override Task<IReadOnlyList<SearchResultItem>> SearchAsync(
         string query, int maxCount, CancellationToken ct)
     {
-        var uri = $"https://www.bing.com/search?q={Uri.EscapeDataString(query)}&setlang=en";
-        using var req = CreateRequest(HttpMethod.Get, uri);
+        string uri = $"https://www.bing.com/search?q={Uri.EscapeDataString(query)}&setlang=en";
+        return SendAndParseAsync(CreateRequest(HttpMethod.Get, uri), doc => Parse(doc, maxCount), ct);
+    }
 
-        var doc = await DoSendAsync(req, ct);
-        if (doc == null) return Array.Empty<SearchResultItem>();
+    /// <summary>Bing 的拦截页有自己的特征</summary>
+    protected override bool IsBlocked(IDocument doc)
+    {
+        return base.IsBlocked(doc) || doc.QuerySelector("#b_sydConvCont, .b_caption.b_noRedirect") != null;
+    }
 
-        if (doc.QuerySelector("#b_sydConvCont, .b_caption.b_noRedirect") != null)
-            return Array.Empty<SearchResultItem>(); // Bing 拦截
-
+    private static IEnumerable<SearchResultItem> Parse(IDocument doc, int maxCount)
+    {
         return doc.QuerySelectorAll(".b_algo")
             .Take(maxCount)
             .Select(algo =>
             {
-                var link = algo.QuerySelector("h2 > a");
-                var desc = algo.QuerySelector(".b_caption p");
+                IElement? link = algo.QuerySelector("h2 > a");
+                IElement? desc = algo.QuerySelector(".b_caption p");
                 return new SearchResultItem(
                     Title: link?.TextContent.Trim() ?? "",
                     Url: link?.GetAttribute("href")?.Trim() ?? "",
                     Snippet: desc?.TextContent.Trim() ?? ""
                 );
             })
-            .Where(x => Uri.IsWellFormedUriString(x.Url, UriKind.Absolute))
-            .ToList();
+            .Where(x => Uri.IsWellFormedUriString(x.Url, UriKind.Absolute));
     }
 }

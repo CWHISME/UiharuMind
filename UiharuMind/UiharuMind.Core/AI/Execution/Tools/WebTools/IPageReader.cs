@@ -15,9 +15,17 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 /// </summary>
 /// <param name="Content">正文,失败时为 null</param>
 /// <param name="Error">失败原因,成功时为 null</param>
-internal readonly record struct PageReadResult(string? Content, string? Error)
+/// <param name="IsExact">正文是否为原样取回</param>
+internal readonly record struct PageReadResult(string? Content, string? Error, bool IsExact = false)
 {
+    /// <summary>抽取得到的正文。太短会被兜底链当作空壳,继续下一环</summary>
     public static PageReadResult Ok(string content) => new(content, null);
+
+    /// <summary>
+    /// 原样取回的正文(纯文本、JSON 之类)。没有"抽错了"的可能,所以再短也算数——
+    /// 一个 80 字节的接口响应是正确结果,不是空壳。
+    /// </summary>
+    public static PageReadResult Exact(string content) => new(content, null, true);
 
     public static PageReadResult Fail(string error) => new(null, error);
 }

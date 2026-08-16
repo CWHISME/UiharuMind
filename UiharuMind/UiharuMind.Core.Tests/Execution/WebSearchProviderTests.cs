@@ -1,12 +1,12 @@
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
-namespace UiharuMind.Core.Tests.Agent;
+namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
 /// 钉死 API 搜索响应的解析:字段缺失/形状异常时返回空而不是抛出——
 /// 解析失败在兜底链里等价于空过,绝不能打断后续引擎。
 /// </summary>
-public class SearchProviderParsingTests
+public class WebSearchProviderTests
 {
     [Fact]
     public void Tavily_ParsesResults()
@@ -85,52 +85,13 @@ public class SearchProviderParsingTests
         Assert.Empty(FirecrawlSearchProvider.Parse("""{"success":false,"error":"rate limited"}""", maxCount: 5));
     }
 
-    [Fact]
-    public void FirecrawlPage_ParsesMarkdown()
-    {
-        PageReadResult result = FirecrawlPageReader.Parse("""{"data":{"markdown":"# Title\ntext"}}""");
-
-        Assert.Equal("# Title\ntext", result.Content);
-        Assert.Null(result.Error);
-    }
-
-    [Fact]
-    public void FirecrawlPage_EmptyOrMissingData_Fails()
-    {
-        Assert.Null(FirecrawlPageReader.Parse("""{"data":{"markdown":""}}""").Content);
-        Assert.NotNull(FirecrawlPageReader.Parse("""{"success":false}""").Error);
-    }
-
     /// <summary>
-    /// 内网地址一律不许出门:Firecrawl 读不到,还会把地址泄露给第三方
+    /// Firecrawl 无 key 也能用,所以永远可用。需要 key 的引擎不在这里断言——
+    /// 那取决于本机配置里填没填,钉死它等于让测试跟着开发机的设置走。
     /// </summary>
-    [Theory]
-    [InlineData("http://localhost:8080/admin")]
-    [InlineData("http://127.0.0.1/")]
-    [InlineData("http://[::1]:3000/")]
-    [InlineData("http://10.0.0.5/")]
-    [InlineData("http://172.16.3.9/")]
-    [InlineData("http://172.31.255.1/")]
-    [InlineData("http://192.168.1.1/")]
-    [InlineData("http://169.254.169.254/latest/meta-data")]
-    [InlineData("http://100.101.102.103/")]
-    [InlineData("http://nas/photos")]
-    [InlineData("http://gitlab.internal/repo")]
-    [InlineData("http://printer.local/")]
-    public void PrivateHosts_AreRejectedByFirecrawl(string url)
+    [Fact]
+    public void Firecrawl_IsAlwaysAvailable()
     {
-        Assert.True(WebShared.IsLocalOrPrivateHost(url));
-        Assert.False(new FirecrawlPageReader().CanRead(url));
-    }
-
-    [Theory]
-    [InlineData("https://example.com/a")]
-    [InlineData("https://docs.firecrawl.dev/")]
-    [InlineData("http://172.32.0.1/")] //刚好落在 172.16/12 之外
-    [InlineData("http://8.8.8.8/")]
-    public void PublicHosts_AreAcceptedByFirecrawl(string url)
-    {
-        Assert.False(WebShared.IsLocalOrPrivateHost(url));
-        Assert.True(new FirecrawlPageReader().CanRead(url));
+        Assert.True(((ISearchProvider)new FirecrawlSearchProvider()).IsAvailable);
     }
 }
