@@ -10,6 +10,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Layout;
@@ -31,6 +32,9 @@ public abstract partial class ConversationItemBase : ObservableObject
 {
     [ObservableProperty] private string _senderName = string.Empty;
     [ObservableProperty] private string _timestamp = string.Empty;
+
+    // 头像:小而长寿,且 IconUtils 可能返回全进程共用的那几张默认图,
+    // 释放它会把整个进程的头像一起清空。进程级缓存,不 Dispose
     [ObservableProperty] private Bitmap? _icon;
     [ObservableProperty] private IBrush _senderColor = Brushes.Gray;
     [ObservableProperty] private string _message = string.Empty;
@@ -58,6 +62,16 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// </summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanBranch))]
     private Action<ConversationItemBase>? _branchCallback;
+
+    /// <summary>
+    /// 条目被永久丢弃时释放它持有的大位图（切会话、删条目、重跑截断历史）。
+    ///
+    /// <b>必须在条目已经从集合里摘掉之后调用</b>：还挂在界面上的位图一释放，下一帧渲染就撞上去。
+    /// <see cref="Icon"/> 刻意不在此释放——头像可能是 <c>IconUtils</c> 那几张进程级共用的默认图。
+    /// </summary>
+    public virtual void ReleaseImages()
+    {
+    }
 
     /// <summary>是否用户侧条目(右对齐)</summary>
     public virtual bool IsUser => false;
@@ -146,7 +160,11 @@ public partial class TextConversationItem : ConversationItemBase
 
     public override bool IsUser => _isUser;
 
-    /// <summary>随消息一同显示的图片（多模态消息里的 DataContent），一条消息可以带多张</summary>
+    /// <summary>
+    /// 随消息一同显示的图片（多模态消息里的 DataContent），一条消息可以带多张。
+    /// 解码后按原始像素驻留（缩放后仍可达上千像素边长），<b>由本条目独占并在
+    /// <see cref="ReleaseImages"/> 里释放</b>——条目被整体丢弃时没有别人会去释放它们。
+    /// </summary>
     public ObservableCollection<Bitmap> MessageImages { get; } = [];
 
     /// <summary>是否含图片</summary>
@@ -210,6 +228,19 @@ public partial class TextConversationItem : ConversationItemBase
             Log.Warning($"Load message image failed: {e.Message}");
             return;
         }
+
+        OnPropertyChanged(nameof(HasImage));
+        OnPropertyChanged(nameof(ImageThumbSize));
+    }
+
+    /// <inheritdoc />
+    public override void ReleaseImages()
+    {
+        // 先摘绑定再释放:集合清空会让 ItemsSource 收到通知、摘掉那些 Image,
+        // 顺序反了就是把还在界面上的位图放掉
+        Bitmap[] stale = MessageImages.ToArray();
+        MessageImages.Clear();
+        foreach (Bitmap image in stale) image.Dispose();
 
         OnPropertyChanged(nameof(HasImage));
         OnPropertyChanged(nameof(ImageThumbSize));

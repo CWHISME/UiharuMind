@@ -38,7 +38,7 @@ public partial class SessionListItem : ObservableObject
     private readonly IMessageService _messageService;
     private ChatSessionMeta _meta;
     private ChatSession? _session;
-    private Bitmap? _icon;
+    private Bitmap? _icon; //头像:小而长寿,且可能是 IconUtils 那几张共用默认图。进程级缓存,不 Dispose
     private bool _iconResolved; //头像已解码过(结果可能是 null)
     private string? _characterName;
 
@@ -148,6 +148,7 @@ public partial class SessionListItem : ObservableObject
         if (characterChanged)
         {
             _characterName = null;
+            // 刻意只丢引用不 Dispose:这张很可能是 IconUtils 的共用默认图(见其注释)
             _icon = null;
             _iconResolved = false;
             OnPropertyChanged(nameof(Icon));

@@ -174,8 +174,10 @@ public partial class ConversationView : UserControl
     {
         if (DataContext is not ConversationViewModel vm) return;
 
-        // 剪贴板含图片:以内存字节加入附件,并拦截默认文本粘贴
-        var bitmap = await App.Clipboard.GetImageFromClipboard();
+        // 剪贴板含图片:以内存字节加入附件,并拦截默认文本粘贴。
+        // 取剪贴板图是"产出"语义,这张整屏级的位图归本方法所有,转成字节后当场释放——
+        // 附件盘只吃字节,不留位图,所以没人会再用它
+        using Bitmap? bitmap = await App.Clipboard.GetImageFromClipboard();
         if (bitmap == null) return;
 
         vm.Tray.AddAttachmentBytes(bitmap.BitmapToBytes());

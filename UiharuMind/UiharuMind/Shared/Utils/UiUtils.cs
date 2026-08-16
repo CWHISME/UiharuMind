@@ -24,8 +24,13 @@ namespace UiharuMind.Shared.Utils;
 
 public static class UiUtils
 {
+    // 位图所有权口径：本类里凡是「返回 Bitmap」的都是产出，调用方接管、负责释放
+    // （ImageToBitmap(Async)、BuildBitmap、CloneBitmap、Base64ToBitmap）；
+    // 凡是「吃 Bitmap 返回别的东西」的都只是借用，不改动也不释放
+    // （BitmapToBytes、BitmapToBase64）
+
     /// <summary>
-    /// 将 IImage 转换为 Bitmap（后台线程取像素）
+    /// 将 IImage 转换为 Bitmap（后台线程取像素）。<b>调用方接管返回的位图</b>
     /// </summary>
     /// <param name="image">源图像</param>
     /// <returns>位图；取像素或构造失败返回 null</returns>
@@ -38,7 +43,7 @@ public static class UiUtils
     }
 
     /// <summary>
-    /// 将 IImage 转换为 Bitmap（当前线程取像素）
+    /// 将 IImage 转换为 Bitmap（当前线程取像素）。<b>调用方接管返回的位图</b>
     /// </summary>
     /// <param name="image">源图像</param>
     /// <returns>位图；取像素或构造失败返回 null</returns>
@@ -70,10 +75,10 @@ public static class UiUtils
     }
 
     /// <summary>
-    /// 将 Bitmap 转换为字节数组
+    /// 将 Bitmap 转换为字节数组。<b>只借用</b>，不改动也不释放源图
     /// </summary>
-    /// <param name="bitmap"></param>
-    /// <returns></returns>
+    /// <param name="bitmap">源图</param>
+    /// <returns>PNG 字节</returns>
     public static byte[] BitmapToBytes(this Bitmap bitmap)
     {
         using var memoryStream = new MemoryStream();

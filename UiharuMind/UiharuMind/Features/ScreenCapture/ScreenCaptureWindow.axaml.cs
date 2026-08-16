@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using HPPH;
 using UiharuMind.Resources.Lang;
@@ -37,7 +38,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // private int _screenWidth;
     // private int _screenHeight;
     private Screen? _currentScreen;
-    private IImage? _image;
+    private IImage? _image; //整屏原始像素(Core 的截图类型),切屏与关窗时随 ClearData 丢弃
+    private Bitmap? _screenshot; //整屏解码后的位图,几 MB 到几十 MB(Retina),本窗唯一所有者
 
     // private bool _error = false;
 
@@ -251,10 +253,23 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         Canvas.SetTop(SelectionRectangle, 0);
         InfoPanel.IsVisible = false;
         MainPanel.IsVisible = false;
-        ScreenshotImage.Source = null;
+        SetScreenshot(null);
         _startPoint = new Point(0, 0);
         _isSelecting = false;
         _currentScreen = null;
+    }
+
+    /// 换掉整屏底图并释放上一张。整屏位图是全应用最大的一次分配,又每次截图都来一张,
+    /// 交给 GC 意味着连开几次截图就能堆出几百 MB。先把新值挂上界面、再释放旧值:
+    /// 反过来做的话已释放的位图还挂在 Image.Source 上,下一帧渲染就撞上去
+    private void SetScreenshot(Bitmap? bitmap)
+    {
+        Bitmap? stale = _screenshot;
+        if (ReferenceEquals(stale, bitmap)) return;
+
+        _screenshot = bitmap;
+        ScreenshotImage.Source = bitmap;
+        stale?.Dispose();
     }
 
     private void DisplayCapture()
@@ -269,7 +284,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     /// </summary>
     private async Task CaptureScreen()
     {
-        ScreenshotImage.Source = null;
+        SetScreenshot(null);
 
         _image = await ScreenCaptureWin.CaptureAsync(App.ScreensService.MouseScreenIndex);
         if (_image == null)
@@ -287,7 +302,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             return;
         }
 
-        ScreenshotImage.Source = image;
+        SetScreenshot(image);
     }
 
     /// <summary>
@@ -320,9 +335,10 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                 // UIManager.ShowPreviewImageWindowAtMousePosition(image,
                 //     new Size(SelectionRectangle.Width, SelectionRectangle.Height));
 
+                // 落盘只是借用,必须排在移交之前:下一句起这张图就归预览窗了,它随时可能被释放
+                App.Clipboard.RecordImageToHistory(image);
                 //校正截图的上下左右不同方向拖动方式
                 UIManager.ShowPreviewImageWindowAtMousePosition(image, PixelPoint.FromPoint(_startPoint, App.ScreensService.Scaling), App.ScreensService.MouseReleasedPosition);
-                App.Clipboard.RecordImageToHistory(image);
             }
             catch (Exception e)
             {

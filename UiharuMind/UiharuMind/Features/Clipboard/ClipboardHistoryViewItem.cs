@@ -53,7 +53,13 @@ public partial class ClipboardItem : ObservableObject
         App.Clipboard.MoveClipboardHistoryItemFirst(this);
         if (IsImage)
         {
-            App.Clipboard.CopyImageToClipboard(new Bitmap(ImageSource), true);
+            // 历史项只存路径,这里现解两张:一张写剪贴板(剪贴板只借用,故当场释放),
+            // 另一张交给预览窗——那个重载是接管语义,关窗时由它释放
+            using (Bitmap forClipboard = new Bitmap(ImageSource))
+            {
+                App.Clipboard.CopyImageToClipboard(forClipboard, true);
+            }
+
             UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(ImageSource), horizontalAlignment: HorizontalAlignment.Center, verticalAlignment: VerticalAlignment.Center);
         }
         else

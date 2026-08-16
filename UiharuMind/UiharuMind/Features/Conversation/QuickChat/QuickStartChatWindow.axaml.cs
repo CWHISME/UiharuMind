@@ -48,6 +48,13 @@ public partial class QuickStartChatWindow : QuickWindowBase
         });
     }
 
+    /// <summary>
+    /// 带一张引用图打开快速提问窗。<b>本窗接管这张位图</b>：它是缓存窗，隐藏后仍活着，
+    /// 所以引用图要留到下一次 <c>Show</c> 才随 <see cref="ResetInfo"/> 释放。
+    /// 调用方手上那张图若另有所有者（如预览窗），请克隆一份再交进来——
+    /// 否则预览窗一关就释放，这里发送时读到的是已释放的位图。
+    /// </summary>
+    /// <param name="quoteImage">引用图，所有权移交本窗</param>
     public static void Show(Bitmap? quoteImage)
     {
         UIManager.ShowWindow<QuickStartChatWindow>(x =>
@@ -115,10 +122,15 @@ public partial class QuickStartChatWindow : QuickWindowBase
 
     private void ResetInfo()
     {
+        // 引用图归本窗所有(见 Show(Bitmap?))。缓存窗不会真的关闭,不在这里释放就是一路留到进程结束。
+        // 先摘绑定再释放:顺序反了,已释放的位图还挂在 Image.Source 上,下一帧渲染就撞上去
+        Bitmap? staleQuoteImage = _quoteImage;
         QuoteImage.Source = null;
+        _quoteImage = null;
+        staleQuoteImage?.Dispose();
+
         QuoteTextBlock.Text = "";
         _quoteStr = null;
-        _quoteImage = null;
         InputBox.Text = "";
     }
 

@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Animation;
@@ -38,8 +39,17 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     // private double _minScale;
 
 
+    // 截图尺寸的位图,本窗是它们的唯一所有者:关窗/隐藏即释放(见 SafeSetImage)。
+    // 三个字段允许指向同一实例,释放前必须按引用去重。
+    // 想把图交给活得比本窗久的东西(缓存窗、气泡),必须先 CloneBitmap 一份
+
+    /// <summary>编辑前的原图，供「看改前/改后」来回切；与另两个字段可能是同一实例</summary>
     public Bitmap? ImageBackupSource;
+
+    /// <summary>本窗刚被设进来的那一张；由外部编辑流程改写</summary>
     public Bitmap? ImageOriginSource;
+
+    /// <summary>当前正显示的那一张；停靠栏的复制/保存/OCR 都借它，但不得释放</summary>
     public Bitmap? ImageSource;
     // public Bitmap? ImageNewSource;
 
@@ -73,6 +83,15 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private Size _currentSize;
     // private PixelPoint _currentPixelPoint;
 
+    /// <summary>
+    /// 显示一张图。<b>本窗接管这张位图</b>——关窗或隐藏时会释放它，调用方交出之后不要再用。
+    /// 调用方还要继续用同一张图的，请自己 <c>CloneBitmap</c> 一份再交进来。
+    /// </summary>
+    /// <param name="image">要显示的图，所有权移交本窗</param>
+    /// <param name="size">显示尺寸，默认取图片原始尺寸</param>
+    /// <param name="pos">窗口位置，null 表示跟随鼠标</param>
+    /// <param name="horizontalAlignment">相对鼠标的水平对齐</param>
+    /// <param name="verticalAlignment">相对鼠标的垂直对齐</param>
     public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment verticalAlignment = VerticalAlignment.Top)
     {
@@ -112,19 +131,25 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     private void SafeSetImage(Bitmap? image)
     {
-        var imageBackupSource = ImageBackupSource;
-        var imageSource = ImageSource;
-        var imageOriginSource = ImageOriginSource;
+        // 三个字段经常指向同一个实例:本方法自己就把 ImageSource 与 ImageOriginSource 设成同一张,
+        // 编辑回来那一路还会把 ImageOriginSource 与 ImageBackupSource 也设成同一张。
+        // 所以必须按引用去重(Bitmap 不重写 Equals,Distinct 即按引用比),否则同一张会被 Dispose 两三次:
+        // Avalonia 位图是引用计数的,多减一次就可能在渲染线程还持有它时把底层表面放掉。
+        // 新图本身也要排除——调用方可能把本窗已经持有的那张又传了回来
+        Bitmap[] stale = new[] { ImageBackupSource, ImageSource, ImageOriginSource }
+            .Where(x => x != null && !ReferenceEquals(x, image))
+            .Select(x => x!)
+            .Distinct()
+            .ToArray();
 
+        // 先把新值挂上界面、再释放旧值。反过来做的话已释放的位图还挂在 Image.Source 上,下一帧渲染就撞上去
         ImageContent.Source = null;
         ImageBackupSource = null;
         ImageSource = image;
         ImageOriginSource = image;
         ImageContent.Source = image;
 
-        imageBackupSource?.Dispose();
-        imageSource?.Dispose();
-        imageOriginSource?.Dispose();
+        foreach (Bitmap old in stale) old.Dispose();
     }
 
     private void OnMouseEnter(object? sender, PointerEventArgs e)

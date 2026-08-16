@@ -133,6 +133,7 @@ public sealed class ConversationItemActions
         }
 
         _items.Remove(item);
+        item.ReleaseImages(); //条目就此消失,气泡里那几张位图归它所有
     }
 
     private void OnBranch(ConversationItemBase item)
@@ -175,7 +176,15 @@ public sealed class ConversationItemActions
         int itemIndex = _items.IndexOf(item);
         if (itemIndex >= 0)
         {
-            for (int i = _items.Count - 1; i >= itemIndex; i--) _items.RemoveAt(i);
+            // 截断的这一段条目不再回来,连它们气泡里的图一起释放(先摘出集合再释放)
+            List<ConversationItemBase> discarded = new();
+            for (int i = _items.Count - 1; i >= itemIndex; i--)
+            {
+                discarded.Add(_items[i]);
+                _items.RemoveAt(i);
+            }
+
+            foreach (ConversationItemBase discardedItem in discarded) discardedItem.ReleaseImages();
         }
 
         _items.Add(Wire(ConversationItemFactory.CreateUser(

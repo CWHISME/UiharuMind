@@ -80,7 +80,9 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnVisionAiBtnClick(object? sender, RoutedEventArgs e)
     {
         if (CurrentSnapWindow == null) return;
-        QuickStartChatWindow.Show(CurrentSnapWindow.ImageSource);
+        // 快速提问窗是缓存窗、活得比预览窗久,而这张图归预览窗所有(关窗即释放)。
+        // 直接把它递过去就是留下一个悬空引用:预览窗一关,那边发送时读到已释放的位图
+        QuickStartChatWindow.Show(CurrentSnapWindow.ImageSource?.CloneBitmap());
     }
 
     private void OnEditBtnClick(object? sender, RoutedEventArgs e)
