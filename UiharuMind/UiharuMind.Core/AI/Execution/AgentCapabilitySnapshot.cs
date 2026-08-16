@@ -31,10 +31,38 @@ public sealed class AgentCapabilitySnapshot
     /// <summary>MCP 侧的工具与自述，按 server 分组</summary>
     public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
-    /// <summary>全部工具定义的估算 token 合计（含 MCP 自述）</summary>
+    /// <summary>
+    /// 系统提示的分段清单（角色段、工具纪律、MCP 自述、工作区规矩），已带估算占用。
+    /// 提示词与工具定义一样每轮完整重发，而它通常比工具还大——角色卡加一份 AGENTS.md
+    /// 轻松几千 token，这笔账不摆出来，用户只会以为是工具太多
+    /// </summary>
+    public IReadOnlyList<AgentPromptSegment> PromptSegments { get; init; } = [];
+
+    /// <summary>
+    /// 每轮固定开销的估算合计：系统提示 + 工具定义（含 MCP 自述）。
+    /// MCP 自述那一段不从 <see cref="PromptSegments"/> 计入——它已在 <see cref="Mcp"/> 里算过
+    /// （见 <see cref="AgentPromptSegment.CountsTowardTotal"/>）
+    /// </summary>
     public int EstimatedTokens =>
         BuiltInTools.Sum(x => x.EstimatedTokens) + Mcp.EstimatedTokens
-        + Mcp.Groups.Sum(x => x.InstructionsEstimatedTokens);
+        + Mcp.Groups.Sum(x => x.InstructionsEstimatedTokens)
+        + PromptSegments.Where(x => x.CountsTowardTotal).Sum(x => x.EstimatedTokens);
+
+    /// <summary>
+    /// 取某一段系统提示的估算占用
+    /// </summary>
+    /// <param name="section">段别</param>
+    /// <returns>估算 token；该段未出现在本次装配里则为 0</returns>
+    public int PromptTokensOf(EPromptSection section)
+    {
+        int total = 0;
+        foreach (AgentPromptSegment segment in PromptSegments)
+        {
+            if (segment.Section == section) total += segment.EstimatedTokens;
+        }
+
+        return total;
+    }
 
     /// <summary>按能力档汇总的估算占用（角色编辑页据此显示「关掉这一档能省多少」）</summary>
     public IReadOnlyDictionary<EAgentCapability, int> TokensByCapability { get; init; } =
@@ -45,14 +73,16 @@ public sealed class AgentCapabilitySnapshot
     /// </summary>
     /// <param name="entries">装配好的工具，每项带能力归属</param>
     /// <param name="mcp">同一次装配的 MCP 产物</param>
+    /// <param name="promptSegments">同一次装配登记的系统提示分段；在此统一分词</param>
     /// <returns>快照</returns>
-    public static AgentCapabilitySnapshot Capture(IReadOnlyList<AgentToolEntry>? entries, McpToolSet mcp)
+    public static AgentCapabilitySnapshot Capture(IReadOnlyList<AgentToolEntry>? entries, McpToolSet mcp,
+        IReadOnlyList<AgentPromptSegment>? promptSegments = null)
     {
-        if (entries == null || entries.Count == 0) return Empty;
-
+        // 一个工具都没挂也要往下走:能力全关的 agent 仍有角色提示与工作区规矩要报,
+        // 早退等于把提示词那半边账在「没工具」这种最该看清账的场合里藏掉
         List<AgentToolInfo> builtIn = new();
         Dictionary<EAgentCapability, int> byCapability = new();
-        foreach (AgentToolEntry entry in entries)
+        foreach (AgentToolEntry entry in entries ?? [])
         {
             int tokens = ToolTokenEstimator.Estimate(entry.Tool);
             byCapability[entry.Capability] = byCapability.GetValueOrDefault(entry.Capability) + tokens;
@@ -73,6 +103,10 @@ public sealed class AgentCapabilitySnapshot
             BuiltInTools = builtIn,
             Mcp = mcp,
             TokensByCapability = byCapability,
+            // 分词在这里做,不在装配里:本方法跑在能力面板的后台刷新上,而装配在发消息路径上
+            PromptSegments = promptSegments?
+                .Select(x => x with { EstimatedTokens = ToolTokenEstimator.EstimateText(x.Text) })
+                .ToList() ?? [],
         };
     }
 }

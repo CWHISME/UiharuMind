@@ -287,7 +287,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         AgentHandle? handle = _handle;
         return handle == null
             ? AgentCapabilitySnapshot.Empty
-            : AgentCapabilitySnapshot.Capture(handle.ToolEntries, handle.Mcp);
+            : AgentCapabilitySnapshot.Capture(handle.ToolEntries, handle.Mcp, handle.PromptSegments);
     }
 
     public async Task<IReadOnlyList<TodoSnapshot>> GetTodosAsync()

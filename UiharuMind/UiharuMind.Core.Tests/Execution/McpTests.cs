@@ -307,12 +307,27 @@ public class McpTests
             snapshot.TokensByCapability[EAgentCapability.Shell]);
     }
 
-    /// <summary>没有工具就是空快照，不是「零占用的非空快照」——界面据此显示空态</summary>
+    /// <summary>
+    /// 没有工具、也没有提示词分段，快照就是空的——界面据此显示空态。
+    ///
+    /// 判的是<b>值</b>而不是同一个实例：早先这里在工具为空时直接早退返回
+    /// <see cref="AgentCapabilitySnapshot.Empty"/>，而提示词进账之后那条捷径成了漏计——
+    /// 能力全关的智能体照样有角色提示与工作区规矩，恰恰是最该看清账的场合。
+    /// </summary>
     [Fact]
-    public void Capture_WithoutTools_IsEmpty()
+    public void Capture_WithoutToolsOrPrompt_IsEmpty()
     {
-        Assert.Same(AgentCapabilitySnapshot.Empty, AgentCapabilitySnapshot.Capture(null, McpToolSet.Empty));
-        Assert.Same(AgentCapabilitySnapshot.Empty, AgentCapabilitySnapshot.Capture([], McpToolSet.Empty));
+        foreach (AgentCapabilitySnapshot snapshot in new[]
+                 {
+                     AgentCapabilitySnapshot.Capture(null, McpToolSet.Empty),
+                     AgentCapabilitySnapshot.Capture([], McpToolSet.Empty),
+                 })
+        {
+            Assert.Empty(snapshot.BuiltInTools);
+            Assert.Empty(snapshot.PromptSegments);
+            Assert.Empty(snapshot.Mcp.Groups);
+            Assert.Equal(0, snapshot.EstimatedTokens);
+        }
     }
 
     /// <summary>

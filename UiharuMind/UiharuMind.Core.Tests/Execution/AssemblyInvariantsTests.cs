@@ -11,6 +11,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 
 namespace UiharuMind.Core.Tests.Agent;
@@ -309,8 +310,56 @@ public class HarnessInstructionsCompositionTests
         Assert.DoesNotContain(AgentToolPrompts.SubAgentDefault, instructions);
     }
 
+    /// <summary>
+    /// 分段清单必须逐字覆盖真正发出去的那段提示，且空段不入册。
+    ///
+    /// 能力面板按段报占用，靠的就是这份清单。清单一旦与整串脱节，症状是面板上的分项之和
+    /// 与合计对不上——而那正是这块面板唯一的用处。
+    /// </summary>
+    [Fact]
+    public void PromptSegments_AreRegisteredVerbatim_AndSkipEmptySections()
+    {
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test",
+            out IReadOnlyList<AgentPromptSegment> segments,
+            workspaceInstructions: "never touch the vendor folder");
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        foreach (AgentPromptSegment segment in segments)
+        {
+            Assert.Contains(segment.Text, instructions, StringComparison.Ordinal);
+        }
+
+        Assert.Contains(segments, x => x.Section == EPromptSection.Character);
+        Assert.Contains(segments, x => x.Section == EPromptSection.ToolDisciplines);
+        Assert.Contains(segments, x => x.Section == EPromptSection.Workspace);
+        Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Mcp); //本例没接 MCP
+    }
+
+    /// <summary>
+    /// MCP 自述那一段登记在册但<b>不计入合计</b>：它已经在 MCP 那一档里算过一次。
+    /// 少了这条，接一个带长自述的 server 会让固定开销凭空翻倍。
+    /// </summary>
+    [Fact]
+    public void PromptSegments_ExcludeMcpNotesFromTheTotal()
+    {
+        McpToolSet mcp = new() { Instructions = "## demo\nuse the demo server for demos." };
+
+        BuildAgentOptions("/tmp/uiharu-agent-test", out IReadOnlyList<AgentPromptSegment> segments, mcp: mcp);
+
+        AgentPromptSegment notes = Assert.Single(segments, x => x.Section == EPromptSection.Mcp);
+        Assert.False(notes.CountsTowardTotal);
+        Assert.All(segments.Where(x => x.Section != EPromptSection.Mcp), x => Assert.True(x.CountsTowardTotal));
+    }
+
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
-        AgentToolConfig? tools = null, string workspaceInstructions = "")
+        AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null)
+    {
+        return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp);
+    }
+
+    private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
+        out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
+        string workspaceInstructions = "", McpToolSet? mcp = null)
     {
         CharacterData character = new()
         {
@@ -333,9 +382,11 @@ public class HarnessInstructionsCompositionTests
             WorkingDirectory = workingDirectory,
             WorkspaceInstructions = workspaceInstructions,
             SkillsSource = new AgentFileSkillsSource(skillsDir),
+            Mcp = mcp ?? McpToolSet.Empty,
         };
 
-        return AgentOptionsFactory.BuildAgentOptions(plan, new StubHistoryProvider(), [], chatOptions);
+        return AgentOptionsFactory.BuildAgentOptions(plan, new StubHistoryProvider(), [], chatOptions,
+            out segments);
     }
 
     private sealed class StubHistoryProvider : ChatHistoryProvider

@@ -107,14 +107,17 @@ internal static class AgentOptionsFactory
     /// <param name="history">历史提供器</param>
     /// <param name="contextProviders">上下文提供器</param>
     /// <param name="chatOptions">对话选项(含角色系统提示与已装配工具集,shell 工具已在其中)</param>
+    /// <param name="promptSegments">拼接现场登记的分段清单，交给句柄供能力面板按段报占用</param>
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(AgentAssemblyPlan plan,
-        ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions)
+        ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
+        out IReadOnlyList<AgentPromptSegment> promptSegments)
     {
         CharacterData character = plan.Character;
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
-            plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions);
+            plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
+            out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);

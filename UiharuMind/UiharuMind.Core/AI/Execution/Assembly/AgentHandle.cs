@@ -56,14 +56,22 @@ public sealed class AgentHandle : IAsyncDisposable
     /// </summary>
     public IReadOnlyList<AgentToolEntry> ToolEntries { get; }
 
+    /// <summary>
+    /// <see cref="ChatOptions"/> 里那段系统提示的分段清单（拼接现场登记，见
+    /// <see cref="AgentInstructionsComposer.Compose"/>）。能力面板按段报占用、并据此展示全文。
+    /// </summary>
+    public IReadOnlyList<AgentPromptSegment> PromptSegments { get; }
+
     public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor, ChatOptions? chatOptions = null,
-        McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null)
+        McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null,
+        IReadOnlyList<AgentPromptSegment>? promptSegments = null)
     {
         Agent = agent;
         _shellExecutor = shellExecutor;
         ChatOptions = chatOptions;
         Mcp = mcp ?? McpToolSet.Empty;
         ToolEntries = toolEntries ?? [];
+        PromptSegments = promptSegments ?? [];
     }
 
     public async ValueTask DisposeAsync()

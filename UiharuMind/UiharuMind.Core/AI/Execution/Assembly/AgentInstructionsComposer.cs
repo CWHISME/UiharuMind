@@ -46,24 +46,31 @@ internal static class AgentInstructionsComposer
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
+    /// <param name="segments">
+    /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
+    /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
+    /// </param>
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
-        string mcpInstructions = "")
+        string mcpInstructions, out IReadOnlyList<AgentPromptSegment> segments)
     {
+        List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
-        AppendSection(sb, characterPrompt);
-        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory));
+        AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
+        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory),
+            EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
-            AppendSection(sb, McpSection(mcpInstructions));
+            AppendSection(sb, McpSection(mcpInstructions), EPromptSection.Mcp, registry);
         }
 
         if (workspaceInstructions.Length > 0)
         {
-            AppendSection(sb, WorkspaceSection(workspaceInstructions));
+            AppendSection(sb, WorkspaceSection(workspaceInstructions), EPromptSection.Workspace, registry);
         }
 
+        segments = registry;
         return sb.ToString();
     }
 
@@ -100,11 +107,16 @@ internal static class AgentInstructionsComposer
         return $"{WorkspaceHeading}\n{workspaceInstructions}";
     }
 
-    private static void AppendSection(StringBuilder sb, string? section)
+    private static void AppendSection(StringBuilder sb, string? section, EPromptSection kind,
+        List<AgentPromptSegment> registry)
     {
         if (string.IsNullOrWhiteSpace(section)) return;
+        // 登记的是 TrimEnd 之后那份:清单里的正文必须与真正发出去的逐字相同,
+        // 否则「查看全文」看到的和模型读到的不是一个东西
+        string text = section.TrimEnd();
         if (sb.Length > 0) sb.Append("\n\n");
-        sb.Append(section.TrimEnd());
+        sb.Append(text);
+        registry.Add(new AgentPromptSegment(kind, text));
     }
 
     /// <summary>

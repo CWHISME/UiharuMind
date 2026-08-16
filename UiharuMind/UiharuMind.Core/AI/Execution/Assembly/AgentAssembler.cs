@@ -74,9 +74,9 @@ internal static class AgentAssembler
         List<AgentToolEntry> toolEntries = BuildTools(plan, client, shellExecutor);
         chatOptions.Tools = toolEntries.Select(x => x.Tool).ToList();
 
-        return BuildHandle(client,
-            AgentOptionsFactory.BuildAgentOptions(plan, history, contextProviders, chatOptions), shellExecutor,
-            plan.Mcp, toolEntries);
+        HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan, history, contextProviders,
+            chatOptions, out IReadOnlyList<AgentPromptSegment> promptSegments);
+        return BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments);
     }
 
     /// <summary>
@@ -154,10 +154,12 @@ internal static class AgentAssembler
     /// <param name="shellExecutor">shell 执行器（有生命周期，交给句柄释放）</param>
     /// <param name="mcp">本次装配的 MCP 产物（右栏据此展示归属）；子代理与纯提示词档不传</param>
     /// <param name="toolEntries">带能力归属的工具集；子代理与纯提示词档不传</param>
+    /// <param name="promptSegments">系统提示的分段清单；子代理与纯提示词档不传</param>
     /// <returns>agent 句柄</returns>
     internal static AgentHandle BuildHandle(IChatClient client, HarnessAgentOptions options,
         ShellExecutor? shellExecutor, McpToolSet? mcp = null,
-        IReadOnlyList<AgentToolEntry>? toolEntries = null)
+        IReadOnlyList<AgentToolEntry>? toolEntries = null,
+        IReadOnlyList<AgentPromptSegment>? promptSegments = null)
     {
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
@@ -175,6 +177,6 @@ internal static class AgentAssembler
         }
 
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份
-        return new AgentHandle(agent, shellExecutor, options.ChatOptions, mcp, toolEntries);
+        return new AgentHandle(agent, shellExecutor, options.ChatOptions, mcp, toolEntries, promptSegments);
     }
 }
