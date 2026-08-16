@@ -191,43 +191,32 @@ internal static class SubAgentAssembly
 
         if (tools.Count == 0) return null;
 
-        return new HarnessAgentOptions
+        // 框架有状态能力全关,子代理是一次性的纯工具循环
+        // (1.16 起框架文件工具只随 FileAccessStore 出现,不设即无,无需显式关闭)。
+        // 压缩是唯一没关的:它只删不加,而 16 轮工具循环最容易把上下文塞爆,
+        // 子代理反而比谁都需要工具结果折叠(ADR 0006)
+        HarnessAgentOptions options =
+            AgentOptionsFactory.CreateSubAgentBaseOptions(input.Compaction);
+        options.Name = input.Name.Length > 0 ? input.Name : "SubAgent";
+        options.Description = "Sub-agent: surveys workspace files and/or the web, inspects images, " +
+                              "and returns a focused report.";
+        // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
+        // 子代理能改东西之后这条更承重
+        options.MaximumIterationsPerRequest = SubAgentTool.MaxIterations;
+        // 审批中间件照挂,规则与主 agent 同源——档位语义只有一处定义(ApprovalModeMapper)。
+        // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
+        options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
-            Name = input.Name.Length > 0 ? input.Name : "SubAgent",
-            Description = "Sub-agent: surveys workspace files and/or the web, inspects images, " +
-                          "and returns a focused report.",
-            // 与主 agent 同一口径:工作循环归"角色段"(这里就是 BuildSubAgentInstructions 生成的那份),
-            // harness 段因此为空。框架默认那段的身份句会和下面的 "# Role" 抢身份,见 ADR 0004
-            HarnessInstructions = string.Empty,
-            // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
-            // 子代理能改东西之后这条更承重
-            MaximumIterationsPerRequest = SubAgentTool.MaxIterations,
-            // 框架有状态能力全关,子代理是一次性的纯工具循环
-            // (1.16 起框架文件工具只随 FileAccessStore 出现,不设即无,无需显式关闭)
-            DisableWebSearch = true,
-            DisableFileMemory = true,
-            DisableTodoProvider = true,
-            DisableAgentModeProvider = true,
-            DisableAgentSkillsProvider = true,
-            // 压缩是唯一没关的框架能力:它只删不加,不往上下文里注入内容。
-            // 16 轮工具循环最容易把上下文塞爆,子代理反而比谁都需要工具结果折叠(ADR 0006)
-            DisableCompaction = input.Compaction == null,
-            CompactionStrategy = input.Compaction,
-            DisableOpenTelemetry = true,
-            // 审批中间件照挂,规则与主 agent 同源——档位语义只有一处定义(ApprovalModeMapper)。
-            // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
-            ToolApprovalAgentOptions = new ToolApprovalAgentOptions
-            {
-                AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
-                    input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource),
-            },
-            ChatOptions = new ChatOptions
-            {
-                Instructions = BuildSubAgentInstructions(config, hasVision, canMutate,
-                    input.WorkingDirectory, input.WorkspaceInstructions, input.Persona),
-                Tools = tools,
-            },
+            AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
+                input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource),
         };
+        options.ChatOptions = new ChatOptions
+        {
+            Instructions = BuildSubAgentInstructions(config, hasVision, canMutate,
+                input.WorkingDirectory, input.WorkspaceInstructions, input.Persona),
+            Tools = tools,
+        };
+        return options;
     }
 
     /// <summary>
@@ -295,21 +284,20 @@ internal static class SubAgentAssembly
         sb.Append(AgentToolPrompts.AgentWorkLoop);
 
         // 与主 agent 同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
-        // 没有任何线索能反推出根目录在哪
+        // 没有任何线索能反推出根目录在哪。段落正文经 AgentInstructionsComposer 共用,
+        // 这里只是没有 # Tools 那层外壳,故标题用一级
         if (workingDirectory.Length > 0)
         {
             sb.AppendLine();
             sb.AppendLine();
-            sb.AppendLine("# Working directory");
-            sb.Append(AgentToolPrompts.BuildWorkingDirectory(workingDirectory));
+            sb.Append(AgentInstructionsComposer.WorkingDirectorySection(workingDirectory, "#"));
         }
 
         if (workspaceInstructions.Length > 0)
         {
             sb.AppendLine();
             sb.AppendLine();
-            sb.AppendLine("# Workspace Instructions (from the project's AGENTS.md)");
-            sb.Append(workspaceInstructions);
+            sb.Append(AgentInstructionsComposer.WorkspaceSection(workspaceInstructions));
         }
 
         return sb.ToString();

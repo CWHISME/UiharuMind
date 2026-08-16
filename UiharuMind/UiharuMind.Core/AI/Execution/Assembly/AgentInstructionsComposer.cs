@@ -17,6 +17,18 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class AgentInstructionsComposer
 {
+    /// <summary>
+    /// 工作区规矩段的标题。主 agent 与子代理<b>逐字共用这一段</b>——
+    /// 子代理干的正是探查工作区的活，不该是全场唯一不知道工作区规矩的人
+    /// </summary>
+    private const string WorkspaceHeading = "# Workspace Instructions (from the project's AGENTS.md)";
+
+    /// <summary>
+    /// 按固定顺序拼出 agent 档的整段系统提示：
+    /// 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → 工作区规矩。
+    ///
+    /// <b>人格在最前</b>：小模型要先知道自己是谁，再读一大段英文工具纪律。
+    /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段之前，
     /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
     /// </summary>
     /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
@@ -33,11 +45,33 @@ internal static class AgentInstructionsComposer
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory));
         if (workspaceInstructions.Length > 0)
         {
-            AppendSection(sb,
-                "# Workspace Instructions (from the project's AGENTS.md)\n" + workspaceInstructions);
+            AppendSection(sb, WorkspaceSection(workspaceInstructions));
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 工作目录段。<b>两种装配形态共用这一段正文</b>，只有标题级别不同：
+    /// 主 agent 里它是 <c># Tools</c> 的一个分项（工作目录正是给那些工具用的根），
+    /// 子代理里没有那个外层，它自己就是一个顶级段。
+    /// </summary>
+    /// <param name="workingDirectory">工作目录绝对路径</param>
+    /// <param name="heading">标题级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
+    /// <returns>整段文本</returns>
+    internal static string WorkingDirectorySection(string workingDirectory, string heading)
+    {
+        return $"{heading} Working directory\n{AgentToolPrompts.BuildWorkingDirectory(workingDirectory)}";
+    }
+
+    /// <summary>
+    /// 工作区规矩段（主 agent 与子代理逐字共用）
+    /// </summary>
+    /// <param name="workspaceInstructions">工作区说明文件内容</param>
+    /// <returns>整段文本</returns>
+    internal static string WorkspaceSection(string workspaceInstructions)
+    {
+        return $"{WorkspaceHeading}\n{workspaceInstructions}";
     }
 
     private static void AppendSection(StringBuilder sb, string? section)
@@ -55,11 +89,14 @@ internal static class AgentInstructionsComposer
     /// (<see cref="AgentToolPrompts.AgentWorkLoop"/>),理由见 ADR 0004:框架默认那段用户看不见,
     /// 还带一句"You are a helpful AI assistant"抢在角色人格之前。
     ///
-    /// 本段由 <see cref="ComposeAgentInstructions"/> 接在角色段之后。
+    /// 本段由 <see cref="Compose"/> 接在角色段之后，整体挂在一个 <c># Tools</c> 父标题之下。
+    /// <b>那个父标题不是装饰</b>：角色段（agent 档默认角色卡）以 <c># Work loop</c> 起头，
+    /// 本段若直接从 <c>## Working directory</c> 开始，按 markdown 结构读就整个成了
+    /// 「工作循环」的子节——层级说的是一件与事实不符的事。
     /// </summary>
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
-    /// <returns>harness 层指令文本</returns>
+    /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
         string workingDirectory)
     {
@@ -68,8 +105,7 @@ internal static class AgentInstructionsComposer
         // 工作目录排在最前:后面每一段纪律都以"路径怎么写"为前提
         if (workingDirectory.Length > 0)
         {
-            sb.AppendLine("## Working directory");
-            sb.AppendLine(AgentToolPrompts.BuildWorkingDirectory(workingDirectory));
+            sb.AppendLine(WorkingDirectorySection(workingDirectory, "##"));
         }
 
         // 各段正文可在设置页覆盖(空 = 用 AgentToolPrompts 默认),段落标题固定由此处统一挂
@@ -110,7 +146,10 @@ internal static class AgentInstructionsComposer
             sb.AppendLine(AgentToolPrompts.SubAgentDefault);
         }
 
-        return sb.ToString();
+        //一项都没有就整段不出现:光挂一个空的 # Tools 标题是纯噪声
+        if (sb.Length == 0) return string.Empty;
+
+        return "# Tools\n\n" + sb;
     }
 
     /// <summary>

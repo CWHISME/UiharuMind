@@ -205,6 +205,48 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
+    /// 工具纪律段挂在自己的 <c># Tools</c> 父标题之下。
+    ///
+    /// 这不是排版洁癖：角色段（agent 档默认角色卡）以 <c># Work loop</c> 起头，
+    /// 工具纪律若像从前那样直接从 <c>## Working directory</c> 开始，
+    /// 按 markdown 结构读就整个成了「工作循环」的子节——层级说了一件与事实不符的事。
+    /// </summary>
+    [Fact]
+    public void ToolDisciplines_LiveUnderTheirOwnTopLevelHeading()
+    {
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        int tools = instructions.IndexOf("# Tools", StringComparison.Ordinal);
+        Assert.True(tools >= 0, "工具纪律段缺少父标题");
+        //每个二级段都在父标题之后,没有一个跑到外面去
+        foreach (string section in new[] { "## Working directory", "## File operations" })
+        {
+            int at = instructions.IndexOf(section, StringComparison.Ordinal);
+            Assert.True(at > tools, $"{section} 跑到了 # Tools 之外");
+        }
+    }
+
+    /// <summary>
+    /// 一项工具纪律都没有时整段不出现：只挂一个空的 <c># Tools</c> 标题是纯噪声
+    /// </summary>
+    [Fact]
+    public void ToolDisciplines_AreOmittedEntirely_WhenNothingIsMounted()
+    {
+        AgentToolConfig nothing = new()
+        {
+            EnableFileAccess = false,
+            EnableVisionTool = false,
+            EnableKnowledgeSearchTool = false,
+            EnableSubAgent = false,
+        };
+
+        HarnessAgentOptions options = BuildAgentOptions(string.Empty, nothing);
+
+        Assert.DoesNotContain("# Tools", options.ChatOptions?.Instructions ?? string.Empty);
+    }
+
+    /// <summary>
     /// 工作区规矩排在我们这段的最尾(框架 provider 段仍在其后,那不由我们控制)。
     /// 它是"这个项目的特殊规矩"，该压在通用纪律之后。
     /// </summary>
