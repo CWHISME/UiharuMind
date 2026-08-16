@@ -151,7 +151,8 @@
                                 IsEnabled="{Binding !IndexUpdater.IsUpdating}"
                                 Command="{Binding EditMemoryCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="pencil" />
+                                <!-- 管理来源用 settings，把 pencil 让给同窗口的重命名 -->
+                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="settings" />
                                 <TextBlock Text="{loc:Loc MemoryManageAction}" />
                             </StackPanel>
                         </Button>
@@ -239,10 +240,15 @@
                         </Grid>
                     </Border>
 
-                    <Grid Grid.Row="6" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <Grid Grid.Row="6" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
                         <ThemedIconButton Command="{Binding DeleteMemoryCommand}" IconName="trash-2"  ToolTips="{loc:Loc Delete}">
                         </ThemedIconButton>
-                        <Button Grid.Column="2"
+                        <!-- 改名要连索引库一起搬,所以走 RenameMemoryCommand;命令自带更新期间禁用 -->
+                        <ThemedIconButton Grid.Column="1"
+                                          Command="{Binding RenameMemoryCommand}"
+                                          IconName="pencil"
+                                          ToolTips="{loc:Loc MemoryRenameAction}" />
+                        <Button Grid.Column="3"
                                 IsEnabled="{Binding !IndexUpdater.IsUpdating}"
                                 Command="{Binding AttachMemoryCommand}"
                                 MinWidth="150">

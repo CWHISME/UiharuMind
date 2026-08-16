@@ -1,7 +1,25 @@
+using System.Security.Cryptography;
 using System.Text;
 using UtfUnknown;
 
 namespace UiharuMind.Core.AI.Memory;
+
+/// <summary>
+/// 来源标识。文件路径这类会变长变怪的值不能直接当 id(要拼进记录主键、要当文件名兜底),
+/// 统一散列成定长十六进制。
+/// </summary>
+internal static class MemorySourceId
+{
+    /// <summary>
+    /// 把任意字符串散列成定长标识
+    /// </summary>
+    /// <param name="value">原始值,如文件绝对路径</param>
+    /// <returns>大写十六进制串</returns>
+    public static string FromValue(string value)
+    {
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToUpperInvariant();
+    }
+}
 
 public sealed class MemoryTextSource
 {
@@ -40,6 +58,44 @@ public interface IMemorySourceReader
 {
     bool CanRead(MemorySourceReference source);
     Task<MemorySourceReadResult> ReadAsync(MemorySourceReference source, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// 受理中的来源读取器。索引构建与「加文件时先校验一遍」两条路径必须用同一份名单,
+/// 各自持一份迟早会出现「导入时收了、索引时读不了」。
+/// </summary>
+internal static class MemorySourceReaders
+{
+    private static readonly IMemorySourceReader[] All =
+    [
+        new ManualTextSourceReader(),
+        new PlainTextFileSourceReader()
+    ];
+
+    /// <summary>
+    /// 找能读这个来源的读取器
+    /// </summary>
+    /// <param name="source">来源引用</param>
+    /// <returns>读取器;没有能受理的返回 null</returns>
+    public static IMemorySourceReader? Find(MemorySourceReference source)
+    {
+        return Array.Find(All, reader => reader.CanRead(source));
+    }
+
+    /// <summary>
+    /// 读一个来源
+    /// </summary>
+    /// <param name="source">来源引用</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>读取结果;无人受理时返回 MemorySourceUnsupported</returns>
+    public static Task<MemorySourceReadResult> ReadAsync(
+        MemorySourceReference source, CancellationToken cancellationToken)
+    {
+        IMemorySourceReader? reader = Find(source);
+        return reader == null
+            ? Task.FromResult(new MemorySourceReadResult(false, ErrorCode: "MemorySourceUnsupported"))
+            : reader.ReadAsync(source, cancellationToken);
+    }
 }
 
 public sealed class ManualTextSourceReader : IMemorySourceReader

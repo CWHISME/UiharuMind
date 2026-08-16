@@ -1862,6 +1862,18 @@
     <data name="MemoryDeleteConfirm" xml:space="preserve">
         <value>确定删除这份记忆库吗？它的来源与本地索引将不再可用。</value>
     </data>
+    <data name="MemoryRenameAction" xml:space="preserve">
+        <value>重命名</value>
+    </data>
+    <data name="MemoryNameInvalid" xml:space="preserve">
+        <value>名称不能为空，也不能含有 \ / : * ? " &lt; &gt; | 这类字符。</value>
+    </data>
+    <data name="MemoryRenamedToUniqueName" xml:space="preserve">
+        <value>已存在同名记忆库，改用「{0}」。</value>
+    </data>
+    <data name="MemoryRenameFailed" xml:space="preserve">
+        <value>重命名失败，名称已还原：{0}</value>
+    </data>
     <data name="MemoryDescriptionFallback" xml:space="preserve">
         <value>角色背景与长期上下文。</value>
     </data>

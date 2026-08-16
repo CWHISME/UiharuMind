@@ -1869,6 +1869,18 @@
     <data name="MemoryDeleteConfirm" xml:space="preserve">
         <value>Delete this memory library? Its sources and local index will no longer be available.</value>
     </data>
+    <data name="MemoryRenameAction" xml:space="preserve">
+        <value>Rename</value>
+    </data>
+    <data name="MemoryNameInvalid" xml:space="preserve">
+        <value>The name cannot be empty or contain characters such as \ / : * ? " &lt; &gt; |.</value>
+    </data>
+    <data name="MemoryRenamedToUniqueName" xml:space="preserve">
+        <value>A memory library with that name already exists, using "{0}" instead.</value>
+    </data>
+    <data name="MemoryRenameFailed" xml:space="preserve">
+        <value>Rename failed, the name has been restored: {0}</value>
+    </data>
     <data name="MemoryDescriptionFallback" xml:space="preserve">
         <value>Character background and long-term context.</value>
     </data>

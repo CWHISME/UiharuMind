@@ -34,6 +34,37 @@ public static class LlmTokenizer
     }
 
     /// <summary>
+    /// 取开头不超过给定 token 数的一段文本
+    /// </summary>
+    /// <param name="text">原文</param>
+    /// <param name="maxTokens">token 上限</param>
+    /// <returns>截断位置的字符下标;整段都装得下时返回 text.Length</returns>
+    public static int GetPrefixLengthByTokens(string text, int maxTokens)
+    {
+        if (string.IsNullOrEmpty(text) || maxTokens <= 0) return 0;
+
+        return _tokenizer.Value.GetIndexByTokenCount(
+            text, maxTokens, out string? _, out int _);
+    }
+
+    /// <summary>
+    /// 取结尾不超过给定 token 数的一段文本。切块重叠靠它——重叠必须按 token 算,
+    /// 按字符算会让中英文的实际重叠量差好几倍。
+    /// </summary>
+    /// <param name="text">原文</param>
+    /// <param name="maxTokens">token 上限</param>
+    /// <returns>结尾片段与它的 token 数;maxTokens 非正时返回空串</returns>
+    public static (string Text, int Tokens) TakeLastTokens(string text, int maxTokens)
+    {
+        if (string.IsNullOrEmpty(text) || maxTokens <= 0) return ("", 0);
+
+        // token 数由分词器一并给出,调用方不必再数一遍
+        int index = _tokenizer.Value.GetIndexByTokenCountFromEnd(
+            text, maxTokens, out string? _, out int tokenCount);
+        return index <= 0 ? (text, CountTokens(text)) : (text[index..], tokenCount);
+    }
+
+    /// <summary>
     /// 后台加载词表。启动时调一次，此后谁都不必再为"首次使用"付那几十毫秒——
     /// 调用点已经不止输入框一处（工具定义的占用估算也走这里），
     /// 让每个调用方各自记得绕开 UI 线程是迟早会漏的。

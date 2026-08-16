@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -58,6 +59,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
+    [NotifyCanExecuteChangedFor(nameof(RenameMemoryCommand))]
     private MemoryLibraryItemViewData? _selectedItem;
 
     [ObservableProperty] private string _searchText = "";
@@ -134,13 +136,62 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
         if (SelectedItem == null) return;
         MemoryLibraryItemViewData removing = SelectedItem;
         if (!await _messageService.ConfirmAsync(Loc.Text("MemoryDeleteConfirm"))) return;
-        removing.Memory.DeleteStoredIndex();
+
+        // 索引文件的清理归 MemoryManager.Delete 收口,这里不再各自记得多调一步
         MemoryManager.Instance.Delete(removing.Memory);
         removing.Dispose();
         Memories.Remove(removing);
         ApplyFilter();
         SelectedItem = FilteredMemories.FirstOrDefault();
     }
+
+    /// <summary>
+    /// 重命名选中的记忆库。索引库要跟着搬,所以一律走 <see cref="MemoryManager.ModifyName"/>,
+    /// 不直接改 <see cref="MemoryData.Name"/>——直接改会让索引留在旧名字下,检索静默失效。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRenameMemory))]
+    private async Task RenameMemory()
+    {
+        if (!CanRenameMemory || SelectedItem == null) return;
+
+        MemoryLibraryItemViewData item = SelectedItem;
+        string? input = await UIManager.ShowStringEditWindow(item.Memory.Name);
+        if (input == null) return;
+
+        string requested = input.Trim();
+        if (requested.Length == 0 || requested is "." or ".." ||
+            requested.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            // 库文件名跟名称走,非法字符会被替换成 _,两个不同名称就可能撞上同一个库文件
+            await _messageService.ShowWarningAsync(Loc.Text("MemoryNameInvalid"));
+            return;
+        }
+
+        if (string.Equals(requested, item.Memory.Name, StringComparison.Ordinal)) return;
+
+        try
+        {
+            string finalName = MemoryManager.Instance.ModifyName(item.Memory, requested);
+            if (!string.Equals(finalName, requested, StringComparison.Ordinal))
+            {
+                _messageService.ShowNotification(
+                    string.Format(Loc.Text("MemoryRenamedToUniqueName"), finalName));
+            }
+        }
+        catch (Exception e)
+        {
+            await _messageService.ShowWarningAsync(string.Format(Loc.Text("MemoryRenameFailed"), e.Message));
+        }
+        finally
+        {
+            // 成功要显示新名字,失败也要把回滚后的旧名字刷回来
+            item.Refresh();
+            ApplyFilter();
+        }
+    }
+
+    /// <summary>索引正在更新时不许改名:搬库要先关句柄,而那时构建流程正握着它</summary>
+    private bool CanRenameMemory => SelectedItem != null && !IndexUpdater.IsUpdating;
 
     [RelayCommand]
     private async Task CreateMemory()
@@ -162,6 +213,10 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
 
     private void ApplyFilter()
     {
+        // 先记下选中项:Clear() 会让绑定的列表控件把 SelectedItem 顶成 null 并回写过来,
+        // 等填完再判断就已经丢了选中态——改名、搜索框输入都会因此莫名跳选。
+        MemoryLibraryItemViewData? previous = SelectedItem;
+
         string keyword = SearchText.Trim();
         FilteredMemories.Clear();
         foreach (MemoryLibraryItemViewData item in Memories)
@@ -174,8 +229,9 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
             }
         }
 
-        if (SelectedItem != null && !FilteredMemories.Contains(SelectedItem))
-            SelectedItem = FilteredMemories.FirstOrDefault();
+        SelectedItem = previous != null && FilteredMemories.Contains(previous)
+            ? previous
+            : FilteredMemories.FirstOrDefault();
     }
 
     public void Dispose()
@@ -200,11 +256,17 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
 
     private void OnIndexUpdaterPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MemoryIndexUpdateController.IsUpdating) && SelectedItem != null)
+        if (e.PropertyName == nameof(MemoryIndexUpdateController.IsUpdating))
         {
-            SelectedItem.IsUpdating = IndexUpdater.IsUpdating;
-            SelectedItem.Refresh();
+            if (SelectedItem != null)
+            {
+                SelectedItem.IsUpdating = IndexUpdater.IsUpdating;
+                SelectedItem.Refresh();
+            }
+
+            RenameMemoryCommand.NotifyCanExecuteChanged(); //更新期间禁用改名,更新完再放开
         }
+
         OnPropertyChanged(nameof(HasBackgroundWork));
     }
 

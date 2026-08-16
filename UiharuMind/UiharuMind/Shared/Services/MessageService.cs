@@ -376,6 +376,18 @@ public partial class ApplicationNotification : ObservableObject, IDisposable
     public string Title { get; }
     public string Message { get; }
     public MessageSeverity Severity { get; }
+
+    /// <summary>
+    /// 供 axaml 的 <c>Tag</c> 用的字符串档位。
+    ///
+    /// 不能把 <see cref="Severity"/> 枚举直接绑到 Tag：Tag 是 object，而全仓样式里有好几套
+    /// 基于字符串的 <c>[Tag=xxx]</c> 选择器（<c>status-dot[Tag=Idle]</c> 之类）。Avalonia 匹配时
+    /// 会拿选择器字面量去转成 Tag 当前值的类型，于是 "Idle" 被送进 MessageSeverity 的枚举转换器，
+    /// 抛 FormatException——通知一弹就报一次，且报的是跟通知毫无关系的另一套样式的档位名。
+    /// 存成字符串后两边都是字符串比较，认得的照旧命中，不认得的安静落空。
+    /// </summary>
+    public string SeverityKey => Severity.ToString();
+
     public string IconText { get; }
     public string CloseText { get; }
 

@@ -1,25 +1,28 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Embedding;
-using Microsoft.Extensions.VectorData;
-using Microsoft.SemanticKernel.Connectors.SqliteVec;
-using UiharuMind.Core.AI;
-using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
-using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Memory;
 
-public class MemoryData : IUniquieContainerItem
+/// <summary>
+/// 一个知识库：元数据是它的本体（会被序列化成 json），索引构建与检索委派给协作者。
+///
+/// 这里刻意只留门面：<see cref="UpdateIndexAsync"/> 与 <see cref="GetLongTermMemory"/> 的签名
+/// 是四个调用点（知识库工具、上下文注入、编辑窗、选择窗）依赖的边界，实现搬家不该惊动它们。
+/// 真正干活的三个协作者见 <see cref="MemoryStore"/>、<see cref="MemorySearcher"/>、
+/// <see cref="MemoryIndexBuilder"/>。
+///
+/// 协作者是懒创建的：容器在启动时会把所有知识库一次性反序列化出来，构造时就开 SQLite 连接
+/// 等于让启动时间跟知识库数量成正比，而多数知识库这次启动根本不会被用到。
+/// </summary>
+public class MemoryData : IUniquieContainerItem, IDisposable
 {
-    private const string CollectionName = "chunks";
-    private static readonly IMemorySourceReader[] SourceReaders =
-    [
-        new ManualTextSourceReader(),
-        new PlainTextFileSourceReader()
-    ];
+    /// <summary>
+    /// 当前切块规则的版本。切块边界、上下文拼接方式、记录列一改，旧索引就是按旧规则建的——
+    /// 仍然能打开、仍然能检索，只是质量还是老样子，而用户不会知道该重建。
+    /// 抬这个数会让加载时把索引标脏，走现成的「需要更新索引」提示。
+    /// </summary>
+    public const int CurrentIndexVersion = 4;
 
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
@@ -29,50 +32,36 @@ public class MemoryData : IUniquieContainerItem
     public DateTime? LastIndexedAt { get; set; }
     public string LastIndexError { get; set; } = "";
 
+    /// <summary>建立当前索引时用的切块规则版本。0 表示这个字段出现之前建的索引</summary>
+    public int IndexVersion { get; set; }
+
     public event Action? StateChanged;
 
     private readonly SemaphoreSlim _indexLock = new(1, 1);
-    private IEmbeddingSession? _embeddingSession;
-    private SqliteCollection<string, MemoryChunkRecord>? _collection;
-    private int? _embeddingDimensions;
-    private bool _isVectorStoreUnavailable;
+    private MemoryStore? _store;
+    private MemorySearcher? _searcher;
+    private MemoryIndexBuilder? _builder;
+    private IEmbeddingSession? _embeddingSession; //归 EmbeddingModelService 所有,这里只缓存引用,绝不 Dispose
+    private bool _disposed;
 
+    /// <summary>索引是否按当前切块规则建的。false 表示能用但质量是旧的</summary>
+    public bool IsIndexVersionCurrent => IndexVersion == CurrentIndexVersion;
+
+    /// <summary>
+    /// 检索与查询相关的记忆片段
+    /// </summary>
+    /// <param name="query">查询词</param>
+    /// <param name="asChunks">保留参数,当前实现始终按块返回</param>
+    /// <returns>拼好的片段文本;不可用或无结果时为空串</returns>
     public async Task<string> GetLongTermMemory(string query, bool asChunks = true)
     {
         try
         {
+            if (_disposed) return "";
             if (!await EnsureReadyForSearchAsync().ConfigureAwait(false)) return "";
-            if (_embeddingSession == null || string.IsNullOrWhiteSpace(query) || _isVectorStoreUnavailable) return "";
+            if (_embeddingSession == null) return "";
 
-            ReadOnlyMemory<float> queryEmbedding =
-                await GenerateSearchEmbeddingAsync(query).ConfigureAwait(false);
-            SqliteCollection<string, MemoryChunkRecord>? collection =
-                await EnsureSearchCollectionAsync(queryEmbedding.Length).ConfigureAwait(false);
-            if (collection == null) return "";
-
-            List<VectorSearchResult<MemoryChunkRecord>> memories = [];
-            await foreach (VectorSearchResult<MemoryChunkRecord> result in collection.SearchAsync(queryEmbedding, 3,
-                               new VectorSearchOptions<MemoryChunkRecord> { IncludeVectors = false }))
-            {
-                memories.Add(result);
-            }
-
-            if (memories.Count == 0) return "";
-
-            StringBuilder sb = StringBuilderPool.Get();
-            for (int i = 0; i < memories.Count; i++)
-            {
-                VectorSearchResult<MemoryChunkRecord> result = memories[i];
-                sb.AppendLine("SourceName: " + result.Record.SourceName);
-                sb.AppendLine("PartitionId: " + result.Record.ChunkIndex);
-                sb.AppendLine("Relevance: " + result.Score);
-                sb.AppendLine("Content: " + result.Record.Text);
-                if (i < memories.Count - 1) sb.AppendLine("\n***\n");
-            }
-
-            string text = sb.ToString();
-            StringBuilderPool.Release(sb);
-            return text;
+            return await Searcher.SearchAsync(_embeddingSession, query).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -81,177 +70,73 @@ public class MemoryData : IUniquieContainerItem
         }
     }
 
+    /// <summary>
+    /// 重建索引
+    /// </summary>
+    /// <param name="progress">进度回调</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>更新结果</returns>
     public async Task<MemoryIndexUpdateResult> UpdateIndexAsync(
         IProgress<MemoryIndexProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        string temporaryDatabasePath = GetTemporaryDatabasePath();
-        List<MemoryIndexSourceFailure> failures = [];
-        SqliteCollection<string, MemoryChunkRecord>? temporaryCollection = null;
-        bool lockAcquired = false;
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
+        bool lockAcquired = false;
         try
         {
             await _indexLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             lockAcquired = true;
-            DeleteDatabaseFiles(temporaryDatabasePath);
-            Report(progress, MemoryIndexStage.Preparing, 0.02, "", 0, SourceCount, 0, 0, 0);
+
+            // 先报一次「准备中」再去要嵌入会话:模型没加载时 GetSessionAsync 要花上几十秒起模型,
+            // 这期间一个进度事件都不发的话,界面就是「正在更新 + 0% + 无阶段文字」,看着和卡死一样。
+            progress?.Report(new MemoryIndexProgress(
+                MemoryIndexStage.Preparing, 0.02, "", 0, SourceCount, 0, 0, 0));
+
             if (!await EnsureReadyForSearchAsync(cancellationToken).ConfigureAwait(false) ||
                 _embeddingSession == null)
             {
-                return FailUpdate(LastIndexError, failures);
+                return FailUpdate(LastIndexError, []);
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            List<MemorySourceDocument> documents = [];
-            List<MemorySourceReference> sources = BuildSourceReferences();
-            for (int index = 0; index < sources.Count; index++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                MemorySourceReference source = sources[index];
-                Report(progress, MemoryIndexStage.ReadingSources,
-                    0.05 + 0.20 * index / Math.Max(1, sources.Count),
-                    source.DisplayName, index, sources.Count, 0, 0, failures.Count);
+            MemoryIndexBuildOutcome outcome = await Builder.BuildAsync(
+                _embeddingSession, BuildSourceReferences(),
+                () => Searcher.ResetCollection(), progress, cancellationToken).ConfigureAwait(false);
 
-                IMemorySourceReader? reader = SourceReaders.FirstOrDefault(x => x.CanRead(source));
-                MemorySourceReadResult readResult = reader == null
-                    ? new MemorySourceReadResult(false, ErrorCode: "MemorySourceUnsupported")
-                    : await reader.ReadAsync(source, cancellationToken).ConfigureAwait(false);
-
-                if (!readResult.Success || readResult.Document == null)
-                {
-                    failures.Add(new MemoryIndexSourceFailure(
-                        source.DisplayName, readResult.ErrorCode, readResult.ErrorDetail));
-                }
-                else
-                {
-                    documents.Add(readResult.Document);
-                }
-
-                Report(progress, MemoryIndexStage.ReadingSources,
-                    0.05 + 0.20 * (index + 1) / Math.Max(1, sources.Count),
-                    source.DisplayName, index + 1, sources.Count, 0, 0, failures.Count);
-            }
-
-            Report(progress, MemoryIndexStage.SplittingText, 0.27, "", sources.Count, sources.Count, 0, 0, 0);
-            List<PendingChunk> pendingChunks = [];
-            foreach (MemorySourceDocument document in documents)
-            {
-                foreach (string chunk in MemoryTextChunker.Split(document.Text))
-                {
-                    pendingChunks.Add(new PendingChunk(document, chunk));
-                }
-            }
-
-            if (pendingChunks.Count == 0)
-            {
-                if (failures.Count > 0)
-                    return FailUpdate("Memory source validation failed", failures);
-
-                ReplaceDatabaseWithEmptyIndex(temporaryDatabasePath);
-                CompleteUpdate(progress, sources.Count, 0);
-                return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Succeeded, failures);
-            }
-
-            List<MemoryChunkRecord> records = [];
-            Dictionary<string, int> sourceChunkIndices = [];
-            int chunkCursor = 0;
-            while (chunkCursor < pendingChunks.Count)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                PendingChunk pending = pendingChunks[chunkCursor];
-                Report(progress, MemoryIndexStage.GeneratingEmbeddings,
-                    0.30 + 0.60 * chunkCursor / pendingChunks.Count,
-                    pending.Document.SourceName, sources.Count, sources.Count,
-                    chunkCursor, pendingChunks.Count, failures.Count);
-
-                ReadOnlyMemory<float> embedding;
-                try
-                {
-                    embedding = await _embeddingSession
-                        .GenerateEmbeddingAsync(pending.Text, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (EmbeddingInputTooLargeException)
-                    when (MemoryTextChunker.CanSplitFurther(pending.Text))
-                {
-                    // tokenizer 因模型而异；服务拒绝输入时只拆分当前块，并继续原索引任务。
-                    (string first, string second) = MemoryTextChunker.SplitOversized(pending.Text);
-                    pendingChunks[chunkCursor] = new PendingChunk(pending.Document, first);
-                    pendingChunks.Insert(chunkCursor + 1, new PendingChunk(pending.Document, second));
-                    continue;
-                }
-
-                temporaryCollection ??= await CreateCollectionAsync(
-                    temporaryDatabasePath, embedding.Length, cancellationToken).ConfigureAwait(false);
-
-                int chunkIndex = sourceChunkIndices.GetValueOrDefault(pending.Document.SourceId);
-                sourceChunkIndices[pending.Document.SourceId] = chunkIndex + 1;
-                records.Add(new MemoryChunkRecord
-                {
-                    Id = $"{pending.Document.SourceId}_{chunkIndex}",
-                    SourceName = pending.Document.SourceName,
-                    SourceKind = pending.Document.SourceKind,
-                    SourceId = pending.Document.SourceId,
-                    ChunkIndex = chunkIndex,
-                    Text = pending.Text,
-                    Embedding = embedding
-                });
-                chunkCursor++;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            Report(progress, MemoryIndexStage.WritingDatabase, 0.92, "", sources.Count, sources.Count,
-                pendingChunks.Count, pendingChunks.Count, failures.Count);
-            await temporaryCollection!.UpsertAsync(records, cancellationToken).ConfigureAwait(false);
-            temporaryCollection.Dispose();
-            temporaryCollection = null;
-
-            if (failures.Count > 0)
-            {
-                DeleteDatabaseFiles(temporaryDatabasePath);
-                return FailUpdate("Memory source validation failed", failures);
-            }
-
-            // 临时库完整写入后才替换正式库，取消或失败不会污染上一次成功索引。
-            ReplaceDatabase(temporaryDatabasePath);
-            CompleteUpdate(progress, sources.Count, pendingChunks.Count);
-            return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Succeeded, failures);
+            return ApplyOutcome(outcome);
         }
         catch (OperationCanceledException)
         {
-            DeleteDatabaseFiles(temporaryDatabasePath);
             IndexDirty = true;
             SaveIndexState();
-            return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Cancelled, failures);
-        }
-        catch (EmbeddingInputTooLargeException)
-        {
-            DeleteDatabaseFiles(temporaryDatabasePath);
-            return FailUpdate("Embedding input is too large", failures);
-        }
-        catch (Exception e)
-        {
-            DeleteDatabaseFiles(temporaryDatabasePath);
-            Log.Error(e.Message);
-            return FailUpdate(e.Message, failures);
+            return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Cancelled, []);
         }
         finally
         {
-            temporaryCollection?.Dispose();
             if (lockAcquired) _indexLock.Release();
         }
     }
 
+    /// <summary>
+    /// 校验一个文本文件能否作为来源加入
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>读取结果,失败时带结构化错误码</returns>
     public async Task<MemorySourceReadResult> ValidateTextFileAsync(
         string filePath, CancellationToken cancellationToken = default)
     {
         var source = new MemorySourceReference(
-            GetSourceId(filePath), Path.GetFileName(filePath), MemorySourceKind.PlainTextFile, filePath);
-        return await SourceReaders.OfType<PlainTextFileSourceReader>().Single()
-            .ReadAsync(source, cancellationToken).ConfigureAwait(false);
+            MemorySourceId.FromValue(filePath), Path.GetFileName(filePath),
+            MemorySourceKind.PlainTextFile, filePath);
+        return await MemorySourceReaders.ReadAsync(source, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 确认嵌入模型可用
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>可用返回 True,失败原因写入 <see cref="LastIndexError"/></returns>
     public async Task<bool> EnsureReadyForSearchAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(Name))
@@ -282,15 +167,42 @@ public class MemoryData : IUniquieContainerItem
         SaveIndexState();
     }
 
-    public void DeleteStoredIndex()
+    public void Dispose()
     {
-        ResetSearchCollection();
-        DeleteDatabaseFiles(GetDatabasePath());
-        DeleteDatabaseFiles(GetTemporaryDatabasePath());
-        DeleteDatabaseFiles(GetDatabasePath() + ".backup");
+        if (_disposed) return;
+        _disposed = true;
+
+        // _embeddingSession 归 EmbeddingModelService 管:它是全进程共享的一个 session,
+        // 在这里 Dispose 会把别的知识库和别处的嵌入调用一起搞死。
+        _searcher?.Dispose();
+        _searcher = null;
+        _indexLock.Dispose();
     }
 
+    /// <summary>库文件管理器。删除或改名时容器要靠它动索引文件</summary>
+    internal MemoryStore Store => _store ??= new MemoryStore(() => Name);
+
+    /// <summary>
+    /// 关掉检索侧的集合句柄。改名前必须调——句柄占着,库文件在 Windows 上搬不动;
+    /// 而且改名后路径已变,旧句柄指向的是搬走前的文件。
+    /// </summary>
+    internal void ResetSearchState()
+    {
+        _searcher?.ResetCollection();
+    }
+
+    private MemorySearcher Searcher => _searcher ??= new MemorySearcher(Store, () => Name, ReportSearchError);
+
+    private MemoryIndexBuilder Builder => _builder ??= new MemoryIndexBuilder(Store);
+
     private int SourceCount => TextSources.Count + FilePaths.Count;
+
+    /// <summary>检索侧发现库开不了或维度不符时的回传出口:落盘并刷 UI,否则用户只看到「搜不到」</summary>
+    private void ReportSearchError(string error)
+    {
+        LastIndexError = error;
+        StateChanged?.Invoke();
+    }
 
     private List<MemorySourceReference> BuildSourceReferences()
     {
@@ -298,8 +210,30 @@ public class MemoryData : IUniquieContainerItem
         sources.AddRange(TextSources.Select(source => new MemorySourceReference(
             source.Id, source.Title, MemorySourceKind.ManualText, Content: source.Content)));
         sources.AddRange(FilePaths.Select(path => new MemorySourceReference(
-            GetSourceId(path), Path.GetFileName(path), MemorySourceKind.PlainTextFile, path)));
+            MemorySourceId.FromValue(path), Path.GetFileName(path), MemorySourceKind.PlainTextFile, path)));
         return sources;
+    }
+
+    private MemoryIndexUpdateResult ApplyOutcome(MemoryIndexBuildOutcome outcome)
+    {
+        switch (outcome.Status)
+        {
+            case MemoryIndexUpdateStatus.Succeeded:
+                IndexDirty = false;
+                LastIndexError = "";
+                LastIndexedAt = DateTime.UtcNow;
+                IndexVersion = CurrentIndexVersion;
+                SaveIndexState();
+                return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Succeeded, outcome.Failures);
+
+            case MemoryIndexUpdateStatus.Cancelled:
+                IndexDirty = true;
+                SaveIndexState();
+                return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Cancelled, outcome.Failures);
+
+            default:
+                return FailUpdate(outcome.Error, outcome.Failures);
+        }
     }
 
     private MemoryIndexUpdateResult FailUpdate(
@@ -311,146 +245,10 @@ public class MemoryData : IUniquieContainerItem
         return new MemoryIndexUpdateResult(MemoryIndexUpdateStatus.Failed, failures, LastIndexError);
     }
 
-    private void CompleteUpdate(
-        IProgress<MemoryIndexProgress>? progress, int sourceCount, int chunkCount)
-    {
-        IndexDirty = false;
-        LastIndexError = "";
-        LastIndexedAt = DateTime.UtcNow;
-        SaveIndexState();
-        Report(progress, MemoryIndexStage.Completed, 1, "", sourceCount, sourceCount,
-            chunkCount, chunkCount, 0);
-    }
-
-    private void ReplaceDatabaseWithEmptyIndex(string temporaryDatabasePath)
-    {
-        DeleteDatabaseFiles(temporaryDatabasePath);
-        ResetSearchCollection();
-        MoveDatabaseAsideAndDelete(GetDatabasePath());
-    }
-
-    private void ReplaceDatabase(string temporaryDatabasePath)
-    {
-        string databasePath = GetDatabasePath();
-        string backupPath = databasePath + ".backup";
-        Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
-        DeleteDatabaseFiles(backupPath);
-
-        // 正式库和临时库位于同一目录，File.Replace 会以原子方式切换，并留下可回滚备份。
-        if (File.Exists(databasePath))
-        {
-            File.Replace(temporaryDatabasePath, databasePath, backupPath, true);
-            try
-            {
-                DeleteDatabaseFiles(backupPath);
-            }
-            catch (Exception e)
-            {
-                // 新索引已经原子生效，备份清理失败只记录日志，不能把成功更新误报为失败。
-                Log.Warning($"Memory index backup cleanup failed: {backupPath}, {e.Message}");
-            }
-        }
-        else
-        {
-            File.Move(temporaryDatabasePath, databasePath);
-        }
-
-        ResetSearchCollection();
-    }
-
-    private static void MoveDatabaseAsideAndDelete(string databasePath)
-    {
-        string backupPath = databasePath + ".backup";
-        DeleteDatabaseFiles(backupPath);
-        if (!File.Exists(databasePath)) return;
-
-        File.Move(databasePath, backupPath);
-        try
-        {
-            DeleteDatabaseFiles(backupPath);
-        }
-        catch
-        {
-            File.Move(backupPath, databasePath, true);
-            throw;
-        }
-    }
-
-    private void ResetSearchCollection()
-    {
-        _collection?.Dispose();
-        _collection = null;
-        _embeddingDimensions = null;
-        _isVectorStoreUnavailable = false;
-    }
-
     private void SaveIndexState()
     {
         MemoryManager.Instance.Save(this);
         StateChanged?.Invoke();
-    }
-
-    private async Task<SqliteCollection<string, MemoryChunkRecord>?> EnsureSearchCollectionAsync(
-        int embeddingDimensions)
-    {
-        if (_isVectorStoreUnavailable) return null;
-        if (_embeddingDimensions != null && _embeddingDimensions != embeddingDimensions)
-        {
-            LastIndexError = "Memory vector dimension mismatch";
-            _isVectorStoreUnavailable = true;
-            StateChanged?.Invoke();
-            return null;
-        }
-
-        if (_collection != null) return _collection;
-        try
-        {
-            _embeddingDimensions = embeddingDimensions;
-            _collection = await CreateCollectionAsync(
-                GetDatabasePath(), embeddingDimensions, CancellationToken.None).ConfigureAwait(false);
-            return _collection;
-        }
-        catch (Exception e)
-        {
-            _isVectorStoreUnavailable = true;
-            LastIndexError = e.Message;
-            Log.Warning($"Memory vector store unavailable: {Name}, {e.Message}");
-            StateChanged?.Invoke();
-            return null;
-        }
-    }
-
-    private static async Task<SqliteCollection<string, MemoryChunkRecord>> CreateCollectionAsync(
-        string databasePath, int embeddingDimensions, CancellationToken cancellationToken)
-    {
-        string? directory = Path.GetDirectoryName(databasePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-
-        var definition = new VectorStoreCollectionDefinition
-        {
-            Properties =
-            {
-                new VectorStoreKeyProperty(nameof(MemoryChunkRecord.Id), typeof(string)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.SourceName), typeof(string)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.SourceKind), typeof(string)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.SourceId), typeof(string)) { IsIndexed = true },
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.ChunkIndex), typeof(int)),
-                new VectorStoreDataProperty(nameof(MemoryChunkRecord.Text), typeof(string)),
-                new VectorStoreVectorProperty(nameof(MemoryChunkRecord.Embedding), typeof(ReadOnlyMemory<float>),
-                    embeddingDimensions)
-                {
-                    DistanceFunction = DistanceFunction.CosineDistance,
-                    IndexKind = IndexKind.Flat
-                }
-            }
-        };
-
-        // 索引文件会被原子替换，关闭连接池可避免下次更新复用已被移动的旧文件句柄。
-        var store = new SqliteVectorStore($"Data Source={databasePath};Pooling=False", null);
-        SqliteCollection<string, MemoryChunkRecord> collection =
-            store.GetCollection<string, MemoryChunkRecord>(CollectionName, definition);
-        await collection.EnsureCollectionExistsAsync(cancellationToken).ConfigureAwait(false);
-        return collection;
     }
 
     private async Task<bool> EnsureEmbeddingSessionAsync(CancellationToken cancellationToken)
@@ -470,89 +268,5 @@ public class MemoryData : IUniquieContainerItem
             Log.Error($"Embedding session unavailable: {e.Message}");
             return false;
         }
-    }
-
-    private async Task<ReadOnlyMemory<float>> GenerateSearchEmbeddingAsync(string query)
-    {
-        if (_embeddingSession == null) throw new InvalidOperationException("Embedding model is unavailable.");
-
-        string candidate = query.Trim();
-        while (true)
-        {
-            try
-            {
-                return await _embeddingSession.GenerateEmbeddingAsync(candidate).ConfigureAwait(false);
-            }
-            catch (EmbeddingInputTooLargeException)
-                when (MemoryTextChunker.CanSplitFurther(candidate))
-            {
-                // 检索只需要表达当前意图，过长时保留前半段，避免一次聊天查询拖垮记忆检索。
-                candidate = candidate[..Math.Max(
-                    MemoryTextChunker.MinimumSplitLength, candidate.Length / 2)].Trim();
-            }
-        }
-    }
-
-    private static string GetSourceId(string value)
-    {
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToUpperInvariant();
-    }
-
-    private string GetDatabasePath()
-    {
-        return Path.Combine(SettingConfig.MemoryEmbeddedPath, $"{GetSafeFileName(Name)}.sqlite");
-    }
-
-    private string GetTemporaryDatabasePath()
-    {
-        return Path.Combine(SettingConfig.MemoryEmbeddedPath, $"{GetSafeFileName(Name)}.updating.sqlite");
-    }
-
-    private static void DeleteDatabaseFiles(string databasePath)
-    {
-        foreach (string path in new[] { databasePath, databasePath + "-wal", databasePath + "-shm" })
-        {
-            if (File.Exists(path)) File.Delete(path);
-        }
-    }
-
-    private static string GetSafeFileName(string name)
-    {
-        char[] invalidChars = Path.GetInvalidFileNameChars();
-        StringBuilder builder = StringBuilderPool.Get();
-        foreach (char character in name.Trim())
-            builder.Append(invalidChars.Contains(character) ? '_' : character);
-
-        string safeName = builder.ToString();
-        StringBuilderPool.Release(builder);
-        return string.IsNullOrWhiteSpace(safeName) ? GetSourceId(name)[..12] : safeName;
-    }
-
-    private static void Report(
-        IProgress<MemoryIndexProgress>? progress,
-        MemoryIndexStage stage,
-        double percentage,
-        string source,
-        int processedSources,
-        int totalSources,
-        int currentChunk,
-        int totalChunks,
-        int failedSources)
-    {
-        progress?.Report(new MemoryIndexProgress(stage, Math.Clamp(percentage, 0, 1), source,
-            processedSources, totalSources, currentChunk, totalChunks, failedSources));
-    }
-
-    private sealed record PendingChunk(MemorySourceDocument Document, string Text);
-
-    private sealed class MemoryChunkRecord
-    {
-        public string Id { get; set; } = "";
-        public string SourceName { get; set; } = "";
-        public string SourceKind { get; set; } = "";
-        public string SourceId { get; set; } = "";
-        public int ChunkIndex { get; set; }
-        public string Text { get; set; } = "";
-        public ReadOnlyMemory<float> Embedding { get; set; }
     }
 }

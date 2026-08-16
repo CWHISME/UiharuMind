@@ -92,11 +92,9 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
     /// 删除
     /// </summary>
     /// <param name="item"></param>
-    public void Delete(T item)
+    public virtual void Delete(T item)
     {
-        ItemDictionary.Remove(item.Name);
-        DeleteFile(item);
-        OnItemRemoved?.Invoke(item);
+        RemoveEntry(item);
     }
 
     /// <summary>
@@ -104,12 +102,26 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
     /// </summary>
     /// <param name="item"></param>
     /// <param name="newName">如果存在重复，返回被自动修改后的名称</param>
-    public string ModifyName(T item, string newName)
+    public virtual string ModifyName(T item, string newName)
     {
-        Delete(item);
+        RemoveEntry(item);
         item.Name = newName;
         Add(item);
         return item.Name;
+    }
+
+    /// <summary>
+    /// 摘掉条目并删掉它的 json。
+    ///
+    /// 刻意不走 <see cref="Delete"/>：子类可能在 Delete 里连带清掉条目的 side-car
+    /// （<see cref="AI.Memory.MemoryManager"/> 就要删索引库），而改名同样要摘条目，
+    /// 走 Delete 就会在改名途中把 side-car 删掉。
+    /// </summary>
+    private void RemoveEntry(T item)
+    {
+        ItemDictionary.Remove(item.Name);
+        DeleteFile(item);
+        OnItemRemoved?.Invoke(item);
     }
 
     /// <summary>

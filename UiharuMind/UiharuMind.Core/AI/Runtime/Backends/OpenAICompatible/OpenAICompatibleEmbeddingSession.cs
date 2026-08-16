@@ -46,10 +46,52 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
     public async Task<ReadOnlyMemory<float>> GenerateEmbeddingAsync(
         string text, CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
         if (string.IsNullOrWhiteSpace(text)) return ReadOnlyMemory<float>.Empty;
 
-        var request = new EmbeddingRequest(_modelId, text);
+        IReadOnlyList<ReadOnlyMemory<float>> vectors =
+            await RequestAsync([text], cancellationToken).ConfigureAwait(false);
+        return vectors.Count > 0 ? vectors[0] : ReadOnlyMemory<float>.Empty;
+    }
+
+    /// <summary>
+    /// 一次请求把整批文本发出去。OpenAI 的 <c>input</c> 本来就接受字符串数组,
+    /// 逐条发只是白付网络往返——索引一份长文档能差出上千次请求。
+    /// </summary>
+    public async Task<IReadOnlyList<ReadOnlyMemory<float>>> GenerateEmbeddingsAsync(
+        IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
+    {
+        // 空白文本不能发给端点(多数会 400),但返回的向量数必须与入参一一对应,所以就地补空向量
+        List<string> payload = [];
+        List<int> payloadIndices = [];
+        for (int index = 0; index < texts.Count; index++)
+        {
+            if (string.IsNullOrWhiteSpace(texts[index])) continue;
+            payload.Add(texts[index]);
+            payloadIndices.Add(index);
+        }
+
+        ReadOnlyMemory<float>[] result = new ReadOnlyMemory<float>[texts.Count];
+        Array.Fill(result, ReadOnlyMemory<float>.Empty);
+        if (payload.Count == 0) return result;
+
+        IReadOnlyList<ReadOnlyMemory<float>> vectors =
+            await RequestAsync(payload, cancellationToken).ConfigureAwait(false);
+        if (vectors.Count != payload.Count)
+        {
+            throw new EmbeddingRuntimeException(
+                $"Embedding response count mismatch: expected {payload.Count}, got {vectors.Count}.");
+        }
+
+        for (int index = 0; index < vectors.Count; index++) result[payloadIndices[index]] = vectors[index];
+        return result;
+    }
+
+    private async Task<IReadOnlyList<ReadOnlyMemory<float>>> RequestAsync(
+        IReadOnlyList<string> texts, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var request = new EmbeddingRequest(_modelId, texts);
         string requestJson = JsonSerializer.Serialize(request);
         using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
         using HttpResponseMessage response =
@@ -67,11 +109,10 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
                 null, response.StatusCode);
         }
 
-        float[] vector = ParseEmbedding(responseJson);
-        EmbeddingVectorUtils.NormalizeInPlace(vector);
-        Dimensions = vector.Length;
+        List<ReadOnlyMemory<float>> vectors = ParseEmbeddings(responseJson);
+        if (vectors.Count > 0) Dimensions = vectors[0].Length;
         LastError = "";
-        return vector;
+        return vectors;
     }
 
     public void Dispose()
@@ -94,13 +135,40 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
         return builder.Uri;
     }
 
-    private static float[] ParseEmbedding(string responseJson)
+    /// <summary>
+    /// 解析批量响应。<c>data</c> 里每项带 <c>index</c> 指回入参下标,规范未保证数组顺序,
+    /// 按下标归位而不是按出现顺序——顺序错了不会报错,只会让每块配上别块的向量。
+    /// </summary>
+    internal static List<ReadOnlyMemory<float>> ParseEmbeddings(string responseJson)
     {
         using JsonDocument document = JsonDocument.Parse(responseJson);
-        JsonElement root = document.RootElement;
-        JsonElement embedding = root.GetProperty("data")[0].GetProperty("embedding");
-        float[]? vector = embedding.Deserialize<float[]>();
-        return vector ?? throw new InvalidOperationException("Invalid embedding response.");
+        if (!document.RootElement.TryGetProperty("data", out JsonElement data) ||
+            data.ValueKind != JsonValueKind.Array)
+        {
+            throw new EmbeddingRuntimeException("Invalid embedding response: no data array.");
+        }
+
+        var vectors = new List<ReadOnlyMemory<float>>(data.GetArrayLength());
+        for (int i = 0; i < data.GetArrayLength(); i++) vectors.Add(ReadOnlyMemory<float>.Empty);
+
+        int fallbackIndex = 0;
+        foreach (JsonElement item in data.EnumerateArray())
+        {
+            float[]? vector = item.GetProperty("embedding").Deserialize<float[]>();
+            if (vector == null) throw new EmbeddingRuntimeException("Invalid embedding response.");
+
+            EmbeddingVectorUtils.NormalizeInPlace(vector);
+            int index = item.TryGetProperty("index", out JsonElement indexElement) &&
+                        indexElement.TryGetInt32(out int parsed) &&
+                        parsed >= 0 && parsed < vectors.Count
+                ? parsed
+                : fallbackIndex;
+
+            vectors[index] = vector;
+            fallbackIndex++;
+        }
+
+        return vectors;
     }
 
     private static bool IsInputTooLargeError(string responseBody)
@@ -112,5 +180,5 @@ public sealed class OpenAICompatibleEmbeddingSession : IEmbeddingSession
 
     private sealed record EmbeddingRequest(
         [property: JsonPropertyName("model")] string Model,
-        [property: JsonPropertyName("input")] string Input);
+        [property: JsonPropertyName("input")] IReadOnlyList<string> Input);
 }
