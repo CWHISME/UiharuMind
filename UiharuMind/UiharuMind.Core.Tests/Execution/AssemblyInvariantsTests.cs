@@ -30,7 +30,7 @@ public class PromptOnlyZeroInjectionTests
         CharacterData character = new() { CharacterId = "rp", Kind = kind };
         ChatOptions chatOptions = new();
 
-        HarnessAgentOptions options = CharacterRunnerFactory.BuildPromptOnlyOptions(
+        HarnessAgentOptions options = AgentOptionsFactory.BuildPromptOnlyOptions(
             character, new StubHistoryProvider(), [], chatOptions);
 
         Assert.Equal(string.Empty, options.HarnessInstructions);
@@ -55,13 +55,13 @@ public class PromptOnlyZeroInjectionTests
     {
         CharacterData character = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
 
-        HarnessAgentOptions without = CharacterRunnerFactory.BuildPromptOnlyOptions(
+        HarnessAgentOptions without = AgentOptionsFactory.BuildPromptOnlyOptions(
             character, new StubHistoryProvider(), [], new ChatOptions());
         Assert.True(without.DisableCompaction);
         Assert.Null(without.CompactionStrategy);
 
         CompactionStrategy strategy = HistoryCompaction.Create(() => 128_000);
-        HarnessAgentOptions with = CharacterRunnerFactory.BuildPromptOnlyOptions(
+        HarnessAgentOptions with = AgentOptionsFactory.BuildPromptOnlyOptions(
             character, new StubHistoryProvider(), [], new ChatOptions(), strategy);
         Assert.False(with.DisableCompaction);
         Assert.Same(strategy, with.CompactionStrategy);
@@ -279,11 +279,20 @@ public class HarnessInstructionsCompositionTests
         // 角色段由调用方先填好(实机里是 CharacterPromptBuilder 的产物)
         ChatOptions chatOptions = new() { Instructions = PersonaMarker };
 
-        return CharacterRunnerFactory.BuildAgentOptions(character, character.Tools,
-            new StubHistoryProvider(), [], chatOptions,
-            new AgentFileSkillsSource(skillsDir), fileMemoryStore: null,
-            EAgentPermissionMode.AutoEdit, preAuthorizedShellPatterns: null,
-            workingDirectory: workingDirectory, workspaceInstructions: workspaceInstructions);
+        // 装配计划取代原先那 14 个位置参数:每一项写着自己的名字,加字段也不必改所有调用点
+        AgentAssemblyPlan plan = new()
+        {
+            Profile = new AgentBuildProfile
+            {
+                Character = character,
+                PermissionMode = EAgentPermissionMode.AutoEdit,
+            },
+            WorkingDirectory = workingDirectory,
+            WorkspaceInstructions = workspaceInstructions,
+            SkillsSource = new AgentFileSkillsSource(skillsDir),
+        };
+
+        return AgentOptionsFactory.BuildAgentOptions(plan, new StubHistoryProvider(), [], chatOptions);
     }
 
     private sealed class StubHistoryProvider : ChatHistoryProvider
@@ -318,12 +327,12 @@ public class SubAgentBoundaryTests
 {
     private const string TestWorkingDirectory = "/tmp/uiharu-subagent-test";
 
-    private static CharacterRunnerFactory.SubAgentAssemblyInput NewInput(
+    private static SubAgentAssembly.SubAgentAssemblyInput NewInput(
         AgentToolConfig? config = null,
         EAgentPermissionMode mode = EAgentPermissionMode.AutoEdit,
         string workspaceInstructions = "")
     {
-        return new CharacterRunnerFactory.SubAgentAssemblyInput
+        return new SubAgentAssembly.SubAgentAssemblyInput
         {
             Config = config ?? new AgentToolConfig(),
             WorkingDirectory = TestWorkingDirectory,
@@ -343,7 +352,7 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.AutoEdit)]
     public void SubAgentTools_AreReadOnly_BelowFullAuto(EAgentPermissionMode mode)
     {
-        List<string> names = ToolNamesOf(CharacterRunnerFactory.BuildSubAgentOptions(NewInput(mode: mode)));
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
 
         Assert.Contains(PermissiveFileAccessTools.ReadToolName, names);
         Assert.Contains(WebSearchTool.ToolName, names);
@@ -364,7 +373,7 @@ public class SubAgentBoundaryTests
     public void SubAgentTools_IncludeWriteTools_UnderFullAuto()
     {
         List<string> names = ToolNamesOf(
-            CharacterRunnerFactory.BuildSubAgentOptions(NewInput(mode: EAgentPermissionMode.FullAuto)));
+            SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: EAgentPermissionMode.FullAuto)));
 
         Assert.Contains(PermissiveFileAccessTools.WriteToolName, names);
         Assert.Contains(PermissiveFileAccessTools.EditToolName, names);
@@ -378,7 +387,7 @@ public class SubAgentBoundaryTests
     public void SubAgent_ApprovalRules_ComeFromTheSameMapper()
     {
         HarnessAgentOptions? options =
-            CharacterRunnerFactory.BuildSubAgentOptions(NewInput(mode: EAgentPermissionMode.FullAuto));
+            SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: EAgentPermissionMode.FullAuto));
 
         Assert.NotNull(options);
         Assert.False(options!.DisableToolAutoApproval); //中间件必须在,否则规则等于没设
@@ -398,7 +407,7 @@ public class SubAgentBoundaryTests
     public void SubAgentTools_DoNotIncludeSubAgentItself(EAgentPermissionMode mode)
     {
         Assert.DoesNotContain(SubAgentTool.ToolName,
-            ToolNamesOf(CharacterRunnerFactory.BuildSubAgentOptions(NewInput(mode: mode))));
+            ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode))));
     }
 
     /// <summary>
@@ -409,13 +418,13 @@ public class SubAgentBoundaryTests
     public void SubAgentTools_ExcludeMainAgentOnlyTools()
     {
         AgentToolConfig config = new() { EnableKnowledgeSearchTool = true, EnableScheduledTasks = true };
-        List<string> names = ToolNamesOf(CharacterRunnerFactory.BuildSubAgentOptions(
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
             NewInput(config, EAgentPermissionMode.FullAuto)));
 
         Assert.DoesNotContain(KnowledgeTool.ToolName, names);
         Assert.DoesNotContain(SchedulerTools.ToolName, names);
 
-        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
             NewInput(config, EAgentPermissionMode.FullAuto));
         Assert.True(options!.DisableAgentSkillsProvider);
         Assert.True(options.DisableTodoProvider);
@@ -429,7 +438,7 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgent_HasIterationCap()
     {
-        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(NewInput());
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput());
 
         Assert.NotNull(options);
         Assert.Equal(SubAgentTool.MaxIterations, options!.MaximumIterationsPerRequest);
@@ -442,7 +451,7 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgent_KeepsTheWorkLoopInItsOwnInstructions()
     {
-        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(NewInput());
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput());
 
         Assert.NotNull(options);
         Assert.Equal(string.Empty, options!.HarnessInstructions);
@@ -488,7 +497,7 @@ public class SubAgentBoundaryTests
     [Fact]
     public void NamedSubAgent_PutsItsPersonaFirst()
     {
-        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
             NewInput() with { Persona = "I am the research specialist", Name = "Researcher" });
 
         Assert.NotNull(options);
@@ -514,7 +523,7 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.FullAuto)]
     public void SubAgentInstructions_OnlyNameToolsThatExist(EAgentPermissionMode mode)
     {
-        HarnessAgentOptions? options = CharacterRunnerFactory.BuildSubAgentOptions(NewInput(mode: mode));
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode));
 
         Assert.NotNull(options);
         ChatOptions chatOptions = options!.ChatOptions!;
@@ -541,7 +550,7 @@ public class SubAgentBoundaryTests
     [Fact]
     public void SubAgentInstructions_StateTheWorkingDirectory()
     {
-        string instructions = CharacterRunnerFactory
+        string instructions = SubAgentAssembly
             .BuildSubAgentOptions(NewInput())!.ChatOptions!.Instructions!;
 
         Assert.Contains(TestWorkingDirectory, instructions);
@@ -556,7 +565,7 @@ public class SubAgentBoundaryTests
     public void SubAgentInstructions_InheritWorkspaceInstructions()
     {
         const string workspaceRule = "Always use absolute paths in this repo.";
-        string instructions = CharacterRunnerFactory
+        string instructions = SubAgentAssembly
             .BuildSubAgentOptions(NewInput(workspaceInstructions: workspaceRule))!.ChatOptions!.Instructions!;
 
         Assert.Contains(workspaceRule, instructions);
@@ -635,7 +644,7 @@ public class SubAgentBoundaryTests
             EnableVisionTool = false,
         };
 
-        Assert.Null(CharacterRunnerFactory.BuildSubAgentOptions(NewInput(config)));
+        Assert.Null(SubAgentAssembly.BuildSubAgentOptions(NewInput(config)));
     }
 }
 
