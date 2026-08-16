@@ -11,6 +11,7 @@ using System.ComponentModel;
 using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 

@@ -26,96 +26,9 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.AI.Execution;
-
-/// <summary>
-/// 构建 HarnessAgent 的配置
-/// </summary>
-public class AgentBuildProfile
-{
-    /// <summary>
-    /// 驱动整个装配的角色：<see cref="CharacterData.Kind"/> 决定是否装配工具与工作目录，
-    /// Template 与对话模板决定系统提示。
-    /// </summary>
-    public required CharacterData Character { get; init; }
-
-    /// <summary>绑定的工作目录;为空表示通用助手模式(文件/shell 工具落到沙箱目录)</summary>
-    public string? WorkspacePath { get; init; }
-
-    /// <summary>权限档</summary>
-    public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.AutoEdit;
-
-    /// <summary>预授权 shell 命令模式(定时任务无人值守用)</summary>
-    public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
-
-    /// <summary>额外的提示词模板参数(会话的 CustomParams)</summary>
-    public IReadOnlyDictionary<string, object?>? PromptArguments { get; init; }
-
-    /// <summary>
-    /// 会话级模型来源。会话可绑定专属模型(如识图技能解析出的视觉模型),
-    /// 惰性客户端每次请求时经此取值,优先于全局当前模型;为空则只用全局模型。
-    /// </summary>
-    public Func<ModelRunningData?>? SessionModelSource { get; init; }
-
-    /// <summary>
-    /// 会话级知识库来源(knowledge_search 工具执行时解析,锁定当前挂接会话的单库)
-    /// </summary>
-    public Func<MemoryData?>? SessionKnowledgeSource { get; init; }
-
-    /// <summary>
-    /// 会话级 shell 放行模式来源(审批规则每次执行时解析,
-    /// 用户点"记住同类命令"后立即生效,无需重建装配)
-    /// </summary>
-    public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
-
-    /// <summary>
-    /// 委派型工具的过程上报口(子代理与识图)。由执行者提供,指向它本轮的输出通道;
-    /// 为空表示过程不外显。<b>只被渲染,不进历史也不回喂模型</b>——见 <see cref="ToolActivityContent"/>。
-    /// </summary>
-    public Action<AIContent>? ActivitySink { get; init; }
-}
-
-/// <summary>
-/// 一个构建完成的 agent 及宿主需要的配套句柄
-/// </summary>
-public sealed class AgentHandle : IAsyncDisposable
-{
-    /// <summary>Harness agent(标准 AIAgent 契约)</summary>
-    public AIAgent Agent { get; }
-
-    private readonly ShellExecutor? _shellExecutor;
-
-    /// <summary>todo 提供器(侧栏进度)</summary>
-    public TodoProvider? Todos => Agent.GetService<TodoProvider>();
-
-    /// <summary>plan/execute 模式提供器</summary>
-    public AgentModeProvider? Mode => Agent.GetService<AgentModeProvider>();
-
-    /// <summary>运行中插话通道</summary>
-    public MessageInjectingChatClient? MessageInjector => Agent.GetService<MessageInjectingChatClient>();
-
-    /// <summary>
-    /// 本会话装配好的对话选项（系统提示词、工具集与采样参数）。
-    ///
-    /// 旁路请求（如写交接文档）必须带上同一份：请求体的前缀是「system + 工具定义 + 消息」，
-    /// 少任何一段，前缀都会从那里开始与常规轮次岔开，服务端的前缀缓存整个作废——
-    /// 而旁路的那一发恰好是占用最高时发出的、最大的一次请求。
-    /// </summary>
-    public ChatOptions? ChatOptions { get; }
-
-    public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor, ChatOptions? chatOptions = null)
-    {
-        Agent = agent;
-        _shellExecutor = shellExecutor;
-        ChatOptions = chatOptions;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_shellExecutor != null) await _shellExecutor.DisposeAsync().ConfigureAwait(false);
-    }
-}
 
 /// <summary>
 /// Agent 子系统宿主:基于 Microsoft.Agents.AI Harness 组装 agent,
@@ -153,7 +66,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// 使框架不向系统提示里添加任何内容——等价于一次纯聊天调用，外加白拿的运行中插话能力。
     ///
     /// 装配是纯同步的内存组装：MCP 工具取常驻缓存(见 <see cref="Mcp.McpManager.GetCachedTools"/>)，
-    /// 绝不等待网络。重建时机由 <see cref="AgentAssemblySnapshot"/> 差异决定。
+    /// 绝不等待网络。重建时机由 <see cref="AgentAssemblyFacts"/> 差异决定。
     /// </summary>
     /// <param name="profile">构建配置</param>
     /// <returns>agent 句柄</returns>
@@ -790,7 +703,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// 并排除自己（递归）。
     ///
     /// <b>装配与快照必须用同一份</b>：名单连同各自的名字与描述会在装配时固化进子代理工具，
-    /// 而「要不要重建装配」由 <see cref="AgentAssemblySnapshot"/> 判定——
+    /// 而「要不要重建装配」由 <see cref="AgentAssemblyFacts"/> 判定——
     /// 两处各写一份过滤规则的话，改名单不重建的那类缺陷会静默复发。
     /// </summary>
     /// <param name="owner">挂载方角色</param>

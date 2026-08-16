@@ -10,6 +10,7 @@ using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.Tests.Agent;
 
@@ -656,9 +657,9 @@ public class AssemblySnapshotTests
     [Fact]
     public void SameInputs_ProduceEqualSnapshots()
     {
-        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
-        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
 
         Assert.Equal(first, second);
@@ -678,7 +679,7 @@ public class AssemblySnapshotTests
     [InlineData("skills")]
     public void ChangedInput_ProducesDifferentSnapshot(string dimension)
     {
-        AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
 
         AgentToolConfig changedConfig = new();
@@ -704,7 +705,7 @@ public class AssemblySnapshotTests
             case "skills": changedConfig.DisabledSkills.Add("some-skill"); break;
         }
 
-        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(changedConfig),
+        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(changedConfig),
             instructions, workspace, permission, preAuthorized, mcpRevision,
             modelSupportsVision: modelSupportsVision);
 
@@ -726,10 +727,10 @@ public class AssemblySnapshotTests
     [Fact]
     public void ChangedSubAgentRoster_ProducesDifferentSnapshot()
     {
-        AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
             mountedAgents: [NewSubAgent("helper", "Helper")]);
-        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
             mountedAgents: [NewSubAgent("helper", "Helper"), NewSubAgent("writer", "Writer")]);
 
@@ -742,10 +743,10 @@ public class AssemblySnapshotTests
     public void RenamedOrRedescribedSubAgent_ProducesDifferentSnapshot(string name, string description)
     {
         //花名册给模型看的就是名字与描述,改了它们模型也该重新看见
-        AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
             mountedAgents: [NewSubAgent("helper", "Helper")]);
-        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+        AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
             mountedAgents: [NewSubAgent("helper", name, description)]);
 
@@ -759,10 +760,10 @@ public class AssemblySnapshotTests
     public void SubAgentRoster_IsIgnored_WhenTheToolIsOff()
     {
         AgentToolConfig off = new() { EnableSubAgent = false };
-        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(NewAgentCharacter(off), "prompt", "/ws",
+        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(NewAgentCharacter(off), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
             mountedAgents: [NewSubAgent("helper", "Helper")]);
-        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(NewAgentCharacter(off), "prompt", "/ws",
+        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(NewAgentCharacter(off), "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
             mountedAgents: [NewSubAgent("writer", "Writer")]);
 
@@ -793,9 +794,9 @@ public class AssemblySnapshotTests
         CharacterData a = new() { CharacterId = "rp", Kind = kind, Tools = configA };
         CharacterData b = new() { CharacterId = "rp", Kind = kind, Tools = configB };
 
-        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(a, "prompt", "/ws",
+        AgentAssemblyFacts first = AgentAssemblyFacts.Capture(a, "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
-        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(b, "prompt", "/other",
+        AgentAssemblyFacts second = AgentAssemblyFacts.Capture(b, "prompt", "/other",
             EAgentPermissionMode.FullAuto, ["*"], mcpRevision: 99);
 
         Assert.Equal(first, second);

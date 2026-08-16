@@ -91,7 +91,7 @@ internal sealed class PermissiveFileAccessTools
     [Description("文本搜索：标准 ripgrep 语法")]
     internal async Task<List<FileSearchResult>> Grep(
         string query,
-        [Description("Enable regex mode (default is literal)")] bool isRegex = false,
+        [Description("Enable regex mode")] bool isRegex = true,
         [Description("是否区分大小写")] bool caseSensitive = false,
         [Description("匹配行上下各显示多少个上下文行")] int contextLines = 0,
         [Description("目录遍历最大深度（null 表示不限制）")] int? maxDepth = null,

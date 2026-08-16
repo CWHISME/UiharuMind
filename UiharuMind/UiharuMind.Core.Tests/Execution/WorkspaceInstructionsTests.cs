@@ -1,6 +1,7 @@
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.Tests.Agent;
 
@@ -64,9 +65,9 @@ public class WorkspaceInstructionsTests : IDisposable
     {
         CharacterData character = new() { CharacterId = "agent", Kind = ECharacterKind.Agent };
 
-        AgentAssemblySnapshot before = AgentAssemblySnapshot.Capture(character, "prompt", "/ws",
+        AgentAssemblyFacts before = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v1");
-        AgentAssemblySnapshot after = AgentAssemblySnapshot.Capture(character, "prompt", "/ws",
+        AgentAssemblyFacts after = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v2");
 
         Assert.NotEqual(before, after); //文件编辑 → 下一次挂接重建装配

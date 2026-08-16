@@ -17,6 +17,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -34,7 +35,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private AgentSession? _session;
     private string? _boundSessionId;
     private ChatSession? _attachedSession; //当前挂接的会话本体,供惰性客户端按请求解析会话级模型
-    private AgentAssemblySnapshot? _lastSnapshot; //上次装配消费的输入快照
+    private AgentAssemblyFacts? _lastSnapshot; //上次装配消费的输入快照
     private Channel<AIContent>? _activityChannel; //本轮的输出通道,委派型工具的过程经此并入内容流
 
     public bool HasSession => _session != null;
@@ -72,7 +73,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     /// </summary>
     private async Task EnsureHandleAsync(ChatSession session, CancellationToken cancellationToken)
     {
-        AgentAssemblySnapshot snapshot = AgentAssemblySnapshot.Capture(session);
+        AgentAssemblyFacts snapshot = AgentAssemblyFacts.Capture(session);
         if (_handle != null && snapshot.Equals(_lastSnapshot)) return;
 
         AgentHandle newHandle = CharacterRunnerFactory.Instance.CreateAgent(new AgentBuildProfile

@@ -13,18 +13,22 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Chat;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.Assembly;
 
 /// <summary>
-/// 一次 agent 装配所消费的全部输入的快照（record 值相等比较）。
-/// 每次挂接重算，与上次不等即重建装配——取代按字符串指纹"猜"重建时机：
-/// 角色卡编辑、会话参数、能力开关、MCP 工具集变化都被直接捕获。
+/// 一次 agent 装配所消费的输入里，<b>能廉价取得又能按值比较</b>的那一半（record 值相等比较）。
+///
+/// 两个用途是同一件事：它既是<c>装配</c>的前半段输入，又是<c>要不要重建装配</c>的判据。
+/// 每次挂接重算一遍，与上次不等才往下解析贵的那一半（建目录、技能源、MCP 工具集，
+/// 见 <see cref="AgentAssemblyPlan"/>）并真正重建。
+/// 因此角色卡编辑、会话参数、能力开关、MCP 工具集变化都被直接捕获，
+/// 而不必按字符串指纹"猜"重建时机。
 ///
 /// 字段列表同时就是装配依赖的显式清单。不在其列的：
 /// 模型（惰性客户端按请求解析，切换无需重建）、记忆库（按请求经闭包解析）、
 /// 技能文件内容（框架运行期从磁盘读取，天然是活的）。
 /// </summary>
-public sealed record AgentAssemblySnapshot
+public sealed record AgentAssemblyFacts
 {
     /// <summary>角色标识</summary>
     public required string CharacterId { get; init; }
@@ -104,7 +108,7 @@ public sealed record AgentAssemblySnapshot
     /// </summary>
     /// <param name="session">目标会话</param>
     /// <returns>快照</returns>
-    public static AgentAssemblySnapshot Capture(ChatSession session)
+    public static AgentAssemblyFacts Capture(ChatSession session)
     {
         CharacterData character = session.CharacterData;
         return Capture(character, CharacterPromptBuilder.Build(character, session.CustomParams),
@@ -134,7 +138,7 @@ public sealed record AgentAssemblySnapshot
     /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
     /// <param name="mountedAgents">已解析的子智能体名单（过滤规则见 <c>CharacterRunnerFactory.ResolveMountedAgents</c>）</param>
     /// <returns>快照</returns>
-    public static AgentAssemblySnapshot Capture(CharacterData character,
+    public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
         int mcpRevision, string workspaceInstructions = "",
@@ -143,7 +147,7 @@ public sealed record AgentAssemblySnapshot
         // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.Kind.IsAgent();
         AgentToolConfig config = character.Tools;
-        return new AgentAssemblySnapshot
+        return new AgentAssemblyFacts
         {
             CharacterId = character.CharacterId,
             Kind = character.Kind,
