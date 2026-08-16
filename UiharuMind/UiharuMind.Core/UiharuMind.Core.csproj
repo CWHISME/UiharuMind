@@ -46,6 +46,11 @@
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
       <PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
+      <!-- SqliteVec 传递引入的 SQLitePCLRaw 整条链是 2.1.10，其 lib.e_sqlite3 带高危漏洞
+           GHSA-2m69-gcr7-jv3q(NU1903)。直接引用 bundle 把整条链顶到已修复的 2.1.12：
+           bundle 会一并抬升 core / provider / lib 三个子包，逐个钉版本没有必要。
+           留在 2.1.x 而不上 3.x —— Microsoft.Data.Sqlite.Core 9.0.10 是按 2.1.x 的 core 面编的。 -->
+      <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpCompress" Version="0.49.1" />
       <PackageReference Include="SharpHook" Version="7.1.1" />
