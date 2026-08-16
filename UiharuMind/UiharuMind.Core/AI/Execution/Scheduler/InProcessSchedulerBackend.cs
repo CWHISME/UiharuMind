@@ -159,17 +159,21 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
             task.ResultSessionId = chatSession.SessionId;
 
             await chatSession.Runner.AttachAsync(chatSession).ConfigureAwait(false);
-            bool succeeded;
-            // 登记运行态:这个会话就在界面的会话列表里(⏰ 前缀),用户看得见它在跑,
-            // 也因此不会在跑的过程中被删除或清空历史
-            using (SessionManager.Instance.Running.BeginRun(chatSession.SessionId))
-            {
-                succeeded = await RunHeadlessAsync(chatSession.Runner, task.Prompt).ConfigureAwait(false);
-            }
 
-            await chatSession.Runner.SaveStateAsync().ConfigureAwait(false);
+            // 与界面跑的是同一份编排:运行态登记(这个会话就在会话列表里,⏰ 前缀,用户看得见它在跑,
+            // 也因此不会在跑的过程中被删除或清空历史)、取消收尾、交接文档一并到手。
+            // 差异只有两处——没有渲染落点(sink 为 null),审批一律拒绝
+            bool failed = false;
+            using TurnDriver driver = new(null, new TurnUsageLedger(),
+                notice =>
+                {
+                    if (notice.Kind == ETurnNotice.Failed) failed = true;
+                });
+            await driver.RunAsync(chatSession, chatSession.Runner,
+                    new ChatMessage(ChatRole.User, task.Prompt), DenyUnauthorizedApprovals())
+                .ConfigureAwait(false);
 
-            task.Status = succeeded ? EScheduledTaskStatus.Completed : EScheduledTaskStatus.Failed;
+            task.Status = failed ? EScheduledTaskStatus.Failed : EScheduledTaskStatus.Completed;
         }
         catch (Exception e)
         {
@@ -187,29 +191,31 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
         NotifyUpdated(task);
     }
 
-    /// <summary>
-    /// 无头执行一轮:预授权规则之外的审批请求一律拒绝(绝不静默挂起等待)
-    /// </summary>
-    private static async Task<bool> RunHeadlessAsync(ICharacterRunner runner, string prompt)
-    {
-        List<ChatMessage> nextMessages = new() { new ChatMessage(ChatRole.User, prompt) };
-        // 拒绝造成的追加轮次设上限,防御模型反复请求同一授权
-        for (int round = 0; round < 5 && nextMessages.Count > 0; round++)
-        {
-            List<ToolApprovalRequestContent> approvalRequests = new();
-            await foreach (AIContent content in runner.RunAsync(nextMessages).ConfigureAwait(false))
-            {
-                if (content is ToolApprovalRequestContent request) approvalRequests.Add(request);
-            }
+    private const int MaxApprovalRounds = 4; //拒绝造成的追加轮次上限,防御模型反复请求同一授权
 
-            nextMessages = approvalRequests
+    /// <summary>
+    /// 无头执行的审批策略：冒到这里的都是预授权规则之外的请求，一律拒绝
+    /// （绝不静默挂起等待）。追加轮次用尽后返回空，运行循环据此收工。
+    ///
+    /// 注意「一律拒绝」只对<b>冒出来的</b>请求成立：命中权限档或
+    /// <see cref="ScheduledAgentTask.PreAuthorizedCommands"/> 的调用由装配层的
+    /// 自动放行规则处理，根本不会走到这里。
+    /// </summary>
+    /// <returns>一个带轮次计数的审批策略，一次执行用一个</returns>
+    private static ApprovalResolver DenyUnauthorizedApprovals()
+    {
+        int round = 0;
+        return requests =>
+        {
+            if (++round > MaxApprovalRounds) return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
+
+            IReadOnlyList<ChatMessage> denials = requests
                 .Select(request => new ChatMessage(ChatRole.User,
                     new List<AIContent>
                         { request.CreateResponse(approved: false, reason: "Unattended run: not pre-authorized.") }))
                 .ToList();
-        }
-
-        return true;
+            return Task.FromResult(denials);
+        };
     }
 
     private ScheduledAgentTask? FindTask(string taskId)

@@ -46,12 +46,6 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 public partial class ConversationViewModel : ViewModelBase, IDisposable
 {
-    /// <summary>
-    /// 还活着的实例。退出收尾要给每个仍在跑的对话补上取消结果，而实例可能挂在页面上，
-    /// 也可能挂在一个快速对话窗口上——没有一个统一的宿主可以遍历，索引记在这里。
-    /// </summary>
-    private static readonly List<ConversationViewModel> _liveInstances = new();
-
     /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
     public enum SendMode
     {
@@ -67,7 +61,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _inputText = string.Empty;
     [ObservableProperty] private string _inputPlaceholder = string.Empty;
-    [ObservableProperty] private bool _isGenerating;
     [ObservableProperty] private bool _scrollToEnd;
     [ObservableProperty] private KeyGesture _sendGesture = new(Key.Enter);
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
@@ -300,13 +293,15 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     private const string ThinkingModeParamName = "ThinkingMode"; //CustomParams 中的思考力度键
 
-    private CancellationTokenSource? _runCancellation;
+    private CancellationTokenSource? _prepareCancellation; //会话装配阶段的取消源,此后由 TurnDriver 接手
+    private bool _isPreparing; //正在装配会话(此时 TurnDriver 还没开始跑)
     private readonly List<string> _pendingOwnedFiles = new();
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
 
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
+    private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly TurnUsageLedger _usage = new(); //token 账本
 
@@ -316,15 +311,24 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
     public ContextUsageViewData ContextUsage { get; } = new();
 
+    /// <summary>
+    /// 本轮是否正在跑。装配会话的那一小段也算在内——那时执行者还没接手，
+    /// 但界面必须已经显示停止按钮，否则用户能在装配期间再发一条。
+    /// </summary>
+    public bool IsGenerating => _isPreparing || _driver.IsRunning;
+
     /// <summary>正在整理交接文档（占用条旁显示，避免看起来像卡住）</summary>
-    [ObservableProperty] private bool _isCompacting;
+    public bool IsCompacting => _driver.IsCompacting;
 
     public ConversationViewModel()
     {
         _transcript = new ConversationTranscript(Items, CreateAssistantItem,
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern));
-        _transcript.UsageObserved += OnUsageObserved;
+        // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
+        // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
+        _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
+        _driver.StateChanged += OnDriverStateChanged;
 
         var agentSetting = AgentSettingConfig.Current;
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
@@ -347,8 +351,21 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
+    }
 
-        lock (_liveInstances) _liveInstances.Add(this);
+    /// <summary>
+    /// 运行态或压缩态变化。运行侧不认识绑定，属性变更由这里代它抛出。
+    /// </summary>
+    private void OnDriverStateChanged()
+    {
+        NotifyBusyChanged();
+        OnPropertyChanged(nameof(IsCompacting));
+    }
+
+    private void NotifyBusyChanged()
+    {
+        OnPropertyChanged(nameof(IsGenerating));
+        OnPropertyChanged(nameof(CanRegenerate));
     }
 
     private void OnCurrentModelChanged(ModelRunningData? model)
@@ -370,54 +387,19 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
-    /// 弃用本实例：反注销全局事件、取消正在跑的那一轮。
+    /// 弃用本实例：反注销全局事件、弃用运行侧（它会取消正在跑的那一轮）。
     ///
-    /// 只取消、不在这里补写取消结果——运行循环还活着，它自己会在取消分支里走
-    /// <see cref="SettleCancelledTurn"/>。要在进程即将消失时同步补写的场合用
-    /// <see cref="SettleForShutdown"/>。
+    /// 只取消、不在这里补写取消结果——运行循环还活着，它自己会在取消分支里收尾。
+    /// 要在进程即将消失时同步补写的场合用 <see cref="TurnDriver.SettleAllForShutdown"/>。
     /// </summary>
     public void Dispose()
     {
-        lock (_liveInstances) _liveInstances.Remove(this);
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
-        _runCancellation?.Cancel();
+        _driver.StateChanged -= OnDriverStateChanged;
+        _prepareCancellation?.Cancel();
+        _driver.Dispose();
         MemoryPanel?.Detach();
-    }
-
-    /// <summary>
-    /// 退出收尾：取消本实例正在跑的那一轮并<b>当场</b>补上取消结果。
-    ///
-    /// 不能只取消了事——进程马上就没了，运行循环等不到观察取消的那一刻，
-    /// 历史里会留下没有配对结果的 tool_call，下次打开这个会话直接 400。
-    /// 重复调用安全：补写只针对没配对的调用，正文只取还在流的那一段，第二次两者都为空。
-    /// </summary>
-    public void SettleForShutdown()
-    {
-        if (!IsGenerating) return;
-        _runCancellation?.Cancel();
-        if (CurrentSession is { } session) SettleCancelledTurn(session);
-    }
-
-    /// <summary>
-    /// 给所有还在跑的对话补上取消结果（退出时调用）
-    /// </summary>
-    public static void SettleAllForShutdown()
-    {
-        ConversationViewModel[] instances;
-        lock (_liveInstances) instances = _liveInstances.ToArray();
-        foreach (ConversationViewModel instance in instances)
-        {
-            try
-            {
-                instance.SettleForShutdown();
-            }
-            catch (Exception e)
-            {
-                //退出路径上一个会话收尾失败不能拖累其余会话
-                Log.Warning($"Settle running turn on shutdown failed: {e.Message}");
-            }
-        }
     }
 
     private string _inputPlaceholderKey = "AgentInputWatermark";
@@ -437,11 +419,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private void ChangeSendMode()
     {
         SenderMode = SenderMode == SendMode.User ? SendMode.Assistant : SendMode.User;
-    }
-
-    partial void OnIsGeneratingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanRegenerate));
     }
 
     partial void OnIsPlaintextChanged(bool value)
@@ -647,7 +624,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         // 手动压缩:任务的自然边界由你比水位更清楚,在边界上压缩,交接文档质量高得多
         if (string.Equals(text.Trim(), CompactCommand, StringComparison.OrdinalIgnoreCase))
         {
-            if (!IsGenerating) await TryWriteHandoffAsync(force: true);
+            if (!IsGenerating && CurrentSession is { } current)
+            {
+                await _driver.CompactAsync(current, current.Runner);
+            }
+
             return;
         }
 
@@ -716,176 +697,123 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     private void OnStopSending()
     {
-        _runCancellation?.Cancel();
+        _prepareCancellation?.Cancel(); //还卡在装配阶段时也要停得下来
+        _driver.Cancel();
         _transcript.CancelPendingApprovals();
     }
 
     /// <summary>
-    /// 收拾被取消的一轮，让历史回到自洽状态。两件事：
-    /// <list type="number">
-    /// <item>给没等到结果的工具调用补上取消结果——否则历史里留着孤儿 tool_call，
-    /// 严格的服务端（OpenAI、Anthropic）会直接 400，这个会话从此发不出话。</item>
-    /// <item>把已经吐出来的半截回复写进历史——框架在失败路径上不落任何响应消息
-    /// （<see cref="SessionChatHistoryProvider"/> 补回了请求消息，但响应侧它拿不到），
-    /// 不补的话界面上留着半截回复、重开会话却没了，模型也不知道自己说过什么。</item>
-    /// </list>
+    /// 审批回应：等用户对本轮每个请求做出决定，回应即下一轮的输入。
     ///
-    /// <b>正文只取正在流的那一段</b>：本轮更早的段落已经由框架逐次服务调用各自落过盘，
-    /// 再写一遍就会在会话里多出一句一模一样的话（切换会话回来才看得见）。
+    /// 不按 CallId 反查——请求与界面卡片由同一批 <see cref="ConversationTranscript.Apply"/>
+    /// 产生，而运行侧一定在内容流耗尽之后才调这里，所以转录器本轮收集的那批就是顺序一致的同一批。
     /// </summary>
-    /// <param name="session">当前会话</param>
-    private void SettleCancelledTurn(ChatSession session)
+    /// <param name="requests">本轮新增的审批请求（顺序与转录器收集的一致，故不另用）</param>
+    /// <returns>回应消息</returns>
+    private async Task<IReadOnlyList<ChatMessage>> ResolveApprovalsAsync(
+        IReadOnlyList<ToolApprovalRequestContent> requests)
     {
-        // 先补工具结果再落正文:结果必须紧跟在它那条调用之后,顺序反了历史就对不上
-        ToolCallCancellation.CloseUnansweredAtTail(session);
+        IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals();
+        List<ChatMessage> responses = new(turnApprovals.Count);
+        foreach (ApprovalRequestItem approval in turnApprovals)
+        {
+            responses.Add(await approval.Response);
+        }
 
-        if (_transcript.TakeStreamingText() is not { } text) return;
-
-        int before = session.History.Count;
-        session.History.Add(session.CreateMessage(ChatRole.Assistant, text));
-        session.SaveAppended(before);
-        //落库后交给既有的 WireStreamedItems 配对,气泡因此照常拿到编辑/重试/分叉
+        _transcript.ResolveApprovals(turnApprovals);
+        return responses;
     }
 
+    /// <summary>
+    /// 运行侧通知 → 界面动作。措辞在这里落地：Core 只说发生了什么，本地化不下沉。
+    /// </summary>
+    /// <param name="notice">通知</param>
+    private void OnTurnNotice(TurnNotice notice)
+    {
+        switch (notice.Kind)
+        {
+            case ETurnNotice.Started:
+                OnPropertyChanged(nameof(SessionModelLabel)); //本轮实际使用的模型此刻可解析
+                break;
+
+            case ETurnNotice.RoundCompleted:
+                // 与转录器的内务工具通知同一口径:不等它,todo 面板迟一步刷无妨,
+                // 等的话会与下一轮的 RunAsync 抢执行者那把门闸
+                _ = RefreshTodosAsync();
+                break;
+
+            case ETurnNotice.Persisted:
+                WireStreamedItems();
+                break;
+
+            case ETurnNotice.Ended:
+                _transcript.ResolveApprovals(_transcript.PendingApprovals.ToList());
+                SessionsChanged?.Invoke();
+                break;
+
+            case ETurnNotice.Failed:
+                Items.Add(new ErrorItem { Message = notice.Payload ?? string.Empty });
+                break;
+
+            case ETurnNotice.ScrollToEnd:
+                ScrollToEnd = true;
+                break;
+
+            case ETurnNotice.UsageObserved:
+                RefreshTokenUsageText();
+                break;
+
+            case ETurnNotice.HandoffWritten:
+                Items.Add(new HandoffItem { Message = notice.Payload ?? string.Empty });
+                break;
+
+            case ETurnNotice.HandoffFailed:
+                Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffFailed") });
+                break;
+
+            case ETurnNotice.HandoffNothingToCompact:
+                Items.Add(new ErrorItem
+                    { Message = LocalizationManager.Instance.GetString("HandoffNothingToCompact") });
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 跑一轮：先把会话装配好，再交给运行侧。
+    ///
+    /// 装配阶段单独持一个取消源——那时 <see cref="TurnDriver"/> 还没接手，
+    /// 而它耗时（要建会话、装配 agent），用户在这期间按停止必须停得下来。
+    /// </summary>
+    /// <param name="userMessage">用户消息</param>
+    /// <param name="titleSeed">新建会话时用来取标题的原文</param>
     private async Task RunTurnAsync(ChatMessage userMessage, string titleSeed)
     {
-        IsGenerating = true;
-        // 思考力度随本次异步流下发到 HTTP 层(SDK 无逐请求参数通道)
-        LlmRequestContext.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
-        _usage.BeginTurn();
-        OnPropertyChanged(nameof(SessionModelLabel)); //本轮实际使用的模型此刻可解析
-        _runCancellation = new CancellationTokenSource();
-        CancellationToken cancellationToken = _runCancellation.Token;
+        _isPreparing = true;
+        NotifyBusyChanged();
+        _prepareCancellation = new CancellationTokenSource();
         try
         {
-            ChatSession session = await EnsureSessionAsync(titleSeed, cancellationToken);
+            ChatSession session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
             FlushOwnedFiles();
-            List<ChatMessage>? nextMessages = new() { userMessage };
-
-            // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
-            // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下。
-            // 起点在这里而不是方法开头——新会话的标识是 EnsureSessionAsync 才给出的
-            using IDisposable runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
-
-            while (nextMessages is { Count: > 0 })
-            {
-                try
-                {
-                    await foreach (AIContent content in session.Runner.RunAsync(nextMessages, cancellationToken))
-                    {
-                        _transcript.Apply(content);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    SettleCancelledTurn(session);
-                    break;
-                }
-
-                _transcript.CloseSegment();
-                await RefreshTodosAsync();
-
-                IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals();
-                if (turnApprovals.Count == 0) break;
-
-                // 审批往返:等待用户对每个请求做出决定,回应作为下一轮输入。
-                // 这段等待要单独登记:会话切走后审批卡片跟着看不见了,那一轮就静静挂在这里,
-                // 只有把它与「在跑」区分开,列表与导航栏才能提示用户回来处理
-                nextMessages = new List<ChatMessage>();
-                using (SessionManager.Instance.Running.BeginApprovalWait(session.SessionId))
-                {
-                    foreach (ApprovalRequestItem approval in turnApprovals)
-                    {
-                        nextMessages.Add(await approval.Response);
-                    }
-                }
-
-                _transcript.ResolveApprovals(turnApprovals);
-                if (cancellationToken.IsCancellationRequested) break;
-            }
-
-            await session.Runner.SaveStateAsync();
-            WireStreamedItems();
+            await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync,
+                (EThinkingMode)ThinkingModeIndex);
+        }
+        catch (OperationCanceledException)
+        {
+            //装配阶段就被停掉:还没发出任何请求,没有要收尾的东西
         }
         catch (Exception e)
         {
-            Log.Error($"Agent turn failed: {e}");
+            Log.Error($"Ensure session failed: {e}");
             Items.Add(new ErrorItem { Message = e.Message });
         }
         finally
         {
-            _transcript.CloseSegment();
-            // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
-            // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作。
-            // 不做本地化:补写进历史的是同一句英文,重开会话时卡片显示的就是它,两边措辞得一致
-            _transcript.StopRunningToolCalls(ToolCallCancellation.ResultText);
-            _transcript.CloseNestedActivity();
-            IsGenerating = false;
-            _runCancellation = null;
-            _transcript.ResolveApprovals(_transcript.PendingApprovals.ToList());
-            SessionsChanged?.Invoke();
-        }
-
-        // 压缩放在轮次之间,不放在请求路径上:写交接文档本身要发一次请求,
-        // 塞进本轮会让用户多等一次完整往返
-        await TryWriteHandoffAsync();
-    }
-
-    /// <summary>
-    /// 到水位就让当前模型写一份交接文档，之后的历史供给从它开始。
-    /// 失败不作声张——框架的截断仍挂着当兜底，最坏结果是回到「悄悄丢最旧的消息」。
-    /// </summary>
-    /// <param name="force">手动触发（<c>/compact</c>），跳过水位判定</param>
-    private async Task TryWriteHandoffAsync(bool force = false)
-    {
-        if (CurrentSession is not { } session) return;
-        // 本轮没拿到任何响应(撞限流、被停止)时不自动压缩:那一发交接请求多半也发不出去,
-        // 白白再走一遍五次退避
-        if (!force && (_usage.TurnInput == 0 ||
-                       !HistoryHandoff.ShouldWrite(_usage.LastInput, _usage.ContextLength)))
-        {
-            return;
-        }
-
-        int start = HistoryHandoff.SupplyStartIndex(session.History);
-        // 上一份交接之后没攒下几条,再压一次只会把已经压过的东西再压一遍
-        if (session.History.Count - start < MinMessagesToCompact)
-        {
-            if (force) Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffNothingToCompact") });
-            return;
-        }
-
-        IChatClient? client = (CurrentSession.ChatModelRunningData
-                               ?? LlmManager.Instance.CurrentRunningModel)?.ChatClient;
-        if (client == null) return;
-
-        IsCompacting = true;
-        try
-        {
-            List<ChatMessage> supplied = session.History.Skip(start).ToList();
-            // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
-            string? note = await HistoryHandoff.WriteAsync(client, supplied, session.Runner.ChatOptions,
-                _usage.ContextLength, CancellationToken.None);
-            if (note == null)
-            {
-                Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffFailed") });
-                return;
-            }
-
-            ChatMessage message = HistoryHandoff.CreateNote(note);
-            int before = session.History.Count;
-            session.History.Add(message);
-            session.SaveAppended(before);
-            Items.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(DisplayTextOf(message)) });
-            ScrollToEnd = true;
-        }
-        finally
-        {
-            IsCompacting = false;
+            _isPreparing = false;
+            _prepareCancellation = null;
+            NotifyBusyChanged();
         }
     }
-
-    private const int MinMessagesToCompact = 4; //少于这个数压了也没意义
 
     //================= agent / 会话装配 =================
 
@@ -1296,33 +1224,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 RefreshTokenUsageText();
             });
         });
-    }
-
-    /// <summary>
-    /// 账本记一次用量，并把增量写回会话本体——响应用量不随消息持久化，
-    /// 累计值记在本体上，随轮末的历史保存一并落盘。
-    /// </summary>
-    private static bool _usageKeysLogged; //附加计数的键名各家不同,只需在会话里认一次
-
-    private void OnUsageObserved(UsageDetails details)
-    {
-        // 前缀缓存到底有没有生效,只能看服务端报的这个数——推理不出来。
-        // 键名先打出来认一次:各家不同,MEAI 映射后还会再改一次名
-        if (!_usageKeysLogged && details.AdditionalCounts is { Count: > 0 } counts)
-        {
-            _usageKeysLogged = true;
-            Log.Debug($"Usage additional counts: {string.Join(", ", counts.Select(x => $"{x.Key}={x.Value}"))}");
-        }
-
-        (long input, long output) = _usage.Add(details);
-        if (CurrentSession is { } session)
-        {
-            session.TotalInputTokens += input;
-            session.TotalOutputTokens += output;
-            session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
-        }
-
-        RefreshTokenUsageText();
     }
 
     private void RefreshTokenUsageText()

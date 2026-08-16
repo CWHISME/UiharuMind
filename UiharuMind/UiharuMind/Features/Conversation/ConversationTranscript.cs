@@ -26,8 +26,11 @@ namespace UiharuMind.Features.Conversation;
 ///
 /// 藏在里面的复杂度：八种内容的分派、正文流里 &lt;think&gt; 段的分离、工具调用与结果按
 /// CallId 的配对回写、流段的开合、审批请求的待决与本轮收集。
+///
+/// 它是 <see cref="ITurnSink"/> 的界面侧实现——<see cref="TurnDriver"/> 只认那五个成员，
+/// 因此不认识本类，也不认识任何条目类型。
 /// </summary>
-public sealed class ConversationTranscript
+public sealed class ConversationTranscript : ITurnSink
 {
     private readonly IList<ConversationItemBase> _target;
     private readonly Func<TextConversationItem> _createAssistantItem;

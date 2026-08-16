@@ -30,6 +30,9 @@
 
 Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 
+跑一轮的编排不在这里——那是 `TurnDriver` 的活（见执行域）。`ConversationTranscript` 是它的
+渲染落点，即 `ITurnSink` 的界面侧 adapter。
+
 ⚠️ Conversation 不指数据。想说数据就说 Session。
 
 ### Chat（聊天页）
@@ -170,6 +173,34 @@ Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
 
 唯一入口（缝）是 `ICharacterRunner`；工厂是 `CharacterRunnerFactory`；实现是 `HarnessCharacterRunner`。
 子域包括工具、MCP、调度器、技能与框架绕坑收容。
+
+### TurnDriver（轮次驱动）
+
+「驱动一轮对话」这件事本身：发送 → 流式装配 → 审批回环 → 取消收尾 → 交接文档 → 存档。
+它把 `ICharacterRunner`（装配好的可运行体）跑起来，并负责这一轮**历史的自洽性**——
+补孤儿工具调用的取消结果、保住半截回复、到水位写交接文档。
+
+体现为 `TurnDriver`。一个实例服务一个调用方、跨轮存活（token 账本是跨轮累计的），
+会话与执行者逐轮传入。
+
+有**两个** adapter，缝因此是真的：界面的 `ConversationViewModel` 与无头的
+`InProcessSchedulerBackend`（定时任务）。两者的差异只有三处，全在 interface 上：
+
+| 差异点 | 界面 | 无头 |
+|---|---|---|
+| 渲染落点 `ITurnSink` | `ConversationTranscript` | `null`（没有要渲染的东西） |
+| `ApprovalResolver` | 等用户点选 | 一律拒绝，追加轮次设上限 |
+| `Action<TurnNotice>` | 映射成条目与忙碌态 | 只用来判定任务成败 |
+
+⚠️ **`TurnNotice` 刻意不带文案。** 本地化属界面层——Core 只说发生了什么。
+把措辞塞回 Core 的症状是执行层开始 `using` 本地化管理器。
+
+⚠️ 审批**策略**不是它的参数。命中权限档或预授权的调用由装配层的自动放行规则处理，
+根本不会冒成 `ToolApprovalRequestContent`；走到 resolver 的都是规则之外的那些。
+见 `ApprovalModeMapper`。
+
+⚠️ 不要叫它 `ConversationTurn` 之类——`Conversation` 是 UI 侧的词，见上。
+也别叫 `TurnRunner`：`Runner` 一系已经指「装配好的可运行体」，两者混起来就分不清谁跑谁。
 
 ### Skill（技能）
 
