@@ -26,7 +26,7 @@ public enum EMcpTransportType
 ///
 /// <b>本类只管「连接」，不管「谁能用」</b>：<see cref="IsEnabled"/> 决定这个 server 要不要托管
 /// ——stdio 意味着拉起一个子进程，是实打实的全局资源开销；而哪个智能体能用它的工具，
-/// 由角色自带的 <c>AgentToolConfig.DisabledMcpServers</c> 独家说了算（见 ADR 0007）。
+/// 由角色自带的 <c>AgentToolConfig.DisabledMcpServers</c> 独家说了算（见 ADR 0008）。
 /// 两者不是同一个问题的两个闸，因此不构成 ADR 0003 反对的那种「两层 AND」。
 /// </summary>
 public class McpServerConfig

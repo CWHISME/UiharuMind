@@ -186,7 +186,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// 尚未取回工具的 server 在后台补连（受退避约束），完成后修订号自增，
     /// 下一次挂接经装配快照差异自动重建。
     /// </summary>
-    /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0007）</param>
+    /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0008）</param>
     /// <returns>工具集、分组明细与自述</returns>
     public McpToolSet Resolve(IEnumerable<string>? disabledServers = null)
     {

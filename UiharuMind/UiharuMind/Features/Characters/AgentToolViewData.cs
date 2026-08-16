@@ -234,7 +234,7 @@ public sealed class AgentSkillToggle : AgentBlacklistToggle
 /// 一个 MCP server 勾选项。
 ///
 /// 勾选决定的是<b>本智能体能不能用它的工具</b>，与设置页那个「是否托管」是两码事：
-/// 后者管的是要不要为它拉起一个进程（连接层），这里管的是能力（见 ADR 0007）。
+/// 后者管的是要不要为它拉起一个进程（连接层），这里管的是能力（见 ADR 0008）。
 /// 因此没托管的 server 照样列在这里——托管起来之后本角色就会立刻吃到它。
 /// </summary>
 public sealed class AgentMcpServerToggle : AgentBlacklistToggle

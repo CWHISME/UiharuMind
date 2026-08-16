@@ -26,7 +26,7 @@ namespace UiharuMind.Features.Settings;
 /// 它有自己的列表、选中项、编辑缓冲与连接状态，混在 <see cref="AgentSettingViewData"/> 里
 /// 只会让那个类同时管四件不相干的事。
 ///
-/// 编辑的是<b>连接层</b>配置。哪个智能体能用某个 server，在角色编辑页配（见 ADR 0007）。
+/// 编辑的是<b>连接层</b>配置。哪个智能体能用某个 server，在角色编辑页配（见 ADR 0008）。
 /// </summary>
 public partial class McpSettingsViewData : ViewModelBase
 {

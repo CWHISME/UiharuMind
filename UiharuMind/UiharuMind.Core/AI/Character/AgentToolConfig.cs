@@ -54,7 +54,7 @@ public class AgentToolConfig
     /// MCP 工具此前是全局无差别下发的——只要 server 托管着，每个智能体都吃下它的全部工具，
     /// 是本类"按角色配能力"这条规矩下唯一的例外。收进来之后，
     /// <c>McpServerConfig.IsEnabled</c> 退回到纯连接层（要不要托管这个进程），
-    /// 能力层只有这一份名单说话，因此不构成 ADR 0003 反对的两层 AND（见 ADR 0007）。
+    /// 能力层只有这一份名单说话，因此不构成 ADR 0003 反对的两层 AND（见 ADR 0008）。
     ///
     /// 取<b>黑名单</b>而非白名单，与 <see cref="DisabledSkills"/> 同形：空名单即全给。
     /// </summary>
