@@ -14,9 +14,6 @@ namespace UiharuMind.Core.AI.Memory;
 
 public class MemoryData : IUniquieContainerItem
 {
-    private const int ChunkMaxLength = 900;
-    private const int ChunkOverlap = 120;
-    private const int MinimumAdaptiveChunkLength = 48;
     private const string CollectionName = "chunks";
     private static readonly IMemorySourceReader[] SourceReaders =
     [
@@ -140,7 +137,7 @@ public class MemoryData : IUniquieContainerItem
             List<PendingChunk> pendingChunks = [];
             foreach (MemorySourceDocument document in documents)
             {
-                foreach (string chunk in SplitText(document.Text))
+                foreach (string chunk in MemoryTextChunker.Split(document.Text))
                 {
                     pendingChunks.Add(new PendingChunk(document, chunk));
                 }
@@ -175,10 +172,11 @@ public class MemoryData : IUniquieContainerItem
                         .GenerateEmbeddingAsync(pending.Text, cancellationToken)
                         .ConfigureAwait(false);
                 }
-                catch (EmbeddingInputTooLargeException) when (pending.Text.Length > MinimumAdaptiveChunkLength)
+                catch (EmbeddingInputTooLargeException)
+                    when (MemoryTextChunker.CanSplitFurther(pending.Text))
                 {
                     // tokenizer 因模型而异；服务拒绝输入时只拆分当前块，并继续原索引任务。
-                    (string first, string second) = SplitOversizedChunk(pending.Text);
+                    (string first, string second) = MemoryTextChunker.SplitOversized(pending.Text);
                     pendingChunks[chunkCursor] = new PendingChunk(pending.Document, first);
                     pendingChunks.Insert(chunkCursor + 1, new PendingChunk(pending.Document, second));
                     continue;
@@ -266,13 +264,19 @@ public class MemoryData : IUniquieContainerItem
         return await EnsureEmbeddingSessionAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public void Save()
+    /// <summary>
+    /// 标记索引已过期（来源增删改后调用），并把该状态与清空的错误一起落盘
+    /// </summary>
+    public void MarkIndexDirty()
     {
         IndexDirty = true;
         LastIndexError = "";
         SaveIndexState();
     }
 
+    /// <summary>
+    /// 仅把当前元数据落盘，不改动索引状态（改名称、描述等）
+    /// </summary>
     public void SaveMetadata()
     {
         SaveIndexState();
@@ -468,21 +472,6 @@ public class MemoryData : IUniquieContainerItem
         }
     }
 
-    private static IEnumerable<string> SplitText(string text)
-    {
-        string normalized = text.Replace("\r\n", "\n").Trim();
-        if (string.IsNullOrWhiteSpace(normalized)) yield break;
-
-        int start = 0;
-        while (start < normalized.Length)
-        {
-            int length = Math.Min(ChunkMaxLength, normalized.Length - start);
-            yield return normalized.Substring(start, length);
-            if (start + length >= normalized.Length) break;
-            start += Math.Max(1, ChunkMaxLength - ChunkOverlap);
-        }
-    }
-
     private async Task<ReadOnlyMemory<float>> GenerateSearchEmbeddingAsync(string query)
     {
         if (_embeddingSession == null) throw new InvalidOperationException("Embedding model is unavailable.");
@@ -494,41 +483,14 @@ public class MemoryData : IUniquieContainerItem
             {
                 return await _embeddingSession.GenerateEmbeddingAsync(candidate).ConfigureAwait(false);
             }
-            catch (EmbeddingInputTooLargeException) when (candidate.Length > MinimumAdaptiveChunkLength)
+            catch (EmbeddingInputTooLargeException)
+                when (MemoryTextChunker.CanSplitFurther(candidate))
             {
                 // 检索只需要表达当前意图，过长时保留前半段，避免一次聊天查询拖垮记忆检索。
-                candidate = candidate[..Math.Max(MinimumAdaptiveChunkLength, candidate.Length / 2)].Trim();
+                candidate = candidate[..Math.Max(
+                    MemoryTextChunker.MinimumSplitLength, candidate.Length / 2)].Trim();
             }
         }
-    }
-
-    private static (string First, string Second) SplitOversizedChunk(string text)
-    {
-        int middle = text.Length / 2;
-        int split = FindNearbySplit(text, middle);
-        string first = text[..split].Trim();
-        string second = text[split..].Trim();
-        if (first.Length == 0 || second.Length == 0)
-        {
-            first = text[..middle];
-            second = text[middle..];
-        }
-
-        return (first, second);
-    }
-
-    private static int FindNearbySplit(string text, int middle)
-    {
-        for (int offset = 0; offset < Math.Min(160, middle); offset++)
-        {
-            int after = middle + offset;
-            if (after < text.Length && char.IsWhiteSpace(text[after])) return after;
-
-            int before = middle - offset;
-            if (before > 0 && char.IsWhiteSpace(text[before])) return before;
-        }
-
-        return middle;
     }
 
     private static string GetSourceId(string value)
