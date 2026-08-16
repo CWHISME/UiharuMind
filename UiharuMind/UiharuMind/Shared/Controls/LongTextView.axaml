@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:editing="clr-namespace:AvaloniaEdit.Editing;assembly=AvaloniaEdit"
+             xmlns:search="clr-namespace:AvaloniaEdit.Search;assembly=AvaloniaEdit"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:Class="UiharuMind.Shared.Controls.LongTextView">
+
+    <!-- 全仓唯一「吃得下大文本」的文本控件：内核是 AvaloniaEdit，它按行虚拟化，
+         屏幕外的行不测量。配色一律走 DynamicResource，深浅主题各自成立，不硬编码颜色。 -->
+    <UserControl.Styles>
+        <!-- 选中底色<b>直接钉在 TextArea 上</b>，不走 AvaloniaEdit 那条
+             TextAreaSelectionBrush ← SystemAccentColor 的转发链：那条链跨了它的
+             ThemeDictionaries 与我们的两层字典，任一环没通就是「选中完全看不见」，
+             而且不报错、没法在编译期发现。Style 的 setter 优先级高于 ControlTheme，
+             这里说了算。DynamicResource 保证换主题时跟着变 -->
+        <Style Selector="editing|TextArea">
+            <Setter Property="SelectionBrush" Value="{DynamicResource LongTextSelectionBrush}" />
+        </Style>
+
+        <!-- 搜索面板是<b>悬浮在正文之上</b>的，底色透明就等于两层字叠着看不清。
+             它的 Background 在 AvaloniaEdit 的 ControlTheme 里是
+             {DynamicResource SearchPanelBackgroundBrush} ← SystemChromeMediumColor，
+             又是一条跨字典的转发链（浅色下实测没解析出来）。这里直接用 Style setter 盖掉——
+             setter 优先级高于 ControlTheme，与上面选中底色同一手法，不再依赖那条链。
+             专用画刷而不是复用 CodeBlock*：面板底必须与编辑器底拉开距离，
+             而 CodeBlockBackgroundBrush 在浅色下只比编辑器底差 11 个色阶，等于没有面板 -->
+        <Style Selector="search|SearchPanel">
+            <Setter Property="Background" Value="{DynamicResource LongTextPanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CodeBlockBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <!-- 刻意<b>不</b>去隐藏搜索面板的「替换」展开钮。AvaloniaEdit 已经把
+             IsReplaceMode 在只读时强制按成 false（SearchPanel.cs 的属性 setter），
+             替换行永远出不来，点了会弹回去——真正有害的部分库自己挡住了。
+             剩下那个惰性小箭头不值得用 /template/ 伸进第三方模板去抓 #Expander：
+             那是私有部件名，改名即静默失效，不报错也没测试兜底 -->
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- 宿主自己有标题栏时（FullTextWindow）会关掉这排，把同样三个动作挂到标题栏上：
+             两条只有几十像素高的横带叠在一起，白吃两倍纵向空间 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="2"
+                    IsVisible="{Binding $parent[LongTextView].IsToolbarVisible}"
+                    HorizontalAlignment="Right" Margin="0,0,2,4">
+            <ThemedIconButton Width="24" Height="24" Focusable="False"
+                              IconName="copy"
+                              ToolTip.Tip="{loc:Loc LongTextCopyAll}"
+                              Click="CopyButton_Click" />
+            <!-- 换行开关直接双向绑到本控件的 WordWrap，外部设初值、内部按钮改状态是同一份值 -->
+            <ThemedIconToggleButton Width="24" Height="24" Focusable="False"
+                                    IconName="text-wrap"
+                                    ToolTip.Tip="{loc:Loc LongTextWordWrap}"
+                                    CheckedForeground="{DynamicResource SemiBlue5}"
+                                    IsChecked="{Binding $parent[LongTextView].WordWrap, Mode=TwoWay}" />
+            <ThemedIconButton Width="24" Height="24" Focusable="False"
+                              IconName="search"
+                              ToolTip.Tip="{loc:Loc LongTextSearch}"
+                              Click="SearchButton_Click" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Background="{DynamicResource CodeBlockContentBackgroundBrush}"
+                BorderBrush="{DynamicResource CodeBlockBorderBrush}"
+                BorderThickness="1" CornerRadius="4">
+            <!-- 背景给实色而不是 Transparent:AvaloniaEdit 自绘文本,透明底是重绘残影
+                 (文字叠影)的常见诱因,而这里的底色本来就该跟外框一致 -->
+            <edit:TextEditor Name="Editor"
+                             Background="{DynamicResource CodeBlockContentBackgroundBrush}"
+                             Foreground="{DynamicResource UiForegroundBrush}"
+                             LineNumbersForeground="{DynamicResource SemiGrey5}"
+                             FontFamily="{DynamicResource CodeFontFamily}"
+                             FontSize="13"
+                             Padding="4"
+                             HorizontalScrollBarVisibility="Auto"
+                             VerticalScrollBarVisibility="Auto" />
+        </Border>
+    </Grid>
+
+</UserControl>

@@ -350,6 +350,30 @@
     <data name="SubAgentActivityTitle" xml:space="preserve">
         <value>子代理过程</value>
     </data>
+    <data name="ToolResultTruncatedFormat" xml:space="preserve">
+        <value>仅显示前 {0} 行，共 {1} 行 · 其余 {2} 未渲染</value>
+    </data>
+    <data name="ToolResultTruncatedSizeFormat" xml:space="preserve">
+        <value>仅显示 {0}，共 {1}</value>
+    </data>
+    <data name="ToolViewFullText" xml:space="preserve">
+        <value>查看全文</value>
+    </data>
+    <data name="ToolFullTextResult" xml:space="preserve">
+        <value>结果</value>
+    </data>
+    <data name="ToolFullTextArguments" xml:space="preserve">
+        <value>参数</value>
+    </data>
+    <data name="LongTextCopyAll" xml:space="preserve">
+        <value>复制全文</value>
+    </data>
+    <data name="LongTextWordWrap" xml:space="preserve">
+        <value>自动换行</value>
+    </data>
+    <data name="LongTextSearch" xml:space="preserve">
+        <value>搜索</value>
+    </data>
     <data name="AgentSettingCapTodoList" xml:space="preserve">
         <value>任务清单</value>
     </data>
@@ -2706,5 +2730,11 @@
     </data>
     <data name="CharacterSkillTokenTip" xml:space="preserve">
         <value>常驻上下文的只有技能的名字与描述，正文按需装载——所以这个数字小是设计如此。</value>
+    </data>
+    <data name="AgentTaskPermission" xml:space="preserve">
+        <value>这个任务无人值守跑的时候用哪一档权限。到点没人能点审批，这一档不允许的动作会被自动拒绝。</value>
+    </data>
+    <data name="ChatImageUnreadableWarning" xml:space="preserve">
+        <value>当前模型无法查看图片，本角色也没有识图工具兜底——图片只会以文件路径发出。</value>
     </data>
 </root>

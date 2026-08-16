@@ -13,7 +13,9 @@
          复制一份的结果就是两边观感不一致。样式随组件走,复制不出去也就飘不了。 -->
     <UserControl.Styles>
         <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
-        <Style Selector="Border.spin">
+        <!-- 选择器带 .running:IsVisible=false 只是不画,动画仍在每帧写 RotateTransform.Angle,
+             而一条长会话里跑完的工具卡片会累积到几十张。类不在时样式整条不命中,动画也就不存在 -->
+        <Style Selector="Border.spin.running">
             <Style.Animations>
                 <Animation Duration="0:0:1.2" IterationCount="INFINITE">
                     <KeyFrame Cue="0%">
@@ -74,7 +76,8 @@
                                    TextTrimming="CharacterEllipsis" />
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                                     VerticalAlignment="Center">
-                            <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
+                            <Border Classes="spin" Classes.running="{Binding IsRunning}"
+                                    Width="12" Height="12" IsVisible="{Binding IsRunning}">
                                 <TextBlock Text="◠" FontSize="11"
                                            Foreground="{DynamicResource SemiBlue5}" />
                             </Border>
@@ -109,8 +112,33 @@
                 <!-- 有 diff 时不再堆参数原文:diff 已经把改动讲清楚了,而 Edit 的参数原文是一段
                      转义过的 JSON,摆在 diff 上方只是噪音。跑的过程中(还没有结果)照常显示,
                      失败时也照常显示——那时正需要它来排查 -->
-                <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap"
-                                     IsVisible="{Binding !HasResultDiff}" />
+                <StackPanel Spacing="2">
+                    <StackPanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="!HasResultDiff" />
+                            <Binding Path="ArgumentsJson" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                        </MultiBinding>
+                    </StackPanel.IsVisible>
+                    <!-- 绑 ArgumentsDisplayText 而不是 ArgumentsJson:参数原文此前<b>零截断</b>,
+                         一次 Write 带几百 KB content 展开即入排版。与结果同一套阈值。
+                         这里也要限高:2KB 铺开仍是一大片,而参数是最不值得占版面的那部分 -->
+                    <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
+                        <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsDisplayText}"
+                                             TextWrapping="Wrap" />
+                    </ScrollViewer>
+                    <!-- 入口做在截断提示行里,与结果面板同一形状。曾经试过右上角一个常驻 ↗ 图标,
+                         它单独占一列、把正文挤窄,而收益只是"没截断时也能开窗"这种边缘需求 -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsArgumentsTruncated}">
+                        <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   Text="{Binding ArgumentsTruncationHint}" />
+                        <Button Grid.Column="1" Classes="SimpleSolidButton" Cursor="Hand"
+                                FontSize="12" Padding="6,0" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Command="{Binding ShowFullArgumentsCommand}"
+                                Content="{loc:Loc ToolViewFullText}" />
+                    </Grid>
+                </StackPanel>
                 <!-- 编辑结果带 diff 时换成带增删配色的渲染:自动放行档位下这张卡片是唯一
                      看得到改动的地方,一片灰字等于看不见改了什么。配色走全局 diffline 样式,
                      与审批卡片同一支笔 -->
@@ -138,9 +166,30 @@
                             <Binding Path="!HasResultDiff" />
                         </MultiBinding>
                     </Border.IsVisible>
-                    <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
-                        <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" TextWrapping="Wrap" />
-                    </ScrollViewer>
+                    <StackPanel Spacing="4">
+                        <!-- 绑 ResultDisplayText 而不是 ResultText:上面那个 MaxHeight 只裁<b>视口</b>,
+                             不裁<b>文本布局</b>——整篇几十万字仍要每次布局重新断行重新量,而会话流没有
+                             虚拟化,于是流式回复的每一帧都在为一张早已跑完的卡片付这笔钱。
+                             卡片<b>只</b>拿得到头部那一小段,全文一律去 FullTextWindow
+                             (见 ToolResultTruncation 与 ADR 0012) -->
+                        <!-- 180 而不是原来的 280:卡片是"扫一眼"的尺寸。
+                             单行大 JSON 折起来正好能把 280px 填满一整块,那是难看的主因 -->
+                        <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
+                            <SelectableTextBlock Classes="mono" Text="{Binding ResultDisplayText}"
+                                                 TextWrapping="Wrap" />
+                        </ScrollViewer>
+                        <!-- 截断提示行。* 列靠卡片的 MaxWidth 才有宽度可分,见文件顶部那段注释 -->
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsResultTruncated}">
+                            <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
+                                       Text="{Binding ResultTruncationHint}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Column="1" Classes="SimpleSolidButton" Cursor="Hand"
+                                    FontSize="12" Padding="6,0" Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding ShowFullResultCommand}"
+                                    Content="{loc:Loc ToolViewFullText}" />
+                        </Grid>
+                    </StackPanel>
                 </Border>
             </StackPanel>
         </StackPanel>

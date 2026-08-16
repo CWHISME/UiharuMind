@@ -26,6 +26,15 @@
                     <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#F0F1F3</SolidColorBrush>
                     <SolidColorBrush x:Key='CodeBlockBorderBrush'>#D0D1D5</SolidColorBrush>
                     <Color x:Key='CodeBlockActiveColor'>#1769E0</Color>
+                    <!-- AvaloniaEdit 的 Fluent 主题引用这三个 Fluent 键,而本仓用的是 Semi、
+                         没有它们(见 ADR 0012)。不补的话搜索面板一开就抛 KeyNotFoundException。
+                         SystemAccentColor 刻意<b>半透明</b>:它在那边唯一的用途是 TextAreaSelectionBrush,
+                         不透明色会把选中区的字盖死 -->
+                    <Color x:Key='SystemChromeMediumColor'>#E5E6EB</Color>
+                    <Color x:Key='SystemBaseLowColor'>#D0D1D5</Color>
+                    <Color x:Key='SystemAccentColor'>#661769E0</Color>
+                    <SolidColorBrush x:Key='LongTextSelectionBrush'>#801769E0</SolidColorBrush>
+                    <SolidColorBrush x:Key='LongTextPanelBrush'>#FFFFFF</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key='Dark'>
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#1D2129</SolidColorBrush>
@@ -38,6 +47,11 @@
                     <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#2D2F33</SolidColorBrush>
                     <SolidColorBrush x:Key='CodeBlockBorderBrush'>#404247</SolidColorBrush>
                     <Color x:Key='CodeBlockActiveColor'>#84ADFF</Color>
+                    <Color x:Key='SystemChromeMediumColor'>#36383D</Color>
+                    <Color x:Key='SystemBaseLowColor'>#404247</Color>
+                    <Color x:Key='SystemAccentColor'>#6684ADFF</Color>
+                    <SolidColorBrush x:Key='LongTextSelectionBrush'>#8084ADFF</SolidColorBrush>
+                    <SolidColorBrush x:Key='LongTextPanelBrush'>#3A3D42</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Aquatic}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#EAF7FA</SolidColorBrush>
@@ -50,6 +64,11 @@
                     <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#DAEEF4</SolidColorBrush>
                     <SolidColorBrush x:Key='CodeBlockBorderBrush'>#B0D4DE</SolidColorBrush>
                     <Color x:Key='CodeBlockActiveColor'>#087EA4</Color>
+                    <Color x:Key='SystemChromeMediumColor'>#C8E2EA</Color>
+                    <Color x:Key='SystemBaseLowColor'>#B0D4DE</Color>
+                    <Color x:Key='SystemAccentColor'>#66087EA4</Color>
+                    <SolidColorBrush x:Key='LongTextSelectionBrush'>#80087EA4</SolidColorBrush>
+                    <SolidColorBrush x:Key='LongTextPanelBrush'>#FFFFFF</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Desert}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#FAF2E7</SolidColorBrush>
@@ -62,6 +81,11 @@
                     <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#EDE0CF</SolidColorBrush>
                     <SolidColorBrush x:Key='CodeBlockBorderBrush'>#D4C4B0</SolidColorBrush>
                     <Color x:Key='CodeBlockActiveColor'>#175CD3</Color>
+                    <Color x:Key='SystemChromeMediumColor'>#E0D4C0</Color>
+                    <Color x:Key='SystemBaseLowColor'>#D4C4B0</Color>
+                    <Color x:Key='SystemAccentColor'>#66175CD3</Color>
+                    <SolidColorBrush x:Key='LongTextSelectionBrush'>#80175CD3</SolidColorBrush>
+                    <SolidColorBrush x:Key='LongTextPanelBrush'>#FFFDF8</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.Dusk}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#282235</SolidColorBrush>
@@ -74,6 +98,11 @@
                     <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#322C44</SolidColorBrush>
                     <SolidColorBrush x:Key='CodeBlockBorderBrush'>#4A4358</SolidColorBrush>
                     <Color x:Key='CodeBlockActiveColor'>#A4BCFD</Color>
+                    <Color x:Key='SystemChromeMediumColor'>#3D3650</Color>
+                    <Color x:Key='SystemBaseLowColor'>#4A4358</Color>
+                    <Color x:Key='SystemAccentColor'>#66A4BCFD</Color>
+                    <SolidColorBrush x:Key='LongTextSelectionBrush'>#80A4BCFD</SolidColorBrush>
+                    <SolidColorBrush x:Key='LongTextPanelBrush'>#443C5C</SolidColorBrush>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="{x:Static semi:SemiTheme.NightSky}">
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#202633</SolidColorBrush>
@@ -86,6 +115,11 @@
                     <SolidColorBrush x:Key='CodeBlockContentBackgroundBrush'>#2A3142</SolidColorBrush>
                     <SolidColorBrush x:Key='CodeBlockBorderBrush'>#3D4457</SolidColorBrush>
                     <Color x:Key='CodeBlockActiveColor'>#84CAFF</Color>
+                    <Color x:Key='SystemChromeMediumColor'>#32394A</Color>
+                    <Color x:Key='SystemBaseLowColor'>#3D4457</Color>
+                    <Color x:Key='SystemAccentColor'>#6684CAFF</Color>
+                    <SolidColorBrush x:Key='LongTextSelectionBrush'>#8084CAFF</SolidColorBrush>
+                    <SolidColorBrush x:Key='LongTextPanelBrush'>#3A4256</SolidColorBrush>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

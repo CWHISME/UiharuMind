@@ -360,6 +360,30 @@
     <data name="SubAgentActivityTitle" xml:space="preserve">
         <value>Sub-agent activity</value>
     </data>
+    <data name="ToolResultTruncatedFormat" xml:space="preserve">
+        <value>Showing the first {0} of {1} lines · {2} not rendered</value>
+    </data>
+    <data name="ToolResultTruncatedSizeFormat" xml:space="preserve">
+        <value>Showing {0} of {1}</value>
+    </data>
+    <data name="ToolViewFullText" xml:space="preserve">
+        <value>View full text</value>
+    </data>
+    <data name="ToolFullTextResult" xml:space="preserve">
+        <value>Result</value>
+    </data>
+    <data name="ToolFullTextArguments" xml:space="preserve">
+        <value>Arguments</value>
+    </data>
+    <data name="LongTextCopyAll" xml:space="preserve">
+        <value>Copy all</value>
+    </data>
+    <data name="LongTextWordWrap" xml:space="preserve">
+        <value>Word wrap</value>
+    </data>
+    <data name="LongTextSearch" xml:space="preserve">
+        <value>Search</value>
+    </data>
     <data name="AgentSettingCapTodoList" xml:space="preserve">
         <value>Task list</value>
     </data>
@@ -2713,5 +2737,11 @@ Note this is what the *next* turn will send, while the "Context" readout at the 
     </data>
     <data name="CharacterSkillTokenTip" xml:space="preserve">
         <value>Only the skill's name and description stay in context; the body loads on demand. So this number is small by design.</value>
+    </data>
+    <data name="AgentTaskPermission" xml:space="preserve">
+        <value>Permission mode for this unattended run. Nobody is there to approve anything, so whatever this mode does not allow gets denied automatically.</value>
+    </data>
+    <data name="ChatImageUnreadableWarning" xml:space="preserve">
+        <value>The selected model cannot see images, and this character has no vision tool to fall back on — images will be sent as a file path only.</value>
     </data>
 </root>

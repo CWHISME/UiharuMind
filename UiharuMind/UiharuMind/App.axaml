@@ -16,6 +16,16 @@
             <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
             <FontFamily x:Key="CodeFontFamily">Maple Mono, Cascadia Mono, Consolas, Menlo, monospace,avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
 
+            <!-- AvaloniaEdit 的 Fluent 主题(下面 Application.Styles 里挂着)引用九个 Fluent 键,
+                 其中 ToolTipBackground / ToolTipForeground / ToolTipBorderBrush 由 Semi 提供,
+                 剩下六个没有。这三个是 <b>StaticResource</b>(解析期求值),必须住在这里——
+                 补进 Styles 里够不着;另外三个是 DynamicResource 的 Color,按主题变体放在
+                 Assets/ThemeColors.axaml。少任何一个,搜索面板一开就抛 KeyNotFoundException。
+                 刻意不引 <FluentTheme /> 补齐:那会与 SemiTheme 打架。见 ADR 0012 -->
+            <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
+            <FontFamily x:Key="ContentControlThemeFontFamily">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
+            <Thickness x:Key="ToolTipBorderThemeThickness">1</Thickness>
+
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://LiveMarkdown.Avalonia/Defaults.axaml"/>
             </ResourceDictionary.MergedDictionaries>
@@ -40,10 +50,9 @@
         <StyleInclude Source="avares://UiharuMind/Assets/ThemeColors.axaml"></StyleInclude>
         <semi:SemiTheme />
         <u-Semi:UrsaSemiTheme />
-        <!-- TextEditor 渲染代码的语法高亮 -->
-        <!-- <FluentTheme /> -->
-        <!-- <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" /> -->
-        <!-- <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" /> -->
+        <!-- 长文本查看器(LongTextView)的内核主题。只挂 AvaloniaEdit 自己那份,
+             刻意<b>不</b>挂 FluentTheme——它会与上面的 SemiTheme 打架 -->
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
         <StyleInclude Source="avares://LiveMarkdown.Avalonia/Styles.axaml"/>
     </Application.Styles>
 

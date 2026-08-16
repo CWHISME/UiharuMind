@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="600"
+        Width="720"
+        Height="600"
+        x:Class="UiharuMind.Shared.Windows.FullTextWindow"
+        Title="FullTextWindow">
+
+    <!-- 形状与 SubAgentActivityWindow 一致：自绘标题栏 + 拖动 + 关闭按钮 -->
+    <Grid RowDefinitions="Auto,*" Margin="10">
+        <Border Height="34" Background="Transparent" PointerPressed="InputElement_OnPointerPressed">
+            <DockPanel LastChildFill="False">
+                <TextBlock Name="TitleTextBlock" FontSize="15" FontWeight="SemiBold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right"
+                        HorizontalAlignment="Right" Click="CloseButton_Click" />
+                <!-- LongTextView 自带的那排在下面被关掉了,挪到这儿与标题同一行:
+                     标题栏和工具条各占一条横带,叠起来白吃两倍纵向空间 -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                            Margin="0,0,8,0" VerticalAlignment="Center">
+                    <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="copy"
+                                      ToolTip.Tip="{loc:Loc LongTextCopyAll}"
+                                      Click="CopyButton_Click" />
+                    <ThemedIconToggleButton Width="24" Height="24" Focusable="False" IconName="text-wrap"
+                                            ToolTip.Tip="{loc:Loc LongTextWordWrap}"
+                                            CheckedForeground="{DynamicResource SemiBlue5}"
+                                            IsChecked="{Binding #TextView.WordWrap, Mode=TwoWay}" />
+                    <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="search"
+                                      ToolTip.Tip="{loc:Loc LongTextSearch}"
+                                      Click="SearchButton_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <LongTextView Grid.Row="1" Name="TextView" IsEditable="False" IsToolbarVisible="False" />
+    </Grid>
+
+</Window>

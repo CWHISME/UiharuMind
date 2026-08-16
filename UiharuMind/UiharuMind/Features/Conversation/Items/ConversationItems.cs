@@ -25,7 +25,9 @@ using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils.Tools;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Features.Conversation.Items;
 
@@ -76,6 +78,9 @@ public partial class ThinkingItem : ConversationItemBase
 /// </summary>
 public partial class ToolCallItem : ConversationItemBase
 {
+    private ToolResultView _resultView = ToolResultTruncation.Empty; //结果纯文本的截断视图
+    private ToolResultView _argumentsView = ToolResultTruncation.Empty; //参数原文的截断视图(同一套阈值)
+
     public string CallId { get; init; } = string.Empty;
     public string ToolName { get; init; } = string.Empty;
 
@@ -99,6 +104,51 @@ public partial class ToolCallItem : ConversationItemBase
     [ObservableProperty] private bool _isExpanded;
 
     /// <summary>
+    /// 结果面板真正渲染的正文。<see cref="ResultText"/> 是原文，绑到控件上的<b>只有</b>这一小段。
+    ///
+    /// 曾经有过一个「就地展开全文」的开关，它是错的：会话流没有虚拟化，
+    /// 把几十万字换进 <c>SelectableTextBlock</c> 等于当场冻住界面。全文现在一律去
+    /// <see cref="FullTextWindow"/>，那边的内核按行虚拟化。
+    /// </summary>
+    public string ResultDisplayText => _resultView.DisplayText;
+
+    /// <summary>结果原文是否超过阈值（决定截断提示行的显隐；↗ 入口与它无关，常驻）</summary>
+    public bool IsResultTruncated => _resultView.IsTruncated;
+
+    /// <summary>结果的截断提示行文案</summary>
+    public string ResultTruncationHint => FormatTruncationHint(_resultView);
+
+    /// <summary>参数面板真正渲染的正文。参数原文此前<b>零截断</b>——一次 Write 带几百 KB 就直接进排版</summary>
+    public string ArgumentsDisplayText => _argumentsView.DisplayText;
+
+    /// <summary>参数原文是否超过阈值</summary>
+    public bool IsArgumentsTruncated => _argumentsView.IsTruncated;
+
+    /// <summary>参数的截断提示行文案（与结果共用一套文案，口径一致）</summary>
+    public string ArgumentsTruncationHint => FormatTruncationHint(_argumentsView);
+
+    /// <summary>
+    /// 截断提示行的文案。<b>按行报还是按体积报，取决于行数有没有真的被砍。</b>
+    ///
+    /// 数据本身就压成一行时（minified JSON、MCP 结果的常态），"仅显示前 1 行，共 1 行"
+    /// 这种话零信息量还显得像 bug——那种情况下被砍掉的是<b>体积</b>而不是<b>行</b>。
+    /// </summary>
+    /// <param name="view">截断视图</param>
+    /// <returns>提示文案</returns>
+    private static string FormatTruncationHint(ToolResultView view)
+    {
+        if (view.TotalLines > view.KeptLines)
+        {
+            return string.Format(Loc.Text("ToolResultTruncatedFormat"), view.KeptLines,
+                view.TotalLines, GameUtils.FormatBytes(view.OmittedChars));
+        }
+
+        return string.Format(Loc.Text("ToolResultTruncatedSizeFormat"),
+            GameUtils.FormatBytes(view.DisplayText.Length),
+            GameUtils.FormatBytes(view.DisplayText.Length + view.OmittedChars));
+    }
+
+    /// <summary>
     /// 结果正文里的 diff 行（目前只有 <c>Edit</c> 会有）。空集合表示按纯文本渲染结果。
     /// 编辑成功后的 diff 在审批卡片上有增删配色，在这张卡片上曾经是一片灰字——
     /// 同一份 diff 两种观感，而这张卡片才是自动放行档位下唯一看得到改动的地方。
@@ -111,8 +161,36 @@ public partial class ToolCallItem : ConversationItemBase
     partial void OnResultTextChanged(string value)
     {
         ResultDiffLines = DiffLineView.ParseToolResult(value);
+        // diff 那一支不用截断:Core 侧 PermissiveFileAccessTools.MaxEditDiffLines 已把它封死在 80 行,
+        // 到不了阈值。截断只管纯文本那支
+        _resultView = HasResultDiff ? ToolResultTruncation.Empty : ToolResultTruncation.Build(value);
         OnPropertyChanged(nameof(ResultDiffLines));
         OnPropertyChanged(nameof(HasResultDiff));
+        OnPropertyChanged(nameof(ResultDisplayText));
+        OnPropertyChanged(nameof(IsResultTruncated));
+        OnPropertyChanged(nameof(ResultTruncationHint));
+    }
+
+    partial void OnArgumentsJsonChanged(string value)
+    {
+        _argumentsView = ToolResultTruncation.Build(value);
+        OnPropertyChanged(nameof(ArgumentsDisplayText));
+        OnPropertyChanged(nameof(IsArgumentsTruncated));
+        OnPropertyChanged(nameof(ArgumentsTruncationHint));
+    }
+
+    /// <summary>把结果原文交给全文窗（非模态、可多开，与卡片各看各的）</summary>
+    [RelayCommand]
+    private void ShowFullResult()
+    {
+        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextResult")}", ResultText);
+    }
+
+    /// <summary>把参数原文交给全文窗</summary>
+    [RelayCommand]
+    private void ShowFullArguments()
+    {
+        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextArguments")}", ArgumentsJson);
     }
 
     [RelayCommand]

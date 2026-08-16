@@ -20,12 +20,13 @@
 
         <u:Divider Content="Input" FontSize="24" />
 
+        <!-- 短文本档：这里编辑的是会话标题、消息一类的短内容，行号只会碍眼，
+             自动换行则要开着——横向滚动看一句话是折磨 -->
         <Panel Grid.Row="1" Margin="10">
-            <TextBox Text="{Binding ContentStr}" VerticalAlignment="Stretch"
-                     VerticalContentAlignment="Top"
-                     TextWrapping="Wrap"
-                     AcceptsReturn="True"
-                     Padding="5" />
+            <LongTextView Text="{Binding ContentStr}"
+                          IsEditable="True"
+                          ShowLineNumbers="False"
+                          WordWrap="True" />
         </Panel>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center"
