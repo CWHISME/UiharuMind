@@ -240,25 +240,9 @@ public class ConversationTranscriptTests
         Assert.Equal("出错了", Assert.IsType<ErrorItem>(Assert.Single(items)).Message);
     }
 
-    /// <summary>
-    /// 用量只经事件外发。回放实例不订阅，因此不会污染计数——
-    /// 这取代了原先「按渲染落点判空」的隐式开关。
-    /// </summary>
+    /// <summary>用量不进条目流——它走 ETurnNotice 通知链路，转录器只负责忽略。</summary>
     [Fact]
-    public void Usage_IsRaisedAsEvent_AndRendersNoItem()
-    {
-        var (transcript, items) = Create();
-        List<UsageDetails> observed = new();
-        transcript.UsageObserved += observed.Add;
-
-        transcript.Apply(new UsageContent(new UsageDetails { InputTokenCount = 12, OutputTokenCount = 34 }));
-
-        Assert.Empty(items);
-        Assert.Equal(12, Assert.Single(observed).InputTokenCount);
-    }
-
-    [Fact]
-    public void Usage_WithoutSubscriber_IsSilentlyDropped()
+    public void Usage_RendersNoItem()
     {
         var (transcript, items) = Create();
 

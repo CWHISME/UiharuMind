@@ -23,8 +23,8 @@ namespace UiharuMind.Features.Conversation;
 
 /// <summary>
 /// 转录器：把 <see cref="AIContent"/> 流装配成可渲染的会话条目序列。
-/// 实时流与历史回放是同一个类的两个实例，区别只在构造时交代的落点集合与是否订阅
-/// <see cref="UsageObserved"/>——因此不再需要「按落点判空来分叉」这种隐式开关。
+/// 实时流与历史回放是同一个类的两个实例，区别只在构造时交代的落点集合
+/// ——因此不再需要「按落点判空来分叉」这种隐式开关。
 ///
 /// 藏在里面的复杂度：八种内容的分派、正文流里 &lt;think&gt; 段的分离、工具调用与结果按
 /// CallId 的配对回写、流段的开合、审批请求的待决与本轮收集。
@@ -52,9 +52,6 @@ public sealed class ConversationTranscript : ITurnSink
 
     /// <summary>尚未回应的审批请求</summary>
     public IReadOnlyList<ApprovalRequestItem> PendingApprovals => _pending;
-
-    /// <summary>观察到响应用量（回放实例不订阅，累计口径由回放方全量统计）</summary>
-    public event Action<UsageDetails>? UsageObserved;
 
     /// <summary>调用了框架内务工具（todo 之类），调用方据此刷新对应面板</summary>
     public event Action? HousekeepingToolCalled;
@@ -166,9 +163,8 @@ public sealed class ConversationTranscript : ITurnSink
                 _target.Add(new ErrorItem { Message = error.Message });
                 break;
 
-            case UsageContent usage:
-                UsageObserved?.Invoke(usage.Details);
-                break;
+            case UsageContent:
+                break; //用量走 ETurnNotice.UsageObserved 通知链路,转录器不消费
         }
     }
 
