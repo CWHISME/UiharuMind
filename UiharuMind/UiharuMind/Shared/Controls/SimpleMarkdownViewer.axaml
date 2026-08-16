@@ -2,15 +2,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:avedit="https://github.com/avaloniaui/avaloniaedit"
-             xmlns:common="clr-namespace:UiharuMind.Views.Common"
              xmlns:u="https://irihi.tech/ursa"
-             xmlns:mdxaml="https://github.com/whistyun/Markdown.Avalonia"
-             xmlns:avalonia="https://github.com/whistyun/Markdown.Avalonia.Tight"
              xmlns:avalonia2="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:markup="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Shared.Controls.SimpleMarkdownViewer">
 
@@ -29,13 +23,6 @@
                                                Text="{TemplateBinding Language}"/>
                                     <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right"
                                                 Orientation="Horizontal" Spacing="2">
-                                        <!-- <ToggleButton x:Name="PART_ToggleTextWrapButton" -->
-                                        <!--               Width="20" Height="20" -->
-                                        <!--               Focusable="False" -->
-                                        <!--               IsChecked="{TemplateBinding IsCodeWrapped, Mode=TwoWay}" -->
-                                        <!--               ToolTip.Tip="{markup:Loc ToggleTextWrap}"> -->
-                                        <!--     <controls:ThemedSvgIcon Width="14" Height="14" IconName="text-wrap"/> -->
-                                        <!-- </ToggleButton> -->
                                         <ThemedIconToggleButton Width="20" Height="20"
                                                                 IconName="text-wrap" ToolTips="{markup:Loc ToggleTextWrap}"
                                                                 Focusable="False"
@@ -64,36 +51,6 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <!-- <Style Selector="^ ToggleButton"> -->
-            <!--     <Setter Property="BorderThickness" Value="0"/> -->
-            <!--     <Setter Property="MinWidth" Value="0"/> -->
-            <!--     <Setter Property="MinHeight" Value="0"/> -->
-            <!--     <Setter Property="Template"> -->
-            <!--         <Setter.Value> -->
-            <!--             <ControlTemplate TargetType="ToggleButton"> -->
-            <!--                 <ContentPresenter Content="{TemplateBinding Content}" -->
-            <!--                                   ContentTemplate="{TemplateBinding ContentTemplate}"/> -->
-            <!--             </ControlTemplate> -->
-            <!--         </Setter.Value> -->
-            <!--     </Setter> -->
-            <!-- </Style> -->
-            <!-- <Style Selector="^ Button"> -->
-            <!--     <Setter Property="BorderThickness" Value="0"/> -->
-            <!--     <Setter Property="MinWidth" Value="0"/> -->
-            <!--     <Setter Property="MinHeight" Value="0"/> -->
-            <!--     <Setter Property="Template"> -->
-            <!--         <Setter.Value> -->
-            <!--             <ControlTemplate TargetType="Button"> -->
-            <!--                 <ContentPresenter Content="{TemplateBinding Content}" -->
-            <!--                                   ContentTemplate="{TemplateBinding ContentTemplate}"/> -->
-            <!--             </ControlTemplate> -->
-            <!--         </Setter.Value> -->
-            <!--     </Setter> -->
-            <!-- </Style> -->
-            <!-- 右上角折叠按钮点击后变色 -->
-            <!-- <Style Selector="^ ToggleButton:checked controls|ThemedSvgIcon"> -->
-            <!--     <Setter Property="CurrentColor" Value="{DynamicResource CodeBlockActiveColor}"/> -->
-            <!-- </Style> -->
         </Style>
         <Style Selector="InlineUIContainer.Code Border">
             <Setter Property="Background" Value="Transparent"/>
