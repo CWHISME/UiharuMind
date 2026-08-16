@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using Microsoft.Extensions.AI;
+
 namespace UiharuMind.Core.AI.Chat;
 
 /// <summary>
@@ -56,4 +58,25 @@ public static class ChatMessageAnnotations
     /// 不能复用 <see cref="Attribution"/>——那个键的含义是「不落盘」，正好相反。
     /// </summary>
     public const string Handoff = "_handoff";
+
+    /// <summary>
+    /// 知识库检索片段标记。带此键的消息<b>要落盘、要渲染，但不供给模型</b>——
+    /// 全仓第一条「存而不供」的消息，上面两个轴都表达不了它。
+    ///
+    /// 落盘是为了重载会话后还能回溯「当时检索到了什么」（工具路径天然有这个能力，
+    /// 注入路径不落盘就永远没有）；不供给是因为片段每轮按当前提问重新检索，
+    /// 旧片段回灌给模型只会逐轮累积一堆过期上下文。
+    /// 因此 <c>SessionChatHistoryProvider.ProvideChatHistoryAsync</c> 供给时必须滤掉它。
+    /// </summary>
+    public const string Knowledge = "_knowledge";
+
+    /// <summary>
+    /// 判断是否为知识库检索片段消息。
+    /// 判定放在这里而不是 <c>SessionChatHistoryProvider</c>：那个类 UI 层引用不到
+    /// （基类是被 <c>PrivateAssets=compile</c> 挡住的框架类型），而回放渲染必须认得它。
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带 <see cref="Knowledge"/> 标记时返回 True</returns>
+    public static bool IsKnowledge(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(Knowledge) == true;
 }

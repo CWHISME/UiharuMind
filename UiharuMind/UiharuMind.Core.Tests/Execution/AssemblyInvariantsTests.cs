@@ -116,6 +116,27 @@ public class HistoryAttributionTests
     }
 
     /// <summary>
+    /// 知识库检索片段是「存而不供」：由 <c>StoreChatHistoryAsync</c> 直接写进历史，
+    /// 供给时被滤掉，因此不该再从 RequestMessages 那条路进来一次。
+    /// 漏了这道就是逐轮翻倍——与交接文档同一类隐患。
+    /// </summary>
+    [Fact]
+    public void KnowledgeSnippets_AreNeverAppendedAgain()
+    {
+        ChatMessage snippets = new(ChatRole.Tool, "SourceName: doc\nSimilarity: 0.427\nContent: ...")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ChatMessageAnnotations.Knowledge] = true,
+            },
+        };
+
+        Assert.True(ChatMessageAnnotations.IsKnowledge(snippets));
+        Assert.False(SessionChatHistoryProvider.IsOwnedByUs(snippets));
+        Assert.False(ChatMessageAnnotations.IsKnowledge(new ChatMessage(ChatRole.User, "hello")));
+    }
+
+    /// <summary>
     /// 框架产出的消息不带 CreatedAt，落历史时必须补上——<c>ChatSession.LastTime</c> 读的正是它。
     /// 不补的话缺失会被当成"现在"，会话列表那一行时间每次刷新都跳成刚刚
     /// </summary>

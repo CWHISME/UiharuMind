@@ -95,6 +95,42 @@ public class ChatSession
     [JsonIgnore]
     public DateTimeOffset? TurnStartedAt { get; set; }
 
+    /// <summary>
+    /// 本轮检索到的知识库片段。由 <c>MemoryContextProvider</c> 盖章，
+    /// <c>SessionChatHistoryProvider</c> 落盘时取用后清空——与 <see cref="TurnStartedAt"/>
+    /// 同一套一次性凭据模式。
+    ///
+    /// 走凭据而不是当场写进历史：检索发生在轮次开始时，那一刻本轮的用户消息还没落进
+    /// <see cref="History"/>（它由 <c>StoreChatHistoryAsync</c> 在轮次结束后才追加），
+    /// 当场写会让检索卡排到用户气泡<b>前面</b>去。
+    /// </summary>
+    [JsonIgnore]
+    public string PendingKnowledgeSnippets { get; private set; } = "";
+
+    /// <summary>本轮检索到片段时触发，供 <c>TurnDriver</c> 转成界面通知</summary>
+    public event Action<string>? KnowledgeRetrieved;
+
+    /// <summary>
+    /// 记录本轮检索到的知识库片段：存进一次性凭据等落盘，同时通知界面即时显示
+    /// </summary>
+    /// <param name="snippets">拼好的片段文本</param>
+    public void ReportKnowledgeRetrieved(string snippets)
+    {
+        if (string.IsNullOrEmpty(snippets)) return;
+
+        PendingKnowledgeSnippets = snippets;
+        KnowledgeRetrieved?.Invoke(snippets);
+    }
+
+    /// <summary>取走并清空本轮的检索片段凭据</summary>
+    /// <returns>片段文本；本轮没检索到则为空串</returns>
+    public string TakeKnowledgeSnippets()
+    {
+        string snippets = PendingKnowledgeSnippets;
+        PendingKnowledgeSnippets = "";
+        return snippets;
+    }
+
     /// <summary>自定义模板参数</summary>
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 

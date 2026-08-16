@@ -15,6 +15,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation.Composer;
 
 namespace UiharuMind.Features.Conversation.Items;
@@ -125,4 +126,20 @@ public static class ConversationItemFactory
         if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true) return true;
         return message.Contents.Any(x => x is ToolApprovalResponseContent);
     }
+
+    /// <summary>
+    /// 知识库检索卡片。复用 <see cref="ToolCallItem"/> 而不是新开一种条目：
+    /// 注入路径与 <c>knowledge_search</c> 工具路径展示的是同一件事，
+    /// 长成两种样子只会让「换个后端界面就变了」，而工具那条路已经是这张卡。
+    /// </summary>
+    /// <param name="snippets">片段全文</param>
+    /// <returns>已完成态的工具卡片，默认折叠</returns>
+    public static ToolCallItem CreateKnowledgeCard(string snippets) => new()
+    {
+        ToolName = KnowledgeTool.ToolName,
+        IconGlyph = "🔍",
+        IsRunning = false,
+        IsSuccess = true,
+        ResultText = snippets,
+    };
 }

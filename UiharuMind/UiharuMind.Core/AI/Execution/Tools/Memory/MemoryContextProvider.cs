@@ -32,7 +32,7 @@ internal sealed class MemoryContextProvider : AIContextProvider
     /// 那是系统提示词，位于请求最前端，而这段每轮随检索结果变化（闸门不放行时还会整个消失），
     /// 放进去等于每轮把服务端前缀缓存从第 0 个 token 起全部作废，代价随对话长度线性增长。
     ///
-    /// 用英文写：片段本身的字段名（SourceName/Similarity/Content）就是英文，措辞对齐；
+    /// 用英文写：片段本身的字段名（Similarity/Content）就是英文，措辞对齐；
     /// 末行的语言声明不可删——这块以 user 角色紧贴在待回答位置之前，弱模型会把它当成
     /// 「用户改用英文了」而跟着切换语言，中文角色卡当场破功。
     /// </summary>
@@ -100,6 +100,10 @@ internal sealed class MemoryContextProvider : AIContextProvider
             string snippets = await memory.GetLongTermMemory(query).ConfigureAwait(false);
             if (string.IsNullOrEmpty(snippets)) return empty;
 
+            // 供界面显示与落盘。注入的那条消息带 _attribution 不落盘,界面也拿不到,
+            // 不另走一遍这条通道的话,注入路径就永远没有工具路径那张卡片
+            session.ReportKnowledgeRetrieved(snippets);
+
             // 必须是 User 而非 Tool:纯文本的 Tool 消息没有 tool_call_id,OpenAI 协议无法表达,
             // MEAI 的客户端在序列化时会把它整条静默丢弃——断点全都走到,请求体里却一个字都没有。
             return new AIContext { Messages = [new ChatMessage(ChatRole.User, SnippetHeader + snippets)] };
@@ -128,31 +132,40 @@ internal sealed class MemoryContextProvider : AIContextProvider
     /// <param name="history">会话已落盘的历史，按时序</param>
     /// <param name="current">本轮外部输入消息</param>
     /// <returns>查询词；没有可用的用户消息时为空串</returns>
-    private static string BuildQuery(IEnumerable<ChatMessage> history, IEnumerable<ChatMessage>? current)
+    private static string BuildQuery(IReadOnlyList<ChatMessage> history, IEnumerable<ChatMessage>? current)
     {
+        // 从最新往回收，凑满就停：只要最近几条，顺着扫等于每轮把整部历史走一遍，
+        // 而长会话是几千条。倒着收的代价与历史长度无关，只与 QueryTurnCount 有关。
         List<string> recent = [];
-        Collect(history, recent);
-        if (current != null) Collect(current, recent);
+        if (current != null)
+            CollectBackward(current as IReadOnlyList<ChatMessage> ?? current.ToList(), recent);
+        CollectBackward(history, recent);
 
-        return recent.Count == 0 ? "" : string.Join('\n', recent);
+        if (recent.Count == 0) return "";
+
+        recent.Reverse(); //倒着收出来的，当前提问要回到最后
+        return string.Join('\n', recent);
     }
 
-    /// <summary>把用户消息正文追加进滑窗，只保留最近 <see cref="QueryTurnCount"/> 条</summary>
-    private static void Collect(IEnumerable<ChatMessage> messages, List<string> recent)
+    /// <summary>
+    /// 从尾部倒着收用户消息正文，收满 <see cref="QueryTurnCount"/> 条即止。
+    /// 结果是倒序的，由调用方统一翻正——每段各自翻会在跨来源拼接时把顺序搞乱。
+    /// </summary>
+    /// <param name="messages">待扫描的消息，按时序</param>
+    /// <param name="recent">收集容器，已含更晚的消息</param>
+    private static void CollectBackward(IReadOnlyList<ChatMessage> messages, List<string> recent)
     {
-        foreach (ChatMessage message in messages)
+        for (int index = messages.Count - 1; index >= 0 && recent.Count < QueryTurnCount; index--)
         {
-            if (message.Role != ChatRole.User) continue;
+            if (messages[index].Role != ChatRole.User) continue;
 
-            string text = message.Text.Trim();
+            string text = messages[index].Text.Trim();
             if (text.Length == 0) continue;
 
             // 本轮消息按契约不在会话历史里,但那依赖 TurnDriver 的落盘时机;
             // 万一两个来源都给了同一条,重复拼进查询只会让向量偏向它,这里就地去重
             if (recent.Count > 0 && string.Equals(recent[^1], text, StringComparison.Ordinal)) continue;
 
-            // 正着扫才能保证当前提问排在最后,超窗就丢掉最旧的那条
-            if (recent.Count == QueryTurnCount) recent.RemoveAt(0);
             recent.Add(text);
         }
     }

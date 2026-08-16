@@ -158,7 +158,11 @@ internal sealed class MemorySearcher : IDisposable
         _collection = null;
     }
 
-    // 不输出 ChunkIndex:模型既不能凭编号取块,提示词里也禁止它提编号,写进去只是噪音
+    // 不输出 ChunkIndex:模型既不能凭编号取块,提示词里也禁止它提编号,写进去只是噪音。
+    //
+    // 也不单独输出 SourceName:落库文本是 MemoryChunk.EmbeddingText,首行已经是
+    // 「来源名 / 标题 / 子标题」的完整路径(见 MemoryTextChunker.BuildContext),
+    // 再打一行来源名就是把同一个文件名在每块里重复两遍——而正文那份信息还更全。
     private static string Format(List<ScoredChunk> memories)
     {
         if (memories.Count == 0) return "";
@@ -167,7 +171,6 @@ internal sealed class MemorySearcher : IDisposable
         for (int i = 0; i < memories.Count; i++)
         {
             ScoredChunk chunk = memories[i];
-            sb.AppendLine("SourceName: " + chunk.Record.SourceName);
             // 字段名是 Similarity 而非 Relevance:这个数只是余弦相似度,不等于「这段能回答问题」,
             // 叫 Relevance 等于向模型承诺了一个它给不了的判断。分数缺失时整行不写,免得模型瞎猜
             if (chunk.Similarity != null) sb.AppendLine("Similarity: " + chunk.Similarity.Value.ToString("F3"));

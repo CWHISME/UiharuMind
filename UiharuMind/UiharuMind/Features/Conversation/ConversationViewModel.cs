@@ -675,6 +675,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 RefreshTokenUsageText();
                 break;
 
+            case ETurnNotice.KnowledgeRetrieved:
+                // 落盘那份由 SessionChatHistoryProvider 在轮末插进历史,这里只管本轮即时可见;
+                // 两者内容同源,重载会话后由回放分支再造出同一张卡
+                Items.Add(ConversationItemFactory.CreateKnowledgeCard(notice.Payload ?? string.Empty));
+                break;
+
             case ETurnNotice.HandoffWritten:
                 Items.Add(new HandoffItem { Message = notice.Payload ?? string.Empty });
                 break;
@@ -946,6 +952,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (HistoryHandoff.IsNote(message))
             {
                 buffer.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)) });
+                continue;
+            }
+
+            // 检索片段同样是「落盘但不是对话」,渲染成检索卡片,也先于常规分派拦下——
+            // 它的角色是 Tool,落进下面的助手分支会被当成工具结果去配对一个不存在的调用
+            if (ChatMessageAnnotations.IsKnowledge(message))
+            {
+                buffer.Add(ConversationItemFactory.CreateKnowledgeCard(message.Text));
                 continue;
             }
 

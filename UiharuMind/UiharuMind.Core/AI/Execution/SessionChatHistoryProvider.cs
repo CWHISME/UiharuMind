@@ -71,9 +71,13 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         // 起点每次现算(扫最后一条交接消息)而不是记个下标——分支会话、删消息都不会把它算错
         IReadOnlyList<ChatMessage> full = session.History;
         int start = HistoryHandoff.SupplyStartIndex(full);
-        IReadOnlyList<ChatMessage> supplied = start == 0
-            ? full
-            : full.Skip(start).ToList();
+
+        // 知识库检索片段「存而不供」:落了盘只为界面回溯,回灌给模型就会逐轮累积过期上下文。
+        // 每轮的片段由 MemoryContextProvider 按当前提问重新检索并注入,模型要看的永远是新的那份
+        IReadOnlyList<ChatMessage> supplied = full
+            .Skip(start)
+            .Where(x => !ChatMessageAnnotations.IsKnowledge(x))
+            .ToList();
 
         // 其余开窗交给框架的在环压缩(ADR 0006):按当前模型的上下文动态定预算,先折叠老的工具结果、
         // 必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。
@@ -118,6 +122,12 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         // 请求消息属于本轮开始的那一刻,响应消息属于此刻:一轮可能跑几分钟,
         // 两者用同一个时间会让用户消息显示得比模型回复还晚
         AppendOwned(session, context.RequestMessages, session.TurnStartedAt ?? storedAt);
+
+        // 插在请求与响应之间,界面上才是「用户提问 → 检索到什么 → 角色回复」的顺序。
+        // 凭据取用即清空:一轮只写一条,审批往返导致本方法被多次调用时也不会重复落盘
+        if (session.TakeKnowledgeSnippets() is { Length: > 0 } snippets)
+            session.History.Add(CreateKnowledgeMessage(snippets, storedAt));
+
         if (context.ResponseMessages != null) AppendOwned(session, context.ResponseMessages, storedAt);
         session.TurnStartedAt = null; //一次性凭据,用过即弃
 
@@ -165,7 +175,33 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         // 于是每轮多一份、下一轮又多一份。它永远不该从这条路进历史
         if (HistoryHandoff.IsNote(message)) return false;
 
+        // 检索片段同理:它由本类直接写进历史,又被供给时滤掉,照理回不到 RequestMessages。
+        // 这一道是防御——万一供给侧的过滤漏了,少了它就是逐轮翻倍的累积 bug
+        if (ChatMessageAnnotations.IsKnowledge(message)) return false;
+
         return message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) != true;
+    }
+
+    /// <summary>
+    /// 造一条只落盘、只渲染、不供给模型的检索片段消息。
+    /// 角色取 <see cref="ChatRole.Tool"/>：它不是用户说的话，也不是角色的输出，
+    /// 而这条消息永远不会被序列化发给模型（供给时已滤掉），所以没有 tool_call_id 的问题。
+    /// </summary>
+    /// <param name="snippets">片段全文</param>
+    /// <param name="storedAt">落盘时刻</param>
+    /// <returns>带标记的消息</returns>
+    private static ChatMessage CreateKnowledgeMessage(string snippets, DateTimeOffset storedAt)
+    {
+        ChatMessage message = new(ChatRole.Tool, snippets)
+        {
+            CreatedAt = storedAt,
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ChatMessageAnnotations.Knowledge] = true,
+            },
+        };
+
+        return message;
     }
 
     private static ChatSession? Resolve(AgentSession? agentSession)

@@ -75,6 +75,12 @@ public enum ETurnNotice
     /// <summary>请求把视图滚到末尾</summary>
     ScrollToEnd,
 
+    /// <summary>
+    /// 知识库检索完成，<c>Payload</c> 为片段全文。界面据此插一张检索卡片，
+    /// 让注入路径与 <c>knowledge_search</c> 工具路径观感一致
+    /// </summary>
+    KnowledgeRetrieved,
+
     /// <summary>记了一次用量（账本与会话累计已更新，界面据此刷新占用显示）</summary>
     UsageObserved,
 

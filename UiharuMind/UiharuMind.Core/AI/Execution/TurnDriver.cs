@@ -114,6 +114,13 @@ public sealed class TurnDriver : IDisposable
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析
         _runCancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = _runCancellation.Token;
+
+        // 只在轮内订阅:MemoryContextProvider 够不着 sink,而会话是长命的——
+        // 常驻订阅会让切走的会话把卡片插进当前会话的界面里
+        void OnKnowledgeRetrieved(string snippets) =>
+            _notify?.Invoke(new TurnNotice(ETurnNotice.KnowledgeRetrieved, snippets));
+
+        session.KnowledgeRetrieved += OnKnowledgeRetrieved;
         try
         {
             List<ChatMessage>? nextMessages = new() { userMessage };
@@ -173,6 +180,7 @@ public sealed class TurnDriver : IDisposable
         }
         finally
         {
+            session.KnowledgeRetrieved -= OnKnowledgeRetrieved;
             _sink?.CloseSegment();
             // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
             // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作。
