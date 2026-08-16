@@ -54,6 +54,6 @@ public partial class AgentWorkspacePanel : UserControl
     /// </summary>
     private void OnRecentWorkspacesOpening(object? sender, EventArgs e)
     {
-        if (DataContext is AgentPageData data) data.Conversation.RefreshRecentWorkspaces();
+        if (DataContext is AgentPageData data) data.Conversation.Workspace.RefreshRecent();
     }
 }

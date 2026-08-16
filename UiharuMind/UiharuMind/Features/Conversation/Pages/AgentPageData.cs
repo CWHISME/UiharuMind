@@ -66,7 +66,7 @@ public partial class AgentPageData : ConversationPageDataBase
         ConversationViewModel conversation = new();
         // 新开会话(空态)继承当前展示会话的工作目录:切页/新开会话不该把已选的路径重置掉。
         // 此处 Conversation 仍是旧实例(基类赋值在其后),只有空态没有 meta 可覆盖,故继承只对空态生效
-        if (Conversation?.WorkspacePath is { } lastPath) conversation.WorkspacePath = lastPath;
+        if (Conversation?.Workspace.Path is { } lastPath) conversation.Workspace.Path = lastPath;
         return conversation;
     }
 

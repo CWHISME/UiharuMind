@@ -119,8 +119,10 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     /// <summary>右栏「能力」页签的数据（本会话实际挂上的工具、技能与 MCP）</summary>
     public ConversationCapabilityViewData Capabilities { get; } = new();
 
+    /// <summary>工作目录选择器(当前目录与最近列表);工作目录这份状态由它持有</summary>
+    public WorkspacePickerViewData Workspace { get; }
+
     [ObservableProperty] private int _permissionModeIndex = 1; //默认 AutoEdit
-    [ObservableProperty] private string? _workspacePath;
     [ObservableProperty] private EAgentMode _currentMode = EAgentMode.Execute;
     [ObservableProperty] private bool _hasTodos;
 
@@ -161,8 +163,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     public event Action? SessionsChanged;
 
     /// <summary>当前模式显示标签</summary>
-    public string ModeLabel => LocalizationManager.Instance.GetString(
-        CurrentMode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
+    public string ModeLabel => ConversationModeLabels.ModeLabel(CurrentMode);
 
     /// <summary>
     /// 当前会话对应的模型名:会话绑定的专属模型 → 全局当前模型 →
@@ -175,48 +176,34 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         ?? string.Empty;
 
     //================= 工具行图标态(Tag 驱动颜色 + 悬停提示当前值) =================
+    // 文案与状态键全在 ConversationModeLabels,这里只是绑定用的转发
 
     /// <summary>模式状态键(Plan/Execute)</summary>
     public string ModeKey => CurrentMode.ToString();
 
     /// <summary>模式悬停提示</summary>
-    public string ModeTooltip =>
-        $"{ModeLabel}\n{LocalizationManager.Instance.GetString("ClickToSwitch")}";
+    public string ModeTooltip => ConversationModeLabels.ModeTooltip(CurrentMode);
 
     /// <summary>权限档状态键(ReadOnly/AutoEdit/FullAuto)</summary>
-    public string PermissionModeKey => PermissionModeIndex switch
-    {
-        0 => "ReadOnly",
-        2 => "FullAuto",
-        _ => "AutoEdit",
-    };
+    public string PermissionModeKey => ConversationModeLabels.PermissionKey(PermissionModeIndex);
 
     /// <summary>权限档悬停提示</summary>
-    public string PermissionTooltip =>
-        LocalizationManager.Instance.GetString(PermissionModeIndex switch
-        {
-            0 => "AgentPermissionReadOnly",
-            2 => "AgentPermissionFullAuto",
-            _ => "AgentPermissionAutoEdit",
-        });
+    public string PermissionTooltip => ConversationModeLabels.PermissionTooltip(PermissionModeIndex);
 
     /// <summary>思考力度状态键(EThinkingMode 名)</summary>
-    public string ThinkingModeKey => ((EThinkingMode)ThinkingModeIndex).ToString();
+    public string ThinkingModeKey => ConversationModeLabels.ThinkingKey(ThinkingModeIndex);
 
     /// <summary>思考力度悬停提示</summary>
-    public string ThinkingTooltip =>
-        LocalizationManager.Instance.GetString($"ThinkingMode{(EThinkingMode)ThinkingModeIndex}") +
-        $"\n{LocalizationManager.Instance.GetString("ThinkingModeTips")}";
+    public string ThinkingTooltip => ConversationModeLabels.ThinkingTooltip(ThinkingModeIndex);
 
     /// <summary>发送身份对应的图标名(user/bot)</summary>
-    public string SenderIconName => SenderMode == SendMode.User ? "user" : "bot";
+    public string SenderIconName => ConversationModeLabels.SenderIcon(SenderMode == SendMode.User);
 
     /// <summary>发送身份状态键(User/Assistant)</summary>
     public string SenderModeKey => SenderMode.ToString();
 
     /// <summary>发送身份悬停提示</summary>
-    public string SenderTooltip =>
-        $"{SenderMode}\n{LocalizationManager.Instance.GetString("SendUserDesc")}";
+    public string SenderTooltip => ConversationModeLabels.SenderTooltip(SenderMode == SendMode.User);
 
     partial void OnIsSessionLoadingChanged(bool value)
     {
@@ -238,6 +225,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
 
+    private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
@@ -279,10 +267,20 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     public ConversationViewModel()
     {
-        // 两个子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
-        // 命令面板要能改写输入框并读当前角色
+        // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
+        // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
         Tray = new AttachmentTrayViewData(() => CurrentSession);
         Palette = new CommandPaletteViewData(text => InputText = text, () => SessionCharacter);
+        _binder = new ConversationSessionBinder(NotifyBusyChanged);
+
+        var agentSetting = AgentSettingConfig.Current;
+        // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
+        string? defaultWorkspace =
+            !string.IsNullOrEmpty(agentSetting.DefaultWorkspacePath) &&
+            Directory.Exists(agentSetting.DefaultWorkspacePath)
+                ? agentSetting.DefaultWorkspacePath
+                : null;
+        Workspace = new WorkspacePickerViewData(defaultWorkspace, OnWorkspacePathChanged);
 
         _transcript = new ConversationTranscript(Items, CreateAssistantItem,
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
@@ -293,16 +291,8 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
         _driver.StateChanged += OnDriverStateChanged;
 
-        var agentSetting = AgentSettingConfig.Current;
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
         _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
-        if (!string.IsNullOrEmpty(agentSetting.DefaultWorkspacePath) &&
-            Directory.Exists(agentSetting.DefaultWorkspacePath))
-        {
-            _workspacePath = agentSetting.DefaultWorkspacePath;
-        }
-
-        RefreshRecentWorkspaces(); //构造期直接给字段赋值,不会触发 partial 回调
 
         _isPlaintext = ChatSettingConfig.Current.IsChatPlainText;
         _isAutoCollapseThinking = ChatSettingConfig.Current.IsChatAutoCollapseThinking;
@@ -459,7 +449,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(PermissionTooltip));
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.PermissionModeIndex = value;
-        PersistSessionSettings();
+        ConversationSessionBinder.PersistSettings(CurrentMeta);
     }
 
     /// <summary>当前会话的角色(尚无会话时是新建会话将使用的那个)</summary>
@@ -510,97 +500,26 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         {
             CurrentMeta.CharacterId = character.CharacterId;
             SessionManager.Instance.Load(CurrentMeta.SessionId)?.ChangeCharacter(character);
-            PersistSessionSettings();
+            ConversationSessionBinder.PersistSettings(CurrentMeta);
         }
 
         _currentCharacter = character;
         OnPropertyChanged(nameof(ActiveCharacterName));
         OnPropertyChanged(nameof(ActiveCharacterDescription));
         OnPropertyChanged(nameof(ActiveCharacterIcon));
-        OnPropertyChanged(nameof(IsAgentSession));
-        OnPropertyChanged(nameof(IsModeSwitchVisible));
-        OnPropertyChanged(nameof(IsTodoListVisible));
+        NotifyCharacterKindChanged();
         SessionsChanged?.Invoke(); //会话列表里的角色头像/名字跟着变
     }
 
-    /// <summary>当前工作目录的目录名(卡片主行);未绑定时为空</summary>
-    public string WorkspaceName =>
-        string.IsNullOrEmpty(WorkspacePath) ? string.Empty : WorkspaceDisplay.NameOf(WorkspacePath);
-
-    /// <summary>当前工作目录的父路径(卡片副行,已折叠 home 前缀);未绑定时为空</summary>
-    public string WorkspaceParent =>
-        string.IsNullOrEmpty(WorkspacePath) ? string.Empty : WorkspaceDisplay.ParentOf(WorkspacePath);
-
-    /// <summary>最近用过的工作目录(下拉菜单数据源,已剔除当前目录与已不存在的目录)</summary>
-    public ObservableCollection<RecentWorkspaceItem> RecentWorkspaces { get; } = new();
-
-    partial void OnWorkspacePathChanged(string? value)
+    /// <summary>
+    /// 工作目录变化：写回会话头字段。装载会话期间不写——那是读取，不是用户改动
+    /// </summary>
+    /// <param name="value">新工作目录</param>
+    private void OnWorkspacePathChanged(string? value)
     {
-        OnPropertyChanged(nameof(WorkspaceName));
-        OnPropertyChanged(nameof(WorkspaceParent));
-        RefreshRecentWorkspaces();
-
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
-        PersistSessionSettings();
-    }
-
-    /// <summary>
-    /// 重建最近工作区列表。当前目录不出现在其中(切到自己是空操作),
-    /// 已经不存在的目录顺手从配置里剔除——列出一个点了会失败的条目没有意义。
-    /// </summary>
-    public void RefreshRecentWorkspaces()
-    {
-        RecentWorkspaces.Clear();
-        AgentSettingConfig config = AgentSettingConfig.Current;
-        foreach (string path in config.RecentWorkspaces.ToList())
-        {
-            if (!Directory.Exists(path))
-            {
-                config.ForgetWorkspace(path);
-                continue;
-            }
-
-            if (string.Equals(path, WorkspacePath, StringComparison.Ordinal)) continue;
-            RecentWorkspaces.Add(new RecentWorkspaceItem(path,
-                new RelayCommand(() => UseWorkspace(path)),
-                new RelayCommand(() => ForgetWorkspace(path))));
-        }
-    }
-
-    [RelayCommand]
-    private async Task SelectWorkspace()
-    {
-        string path = await App.FilesService.OpenSelectFolderAsync(WorkspacePath);
-        if (!string.IsNullOrEmpty(path)) UseWorkspace(path);
-    }
-
-    /// <summary>切到某个工作目录并把它记为最近使用</summary>
-    /// <param name="path">工作目录</param>
-    private void UseWorkspace(string path)
-    {
-        AgentSettingConfig.Current.RememberWorkspace(path);
-        WorkspacePath = path;
-        RefreshRecentWorkspaces(); //路径没变化时上面的 partial 回调不会触发,列表仍要跟上置顶顺序
-    }
-
-    private void ForgetWorkspace(string path)
-    {
-        AgentSettingConfig.Current.ForgetWorkspace(path);
-        RefreshRecentWorkspaces();
-    }
-
-    [RelayCommand]
-    private void ClearWorkspace()
-    {
-        WorkspacePath = null;
-    }
-
-    /// <summary>在系统文件管理器里打开当前工作目录</summary>
-    [RelayCommand]
-    private void RevealWorkspace()
-    {
-        if (!string.IsNullOrEmpty(WorkspacePath)) App.FilesService.OpenFolder(WorkspacePath);
+        ConversationSessionBinder.PersistSettings(CurrentMeta);
     }
 
     //================= 发送与运行循环 =================
@@ -824,28 +743,14 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         if (CurrentMeta == null)
         {
-            string title = titleSeed.Length > 30 ? titleSeed[..30] + "…" : titleSeed;
             _currentCharacter = CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
-            // Description 显式清空:标题已经取自这句话了,再存一份只会让列表副行
-            // 重复显示同一句。必须显式写——ChatSession.Description 的默认值是字面量 "Empty",
-            // 省着不写会让副行显示这四个字母
-            ChatSession created = new()
-            {
-                CharacterId = _currentCharacter.CharacterId,
-                Title = title,
-                Description = string.Empty,
-                WorkspacePath = WorkspacePath,
-                PermissionModeIndex = PermissionModeIndex,
-            };
-            SessionManager.Instance.Add(created);
+            ChatSession created = await _binder.CreateAsync(_currentCharacter, titleSeed,
+                Workspace.Path, PermissionModeIndex, cancellationToken);
+
             CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
-            OnPropertyChanged(nameof(IsAgentSession));
-        OnPropertyChanged(nameof(IsModeSwitchVisible));
-        OnPropertyChanged(nameof(IsTodoListVisible));
+            NotifyCharacterKindChanged();
             MemoryPanel = new ConversationMemoryViewData(created);
-            WatchRunnerBusy(created.Runner); //必须在 AttachAsync 之前,预连就在它里面
-            await created.Runner.AttachAsync(created, cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
             return created;
@@ -858,52 +763,23 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         return session;
     }
 
-    /// <summary>
-    /// 加载会话本体并挂接其执行者。工作目录与权限档取自界面当前值，
-    /// 变化时由执行者内部按装配指纹重建并迁移框架附加状态。
-    /// </summary>
+    /// <summary>装载会话并挂接执行者，工作目录与权限档取界面当前值</summary>
     /// <returns>会话本体；文件缺失或损坏为 null</returns>
-    private async Task<ChatSession?> AttachAsync(ChatSessionMeta meta, CancellationToken cancellationToken)
-    {
-        ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
-        if (session == null) return null;
+    private Task<ChatSession?> AttachAsync(ChatSessionMeta meta, CancellationToken cancellationToken) =>
+        _binder.AttachAsync(meta, Workspace.Path, PermissionModeIndex, cancellationToken);
 
-        session.WorkspacePath = WorkspacePath;
-        session.PermissionModeIndex = PermissionModeIndex;
-        // 回调要在 AttachAsync **之前**挂上:装配就发生在它里面,预连也在那儿,
-        // 挂在后面的话第一次等待(恰好是唯一会等满十秒的那次)一声不响
-        WatchRunnerBusy(session.Runner);
-        await session.Runner.AttachAsync(session, cancellationToken);
-        return session;
-    }
-
-    /// <summary>
-    /// 接上执行者的忙碌态上报。赋值而非累加订阅：一个会话一个执行者、一个视图，
-    /// 重复挂接只会覆盖成同一个回调，不会攒出多份。
-    /// </summary>
-    /// <param name="runner">本会话的执行者</param>
-    private void WatchRunnerBusy(ICharacterRunner runner)
+    /// <summary>角色档位变了：三处可见性判据都挂在它身上</summary>
+    private void NotifyCharacterKindChanged()
     {
-        runner.BusyChanged = NotifyBusyChanged;
+        OnPropertyChanged(nameof(IsAgentSession));
+        OnPropertyChanged(nameof(IsModeSwitchVisible));
+        OnPropertyChanged(nameof(IsTodoListVisible));
     }
 
     private void ApplyMode()
     {
         // 模式是装饰性状态:后台写入,失败由实现内部记日志
         if (CurrentRunner is { } runner) _ = runner.SetModeAsync(CurrentMode);
-    }
-
-    /// <summary>
-    /// 把界面上改动的工作目录与权限档写回会话本体
-    /// </summary>
-    private void PersistSessionSettings()
-    {
-        if (CurrentMeta == null) return;
-        ChatSession? session = SessionManager.Instance.Load(CurrentMeta.SessionId);
-        if (session == null) return;
-        session.WorkspacePath = CurrentMeta.WorkspacePath;
-        session.PermissionModeIndex = CurrentMeta.PermissionModeIndex;
-        session.SaveMeta(); //只动头字段,不必重写整份历史
     }
 
     //================= 加载与回放 =================
@@ -924,9 +800,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
-        OnPropertyChanged(nameof(IsAgentSession));
-        OnPropertyChanged(nameof(IsModeSwitchVisible));
-        OnPropertyChanged(nameof(IsTodoListVisible));
+        NotifyCharacterKindChanged();
         OnPropertyChanged(nameof(SessionModelLabel));
         OnPropertyChanged(nameof(ActiveCharacterName));
         OnPropertyChanged(nameof(ActiveCharacterDescription));
@@ -948,7 +822,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         _isLoadingSession = true;
         try
         {
-            WorkspacePath = meta.WorkspacePath;
+            Workspace.Path = meta.WorkspacePath;
             PermissionModeIndex = meta.PermissionModeIndex;
         }
         finally
