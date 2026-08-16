@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.Configs;
@@ -24,6 +25,8 @@ namespace UiharuMind.Features.Settings;
 
 public partial class AgentSettingViewData : ViewModelBase
 {
+    private readonly SettingsWriteBack _writeBack = new(() => AgentSettingConfig.Current.Save()); //写回闸门
+
     //================= 常规 =================
     [ObservableProperty] private int _defaultPermissionModeIndex;
     [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
@@ -49,10 +52,14 @@ public partial class AgentSettingViewData : ViewModelBase
 
     public AgentSettingViewData()
     {
-        AgentSettingConfig config = AgentSettingConfig.Current;
-        _defaultPermissionModeIndex = config.DefaultPermissionModeIndex;
-        _defaultWorkspacePath = config.DefaultWorkspacePath;
-        _defaultPlanMode = config.DefaultPlanMode;
+        // 回填照常走属性:handler 会跑,但闸门关着,不会在打开设置页的瞬间把配置重写一遍
+        using (_writeBack.BeginLoad())
+        {
+            AgentSettingConfig config = AgentSettingConfig.Current;
+            DefaultPermissionModeIndex = config.DefaultPermissionModeIndex;
+            DefaultWorkspacePath = config.DefaultWorkspacePath;
+            DefaultPlanMode = config.DefaultPlanMode;
+        }
 
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
     }
@@ -61,19 +68,19 @@ public partial class AgentSettingViewData : ViewModelBase
     partial void OnDefaultPermissionModeIndexChanged(int value)
     {
         AgentSettingConfig.Current.DefaultPermissionModeIndex = value;
-        AgentSettingConfig.Current.Save();
+        _writeBack.Save();
     }
 
     partial void OnDefaultWorkspacePathChanged(string value)
     {
         AgentSettingConfig.Current.DefaultWorkspacePath = value;
-        AgentSettingConfig.Current.Save();
+        _writeBack.Save();
     }
 
     partial void OnDefaultPlanModeChanged(bool value)
     {
         AgentSettingConfig.Current.DefaultPlanMode = value;
-        AgentSettingConfig.Current.Save();
+        _writeBack.Save();
     }
 
     [RelayCommand]

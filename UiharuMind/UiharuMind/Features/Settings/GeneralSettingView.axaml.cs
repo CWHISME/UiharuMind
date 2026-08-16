@@ -10,7 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
-using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -31,6 +31,10 @@ public partial class GeneralSettingViewModel : ViewModelBase
 {
     private readonly IMessageService _messageService;
     private readonly ApplicationUpdateService _applicationUpdateService;
+
+    //写回闸门。这一页的写回都落在 DebugSetting 上,回填(构造、切语言)期间静默
+    private readonly SettingsWriteBack _writeBack = new(() => ConfigManager.Instance.DebugSetting.Save());
+
     [ObservableProperty] private LanguageOption? _selectedLanguage;
     [ObservableProperty] private ThemeOption? _selectedTheme;
     [ObservableProperty] private string[] _logLevelList;
@@ -43,8 +47,6 @@ public partial class GeneralSettingViewModel : ViewModelBase
     [ObservableProperty] private string _latestVersionText = "";
     [ObservableProperty] private string _appUpdateErrorText = "";
     [ObservableProperty] private bool _hasApplicationUpdateAsset;
-
-    private bool _isInitialized;
 
     public ObservableCollection<LanguageOption> LanguageOptions { get; } = new();
     public ObservableCollection<ThemeOption> ThemeOptions { get; } = new();
@@ -84,15 +86,20 @@ public partial class GeneralSettingViewModel : ViewModelBase
             LogLevelList[i] = ((ELogType)i).ToString();
         }
 
-        LogSelectedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
-        EnableFullscreenGameInputSupport = ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport;
-        RefreshThemeOptions();
-        RefreshSelectedLanguage();
+        //从配置回填界面:此前这里一进设置页就把 DebugSetting 原样重写一遍落盘,
+        //全屏输入那一项还得靠自带的 _isInitialized 挡住回填触发的重启确认弹窗
+        using (_writeBack.BeginLoad())
+        {
+            LogSelectedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
+            EnableFullscreenGameInputSupport = ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport;
+            RefreshThemeOptions();
+            RefreshSelectedLanguage();
+        }
+
         LocalizationManager.Instance.LanguageChanged += RefreshLanguage;
         _applicationUpdateService.PropertyChanged += OnApplicationUpdateServicePropertyChanged;
         RefreshApplicationUpdateState();
         _ = EnsureApplicationUpdateCheckedAsync();
-        _isInitialized = true;
     }
 
     partial void OnSelectedLanguageChanged(LanguageOption? value)
@@ -110,12 +117,12 @@ public partial class GeneralSettingViewModel : ViewModelBase
     partial void OnLogSelectedTypeIndexChanged(int value)
     {
         ConfigManager.Instance.DebugSetting.LogTypeInfo = (ELogType)value;
-        ConfigManager.Instance.DebugSetting.Save();
+        _writeBack.Save();
     }
 
     async partial void OnEnableFullscreenGameInputSupportChanged(bool value)
     {
-        if (!_isInitialized) return;
+        if (_writeBack.IsLoading) return;
         ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport = value;
         if (await _messageService.ConfirmAsync(
                 LocalizationManager.Instance.GetString("FullscreenGameInputRestartConfirm")))
@@ -158,8 +165,13 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
     private void RefreshLanguage()
     {
-        RefreshThemeOptions();
-        RefreshSelectedLanguage();
+        //切语言后重建选项并重新选中,同样是回填而非用户改动
+        using (_writeBack.BeginLoad())
+        {
+            RefreshThemeOptions();
+            RefreshSelectedLanguage();
+        }
+
         RefreshApplicationUpdateState();
     }
 

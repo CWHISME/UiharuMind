@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Features.Models;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime;
@@ -22,6 +23,7 @@ namespace UiharuMind.Shared.Controls;
 public partial class ModelRuntimeBasicSettingsData : ObservableObject
 {
     private readonly ModelRuntimeSettingConfig _config = ModelRuntimeSettingConfig.Current;
+    private readonly SettingsWriteBack _writeBack = new(() => ModelRuntimeSettingConfig.Current.Save()); //写回闸门
 
     [ObservableProperty] private string _engineType;
     [ObservableProperty] private string _llamaSharpBackendMode;
@@ -65,16 +67,21 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
 
     public ModelRuntimeBasicSettingsData()
     {
-        _engineType = NormalizeEngineType(_config.EngineType);
-        _llamaSharpBackendMode = NormalizeBackendMode(_config.LLamaSharpBackendMode);
-        _config.EngineType = _engineType;
-        _config.LLamaSharpBackendMode = _llamaSharpBackendMode;
-        _contextSize = _config.ContextSize;
-        _gpuLayers = _config.GpuLayers;
-        _batchSize = _config.BatchSize;
-        _uBatchSize = _config.UBatchSize;
-        _threads = _config.Threads;
-        _flashAttention = _config.FlashAttention;
+        // 回填走 backing field,不惊动生成的 OnXChanged——那七个 handler 每个都会跑一遍
+        // RefreshComputedProperties(),而它背后是显存占用估算,没必要在构造时算七遍
+        using (_writeBack.BeginLoad())
+        {
+            _engineType = NormalizeEngineType(_config.EngineType);
+            _llamaSharpBackendMode = NormalizeBackendMode(_config.LLamaSharpBackendMode);
+            _config.EngineType = _engineType;
+            _config.LLamaSharpBackendMode = _llamaSharpBackendMode;
+            _contextSize = _config.ContextSize;
+            _gpuLayers = _config.GpuLayers;
+            _batchSize = _config.BatchSize;
+            _uBatchSize = _config.UBatchSize;
+            _threads = _config.Threads;
+            _flashAttention = _config.FlashAttention;
+        }
 
         if (App.ModelService != null)
             App.ModelService.PropertyChanged += OnModelServicePropertyChanged;
@@ -104,7 +111,7 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         }
 
         _config.EngineType = normalized;
-        Save();
+        _writeBack.Save();
         OnPropertyChanged(nameof(IsLLamaSharpEngine));
         OnPropertyChanged(nameof(IsLLamaCppEngine));
         RefreshComputedProperties();
@@ -119,7 +126,7 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         }
 
         _config.LLamaSharpBackendMode = normalized;
-        Save();
+        _writeBack.Save();
         OnPropertyChanged(nameof(LLamaSharpBackendModeLabel));
         RefreshComputedProperties();
     }
@@ -127,48 +134,43 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
     partial void OnContextSizeChanged(int value)
     {
         _config.ContextSize = Math.Max(0, value);
-        Save();
+        _writeBack.Save();
         RefreshComputedProperties();
     }
 
     partial void OnGpuLayersChanged(int value)
     {
         _config.GpuLayers = value;
-        Save();
+        _writeBack.Save();
         RefreshComputedProperties();
     }
 
     partial void OnBatchSizeChanged(int value)
     {
         _config.BatchSize = Math.Max(0, value);
-        Save();
+        _writeBack.Save();
         RefreshComputedProperties();
     }
 
     partial void OnUBatchSizeChanged(int value)
     {
         _config.UBatchSize = Math.Max(0, value);
-        Save();
+        _writeBack.Save();
         RefreshComputedProperties();
     }
 
     partial void OnThreadsChanged(int value)
     {
         _config.Threads = Math.Max(0, value);
-        Save();
+        _writeBack.Save();
         RefreshComputedProperties();
     }
 
     partial void OnFlashAttentionChanged(bool value)
     {
         _config.FlashAttention = value;
-        Save();
+        _writeBack.Save();
         RefreshComputedProperties();
-    }
-
-    private static void Save()
-    {
-        ModelRuntimeSettingConfig.Current.Save();
     }
 
     private static string NormalizeEngineType(string? value)
