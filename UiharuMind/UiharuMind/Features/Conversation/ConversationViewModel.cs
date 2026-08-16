@@ -322,6 +322,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     /// </summary>
     public bool IsGenerating => _isPreparing || _driver.IsRunning;
 
+    /// <summary>运行态指示点的配色键（status-dot 样式按 Tag 选色）</summary>
+    public string RunStatusKey => IsGenerating ? "Ready" : "Idle";
+
     /// <summary>正在整理交接文档（占用条旁显示，避免看起来像卡住）</summary>
     public bool IsCompacting => _driver.IsCompacting;
 
@@ -371,6 +374,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private void NotifyBusyChanged()
     {
         OnPropertyChanged(nameof(IsGenerating));
+        OnPropertyChanged(nameof(RunStatusKey));
         OnPropertyChanged(nameof(CanRegenerate));
     }
 

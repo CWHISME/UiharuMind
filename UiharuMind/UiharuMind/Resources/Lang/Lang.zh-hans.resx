@@ -2625,7 +2625,9 @@
         <value>技能</value>
     </data>
     <data name="AgentCapabilityTokenTip" xml:space="preserve">
-        <value>工具定义每一轮都完整重发，用不用都占。这里是粗略估算，对着模型的上下文上限看。</value>
+        <value>系统提示与工具定义每一轮都完整重发，用不用都占。这里是粗略估算。
+
+注意它说的是「下一轮要发出去多少」，而底部那条「上下文」是「最近一次请求实际吃进去多少」——两者不是同一个时刻。刚接上一个 MCP server、或刚换了角色而还没发过话时，这里会先大起来，下一轮发送后底部才跟上。</value>
     </data>
     <data name="AgentCapabilityMcpInstructions" xml:space="preserve">
         <value>已注入 server 自述</value>
@@ -2661,10 +2663,31 @@
         <value>合计</value>
     </data>
     <data name="AgentCapabilityOverBudget" xml:space="preserve">
-        <value>工具定义占了当前模型上下文窗口的一大块。可以到角色编辑页关掉一些。</value>
+        <value>一句话还没说，固定开销就已经到了开始折叠历史的水位。可以精简角色提示或项目 AGENTS.md，也可以到角色编辑页关掉一些能力。</value>
     </data>
     <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
         <value>常驻上下文的只有技能的名字与描述，正文是按需装载的——所以这个数字小是正常的。</value>
+    </data>
+    <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
+        <value>角色提示</value>
+    </data>
+    <data name="AgentCapabilityWorkspaceRule" xml:space="preserve">
+        <value>工作区</value>
+    </data>
+    <data name="AgentCapabilityToolRules" xml:space="preserve">
+        <value>工具纪律</value>
+    </data>
+    <data name="AgentCapabilityPromptMcp" xml:space="preserve">
+        <value>MCP 自述</value>
+    </data>
+    <data name="AgentCapabilityPrompt" xml:space="preserve">
+        <value>系统提示</value>
+    </data>
+    <data name="AgentCapabilityPromptTip" xml:space="preserve">
+        <value>本会话真正发出去的那段系统提示，按装配时的分段拆开。点一段看全文——模型读到的就是这些字。</value>
+    </data>
+    <data name="AgentCapabilityPromptNotCounted" xml:space="preserve">
+        <value>已经算在 MCP 那一档里了，不重复计入合计。</value>
     </data>
     <data name="CharacterCapabilityTokenTip" xml:space="preserve">
         <value>这一档的工具定义每轮占多少上下文（粗估）。显示「—」表示算不出：从角色库进来没有正在跑的会话，而没连上的 MCP server 还没有 schema。</value>

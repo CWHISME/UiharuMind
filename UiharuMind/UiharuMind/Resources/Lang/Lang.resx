@@ -2632,7 +2632,9 @@
         <value>Skills</value>
     </data>
     <data name="AgentCapabilityTokenTip" xml:space="preserve">
-        <value>Tool definitions are re-sent in full on every turn, used or not. Rough estimate — watch it against your model's context window.</value>
+        <value>The system prompt and tool definitions are re-sent in full on every turn, used or not. Rough estimate.
+
+Note this is what the *next* turn will send, while the "Context" readout at the bottom is what the *last* request actually consumed. They are two different moments: right after attaching an MCP server or switching characters, this number grows first and the bottom one catches up on the next send.</value>
     </data>
     <data name="AgentCapabilityMcpInstructions" xml:space="preserve">
         <value>server instructions injected</value>
@@ -2668,10 +2670,31 @@
         <value>Total</value>
     </data>
     <data name="AgentCapabilityOverBudget" xml:space="preserve">
-        <value>Tool definitions take a large share of this model's context window. Consider turning some off in the character editor.</value>
+        <value>Before you say a word, the fixed cost already reaches the level where history starts getting compacted. Trim the persona or the project's AGENTS.md, or turn off some capabilities in the character editor.</value>
     </data>
     <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
         <value>Only the skill's name and description stay in context. The body loads on demand, so this number is small on purpose.</value>
+    </data>
+    <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
+        <value>Persona</value>
+    </data>
+    <data name="AgentCapabilityWorkspaceRule" xml:space="preserve">
+        <value>Project</value>
+    </data>
+    <data name="AgentCapabilityToolRules" xml:space="preserve">
+        <value>Tool rules</value>
+    </data>
+    <data name="AgentCapabilityPromptMcp" xml:space="preserve">
+        <value>MCP notes</value>
+    </data>
+    <data name="AgentCapabilityPrompt" xml:space="preserve">
+        <value>System prompt</value>
+    </data>
+    <data name="AgentCapabilityPromptTip" xml:space="preserve">
+        <value>The system prompt actually sent this session, split into the sections it was assembled from. Click one to read what the model reads.</value>
+    </data>
+    <data name="AgentCapabilityPromptNotCounted" xml:space="preserve">
+        <value>Already counted under MCP, so it is not added to the total twice.</value>
     </data>
     <data name="CharacterCapabilityTokenTip" xml:space="preserve">
         <value>Rough context cost of this capability's tool definitions, per turn. Shown as — when it can't be known: opening this editor from the character library has no live session, and an MCP server that hasn't connected has no schemas yet.</value>

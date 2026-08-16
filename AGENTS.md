@@ -32,6 +32,10 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 | `UiharuMind.Core.Tests` | Core 的测试 |
 | `UiharuMind.App.Tests` | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
 
+可复用：
+
+各种样式：UiharuMind/Assets/Themes
+
 ## 构建与测试
 
 在解决方案目录 `UiharuMind/` 下执行：

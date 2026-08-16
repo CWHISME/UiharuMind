@@ -112,6 +112,32 @@
         <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
     </Style>
 
+    <!-- ==================== 一行文本形态的按钮(看着是文本,点起来是按钮) ==================== -->
+    <!-- 与上面 picker-row 的分工:那个是「列表里的一项」,选中反馈该有;
+         这个是「一行数据顺带能点」,上下常与纯文本行紧挨着排,
+         一划过就亮起一条灰带反而读起来像这一行被选中了。可点由手型指针交代。
+
+         MinWidth/MinHeight 必须压掉:主题给 Button 的最小尺寸会把行高顶到 32,
+         夹在十几像素行高的纯文本行中间,整节看着比邻居松一大截。
+         横向零内边距:与相邻的纯文本行左边缘对齐,不然整节往右缩一格。 -->
+    <Style Selector="Button.text-row">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0,1" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <!-- 悬停/按下的底色是主题画在模板内 ContentPresenter 上的,
+         只设按钮自己的 Background 压不掉它 -->
+    <Style Selector="Button.text-row:pointerover /template/ ContentPresenter,
+                     Button.text-row:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
     <!-- ============================= 聊天信息下方的小图标按钮那种 ========================-->
     <Style Selector="ThemedIconButton.message-action">
         <Setter Property="Width" Value="18" />

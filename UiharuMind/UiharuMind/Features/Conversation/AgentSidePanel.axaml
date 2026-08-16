@@ -23,6 +23,30 @@
                            IsVisible="{Binding HasTokenCost}" Text="{Binding TokenText}" />
             </Grid>
         </DataTemplate>
+
+        <!-- 系统提示的一段:点开看全文。这一栏存在的意义是回答「模型现在到底看得见什么」,
+             而工具那半边一直是明细、提示词这半边原先连一个数都没有 -->
+        <DataTemplate x:Key="PromptSegmentRow" x:DataType="conv:PromptSegmentItem">
+            <!-- text-row 是全局样式(CustomButtonStyle.axaml):无 hover 底色、无最小尺寸,
+                 行高与上下那些纯文本行对得上 -->
+            <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="0,1"
+                    ToolTip.Tip="{Binding Tip}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <TextBlock Grid.Column="0" FontSize="12" TextTrimming="CharacterEllipsis"
+                               Text="{Binding Label}" />
+                    <TextBlock Grid.Column="1" Classes="muted" FontSize="10" VerticalAlignment="Center"
+                               Text="{Binding TokenText}" />
+                </Grid>
+                <Button.Flyout>
+                    <!-- 全文可选可复制:调机时要把它跟角色卡、跟磁盘上的 AGENTS.md 对着看 -->
+                    <Flyout Placement="Left">
+                        <ScrollViewer MaxHeight="420" MaxWidth="520" HorizontalScrollBarVisibility="Disabled">
+                            <SelectableTextBlock FontSize="11" TextWrapping="Wrap" Text="{Binding Text}" />
+                        </ScrollViewer>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+        </DataTemplate>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -51,33 +75,46 @@
                                            Text="{loc:Loc AgentCapabilityEmpty}" />
 
                                 <!-- 合计已经在工作区卡片上了,这里只留超额告警 -->
-                                <TextBlock FontSize="10" TextWrapping="Wrap" Foreground="Goldenrod"
+                                <TextBlock FontSize="10" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SemiOrange5}"
                                            IsVisible="{Binding Conversation.Capabilities.IsOverBudget}"
                                            Text="{loc:Loc AgentCapabilityOverBudget}" />
 
-                                <!-- MCP 排在最前:它是这一栏里唯一会"今天有明天没"的部分 -->
+                                <!-- 提示词排在最前:它通常是这几档里最大的一笔(角色卡 + 一份 AGENTS.md),
+                                     而卡片上新加的那两行正指向这里,落点要在不滚动就看得见的地方 -->
+                                <StackPanel Spacing="2"
+                                            IsVisible="{Binding Conversation.Capabilities.HasPromptSegments}">
+                                    <TextBlock Classes="capability-section" Margin="0,4,0,2"
+                                               Text="{loc:Loc AgentCapabilityPrompt}"
+                                               ToolTip.Tip="{loc:Loc AgentCapabilityPromptTip}" />
+                                    <ItemsControl ItemsSource="{Binding Conversation.Capabilities.PromptSegments}"
+                                                  ItemTemplate="{StaticResource PromptSegmentRow}" />
+                                </StackPanel>
+
+                                <!-- MCP 排在提示词之后:它是这一栏里唯一会"今天有明天没"的部分。
+                                     每个 server 就是一个分节,与「系统提示 / 工具 / 技能」同构——
+                                     此前它是一张带底色的圆角卡片,而这一栏其余部分都是平铺的分节:
+                                     同一个列表里一半是卡片一半是清单,会被读成两类东西,而它们不是。
+                                     server 名当分节标题,连计数与占用一并由 SummaryText 交代 -->
                                 <ItemsControl ItemsSource="{Binding Conversation.Capabilities.McpServers}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="conv:McpServerGroupItem">
-                                            <Border Background="{DynamicResource SemiGrey1}"
-                                                    CornerRadius="8" Padding="10,8" Margin="0,3">
-                                                <StackPanel Spacing="3">
-                                                    <TextBlock FontSize="12" FontWeight="SemiBold"
-                                                               Text="{Binding Name}" TextWrapping="Wrap" />
-                                                    <TextBlock Classes="muted" FontSize="10"
-                                                               Text="{Binding SummaryText}" TextWrapping="Wrap" />
-                                                    <TextBlock Classes="muted" FontSize="10"
-                                                               IsVisible="{Binding InstructionsInjected}"
-                                                               Text="{loc:Loc AgentCapabilityMcpInstructions}" />
-                                                    <TextBlock Classes="muted" FontSize="10"
-                                                               Foreground="{DynamicResource SemiBlue5}"
-                                                               IsVisible="{Binding HasRenamedTools}"
-                                                               Text="{loc:Loc AgentCapabilityMcpRenamed}"
-                                                               ToolTip.Tip="{loc:Loc AgentCapabilityMcpRenamedTip}" />
-                                                    <ItemsControl ItemsSource="{Binding Tools}"
-                                                                  ItemTemplate="{StaticResource CapabilityRow}" />
-                                                </StackPanel>
-                                            </Border>
+                                            <StackPanel Spacing="2" Margin="0,4,0,0">
+                                                <TextBlock Classes="capability-section"
+                                                           Text="{Binding Name}" TextWrapping="Wrap" />
+                                                <TextBlock Classes="muted" FontSize="10"
+                                                           Text="{Binding SummaryText}" TextWrapping="Wrap" />
+                                                <TextBlock Classes="muted" FontSize="10"
+                                                           IsVisible="{Binding InstructionsInjected}"
+                                                           Text="{loc:Loc AgentCapabilityMcpInstructions}" />
+                                                <TextBlock Classes="muted" FontSize="10"
+                                                           Foreground="{DynamicResource SemiBlue5}"
+                                                           IsVisible="{Binding HasRenamedTools}"
+                                                           Text="{loc:Loc AgentCapabilityMcpRenamed}"
+                                                           ToolTip.Tip="{loc:Loc AgentCapabilityMcpRenamedTip}" />
+                                                <ItemsControl ItemsSource="{Binding Tools}"
+                                                              ItemTemplate="{StaticResource CapabilityRow}" />
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
