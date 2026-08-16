@@ -98,6 +98,15 @@
     <data name="ContextCachedLabel" xml:space="preserve">
         <value>缓存命中</value>
     </data>
+    <data name="ContextReportedLabel" xml:space="preserve">
+        <value>服务端报告</value>
+    </data>
+    <data name="ContextUnreportedLabel" xml:space="preserve">
+        <value>未计入（估）</value>
+    </data>
+    <data name="ContextUnreportedTip" xml:space="preserve">
+        <value>服务端回报的用量未含工具定义与系统提示，这一截是我们自己估的。上下文占用与压缩水位按两者之和判定。</value>
+    </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>自动折叠思考</value>
     </data>

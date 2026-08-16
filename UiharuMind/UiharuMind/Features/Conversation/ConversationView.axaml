@@ -74,6 +74,14 @@
         <Style Selector="ProgressBar.contextUsage[Tag=Truncating] /template/ Border#PART_Indicator">
             <Setter Property="Background" Value="OrangeRed" />
         </Style>
+        <!-- 两段叠放:上层是服务端报的那段(实色),轨道透明才不会盖住底层。
+             底层画到有效占用,用半透明区分出"这一截是我们估的、服务端没计入" -->
+        <Style Selector="ProgressBar.contextUsage.reported /template/ Border#PART_Track">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage.unreported /template/ Border#PART_Indicator">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
         <!-- 工具行图标态:Tag 驱动颜色区分当前状态 -->
         <Style Selector="ThemedIconButton.mode-state[Tag=Plan] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="DodgerBlue" />
@@ -616,12 +624,19 @@
                                                    Text="{Binding LimitText}" />
                                     </Grid>
 
-                                    <!-- 占用条：颜色随压缩档位变，Tag 由样式选择器取用 -->
-                                    <ProgressBar IsVisible="{Binding HasData}"
-                                                 Classes="contextUsage" Tag="{Binding StateKey}"
-                                                 Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
-                                                 Height="6" CornerRadius="3"
-                                                 Background="{DynamicResource SemiGrey3}" />
+                                    <!-- 占用条：颜色随压缩档位变，Tag 由样式选择器取用。
+                                         两段叠放——底层画到有效占用（含服务端未计入的那截，淡色），
+                                         上层只画服务端报的那段（实色，可与官方控制台对账）。
+                                         上层轨道必须透明，否则会把底层那截盖掉 -->
+                                    <Grid IsVisible="{Binding HasData}" Height="6">
+                                        <ProgressBar Classes="contextUsage unreported" Tag="{Binding StateKey}"
+                                                     Minimum="0" Maximum="100" Value="{Binding EffectivePercent}"
+                                                     Height="6" CornerRadius="3"
+                                                     Background="{DynamicResource SemiGrey3}" />
+                                        <ProgressBar Classes="contextUsage reported" Tag="{Binding StateKey}"
+                                                     Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
+                                                     Height="6" CornerRadius="3" />
+                                    </Grid>
 
                                     <!-- 没有模型就没有上限,整个面板算不出来:说清楚为什么,别只给一个空框 -->
                                     <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
@@ -633,6 +648,23 @@
                                         <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
                                         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
                                                    Text="{Binding UsageText}" />
+                                    </Grid>
+
+                                    <!-- 服务端报的那段:原样显示,可与官方控制台对账 -->
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          IsVisible="{Binding ReportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Classes="muted" Text="{loc:Loc ContextReportedLabel}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Text="{Binding ReportedText}" />
+                                    </Grid>
+
+                                    <!-- 服务端没计入的那段。口径一致时整行不出现——绝大多数服务端报的就是全量 -->
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          ToolTip.Tip="{loc:Loc ContextUnreportedTip}"
+                                          IsVisible="{Binding UnreportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Classes="muted" Text="{loc:Loc ContextUnreportedLabel}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                                                   Text="{Binding UnreportedText}" />
                                     </Grid>
 
                                     <Grid ColumnDefinitions="Auto,*"

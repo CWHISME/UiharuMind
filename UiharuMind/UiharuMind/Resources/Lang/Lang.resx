@@ -105,6 +105,15 @@
     <data name="ContextCachedLabel" xml:space="preserve">
         <value>Cached</value>
     </data>
+    <data name="ContextReportedLabel" xml:space="preserve">
+        <value>Server reported</value>
+    </data>
+    <data name="ContextUnreportedLabel" xml:space="preserve">
+        <value>Not counted (est.)</value>
+    </data>
+    <data name="ContextUnreportedTip" xml:space="preserve">
+        <value>This server's reported usage leaves out tool definitions and the system prompt, so this slice is our own estimate. Context usage and the compaction watermarks are judged on the sum of both.</value>
+    </data>
     <data name="ChatAutoCollapseThinking" xml:space="preserve">
         <value>Auto-collapse thinking</value>
     </data>

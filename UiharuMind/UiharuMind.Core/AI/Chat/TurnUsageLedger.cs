@@ -39,6 +39,13 @@ public sealed class TurnUsageLedger
     public long EstimatedInput { get; set; }
 
     /// <summary>
+    /// 本轮固定开销的估算（系统提示 + 工具定义），是 <see cref="EstimatedInput"/> 里不随历史增长的那半。
+    /// 单独留一份是因为折叠与截断的水位要按它换算——那两条乘在<b>历史额度</b>上，
+    /// 而进度条那根轴是全量，两者相差正是这个数。
+    /// </summary>
+    public int FixedOverhead { get; set; }
+
+    /// <summary>
     /// <b>有效占用</b>：报告占用与我们的估算取大，是「还剩多少空间」的唯一口径。
     ///
     /// 取大的方向是有意的，因为两侧代价不对称：晚压一步是请求撞上下文上限直接失败、
@@ -145,6 +152,7 @@ public sealed class TurnUsageLedger
         TurnOutput = 0;
         LastInput = 0; //占用是「这个会话现在多满」,换会话必须清掉,否则会挂着上一个会话的数
         EstimatedInput = 0; //同理:它是另一半口径,留着会让新会话一开始就顶着旧会话的固定开销
+        FixedOverhead = 0;
         LastCachedInput = 0;
         SessionInput = 0;
         SessionOutput = 0;
@@ -162,10 +170,12 @@ public sealed class TurnUsageLedger
         {
             StringBuilder sb = new();
             // 上限未知(还没选模型)时也要显示占用:那个数是从会话本体恢复出来的,
-            // 「这个会话现在有多大」跟当前选没选模型无关,整段藏掉等于凭空少了一条信息
-            if (LastInput > 0)
+            // 「这个会话现在有多大」跟当前选没选模型无关,整段藏掉等于凭空少了一条信息。
+            // 报的是有效占用:这一格回答的正是「还剩多少空间」,而服务端那个数未必是全量
+            long usage = EffectiveInput;
+            if (usage > 0)
             {
-                sb.Append(ContextLength > 0 ? $"{Format(LastInput)}/{Format(ContextLength)}" : Format(LastInput));
+                sb.Append(ContextLength > 0 ? $"{Format(usage)}/{Format(ContextLength)}" : Format(usage));
             }
 
             if (InputEstimate > 0)

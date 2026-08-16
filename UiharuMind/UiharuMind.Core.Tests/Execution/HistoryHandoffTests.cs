@@ -63,6 +63,34 @@ public class HistoryHandoffTests
         Assert.True(HistoryHandoff.Threshold < HistoryCompaction.TruncationThreshold);
     }
 
+    /// <summary>
+    /// 三条水位换到<b>全量占用</b>那根轴上（进度条与配色用的就是它）之后，次序必须仍是
+    /// 折叠 → 交接 → 截断。
+    ///
+    /// 这一条会静默坏掉：折叠与截断乘在<b>历史额度</b>上（预算减固定开销），交接乘在<b>输入预算</b>上，
+    /// 两者分母不同，固定开销一大就可能把顺序颠过来——那样界面上会先变红再说"要交接了",
+    /// 而 <see cref="ShouldWrite_FiresBeforeFrameworkTruncation"/> 只比常数，看不见这个。
+    /// </summary>
+    [Theory]
+    [InlineData(128_000, 0)]
+    [InlineData(128_000, 25_600)] //GLM + Unity 那套
+    [InlineData(128_000, 60_000)] //固定开销吃掉半个预算的极端情形
+    [InlineData(8192, 2000)] //小上下文的本地模型
+    public void Watermarks_StayOrderedOnTheFullUsageAxis(int context, int fixedOverhead)
+    {
+        int budget = HistoryCompaction.InputBudgetFor(context);
+        int quota = HistoryCompaction.HistoryQuotaFor(context, fixedOverhead);
+
+        double eviction = fixedOverhead + quota * HistoryCompaction.ToolEvictionThreshold;
+        double handoff = budget * HistoryHandoff.Threshold;
+        double truncation = fixedOverhead + quota * HistoryCompaction.TruncationThreshold;
+
+        Assert.True(eviction < handoff, $"折叠 {eviction:0} 必须早于交接 {handoff:0}");
+        Assert.True(handoff < truncation, $"交接 {handoff:0} 必须早于截断 {truncation:0}");
+        //截断之后请求必须还发得出去,这正是分母改扣固定开销要保证的事
+        Assert.True(truncation < context, $"截断水位 {truncation:0} 必须仍在上限 {context} 之内");
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

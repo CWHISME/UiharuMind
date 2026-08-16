@@ -213,6 +213,10 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// 判据不自造比例，直接用 <see cref="HistoryCompaction"/> 的那两个常数换算——
     /// 这个告警要说的是一件真事：<b>一句话还没说，压缩就已经在门口了</b>。
     /// 同一个应用里讲「什么时候开始丢上下文」，不该有第二把尺子（另一把在 ContextUsageViewData）。
+    ///
+    /// ⚠️ 这里比的是<b>输入预算</b>而不是历史额度，且这是对的：额度本身就等于预算减去固定开销
+    /// （见 <see cref="HistoryCompaction.HistoryQuotaFor"/>），拿开销去比一个由它算出来的数是循环的。
+    /// 「开销吃掉预算的一半」直白等价于「留给历史的额度已经不比开销多了」，正是要报的那件事。
     /// </summary>
     /// <param name="tokens">固定开销</param>
     /// <param name="contextLength">上下文上限；0 表示未知，此时不告警</param>
