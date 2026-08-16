@@ -59,6 +59,10 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         return new HarnessCharacterRunner();
     }
 
+    private readonly object _previewLock = new(); //守护下面这对预演缓存
+    private AgentAssemblyFacts? _previewFacts;
+    private AgentCapabilitySnapshot? _previewSnapshot;
+
     /// <summary>
     /// 按配置构建一个 agent。两步：先把外部世界读完（<see cref="AgentAssemblyPlan.Resolve"/>），
     /// 再纯内存组装（<see cref="AgentAssembler.Assemble"/>）。
@@ -95,16 +99,34 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
                 profile.Character.Tools.DisabledMcpServers, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
+        // 装配输入没变就给上一次那份。判据与「要不要重建 agent」是同一个,所以角色卡改了、
+        // 工作区换了、MCP 连上了都会自然失效。在空态与已有会话之间来回切是常态,
+        // 不缓存的话每回都要白建一次 agent、并为整份 AGENTS.md 与所有工具 schema 重新分词
+        AgentAssemblyFacts facts = AgentAssemblyFacts.Capture(profile);
+        lock (_previewLock)
+        {
+            if (_previewSnapshot != null && facts == _previewFacts) return _previewSnapshot;
+        }
+
         AgentHandle handle = CreateAgent(profile);
+        AgentCapabilitySnapshot snapshot;
         try
         {
-            return handle.Capabilities;
+            snapshot = handle.Capabilities;
         }
         finally
         {
             // 预演的句柄没有会话、也不会被运行,但 shell 执行器有生命周期,必须还回去
             await handle.DisposeAsync().ConfigureAwait(false);
         }
+
+        lock (_previewLock)
+        {
+            _previewFacts = facts;
+            _previewSnapshot = snapshot;
+        }
+
+        return snapshot;
     }
 
     /// <summary>
