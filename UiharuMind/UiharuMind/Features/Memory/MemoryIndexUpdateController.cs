@@ -37,7 +37,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     {
         _memory = memory;
         _messageService = messageService;
-        ActionText = L("MemoryIndexUpdate");
+        ActionText = Loc.Text("MemoryIndexUpdate");
     }
 
     public void ChangeMemory(MemoryData memory)
@@ -66,9 +66,9 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
         HasFailure = false;
         FailureText = "";
         ProgressValue = 0;
-        ProgressStageText = L("MemoryIndexPreparingShort");
+        ProgressStageText = Loc.Text("MemoryIndexPreparingShort");
         ProgressDetailText = "";
-        ActionText = L("MemoryIndexStop");
+        ActionText = Loc.Text("MemoryIndexStop");
 
         var progress = new Progress<MemoryIndexProgress>(ApplyProgress);
         _updateTask = RunUpdateAsync(progress, _cancellation.Token);
@@ -100,11 +100,11 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
             if (result.Succeeded)
             {
                 _messageService.ShowNotification(
-                    L("MemoryIndexUpdateSuccess"), severity: MessageSeverity.Success);
+                    Loc.Text("MemoryIndexUpdateSuccess"), severity: MessageSeverity.Success);
             }
             else if (result.Cancelled)
             {
-                _messageService.ShowNotification(L("MemoryIndexCancelledOldIndexKept"));
+                _messageService.ShowNotification(Loc.Text("MemoryIndexCancelledOldIndexKept"));
             }
             else
             {
@@ -118,7 +118,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
         finally
         {
             IsUpdating = false;
-            ActionText = L("MemoryIndexUpdate");
+            ActionText = Loc.Text("MemoryIndexUpdate");
             _cancellation?.Dispose();
             _cancellation = null;
             _updateTask = null;
@@ -129,8 +129,8 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     private void ApplyProgress(MemoryIndexProgress progress)
     {
         ProgressValue = progress.Percentage * 100;
-        ProgressStageText = L("MemoryIndexStage" + progress.Stage);
-        ProgressDetailText = string.Format(L("MemoryIndexProgressFormat"),
+        ProgressStageText = Loc.Text("MemoryIndexStage" + progress.Stage);
+        ProgressDetailText = string.Format(Loc.Text("MemoryIndexProgressFormat"),
             progress.ProcessedSources, progress.TotalSources,
             progress.CurrentChunk, progress.TotalChunks,
             progress.CurrentSource,
@@ -141,7 +141,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     private static string BuildFailureText(MemoryIndexUpdateResult result)
     {
         StringBuilder builder = new();
-        builder.AppendLine(L("MemoryIndexUpdateFailed"));
+        builder.AppendLine(Loc.Text("MemoryIndexUpdateFailed"));
         foreach (MemoryIndexSourceFailure failure in result.Failures)
         {
             builder.Append(failure.SourceName)
@@ -160,7 +160,4 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
         _cancellation?.Cancel();
         _cancellation?.Dispose();
     }
-
-    private static string L(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }

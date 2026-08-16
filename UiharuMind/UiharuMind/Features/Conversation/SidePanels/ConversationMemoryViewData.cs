@@ -110,7 +110,7 @@ public partial class ConversationMemoryViewData : ObservableObject
             return Lang.MemoryIndexEmbeddingServerUnavailable;
 
         if (error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase))
-            return GetLocalizedText("MemoryIndexEmbeddingRequestFailed");
+            return Loc.Text("MemoryIndexEmbeddingRequestFailed");
 
         return error switch
         {
@@ -120,13 +120,10 @@ public partial class ConversationMemoryViewData : ObservableObject
             "Memory name not set" => Lang.MemoryIndexMemoryNameMissing,
             "Memory vector store unavailable" => Lang.MemoryIndexVectorStoreUnavailable,
             "Memory index update failed" => Lang.MemoryIndexUpdateFailed,
-            "Memory source validation failed" => GetLocalizedText("MemorySourceValidationFailed"),
-            "Memory vector dimension mismatch" => GetLocalizedText("MemoryIndexDimensionMismatch"),
-            "Embedding input is too large" => GetLocalizedText("MemoryIndexEmbeddingInputTooLarge"),
+            "Memory source validation failed" => Loc.Text("MemorySourceValidationFailed"),
+            "Memory vector dimension mismatch" => Loc.Text("MemoryIndexDimensionMismatch"),
+            "Embedding input is too large" => Loc.Text("MemoryIndexEmbeddingInputTooLarge"),
             _ => error
         };
     }
-
-    private static string GetLocalizedText(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }

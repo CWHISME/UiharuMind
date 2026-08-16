@@ -68,9 +68,9 @@ public partial class GeneralSettingViewModel : ViewModelBase
         _applicationUpdateService = applicationUpdateService;
         ApplicationUpdateDownloadListViewModel = new DownloadListViewData(messageService)
         {
-            DownloadedActionText = L("ApplicationUpdateInstall"),
+            DownloadedActionText = Loc.Text("ApplicationUpdateInstall"),
             DownloadedActionHandler = InstallApplicationUpdateAsync,
-            DeleteConfirmMessageProvider = () => L("ConfirmDeleteApplicationUpdate")
+            DeleteConfirmMessageProvider = () => Loc.Text("ConfirmDeleteApplicationUpdate")
         };
         foreach (var cultureInfo in LanguageUtils.SupportedLanguages)
         {
@@ -246,11 +246,11 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
         if (!File.Exists(item.DownloadFilePath))
         {
-            await _messageService.ShowWarningAsync(L("ApplicationUpdateInstallFileMissing"));
+            await _messageService.ShowWarningAsync(Loc.Text("ApplicationUpdateInstallFileMissing"));
             return;
         }
 
-        if (!await _messageService.ConfirmAsync(L("ApplicationUpdateInstallConfirm")))
+        if (!await _messageService.ConfirmAsync(Loc.Text("ApplicationUpdateInstallConfirm")))
         {
             return;
         }
@@ -259,7 +259,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
         {
             if (item.Target is not ManagedVersionPackage asset)
             {
-                await _messageService.ShowWarningAsync(L("ApplicationUpdateInstallFileMissing"));
+                await _messageService.ShowWarningAsync(Loc.Text("ApplicationUpdateInstallFileMissing"));
                 return;
             }
 
@@ -269,27 +269,22 @@ public partial class GeneralSettingViewModel : ViewModelBase
             UpdateApplicationUpdateDownloadedActionText(asset);
             App.FilesService.OpenFolder(asset.InstallDirectory);
             _messageService.ShowNotification(
-                L("ApplicationUpdateInstallPackageDeleted"),
+                Loc.Text("ApplicationUpdateInstallPackageDeleted"),
                 severity: MessageSeverity.Success);
         }
         catch (Exception e)
         {
             Log.Error(e);
-            await _messageService.ShowWarningAsync(e.Message, L("ApplicationUpdateInstallFailed"));
+            await _messageService.ShowWarningAsync(e.Message, Loc.Text("ApplicationUpdateInstallFailed"));
         }
-    }
-
-    private static string L(string key)
-    {
-        return LocalizationManager.Instance.GetString(key);
     }
 
     private void UpdateApplicationUpdateDownloadedActionText(ManagedVersionPackage? asset)
     {
         ApplicationUpdateDownloadListViewModel.DownloadedActionText =
             asset is { IsInstalled: true }
-                ? L("OpenDirectory")
-                : L("ApplicationUpdateInstall");
+                ? Loc.Text("OpenDirectory")
+                : Loc.Text("ApplicationUpdateInstall");
     }
 
     private static bool IsApplicationUpdateInstalled(DownloadableItemData item)

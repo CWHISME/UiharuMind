@@ -138,7 +138,7 @@ public partial class ModelService : ObservableObject
         if (!risk.RequiresConfirmation) return true;
 
         string message = string.Format(
-            L("ModelRuntimeLoadRiskConfirmFormat"),
+            Loc.Text("ModelRuntimeLoadRiskConfirmFormat"),
             modelName,
             FormatRiskLevel(risk.Level),
             FormatBytes(risk.EstimatedTotalBytes),
@@ -146,20 +146,20 @@ public partial class ModelService : ObservableObject
 
         if (risk.Warnings.Count > 0)
             message += Environment.NewLine + string.Join(Environment.NewLine, risk.Warnings.Select(x => $"- {x}"));
-        message += Environment.NewLine + L("ModelRuntimeLoadRiskNativeCrashHint");
+        message += Environment.NewLine + Loc.Text("ModelRuntimeLoadRiskNativeCrashHint");
 
         IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
-        return await messageService.ConfirmAsync(message, L("ModelRuntimeLoadRiskConfirmTitle"));
+        return await messageService.ConfirmAsync(message, Loc.Text("ModelRuntimeLoadRiskConfirmTitle"));
     }
 
     private static string FormatRiskLevel(RuntimeLoadRiskLevel level)
     {
         return level switch
         {
-            RuntimeLoadRiskLevel.Danger => L("ModelRuntimeRiskDanger"),
-            RuntimeLoadRiskLevel.Warning => L("ModelRuntimeRiskWarning"),
-            RuntimeLoadRiskLevel.Unknown => L("ModelRuntimeRiskUnknown"),
-            _ => L("ModelRuntimeRiskLow")
+            RuntimeLoadRiskLevel.Danger => Loc.Text("ModelRuntimeRiskDanger"),
+            RuntimeLoadRiskLevel.Warning => Loc.Text("ModelRuntimeRiskWarning"),
+            RuntimeLoadRiskLevel.Unknown => Loc.Text("ModelRuntimeRiskUnknown"),
+            _ => Loc.Text("ModelRuntimeRiskLow")
         };
     }
 
@@ -237,10 +237,5 @@ public partial class ModelService : ObservableObject
     private void OnAnyModelStateChanged(ModelRunningData? model)
     {
         Refresh();
-    }
-
-    private static string L(string key)
-    {
-        return LocalizationManager.Instance.GetString(key);
     }
 }

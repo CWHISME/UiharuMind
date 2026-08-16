@@ -252,17 +252,17 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
     {
         return level switch
         {
-            RuntimeLoadRiskLevel.Danger => L("ModelRuntimeRiskDanger"),
-            RuntimeLoadRiskLevel.Warning => L("ModelRuntimeRiskWarning"),
-            RuntimeLoadRiskLevel.Unknown => L("ModelRuntimeRiskUnknown"),
-            _ => L("ModelRuntimeRiskLow")
+            RuntimeLoadRiskLevel.Danger => Loc.Text("ModelRuntimeRiskDanger"),
+            RuntimeLoadRiskLevel.Warning => Loc.Text("ModelRuntimeRiskWarning"),
+            RuntimeLoadRiskLevel.Unknown => Loc.Text("ModelRuntimeRiskUnknown"),
+            _ => Loc.Text("ModelRuntimeRiskLow")
         };
     }
 
     private static string BuildRiskDetail(RuntimeLoadRisk risk)
     {
         string detail = string.Format(
-            L("ModelRuntimeRiskDetailFormat"),
+            Loc.Text("ModelRuntimeRiskDetailFormat"),
             risk.EstimatedTotalBytes > 0 ? GameUtils.FormatBytes(risk.EstimatedTotalBytes) : "-",
             risk.EstimatedKvCacheBytes > 0 ? GameUtils.FormatBytes(risk.EstimatedKvCacheBytes) : "-",
             string.IsNullOrWhiteSpace(risk.Reason) ? "-" : risk.Reason);
@@ -276,10 +276,5 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
         return risk.Level == RuntimeLoadRiskLevel.Low && risk.EstimatedTotalBytes <= 0
             ? "-"
             : risk.Reason;
-    }
-
-    private static string L(string key)
-    {
-        return LocalizationManager.Instance.GetString(key);
     }
 }

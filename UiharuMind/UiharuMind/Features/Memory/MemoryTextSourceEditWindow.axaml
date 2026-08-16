@@ -17,10 +17,6 @@
     </Design.DataContext>
 
     <Window.Styles>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
         <Style Selector="TextBlock.section-title">
             <Setter Property="FontSize" Value="15" />
             <Setter Property="FontWeight" Value="SemiBold" />

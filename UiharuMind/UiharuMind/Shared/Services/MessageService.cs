@@ -13,6 +13,7 @@ using UiharuMind.Resources.Lang;
 using Ursa.Controls;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Shared.Services;
 
@@ -306,7 +307,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private static string GetDefaultTitle(MessageSeverity severity) => severity switch
     {
-        MessageSeverity.Success => GetText("MessageSuccessTitle"),
+        MessageSeverity.Success => Loc.Text("MessageSuccessTitle"),
         MessageSeverity.Warning => Lang.MessageWarningTitle,
         MessageSeverity.Error => Lang.MessageErrorTitle,
         _ => Lang.MessageInfoTitle
@@ -314,9 +315,6 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private static TimeSpan GetNotificationDuration(MessageSeverity severity) =>
         severity == MessageSeverity.Error ? ErrorNotificationDuration : DefaultNotificationDuration;
-
-    private static string GetText(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 
     public void Dispose()
     {

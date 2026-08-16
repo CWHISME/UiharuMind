@@ -27,10 +27,6 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
         <Style Selector="Border.source-item">
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
             <Setter Property="BorderThickness" Value="1" />

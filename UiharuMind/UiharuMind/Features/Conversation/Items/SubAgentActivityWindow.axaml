@@ -17,10 +17,6 @@
          (没有 SourceMessage,CanEdit 等一律 false),且它的正文模板里有一条
          RelativeSource AncestorType=ConversationView 的绑定,搬出那个控件就失效。 -->
     <Window.Styles>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
         <Style Selector="SelectableTextBlock.muted">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />

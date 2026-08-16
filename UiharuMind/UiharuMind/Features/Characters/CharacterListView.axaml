@@ -31,10 +31,6 @@
         <Style Selector="ListBoxItem:selected">
             <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
         </Style>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
         <Style Selector="Border.character-card">
             <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />

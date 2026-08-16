@@ -23,10 +23,6 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
         <Style Selector="Button.icon-action">
             <Setter Property="Width" Value="30" />
             <Setter Property="Height" Value="30" />

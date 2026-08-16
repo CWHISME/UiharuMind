@@ -133,7 +133,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
     {
         if (SelectedItem == null) return;
         MemoryLibraryItemViewData removing = SelectedItem;
-        if (!await _messageService.ConfirmAsync(L("MemoryDeleteConfirm"))) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text("MemoryDeleteConfirm"))) return;
         removing.Memory.DeleteStoredIndex();
         MemoryManager.Instance.Delete(removing.Memory);
         removing.Dispose();
@@ -212,9 +212,6 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
     {
         SelectedItem?.Refresh();
     }
-
-    private static string L(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }
 
 public partial class MemoryLibraryItemViewData : ObservableObject, IDisposable
@@ -245,9 +242,9 @@ public partial class MemoryLibraryItemViewData : ObservableObject, IDisposable
     {
         Name = Memory.Name;
         Description = string.IsNullOrWhiteSpace(Memory.Description)
-            ? L("MemoryDescriptionFallback")
+            ? Loc.Text("MemoryDescriptionFallback")
             : Memory.Description;
-        SourceSummary = string.Format(L("MemoryLibrarySourceSummary"),
+        SourceSummary = string.Format(Loc.Text("MemoryLibrarySourceSummary"),
             Memory.TextSources.Count, Memory.FilePaths.Count);
         StatusKey = IsUpdating
             ? "Progress"
@@ -258,15 +255,15 @@ public partial class MemoryLibraryItemViewData : ObservableObject, IDisposable
                 : "Ready";
         StatusText = StatusKey switch
         {
-            "Error" => L("MemoryIndexHasError"),
-            "Progress" => L("MemoryIndexUpdating"),
-            "Ready" => L("MemoryIndexReady"),
+            "Error" => Loc.Text("MemoryIndexHasError"),
+            "Progress" => Loc.Text("MemoryIndexUpdating"),
+            "Ready" => Loc.Text("MemoryIndexReady"),
             _ => Memory.LastIndexedAt == null
-                ? L("MemoryIndexNotBuiltShort")
-                : L("MemoryIndexPendingShort")
+                ? Loc.Text("MemoryIndexNotBuiltShort")
+                : Loc.Text("MemoryIndexPendingShort")
         };
         LastIndexedText = Memory.LastIndexedAt == null
-            ? L("MemoryIndexNeverUpdated")
+            ? Loc.Text("MemoryIndexNeverUpdated")
             : Memory.LastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
         OnPropertyChanged(nameof(TextSourceCount));
         OnPropertyChanged(nameof(FileSourceCount));
@@ -275,7 +272,4 @@ public partial class MemoryLibraryItemViewData : ObservableObject, IDisposable
     private void OnMemoryStateChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(Refresh);
 
     public void Dispose() => Memory.StateChanged -= OnMemoryStateChanged;
-
-    private static string L(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }

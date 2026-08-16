@@ -8,7 +8,7 @@ internal static class MemoryIndexUiText
 {
     public static string GetSourceErrorText(string errorCode, string detail)
     {
-        string text = L(errorCode);
+        string text = Loc.Text(errorCode);
         return string.IsNullOrWhiteSpace(detail) ? text : $"{text} ({detail})";
     }
 
@@ -19,35 +19,32 @@ internal static class MemoryIndexUiText
             error.StartsWith("Response status code does not indicate success",
                 StringComparison.OrdinalIgnoreCase))
         {
-            return L("MemoryIndexEmbeddingRequestFailed");
+            return Loc.Text("MemoryIndexEmbeddingRequestFailed");
         }
 
         if (error.StartsWith("Embedding model startup failed", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Failed to load LLamaSharp embedding model", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Remote embedding backend is not implemented", StringComparison.OrdinalIgnoreCase))
         {
-            return L("MemoryIndexEmbeddingServerUnavailable");
+            return Loc.Text("MemoryIndexEmbeddingServerUnavailable");
         }
 
         if (error.Contains("vector store failed", StringComparison.OrdinalIgnoreCase) ||
             error.Contains("readonly database", StringComparison.OrdinalIgnoreCase))
         {
-            return L("MemoryIndexStorageFailed");
+            return Loc.Text("MemoryIndexStorageFailed");
         }
 
         return error switch
         {
-            "Embedding server is unavailable." => L("MemoryIndexEmbeddingServerUnavailable"),
-            "Embedding model is unavailable." => L("MemoryIndexEmbeddingServerUnavailable"),
-            "Embedding server startup timed out." => L("MemoryIndexEmbeddingServerTimeout"),
-            "Memory name not set" => L("MemoryIndexMemoryNameMissing"),
-            "Memory source validation failed" => L("MemorySourceValidationFailed"),
-            "Memory vector dimension mismatch" => L("MemoryIndexDimensionMismatch"),
-            "Embedding input is too large" => L("MemoryIndexEmbeddingInputTooLarge"),
+            "Embedding server is unavailable." => Loc.Text("MemoryIndexEmbeddingServerUnavailable"),
+            "Embedding model is unavailable." => Loc.Text("MemoryIndexEmbeddingServerUnavailable"),
+            "Embedding server startup timed out." => Loc.Text("MemoryIndexEmbeddingServerTimeout"),
+            "Memory name not set" => Loc.Text("MemoryIndexMemoryNameMissing"),
+            "Memory source validation failed" => Loc.Text("MemorySourceValidationFailed"),
+            "Memory vector dimension mismatch" => Loc.Text("MemoryIndexDimensionMismatch"),
+            "Embedding input is too large" => Loc.Text("MemoryIndexEmbeddingInputTooLarge"),
             _ => error
         };
     }
-
-    private static string L(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }

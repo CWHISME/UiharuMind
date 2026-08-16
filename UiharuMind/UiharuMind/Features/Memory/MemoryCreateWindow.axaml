@@ -16,12 +16,6 @@
         <common:MemoryCreateWindowModel />
     </Design.DataContext>
 
-    <Window.Styles>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
-    </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
         <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">

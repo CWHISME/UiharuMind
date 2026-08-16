@@ -88,7 +88,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     public bool HasFiles => Files.Count > 0;
     public string MemoryName => _memoryData.Name;
     public string MemoryDescriptionDisplay => string.IsNullOrWhiteSpace(MemoryDescription)
-        ? L("MemoryDescriptionFallback")
+        ? Loc.Text("MemoryDescriptionFallback")
         : MemoryDescription;
     public bool CanSaveDescription =>
         !string.Equals(MemoryDescription.Trim(), _memoryData.Description, StringComparison.Ordinal);
@@ -173,7 +173,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         OnPropertyChanged(nameof(MemoryDescriptionDisplay));
         OnPropertyChanged(nameof(CanSaveDescription));
         _messageService.ShowNotification(
-            L("MemoryDescriptionSaved"), severity: MessageSeverity.Success);
+            Loc.Text("MemoryDescriptionSaved"), severity: MessageSeverity.Success);
     }
 
     [RelayCommand]
@@ -199,7 +199,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     [RelayCommand]
     private async Task DeleteText(MemoryTextSource source)
     {
-        if (!await _messageService.ConfirmAsync(L("CommonDeleteConfirmTips"))) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text("CommonDeleteConfirmTips"))) return;
         TextSources.Remove(source);
         _memoryData.TextSources.Remove(source);
         _memoryData.Save();
@@ -218,7 +218,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
 
         IReadOnlyList<IStorageFile> files = await App.FilesService.SelectFileAsync(
             UIManager.GetFocusWindow(), null,
-            L("MemorySelectTextFilesTitle"), L("MemoryTextFileFilter"), "*");
+            Loc.Text("MemorySelectTextFilesTitle"), Loc.Text("MemoryTextFileFilter"), "*");
         if (files.Count == 0) return;
 
         _importCancellation = new CancellationTokenSource();
@@ -226,7 +226,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         HasFailure = false;
         FailureText = "";
         IndexUpdater.ProgressValue = 0;
-        IndexUpdater.ProgressStageText = L("MemoryImportValidating");
+        IndexUpdater.ProgressStageText = Loc.Text("MemoryImportValidating");
         IndexUpdater.ProgressDetailText = "";
         RefreshStatus();
 
@@ -247,8 +247,8 @@ public partial class MemoryEditorWindowModel : ObservableObject
                 string? path = files[index].TryGetLocalPath();
                 if (string.IsNullOrWhiteSpace(path) || _memoryData.FilePaths.Contains(path)) continue;
 
-                IndexUpdater.ProgressStageText = L("MemoryImportValidating");
-                IndexUpdater.ProgressDetailText = string.Format(L("MemoryImportProgressFormat"),
+                IndexUpdater.ProgressStageText = Loc.Text("MemoryImportValidating");
+                IndexUpdater.ProgressDetailText = string.Format(Loc.Text("MemoryImportProgressFormat"),
                     index + 1, files.Count, Path.GetFileName(path),
                     accepted.Count, errors.Count);
                 IndexUpdater.ProgressValue = (index + 1d) / files.Count * 100;
@@ -280,12 +280,12 @@ public partial class MemoryEditorWindowModel : ObservableObject
             else
             {
                 _messageService.ShowNotification(string.Format(
-                    L("MemoryImportCompleted"), accepted.Count), severity: MessageSeverity.Success);
+                    Loc.Text("MemoryImportCompleted"), accepted.Count), severity: MessageSeverity.Success);
             }
         }
         catch (OperationCanceledException)
         {
-            _messageService.ShowNotification(L("MemoryImportCancelled"));
+            _messageService.ShowNotification(Loc.Text("MemoryImportCancelled"));
         }
         finally
         {
@@ -305,7 +305,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     [RelayCommand]
     private async Task DeleteFile(MemoryFileSourceViewData file)
     {
-        if (!await _messageService.ConfirmAsync(L("CommonDeleteConfirmTips"))) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text("CommonDeleteConfirmTips"))) return;
         Files.Remove(file);
         _memoryData.FilePaths.Remove(file.Path);
         _memoryData.Save();
@@ -379,23 +379,23 @@ public partial class MemoryEditorWindowModel : ObservableObject
     private void RefreshStatus()
     {
         IndexStatusText = IndexUpdater.IsUpdating
-            ? L("MemoryIndexUpdating")
+            ? Loc.Text("MemoryIndexUpdating")
             : !string.IsNullOrWhiteSpace(_memoryData.LastIndexError)
-                ? L("MemoryIndexHasError")
+                ? Loc.Text("MemoryIndexHasError")
                 : _memoryData.IndexDirty
-                    ? L("MemoryIndexPendingShort")
+                    ? Loc.Text("MemoryIndexPendingShort")
                 : _memoryData.LastIndexedAt == null
-                    ? L("MemoryIndexNotBuiltShort")
-                    : L("MemoryIndexReady");
+                    ? Loc.Text("MemoryIndexNotBuiltShort")
+                    : Loc.Text("MemoryIndexReady");
         IndexStatusDetailText = IndexUpdater.IsUpdating
-            ? L("MemoryIndexUpdatingDetail")
+            ? Loc.Text("MemoryIndexUpdatingDetail")
             : !string.IsNullOrWhiteSpace(_memoryData.LastIndexError)
                 ? MemoryIndexUiText.GetIndexErrorText(_memoryData.LastIndexError)
                 : _memoryData.IndexDirty
-                    ? L("MemoryIndexNeedUpdate")
+                    ? Loc.Text("MemoryIndexNeedUpdate")
                     : _memoryData.LastIndexedAt == null
-                        ? L("MemoryIndexNotBuilt")
-                        : L("MemoryIndexReadyDetail");
+                        ? Loc.Text("MemoryIndexNotBuilt")
+                        : Loc.Text("MemoryIndexReadyDetail");
         IndexStatusKey = IndexUpdater.IsUpdating
             ? "Progress"
             : !string.IsNullOrWhiteSpace(_memoryData.LastIndexError)
@@ -405,13 +405,13 @@ public partial class MemoryEditorWindowModel : ObservableObject
                     : "Ready";
 
         LastIndexedText = _memoryData.LastIndexedAt == null
-            ? L("MemoryIndexNeverUpdated")
-            : L("MemoryIndexLastIndexed") +
+            ? Loc.Text("MemoryIndexNeverUpdated")
+            : Loc.Text("MemoryIndexLastIndexed") +
               _memoryData.LastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
 
-        SourceCountText = string.Format(L("MemorySourceCountFormat"),
+        SourceCountText = string.Format(Loc.Text("MemorySourceCountFormat"),
             _memoryData.TextSources.Count, _memoryData.FilePaths.Count);
-        AddFileActionText = IsFileImporting ? L("MemoryImportStop") : L("MemoryAddTextFile");
+        AddFileActionText = IsFileImporting ? Loc.Text("MemoryImportStop") : Loc.Text("MemoryAddTextFile");
 
         if (!IndexUpdater.IsUpdating && !string.IsNullOrWhiteSpace(_memoryData.LastIndexError) && !HasFailure)
         {
@@ -429,9 +429,6 @@ public partial class MemoryEditorWindowModel : ObservableObject
     {
         return MemoryIndexUiText.GetIndexErrorText(error);
     }
-
-    private static string L(string key) =>
-        Lang.ResourceManager.GetString(key, LocalizationManager.Instance.CurrentCulture) ?? key;
 }
 
 public sealed class MemoryFileSourceViewData

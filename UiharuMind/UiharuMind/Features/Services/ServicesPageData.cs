@@ -67,25 +67,25 @@ public partial class ServicesPageData : PageDataBase
             : "Neutral";
 
     public string ChatStatusText => App.ModelService.IsLoading
-        ? Loc("ServicesStatusLoading")
+        ? Loc.Text("ServicesStatusLoading")
         : App.ModelService.CurIsRunning
-            ? Loc("ServicesStatusRunning")
-            : Loc("ServicesStatusStopped");
+            ? Loc.Text("ServicesStatusRunning")
+            : Loc.Text("ServicesStatusStopped");
 
     public string ChatCurrentModel =>
-        App.ModelService.CurModelRunningData?.ModelName ?? Loc("ServicesNoModelRunning");
+        App.ModelService.CurModelRunningData?.ModelName ?? Loc.Text("ServicesNoModelRunning");
 
     public string ChatBackend => App.ModelService.CurModelRunningData?.IsRemoteModel == true
-        ? Loc("ServicesRemoteApiService")
-        : Loc("ServicesRuntimeBackendService");
+        ? Loc.Text("ServicesRemoteApiService")
+        : Loc.Text("ServicesRuntimeBackendService");
 
     public string ChatEndpointOrPathLabel => App.ModelService.CurModelRunningData?.IsRemoteModel == true
-        ? Loc("ServicesEndpoint")
-        : Loc("ServicesModelPath");
+        ? Loc.Text("ServicesEndpoint")
+        : Loc.Text("ServicesModelPath");
 
     public string ChatModelPath => App.ModelService.CurModelRunningData?.ModelPath ?? "-";
-    public string ChatRunningCount => string.Format(Loc("ServicesRunningCountFormat"), App.ModelService.CurRunningCount);
-    public string ChatModelCount => string.Format(Loc("ServicesModelCountFormat"), App.ModelService.ModelSources.Count);
+    public string ChatRunningCount => string.Format(Loc.Text("ServicesRunningCountFormat"), App.ModelService.CurRunningCount);
+    public string ChatModelCount => string.Format(Loc.Text("ServicesModelCountFormat"), App.ModelService.ModelSources.Count);
     public bool ChatIsLoading => App.ModelService.IsLoading;
     public bool ChatCanToggle => !App.ModelService.IsLoading;
     public bool ChatCanReload => !App.ModelService.IsLoading && !string.IsNullOrWhiteSpace(GetChatStartCandidateName());
@@ -100,12 +100,12 @@ public partial class ServicesPageData : PageDataBase
                 : "Neutral";
 
     public string EmbeddingStatusText => !string.IsNullOrWhiteSpace(_embeddingService.LastError)
-        ? Loc("ServicesStatusError")
+        ? Loc.Text("ServicesStatusError")
         : !IsEmbeddingReadyToStart
-            ? Loc("ServicesStatusNeedsConfig")
+            ? Loc.Text("ServicesStatusNeedsConfig")
             : _embeddingService.IsRunning
-                ? Loc("ServicesStatusRunning")
-                : Loc("ServicesStatusStopped");
+                ? Loc.Text("ServicesStatusRunning")
+                : Loc.Text("ServicesStatusStopped");
 
     public string EmbeddingRuntimeBackend => _embeddingService.BackendName;
     public string EmbeddingRuntimeModelPath => string.IsNullOrWhiteSpace(_embeddingService.ModelPath) ? "-" : _embeddingService.ModelPath;
@@ -114,7 +114,7 @@ public partial class ServicesPageData : PageDataBase
     public string EmbeddingConfiguredSourceText => SelectedEmbeddingSourceMode?.DisplayName ?? "-";
     public string EmbeddingDimensionsText => _embeddingService.Dimensions > 0 ? _embeddingService.Dimensions.ToString() : "-";
     public string EmbeddingLastStartedText => _embeddingService.LastStartedAt?.ToString("yyyy/MM/dd HH:mm:ss") ?? "-";
-    public string EmbeddingLastError => string.IsNullOrWhiteSpace(_embeddingService.LastError) ? Loc("ServicesNoError") : _embeddingService.LastError;
+    public string EmbeddingLastError => string.IsNullOrWhiteSpace(_embeddingService.LastError) ? Loc.Text("ServicesNoError") : _embeddingService.LastError;
     public bool IsEmbeddingReadyToStart => SelectedEmbeddingSourceMode?.Mode switch
     {
         EmbeddingModelSettingConfig.SourceModeRemoteApi => !string.IsNullOrWhiteSpace(EmbeddingRemoteEndpoint) &&
@@ -129,23 +129,23 @@ public partial class ServicesPageData : PageDataBase
     public bool IsRemoteApiSource =>
         SelectedEmbeddingSourceMode?.Mode == EmbeddingModelSettingConfig.SourceModeRemoteApi;
 
-    public string ManagedEmbeddingEmptyText => Loc("ServicesNoManagedEmbeddingModels");
+    public string ManagedEmbeddingEmptyText => Loc.Text("ServicesNoManagedEmbeddingModels");
     public bool HasManagedEmbeddingModels => ManagedEmbeddingModels.Count > 0;
     public bool NoManagedEmbeddingModels => !HasManagedEmbeddingModels;
     public string ManagedEmbeddingSummaryText => string.Format(
-        Loc("ServicesManagedEmbeddingSummaryFormat"),
+        Loc.Text("ServicesManagedEmbeddingSummaryFormat"),
         ManagedEmbeddingModels.Count(x => x.Source == EmbeddingModelCandidateSource.Application),
         ManagedEmbeddingModels.Count(x => x.Source == EmbeddingModelCandidateSource.BuiltIn));
 
     public string RuntimeVersionName =>
-        LlmManager.Instance.CurrentRuntimeVersion?.Name ?? Loc("ServicesNoRuntimeSelected");
+        LlmManager.Instance.CurrentRuntimeVersion?.Name ?? Loc.Text("ServicesNoRuntimeSelected");
 
     public string RuntimePath =>
         LlmManager.Instance.CurrentRuntimeVersion?.InstallDirectory ??
         SettingConfig.BackendRuntimeEnginePath;
 
     public string RemoteModelCount =>
-        string.Format(Loc("ServicesRemoteModelCountFormat"), LlmManager.Instance.RemoteModelCount);
+        string.Format(Loc.Text("ServicesRemoteModelCountFormat"), LlmManager.Instance.RemoteModelCount);
 
     public string FavoriteModel =>
         LlmManager.Instance.GetPreferredModelName(false) ?? "-";
@@ -218,7 +218,7 @@ public partial class ServicesPageData : PageDataBase
         string? modelName = await ResolveChatStartModelNameAsync();
         if (string.IsNullOrWhiteSpace(modelName))
         {
-            _messageService.ShowNotification(Loc("ServicesChatModelNotSelected"), Loc("MessageInfoTitle"));
+            _messageService.ShowNotification(Loc.Text("ServicesChatModelNotSelected"), Loc.Text("MessageInfoTitle"));
             GoToModelPage();
             return;
         }
@@ -351,7 +351,7 @@ public partial class ServicesPageData : PageDataBase
         string? modelName = await ResolveChatStartModelNameAsync();
         if (string.IsNullOrWhiteSpace(modelName))
         {
-            _messageService.ShowNotification(Loc("ServicesChatModelNotSelected"), Loc("MessageInfoTitle"));
+            _messageService.ShowNotification(Loc.Text("ServicesChatModelNotSelected"), Loc.Text("MessageInfoTitle"));
             _isSyncingStatus = true;
             IsChatEnabled = false;
             _isSyncingStatus = false;
@@ -393,7 +393,7 @@ public partial class ServicesPageData : PageDataBase
         }
         catch (Exception e)
         {
-            _messageService.ShowNotification(e.Message, Loc("ServicesEmbeddingStartFailed"), MessageSeverity.Error);
+            _messageService.ShowNotification(e.Message, Loc.Text("ServicesEmbeddingStartFailed"), MessageSeverity.Error);
             return false;
         }
         finally
@@ -408,12 +408,12 @@ public partial class ServicesPageData : PageDataBase
         EmbeddingSourceModeOptions.Clear();
         EmbeddingSourceModeOptions.Add(new EmbeddingSourceModeOption(
             EmbeddingModelSettingConfig.SourceModeLocal,
-            Loc("ServicesEmbeddingSourceLocal"),
-            Loc("ServicesEmbeddingSourceLocalDesc")));
+            Loc.Text("ServicesEmbeddingSourceLocal"),
+            Loc.Text("ServicesEmbeddingSourceLocalDesc")));
         EmbeddingSourceModeOptions.Add(new EmbeddingSourceModeOption(
             EmbeddingModelSettingConfig.SourceModeRemoteApi,
-            Loc("ServicesEmbeddingSourceRemoteApi"),
-            Loc("ServicesEmbeddingSourceRemoteApiDesc")));
+            Loc.Text("ServicesEmbeddingSourceRemoteApi"),
+            Loc.Text("ServicesEmbeddingSourceRemoteApiDesc")));
     }
 
     private void InitializeLocalEmbeddingBackends()
@@ -470,7 +470,7 @@ public partial class ServicesPageData : PageDataBase
         _embeddingConfig.UBatchSize = Math.Max(0, EmbeddingUBatchSize);
         _embeddingConfig.GpuLayers = EmbeddingGpuLayers;
         _embeddingConfig.Save();
-        if (notify) _messageService.ShowNotification(Loc("ServicesEmbeddingSettingsSaved"));
+        if (notify) _messageService.ShowNotification(Loc.Text("ServicesEmbeddingSettingsSaved"));
         RefreshStatus();
     }
 
@@ -483,8 +483,8 @@ public partial class ServicesPageData : PageDataBase
             ManagedEmbeddingModels.Add(new EmbeddingModelCandidateViewData(
                 candidate,
                 candidate.Source == EmbeddingModelCandidateSource.Application
-                    ? Loc("ServicesEmbeddingSourceApplication")
-                    : Loc("ServicesEmbeddingSourceBuiltIn")));
+                    ? Loc.Text("ServicesEmbeddingSourceApplication")
+                    : Loc.Text("ServicesEmbeddingSourceBuiltIn")));
         }
 
         SelectedManagedEmbeddingModel = ManagedEmbeddingModels.FirstOrDefault(x =>
@@ -581,11 +581,6 @@ public partial class ServicesPageData : PageDataBase
         OnPropertyChanged(nameof(DeviceGpuName));
         OnPropertyChanged(nameof(DeviceGpuMemoryText));
         OnPropertyChanged(nameof(DeviceGpuMemoryNote));
-    }
-
-    private static string Loc(string key)
-    {
-        return LocalizationManager.Instance.GetString(key);
     }
 
     private static string FormatBytes(long bytes)
