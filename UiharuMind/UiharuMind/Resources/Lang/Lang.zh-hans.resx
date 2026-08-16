@@ -2668,6 +2668,9 @@
     <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
         <value>常驻上下文的只有技能的名字与描述，正文是按需装载的——所以这个数字小是正常的。</value>
     </data>
+    <data name="AgentMcpConnecting" xml:space="preserve">
+        <value>正在连接 MCP server…</value>
+    </data>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>角色提示</value>
     </data>

@@ -667,6 +667,14 @@
                             <TextBlock Classes="muted" VerticalAlignment="Center"
                                        Text="{loc:Loc HandoffWriting}" />
                         </StackPanel>
+                        <!-- 等 MCP server 连上:这段夹在「按下发送」与「模型开口」之间,进程内只发生一次,
+                             但可能长达十秒。与上面交接文档同一处、同一套形状——都是"没卡死,在忙别的" -->
+                        <StackPanel IsVisible="{Binding IsConnectingMcp}" Orientation="Horizontal" Spacing="6"
+                                    VerticalAlignment="Center">
+                            <u:LoadingIcon IsLoading="{Binding IsConnectingMcp}" />
+                            <TextBlock Classes="muted" VerticalAlignment="Center"
+                                       Text="{loc:Loc AgentMcpConnecting}" />
+                        </StackPanel>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
                             <ThemedIconButton IconName="stop"

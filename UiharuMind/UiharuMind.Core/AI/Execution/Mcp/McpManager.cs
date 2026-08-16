@@ -246,6 +246,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
 
         if (pending.Count == 0) return;
 
+        SetWarmingUp(true);
         try
         {
             await Task.WhenAll(pending).WaitAsync(WarmupTimeout, cancellationToken).ConfigureAwait(false);
@@ -255,6 +256,26 @@ public class McpManager : Singleton<McpManager>, IInitialize
             Log.Warning($"MCP warmup timed out after {WarmupTimeout.TotalSeconds:0}s; " +
                         "this turn runs without the slow servers' tools");
         }
+        finally
+        {
+            SetWarmingUp(false);
+        }
+    }
+
+    /// <summary>
+    /// 是否正在等 server 连上。界面据此提示——这段等待发生在用户按下发送之后，
+    /// 而它可能长达十秒，不说一声就是十秒的"看着像卡死"
+    /// </summary>
+    public bool IsWarmingUp { get; private set; }
+
+    /// <summary>预连状态变化。<b>可能在后台线程上触发</b>，订阅方自行切回 UI 线程</summary>
+    public event Action? WarmupStateChanged;
+
+    private void SetWarmingUp(bool value)
+    {
+        if (IsWarmingUp == value) return;
+        IsWarmingUp = value;
+        WarmupStateChanged?.Invoke();
     }
 
     /// <summary>

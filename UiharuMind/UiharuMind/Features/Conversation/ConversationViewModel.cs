@@ -25,6 +25,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
@@ -328,6 +329,12 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     /// <summary>正在整理交接文档（占用条旁显示，避免看起来像卡住）</summary>
     public bool IsCompacting => _driver.IsCompacting;
 
+    /// <summary>
+    /// 正在等 MCP server 连上（与交接文档同一处显示，同一个理由）。
+    /// 这段等待夹在「按下发送」与「模型开口」之间，进程内只发生一次，但可能长达十秒
+    /// </summary>
+    public bool IsConnectingMcp => McpManager.Instance.IsWarmingUp;
+
     public ConversationViewModel()
     {
         _transcript = new ConversationTranscript(Items, CreateAssistantItem,
@@ -359,6 +366,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         // 本类现在是每会话一个实例、随会话切换来去,挂了不卸就是一路泄漏
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
+        McpManager.Instance.WarmupStateChanged += OnMcpWarmupStateChanged;
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
     }
 
@@ -376,6 +384,12 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsGenerating));
         OnPropertyChanged(nameof(RunStatusKey));
         OnPropertyChanged(nameof(CanRegenerate));
+    }
+
+    /// 预连状态从后台线程上抛,而绑定要求属性变更在 UI 线程上发生
+    private void OnMcpWarmupStateChanged()
+    {
+        Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(IsConnectingMcp)));
     }
 
     private void OnCurrentModelChanged(ModelRunningData? model)
@@ -406,6 +420,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+        McpManager.Instance.WarmupStateChanged -= OnMcpWarmupStateChanged;
         _driver.StateChanged -= OnDriverStateChanged;
         _prepareCancellation?.Cancel();
         _driver.Dispose();

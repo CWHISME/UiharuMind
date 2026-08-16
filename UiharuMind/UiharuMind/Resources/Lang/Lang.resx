@@ -2675,6 +2675,9 @@ Note this is what the *next* turn will send, while the "Context" readout at the 
     <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
         <value>Only the skill's name and description stay in context. The body loads on demand, so this number is small on purpose.</value>
     </data>
+    <data name="AgentMcpConnecting" xml:space="preserve">
+        <value>Connecting MCP servers…</value>
+    </data>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>Persona</value>
     </data>
