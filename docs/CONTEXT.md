@@ -3,7 +3,6 @@
 这份文件定义本项目的**统一语言**：每个词指什么、体现为哪些类型、不要与什么混淆。
 出现分歧时改代码，不改这份文件（除非这里定义错了）。
 
-这里**只有术语**。目录约定、归属规则、构建方式等「怎么干活」的内容在 [../AGENTS.md](../AGENTS.md)。
 不写文件路径——路径会随重构腐烂，类型名改了编译器会报。
 
 ---
@@ -41,24 +40,6 @@
 这两条差异收在 `SessionListModel` 的构造参数 `selectNewSessions` 上，
 **刻意不从 `ESessionListScope` 推导**——它取决于创建时机，与「哪一页」无关。
 
-### SessionListModel（一页的会话列表）
-
-条目集合、选中、运行态、条目级事件的转发。聊天页与智能体页共用一份。
-`ESessionListScope` 决定归属哪一页，判定经 `CharacterKindRouting`（调用方不传裸谓词，
-因此写不出 `Kind == Roleplay` 那种四档之后会漏掉工具人的判据）。
-
-`Sync()` 是**原地对帐**而非清空重填：按标识复用条目。这一条同时管住三件事——
-选中不被抹掉（不必手写抑制标志）、顺序跟上索引的倒序（说过话的会话浮到顶部）、
-条目接上 `SaveMeta` 换过的那份新 `ChatSessionMeta`。
-
-⚠️ 运行态（在跑 / 等审批）的真相在 `SessionRunRegistry`，条目只是它的投影。
-而对话自己那一轮的运行态是 `ConversationViewModel.IsGenerating`——**两者是不同的问题**：
-定时任务在跑的会话，registry 说忙，而你打开它时那个 `TurnDriver` 是空闲的。
-
-渲染它的是 `SessionListView`，两页共用一份。两页**有意**保留的唯一差异是
-`ShowAvatar`：角色扮演靠头像认角色，工作区页要的是密度。其余差异（描述、悬停删除、
-右键菜单项）此前只是拷贝后各自演化，已经合齐。
-
 ---
 
 ## 页面壳的组成
@@ -81,14 +62,6 @@
 ### Conversation（对话渲染）
 
 会话的**渲染与交互层**：条目流、输入区、附件、流式装配。只在 UI 侧存在。
-
-体现为 `ConversationViewModel`（薄绑定壳）、`ConversationTranscript`（`AIContent` 流 → 条目序列）、
-`ConversationItemBase` 及其派生条目、`ConversationAttachment`、`ConversationView`。
-
-Conversation **渲染**一个 Session；Session 不知道 Conversation 存在。
-
-跑一轮的编排不在这里——那是 `TurnDriver` 的活（见执行域）。`ConversationTranscript` 是它的
-渲染落点，即 `ITurnSink` 的界面侧 adapter。
 
 ⚠️ Conversation 不指数据。想说数据就说 Session。
 

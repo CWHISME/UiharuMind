@@ -44,6 +44,19 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     public ChatOptions? ChatOptions => _handle?.ChatOptions;
 
+    private ETurnBusy _busy;
+
+    public ETurnBusy Busy => _busy;
+
+    public Action? BusyChanged { get; set; }
+
+    private void SetBusy(ETurnBusy value)
+    {
+        if (_busy == value) return;
+        _busy = value;
+        BusyChanged?.Invoke();
+    }
+
     public async Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -92,9 +105,12 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         // 而这个应用还有截图、剪贴板、快捷问答一堆与 MCP 无关的功能(见 McpManager.WarmupAsync)
         if (profile.Character.Kind.IsAgent())
         {
-            // 名单与下面 Resolve 用的是同一份:这一轮挂不上的 server 不值得为它起进程、也不值得等
-            await McpManager.Instance
-                .WarmupAsync(profile.Character.Tools.DisabledMcpServers, cancellationToken)
+            // 名单与下面 Resolve 用的是同一份:这一轮挂不上的 server 不值得为它起进程、也不值得等。
+            // 忙碌态只在真的要等时才亮(回调由 WarmupAsync 决定发不发),否则每次装配都会闪一帧
+            await McpManager.Instance.WarmupAsync(
+                    profile.Character.Tools.DisabledMcpServers,
+                    isWaiting => SetBusy(isWaiting ? ETurnBusy.ConnectingMcp : ETurnBusy.None),
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 

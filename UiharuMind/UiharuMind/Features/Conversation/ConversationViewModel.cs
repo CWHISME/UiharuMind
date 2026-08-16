@@ -326,14 +326,27 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     /// <summary>运行态指示点的配色键（status-dot 样式按 Tag 选色）</summary>
     public string RunStatusKey => IsGenerating ? "Ready" : "Idle";
 
-    /// <summary>正在整理交接文档（占用条旁显示，避免看起来像卡住）</summary>
-    public bool IsCompacting => _driver.IsCompacting;
+    /// <summary>
+    /// 本会话此刻卡在什么具名的事情上。两个来源合并成一处：整理交接文档在驱动那一层，
+    /// 等 MCP server 连上（预连）在执行者那一层。
+    ///
+    /// 驱动优先：交接文档只会在一轮跑完之后开始，那时预连早已结束，两者实际不会同时为真；
+    /// 万一同时为真，正在发请求的那件事更该说。
+    /// </summary>
+    public ETurnBusy Busy => _driver.Busy != ETurnBusy.None
+        ? _driver.Busy
+        : CurrentRunner?.Busy ?? ETurnBusy.None;
 
     /// <summary>
-    /// 正在等 MCP server 连上（与交接文档同一处显示，同一个理由）。
-    /// 这段等待夹在「按下发送」与「模型开口」之间，进程内只发生一次，但可能长达十秒
+    /// 忙碌提示的文案；不忙时为空串，那一处整块不显示。
+    /// 枚举 → 本地化键的映射只此一处——Core 侧不带文案，见 <see cref="ETurnBusy"/>
     /// </summary>
-    public bool IsConnectingMcp => McpManager.Instance.IsWarmingUp;
+    public string BusyLabel => Busy switch
+    {
+        ETurnBusy.ConnectingMcp => LocalizationManager.Instance.GetString("AgentMcpConnecting"),
+        ETurnBusy.Compacting => LocalizationManager.Instance.GetString("HandoffWriting"),
+        _ => string.Empty,
+    };
 
     public ConversationViewModel()
     {
@@ -366,30 +379,33 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         // 本类现在是每会话一个实例、随会话切换来去,挂了不卸就是一路泄漏
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
-        McpManager.Instance.WarmupStateChanged += OnMcpWarmupStateChanged;
         InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
     }
 
     /// <summary>
-    /// 运行态或压缩态变化。运行侧不认识绑定，属性变更由这里代它抛出。
+    /// 运行态或忙碌态变化。运行侧不认识绑定，属性变更由这里代它抛出。
     /// </summary>
     private void OnDriverStateChanged()
     {
+        NotifyRunStateChanged();
         NotifyBusyChanged();
-        OnPropertyChanged(nameof(IsCompacting));
     }
 
-    private void NotifyBusyChanged()
+    private void NotifyRunStateChanged()
     {
         OnPropertyChanged(nameof(IsGenerating));
         OnPropertyChanged(nameof(RunStatusKey));
         OnPropertyChanged(nameof(CanRegenerate));
     }
 
-    /// 预连状态从后台线程上抛,而绑定要求属性变更在 UI 线程上发生
-    private void OnMcpWarmupStateChanged()
+    /// 忙碌态可能从后台线程上抛(预连在装配线程上),而绑定要求属性变更在 UI 线程上发生
+    private void NotifyBusyChanged()
     {
-        Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(IsConnectingMcp)));
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(Busy));
+            OnPropertyChanged(nameof(BusyLabel));
+        });
     }
 
     private void OnCurrentModelChanged(ModelRunningData? model)
@@ -420,8 +436,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
-        McpManager.Instance.WarmupStateChanged -= OnMcpWarmupStateChanged;
         _driver.StateChanged -= OnDriverStateChanged;
+        // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
+        if (CurrentRunner is { } runner) runner.BusyChanged = null;
         _prepareCancellation?.Cancel();
         _driver.Dispose();
         MemoryPanel?.Detach();
@@ -836,7 +853,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private async Task RunTurnAsync(ChatMessage userMessage, string titleSeed)
     {
         _isPreparing = true;
-        NotifyBusyChanged();
+        NotifyRunStateChanged();
         _prepareCancellation = new CancellationTokenSource();
         try
         {
@@ -867,7 +884,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         {
             _isPreparing = false;
             _prepareCancellation = null;
-            NotifyBusyChanged();
+            NotifyRunStateChanged();
         }
     }
 
@@ -901,6 +918,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsModeSwitchVisible));
         OnPropertyChanged(nameof(IsTodoListVisible));
             MemoryPanel = new ConversationMemoryViewData(created);
+            WatchRunnerBusy(created.Runner); //必须在 AttachAsync 之前,预连就在它里面
             await created.Runner.AttachAsync(created, cancellationToken);
             ApplyMode();
             SessionsChanged?.Invoke();
@@ -926,8 +944,21 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
         session.WorkspacePath = WorkspacePath;
         session.PermissionModeIndex = PermissionModeIndex;
+        // 回调要在 AttachAsync **之前**挂上:装配就发生在它里面,预连也在那儿,
+        // 挂在后面的话第一次等待(恰好是唯一会等满十秒的那次)一声不响
+        WatchRunnerBusy(session.Runner);
         await session.Runner.AttachAsync(session, cancellationToken);
         return session;
+    }
+
+    /// <summary>
+    /// 接上执行者的忙碌态上报。赋值而非累加订阅：一个会话一个执行者、一个视图，
+    /// 重复挂接只会覆盖成同一个回调，不会攒出多份。
+    /// </summary>
+    /// <param name="runner">本会话的执行者</param>
+    private void WatchRunnerBusy(ICharacterRunner runner)
+    {
+        runner.BusyChanged = NotifyBusyChanged;
     }
 
     private void ApplyMode()

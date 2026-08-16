@@ -41,6 +41,10 @@ public class RunTextSemanticsTests
 
         public ChatOptions? ChatOptions => null;
 
+        public ETurnBusy Busy => ETurnBusy.None;
+
+        public Action? BusyChanged { get; set; }
+
         public async IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,
             [System.Runtime.CompilerServices.EnumeratorCancellation]
             CancellationToken cancellationToken = default)

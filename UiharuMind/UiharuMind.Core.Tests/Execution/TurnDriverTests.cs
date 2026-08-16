@@ -454,6 +454,10 @@ public class TurnDriverTests
 
         public bool HasSession => true;
 
+        public ETurnBusy Busy => ETurnBusy.None;
+
+        public Action? BusyChanged { get; set; }
+
         public ChatOptions? ChatOptions => null;
 
         public async IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,

@@ -230,8 +230,18 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// 工具取回后再被 <see cref="Resolve"/> 原样丢掉。
     /// </summary>
     /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0008）</param>
+    /// <param name="waiting">
+    /// 真的要等时回调 <c>true</c>、等完回调 <c>false</c>；无需等待时<b>一次都不回调</b>。
+    /// 界面据此提示——这段等待发生在用户按下发送之后，可能长达十秒，不说一声就是十秒的"看着像卡死"。
+    ///
+    /// 刻意做成<b>逐次调用的回调</b>而不是这个单例上的一个状态：等待是<b>调用方那一轮</b>的事，
+    /// 而连接是全进程共享的。从前这里挂着一个全局 bool 加一个全局事件，
+    /// 于是后台定时任务触发的预连会点亮一个跟 MCP 毫无关系的会话的提示，
+    /// 两条链路并发时先结束的那个还会把另一个的提示掐灭。
+    /// </param>
     /// <param name="cancellationToken">取消令牌</param>
     public async Task WarmupAsync(IEnumerable<string>? disabledServers = null,
+        Action<bool>? waiting = null,
         CancellationToken cancellationToken = default)
     {
         HashSet<string> disabled = DisabledSet(disabledServers);
@@ -255,7 +265,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
 
         if (pending.Count == 0) return;
 
-        SetWarmingUp(true);
+        waiting?.Invoke(true);
         try
         {
             await Task.WhenAll(pending).WaitAsync(WarmupTimeout, cancellationToken).ConfigureAwait(false);
@@ -267,24 +277,8 @@ public class McpManager : Singleton<McpManager>, IInitialize
         }
         finally
         {
-            SetWarmingUp(false);
+            waiting?.Invoke(false);
         }
-    }
-
-    /// <summary>
-    /// 是否正在等 server 连上。界面据此提示——这段等待发生在用户按下发送之后，
-    /// 而它可能长达十秒，不说一声就是十秒的"看着像卡死"
-    /// </summary>
-    public bool IsWarmingUp { get; private set; }
-
-    /// <summary>预连状态变化。<b>可能在后台线程上触发</b>，订阅方自行切回 UI 线程</summary>
-    public event Action? WarmupStateChanged;
-
-    private void SetWarmingUp(bool value)
-    {
-        if (IsWarmingUp == value) return;
-        IsWarmingUp = value;
-        WarmupStateChanged?.Invoke();
     }
 
     /// <summary>

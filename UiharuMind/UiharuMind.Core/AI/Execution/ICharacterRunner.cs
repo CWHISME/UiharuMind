@@ -39,6 +39,22 @@ public interface ICharacterRunner : IAsyncDisposable
     bool HasSession { get; }
 
     /// <summary>
+    /// 执行者这一刻卡在什么上（装配前等 MCP 连上）。
+    ///
+    /// 由执行者而不是驱动方持有，因为这段等待发生在装配内部；而它是<b>会话级</b>的
+    /// ——一个会话一个执行者，所以这个状态天然就只属于这个会话。见 <see cref="ETurnBusy"/>。
+    /// </summary>
+    ETurnBusy Busy { get; }
+
+    /// <summary>
+    /// <see cref="Busy"/> 变化时回调。<b>可能在后台线程上触发</b>，订阅方自行切回 UI 线程。
+    ///
+    /// 用可赋值的委托而不是 <c>event</c>：接口里的事件无法给默认实现（没有存储），
+    /// 而这条口子只有一个消费方——渲染这个会话的那一处。
+    /// </summary>
+    Action? BusyChanged { get; set; }
+
+    /// <summary>
     /// 本会话装配好的对话选项（系统提示词、工具集与采样参数）；未挂接时为 null。
     ///
     /// 旁路请求（写交接文档那一发）必须带上同一份。两个理由：模型不该在一个它没见过的身份下

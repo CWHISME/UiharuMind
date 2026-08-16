@@ -46,7 +46,7 @@ public sealed class TurnDriver : IDisposable
     private CancellationTokenSource? _runCancellation;
     private ChatSession? _activeSession; //本轮的会话,退出收尾要靠它
     private bool _isRunning;
-    private bool _isCompacting;
+    private ETurnBusy _busy;
     private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
     /// <summary>本轮是否正在跑</summary>
@@ -61,19 +61,23 @@ public sealed class TurnDriver : IDisposable
         }
     }
 
-    /// <summary>是否正在整理交接文档（界面据此提示，避免看起来像卡住）</summary>
-    public bool IsCompacting
+    /// <summary>
+    /// 这一轮卡在什么具名的事情上（界面据此提示，避免看起来像卡住）。
+    /// 驱动这一层只会是 <see cref="ETurnBusy.Compacting"/>——预连发生在执行者内部，
+    /// 由 <c>ICharacterRunner.Busy</c> 说，两者由渲染方合并成一处提示。
+    /// </summary>
+    public ETurnBusy Busy
     {
-        get => _isCompacting;
+        get => _busy;
         private set
         {
-            if (_isCompacting == value) return;
-            _isCompacting = value;
+            if (_busy == value) return;
+            _busy = value;
             StateChanged?.Invoke();
         }
     }
 
-    /// <summary><see cref="IsRunning"/> 或 <see cref="IsCompacting"/> 变化</summary>
+    /// <summary><see cref="IsRunning"/> 或 <see cref="Busy"/> 变化</summary>
     public event Action? StateChanged;
 
     /// <param name="sink">渲染落点；无头执行传 null</param>
@@ -363,7 +367,7 @@ public sealed class TurnDriver : IDisposable
         IChatClient? client = session.ChatModelRunningData?.ChatClient;
         if (client == null) return;
 
-        IsCompacting = true;
+        Busy = ETurnBusy.Compacting;
         try
         {
             List<ChatMessage> supplied = session.History.Skip(start).ToList();
@@ -386,7 +390,7 @@ public sealed class TurnDriver : IDisposable
         }
         finally
         {
-            IsCompacting = false;
+            Busy = ETurnBusy.None;
         }
     }
 }

@@ -693,19 +693,12 @@
                                 </StackPanel>
                             </ToolTip.Tip>
                         </TextBlock>
-                        <StackPanel IsVisible="{Binding IsCompacting}" Orientation="Horizontal" Spacing="6"
-                                    VerticalAlignment="Center">
-                            <u:LoadingIcon IsLoading="{Binding IsCompacting}" />
-                            <TextBlock Classes="muted" VerticalAlignment="Center"
-                                       Text="{loc:Loc HandoffWriting}" />
-                        </StackPanel>
-                        <!-- 等 MCP server 连上:这段夹在「按下发送」与「模型开口」之间,进程内只发生一次,
-                             但可能长达十秒。与上面交接文档同一处、同一套形状——都是"没卡死,在忙别的" -->
-                        <StackPanel IsVisible="{Binding IsConnectingMcp}" Orientation="Horizontal" Spacing="6"
-                                    VerticalAlignment="Center">
-                            <u:LoadingIcon IsLoading="{Binding IsConnectingMcp}" />
-                            <TextBlock Classes="muted" VerticalAlignment="Center"
-                                       Text="{loc:Loc AgentMcpConnecting}" />
+                        <!-- 「没卡死,在忙别的」：整理交接文档、等 MCP 连上都走这一处。
+                             文案由 BusyLabel 按 ETurnBusy 映射，再加一种不必再复制一块 StackPanel -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                    IsVisible="{Binding BusyLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <u:LoadingIcon IsLoading="True" />
+                            <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding BusyLabel}" />
                         </StackPanel>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
