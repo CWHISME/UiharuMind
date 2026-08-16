@@ -1,0 +1,177 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
+             xmlns:imaging="clr-namespace:Avalonia.Media.Imaging;assembly=Avalonia.Base"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="120"
+             x:Class="UiharuMind.Features.Conversation.Items.TextMessageCardView"
+             x:DataType="items:TextConversationItem">
+
+    <!-- 一条文本消息的气泡：头像 + 发送者/时间 + 图片 + 正文 + 折叠的注入正文 + 悬停操作行。
+         与 ToolCallCardView / ApprovalCardView / ThinkingCardView 并列——那三种条目早就各有其组件，
+         只有文本气泡一直内联在 ConversationView.axaml 里，把那个文件顶到 700 多行。
+
+         <b>它依赖被 ConversationView 宿主</b>：正文的 IsPlaintext 要读页面级开关，
+         走 RelativeSource 向上找 conv:ConversationView。子代理过程窗口<b>不用</b>本组件，
+         它那份文本模板是有意简化的只读版（无头像/操作/时间戳）。 -->
+
+    <UserControl.Resources>
+        <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.message-bubble">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="Border.message-actions">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Grid.message-row:pointerover Border.message-actions">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
+          Background="Transparent">
+        <Ellipse Width="34" Height="34"
+                 Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
+                 VerticalAlignment="Top"
+                 IsVisible="{Binding ShowAvatar}"
+                 Grid.Column="{Binding AvatarColumn}">
+            <Ellipse.Fill>
+                <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+            </Ellipse.Fill>
+        </Ellipse>
+
+        <Grid Grid.Column="1" Margin="10,0" MinHeight="34"
+              RowDefinitions="Auto,18" Background="Transparent"
+              HorizontalAlignment="{Binding Alignment}">
+            <StackPanel HorizontalAlignment="{Binding Alignment}">
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            HorizontalAlignment="{Binding Alignment}">
+                    <TextBlock Text="{Binding SenderName}" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SemiGrey7}" />
+                    <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                </StackPanel>
+
+                <!-- 多模态消息里的图片(粘贴/附加的图) -->
+                <Border Classes="message-bubble" Margin="0,5,0,0" Padding="4"
+                        BorderBrush="{Binding SenderColor}"
+                        HorizontalAlignment="{Binding Alignment}"
+                        IsVisible="{Binding HasImage}">
+                    <!-- 点击看原尺寸:气泡里是缩略图,而这些正是发给模型的那几份 -->
+                    <ItemsControl ItemsSource="{Binding MessageImages}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel MaxWidth="340" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type imaging:Bitmap}">
+                                <!-- 每张图各自描边:多张浅色截图挨在一起时,没有边界就会被读成一整张长图 -->
+                                <Border Margin="4" CornerRadius="4" ClipToBounds="True"
+                                        BorderThickness="1"
+                                        BorderBrush="{DynamicResource SemiGrey3}">
+                                    <Image Source="{Binding}"
+                                           MaxWidth="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
+                                           MaxHeight="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
+                                           Stretch="Uniform"
+                                           Cursor="Hand"
+                                           PointerPressed="OnMessageImagePressed" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <Border Classes="message-bubble" Margin="0,5,0,0"
+                        BorderBrush="{Binding SenderColor}"
+                        HorizontalAlignment="{Binding Alignment}"
+                        IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <common:SimpleMarkdownViewer HorizontalAlignment="Left"
+                                                 MarkdownText="{Binding Message}">
+                        <common:SimpleMarkdownViewer.IsPlaintext>
+                            <MultiBinding
+                                Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                <Binding Path="IsUser" />
+                                <Binding Path="!IsDone" />
+                                <Binding Path="DataContext.IsPlaintext"
+                                         RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
+                            </MultiBinding>
+                        </common:SimpleMarkdownViewer.IsPlaintext>
+                    </common:SimpleMarkdownViewer>
+                </Border>
+
+                <!-- 点名调用注入的技能正文:气泡显示的是 /技能名 那一行,正文折在这里备查 -->
+                <StackPanel IsVisible="{Binding HasInjectedText}"
+                            HorizontalAlignment="{Binding Alignment}">
+                    <ToggleButton Classes="NoneStyle" Cursor="Hand"
+                                  Padding="0" Margin="0,3,0,0"
+                                  HorizontalAlignment="{Binding Alignment}"
+                                  IsChecked="{Binding IsInjectedTextExpanded}">
+                        <TextBlock Classes="muted" FontSize="11"
+                                   Text="{loc:Loc SkillInvocationInjected}" />
+                    </ToggleButton>
+                    <Border Classes="message-bubble" Margin="0,3,0,0" MaxHeight="260"
+                            BorderBrush="{DynamicResource SemiGrey2}"
+                            IsVisible="{Binding IsInjectedTextExpanded}">
+                        <ScrollViewer>
+                            <SelectableTextBlock Classes="muted" FontSize="11"
+                                                 Text="{Binding InjectedText}"
+                                                 TextWrapping="Wrap" />
+                        </ScrollViewer>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
+            <Border Classes="message-actions" Grid.Row="1"
+                    HorizontalAlignment="{Binding Alignment}">
+                <!-- 操作按钮悬停到本行时才实例化:
+                     每行 5 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
+                <HoverDeferredContent>
+                    <HoverDeferredContent.ContentTemplate>
+                        <DataTemplate x:DataType="items:TextConversationItem">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <ThemedIconButton Classes="message-action" IconName="repeat"
+                                                  IsVisible="{Binding CanRetry}"
+                                                  Command="{Binding RetryCommand}"
+                                                  ToolTips="{loc:Loc RetryMessage}" />
+                                <ThemedIconButton Classes="message-action" IconName="copy"
+                                                  Command="{Binding CopyCommand}"
+                                                  ToolTips="{loc:Loc Copy}" />
+                                <ThemedIconButton Classes="message-action" IconName="pencil"
+                                                  IsVisible="{Binding CanEdit}"
+                                                  Command="{Binding EditCommand}"
+                                                  ToolTips="{loc:Loc Edit}" />
+                                <ThemedIconButton Classes="message-action" IconName="split"
+                                                  IsVisible="{Binding CanBranch}"
+                                                  Command="{Binding BranchCommand}"
+                                                  ToolTips="{loc:Loc BranchChatAfterMessage}" />
+                                <ThemedIconButton Classes="message-action" IconName="trash-2"
+                                                  IsVisible="{Binding CanDelete}"
+                                                  Command="{Binding DeleteCommand}"
+                                                  ToolTips="{loc:Loc Delete}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </HoverDeferredContent.ContentTemplate>
+                </HoverDeferredContent>
+            </Border>
+        </Grid>
+    </Grid>
+
+</UserControl>

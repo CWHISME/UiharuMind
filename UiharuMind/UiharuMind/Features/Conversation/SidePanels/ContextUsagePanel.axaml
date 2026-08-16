@@ -1,0 +1,120 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="200"
+             x:Class="UiharuMind.Features.Conversation.SidePanels.ContextUsagePanel"
+             x:DataType="panels:ContextUsageViewData">
+
+    <!-- 上下文占用的悬停面板：模型名与上限、两段进度条、压缩水位刻度与三段归因。
+         配对的数据是 ContextUsageViewData——那个类早就独立了，只有这块 axaml 一直内联在
+         ConversationView.axaml 的 ToolTip.Tip 里。
+
+         进度条<b>两段叠放</b>：上层是服务端报的那段（实色），下层画到有效占用、半透明，
+         区分出「这一截是我们估的、服务端没计入」。口径见 ADR 0009。 -->
+
+    <UserControl.Styles>
+        <!-- 上下文占用条:颜色即压缩档位。轨道必须可见——占用低时进度块只有一两像素,
+             没有轨道衬着就看不出这是一根进度条,只像一个小色块 -->
+        <Style Selector="ProgressBar.contextUsage /template/ Border#PART_Track">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey3}" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage[Tag=Normal] /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="MediumSeaGreen" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage[Tag=Evicting] /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="Orange" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage[Tag=Truncating] /template/ Border#PART_Indicator">
+            <Setter Property="Background" Value="OrangeRed" />
+        </Style>
+        <!-- 两段叠放:上层是服务端报的那段(实色),轨道透明才不会盖住底层 -->
+        <Style Selector="ProgressBar.contextUsage.reported /template/ Border#PART_Track">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ProgressBar.contextUsage.unreported /template/ Border#PART_Indicator">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel MinWidth="240" Spacing="6">
+    <!-- 模型名 + 上下文上限 -->
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasData}">
+        <TextBlock Text="{Binding ModelName}" FontWeight="SemiBold"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="1" Classes="muted" Margin="8,0,0,0"
+                   Text="{Binding LimitText}" />
+    </Grid>
+
+    <!-- 占用条：颜色随压缩档位变，Tag 由样式选择器取用。
+         两段叠放——底层画到有效占用（含服务端未计入的那截，淡色），
+         上层只画服务端报的那段（实色，可与官方控制台对账）。
+         上层轨道必须透明，否则会把底层那截盖掉 -->
+    <Grid IsVisible="{Binding HasData}" Height="6">
+        <ProgressBar Classes="contextUsage unreported" Tag="{Binding StateKey}"
+                     Minimum="0" Maximum="100" Value="{Binding EffectivePercent}"
+                     Height="6" CornerRadius="3"
+                     Background="{DynamicResource SemiGrey3}" />
+        <ProgressBar Classes="contextUsage reported" Tag="{Binding StateKey}"
+                     Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
+                     Height="6" CornerRadius="3" />
+    </Grid>
+
+    <!-- 没有模型就没有上限,整个面板算不出来:说清楚为什么,别只给一个空框 -->
+    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
+               IsVisible="{Binding !HasData}" Text="{loc:Loc ContextNoModel}" />
+
+    <!-- 没有上限时也显示占用(会话本体恢复出来的),只是没有分母 -->
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding UsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding UsageText}" />
+    </Grid>
+
+    <!-- 服务端报的那段:原样显示,可与官方控制台对账 -->
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding ReportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextReportedLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding ReportedText}" />
+    </Grid>
+
+    <!-- 服务端没计入的那段。口径一致时整行不出现——绝大多数服务端报的就是全量 -->
+    <Grid ColumnDefinitions="Auto,*"
+          ToolTip.Tip="{loc:Loc ContextUnreportedTip}"
+          IsVisible="{Binding UnreportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextUnreportedLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding UnreportedText}" />
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding CachedText}" />
+    </Grid>
+
+    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
+               IsVisible="{Binding HasData}" Text="{Binding ThresholdText}" />
+
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextTurnLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding TurnText}" />
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding SessionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextSessionLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding SessionText}" />
+    </Grid>
+    </StackPanel>
+
+</UserControl>

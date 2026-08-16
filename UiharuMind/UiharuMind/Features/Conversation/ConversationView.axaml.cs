@@ -182,20 +182,6 @@ public partial class ConversationView : UserControl
         e.Handled = true;
     }
 
-    /// <summary>
-    /// 点击气泡里的图 → 原尺寸浮窗预览（可滚轮缩放、拖动）。
-    /// 显示的正是**发给模型的那一份**（缩放重编码之后的结果），
-    /// 「压缩之后文字还认得出吗」只能在这里对答案。
-    /// </summary>
-    private void OnMessageImagePressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (sender is not Image { Source: Bitmap bitmap }) return;
-
-        // 传副本:气泡这张图还挂在条目上,预览窗关闭时会释放它自己那份
-        UIManager.ShowPreviewImageCopyWindowAtMousePosition(bitmap);
-        e.Handled = true;
-    }
-
     private void OnDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = e.DataTransfer.Formats.Any(f => f == DataFormat.File)

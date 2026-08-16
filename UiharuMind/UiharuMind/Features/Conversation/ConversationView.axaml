@@ -6,10 +6,8 @@
              xmlns:composer="clr-namespace:UiharuMind.Features.Conversation.Composer"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
-             xmlns:imaging="clr-namespace:Avalonia.Media.Imaging;assembly=Avalonia.Base"
-             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              xmlns:uiHolder="clr-namespace:UiharuMind.Shared.UIHolder"
-             xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:skills="clr-namespace:UiharuMind.Core.AI.Execution.Skills;assembly=UiharuMind.Core"
@@ -18,34 +16,10 @@
              x:DataType="conv:ConversationViewModel">
 
     <UserControl.Resources>
-        <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
         <composer:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
     </UserControl.Resources>
 
     <UserControl.Styles>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
-        </Style>
-        <Style Selector="Border.message-bubble">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="10,8" />
-        </Style>
-        <Style Selector="Border.message-actions">
-            <Setter Property="Opacity" Value="0" />
-            <Setter Property="IsHitTestVisible" Value="False" />
-            <Setter Property="Margin" Value="0,2,0,0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-        </Style>
-        <Style Selector="Grid.message-row:pointerover Border.message-actions">
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="IsHitTestVisible" Value="True" />
-        </Style>
         <Style Selector="Border.tool-row">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
@@ -59,29 +33,6 @@
         <Style Selector="ListBox.option-list ListBoxItem">
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="CornerRadius" Value="6" />
-        </Style>
-        <!-- 上下文占用条:颜色即压缩档位。轨道必须可见——占用低时进度块只有一两像素,
-             没有轨道衬着就看不出这是一根进度条,只像一个小色块 -->
-        <Style Selector="ProgressBar.contextUsage /template/ Border#PART_Track">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey3}" />
-            <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="ProgressBar.contextUsage[Tag=Normal] /template/ Border#PART_Indicator">
-            <Setter Property="Background" Value="MediumSeaGreen" />
-        </Style>
-        <Style Selector="ProgressBar.contextUsage[Tag=Evicting] /template/ Border#PART_Indicator">
-            <Setter Property="Background" Value="Orange" />
-        </Style>
-        <Style Selector="ProgressBar.contextUsage[Tag=Truncating] /template/ Border#PART_Indicator">
-            <Setter Property="Background" Value="OrangeRed" />
-        </Style>
-        <!-- 两段叠放:上层是服务端报的那段(实色),轨道透明才不会盖住底层。
-             底层画到有效占用,用半透明区分出"这一截是我们估的、服务端没计入" -->
-        <Style Selector="ProgressBar.contextUsage.reported /template/ Border#PART_Track">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="ProgressBar.contextUsage.unreported /template/ Border#PART_Indicator">
-            <Setter Property="Opacity" Value="0.45" />
         </Style>
         <!-- 工具行图标态:Tag 驱动颜色区分当前状态 -->
         <Style Selector="ThemedIconButton.mode-state[Tag=Plan] controls|ThemedSvgIcon">
@@ -226,136 +177,10 @@
                     </DataTemplate>
 
                     <!-- 标准文本气泡;特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
+                    <!-- 文本气泡:与工具/审批/思考三张卡并列,各自成组件 -->
                     <DataTemplate DataType="{x:Type items:TextConversationItem}">
-                            <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
-                                  Background="Transparent"
-                                  x:DataType="items:TextConversationItem">
-                                <Ellipse Width="34" Height="34"
-                                         Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
-                                         VerticalAlignment="Top"
-                                         IsVisible="{Binding ShowAvatar}"
-                                         Grid.Column="{Binding AvatarColumn}">
-                                    <Ellipse.Fill>
-                                        <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
-                                    </Ellipse.Fill>
-                                </Ellipse>
-
-                                <Grid Grid.Column="1" Margin="10,0" MinHeight="34"
-                                      RowDefinitions="Auto,18" Background="Transparent"
-                                      HorizontalAlignment="{Binding Alignment}">
-                                    <StackPanel HorizontalAlignment="{Binding Alignment}">
-                                        <StackPanel Orientation="Horizontal" Spacing="8"
-                                                    HorizontalAlignment="{Binding Alignment}">
-                                            <TextBlock Text="{Binding SenderName}" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource SemiGrey7}" />
-                                            <TextBlock Classes="muted" Text="{Binding Timestamp}" />
-                                        </StackPanel>
-
-                                        <!-- 多模态消息里的图片(粘贴/附加的图) -->
-                                        <Border Classes="message-bubble" Margin="0,5,0,0" Padding="4"
-                                                BorderBrush="{Binding SenderColor}"
-                                                HorizontalAlignment="{Binding Alignment}"
-                                                IsVisible="{Binding HasImage}">
-                                            <!-- 点击看原尺寸:气泡里是缩略图,而这些正是发给模型的那几份 -->
-                                            <ItemsControl ItemsSource="{Binding MessageImages}">
-                                                <ItemsControl.ItemsPanel>
-                                                    <ItemsPanelTemplate>
-                                                        <WrapPanel MaxWidth="340" />
-                                                    </ItemsPanelTemplate>
-                                                </ItemsControl.ItemsPanel>
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate DataType="{x:Type imaging:Bitmap}">
-                                                        <!-- 每张图各自描边:多张浅色截图挨在一起时,没有边界就会被读成一整张长图 -->
-                                                        <Border Margin="4" CornerRadius="4" ClipToBounds="True"
-                                                                BorderThickness="1"
-                                                                BorderBrush="{DynamicResource SemiGrey3}">
-                                                            <Image Source="{Binding}"
-                                                                   MaxWidth="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
-                                                                   MaxHeight="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
-                                                                   Stretch="Uniform"
-                                                                   Cursor="Hand"
-                                                                   PointerPressed="OnMessageImagePressed" />
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </Border>
-
-                                        <Border Classes="message-bubble" Margin="0,5,0,0"
-                                                BorderBrush="{Binding SenderColor}"
-                                                HorizontalAlignment="{Binding Alignment}"
-                                                IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                            <common:SimpleMarkdownViewer HorizontalAlignment="Left"
-                                                                         MarkdownText="{Binding Message}">
-                                                <common:SimpleMarkdownViewer.IsPlaintext>
-                                                    <MultiBinding
-                                                        Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                                        <Binding Path="IsUser" />
-                                                        <Binding Path="!IsDone" />
-                                                        <Binding Path="DataContext.IsPlaintext"
-                                                                 RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
-                                                    </MultiBinding>
-                                                </common:SimpleMarkdownViewer.IsPlaintext>
-                                            </common:SimpleMarkdownViewer>
-                                        </Border>
-
-                                        <!-- 点名调用注入的技能正文:气泡显示的是 /技能名 那一行,正文折在这里备查 -->
-                                        <StackPanel IsVisible="{Binding HasInjectedText}"
-                                                    HorizontalAlignment="{Binding Alignment}">
-                                            <ToggleButton Classes="NoneStyle" Cursor="Hand"
-                                                          Padding="0" Margin="0,3,0,0"
-                                                          HorizontalAlignment="{Binding Alignment}"
-                                                          IsChecked="{Binding IsInjectedTextExpanded}">
-                                                <TextBlock Classes="muted" FontSize="11"
-                                                           Text="{loc:Loc SkillInvocationInjected}" />
-                                            </ToggleButton>
-                                            <Border Classes="message-bubble" Margin="0,3,0,0" MaxHeight="260"
-                                                    BorderBrush="{DynamicResource SemiGrey2}"
-                                                    IsVisible="{Binding IsInjectedTextExpanded}">
-                                                <ScrollViewer>
-                                                    <SelectableTextBlock Classes="muted" FontSize="11"
-                                                                         Text="{Binding InjectedText}"
-                                                                         TextWrapping="Wrap" />
-                                                </ScrollViewer>
-                                            </Border>
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <Border Classes="message-actions" Grid.Row="1"
-                                            HorizontalAlignment="{Binding Alignment}">
-                                        <!-- 操作按钮悬停到本行时才实例化:
-                                             每行 5 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
-                                        <HoverDeferredContent>
-                                            <HoverDeferredContent.ContentTemplate>
-                                                <DataTemplate x:DataType="items:TextConversationItem">
-                                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                                        <ThemedIconButton Classes="message-action" IconName="repeat"
-                                                                          IsVisible="{Binding CanRetry}"
-                                                                          Command="{Binding RetryCommand}"
-                                                                          ToolTips="{loc:Loc RetryMessage}" />
-                                                        <ThemedIconButton Classes="message-action" IconName="copy"
-                                                                          Command="{Binding CopyCommand}"
-                                                                          ToolTips="{loc:Loc Copy}" />
-                                                        <ThemedIconButton Classes="message-action" IconName="pencil"
-                                                                          IsVisible="{Binding CanEdit}"
-                                                                          Command="{Binding EditCommand}"
-                                                                          ToolTips="{loc:Loc Edit}" />
-                                                        <ThemedIconButton Classes="message-action" IconName="split"
-                                                                          IsVisible="{Binding CanBranch}"
-                                                                          Command="{Binding BranchCommand}"
-                                                                          ToolTips="{loc:Loc BranchChatAfterMessage}" />
-                                                        <ThemedIconButton Classes="message-action" IconName="trash-2"
-                                                                          IsVisible="{Binding CanDelete}"
-                                                                          Command="{Binding DeleteCommand}"
-                                                                          ToolTips="{loc:Loc Delete}" />
-                                                    </StackPanel>
-                                                </DataTemplate>
-                                            </HoverDeferredContent.ContentTemplate>
-                                        </HoverDeferredContent>
-                                    </Border>
-                                </Grid>
-                            </Grid>
-                        </DataTemplate>
+                        <items:TextMessageCardView />
+                    </DataTemplate>
                         </ItemsControl.DataTemplates>
                     </ItemsControl>
                 </StackPanel>
@@ -618,82 +443,7 @@
                                    Text="{Binding TokenUsageText}"
                                    IsVisible="{Binding TokenUsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <ToolTip.Tip>
-                                <StackPanel MinWidth="240" Spacing="6" DataContext="{Binding ContextUsage}">
-                                    <!-- 模型名 + 上下文上限 -->
-                                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasData}">
-                                        <TextBlock Text="{Binding ModelName}" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Classes="muted" Margin="8,0,0,0"
-                                                   Text="{Binding LimitText}" />
-                                    </Grid>
-
-                                    <!-- 占用条：颜色随压缩档位变，Tag 由样式选择器取用。
-                                         两段叠放——底层画到有效占用（含服务端未计入的那截，淡色），
-                                         上层只画服务端报的那段（实色，可与官方控制台对账）。
-                                         上层轨道必须透明，否则会把底层那截盖掉 -->
-                                    <Grid IsVisible="{Binding HasData}" Height="6">
-                                        <ProgressBar Classes="contextUsage unreported" Tag="{Binding StateKey}"
-                                                     Minimum="0" Maximum="100" Value="{Binding EffectivePercent}"
-                                                     Height="6" CornerRadius="3"
-                                                     Background="{DynamicResource SemiGrey3}" />
-                                        <ProgressBar Classes="contextUsage reported" Tag="{Binding StateKey}"
-                                                     Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
-                                                     Height="6" CornerRadius="3" />
-                                    </Grid>
-
-                                    <!-- 没有模型就没有上限,整个面板算不出来:说清楚为什么,别只给一个空框 -->
-                                    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
-                                               IsVisible="{Binding !HasData}" Text="{loc:Loc ContextNoModel}" />
-
-                                    <!-- 没有上限时也显示占用(会话本体恢复出来的),只是没有分母 -->
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          IsVisible="{Binding UsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                   Text="{Binding UsageText}" />
-                                    </Grid>
-
-                                    <!-- 服务端报的那段:原样显示,可与官方控制台对账 -->
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          IsVisible="{Binding ReportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock Classes="muted" Text="{loc:Loc ContextReportedLabel}" />
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                   Text="{Binding ReportedText}" />
-                                    </Grid>
-
-                                    <!-- 服务端没计入的那段。口径一致时整行不出现——绝大多数服务端报的就是全量 -->
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          ToolTip.Tip="{loc:Loc ContextUnreportedTip}"
-                                          IsVisible="{Binding UnreportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock Classes="muted" Text="{loc:Loc ContextUnreportedLabel}" />
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                   Text="{Binding UnreportedText}" />
-                                    </Grid>
-
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                   Text="{Binding CachedText}" />
-                                    </Grid>
-
-                                    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
-                                               IsVisible="{Binding HasData}" Text="{Binding ThresholdText}" />
-
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock Classes="muted" Text="{loc:Loc ContextTurnLabel}" />
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                   Text="{Binding TurnText}" />
-                                    </Grid>
-
-                                    <Grid ColumnDefinitions="Auto,*"
-                                          IsVisible="{Binding SessionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                        <TextBlock Classes="muted" Text="{loc:Loc ContextSessionLabel}" />
-                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                                                   Text="{Binding SessionText}" />
-                                    </Grid>
-                                </StackPanel>
+                                    <panels:ContextUsagePanel DataContext="{Binding ContextUsage}" />
                             </ToolTip.Tip>
                         </TextBlock>
                         <!-- 「没卡死,在忙别的」：整理交接文档、等 MCP 连上都走这一处。
