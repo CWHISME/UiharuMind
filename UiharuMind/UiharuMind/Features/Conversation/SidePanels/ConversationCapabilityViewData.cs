@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Collections.Generic;
+using System.IO;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -45,6 +46,22 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
 
     /// <summary>MCP server 分组</summary>
     public ObservableCollection<McpServerGroupItem> McpServers { get; } = new();
+
+    /// <summary>
+    /// MCP <b>预告</b>区：装配之前这个会话将会接入什么（见 <c>McpManager.GetPlannedServers</c>）。
+    ///
+    /// 与上面那个集合<b>刻意分开</b>：那个是装配产物（实况），这个是预测。混成一个列表的话，
+    /// 本类开头那句「数据源是装配产物本身，不是能力开关的二次推导」就废了，
+    /// 以后排查「面板说挂了但模型没有」会多一层。
+    /// </summary>
+    public ObservableCollection<McpPlannedServerItem> McpPlanned { get; } = new();
+
+    /// <summary>
+    /// 预告区是否显示。首轮发送前显示（那时实况是空的，否则新会话就是"不告而连"）；
+    /// 装配之后<b>只要还有没挂上的</b>就继续显示——待确认、被覆盖、被禁用的那些若在此时消失，
+    /// 用户就再也看不见「有东西因为没授权而没挂上」。
+    /// </summary>
+    [ObservableProperty] private bool _hasMcpPlanned;
 
     /// <summary>每轮固定开销的估算合计：系统提示 + 工具定义 + 技能广告行</summary>
     [ObservableProperty] private int _estimatedTokens;
@@ -97,23 +114,49 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <summary>固定开销已经吃到压缩水位的告警（上限未知时恒为 false）</summary>
     [ObservableProperty] private bool _isOverBudget;
 
+    /// 本次刷新的序号。切工作区与载入会话会同时触发刷新,而中间有 await——
+    /// 靠它把作废的那一次挡在填充之前,否则列表里会出现两份同样的条目
+    private int _refreshVersion;
+
     /// <summary>
     /// 按当前会话重新取一份快照
     /// </summary>
     /// <param name="runner">当前会话的执行器；为空则清空</param>
     /// <param name="character">当前会话的角色（技能过滤按它的禁用清单）</param>
     /// <param name="contextLength">当前模型的上下文上限；0 表示未知，此时不给分母也不告警</param>
-    public async Task RefreshAsync(ICharacterRunner? runner, CharacterData? character, int contextLength)
+    /// <param name="workspacePath">会话绑定的工作区；预告区据此读项目级 <c>.mcp.json</c></param>
+    public async Task RefreshAsync(ICharacterRunner? runner, CharacterData? character, int contextLength,
+        string? workspacePath = null)
     {
-        Tools.Clear();
-        Skills.Clear();
-        McpServers.Clear();
-        PromptSegments.Clear();
+        int version = ++_refreshVersion;
 
         // 切快照要为每个工具的 schema 分词,放后台——与输入框那个字数统计同样的处置
         AgentCapabilitySnapshot snapshot = runner == null
             ? AgentCapabilitySnapshot.Empty
             : await Task.Run(runner.GetCapabilities);
+
+        // 预告区要读工作区里的 .mcp.json,同样不在 UI 线程上做
+        List<McpPlannedServer> planned = character != null && character.Kind.IsAgent()
+            ? await Task.Run(() => McpManager.Instance.GetPlannedServers(
+                workspacePath, character.Tools.DisabledMcpServers))
+            : new List<McpPlannedServer>();
+
+        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && character.Kind.IsAgent()
+            ? await SkillCatalog.Instance.GetInvocableEntriesAsync(character.Tools.DisabledSkills)
+            : [];
+
+        // 期间又刷过一次:这一次的结果作废,让后来那次填。
+        // 这个判据不能省——切工作区与载入会话会同时触发刷新,而清空与填充之间有 await,
+        // 于是先跑那次的填充会落在后跑那次的清空之后,列表里出现两份同样的条目
+        if (version != _refreshVersion) return;
+
+        // 清空放在全部 await 之后:上面那条判据靠它才成立(先清空的话,
+        // 一次作废的刷新仍会把界面清成空的)
+        Tools.Clear();
+        Skills.Clear();
+        McpServers.Clear();
+        McpPlanned.Clear();
+        PromptSegments.Clear();
 
         // 按占用降序：这一栏的用途就是「该关掉哪个」，贵的必须在最上面。
         // 装配顺序在这里没有意义（那是提示词纪律段的次序，与成本无关）
@@ -124,24 +167,22 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
 
         foreach (McpServerToolGroup group in snapshot.Mcp.Groups)
         {
-            McpServers.Add(new McpServerGroupItem(group, McpManager.Instance.GetServerStatus(group.ServerName)));
+            McpServers.Add(new McpServerGroupItem(group,
+                McpManager.Instance.GetServerStatus(group.ServerName, group.WorkspacePath)));
         }
 
-        // 技能不进工具集(框架按需装载),所以另取一次;口径与点名调用那处一致
-        if (character != null && character.Kind.IsAgent())
+        RefreshMcpPlanned(planned, mounted: snapshot.Mcp.Groups.Count);
+
+        // 技能不进工具集(框架按需装载),所以另取一次;口径与点名调用那处一致。
+        // 常驻的只有广告行(名字 + 描述):技能正文是按需装载的,
+        // 把正文算进来会让人去关一个其实几乎不占位的技能
+        foreach (CapabilityItem item in skillEntries
+                     .Select(x => new CapabilityItem(x.Name, x.Description,
+                         ToolTokenEstimator.EstimateText(x.Name) +
+                         ToolTokenEstimator.EstimateText(x.Description)))
+                     .OrderByDescending(x => x.EstimatedTokens))
         {
-            IReadOnlyList<SkillCatalogEntry> entries =
-                await SkillCatalog.Instance.GetInvocableEntriesAsync(character.Tools.DisabledSkills);
-            // 常驻的只有广告行(名字 + 描述):技能正文是按需装载的,
-            // 把正文算进来会让人去关一个其实几乎不占位的技能
-            foreach (CapabilityItem item in entries
-                         .Select(x => new CapabilityItem(x.Name, x.Description,
-                             ToolTokenEstimator.EstimateText(x.Name) +
-                             ToolTokenEstimator.EstimateText(x.Description)))
-                         .OrderByDescending(x => x.EstimatedTokens))
-            {
-                Skills.Add(item);
-            }
+            Skills.Add(item);
         }
 
         foreach (AgentPromptSegment segment in snapshot.PromptSegments)
@@ -150,8 +191,34 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
                 segment.Text, segment.CountsTowardTotal));
         }
 
-        IsEmpty = Tools.Count == 0 && Skills.Count == 0 && McpServers.Count == 0;
+        IsEmpty = Tools.Count == 0 && Skills.Count == 0 && McpServers.Count == 0 && McpPlanned.Count == 0;
         RefreshSummary(snapshot, contextLength);
+    }
+
+    /// <summary>
+    /// 重建 MCP 预告区。
+    ///
+    /// 显示条件分两种情形，都不能省：
+    /// <list type="bullet">
+    /// <item><b>还没装配</b>（<paramref name="mounted"/> 为 0）——把整份将接入的名单摆出来。
+    /// 这是本区块存在的理由：智能体会话的执行者懒建，首轮发送前实况栏是空的，
+    /// 用户无从知道这个会话会自动连上什么。</item>
+    /// <item><b>已装配但有条目没挂上</b>——只留那些没挂上的。待确认、被同名覆盖、被禁用的那几条
+    /// 若在装配后消失，用户就再也看不见「有东西因为没授权而没挂上」。</item>
+    /// </list>
+    /// </summary>
+    /// <param name="planned">已在后台取好的预告名单（非智能体档为空）</param>
+    /// <param name="mounted">实况区已有的分组数；0 表示还没装配过</param>
+    private void RefreshMcpPlanned(List<McpPlannedServer> planned, int mounted)
+    {
+        foreach (McpPlannedServer server in planned)
+        {
+            // 装配之后只留没挂上的:已经挂上的那些在实况区有更准的一份(含逐个工具与真实占用)
+            if (mounted > 0 && server.WillBeMounted) continue;
+            McpPlanned.Add(new McpPlannedServerItem(server));
+        }
+
+        HasMcpPlanned = McpPlanned.Count > 0;
     }
 
     /// <summary>
@@ -175,14 +242,30 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         // 纪律里那一节和那几个工具定义一起消失——两者同生同死,拆成两行等于让人看两个数做一个决定
         int toolTokens = Tools.Sum(x => x.EstimatedTokens) + snapshot.PromptTokensOf(EPromptSection.ToolDisciplines);
         int skillTokens = Skills.Sum(x => x.EstimatedTokens);
+
+        // MCP 那一档:装配之后用实况(准),装配之前用预告(估)。
+        //
+        // <b>装配前必须给个数</b>,不能留 0。MCP 是这几档里最贵的一笔——两个 server 就可能是四万
+        // token,而本地模型的窗口常常只有 32K。此时卡片上写着「合计 1.6k」等于在撒谎:
+        // 四万 token 的东西正等着在你按下发送的那一刻挂上去。
+        // 顺带让下面那条压缩水位告警在首轮之前就能亮——那正是它最该亮的时候。
         int mcpTokens = McpServers.Sum(x => x.TotalEstimatedTokens);
+        bool mcpIsForecast = false;
+        if (mcpTokens == 0)
+        {
+            // 只算真会挂上的那些,且只算连过因而有账可依的(从未连过的 server 占多少是"不知道",不是 0)
+            mcpTokens = McpPlanned.Sum(x => x.ForecastTokens);
+            mcpIsForecast = mcpTokens > 0;
+        }
 
         Stats.Clear();
         AddStat(L("AgentCapabilityCharacterPrompt"), characterTokens);
         AddStat(L("AgentCapabilityWorkspaceRule"), workspaceTokens);
         AddStat(L("AgentCapabilityTools"), toolTokens);
         AddStat(L("AgentCapabilitySkills"), skillTokens, L("AgentCapabilitySkillResidentTip"));
-        AddStat("MCP", mcpTokens);
+        // 估算的那一档要标出来:同一行数字,一个是实测一个是上次的账,不标就没法解释为什么会变
+        AddStat(mcpIsForecast ? L("AgentCapabilityMcpForecast") : "MCP", mcpTokens,
+            mcpIsForecast ? L("AgentCapabilityMcpForecastTip") : null);
         HasStats = Stats.Count > 0;
 
         EstimatedTokens = characterTokens + workspaceTokens + toolTokens + skillTokens + mcpTokens;
@@ -327,5 +410,82 @@ public sealed class McpServerGroupItem
     private static string FormatToolName(McpToolInfo tool)
     {
         return tool.IsRenamed ? $"{tool.Name}  ({tool.OriginalName})" : tool.Name;
+    }
+}
+
+/// <summary>
+/// 预告区的一条：这个会话<b>将会</b>（或本该、却没能）接入的一个 server。
+///
+/// 只把 <see cref="McpPlannedServer"/> 折成界面要的几个字符串与布尔量，不做任何判断——
+/// 「挂不挂得上」的口径在 Core 那一处算完了，这里再算一遍就是第二份真相。
+/// </summary>
+public sealed class McpPlannedServerItem
+{
+    /// <summary>server 名</summary>
+    public string Name { get; }
+
+    /// <summary>来源标签：项目级带上目录名，全局的直说是全局</summary>
+    public string OriginText { get; }
+
+    /// <summary>为什么没挂上 / 此刻什么状态；已连上的报工具数与占用</summary>
+    public string StatusText { get; }
+
+    /// <summary>将要执行的命令。这是安全相关的信息，必须能看见原文</summary>
+    public string CommandLine { get; }
+
+    /// <summary>待用户确认（界面用醒目色，它挡着一个本该可用的能力）</summary>
+    public bool NeedsApproval { get; }
+
+    /// <summary>本条是被项目级同名配置顶掉的那个全局 server（界面灰显）</summary>
+    public bool IsShadowed { get; }
+
+    /// 被覆盖的那条灰显。直接给数值而不是新造一个布尔转换器:整个项目还没有第二处要它
+    public double Opacity => IsShadowed ? 0.45 : 1.0;
+
+    /// <summary>
+    /// 这一条预计会占的 token；<b>不会挂上的一律为 0</b>。
+    ///
+    /// 被覆盖的、没托管的、被角色禁的、待确认的都不该进合计——它们不会出现在下一轮的请求里，
+    /// 把它们算进去会让那个数虚高，而这一栏的用途正是「该关掉哪个」。
+    /// 从未连过的也为 0：那是「不知道」，不是 0，但拿不到就只能不计（面板上那条会显示状态而没有数）。
+    /// </summary>
+    public int ForecastTokens { get; }
+
+    public McpPlannedServerItem(McpPlannedServer server)
+    {
+        Name = server.Name;
+        CommandLine = server.CommandLine;
+        NeedsApproval = server.NeedsApproval;
+        IsShadowed = server.IsShadowed;
+        ForecastTokens = server.WillBeMounted ? server.EstimatedTokens ?? 0 : 0;
+        OriginText = server.IsWorkspaceScoped
+            ? string.Format(LocalizationManager.Instance.GetString("AgentCapabilityMcpFromProject"),
+                Path.GetFileName(server.WorkspacePath!.TrimEnd(Path.DirectorySeparatorChar)))
+            : LocalizationManager.Instance.GetString("AgentCapabilityMcpFromGlobal");
+        StatusText = DescribeStatus(server);
+    }
+
+    /// <summary>
+    /// 一行话说清「这一条现在算什么」。次序即优先级——一条 server 可能同时被覆盖又没授权，
+    /// 而用户第一步该处理的只有一个，先报最靠前那个原因。
+    /// </summary>
+    private static string DescribeStatus(McpPlannedServer server)
+    {
+        LocalizationManager loc = LocalizationManager.Instance;
+        if (server.IsShadowed) return loc.GetString("AgentCapabilityMcpShadowed");
+        if (server.NeedsApproval) return loc.GetString("AgentCapabilityMcpNeedsApproval");
+        if (server.IsHostingOff) return loc.GetString("AgentCapabilityMcpHostingOff");
+        if (server.IsDisabledByCharacter) return loc.GetString("AgentCapabilityMcpDisabledByCharacter");
+
+        // 连过又断开的报「上次的账」而不是 0:回收之后显示 0 个工具会被读成"这个 server 坏了"
+        if (server.State != EMcpConnectionState.Connected && server.LastToolCount.HasValue)
+        {
+            return string.Format(loc.GetString("AgentCapabilityMcpLastSeen"),
+                server.State, server.LastToolCount.Value, server.EstimatedTokens ?? 0);
+        }
+
+        return server.LastToolCount.HasValue
+            ? $"{server.State} · {server.LastToolCount.Value} tools · ~{server.EstimatedTokens ?? 0} tok"
+            : server.State.ToString();
     }
 }

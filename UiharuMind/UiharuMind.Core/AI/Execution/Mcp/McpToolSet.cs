@@ -45,6 +45,12 @@ public sealed class McpServerToolGroup
     /// <summary>server 名</summary>
     public required string ServerName { get; init; }
 
+    /// <summary>
+    /// 项目级来源的工作区路径；全局 server 为 <c>null</c>。
+    /// 面板据此问对那一条运行态——两个项目里各有一个同名 server 时，光靠名字会问到别人的状态。
+    /// </summary>
+    public string? WorkspacePath { get; init; }
+
     /// <summary>该 server 贡献的工具</summary>
     public required IReadOnlyList<McpToolInfo> Tools { get; init; }
 

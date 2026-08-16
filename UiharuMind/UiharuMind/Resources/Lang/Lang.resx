@@ -486,6 +486,9 @@
     <data name="AgentMcpStateConnected" xml:space="preserve">
         <value>Connected</value>
     </data>
+    <data name="AgentMcpStatePendingApproval" xml:space="preserve">
+        <value>Awaiting confirmation</value>
+    </data>
     <data name="AgentMcpStateFailed" xml:space="preserve">
         <value>Connection failed</value>
     </data>
@@ -2689,6 +2692,60 @@ Note this is what the *next* turn will send, while the "Context" readout at the 
     </data>
     <data name="AgentCapabilityMcpRenamedTip" xml:space="preserve">
         <value>Another server offers a tool by the same name, so both got a server prefix. The original name is shown in brackets.</value>
+    </data>
+    <data name="AgentCapabilityMcpPlanned" xml:space="preserve">
+        <value>Will be connected</value>
+    </data>
+    <data name="AgentCapabilityMcpPlannedTip" xml:space="preserve">
+        <value>What this session is about to connect, shown before the first send. This is a forecast — the section above is what actually got mounted. Entries that could not be mounted stay here so you can see why.</value>
+    </data>
+    <data name="AgentCapabilityMcpFromProject" xml:space="preserve">
+        <value>project · {0}/.mcp.json</value>
+    </data>
+    <data name="AgentCapabilityMcpFromGlobal" xml:space="preserve">
+        <value>global</value>
+    </data>
+    <data name="AgentCapabilityMcpShadowed" xml:space="preserve">
+        <value>overridden by the project server of the same name</value>
+    </data>
+    <data name="AgentCapabilityMcpNeedsApproval" xml:space="preserve">
+        <value>awaiting your confirmation — not started</value>
+    </data>
+    <data name="AgentCapabilityMcpHostingOff" xml:space="preserve">
+        <value>hosting off</value>
+    </data>
+    <data name="AgentCapabilityMcpDisabledByCharacter" xml:space="preserve">
+        <value>disabled for this character</value>
+    </data>
+    <data name="AgentCapabilityMcpLastSeen" xml:space="preserve">
+        <value>{0} · last seen {1} tools · ~{2} tok</value>
+    </data>
+    <data name="AgentMcpApprovalTitle" xml:space="preserve">
+        <value>This project wants to start MCP servers</value>
+    </data>
+    <data name="AgentMcpApprovalBody" xml:space="preserve">
+        <value>{0} declares {1} MCP server(s) in its .mcp.json. Allowing this lets the repository start these processes on your machine:
+
+{2}
+Allow them?</value>
+    </data>
+    <data name="AgentMcpApprovalChangedMark" xml:space="preserve">
+        <value>  (command changed since you approved it)</value>
+    </data>
+    <data name="AgentMcpTrustedTitle" xml:space="preserve">
+        <value>Projects allowed to start their own MCP servers</value>
+    </data>
+    <data name="AgentMcpTrustedTip" xml:space="preserve">
+        <value>A project's .mcp.json is committed to its repository, so its commands are written by whoever wrote the repo. You confirmed these projects once; revoking asks again next time you open one.</value>
+    </data>
+    <data name="AgentMcpTrustRevoke" xml:space="preserve">
+        <value>Revoke</value>
+    </data>
+    <data name="AgentCapabilityMcpForecast" xml:space="preserve">
+        <value>MCP (forecast)</value>
+    </data>
+    <data name="AgentCapabilityMcpForecastTip" xml:space="preserve">
+        <value>Estimated from what these servers reported last time they connected, because this session has not assembled yet. It becomes a measured figure after the first send. Servers that will not be mounted — overridden, not hosted, disabled for this character, or awaiting confirmation — are excluded.</value>
     </data>
     <data name="AgentCapabilityEditHint" xml:space="preserve">
         <value>Read-only. To change what this agent may use, edit the character.</value>

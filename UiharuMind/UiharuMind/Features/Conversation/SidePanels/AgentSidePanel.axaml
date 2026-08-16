@@ -121,6 +121,48 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
+                                <!-- MCP 预告区:装配之前这个会话将会接入什么。
+                                     与上面那个实况区刻意分开——那个的数据源是装配产物,这个是预测。
+                                     混成一个列表就等于让"面板显示的是真相"这条保证作废。
+                                     首轮发送前显示整份名单(执行者懒建,那时实况区是空的,
+                                     否则新会话就是不告而连);装配之后只留没挂上的那些,
+                                     待确认/被覆盖/被禁用的若在此时消失,用户就再也看不见原因 -->
+                                <StackPanel Spacing="2"
+                                            IsVisible="{Binding Conversation.Capabilities.HasMcpPlanned}">
+                                    <TextBlock Classes="capability-section" Margin="0,4,0,2"
+                                               Text="{loc:Loc AgentCapabilityMcpPlanned}"
+                                               ToolTip.Tip="{loc:Loc AgentCapabilityMcpPlannedTip}" />
+                                    <ItemsControl ItemsSource="{Binding Conversation.Capabilities.McpPlanned}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="panels:McpPlannedServerItem">
+                                                <StackPanel Spacing="1" Margin="0,2,0,0"
+                                                            Opacity="{Binding Opacity}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock FontSize="11" Text="{Binding Name}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Classes="muted" FontSize="10"
+                                                                   VerticalAlignment="Center"
+                                                                   Text="{Binding OriginText}" />
+                                                    </StackPanel>
+                                                    <!-- 待确认用醒目色:它挡着一个本该可用的能力,且只差用户一下 -->
+                                                    <TextBlock FontSize="10" TextWrapping="Wrap"
+                                                               Text="{Binding StatusText}"
+                                                               Foreground="{DynamicResource SemiGrey5}"
+                                                               IsVisible="{Binding !NeedsApproval}" />
+                                                    <TextBlock FontSize="10" TextWrapping="Wrap"
+                                                               Text="{Binding StatusText}"
+                                                               Foreground="{DynamicResource SemiOrange5}"
+                                                               IsVisible="{Binding NeedsApproval}" />
+                                                    <!-- 命令原文是安全信息,不折叠不省略 -->
+                                                    <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
+                                                               FontFamily="{DynamicResource CodeFontFamily}"
+                                                               Text="{Binding CommandLine}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
                                 <StackPanel Spacing="2"
                                             IsVisible="{Binding Conversation.Capabilities.HasTools}">
                                     <TextBlock Classes="capability-section" Margin="0,4,0,2"

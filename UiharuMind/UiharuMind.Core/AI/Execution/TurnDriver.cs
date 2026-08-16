@@ -11,6 +11,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.SimpleLog;
@@ -128,6 +129,11 @@ public sealed class TurnDriver : IDisposable
             // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
             // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下
             using IDisposable runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
+
+            // MCP 连接的租约:这一轮期间该工作区的连接不会被空闲回收。
+            // 子进程是进程级共享资源,而「有没有一轮正在跑」是它是否在被占用的唯一诚实答案——
+            // 按「会话切走就断」实现会掐掉正在后台跑的那一轮(定时任务的无头轮次也走这里)
+            using IDisposable mcpLease = McpManager.Instance.AcquireLease(session.WorkspacePath);
 
             // 开跑就算一次活动:刷新 UpdatedAt,让会话此刻就浮到列表顶部。
             // 否则要等一轮跑完(历史落盘才更新时间戳),界面上是回复结束后突然跳位

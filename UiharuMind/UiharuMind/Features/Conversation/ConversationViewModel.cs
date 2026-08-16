@@ -13,10 +13,12 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
@@ -520,9 +522,81 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <param name="value">新工作目录</param>
     private void OnWorkspacePathChanged(string? value)
     {
+        // 会话头字段只在已有会话时写回；而 MCP 那一段与有没有会话无关——
+        // 新会话（CurrentMeta 为空）恰恰是最需要知道"这个项目会连什么"的时候
+        if (!_isLoadingSession) _ = OnWorkspaceChangedAsync(value);
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
         ConversationSessionBinder.PersistSettings(CurrentMeta);
+    }
+
+    /// 换了工作区:先把该项目的授权要到手,再无条件刷一次面板。
+    /// 刷新不能只在"有待确认项"时做——项目级名单本身跟着工作区变,
+    /// 换到一个没有 .mcp.json 的目录时,上一个项目那几条必须从预告区消失
+    private async Task OnWorkspaceChangedAsync(string? workspacePath)
+    {
+        await PromptWorkspaceMcpApprovalAsync(workspacePath);
+        await RefreshCapabilitiesAsync();
+    }
+
+    /// <summary>
+    /// 选定工作区时，就地为该项目的 <c>.mcp.json</c> 要一次安全确认。
+    ///
+    /// <b>时机定在这一刻而不是首轮发送时</b>，理由是它同时解决三件事：
+    /// 用户当场知道这个项目会连上什么、确认不会在发送后突然弹出来打断，
+    /// 而最要紧的是——这一刻<b>早于任何子进程启动</b>。
+    ///
+    /// 弹窗由 App 层主动发起（Core 只提供"查待确认 / 记授权"两个被动 API）：
+    /// 抛全局事件的做法这个仓库已经踩过，预连提示曾因此点亮到一个跟 MCP 毫无关系的会话上。
+    ///
+    /// 确认是「全部允许」这一档，但<b>记录仍逐条落</b>（每条各记自己的可执行面指纹）——
+    /// 于是下次仓库新增第四个 server 时，弹窗只说新增的那一条，而不是把四条重新摆一遍。
+    /// 后者会养出"看第三次就直接点确认"的习惯，而确认疲劳就是这类机制实际失效的方式。
+    /// </summary>
+    /// <param name="workspacePath">刚选定的工作区；空表示解绑，无事可做</param>
+    private async Task PromptWorkspaceMcpApprovalAsync(string? workspacePath)
+    {
+        if (string.IsNullOrEmpty(workspacePath)) return;
+
+        try
+        {
+            List<McpApprovalRequest> pending = McpManager.Instance.GetPendingApprovals(workspacePath);
+            if (pending.Count == 0) return;
+
+            IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
+            if (!await messageService.ConfirmAsync(BuildMcpApprovalMessage(workspacePath, pending),
+                    LocalizationManager.Instance.GetString("AgentMcpApprovalTitle")))
+            {
+                // 拒绝不落任何记录:下次再进这个工作区会再问一次。
+                // 记一条"拒绝过"看着更省事,但那会让"我当时点错了"没有回头路,
+                // 而这一问的成本只是一个弹窗
+                return;
+            }
+
+            McpManager.Instance.ApproveWorkspaceServers(workspacePath);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Prompt workspace MCP approval failed: {e.Message}");
+        }
+    }
+
+    /// 确认框正文:名字、将执行的命令原文,以及"这一条是被改过的"那个标记。
+    /// 命令必须逐字摆出来——用户批的是这条命令,不是这个名字
+    private static string BuildMcpApprovalMessage(string workspacePath, List<McpApprovalRequest> pending)
+    {
+        LocalizationManager loc = LocalizationManager.Instance;
+        string changedMark = loc.GetString("AgentMcpApprovalChangedMark");
+        StringBuilder list = new();
+        foreach (McpApprovalRequest request in pending)
+        {
+            list.Append("• ").Append(request.Name).Append(":  ").Append(request.CommandLine);
+            if (request.IsChanged) list.Append(changedMark);
+            list.Append('\n');
+        }
+
+        return string.Format(loc.GetString("AgentMcpApprovalBody"),
+            WorkspaceDisplay.NameOf(workspacePath), pending.Count, list.ToString());
     }
 
     //================= 发送与运行循环 =================
@@ -822,6 +896,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel?.Detach();
             MemoryPanel = null;
             RefreshTokenUsageText();
+            // 空态也要刷一次能力面板。这里曾经直接返回,于是新会话在首轮发送之前
+            // 整个「能力」页签一片空白——而恰恰是这个时候用户最需要知道
+            // 「这个会话会自动连上什么」。没有执行者也仍有东西可报:技能清单与 MCP 预告
+            // 都不依赖装配产物(工具与提示词那两档依赖,它们留到首轮之后)
+            await RefreshCapabilitiesAsync();
             return;
         }
 
@@ -1098,7 +1177,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 缓存下来就会留下过期的分母
             int contextLength = (CurrentSession?.ChatModelRunningData
                                  ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
-            await Capabilities.RefreshAsync(CurrentRunner, IsAgentSession ? SessionCharacter : null, contextLength);
+            await Capabilities.RefreshAsync(CurrentRunner, IsAgentSession ? SessionCharacter : null, contextLength,
+                Workspace.Path);
         }
         catch (Exception e)
         {

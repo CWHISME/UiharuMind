@@ -10,6 +10,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -174,6 +175,8 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
             SessionManager.Instance.Add(chatSession);
             task.ResultSessionId = chatSession.SessionId;
 
+            NoteUnapprovedMcpServers(task, chatSession);
+
             await chatSession.Runner.AttachAsync(chatSession).ConfigureAwait(false);
 
             // 与界面跑的是同一份编排:运行态登记(这个会话就在会话列表里,⏰ 前缀,用户看得见它在跑,
@@ -205,6 +208,36 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
         Save();
         NotifyUpdated(task);
+    }
+
+    /// <summary>
+    /// 撞上未获授权的项目级 MCP server 时留一条痕，<b>然后照常跑</b>。
+    ///
+    /// 三种处置里选的是这一种：整个任务判失败，会让一个可有可无的 server 让定时任务停摆，
+    /// 而 <c>.mcp.json</c> 是仓库作者改的、不一定是你；挂起等确认更不行——
+    /// 与 <see cref="DenyUnauthorizedApprovals"/> 同一条口径，没人会来点那个按钮。
+    /// 状态照旧算 <see cref="EScheduledTaskStatus.Completed"/>：它确实跑完了，区别写在会话里。
+    ///
+    /// <b>痕迹落进结果会话而不只是日志</b>：用户回看这一跑的落点是那个会话，不是日志文件。
+    ///
+    /// 正常情况下这里什么都不会发生——用户创建任务时选定的工作区，在那一刻就已经确认过了。
+    /// 会走到这里的只有一种：创建之后、触发之前 <c>.mcp.json</c> 被改过（比如 <c>git pull</c>
+    /// 拉进来一条新的），而那正是指纹要拦的东西。
+    /// </summary>
+    /// <param name="task">本次执行的任务</param>
+    /// <param name="session">这一跑的结果会话</param>
+    private static void NoteUnapprovedMcpServers(ScheduledAgentTask task, ChatSession session)
+    {
+        List<McpApprovalRequest> pending = McpManager.Instance.GetPendingApprovals(task.WorkspacePath);
+        if (pending.Count == 0) return;
+
+        string names = string.Join("、", pending.Select(x => x.Name));
+        Log.Warning($"Scheduled agent task '{task.DisplayName}' ({task.TaskId}) ran without " +
+                    $"unapproved workspace MCP servers: {names}");
+        session.AddMessage(ChatRole.System,
+            $"⚠️ 本次无人值守执行跳过了 {pending.Count} 个未确认的项目级 MCP server（{names}）。\n" +
+            "它们来自工作区的 .mcp.json，需要你在场确认一次要执行的命令才会启用。" +
+            "这一轮照常跑完，但模型没有这些工具。");
     }
 
     /// <summary>

@@ -101,6 +101,7 @@ internal static class McpToolSetBuilder
             groups.Add(new McpServerToolGroup
             {
                 ServerName = server.Config.Name,
+                WorkspacePath = server.Config.WorkspacePath,
                 Tools = infos,
                 EstimatedTokens = groupTokens,
                 InstructionsInjected = injected,

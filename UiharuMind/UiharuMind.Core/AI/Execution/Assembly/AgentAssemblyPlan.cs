@@ -125,7 +125,7 @@ internal sealed class AgentAssemblyPlan
             MountedAgents = config.EnableSubAgent
                 ? CharacterRunnerFactory.ResolveMountedAgents(profile.Character)
                 : [],
-            Mcp = McpManager.Instance.Resolve(config.DisabledMcpServers),
+            Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
             // 目录名(角色名_id8)由挂接时的对账决定并写进会话状态,见 FileMemoryLayout;
             // store 只认这个父目录

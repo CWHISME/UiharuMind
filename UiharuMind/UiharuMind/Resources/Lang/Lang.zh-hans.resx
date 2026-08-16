@@ -476,6 +476,9 @@
     <data name="AgentMcpStateConnected" xml:space="preserve">
         <value>已连接</value>
     </data>
+    <data name="AgentMcpStatePendingApproval" xml:space="preserve">
+        <value>待确认</value>
+    </data>
     <data name="AgentMcpStateFailed" xml:space="preserve">
         <value>连接失败</value>
     </data>
@@ -2682,6 +2685,60 @@
     </data>
     <data name="AgentCapabilityMcpRenamedTip" xml:space="preserve">
         <value>另一个 server 也有同名工具，所以双方都加了 server 前缀。括号里是原名。</value>
+    </data>
+    <data name="AgentCapabilityMcpPlanned" xml:space="preserve">
+        <value>将会接入</value>
+    </data>
+    <data name="AgentCapabilityMcpPlannedTip" xml:space="preserve">
+        <value>这个会话即将接入什么，首轮发送之前就摆在这里。它是预告——上面那一栏才是实际挂上的。没能挂上的条目会留在这里，好让你看见原因。</value>
+    </data>
+    <data name="AgentCapabilityMcpFromProject" xml:space="preserve">
+        <value>项目级 · {0}/.mcp.json</value>
+    </data>
+    <data name="AgentCapabilityMcpFromGlobal" xml:space="preserve">
+        <value>全局</value>
+    </data>
+    <data name="AgentCapabilityMcpShadowed" xml:space="preserve">
+        <value>已被项目级同名 server 覆盖</value>
+    </data>
+    <data name="AgentCapabilityMcpNeedsApproval" xml:space="preserve">
+        <value>待你确认，尚未启动</value>
+    </data>
+    <data name="AgentCapabilityMcpHostingOff" xml:space="preserve">
+        <value>未托管</value>
+    </data>
+    <data name="AgentCapabilityMcpDisabledByCharacter" xml:space="preserve">
+        <value>本角色已禁用</value>
+    </data>
+    <data name="AgentCapabilityMcpLastSeen" xml:space="preserve">
+        <value>{0} · 上次 {1} 个工具 · ~{2} tok</value>
+    </data>
+    <data name="AgentMcpApprovalTitle" xml:space="preserve">
+        <value>这个项目要启动 MCP server</value>
+    </data>
+    <data name="AgentMcpApprovalBody" xml:space="preserve">
+        <value>{0} 的 .mcp.json 里声明了 {1} 个 MCP server。允许之后，这个仓库就能在你本机启动下列进程：
+
+{2}
+要允许吗？</value>
+    </data>
+    <data name="AgentMcpApprovalChangedMark" xml:space="preserve">
+        <value>  （命令在你授权之后被改过）</value>
+    </data>
+    <data name="AgentMcpTrustedTitle" xml:space="preserve">
+        <value>已允许自带 MCP server 的项目</value>
+    </data>
+    <data name="AgentMcpTrustedTip" xml:space="preserve">
+        <value>项目的 .mcp.json 随仓库入库，命令由写这个仓库的人决定。这些项目你确认过一次；撤销之后，下次打开会再问一遍。</value>
+    </data>
+    <data name="AgentMcpTrustRevoke" xml:space="preserve">
+        <value>撤销</value>
+    </data>
+    <data name="AgentCapabilityMcpForecast" xml:space="preserve">
+        <value>MCP（预估）</value>
+    </data>
+    <data name="AgentCapabilityMcpForecastTip" xml:space="preserve">
+        <value>本会话尚未装配，此数按这些 server 上次连上时报的工具定义估算；首轮发送之后换成实测值。不会挂上的（被覆盖、未托管、本角色已禁用、待确认）不计入。</value>
     </data>
     <data name="AgentCapabilityEditHint" xml:space="preserve">
         <value>只读。要改这个智能体能用什么，去角色编辑页。</value>

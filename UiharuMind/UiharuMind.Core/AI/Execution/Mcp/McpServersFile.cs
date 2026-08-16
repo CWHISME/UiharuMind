@@ -28,15 +28,17 @@ internal sealed class McpServersFile
     /// 从磁盘形态还原为运行期配置
     /// </summary>
     /// <param name="states">本项目特有状态（按 server 名索引）；缺项取默认值</param>
+    /// <param name="workspacePath">项目级来源的工作区路径；全局那份传空</param>
     /// <returns>配置列表</returns>
-    public List<McpServerConfig> ToConfigs(IReadOnlyDictionary<string, McpServerLocalState> states)
+    public List<McpServerConfig> ToConfigs(IReadOnlyDictionary<string, McpServerLocalState> states,
+        string? workspacePath = null)
     {
         List<McpServerConfig> configs = new(McpServers.Count);
         foreach ((string name, McpServerEntry entry) in McpServers)
         {
             if (string.IsNullOrWhiteSpace(name)) continue;
             McpServerLocalState state = states.GetValueOrDefault(name) ?? new McpServerLocalState();
-            configs.Add(entry.ToConfig(name, state));
+            configs.Add(entry.ToConfig(name, state, workspacePath));
         }
 
         return configs;
@@ -87,11 +89,12 @@ internal sealed class McpServerEntry
 
     [JsonPropertyName("headers")] public Dictionary<string, string>? Headers { get; set; }
 
-    public McpServerConfig ToConfig(string name, McpServerLocalState state)
+    public McpServerConfig ToConfig(string name, McpServerLocalState state, string? workspacePath = null)
     {
         return new McpServerConfig
         {
             Name = name,
+            WorkspacePath = workspacePath,
             TransportType = ResolveTransport(),
             Command = Command ?? string.Empty,
             Args = Args ?? new List<string>(),

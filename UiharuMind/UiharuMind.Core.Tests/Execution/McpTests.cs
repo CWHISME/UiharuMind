@@ -365,4 +365,215 @@ public class McpTests
 
         Assert.Equal(expected, McpManager.IsInPlay(server, disabled));
     }
+
+    //================= 作用域索引键 =================
+
+    /// <summary>
+    /// 同名不同工作区必须是两个键。这是项目级作用域里最硬的一条：只按名字索引时，
+    /// 两个 Unity 项目各有一个叫 unity 的 server 会互相顶掉连接。
+    /// </summary>
+    [Fact]
+    public void ServerKey_SameNameDifferentWorkspace_AreDistinct()
+    {
+        McpServerKey a = new("/tmp/projA", "unity");
+        McpServerKey b = new("/tmp/projB", "unity");
+        McpServerKey global = new(null, "unity");
+
+        Assert.NotEqual(a, b);
+        Assert.NotEqual(a, global);
+        Assert.True(global.IsGlobal);
+        Assert.False(a.IsGlobal);
+    }
+
+    /// <summary>
+    /// 两半的比较口径不同：名字不区分大小写（手写进 json，大小写不该成为静默失配），
+    /// 路径区分大小写（大小写不敏感是文件系统的属性，猜错会把两个真不同的目录当成一个）。
+    /// </summary>
+    [Theory]
+    [InlineData("/tmp/proj", "unity", "/tmp/proj", "UNITY", true)]
+    [InlineData("/tmp/proj", "unity", "/tmp/PROJ", "unity", false)]
+    [InlineData(null, "unity", null, "Unity", true)]
+    public void ServerKey_ComparesNameLooselyAndPathStrictly(string? wsA, string nameA,
+        string? wsB, string nameB, bool expected)
+    {
+        McpServerKey a = new(wsA, nameA);
+        McpServerKey b = new(wsB, nameB);
+
+        Assert.Equal(expected, a.Equals(b));
+        if (expected) Assert.Equal(a.GetHashCode(), b.GetHashCode());
+    }
+
+    /// <summary>
+    /// 同一个目录写成带不带末尾分隔符必须是同一个键，否则会各连一份子进程。
+    /// </summary>
+    [Fact]
+    public void ServerKey_NormalizesTrailingSeparator()
+    {
+        string root = Path.GetTempPath();
+        McpServerKey withSlash = new(root, "unity");
+        McpServerKey withoutSlash = new(Path.TrimEndingDirectorySeparator(root), "unity");
+
+        Assert.Equal(withSlash, withoutSlash);
+    }
+
+    /// <summary>相对路径与它的绝对形态是同一个键：装配侧传来的路径来源不一</summary>
+    [Fact]
+    public void ServerKey_NormalizesToAbsolutePath()
+    {
+        McpServerKey relative = new(".", "unity");
+        McpServerKey absolute = new(Directory.GetCurrentDirectory(), "unity");
+
+        Assert.Equal(absolute, relative);
+    }
+
+    /// <summary>分组明细要带回来源，否则面板问不到项目级那一条的状态</summary>
+    [Fact]
+    public void Build_CarriesWorkspaceScopeIntoGroups()
+    {
+        McpServerConfig config = new() { Name = "unity", WorkspacePath = "/tmp/projA" };
+        McpToolSet set = McpToolSetBuilder.Build([
+            new ResolvedMcpServer(config, [Tool("refresh")], string.Empty),
+        ]);
+
+        Assert.Equal("/tmp/projA", Assert.Single(set.Groups).WorkspacePath);
+        Assert.True(config.IsWorkspaceScoped);
+    }
+
+    //================= 作用域合并（项目级覆盖全局） =================
+
+    private static McpServerConfig Config(string name, string? workspace = null, string command = "npx")
+    {
+        return new McpServerConfig { Name = name, WorkspacePath = workspace, Command = command };
+    }
+
+    /// <summary>项目级同名胜出，且被顶掉的那条必须留在结果里——否则覆盖这件事在界面上不可见</summary>
+    [Fact]
+    public void Merge_WorkspaceWinsAndKeepsShadowedVisible()
+    {
+        List<EffectiveMcpServer> merged = McpServerScopeMerger.Merge(
+            [Config("unity", command: "global-unity"), Config("github")],
+            [Config("unity", "/tmp/projA", "project-unity")]);
+
+        Assert.Equal(2, merged.Count);
+        // 项目级排在前
+        Assert.Equal("project-unity", merged[0].Config.Command);
+        Assert.True(merged[0].ShadowsGlobal);
+        Assert.Equal("global-unity", merged[0].Shadowed!.Command);
+
+        Assert.Equal("github", merged[1].Config.Name);
+        Assert.False(merged[1].ShadowsGlobal);
+    }
+
+    /// <summary>覆盖判定不区分大小写：与索引键、禁用名单同一口径</summary>
+    [Fact]
+    public void Merge_NameComparisonIgnoresCase()
+    {
+        List<EffectiveMcpServer> merged = McpServerScopeMerger.Merge(
+            [Config("Unity", command: "global-unity")],
+            [Config("unity", "/tmp/projA", "project-unity")]);
+
+        EffectiveMcpServer single = Assert.Single(merged);
+        Assert.Equal("project-unity", single.Config.Command);
+        Assert.True(single.ShadowsGlobal);
+    }
+
+    /// <summary>没有项目级配置时，合并结果与全局那份逐条相同（行为零变化的兜底）</summary>
+    [Fact]
+    public void Merge_WithoutWorkspaceConfig_PassesGlobalThrough()
+    {
+        List<McpServerConfig> global = [Config("unity"), Config("github")];
+
+        List<EffectiveMcpServer> merged = McpServerScopeMerger.Merge(global, []);
+
+        Assert.Equal(2, merged.Count);
+        Assert.All(merged, x => Assert.False(x.ShadowsGlobal));
+        Assert.Equal(global.Select(x => x.Name), merged.Select(x => x.Config.Name));
+    }
+
+    //================= 可执行面指纹 =================
+
+    /// <summary>
+    /// 指纹只认可执行面：改名、改托管开关都不该让已给的授权作废，
+    /// 而命令、参数、环境变量任一处变化都必须作废。
+    /// </summary>
+    [Fact]
+    public void Fingerprint_CoversExecutableSurfaceOnly()
+    {
+        McpServerConfig baseline = new()
+        {
+            Name = "unity", Command = "npx", Args = ["-y", "unity-mcp"],
+            EnvironmentVariables = { ["PORT"] = "6400" },
+        };
+        string print = McpServerFingerprint.Of(baseline);
+
+        // 名字与本机开关不在可执行面内
+        Assert.Equal(print, McpServerFingerprint.Of(new McpServerConfig
+        {
+            Name = "renamed", Command = "npx", Args = ["-y", "unity-mcp"],
+            IsEnabled = false, InjectInstructions = false,
+            EnvironmentVariables = { ["PORT"] = "6400" },
+        }));
+
+        // 命令变了
+        Assert.NotEqual(print, McpServerFingerprint.Of(new McpServerConfig
+        {
+            Name = "unity", Command = "curl", Args = ["-y", "unity-mcp"],
+            EnvironmentVariables = { ["PORT"] = "6400" },
+        }));
+
+        // 环境变量的值变了
+        Assert.NotEqual(print, McpServerFingerprint.Of(new McpServerConfig
+        {
+            Name = "unity", Command = "npx", Args = ["-y", "unity-mcp"],
+            EnvironmentVariables = { ["PORT"] = "9999" },
+        }));
+    }
+
+    /// <summary>环境变量的书写顺序不是语义：调换两行不该白白重新要一次授权</summary>
+    [Fact]
+    public void Fingerprint_IgnoresEnvOrdering()
+    {
+        McpServerConfig a = new()
+        {
+            Name = "s", Command = "run",
+            EnvironmentVariables = { ["A"] = "1", ["B"] = "2" },
+        };
+        McpServerConfig b = new()
+        {
+            Name = "s", Command = "run",
+            EnvironmentVariables = { ["B"] = "2", ["A"] = "1" },
+        };
+
+        Assert.Equal(McpServerFingerprint.Of(a), McpServerFingerprint.Of(b));
+    }
+
+    /// <summary>
+    /// 参数分项参与：<c>["a b"]</c> 与 <c>["a","b"]</c> 是两条不同的命令，
+    /// 拼成一行会撞成同一个指纹——那等于一条已授权的命令能变形成另一条。
+    /// </summary>
+    [Fact]
+    public void Fingerprint_DistinguishesArgumentBoundaries()
+    {
+        McpServerConfig joined = new() { Name = "s", Command = "run", Args = ["a b"] };
+        McpServerConfig split = new() { Name = "s", Command = "run", Args = ["a", "b"] };
+
+        Assert.NotEqual(McpServerFingerprint.Of(joined), McpServerFingerprint.Of(split));
+    }
+
+    //================= 授权匹配 =================
+
+    /// <summary>改了命令就不再算已授权——这一条塌了，整套确认形同虚设</summary>
+    [Fact]
+    public void Trust_ChangedCommandInvalidatesApproval()
+    {
+        McpServerConfig approved = Config("unity", "/tmp/projA", "npx");
+        List<McpTrustRecord> records =
+        [
+            new() { Name = "unity", Fingerprint = McpServerFingerprint.Of(approved) },
+        ];
+
+        Assert.True(McpTrustStore.Matches(records, approved));
+        Assert.False(McpTrustStore.Matches(records, Config("unity", "/tmp/projA", "curl")));
+        Assert.False(McpTrustStore.Matches(records, Config("other", "/tmp/projA", "npx")));
+    }
 }

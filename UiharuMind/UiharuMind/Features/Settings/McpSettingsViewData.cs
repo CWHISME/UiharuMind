@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Features.Conversation.SidePanels;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -57,9 +58,42 @@ public partial class McpSettingsViewData : ViewModelBase
     /// <summary>标准配置文件路径（可直接编辑或整段替换）</summary>
     public string ConfigFilePath => McpManager.ConfigFilePath;
 
+    /// <summary>
+    /// 已授权可启动项目级 <c>.mcp.json</c> 的工作区。
+    ///
+    /// 这一栏是<b>授权唯一可见的地方</b>：确认发生在选定工作区那一刻，之后就静默生效了，
+    /// 没有这份清单，「我到底允许过哪些仓库在本机起进程」就无处可查、也无从撤回。
+    /// </summary>
+    public ObservableCollection<McpTrustedWorkspaceItem> TrustedWorkspaces { get; } = new();
+
+    /// <summary>一个已授权的项目都没有（界面据此整块不出）</summary>
+    [ObservableProperty] private bool _hasTrustedWorkspaces;
+
     public McpSettingsViewData()
     {
         RefreshServers();
+        RefreshTrustedWorkspaces();
+    }
+
+    /// <summary>撤销某个工作区的项目级授权，并断开它已建立的连接</summary>
+    /// <param name="workspacePath">工作区路径</param>
+    private void RevokeWorkspace(string workspacePath)
+    {
+        McpManager.Instance.RevokeWorkspaceTrust(workspacePath);
+        RefreshTrustedWorkspaces();
+    }
+
+    /// <summary>重取已授权项目清单（视图每次显示时调，授权是在会话侧给出的）</summary>
+    public void RefreshTrustedWorkspaces()
+    {
+        TrustedWorkspaces.Clear();
+        foreach (string path in McpManager.Instance.GetTrustedWorkspaces().OrderBy(x => x, StringComparer.Ordinal))
+        {
+            TrustedWorkspaces.Add(new McpTrustedWorkspaceItem(path,
+                new RelayCommand(() => RevokeWorkspace(path))));
+        }
+
+        HasTrustedWorkspaces = TrustedWorkspaces.Count > 0;
     }
 
     partial void OnSelectedServerChanged(McpServerConfig? value)
@@ -204,4 +238,19 @@ public partial class McpSettingsViewData : ViewModelBase
     {
         return pairs == null ? string.Empty : string.Join('\n', pairs.Select(x => $"{x.Key}={x.Value}"));
     }
+}
+
+/// <summary>
+/// 已授权可启动项目级 MCP server 的一个工作区。展示口径沿用
+/// <see cref="WorkspaceDisplay"/>（与工作区选择器同一套，目录名作主行、折叠 home 的父路径作副行）。
+/// </summary>
+/// <param name="Path">工作区绝对路径</param>
+/// <param name="RevokeCommand">撤销这个工作区的授权</param>
+public sealed record McpTrustedWorkspaceItem(string Path, IRelayCommand RevokeCommand)
+{
+    /// <summary>目录名（主行）</summary>
+    public string Name => WorkspaceDisplay.NameOf(Path);
+
+    /// <summary>父路径（副行，已折叠 home 前缀）</summary>
+    public string Parent => WorkspaceDisplay.ParentOf(Path);
 }

@@ -108,6 +108,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             // 名单与下面 Resolve 用的是同一份:这一轮挂不上的 server 不值得为它起进程、也不值得等。
             // 忙碌态只在真的要等时才亮(回调由 WarmupAsync 决定发不发),否则每次装配都会闪一帧
             await McpManager.Instance.WarmupAsync(
+                    profile.WorkspacePath,
                     profile.Character.Tools.DisabledMcpServers,
                     isWaiting => SetBusy(isWaiting ? ETurnBusy.ConnectingMcp : ETurnBusy.None),
                     cancellationToken)

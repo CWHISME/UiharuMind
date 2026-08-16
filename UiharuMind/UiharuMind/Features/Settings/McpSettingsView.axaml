@@ -126,6 +126,29 @@
                                      TextTrimming="CharacterEllipsis"
                                      Text="{Binding ConfigFilePath}" />
             </StackPanel>
+
+            <!-- 项目级授权:确认发生在选定工作区那一刻,之后就静默生效了。
+                 没有这份清单,「我到底允许过哪些仓库在本机起进程」无处可查、也无从撤回 -->
+            <StackPanel Spacing="4" Margin="0,10,0,0"
+                        IsVisible="{Binding HasTrustedWorkspaces}">
+                <TextBlock Classes="muted" TextWrapping="Wrap"
+                           Text="{loc:Loc AgentMcpTrustedTitle}"
+                           ToolTip.Tip="{loc:Loc AgentMcpTrustedTip}" />
+                <ItemsControl ItemsSource="{Binding TrustedWorkspaces}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="settings:McpTrustedWorkspaceItem">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                                <TextBlock FontSize="12" VerticalAlignment="Center" Text="{Binding Name}" />
+                                <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Text="{Binding Parent}" />
+                                <Button FontSize="11" Padding="6,2"
+                                        Content="{loc:Loc AgentMcpTrustRevoke}"
+                                        Command="{Binding RevokeCommand}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </UserControl>
