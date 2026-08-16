@@ -70,7 +70,22 @@ public partial class MemoryEditorWindowModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     [NotifyPropertyChangedFor(nameof(CanUpdateIndex))]
+    [NotifyPropertyChangedFor(nameof(ProgressValue))]
+    [NotifyPropertyChangedFor(nameof(ProgressStageText))]
+    [NotifyPropertyChangedFor(nameof(ProgressDetailText))]
     private bool _isFileImporting;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressValue))]
+    private double _importProgressValue;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressStageText))]
+    private string _importProgressStageText = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressDetailText))]
+    private string _importProgressDetailText = "";
 
     [ObservableProperty] private bool _hasFailure;
     [ObservableProperty]
@@ -79,6 +94,13 @@ public partial class MemoryEditorWindowModel : ObservableObject
     private string _memoryDescription = "";
 
     public bool IsBusy => IndexUpdater.IsUpdating || IsFileImporting;
+
+    // 导入文件与更新索引共用界面上那一条进度条，但各自记自己的进度：
+    // 导入不再往索引更新器的进度字段里写，否则那些数字看着像索引进度，而索引根本没在跑。
+    public double ProgressValue => IsFileImporting ? ImportProgressValue : IndexUpdater.ProgressValue;
+    public string ProgressStageText => IsFileImporting ? ImportProgressStageText : IndexUpdater.ProgressStageText;
+    public string ProgressDetailText => IsFileImporting ? ImportProgressDetailText : IndexUpdater.ProgressDetailText;
+
     public bool HasBackgroundWork => IndexUpdater.HasBackgroundWork ||
                                      IsFileImporting ||
                                      !_fileDetailsTask.IsCompleted;
@@ -160,7 +182,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
 
         TextSources.Add(source);
         _memoryData.TextSources.Add(source);
-        _memoryData.Save();
+        _memoryData.MarkIndexDirty();
         RefreshStatus();
     }
 
@@ -192,7 +214,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
             OnPropertyChanged(nameof(TextSources));
         }
 
-        _memoryData.Save();
+        _memoryData.MarkIndexDirty();
         RefreshStatus();
     }
 
@@ -202,7 +224,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         if (!await _messageService.ConfirmAsync(Loc.Text("CommonDeleteConfirmTips"))) return;
         TextSources.Remove(source);
         _memoryData.TextSources.Remove(source);
-        _memoryData.Save();
+        _memoryData.MarkIndexDirty();
         RefreshStatus();
     }
 
@@ -225,9 +247,9 @@ public partial class MemoryEditorWindowModel : ObservableObject
         IsFileImporting = true;
         HasFailure = false;
         FailureText = "";
-        IndexUpdater.ProgressValue = 0;
-        IndexUpdater.ProgressStageText = Loc.Text("MemoryImportValidating");
-        IndexUpdater.ProgressDetailText = "";
+        ImportProgressValue = 0;
+        ImportProgressStageText = Loc.Text("MemoryImportValidating");
+        ImportProgressDetailText = "";
         RefreshStatus();
 
         _importTask = ImportFilesAsync(files, _importCancellation.Token);
@@ -247,11 +269,11 @@ public partial class MemoryEditorWindowModel : ObservableObject
                 string? path = files[index].TryGetLocalPath();
                 if (string.IsNullOrWhiteSpace(path) || _memoryData.FilePaths.Contains(path)) continue;
 
-                IndexUpdater.ProgressStageText = Loc.Text("MemoryImportValidating");
-                IndexUpdater.ProgressDetailText = string.Format(Loc.Text("MemoryImportProgressFormat"),
+                ImportProgressStageText = Loc.Text("MemoryImportValidating");
+                ImportProgressDetailText = string.Format(Loc.Text("MemoryImportProgressFormat"),
                     index + 1, files.Count, Path.GetFileName(path),
                     accepted.Count, errors.Count);
-                IndexUpdater.ProgressValue = (index + 1d) / files.Count * 100;
+                ImportProgressValue = (index + 1d) / files.Count * 100;
 
                 MemorySourceReadResult result =
                     await _memoryData.ValidateTextFileAsync(path, cancellationToken);
@@ -270,7 +292,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
                 Files.Add(MemoryFileSourceViewData.From(path, result));
             }
 
-            if (accepted.Count > 0) _memoryData.Save();
+            if (accepted.Count > 0) _memoryData.MarkIndexDirty();
             if (errors.Count > 0)
             {
                 HasFailure = true;
@@ -308,7 +330,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         if (!await _messageService.ConfirmAsync(Loc.Text("CommonDeleteConfirmTips"))) return;
         Files.Remove(file);
         _memoryData.FilePaths.Remove(file.Path);
-        _memoryData.Save();
+        _memoryData.MarkIndexDirty();
         RefreshStatus();
     }
 
@@ -367,6 +389,18 @@ public partial class MemoryEditorWindowModel : ObservableObject
             HasFailure = IndexUpdater.HasFailure;
             FailureText = IndexUpdater.FailureText;
         }
+        else if (e.PropertyName == nameof(MemoryIndexUpdateController.ProgressValue))
+        {
+            OnPropertyChanged(nameof(ProgressValue));
+        }
+        else if (e.PropertyName == nameof(MemoryIndexUpdateController.ProgressStageText))
+        {
+            OnPropertyChanged(nameof(ProgressStageText));
+        }
+        else if (e.PropertyName == nameof(MemoryIndexUpdateController.ProgressDetailText))
+        {
+            OnPropertyChanged(nameof(ProgressDetailText));
+        }
     }
 
     private void OnIndexUpdateCompleted(MemoryIndexUpdateResult result)
@@ -378,36 +412,12 @@ public partial class MemoryEditorWindowModel : ObservableObject
 
     private void RefreshStatus()
     {
-        IndexStatusText = IndexUpdater.IsUpdating
-            ? Loc.Text("MemoryIndexUpdating")
-            : !string.IsNullOrWhiteSpace(_memoryData.LastIndexError)
-                ? Loc.Text("MemoryIndexHasError")
-                : _memoryData.IndexDirty
-                    ? Loc.Text("MemoryIndexPendingShort")
-                : _memoryData.LastIndexedAt == null
-                    ? Loc.Text("MemoryIndexNotBuiltShort")
-                    : Loc.Text("MemoryIndexReady");
-        IndexStatusDetailText = IndexUpdater.IsUpdating
-            ? Loc.Text("MemoryIndexUpdatingDetail")
-            : !string.IsNullOrWhiteSpace(_memoryData.LastIndexError)
-                ? MemoryIndexUiText.GetIndexErrorText(_memoryData.LastIndexError)
-                : _memoryData.IndexDirty
-                    ? Loc.Text("MemoryIndexNeedUpdate")
-                    : _memoryData.LastIndexedAt == null
-                        ? Loc.Text("MemoryIndexNotBuilt")
-                        : Loc.Text("MemoryIndexReadyDetail");
-        IndexStatusKey = IndexUpdater.IsUpdating
-            ? "Progress"
-            : !string.IsNullOrWhiteSpace(_memoryData.LastIndexError)
-                ? "Error"
-                : _memoryData.IndexDirty || _memoryData.LastIndexedAt == null
-                    ? "Dirty"
-                    : "Ready";
-
-        LastIndexedText = _memoryData.LastIndexedAt == null
-            ? Loc.Text("MemoryIndexNeverUpdated")
-            : Loc.Text("MemoryIndexLastIndexed") +
-              _memoryData.LastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+        MemoryIndexStatusView status = MemoryIndexUiText.ResolveStatusView(
+            MemoryIndexState.From(_memoryData, IndexUpdater.IsUpdating));
+        IndexStatusText = status.StatusText;
+        IndexStatusDetailText = status.DetailText;
+        IndexStatusKey = status.StatusKey;
+        LastIndexedText = status.LastIndexedText;
 
         SourceCountText = string.Format(Loc.Text("MemorySourceCountFormat"),
             _memoryData.TextSources.Count, _memoryData.FilePaths.Count);

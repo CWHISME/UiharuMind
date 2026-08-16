@@ -129,9 +129,11 @@
                             <TextBlock Grid.Column="1" Text="{Binding SourceCountText}" Classes="muted"
                                        TextWrapping="Wrap" />
                         </Grid>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <!-- 「上次更新：」前缀留在版面这一层，LastIndexedText 与选择窗一样只给纯值 -->
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
                             <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
-                            <TextBlock Grid.Column="1" Text="{Binding LastIndexedText}" Classes="muted"
+                            <TextBlock Grid.Column="1" Text="{loc:Loc MemoryIndexLastIndexed}" Classes="muted" />
+                            <TextBlock Grid.Column="2" Text="{Binding LastIndexedText}" Classes="muted"
                                        TextWrapping="Wrap" />
                         </Grid>
                     </StackPanel>
@@ -192,16 +194,17 @@
                             BorderBrush="{DynamicResource SemiGrey2}"
                             BorderThickness="0,0,0,1"
                             IsVisible="{Binding IsBusy}">
+                        <!-- 进度取自视图模型：导入文件与更新索引各记自己的进度，这里只显示当前在跑的那一件 -->
                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding IndexUpdater.ProgressStageText}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ProgressStageText}" FontWeight="SemiBold" />
                                 <TextBlock Grid.Column="1"
-                                           Text="{Binding IndexUpdater.ProgressValue, StringFormat={}{0:0}%}"
+                                           Text="{Binding ProgressValue, StringFormat={}{0:0}%}"
                                            Foreground="{DynamicResource MemoryStatusProgressBrush}" />
                             </Grid>
                             <ProgressBar Grid.Row="1" Minimum="0" Maximum="100"
-                                         Value="{Binding IndexUpdater.ProgressValue}" Height="6" />
-                            <TextBlock Grid.Row="2" Text="{Binding IndexUpdater.ProgressDetailText}"
+                                         Value="{Binding ProgressValue}" Height="6" />
+                            <TextBlock Grid.Row="2" Text="{Binding ProgressDetailText}"
                                        TextWrapping="Wrap" Classes="muted" />
                         </Grid>
                     </Border>

@@ -246,25 +246,11 @@ public partial class MemoryLibraryItemViewData : ObservableObject, IDisposable
             : Memory.Description;
         SourceSummary = string.Format(Loc.Text("MemoryLibrarySourceSummary"),
             Memory.TextSources.Count, Memory.FilePaths.Count);
-        StatusKey = IsUpdating
-            ? "Progress"
-            : !string.IsNullOrWhiteSpace(Memory.LastIndexError)
-                ? "Error"
-            : Memory.IndexDirty || Memory.LastIndexedAt == null
-                ? "Dirty"
-                : "Ready";
-        StatusText = StatusKey switch
-        {
-            "Error" => Loc.Text("MemoryIndexHasError"),
-            "Progress" => Loc.Text("MemoryIndexUpdating"),
-            "Ready" => Loc.Text("MemoryIndexReady"),
-            _ => Memory.LastIndexedAt == null
-                ? Loc.Text("MemoryIndexNotBuiltShort")
-                : Loc.Text("MemoryIndexPendingShort")
-        };
-        LastIndexedText = Memory.LastIndexedAt == null
-            ? Loc.Text("MemoryIndexNeverUpdated")
-            : Memory.LastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
+        MemoryIndexStatusView status = MemoryIndexUiText.ResolveStatusView(
+            MemoryIndexState.From(Memory, IsUpdating));
+        StatusKey = status.StatusKey;
+        StatusText = status.StatusText;
+        LastIndexedText = status.LastIndexedText;
         OnPropertyChanged(nameof(TextSourceCount));
         OnPropertyChanged(nameof(FileSourceCount));
     }
