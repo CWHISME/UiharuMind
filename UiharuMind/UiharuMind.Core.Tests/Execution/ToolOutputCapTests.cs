@@ -97,9 +97,42 @@ public class ToolOutputCapTests : IDisposable
 
         List<FileSearchResult> results = await _tools.Grep("needle");
 
-        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches + 1, results.Count); //上限 + 哨兵条目
+        // 按文件聚合:300 处命中来自同一个文件 → 一条文件条目 + 一条哨兵
+        Assert.Equal(2, results.Count);
+        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches, results[0].MatchingLines.Count);
         Assert.Equal("[truncated]", results[^1].FileName);
+        Assert.Contains("100 more", results[^1].Snippet);
         Assert.Contains("Narrow the query", results[^1].Snippet);
+    }
+
+    /// <summary>
+    /// contextLines 曾是个假参数:一路传进了引擎,转换时只取命中行,上下文全丢。
+    /// 模型要了上下文却拿回孤零零一行,只能再发一次 Read——这条测试就是那个坑的看门人。
+    /// </summary>
+    [Fact]
+    public async Task Grep_WithContextLines_ReturnsSurroundingLines()
+    {
+        string path = Path.Combine(_dir, "ctx.txt");
+        await File.WriteAllLinesAsync(path, ["l1", "l2", "target", "l4", "l5"]);
+
+        List<FileSearchResult> results = await _tools.Grep("target", contextLines: 1);
+
+        FileSearchResult file = Assert.Single(results);
+        Assert.Equal([2, 3, 4], file.MatchingLines.Select(x => x.LineNumber).ToArray());
+        Assert.Equal(["l2", "target", "l4"], file.MatchingLines.Select(x => x.Line).ToArray());
+    }
+
+    /// <summary>同一文件的多处命中聚合成一条,相邻命中重叠的上下文行只出现一次</summary>
+    [Fact]
+    public async Task Grep_AggregatesPerFile_AndDeduplicatesOverlappingContext()
+    {
+        string path = Path.Combine(_dir, "dense.txt");
+        await File.WriteAllLinesAsync(path, ["hit", "hit", "hit"]);
+
+        List<FileSearchResult> results = await _tools.Grep("hit", contextLines: 2);
+
+        FileSearchResult file = Assert.Single(results);
+        Assert.Equal([1, 2, 3], file.MatchingLines.Select(x => x.LineNumber).ToArray());
     }
 
     [Fact]

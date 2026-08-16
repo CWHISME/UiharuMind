@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -18,6 +19,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
@@ -120,7 +122,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>shell 审批时按命令派生的"同类命令"放行模式;非 shell 或取不到命令为空串</summary>
     public string SuggestedCommandPattern { get; }
 
-    /// <summary>编辑类工具(Write/Replace/Edit)的变更 diff;其余工具为空</summary>
+    /// <summary>编辑类工具(Write/Edit)的变更 diff;其余工具为空</summary>
     public IReadOnlyList<DiffLineView> DiffLines { get; } = [];
 
     /// <summary>是否有 diff 可展示(编码场景的审批体验就是 diff 体验)</summary>
@@ -138,7 +140,9 @@ public partial class ApprovalRequestItem : ConversationItemBase
     /// <summary>用户决定完成后的回应消息</summary>
     public Task<ChatMessage> Response => _completion.Task;
 
-    public ApprovalRequestItem(ToolApprovalRequestContent request)
+    /// <param name="request">框架发来的审批请求</param>
+    /// <param name="workspaceRoot">工作目录,用于把模型给的相对路径解析成真实文件以预演 diff;可空</param>
+    public ApprovalRequestItem(ToolApprovalRequestContent request, string? workspaceRoot = null)
     {
         _request = request;
         if (request.ToolCall is FunctionCallContent call)
@@ -149,7 +153,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
                 : string.Empty;
-            DiffLines = DiffLineView.BuildForToolCall(call);
+            DiffLines = DiffLineView.BuildForToolCall(call, workspaceRoot);
         }
         else
         {
@@ -237,48 +241,34 @@ public sealed class DiffLineView
     /// <summary>是否删除行</summary>
     public bool IsRemoved { get; private init; }
 
+    /// <summary>预演读文件的大小上限:卡片在 UI 线程上构造,不能为一个巨大文件卡住界面</summary>
+    private const long MaxPreviewFileBytes = 1024 * 1024;
+
     /// <summary>
     /// 从编辑类工具调用构建 diff 行;非编辑类工具返回空
     /// </summary>
     /// <param name="call">工具调用</param>
+    /// <param name="workspaceRoot">工作目录,用于把模型给的相对路径解析成真实文件;可空</param>
     /// <returns>diff 行列表</returns>
-    public static IReadOnlyList<DiffLineView> BuildForToolCall(FunctionCallContent call)
+    public static IReadOnlyList<DiffLineView> BuildForToolCall(FunctionCallContent call, string? workspaceRoot = null)
     {
         try
         {
             List<DiffLineView> lines = call.Name switch
             {
-                "Replace" => BuildReplaceDiff(call.Arguments),
                 "Write" => BuildWriteDiff(call.Arguments),
-                "Edit" => BuildLineEditsDiff(call.Arguments),
+                "Edit" => BuildEditDiff(call.Arguments, workspaceRoot),
                 _ => [],
             };
             return Cap(lines);
         }
         catch
         {
-            return []; //diff 只是展示增强,构建失败回退为原始参数摘要
+            // diff 只是展示增强,构建失败回退为原始参数摘要。
+            // 预演判定"这次编辑必然失败"时也走这里:那种失败在自动编辑档下根本弹不出卡片,
+            // 为它单独做一套红字告警,收益抵不上多养一条 UI 分支(见 ADR 0007 的决策记录)
+            return [];
         }
-    }
-
-    private static List<DiffLineView> BuildReplaceDiff(IDictionary<string, object?>? args)
-    {
-        string? oldText = GetString(args, "oldString");
-        string? newText = GetString(args, "newString");
-        if (oldText == null || newText == null) return [];
-
-        List<DiffLineView> lines = WithHeader(args);
-        foreach (LineDiffEntry entry in LineDiff.Compute(oldText, newText))
-        {
-            lines.Add(entry.Kind switch
-            {
-                ELineDiffKind.Added => Added(entry.Text),
-                ELineDiffKind.Removed => Removed(entry.Text),
-                _ => Context(entry.Text),
-            });
-        }
-
-        return lines;
     }
 
     private static List<DiffLineView> BuildWriteDiff(IDictionary<string, object?>? args)
@@ -295,20 +285,48 @@ public sealed class DiffLineView
         return lines;
     }
 
-    private static List<DiffLineView> BuildLineEditsDiff(IDictionary<string, object?>? args)
+    /// <summary>
+    /// Edit 的 diff 由 <see cref="FileEditPlanner"/> <b>干跑</b>出来——读真实文件、跑真实匹配,
+    /// 因此卡片上看到的就是落盘后的样子,而不是把 oldString/newString 两块裸文本对着摆。
+    /// 语义只有一处定义:工具执行与这张卡片调的是同一个纯函数。
+    /// </summary>
+    private static List<DiffLineView> BuildEditDiff(IDictionary<string, object?>? args, string? workspaceRoot)
     {
-        if (args?.TryGetValue("lineEdits", out object? value) != true) return [];
+        string? filePath = GetString(args, "filePath");
+        if (string.IsNullOrEmpty(filePath)) return [];
+        if (args?.TryGetValue("edits", out object? value) != true) return [];
         if (value is not JsonElement { ValueKind: JsonValueKind.Array } array) return [];
 
-        List<DiffLineView> lines = WithHeader(args);
+        List<FileEdit> edits = [];
         foreach (JsonElement edit in array.EnumerateArray())
         {
-            int lineNumber = GetInt(edit, "line_number") ?? GetInt(edit, "lineNumber") ?? 0;
-            string newLine = (GetJsonString(edit, "new_line") ?? GetJsonString(edit, "newLine") ?? string.Empty)
-                .TrimEnd('\n');
-            lines.Add(newLine.Length == 0
-                ? Removed($"@{lineNumber}: (delete line)")
-                : Added($"@{lineNumber}: {newLine}"));
+            string? oldString = GetJsonString(edit, "oldString") ?? GetJsonString(edit, "old_string");
+            string? newString = GetJsonString(edit, "newString") ?? GetJsonString(edit, "new_string");
+            if (oldString == null || newString == null) return [];
+            edits.Add(new FileEdit { OldString = oldString, NewString = newString });
+        }
+
+        string full = Path.IsPathRooted(filePath)
+            ? filePath
+            : string.IsNullOrEmpty(workspaceRoot)
+                ? filePath //没有工作目录可拼,相对路径无从解析,回退成参数摘要
+                : Path.Combine(workspaceRoot, filePath);
+
+        if (!File.Exists(full) || new FileInfo(full).Length > MaxPreviewFileBytes) return [];
+
+        FileEditPlan plan = FileEditPlanner.PlanFile(full, filePath, edits);
+        if (!plan.Succeeded) return [];
+
+        List<DiffLineView> lines = WithHeader(args);
+        foreach (LineDiffEntry entry in plan.Diff)
+        {
+            string text = $"{entry.LineNumber,5} {entry.Text}";
+            lines.Add(entry.Kind switch
+            {
+                ELineDiffKind.Added => Added(text),
+                ELineDiffKind.Removed => Removed(text),
+                _ => Context(text),
+            });
         }
 
         return lines;

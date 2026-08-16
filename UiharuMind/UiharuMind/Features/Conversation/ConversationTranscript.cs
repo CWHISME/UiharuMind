@@ -36,6 +36,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly IList<ConversationItemBase> _target;
     private readonly Func<TextConversationItem> _createAssistantItem;
     private readonly Action<string>? _rememberShellPattern;
+    private readonly Func<string?>? _workspaceRootSource; //审批卡片预演 diff 要用它解析相对路径
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
@@ -60,15 +61,18 @@ public sealed class ConversationTranscript : ITurnSink
     /// <param name="target">条目落点：实时流直写界面集合，回放写入构建缓冲</param>
     /// <param name="createAssistantItem">助手气泡工厂（名字与头像取自当前会话角色）</param>
     /// <param name="rememberShellPattern">「本会话放行同类命令」的落点</param>
+    /// <param name="workspaceRootSource">当前工作目录的来源（现取现用：会话中途改工作目录也能跟上）</param>
     public ConversationTranscript(
         IList<ConversationItemBase> target,
         Func<TextConversationItem> createAssistantItem,
-        Action<string>? rememberShellPattern = null)
+        Action<string>? rememberShellPattern = null,
+        Func<string?>? workspaceRootSource = null)
     {
         _target = target;
         _isUiBound = target is INotifyCollectionChanged;
         _createAssistantItem = createAssistantItem;
         _rememberShellPattern = rememberShellPattern;
+        _workspaceRootSource = workspaceRootSource;
     }
 
     // [诊断探针] 界面绑定集合必须在 UI 线程写入:Avalonia 的弱事件簿记不是线程安全的,
@@ -148,7 +152,7 @@ public sealed class ConversationTranscript : ITurnSink
 
             case ToolApprovalRequestContent approvalRequest:
                 CloseSegment();
-                ApprovalRequestItem approvalItem = new(approvalRequest)
+                ApprovalRequestItem approvalItem = new(approvalRequest, _workspaceRootSource?.Invoke())
                 {
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),
                 };
@@ -181,7 +185,8 @@ public sealed class ConversationTranscript : ITurnSink
         if (card == null) return null;
 
         // 过程里的助手气泡不带头像与名字:它是子代理的正文,不是本会话角色在说话
-        ConversationTranscript transcript = new(card.NestedItems, () => new TextConversationItem(false))
+        ConversationTranscript transcript = new(card.NestedItems, () => new TextConversationItem(false),
+            workspaceRootSource: _workspaceRootSource)
         {
             AutoCollapseThinking = AutoCollapseThinking,
         };

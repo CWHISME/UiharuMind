@@ -114,29 +114,69 @@ internal sealed class PermissiveFileAccessTools
         string? directory = null,
         CancellationToken ct = default)
     {
-        List<GrepFileResult> results = await _grepper
+        List<GrepMatchResult> results = await _grepper
             .SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
             .ConfigureAwait(false);
 
-        // 自有结果 → 框架工具结果的转换只发生在这里,命中限幅也只发生在这里
-        bool truncated = results.Count > MaxGrepMatches;
-        List<FileSearchResult> converted = results.Take(MaxGrepMatches).Select(x => new FileSearchResult
-        {
-            FileName = x.FileName,
-            Snippet = TruncateLine(x.Snippet, MaxGrepLineChars),
-            MatchingLines = x.MatchingLines
-                .Select(line => new FileSearchMatch
-                    { LineNumber = line.LineNumber, Line = TruncateLine(line.Line, MaxGrepLineChars) })
-                .ToList(),
-        }).ToList();
+        // 自有结果 → 框架工具结果的转换只发生在这里,按文件聚合与命中限幅也只发生在这里。
+        // 聚合是为模型做的:同一文件十处命中摊成十条,文件名就要重复十遍,而模型真正需要的是
+        // "哪个文件、第几行"。界面那侧要的是可逐条点开的命中列表,所以不在 grepper 里聚合。
+        List<FileSearchResult> converted = [];
+        Dictionary<string, FileSearchResult> byFile = new(StringComparer.Ordinal);
+        Dictionary<string, HashSet<int>> seenLines = new(StringComparer.Ordinal);
+        int remaining = MaxGrepMatches;
+        int droppedMatches = 0;
+        HashSet<string> droppedFiles = new(StringComparer.Ordinal);
 
-        if (truncated)
+        foreach (GrepMatchResult result in results)
+        {
+            if (remaining <= 0)
+            {
+                droppedMatches++;
+                droppedFiles.Add(result.FileName);
+                continue;
+            }
+
+            remaining--;
+            if (!byFile.TryGetValue(result.FileName, out FileSearchResult? file))
+            {
+                file = new FileSearchResult
+                {
+                    FileName = result.FileName,
+                    Snippet = TruncateLine(result.Snippet, MaxGrepLineChars),
+                    MatchingLines = [],
+                };
+                byFile[result.FileName] = file;
+                seenLines[result.FileName] = [];
+                converted.Add(file);
+            }
+
+            // 相邻命中的上下文会重叠,同一行只保留一次
+            HashSet<int> seen = seenLines[result.FileName];
+            foreach (GrepMatchLine line in result.MatchingLines)
+            {
+                if (!seen.Add(line.LineNumber)) continue;
+                file.MatchingLines.Add(new FileSearchMatch
+                {
+                    LineNumber = line.LineNumber,
+                    Line = TruncateLine(line.Line, MaxGrepLineChars),
+                });
+            }
+        }
+
+        foreach (FileSearchResult file in converted)
+        {
+            file.MatchingLines.Sort((a, b) => a.LineNumber.CompareTo(b.LineNumber));
+        }
+
+        if (droppedMatches > 0)
         {
             converted.Add(new FileSearchResult
             {
                 FileName = "[truncated]",
-                Snippet = $"Showing first {MaxGrepMatches} of {results.Count} matches. " +
-                          "Narrow the query, or scope it with fileGlobs/directory.",
+                Snippet = $"Showing the first {MaxGrepMatches} matches; {droppedMatches} more "
+                          + $"across {droppedFiles.Count} file(s) were dropped. "
+                          + "Narrow the query, or scope it with fileGlobs/directory.",
             });
         }
 

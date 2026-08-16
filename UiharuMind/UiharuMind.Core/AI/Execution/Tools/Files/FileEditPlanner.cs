@@ -107,6 +107,21 @@ public static class FileEditPlanner
     }
 
     /// <summary>
+    /// 从磁盘读文件并算一份编辑计划，不落盘（同步版：审批卡片要在构造时就把 diff 摆出来）。
+    /// 走的是与执行完全同一条路径（含 BOM 剥离），因此预演结论就是执行结论。
+    /// </summary>
+    /// <param name="absolutePath">文件绝对路径</param>
+    /// <param name="label">出现在话术里的文件名</param>
+    /// <param name="edits">编辑清单</param>
+    /// <returns>编辑计划</returns>
+    public static FileEditPlan PlanFile(string absolutePath, string label, IReadOnlyList<FileEdit>? edits)
+    {
+        if (!File.Exists(absolutePath)) return FileEditPlan.Failed($"File '{label}' not found.");
+
+        return Plan(TextFileEnvelope.FromBytes(File.ReadAllBytes(absolutePath)), label, edits);
+    }
+
+    /// <summary>
     /// 对给定原文算一份编辑计划（不碰磁盘）
     /// </summary>
     /// <param name="originalText">原文</param>

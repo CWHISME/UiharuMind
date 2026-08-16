@@ -324,7 +324,8 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     public ConversationViewModel()
     {
         _transcript = new ConversationTranscript(Items, CreateAssistantItem,
-            pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern));
+            pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
+            () => CurrentSession?.WorkspacePath);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
