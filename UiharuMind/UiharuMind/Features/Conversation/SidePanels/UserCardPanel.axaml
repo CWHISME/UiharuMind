@@ -5,12 +5,12 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:chatPlugins="clr-namespace:UiharuMind.Features.Conversation.ChatPlugins"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.Conversation.ChatPlugins.ChatPlugin_UserCharacterCard">
+             x:Class="UiharuMind.Features.Conversation.SidePanels.UserCardPanel">
 
     <Design.DataContext>
-        <chatPlugins:ChatPlugin_UserCharacterCardData />
+        <panels:UserCardViewData />
     </Design.DataContext>
 
     <!-- 角色卡 -->

@@ -1,32 +1,30 @@
 using System.Collections.Generic;
 using System.Globalization;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Core.Core.Utils;
-using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.SessionList;
 
-namespace UiharuMind.Features.Conversation.ChatPlugins;
+namespace UiharuMind.Features.Conversation.SidePanels;
 
-public partial class ChatPlugin_Translation : UserControl
+public partial class TranslationPanel : UserControl
 {
-    public ChatPlugin_Translation()
+    public TranslationPanel()
     {
         InitializeComponent();
     }
 }
 
-public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_Translation>
+/// <summary>会话详情栏的翻译语言选择。选中语言存在会话的 CustomParams 上</summary>
+public partial class TranslationViewData : ObservableObject
 {
     [ObservableProperty] private List<string> _languages = new List<string>();
     [ObservableProperty] private string _selectedLanguage = Lang.AutoDetect;
 
-    public ChatPlugin_TranslationData()
+    private SessionListItem? _session;
+
+    public TranslationViewData()
     {
         var cultures = CultureInfo.GetCultures(CultureTypes.NeutralCultures);
         _languages.Add(Lang.AutoDetect);
@@ -37,12 +35,14 @@ public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_
         }
     }
 
-    protected override void OnChatSessionChanged(SessionListItem chatSessionViewData)
+    /// <summary>切到某会话：回填它上次选的语言</summary>
+    /// <param name="session">会话列表条目</param>
+    public void SetSession(SessionListItem session)
     {
-        base.OnChatSessionChanged(chatSessionViewData);
+        _session = session;
+
         string? lastLanguage = null;
-        if (ChatSessionCurrentViewData.Session.CustomParams.TryGetValue(CharacterData.ParamsNameLanguage,
-                out object? last))
+        if (session.Session.CustomParams.TryGetValue(CharacterData.ParamsNameLanguage, out object? last))
         {
             lastLanguage = last?.ToString();
         }
@@ -60,12 +60,14 @@ public partial class ChatPlugin_TranslationData : ChatPluginDataBase<ChatPlugin_
 
     partial void OnSelectedLanguageChanged(string value)
     {
+        if (_session == null) return; //回填期之外不会走到这里,防的是没会话时被绑定触发
+
         if (value == Lang.AutoDetect)
         {
-            ChatSessionCurrentViewData.Session.CustomParams.Remove(CharacterData.ParamsNameLanguage);
+            _session.Session.CustomParams.Remove(CharacterData.ParamsNameLanguage);
             return;
         }
 
-        ChatSessionCurrentViewData.Session.CustomParams[CharacterData.ParamsNameLanguage] = value;
+        _session.Session.CustomParams[CharacterData.ParamsNameLanguage] = value;
     }
 }

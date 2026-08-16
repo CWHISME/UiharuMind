@@ -1,43 +1,14 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
-using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
 
+/// <summary>聊天页右栏「会话详情」。面板固定三块，摆放在 axaml 里，本类只负责取到主壳数据</summary>
 public partial class ChatInfoView : UserControl
 {
-    private ChatInfoModel _model;
-
     public ChatInfoView()
     {
         InitializeComponent();
 
-        _model = App.ViewModel.GetViewModel<ChatInfoModel>();
-    }
-
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
-        OnChatSessionChanged();
-        _model.OnEventChatSessionChanged += OnChatSessionChanged;
-    }
-
-    private void OnChatSessionChanged()
-    {
-        ChatPluginsPanel.Children.Clear();
-        foreach (var plugin in _model.ChatPluginList)
-        {
-            ChatPluginsPanel.Children.Add(plugin.View);
-        }
-
-        // Log.Debug("OnChatSessionChanged");
-    }
-
-    protected override void OnUnloaded(RoutedEventArgs e)
-    {
-        base.OnUnloaded(e);
-        _model.OnEventChatSessionChanged -= OnChatSessionChanged;
+        DataContext = App.ViewModel.GetViewModel<ChatInfoModel>();
     }
 }

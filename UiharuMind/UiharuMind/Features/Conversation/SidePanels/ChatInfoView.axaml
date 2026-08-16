@@ -2,24 +2,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:u="https://irihi.tech/ursa"
-             xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.Conversation.SidePanels.ChatInfoView">
-    <!-- -->
-    <!-- <Design.DataContext> -->
-    <!--     <panels:ChatInfoModel /> -->
-    <!-- </Design.DataContext> -->
+             x:Class="UiharuMind.Features.Conversation.SidePanels.ChatInfoView"
+             x:DataType="panels:ChatInfoModel">
 
-    <!-- <Grid RowDefinitions="*,Auto"> -->
-    <!-- -->
-    <!-- </Grid> -->
     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto"
                   BringIntoViewOnFocusChange="False">
-        <StackPanel Name="ChatPluginsPanel"
-                    MaxWidth="360" />
+        <!-- 三块面板固定摆放。这里曾是 code-behind 按插件表拼 Children 的地方,
+             而表里始终是这三项,见 ChatInfoModel 的类注释 -->
+        <StackPanel MaxWidth="360" Spacing="10" IsVisible="{Binding HasSession}">
+            <panels:UserCardPanel DataContext="{Binding UserCard}" IsVisible="{Binding IsShown}" />
+            <panels:TranslationPanel DataContext="{Binding Translation}" />
+            <panels:ChatParamsPanel DataContext="{Binding ChatParams}" />
+        </StackPanel>
     </ScrollViewer>
 
 </UserControl>

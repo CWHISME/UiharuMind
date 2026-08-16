@@ -6,12 +6,12 @@
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:u="https://irihi.tech/ursa"
-             xmlns:chatPlugins="clr-namespace:UiharuMind.Features.Conversation.ChatPlugins"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.Conversation.ChatPlugins.ChatPlugin_ChatParams">
+             x:Class="UiharuMind.Features.Conversation.SidePanels.ChatParamsPanel">
 
     <Design.DataContext>
-        <chatPlugins:ChatPlugin_ChatParamsData />
+        <panels:ChatParamsViewData />
     </Design.DataContext>
 
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">

@@ -74,8 +74,8 @@ public partial class ChatPageData : ConversationPageDataBase
     {
         SwitchConversation(obj?.Meta);
         _chatInfoModel.SetSession(obj);
-        // 换实例后插件面板要按新实例的状态重新对齐(切到一个后台跑着的会话时它就是"进行中")
-        NotifyChatState(Conversation.IsGenerating);
+        // 换实例后详情栏要按新实例的状态重新对齐(切到一个后台跑着的会话时它就是"进行中")
+        if (Conversation.IsGenerating) _chatInfoModel.NotifyChatBegin();
     }
 
     private void OnSessionMutated(SessionListItem item)
@@ -88,14 +88,9 @@ public partial class ChatPageData : ConversationPageDataBase
     private void OnConversationPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(ConversationViewModel.IsGenerating)) return;
-        // 后台会话的起止不该扰动插件面板,它讲的是"你正在看的这个会话"
+        // 后台会话的起止不该扰动详情栏,它讲的是"你正在看的这个会话"
         if (!ReferenceEquals(sender, Conversation)) return;
-        NotifyChatState(Conversation.IsGenerating);
-    }
-
-    private void NotifyChatState(bool isGenerating)
-    {
-        if (isGenerating) _chatInfoModel.NotifyChatBegin();
-        else _chatInfoModel.NotifyChatEnd();
+        // 只有"开始"有人关心(参数面板据此落盘),"结束"从来没有订阅方
+        if (Conversation.IsGenerating) _chatInfoModel.NotifyChatBegin();
     }
 }
