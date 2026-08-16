@@ -114,7 +114,7 @@ internal static class AgentOptionsFactory
         CharacterData character = plan.Character;
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
-            plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions);
+            plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);

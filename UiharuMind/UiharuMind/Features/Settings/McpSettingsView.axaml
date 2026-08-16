@@ -1,0 +1,131 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:mcp="clr-namespace:UiharuMind.Core.AI.Execution.Mcp;assembly=UiharuMind.Core"
+             xmlns:settings="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="480"
+             x:Class="UiharuMind.Features.Settings.McpSettingsView"
+             x:DataType="settings:McpSettingsViewData">
+
+    <Grid ColumnDefinitions="190,*" RowDefinitions="*,Auto" Margin="0,12">
+        <Grid Grid.Row="0" Grid.Column="0" RowDefinitions="*,Auto">
+            <ListBox Grid.Row="0" ItemsSource="{Binding Servers}"
+                     SelectedItem="{Binding SelectedServer}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="mcp:McpServerConfig">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="●" FontSize="9" VerticalAlignment="Center"
+                                       Foreground="Green" IsVisible="{Binding IsEnabled}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                <Button Content="＋" Command="{Binding NewServerCommand}" />
+                <Button Content="－" Command="{Binding DeleteServerCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 空态引导:一个 server 都没有时,右侧不该是一整片空白 -->
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Spacing="10"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380"
+                    IsVisible="{Binding IsEmpty}">
+            <TextBlock Classes="card-title" HorizontalAlignment="Center"
+                       Text="{loc:Loc AgentMcpEmptyTitle}" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" TextAlignment="Center"
+                       Text="{loc:Loc AgentMcpEmptyDesc}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                <Button Classes="Primary" Content="{loc:Loc AgentMcpEmptyCreate}"
+                        Command="{Binding NewServerCommand}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="0" Grid.Column="1" Classes="form-pane" Margin="12,0,0,0"
+                IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <ScrollViewer>
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpName}" />
+                    <TextBox Text="{Binding SelectedServer.Name}" />
+
+                    <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpTransport}" />
+                    <ComboBox SelectedIndex="{Binding TransportIndex}" MinWidth="160">
+                        <ComboBoxItem Content="stdio" />
+                        <ComboBoxItem Content="HTTP" />
+                    </ComboBox>
+
+                    <!-- 传输相关的字段按传输类型显隐:另一种传输的字段留在那里只是噪声 -->
+                    <StackPanel Spacing="2" IsVisible="{Binding IsStdio}">
+                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpCommand}" />
+                        <TextBox Text="{Binding SelectedServer.Command}" Watermark="npx" />
+
+                        <!-- 逐行一个参数:含空格的路径不必再靠分隔符猜边界 -->
+                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpArguments}" />
+                        <TextBox Text="{Binding ArgsText}" AcceptsReturn="True" MinHeight="60"
+                                 Watermark="-y&#x0a;@modelcontextprotocol/server-filesystem&#x0a;/My Documents" />
+
+                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpEnv}" />
+                        <TextBox Text="{Binding EnvText}" AcceptsReturn="True" MinHeight="48"
+                                 Watermark="API_KEY=xxxx" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="2" IsVisible="{Binding IsHttp}">
+                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpUrl}" />
+                        <TextBox Text="{Binding SelectedServer.Url}" Watermark="http://localhost:3001/mcp" />
+
+                        <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpHeaders}" />
+                        <TextBox Text="{Binding HeadersText}" AcceptsReturn="True" MinHeight="48"
+                                 Watermark="Authorization=Bearer xxxx" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                        <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
+                        <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpEnabled}"
+                                   ToolTip.Tip="{loc:Loc AgentMcpEnabledTip}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ToggleSwitch IsChecked="{Binding SelectedServer.InjectInstructions}" />
+                        <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpInjectInstructions}"
+                                   ToolTip.Tip="{loc:Loc AgentMcpInjectInstructionsTip}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,14,0,0">
+                        <Button Classes="Primary" Content="{loc:Loc AgentSave}"
+                                Command="{Binding SaveServerCommand}" />
+                        <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}"
+                                ToolTip.Tip="{loc:Loc AgentMcpTestTip}" />
+                        <TextBlock VerticalAlignment="Center" FontSize="12"
+                                   Foreground="{DynamicResource SemiGrey5}"
+                                   Text="{Binding StatusText}" />
+                    </StackPanel>
+
+                    <!-- 失败原因原样摆出来:光说"失败"没法排查 -->
+                    <SelectableTextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
+                                         Margin="0,6,0,0"
+                                         IsVisible="{Binding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                         Text="{Binding ErrorText}" />
+
+                    <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Text="{loc:Loc AgentMcpPerAgentHint}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- 配置文件是生态标准的 mcpServers 形状,可与别的客户端互拷 -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                    Spacing="4" Margin="0,12,0,0">
+            <TextBlock Classes="muted" Text="{loc:Loc AgentMcpConfigHint}" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="{loc:Loc AgentMcpOpenConfigFolder}"
+                        Command="{Binding OpenConfigFolderCommand}" />
+                <Button Content="{loc:Loc AgentMcpReload}" Command="{Binding ReloadServersCommand}" />
+                <SelectableTextBlock Classes="muted" VerticalAlignment="Center"
+                                     TextTrimming="CharacterEllipsis"
+                                     Text="{Binding ConfigFilePath}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

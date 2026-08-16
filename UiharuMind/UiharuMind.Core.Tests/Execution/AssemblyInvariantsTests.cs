@@ -777,6 +777,7 @@ public class AssemblySnapshotTests
     [InlineData("vision-model")]
     [InlineData("subagent")]
     [InlineData("skills")]
+    [InlineData("mcp-servers")]
     public void ChangedInput_ProducesDifferentSnapshot(string dimension)
     {
         AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(NewAgentCharacter(), "prompt", "/ws",
@@ -803,6 +804,8 @@ public class AssemblySnapshotTests
             case "vision-model": modelSupportsVision = true; break; //视觉↔非视觉模型切换触发重建
             case "subagent": changedConfig.EnableSubAgent = !changedConfig.EnableSubAgent; break;
             case "skills": changedConfig.DisabledSkills.Add("some-skill"); break;
+            //改完 MCP 名单不重建的话,回来仍按旧名单挂工具——与子智能体名单同一类坑
+            case "mcp-servers": changedConfig.DisabledMcpServers.Add("some-server"); break;
         }
 
         AgentAssemblyFacts changed = AgentAssemblyFacts.Capture(NewAgentCharacter(changedConfig),

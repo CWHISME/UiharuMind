@@ -113,6 +113,10 @@
                                     <ToggleSwitch IsChecked="{Binding IsEnabled}" MinWidth="0" />
                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
                                                ToolTip.Tip="{Binding Description}" />
+                                    <!-- 关掉这一档能省多少:开关旁边才是这个数字有用的地方 -->
+                                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                               Text="{Binding TokenText}"
+                                               ToolTip.Tip="{loc:Loc CharacterCapabilityTokenTip}" />
                                     <controls:ThemedSvgIcon Width="14" Height="14" IconName="info"
                                                             VerticalAlignment="Center">
                                         <ToolTip.Tip>
@@ -141,6 +145,9 @@
                                     <StackPanel Grid.Column="1" Spacing="1">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="{Binding Name}" />
+                                            <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                                       Text="{Binding TokenText}"
+                                                       ToolTip.Tip="{loc:Loc CharacterSkillTokenTip}" />
                                             <TextBlock FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SemiBlue5}"
                                                        IsVisible="{Binding IsUserInvokedOnly}"
@@ -150,6 +157,42 @@
                                                        Foreground="IndianRed"
                                                        IsVisible="{Binding !IsLoaded}"
                                                        Text="{loc:Loc AgentSkillsNotLoaded}" />
+                                        </StackPanel>
+                                        <TextBlock Classes="muted" Text="{Binding Description}"
+                                                   TextWrapping="Wrap" MaxLines="2" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Name="McpSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterMcpTitle}" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpDesc}" TextWrapping="Wrap" />
+                    <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpEmpty}"
+                               IsVisible="{Binding AgentTools.HasNoMcpServers}" />
+                    <ItemsControl ItemsSource="{Binding AgentTools.McpServers}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewData:AgentMcpServerToggle">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,2">
+                                    <CheckBox IsChecked="{Binding IsEnabled}" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SemiGrey5}"
+                                                       Text="{Binding ToolCount, StringFormat='{}{0} tools'}" />
+                                            <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                                       Text="{Binding TokenText}"
+                                                       ToolTip.Tip="{loc:Loc CharacterCapabilityTokenTip}" />
+                                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="IndianRed"
+                                                       IsVisible="{Binding !IsHosted}"
+                                                       Text="{loc:Loc CharacterMcpNotHosted}"
+                                                       ToolTip.Tip="{loc:Loc CharacterMcpNotHostedTip}" />
                                         </StackPanel>
                                         <TextBlock Classes="muted" Text="{Binding Description}"
                                                    TextWrapping="Wrap" MaxLines="2" />

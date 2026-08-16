@@ -16,6 +16,7 @@ using UiharuMind.Shared.Shell;
 using Ursa.Controls;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -79,7 +80,15 @@ public partial class CharacterInfoViewData : ObservableObject
     /// 智能体的能力面板(工具开关 + 技能勾选)。惰性建:非智能体档的编辑页不显示这块,
     /// 建它要读盘解析技能包
     /// </summary>
-    public AgentToolViewData AgentTools => _agentTools ??= new AgentToolViewData(_characterData.Tools);
+    public AgentToolViewData AgentTools => _agentTools ??= new AgentToolViewData(_characterData.Tools, CapabilitySnapshot);
+
+    /// <summary>
+    /// 当前会话实际挂上的能力快照，用来给能力面板标估算占用。
+    /// 从会话右栏点「编辑」进来时由调用方填上；从角色库进来时为 null——
+    /// 那时占用显示「—」，因为没有运行期上下文，「关掉能省多少」确实答不出。
+    /// <b>必须在首次访问 <see cref="AgentTools"/> 之前设好</b>（那一份是惰性建且只建一次）。
+    /// </summary>
+    public AgentCapabilitySnapshot? CapabilitySnapshot { get; set; }
 
     /// <summary>可委派的子智能体(存的是标识,界面显示解析后的名字)</summary>
     public ObservableCollection<MountedAgentItem> SubAgents { get; }

@@ -97,6 +97,13 @@ public interface ICharacterRunner : IAsyncDisposable
     Task<IReadOnlyList<TodoSnapshot>> GetTodosAsync();
 
     /// <summary>
+    /// 获取本会话实际挂上的能力（工具与 MCP 分组）。默认实现为空快照——
+    /// 不走 harness 的形态本就不装配工具，没什么可报的
+    /// </summary>
+    /// <returns>能力快照</returns>
+    AgentCapabilitySnapshot GetCapabilities() => AgentCapabilitySnapshot.Empty;
+
+    /// <summary>
     /// 运行中插话：把消息投入注入队列，agent 下一次机会消费
     /// </summary>
     /// <param name="messages">插入的消息</param>

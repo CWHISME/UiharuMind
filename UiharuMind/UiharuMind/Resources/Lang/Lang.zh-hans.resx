@@ -419,14 +419,14 @@
     <data name="AgentMcpTransport" xml:space="preserve">
         <value>传输方式</value>
     </data>
-    <data name="AgentMcpCommand" xml:space="preserve">
-        <value>命令(stdio)</value>
+    <data name="AgentMcpArguments" xml:space="preserve">
+        <value>参数（stdio，每行一个）</value>
     </data>
     <data name="AgentMcpArguments" xml:space="preserve">
         <value>参数(stdio)</value>
     </data>
-    <data name="AgentMcpUrl" xml:space="preserve">
-        <value>地址(HTTP)</value>
+    <data name="AgentMcpEnabled" xml:space="preserve">
+        <value>托管此 server</value>
     </data>
     <data name="AgentMcpEnabled" xml:space="preserve">
         <value>启用</value>
@@ -2569,5 +2569,107 @@
     </data>
     <data name="SessionBusyCannotModify" xml:space="preserve">
         <value>这个会话还在跑，先停止再操作</value>
+    </data>
+    <data name="AgentMcpEnv" xml:space="preserve">
+        <value>环境变量（每行 KEY=值）</value>
+    </data>
+    <data name="AgentMcpHeaders" xml:space="preserve">
+        <value>请求头（HTTP，每行 KEY=值）</value>
+    </data>
+    <data name="AgentMcpEnabledTip" xml:space="preserve">
+        <value>只决定要不要为它拉起进程／建立连接。哪些智能体能用它的工具，在角色编辑页里按角色配。</value>
+    </data>
+    <data name="AgentMcpInjectInstructions" xml:space="preserve">
+        <value>注入 server 自述</value>
+    </data>
+    <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
+        <value>server 可以附一段说明，讲它那套工具该怎么配合使用。这段要占上下文——关掉则保留工具、不要说明。</value>
+    </data>
+    <data name="AgentMcpConfigHint" xml:space="preserve">
+        <value>配置采用生态标准的 mcpServers 格式，可以从别的 MCP 客户端整段粘过来，也可以拿去别处用。直接改文件后点「从文件重载」。</value>
+    </data>
+    <data name="AgentMcpOpenConfigFolder" xml:space="preserve">
+        <value>打开配置目录</value>
+    </data>
+    <data name="AgentMcpReload" xml:space="preserve">
+        <value>从文件重载</value>
+    </data>
+    <data name="AgentSkillsRootPath" xml:space="preserve">
+        <value>技能目录：</value>
+    </data>
+    <data name="CharacterMcpTitle" xml:space="preserve">
+        <value>MCP server</value>
+    </data>
+    <data name="CharacterMcpDesc" xml:space="preserve">
+        <value>本智能体可以用哪些已托管的 MCP server。取消勾选只对这个智能体隐藏它的工具，别的智能体照用。</value>
+    </data>
+    <data name="CharacterMcpEmpty" xml:space="preserve">
+        <value>还没有配置 MCP server。在「设置 → 智能体 → MCP」里添加。</value>
+    </data>
+    <data name="CharacterMcpNotHosted" xml:space="preserve">
+        <value>未托管</value>
+    </data>
+    <data name="CharacterMcpNotHostedTip" xml:space="preserve">
+        <value>这个 server 配了但没托管，因此当前不向任何人提供工具。到「设置 → 智能体 → MCP」里打开托管。</value>
+    </data>
+    <data name="AgentCapabilityTitle" xml:space="preserve">
+        <value>能力</value>
+    </data>
+    <data name="AgentCapabilityEmpty" xml:space="preserve">
+        <value>还没有挂上任何能力。发一条消息开始会话，或到角色编辑页看看工具开关。</value>
+    </data>
+    <data name="AgentCapabilityTools" xml:space="preserve">
+        <value>工具</value>
+    </data>
+    <data name="AgentCapabilitySkills" xml:space="preserve">
+        <value>技能</value>
+    </data>
+    <data name="AgentCapabilityTokenTip" xml:space="preserve">
+        <value>工具定义每一轮都完整重发，用不用都占。这里是粗略估算，对着模型的上下文上限看。</value>
+    </data>
+    <data name="AgentCapabilityMcpInstructions" xml:space="preserve">
+        <value>已注入 server 自述</value>
+    </data>
+    <data name="AgentCapabilityMcpRenamed" xml:space="preserve">
+        <value>为消歧改过名</value>
+    </data>
+    <data name="AgentCapabilityMcpRenamedTip" xml:space="preserve">
+        <value>另一个 server 也有同名工具，所以双方都加了 server 前缀。括号里是原名。</value>
+    </data>
+    <data name="AgentCapabilityEditHint" xml:space="preserve">
+        <value>只读。要改这个智能体能用什么，去角色编辑页。</value>
+    </data>
+    <data name="AgentMcpTestTip" xml:space="preserve">
+        <value>先保存当前编辑，再连上这个 server 并列出它的工具——不管它是否设为托管。</value>
+    </data>
+    <data name="AgentMcpEmptyTitle" xml:space="preserve">
+        <value>还没有 MCP server</value>
+    </data>
+    <data name="AgentMcpEmptyDesc" xml:space="preserve">
+        <value>MCP server 给智能体添加工具。可以在这里新建一个，也可以把一份标准 mcpServers 配置放进配置目录后点「从文件重载」。</value>
+    </data>
+    <data name="AgentMcpEmptyCreate" xml:space="preserve">
+        <value>新建一个 server</value>
+    </data>
+    <data name="AgentMcpPerAgentHint" xml:space="preserve">
+        <value>托管是全局的。哪些智能体能用这个 server 的工具，在角色编辑页里按角色配。</value>
+    </data>
+    <data name="AgentCharacterEdit" xml:space="preserve">
+        <value>编辑当前角色</value>
+    </data>
+    <data name="AgentCapabilityTotal" xml:space="preserve">
+        <value>合计</value>
+    </data>
+    <data name="AgentCapabilityOverBudget" xml:space="preserve">
+        <value>工具定义占了当前模型上下文窗口的一大块。可以到角色编辑页关掉一些。</value>
+    </data>
+    <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
+        <value>常驻上下文的只有技能的名字与描述，正文是按需装载的——所以这个数字小是正常的。</value>
+    </data>
+    <data name="CharacterCapabilityTokenTip" xml:space="preserve">
+        <value>这一档的工具定义每轮占多少上下文（粗估）。显示「—」表示算不出：从角色库进来没有正在跑的会话，而没连上的 MCP server 还没有 schema。</value>
+    </data>
+    <data name="CharacterSkillTokenTip" xml:space="preserve">
+        <value>常驻上下文的只有技能的名字与描述，正文按需装载——所以这个数字小是设计如此。</value>
     </data>
 </root>

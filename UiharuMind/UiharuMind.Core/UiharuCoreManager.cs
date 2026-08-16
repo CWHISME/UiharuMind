@@ -49,6 +49,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
         _ = AI.Chat.SessionManager.Instance;
         _ = AI.Execution.CharacterRunnerFactory.Instance;
         _ = AI.Execution.Mcp.McpManager.Instance;
+        AI.LlmTokenizer.Warmup(); //词表加载放后台,免得首个调用方在 UI 线程上撞见
         Log.Debug("UiharuCoreManager initialized");
     }
 

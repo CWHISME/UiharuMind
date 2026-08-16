@@ -24,31 +24,57 @@ internal static class AgentInstructionsComposer
     private const string WorkspaceHeading = "# Workspace Instructions (from the project's AGENTS.md)";
 
     /// <summary>
+    /// MCP server 自述段的标题。主 agent 与子代理共用——完全自动档的子代理拿的是同一份 MCP 工具，
+    /// 不该是全场唯一不知道怎么用它们的人
+    /// </summary>
+    private const string McpHeading = "# MCP servers";
+
+    /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
-    /// 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → 工作区规矩。
+    /// 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩。
     ///
     /// <b>人格在最前</b>：小模型要先知道自己是谁，再读一大段英文工具纪律。
     /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段之前，
     /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
+    ///
+    /// MCP 自述紧跟工具纪律：它讲的正是"这批工具怎么用"，与上一段是同一件事的延续；
+    /// 而工作区规矩讲的是"这个项目怎么干活"，属于另一个层次，排在最后。
     /// </summary>
     /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
+    /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
-        bool visionToolMounted, string workingDirectory, string workspaceInstructions)
+        bool visionToolMounted, string workingDirectory, string workspaceInstructions,
+        string mcpInstructions = "")
     {
         StringBuilder sb = new();
         AppendSection(sb, characterPrompt);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory));
+        if (mcpInstructions.Length > 0)
+        {
+            AppendSection(sb, McpSection(mcpInstructions));
+        }
+
         if (workspaceInstructions.Length > 0)
         {
             AppendSection(sb, WorkspaceSection(workspaceInstructions));
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// MCP server 自述段（主 agent 与子代理逐字共用）
+    /// </summary>
+    /// <param name="mcpInstructions">已按 server 分节的自述正文</param>
+    /// <returns>整段文本</returns>
+    internal static string McpSection(string mcpInstructions)
+    {
+        return $"{McpHeading}\n\n{mcpInstructions}";
     }
 
     /// <summary>

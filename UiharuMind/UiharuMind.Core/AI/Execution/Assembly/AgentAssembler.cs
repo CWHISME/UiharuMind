@@ -13,6 +13,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
@@ -70,66 +71,76 @@ internal static class AgentAssembler
             ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = plan.WorkingDirectory })
             : null;
 
-        chatOptions.Tools = BuildTools(plan, client, shellExecutor);
+        List<AgentToolEntry> toolEntries = BuildTools(plan, client, shellExecutor);
+        chatOptions.Tools = toolEntries.Select(x => x.Tool).ToList();
 
         return BuildHandle(client,
-            AgentOptionsFactory.BuildAgentOptions(plan, history, contextProviders, chatOptions), shellExecutor);
+            AgentOptionsFactory.BuildAgentOptions(plan, history, contextProviders, chatOptions), shellExecutor,
+            plan.Mcp, toolEntries);
     }
 
     /// <summary>
     /// 装配 agent 档的工具集。挂哪些由角色的能力配置决定，与档位无关的判定（识图是否多余、
     /// 子代理是否有能力可用）已经在 plan 里算好。
+    ///
+    /// 每个工具连同<b>它属于哪一档能力</b>一并登记（见 <see cref="AgentToolEntry"/>）：
+    /// 角色编辑页要按开关显示占用，而事后靠名字表反推归属，工具一改名就静默错位。
     /// </summary>
     /// <param name="plan">装配计划</param>
     /// <param name="client">模型客户端（子代理与主代理共用同一惰性客户端）</param>
     /// <param name="shellExecutor">shell 执行器；未启用为 null</param>
-    /// <returns>工具集</returns>
-    private static List<AITool> BuildTools(AgentAssemblyPlan plan, IChatClient client,
+    /// <returns>工具集，每项带能力归属</returns>
+    private static List<AgentToolEntry> BuildTools(AgentAssemblyPlan plan, IChatClient client,
         LocalShellExecutor? shellExecutor)
     {
         AgentToolConfig config = plan.Config;
-        List<AITool> tools = new();
+        List<AgentToolEntry> tools = new();
+
+        void Add(EAgentCapability capability, AITool tool) => tools.Add(new AgentToolEntry(capability, tool));
 
         if (shellExecutor != null)
         {
             // 1.16:shell 作为普通工具挂载,默认名即 run_shell、默认自包审批,预授权规则按名匹配不变
-            tools.Add(shellExecutor.AsAIFunction(CharacterRunnerFactory.ShellToolName));
+            Add(EAgentCapability.Shell, shellExecutor.AsAIFunction(CharacterRunnerFactory.ShellToolName));
         }
 
         // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,ask_vision 是多余的绕路。
         // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
         if (plan.MountVisionTool)
         {
-            tools.Add(VisionTool.Create(plan.WorkingDirectory));
+            Add(EAgentCapability.VisionTool, VisionTool.Create(plan.WorkingDirectory));
         }
 
         // 子代理:工具集与权限档都从主 agent 派生,全部能力都关掉时不挂载
         if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client) is { } subAgentTool)
         {
-            tools.Add(subAgentTool);
+            Add(EAgentCapability.SubAgent, subAgentTool);
         }
 
         if (config.EnableKnowledgeSearchTool)
         {
-            tools.Add(KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));
+            Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));
         }
 
         if (config.EnableScheduledTasks)
         {
-            tools.Add(SchedulerTools.CreateScheduledTaskTool(plan.Profile.WorkspacePath));
+            Add(EAgentCapability.ScheduledTasks, SchedulerTools.CreateScheduledTaskTool(plan.Profile.WorkspacePath));
         }
 
-        tools.AddRange(plan.McpTools);
+        foreach (AITool mcpTool in plan.Mcp.Tools) Add(EAgentCapability.Mcp, mcpTool);
 
         if (config.EnableFileAccess)
         {
-            tools.AddRange(new PermissiveFileAccessTools(plan.WorkingDirectory).Create());
+            foreach (AITool tool in new PermissiveFileAccessTools(plan.WorkingDirectory).Create())
+            {
+                Add(EAgentCapability.FileAccess, tool);
+            }
         }
 
         if (config.EnableWebSearch)
         {
-            tools.Add(WebSearchTool.Create());
-            tools.Add(WebFetchTool.Create());
+            Add(EAgentCapability.WebSearch, WebSearchTool.Create());
+            Add(EAgentCapability.WebSearch, WebFetchTool.Create());
         }
 
         return tools;
@@ -141,9 +152,12 @@ internal static class AgentAssembler
     /// <param name="client">模型客户端</param>
     /// <param name="options">框架选项</param>
     /// <param name="shellExecutor">shell 执行器（有生命周期，交给句柄释放）</param>
+    /// <param name="mcp">本次装配的 MCP 产物（右栏据此展示归属）；子代理与纯提示词档不传</param>
+    /// <param name="toolEntries">带能力归属的工具集；子代理与纯提示词档不传</param>
     /// <returns>agent 句柄</returns>
     internal static AgentHandle BuildHandle(IChatClient client, HarnessAgentOptions options,
-        ShellExecutor? shellExecutor)
+        ShellExecutor? shellExecutor, McpToolSet? mcp = null,
+        IReadOnlyList<AgentToolEntry>? toolEntries = null)
     {
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
@@ -161,6 +175,6 @@ internal static class AgentAssembler
         }
 
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份
-        return new AgentHandle(agent, shellExecutor, options.ChatOptions);
+        return new AgentHandle(agent, shellExecutor, options.ChatOptions, mcp, toolEntries);
     }
 }

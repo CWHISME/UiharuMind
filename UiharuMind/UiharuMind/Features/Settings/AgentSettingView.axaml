@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
-             xmlns:mcp="clr-namespace:UiharuMind.Core.AI.Execution.Mcp;assembly=UiharuMind.Core"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="640"
              x:Class="UiharuMind.Features.Settings.AgentSettingView"
@@ -72,71 +71,12 @@
 
         <!-- ===================== MCP Servers ===================== -->
         <TabItem Header="{loc:Loc AgentSettingMcp}">
-            <Grid ColumnDefinitions="190,*" Margin="0,12">
-                <Grid Grid.Column="0" RowDefinitions="*,Auto">
-                    <ListBox Grid.Row="0" ItemsSource="{Binding McpServers}"
-                             SelectedItem="{Binding SelectedServer}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="mcp:McpServerConfig">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="●" FontSize="9" VerticalAlignment="Center"
-                                               Foreground="Green" IsVisible="{Binding IsEnabled}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
-                        <Button Content="＋" Command="{Binding NewServerCommand}" />
-                        <Button Content="－" Command="{Binding DeleteServerCommand}" />
-                    </StackPanel>
-                </Grid>
-
-                <Border Grid.Column="1" Classes="form-pane" Margin="12,0,0,0"
-                        IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <ScrollViewer>
-                        <StackPanel Spacing="2">
-                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpName}" />
-                            <TextBox Text="{Binding SelectedServer.Name}" />
-
-                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpTransport}" />
-                            <ComboBox SelectedIndex="{Binding ServerTransportIndex}" MinWidth="160">
-                                <ComboBoxItem Content="stdio" />
-                                <ComboBoxItem Content="HTTP" />
-                            </ComboBox>
-
-                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpCommand}" />
-                            <TextBox Text="{Binding SelectedServer.Command}" Watermark="npx" />
-
-                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpArguments}" />
-                            <TextBox Text="{Binding SelectedServer.Arguments}"
-                                     Watermark="-y @modelcontextprotocol/server-filesystem /path" />
-
-                            <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpUrl}" />
-                            <TextBox Text="{Binding SelectedServer.Url}" Watermark="http://localhost:3001/mcp" />
-
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-                                <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
-                                <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpEnabled}" />
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,14,0,0">
-                                <Button Classes="Primary" Content="{loc:Loc AgentSave}"
-                                        Command="{Binding SaveServerCommand}" />
-                                <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}" />
-                                <TextBlock VerticalAlignment="Center" FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey5}"
-                                           Text="{Binding ServerStatusText}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
+            <vm:McpSettingsView DataContext="{Binding Mcp}" />
         </TabItem>
 
         <!-- ===================== 技能包 ===================== -->
         <TabItem Header="{loc:Loc AgentSettingSkills}">
-            <Grid RowDefinitions="Auto,*" Margin="0,12">
+            <Grid RowDefinitions="Auto,Auto,*" Margin="0,12">
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
                     <Button Content="{loc:Loc AgentSkillsCreate}" Command="{Binding CreateSkillCommand}" />
                     <Button Content="{loc:Loc AgentSkillsOpenFolder}" Command="{Binding OpenSkillsFolderCommand}" />
@@ -145,7 +85,14 @@
                                MaxWidth="420" TextWrapping="Wrap"
                                Text="{loc:Loc AgentSkillsPerAgentHint}" />
                 </StackPanel>
-                <ScrollViewer Grid.Row="1" Margin="0,10,0,0">
+                <!-- 路径可选中复制:第三方生成器(如 Unity-MCP 的 setup-skills)要往这里落文件 -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                               Text="{loc:Loc AgentSkillsRootPath}" />
+                    <SelectableTextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                         TextTrimming="CharacterEllipsis" Text="{Binding SkillsRootPath}" />
+                </StackPanel>
+                <ScrollViewer Grid.Row="2" Margin="0,10,0,0">
                     <ItemsControl ItemsSource="{Binding Skills}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:SkillDisplayItem">

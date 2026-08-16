@@ -10,6 +10,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Mcp;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -41,11 +42,28 @@ public sealed class AgentHandle : IAsyncDisposable
     /// </summary>
     public ChatOptions? ChatOptions { get; }
 
-    public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor, ChatOptions? chatOptions = null)
+    /// <summary>
+    /// 本会话实际挂上的 MCP 工具集与它们的 server 归属。
+    ///
+    /// 右栏「能力」面板据此展示。<b>归属只能从这里拿</b>：<see cref="ChatOptions"/> 里的工具已经
+    /// 拍平成一个列表，哪个来自哪个 server 无从反推（撞名改过名的更是如此）。
+    /// </summary>
+    public McpToolSet Mcp { get; }
+
+    /// <summary>
+    /// 装配好的工具，每项带能力归属（见 <see cref="AgentToolEntry"/>）。
+    /// <see cref="ChatOptions"/> 里那份是它拍平后的结果，归属只在这里。
+    /// </summary>
+    public IReadOnlyList<AgentToolEntry> ToolEntries { get; }
+
+    public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor, ChatOptions? chatOptions = null,
+        McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null)
     {
         Agent = agent;
         _shellExecutor = shellExecutor;
         ChatOptions = chatOptions;
+        Mcp = mcp ?? McpToolSet.Empty;
+        ToolEntries = toolEntries ?? [];
     }
 
     public async ValueTask DisposeAsync()

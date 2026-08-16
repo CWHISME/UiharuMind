@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace UiharuMind.Features.Conversation;
@@ -25,6 +26,24 @@ public partial class AgentPageData : ConversationPageDataBase
 
     /// <summary>定时任务侧栏</summary>
     public ScheduledTaskListModel Scheduled { get; }
+
+    /// <summary>
+    /// 右栏页签的选中项。<b>显式绑定而不是由 TabControl 自己定</b>，两个原因：
+    /// 工作区卡片上的能力徽章要能跳到「能力」页签（两个控件共用本 DataContext），
+    /// 而 Todo 页签在角色关掉任务清单时整个隐藏——隐藏的页签会不会被自动跳过是框架行为，
+    /// 不该赌。默认停在「能力」：它对智能体会话恒有内容，另两个是事件驱动的。
+    /// </summary>
+    [ObservableProperty] private int _selectedSidePanelIndex;
+
+    /// <summary>「能力」页签在右栏里的下标（徽章跳转与默认值都指向它）</summary>
+    public const int CapabilityTabIndex = 0;
+
+    /// <summary>点能力徽章：跳到「能力」页签看明细</summary>
+    [RelayCommand]
+    private void ShowCapabilities()
+    {
+        SelectedSidePanelIndex = CapabilityTabIndex;
+    }
 
     public AgentPageData()
     {

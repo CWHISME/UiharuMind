@@ -17,7 +17,6 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.Configs;
 
@@ -35,13 +34,18 @@ public partial class AgentSettingViewData : ViewModelBase
     public WebSearchSettingsViewData WebSearch { get; } = new();
 
     //================= MCP =================
-    public ObservableCollection<McpServerConfig> McpServers { get; } = new();
-    [ObservableProperty] private McpServerConfig? _selectedServer;
-    [ObservableProperty] private int _serverTransportIndex;
-    [ObservableProperty] private string _serverStatusText = string.Empty;
+    /// <summary>server 列表、连接状态与编辑缓冲自成一块,见 <see cref="McpSettingsViewData"/></summary>
+    public McpSettingsViewData Mcp { get; } = new();
 
     //================= 技能 =================
     public ObservableCollection<SkillDisplayItem> Skills { get; } = new();
+
+    /// <summary>
+    /// 技能目录的完整路径。显式摆出来是为了让第三方生成器有地方可指——
+    /// 有些 MCP server（如 Unity-MCP）会按目标客户端生成 SKILL.md 落进它的技能目录，
+    /// 而那类工具只认得自己硬编码的那几个客户端，认不得本项目。
+    /// </summary>
+    public string SkillsRootPath => SkillCatalog.Instance.SkillsRootPath;
 
     public AgentSettingViewData()
     {
@@ -50,7 +54,6 @@ public partial class AgentSettingViewData : ViewModelBase
         _defaultWorkspacePath = config.DefaultWorkspacePath;
         _defaultPlanMode = config.DefaultPlanMode;
 
-        RefreshServers();
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
     }
 
@@ -82,78 +85,6 @@ public partial class AgentSettingViewData : ViewModelBase
         DefaultWorkspacePath = path;
         // 这里选的目录也进最近列表:两处都是"挑一个工作目录",没理由只有会话侧记得
         AgentSettingConfig.Current.RememberWorkspace(path);
-    }
-
-    //================= MCP =================
-    partial void OnSelectedServerChanged(McpServerConfig? value)
-    {
-        ServerTransportIndex = value == null ? 0 : (int)value.TransportType;
-        RefreshServerStatus();
-    }
-
-    [RelayCommand]
-    private void NewServer()
-    {
-        McpServerConfig server = new()
-        {
-            Name = $"server-{DateTime.Now:HHmmss}",
-            IsEnabled = false,
-        };
-        McpManager.Instance.SaveServer(server);
-        RefreshServers();
-        SelectedServer = McpServers.FirstOrDefault(x => x.Name == server.Name);
-    }
-
-    [RelayCommand]
-    private void SaveServer()
-    {
-        if (SelectedServer == null) return;
-        SelectedServer.TransportType = (EMcpTransportType)Math.Clamp(ServerTransportIndex, 0, 1);
-        McpManager.Instance.SaveServer(SelectedServer);
-        RefreshServers(SelectedServer.Name);
-        RefreshServerStatus();
-    }
-
-    [RelayCommand]
-    private void DeleteServer()
-    {
-        if (SelectedServer == null) return;
-        McpManager.Instance.DeleteServer(SelectedServer.Name);
-        RefreshServers();
-    }
-
-    [RelayCommand]
-    private async Task TestServer()
-    {
-        if (SelectedServer == null) return;
-        ServerStatusText = LocalizationManager.Instance.GetString("AgentMcpStateConnecting");
-        // 强制刷新工具缓存以建立连接
-        await McpManager.Instance.RefreshAsync();
-        RefreshServerStatus();
-    }
-
-    private void RefreshServers(string? keepSelectedName = null)
-    {
-        McpServers.Clear();
-        foreach (McpServerConfig server in McpManager.Instance.GetServers())
-        {
-            McpServers.Add(server);
-        }
-
-        SelectedServer = McpServers.FirstOrDefault(x => x.Name == keepSelectedName) ?? McpServers.FirstOrDefault();
-    }
-
-    private void RefreshServerStatus()
-    {
-        if (SelectedServer == null)
-        {
-            ServerStatusText = string.Empty;
-            return;
-        }
-
-        var (state, toolCount) = McpManager.Instance.GetServerState(SelectedServer.Name);
-        string stateText = LocalizationManager.Instance.GetString($"AgentMcpState{state}");
-        ServerStatusText = toolCount > 0 ? $"{stateText} · {toolCount} tools" : stateText;
     }
 
     //================= 技能(SKILL.md 目录,框架规范) =================

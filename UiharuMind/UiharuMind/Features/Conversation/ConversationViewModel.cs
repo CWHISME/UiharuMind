@@ -27,6 +27,7 @@ using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Features.Characters;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI;
@@ -180,6 +181,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     }
 
     public ObservableCollection<TodoDisplayItem> Todos { get; } = new();
+
+    /// <summary>右栏「能力」页签的数据（本会话实际挂上的工具、技能与 MCP）</summary>
+    public ConversationCapabilityViewData Capabilities { get; } = new();
 
     [ObservableProperty] private int _permissionModeIndex = 1; //默认 AutoEdit
     [ObservableProperty] private string? _workspacePath;
@@ -505,6 +509,24 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     public Bitmap? ActiveCharacterIcon => IconUtils.GetCharacterBitmapOrDefault(ActiveCharacter);
 
     /// <summary>
+    /// 编辑当前角色。右栏那三个能力徽章要能就地点进去改——
+    /// 「这个工具贵」与「关掉它」隔着一次跳页的话，那笔账摆出来也没人会动。
+    ///
+    /// 改完<b>不立即刷能力面板</b>：面板显示的是「此刻实际挂上的」，而装配要到
+    /// 下一轮发送才按快照差异重建，提前刷会显示一份还没生效的名单。
+    /// </summary>
+    [RelayCommand]
+    private void EditActiveCharacter()
+    {
+        CharacterInfoViewData info = new(ActiveCharacter)
+        {
+            // 让编辑页能按开关标出「关掉这一档能省多少 token」。必须在能力面板首次建之前给
+            CapabilitySnapshot = CurrentRunner?.GetCapabilities(),
+        };
+        CharacterWindows.ShowEditCharacterWindow(info, x => x.SaveCharacter());
+    }
+
+    /// <summary>
     /// 换角色。有会话就换会话的角色，还没有会话就只改新建默认值。
     ///
     /// 刻意不在此处重挂执行者：装配快照含角色标识与重算的系统提示，
@@ -743,6 +765,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 // 与转录器的内务工具通知同一口径:不等它,todo 面板迟一步刷无妨,
                 // 等的话会与下一轮的 RunAsync 抢执行者那把门闸
                 _ = RefreshTodosAsync();
+                // 装配可能在本轮开头因事实变化而重建(换模型、改角色卡、MCP 取回新工具),
+                // 所以能力面板跟着每轮刷一次,而不是只在挂接时刷
+                _ = RefreshCapabilitiesAsync();
                 break;
 
             case ETurnNotice.Persisted:
@@ -1050,6 +1075,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             CurrentMode = await body.Runner.GetModeAsync();
             ReplayMessages(body.Runner.GetHistory());
             await RefreshTodosAsync();
+            await RefreshCapabilitiesAsync();
         }
         catch (Exception e)
         {
@@ -1405,6 +1431,27 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true) return true;
         return message.Contents.Any(x => x is ToolApprovalResponseContent);
+    }
+
+    //================= 能力面板 =================
+
+    /// <summary>
+    /// 刷新右栏能力面板。挂接完成后调用——装配就在挂接里做，早于此调用拿到的是上一轮的工具集
+    /// </summary>
+    private async Task RefreshCapabilitiesAsync()
+    {
+        try
+        {
+            // 上限现读,与 RefreshTokenUsageText 同一解析次序:顶栏换模型不重建 agent,
+            // 缓存下来就会留下过期的分母
+            int contextLength = (CurrentSession?.ChatModelRunningData
+                                 ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
+            await Capabilities.RefreshAsync(CurrentRunner, IsAgentSession ? SessionCharacter : null, contextLength);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Refresh capabilities failed: {e.Message}");
+        }
     }
 
     //================= todo =================

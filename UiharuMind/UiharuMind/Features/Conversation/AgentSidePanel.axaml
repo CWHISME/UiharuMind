@@ -11,17 +11,110 @@
              x:Class="UiharuMind.Features.Conversation.AgentSidePanel"
              x:DataType="pages:AgentPageData">
 
-    <!-- Todo / 定时任务 页签 -->
+    <!-- 能力 / Todo / 定时任务 页签 -->
+    <UserControl.Resources>
+        <!-- 工具/技能/MCP 工具三处共用一行:名字占满并省略,token 靠右对齐成一列。
+             token 紧跟在变长的名字后面时,长名字会把数字顶出右边界,而且数字对不齐等于没法比 -->
+        <DataTemplate x:Key="CapabilityRow" x:DataType="conv:CapabilityItem">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,1">
+                <TextBlock Grid.Column="0" FontSize="12" TextTrimming="CharacterEllipsis"
+                           Text="{Binding Name}" ToolTip.Tip="{Binding Description}" />
+                <TextBlock Grid.Column="1" Classes="muted" FontSize="10" VerticalAlignment="Center"
+                           IsVisible="{Binding HasTokenCost}" Text="{Binding TokenText}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <UserControl.Styles>
         <Style Selector="TextBlock.todo-completed">
             <Setter Property="TextDecorations" Value="Strikethrough" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey4}" />
         </Style>
+        <Style Selector="TextBlock.capability-section">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
     </UserControl.Styles>
 
-                <TabControl Padding="0">
-                    <TabItem Header="{loc:Loc AgentTodoTitle}" FontSize="13"
-                             IsVisible="{Binding Conversation.IsTodoListVisible}">
+                <TabControl Padding="0"
+                            SelectedIndex="{Binding SelectedSidePanelIndex, Mode=TwoWay}">
+                    <!-- 能力:本会话实际挂上的工具/技能/MCP。只读,要改去角色编辑页 -->
+                    <!-- 标题带计数:不点开也知道里面有没有东西,"默认选哪个"因此无关紧要。
+                         这一个的计数要跨三个集合求和,axaml 算不了,故在 VM 里拼好 -->
+                    <TabItem Header="{Binding Conversation.Capabilities.TabHeader}" FontSize="13">
+                        <!-- 横向一律不滚:右栏窄,长名字用省略号收,而不是把整栏推出去 -->
+                        <ScrollViewer Margin="0,6,0,0" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="muted" TextWrapping="Wrap"
+                                           IsVisible="{Binding Conversation.Capabilities.IsEmpty}"
+                                           Text="{loc:Loc AgentCapabilityEmpty}" />
+
+                                <!-- 合计已经在工作区卡片上了,这里只留超额告警 -->
+                                <TextBlock FontSize="10" TextWrapping="Wrap" Foreground="Goldenrod"
+                                           IsVisible="{Binding Conversation.Capabilities.IsOverBudget}"
+                                           Text="{loc:Loc AgentCapabilityOverBudget}" />
+
+                                <!-- MCP 排在最前:它是这一栏里唯一会"今天有明天没"的部分 -->
+                                <ItemsControl ItemsSource="{Binding Conversation.Capabilities.McpServers}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="conv:McpServerGroupItem">
+                                            <Border Background="{DynamicResource SemiGrey1}"
+                                                    CornerRadius="8" Padding="10,8" Margin="0,3">
+                                                <StackPanel Spacing="3">
+                                                    <TextBlock FontSize="12" FontWeight="SemiBold"
+                                                               Text="{Binding Name}" TextWrapping="Wrap" />
+                                                    <TextBlock Classes="muted" FontSize="10"
+                                                               Text="{Binding SummaryText}" TextWrapping="Wrap" />
+                                                    <TextBlock Classes="muted" FontSize="10"
+                                                               IsVisible="{Binding InstructionsInjected}"
+                                                               Text="{loc:Loc AgentCapabilityMcpInstructions}" />
+                                                    <TextBlock Classes="muted" FontSize="10"
+                                                               Foreground="{DynamicResource SemiBlue5}"
+                                                               IsVisible="{Binding HasRenamedTools}"
+                                                               Text="{loc:Loc AgentCapabilityMcpRenamed}"
+                                                               ToolTip.Tip="{loc:Loc AgentCapabilityMcpRenamedTip}" />
+                                                    <ItemsControl ItemsSource="{Binding Tools}"
+                                                                  ItemTemplate="{StaticResource CapabilityRow}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <StackPanel Spacing="2"
+                                            IsVisible="{Binding Conversation.Capabilities.HasTools}">
+                                    <TextBlock Classes="capability-section" Margin="0,4,0,2"
+                                               Text="{Binding Conversation.Capabilities.ToolsHeader}" />
+                                    <ItemsControl ItemsSource="{Binding Conversation.Capabilities.Tools}"
+                                                  ItemTemplate="{StaticResource CapabilityRow}" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="2"
+                                            IsVisible="{Binding Conversation.Capabilities.HasSkills}">
+                                    <TextBlock Classes="capability-section" Margin="0,4,0,2"
+                                               Text="{Binding Conversation.Capabilities.SkillsHeader}"
+                                               ToolTip.Tip="{loc:Loc AgentCapabilitySkillResidentTip}" />
+                                    <ItemsControl ItemsSource="{Binding Conversation.Capabilities.Skills}"
+                                                  ItemTemplate="{StaticResource CapabilityRow}" />
+                                </StackPanel>
+
+                                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"
+                                           IsVisible="{Binding !Conversation.Capabilities.IsEmpty}"
+                                           Text="{loc:Loc AgentCapabilityEditHint}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- 这两个的计数来自会通知的集合,直接在标题里拼即可,不必绕 VM -->
+                    <TabItem FontSize="13" IsVisible="{Binding Conversation.IsTodoListVisible}">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{loc:Loc AgentTodoTitle}" />
+                                <TextBlock Text="{Binding Conversation.Todos.Count}"
+                                           IsVisible="{Binding Conversation.HasTodos}" />
+                            </StackPanel>
+                        </TabItem.Header>
                         <ScrollViewer Margin="0,6,0,0">
                             <StackPanel>
                                 <TextBlock Classes="muted"
@@ -43,7 +136,14 @@
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
-                    <TabItem Header="{loc:Loc AgentScheduledTitle}" FontSize="13">
+                    <TabItem FontSize="13">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{loc:Loc AgentScheduledTitle}" />
+                                <TextBlock Text="{Binding Scheduled.Tasks.Count}"
+                                           IsVisible="{Binding Scheduled.Tasks.Count}" />
+                            </StackPanel>
+                        </TabItem.Header>
                         <ScrollViewer Margin="0,6,0,0">
                             <StackPanel>
                                 <TextBlock Classes="muted"
@@ -89,5 +189,6 @@
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
+
                 </TabControl>
 </UserControl>

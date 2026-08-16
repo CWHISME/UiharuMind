@@ -429,14 +429,14 @@
     <data name="AgentMcpTransport" xml:space="preserve">
         <value>Transport</value>
     </data>
-    <data name="AgentMcpCommand" xml:space="preserve">
-        <value>Command (stdio)</value>
+    <data name="AgentMcpArguments" xml:space="preserve">
+        <value>Arguments (stdio, one per line)</value>
     </data>
     <data name="AgentMcpArguments" xml:space="preserve">
         <value>Arguments (stdio)</value>
     </data>
-    <data name="AgentMcpUrl" xml:space="preserve">
-        <value>URL (HTTP)</value>
+    <data name="AgentMcpEnabled" xml:space="preserve">
+        <value>Host this server</value>
     </data>
     <data name="AgentMcpEnabled" xml:space="preserve">
         <value>Enabled</value>
@@ -2576,5 +2576,107 @@
     </data>
     <data name="SessionBusyCannotModify" xml:space="preserve">
         <value>This session is still running. Stop it first.</value>
+    </data>
+    <data name="AgentMcpEnv" xml:space="preserve">
+        <value>Environment variables (KEY=value per line)</value>
+    </data>
+    <data name="AgentMcpHeaders" xml:space="preserve">
+        <value>Headers (HTTP, KEY=value per line)</value>
+    </data>
+    <data name="AgentMcpEnabledTip" xml:space="preserve">
+        <value>Whether to run/connect this server at all. Which agents may use its tools is set per character, in the character editor.</value>
+    </data>
+    <data name="AgentMcpInjectInstructions" xml:space="preserve">
+        <value>Inject server instructions</value>
+    </data>
+    <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
+        <value>Servers may ship a usage guide describing how their tools work together. It costs context — turn this off to keep the tools but drop the guide.</value>
+    </data>
+    <data name="AgentMcpConfigHint" xml:space="preserve">
+        <value>Config uses the standard mcpServers format, so you can paste one in from another MCP client — or take this one elsewhere. Edit the file directly, then Reload.</value>
+    </data>
+    <data name="AgentMcpOpenConfigFolder" xml:space="preserve">
+        <value>Open config folder</value>
+    </data>
+    <data name="AgentMcpReload" xml:space="preserve">
+        <value>Reload from file</value>
+    </data>
+    <data name="AgentSkillsRootPath" xml:space="preserve">
+        <value>Skills folder:</value>
+    </data>
+    <data name="CharacterMcpTitle" xml:space="preserve">
+        <value>MCP servers</value>
+    </data>
+    <data name="CharacterMcpDesc" xml:space="preserve">
+        <value>Which hosted MCP servers this agent may use. Unchecking one hides its tools from this agent only — it stays available to the others.</value>
+    </data>
+    <data name="CharacterMcpEmpty" xml:space="preserve">
+        <value>No MCP server configured yet. Add one under Settings → Agent → MCP.</value>
+    </data>
+    <data name="CharacterMcpNotHosted" xml:space="preserve">
+        <value>not hosted</value>
+    </data>
+    <data name="CharacterMcpNotHostedTip" xml:space="preserve">
+        <value>This server is configured but not being hosted, so it currently supplies no tools to anyone. Turn hosting on in Settings → Agent → MCP.</value>
+    </data>
+    <data name="AgentCapabilityTitle" xml:space="preserve">
+        <value>Capabilities</value>
+    </data>
+    <data name="AgentCapabilityEmpty" xml:space="preserve">
+        <value>Nothing mounted yet. Send a message to start the session, or check the tool switches in the character editor.</value>
+    </data>
+    <data name="AgentCapabilityTools" xml:space="preserve">
+        <value>Tools</value>
+    </data>
+    <data name="AgentCapabilitySkills" xml:space="preserve">
+        <value>Skills</value>
+    </data>
+    <data name="AgentCapabilityTokenTip" xml:space="preserve">
+        <value>Tool definitions are re-sent in full on every turn, used or not. Rough estimate — watch it against your model's context window.</value>
+    </data>
+    <data name="AgentCapabilityMcpInstructions" xml:space="preserve">
+        <value>server instructions injected</value>
+    </data>
+    <data name="AgentCapabilityMcpRenamed" xml:space="preserve">
+        <value>renamed to avoid a clash</value>
+    </data>
+    <data name="AgentCapabilityMcpRenamedTip" xml:space="preserve">
+        <value>Another server offers a tool by the same name, so both got a server prefix. The original name is shown in brackets.</value>
+    </data>
+    <data name="AgentCapabilityEditHint" xml:space="preserve">
+        <value>Read-only. To change what this agent may use, edit the character.</value>
+    </data>
+    <data name="AgentMcpTestTip" xml:space="preserve">
+        <value>Saves your edits, then connects to this server and lists its tools — whether or not it is set to be hosted.</value>
+    </data>
+    <data name="AgentMcpEmptyTitle" xml:space="preserve">
+        <value>No MCP server yet</value>
+    </data>
+    <data name="AgentMcpEmptyDesc" xml:space="preserve">
+        <value>MCP servers add tools to your agents. Create one here, or drop a standard mcpServers config into the config folder and hit Reload.</value>
+    </data>
+    <data name="AgentMcpEmptyCreate" xml:space="preserve">
+        <value>Create a server</value>
+    </data>
+    <data name="AgentMcpPerAgentHint" xml:space="preserve">
+        <value>Hosting is global. Which agents may use this server's tools is set per character, in the character editor.</value>
+    </data>
+    <data name="AgentCharacterEdit" xml:space="preserve">
+        <value>Edit this character</value>
+    </data>
+    <data name="AgentCapabilityTotal" xml:space="preserve">
+        <value>Total</value>
+    </data>
+    <data name="AgentCapabilityOverBudget" xml:space="preserve">
+        <value>Tool definitions take a large share of this model's context window. Consider turning some off in the character editor.</value>
+    </data>
+    <data name="AgentCapabilitySkillResidentTip" xml:space="preserve">
+        <value>Only the skill's name and description stay in context. The body loads on demand, so this number is small on purpose.</value>
+    </data>
+    <data name="CharacterCapabilityTokenTip" xml:space="preserve">
+        <value>Rough context cost of this capability's tool definitions, per turn. Shown as — when it can't be known: opening this editor from the character library has no live session, and an MCP server that hasn't connected has no schemas yet.</value>
+    </data>
+    <data name="CharacterSkillTokenTip" xml:space="preserve">
+        <value>Only the skill's name and description stay in context; the body loads on demand. So this number is small by design.</value>
     </data>
 </root>

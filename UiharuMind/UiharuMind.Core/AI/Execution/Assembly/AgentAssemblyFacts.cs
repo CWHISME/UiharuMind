@@ -99,8 +99,15 @@ public sealed record AgentAssemblyFacts
     /// <summary>禁用的技能名(换行拼接);过滤在装配时固化,故属装配输入</summary>
     public string DisabledSkills { get; init; } = string.Empty;
 
-    /// <summary>MCP 工具集修订号(见 <see cref="McpManager.Revision"/>)</summary>
+    /// <summary>
+    /// MCP 侧修订号(见 <see cref="McpManager.Revision"/>)。工具集与 server 自述<b>都</b>由它捕获——
+    /// 自述随工具同一次取回、同一次自增，故不必再单列一个字段。
+    /// 与工作区说明的差别在此：那个是磁盘文件，没有修订号可依，只能把内容本身入账。
+    /// </summary>
     public int McpRevision { get; init; }
+
+    /// <summary>禁用的 MCP server 名(换行拼接)；过滤在装配时固化，故属装配输入</summary>
+    public string DisabledMcpServers { get; init; } = string.Empty;
 
     /// <summary>
     /// 从构建配置捕获事实（装配输入的常规入口）。
@@ -181,6 +188,7 @@ public sealed record AgentAssemblyFacts
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
             McpRevision = isAgent ? mcpRevision : 0,
+            DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
         };
     }
 }

@@ -72,6 +72,9 @@ internal static class SubAgentAssembly
         /// <summary>MCP 工具集(完全自动档才挂;它们可能改东西,较低档位下会卡在无人回应的审批上)</summary>
         public IReadOnlyList<AITool>? McpTools { get; init; }
 
+        /// <summary>MCP server 自述(与主 agent 同一份),随工具一起给</summary>
+        public string McpInstructions { get; init; } = string.Empty;
+
         /// <summary>无人值守 shell 预授权模式(与主 agent 同源)</summary>
         public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
 
@@ -109,6 +112,8 @@ internal static class SubAgentAssembly
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
             McpTools = mcpTools,
+            // 自述绑在工具上:没给工具就不该给用法,那只是白占上下文
+            McpInstructions = mcpTools == null ? string.Empty : plan.Mcp.Instructions,
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
         };
@@ -143,7 +148,7 @@ internal static class SubAgentAssembly
             // 与主 agent 同一份(装配时刻那一份)。这里曾经在派活回调里现取,
             // 于是主子可能拿到不同的工具集;而工具集变化本就由 McpRevision 触发整体重建,
             // 现取除了制造不一致,还让这一支永远碰不到单例、测不了
-            IReadOnlyList<AITool>? mcpTools = fullAuto ? plan.McpTools : null;
+            IReadOnlyList<AITool>? mcpTools = fullAuto ? plan.Mcp.Tools : null;
 
             // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
             return AgentAssembler.BuildHandle(client,
@@ -219,7 +224,7 @@ internal static class SubAgentAssembly
         options.ChatOptions = new ChatOptions
         {
             Instructions = BuildSubAgentInstructions(config, hasVision, canMutate,
-                input.WorkingDirectory, input.WorkspaceInstructions, input.Persona),
+                input.WorkingDirectory, input.WorkspaceInstructions, input.McpInstructions, input.Persona),
             Tools = tools,
         };
         return options;
@@ -242,9 +247,10 @@ internal static class SubAgentAssembly
     /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
+    /// <param name="mcpInstructions">MCP server 自述（与主 agent 同一份）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool canMutate,
-        string workingDirectory, string workspaceInstructions, string persona = "")
+        string workingDirectory, string workspaceInstructions, string mcpInstructions, string persona = "")
     {
         StringBuilder sb = new();
         // 点名的子智能体先说自己是谁(与主 agent 同一口径:人格在最前,见 ADR 0005),
@@ -297,6 +303,14 @@ internal static class SubAgentAssembly
             sb.AppendLine();
             sb.AppendLine();
             sb.Append(AgentInstructionsComposer.WorkingDirectorySection(workingDirectory, "#"));
+        }
+
+        // 挂了 MCP 工具就得给对应的自述:只给签名不给用法,子代理照样不会用
+        if (canMutate && mcpInstructions.Length > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.Append(AgentInstructionsComposer.McpSection(mcpInstructions));
         }
 
         if (workspaceInstructions.Length > 0)

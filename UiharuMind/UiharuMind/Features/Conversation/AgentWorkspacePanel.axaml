@@ -6,6 +6,7 @@
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="260"
              x:Class="UiharuMind.Features.Conversation.AgentWorkspacePanel"
@@ -26,6 +27,10 @@
                          Button.workspace-recent:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
         </Style>
+        <!-- 卡片里的 muted 文本:统计行的标签与数值 -->
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
     </UserControl.Styles>
 
                 <Border Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
@@ -41,27 +46,79 @@
                                        IsVisible="{Binding !Conversation.IsGenerating}" />
                         </StackPanel>
                         <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
-                             换的是当前会话的角色,下一轮发送时装配自然重建 -->
-                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch" Margin="0,4,0,0"
-                                ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                                <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
-                                        ClipToBounds="True">
-                                    <Image Source="{Binding Conversation.ActiveCharacterIcon}"
-                                           Stretch="UniformToFill" />
-                                </Border>
-                                <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis"
-                                           Text="{Binding Conversation.ActiveCharacterName}" />
-                                <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
-                                           VerticalAlignment="Center" Text="▾" />
-                            </Grid>
-                            <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedLeft"
-                                        Opening="OnCharacterPickerOpening">
-                                    <chars:CharacterPickerView Name="CharacterPicker" />
-                                </Flyout>
-                            </Button.Flyout>
+                             换的是当前会话的角色,下一轮发送时装配自然重建。
+                             编辑按钮单独摘在外面:套在换角色那个按钮里会被它的 flyout 吃掉点击 -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2" Margin="0,4,0,0">
+                            <Button Grid.Column="0" Classes="workspace-reveal" HorizontalAlignment="Stretch"
+                                    ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
+                                            ClipToBounds="True">
+                                        <Image Source="{Binding Conversation.ActiveCharacterIcon}"
+                                               Stretch="UniformToFill" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Text="{Binding Conversation.ActiveCharacterName}" />
+                                    <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
+                                               VerticalAlignment="Center" Text="▾" />
+                                </Grid>
+                                <Button.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedLeft"
+                                            Opening="OnCharacterPickerOpening">
+                                        <chars:CharacterPickerView Name="CharacterPicker" />
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button Grid.Column="1" Classes="workspace-reveal" VerticalAlignment="Center"
+                                    Command="{Binding Conversation.EditActiveCharacterCommand}"
+                                    ToolTip.Tip="{loc:Loc AgentCharacterEdit}">
+                                <controls:ThemedSvgIcon Width="14" Height="14" IconName="pencil" />
+                            </Button>
+                        </Grid>
+
+                        <!-- 能力徽章:数量 + 占用。明细在右栏「能力」页签里,点任一个跳过去。
+                             摆在这里而不是只在页签里,是因为它跟着角色走——换个角色这三个数就全变了 -->
+                        <!-- 能力统计:竖排纯文字,标签一列、数值一列。整块点击=跳右栏「能力」页签看明细。
+                             与下面工作目录那块同一个路子——看着是文本,点起来是按钮。
+                             此前用的是一排徽章按钮:右栏只有 200 出头的宽度,三个横排放不下要折行,
+                             折出来的行长短不齐,而按钮底色又把这一小块搞得比它该有的分量重 -->
+                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch"
+                                IsVisible="{Binding Conversation.IsAgentSession}"
+                                Command="{Binding ShowCapabilitiesCommand}"
+                                ToolTip.Tip="{loc:Loc AgentCapabilityTokenTip}">
+                            <StackPanel Spacing="1">
+                                <!-- 合计加重:它是这几个数里唯一要对着上下文上限看的 -->
+                                <Grid ColumnDefinitions="46,*,Auto" ColumnSpacing="4">
+                                    <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                                               Text="{loc:Loc AgentCapabilityTotal}" />
+                                    <TextBlock Grid.Column="1" FontSize="10" FontWeight="SemiBold"
+                                               Text="{Binding Conversation.Capabilities.TotalText}" />
+                                    <TextBlock Grid.Column="2" FontSize="10" Foreground="Goldenrod" Text="▲"
+                                               IsVisible="{Binding Conversation.Capabilities.IsOverBudget}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="46,*" ColumnSpacing="4"
+                                      IsVisible="{Binding Conversation.Capabilities.HasTools}">
+                                    <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                                               Text="{loc:Loc AgentCapabilityTools}" />
+                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="10"
+                                               Text="{Binding Conversation.Capabilities.ToolStat}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="46,*" ColumnSpacing="4"
+                                      IsVisible="{Binding Conversation.Capabilities.HasSkills}"
+                                      ToolTip.Tip="{loc:Loc AgentCapabilitySkillResidentTip}">
+                                    <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                                               Text="{loc:Loc AgentCapabilitySkills}" />
+                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="10"
+                                               Text="{Binding Conversation.Capabilities.SkillStat}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="46,*" ColumnSpacing="4"
+                                      IsVisible="{Binding Conversation.Capabilities.HasMcp}">
+                                    <TextBlock Grid.Column="0" Classes="muted" FontSize="10" Text="MCP" />
+                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="10"
+                                               Text="{Binding Conversation.Capabilities.McpStat}" />
+                                </Grid>
+                            </StackPanel>
                         </Button>
                         <TextBlock Classes="muted" Margin="0,4,0,0"
                                    Text="{loc:Loc AgentWorkspaceLabel}" />

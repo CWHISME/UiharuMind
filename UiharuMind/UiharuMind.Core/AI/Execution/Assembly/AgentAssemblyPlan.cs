@@ -55,11 +55,12 @@ internal sealed class AgentAssemblyPlan
     public IReadOnlyList<CharacterData> MountedAgents { get; init; } = [];
 
     /// <summary>
-    /// MCP 工具集：装配时刻的那一份常驻缓存。
+    /// MCP 侧的产物：工具集、server 自述与分组明细，取自装配时刻的那一份常驻缓存，
+    /// 且已按角色的 <c>DisabledMcpServers</c> 过滤。
     /// 主代理与子代理用<b>同一份</b>——子代理原先在派活回调里现取，两者可能拿到不同的工具集，
-    /// 而工具集变化本就由 <see cref="AgentAssemblyFacts.McpRevision"/> 触发重建
+    /// 而 MCP 侧变化本就由 <see cref="AgentAssemblyFacts.McpRevision"/> 触发重建
     /// </summary>
-    public IReadOnlyList<AITool> McpTools { get; init; } = [];
+    public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
     /// <summary>技能来源（已按角色的禁用清单过滤）；非智能体档为 null</summary>
     public AgentSkillsSource? SkillsSource { get; init; }
@@ -110,7 +111,7 @@ internal sealed class AgentAssemblyPlan
             MountedAgents = config.EnableSubAgent
                 ? CharacterRunnerFactory.ResolveMountedAgents(profile.Character)
                 : [],
-            McpTools = McpManager.Instance.GetCachedTools(),
+            Mcp = McpManager.Instance.Resolve(config.DisabledMcpServers),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
             // 目录名(角色名_id8)由挂接时的对账决定并写进会话状态,见 FileMemoryLayout;
             // store 只认这个父目录

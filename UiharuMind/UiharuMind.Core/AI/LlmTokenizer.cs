@@ -32,4 +32,15 @@ public static class LlmTokenizer
     {
         return string.IsNullOrEmpty(text) ? 0 : _tokenizer.Value.CountTokens(text);
     }
+
+    /// <summary>
+    /// 后台加载词表。启动时调一次，此后谁都不必再为"首次使用"付那几十毫秒——
+    /// 调用点已经不止输入框一处（工具定义的占用估算也走这里），
+    /// 让每个调用方各自记得绕开 UI 线程是迟早会漏的。
+    /// </summary>
+    public static void Warmup()
+    {
+        if (_tokenizer.IsValueCreated) return;
+        _ = Task.Run(() => _ = _tokenizer.Value);
+    }
 }
