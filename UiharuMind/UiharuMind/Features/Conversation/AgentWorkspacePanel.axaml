@@ -1,0 +1,138 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="260"
+             x:Class="UiharuMind.Features.Conversation.AgentWorkspacePanel"
+             x:DataType="pages:AgentPageData">
+
+    <!-- 工作区卡片:运行态、换角色、目录展示与切换。
+         从 AgentPage 拆出来:右栏是"一个容器 + 若干面板",以后加一块就是加一个控件 -->
+    <UserControl.Styles>
+        <!-- 卡片里的路径与最近条目:看着是文本,点起来是按钮 -->
+        <Style Selector="Button.workspace-reveal, Button.workspace-recent">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.workspace-reveal:pointerover /template/ ContentPresenter,
+                         Button.workspace-recent:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+        </Style>
+    </UserControl.Styles>
+
+                <Border Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                     Fill="#4CAF50" IsVisible="{Binding Conversation.IsGenerating}" />
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                     Fill="{DynamicResource SemiGrey4}"
+                                     IsVisible="{Binding !Conversation.IsGenerating}" />
+                            <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
+                                       IsVisible="{Binding Conversation.IsGenerating}" />
+                            <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
+                                       IsVisible="{Binding !Conversation.IsGenerating}" />
+                        </StackPanel>
+                        <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
+                             换的是当前会话的角色,下一轮发送时装配自然重建 -->
+                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
+                                        ClipToBounds="True">
+                                    <Image Source="{Binding Conversation.ActiveCharacterIcon}"
+                                           Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Conversation.ActiveCharacterName}" />
+                                <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
+                                           VerticalAlignment="Center" Text="▾" />
+                            </Grid>
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft"
+                                        Opening="OnCharacterPickerOpening">
+                                    <chars:CharacterPickerView Name="CharacterPicker" />
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <TextBlock Classes="muted" Margin="0,4,0,0"
+                                   Text="{loc:Loc AgentWorkspaceLabel}" />
+                        <!-- 目录名单独一行,父路径省略号收在下面:工作区路径普遍很长,
+                             全路径铺开会把卡片撑高,而用户认的是最后那一节。整块点击=在文件管理器打开 -->
+                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch"
+                                Command="{Binding Conversation.RevealWorkspaceCommand}"
+                                ToolTip.Tip="{Binding Conversation.WorkspacePath}"
+                                IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <StackPanel>
+                                <TextBlock FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Conversation.WorkspaceName}" />
+                                <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Conversation.WorkspaceParent}" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock FontSize="11" Classes="muted"
+                                   Text="{loc:Loc AgentWorkspaceNone}"
+                                   IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <!-- 主按钮开系统选择器,下拉给最近用过的目录:切工作区是高频操作,
+                                 每次都翻一遍文件选择器太笨 -->
+                            <SplitButton FontSize="11" Padding="8,3" CornerRadius="6"
+                                         Command="{Binding Conversation.SelectWorkspaceCommand}"
+                                         Content="{loc:Loc AgentWorkspaceChange}">
+                                <SplitButton.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedLeft"
+                                            Opening="OnRecentWorkspacesOpening">
+                                        <StackPanel MinWidth="200" MaxWidth="320" Spacing="2">
+                                            <TextBlock Classes="muted" FontSize="11" Margin="6,2"
+                                                       Text="{loc:Loc AgentWorkspaceRecent}" />
+                                            <TextBlock Classes="muted" FontSize="11" Margin="6,2"
+                                                       Text="{loc:Loc AgentWorkspaceRecentEmpty}"
+                                                       IsVisible="{Binding Conversation.RecentWorkspaces.Count,
+                                                           Converter={x:Static convs:IntToBoolConverter.Inverted}}" />
+                                            <ItemsControl ItemsSource="{Binding Conversation.RecentWorkspaces}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="conv:RecentWorkspaceItem">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <Button Grid.Column="0" Classes="workspace-recent"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    Command="{Binding UseCommand}"
+                                                                    ToolTip.Tip="{Binding Path}">
+                                                                <StackPanel>
+                                                                    <TextBlock FontSize="12"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               Text="{Binding Name}" />
+                                                                    <TextBlock FontSize="10" Classes="muted"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               Text="{Binding Parent}" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <Button Grid.Column="1" Classes="workspace-recent"
+                                                                    VerticalAlignment="Center" FontSize="11"
+                                                                    Command="{Binding ForgetCommand}"
+                                                                    ToolTip.Tip="{loc:Loc AgentWorkspaceForget}"
+                                                                    Content="✕" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Flyout>
+                                </SplitButton.Flyout>
+                            </SplitButton>
+                            <Button FontSize="11" Padding="8,3" CornerRadius="6"
+                                    Command="{Binding Conversation.ClearWorkspaceCommand}"
+                                    IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    Content="{loc:Loc AgentWorkspaceClear}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+</UserControl>

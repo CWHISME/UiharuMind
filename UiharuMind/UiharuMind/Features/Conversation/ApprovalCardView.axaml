@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="220"
+             x:Class="UiharuMind.Features.Conversation.ApprovalCardView"
+             x:DataType="conv:ApprovalRequestItem">
+
+    <!-- 一次工具审批的卡片。抽成组件而非各处一份模板,理由同 ToolCallCardView:
+         tool-card / result-panel / diffline 原先只定义在 AgentPage 内,
+         别处要用就得复制一份样式,复制的结果就是观感飘。样式随组件走,复制不出去也就飘不了。
+         muted 与 mono 不必带:主题里(Assets/Themes/CustomFontStyle.axaml)已有全局定义 -->
+    <UserControl.Styles>
+        <Style Selector="Border.tool-card">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+        <Style Selector="Border.result-panel">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+
+        <!-- diff 行配色(等宽字体沿用全局的 mono 类) -->
+        <Style Selector="TextBlock.diffline">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="4,0" />
+        </Style>
+        <Style Selector="TextBlock.diffline.added">
+            <Setter Property="Background" Value="{DynamicResource SemiGreen0}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGreen7}" />
+        </Style>
+        <Style Selector="TextBlock.diffline.removed">
+            <Setter Property="Background" Value="{DynamicResource SemiRed0}" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiRed7}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="tool-card" Margin="0,6,40,6"
+            BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
+        <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="🔐" FontSize="13" />
+                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AgentApprovalTitle}" />
+                <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding ToolName}" />
+            </StackPanel>
+            <Border Classes="result-panel"
+                    IsVisible="{Binding ArgumentSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <SelectableTextBlock Classes="mono" Text="{Binding ArgumentSummary}"
+                                     TextWrapping="Wrap" MaxHeight="120" />
+            </Border>
+            <Border Classes="result-panel" IsVisible="{Binding HasDiff}">
+                <ScrollViewer MaxHeight="260"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding DiffLines}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Classes="mono diffline"
+                                           Classes.added="{Binding IsAdded}"
+                                           Classes.removed="{Binding IsRemoved}">
+                                    <Run Text="{Binding Prefix}" /><Run Text="{Binding Text}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsResolved}">
+                <Button CornerRadius="6"
+                        Command="{Binding ResolveCommand}" CommandParameter="once"
+                        Content="{loc:Loc AgentApproveOnce}" />
+                <Button CornerRadius="6"
+                        Command="{Binding ResolveCommand}" CommandParameter="session"
+                        Content="{loc:Loc AgentApproveSession}" />
+                <Button CornerRadius="6"
+                        IsVisible="{Binding CanRememberCommandPattern}"
+                        Command="{Binding ResolveCommand}" CommandParameter="session-command"
+                        Content="{loc:Loc AgentApproveSessionCommand}"
+                        ToolTip.Tip="{Binding SuggestedCommandPattern}" />
+                <Button CornerRadius="6" Foreground="IndianRed"
+                        Command="{Binding ResolveCommand}" CommandParameter="deny"
+                        Content="{loc:Loc AgentDeny}" />
+            </StackPanel>
+            <TextBlock Classes="muted" IsVisible="{Binding IsResolved}"
+                       Text="{Binding ResolvedText}" />
+        </StackPanel>
+    </Border>
+</UserControl>

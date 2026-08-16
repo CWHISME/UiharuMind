@@ -3,15 +3,11 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
               xmlns:pages="clr-namespace:UiharuMind.Features.Conversation"
-              xmlns:agent="clr-namespace:UiharuMind.Features.Conversation"
               xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
                xmlns:convView="clr-namespace:UiharuMind.Features.Conversation"
-              xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:otherViews="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
-             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
              x:Class="UiharuMind.Features.Conversation.AgentPage"
              x:DataType="pages:AgentPageData">
@@ -38,67 +34,7 @@
             <Setter Property="Margin" Value="-7" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
-        <Style Selector="Border.tool-card">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Margin" Value="0,4" />
-        </Style>
-        <Style Selector="Border.result-panel">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="8" />
-        </Style>
-        <Style Selector="TextBlock.todo-completed">
-            <Setter Property="TextDecorations" Value="Strikethrough" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey4}" />
-        </Style>
-        <!-- 工作区卡片里的路径与最近条目:看着是文本,点起来是按钮 -->
-        <Style Selector="Button.workspace-reveal, Button.workspace-recent">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="4,2" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
-        </Style>
-        <Style Selector="Button.workspace-reveal:pointerover /template/ ContentPresenter,
-                         Button.workspace-recent:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
-        </Style>
-        <Style Selector="ListBoxItem Button.session-delete">
-            <Setter Property="Opacity" Value="0" />
-        </Style>
-        <Style Selector="ListBoxItem:pointerover Button.session-delete">
-            <Setter Property="Opacity" Value="0.7" />
-        </Style>
-        <Style Selector="Border.spin">
-            <Style.Animations>
-                <Animation Duration="0:0:1.2" IterationCount="INFINITE">
-                    <KeyFrame Cue="0%">
-                        <Setter Property="RotateTransform.Angle" Value="0" />
-                    </KeyFrame>
-                    <KeyFrame Cue="100%">
-                        <Setter Property="RotateTransform.Angle" Value="360" />
-                    </KeyFrame>
-                </Animation>
-            </Style.Animations>
-        </Style>
 
-        <!-- 审批卡片的 diff 行配色(等宽字体沿用 mono 类) -->
-        <Style Selector="TextBlock.diffline">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="4,0" />
-        </Style>
-        <Style Selector="TextBlock.diffline.added">
-            <Setter Property="Background" Value="{DynamicResource SemiGreen0}" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGreen7}" />
-        </Style>
-        <Style Selector="TextBlock.diffline.removed">
-            <Setter Property="Background" Value="{DynamicResource SemiRed0}" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiRed7}" />
-        </Style>
     </UserControl.Styles>
 
     <!-- Agent 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到 -->
@@ -112,58 +48,9 @@
             <conv:ToolCallCardView />
         </DataTemplate>
 
-        <!-- 审批卡片 -->
+        <!-- 审批卡片:视觉与行为都在 ApprovalCardView 里 -->
         <DataTemplate DataType="conv:ApprovalRequestItem">
-            <Border Classes="tool-card" Margin="0,6,40,6"
-                    BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
-                <StackPanel Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="🔐" FontSize="13" />
-                        <TextBlock FontWeight="SemiBold" Text="{loc:Loc AgentApprovalTitle}" />
-                        <TextBlock Classes="mono" VerticalAlignment="Center" Text="{Binding ToolName}" />
-                    </StackPanel>
-                    <Border Classes="result-panel"
-                            IsVisible="{Binding ArgumentSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                        <SelectableTextBlock Classes="mono" Text="{Binding ArgumentSummary}"
-                                             TextWrapping="Wrap" MaxHeight="120" />
-                    </Border>
-                    <Border Classes="result-panel" IsVisible="{Binding HasDiff}">
-                        <ScrollViewer MaxHeight="260"
-                                      HorizontalScrollBarVisibility="Auto"
-                                      VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding DiffLines}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Classes="mono diffline"
-                                                   Classes.added="{Binding IsAdded}"
-                                                   Classes.removed="{Binding IsRemoved}">
-                                            <Run Text="{Binding Prefix}" /><Run Text="{Binding Text}" />
-                                        </TextBlock>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </Border>
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsResolved}">
-                        <Button CornerRadius="6"
-                                Command="{Binding ResolveCommand}" CommandParameter="once"
-                                Content="{loc:Loc AgentApproveOnce}" />
-                        <Button CornerRadius="6"
-                                Command="{Binding ResolveCommand}" CommandParameter="session"
-                                Content="{loc:Loc AgentApproveSession}" />
-                        <Button CornerRadius="6"
-                                IsVisible="{Binding CanRememberCommandPattern}"
-                                Command="{Binding ResolveCommand}" CommandParameter="session-command"
-                                Content="{loc:Loc AgentApproveSessionCommand}"
-                                ToolTip.Tip="{Binding SuggestedCommandPattern}" />
-                        <Button CornerRadius="6" Foreground="IndianRed"
-                                Command="{Binding ResolveCommand}" CommandParameter="deny"
-                                Content="{loc:Loc AgentDeny}" />
-                    </StackPanel>
-                    <TextBlock Classes="muted" IsVisible="{Binding IsResolved}"
-                               Text="{Binding ResolvedText}" />
-                </StackPanel>
-            </Border>
+            <conv:ApprovalCardView />
         </DataTemplate>
 
         <!-- 错误 -->
@@ -186,63 +73,9 @@
                                       IconName="file-plus-corner"
                                       ToolTips="{loc:Loc AgentNewSession}" />
                 </Grid>
-                <ListBox Margin="8,0,8,8"
-                         ItemsSource="{Binding Sessions}"
-                         SelectedItem="{Binding SelectedSession}"
-                         Background="Transparent">
-                    <ListBox.Styles>
-                        <Style Selector="ListBoxItem">
-                            <Setter Property="CornerRadius" Value="8" />
-                            <Setter Property="Padding" Value="8,6" />
-                        </Style>
-                    </ListBox.Styles>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="agent:SessionListItem">
-                            <Grid ColumnDefinitions="*,Auto" Background="Transparent">
-                                <Grid.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="{loc:Loc Rename}"
-                                                  Command="{Binding RenameCommand}" />
-                                        <MenuItem Header="{loc:Loc Copy}"
-                                                  Command="{Binding CopyCommand}" />
-                                        <MenuItem Header="{loc:Loc ClearChatHistory}"
-                                                  ToolTip.Tip="{Binding BusyTip}"
-                                                  Command="{Binding ClearChatHistoryCommand}" />
-                                        <MenuItem Header="{loc:Loc Delete}"
-                                                  ToolTip.Tip="{Binding BusyTip}"
-                                                  Command="{Binding DeleteCommand}" />
-                                    </ContextMenu>
-                                </Grid.ContextMenu>
-                                <!-- 指示器一列 + 文字一列:文字必须落在 * 列里,
-                                     否则长标题不再省略号截断而是撑出去 -->
-                                <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="6">
-                                    <!-- 在跑用转圈(动效最能说明"它在动"),
-                                         待审批用橙点(那是要你去处理的,不是在自己跑) -->
-                                    <!-- 必须经 Viewbox 缩:LoadingIcon 模板里的弧线是固定尺寸的,
-                                         直接给它 Width/Height 是裁剪而不是缩放,只会剩中间一块 -->
-                                    <Viewbox Grid.Column="0" Width="13" Height="13"
-                                             VerticalAlignment="Center"
-                                             IsVisible="{Binding IsRunning}">
-                                        <u:LoadingIcon IsLoading="True" />
-                                    </Viewbox>
-                                    <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center"
-                                             Fill="#FF9800"
-                                             IsVisible="{Binding IsAwaitingApproval}" />
-                                    <StackPanel Grid.Column="1" Spacing="2">
-                                        <TextBlock Text="{Binding Name}" FontSize="13"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Classes="muted" FontSize="11"
-                                                   Text="{Binding TimeString}" />
-                                    </StackPanel>
-                                </Grid>
-                                <Button Grid.Column="1" Classes="session-delete" Padding="4"
-                                        FontSize="10" Background="Transparent" Content="✕"
-                                        ToolTip.Tip="{Binding BusyTip}"
-                                        Command="{Binding DeleteCommand}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <pages:SessionListView Margin="8,0,8,8"
+                                       DataContext="{Binding SessionList}"
+                                       ShowAvatar="False" />
             </DockPanel>
         </Border>
 
@@ -339,188 +172,8 @@
                 Width="{Binding RightPaneWidth, Mode=TwoWay}"
                 IsVisible="{Binding IsRightPaneOpen}">
             <Grid RowDefinitions="Auto,*" Margin="12">
-                <!-- workspace 卡片:目录展示与切换 -->
-                <Border Grid.Row="0" Background="{DynamicResource SemiGrey1}" CornerRadius="10"
-                        Padding="10" Margin="0,0,0,10">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                     Fill="#4CAF50" IsVisible="{Binding Conversation.IsGenerating}" />
-                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                     Fill="{DynamicResource SemiGrey4}"
-                                     IsVisible="{Binding !Conversation.IsGenerating}" />
-                            <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
-                                       IsVisible="{Binding Conversation.IsGenerating}" />
-                            <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
-                                       IsVisible="{Binding !Conversation.IsGenerating}" />
-                        </StackPanel>
-                        <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
-                             换的是当前会话的角色,下一轮发送时装配自然重建 -->
-                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch" Margin="0,4,0,0"
-                                ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                                <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
-                                        ClipToBounds="True">
-                                    <Image Source="{Binding Conversation.ActiveCharacterIcon}"
-                                           Stretch="UniformToFill" />
-                                </Border>
-                                <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis"
-                                           Text="{Binding Conversation.ActiveCharacterName}" />
-                                <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
-                                           VerticalAlignment="Center" Text="▾" />
-                            </Grid>
-                            <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedLeft"
-                                        Opening="OnCharacterPickerOpening">
-                                    <chars:CharacterPickerView Name="CharacterPicker" />
-                                </Flyout>
-                            </Button.Flyout>
-                        </Button>
-                        <TextBlock Classes="muted" Margin="0,4,0,0"
-                                   Text="{loc:Loc AgentWorkspaceLabel}" />
-                        <!-- 目录名单独一行,父路径省略号收在下面:工作区路径普遍很长,
-                             全路径铺开会把卡片撑高,而用户认的是最后那一节。整块点击=在文件管理器打开 -->
-                        <Button Classes="workspace-reveal" HorizontalAlignment="Stretch"
-                                Command="{Binding Conversation.RevealWorkspaceCommand}"
-                                ToolTip.Tip="{Binding Conversation.WorkspacePath}"
-                                IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <StackPanel>
-                                <TextBlock FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                           Text="{Binding Conversation.WorkspaceName}" />
-                                <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
-                                           Text="{Binding Conversation.WorkspaceParent}" />
-                            </StackPanel>
-                        </Button>
-                        <TextBlock FontSize="11" Classes="muted"
-                                   Text="{loc:Loc AgentWorkspaceNone}"
-                                   IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <!-- 主按钮开系统选择器,下拉给最近用过的目录:切工作区是高频操作,
-                                 每次都翻一遍文件选择器太笨 -->
-                            <SplitButton FontSize="11" Padding="8,3" CornerRadius="6"
-                                         Command="{Binding Conversation.SelectWorkspaceCommand}"
-                                         Content="{loc:Loc AgentWorkspaceChange}">
-                                <SplitButton.Flyout>
-                                    <Flyout Placement="BottomEdgeAlignedLeft"
-                                            Opening="OnRecentWorkspacesOpening">
-                                        <StackPanel MinWidth="200" MaxWidth="320" Spacing="2">
-                                            <TextBlock Classes="muted" FontSize="11" Margin="6,2"
-                                                       Text="{loc:Loc AgentWorkspaceRecent}" />
-                                            <TextBlock Classes="muted" FontSize="11" Margin="6,2"
-                                                       Text="{loc:Loc AgentWorkspaceRecentEmpty}"
-                                                       IsVisible="{Binding Conversation.RecentWorkspaces.Count,
-                                                           Converter={x:Static convs:IntToBoolConverter.Inverted}}" />
-                                            <ItemsControl ItemsSource="{Binding Conversation.RecentWorkspaces}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="conv:RecentWorkspaceItem">
-                                                        <Grid ColumnDefinitions="*,Auto">
-                                                            <Button Grid.Column="0" Classes="workspace-recent"
-                                                                    HorizontalAlignment="Stretch"
-                                                                    Command="{Binding UseCommand}"
-                                                                    ToolTip.Tip="{Binding Path}">
-                                                                <StackPanel>
-                                                                    <TextBlock FontSize="12"
-                                                                               TextTrimming="CharacterEllipsis"
-                                                                               Text="{Binding Name}" />
-                                                                    <TextBlock FontSize="10" Classes="muted"
-                                                                               TextTrimming="CharacterEllipsis"
-                                                                               Text="{Binding Parent}" />
-                                                                </StackPanel>
-                                                            </Button>
-                                                            <Button Grid.Column="1" Classes="workspace-recent"
-                                                                    VerticalAlignment="Center" FontSize="11"
-                                                                    Command="{Binding ForgetCommand}"
-                                                                    ToolTip.Tip="{loc:Loc AgentWorkspaceForget}"
-                                                                    Content="✕" />
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Flyout>
-                                </SplitButton.Flyout>
-                            </SplitButton>
-                            <Button FontSize="11" Padding="8,3" CornerRadius="6"
-                                    Command="{Binding Conversation.ClearWorkspaceCommand}"
-                                    IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                    Content="{loc:Loc AgentWorkspaceClear}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Todo / 定时任务 页签 -->
-                <TabControl Grid.Row="1" Padding="0">
-                    <TabItem Header="{loc:Loc AgentTodoTitle}" FontSize="13"
-                             IsVisible="{Binding Conversation.IsTodoListVisible}">
-                        <ScrollViewer Margin="0,6,0,0">
-                            <StackPanel>
-                                <TextBlock Classes="muted"
-                                           IsVisible="{Binding !Conversation.HasTodos}"
-                                           Text="{loc:Loc AgentTodoEmpty}" />
-                                <ItemsControl ItemsSource="{Binding Conversation.Todos}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="conv:TodoDisplayItem">
-                                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,3">
-                                                <TextBlock Text="{Binding StatusGlyph}" FontSize="12"
-                                                           Foreground="{DynamicResource SemiBlue5}" />
-                                                <TextBlock Text="{Binding Content}" FontSize="12"
-                                                           TextWrapping="Wrap" MaxWidth="220"
-                                                           Classes.todo-completed="{Binding IsCompleted}" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </TabItem>
-                    <TabItem Header="{loc:Loc AgentScheduledTitle}" FontSize="13">
-                        <ScrollViewer Margin="0,6,0,0">
-                            <StackPanel>
-                                <TextBlock Classes="muted"
-                                           IsVisible="{Binding !ScheduledTasks.Count}"
-                                           Text="{loc:Loc AgentScheduledEmpty}" />
-                                <ItemsControl ItemsSource="{Binding ScheduledTasks}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="pages:ScheduledTaskDisplayItem">
-                                            <Border Background="{DynamicResource SemiGrey1}"
-                                                    CornerRadius="8" Padding="10,8" Margin="0,3">
-                                                <StackPanel Spacing="4">
-                                                    <TextBlock FontSize="12" FontWeight="SemiBold"
-                                                               Text="{Binding DisplayName}"
-                                                               TextWrapping="Wrap" />
-                                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBlock Classes="muted"
-                                                                   Text="{Binding FireAtText}" />
-                                                        <TextBlock Classes="muted"
-                                                                   Text="{Binding StatusText}" />
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
-                                                                IsVisible="{Binding CanRunNow}"
-                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).RunTaskNowCommand}"
-                                                                CommandParameter="{Binding}"
-                                                                Content="{loc:Loc AgentTaskRunNow}" />
-                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
-                                                                IsVisible="{Binding CanCancel}"
-                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).CancelTaskCommand}"
-                                                                CommandParameter="{Binding}"
-                                                                Content="{loc:Loc AgentTaskCancel}" />
-                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
-                                                                IsVisible="{Binding HasResultSession}"
-                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).OpenTaskSessionCommand}"
-                                                                CommandParameter="{Binding}"
-                                                                Content="{loc:Loc AgentTaskOpenSession}" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </ScrollViewer>
-                    </TabItem>
-                </TabControl>
+                <pages:AgentWorkspacePanel Grid.Row="0" Margin="0,0,0,10" />
+                <pages:AgentSidePanel Grid.Row="1" />
             </Grid>
         </Border>
     </Grid>

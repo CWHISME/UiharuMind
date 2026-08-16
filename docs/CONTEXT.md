@@ -17,9 +17,66 @@
 这样才能无损承载工具调用、思考内容与审批请求。
 
 体现为 `ChatSession`（本体）、`ChatSessionMeta`（列表索引，可重建的缓存）、`SessionManager`（管理）、
-`SessionListItem`（列表条目）。用户可见说法是**会话**。
+`SessionListItem`（列表条目）、`SessionListModel`（一页的列表，见下）。用户可见说法是**会话**。
 
 ⚠️ 不要与 `AutoClickSession`（自动点击的录制会话）混淆——同词不同域。
+
+### 会话的创建时机：急建与懒建
+
+两页不同，而且**必须不同**——这不是历史遗留：
+
+| | 聊天工作台 | 智能体页 |
+|---|---|---|
+| 时机 | **急建**：点新建按钮就 `StartNewSession` → 入索引 | **懒建**：只切空态，首轮发送时 `EnsureSessionAsync` 才入索引 |
+| 走哪个构造 | `ChatSession(title, character)` | 无参构造 + 手填字段 |
+| 因此 | 角色的**开场白当场写进历史**，`Description` 取开场白 | 没有开场白，`Description` 取用户第一句 |
+| 新会话进列表时 | **自动选中**（就该切过去看角色打招呼） | **不自动选中** |
+
+⚠️ **不要把聊天页统一成懒建。** 角色扮演「点完新建立刻看到角色打招呼」是核心体验，
+而开场白是在带角色的那个构造里写进历史的（`ChatSession.cs`），懒建绕过它。
+
+⚠️ **也不要把智能体页统一成急建。** 懒建下 `OnSessionAdded` 那条通知落在**正在跑的那一轮中间**，
+自动选中会触发重载、把正在流的回复拦腰截断。
+
+这两条差异收在 `SessionListModel` 的构造参数 `selectNewSessions` 上，
+**刻意不从 `ESessionListScope` 推导**——它取决于创建时机，与「哪一页」无关。
+
+### SessionListModel（一页的会话列表）
+
+条目集合、选中、运行态、条目级事件的转发。聊天页与智能体页共用一份。
+`ESessionListScope` 决定归属哪一页，判定经 `CharacterKindRouting`（调用方不传裸谓词，
+因此写不出 `Kind == Roleplay` 那种四档之后会漏掉工具人的判据）。
+
+`Sync()` 是**原地对帐**而非清空重填：按标识复用条目。这一条同时管住三件事——
+选中不被抹掉（不必手写抑制标志）、顺序跟上索引的倒序（说过话的会话浮到顶部）、
+条目接上 `SaveMeta` 换过的那份新 `ChatSessionMeta`。
+
+⚠️ 运行态（在跑 / 等审批）的真相在 `SessionRunRegistry`，条目只是它的投影。
+而对话自己那一轮的运行态是 `ConversationViewModel.IsGenerating`——**两者是不同的问题**：
+定时任务在跑的会话，registry 说忙，而你打开它时那个 `TurnDriver` 是空闲的。
+
+渲染它的是 `SessionListView`，两页共用一份。两页**有意**保留的唯一差异是
+`ShowAvatar`：角色扮演靠头像认角色，工作区页要的是密度。其余差异（描述、悬停删除、
+右键菜单项）此前只是拷贝后各自演化，已经合齐。
+
+---
+
+## 页面壳的组成
+
+智能体页是「外壳 + 若干面板控件」，不是一个大 axaml：
+
+| 控件 | 管什么 |
+|---|---|
+| `AgentPage` | 五列骨架、两个拖拽 Thumb、顶栏、`ConversationView` 宿主 |
+| `SessionListView` | 左栏会话列表（与聊天页共用） |
+| `AgentWorkspacePanel` | 右栏的工作区卡片：运行态、换角色、工作目录 |
+| `AgentSidePanel` | 右栏的 Todo / 定时任务页签 |
+| `ToolCallCardView` · `ApprovalCardView` | 会话流里的特型条目（两页都挂） |
+
+右栏要加一块就是加一个控件、挂进那个容器，不必再往页面文件里塞。
+
+⚠️ **右栏不在两页之间共享。** 聊天页右栏是插件面板，智能体页是工作区与任务——
+内容本就该不同。共享的只有左栏列表与五列骨架。
 
 ### Conversation（对话渲染）
 

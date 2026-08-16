@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 
@@ -19,9 +20,15 @@ public class TurnDriverTests
 {
     private const string CancelNote = ToolCallCancellation.ResultText;
 
+    /// <summary>
+    /// 会话一律带上一份现造的角色。这样 <c>ChatSession.CharacterData</c> 的缓存字段当场就位，
+    /// 取用方不会去问全局角色库——那个库被另外三个测试类并行地 <c>OnInitialize()</c> 重建，
+    /// 读到重建中的那一份会随机抛异常（实测偶发约六分之一）。
+    /// 空的 <c>FirstGreeting</c> 意味着这个构造不会往历史里塞开场白。
+    /// </summary>
     private static ChatSession NewSession()
     {
-        return new ChatSession { IsTransient = true, CharacterId = "test" };
+        return new ChatSession("test", new CharacterData { CharacterId = "test" }) { IsTransient = true };
     }
 
     private static ChatMessage Prompt(string text = "开工") => new(ChatRole.User, text);
@@ -234,7 +241,10 @@ public class TurnDriverTests
 
         await driver.RunAsync(NewSession(), runner, Prompt());
 
-        Assert.DoesNotContain(ETurnNotice.Failed, notices.Select(x => x.Kind));
+        string? failure = notices.Where(x => x.Kind == ETurnNotice.Failed)
+            .Select(x => x.Payload ?? "(无正文)")
+            .FirstOrDefault();
+        Assert.True(failure == null, $"用户主动停止不该报失败,却报了:{failure}");
     }
 
     [Fact]

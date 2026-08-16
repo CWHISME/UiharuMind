@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:u="https://irihi.tech/ursa"
+             mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="520"
+             x:Class="UiharuMind.Features.Conversation.SessionListView"
+             x:DataType="pages:SessionListModel">
+
+    <!-- 会话列表。两页共用一份：条目类型本来就是同一个 SessionListItem,
+         而两份模板此前是拷贝后各自演化(一边有头像与描述、一边有悬停删除),观感因此飘了。
+         唯一有意保留的差异是头像——工作区页要的是密度,见 ShowAvatar -->
+    <UserControl.Styles>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource SemiBlue0}" />
+        </Style>
+        <!-- 删除按钮只在悬停时露出:常驻会把每一条都塞得很挤 -->
+        <Style Selector="ListBoxItem Button.session-delete">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover Button.session-delete">
+            <Setter Property="Opacity" Value="0.7" />
+        </Style>
+    </UserControl.Styles>
+
+    <ListBox ItemsSource="{Binding Sessions}"
+             SelectedItem="{Binding SelectedSession}">
+        <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="pages:SessionListItem">
+                <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                    <Grid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
+                            <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
+                            <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
+                            <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
+                                      Command="{Binding ClearChatHistoryCommand}" />
+                            <MenuItem Header="{loc:Loc Delete}" ToolTip.Tip="{Binding BusyTip}"
+                                      Command="{Binding DeleteCommand}" />
+                        </ContextMenu>
+                    </Grid.ContextMenu>
+
+                    <!-- 间距给在头像自己的 Margin 上而不是 ColumnSpacing:
+                         隐藏时它整体退出布局,列宽归零,不会留下一道空白缩进 -->
+                    <Ellipse Grid.Column="0" Width="38" Height="38" Margin="0,0,10,0"
+                             VerticalAlignment="Center"
+                             Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
+                             IsVisible="{Binding $parent[pages:SessionListView].ShowAvatar}">
+                        <Ellipse.Fill>
+                            <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+                        </Ellipse.Fill>
+                    </Ellipse>
+
+                    <!-- 指示器与「标题+描述」并列,而不是塞进标题那一行:
+                         塞进去的话标题会被指示器那一列推右、描述不动,两行左边就对不齐,
+                         而且缩进还随运行态变。间距同样给在自己的 Margin 上,隐藏时不留空位 -->
+                    <Grid Grid.Column="1" ColumnDefinitions="Auto,*" MinWidth="0" VerticalAlignment="Center">
+                        <!-- 在跑用转圈(动效最能说明"它在动"),
+                             待审批用橙点(那是要你去处理的,不是在自己跑) -->
+                        <!-- 必须经 Viewbox 缩:LoadingIcon 模板里的弧线是固定尺寸的,
+                             直接给它 Width/Height 是裁剪而不是缩放,只会剩中间一块 -->
+                        <Viewbox Grid.Column="0" Width="13" Height="13" Margin="0,0,6,0"
+                                 VerticalAlignment="Center"
+                                 IsVisible="{Binding IsRunning}">
+                            <u:LoadingIcon IsLoading="True" />
+                        </Viewbox>
+                        <Ellipse Grid.Column="0" Width="8" Height="8" Margin="0,0,6,0"
+                                 VerticalAlignment="Center"
+                                 Fill="#FF9800"
+                                 IsVisible="{Binding IsAwaitingApproval}" />
+
+                        <Grid Grid.Column="1" RowDefinitions="Auto,Auto" MinWidth="0">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SemiGrey7}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1"
+                                           Classes="muted"
+                                           Text="{Binding TimeString}" />
+                            </Grid>
+                            <!-- 副行:角色名 + 描述。
+                                 角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
+                                 推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                                <TextBlock Classes="muted"
+                                           Text="{Binding CharacterName}"
+                                           IsVisible="{Binding !$parent[pages:SessionListView].ShowAvatar}"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="110" />
+                                <TextBlock Classes="muted"
+                                           Text="{Binding Description}"
+                                           IsVisible="{Binding HasDistinctDescription}"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxLines="2" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+
+                    <Button Grid.Column="2" Classes="session-delete" Padding="4"
+                            VerticalAlignment="Top" FontSize="10" Content="✕"
+                            ToolTip.Tip="{Binding BusyTip}"
+                            Command="{Binding DeleteCommand}" />
+                </Grid>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+</UserControl>

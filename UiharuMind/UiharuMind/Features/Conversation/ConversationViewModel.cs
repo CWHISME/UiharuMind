@@ -793,8 +793,17 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         _prepareCancellation = new CancellationTokenSource();
         try
         {
-            ChatSession session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
-            FlushOwnedFiles();
+            ChatSession session;
+            // 装配阶段也登记成「在跑」:重建 agent 要拉 MCP 工具、可能好几秒,
+            // 这期间不能让删除/清空去动它的文件,而那一轮随后照样会往里写。
+            // 新会话此刻还没有标识,BeginRun(null) 按设计是空操作
+            using (SessionManager.Instance.Running.BeginRun(CurrentMeta?.SessionId))
+            {
+                session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
+                FlushOwnedFiles();
+            }
+
+            // 交接给运行侧:它在返回之前就同步登记好了运行态,两段之间没有空窗
             await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync,
                 (EThinkingMode)ThinkingModeIndex);
         }
@@ -827,11 +836,14 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         {
             string title = titleSeed.Length > 30 ? titleSeed[..30] + "…" : titleSeed;
             _currentCharacter = CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
+            // Description 显式清空:标题已经取自这句话了,再存一份只会让列表副行
+            // 重复显示同一句。必须显式写——ChatSession.Description 的默认值是字面量 "Empty",
+            // 省着不写会让副行显示这四个字母
             ChatSession created = new()
             {
                 CharacterId = _currentCharacter.CharacterId,
                 Title = title,
-                Description = titleSeed,
+                Description = string.Empty,
                 WorkspacePath = WorkspacePath,
                 PermissionModeIndex = PermissionModeIndex,
             };

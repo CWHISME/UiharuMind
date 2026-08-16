@@ -10,12 +10,9 @@
  ****************************************************************************/
 
 using System.ComponentModel;
-using System.Threading.Tasks;
 using Avalonia.Controls;
-using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
-using UiharuMind.Features.Characters;
+using UiharuMind.Core.AI.Chat;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -27,18 +24,31 @@ public partial class ChatPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new ChatPage();
 
-    public ChatListViewModel ChatListViewModel { get; }
+    /// <summary>会话列表。聊天页是<b>急建</b>——新会话自动选中，见 SessionListModel 的参数说明</summary>
+    public SessionListModel SessionList { get; }
 
     private readonly ChatInfoModel _chatInfoModel;
 
     public ChatPageData()
     {
-        ChatListViewModel = App.ViewModel.GetViewModel<ChatListViewModel>();
         _chatInfoModel = App.ViewModel.GetViewModel<ChatInfoModel>();
 
-        ChatListViewModel.EventOnSelectedSessionChanged += OnSelectedSessionChanged;
-        ChatListViewModel.EventOnSessionMutated += OnSessionMutated;
-        OnSelectedSessionChanged(ChatListViewModel.SelectedSession);
+        SessionList = new SessionListModel(ESessionListScope.Chat, selectNewSessions: true);
+        SessionList.SelectionChanged += OnSelectedSessionChanged;
+        SessionList.Mutated += OnSessionMutated;
+        // 删掉当前会话后顺位选下一条:聊天页的会话是急建的,列表不该空着
+        SessionList.Removed += _ => SessionList.SelectFirstOrNone();
+
+        SessionListItem? first = SessionList.Sessions.Count > 0 ? SessionList.Sessions[0] : null;
+        OnSelectedSessionChanged(first);
+        SessionList.SelectWithoutNotifying(first);
+
+        // 一条会话都没有时先开一个:聊天页不提供"空态"的落点(新建按钮开的是角色选择器)。
+        // 这一条会经 OnSessionAdded 进列表并自动选中
+        if (first == null)
+        {
+            SessionManager.Instance.StartNewSession(CharacterManager.Instance.GetCharacterData(""));
+        }
     }
 
     protected override ConversationViewModel CreateConversation()

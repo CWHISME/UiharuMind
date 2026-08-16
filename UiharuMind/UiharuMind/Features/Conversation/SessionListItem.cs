@@ -28,13 +28,19 @@ namespace UiharuMind.Features.Conversation;
 /// 聊天页与 agent 页共用同一实现——两者的差异原本是「拷贝后各自演化」，
 /// 不是产品设计，因此这里不设能力开关。
 ///
+/// 唯一有意保留的差异是<b>头像显不显示</b>，那是渲染取舍（工作区页要密度），
+/// 因此开关落在 <see cref="SessionListView.ShowAvatar"/> 上而不是本类。
+///
 /// 会话内容的展示与生成由 <see cref="ConversationViewModel"/> 承载，与本类无关。
 /// </summary>
 public partial class SessionListItem : ObservableObject
 {
     private readonly IMessageService _messageService;
-    private readonly ChatSessionMeta _meta;
+    private ChatSessionMeta _meta;
     private ChatSession? _session;
+    private Bitmap? _icon;
+    private bool _iconResolved; //头像已解码过(结果可能是 null)
+    private string? _characterName;
 
     /// <summary>会话元数据(对话内容页按它加载本体)</summary>
     public ChatSessionMeta Meta => _meta;
@@ -49,10 +55,50 @@ public partial class SessionListItem : ObservableObject
     public ChatSession Session => _session ??=
         SessionManager.Instance.Load(_meta.SessionId) ?? new ChatSession { SessionId = _meta.SessionId };
 
-    [ObservableProperty] private string _name;
-    [ObservableProperty] private Bitmap? _icon;
-    [ObservableProperty] private string _description;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    private string _name;
+
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    private string _description;
+
     [ObservableProperty] private string _timeString;
+
+    /// <summary>
+    /// 所属角色的显示名。与头像同样惰性取——构造期不问全局角色库
+    /// </summary>
+    public string CharacterName => _characterName ??=
+        CharacterManager.Instance.GetCharacterData(_meta.CharacterId).CharacterName;
+
+    /// <summary>
+    /// 描述是否值得单独占一行。
+    ///
+    /// 现在只挡「一字不差的重复」。曾经这里按<b>前缀</b>判重，为的是兜住懒建会话
+    /// 把标题与描述都取自用户第一句、而标题又截断过的那种情形——那是个错误的层：
+    /// 会话一复制（<c>Copy</c> 给标题加后缀）前缀就不再匹配，描述当场冒回来。
+    /// 根子已经在 <c>EnsureSessionAsync</c> 修掉：那条路径不再存这份冗余。
+    ///
+    /// ⚠️ 修之前建的智能体会话仍带着那份冗余的描述，标题超过 30 字的那些会显示出来。
+    /// 属于历史数据，改名一次即可，不值得为它保留一个会误伤复制的启发式。
+    /// </summary>
+    public bool HasDistinctDescription =>
+        Description.Length > 0 && !string.Equals(Description, Name, StringComparison.Ordinal);
+
+    /// <summary>
+    /// 角色头像。<b>惰性解码</b>——列表可能有成百条，在构造期逐条解码位图会在开页时
+    /// 卡住 UI 线程，而实际只有滚进视野的那几条要显示。
+    /// 解码一次后不再变：角色换了图标要等下次重开列表，与改之前的行为一致。
+    /// </summary>
+    public Bitmap? Icon
+    {
+        get
+        {
+            if (_iconResolved) return _icon;
+            _iconResolved = true;
+            _icon = IconUtils.GetCharacterBitmapOrDefault(
+                CharacterManager.Instance.GetCharacterData(_meta.CharacterId));
+            return _icon;
+        }
+    }
 
     /// <summary>本会话有轮次在跑（界面轮次或定时任务的无头轮次）</summary>
     [ObservableProperty] private bool _isRunning;
@@ -83,10 +129,34 @@ public partial class SessionListItem : ObservableObject
         _meta = meta;
         _description = meta.Description;
         _name = meta.Title;
-        _icon = IconUtils.GetCharacterBitmapOrDefault(
-            CharacterManager.Instance.GetCharacterData(meta.CharacterId));
         _timeString = CalcTimeString();
         RefreshRunState();
+    }
+
+    /// <summary>
+    /// 换上新的元数据并刷新显示字段。
+    ///
+    /// 必须换而不是只刷字段：<c>SaveMeta</c> 往索引里放的是一个<b>新的</b>
+    /// <see cref="ChatSessionMeta"/> 对象，条目抓着旧那份就会一直显示旧标题与旧时间。
+    /// </summary>
+    /// <param name="meta">索引里当前那份元数据</param>
+    public void UpdateMeta(ChatSessionMeta meta)
+    {
+        //换过角色的会话要重取头像与角色名,它们是按角色标识惰性解析的
+        bool characterChanged = !string.Equals(_meta.CharacterId, meta.CharacterId, StringComparison.Ordinal);
+        _meta = meta;
+        if (characterChanged)
+        {
+            _characterName = null;
+            _icon = null;
+            _iconResolved = false;
+            OnPropertyChanged(nameof(Icon));
+            OnPropertyChanged(nameof(CharacterName));
+        }
+
+        Name = meta.Title;
+        Description = meta.Description;
+        TimeString = CalcTimeString();
     }
 
     //================= 运行态 =================

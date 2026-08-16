@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="420"
+             x:Class="UiharuMind.Features.Conversation.AgentSidePanel"
+             x:DataType="pages:AgentPageData">
+
+    <!-- Todo / 定时任务 页签 -->
+    <UserControl.Styles>
+        <Style Selector="TextBlock.todo-completed">
+            <Setter Property="TextDecorations" Value="Strikethrough" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey4}" />
+        </Style>
+    </UserControl.Styles>
+
+                <TabControl Padding="0">
+                    <TabItem Header="{loc:Loc AgentTodoTitle}" FontSize="13"
+                             IsVisible="{Binding Conversation.IsTodoListVisible}">
+                        <ScrollViewer Margin="0,6,0,0">
+                            <StackPanel>
+                                <TextBlock Classes="muted"
+                                           IsVisible="{Binding !Conversation.HasTodos}"
+                                           Text="{loc:Loc AgentTodoEmpty}" />
+                                <ItemsControl ItemsSource="{Binding Conversation.Todos}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="conv:TodoDisplayItem">
+                                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,3">
+                                                <TextBlock Text="{Binding StatusGlyph}" FontSize="12"
+                                                           Foreground="{DynamicResource SemiBlue5}" />
+                                                <TextBlock Text="{Binding Content}" FontSize="12"
+                                                           TextWrapping="Wrap" MaxWidth="220"
+                                                           Classes.todo-completed="{Binding IsCompleted}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="{loc:Loc AgentScheduledTitle}" FontSize="13">
+                        <ScrollViewer Margin="0,6,0,0">
+                            <StackPanel>
+                                <TextBlock Classes="muted"
+                                           IsVisible="{Binding !Scheduled.Tasks.Count}"
+                                           Text="{loc:Loc AgentScheduledEmpty}" />
+                                <ItemsControl ItemsSource="{Binding Scheduled.Tasks}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="pages:ScheduledTaskDisplayItem">
+                                            <Border Background="{DynamicResource SemiGrey1}"
+                                                    CornerRadius="8" Padding="10,8" Margin="0,3">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock FontSize="12" FontWeight="SemiBold"
+                                                               Text="{Binding DisplayName}"
+                                                               TextWrapping="Wrap" />
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Classes="muted"
+                                                                   Text="{Binding FireAtText}" />
+                                                        <TextBlock Classes="muted"
+                                                                   Text="{Binding StatusText}" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                IsVisible="{Binding CanRunNow}"
+                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.RunTaskNowCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="{loc:Loc AgentTaskRunNow}" />
+                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                IsVisible="{Binding CanCancel}"
+                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.CancelTaskCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="{loc:Loc AgentTaskCancel}" />
+                                                        <Button FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                IsVisible="{Binding HasResultSession}"
+                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.OpenTaskSessionCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="{loc:Loc AgentTaskOpenSession}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+</UserControl>

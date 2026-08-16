@@ -16,6 +16,18 @@
         <pages:ChatPageData />
     </Design.DataContext>
 
+    <!-- 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到。
+         聊天档角色不挂工具,正常情况下这两种条目不会出现——摆在这里是防御:
+         转录器照样能产出它们,没有模板就会渲染成 ToString() -->
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="pages:ToolCallItem">
+            <pages:ToolCallCardView />
+        </DataTemplate>
+        <DataTemplate DataType="pages:ApprovalRequestItem">
+            <pages:ApprovalCardView />
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
     <UserControl.Styles>
         <!-- <Style Selector="Button.icon"> -->
         <!--     <Setter Property="Width" Value="34" /> -->
@@ -72,7 +84,7 @@
                         </ThemedIconButton.Flyout>
                     </ThemedIconButton>
                 </Grid>
-                <otherViews:ChatListView Margin="8,0,8,8" />
+                <pages:SessionListView Margin="8,0,8,8" DataContext="{Binding SessionList}" />
             </DockPanel>
         </Border>
 
@@ -167,7 +179,7 @@
                     <StackPanel MinWidth="0">
                         <TextBlock Classes="section-title" Text="{loc:Loc ChatDetails}" />
                         <TextBlock Classes="muted"
-                                   Text="{Binding ChatListViewModel.SelectedSession.Name}"
+                                   Text="{Binding SessionList.SelectedSession.Name}"
                                    TextTrimming="CharacterEllipsis"
                                    MaxLines="1" />
                     </StackPanel>
