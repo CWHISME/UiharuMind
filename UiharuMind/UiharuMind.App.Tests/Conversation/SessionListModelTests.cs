@@ -80,6 +80,24 @@ public class SessionListModelTests
     }
 
     [Fact]
+    public void Sync_RefreshesTheTimeString()
+    {
+        //时间那一行取 meta 的 UpdatedAt。列表此前只在开页时对帐一次,
+        //于是说过话之后时间停在打开那一刻——与"浮到顶部"是同一个缺失的通知
+        List<ChatSessionMeta> metas = [Meta("a", minutesAgo: 0)];
+        SessionListModel model = Create(() => metas);
+        SessionListItem item = model.Sessions[0];
+        string before = item.TimeString;
+
+        metas[0] = Meta("a");
+        metas[0].UpdatedAt = DateTimeOffset.Now.AddDays(-3);
+        model.Sync();
+
+        Assert.NotEqual(before, item.TimeString);
+        Assert.Equal(DateTimeOffset.Now.AddDays(-3).LocalDateTime.ToString("yyyy/MM/dd"), item.TimeString);
+    }
+
+    [Fact]
     public void Sync_MovesItems_WhenOrderChanges()
     {
         //索引按最后更新时间倒序:刚说过话的会话要浮到顶部
@@ -92,6 +110,49 @@ public class SessionListModelTests
 
         Assert.Equal(["c", "b", "a"], Ids(model));
         Assert.Same(itemC, model.Sessions[0]);
+    }
+
+    /// <summary>
+    /// 对帐移动条目时，ListBox 的 SelectedItem 双向绑定会被打断并写回 null。
+    /// 那不是用户的选择——放它冒出去就会把正在看的会话卸掉、对话区清空，
+    /// 而这恰好发生在说过话的会话浮到顶部的那一刻。
+    /// 这里用集合变更事件模拟 ListBox 的同步写回
+    /// </summary>
+    [Fact]
+    public void Sync_KeepsSelection_WhenTheBindingWritesBackNullOnMove()
+    {
+        List<ChatSessionMeta> metas = [Meta("a"), Meta("b"), Meta("c")];
+        SessionListModel model = Create(() => metas);
+        SessionListItem itemC = model.Sessions[2];
+        model.SelectWithoutNotifying(itemC);
+
+        int notified = 0;
+        model.SelectionChanged += _ => notified++;
+        model.Sessions.CollectionChanged += (_, _) => model.SelectedSession = null;
+
+        metas.Reverse();
+        model.Sync();
+
+        Assert.Same(itemC, model.SelectedSession);
+        Assert.Equal(0, notified);
+    }
+
+    [Fact]
+    public void Sync_ClearsSelectionQuietly_WhenTheSelectedSessionIsGone()
+    {
+        //真消失了才置空,且仍然不通知:接着选谁是各页自己的口径
+        List<ChatSessionMeta> metas = [Meta("a"), Meta("b")];
+        SessionListModel model = Create(() => metas);
+        model.SelectWithoutNotifying(model.Sessions[0]);
+
+        int notified = 0;
+        model.SelectionChanged += _ => notified++;
+
+        metas.RemoveAt(0);
+        model.Sync();
+
+        Assert.Null(model.SelectedSession);
+        Assert.Equal(0, notified);
     }
 
     [Fact]

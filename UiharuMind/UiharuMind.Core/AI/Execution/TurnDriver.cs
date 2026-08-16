@@ -113,6 +113,13 @@ public sealed class TurnDriver : IDisposable
             // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下
             using IDisposable runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
 
+            // 开跑就算一次活动:刷新 UpdatedAt,让会话此刻就浮到列表顶部。
+            // 否则要等一轮跑完(历史落盘才更新时间戳),界面上是回复结束后突然跳位
+            session.SaveMeta();
+            // 给本轮的请求消息盖上时间:框架交给持久化的是丢了时间戳的副本,
+            // 而落盘发生在一轮跑完之后(见 ChatSession.TurnStartedAt)
+            session.TurnStartedAt = DateTimeOffset.Now;
+
             while (nextMessages is { Count: > 0 })
             {
                 List<ToolApprovalRequestContent> roundRequests = new();

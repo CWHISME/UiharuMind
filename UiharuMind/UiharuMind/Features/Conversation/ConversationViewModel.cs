@@ -1115,9 +1115,16 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             AutoCollapseThinking = IsAutoCollapseThinking,
         };
 
+        // 回放时最近见过的时间戳。助手气泡的工厂给不出时间(它只造壳,拿不到源消息),
+        // 默认填的是"现在"——重开会话时整段历史因此显示当前时刻。
+        // 旧存档里框架产出的消息本就没有时间戳,那种回落到同一轮的用户消息,
+        // 误差在一轮之内,总好过一个每次打开都变的假时间
+        DateTimeOffset? lastKnown = null;
+
         for (int index = from; index < to; index++)
         {
             ChatMessage message = messages[index];
+            lastKnown = message.CreatedAt ?? lastKnown;
             // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡,因此先于常规分派拦下
             if (HistoryHandoff.IsNote(message))
             {
@@ -1130,7 +1137,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 string text = DisplayTextOf(message);
                 if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
                 {
-                    buffer.Add(WireItemActions(CreateUserItem(text, message), message));
+                    TextConversationItem userItem = WireItemActions(CreateUserItem(text, message), message);
+                    if (lastKnown is { } userStamp) userItem.Timestamp = TimestampText(userStamp);
+                    buffer.Add(userItem);
                 }
 
                 continue;
@@ -1147,7 +1156,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
             for (int i = before; i < buffer.Count; i++)
             {
-                if (buffer[i] is TextConversationItem textItem) WireItemActions(textItem, message);
+                if (buffer[i] is not TextConversationItem textItem) continue;
+                WireItemActions(textItem, message);
+                if (lastKnown is { } stamp) textItem.Timestamp = TimestampText(stamp);
             }
         }
 
@@ -1573,6 +1584,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     //================= 条目构造 =================
 
+    /// <summary>气泡上那一行时间的格式,只此一处定义</summary>
+    private static string TimestampText(DateTimeOffset at) => at.LocalDateTime.ToString("HH:mm");
+
     private static TextConversationItem CreateUserItem(string text, ChatMessage? source = null,
         List<ConversationAttachment>? attachments = null)
     {
@@ -1582,7 +1596,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             SenderName = LocalizationManager.Instance.GetString("AgentSenderUser"),
             SenderColor = Avalonia.Media.Brushes.LightGreen,
             Icon = IconUtils.DefaultUserIcon,
-            Timestamp = (source?.CreatedAt ?? DateTimeOffset.Now).LocalDateTime.ToString("HH:mm"),
+            Timestamp = TimestampText(source?.CreatedAt ?? DateTimeOffset.Now),
         };
 
         // 点名调用:消息正文是注入的技能全文,气泡只显示用户敲的那一行,正文折叠备查
@@ -1629,7 +1643,8 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             Icon = _currentCharacter == null
                 ? IconUtils.DefaultCharIcon
                 : IconUtils.GetCharacterBitmapOrDefault(_currentCharacter),
-            Timestamp = DateTime.Now.ToString("HH:mm"),
+            //流式产出的壳:此刻确实就是现在。回放历史时由 BuildHistoryItems 按源消息校准
+            Timestamp = TimestampText(DateTimeOffset.Now),
             IsDone = false,
         };
     }

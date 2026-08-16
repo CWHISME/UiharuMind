@@ -193,8 +193,8 @@ public partial class SessionListItem : ObservableObject
     public async Task ClearChatHistory()
     {
         if (!await _messageService.ConfirmAsync(Lang.ClearTips)) return;
+        // 时间不在这里手写:Clear 会落盘,列表随 OnSessionMetaUpdated 对帐并刷新这一行
         Session.Clear();
-        TimeString = "";
         Mutated?.Invoke(this);
     }
 
@@ -238,8 +238,12 @@ public partial class SessionListItem : ObservableObject
 
     private string CalcTimeString()
     {
-        // 已加载则用末条消息时间,否则用元数据的更新时间——不为一行时间去加载本体
-        DateTime lastTime = _session?.LastTime ?? _meta.UpdatedAt.LocalDateTime;
+        // 一律取元数据的更新时间:它由 SaveMeta 精确维护,正是"最后活动时间",
+        // 也正是列表排序的依据——两者同源才不会出现"排在最前但时间最老"。
+        // 曾经优先用本体的 LastTime(末条消息时间),那是错的:框架经
+        // SessionChatHistoryProvider 塞进历史的消息不带 CreatedAt,末条时间会回落成"现在",
+        // 于是每次刷新都把已加载过的会话显示成刚刚说过话
+        DateTime lastTime = _meta.UpdatedAt.LocalDateTime;
         return DateTime.Now.Date == lastTime.Date
             ? lastTime.ToString("HH:mm")
             : lastTime.ToString("yyyy/MM/dd");

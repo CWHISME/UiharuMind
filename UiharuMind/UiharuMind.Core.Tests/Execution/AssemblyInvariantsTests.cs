@@ -111,6 +111,71 @@ public class HistoryAttributionTests
 
         Assert.False(SessionChatHistoryProvider.IsOwnedByUs(injected));
     }
+
+    /// <summary>
+    /// 框架产出的消息不带 CreatedAt，落历史时必须补上——<c>ChatSession.LastTime</c> 读的正是它。
+    /// 不补的话缺失会被当成"现在"，会话列表那一行时间每次刷新都跳成刚刚
+    /// </summary>
+    [Fact]
+    public void AppendedMessages_GetATimestamp_WhenTheFrameworkLeftItBlank()
+    {
+        DateTimeOffset fallback = new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        ChatSession session = new() { IsTransient = true };
+        ChatMessage fromFramework = new(ChatRole.Assistant, "framework reply");
+        Assert.Null(fromFramework.CreatedAt);
+
+        SessionChatHistoryProvider.AppendOwned(session, [fromFramework], fallback);
+
+        Assert.Equal(fallback, fromFramework.CreatedAt);
+        Assert.Equal(fallback.LocalDateTime, session.LastTime);
+    }
+
+    [Fact]
+    public void AppendedMessages_KeepATimestampTheyAlreadyHad()
+    {
+        DateTimeOffset stamped = new(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        ChatSession session = new() { IsTransient = true };
+        ChatMessage own = new(ChatRole.User, "hello") { CreatedAt = stamped };
+
+        SessionChatHistoryProvider.AppendOwned(session, [own], stamped.AddMinutes(9));
+
+        Assert.Equal(stamped, own.CreatedAt);
+    }
+
+    /// <summary>
+    /// 请求消息回落到<b>本轮开始</b>而非落盘时刻。
+    /// 框架交给持久化的请求消息是重建的副本、丢了时间戳，而落盘发生在一轮跑完之后——
+    /// 两者共用落盘时刻的话，长回复跑过一分钟就会让用户消息显示得比模型回复还晚
+    /// </summary>
+    [Fact]
+    public void RequestMessages_FallBackToTheTurnStart_NotTheStoreTime()
+    {
+        DateTimeOffset turnStart = new(2026, 1, 2, 10, 56, 0, TimeSpan.Zero);
+        DateTimeOffset responseAt = turnStart.AddMinutes(2);
+        DateTimeOffset storedAt = turnStart.AddMinutes(3);
+        ChatSession session = new() { IsTransient = true };
+
+        ChatMessage rebuiltUserMessage = new(ChatRole.User, "问题");
+        ChatMessage reply = new(ChatRole.Assistant, "回答") { CreatedAt = responseAt };
+        SessionChatHistoryProvider.AppendOwned(session, [rebuiltUserMessage], turnStart);
+        SessionChatHistoryProvider.AppendOwned(session, [reply], storedAt);
+
+        Assert.Equal(turnStart, rebuiltUserMessage.CreatedAt);
+        Assert.True(rebuiltUserMessage.CreatedAt < reply.CreatedAt);
+    }
+
+    /// <summary>
+    /// 缺时间戳的旧存档消息不能回落"现在":那会让同一条消息每次读到不同的时间
+    /// </summary>
+    [Fact]
+    public void LastTime_ForAMessageWithoutATimestamp_FallsBackToTheSession_NotNow()
+    {
+        DateTimeOffset updated = DateTimeOffset.Now.AddDays(-5);
+        ChatSession session = new() { IsTransient = true, UpdatedAt = updated };
+        session.History.Add(new ChatMessage(ChatRole.Assistant, "no timestamp"));
+
+        Assert.Equal(updated.LocalDateTime, session.LastTime);
+    }
 }
 
 /// <summary>

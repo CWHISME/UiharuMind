@@ -36,6 +36,29 @@ public abstract partial class ConversationItemBase : ObservableObject
     [ObservableProperty] private string _message = string.Empty;
     [ObservableProperty] private bool _isDone = true;
 
+    // 四个回调决定四个按钮显不显示,而气泡是先上屏、一轮结束后才由 WireItemActions 接上它们的。
+    // 因此必须是可观察的:普通属性赋值不抛通知,悬停菜单一旦在接线之前实例化过,
+    // 就会一直停在"只有复制按钮",要切走会话重建条目才恢复
+
+    /// <summary>编辑完成回调(为空则隐藏编辑按钮)</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanEdit))]
+    private Action<ConversationItemBase>? _editedCallback;
+
+    /// <summary>删除回调(为空则隐藏删除按钮)</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanDelete))]
+    private Action<ConversationItemBase>? _deleteCallback;
+
+    /// <summary>重试回调(为空则隐藏重试按钮)</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanRetry))]
+    private Action<ConversationItemBase>? _retryCallback;
+
+    /// <summary>
+    /// 分叉回调：从本条消息处复制出一个新对话（为空则隐藏分叉按钮）。
+    /// 聊天页原有能力，统一到本条目体系时必须保留，否则是功能回退。
+    /// </summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanBranch))]
+    private Action<ConversationItemBase>? _branchCallback;
+
     /// <summary>是否用户侧条目(右对齐)</summary>
     public virtual bool IsUser => false;
 
@@ -58,21 +81,6 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// 为空表示该条目不对应单条消息（如流式进行中的占位、框架注入的内容），此时不提供这些操作。
     /// </summary>
     public Microsoft.Extensions.AI.ChatMessage? SourceMessage { get; set; }
-
-    /// <summary>编辑完成回调(为空则隐藏编辑按钮)</summary>
-    public Action<ConversationItemBase>? EditedCallback { get; set; }
-
-    /// <summary>删除回调(为空则隐藏删除按钮)</summary>
-    public Action<ConversationItemBase>? DeleteCallback { get; set; }
-
-    /// <summary>重试回调(为空则隐藏重试按钮)</summary>
-    public Action<ConversationItemBase>? RetryCallback { get; set; }
-
-    /// <summary>
-    /// 分叉回调：从本条消息处复制出一个新对话（为空则隐藏分叉按钮）。
-    /// 聊天页原有能力，统一到本条目体系时必须保留，否则是功能回退。
-    /// </summary>
-    public Action<ConversationItemBase>? BranchCallback { get; set; }
 
     /// <summary>是否可编辑</summary>
     public bool CanEdit => EditedCallback != null;

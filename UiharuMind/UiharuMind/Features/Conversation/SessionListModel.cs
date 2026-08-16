@@ -98,6 +98,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
         SessionManager.Instance.OnSessionAdded += OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved += OnSessionRemoved;
+        SessionManager.Instance.OnSessionMetaUpdated += OnSessionMetaUpdated;
         SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
     }
 
@@ -111,6 +112,27 @@ public partial class SessionListModel : ObservableObject, IDisposable
     /// 顺序（索引按最后更新时间倒序，说过话的会话要浮到顶部）与标题/时间戳的刷新。
     /// </summary>
     public void Sync()
+    {
+        SessionListItem? selected = SelectedSession;
+        _suppressSelectionNotify = true;
+        try
+        {
+            Reconcile();
+        }
+        finally
+        {
+            RestoreSelection(selected);
+            _suppressSelectionNotify = false;
+        }
+
+        // 再补一次:上面那次只兜住同步写回,而绑定也可能在本次调用返回之后才被打断
+        _post(() => RestoreSelectionQuietly(selected));
+    }
+
+    /// <summary>
+    /// 把列表对到目标清单：删消失、补新增、接上新元数据、修顺序
+    /// </summary>
+    private void Reconcile()
     {
         List<ChatSessionMeta> metas = ListSessions();
         HashSet<string> wanted = new(metas.Count);
@@ -136,6 +158,42 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
             Sessions[at].UpdateMeta(meta);
             if (at != i) Sessions.Move(at, i);
+        }
+    }
+
+    /// <summary>
+    /// 把对帐前的选中放回去。
+    ///
+    /// 对帐会移动与增删条目，<c>ListBox.SelectedItem</c> 的双向绑定会因此被打断并写回
+    /// <c>null</c>——那不是用户的选择，一旦冒成 <see cref="SelectionChanged"/>
+    /// 就会把正在看的会话卸掉、对话区清空（说过话的会话浮到顶部时当场可见）。
+    /// 条目还在就原样放回；真消失了才置空，此时页面另有 <see cref="Removed"/> 可依据。
+    /// </summary>
+    /// <param name="selected">对帐前的选中项</param>
+    private void RestoreSelection(SessionListItem? selected)
+    {
+        SessionListItem? target = selected != null && IndexOf(selected.SessionId) >= 0 ? selected : null;
+        if (!ReferenceEquals(SelectedSession, target)) SelectedSession = target;
+    }
+
+    /// <summary>
+    /// 延迟一帧的兜底，只补「选中被写回 null」这一种情形。
+    /// 不能无条件恢复：用户在这期间主动切了会话的话，那会把他拽回旧会话
+    /// </summary>
+    /// <param name="selected">对帐前的选中项</param>
+    private void RestoreSelectionQuietly(SessionListItem? selected)
+    {
+        if (SelectedSession != null || selected == null) return;
+        if (IndexOf(selected.SessionId) < 0) return;
+
+        _suppressSelectionNotify = true;
+        try
+        {
+            SelectedSession = selected;
+        }
+        finally
+        {
+            _suppressSelectionNotify = false;
         }
     }
 
@@ -177,6 +235,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
     {
         SessionManager.Instance.OnSessionAdded -= OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved -= OnSessionRemoved;
+        SessionManager.Instance.OnSessionMetaUpdated -= OnSessionMetaUpdated;
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
         foreach (SessionListItem item in Sessions) Detach(item);
     }
@@ -225,6 +284,16 @@ public partial class SessionListModel : ObservableObject, IDisposable
     }
 
     private void OnSessionRemoved(ChatSession session) => _post(() => Remove(session.SessionId));
+
+    /// <summary>
+    /// 某会话的元数据刷新了。全量对帐而不是只更新那一条——一次落盘同时改了两件事：
+    /// 该条目的时间戳，以及它在按时间倒序的清单里的位置，而后者是相对全体的
+    /// </summary>
+    private void OnSessionMetaUpdated(ChatSession session)
+    {
+        // 每轮落盘都到这里(可能在后台线程),而条目是界面绑定的
+        _post(Sync);
+    }
 
     private void OnRunStateChanged(string sessionId) =>
         // 可能来自后台线程(无头执行),而条目是界面绑定的

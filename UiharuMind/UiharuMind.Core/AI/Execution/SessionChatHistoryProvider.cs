@@ -113,15 +113,39 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         if (session == null) return default;
 
         int before = session.History.Count;
-        session.History.AddRange(context.RequestMessages.Where(IsOwnedByUs));
-        if (context.ResponseMessages != null)
-        {
-            session.History.AddRange(context.ResponseMessages.Where(IsOwnedByUs));
-        }
+        DateTimeOffset storedAt = DateTimeOffset.Now;
+        // 请求消息属于本轮开始的那一刻,响应消息属于此刻:一轮可能跑几分钟,
+        // 两者用同一个时间会让用户消息显示得比模型回复还晚
+        AppendOwned(session, context.RequestMessages, session.TurnStartedAt ?? storedAt);
+        if (context.ResponseMessages != null) AppendOwned(session, context.ResponseMessages, storedAt);
+        session.TurnStartedAt = null; //一次性凭据,用过即弃
 
         // 常规轮次只追加新消息,落盘成本与会话长度无关
         if (session.History.Count != before) session.SaveAppended(before);
         return default;
+    }
+
+    /// <summary>
+    /// 把属于我们的消息追加进历史，并给缺时间戳的补上回落值。
+    ///
+    /// 框架交给持久化的消息不带 <c>CreatedAt</c>——它连我们在
+    /// <c>ChatSession.CreateMessage</c> 里给用户消息盖的那份也丢了（是重建的副本），
+    /// 而 <c>ChatSession.LastTime</c> 与气泡上那行时间读的正是它。
+    /// 就地写而不是克隆消息：克隆得连 <c>AIContent</c> 的多态与 <c>AdditionalProperties</c>
+    /// 一起搬，而这个字段框架自己不参与判断，补上没有副作用。
+    /// </summary>
+    /// <param name="session">目标会话</param>
+    /// <param name="messages">待追加的消息</param>
+    /// <param name="fallback">缺时间戳时用的时间</param>
+    internal static void AppendOwned(ChatSession session, IEnumerable<ChatMessage> messages,
+        DateTimeOffset fallback)
+    {
+        foreach (ChatMessage message in messages)
+        {
+            if (!IsOwnedByUs(message)) continue;
+            message.CreatedAt ??= fallback;
+            session.History.Add(message);
+        }
     }
 
     // [MFA绕坑] 绕:框架注入消息混进待持久化列表 因:基类 ChatHistory 过滤挡不住 AIContextProvider 来源,per-service-call 路径下更是全漏 删除条件:框架把注入消息与真实对话分流

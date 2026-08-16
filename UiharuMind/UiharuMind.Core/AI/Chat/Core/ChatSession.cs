@@ -84,6 +84,17 @@ public class ChatSession
     [JsonIgnore]
     public List<ChatMessage> History { get; set; } = [];
 
+    /// <summary>
+    /// 本轮开始时刻。每轮由 <c>TurnDriver</c> 盖章，<c>SessionChatHistoryProvider</c>
+    /// 落盘时取用后清空——一次性凭据，没有它就退化成落盘时刻。
+    ///
+    /// 存在的理由：框架交给持久化的请求消息是<b>重建的副本</b>，丢了我们在
+    /// <see cref="CreateMessage"/> 里盖的 <c>CreatedAt</c>。补成落盘时刻的话，
+    /// 一轮跑几分钟（工具往返、长回复）之后用户消息会显示得比模型回复还晚。
+    /// </summary>
+    [JsonIgnore]
+    public DateTimeOffset? TurnStartedAt { get; set; }
+
     /// <summary>自定义模板参数</summary>
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 
@@ -206,13 +217,13 @@ public class ChatSession
         set => _modelRunningData = value;
     }
 
-    /// <summary>首条消息时间</summary>
+    /// <summary>首条消息时间;历史为空或该消息没有时间戳时回落会话创建时间</summary>
     [JsonIgnore]
-    public DateTime FirstTime => History.Count > 0 ? LocalTimeOf(History[0]) : CreatedAt.LocalDateTime;
+    public DateTime FirstTime => LocalTimeOf(History.Count > 0 ? History[0] : null, CreatedAt);
 
-    /// <summary>末条消息时间</summary>
+    /// <summary>末条消息时间;历史为空或该消息没有时间戳时回落会话更新时间</summary>
     [JsonIgnore]
-    public DateTime LastTime => History.Count > 0 ? LocalTimeOf(History[^1]) : UpdatedAt.LocalDateTime;
+    public DateTime LastTime => LocalTimeOf(History.Count > 0 ? History[^1] : null, UpdatedAt);
 
     private CharacterData? _characterData;
     private MemoryData? _memory;
@@ -483,8 +494,10 @@ public class ChatSession
         return CharacterData.CharacterName;
     }
 
-    private static DateTime LocalTimeOf(ChatMessage message)
+    /// 缺时间戳时回落到调用方给的会话级时间戳,<b>不能回落"现在"</b>——
+    /// 那会让同一条旧消息每次读到不同的时间(旧存档里的消息确实可能没有时间戳)
+    private static DateTime LocalTimeOf(ChatMessage? message, DateTimeOffset fallback)
     {
-        return (message.CreatedAt ?? DateTimeOffset.Now).LocalDateTime;
+        return (message?.CreatedAt ?? fallback).LocalDateTime;
     }
 }

@@ -41,6 +41,15 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public event Action<ChatSession>? OnSessionRemoved;
 
     /// <summary>
+    /// 会话元数据已刷新（标题、描述、最后更新时间、消息数）。
+    ///
+    /// 每次 <see cref="SaveMeta"/> 都抛——它同时是「<see cref="ChatSessionMeta.UpdatedAt"/> 变了」的
+    /// 唯一时机，而排序按该字段倒序，所以列表既靠它重排也靠它刷新时间。
+    /// 少了这个通知，说过话的会话不会浮到顶部、时间也停在开页那一刻。
+    /// </summary>
+    public event Action<ChatSession>? OnSessionMetaUpdated;
+
+    /// <summary>
     /// 运行态登记处：界面的运行指示器、「跑时禁用删除」都读它，
     /// 界面轮次与无头轮次都往它上面登记
     /// </summary>
@@ -238,6 +247,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
         _metas[session.SessionId] = session.ToMeta();
         SaveIndex();
+        OnSessionMetaUpdated?.Invoke(session);
     }
 
     /// <summary>
