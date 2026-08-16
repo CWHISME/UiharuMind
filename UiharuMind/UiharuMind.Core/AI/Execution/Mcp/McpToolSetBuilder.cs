@@ -10,6 +10,7 @@
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Mcp;
 
@@ -63,13 +64,17 @@ internal static class McpToolSetBuilder
         {
             List<McpToolInfo> infos = new(server.Tools.Count);
             int groupTokens = 0;
+            ToolTokenBreakdown groupParts = default;
             foreach (AIFunction tool in server.Tools)
             {
                 bool collides = nameOwners.GetValueOrDefault(tool.Name) > 1;
                 string finalName = collides ? $"{SanitizePrefix(server.Config.Name)}_{tool.Name}" : tool.Name;
                 AIFunction mounted = collides ? new RenamedMcpFunction(tool, finalName) : tool;
 
-                int tokens = ToolTokenEstimator.Estimate(mounted);
+                ToolTokenBreakdown parts = ToolTokenEstimator.Breakdown(mounted);
+                groupParts = new ToolTokenBreakdown(groupParts.Name + parts.Name,
+                    groupParts.Description + parts.Description, groupParts.Schema + parts.Schema);
+                int tokens = parts.Total;
                 groupTokens += tokens;
                 tools.Add(mounted);
                 infos.Add(new McpToolInfo
@@ -91,6 +96,7 @@ internal static class McpToolSetBuilder
                     .Append(server.Instructions.TrimEnd());
             }
 
+            LogBreakdown(server, infos, groupTokens, groupParts);
             totalTokens += groupTokens;
             groups.Add(new McpServerToolGroup
             {
@@ -109,6 +115,32 @@ internal static class McpToolSetBuilder
             Instructions = instructions.ToString(),
             EstimatedTokens = totalTokens,
         };
+    }
+
+    /// <summary>
+    /// 按构成打一条估算明细。
+    ///
+    /// 「贵在哪一段」是估算与服务端实报对不上时唯一能往下查的线索——描述特别长、schema 本身就大、
+    /// 还是分词在 JSON 上吃亏，三者的处置完全不同。字符数与 token 数一并给正是为了分开后两者：
+    /// 英文 JSON 通常 3~4 字符一个 token，明显低于这个比例就说明是分词的问题而非内容的问题。
+    /// </summary>
+    private static void LogBreakdown(ResolvedMcpServer server, List<McpToolInfo> infos,
+        int groupTokens, ToolTokenBreakdown parts)
+    {
+        int schemaChars = server.Tools.Sum(x => ToolTokenEstimator.CompactSchema(x.JsonSchema).Length);
+        Log.Debug($"MCP '{server.Config.Name}': {infos.Count} tools ~{groupTokens} tok " +
+                  $"(name {parts.Name} / desc {parts.Description} / schema {parts.Schema} " +
+                  $"over {schemaChars} chars = {schemaChars / (double)Math.Max(1, parts.Schema):0.0} char/tok); " +
+                  $"top: {string.Join(", ", infos.OrderByDescending(x => x.EstimatedTokens).Take(3)
+                      .Select(x => $"{x.Name} ~{x.EstimatedTokens}"))}");
+
+        // 最贵的那个直接把原文头部摆出来:比例正常时,剩下的问题只可能在内容里
+        AIFunction? priciest = server.Tools
+            .OrderByDescending(x => ToolTokenEstimator.EstimateSchema(x.JsonSchema)).FirstOrDefault();
+        if (priciest == null) return;
+        string schema = ToolTokenEstimator.CompactSchema(priciest.JsonSchema);
+        Log.Debug($"MCP '{server.Config.Name}' priciest schema '{priciest.Name}' ({schema.Length} chars): " +
+                  schema[..Math.Min(600, schema.Length)]);
     }
 
     /// 工具名只允许字母数字下划线:前缀要拼进工具名,不能带 server 名里的空格与短横

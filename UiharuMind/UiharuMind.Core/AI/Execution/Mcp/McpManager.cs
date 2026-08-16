@@ -11,6 +11,7 @@
 using Microsoft.Agents.AI.Mcp;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using UiharuMind.Core.AI.Execution.Tools;
 
 using UiharuMind.Core.Core;
@@ -76,7 +77,10 @@ public class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
-    /// 从磁盘重新读入配置（用户直接改了配置文件时用）
+    /// 从磁盘重新读入配置（用户直接改了配置文件时用），并把托管中的 server 起在后台。
+    ///
+    /// 启动时也走这里（<see cref="OnInitialize"/>），因此托管的 server 在没人开会话之前就已经在连了——
+    /// 代价是它们的子进程会随应用一起起来，收益是第一次发消息时工具已经在位。
     /// </summary>
     public void Reload()
     {
@@ -94,6 +98,13 @@ public class McpManager : Singleton<McpManager>, IInitialize
             orphans = _runtimes.Values.Where(x => x.Client != null).Select(x => x.Client!).ToList();
             _runtimes.Clear();
             _revision++;
+            // 顺手把托管中的 server 全部起在后台。不预连的话第一份装配必然赶不上——
+            // Resolve 遇到还没取到工具的 server 只能跳过它并在后台起连接,
+            // 于是"明明接了 MCP,工具却要等下一轮才出现"。退避与去重仍由 KickRefreshLocked 把关
+            foreach (McpServerConfig server in _servers)
+            {
+                if (server.IsEnabled) KickRefreshLocked(server, force: false);
+            }
         }
 
         foreach (McpClient client in orphans) _ = client.DisposeAsync();
@@ -304,6 +315,20 @@ public class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// 连接本身要 await,不能在锁里做;同一 server 的并发由 Refreshing 标记挡在门外
+    /// <summary>
+    /// 握手时报给 server 的客户端身份。<b>必须显式给</b>：不给的话 SDK 会拿当前进程的信息顶上，
+    /// 于是同一个应用从桌面端连过去叫 <c>UiharuMind.Desktop</c>、从命令行连过去叫 <c>UiharuMind.CLI</c>，
+    /// server 那边看到的是两个客户端。这个名字会进 server 日志，是排查问题时的第一个线索。
+    /// </summary>
+    private static readonly McpClientOptions ClientOptions = new()
+    {
+        ClientInfo = new Implementation
+        {
+            Name = AppInfo.Name,
+            Version = AppInfo.Version.ToString(),
+        },
+    };
+
     private async Task<McpClient> ConnectAsync(McpServerConfig server, CancellationToken cancellationToken)
     {
         McpClient? existing;
@@ -317,7 +342,8 @@ public class McpManager : Singleton<McpManager>, IInitialize
         if (existing != null) return existing;
 
         McpClient client = await McpClient
-            .CreateAsync(CreateTransport(server), cancellationToken: cancellationToken).ConfigureAwait(false);
+            .CreateAsync(CreateTransport(server), ClientOptions, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
 
         McpClient? raced = null;
         lock (_lock)
