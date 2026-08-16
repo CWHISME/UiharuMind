@@ -41,6 +41,28 @@
     </Style>
 
     <!--
+        会话流里一行「卡片」的几何。工具卡片、审批卡片、思考折叠条都是这条流上的同级条目，
+        <b>左右边缘必须严丝合缝对齐</b>——原先它在 ToolCallCardView 与 ApprovalCardView 里各定义
+        一份，而思考条用的是另一套（Expander + 自己的 Margin/Padding），于是三种条目的图标起点
+        和右侧箭头各在一个位置上。几何收在这里，对齐就成了构造出来的结果，而不是靠三处手调。
+
+        ghost：不画底与框、但保留同样的 1px 边框厚度与内边距，因此内容起点与实心卡片<b>逐像素一致</b>。
+        思考段要的是弱化，不是错位。
+    -->
+    <Style Selector="Border.tool-card">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="Border.tool-card.ghost">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <!--
         diff 行配色（等宽字体沿用全局的 mono 类）。
 
         原先只定义在 ApprovalCardView 的作用域内，于是同一份 diff 在审批卡片上有增删配色、

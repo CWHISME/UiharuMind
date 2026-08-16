@@ -1,0 +1,57 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="60"
+             x:Class="UiharuMind.Features.Conversation.ThinkingCardView"
+             x:DataType="conv:ThinkingItem">
+
+    <!-- 思考过程的折叠条。结构<b>刻意与 ToolCallCardView 一模一样</b>：同一个 ghost 卡片外框、
+         同一个 ToggleButton + 右侧 chevron，只有配色被弱化。
+
+         原先它是个 Expander，Margin/Padding 自成一套，右边还多留 40——于是它与上下两张工具卡片
+         的图标起点和箭头位置都对不齐。靠手调那三处数值能凑一次，但任何一处以后再改就又飘了；
+         按同一套几何搭出来，对齐是构造的结果。
+
+         Expander 换掉的另一个理由：它的表头内边距来自 Semi 的 ControlTheme，我们改不动也对不准。 -->
+    <UserControl.Styles>
+        <!-- tool-card / ghost 已在 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
+        <Style Selector="ToggleButton.NoneStyle:checked">
+            <Setter Property="Foreground" Value="{DynamicResource ButtonDefaultPrimaryForeground}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- MaxWidth 与工具卡片同一条绑定:右边缘因此落在同一处 -->
+    <Border Classes="tool-card ghost"
+            MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+            Converter={x:Static AddConverter.Instance},
+            ConverterParameter=-10}">
+        <StackPanel Spacing="6">
+            <ToggleButton Classes="NoneStyle" Cursor="Hand" MaxHeight="32"
+                          Background="Transparent" Padding="0"
+                          BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- 图标占同一个列位、同样不带左边距:与工具卡片的图标同一起点。
+                         弱化只体现在字号与透明度上 -->
+                    <TextBlock Grid.Column="0" Text="💭" FontSize="11" Opacity="0.6"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Grid.Column="1" Classes="muted" VerticalAlignment="Center"
+                               Text="{loc:Loc AgentThinking}" />
+                    <ThemedSvgIcon Grid.Column="2" Width="14" Height="14" IconName="chevron-down">
+                        <ThemedSvgIcon.RenderTransform>
+                            <RotateTransform Angle="{Binding IsExpanded,
+                            Converter={x:Static BoolToDoubleConverter.Instance},
+                            ConverterParameter='180:0'}" />
+                        </ThemedSvgIcon.RenderTransform>
+                    </ThemedSvgIcon>
+                </Grid>
+            </ToggleButton>
+            <SelectableTextBlock Classes="muted" IsVisible="{Binding IsExpanded}"
+                                 Text="{Binding Message}" TextWrapping="Wrap" />
+        </StackPanel>
+    </Border>
+
+</UserControl>

@@ -13,18 +13,15 @@
          别处要用就得复制一份样式,复制的结果就是观感飘。样式随组件走,复制不出去也就飘不了。
          muted 与 mono 不必带:主题里(Assets/Themes/CustomFontStyle.axaml)已有全局定义 -->
     <UserControl.Styles>
-        <Style Selector="Border.tool-card">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Margin" Value="0,4" />
-        </Style>
         <!-- result-panel 与 diffline 配色已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
     </UserControl.Styles>
 
-    <Border Classes="tool-card" Margin="0,6,40,6"
+    <!-- 只覆盖橙色告警边框,几何一律走全局 tool-card:右边曾多留 40,
+         于是同一条流上的审批卡片比工具卡片窄一截 -->
+    <Border Classes="tool-card"
+            MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+            Converter={x:Static AddConverter.Instance},
+            ConverterParameter=-10}"
             BorderBrush="{DynamicResource SemiOrange5}" BorderThickness="1.5">
         <StackPanel Spacing="8">
             <StackPanel Orientation="Horizontal" Spacing="8">

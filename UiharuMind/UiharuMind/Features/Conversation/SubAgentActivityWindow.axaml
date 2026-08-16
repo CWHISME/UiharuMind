@@ -37,18 +37,9 @@
                                          IsPlaintext="{Binding !IsDone}" />
         </DataTemplate>
 
-        <!-- 思考段:默认折叠 -->
+        <!-- 思考段:默认折叠。与会话流里完全同一个组件,不再各写一份模板 -->
         <DataTemplate DataType="conv:ThinkingItem">
-            <Expander Margin="0,2" IsExpanded="{Binding IsExpanded}"
-                      Background="Transparent" Padding="8,4" MinHeight="0">
-                <Expander.Header>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="💭" FontSize="11" Opacity="0.6" />
-                        <TextBlock Classes="muted" Text="{loc:Loc AgentThinking}" />
-                    </StackPanel>
-                </Expander.Header>
-                <SelectableTextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
-            </Expander>
+            <conv:ThinkingCardView />
         </DataTemplate>
 
         <!-- 工具调用:与会话流里完全同一个组件,不再各写一份模板。

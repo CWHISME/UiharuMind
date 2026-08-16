@@ -12,14 +12,6 @@
          而这两处不共享样式作用域(tool-card 等原先只定义在 AgentPage 内),
          复制一份的结果就是两边观感不一致。样式随组件走,复制不出去也就飘不了。 -->
     <UserControl.Styles>
-        <Style Selector="Border.tool-card">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Margin" Value="0,4" />
-        </Style>
         <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
         <Style Selector="Border.spin">
             <Style.Animations>

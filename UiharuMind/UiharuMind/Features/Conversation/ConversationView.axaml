@@ -181,18 +181,10 @@
                             Content="{loc:Loc ChatLoadEarlier}" />
                     <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
                         <ItemsControl.DataTemplates>
-                    <!-- 思考过程:弱化折叠条(两个页面通用,agent 特有条目模板仍由宿主页提供) -->
+                    <!-- 思考过程:弱化折叠条。视觉与行为都在 ThinkingCardView 里,
+                         与工具卡片同一套几何(会话流与子代理过程窗口共用同一份组件) -->
                     <DataTemplate DataType="{x:Type conv:ThinkingItem}">
-                        <Expander Margin="0,2,40,2" IsExpanded="{Binding IsExpanded}"
-                                  Background="Transparent" Padding="8,4" MinHeight="0">
-                            <Expander.Header>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="💭" FontSize="11" Opacity="0.6" />
-                                    <TextBlock Classes="muted" Text="{loc:Loc AgentThinking}" />
-                                </StackPanel>
-                            </Expander.Header>
-                            <SelectableTextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
-                        </Expander>
+                        <conv:ThinkingCardView />
                     </DataTemplate>
 
                     <!-- 交接文档:模型从这条往前看不见了,默认折叠 -->
