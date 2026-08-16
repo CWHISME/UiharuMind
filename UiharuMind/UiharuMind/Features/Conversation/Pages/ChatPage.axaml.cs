@@ -10,28 +10,19 @@
  ****************************************************************************/
 
 using System;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
-using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Characters;
 
 namespace UiharuMind.Features.Conversation.Pages;
 
+/// <summary>骨架与交互都在 ConversationPageShell,本页只提供三处内容槽与新建会话的角色选择</summary>
 public partial class ChatPage : UserControl
 {
     public ChatPage()
     {
         InitializeComponent();
-        SizeChanged += OnSizeChanged;
-    }
-
-    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        if (DataContext is ChatPageData data) data.UpdateResponsiveState(e.NewSize.Width);
     }
 
     /// <summary>
@@ -48,15 +39,5 @@ public partial class ChatPage : UserControl
                 SessionManager.Instance.StartNewSession(character);
             },
             filter: character => character.Kind.IsChat());
-    }
-
-    private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
-    {
-        ((ChatPageData)DataContext!).DragLeftPane(e.Vector.X);
-    }
-
-    private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
-    {
-        ((ChatPageData)DataContext!).DragRightPane(e.Vector.X);
     }
 }

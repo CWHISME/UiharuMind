@@ -1746,6 +1746,12 @@
     <data name="ChatSessionsHint" xml:space="preserve">
         <value>Roleplay and assistant conversations</value>
     </data>
+    <data name="ToggleSessionListTip" xml:space="preserve">
+        <value>Session list</value>
+    </data>
+    <data name="ToggleSidePanelTip" xml:space="preserve">
+        <value>Side panel</value>
+    </data>
     <data name="ChatDetails" xml:space="preserve">
         <value>Details</value>
     </data>

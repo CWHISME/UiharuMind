@@ -15,15 +15,30 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Features.Conversation.SessionList;
 using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Features.Conversation.Pages;
 
 /// <summary>
-/// 对话类页面壳的公共部分：左右面板的宽度、开合与窄宽响应式收起。
+/// 对话类页面壳的公共部分：会话列表、左右面板的宽度、开合与窄宽响应式收起。
+/// 界面侧的公共部分是 <c>ConversationPageShell</c>，它按本类做编译期绑定。
 /// </summary>
 public abstract partial class ConversationPageDataBase : PageDataBase
 {
+    /// <summary>
+    /// 本页的会话列表。两页只差<b>作用域</b>与<b>新会话要不要自动选中</b>——
+    /// 后者正是急建与懒建的分野，所以由子类经构造参数说，事件接线也留在各子类
+    /// </summary>
+    public SessionListModel SessionList { get; }
+
+    /// <param name="scope">会话列表作用域</param>
+    /// <param name="selectNewSessions">新会话是否自动选中（急建为 true，懒建为 false）</param>
+    protected ConversationPageDataBase(ESessionListScope scope, bool selectNewSessions)
+    {
+        SessionList = new SessionListModel(scope, selectNewSessions);
+    }
+
     /// <summary>低于此宽度收起右栏</summary>
     private const double RightPaneCollapseWidth = 888;
 

@@ -1,0 +1,145 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
+             xmlns:sessions="clr-namespace:UiharuMind.Features.Conversation.SessionList"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+             x:Class="UiharuMind.Features.Conversation.Pages.ConversationPageShell"
+             x:DataType="pages:ConversationPageDataBase">
+
+    <!-- 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到。
+         ItemsControl 找不到匹配时会沿逻辑树向上找,一路找到这里。
+         聊天档角色不挂工具,那一页正常情况下不会出现这两种条目——留着是防御:
+         转录器照样能产出它们,没有模板就会渲染成 ToString() -->
+    <UserControl.DataTemplates>
+        <DataTemplate DataType="items:ToolCallItem">
+            <items:ToolCallCardView />
+        </DataTemplate>
+        <DataTemplate DataType="items:ApprovalRequestItem">
+            <items:ApprovalCardView />
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <UserControl.Styles>
+        <Style Selector="Border.workspace-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="Thumb.resize-thumb">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Margin" Value="-7" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 根网格五列,左右栏直接顶到最上面,顶栏只占中间列。
+         外边距不在这里给——页面宿主(MainView 的 PageHost)已经留了一圈 -->
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 会话列表 pane -->
+        <Border Grid.Column="0"
+                Classes="workspace-pane"
+                Width="{Binding LeftPaneWidth, Mode=TwoWay}"
+                IsVisible="{Binding IsLeftPaneOpen}">
+            <DockPanel>
+                <ContentPresenter DockPanel.Dock="Top"
+                                  HorizontalContentAlignment="Stretch"
+                                  Content="{Binding LeftPaneHeader, RelativeSource={RelativeSource AncestorType=pages:ConversationPageShell}}" />
+                <sessions:SessionListView Margin="8,0,8,8"
+                                          DataContext="{Binding SessionList}"
+                                          ShowAvatar="{Binding ShowSessionAvatar, RelativeSource={RelativeSource AncestorType=pages:ConversationPageShell}}" />
+            </DockPanel>
+        </Border>
+
+        <Thumb Grid.Column="1"
+               Classes="resize-thumb"
+               IsVisible="{Binding IsLeftPaneOpen}"
+               DragDelta="OnLeftThumbDragDelta"
+               Cursor="SizeWestEast">
+            <Thumb.Template>
+                <ControlTemplate>
+                    <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                    <Grid Background="Transparent" Margin="8,0,0,0" />
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+
+        <!-- 中间列:顶栏 + 会话内容 -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+
+            <!-- ===================== 顶栏 ===================== -->
+            <Border Grid.Row="0" Height="50" Padding="10,6"
+                    BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,0"
+                    Background="{DynamicResource SemiGrey0}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                    <ThemedIconButton Grid.Column="0"
+                                      Command="{Binding ToggleLeftPaneCommand}"
+                                      IsVisible="{Binding IsLeftPaneOpen}"
+                                      IconName="panel-right"
+                                      ToolTips="{loc:Loc ToggleSessionListTip}" />
+                    <ThemedIconButton Grid.Column="0"
+                                      Command="{Binding ToggleLeftPaneCommand}"
+                                      IsVisible="{Binding !IsLeftPaneOpen}"
+                                      IconName="panel-left"
+                                      ToolTips="{loc:Loc ToggleSessionListTip}" />
+
+                    <Border Grid.Column="1" HorizontalAlignment="Stretch">
+                        <pages:ModelSelectComboBoxView />
+                    </Border>
+
+                    <ThemedIconButton Grid.Column="2"
+                                      Command="{Binding ToggleRightPaneCommand}"
+                                      IsVisible="{Binding IsRightPaneOpen}"
+                                      IconName="panel-left"
+                                      ToolTips="{loc:Loc ToggleSidePanelTip}" />
+                    <ThemedIconButton Grid.Column="2"
+                                      Command="{Binding ToggleRightPaneCommand}"
+                                      IsVisible="{Binding !IsRightPaneOpen}"
+                                      IconName="panel-right"
+                                      ToolTips="{loc:Loc ToggleSidePanelTip}" />
+                </Grid>
+            </Border>
+
+            <!-- 会话内容:通用组件 -->
+            <Border Grid.Row="1" Classes="workspace-pane" ClipToBounds="True">
+                <conv:ConversationView DataContext="{Binding Conversation}"
+                                       EmptyContent="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=pages:ConversationPageShell}}" />
+            </Border>
+        </Grid>
+
+        <Thumb Grid.Column="3"
+               Classes="resize-thumb"
+               IsVisible="{Binding IsRightPaneOpen}"
+               DragDelta="OnRightThumbDragDelta"
+               Cursor="SizeWestEast">
+            <Thumb.Template>
+                <ControlTemplate>
+                    <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                    <Grid Background="Transparent" Margin="8,0,0,0" />
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+
+        <!-- 右侧栏:只有框归这里,内容由宿主页给 -->
+        <!-- 宽度上下限归 ConversationPageDataBase 的拖动方法管,这里不再另设 Min/MaxWidth:
+             两处各说一套时,拖动能到 120 而布局把它按在 260,拖到底就是一段死行程 -->
+        <Border Grid.Column="4"
+                Classes="workspace-pane"
+                Width="{Binding RightPaneWidth, Mode=TwoWay}"
+                IsVisible="{Binding IsRightPaneOpen}">
+            <ContentPresenter HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                              Content="{Binding RightPaneContent, RelativeSource={RelativeSource AncestorType=pages:ConversationPageShell}}" />
+        </Border>
+    </Grid>
+</UserControl>

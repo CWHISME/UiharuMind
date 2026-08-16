@@ -22,9 +22,6 @@ public partial class AgentPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new AgentPage();
 
-    /// <summary>会话列表。智能体页是<b>懒建</b>——新会话不自动选中，见 SessionListModel 的参数说明</summary>
-    public SessionListModel SessionList { get; }
-
     /// <summary>定时任务侧栏</summary>
     public ScheduledTaskListModel Scheduled { get; }
 
@@ -46,9 +43,9 @@ public partial class AgentPageData : ConversationPageDataBase
         SelectedSidePanelIndex = CapabilityTabIndex;
     }
 
-    public AgentPageData()
+    /// <summary>智能体页是<b>懒建</b>——新会话不自动选中，见 SessionListModel 的参数说明</summary>
+    public AgentPageData() : base(ESessionListScope.Agent, selectNewSessions: false)
     {
-        SessionList = new SessionListModel(ESessionListScope.Agent, selectNewSessions: false);
         SessionList.SelectionChanged += OnSelectionChanged;
         SessionList.Mutated += OnSessionMutated;
         SessionList.Removed += OnSessionRemoved;

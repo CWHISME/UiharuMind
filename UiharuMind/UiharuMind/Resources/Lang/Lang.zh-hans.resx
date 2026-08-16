@@ -1739,6 +1739,12 @@
     <data name="ChatSessionsHint" xml:space="preserve">
         <value>角色扮演与助手对话</value>
     </data>
+    <data name="ToggleSessionListTip" xml:space="preserve">
+        <value>会话列表</value>
+    </data>
+    <data name="ToggleSidePanelTip" xml:space="preserve">
+        <value>侧栏</value>
+    </data>
     <data name="ChatDetails" xml:space="preserve">
         <value>详情</value>
     </data>

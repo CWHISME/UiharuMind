@@ -3269,6 +3269,18 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ToggleSessionListTip {
+            get {
+                return ResourceManager.GetString("ToggleSessionListTip", resourceCulture);
+            }
+        }
+        
+        public static string ToggleSidePanelTip {
+            get {
+                return ResourceManager.GetString("ToggleSidePanelTip", resourceCulture);
+            }
+        }
+        
         public static string ChatDetails {
             get {
                 return ResourceManager.GetString("ChatDetails", resourceCulture);

@@ -8,30 +8,14 @@
  ****************************************************************************/
 
 using Avalonia.Controls;
-using Avalonia.Input;
 
 namespace UiharuMind.Features.Conversation.Pages;
 
+/// <summary>骨架与交互都在 ConversationPageShell,本页只提供三处内容槽</summary>
 public partial class AgentPage : UserControl
 {
     public AgentPage()
     {
         InitializeComponent();
-        SizeChanged += OnSizeChanged;
-    }
-
-    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        if (DataContext is AgentPageData data) data.UpdateResponsiveState(e.NewSize.Width);
-    }
-
-    private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
-    {
-        ((AgentPageData)DataContext!).DragLeftPane(e.Vector.X);
-    }
-
-    private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
-    {
-        ((AgentPageData)DataContext!).DragRightPane(e.Vector.X);
     }
 }

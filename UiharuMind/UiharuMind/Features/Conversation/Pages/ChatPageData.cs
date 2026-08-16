@@ -26,16 +26,13 @@ public partial class ChatPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new ChatPage();
 
-    /// <summary>会话列表。聊天页是<b>急建</b>——新会话自动选中，见 SessionListModel 的参数说明</summary>
-    public SessionListModel SessionList { get; }
-
     private readonly ChatInfoModel _chatInfoModel;
 
-    public ChatPageData()
+    /// <summary>聊天页是<b>急建</b>——新会话自动选中，见 SessionListModel 的参数说明</summary>
+    public ChatPageData() : base(ESessionListScope.Chat, selectNewSessions: true)
     {
         _chatInfoModel = App.ViewModel.GetViewModel<ChatInfoModel>();
 
-        SessionList = new SessionListModel(ESessionListScope.Chat, selectNewSessions: true);
         SessionList.SelectionChanged += OnSelectedSessionChanged;
         SessionList.Mutated += OnSessionMutated;
         // 删掉当前会话后顺位选下一条:聊天页的会话是急建的,列表不该空着
