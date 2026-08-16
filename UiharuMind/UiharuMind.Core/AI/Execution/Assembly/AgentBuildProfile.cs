@@ -109,4 +109,27 @@ public class AgentBuildProfile
             ActivitySink = activitySink,
         };
     }
+
+    /// <summary>
+    /// 从<b>尚不存在的会话</b>构造：智能体页的会话是懒建的，首轮发送前没有 <see cref="ChatSession"/>，
+    /// 但界面此时就要回答「这个会话会挂上什么、占多少」。
+    ///
+    /// 只有角色、工作区、权限档三项——它们正是<see cref="FromSession"/>里
+    /// 会影响装配产物的那几项；其余（自定义模板参数、会话级模型/知识库、过程上报口）
+    /// 要么此刻还不存在，要么只影响运行不影响挂了什么。
+    /// </summary>
+    /// <param name="character">将要使用的角色</param>
+    /// <param name="workspacePath">将要绑定的工作目录</param>
+    /// <param name="permissionModeIndex">权限档序号（越界自动收进合法范围，同 <see cref="FromSession"/>）</param>
+    /// <returns>构建配置</returns>
+    public static AgentBuildProfile FromDraft(CharacterData character, string? workspacePath,
+        int permissionModeIndex)
+    {
+        return new AgentBuildProfile
+        {
+            Character = character,
+            WorkspacePath = workspacePath,
+            PermissionMode = (EAgentPermissionMode)Math.Clamp(permissionModeIndex, 0, 2),
+        };
+    }
 }

@@ -898,8 +898,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             RefreshTokenUsageText();
             // 空态也要刷一次能力面板。这里曾经直接返回,于是新会话在首轮发送之前
             // 整个「能力」页签一片空白——而恰恰是这个时候用户最需要知道
-            // 「这个会话会自动连上什么」。没有执行者也仍有东西可报:技能清单与 MCP 预告
-            // 都不依赖装配产物(工具与提示词那两档依赖,它们留到首轮之后)
+            // 「这个会话会自动连上什么、要占多少」。没有执行者时由面板自己预演一次装配,
+            // 五档都报得出(见 ConversationCapabilityViewData.RefreshAsync)
             await RefreshCapabilitiesAsync();
             return;
         }
@@ -1178,7 +1178,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             int contextLength = (CurrentSession?.ChatModelRunningData
                                  ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
             await Capabilities.RefreshAsync(CurrentRunner, IsAgentSession ? SessionCharacter : null, contextLength,
-                Workspace.Path);
+                Workspace.Path, PermissionModeIndex);
         }
         catch (Exception e)
         {

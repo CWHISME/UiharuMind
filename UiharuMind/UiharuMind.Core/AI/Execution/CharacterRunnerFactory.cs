@@ -73,6 +73,41 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     }
 
     /// <summary>
+    /// 预演一次装配，只为取回能力快照（会话还不存在时用，见 <see cref="AgentBuildProfile.FromDraft"/>）。
+    ///
+    /// <b>走的就是真装配那条路</b>，不另写一份"预估"：固定开销要能与首轮发送之后显示的数对得上，
+    /// 而两份各自演算的代码迟早分叉——那时面板会在用户发出第一句话的瞬间跳一下数字，
+    /// 且没人说得清哪个是对的。代价是白建一次 agent 对象，只在首轮之前发生。
+    ///
+    /// <b>与首轮同样会预连 MCP</b>：工具是异步取回的，不等就只能报出一份缺了 MCP 的开销，
+    /// 而 MCP 恰是这几档里最贵的一笔。顺带首轮发送时那次预连已经完成，不必再等。
+    /// </summary>
+    /// <param name="profile">构建配置</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>能力快照；非智能体档为空快照（那些档本就不装配工具）</returns>
+    public async Task<AgentCapabilitySnapshot> PreviewCapabilitiesAsync(AgentBuildProfile profile,
+        CancellationToken cancellationToken = default)
+    {
+        if (!profile.Character.Kind.IsAgent()) return AgentCapabilitySnapshot.Empty;
+
+        // 名单与装配用的是同一份,理由同 HarnessCharacterRunner.EnsureHandleAsync
+        await McpManager.Instance.WarmupAsync(profile.WorkspacePath,
+                profile.Character.Tools.DisabledMcpServers, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        AgentHandle handle = CreateAgent(profile);
+        try
+        {
+            return handle.Capabilities;
+        }
+        finally
+        {
+            // 预演的句柄没有会话、也不会被运行,但 shell 执行器有生命周期,必须还回去
+            await handle.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// 解析一个角色挂载的子智能体名单。按档位过滤而非信任存档（旧存档里可能躺着工具人），
     /// 并排除自己（递归）。
     ///

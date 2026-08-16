@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
@@ -90,8 +91,15 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// </summary>
     public ObservableCollection<CapabilityStatItem> Stats { get; } = new();
 
-    /// <summary>统计块是否有内容（空态整块不出，见下方 <see cref="RefreshSummary"/> 的说明）</summary>
-    [ObservableProperty] private bool _hasStats;
+    /// <summary>
+    /// 统计块是否有内容。
+    ///
+    /// <b>初值为真</b>：切会话是换一个视图模型实例，这一份是新造的，而算出内容要等一次
+    /// 后台预演。初值为假的话，每切一次会话整块都会先消失、几百毫秒后再出现——
+    /// 那是最扎眼的一种闪。而它<b>几乎不会真为假</b>：这块只出现在智能体页，
+    /// 智能体档必然带着角色提示与工具。真为空时（能力全关且无技能）刷新后自然收起
+    /// </summary>
+    [ObservableProperty] private bool _hasStats = true;
 
     /// 空的那一档整行不出：既占一行又什么都没说
     [ObservableProperty] private bool _hasTools;
@@ -108,8 +116,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     [ObservableProperty] private string _toolsHeader = string.Empty;
     [ObservableProperty] private string _skillsHeader = string.Empty;
 
-    /// <summary>合计占用文案：有上限时形如 <c>5.1k / 8192</c>，上限未知时只给占用</summary>
-    [ObservableProperty] private string _totalText = string.Empty;
+    /// <summary>
+    /// 合计占用文案：有上限时形如 <c>5.1k / 8192</c>，上限未知时只给占用。
+    /// 初值给一个破折号而不是空串——块从一开始就在（见 <see cref="HasStats"/>），
+    /// 数还没算出来时那一行不该是半截空白
+    /// </summary>
+    [ObservableProperty] private string _totalText = "—";
 
     /// <summary>固定开销已经吃到压缩水位的告警（上限未知时恒为 false）</summary>
     [ObservableProperty] private bool _isOverBudget;
@@ -125,15 +137,21 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <param name="character">当前会话的角色（技能过滤按它的禁用清单）</param>
     /// <param name="contextLength">当前模型的上下文上限；0 表示未知，此时不给分母也不告警</param>
     /// <param name="workspacePath">会话绑定的工作区；预告区据此读项目级 <c>.mcp.json</c></param>
+    /// <param name="permissionModeIndex">权限档序号；会话还不存在时预演装配要用</param>
     public async Task RefreshAsync(ICharacterRunner? runner, CharacterData? character, int contextLength,
-        string? workspacePath = null)
+        string? workspacePath = null, int permissionModeIndex = 0)
     {
         int version = ++_refreshVersion;
 
-        // 切快照要为每个工具的 schema 分词,放后台——与输入框那个字数统计同样的处置
-        AgentCapabilitySnapshot snapshot = runner == null
-            ? AgentCapabilitySnapshot.Empty
-            : await Task.Run(runner.GetCapabilities);
+        // 切快照要为每个工具的 schema 分词,放后台——与输入框那个字数统计同样的处置。
+        // 没有执行者即会话还不存在(智能体页懒建):预演一次装配,首轮发送前也报得出
+        // 角色提示/工作区规矩/工具这三档——它们全都只依赖角色与工作区,不依赖任何已发生的对话
+        AgentCapabilitySnapshot snapshot = runner != null
+            ? await Task.Run(runner.GetCapabilities)
+            : character != null
+                ? await Task.Run(() => CharacterRunnerFactory.Instance.PreviewCapabilitiesAsync(
+                    AgentBuildProfile.FromDraft(character, workspacePath, permissionModeIndex)))
+                : AgentCapabilitySnapshot.Empty;
 
         // 预告区要读工作区里的 .mcp.json,同样不在 UI 线程上做
         List<McpPlannedServer> planned = character != null && character.Kind.IsAgent()

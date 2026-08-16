@@ -140,11 +140,17 @@ public abstract partial class ConversationPageDataBase : PageDataBase
 
     /// <summary>
     /// 切到某会话：缓存里有就复用（后台还在跑的那一轮因此原样接回界面），
-    /// 没有就新建并装载。<paramref name="meta"/> 为 null 时总是新建一个空会话实例
+    /// 没有就新建并装载。<paramref name="meta"/> 为 null 即新会话空态。
+    /// <b>切到当前正显示的那个是空操作</b>——包括"已经在空态时再点新建"。
     /// </summary>
     /// <param name="meta">会话元数据；null 为新会话空态</param>
     protected void SwitchConversation(ChatSessionMeta? meta)
     {
+        // 要切去的就是当前正显示的那个:什么都不做。
+        // 空态尤其要拦——meta 为 null 时下面的 FindConversation 无从匹配,于是"再点一次新建"
+        // 会丢掉当前那个空实例、另建一个,整个视图的 DataContext 跟着换掉,右栏整块重建一次
+        if (Conversation != null && Conversation.CurrentMeta?.SessionId == meta?.SessionId) return;
+
         ConversationViewModel? target = meta == null ? null : FindConversation(meta.SessionId);
         if (target == null)
         {
