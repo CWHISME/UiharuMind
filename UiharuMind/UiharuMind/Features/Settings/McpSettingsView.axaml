@@ -9,8 +9,14 @@
              x:Class="UiharuMind.Features.Settings.McpSettingsView"
              x:DataType="settings:McpSettingsViewData">
 
-    <Grid ColumnDefinitions="190,*" RowDefinitions="*,Auto" Margin="0,12">
-        <Grid Grid.Row="0" Grid.Column="0" RowDefinitions="*,Auto">
+    <!-- 不套外层 ScrollViewer:那会给子元素无限高度,于是 RowDefinitions="*" 失去参照、
+         下面那个表单的内层滚动一起失效,ListBox 也会长到内容全高。
+         同页签的「技能包」也是这个形状(Grid 定行 + 内层滚动) -->
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,*" Margin="0,12">
+        <!-- 左栏在空态时整个让位:一个 server 都没有的时候,一份空列表加两个按钮只是噪声,
+             而新建的入口在空态引导里已经有一个更显眼的 -->
+        <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="*,Auto" Width="190"
+              IsVisible="{Binding !IsEmpty}">
             <ListBox Grid.Row="0" ItemsSource="{Binding Servers}"
                      SelectedItem="{Binding SelectedServer}">
                 <ListBox.ItemTemplate>
@@ -29,8 +35,9 @@
             </StackPanel>
         </Grid>
 
-        <!-- 空态引导:一个 server 都没有时,右侧不该是一整片空白 -->
-        <StackPanel Grid.Row="0" Grid.Column="1" Margin="12,0,0,0" Spacing="10"
+        <!-- 空态引导:一个 server 都没有时,右侧不该是一整片空白。
+             左栏此时已隐藏,所以这里占满整宽居中 -->
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="10"
                     VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380"
                     IsVisible="{Binding IsEmpty}">
             <TextBlock Classes="card-title" HorizontalAlignment="Center"
@@ -43,9 +50,12 @@
             </StackPanel>
         </StackPanel>
 
-        <Border Grid.Row="0" Grid.Column="1" Classes="form-pane" Margin="12,0,0,0"
+        <Border Grid.Row="1" Grid.Column="1" Classes="form-pane" Margin="12,0,0,0"
                 IsVisible="{Binding SelectedServer, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <ScrollViewer>
+            <!-- 字段区滚动、操作区钉住:保存与测试原先长在滚动内容的末尾,
+                 面板一矮就必须先滚到底才够得着——而"改完就保存"是这个页面唯一的主线操作 -->
+            <Grid RowDefinitions="*,Auto">
+            <ScrollViewer Grid.Row="0">
                 <StackPanel Spacing="2">
                     <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpName}" />
                     <TextBox Text="{Binding SelectedServer.Name}" />
@@ -92,63 +102,88 @@
                                    ToolTip.Tip="{loc:Loc AgentMcpInjectInstructionsTip}" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,14,0,0">
-                        <Button Classes="Primary" Content="{loc:Loc AgentSave}"
-                                Command="{Binding SaveServerCommand}" />
-                        <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}"
-                                ToolTip.Tip="{loc:Loc AgentMcpTestTip}" />
-                        <TextBlock VerticalAlignment="Center" FontSize="12"
-                                   Foreground="{DynamicResource SemiGrey5}"
-                                   Text="{Binding StatusText}" />
-                    </StackPanel>
-
-                    <!-- 失败原因原样摆出来:光说"失败"没法排查 -->
-                    <SelectableTextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
-                                         Margin="0,6,0,0"
-                                         IsVisible="{Binding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                         Text="{Binding ErrorText}" />
-
                     <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"
                                Text="{loc:Loc AgentMcpPerAgentHint}" />
                 </StackPanel>
             </ScrollViewer>
+
+            <StackPanel Grid.Row="1" Spacing="6" Margin="0,10,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="Primary" Content="{loc:Loc AgentSave}"
+                            Command="{Binding SaveServerCommand}" />
+                    <Button Content="{loc:Loc AgentMcpTest}" Command="{Binding TestServerCommand}"
+                            ToolTip.Tip="{loc:Loc AgentMcpTestTip}" />
+                    <TextBlock VerticalAlignment="Center" FontSize="12"
+                               Foreground="{DynamicResource SemiGrey5}"
+                               Text="{Binding StatusText}" />
+                </StackPanel>
+
+                <!-- 失败原因原样摆出来:光说"失败"没法排查。
+                     跟着按钮钉在底部——它说的正是刚点那下测试的结果 -->
+                <SelectableTextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
+                                     MaxHeight="72"
+                                     IsVisible="{Binding ErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                     Text="{Binding ErrorText}" />
+            </StackPanel>
+            </Grid>
         </Border>
 
-        <!-- 配置文件是生态标准的 mcpServers 形状,可与别的客户端互拷 -->
-        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                    Spacing="4" Margin="0,12,0,0">
-            <TextBlock Classes="muted" Text="{loc:Loc AgentMcpConfigHint}" TextWrapping="Wrap" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="{loc:Loc AgentMcpOpenConfigFolder}"
-                        Command="{Binding OpenConfigFolderCommand}" />
-                <Button Content="{loc:Loc AgentMcpReload}" Command="{Binding ReloadServersCommand}" />
-                <SelectableTextBlock Classes="muted" VerticalAlignment="Center"
-                                     TextTrimming="CharacterEllipsis"
-                                     Text="{Binding ConfigFilePath}" />
-            </StackPanel>
+        <!-- 这一块管的是「整份配置」与「项目级授权」,都不属于某一个 server,所以留在底部。
+             但它<b>收进折叠区</b>:原先平铺时,已授权项目一多就把上面那个表单越挤越矮
+             （表单本来就在滚,再矮就只剩三四个字段可见）。而这里的操作全是低频的——
+             打开配置目录、从文件重载、撤销某个项目的授权,都不是每次进设置页要做的事 -->
+        <!-- 放<b>顶部</b>而不是底部:在底部时展开是"向上顶",表单区被压缩——
+             正是刚修掉的那个挤压问题原样复发;在顶部则是"向下推",
+             而且折叠标题的位置固定,不会随上面内容多少浮动。
+             内容限高并自滚:展开最多吃掉这一段,不会想吃多少吃多少 -->
+        <Expander Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                  Margin="0,0,0,10" HorizontalAlignment="Stretch" IsExpanded="False">
+            <Expander.Header>
+                <TextBlock Classes="muted" Text="{loc:Loc AgentMcpAdvancedTitle}" />
+            </Expander.Header>
 
-            <!-- 项目级授权:确认发生在选定工作区那一刻,之后就静默生效了。
-                 没有这份清单,「我到底允许过哪些仓库在本机起进程」无处可查、也无从撤回 -->
-            <StackPanel Spacing="4" Margin="0,10,0,0"
-                        IsVisible="{Binding HasTrustedWorkspaces}">
-                <TextBlock Classes="muted" TextWrapping="Wrap"
-                           Text="{loc:Loc AgentMcpTrustedTitle}"
-                           ToolTip.Tip="{loc:Loc AgentMcpTrustedTip}" />
-                <ItemsControl ItemsSource="{Binding TrustedWorkspaces}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="settings:McpTrustedWorkspaceItem">
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
-                                <TextBlock FontSize="12" VerticalAlignment="Center" Text="{Binding Name}" />
-                                <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis" Text="{Binding Parent}" />
-                                <Button FontSize="11" Padding="6,2"
-                                        Content="{loc:Loc AgentMcpTrustRevoke}"
-                                        Command="{Binding RevokeCommand}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+            <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="6" Margin="0,6,0,0">
+                <!-- 配置文件是生态标准的 mcpServers 形状,可与别的客户端互拷 -->
+                <TextBlock Classes="muted" Text="{loc:Loc AgentMcpConfigHint}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="{loc:Loc AgentMcpOpenConfigFolder}"
+                            Command="{Binding OpenConfigFolderCommand}" />
+                    <Button Content="{loc:Loc AgentMcpReload}" Command="{Binding ReloadServersCommand}" />
+                </StackPanel>
+                <!-- 路径独占一行并换行:与按钮挤在一行时它总是被截断成一半,
+                     而"整段替换配置"这件事要的正是这条完整路径 -->
+                <SelectableTextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                     Text="{Binding ConfigFilePath}" />
+
+                <!-- 项目级授权:确认发生在选定工作区那一刻,之后就静默生效了。
+                     没有这份清单,「我到底允许过哪些仓库在本机起进程」无处可查、也无从撤回 -->
+                <StackPanel Spacing="4" Margin="0,8,0,0"
+                            IsVisible="{Binding HasTrustedWorkspaces}">
+                    <TextBlock Classes="field-label"
+                               Text="{loc:Loc AgentMcpTrustedTitle}"
+                               ToolTip.Tip="{loc:Loc AgentMcpTrustedTip}" />
+                    <ItemsControl ItemsSource="{Binding TrustedWorkspaces}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="settings:McpTrustedWorkspaceItem">
+                                <!-- 名字与撤销钉在两端,路径吃掉中间:路径长度差别很大,
+                                     用 StackPanel 排的话撤销按钮的横向位置会跟着路径长度乱跳 -->
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3,0,0">
+                                    <TextBlock Grid.Column="0" FontSize="12" VerticalAlignment="Center"
+                                               Text="{Binding Name}" />
+                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="11"
+                                               Margin="8,0" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" Text="{Binding Parent}" />
+                                    <Button Grid.Column="2" FontSize="11" Padding="6,2"
+                                            Content="{loc:Loc AgentMcpTrustRevoke}"
+                                            Command="{Binding RevokeCommand}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
+            </ScrollViewer>
+        </Expander>
     </Grid>
 </UserControl>

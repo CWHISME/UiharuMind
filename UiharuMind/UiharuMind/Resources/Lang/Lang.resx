@@ -462,11 +462,14 @@
     <data name="AgentMcpTransport" xml:space="preserve">
         <value>Transport</value>
     </data>
-    <data name="AgentMcpArguments" xml:space="preserve">
-        <value>Arguments (stdio, one per line)</value>
+    <data name="AgentMcpCommand" xml:space="preserve">
+        <value>Command (stdio)</value>
+    </data>
+    <data name="AgentMcpUrl" xml:space="preserve">
+        <value>Endpoint (HTTP)</value>
     </data>
     <data name="AgentMcpArguments" xml:space="preserve">
-        <value>Arguments (stdio)</value>
+        <value>Arguments (stdio, one per line)</value>
     </data>
     <data name="AgentMcpEnabled" xml:space="preserve">
         <value>Host this server</value>
@@ -2639,6 +2642,9 @@
     </data>
     <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
         <value>Servers may ship a usage guide describing how their tools work together. It costs context — turn this off to keep the tools but drop the guide.</value>
+    </data>
+    <data name="AgentMcpAdvancedTitle" xml:space="preserve">
+        <value>Config file and project-level permissions</value>
     </data>
     <data name="AgentMcpConfigHint" xml:space="preserve">
         <value>Config uses the standard mcpServers format, so you can paste one in from another MCP client — or take this one elsewhere. Edit the file directly, then Reload.</value>

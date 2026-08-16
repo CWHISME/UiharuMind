@@ -452,11 +452,14 @@
     <data name="AgentMcpTransport" xml:space="preserve">
         <value>传输方式</value>
     </data>
-    <data name="AgentMcpArguments" xml:space="preserve">
-        <value>参数（stdio，每行一个）</value>
+    <data name="AgentMcpCommand" xml:space="preserve">
+        <value>启动命令（stdio）</value>
+    </data>
+    <data name="AgentMcpUrl" xml:space="preserve">
+        <value>服务地址（HTTP）</value>
     </data>
     <data name="AgentMcpArguments" xml:space="preserve">
-        <value>参数(stdio)</value>
+        <value>参数（stdio，每行一个）</value>
     </data>
     <data name="AgentMcpEnabled" xml:space="preserve">
         <value>托管此 server</value>
@@ -2632,6 +2635,9 @@
     </data>
     <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
         <value>server 可以附一段说明，讲它那套工具该怎么配合使用。这段要占上下文——关掉则保留工具、不要说明。</value>
+    </data>
+    <data name="AgentMcpAdvancedTitle" xml:space="preserve">
+        <value>配置文件与项目级授权</value>
     </data>
     <data name="AgentMcpConfigHint" xml:space="preserve">
         <value>配置采用生态标准的 mcpServers 格式，可以从别的 MCP 客户端整段粘过来，也可以拿去别处用。直接改文件后点「从文件重载」。</value>
