@@ -21,7 +21,7 @@ public interface IUniquieContainerItem
 }
 
 public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IInitialize
-    where T : class, IUniquieContainerItem, new() where TMgr : new()
+    where T : class, IUniquieContainerItem, new() where TMgr : class, new()
 {
     public readonly Dictionary<string, T> ItemDictionary =
         new Dictionary<string, T>();
