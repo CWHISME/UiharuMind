@@ -421,6 +421,9 @@ public class SessionListModelTests
         public Task<bool> ConfirmAsync(string message, string? title = null, CancellationToken ct = default) =>
             Task.FromResult(true);
 
+        public Task<EConfirmChoice> ConfirmWithCancelAsync(string message, string? title = null,
+            CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);
+
         public void ShowNotification(string message, string? title = null,
             MessageSeverity severity = MessageSeverity.Information)
         {

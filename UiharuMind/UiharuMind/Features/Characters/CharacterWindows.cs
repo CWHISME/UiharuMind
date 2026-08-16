@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System;
 using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Features.Characters;
@@ -22,19 +21,12 @@ namespace UiharuMind.Features.Characters;
 public static class CharacterWindows
 {
     /// <summary>
-    /// 打开角色编辑窗
+    /// 打开角色编辑窗。<b>只给对话侧那两个入口用</b>——角色工作台里的编辑是内联的，
+    /// 不走这里（见 ADR 0014）。
     /// </summary>
-    /// <param name="characterInfo">待编辑的角色；传 null 即新建</param>
-    /// <param name="onSureCallback">点确定后的回调</param>
-    public static void ShowEditCharacterWindow(CharacterInfoViewData? characterInfo,
-        Action<CharacterInfoViewData>? onSureCallback)
+    /// <param name="draft">待编辑的草稿；保存与否都由窗口自己了结，调用方不必再管</param>
+    public static void ShowEditCharacterWindow(CharacterDraft draft)
     {
-        // 传 null 即新建:档位由调用方在数据上定好(见 CharacterListViewData.AddCharacter)
-        characterInfo ??= new CharacterInfoViewData();
-        UIManager.ShowWindow<CharacterEditWindow>(x =>
-        {
-            x.DataContext = characterInfo;
-            x.OnSureCallback = onSureCallback;
-        });
+        UIManager.ShowWindow<CharacterEditWindow>(x => x.DataContext = draft);
     }
 }

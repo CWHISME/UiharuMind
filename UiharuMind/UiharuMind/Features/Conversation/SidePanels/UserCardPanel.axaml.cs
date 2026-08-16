@@ -39,6 +39,15 @@ public partial class UserCardViewData : ObservableObject
     [RelayCommand]
     public void EditUserCard()
     {
-        UIManager.ShowWindow<UserCardEditWindow>(x => x.SetCharacterInfo(User));
+        // 编辑走草稿-提交,面板绑的这份是活实例、只读;因此关窗时统一刷一遍就够
+        UIManager.ShowWindow<UserCardEditWindow>(x =>
+        {
+            x.SetCharacterInfo(CharacterDraft.ForEdit(CharacterManager.Instance.UserCharacterData));
+            x.Closed += (_, _) =>
+            {
+                _user.Refresh();
+                OnPropertyChanged(nameof(UserTemplateReadonly));
+            };
+        });
     }
 }

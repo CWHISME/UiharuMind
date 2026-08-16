@@ -716,9 +716,6 @@
     <data name="CharacterFirstGreeting" xml:space="preserve">
         <value>开场白</value>
     </data>
-    <data name="CharacterDialogTemplate" xml:space="preserve">
-        <value>对话模板</value>
-    </data>
     <data name="AdvancedOptions" xml:space="preserve">
         <value>高级选项</value>
     </data>
@@ -765,12 +762,6 @@
         <value>{{$lang}}：将会替换为当前语言。
 {{$user}}：将会替换为用户名。
 {{$char}}：将会替换为当前角色名。</value>
-    </data>
-    <data name="ToggleIsPhotoListView" xml:space="preserve">
-        <value>相册模式</value>
-    </data>
-    <data name="ToggleIsListView" xml:space="preserve">
-        <value>列表模式</value>
     </data>
     <data name="MessageWarningTitle" xml:space="preserve">
         <value>注意</value>
@@ -1774,18 +1765,6 @@
     </data>
     <data name="StopGenerating" xml:space="preserve">
         <value>停止</value>
-    </data>
-    <data name="CharacterWorkspace" xml:space="preserve">
-        <value>角色工作台</value>
-    </data>
-    <data name="CharacterWorkspaceHint" xml:space="preserve">
-        <value>管理角色扮演、工具人与智能体</value>
-    </data>
-    <data name="CharacterPreview" xml:space="preserve">
-        <value>角色预览</value>
-    </data>
-    <data name="CharacterLibraryHint" xml:space="preserve">
-        <value>选择角色后可预览、编辑或开始聊天。</value>
     </data>
     <data name="CharacterEditor" xml:space="preserve">
         <value>角色编辑器</value>
@@ -2829,5 +2808,23 @@
     </data>
     <data name="ChatImageUnreadableWarning" xml:space="preserve">
         <value>当前模型无法查看图片，本角色也没有识图工具兜底——图片只会以文件路径发出。</value>
+    </data>
+    <data name="CharacterSearchPlaceholder" xml:space="preserve">
+        <value>搜索角色</value>
+    </data>
+    <data name="MoreActions" xml:space="preserve">
+        <value>更多</value>
+    </data>
+    <data name="CharacterWorkspaceEmpty" xml:space="preserve">
+        <value>还没有选中角色。在左边挑一个，或者新建一个。</value>
+    </data>
+    <data name="CharacterEditorDirtyTips" xml:space="preserve">
+        <value>这个角色改了还没保存，要保存吗？</value>
+    </data>
+    <data name="ResetBtn" xml:space="preserve">
+        <value>重置</value>
+    </data>
+    <data name="CharacterEditorDiscardTips" xml:space="preserve">
+        <value>放弃这个角色未保存的改动？</value>
     </data>
 </root>

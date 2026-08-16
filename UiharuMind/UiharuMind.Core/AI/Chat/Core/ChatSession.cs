@@ -33,9 +33,6 @@ namespace UiharuMind.Core.AI.Chat;
 // 需要遍历历史请直接用 History。
 public class ChatSession
 {
-    /// <summary>AI 作为首条消息时的作者名（界面据此做旁白式展示）</summary>
-    public const string NarratorName = "Narrator";
-
     /// <summary>存档格式版本(4 起:头文件 .meta.json + 历史 .history.jsonl 分离)</summary>
     public int FormatVersion { get; set; } = 4;
 
@@ -278,8 +275,7 @@ public class ChatSession
         Description = string.IsNullOrEmpty(characterData.FirstGreeting)
             ? characterData.Description
             : characterData.FirstGreeting;
-        if (!string.IsNullOrEmpty(characterData.FirstGreeting))
-            AddMessage(ChatRole.Assistant, characterData.TryRender(characterData.FirstGreeting));
+        if (!string.IsNullOrEmpty(characterData.FirstGreeting)) AddNarration(characterData);
     }
 
     /// <summary>
@@ -317,9 +313,23 @@ public class ChatSession
     public void AddMessage(ChatRole role, string message, byte[]? imageBytes = null,
         string imageMediaType = "image/jpeg")
     {
-        ChatMessage data = CreateMessage(role, message, imageBytes, imageMediaType);
-        //如果AI作为第一条消息，那么特殊处理下(特殊显示)
-        if (History.Count == 0 && role == ChatRole.Assistant) data.AuthorName = NarratorName;
+        History.Add(CreateMessage(role, message, imageBytes, imageMediaType));
+        Save();
+    }
+
+    /// <summary>
+    /// 追加开场白。它是一条<b>货真价实的 assistant 消息</b>——落盘、也供给模型，
+    /// 只是带上旁白标记，界面据此居中展示而不是画成角色气泡。
+    ///
+    /// 判据是显式标记而非「历史里的第一条」：位置是会变的（删条目、分叉、裁剪），
+    /// 而「这句是开场白」是写下它的那一刻就定死的事实。
+    /// </summary>
+    /// <param name="characterData">开场白所属角色（参数替换要用它）</param>
+    private void AddNarration(CharacterData characterData)
+    {
+        ChatMessage data = CreateMessage(ChatRole.Assistant, characterData.TryRender(characterData.FirstGreeting));
+        data.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        data.AdditionalProperties[ChatMessageAnnotations.Narration] = true;
 
         History.Add(data);
         Save();

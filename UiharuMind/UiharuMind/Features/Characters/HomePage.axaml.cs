@@ -10,10 +10,8 @@
  ****************************************************************************/
 
 using System;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Markup.Xaml;
 
 namespace UiharuMind.Features.Characters;
 
@@ -22,17 +20,12 @@ public partial class HomePage : UserControl
     public HomePage()
     {
         InitializeComponent();
-        SizeChanged += OnSizeChanged;
     }
 
-    private void OnSizeChanged(object? sender, SizeChangedEventArgs e)
-    {
-        if (DataContext is HomePageData data) data.UpdateResponsiveState(e.NewSize.Width);
-    }
-
-    private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
+    private void OnListThumbDragDelta(object? sender, VectorEventArgs e)
     {
         var data = (HomePageData)DataContext!;
-        data.DetailPaneWidth = Math.Clamp(data.DetailPaneWidth - (float)e.Vector.X, 280, 460);
+        // 下限按"名字 + 徽章"这一行的最小可读宽度定;上限只是别把编辑器挤没
+        data.ListPaneWidth = Math.Clamp(data.ListPaneWidth + (float)e.Vector.X, 220, 420);
     }
 }

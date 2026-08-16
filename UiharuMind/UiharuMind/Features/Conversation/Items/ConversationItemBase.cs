@@ -80,16 +80,25 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// <summary>是否系统条目(居中、无头像)</summary>
     public virtual bool IsSystem => false;
 
+    /// <summary>
+    /// 是否旁白条目(居中、无头像、无发送者名)。目前只有开场白是——
+    /// 它是角色的台词但不是"角色在跟你说话"，所以不画成气泡对话的一方。
+    /// </summary>
+    public virtual bool IsNarration => false;
+
     /// <summary>内容水平对齐</summary>
     public HorizontalAlignment Alignment =>
-        IsSystem ? HorizontalAlignment.Center :
+        IsSystem || IsNarration ? HorizontalAlignment.Center :
         IsUser ? HorizontalAlignment.Right : HorizontalAlignment.Left;
 
     /// <summary>头像所在列(布局 Grid 为 Auto,*,Auto)</summary>
     public int AvatarColumn => IsUser ? 2 : 0;
 
     /// <summary>是否显示头像</summary>
-    public bool ShowAvatar => !IsSystem && Icon != null;
+    public bool ShowAvatar => !IsSystem && !IsNarration && Icon != null;
+
+    /// <summary>是否显示发送者名字</summary>
+    public bool ShowSenderName => !IsNarration;
 
     /// <summary>
     /// 本条目对应的历史消息。编辑/删除/重试/分叉都需要据此定位到历史里的那一条；
@@ -151,6 +160,7 @@ public partial class TextConversationItem : ConversationItemBase
 {
     private readonly StringBuilder _buffer = new();
     private readonly bool _isUser;
+    private readonly bool _isNarration;
 
     /// <summary>
     /// UI 侧节流。流式期间每个 token 都把累积全文重设一次,渲染侧要么做全量文本重排、
@@ -160,6 +170,9 @@ public partial class TextConversationItem : ConversationItemBase
     private readonly ValueUiDelayUpdater<object?> _throttle;
 
     public override bool IsUser => _isUser;
+
+    /// <inheritdoc />
+    public override bool IsNarration => _isNarration;
 
     /// <summary>
     /// 随消息一同显示的图片（多模态消息里的 DataContent），一条消息可以带多张。
@@ -186,9 +199,12 @@ public partial class TextConversationItem : ConversationItemBase
     /// <summary>是否有折叠起来的注入正文</summary>
     public bool HasInjectedText => InjectedText.Length > 0;
 
-    public TextConversationItem(bool isUser)
+    /// <param name="isUser">是否用户侧气泡</param>
+    /// <param name="isNarration">是否旁白（开场白）；旁白居中、无头像无名字</param>
+    public TextConversationItem(bool isUser, bool isNarration = false)
     {
         _isUser = isUser;
+        _isNarration = isNarration;
         // 传 null 而非全文:值在真正触发时才从 buffer 取,免得每个 token 都白白拼一次全文
         _throttle = new ValueUiDelayUpdater<object?>(_ => Message = _buffer.ToString(), 50);
     }

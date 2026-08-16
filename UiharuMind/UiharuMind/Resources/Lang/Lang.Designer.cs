@@ -1229,12 +1229,6 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string CharacterDialogTemplate {
-            get {
-                return ResourceManager.GetString("CharacterDialogTemplate", resourceCulture);
-            }
-        }
-        
         public static string AdvancedOptions {
             get {
                 return ResourceManager.GetString("AdvancedOptions", resourceCulture);
@@ -1322,18 +1316,6 @@ namespace UiharuMind.Resources.Lang {
         public static string OptionalPromptParamsDesc {
             get {
                 return ResourceManager.GetString("OptionalPromptParamsDesc", resourceCulture);
-            }
-        }
-        
-        public static string ToggleIsPhotoListView {
-            get {
-                return ResourceManager.GetString("ToggleIsPhotoListView", resourceCulture);
-            }
-        }
-        
-        public static string ToggleIsListView {
-            get {
-                return ResourceManager.GetString("ToggleIsListView", resourceCulture);
             }
         }
         
@@ -3341,30 +3323,6 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string CharacterWorkspace {
-            get {
-                return ResourceManager.GetString("CharacterWorkspace", resourceCulture);
-            }
-        }
-        
-        public static string CharacterWorkspaceHint {
-            get {
-                return ResourceManager.GetString("CharacterWorkspaceHint", resourceCulture);
-            }
-        }
-        
-        public static string CharacterPreview {
-            get {
-                return ResourceManager.GetString("CharacterPreview", resourceCulture);
-            }
-        }
-        
-        public static string CharacterLibraryHint {
-            get {
-                return ResourceManager.GetString("CharacterLibraryHint", resourceCulture);
-            }
-        }
-        
         public static string CharacterEditor {
             get {
                 return ResourceManager.GetString("CharacterEditor", resourceCulture);
@@ -5029,6 +4987,18 @@ namespace UiharuMind.Resources.Lang {
         public static string CharacterRenderedPreview {
             get {
                 return ResourceManager.GetString("CharacterRenderedPreview", resourceCulture);
+            }
+        }
+
+        public static string CharacterEditorDiscardTips {
+            get {
+                return ResourceManager.GetString("CharacterEditorDiscardTips", resourceCulture);
+            }
+        }
+
+        public static string CharacterEditorDirtyTips {
+            get {
+                return ResourceManager.GetString("CharacterEditorDirtyTips", resourceCulture);
             }
         }
 

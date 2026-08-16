@@ -13,9 +13,7 @@
         Title="{loc:Loc UserCardEditor}"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
-    <Design.DataContext>
-        <viewData:CharacterInfoViewData />
-    </Design.DataContext>
+    <!-- 数据上下文是 CharacterDraft(没有无参构造,故不放 Design.DataContext) -->
 
     <Window.Styles>
         <Style Selector="Border.edit-card">

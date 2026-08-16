@@ -139,21 +139,6 @@ public class SettingConfig : TConfigBase<SettingConfig>
         }
     }
 
-    private bool _isCharacterPhotoListView;
-
-    /// <summary>
-    /// 角色列表是否显示以图片形式显示
-    /// </summary>
-    public bool IsCharacterPhotoListView
-    {
-        get => _isCharacterPhotoListView;
-        set
-        {
-            _isCharacterPhotoListView = value;
-            Save();
-        }
-    }
-
     private int _characterFilterIndex;
 
     /// <summary>

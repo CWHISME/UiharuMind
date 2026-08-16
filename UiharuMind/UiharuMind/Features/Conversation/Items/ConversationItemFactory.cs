@@ -108,6 +108,19 @@ public static class ConversationItemFactory
         };
     }
 
+    /// <summary>
+    /// 旁白条目（开场白）。不带头像与名字，因此也不需要知道是哪个角色——
+    /// 它是场景描述，不是「某某在说话」
+    /// </summary>
+    /// <param name="message">源消息</param>
+    /// <returns>条目</returns>
+    public static TextConversationItem CreateNarration(ChatMessage message) =>
+        new(false, true)
+        {
+            Message = message.Text,
+            Timestamp = TimestampText(message.CreatedAt ?? DateTimeOffset.Now),
+        };
+
     /// <summary>消息里是否带图片(回放时据此决定空文本的用户消息要不要渲染)</summary>
     /// <param name="message">消息</param>
     /// <returns>是否带图</returns>

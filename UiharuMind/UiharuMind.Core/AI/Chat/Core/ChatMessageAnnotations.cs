@@ -71,6 +71,25 @@ public static class ChatMessageAnnotations
     public const string Knowledge = "_knowledge";
 
     /// <summary>
+    /// 旁白标记。目前唯一带此键的是<b>开场白</b>：它是一条货真价实的 assistant 消息，
+    /// 要落盘、要供给模型（模型得知道自己已经开过场，否则首轮又自我介绍一遍），
+    /// 只是渲染成居中的旁白而不是角色气泡。因此它落在「呈现」轴上。
+    ///
+    /// 从前这件事靠 <c>AuthorName = "Narrator"</c> 那个哨兵字符串加
+    /// 「历史为空且是 assistant」的隐式判定表达，而渲染层从来没读过它——
+    /// 显示名字段兼职类型标记，两头都不牢。
+    /// </summary>
+    public const string Narration = "_narration";
+
+    /// <summary>
+    /// 判断是否为旁白消息（开场白）
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带 <see cref="Narration"/> 标记时返回 True</returns>
+    public static bool IsNarration(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(Narration) == true;
+
+    /// <summary>
     /// 判断是否为知识库检索片段消息。
     /// 判定放在这里而不是 <c>SessionChatHistoryProvider</c>：那个类 UI 层引用不到
     /// （基类是被 <c>PrivateAssets=compile</c> 挡住的框架类型），而回放渲染必须认得它。

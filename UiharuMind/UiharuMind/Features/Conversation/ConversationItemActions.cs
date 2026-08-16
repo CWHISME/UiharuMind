@@ -78,7 +78,8 @@ public sealed class ConversationItemActions
         // 放开编辑会把正文改写成那一行,当场毁掉注入内容
         if (NamedSkillAnnotations.InputOf(source) == null) item.EditedCallback = OnEdited;
         item.DeleteCallback = OnDeleted;
-        item.BranchCallback = OnBranch;
+        // 旁白(开场白)不给分叉:它是历史的第一条,"从这里分出去"就是新建一个会话
+        if (!ChatMessageAnnotations.IsNarration(source)) item.BranchCallback = OnBranch;
         // 重试语义是"从这条用户输入起重新生成",因此只挂在用户消息上
         if (source.Role == ChatRole.User) item.RetryCallback = Retry;
         return item;

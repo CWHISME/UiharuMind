@@ -483,12 +483,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [RelayCommand]
     private void EditActiveCharacter()
     {
-        CharacterInfoViewData info = new(ActiveCharacter)
-        {
-            // 让编辑页能按开关标出「关掉这一档能省多少 token」。必须在能力面板首次建之前给
-            CapabilitySnapshot = CurrentRunner?.GetCapabilities(),
-        };
-        CharacterWindows.ShowEditCharacterWindow(info, x => x.SaveCharacter());
+        CharacterDraft draft = CharacterDraft.ForEdit(ActiveCharacter);
+        // 让编辑页能按开关标出「关掉这一档能省多少 token」。必须在能力面板首次建之前给
+        draft.CapabilitySnapshot = CurrentRunner?.GetCapabilities();
+        CharacterWindows.ShowEditCharacterWindow(draft);
     }
 
     /// <summary>
@@ -1031,6 +1029,18 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (HistoryHandoff.IsNote(message))
             {
                 buffer.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)) });
+                continue;
+            }
+
+            // 开场白是 assistant 消息(要供给模型,否则首轮又自我介绍一遍),但画成居中旁白,
+            // 因此也先于常规分派拦下——落到下面的助手分支就会被画成角色气泡
+            if (ChatMessageAnnotations.IsNarration(message))
+            {
+                TextConversationItem narration = _itemActions.Wire(
+                    ConversationItemFactory.CreateNarration(message), message);
+                if (lastKnown is { } narrationStamp)
+                    narration.Timestamp = ConversationItemFactory.TimestampText(narrationStamp);
+                buffer.Add(narration);
                 continue;
             }
 

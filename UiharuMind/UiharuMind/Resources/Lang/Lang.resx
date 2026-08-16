@@ -724,9 +724,6 @@
     <data name="CharacterFirstGreeting" xml:space="preserve">
         <value>First Greeting</value>
     </data>
-    <data name="CharacterDialogTemplate" xml:space="preserve">
-        <value>Dialog Template</value>
-    </data>
     <data name="AdvancedOptions" xml:space="preserve">
         <value>Advanced Options</value>
     </data>
@@ -773,12 +770,6 @@
         <value>{{$lang}}：replace by current language
 {{$user}}：replace by username
 {{$char}}：replace by character name</value>
-    </data>
-    <data name="ToggleIsPhotoListView" xml:space="preserve">
-        <value>Photo View</value>
-    </data>
-    <data name="ToggleIsListView" xml:space="preserve">
-        <value>List View</value>
     </data>
     <data name="MessageWarningTitle" xml:space="preserve">
         <value>Warning</value>
@@ -1781,18 +1772,6 @@
     </data>
     <data name="StopGenerating" xml:space="preserve">
         <value>Stop</value>
-    </data>
-    <data name="CharacterWorkspace" xml:space="preserve">
-        <value>Character Workspace</value>
-    </data>
-    <data name="CharacterWorkspaceHint" xml:space="preserve">
-        <value>Manage roleplay characters, tool characters and agents</value>
-    </data>
-    <data name="CharacterPreview" xml:space="preserve">
-        <value>Character Preview</value>
-    </data>
-    <data name="CharacterLibraryHint" xml:space="preserve">
-        <value>Choose a character to preview, edit, or start chatting.</value>
     </data>
     <data name="CharacterEditor" xml:space="preserve">
         <value>Character Editor</value>
@@ -2836,5 +2815,23 @@ Allow them?</value>
     </data>
     <data name="ChatImageUnreadableWarning" xml:space="preserve">
         <value>The selected model cannot see images, and this character has no vision tool to fall back on — images will be sent as a file path only.</value>
+    </data>
+    <data name="CharacterSearchPlaceholder" xml:space="preserve">
+        <value>Search characters</value>
+    </data>
+    <data name="MoreActions" xml:space="preserve">
+        <value>More</value>
+    </data>
+    <data name="CharacterWorkspaceEmpty" xml:space="preserve">
+        <value>No character selected. Pick one on the left, or create a new one.</value>
+    </data>
+    <data name="CharacterEditorDirtyTips" xml:space="preserve">
+        <value>This character has unsaved changes. Save them?</value>
+    </data>
+    <data name="ResetBtn" xml:space="preserve">
+        <value>Reset</value>
+    </data>
+    <data name="CharacterEditorDiscardTips" xml:space="preserve">
+        <value>Discard the unsaved changes to this character?</value>
     </data>
 </root>

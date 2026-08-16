@@ -65,13 +65,30 @@ public sealed class MessageService : IMessageService, IDisposable
             MessageBoxIcon.Error, MessageBoxButton.OK, cancellationToken);
     }
 
-    public Task<bool> ConfirmAsync(
+    public async Task<bool> ConfirmAsync(
         string message,
         string? title = null,
         CancellationToken cancellationToken = default)
     {
-        return EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+        MessageBoxResult result = await EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
             MessageBoxIcon.Question, MessageBoxButton.YesNo, cancellationToken);
+        return result == MessageBoxResult.Yes;
+    }
+
+    public async Task<EConfirmChoice> ConfirmWithCancelAsync(
+        string message,
+        string? title = null,
+        CancellationToken cancellationToken = default)
+    {
+        MessageBoxResult result = await EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+            MessageBoxIcon.Question, MessageBoxButton.YesNoCancel, cancellationToken);
+        return result switch
+        {
+            MessageBoxResult.Yes => EConfirmChoice.Yes,
+            MessageBoxResult.No => EConfirmChoice.No,
+            // 直接关窗回的是 None，与「取消」同义:两者都表示这次操作作罢
+            _ => EConfirmChoice.Cancel
+        };
     }
 
     public void ShowNotification(
@@ -84,7 +101,7 @@ public sealed class MessageService : IMessageService, IDisposable
             new NotificationRequest(title ?? GetDefaultTitle(severity), message, severity)));
     }
 
-    private Task<bool> EnqueueDialogAsync(
+    private Task<MessageBoxResult> EnqueueDialogAsync(
         string message,
         string title,
         MessageBoxIcon icon,
@@ -93,7 +110,7 @@ public sealed class MessageService : IMessageService, IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (cancellationToken.IsCancellationRequested)
-            return Task.FromCanceled<bool>(cancellationToken);
+            return Task.FromCanceled<MessageBoxResult>(cancellationToken);
 
         var request = new DialogRequest(message, title, icon, buttons, cancellationToken);
         lock (_dialogSync)
@@ -133,7 +150,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
             try
             {
-                bool result = await RunOnUiThreadAsync(() => ShowDialogCoreAsync(request));
+                MessageBoxResult result = await RunOnUiThreadAsync(() => ShowDialogCoreAsync(request));
                 request.Completion.TrySetResult(result);
             }
             catch (OperationCanceledException)
@@ -148,7 +165,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private async Task<bool> ShowDialogCoreAsync(DialogRequest request)
+    private async Task<MessageBoxResult> ShowDialogCoreAsync(DialogRequest request)
     {
         var completion = new TaskCompletionSource<MessageBoxResult>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -182,7 +199,8 @@ public sealed class MessageService : IMessageService, IDisposable
 
         MessageBoxResult result = await completion.Task;
         request.CancellationToken.ThrowIfCancellationRequested();
-        return result == MessageBoxResult.Yes || request.Buttons == MessageBoxButton.OK;
+        // 只有 OK 那种单按钮弹窗没有"否"可言,关掉也算看过了
+        return request.Buttons == MessageBoxButton.OK ? MessageBoxResult.Yes : result;
     }
 
     private void EnqueueNotification(NotificationRequest request)
@@ -349,7 +367,7 @@ public sealed class MessageService : IMessageService, IDisposable
         public MessageBoxIcon Icon { get; }
         public MessageBoxButton Buttons { get; }
         public CancellationToken CancellationToken { get; }
-        public TaskCompletionSource<bool> Completion { get; } =
+        public TaskCompletionSource<MessageBoxResult> Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public DialogRequest(

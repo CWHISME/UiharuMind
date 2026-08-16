@@ -32,14 +32,15 @@ public partial class ImportCharacterWindow : Window
         var characteData = await ImportCharacter();
         if (characteData == null) return;
 
-        characteData.TryAddToNewCharacterData(() =>
-        {
-            ImportListPanel.Children.Add(new TextBlock()
-                { Text = characteData.Name + "   Imported!", Foreground = new SolidColorBrush(Colors.LimeGreen) });
-        });
+        // 标识是新生成的 GUID,不可能撞车,因此不再有"重名了要不要改"那一步
+        characteData.NormalizeParams();
+        if (!CharacterManager.Instance.TryAddNewCharacterData(characteData)) return;
+
+        ImportListPanel.Children.Add(new TextBlock()
+            { Text = characteData.CharacterName + "   Imported!", Foreground = new SolidColorBrush(Colors.LimeGreen) });
     }
 
-    public async Task<CharacterInfoViewData?> ImportCharacter()
+    public async Task<CharacterData?> ImportCharacter()
     {
         var file = await App.FilesService.OpenFileAsync(UIManager.GetFocusWindow(), "*.json");
         if (file == null) return null;
@@ -57,7 +58,7 @@ public partial class ImportCharacterWindow : Window
 
             if (string.IsNullOrEmpty(character.CharacterName))
                 character.CharacterName = Path.GetFileNameWithoutExtension(file.Name);
-            return new CharacterInfoViewData(character);
+            return character;
         }
         catch (Exception e)
         {

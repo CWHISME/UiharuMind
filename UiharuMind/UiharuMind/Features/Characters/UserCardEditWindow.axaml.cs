@@ -11,7 +11,7 @@ namespace UiharuMind.Features.Characters;
 
 public partial class UserCardEditWindow : UiharuWindowBase
 {
-    private CharacterInfoViewData? _characterInfo;
+    private CharacterDraft? _draft;
 
     public UserCardEditWindow()
     {
@@ -20,10 +20,14 @@ public partial class UserCardEditWindow : UiharuWindowBase
         DataContext = App.ViewModel.GetViewModel<ChatInfoModel>();
     }
 
-    public void SetCharacterInfo(CharacterInfoViewData characterInfo)
+    /// <summary>
+    /// 交代要编辑的那份草稿。与角色编辑窗一样走草稿-提交：取消就是把它丢掉
+    /// </summary>
+    /// <param name="draft">用户卡草稿</param>
+    public void SetCharacterInfo(CharacterDraft draft)
     {
-        _characterInfo = characterInfo;
-        DataContext = characterInfo;
+        _draft = draft;
+        DataContext = draft;
     }
 
     private void CancelButton_Click(object? sender, RoutedEventArgs e)
@@ -33,6 +37,7 @@ public partial class UserCardEditWindow : UiharuWindowBase
 
     private void OkButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (_characterInfo?.CheckCharacterNameValid() == true) _characterInfo?.SaveCharacter();
+        if (_draft?.TryCommit() == false) return;
+        Close();
     }
 }

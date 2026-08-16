@@ -26,99 +26,109 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
         </Style>
-        <Style Selector="TextBlock.section-title">
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
-        </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*" Background="{DynamicResource SemiGrey0}">
-        <Border Grid.Row="0"
-                Padding="14,10"
-                BorderBrush="{DynamicResource SemiGrey2}"
-                BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                <StackPanel>
-                    <TextBlock Classes="section-title" Text="{loc:Loc CharacterWorkspace}" />
-                    <TextBlock Classes="muted" Text="{loc:Loc CharacterWorkspaceHint}" />
-                </StackPanel>
-
-                <ThemedIconButton Grid.Column="1" Classes="icon" Command="{Binding ToggleDetailPaneCommand}" IconName="panel-right"  ToolTips="{loc:Loc CharacterPreview}">
-                </ThemedIconButton>
-            </Grid>
+    <!-- 左边选，右边改。这里曾是「列表 → 只读预览卡 → 再开一个编辑窗」三层，
+         同一份内容在两个层级各显示一遍，而真正能改的地方还得再点一次。见 ADR 0014 -->
+    <Grid Margin="12" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8"
+          Background="{DynamicResource SemiGrey0}">
+        <Border Grid.Column="0" Classes="workspace-pane" ClipToBounds="True"
+                Width="{Binding ListPaneWidth, Mode=TwoWay}">
+            <common:CharacterListView DataContext="{Binding CharacterListViewData}" Margin="10" />
         </Border>
 
-        <Grid Grid.Row="1" Margin="12" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <Border Grid.Column="0" Classes="workspace-pane" ClipToBounds="True">
-                <common:CharacterListView DataContext="{Binding CharacterListViewData}" Margin="10" />
-            </Border>
+        <Thumb Grid.Column="1"
+               Width="6"
+               DragDelta="OnListThumbDragDelta"
+               Cursor="SizeWestEast">
+            <Thumb.Template>
+                <ControlTemplate>
+                    <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
 
-            <Thumb Grid.Column="1"
-                   Width="6"
-                   IsVisible="{Binding IsDetailPaneOpen}"
-                   DragDelta="OnLeftThumbDragDelta"
-                   Cursor="SizeWestEast">
-                <Thumb.Template>
-                    <ControlTemplate>
-                        <Border Width="1" HorizontalAlignment="Center" Background="{DynamicResource SemiGrey2}" />
-                    </ControlTemplate>
-                </Thumb.Template>
-            </Thumb>
+        <Border Grid.Column="2" Classes="workspace-pane" ClipToBounds="True">
+            <Panel>
+                <TextBlock Classes="muted"
+                           Text="{loc:Loc CharacterWorkspaceEmpty}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding !HasEditor}" />
 
-            <Border Grid.Column="2"
-                    Classes="workspace-pane"
-                    Width="{Binding DetailPaneWidth, Mode=TwoWay}"
-                    IsVisible="{Binding IsDetailPaneOpen}"
-                    Padding="14"
-                    DataContext="{Binding CharacterListViewData.SelectedCharacter, Mode=OneWay}">
-                <!-- 紧凑信息卡。这里曾嵌一整份只读预览(与编辑窗里那份是同一个视图),
-                     同一份只读内容出现在两个层级;正文改到编辑页看,所见即所得 -->
-                <StackPanel Spacing="10" VerticalAlignment="Top">
-                    <Border Width="116" Height="154" CornerRadius="10" ClipToBounds="True"
+                <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasEditor}">
+                    <!-- 身份条 + 动作。表单本体归 CharacterEditView，「保存/取消」按宿主摆
+                         ——弹窗那个宿主把它摆在标题栏里 -->
+                    <!-- 这一条<b>不切 DataContext</b>：溢出菜单挂在 Flyout 上，
+                         Flyout 不在视觉树里、找不到祖先，只能靠继承来的上下文走完整路径 -->
+                    <Border Grid.Row="0" Padding="14,10"
                             BorderBrush="{DynamicResource SemiGrey2}"
-                            BorderThickness="1"
-                            HorizontalAlignment="Center">
-                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                            BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Ellipse Width="34" Height="34"
+                                     Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1">
+                                <Ellipse.Fill>
+                                    <ImageBrush Source="{Binding Editor.Icon}" Stretch="UniformToFill" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Editor.Name}"
+                                           FontSize="16" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource SemiGrey7}" />
+                                <u:Badge Header="{Binding Editor.KindName}"
+                                         Background="{Binding Editor.KindColor}"
+                                         VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                <!-- 新角色还没入库,「开始对话」与复制/删除都无从谈起 -->
+                                <Button IsVisible="{Binding !IsEditingNew}"
+                                        Command="{Binding CharacterListViewData.SelectedCharacter.StartChatCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="message-circle-more" />
+                                        <TextBlock Text="{loc:Loc StartChat}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 已入库的角色是「重置」(把草稿丢回已保存的样子),
+                                     还没入库的才是「取消」(连占位项一起撤掉) -->
+                                <Button Command="{Binding CancelEditorCommand}">
+                                    <Panel>
+                                        <TextBlock Text="{loc:Loc ResetBtn}" IsVisible="{Binding !IsEditingNew}" />
+                                        <TextBlock Text="{loc:Loc CancelBtn}" IsVisible="{Binding IsEditingNew}" />
+                                    </Panel>
+                                </Button>
+
+                                <Button Classes="Primary" Command="{Binding SaveEditorCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <controls:ThemedSvgIcon Width="15" Height="15" IconName="save" />
+                                        <TextBlock Text="{loc:Loc SaveBtn}" IsVisible="{Binding !IsEditingNew}" />
+                                        <TextBlock Text="{loc:Loc CreateBtn}" IsVisible="{Binding IsEditingNew}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <ThemedIconButton Classes="icon" IconName="ellipsis"
+                                                  IsVisible="{Binding !IsEditingNew}"
+                                                  ToolTips="{loc:Loc MoreActions}">
+                                    <ThemedIconButton.Flyout>
+                                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                            <MenuItem Header="{loc:Loc Copy}"
+                                                      Command="{Binding CharacterListViewData.SelectedCharacter.CopyCharacterCommand}" />
+                                            <MenuItem Header="{loc:Loc Delete}"
+                                                      Command="{Binding CharacterListViewData.SelectedCharacter.DeleteCharacterCommand}" />
+                                        </MenuFlyout>
+                                    </ThemedIconButton.Flyout>
+                                </ThemedIconButton>
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
-                    <SelectableTextBlock Text="{Binding Name}"
-                                         FontSize="18"
-                                         FontWeight="SemiBold"
-                                         TextAlignment="Center"
-                                         TextWrapping="Wrap"
-                                         Background="Transparent"
-                                         Foreground="{DynamicResource SemiGrey7}" />
-                    <u:Badge Header="{Binding KindName}"
-                             Background="{Binding KindColor}"
-                             HorizontalAlignment="Center" />
-                    <SelectableTextBlock Text="{Binding Description}"
-                                         TextWrapping="Wrap"
-                                         Background="Transparent"
-                                         Foreground="{DynamicResource SemiGrey6}" />
-
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,4,0,0">
-                        <Button Command="{Binding StartChatCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="message-circle-more" />
-                                <TextBlock Text="{loc:Loc StartChat}" />
-                            </StackPanel>
-                        </Button>
-                        <Button Grid.Column="1" Command="{Binding EditCharacterCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                                <controls:ThemedSvgIcon Width="15" Height="15" IconName="file-text" />
-                                <TextBlock Text="{loc:Loc EditCharacter}" />
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button Content="{loc:Loc Copy}" HorizontalContentAlignment="Center"
-                                Command="{Binding CopyCharacterCommand}" />
-                        <Button Grid.Column="1" Content="{loc:Loc Delete}" HorizontalContentAlignment="Center"
-                                Command="{Binding DeleteCharacterCommand}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-        </Grid>
+                    <common:CharacterEditView Grid.Row="1" DataContext="{Binding Editor}" />
+                </Grid>
+            </Panel>
+        </Border>
     </Grid>
 </UserControl>

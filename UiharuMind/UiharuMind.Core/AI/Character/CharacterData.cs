@@ -119,11 +119,6 @@ public class CharacterData
     public string CharacterIcon { get; set; } = "";
 
     /// <summary>
-    /// 对话模板，主要用于角色扮演，可选，会作为系统回复的基础
-    /// </summary>
-    public string DialogTemplate { get; set; } = "";
-
-    /// <summary>
     /// 开场白，可选，会作为系统回复的开头
     /// </summary>
     public string FirstGreeting { get; set; } = "";
@@ -145,6 +140,16 @@ public class CharacterData
     public string ParamsValidReplacer(string str)
     {
         return str.Replace("{{char}}", "{{$char}}").Replace("{{user}}", "{{$user}}");
+    }
+
+    /// <summary>
+    /// 落盘前把两处自由文本里漏写 <c>$</c> 的参数补正。
+    /// 编辑提交与角色卡导入都走这里，免得两条入库路径对参数写法的宽容度不一样。
+    /// </summary>
+    public void NormalizeParams()
+    {
+        Template = ParamsValidReplacer(Template);
+        FirstGreeting = ParamsValidReplacer(FirstGreeting);
     }
 
     public void Save()
@@ -190,5 +195,34 @@ public class CharacterData
     {
         var tmpStr = SaveUtility.SaveToString(this);
         return (SaveUtility.LoadFromString<CharacterData>(tmpStr));
+    }
+
+    /// <summary>
+    /// 把另一份角色的全部可持久化状态搬进本实例。
+    ///
+    /// <b>就地覆盖而不是换实例</b>：会话拿到角色后会把引用缓存起来
+    /// （<c>ChatSession._characterData</c>），换实例会让正在进行的会话继续用着旧对象。
+    /// 编辑页的「保存」因此走这里——草稿改完往活实例上一盖，谁持有它谁就跟着变。
+    ///
+    /// 逐字段赋值而非反射：字段少、读起来直白。<b>新增可持久化字段时这里要跟着加</b>，
+    /// 漏了会在 <c>CharacterDataCopyFromTests</c> 里当场炸出来。
+    /// </summary>
+    /// <param name="other">来源角色；本方法只读它，不持有它的任何子对象</param>
+    public void CopyFrom(CharacterData other)
+    {
+        CharacterData snapshot = other.DeepCopy(); //深拷一份再搬，免得两个实例共享 Config/Tools 等子对象
+        Config = snapshot.Config;
+        CharacterId = snapshot.CharacterId;
+        Kind = snapshot.Kind;
+        MemoryName = snapshot.MemoryName;
+        IsDefaultCharacter = snapshot.IsDefaultCharacter;
+        IsInternal = snapshot.IsInternal;
+        InjectUserCard = snapshot.InjectUserCard;
+        RequiresVisionModel = snapshot.RequiresVisionModel;
+        Tools = snapshot.Tools;
+        MountAgents = snapshot.MountAgents;
+        CharacterIcon = snapshot.CharacterIcon;
+        FirstGreeting = snapshot.FirstGreeting;
+        _memory = null; //记忆库名可能变了，缓存作废
     }
 }

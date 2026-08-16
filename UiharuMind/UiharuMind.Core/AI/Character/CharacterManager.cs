@@ -17,6 +17,12 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     public event Action<CharacterData>? OnCharacterRemoved;
 
     /// <summary>
+    /// 已有角色的内容被改写并落盘。编辑是「草稿改完往活实例上一盖」，
+    /// 实例本身不换，因此列表项那些绑定不会自己收到通知，得靠这个事件去刷。
+    /// </summary>
+    public event Action<CharacterData>? OnCharacterUpdated;
+
+    /// <summary>
     /// 用户角色的名字
     /// </summary>
     public string UserCharacterName => UserCharacterData.Description;
@@ -162,6 +168,19 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         SaveUtility.Save(GetSavePath(characterData), characterData);
         if (characterData.Kind != ECharacterKind.UserCard)
             CharacterDataDictionary.TryAdd(characterData.CharacterId, characterData);
+    }
+
+    /// <summary>
+    /// 广播「这个角色被改写了」。
+    ///
+    /// 刻意不在 <see cref="SaveCharacterData"/> 里自动发：那个方法也是新增角色的落盘路径，
+    /// 在那里发会与 <see cref="OnCharacterAdded"/> 撞成一次操作两个事件。
+    /// 谁改的谁负责喊——目前只有编辑页提交那一处。
+    /// </summary>
+    /// <param name="characterData">被改写的角色（仍是字典里那个实例）</param>
+    public void NotifyCharacterUpdated(CharacterData characterData)
+    {
+        OnCharacterUpdated?.Invoke(characterData);
     }
 
     /// <summary>

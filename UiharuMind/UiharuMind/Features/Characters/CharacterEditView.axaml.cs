@@ -1,32 +1,17 @@
 using System;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using UiharuMind.Core.AI.Character;
 
 namespace UiharuMind.Features.Characters;
 
+/// <summary>
+/// 角色编辑表单本体。<b>宿主有两个</b>：角色工作台的右主区（内联，主入口）与
+/// <see cref="CharacterEditWindow"/>（对话中改角色时用，不必跳页）。
+/// 表单只管字段，「保存/取消」那条栏归宿主，两边的按钮位置本来就该不一样。
+/// 数据上下文一律是 <see cref="CharacterDraft"/>。
+/// </summary>
 public partial class CharacterEditView : UserControl
 {
-    // public static readonly StyledProperty<CharacterInfoViewData> CharacterInfoProperty =
-    //     AvaloniaProperty.Register<CharacterEditView, CharacterInfoViewData>(nameof(CharacterInfo));
-    //
-    // public CharacterInfoViewData CharacterInfo
-    // {
-    //     get => GetValue(CharacterInfoProperty);
-    //     set => SetValue(CharacterInfoProperty, value);
-    // }
-
-    // protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
-    // {
-    //     base.OnPropertyChanged(change);
-    //     if (change.Property == CharacterInfoProperty)
-    //     {
-    //         var newInfo = change.GetNewValue<CharacterInfoViewData>();
-    //         DataContext = newInfo;
-    //     }
-    // }
-
     public CharacterEditView()
     {
         InitializeComponent();
@@ -38,7 +23,7 @@ public partial class CharacterEditView : UserControl
     /// </summary>
     private void OnSnippetPickerOpening(object? sender, EventArgs e)
     {
-        if (DataContext is not CharacterInfoViewData data) return;
+        if (DataContext is not CharacterDraft data) return;
 
         SnippetPicker.DataContext = new PromptSnippetPickerViewData(
             () => data.Template,
@@ -51,7 +36,7 @@ public partial class CharacterEditView : UserControl
     /// </summary>
     private void OnSubAgentPickerOpening(object? sender, EventArgs e)
     {
-        if (DataContext is not CharacterInfoViewData data) return;
+        if (DataContext is not CharacterDraft data) return;
 
         CharacterPickerViewData picker = null!;
         picker = new CharacterPickerViewData(
