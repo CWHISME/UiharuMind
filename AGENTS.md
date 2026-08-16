@@ -2,11 +2,17 @@
 
 本文件是「在这个仓库里怎么干活」。术语表在 [docs/CONTEXT.md](docs/CONTEXT.md)。
 
-要点：
+实现要点：
 
 1. 优先复用已有代码或组件，避免重复造轮子。
 2. 如果同类用法可以提成公共组件，则可以将其封装，尽量减少重复代码。
-3. 优先考虑性能、可维护性(尤其避免一个文件堆砌大量代码，可适当拆分或应用合适的设计模式)。
+3. 优先考虑性能、可维护性。
+
+高优先级：
+
+1. 在修改代码时，尤其避免一个文件堆砌大量代码，可适当拆分或应用合适的设计模式(如模板类、方法)。
+2. 如果发现代码不符合设计原则(包括但不限于九大原则)的问题，应当优先向用户主动提出更符合设计模式(包括但不限于23种经典设计模式)的重构方案，而非直接在屎山代码上做迭代。
+3. 在实现需求时应当反思：应该使用继承还是组合？使用接口还是抽象类？在引入设计模式提高扩展性的同时，如何避免带来可读性降低问题？
 
 ## 仓库概览
 
@@ -26,25 +32,6 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 | `UiharuMind.Core.Tests` | Core 的测试 |
 | `UiharuMind.App.Tests` | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
 
-## 路径地图
-
-有四层同名目录，写脚本时**用绝对路径，别数相对层数**——这里踩过坑。
-
-```
-Studys/UiharuMind/                     本地工作壳（不在 git 内，放草稿与计划文档）
-└── UiharuMind/                        ← git 仓库根，本文件在这里
-    ├── AGENTS.md  CLAUDE.md(→AGENTS.md)  .editorconfig
-    ├── README.md  LICENSE  Images/
-    ├── docs/CONTEXT.md                术语表
-    └── UiharuMind/                    ← 解决方案目录
-        ├── UiharuMind.sln
-        ├── UiharuMind/                ← App 项目（第四层同名）
-        ├── UiharuMind.Core/
-        ├── UiharuMind.Core.Tests/
-        ├── UiharuMind.App.Tests/
-        └── UiharuMind.Desktop/  .CLI/  .Android/  .Browser/
-```
-
 ## 构建与测试
 
 在解决方案目录 `UiharuMind/` 下执行：
@@ -63,32 +50,6 @@ dotnet test  UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
 
 axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
 「App 项目编译通过」是很强的信号。
-
-## 结构约定
-
-**命名空间与目录严格对齐**（唯一例外是只放程序集级 attribute 的 `XmlnsDefinition.cs`）。
-改目录就等于改命名空间，两边必须一起动。
-
-App 项目按概念切片：
-
-```
-UiharuMind/UiharuMind/
-├── Features/<Feature>/    一个用户能说出名字的功能：View + ViewModel + 其专属控件与窗口同处一目录
-└── Shared/                被两个以上 feature 引用的东西，内部再按类型分
-    └── Controls/ Converters/ Windows/ Services/ Utils/ Shell/ Data/ Markup/ UIHolder/ Interfaces/
-```
-
-三条硬规则：
-
-1. **归属按「谁在引用它」判定，不按「它叫什么」。** 名字会骗人——`ModelSelectComboBoxView`
-   带 Model 字样，但只有会话页在用，所以它属于 `Conversation` 而不是 `Models`。
-2. **只被一个 feature 用的东西归那个 feature，不进 `Shared/`。** `Shared/` 一旦平铺就又变回抽屉。
-3. **禁止再出现 `ViewData`、`Common`、`Others` 这类不承诺任何东西的目录名。** 名字不能回答
-   「新文件该放哪」，目录就会越塞越满。
-
-另有一个 C# 陷阱：**feature 名不要和常用类型撞车**。命名空间优先于 `using` 导入的类型，
-所以 feature 叫 `Log` 会让 `Log.Debug(...)` 解析成命名空间而非日志类（因此现在叫 `LogViewer`）。
-成员访问形式的 `X.Y`（属性/字段）不受影响。
 
 ## 代码规范
 

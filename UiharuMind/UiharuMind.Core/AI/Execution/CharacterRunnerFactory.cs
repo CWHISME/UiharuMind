@@ -127,7 +127,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// shell 工具名(供预授权规则匹配)。装配时显式传给 <c>AsAIFunction</c>,
     /// 让这个常量成为唯一权威——否则它只是框架默认值的一份副本,框架改默认值就会静默失配。
     /// </summary>
-    public const string ShellToolName = "run_shell";
+    public const string ShellToolName = "Shell";
 
     /// <summary>定时任务调度后端(框架无对应能力,自建保留)</summary>
     public ISchedulerBackend Scheduler { get; private set; } = null!;

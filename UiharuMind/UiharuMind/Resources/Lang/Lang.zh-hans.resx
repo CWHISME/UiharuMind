@@ -251,9 +251,6 @@
     <data name="AgentStop" xml:space="preserve">
         <value>停止</value>
     </data>
-    <data name="AgentToolCallStopped" xml:space="preserve">
-        <value>已在这个工具返回前停止</value>
-    </data>
     <data name="AgentToolCallUnfinished" xml:space="preserve">
         <value>历史里没有这次调用的结果</value>
     </data>

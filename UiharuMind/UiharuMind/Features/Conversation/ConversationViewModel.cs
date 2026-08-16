@@ -741,8 +741,9 @@ public partial class ConversationViewModel : ViewModelBase
         {
             _transcript.CloseSegment();
             // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
-            // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作
-            _transcript.StopRunningToolCalls(LocalizationManager.Instance.GetString("AgentToolCallStopped"));
+            // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作。
+            // 不做本地化:补写进历史的是同一句英文,重开会话时卡片显示的就是它,两边措辞得一致
+            _transcript.StopRunningToolCalls(ToolCallCancellation.ResultText);
             _transcript.CloseNestedActivity();
             IsGenerating = false;
             _runCancellation = null;
