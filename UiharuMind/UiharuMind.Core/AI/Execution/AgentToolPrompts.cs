@@ -58,11 +58,36 @@ public static class AgentToolPrompts
                "If you do not know where something is, search for it first.";
     }
 
-    /// <summary>文件工具纪律段默认正文</summary>
+    /// <summary>
+    /// 文件工具纪律段默认正文。
+    ///
+    /// 三组内容，缺一组都会有实机症状：
+    /// <list type="number">
+    /// <item>找文件的顺序（Glob/Grep/Read）——不说模型就上来先问用户"文件在哪"。</item>
+    /// <item>写文件用哪个工具、oldString 怎么给——新语义要求唯一匹配，不说这几条，
+    /// 模型会一处改动发一次调用，或者贴一整个方法当 oldString。</item>
+    /// <item>上下文卫生，<b>含"也不要读太少"那句刹车</b>——只说省着读，模型会只读二十行就动手，
+    /// 匹配失败再重试，一轮下来烧的比老实读一段更多。</item>
+    /// </list>
+    ///
+    /// 参数名（edits / oldString / offset / limit / contextLines）刻意<b>不加反引号</b>：
+    /// 反引号在提示词里专表工具名，有不变量测试按这条约定校验。
+    /// </summary>
     public const string FileAccessDefault =
         "- Use `Glob` to find files, `Grep` to search text, and `Read` a file before you change it.\n" +
         "- If the location is unclear, run one `Glob` first instead of asking.\n" +
-        "- Make the smallest edit that works. Never rewrite a whole file for a small change.";
+        "- Use `Edit` for every change to an existing file. Use `Write` only to create a new file, " +
+        "or to replace one wholesale.\n" +
+        "- Put every change to one file in a single `Edit` call, as multiple entries in edits.\n" +
+        "- Each oldString is matched against the file as it is now, not against your earlier entries " +
+        "in the same call. Keep it as small as it can be while still unique — do not pad it with " +
+        "unchanged lines to bridge distant changes.\n" +
+        "- Your context is the scarce resource. Never pull a whole large file, an unfiltered directory " +
+        "listing, or a broad search into it.\n" +
+        "- If you know a keyword, `Grep` for it with contextLines first — often the match plus its " +
+        "context is all you need. Otherwise `Read` only the range you need, with offset and limit.\n" +
+        "- Do not under-read either: `Edit` fails unless oldString matches the file exactly, so read " +
+        "the region you are about to change. Guessing costs more than reading.";
 
     /// <summary>识图工具纪律段默认正文</summary>
     public const string VisionToolDefault =
