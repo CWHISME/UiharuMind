@@ -123,6 +123,12 @@ internal static class McpToolSetBuilder
     /// 「贵在哪一段」是估算与服务端实报对不上时唯一能往下查的线索——描述特别长、schema 本身就大、
     /// 还是分词在 JSON 上吃亏，三者的处置完全不同。字符数与 token 数一并给正是为了分开后两者：
     /// 英文 JSON 通常 3~4 字符一个 token，明显低于这个比例就说明是分词的问题而非内容的问题。
+    /// 定位 GLM4-Flash 少报工具定义（见 ADR 0009）靠的正是这两个数。
+    ///
+    /// ⚠️ <b>这是开发者诊断设施，日志就是它的终点，不上能力面板。</b>
+    /// 检验的问题是可行动性：用户看到「schema 占 18080、desc 占 2733」，能做的还是「关掉这个 server」
+    /// ——跟看到「这个 server 占 21232」是同一个决策，而 schema 是 server 作者写的，用户改不了。
+    /// 真正可行动的粒度是 server 级（可禁用）与自述（<c>InjectInstructions</c> 可单独关），两级都已经有了。
     /// </summary>
     private static void LogBreakdown(ResolvedMcpServer server, List<McpToolInfo> infos,
         int groupTokens, ToolTokenBreakdown parts)
