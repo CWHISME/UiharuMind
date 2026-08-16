@@ -17,6 +17,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Features.Conversation.Items;
 
 namespace UiharuMind.Features.Conversation;
 

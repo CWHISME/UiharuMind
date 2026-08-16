@@ -1,0 +1,153 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="120"
+             x:Class="UiharuMind.Features.Conversation.Items.ToolCallCardView"
+             x:DataType="items:ToolCallItem">
+
+    <!-- 一次工具调用的卡片。抽成组件而非各处一份模板:它同时长在会话流里和子代理过程窗口里,
+         而这两处不共享样式作用域(tool-card 等原先只定义在 AgentPage 内),
+         复制一份的结果就是两边观感不一致。样式随组件走,复制不出去也就飘不了。 -->
+    <UserControl.Styles>
+        <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
+        <Style Selector="Border.spin">
+            <Style.Animations>
+                <Animation Duration="0:0:1.2" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <Style Selector="SelectableTextBlock.muted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+        </Style>
+        <!-- NoneStyle 只换了 Template,没管配色:Semi 的 ToggleButton 未选中取
+             ButtonDefaultPrimaryForeground(蓝),选中切到 ButtonSolidForeground
+             ——那本是实心蓝底上的白字,而 NoneStyle 把底去掉了,于是展开就只剩白字。
+             这里只钉住选中态、让它取回未选中那支笔,未选中态一字不动。 -->
+        <Style Selector="ToggleButton.NoneStyle:checked">
+            <Setter Property="Foreground" Value="{DynamicResource ButtonDefaultPrimaryForeground}" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- MaxWidth 不只是为了留白:它给了这张卡一个<b>有限</b>宽度,
+         下面那个 ColumnDefinitions 里的 * 列才算得出宽度。少了它,在无约束的容器
+         (比如过程窗口的 ItemsControl)里 * 列会塌成 0,症状是"只显示工具名、参数不见了" -->
+    <Border Classes="tool-card"
+            MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+            Converter={x:Static AddConverter.Instance},
+            ConverterParameter=-10}">
+        <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+                <!-- 子代理的内部过程走独立只读窗口:条目模板按整幅宽度设计,
+                     嵌进卡片里必然走形(宽度被层层削减、滚动区互相嵌套) -->
+                <Button Grid.Column="1" Classes="SimpleSolidButton" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Command="{Binding ShowActivityCommand}"
+                        Content="{loc:Loc SubAgentViewActivity}"
+                        IsVisible="{Binding NestedItems.Count,
+                        Converter={x:Static IntToBoolConverter.Instance}}" />
+                <ToggleButton Grid.Column="0" Classes="NoneStyle"
+                              Cursor="Hand"
+                              MaxHeight="32"
+                              Background="Transparent" Padding="0"
+                              BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <!-- 刻意不给 Foreground:让它继承 ToggleButton 的蓝色。
+                             展开变白那个 bug 由上面的 :checked 样式在源头解决 -->
+                        <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
+                                   VerticalAlignment="Center" Text="{Binding ToolName}" />
+                        <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding ArgumentSummary}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <Border Classes="spin" Width="12" Height="12" IsVisible="{Binding IsRunning}">
+                                <TextBlock Text="◠" FontSize="11"
+                                           Foreground="{DynamicResource SemiBlue5}" />
+                            </Border>
+                            <Border Classes="status-dot" Tag="Ready">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="!IsRunning" />
+                                        <Binding Path="IsSuccess" />
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                            <Border Classes="status-dot" Tag="Error">
+                                <Border.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="!IsRunning" />
+                                        <Binding Path="!IsSuccess" />
+                                    </MultiBinding>
+                                </Border.IsVisible>
+                            </Border>
+                            <ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
+                                <ThemedSvgIcon.RenderTransform>
+                                    <RotateTransform Angle="{Binding IsExpanded,
+                                    Converter={x:Static BoolToDoubleConverter.Instance},
+                                    ConverterParameter='180:0'}" />
+                                </ThemedSvgIcon.RenderTransform>
+                            </ThemedSvgIcon>
+                        </StackPanel>
+                    </Grid>
+                </ToggleButton>
+            </Grid>
+            <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
+                <!-- 有 diff 时不再堆参数原文:diff 已经把改动讲清楚了,而 Edit 的参数原文是一段
+                     转义过的 JSON,摆在 diff 上方只是噪音。跑的过程中(还没有结果)照常显示,
+                     失败时也照常显示——那时正需要它来排查 -->
+                <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap"
+                                     IsVisible="{Binding !HasResultDiff}" />
+                <!-- 编辑结果带 diff 时换成带增删配色的渲染:自动放行档位下这张卡片是唯一
+                     看得到改动的地方,一片灰字等于看不见改了什么。配色走全局 diffline 样式,
+                     与审批卡片同一支笔 -->
+                <Border Classes="result-panel" IsVisible="{Binding HasResultDiff}">
+                    <ScrollViewer MaxHeight="280"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ResultDiffLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Classes="mono diffline"
+                                               Classes.added="{Binding IsAdded}"
+                                               Classes.removed="{Binding IsRemoved}">
+                                        <Run Text="{Binding Prefix}" /><Run Text="{Binding Text}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+                <Border Classes="result-panel">
+                    <Border.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="ResultText" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                            <Binding Path="!HasResultDiff" />
+                        </MultiBinding>
+                    </Border.IsVisible>
+                    <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
+                        <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+
+</UserControl>

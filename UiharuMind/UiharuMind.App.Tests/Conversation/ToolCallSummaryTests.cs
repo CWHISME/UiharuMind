@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.Items;
 
 namespace UiharuMind.App.Tests.Conversation;
 

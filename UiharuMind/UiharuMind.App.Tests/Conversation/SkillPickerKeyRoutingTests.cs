@@ -2,6 +2,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.Composer;
 
 namespace UiharuMind.App.Tests.Conversation;
 

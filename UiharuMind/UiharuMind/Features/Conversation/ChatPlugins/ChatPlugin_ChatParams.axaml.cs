@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.SessionList;
 
 namespace UiharuMind.Features.Conversation.ChatPlugins;
 

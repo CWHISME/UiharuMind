@@ -33,6 +33,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture;
 using UiharuMind.Features.QuickTools;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.QuickChat;
 
 namespace UiharuMind.Shared.Shell;
 

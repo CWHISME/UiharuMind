@@ -3,12 +3,13 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:u="https://irihi.tech/ursa"
+             xmlns:composer="clr-namespace:UiharuMind.Features.Conversation.Composer"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
              xmlns:imaging="clr-namespace:Avalonia.Media.Imaging;assembly=Avalonia.Base"
              xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
              xmlns:uiHolder="clr-namespace:UiharuMind.Shared.UIHolder"
              xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
-             xmlns:views="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:skills="clr-namespace:UiharuMind.Core.AI.Execution.Skills;assembly=UiharuMind.Core"
@@ -18,7 +19,7 @@
 
     <UserControl.Resources>
         <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
-        <conv:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
+        <composer:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -155,7 +156,7 @@
                                       IsVisible="{Binding CanRegenerate}"
                                       ToolTips="{loc:Loc RegenerateBtn}" />
                     <ContentPresenter
-                        Content="{Binding HeaderExtra, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                        Content="{Binding HeaderExtra, RelativeSource={RelativeSource AncestorType=conv:ConversationView}}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -166,7 +167,7 @@
         <Grid Grid.Row="1">
             <!-- 空状态(宿主注入):切会话分帧会先渲染一帧空列表,加载中不算"空",否则空态图标闪烁 -->
             <ContentPresenter Margin="10"
-                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=views:ConversationView}}">
+                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=conv:ConversationView}}">
                 <ContentPresenter.IsVisible>
                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                         <Binding Path="!Items.Count" />
@@ -191,12 +192,12 @@
                         <ItemsControl.DataTemplates>
                     <!-- 思考过程:弱化折叠条。视觉与行为都在 ThinkingCardView 里,
                          与工具卡片同一套几何(会话流与子代理过程窗口共用同一份组件) -->
-                    <DataTemplate DataType="{x:Type conv:ThinkingItem}">
-                        <conv:ThinkingCardView />
+                    <DataTemplate DataType="{x:Type items:ThinkingItem}">
+                        <items:ThinkingCardView />
                     </DataTemplate>
 
                     <!-- 交接文档:模型从这条往前看不见了,默认折叠 -->
-                    <DataTemplate DataType="{x:Type conv:HandoffItem}">
+                    <DataTemplate DataType="{x:Type items:HandoffItem}">
                         <Border Background="{DynamicResource SemiGrey1}"
                                 BorderBrush="{DynamicResource SemiGrey3}" BorderThickness="1"
                                 CornerRadius="8" Padding="4,0" Margin="0,6,0,6">
@@ -212,7 +213,7 @@
                     </DataTemplate>
 
                     <!-- 错误条目(两个页面通用) -->
-                    <DataTemplate DataType="{x:Type conv:ErrorItem}">
+                    <DataTemplate DataType="{x:Type items:ErrorItem}">
                         <Border Background="{DynamicResource SemiGrey1}"
                                 BorderBrush="IndianRed" BorderThickness="1"
                                 CornerRadius="8" Padding="10" Margin="0,4,0,4">
@@ -225,10 +226,10 @@
                     </DataTemplate>
 
                     <!-- 标准文本气泡;特型条目模板由宿主页在其资源中提供,沿逻辑树向上查找生效 -->
-                    <DataTemplate DataType="{x:Type conv:TextConversationItem}">
+                    <DataTemplate DataType="{x:Type items:TextConversationItem}">
                             <Grid Classes="message-row" ColumnDefinitions="Auto,*,Auto"
                                   Background="Transparent"
-                                  x:DataType="conv:TextConversationItem">
+                                  x:DataType="items:TextConversationItem">
                                 <Ellipse Width="34" Height="34"
                                          Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
                                          VerticalAlignment="Top"
@@ -269,8 +270,8 @@
                                                                 BorderThickness="1"
                                                                 BorderBrush="{DynamicResource SemiGrey3}">
                                                             <Image Source="{Binding}"
-                                                                   MaxWidth="{Binding $parent[ItemsControl].((conv:TextConversationItem)DataContext).ImageThumbSize}"
-                                                                   MaxHeight="{Binding $parent[ItemsControl].((conv:TextConversationItem)DataContext).ImageThumbSize}"
+                                                                   MaxWidth="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
+                                                                   MaxHeight="{Binding $parent[ItemsControl].((items:TextConversationItem)DataContext).ImageThumbSize}"
                                                                    Stretch="Uniform"
                                                                    Cursor="Hand"
                                                                    PointerPressed="OnMessageImagePressed" />
@@ -292,7 +293,7 @@
                                                         <Binding Path="IsUser" />
                                                         <Binding Path="!IsDone" />
                                                         <Binding Path="DataContext.IsPlaintext"
-                                                                 RelativeSource="{RelativeSource AncestorType=views:ConversationView}" />
+                                                                 RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
                                                     </MultiBinding>
                                                 </common:SimpleMarkdownViewer.IsPlaintext>
                                             </common:SimpleMarkdownViewer>
@@ -326,7 +327,7 @@
                                              每行 5 个 SVG 按钮的预构建/拆除是长会话切换成本的大头 -->
                                         <HoverDeferredContent>
                                             <HoverDeferredContent.ContentTemplate>
-                                                <DataTemplate x:DataType="conv:TextConversationItem">
+                                                <DataTemplate x:DataType="items:TextConversationItem">
                                                     <StackPanel Orientation="Horizontal" Spacing="5">
                                                         <ThemedIconButton Classes="message-action" IconName="repeat"
                                                                           IsVisible="{Binding CanRetry}"
@@ -376,14 +377,14 @@
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="conv:ConversationAttachment">
+                        <DataTemplate x:DataType="composer:ConversationAttachment">
                             <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
                                     Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
                                 <Grid>
                                     <Button Classes="NoneStyle" Padding="0"
                                             Cursor="Hand" HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
-                                            Command="{Binding $parent[ItemsControl].((conv:AttachmentTrayViewData)DataContext).PreviewAttachmentCommand}"
+                                            Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).PreviewAttachmentCommand}"
                                             CommandParameter="{Binding}">
                                         <Grid VerticalAlignment="Center">
                                             <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
@@ -405,7 +406,7 @@
                                                       IconName="trash-2"
                                                       HorizontalAlignment="Right" VerticalAlignment="Top"
                                                       Margin="0,-8,-8,0"
-                                                      Command="{Binding $parent[ItemsControl].((conv:AttachmentTrayViewData)DataContext).RemoveAttachmentCommand}"
+                                                      Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).RemoveAttachmentCommand}"
                                                       CommandParameter="{Binding}" />
                                 </Grid>
                             </Border>
@@ -415,7 +416,7 @@
 
                 <!-- 宿主注入:输入框上方区域 -->
                 <ContentPresenter Grid.Row="1"
-                                  Content="{Binding ComposerTop, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                                  Content="{Binding ComposerTop, RelativeSource={RelativeSource AncestorType=conv:ConversationView}}" />
 
                 <!-- 点名补全:整行以 / 开头且技能名未写完时弹出。上下移动、回车/Tab 采纳、Esc 收起。
                      ↑↓/Esc 在 code-behind 拦;回车与 Tab 绑在下面的 KeyBindings 上,
@@ -608,7 +609,7 @@
                         </ThemedIconButton>
                         <!-- 宿主注入 -->
                         <ContentPresenter VerticalAlignment="Center"
-                                          Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=views:ConversationView}}" />
+                                          Content="{Binding ComposerTools, RelativeSource={RelativeSource AncestorType=conv:ConversationView}}" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"

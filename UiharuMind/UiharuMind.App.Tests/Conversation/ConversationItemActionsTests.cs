@@ -1,4 +1,5 @@
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.Items;
 
 namespace UiharuMind.App.Tests.Conversation;
 

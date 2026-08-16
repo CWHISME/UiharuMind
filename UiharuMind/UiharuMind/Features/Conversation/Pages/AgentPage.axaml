@@ -1,0 +1,181 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
+              xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
+              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+              xmlns:sessions="clr-namespace:UiharuMind.Features.Conversation.SessionList"
+              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+             x:Class="UiharuMind.Features.Conversation.Pages.AgentPage"
+             x:DataType="pages:AgentPageData">
+
+    <Design.DataContext>
+        <pages:AgentPageData />
+    </Design.DataContext>
+
+    <UserControl.Styles>
+        <Style Selector="Border.workspace-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <!-- <Setter Property="Margin" Value="0,0,0,5" /> -->
+        </Style>
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+        </Style>
+        <Style Selector="Thumb.resize-thumb">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Margin" Value="-7" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+    </UserControl.Styles>
+
+    <!-- Agent 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到 -->
+    <!-- Avalonia 的 DataTemplate 查找机制：*ItemsControl 查找模板时不仅看自己的 DataTemplates，还会沿逻辑树（Logical Tree）向上查找祖先节点定义的 DataTemplate。* -->
+    <!-- 当 Items 集合里出现一个 ToolCallItem 类型的对象时，ItemsControl 用自己的 DataTemplates 找不到匹配，就会沿逻辑树向上找，一路找到父级 ConversationView，再找到 AgentPage 的 UserControl.DataTemplates，命中 DataType="conv:XXX" 这个模板并渲染。 -->
+    <UserControl.DataTemplates>
+
+        <!-- 工具调用卡片:视觉与行为都在 ToolCallCardView 里,
+             会话流与子代理过程窗口共用同一份组件 -->
+        <DataTemplate DataType="items:ToolCallItem">
+            <items:ToolCallCardView />
+        </DataTemplate>
+
+        <!-- 审批卡片:视觉与行为都在 ApprovalCardView 里 -->
+        <DataTemplate DataType="items:ApprovalRequestItem">
+            <items:ApprovalCardView />
+        </DataTemplate>
+
+        <!-- 错误 -->
+    </UserControl.DataTemplates>
+
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" Background="{DynamicResource SemiGrey0}">
+
+        <!-- 会话列表 pane (跨两行延伸至顶部) -->
+        <Border Grid.Column="0" Classes="workspace-pane"
+                Width="{Binding LeftPaneWidth, Mode=TwoWay}"
+                IsVisible="{Binding IsLeftPaneOpen}">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="14,12,10,8">
+                    <StackPanel>
+                        <TextBlock Classes="section-title" Text="{loc:Loc AgentSessions}" />
+                        <TextBlock Classes="muted" Text="{loc:Loc AgentSessionsHint}" />
+                    </StackPanel>
+                    <ThemedIconButton Grid.Column="1"
+                                      Command="{Binding NewSessionCommand}"
+                                      IconName="file-plus-corner"
+                                      ToolTips="{loc:Loc AgentNewSession}" />
+                </Grid>
+                <sessions:SessionListView Margin="8,0,8,8"
+                                       DataContext="{Binding SessionList}"
+                                       ShowAvatar="False" />
+            </DockPanel>
+        </Border>
+
+        <Thumb Grid.Column="1"
+               Classes="resize-thumb"
+               IsVisible="{Binding IsLeftPaneOpen}"
+               DragDelta="OnLeftThumbDragDelta"
+               Cursor="SizeWestEast">
+            <Thumb.Template>
+                <ControlTemplate>
+                    <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                    <Grid Background="Transparent" Margin="8,0,0,0">
+                        <!-- <Border Width="1" HorizontalAlignment="Center" -->
+                        <!--         Background="{DynamicResource SemiGrey2}" /> -->
+                    </Grid>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+
+        <!-- 中间列:顶栏 + 会话内容 -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+
+            <!-- ===================== 顶栏 ===================== -->
+            <Border Grid.Row="0" Height="50" Padding="10,6"
+                    BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,0"
+                    Background="{DynamicResource SemiGrey0}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                    <ThemedIconButton Grid.Column="0"
+                                      Command="{Binding ToggleLeftPaneCommand}"
+                                      IsVisible="{Binding IsLeftPaneOpen}"
+                                      IconName="panel-right"
+                                      ToolTips="{loc:Loc AgentNewSession}" />
+                    <ThemedIconButton Grid.Column="0"
+                                      Command="{Binding ToggleLeftPaneCommand}"
+                                      IsVisible="{Binding !IsLeftPaneOpen}"
+                                      IconName="panel-left"
+                                      ToolTips="{loc:Loc AgentNewSession}" />
+
+                    <Border Grid.Column="1" HorizontalAlignment="Stretch">
+                        <pages:ModelSelectComboBoxView />
+                    </Border>
+
+                    <ThemedIconButton Grid.Column="2"
+                                      Command="{Binding ToggleRightPaneCommand}"
+                                      IsVisible="{Binding IsRightPaneOpen}"
+                                      IconName="panel-left"
+                                      ToolTips="{loc:Loc AgentTodoTitle}" />
+                    <ThemedIconButton Grid.Column="2"
+                                      Command="{Binding ToggleRightPaneCommand}"
+                                      IsVisible="{Binding !IsRightPaneOpen}"
+                                      IconName="panel-right"
+                                      ToolTips="{loc:Loc AgentTodoTitle}" />
+                </Grid>
+            </Border>
+
+            <!-- 会话内容:通用组件 -->
+            <Border Grid.Row="1" Classes="workspace-pane">
+                <conv:ConversationView DataContext="{Binding Conversation}">
+
+                    <conv:ConversationView.EmptyContent>
+                        <StackPanel Spacing="12" HorizontalAlignment="Center" Margin="0,90,0,0">
+                            <controls:ThemedSvgIcon IconName="bot" Width="52" Height="52"
+                                                    HorizontalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc AgentEmptyTitle}" FontSize="17"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Classes="muted" Text="{loc:Loc AgentEmptyHint}"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </conv:ConversationView.EmptyContent>
+
+
+                </conv:ConversationView>
+            </Border>
+        </Grid>
+
+        <Thumb Grid.Column="3"
+               Classes="resize-thumb"
+               IsVisible="{Binding IsRightPaneOpen}"
+               DragDelta="OnRightThumbDragDelta"
+               Cursor="SizeWestEast">
+            <Thumb.Template>
+                <ControlTemplate>
+                    <!-- 命中区左移:左侧紧邻滚动条,留出死区避免抢走滚动条的点击 -->
+                    <Grid Background="Transparent" Margin="8,0,0,0">
+                        <!-- <Border Width="1" HorizontalAlignment="Center" -->
+                        <!--         Background="{DynamicResource SemiGrey2}" /> -->
+                    </Grid>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+
+        <!-- 右侧栏:workspace + todo/定时任务 (跨两行延伸至顶部) -->
+        <Border Grid.Column="4" Classes="workspace-pane"
+                Width="{Binding RightPaneWidth, Mode=TwoWay}"
+                IsVisible="{Binding IsRightPaneOpen}">
+            <Grid RowDefinitions="Auto,*" Margin="12">
+                <panels:AgentWorkspacePanel Grid.Row="0" Margin="0,0,0,10" />
+                <panels:AgentSidePanel Grid.Row="1" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

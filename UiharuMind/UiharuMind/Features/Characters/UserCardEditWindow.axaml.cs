@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.SidePanels;
 
 namespace UiharuMind.Features.Characters;
 

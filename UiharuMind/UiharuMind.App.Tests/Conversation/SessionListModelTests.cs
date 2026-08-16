@@ -1,6 +1,8 @@
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Services;
+using UiharuMind.Features.Conversation.Pages;
+using UiharuMind.Features.Conversation.SessionList;
 
 namespace UiharuMind.App.Tests.Conversation;
 

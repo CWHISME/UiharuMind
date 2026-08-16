@@ -28,6 +28,7 @@ using UiharuMind.Features.Characters;
 using UiharuMind.Features.Settings;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Data;
+using UiharuMind.Features.Conversation.Pages;
 
 namespace UiharuMind.Shared.Shell;
 

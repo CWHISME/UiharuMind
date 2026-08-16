@@ -23,6 +23,7 @@ using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.QuickChat;
 
 namespace UiharuMind.Features.QuickTools;
 

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.QuickChat;
 
 namespace UiharuMind.Features.QuickTools
 {

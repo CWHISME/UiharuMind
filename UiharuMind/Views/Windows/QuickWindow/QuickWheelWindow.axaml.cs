@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using UiharuMind.Views.Common;
+using UiharuMind.Features.Conversation.QuickChat;
 
 namespace UiharuMind.Views.Windows;
 

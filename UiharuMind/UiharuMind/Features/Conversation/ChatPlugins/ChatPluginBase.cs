@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.SessionList;
 
 namespace UiharuMind.Features.Conversation.ChatPlugins;
 

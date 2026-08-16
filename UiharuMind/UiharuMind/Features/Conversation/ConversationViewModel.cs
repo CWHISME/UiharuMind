@@ -36,6 +36,9 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Features.Conversation.Composer;
+using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Features.Conversation.SidePanels;
 
 namespace UiharuMind.Features.Conversation;
 

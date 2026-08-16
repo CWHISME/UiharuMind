@@ -1,5 +1,6 @@
 using SkiaSharp;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.Composer;
 
 namespace UiharuMind.App.Tests.Conversation;
 

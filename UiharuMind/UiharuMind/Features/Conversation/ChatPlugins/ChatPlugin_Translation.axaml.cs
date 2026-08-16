@@ -9,6 +9,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.SessionList;
 
 namespace UiharuMind.Features.Conversation.ChatPlugins;
 

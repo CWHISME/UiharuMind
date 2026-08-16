@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Features.Characters;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.SessionList;
 
 namespace UiharuMind.Features.Conversation.ChatPlugins;
 

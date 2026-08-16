@@ -1,0 +1,184 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
+             xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="320"
+             x:Class="UiharuMind.Features.Conversation.SidePanels.AgentWorkspacePanel"
+             x:DataType="pages:AgentPageData">
+
+    <!-- 工作区卡片:运行态、换角色、固定开销统计、目录展示与切换。
+         从 AgentPage 拆出来:右栏是"一个容器 + 若干面板",以后加一块就是加一个控件 -->
+    <UserControl.Resources>
+        <!-- 一行统计:标签占满并省略,数值靠右到整栏边缘,与合计行对齐成一列。
+             右边留 20 = 合计行那个告警三角的列宽 14 + 列距 6。
+             数值列不能定宽:合计文案是「25.6k / 128k」这种带分母的,定宽会把分母截掉 -->
+        <DataTemplate x:Key="CapabilityStatRow" x:DataType="panels:CapabilityStatItem">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,20,0"
+                  ToolTip.Tip="{Binding Tip}">
+                <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                           TextTrimming="CharacterEllipsis" Text="{Binding Label}" />
+                <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding TokenText}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <!-- 本控件不再自带样式:路径与最近条目那种「看着是文本、点起来是按钮」的行用全局
+         Button.picker-row(此前是本地手抄的 workspace-reveal/workspace-recent,只差几像素内边距),
+         统计块那种「顺带能点、不该有选中感」的用全局 Button.text-row,
+         muted 文本走全局 TextBlock.muted。三者都在 Assets/Themes 下 -->
+
+    <Border Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
+        <StackPanel Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <!-- 状态点的配色由 Tag 选,所以一个 Border 绑 key 即可;
+                     文案那两条仍是两个 TextBlock——loc 标记要能跟着切语言重取,换成绑定字符串就跟不了 -->
+                <Border Classes="status-dot" Tag="{Binding Conversation.RunStatusKey}" />
+                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
+                           IsVisible="{Binding Conversation.IsGenerating}" />
+                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
+                           IsVisible="{Binding !Conversation.IsGenerating}" />
+            </StackPanel>
+            <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
+                 换的是当前会话的角色,下一轮发送时装配自然重建。
+                 编辑按钮单独摘在外面:套在换角色那个按钮里会被它的 flyout 吃掉点击 -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2" Margin="0,4,0,0">
+                <!-- 内容也要撑满:只撑按钮不撑内容的话,▾ 会紧贴在名字后面,
+                     与右边那个编辑按钮之间空出一大段,整行读起来是断的 -->
+                <Button Grid.Column="0" Classes="picker-row" HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
+                                ClipToBounds="True">
+                            <Image Source="{Binding Conversation.ActiveCharacterIcon}"
+                                   Stretch="UniformToFill" />
+                        </Border>
+                        <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Conversation.ActiveCharacterName}" />
+                        <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
+                                   VerticalAlignment="Center" Text="▾" />
+                    </Grid>
+                    <Button.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft"
+                                Opening="OnCharacterPickerOpening">
+                            <chars:CharacterPickerView Name="CharacterPicker" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+                <Button Grid.Column="1" Classes="picker-row" VerticalAlignment="Center"
+                        Command="{Binding Conversation.EditActiveCharacterCommand}"
+                        ToolTip.Tip="{loc:Loc AgentCharacterEdit}">
+                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="pencil" />
+                </Button>
+            </Grid>
+
+            <!-- 固定开销统计:竖排纯文字,五档 + 合计。整块点击=跳右栏「能力」页签看明细。
+                 与下面工作目录那块同一个路子——看着是文本,点起来是按钮。
+                 摆在这里而不是只在页签里,是因为它跟着角色与工作区走——换个角色这几个数就全变了。
+                 首轮发送前整块不出:那时还没装配过,"挂了什么"根本无从回答,
+                 摆一排「—」只是把「我不知道」画得更大(空态的其余处置见 AgentPageData 的懒建说明) -->
+            <!-- 内容也要撑满:text-row 默认把内容靠左(它多数场合是一行短文本),
+                 只撑按钮不撑内容的话数值仍旧挤在标题后面,右半边空着 -->
+            <Button Classes="text-row" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsVisible="{Binding Conversation.Capabilities.HasStats}"
+                    Command="{Binding ShowCapabilitiesCommand}"
+                    ToolTip.Tip="{loc:Loc AgentCapabilityTokenTip}">
+                <StackPanel Spacing="1">
+                    <!-- 合计加重:它是这几个数里唯一要对着上下文上限看的。
+                         告警三角单占第三列(定宽 14),明细行则用同宽的右边距顶掉——
+                         让三角去挤数值列的话,合计会比下面每一行都往左缩一个三角的宽度 -->
+                    <Grid ColumnDefinitions="*,Auto,14" ColumnSpacing="6">
+                        <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{loc:Loc AgentCapabilityTotal}" />
+                        <TextBlock Grid.Column="1" FontSize="10" FontWeight="SemiBold"
+                                   Text="{Binding Conversation.Capabilities.TotalText}" />
+                        <TextBlock Grid.Column="2" FontSize="10" Text="▲"
+                                   Foreground="{DynamicResource SemiOrange5}"
+                                   IsVisible="{Binding Conversation.Capabilities.IsOverBudget}" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Conversation.Capabilities.Stats}"
+                                  ItemTemplate="{StaticResource CapabilityStatRow}" />
+                </StackPanel>
+            </Button>
+
+            <TextBlock Classes="muted" Margin="0,4,0,0"
+                       Text="{loc:Loc AgentWorkspaceLabel}" />
+            <!-- 目录名单独一行,父路径省略号收在下面:工作区路径普遍很长,
+                 全路径铺开会把卡片撑高,而用户认的是最后那一节。整块点击=在文件管理器打开 -->
+            <Button Classes="picker-row" HorizontalAlignment="Stretch"
+                    Command="{Binding Conversation.RevealWorkspaceCommand}"
+                    ToolTip.Tip="{Binding Conversation.WorkspacePath}"
+                    IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <StackPanel>
+                    <TextBlock FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               Text="{Binding Conversation.WorkspaceName}" />
+                    <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
+                               Text="{Binding Conversation.WorkspaceParent}" />
+                </StackPanel>
+            </Button>
+            <TextBlock FontSize="11" Classes="muted"
+                       Text="{loc:Loc AgentWorkspaceNone}"
+                       IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <!-- 主按钮开系统选择器,下拉给最近用过的目录:切工作区是高频操作,
+                     每次都翻一遍文件选择器太笨 -->
+                <SplitButton FontSize="11" Padding="8,3" CornerRadius="6"
+                             Command="{Binding Conversation.SelectWorkspaceCommand}"
+                             Content="{loc:Loc AgentWorkspaceChange}">
+                    <SplitButton.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft"
+                                Opening="OnRecentWorkspacesOpening">
+                            <StackPanel MinWidth="200" MaxWidth="320" Spacing="2">
+                                <TextBlock Classes="muted" FontSize="11" Margin="6,2"
+                                           Text="{loc:Loc AgentWorkspaceRecent}" />
+                                <TextBlock Classes="muted" FontSize="11" Margin="6,2"
+                                           Text="{loc:Loc AgentWorkspaceRecentEmpty}"
+                                           IsVisible="{Binding Conversation.RecentWorkspaces.Count,
+                                               Converter={x:Static convs:IntToBoolConverter.Inverted}}" />
+                                <ItemsControl ItemsSource="{Binding Conversation.RecentWorkspaces}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="panels:RecentWorkspaceItem">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Button Grid.Column="0" Classes="picker-row"
+                                                        HorizontalAlignment="Stretch"
+                                                        Command="{Binding UseCommand}"
+                                                        ToolTip.Tip="{Binding Path}">
+                                                    <StackPanel>
+                                                        <TextBlock FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Text="{Binding Name}" />
+                                                        <TextBlock FontSize="10" Classes="muted"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Text="{Binding Parent}" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <Button Grid.Column="1" Classes="picker-row"
+                                                        VerticalAlignment="Center" FontSize="11"
+                                                        Command="{Binding ForgetCommand}"
+                                                        ToolTip.Tip="{loc:Loc AgentWorkspaceForget}"
+                                                        Content="✕" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Flyout>
+                    </SplitButton.Flyout>
+                </SplitButton>
+                <Button FontSize="11" Padding="8,3" CornerRadius="6"
+                        Command="{Binding Conversation.ClearWorkspaceCommand}"
+                        IsVisible="{Binding Conversation.WorkspacePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Content="{loc:Loc AgentWorkspaceClear}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>
