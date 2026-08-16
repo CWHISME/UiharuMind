@@ -50,7 +50,7 @@ public enum EMissedFirePolicy
 
 /// <summary>
 /// 定时任务:本质是"延迟启动的 agent 会话"。
-/// 创建时固化预授权 shell 命令模式,无人值守执行时其余危险操作一律拒绝。
+/// 创建时固化权限档与预授权 shell 命令模式,无人值守执行时其余危险操作一律自动拒绝。
 /// </summary>
 public class ScheduledAgentTask
 {
@@ -71,6 +71,18 @@ public class ScheduledAgentTask
 
     /// <summary>创建时固化的预授权 shell 命令 glob 模式</summary>
     public List<string> PreAuthorizedCommands { get; init; } = new();
+
+    /// <summary>
+    /// 无人值守执行时用的权限档(语义见 <see cref="ApprovalModeMapper"/>)。
+    ///
+    /// 初始值 <b>必须</b>是 <see cref="EAgentPermissionMode.AutoEdit"/> 而不是枚举的 default
+    /// (那是 ReadOnly):这个字段是后加的,旧存档里没有它,反序列化时 System.Text.Json 不会碰
+    /// 缺失的属性,于是初始值就是旧任务的档位——这一条把"加字段"变成了行为零变化。
+    ///
+    /// 只有用户能改它。定时任务没人盯着,让模型自己在创建时把档位提到"完全自动"
+    /// 等于绕开了 ADR 0010 说的那条真正边界("用户点了那一下")。
+    /// </summary>
+    public EAgentPermissionMode PermissionMode { get; set; } = EAgentPermissionMode.AutoEdit;
 
     /// <summary>错过触发时间的策略</summary>
     public EMissedFirePolicy MissedFirePolicy { get; set; } = EMissedFirePolicy.PromptUser;
@@ -113,6 +125,13 @@ public interface ISchedulerBackend
     /// </summary>
     /// <param name="taskId">任务标识</param>
     Task RunNowAsync(string taskId);
+
+    /// <summary>
+    /// 改一个还没跑的任务的权限档。已经跑过的任务改了没有意义,实现应当忽略。
+    /// </summary>
+    /// <param name="taskId">任务标识</param>
+    /// <param name="mode">权限档</param>
+    Task SetPermissionModeAsync(string taskId, EAgentPermissionMode mode);
 
     /// <summary>
     /// 获取全部任务(含历史)

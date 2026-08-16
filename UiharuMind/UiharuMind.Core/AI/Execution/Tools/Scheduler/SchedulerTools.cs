@@ -15,6 +15,10 @@ namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 /// <summary>
 /// 定时任务相关工具。create_scheduled_task 属危险操作,包装为需审批工具:
 /// 用户批准创建 = 授予任务附带的预授权命令,到点无人值守执行。
+///
+/// <b>刻意不提供权限档参数</b>:新任务一律落在 <see cref="ScheduledAgentTask.PermissionMode"/>
+/// 的初始档(AutoEdit),要提到"完全自动"只能由用户在任务列表里改。定时任务到点没人盯着,
+/// 让模型自己给自己升档就绕开了 ADR 0010 说的那条真正边界——"用户点了那一下"。
 /// </summary>
 public static class SchedulerTools
 {
@@ -81,6 +85,7 @@ public static class SchedulerTools
         await CharacterRunnerFactory.Instance.Scheduler.ScheduleAsync(task).ConfigureAwait(false);
 
         return $"Scheduled task '{displayName}' (id {task.TaskId}) to fire at {fireAt:yyyy-MM-dd HH:mm:ss zzz}. " +
+               $"Permission mode: {task.PermissionMode} (the user can raise it to FullAuto in the task list). " +
                $"Pre-authorized shell patterns: [{string.Join(", ", task.PreAuthorizedCommands)}]";
     }
 }

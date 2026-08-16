@@ -202,8 +202,23 @@
                                                                    Text="{Binding FireAtText}" />
                                                         <TextBlock Classes="muted"
                                                                    Text="{Binding StatusText}" />
+                                                        <!-- 跑过的任务只显示当时那一档(改不动了),没跑的用下面的下拉选 -->
+                                                        <TextBlock Classes="muted"
+                                                                   IsVisible="{Binding !CanEditPermission}"
+                                                                   Text="{Binding PermissionText}" />
                                                     </StackPanel>
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <!-- 三档选择:与设置页「默认权限档」同一形状、同一套文案,
+                                                             无人值守跑的就是这一档 -->
+                                                        <ComboBox FontSize="10" Padding="6,2" CornerRadius="5"
+                                                                  MinHeight="0" VerticalAlignment="Center"
+                                                                  IsVisible="{Binding CanEditPermission}"
+                                                                  SelectedIndex="{Binding PermissionModeIndex}"
+                                                                  ToolTip.Tip="{loc:Loc AgentTaskPermission}">
+                                                            <ComboBoxItem Content="{loc:Loc AgentPermissionReadOnly}" />
+                                                            <ComboBoxItem Content="{loc:Loc AgentPermissionAutoEdit}" />
+                                                            <ComboBoxItem Content="{loc:Loc AgentPermissionFullAuto}" />
+                                                        </ComboBox>
                                                         <Button FontSize="10" Padding="6,2" CornerRadius="5"
                                                                 IsVisible="{Binding CanRunNow}"
                                                                 Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.RunTaskNowCommand}"

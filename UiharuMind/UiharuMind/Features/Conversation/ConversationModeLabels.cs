@@ -47,16 +47,24 @@ public static class ConversationModeLabels
         _ => "AutoEdit",
     };
 
-    /// <summary>权限档悬停提示</summary>
+    /// <summary>
+    /// 权限档显示名。定时任务列表也用它——那里"这个任务是哪一档"要直接写在卡片上,
+    /// 措辞必须与对话页顶栏逐字一致
+    /// </summary>
     /// <param name="index">权限档序号</param>
     /// <returns>本地化文案</returns>
-    public static string PermissionTooltip(int index) =>
+    public static string PermissionLabel(int index) =>
         LocalizationManager.Instance.GetString(index switch
         {
             0 => "AgentPermissionReadOnly",
             2 => "AgentPermissionFullAuto",
             _ => "AgentPermissionAutoEdit",
         });
+
+    /// <summary>权限档悬停提示</summary>
+    /// <param name="index">权限档序号</param>
+    /// <returns>本地化文案</returns>
+    public static string PermissionTooltip(int index) => PermissionLabel(index);
 
     /// <summary>思考力度状态键(EThinkingMode 名)</summary>
     /// <param name="index">思考力度序号,即 EThinkingMode</param>
