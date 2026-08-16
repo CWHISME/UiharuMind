@@ -54,6 +54,12 @@ public partial class SessionListItem : ObservableObject
     [ObservableProperty] private string _description;
     [ObservableProperty] private string _timeString;
 
+    /// <summary>本会话有轮次在跑（界面轮次或定时任务的无头轮次）</summary>
+    [ObservableProperty] private bool _isRunning;
+
+    /// <summary>本会话有轮次卡在工具审批上等人回应</summary>
+    [ObservableProperty] private bool _isAwaitingApproval;
+
     /// <summary>会话内容被就地改写(改名/清空历史)。若该会话正被展示,页面壳据此刷新对话区</summary>
     public event Action<SessionListItem>? Mutated;
 
@@ -80,12 +86,32 @@ public partial class SessionListItem : ObservableObject
         _icon = IconUtils.GetCharacterBitmapOrDefault(
             CharacterManager.Instance.GetCharacterData(meta.CharacterId));
         _timeString = CalcTimeString();
+        RefreshRunState();
     }
 
+    //================= 运行态 =================
+
+    /// <summary>
+    /// 从运行态登记处重读本会话的状态。由页面壳在收到变更通知时调用——
+    /// 列表项是随列表刷新反复重建的，让每一项各自订阅全局事件必然漏卸
+    /// </summary>
+    public void RefreshRunState()
+    {
+        ESessionRunState state = SessionManager.Instance.Running.StateOf(SessionId);
+        IsAwaitingApproval = state == ESessionRunState.AwaitingApproval;
+        IsRunning = state == ESessionRunState.Running;
+        DeleteCommand.NotifyCanExecuteChanged();
+        ClearChatHistoryCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// 删除与清空历史是否可用。跑的过程中不行：它们会跟正在追写历史的那一轮抢文件
+    /// </summary>
+    public bool CanMutateFiles => !SessionManager.Instance.Running.IsBusy(SessionId);
 
     //================= 条目级操作 =================
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanMutateFiles))]
     public async Task ClearChatHistory()
     {
         if (!await _messageService.ConfirmAsync(Lang.ClearTips)) return;
@@ -122,7 +148,7 @@ public partial class SessionListItem : ObservableObject
         SessionManager.Instance.Copy(Session);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanMutateFiles))]
     public async Task Delete()
     {
         if (!await _messageService.ConfirmAsync(Lang.DeleteTips)) return;

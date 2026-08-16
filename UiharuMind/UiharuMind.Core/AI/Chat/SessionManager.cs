@@ -40,6 +40,12 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <summary>会话删除</summary>
     public event Action<ChatSession>? OnSessionRemoved;
 
+    /// <summary>
+    /// 运行态登记处：界面的运行指示器、「跑时禁用删除」都读它，
+    /// 界面轮次与无头轮次都往它上面登记
+    /// </summary>
+    public SessionRunRegistry Running { get; } = new();
+
     private readonly Dictionary<string, ChatSessionMeta> _metas = new();
 
     // 已加载的本体(含临时会话)。临时会话只存在于此,不落盘也不进 _metas。

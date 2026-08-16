@@ -27,38 +27,58 @@ public partial class ChatPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new ChatPage();
 
-    /// <summary>会话内容视图模型(ConversationView 的 DataContext)</summary>
-    public ConversationViewModel Conversation { get; } = new();
-
     public ChatListViewModel ChatListViewModel { get; }
 
     private readonly ChatInfoModel _chatInfoModel;
 
     public ChatPageData()
     {
-        // 无会话时首轮发送以默认角色开聊(与列表为空时自动建会话的角色一致)
-        Conversation.NewSessionCharacterId = nameof(DefaultCharacter.Empty);
-        Conversation.InputPlaceholderKey = "ChatInputTips";
-
         ChatListViewModel = App.ViewModel.GetViewModel<ChatListViewModel>();
         _chatInfoModel = App.ViewModel.GetViewModel<ChatInfoModel>();
 
         ChatListViewModel.EventOnSelectedSessionChanged += OnSelectedSessionChanged;
-        Conversation.PropertyChanged += OnConversationPropertyChanged;
         OnSelectedSessionChanged(ChatListViewModel.SelectedSession);
+    }
+
+    protected override ConversationViewModel CreateConversation()
+    {
+        return new ConversationViewModel
+        {
+            // 无会话时首轮发送以默认角色开聊(与列表为空时自动建会话的角色一致)
+            NewSessionCharacterId = nameof(DefaultCharacter.Empty),
+            InputPlaceholderKey = "ChatInputTips",
+        };
+    }
+
+    protected override void OnConversationCreated(ConversationViewModel conversation)
+    {
+        conversation.PropertyChanged += OnConversationPropertyChanged;
+    }
+
+    protected override void OnConversationDiscarding(ConversationViewModel conversation)
+    {
+        conversation.PropertyChanged -= OnConversationPropertyChanged;
     }
 
     private void OnSelectedSessionChanged(SessionListItem? obj)
     {
-        _ = Conversation.LoadSessionAsync(obj?.Meta);
+        SwitchConversation(obj?.Meta);
         _chatInfoModel.SetSession(obj);
+        // 换实例后插件面板要按新实例的状态重新对齐(切到一个后台跑着的会话时它就是"进行中")
+        NotifyChatState(Conversation.IsGenerating);
     }
 
     private void OnConversationPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(ConversationViewModel.IsGenerating)) return;
-        if (Conversation.IsGenerating) _chatInfoModel.NotifyChatBegin();
-        else _chatInfoModel.NotifyChatEnd();
+        // 后台会话的起止不该扰动插件面板,它讲的是"你正在看的这个会话"
+        if (!ReferenceEquals(sender, Conversation)) return;
+        NotifyChatState(Conversation.IsGenerating);
     }
 
+    private void NotifyChatState(bool isGenerating)
+    {
+        if (isGenerating) _chatInfoModel.NotifyChatBegin();
+        else _chatInfoModel.NotifyChatEnd();
+    }
 }

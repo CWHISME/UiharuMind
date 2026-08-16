@@ -762,6 +762,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             FlushOwnedFiles();
             List<ChatMessage>? nextMessages = new() { userMessage };
 
+            // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
+            // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下。
+            // 起点在这里而不是方法开头——新会话的标识是 EnsureSessionAsync 才给出的
+            using IDisposable runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
+
             while (nextMessages is { Count: > 0 })
             {
                 try
@@ -783,11 +788,16 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals();
                 if (turnApprovals.Count == 0) break;
 
-                // 审批往返:等待用户对每个请求做出决定,回应作为下一轮输入
+                // 审批往返:等待用户对每个请求做出决定,回应作为下一轮输入。
+                // 这段等待要单独登记:会话切走后审批卡片跟着看不见了,那一轮就静静挂在这里,
+                // 只有把它与「在跑」区分开,列表与导航栏才能提示用户回来处理
                 nextMessages = new List<ChatMessage>();
-                foreach (ApprovalRequestItem approval in turnApprovals)
+                using (SessionManager.Instance.Running.BeginApprovalWait(session.SessionId))
                 {
-                    nextMessages.Add(await approval.Response);
+                    foreach (ApprovalRequestItem approval in turnApprovals)
+                    {
+                        nextMessages.Add(await approval.Response);
+                    }
                 }
 
                 _transcript.ResolveApprovals(turnApprovals);
@@ -1021,13 +1031,16 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     //================= 加载与回放 =================
 
     /// <summary>
-    /// 切换到指定会话(null = 新会话空态);运行中的轮次会被打断
+    /// 装载指定会话(null = 新会话空态)。
+    ///
+    /// <b>不再取消正在跑的轮次</b>：现在每个会话有自己的视图模型实例，切会话是换实例，
+    /// 旧实例连着它那一轮留在页面壳的缓存里继续跑。因此走到这里的只有两种情形——
+    /// 新实例的首次装载（没有轮次可打断），或就地改写后的重载（页面壳已确认它没在跑）。
     /// </summary>
     /// <param name="meta">会话元数据</param>
     public async Task LoadSessionAsync(ChatSessionMeta? meta)
     {
         int loadVersion = ++_loadVersion; //期间再次切换会话时,旧加载在每个悬挂点后自行放弃
-        _runCancellation?.Cancel();
         ClearStreamState();
         // 执行者归会话本体持有,切走不需要清理什么——旧会话的执行者随它的会话留在原处
         CurrentMeta = meta;

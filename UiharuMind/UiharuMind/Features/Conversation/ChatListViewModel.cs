@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Chat;
+using Avalonia.Threading;
 using UiharuMind.Core.AI.Character;
 
 namespace UiharuMind.Features.Conversation;
@@ -41,6 +42,9 @@ public partial class ChatListViewModel : ViewModelBase
 
         SessionManager.Instance.OnSessionAdded += OnChatSessionAdded;
         SessionManager.Instance.OnSessionRemoved += OnChatSessionRemoved;
+        // 运行态变化可能来自后台线程,列表项是界面绑定的,必须回到 UI 线程再改
+        SessionManager.Instance.Running.StateChanged += id =>
+            Dispatcher.UIThread.Post(() => RefreshRunState(id));
 
         if (ChatSessions.Count == 0)
             SessionManager.Instance.StartNewSession(CharacterManager.Instance.GetCharacterData(""));
@@ -66,6 +70,14 @@ public partial class ChatListViewModel : ViewModelBase
     partial void OnSelectedSessionChanged(SessionListItem? value)
     {
         EventOnSelectedSessionChanged?.Invoke(value);
+    }
+
+    private void RefreshRunState(string sessionId)
+    {
+        foreach (SessionListItem item in ChatSessions)
+        {
+            if (item.SessionId == sessionId) item.RefreshRunState();
+        }
     }
 
     private SessionListItem CreateItem(SessionListItem item)

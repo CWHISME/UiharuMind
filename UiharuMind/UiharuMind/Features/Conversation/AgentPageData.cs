@@ -28,9 +28,6 @@ public partial class AgentPageData : ConversationPageDataBase
 {
     protected override Control CreateView => new AgentPage();
 
-    /// <summary>会话内容视图模型(ConversationView 的 DataContext)</summary>
-    public ConversationViewModel Conversation { get; } = new();
-
     public ObservableCollection<SessionListItem> Sessions { get; } = new();
     public ObservableCollection<ScheduledTaskDisplayItem> ScheduledTasks { get; } = new();
 
@@ -43,13 +40,28 @@ public partial class AgentPageData : ConversationPageDataBase
         RefreshSessions();
         RefreshScheduledTasks();
         // 启动时恢复最近会话(历史加载不依赖模型状态)
-        if (Sessions.Count > 0) SelectedSession = Sessions[0];
-        Conversation.SessionsChanged += RefreshSessions;
+        SwitchConversation(Sessions.Count > 0 ? Sessions[0].Meta : null);
+        if (Sessions.Count > 0) SetSelectedWithoutLoad(Sessions[0]);
         // 会话可能由本页之外的动作产生(条目菜单里的"复制"、调度器新建),
         // 不订阅这个事件的话列表要等到下次发消息才刷新
         SessionManager.Instance.OnSessionAdded += OnSessionAdded;
+        // 运行态变化来自后台线程(无头执行),列表项是界面绑定的,必须回到 UI 线程再改
+        SessionManager.Instance.Running.StateChanged += id =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshRunState(id));
         CharacterRunnerFactory.Instance.Scheduler.OnTaskUpdated += _ =>
             Avalonia.Threading.Dispatcher.UIThread.Post(RefreshScheduledTasks);
+    }
+
+    protected override ConversationViewModel CreateConversation() => new();
+
+    protected override void OnConversationCreated(ConversationViewModel conversation)
+    {
+        conversation.SessionsChanged += RefreshSessions;
+    }
+
+    protected override void OnConversationDiscarding(ConversationViewModel conversation)
+    {
+        conversation.SessionsChanged -= RefreshSessions;
     }
 
     //================= 会话列表 =================
@@ -57,14 +69,22 @@ public partial class AgentPageData : ConversationPageDataBase
     partial void OnSelectedSessionChanged(SessionListItem? value)
     {
         if (_suppressSelectionChange) return;
-        _ = Conversation.LoadSessionAsync(value?.Meta);
+        SwitchConversation(value?.Meta);
     }
 
     [RelayCommand]
-    private async Task NewSession()
+    private void NewSession()
     {
         SetSelectedWithoutLoad(null);
-        await Conversation.LoadSessionAsync(null);
+        SwitchConversation(null);
+    }
+
+    private void RefreshRunState(string sessionId)
+    {
+        foreach (SessionListItem item in Sessions)
+        {
+            if (item.SessionId == sessionId) item.RefreshRunState();
+        }
     }
 
     private void RefreshSessions()
@@ -74,7 +94,8 @@ public partial class AgentPageData : ConversationPageDataBase
         _suppressSelectionChange = true;
         try
         {
-            string? selectedId = Conversation.CurrentMeta?.SessionId;
+            //构造期的首次刷新早于视图模型就绪,那时没有"当前会话"可保持
+            string? selectedId = Conversation?.CurrentMeta?.SessionId;
             Sessions.Clear();
             foreach (ChatSessionMeta meta in SessionManager.Instance.GetAgentSessions())
             {
@@ -110,16 +131,17 @@ public partial class AgentPageData : ConversationPageDataBase
     private void OnSessionDeleted(SessionListItem item)
     {
         bool wasCurrent = Conversation.CurrentMeta?.SessionId == item.Meta.SessionId;
+        DiscardConversation(item.Meta.SessionId);
         RefreshSessions();
-        if (wasCurrent) _ = NewSession();
+        if (wasCurrent) NewSession();
     }
 
     private void OnSessionMutated(SessionListItem item)
     {
-        if (Conversation.CurrentMeta?.SessionId == item.Meta.SessionId)
-        {
-            _ = Conversation.LoadSessionAsync(item.Meta);
-        }
+        // 改名允许在跑的过程中进行,而重载会把界面条目清掉重新回放——
+        // 正在流的那一轮会被拦腰截断。标题由列表项自己刷新,这里让它跑完
+        if (FindConversation(item.Meta.SessionId) is not { IsGenerating: false } target) return;
+        if (target == Conversation) _ = target.LoadSessionAsync(item.Meta);
     }
 
     private void SetSelectedWithoutLoad(SessionListItem? item)

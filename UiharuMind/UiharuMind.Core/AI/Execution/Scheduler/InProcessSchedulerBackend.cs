@@ -159,7 +159,14 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
             task.ResultSessionId = chatSession.SessionId;
 
             await chatSession.Runner.AttachAsync(chatSession).ConfigureAwait(false);
-            bool succeeded = await RunHeadlessAsync(chatSession.Runner, task.Prompt).ConfigureAwait(false);
+            bool succeeded;
+            // 登记运行态:这个会话就在界面的会话列表里(⏰ 前缀),用户看得见它在跑,
+            // 也因此不会在跑的过程中被删除或清空历史
+            using (SessionManager.Instance.Running.BeginRun(chatSession.SessionId))
+            {
+                succeeded = await RunHeadlessAsync(chatSession.Runner, task.Prompt).ConfigureAwait(false);
+            }
+
             await chatSession.Runner.SaveStateAsync().ConfigureAwait(false);
 
             task.Status = succeeded ? EScheduledTaskStatus.Completed : EScheduledTaskStatus.Failed;
