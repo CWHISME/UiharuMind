@@ -52,13 +52,11 @@ public partial class ChatPage : UserControl
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        var data = (ChatPageData)DataContext!;
-        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 230, 340);
+        ((ChatPageData)DataContext!).DragLeftPane(e.Vector.X);
     }
 
     private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        var data = (ChatPageData)DataContext!;
-        data.RightPaneWidth = Math.Clamp(data.RightPaneWidth - (float)e.Vector.X, 280, 380);
+        ((ChatPageData)DataContext!).DragRightPane(e.Vector.X);
     }
 }

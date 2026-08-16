@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -29,10 +30,35 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     /// <summary>低于此宽度同时收起左右栏</summary>
     private const double BothPanesCollapseWidth = 666;
 
+    /// <summary>侧栏可拖到的最窄宽度</summary>
+    private const float MinPaneWidth = 120;
+
+    /// <summary>侧栏可拖到的最宽宽度</summary>
+    private const float MaxPaneWidth = 400;
+
     [ObservableProperty] private float _leftPaneWidth = 200;
     [ObservableProperty] private float _rightPaneWidth = 200;
     [ObservableProperty] private bool _isLeftPaneOpen = true;
     [ObservableProperty] private bool _isRightPaneOpen = true;
+
+    /// <summary>
+    /// 拖动左栏与右栏的分隔条。上下限放在这里而不是各页的 code-behind：
+    /// 原先两页各写一份 clamp，于是同一个界面的两条边拖起来手感不一样
+    /// </summary>
+    /// <param name="deltaX">本次拖动的水平位移</param>
+    public void DragLeftPane(double deltaX)
+    {
+        LeftPaneWidth = Math.Clamp(LeftPaneWidth + (float)deltaX, MinPaneWidth, MaxPaneWidth);
+    }
+
+    /// <summary>
+    /// 拖动右栏的分隔条（右栏在分隔条左侧，位移取反）
+    /// </summary>
+    /// <param name="deltaX">本次拖动的水平位移</param>
+    public void DragRightPane(double deltaX)
+    {
+        RightPaneWidth = Math.Clamp(RightPaneWidth - (float)deltaX, MinPaneWidth, MaxPaneWidth);
+    }
 
     /// <summary>
     /// 窗口宽度响应：过窄时自动收起面板

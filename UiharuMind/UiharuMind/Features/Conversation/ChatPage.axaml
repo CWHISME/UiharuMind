@@ -156,11 +156,11 @@
         </Thumb>
 
         <!-- 右侧栏:会话详情插件面板 -->
+        <!-- 宽度上下限归 ConversationPageDataBase 的拖动方法管,这里不再另设 Min/MaxWidth:
+             两处各说一套时,拖动能到 120 而布局把它按在 260,拖到底就是一段死行程 -->
         <Border Grid.Column="4"
                 Classes="workspace-pane"
                 Width="{Binding RightPaneWidth, Mode=TwoWay}"
-                MinWidth="260"
-                MaxWidth="360"
                 IsVisible="{Binding IsRightPaneOpen}">
             <DockPanel>
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*" Margin="14,12,14,8">

@@ -61,13 +61,11 @@ public partial class AgentPage : UserControl
 
     private void OnLeftThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        var data = (AgentPageData)DataContext!;
-        data.LeftPaneWidth = Math.Clamp(data.LeftPaneWidth + (float)e.Vector.X, 120, 400);
+        ((AgentPageData)DataContext!).DragLeftPane(e.Vector.X);
     }
 
     private void OnRightThumbDragDelta(object? sender, VectorEventArgs e)
     {
-        var data = (AgentPageData)DataContext!;
-        data.RightPaneWidth = Math.Clamp(data.RightPaneWidth - (float)e.Vector.X, 120, 400);
+        ((AgentPageData)DataContext!).DragRightPane(e.Vector.X);
     }
 }
