@@ -364,8 +364,10 @@
         <!-- composer -->
         <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder">
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="4">
-                <!-- 附件 chips:附件集合在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置 -->
+                <!-- 附件 chips:附件盘挂在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置。
+                     DataContext 整体切到附件盘,下面模板里的 $parent[ItemsControl] 才拿得到它 -->
                 <ItemsControl Grid.Row="0"
+                              DataContext="{Binding Tray}"
                               ItemsSource="{Binding Attachments}"
                               IsVisible="{Binding Attachments.Count}">
                     <ItemsControl.ItemsPanel>
@@ -381,7 +383,7 @@
                                     <Button Classes="NoneStyle" Padding="0"
                                             Cursor="Hand" HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
-                                            Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).PreviewAttachmentCommand}"
+                                            Command="{Binding $parent[ItemsControl].((conv:AttachmentTrayViewData)DataContext).PreviewAttachmentCommand}"
                                             CommandParameter="{Binding}">
                                         <Grid VerticalAlignment="Center">
                                             <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
@@ -403,7 +405,7 @@
                                                       IconName="trash-2"
                                                       HorizontalAlignment="Right" VerticalAlignment="Top"
                                                       Margin="0,-8,-8,0"
-                                                      Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveAttachmentCommand}"
+                                                      Command="{Binding $parent[ItemsControl].((conv:AttachmentTrayViewData)DataContext).RemoveAttachmentCommand}"
                                                       CommandParameter="{Binding}" />
                                 </Grid>
                             </Border>
@@ -423,10 +425,10 @@
                         Background="{DynamicResource SemiGrey0}"
                         BorderBrush="{DynamicResource SemiGrey2}"
                         BorderThickness="1"
-                        IsVisible="{Binding IsSkillPickerOpen}">
+                        IsVisible="{Binding Palette.IsSkillPickerOpen}">
                     <ListBox Name="SkillPicker" Classes="option-list" Focusable="False"
-                             ItemsSource="{Binding SkillCandidates}"
-                             SelectedIndex="{Binding SkillCandidateIndex}">
+                             ItemsSource="{Binding Palette.SkillCandidates}"
+                             SelectedIndex="{Binding Palette.SkillCandidateIndex}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="skills:SkillCatalogEntry">
                                 <StackPanel Spacing="1" Margin="2">
@@ -574,7 +576,7 @@
                                           Tag="{Binding MemoryPanel.MemoryStatusKey}"
                                           Command="{Binding MemoryPanel.MemoryEditorCommand}"
                                           IsVisible="{Binding MemoryPanel, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                        <ThemedIconButton IconName="paperclip" Command="{Binding AddAttachmentCommand}" />
+                        <ThemedIconButton IconName="paperclip" Command="{Binding Tray.AddAttachmentCommand}" />
                         <ThemedIconButton IconName="settings">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">

@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Features.Conversation;
@@ -23,7 +24,7 @@ public class SkillPickerKeyRoutingTests
 
         // 补全成完整技能名并留一个空格等参数,而不是把 "/dem" 发出去
         Assert.Equal("/demo-skill ", vm.InputText);
-        Assert.False(vm.IsSkillPickerOpen);
+        Assert.False(vm.Palette.IsSkillPickerOpen);
         Assert.Empty(vm.Items);
     }
 
@@ -53,7 +54,7 @@ public class SkillPickerKeyRoutingTests
     {
         ConversationViewModel vm = CreateViewModelWithOpenPicker("/dem");
         int raised = 0;
-        vm.SkillCandidateAccepted += () => raised++;
+        vm.Palette.SkillCandidateAccepted += () => raised++;
 
         Assert.True(vm.AcceptSkillCandidate());
         Assert.Equal(1, raised);
@@ -68,9 +69,71 @@ public class SkillPickerKeyRoutingTests
     private static ConversationViewModel CreateViewModelWithOpenPicker(string typed)
     {
         ConversationViewModel vm = new() { InputText = typed };
-        vm.SkillCandidates.Add(new SkillCatalogEntry { Name = "demo-skill", Description = "d" });
-        vm.SkillCandidateIndex = 0;
-        vm.IsSkillPickerOpen = true; //候选平时由读盘填充,这里直接摆好状态
+        OpenPickerWithDemoSkill(vm.Palette);
         return vm;
+    }
+
+    /// <summary>
+    /// 摆出"补全开着"的状态。候选平时由读盘填充,这里直接摆好
+    /// </summary>
+    /// <param name="palette">命令面板</param>
+    private static void OpenPickerWithDemoSkill(CommandPaletteViewData palette)
+    {
+        palette.SkillCandidates.Add(new SkillCatalogEntry { Name = "demo-skill", Description = "d" });
+        palette.SkillCandidateIndex = 0;
+        palette.IsSkillPickerOpen = true;
+    }
+}
+
+/// <summary>
+/// 命令面板本身不需要一个对话视图模型就能测：它只吃「改写输入框」与「取当前角色」两个委托。
+/// 这正是把它从 <see cref="ConversationViewModel"/> 里拆出来换到的东西。
+/// </summary>
+public class CommandPaletteViewDataTests
+{
+    [Fact]
+    public void AcceptCandidate_WritesBackThroughTheInjectedSetter()
+    {
+        string written = string.Empty;
+        CommandPaletteViewData palette = CreatePalette(text => written = text);
+        palette.SkillCandidates.Add(new SkillCatalogEntry { Name = "demo-skill", Description = "d" });
+        palette.SkillCandidateIndex = 0;
+        palette.IsSkillPickerOpen = true;
+
+        Assert.True(palette.AcceptSkillCandidate());
+        Assert.Equal("/demo-skill ", written); //补全后留一个空格等参数
+        Assert.False(palette.IsSkillPickerOpen);
+        Assert.Empty(palette.SkillCandidates);
+    }
+
+    /// <summary>
+    /// 上下移动在两端环绕。候选只有一条时任意方向都停在它自己身上——
+    /// 取模写错会算出负下标,而 AcceptSkillCandidate 的下标检查会把它静默吞掉
+    /// </summary>
+    [Fact]
+    public void MoveSelection_WrapsAroundInBothDirections()
+    {
+        CommandPaletteViewData palette = CreatePalette(_ => { });
+        foreach (string name in new[] { "a", "b", "c" })
+        {
+            palette.SkillCandidates.Add(new SkillCatalogEntry { Name = name, Description = "d" });
+        }
+
+        palette.IsSkillPickerOpen = true;
+        palette.SkillCandidateIndex = 0;
+
+        palette.MoveSkillSelection(-1);
+        Assert.Equal(2, palette.SkillCandidateIndex); //往上越过头部,绕到末尾
+
+        palette.MoveSkillSelection(1);
+        Assert.Equal(0, palette.SkillCandidateIndex); //往下越过末尾,绕回头部
+    }
+
+    /// <param name="setInputText">输入框写回</param>
+    /// <returns>命令面板</returns>
+    private static CommandPaletteViewData CreatePalette(Action<string> setInputText)
+    {
+        // 角色只在读技能目录时才用到,上面两条都不碰目录,给一个空角色即可
+        return new CommandPaletteViewData(setInputText, () => new CharacterData());
     }
 }

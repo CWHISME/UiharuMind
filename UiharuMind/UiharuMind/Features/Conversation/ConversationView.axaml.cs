@@ -94,18 +94,18 @@ public partial class ConversationView : UserControl
 
     private void OnComposerKeyDown(object? sender, KeyEventArgs e)
     {
-        if (DataContext is not ConversationViewModel vm || !vm.IsSkillPickerOpen) return;
+        if (DataContext is not ConversationViewModel vm || !vm.Palette.IsSkillPickerOpen) return;
 
         switch (e.Key)
         {
             case Key.Down:
-                vm.MoveSkillSelection(1);
+                vm.Palette.MoveSkillSelection(1);
                 break;
             case Key.Up:
-                vm.MoveSkillSelection(-1);
+                vm.Palette.MoveSkillSelection(-1);
                 break;
             case Key.Escape:
-                vm.CloseSkillPicker();
+                vm.Palette.CloseSkillPicker();
                 break;
             case Key.Enter:
                 if (!vm.AcceptSkillCandidate()) return;
@@ -135,14 +135,14 @@ public partial class ConversationView : UserControl
         if (_viewModel != null)
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _viewModel.SkillCandidateAccepted -= OnSkillCandidateAccepted;
+            _viewModel.Palette.SkillCandidateAccepted -= OnSkillCandidateAccepted;
         }
 
         _viewModel = DataContext as ConversationViewModel;
         if (_viewModel != null)
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-            _viewModel.SkillCandidateAccepted += OnSkillCandidateAccepted;
+            _viewModel.Palette.SkillCandidateAccepted += OnSkillCandidateAccepted;
         }
     }
 
@@ -178,7 +178,7 @@ public partial class ConversationView : UserControl
         var bitmap = await App.Clipboard.GetImageFromClipboard();
         if (bitmap == null) return;
 
-        vm.AddAttachmentBytes(bitmap.BitmapToBytes());
+        vm.Tray.AddAttachmentBytes(bitmap.BitmapToBytes());
         e.Handled = true;
     }
 
@@ -213,7 +213,7 @@ public partial class ConversationView : UserControl
             if (item.TryGetRaw(DataFormat.File) is IStorageItem storageItem)
             {
                 string? path = storageItem.TryGetLocalPath();
-                if (!string.IsNullOrEmpty(path)) vm.AddAttachmentPath(path);
+                if (!string.IsNullOrEmpty(path)) vm.Tray.AddAttachmentPath(path);
             }
         }
 

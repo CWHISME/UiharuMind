@@ -9,7 +9,6 @@
 
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -58,8 +57,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<ConversationItemBase> Items { get; } = new();
 
-    /// <summary>附件集合(文件路径或内存字节),由输入框上方区域展示</summary>
-    public ObservableCollection<ConversationAttachment> Attachments { get; } = new();
+    /// <summary>输入框上方的附件盘(待发附件与「附件怎么变成一条用户消息」)</summary>
+    public AttachmentTrayViewData Tray { get; }
+
+    /// <summary>输入框的 / 命令面板(点名调用补全与内置命令)</summary>
+    public CommandPaletteViewData Palette { get; }
 
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _inputText = string.Empty;
@@ -80,7 +82,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         // 补全开着时回车应当是"采纳候选"而不是发送。这里必须在命令入口改道:
         // Avalonia 的 KeyBindings 由 KeyboardDevice.ProcessRawEvent 沿视觉父链处理,
         // 时机在 KeyDown 路由事件被 raise 之前,连 Tunnel 都拦不住它
-        if (AcceptSkillCandidate()) return;
+        if (Palette.AcceptSkillCandidate()) return;
 
         string text = InputText.Trim();
         if (string.IsNullOrEmpty(text)) return;
@@ -98,88 +100,16 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private void InputExtra()
     {
         // Tab 同理:补全开着时先采纳候选,否则会去切 plan/execute 模式
-        if (AcceptSkillCandidate()) return;
+        if (Palette.AcceptSkillCandidate()) return;
         OnInputExtra();
     }
 
-    //================= 附件 =================
-
-    /// <summary>添加文件附件</summary>
-    public void AddAttachmentPath(string path)
-    {
-        if (string.IsNullOrEmpty(path)) return;
-        Attachments.Add(new ConversationAttachment
-        {
-            FilePath = path,
-            FileName = Path.GetFileName(path),
-            MediaType = GetMediaType(path),
-        });
-    }
-
-    /// <summary>添加内存字节附件(如粘贴图片)</summary>
-    public void AddAttachmentBytes(byte[] bytes, string mediaType = "image/png", string? fileName = null)
-    {
-        if (bytes == null || bytes.Length == 0) return;
-        Attachments.Add(new ConversationAttachment
-        {
-            Bytes = bytes,
-            FileName = fileName ?? $"pasted_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png",
-            MediaType = mediaType,
-        });
-    }
-
-    [RelayCommand]
-    private void RemoveAttachment(ConversationAttachment item)
-    {
-        Attachments.Remove(item);
-    }
-
-    [RelayCommand]
-    private void PreviewAttachment(ConversationAttachment item)
-    {
-        // 非图片文件:打开其所在目录
-        if (!item.IsImage)
-        {
-            if (!string.IsNullOrEmpty(item.FilePath))
-                App.FilesService.OpenFolder(Path.GetDirectoryName(item.FilePath) ?? item.FilePath);
-            return;
-        }
-
-        Bitmap? bitmap = null;
-        try
-        {
-            if (item.Bytes != null)
-            {
-                using var stream = new MemoryStream(item.Bytes);
-                bitmap = new Bitmap(stream);
-            }
-            else if (!string.IsNullOrEmpty(item.FilePath) && File.Exists(item.FilePath))
-            {
-                bitmap = new Bitmap(item.FilePath);
-            }
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Preview attachment failed '{item.FileName}': {e.Message}");
-            return;
-        }
-
-        if (bitmap != null) UIManager.ShowPreviewImageCopyWindowAtMousePosition(bitmap);
-    }
-
-    /// <summary>根据路径推断 MIME 类型;非图片返回通用二进制类型</summary>
-    protected static string GetMediaType(string path)
-    {
-        return Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".bmp" => "image/bmp",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            _ => "application/octet-stream",
-        };
-    }
+    /// <summary>
+    /// 采纳补全候选。命令面板上那一个的转发——回车与 Tab 的改道点必须留在本类的
+    /// 命令入口上（见 <see cref="SendMessage"/>），这个转发让调用方不必绕道面板
+    /// </summary>
+    /// <returns>是否采纳了候选</returns>
+    public bool AcceptSkillCandidate() => Palette.AcceptSkillCandidate();
 
     public ObservableCollection<TodoDisplayItem> Todos { get; } = new();
 
@@ -301,7 +231,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     private CancellationTokenSource? _prepareCancellation; //会话装配阶段的取消源,此后由 TurnDriver 接手
     private bool _isPreparing; //正在装配会话(此时 TurnDriver 还没开始跑)
-    private readonly List<string> _pendingOwnedFiles = new();
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
@@ -310,9 +239,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly TurnUsageLedger _usage = new(); //token 账本
-
-    /// <summary>手动压缩命令</summary>
-    public const string CompactCommand = "/compact";
 
     /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
     public ContextUsageViewData ContextUsage { get; } = new();
@@ -350,6 +276,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     public ConversationViewModel()
     {
+        // 两个子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
+        // 命令面板要能改写输入框并读当前角色
+        Tray = new AttachmentTrayViewData(() => CurrentSession);
+        Palette = new CommandPaletteViewData(text => InputText = text, () => SessionCharacter);
+
         _transcript = new ConversationTranscript(Items, CreateAssistantItem,
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
             () => CurrentSession?.WorkspacePath);
@@ -669,20 +600,13 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         if (!string.IsNullOrEmpty(WorkspacePath)) App.FilesService.OpenFolder(WorkspacePath);
     }
 
-    [RelayCommand]
-    private async Task AddAttachment()
-    {
-        var file = await App.FilesService.OpenFileAsync(UIManager.GetFocusWindow());
-        string? path = file?.TryGetLocalPath();
-        if (!string.IsNullOrEmpty(path)) AddAttachmentPath(path);
-    }
-
     //================= 发送与运行循环 =================
 
     private async Task SendCoreAsync(string text)
     {
         // 手动压缩:任务的自然边界由你比水位更清楚,在边界上压缩,交接文档质量高得多
-        if (string.Equals(text.Trim(), CompactCommand, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(text.Trim(), CommandPaletteViewData.CompactCommand,
+                StringComparison.OrdinalIgnoreCase))
         {
             if (!IsGenerating && CurrentSession is { } current)
             {
@@ -711,16 +635,15 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        List<ConversationAttachment>? attachments = Attachments.Count > 0 ? Attachments.ToList() : null;
-        Attachments.Clear();
-        CloseSkillPicker();
+        List<ConversationAttachment>? attachments = Tray.TakePending();
+        Palette.CloseSkillPicker();
 
         // 点名调用:/技能名 [参数]。技能正文直接进本轮并常驻历史,气泡只显示用户敲的那一行。
         // 见 docs/adr/0001——框架的 load_skill 取不到退出模型自选的技能,所以不走它
-        SkillInvocation? invocation = await TryBuildSkillInvocationAsync(text);
+        SkillInvocation? invocation = await Palette.TryBuildSkillInvocationAsync(text);
 
-        ChatMessage userMessage = BuildUserMessage(invocation?.InjectedText ?? text, attachments);
-        if (invocation != null) MarkNamedSkill(userMessage, invocation, text);
+        ChatMessage userMessage = Tray.BuildUserMessage(invocation?.InjectedText ?? text, attachments);
+        if (invocation != null) NamedSkillAnnotations.Mark(userMessage, invocation, text);
 
         Items.Add(CreateUserItem(text, userMessage, attachments));
         ScrollToEnd = true;
@@ -864,7 +787,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             using (SessionManager.Instance.Running.BeginRun(CurrentMeta?.SessionId))
             {
                 session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
-                FlushOwnedFiles();
+                Tray.FlushOwnedFiles();
             }
 
             // 交接给运行侧:它在返回之前就同步登记好了运行态,两段之间没有空窗
@@ -978,72 +901,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         session.WorkspacePath = CurrentMeta.WorkspacePath;
         session.PermissionModeIndex = CurrentMeta.PermissionModeIndex;
         session.SaveMeta(); //只动头字段,不必重写整份历史
-    }
-
-    private ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
-    {
-        if (attachments == null || attachments.Count == 0) return new ChatMessage(ChatRole.User, text);
-
-        // 带图片时在此处主动解析一次视觉模型:当前模型不支持识图才切到偏好的视觉模型
-        // (写回 CurrentRunningModel,后续 LazyChatClient 直接使用)。
-        // 不能指望发送链路下游——LazyChatClient 只在无模型时按 isVision=false 兜底,
-        // 会挑中不支持识图的偏好模型;找不到视觉模型则维持原状,走路径引用 + ask_vision 降级。
-        //
-        // 判定必须走会话绑定的模型(与 SessionModelLabel / LazyChatClient 同口径):
-        // TryCheckModelRunning 只认全局当前模型,原先无条件调用等于把用户在本会话里
-        // 选定的视觉模型整个绕开,发图时被无声换掉
-        ModelRunningData? effectiveModel = CurrentSession?.ChatModelRunningData
-                                           ?? LlmManager.Instance.CurrentRunningModel;
-        bool isVision = effectiveModel?.IsVisionModel == true;
-        if (!isVision && attachments.Any(x => x.IsImage))
-        {
-            LlmManager.Instance.TryCheckModelRunning(true);
-            ModelRunningData? switched = LlmManager.Instance.CurrentRunningModel;
-            isVision = switched?.IsVisionModel == true;
-            // 换人这件事必须留痕:模型能力差异很大,静默切换会让"行为突然变了"无法归因
-            if (isVision && switched != effectiveModel)
-            {
-                Log.Warning($"Switched to vision model '{switched?.ModelName}' to send an image " +
-                            $"(was '{effectiveModel?.ModelName}').");
-            }
-        }
-        List<AIContent>? contents = isVision ? new() { new TextContent(text) } : null;
-        List<string> fileReferences = new();
-
-        foreach (ConversationAttachment attachment in attachments)
-        {
-            // 仅图片且为视觉模型时内联字节;其余文件一律以路径文本引用
-            if (isVision && attachment.IsImage)
-            {
-                try
-                {
-                    byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
-                    // 只缩发出去的那一份:磁盘附件与界面预览仍是原图,ask_vision 拿到的也还是原文件
-                    (byte[] inlineBytes, string inlineType) =
-                        ConversationImageDownscaler.Downscale(data, attachment.MediaType);
-                    contents!.Add(new DataContent(inlineBytes, inlineType));
-                }
-                catch (Exception e)
-                {
-                    Log.Warning($"Attachment load failed '{attachment.FileName}': {e.Message}");
-                    fileReferences.Add(ReferenceOf(attachment));
-                }
-            }
-            else
-            {
-                fileReferences.Add(ReferenceOf(attachment));
-            }
-        }
-
-        if (isVision && (contents!.Count > 1 || fileReferences.Count == 0))
-        {
-            if (fileReferences.Count > 0)
-                contents.Add(new TextContent(string.Join('\n', fileReferences.Select(x => $"[Attached file: {x}]"))));
-            return new ChatMessage(ChatRole.User, contents);
-        }
-
-        string reference = string.Join('\n', fileReferences.Select(x => $"[Attached file: {x}]"));
-        return new ChatMessage(ChatRole.User, $"{text}\n{reference}");
     }
 
     //================= 加载与回放 =================
@@ -1261,7 +1118,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         item.SourceMessage = source;
         // 点名调用的气泡显示的是 /技能名 那一行,而消息正文是注入的技能全文;
         // 放开编辑会把正文改写成那一行,当场毁掉注入内容
-        if (NamedSkillInputOf(source) == null) item.EditedCallback = OnItemEdited;
+        if (NamedSkillAnnotations.InputOf(source) == null) item.EditedCallback = OnItemEdited;
         item.DeleteCallback = OnItemDeleted;
         item.BranchCallback = OnItemBranch;
         // 重试语义是"从这条用户输入起重新生成",因此只挂在用户消息上
@@ -1305,7 +1162,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
 
     partial void OnInputTextChanged(string value)
     {
-        _ = RefreshSkillCandidatesAsync(value); //点名补全:仅在整行以 / 开头且技能名未写完时弹出
+        _ = Palette.RefreshSkillCandidatesAsync(value); //点名补全:仅在整行以 / 开头且技能名未写完时弹出
 
         int version = ++_inputCountVersion;
         if (string.IsNullOrEmpty(value))
@@ -1424,54 +1281,6 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         _ = RunTurnAsync(input, DisplayTextOf(input));
     }
 
-    /// <summary>
-    /// 附件的文本引用。粘贴来的图片会先落盘再引用其路径——否则模型只会收到一个
-    /// 自动生成的文件名，既没有内容也没有可读取的位置，识图工具也用不了它。
-    /// </summary>
-    private string ReferenceOf(ConversationAttachment attachment)
-    {
-        string? path = attachment.ResolveFilePath();
-        if (path == null) return attachment.FileName;
-
-        // 只有应用自己落盘的文件才登记为会话所有物;用户从磁盘选的原始文件不能跟着会话被删
-        if (attachment.IsInMemory) _pendingOwnedFiles.Add(path);
-        return path;
-    }
-
-    /// <summary>
-    /// 把本轮落盘的附件登记到会话上。首轮发送时会话还不存在
-    /// (EnsureSessionAsync 在 RunTurnAsync 内部才建会话)，所以先攒着，会话就绪后再写入。
-    /// </summary>
-    private void FlushOwnedFiles()
-    {
-        if (_pendingOwnedFiles.Count == 0) return;
-
-        ChatSession? session = CurrentSession;
-        if (session != null)
-        {
-            session.OwnedAttachmentFiles.AddRange(_pendingOwnedFiles);
-            session.SaveMeta(); //附件清单是头字段
-        }
-
-        _pendingOwnedFiles.Clear();
-    }
-
-    private static ReadOnlyMemory<byte> ReadAttachmentBytes(ConversationAttachment attachment)
-    {
-        if (attachment.Bytes != null) return attachment.Bytes;
-        try
-        {
-            return string.IsNullOrEmpty(attachment.FilePath)
-                ? ReadOnlyMemory<byte>.Empty
-                : File.ReadAllBytes(attachment.FilePath);
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"Read attachment failed '{attachment.FileName}': {e.Message}");
-            return ReadOnlyMemory<byte>.Empty;
-        }
-    }
-
     private static bool HasImage(ChatMessage message)
     {
         return message.Contents.OfType<DataContent>().Any(x => x.HasTopLevelMediaType("image"));
@@ -1526,160 +1335,10 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         }
     }
 
-    //================= 点名调用(/技能名) =================
-
-    /// <summary>/ 补全的候选技能;敲空格进入参数后收起</summary>
-    public ObservableCollection<SkillCatalogEntry> SkillCandidates { get; } = new();
-
-    /// <summary>补全采纳后触发。VM 不碰控件,由宿主把焦点与光标交还输入框末尾</summary>
-    public event Action? SkillCandidateAccepted;
-
-    [ObservableProperty] private bool _isSkillPickerOpen;
-    [ObservableProperty] private int _skillCandidateIndex;
-
-    private List<SkillCatalogEntry>? _skillCandidateCache; //一次点名期间复用,不每敲一个字读盘
-    private int _skillPickerVersion;
-
-    /// <summary>
-    /// 上下移动候选选择(补全开着时由输入框按键驱动)
-    /// </summary>
-    /// <param name="delta">移动量,可为负</param>
-    public void MoveSkillSelection(int delta)
-    {
-        if (!IsSkillPickerOpen || SkillCandidates.Count == 0) return;
-        int count = SkillCandidates.Count;
-        SkillCandidateIndex = (SkillCandidateIndex + delta % count + count) % count;
-    }
-
-    /// <summary>
-    /// 采纳当前候选:把输入补成 "/技能名 ",随即进入写参数状态
-    /// </summary>
-    /// <returns>是否采纳了候选(未开启或无候选时为 false,调用方据此决定是否改走原本的行为)</returns>
-    public bool AcceptSkillCandidate()
-    {
-        if (!IsSkillPickerOpen) return false;
-        if (SkillCandidateIndex < 0 || SkillCandidateIndex >= SkillCandidates.Count) return false;
-
-        InputText = $"/{SkillCandidates[SkillCandidateIndex].Name} ";
-        CloseSkillPicker();
-        SkillCandidateAccepted?.Invoke();
-        return true;
-    }
-
-    /// <summary>收起补全</summary>
-    public void CloseSkillPicker()
-    {
-        _skillPickerVersion++;
-        _skillCandidateCache = null;
-        IsSkillPickerOpen = false;
-        SkillCandidates.Clear();
-    }
-
-    private async Task RefreshSkillCandidatesAsync(string value)
-    {
-        if (!SkillInvocation.TryParsePrefix(value, out string prefix))
-        {
-            if (IsSkillPickerOpen) CloseSkillPicker();
-            return;
-        }
-
-        int version = ++_skillPickerVersion;
-        // 技能只在 agent 会话有意义(扮演档工具集为空,注入过去只会让模型去调不存在的工具);
-        // 内置命令则各档都有——压缩对角色扮演的长对话同样生效
-        List<SkillCatalogEntry> all = [];
-        if (IsAgentSession)
-        {
-            all = _skillCandidateCache ??
-                  await SkillCatalog.Instance.GetInvocableEntriesAsync(SessionCharacter.Tools.DisabledSkills);
-            if (version != _skillPickerVersion) return; //读盘期间输入又变了,丢弃本次结果
-            _skillCandidateCache = all;
-        }
-
-        SkillCandidates.Clear();
-        // 内置命令排在最前:它们数量少且固定,混在技能里按字典序排会找不着
-        foreach (SkillCatalogEntry command in BuiltInCommands
-                     .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-        {
-            SkillCandidates.Add(command);
-        }
-
-        foreach (SkillCatalogEntry entry in all
-                     .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(x => x.Name, StringComparer.Ordinal))
-        {
-            SkillCandidates.Add(entry);
-        }
-
-        SkillCandidateIndex = 0;
-        IsSkillPickerOpen = SkillCandidates.Count > 0;
-    }
-
-    /// <summary>
-    /// 内置命令。借技能条目的形状进同一个补全列表——它们对用户是同一件事（敲 <c>/</c> 弹出来的东西），
-    /// 为一条命令另开一套列表控件与键盘导航不值当。
-    /// </summary>
-    //每次现取而不是缓存成静态字段:描述要跟着语言切换走,而静态初始化只跑一次
-    private static IReadOnlyList<SkillCatalogEntry> BuiltInCommands =>
-    [
-        new()
-        {
-            Name = CompactCommand[1..], //列表里存的是不带斜杠的名字
-            Description = LocalizationManager.Instance.GetString("CompactCommandDescription"),
-        },
-    ];
-
-    /// <summary>
-    /// 组装点名调用。只在 agent 会话开放——技能正文多在指挥工具,
-    /// 而角色扮演档工具集为空,注入过去只会让模型去调不存在的工具。
-    /// </summary>
-    /// <param name="text">用户输入的整行</param>
-    /// <returns>调用产物;不是点名调用、或技能不存在/已禁用时为 null</returns>
-    private async Task<SkillInvocation?> TryBuildSkillInvocationAsync(string text)
-    {
-        if (!IsAgentSession || !SkillInvocation.TryParse(text, out string skillName, out string arguments))
-        {
-            return null;
-        }
-
-        return await SkillCatalog.Instance.TryBuildInvocationAsync(skillName, arguments,
-            SessionCharacter.Tools);
-    }
-
-    /// <summary>
-    /// 给消息打上点名调用标记。用的是专门的键而非 _attribution——
-    /// 后者会让消息不落盘,而点名调用的正文必须常驻历史才能持续生效。
-    /// </summary>
-    /// <param name="message">用户消息(正文已是注入内容)</param>
-    /// <param name="invocation">调用产物</param>
-    /// <param name="input">用户原样输入的那一行</param>
-    private static void MarkNamedSkill(ChatMessage message, SkillInvocation invocation, string input)
-    {
-        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
-        message.AdditionalProperties[ChatMessageAnnotations.NamedSkill] = invocation.SkillName;
-        message.AdditionalProperties[ChatMessageAnnotations.NamedSkillInput] = input;
-    }
-
-    /// <summary>
-    /// 取点名调用消息里用户原样输入的那一行。落盘往返后值会变成 JsonElement,
-    /// 因此一律经 ToString 读取,不能强转 string。
-    /// </summary>
-    /// <param name="message">消息</param>
-    /// <returns>用户输入;不是点名调用消息则为 null</returns>
-    private static string? NamedSkillInputOf(ChatMessage message)
-    {
-        if (message.AdditionalProperties?.TryGetValue(ChatMessageAnnotations.NamedSkillInput, out object? value) != true)
-        {
-            return null;
-        }
-
-        string? input = value?.ToString();
-        return string.IsNullOrEmpty(input) ? null : input;
-    }
-
     /// <summary>条目与标题用的显示文本:点名调用取用户敲的那一行,其余取消息正文</summary>
     private static string DisplayTextOf(ChatMessage message)
     {
-        return NamedSkillInputOf(message) ?? message.Text;
+        return NamedSkillAnnotations.InputOf(message) ?? message.Text;
     }
 
     //================= 条目构造 =================
@@ -1700,7 +1359,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         };
 
         // 点名调用:消息正文是注入的技能全文,气泡只显示用户敲的那一行,正文折叠备查
-        if (source != null && NamedSkillInputOf(source) is { } typedLine)
+        if (source != null && NamedSkillAnnotations.InputOf(source) is { } typedLine)
         {
             item.Message = typedLine;
             item.InjectedText = source.Text;
@@ -1725,7 +1384,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         if (attachments == null) return item;
         foreach (ConversationAttachment attached in attachments.Where(x => x.IsImage))
         {
-            item.AddImage(ReadAttachmentBytes(attached));
+            item.AddImage(AttachmentTrayViewData.ReadAttachmentBytes(attached));
         }
 
         return item;
