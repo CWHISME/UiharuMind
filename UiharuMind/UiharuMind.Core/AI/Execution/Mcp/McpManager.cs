@@ -629,6 +629,11 @@ public class McpManager : Singleton<McpManager>, IInitialize
     ///
     /// 被同名覆盖掉的全局 server <b>也在列表里</b>（<c>IsShadowed</c>），因为覆盖是这套设计里
     /// 唯一一条会让「我明明配了却没生效」发生的规则，藏起来省的那一行不值。
+    ///
+    /// <b>未托管的整条不出现</b>（连它被覆盖的孪生条目一起）。这一栏其余三个「没挂上」的理由
+    /// ——被覆盖、待授权、被角色禁用——都是会话级且能就地处理的；而托管开关按 ADR 0008
+    /// 是<b>资源层</b>的全局设置，跟这次会话、这个角色、这个工作区都无关。把它摆进能力面板，
+    /// 等于让用户在每个会话里重看一遍自己早已关掉的东西，也正是 0008 要消除的「要查两处」。
     /// </summary>
     /// <param name="workspacePath">会话绑定的工作区；空表示未绑定</param>
     /// <param name="disabledServers">本角色禁用的 server 名单</param>
@@ -640,6 +645,9 @@ public class McpManager : Singleton<McpManager>, IInitialize
         List<McpPlannedServer> planned = new();
         foreach (EffectiveMcpServer effective in GetEffectiveServers(workspacePath))
         {
+            // 胜出者不托管则整组跳过:只留下一条"我被覆盖了"却看不见覆盖谁,比不显示更费解
+            if (!effective.Config.IsEnabled) continue;
+
             planned.Add(Describe(effective.Config, disabled, isShadowed: false));
             // 被顶掉的那条紧跟在胜出者后面:两条并排才看得出"覆盖"这件事
             if (effective.Shadowed != null)
