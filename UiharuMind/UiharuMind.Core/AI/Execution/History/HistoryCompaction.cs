@@ -10,6 +10,7 @@
 using System.Text;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.AI.Execution.History;
 
@@ -57,27 +58,54 @@ public static class HistoryCompaction
     }
 
     /// <summary>
+    /// 历史额度：输入预算减去每轮固定开销，即<b>历史消息真正能占的那部分</b>。
+    /// 折叠与截断的水位乘在它上面，不是乘在输入预算上。
+    ///
+    /// 从前乘在输入预算上是错的，而且错得看着很合理：分子只数消息——系统提示与工具定义
+    /// 都不是消息，进不了 <c>CompactionMessageIndex</c>——分母却是全量预算。于是一套 21k 的
+    /// MCP 工具集能让截断在请求<b>早已超出上下文之后</b>才动手：128k 模型配 25.6k 固定开销时，
+    /// 旧算法的截断水位是 107827，加上固定开销已是 133427，超了 5.4k。
+    /// 这与服务端报不报得准无关，任何模型配任何大工具集都中。见 ADR 0009。
+    /// </summary>
+    /// <param name="contextLength">模型上下文窗口</param>
+    /// <param name="fixedOverhead">每轮固定开销（系统提示 + 工具定义）</param>
+    /// <returns>历史额度；固定开销已吃光预算时为 0</returns>
+    public static int HistoryQuotaFor(int contextLength, int fixedOverhead)
+    {
+        return Math.Max(0, InputBudgetFor(contextLength) - Math.Max(0, fixedOverhead));
+    }
+
+    /// <summary>
     /// 装配压缩策略
     /// </summary>
     /// <param name="contextSource">当前模型上下文窗口的来源，每次触发时现读</param>
+    /// <param name="estimate">本轮输入估算；这里读它的固定开销，并回写历史估算</param>
     /// <returns>压缩策略</returns>
-    internal static CompactionStrategy Create(Func<int> contextSource)
+    internal static CompactionStrategy Create(Func<int> contextSource, TurnInputEstimate estimate)
     {
         // 停止条件留空:框架默认取触发条件的反面,正是我们要的"压到不再触发为止"
         return new PipelineCompactionStrategy(
         [
-            new ToolResultCompactionStrategy(ExceedsFraction(contextSource, ToolEvictionThreshold)),
-            new TruncationCompactionStrategy(ExceedsFraction(contextSource, TruncationThreshold)),
+            new ToolResultCompactionStrategy(ExceedsFraction(contextSource, estimate, ToolEvictionThreshold)),
+            new TruncationCompactionStrategy(ExceedsFraction(contextSource, estimate, TruncationThreshold)),
         ]);
     }
 
-    // 预算未知(没有模型在跑)时一律不压缩:此时请求本来就发不出去,压缩只会白白毁掉历史
-    private static CompactionTrigger ExceedsFraction(Func<int> contextSource, double fraction)
+    // 额度为 0 时一律不压缩——两种成因:预算未知(没有模型在跑),或固定开销自己就吃光了预算。
+    // 两种情况下请求本来就发不出去,压缩只会白白毁掉历史
+    private static CompactionTrigger ExceedsFraction(Func<int> contextSource, TurnInputEstimate estimate,
+        double fraction)
     {
         return index =>
         {
-            int budget = InputBudgetFor(contextSource());
-            return budget > 0 && CorrectedTokenCount(index) > budget * fraction;
+            // 顺手记下:这里本就要算一遍,而交接文档水位要拿它与服务端报的数取大(见 ADR 0009)。
+            // 截断靠"排除一组 → 重问一次条件"收敛,所以最后落下的是压完之后的值——
+            // 那正是本轮真会发出去的历史大小,比压之前的数更该用
+            long history = CorrectedTokenCount(index);
+            estimate.LastHistory = history;
+
+            int quota = HistoryQuotaFor(contextSource(), estimate.FixedOverhead);
+            return quota > 0 && history > quota * fraction;
         };
     }
 

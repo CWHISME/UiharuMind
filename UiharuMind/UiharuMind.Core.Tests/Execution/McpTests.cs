@@ -344,4 +344,25 @@ public class McpTests
 
         Assert.Equal(["github", "unity"], result.Order());
     }
+
+    /// <summary>
+    /// 「这一轮该管哪些 server」只有一处定义，预连与装配共用。
+    ///
+    /// 两条闸门是分开的：托管是连接层（全局，要不要为它拉起进程），禁用是能力层
+    /// （按角色，这个智能体能不能用它）。任一关着都不该管——曾经预连只看托管，
+    /// 于是角色禁掉的 server 照样被拉起子进程、照样等满超时，工具取回后再被丢掉。
+    /// </summary>
+    [Theory]
+    [InlineData(true, null, true)] //托管开着、没禁:该管
+    [InlineData(false, null, false)] //没托管
+    [InlineData(true, "unity", false)] //托管着但本角色禁了:不该为它起进程、也不该等
+    [InlineData(true, "UNITY", false)] //名单不区分大小写
+    [InlineData(true, "github", true)] //禁的是别人
+    public void IsInPlay_RequiresBothHostingAndAvailability(bool enabled, string? disabledName, bool expected)
+    {
+        McpServerConfig server = new() { Name = "unity", IsEnabled = enabled };
+        HashSet<string> disabled = McpManager.DisabledSet(disabledName == null ? null : [disabledName]);
+
+        Assert.Equal(expected, McpManager.IsInPlay(server, disabled));
+    }
 }

@@ -190,16 +190,14 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// <returns>工具集、分组明细与自述</returns>
     public McpToolSet Resolve(IEnumerable<string>? disabledServers = null)
     {
-        HashSet<string> disabled = disabledServers == null
-            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(disabledServers, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> disabled = DisabledSet(disabledServers);
 
         List<ResolvedMcpServer> resolved = new();
         lock (_lock)
         {
             foreach (McpServerConfig server in _servers)
             {
-                if (!server.IsEnabled || disabled.Contains(server.Name)) continue;
+                if (!IsInPlay(server, disabled)) continue;
 
                 McpServerRuntime runtime = GetRuntimeLocked(server.Name);
                 if (runtime.Tools == null)
@@ -225,22 +223,33 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// 超时不算错：那一轮照旧不带它走，后台连接继续，下一轮自然带上，
     /// 而能力面板会把它显示成未连接。退避中（连过且失败过）的 server 不会拖住这里——
     /// 它们的刷新任务早已结束，等于不等。
+    ///
+    /// <b>禁用名单与 <see cref="Resolve"/> 取同一份</b>：这一轮注定挂不上的 server，
+    /// 既不该为它拉起子进程，也不该为它等。分开传两份名单的话，两者迟早分叉——
+    /// 曾经这里压根不看名单，于是角色明明禁掉了某个 server，第一轮发送仍要为它等满超时，
+    /// 工具取回后再被 <see cref="Resolve"/> 原样丢掉。
     /// </summary>
+    /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0008）</param>
     /// <param name="cancellationToken">取消令牌</param>
-    public async Task WarmupAsync(CancellationToken cancellationToken = default)
+    public async Task WarmupAsync(IEnumerable<string>? disabledServers = null,
+        CancellationToken cancellationToken = default)
     {
+        HashSet<string> disabled = DisabledSet(disabledServers);
+
         List<Task> pending = new();
         lock (_lock)
         {
             foreach (McpServerConfig server in _servers)
             {
-                if (!server.IsEnabled) continue;
+                if (!IsInPlay(server, disabled)) continue;
 
                 McpServerRuntime runtime = GetRuntimeLocked(server.Name);
                 if (runtime.Tools != null) continue; //已经取回,不必再等
 
                 KickRefreshLocked(server, force: false);
-                if (runtime.RefreshTask is { } task) pending.Add(task);
+                // 退避中的不会有新任务,而留在运行态上的是上一次那个已完成的任务——等它等于不等。
+                // 但那样 pending 非空会让预连提示白闪一帧,所以只把真正没跑完的算进来
+                if (runtime.RefreshTask is { IsCompleted: false } task) pending.Add(task);
             }
         }
 
@@ -301,6 +310,32 @@ public class McpManager : Singleton<McpManager>, IInitialize
         }
 
         await RefreshServerAsync(server, cancellationToken).ConfigureAwait(false);
+    }
+
+    //================= 本轮该管哪些 server =================
+
+    /// <summary>
+    /// 这一轮要不要管这个 server：<b>托管</b>开着（连接层，全局一份），
+    /// 且没被本角色<b>禁用</b>（能力层，按角色，见 ADR 0008）。
+    ///
+    /// <see cref="Resolve"/> 与 <see cref="WarmupAsync"/> 共用这一处：预连要等的与装配要挂的
+    /// 必须是同一批。曾经分开写，结果 <c>WarmupAsync</c> 只看托管——角色明明禁掉的 server
+    /// 照样被拉起子进程、照样等满超时，取回的工具再被 <see cref="Resolve"/> 原样丢掉。
+    /// </summary>
+    /// <param name="server">server 配置</param>
+    /// <param name="disabled">本角色禁用的 server 名单</param>
+    /// <returns>该管为 true</returns>
+    internal static bool IsInPlay(McpServerConfig server, HashSet<string> disabled)
+    {
+        return server.IsEnabled && !disabled.Contains(server.Name);
+    }
+
+    /// 名单一律不区分大小写:server 名是用户手写进 json 的,大小写不该成为一次静默失配
+    internal static HashSet<string> DisabledSet(IEnumerable<string>? names)
+    {
+        return names == null
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
     }
 
     //================= 连接与刷新 =================

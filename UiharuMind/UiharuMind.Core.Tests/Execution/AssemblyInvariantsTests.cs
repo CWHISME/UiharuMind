@@ -62,7 +62,7 @@ public class PromptOnlyZeroInjectionTests
         Assert.True(without.DisableCompaction);
         Assert.Null(without.CompactionStrategy);
 
-        CompactionStrategy strategy = HistoryCompaction.Create(() => 128_000);
+        CompactionStrategy strategy = HistoryCompaction.Create(() => 128_000, new TurnInputEstimate());
         HarnessAgentOptions with = AgentOptionsFactory.BuildPromptOnlyOptions(
             character, new StubHistoryProvider(), [], new ChatOptions(), strategy);
         Assert.False(with.DisableCompaction);

@@ -92,7 +92,10 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         // 而这个应用还有截图、剪贴板、快捷问答一堆与 MCP 无关的功能(见 McpManager.WarmupAsync)
         if (profile.Character.Kind.IsAgent())
         {
-            await McpManager.Instance.WarmupAsync(cancellationToken).ConfigureAwait(false);
+            // 名单与下面 Resolve 用的是同一份:这一轮挂不上的 server 不值得为它起进程、也不值得等
+            await McpManager.Instance
+                .WarmupAsync(profile.Character.Tools.DisabledMcpServers, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         AgentAssemblyFacts snapshot = AgentAssemblyFacts.Capture(profile);
@@ -294,10 +297,10 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public AgentCapabilitySnapshot GetCapabilities()
     {
         AgentHandle? handle = _handle;
-        return handle == null
-            ? AgentCapabilitySnapshot.Empty
-            : AgentCapabilitySnapshot.Capture(handle.ToolEntries, handle.Mcp, handle.PromptSegments);
+        return handle?.Capabilities ?? AgentCapabilitySnapshot.Empty;
     }
+
+    public TurnInputEstimate? InputEstimate => _handle?.InputEstimate;
 
     public async Task<IReadOnlyList<TodoSnapshot>> GetTodosAsync()
     {

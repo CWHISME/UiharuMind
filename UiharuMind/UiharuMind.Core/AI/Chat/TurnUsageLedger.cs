@@ -23,11 +23,35 @@ public sealed class TurnUsageLedger
     public long TurnInput { get; private set; }
 
     /// <summary>
-    /// 最近一次响应的输入 token。这是**上下文占用**的口径——服务端实际吃进去多少，
-    /// 压缩之后的真实结果，比任何本地估算都准。不能拿 <see cref="TurnInput"/> 顶替：
+    /// <b>报告占用</b>：最近一次响应里服务端报的输入 token。不能拿 <see cref="TurnInput"/> 顶替：
     /// 那是本轮累加值，一轮十几次工具往返能累到四十几万，与占用无关。
+    ///
+    /// ⚠️ 这个数<b>不一定是全量</b>。实测 GLM4-Flash 的 <c>prompt_tokens</c> 不含工具定义，
+    /// 少报近一半。要判断「还剩多少空间」一律用 <see cref="EffectiveInput"/>；
+    /// 这一个只用于记账与进度条上「服务端说的那一段」。见 ADR 0009。
     /// </summary>
     public long LastInput { get; private set; }
+
+    /// <summary>
+    /// 我们自己估的本轮输入（固定开销 + 历史），由执行侧每次记账时写入。
+    /// 0 表示还没估过（没装配过，或不走 harness 的形态）。
+    /// </summary>
+    public long EstimatedInput { get; set; }
+
+    /// <summary>
+    /// <b>有效占用</b>：报告占用与我们的估算取大，是「还剩多少空间」的唯一口径。
+    ///
+    /// 取大的方向是有意的，因为两侧代价不对称：晚压一步是请求撞上下文上限直接失败、
+    /// 通常发生在 agent 跑了十几轮工具之后，那一轮全废；早压一步只是多写一次交接文档。
+    /// </summary>
+    public long EffectiveInput => Math.Max(LastInput, EstimatedInput);
+
+    /// <summary>
+    /// 服务端未计入的那部分（有效占用减去报告占用）。进度条画成第二段——
+    /// 服务端的数原样显示可对账，差额标为「未计入」而不是被抹掉或被顶替。
+    /// 两者口径一致时恒为 0，那一段也就不出现。
+    /// </summary>
+    public long UnreportedInput => Math.Max(0, EstimatedInput - LastInput);
 
     /// <summary>当前模型的上下文窗口，0 表示未知（占用段整段省略）</summary>
     public int ContextLength { get; set; }
@@ -120,6 +144,7 @@ public sealed class TurnUsageLedger
         TurnInput = 0;
         TurnOutput = 0;
         LastInput = 0; //占用是「这个会话现在多满」,换会话必须清掉,否则会挂着上一个会话的数
+        EstimatedInput = 0; //同理:它是另一半口径,留着会让新会话一开始就顶着旧会话的固定开销
         LastCachedInput = 0;
         SessionInput = 0;
         SessionOutput = 0;

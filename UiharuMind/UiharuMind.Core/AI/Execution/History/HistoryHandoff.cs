@@ -84,13 +84,13 @@ public static class HistoryHandoff
     /// <summary>
     /// 是否该写交接文档了
     /// </summary>
-    /// <param name="lastInput">最近一次响应的输入 token（服务端给的真实占用）</param>
+    /// <param name="effectiveInput">有效占用（报告占用与我们的估算取大，见 <c>TurnUsageLedger</c>）</param>
     /// <param name="contextLength">当前模型的上下文上限</param>
     /// <returns>达到水位为 true</returns>
-    public static bool ShouldWrite(long lastInput, int contextLength)
+    public static bool ShouldWrite(long effectiveInput, int contextLength)
     {
         int budget = HistoryCompaction.InputBudgetFor(contextLength);
-        return budget > 0 && lastInput > budget * Threshold;
+        return budget > 0 && effectiveInput > budget * Threshold;
     }
 
     /// <summary>

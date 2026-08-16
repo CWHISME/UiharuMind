@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -102,6 +103,13 @@ public interface ICharacterRunner : IAsyncDisposable
     /// </summary>
     /// <returns>能力快照</returns>
     AgentCapabilitySnapshot GetCapabilities() => AgentCapabilitySnapshot.Empty;
+
+    /// <summary>
+    /// 我们自己估的本轮输入（固定开销 + 历史），与服务端报的取大即<b>有效占用</b>。
+    /// 默认 null——不走 harness 的形态没有装配产物，取大时等于只信服务端那个数，
+    /// 即本条引入之前的行为。见 ADR 0009
+    /// </summary>
+    TurnInputEstimate? InputEstimate => null;
 
     /// <summary>
     /// 运行中插话：把消息投入注入队列，agent 下一次机会消费

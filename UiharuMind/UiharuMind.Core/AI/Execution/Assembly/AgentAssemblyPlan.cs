@@ -71,6 +71,12 @@ internal sealed class AgentAssemblyPlan
     /// <summary>历史压缩策略；为 null 表示不压缩</summary>
     public CompactionStrategy? Compaction { get; init; }
 
+    /// <summary>
+    /// 本轮输入估算。压缩策略读它的固定开销、回写历史估算；装配末尾绑定到句柄。
+    /// 与 <see cref="Compaction"/> 是同一次构造出来的一对，见 <see cref="TurnInputEstimate"/>
+    /// </summary>
+    public TurnInputEstimate InputEstimate { get; init; } = new();
+
     /// <summary>驱动整个装配的角色</summary>
     public CharacterData Character => Profile.Character;
 
@@ -88,15 +94,18 @@ internal sealed class AgentAssemblyPlan
     public static AgentAssemblyPlan Resolve(AgentBuildProfile profile)
     {
         // 压缩阈值现读当前模型的上下文上限,与 LazyChatClient 取模型的口径完全一致:
-        // agent 只在切工作区/权限档时重建,而模型随时可切,写死在构建期就会留下过期预算
-        CompactionStrategy compaction = HistoryCompaction.Create(() => CurrentModel(profile)?.ContextLength ?? 0);
+        // agent 只在切工作区/权限档时重建,而模型随时可切,写死在构建期就会留下过期预算。
+        // 固定开销此刻还算不出来(它含系统提示,而提示是装配现场拼的),故经盒子迟到绑定
+        TurnInputEstimate estimate = new();
+        CompactionStrategy compaction =
+            HistoryCompaction.Create(() => CurrentModel(profile)?.ContextLength ?? 0, estimate);
 
         // 非智能体档不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)。
         // 这里曾写作 == Roleplay:两档时代"非扮演即 agent"成立,
         // 四档之后工具人与用户卡会掉进 agent 分支,被装上文件/shell/技能与整套 harness
         if (!profile.Character.Kind.IsAgent())
         {
-            return new AgentAssemblyPlan { Profile = profile, Compaction = compaction };
+            return new AgentAssemblyPlan { Profile = profile, Compaction = compaction, InputEstimate = estimate };
         }
 
         AgentToolConfig config = profile.Character.Tools;
@@ -104,6 +113,7 @@ internal sealed class AgentAssemblyPlan
         {
             Profile = profile,
             Compaction = compaction,
+            InputEstimate = estimate,
             WorkingDirectory = profile.WorkspacePath ?? GetScratchDirectory(),
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),

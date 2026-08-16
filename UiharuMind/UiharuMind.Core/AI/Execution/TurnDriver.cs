@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Models;
@@ -46,6 +47,7 @@ public sealed class TurnDriver : IDisposable
     private ChatSession? _activeSession; //本轮的会话,退出收尾要靠它
     private bool _isRunning;
     private bool _isCompacting;
+    private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
     /// <summary>本轮是否正在跑</summary>
     public bool IsRunning
@@ -104,6 +106,7 @@ public sealed class TurnDriver : IDisposable
         // 思考力度随本次异步流下发到 HTTP 层(SDK 无逐请求参数通道)
         LlmRequestContext.ThinkingMode = thinkingMode;
         _usage.BeginTurn();
+        _ratioLogged = false;
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析
         _runCancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = _runCancellation.Token;
@@ -130,7 +133,7 @@ public sealed class TurnDriver : IDisposable
                     await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
                     {
                         if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
-                        if (content is UsageContent usage) RecordUsage(session, usage.Details);
+                        if (content is UsageContent usage) RecordUsage(session, runner, usage.Details);
                         _sink?.Apply(content);
                     }
                 }
@@ -249,8 +252,9 @@ public sealed class TurnDriver : IDisposable
     /// 累计值记在本体上，随轮末的历史保存一并落盘。
     /// </summary>
     /// <param name="session">当前会话</param>
+    /// <param name="runner">本轮执行者，向它取我们自己那份估算</param>
     /// <param name="details">服务端报的这一次用量</param>
-    private void RecordUsage(ChatSession session, UsageDetails details)
+    private void RecordUsage(ChatSession session, ICharacterRunner runner, UsageDetails details)
     {
         // 前缀缓存到底有没有生效,只能看服务端报的这个数——推理不出来。
         // 键名先打出来认一次:各家不同,MEAI 映射后还会再改一次名
@@ -261,10 +265,37 @@ public sealed class TurnDriver : IDisposable
         }
 
         (long input, long output) = _usage.Add(details);
+        _usage.EstimatedInput = runner.InputEstimate?.Total ?? 0;
         session.TotalInputTokens += input;
         session.TotalOutputTokens += output;
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
+        LogUsageRatio(runner);
         _notify?.Invoke(new TurnNotice(ETurnNotice.UsageObserved));
+    }
+
+    /// <summary>
+    /// 报告占用与我们的估算之比越界时记一条。
+    ///
+    /// 两个方向都要能看见，而 <c>EffectiveInput</c> 取大之后差异就被吞掉了：偏低说明服务端少报
+    /// （GLM 那次约 0.48），偏高说明我们的分词偏了——后者更该警惕，它会让交接文档一直提前触发、
+    /// 用户白丢上下文，而屏幕上什么异常都没有。当初定位 GLM 靠的正是这个比值。
+    /// 每轮至多一条：一轮十几次工具往返，每次都打就成了噪音。
+    /// </summary>
+    /// <param name="runner">本轮执行者</param>
+    private void LogUsageRatio(ICharacterRunner runner)
+    {
+        if (_ratioLogged || _usage.LastInput <= 0 || _usage.EstimatedInput <= 0) return;
+
+        double ratio = _usage.LastInput / (double)_usage.EstimatedInput;
+        if (ratio is >= 0.8 and <= 1.2) return;
+
+        _ratioLogged = true;
+        TurnInputEstimate? estimate = runner.InputEstimate;
+        Log.Debug($"Usage ratio off: server {_usage.LastInput} / ours {_usage.EstimatedInput} = {ratio:0.00} " +
+                  $"(fixed {estimate?.FixedOverhead ?? 0} + history {estimate?.LastHistory ?? 0}); " +
+                  (ratio < 1
+                      ? "server under-reports; effective usage falls back to ours"
+                      : "our estimate reads high; handoff may fire early"));
     }
 
     /// <summary>
@@ -314,7 +345,10 @@ public sealed class TurnDriver : IDisposable
             _usage.ContextLength = session.ChatModelRunningData?.ContextLength ?? 0;
         }
 
-        if (!force && !HistoryHandoff.ShouldWrite(_usage.LastInput, _usage.ContextLength)) return;
+        // 收有效占用而不是报告占用:服务端的 usage 未必含工具定义,只信它的话
+        // 在少报的服务端上这条水位永远不触发——三条里唯一能保住上下文的那条就此失效。见 ADR 0009
+        _usage.EstimatedInput = runner.InputEstimate?.Total ?? _usage.EstimatedInput;
+        if (!force && !HistoryHandoff.ShouldWrite(_usage.EffectiveInput, _usage.ContextLength)) return;
 
         int start = HistoryHandoff.SupplyStartIndex(session.History);
         // 上一份交接之后没攒下几条,再压一次只会把已经压过的东西再压一遍

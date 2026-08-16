@@ -24,6 +24,38 @@ public class HistoryHandoffTests
         Assert.True(HistoryHandoff.ShouldWrite((long)(budget * 0.81), 128_000));
     }
 
+    /// <summary>
+    /// 服务端少报时，水位必须靠我们自己的估算兜住。
+    ///
+    /// 复现 GLM4-Flash：它的 <c>prompt_tokens</c> 不含工具定义，报的约是真实的一半。
+    /// 只信报告占用的话这条水位<b>永远不触发</b>——三条水位里唯一会调模型、
+    /// 也唯一能保住上下文的那条就此失效。见 ADR 0009。
+    /// </summary>
+    [Fact]
+    public void ShouldWrite_UsesEffectiveUsageWhenServerUnderReports()
+    {
+        int budget = HistoryCompaction.InputBudgetFor(128_000);
+        long ours = (long)(budget * 0.85); //我们估的:已经过了水位
+        long reported = ours / 2; //服务端只报一半
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000, EstimatedInput = ours };
+        ledger.RestoreSession(0, 0, reported);
+
+        Assert.False(HistoryHandoff.ShouldWrite(ledger.LastInput, 128_000), "只信服务端的话这一条压根不会触发");
+        Assert.True(HistoryHandoff.ShouldWrite(ledger.EffectiveInput, 128_000));
+    }
+
+    /// <summary>服务端报得比我们估的高时以它为准——取大是两侧都兜，不是单向替换</summary>
+    [Fact]
+    public void EffectiveUsage_KeepsTheLargerSide()
+    {
+        TurnUsageLedger ledger = new() { EstimatedInput = 1000 };
+        ledger.RestoreSession(0, 0, 3000);
+
+        Assert.Equal(3000, ledger.EffectiveInput);
+        Assert.Equal(0, ledger.UnreportedInput); //服务端报得更高时没有"未计入"那一段
+    }
+
     [Fact]
     public void ShouldWrite_FiresBeforeFrameworkTruncation()
     {

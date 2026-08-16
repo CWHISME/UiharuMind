@@ -62,9 +62,31 @@ public sealed class AgentHandle : IAsyncDisposable
     /// </summary>
     public IReadOnlyList<AgentPromptSegment> PromptSegments { get; }
 
+    private AgentCapabilitySnapshot? _capabilities; //惰性算一次,见 Capabilities
+
+    /// <summary>
+    /// 本次装配的能力快照，含每轮<b>固定开销</b>（系统提示 + 工具定义）的估算。
+    ///
+    /// <b>惰性算一次并缓存</b>：分词有代价，而现在有三个消费方都要它——能力面板、压缩层的
+    /// 历史额度（输入预算减去它）、交接文档水位的有效占用。从前它只服务能力面板，
+    /// 因而每次刷新现算；接进压缩之后就落在发消息路径上了，每轮现算是不能接受的。
+    ///
+    /// 不需要失效机制：handle 本身只在装配快照变化时重建，这份跟着一起重算。
+    /// 并发首访最坏是算两遍，<c>Capture</c> 是纯函数，结果等价，因此不上锁。
+    /// </summary>
+    public AgentCapabilitySnapshot Capabilities =>
+        _capabilities ??= AgentCapabilitySnapshot.Capture(ToolEntries, Mcp, PromptSegments);
+
+    /// <summary>
+    /// 我们自己估的本轮输入（固定开销 + 历史）。交接文档水位拿它与服务端报的取大，
+    /// 进度条拿它画「服务端未计入」那一段。见 <see cref="TurnInputEstimate"/> 与 ADR 0009
+    /// </summary>
+    public TurnInputEstimate InputEstimate { get; }
+
     public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor, ChatOptions? chatOptions = null,
         McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null,
-        IReadOnlyList<AgentPromptSegment>? promptSegments = null)
+        IReadOnlyList<AgentPromptSegment>? promptSegments = null,
+        TurnInputEstimate? inputEstimate = null)
     {
         Agent = agent;
         _shellExecutor = shellExecutor;
@@ -72,6 +94,9 @@ public sealed class AgentHandle : IAsyncDisposable
         Mcp = mcp ?? McpToolSet.Empty;
         ToolEntries = toolEntries ?? [];
         PromptSegments = promptSegments ?? [];
+        // 自带一个空的:子代理与测试不传,读到的固定开销为 0,等于退回不扣的旧行为
+        InputEstimate = inputEstimate ?? new TurnInputEstimate();
+        InputEstimate.BindTo(this);
     }
 
     public async ValueTask DisposeAsync()

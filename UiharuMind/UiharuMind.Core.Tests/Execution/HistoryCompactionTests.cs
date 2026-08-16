@@ -1,4 +1,5 @@
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 
 namespace UiharuMind.Core.Tests.Execution;
@@ -53,6 +54,41 @@ public class HistoryCompactionTests
     [Fact]
     public void Create_ReturnsAStrategy()
     {
-        Assert.NotNull(HistoryCompaction.Create(() => 128_000));
+        Assert.NotNull(HistoryCompaction.Create(() => 128_000, new TurnInputEstimate()));
+    }
+
+    [Fact]
+    public void HistoryQuota_DeductsFixedOverhead()
+    {
+        int budget = HistoryCompaction.InputBudgetFor(128_000);
+        Assert.Equal(budget - 25_600, HistoryCompaction.HistoryQuotaFor(128_000, 25_600));
+        //没有固定开销时退回输入预算本身,即本条引入之前的口径
+        Assert.Equal(budget, HistoryCompaction.HistoryQuotaFor(128_000, 0));
+    }
+
+    /// <summary>
+    /// 复现促成这条改动的那个场景：128k 模型挂一套 21k 的 MCP 工具集（连系统提示合计 25.6k 固定开销）。
+    /// 旧口径把截断水位乘在<b>输入预算</b>上，于是水位 + 固定开销已经超出上下文上限——
+    /// 截断在请求早就发不出去之后才动手。新口径乘在历史额度上，加回固定开销必须仍在上限之内。
+    /// </summary>
+    [Fact]
+    public void TruncationWatermark_LeavesRoomForFixedOverhead()
+    {
+        const int context = 128_000;
+        const int fixedOverhead = 25_600;
+
+        int oldWatermark = (int)(HistoryCompaction.InputBudgetFor(context) * HistoryCompaction.TruncationThreshold);
+        Assert.True(oldWatermark + fixedOverhead > context, "旧口径本就该是超的,否则这个测试没在测该测的东西");
+
+        int watermark = (int)(HistoryCompaction.HistoryQuotaFor(context, fixedOverhead) *
+                              HistoryCompaction.TruncationThreshold);
+        Assert.True(watermark + fixedOverhead < context);
+    }
+
+    [Fact]
+    public void HistoryQuota_FloorsAtZeroWhenOverheadEatsTheBudget()
+    {
+        //固定开销自己就吃光预算:额度为 0,触发条件据此一律不压缩——此时压缩救不了,只会白毁历史
+        Assert.Equal(0, HistoryCompaction.HistoryQuotaFor(8192, 100_000));
     }
 }
