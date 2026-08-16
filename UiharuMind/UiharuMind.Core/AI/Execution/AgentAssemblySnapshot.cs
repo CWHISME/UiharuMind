@@ -71,6 +71,15 @@ public sealed record AgentAssemblySnapshot
     /// <summary>子代理工具开关</summary>
     public bool SubAgent { get; init; }
 
+    /// <summary>
+    /// 挂载的子智能体名单（标识+名字+描述，换行拼接）。
+    ///
+    /// 名单连同各自的名字与描述在装配时被固化进子代理工具的花名册，
+    /// 因此它属于装配输入。少了它的后果是：不关会话就改子智能体名单，
+    /// 回来派活仍按旧名单走，而且改名改描述模型也看不见。
+    /// </summary>
+    public string MountedAgents { get; init; } = string.Empty;
+
     /// <summary>当前模型是否自带视觉(决定识图工具挂不挂;视觉↔非视觉切换经此触发重建)</summary>
     public bool ModelSupportsVision { get; init; }
 
@@ -107,7 +116,9 @@ public sealed record AgentAssemblySnapshot
                 ? WorkspaceInstructionsLoader.Load(session.WorkspacePath)
                 : string.Empty,
             // 与 LazyChatClient 同一解析次序:会话绑定模型优先,回落全局当前模型
-            session.ChatModelRunningData?.IsVisionModel == true);
+            session.ChatModelRunningData?.IsVisionModel == true,
+            //与装配读的是同一个解析器,过滤规则不会两处漂移
+            character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null);
     }
 
     /// <summary>
@@ -121,12 +132,13 @@ public sealed record AgentAssemblySnapshot
     /// <param name="mcpRevision">MCP 工具集修订号</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
+    /// <param name="mountedAgents">已解析的子智能体名单（过滤规则见 <c>CharacterRunnerFactory.ResolveMountedAgents</c>）</param>
     /// <returns>快照</returns>
     public static AgentAssemblySnapshot Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
         int mcpRevision, string workspaceInstructions = "",
-        bool modelSupportsVision = false)
+        bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null)
     {
         // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.Kind.IsAgent();
@@ -150,6 +162,11 @@ public sealed record AgentAssemblySnapshot
             VisionTool = isAgent && config.EnableVisionTool,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,
             SubAgent = isAgent && config.EnableSubAgent,
+            // 名字与描述一并入账:花名册固化的正是这两样,改名改描述模型也该重新看见
+            MountedAgents = isAgent && config.EnableSubAgent && mountedAgents is { Count: > 0 }
+                ? string.Join('\n',
+                    mountedAgents.Select(x => $"{x.CharacterId}\t{x.CharacterName}\t{x.Description}"))
+                : string.Empty,
             ModelSupportsVision = isAgent && modelSupportsVision,
             TodoList = isAgent && config.EnableTodoList,
             AgentMode = isAgent && config.EnableAgentMode,

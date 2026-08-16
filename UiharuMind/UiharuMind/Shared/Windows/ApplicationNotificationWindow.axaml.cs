@@ -14,7 +14,7 @@ namespace UiharuMind.Shared.Windows;
 
 public partial class ApplicationNotificationWindow : Window
 {
-    private readonly IApplicationWindowProvider? _windowProvider;
+    private readonly ScreensService? _screens;
     private readonly Dictionary<ApplicationNotification, Border> _notificationCards = [];
     private PixelPoint? _lastPosition;
 
@@ -23,9 +23,9 @@ public partial class ApplicationNotificationWindow : Window
         InitializeComponent();
     }
 
-    public ApplicationNotificationWindow(IApplicationWindowProvider windowProvider) : this()
+    public ApplicationNotificationWindow(ScreensService screens) : this()
     {
-        _windowProvider = windowProvider;
+        _screens = screens;
         this.SetSimpledecorationPureWindow(true);
         ShowActivated = false;
         Focusable = false;
@@ -50,9 +50,9 @@ public partial class ApplicationNotificationWindow : Window
 
     private void Reposition()
     {
-        if (_windowProvider == null) return;
+        if (_screens == null) return;
 
-        Screen screen = _windowProvider.GetTargetScreen();
+        Screen screen = _screens.GetSafeActivationScreen();
         double scaling = screen.Scaling;
         const int margin = 18;
         int width = (int)Math.Ceiling(Width * scaling);

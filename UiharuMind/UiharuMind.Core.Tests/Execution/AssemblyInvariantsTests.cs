@@ -711,6 +711,64 @@ public class AssemblySnapshotTests
         Assert.NotEqual(baseline, changed);
     }
 
+    private static CharacterData NewSubAgent(string id, string name, string description = "")
+    {
+        return new CharacterData
+        {
+            CharacterId = id, Kind = ECharacterKind.Agent, CharacterName = name, Description = description,
+        };
+    }
+
+    /// <summary>
+    /// 子智能体名单是装配输入。名单连同各自的名字与描述会固化进花名册，
+    /// 不入快照的话：不关会话改完名单，回来派活仍按旧名单走
+    /// </summary>
+    [Fact]
+    public void ChangedSubAgentRoster_ProducesDifferentSnapshot()
+    {
+        AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
+            mountedAgents: [NewSubAgent("helper", "Helper")]);
+        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
+            mountedAgents: [NewSubAgent("helper", "Helper"), NewSubAgent("writer", "Writer")]);
+
+        Assert.NotEqual(baseline, changed);
+    }
+
+    [Theory]
+    [InlineData("Renamed", "")]
+    [InlineData("Helper", "改过的描述")]
+    public void RenamedOrRedescribedSubAgent_ProducesDifferentSnapshot(string name, string description)
+    {
+        //花名册给模型看的就是名字与描述,改了它们模型也该重新看见
+        AgentAssemblySnapshot baseline = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
+            mountedAgents: [NewSubAgent("helper", "Helper")]);
+        AgentAssemblySnapshot changed = AgentAssemblySnapshot.Capture(NewAgentCharacter(), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
+            mountedAgents: [NewSubAgent("helper", name, description)]);
+
+        Assert.NotEqual(baseline, changed);
+    }
+
+    /// <summary>
+    /// 关掉子代理工具就不装花名册，此时名单怎么改都不该重建
+    /// </summary>
+    [Fact]
+    public void SubAgentRoster_IsIgnored_WhenTheToolIsOff()
+    {
+        AgentToolConfig off = new() { EnableSubAgent = false };
+        AgentAssemblySnapshot first = AgentAssemblySnapshot.Capture(NewAgentCharacter(off), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
+            mountedAgents: [NewSubAgent("helper", "Helper")]);
+        AgentAssemblySnapshot second = AgentAssemblySnapshot.Capture(NewAgentCharacter(off), "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1,
+            mountedAgents: [NewSubAgent("writer", "Writer")]);
+
+        Assert.Equal(first, second);
+    }
+
     /// <summary>
     /// 非智能体档对能力配置免疫：它们本来就不装工具，能力配置怎么改都不该让它们重建装配。
     /// </summary>

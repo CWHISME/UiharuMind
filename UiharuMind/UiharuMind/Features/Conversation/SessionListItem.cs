@@ -215,7 +215,7 @@ public partial class SessionListItem : ObservableObject
         // 索引与本体各存一份,两边都要写——只写本体会让列表在重建索引前显示旧名
         _meta.Title = result;
         Session.Title = result;
-        Session.Save();
+        Session.SaveMeta(); //只动头字段,Save() 会把整份历史白重写一遍
         Name = result;
         Mutated?.Invoke(this);
     }

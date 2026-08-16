@@ -66,7 +66,6 @@ public partial class App : Application, ILogger, IDisposable
 
             Services = new ServiceCollection()
                 .AddSingleton(ScreensService)
-                .AddSingleton<IApplicationWindowProvider, ApplicationWindowProvider>()
                 .AddSingleton<IMessageService, MessageService>()
                 .AddSingleton<ApplicationUpdateService>()
                 .AddSingleton<MainViewModel>()

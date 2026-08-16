@@ -359,11 +359,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
         if (BuildSubAgentOptions(Probe(null, null, config, string.Empty, string.Empty)) == null) return null;
 
-        // 名单:角色挂的那些智能体。按档位过滤而非信任存档(旧存档里可能躺着工具人),并排除自己(递归)
-        List<CharacterData> mounted = profile.Character.MountAgents
-            .Select(id => CharacterManager.Instance.GetCharacterData(id))
-            .Where(x => x.Kind.IsAgent() && x.CharacterId != profile.Character.CharacterId)
-            .ToList();
+        List<CharacterData> mounted = ResolveMountedAgents(profile.Character);
         List<SubAgentChoice> roster = mounted
             .Select(x => new SubAgentChoice(SanitizeAgentName(x.CharacterName, x.CharacterId), x.Description))
             .ToList();
@@ -787,6 +783,24 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 解析一个角色挂载的子智能体名单。按档位过滤而非信任存档（旧存档里可能躺着工具人），
+    /// 并排除自己（递归）。
+    ///
+    /// <b>装配与快照必须用同一份</b>：名单连同各自的名字与描述会在装配时固化进子代理工具，
+    /// 而「要不要重建装配」由 <see cref="AgentAssemblySnapshot"/> 判定——
+    /// 两处各写一份过滤规则的话，改名单不重建的那类缺陷会静默复发。
+    /// </summary>
+    /// <param name="owner">挂载方角色</param>
+    /// <returns>可用作子智能体的角色</returns>
+    internal static List<CharacterData> ResolveMountedAgents(CharacterData owner)
+    {
+        return owner.MountAgents
+            .Select(id => CharacterManager.Instance.GetCharacterData(id))
+            .Where(x => x.Kind.IsAgent() && x.CharacterId != owner.CharacterId)
+            .ToList();
     }
 
     private static string SanitizeAgentName(string displayName, string fallback)

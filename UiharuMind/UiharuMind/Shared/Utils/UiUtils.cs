@@ -25,61 +25,48 @@ namespace UiharuMind.Shared.Utils;
 public static class UiUtils
 {
     /// <summary>
-    /// 将 IImage 转换为 Bitmap
+    /// 将 IImage 转换为 Bitmap（后台线程取像素）
     /// </summary>
-    /// <param name="image"></param>
-    /// <param name="dpi"></param>
-    /// <returns></returns>
+    /// <param name="image">源图像</param>
+    /// <returns>位图；取像素或构造失败返回 null</returns>
     public static async Task<Bitmap?> ImageToBitmapAsync(this IImage image)
     {
         Bitmap? bitmap = null;
-        await image.GetCaptureImagePointerAsync((data, stride) =>
-        {
-            try
-            {
-                bitmap = new Bitmap(
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Unpremul,
-                    data,
-                    new PixelSize(image.Width, image.Height),
-                    new Vector(96, 96),
-                    stride);
-            }
-            catch (Exception e)
-            {
-                Log.Error(e.Message);
-            }
-        }).ConfigureAwait(false);
+        await image.GetCaptureImagePointerAsync((data, stride) => bitmap = BuildBitmap(image, data, stride))
+            .ConfigureAwait(false);
         return bitmap;
     }
 
     /// <summary>
-    /// 将 IImage 转换为 Bitmap
+    /// 将 IImage 转换为 Bitmap（当前线程取像素）
     /// </summary>
-    /// <param name="image"></param>
-    /// <param name="dpi"></param>
-    /// <returns></returns>
+    /// <param name="image">源图像</param>
+    /// <returns>位图；取像素或构造失败返回 null</returns>
     public static Bitmap? ImageToBitmap(this IImage image)
     {
         Bitmap? bitmap = null;
-        image.GetCaptureImagePointer((data, stride) =>
-        {
-            try
-            {
-                bitmap = new Bitmap(
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Unpremul,
-                    data,
-                    new PixelSize(image.Width, image.Height),
-                    new Vector(96, 96),
-                    stride);
-            }
-            catch (Exception e)
-            {
-                Log.Error(e.Message);
-            }
-        });
+        image.GetCaptureImagePointer((data, stride) => bitmap = BuildBitmap(image, data, stride));
         return bitmap;
+    }
+
+    //同步与异步两条路只差取指针的方式,构造这一段必须只有一份
+    private static Bitmap? BuildBitmap(IImage image, IntPtr data, int stride)
+    {
+        try
+        {
+            return new Bitmap(
+                PixelFormat.Bgra8888,
+                AlphaFormat.Unpremul,
+                data,
+                new PixelSize(image.Width, image.Height),
+                new Vector(96, 96),
+                stride);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e.Message);
+            return null;
+        }
     }
 
     /// <summary>
@@ -293,35 +280,6 @@ public static class UiUtils
         return mousePos.X >= controlPosition.X && mousePos.X <= controlMaxPos.X &&
                mousePos.Y >= controlPosition.Y && mousePos.Y <= controlMaxPos.Y;
     }
-
-
-    // /// <summary>
-    // /// 以宽度为基准比例缩放图片大小，并限制最大宽度和最大高度
-    // /// </summary>
-    // /// <param name="size"></param>
-    // /// <param name="scaleFactor"></param>
-    // /// <param name="aspectRatio">原始大小的 width / height 的值</param>
-    // /// <param name="limitMaxWidth">限制缩放后的最大宽度</param>
-    // /// <param name="limitMaxHeight">限制缩放后的最大高度</param>
-    // /// <param name="limitMinWidth">限制缩放后的最小宽度</param>
-    // /// <param name="limitMinHeight">限制缩放后的最小高度</param>
-    // /// <returns></returns>
-    // public static Size SafeScaleByWidth(this Size size, double scaleFactor, double aspectRatio, double limitMaxWidth,
-    //     double limitMaxHeight, double limitMinWidth = 0, double limitMinHeight = 0)
-    // {
-    //     // 计算新的宽度和高度
-    //     var newWidth = Math.Clamp(size.Width * scaleFactor, limitMinWidth, limitMaxWidth);
-    //     var newHeight = newWidth / aspectRatio;
-    //
-    //     // 如果新的高度超出上限，则重新计算宽度和高度
-    //     if (newHeight > limitMaxHeight || newHeight < limitMinHeight)
-    //     {
-    //         newHeight = limitMaxHeight;
-    //         newWidth = newHeight * aspectRatio;
-    //     }
-    //
-    //     return new Size(newWidth, newHeight);
-    // }
 
     /// <summary>
     /// 以高度为基准比例缩放图片大小，并限制最大宽度和最大高度

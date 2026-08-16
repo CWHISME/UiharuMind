@@ -685,8 +685,9 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         }
 
         ChatMessage message = session.CreateMessage(ChatRole.Assistant, text);
+        int before = session.History.Count;
         session.History.Add(message);
-        session.Save();
+        session.SaveAppended(before); //只追加这一条,不重写整份历史
 
         TextConversationItem item = CreateAssistantItem();
         item.Append(text);
@@ -899,7 +900,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         if (session == null) return;
         session.WorkspacePath = CurrentMeta.WorkspacePath;
         session.PermissionModeIndex = CurrentMeta.PermissionModeIndex;
-        session.Save();
+        session.SaveMeta(); //只动头字段,不必重写整份历史
     }
 
     private ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
@@ -1371,7 +1372,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         if (session != null)
         {
             session.OwnedAttachmentFiles.AddRange(_pendingOwnedFiles);
-            session.Save();
+            session.SaveMeta(); //附件清单是头字段
         }
 
         _pendingOwnedFiles.Clear();

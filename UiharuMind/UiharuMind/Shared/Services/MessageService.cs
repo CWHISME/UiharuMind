@@ -22,7 +22,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private static readonly TimeSpan DefaultNotificationDuration = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ErrorNotificationDuration = TimeSpan.FromSeconds(8);
 
-    private readonly IApplicationWindowProvider _windowProvider;
+    private readonly ScreensService _screens;
     private readonly object _dialogSync = new();
     private readonly Queue<DialogRequest> _dialogQueue = [];
     private readonly Queue<NotificationRequest> _notificationQueue = [];
@@ -32,9 +32,9 @@ public sealed class MessageService : IMessageService, IDisposable
     private bool _dialogPumpRunning;
     private bool _disposed;
 
-    public MessageService(IApplicationWindowProvider windowProvider)
+    public MessageService(ScreensService screens)
     {
-        _windowProvider = windowProvider;
+        _screens = screens;
     }
 
     public async Task ShowInfoAsync(
@@ -168,7 +168,7 @@ public sealed class MessageService : IMessageService, IDisposable
             });
         });
 
-        Window? owner = _windowProvider.GetActiveWindow();
+        Window? owner = _screens.GetActiveWindow();
         if (owner is { IsVisible: true, WindowState: not WindowState.Minimized })
         {
             _ = window.ShowDialog(owner);
@@ -267,7 +267,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private void EnsureNotificationWindow()
     {
         if (_notificationWindow != null) return;
-        _notificationWindow = new ApplicationNotificationWindow(_windowProvider)
+        _notificationWindow = new ApplicationNotificationWindow(_screens)
         {
             DataContext = _notifications
         };
@@ -275,7 +275,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private void CenterWindow(Window window)
     {
-        Screen screen = _windowProvider.GetTargetScreen();
+        Screen screen = _screens.GetSafeActivationScreen();
         double scaling = screen.Scaling;
         int width = (int)Math.Ceiling(window.Bounds.Width * scaling);
         int height = (int)Math.Ceiling(window.Bounds.Height * scaling);

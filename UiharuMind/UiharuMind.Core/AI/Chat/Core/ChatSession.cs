@@ -176,7 +176,7 @@ public class ChatSession
         _characterData = character;
         // 用户手动挂过库时那份优先,不动;没挂过才让它回落到新角色自带的库
         if (string.IsNullOrEmpty(MemoryName)) _memory = null;
-        Save();
+        SaveMeta(); //只动了头字段,历史一个字没改——Save() 会把整份历史重新序列化一遍
     }
 
     /// <summary>
@@ -203,7 +203,8 @@ public class ChatSession
             if (_memory == value) return;
             _memory = value;
             MemoryName = value?.Name ?? "";
-            Save();
+            SaveMeta(); //同上:换知识库不动历史
+
         }
     }
 
@@ -264,15 +265,6 @@ public class ChatSession
             UpdatedAt = UpdatedAt,
             MessageCount = History.Count,
         };
-    }
-
-    /// <summary>
-    /// 用给定历史替换现有历史
-    /// </summary>
-    /// <param name="history">新历史</param>
-    public void ReInitHistory(IEnumerable<ChatMessage> history)
-    {
-        History = history.ToList();
     }
 
     public int Count => History.Count;
@@ -405,38 +397,6 @@ public class ChatSession
             StringBuilderPool.Release(finalText);
         }
     }
-
-    /// <summary>
-    /// 组装一次请求的完整消息列表
-    /// </summary>
-    /// <returns>消息列表</returns>
-    public async Task<List<ChatMessage>> BuildRequestMessagesAsync()
-    {
-        List<ChatMessage> messages = [];
-
-        // 系统提示由 CharacterPromptBuilder 统一装配(挂载片段 + 自身 Template + 对话模板)
-        string instructions = CharacterPromptBuilder.Build(CharacterData, CustomParams);
-        if (!string.IsNullOrWhiteSpace(instructions))
-            messages.Add(new ChatMessage(ChatRole.System, instructions));
-
-        if (Memory != null && History.Count > 0)
-        {
-            string longTermMemory = await Memory.GetLongTermMemory(History[^1].Text);
-            if (!string.IsNullOrEmpty(longTermMemory))
-            {
-                messages.Add(new ChatMessage(ChatRole.Tool,
-                    "以下是通过文本嵌入模型搜索到的相关信息片段，用户当前的问题极有可能与之相关，请根据片段的相关性(Relevance)参数高低酌情参考：\n" +
-                    longTermMemory));
-            }
-        }
-
-        messages.AddRange(History);
-        return messages;
-    }
-
-    /// <summary>
-    /// 落盘。临时会话为空操作。
-    /// </summary>
 
     /// <summary>
     /// 立即全量保存(头文件 + 历史整写)。这是默认路径——历史、编辑等有价值数据

@@ -177,71 +177,6 @@ public partial class CharacterInfoViewData : ObservableObject
         }
     }
 
-    //================对话参数设置=================
-    // public double? Temperature
-    // {
-    //     get => _characterData.Config.OpenAiSettings.Temperature;
-    //     set
-    //     {
-    //         _characterData.Config.OpenAiSettings.Temperature = value;
-    //         OnPropertyChanged();
-    //     }
-    // }
-    //
-    // public double? TopP
-    // {
-    //     get => _characterData.Config.OpenAiSettings.TopP;
-    //     set
-    //     {
-    //         _characterData.Config.OpenAiSettings.TopP = value;
-    //         OnPropertyChanged();
-    //     }
-    // }
-    //
-    // // public int? MaxTokens
-    // // {
-    // //     get => _characterData.Config.OpenAiSettings.MaxTokens;
-    // //     set
-    // //     {
-    // //         _characterData.Config.OpenAiSettings.MaxTokens = value;
-    // //         OnPropertyChanged();
-    // //     }
-    // // }
-    //
-    // public double? PresencePenalty
-    // {
-    //     get => _characterData.Config.OpenAiSettings.PresencePenalty;
-    //     set
-    //     {
-    //         _characterData.Config.OpenAiSettings.PresencePenalty = value;
-    //         OnPropertyChanged();
-    //     }
-    // }
-    //
-    // public double? FrequencyPenalty
-    // {
-    //     get => _characterData.Config.OpenAiSettings.FrequencyPenalty;
-    //     set
-    //     {
-    //         _characterData.Config.OpenAiSettings.FrequencyPenalty = value;
-    //         OnPropertyChanged();
-    //     }
-    // }
-    //
-    // /// <summary>
-    // /// 同样的对话种子可以产生同样的回复
-    // /// </summary>
-    // public long? Seed
-    // {
-    //     get => _characterData.Config.OpenAiSettings.Seed;
-    //     set
-    //     {
-    //         _characterData.Config.OpenAiSettings.Seed = value;
-    //         OnPropertyChanged();
-    //     }
-    // }
-    //=================================================
-
     private CharacterData _characterData;
     private AgentToolViewData? _agentTools;
 
@@ -378,25 +313,6 @@ public partial class CharacterInfoViewData : ObservableObject
 
         Template = string.IsNullOrWhiteSpace(Template) ? text : text + "\n\n" + Template;
     }
-
-    // public CharacterInfoViewData DeepCopy()
-    // {
-    //     var tmpStr = SaveUtility.SaveToString(_characterData);
-    //     return new CharacterInfoViewData(SaveUtility.LoadFromString<CharacterData>(tmpStr));
-    // }
-    //
-    // public void CopyFrom(CharacterInfoViewData target)
-    // {
-    //     Name = target.Name;
-    //     Description = target.Description;
-    //     Template = target.Template;
-    //     DialogTemplate = target.DialogTemplate;
-    //     FirstGreeting = target.FirstGreeting;
-    //     ChatPromptExecutionSettings.Temperature= target.ChatPromptExecutionSettings.Temperature;
-    //
-    //     MountPrompts.Clear();
-    //     MountPrompts.AddRange(target.MountPrompts);
-    // }
 }
 
 /// <summary>
