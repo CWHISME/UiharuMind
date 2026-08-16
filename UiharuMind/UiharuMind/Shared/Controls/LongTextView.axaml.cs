@@ -93,6 +93,9 @@ public partial class LongTextView : UserControl
     public LongTextView()
     {
         InitializeComponent();
+        // AvaloniaEdit 承袭代码编辑器的习惯,默认允许在文末之后再滚一整屏(方便把最后一行顶到屏幕中间)。
+        // 这里读的是文档不是代码,那一整屏空白只会让人以为还有内容
+        Editor.Options.AllowScrollBelowDocument = false;
         Editor.IsReadOnly = !IsEditable;
         Editor.WordWrap = WordWrap;
         Editor.ShowLineNumbers = ShowLineNumbers;

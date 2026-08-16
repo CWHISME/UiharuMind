@@ -1247,6 +1247,30 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string EditContentTitle {
+            get {
+                return ResourceManager.GetString("EditContentTitle", resourceCulture);
+            }
+        }
+        
+        public static string EditSessionTitleTitle {
+            get {
+                return ResourceManager.GetString("EditSessionTitleTitle", resourceCulture);
+            }
+        }
+        
+        public static string EditMessageTitle {
+            get {
+                return ResourceManager.GetString("EditMessageTitle", resourceCulture);
+            }
+        }
+        
+        public static string RenameTitle {
+            get {
+                return ResourceManager.GetString("RenameTitle", resourceCulture);
+            }
+        }
+        
         public static string CancelBtn {
             get {
                 return ResourceManager.GetString("CancelBtn", resourceCulture);

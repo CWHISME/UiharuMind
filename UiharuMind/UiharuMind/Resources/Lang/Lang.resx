@@ -733,6 +733,18 @@
     <data name="ParameterSettings" xml:space="preserve">
         <value>Parameter settings</value>
     </data>
+    <data name="EditContentTitle" xml:space="preserve">
+        <value>Edit</value>
+    </data>
+    <data name="EditSessionTitleTitle" xml:space="preserve">
+        <value>Edit session title</value>
+    </data>
+    <data name="EditMessageTitle" xml:space="preserve">
+        <value>Edit message</value>
+    </data>
+    <data name="RenameTitle" xml:space="preserve">
+        <value>Rename</value>
+    </data>
     <data name="CancelBtn" xml:space="preserve">
         <value>Cancel</value>
     </data>

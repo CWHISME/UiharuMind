@@ -21,6 +21,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Features.Conversation.Items;
 
@@ -118,7 +119,7 @@ public abstract partial class ConversationItemBase : ObservableObject
     private async Task Edit()
     {
         if (EditedCallback == null) return;
-        string? result = await UIManager.ShowStringEditWindow(Message);
+        string? result = await UIManager.ShowStringEditWindow(Message, title: Lang.EditMessageTitle);
         if (result == null) return;
         Message = result;
         EditedCallback.Invoke(this);

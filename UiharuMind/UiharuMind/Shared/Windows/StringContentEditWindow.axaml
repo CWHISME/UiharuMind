@@ -7,32 +7,33 @@
         xmlns:common="clr-namespace:UiharuMind.Shared.Windows"
         xmlns:u="https://irihi.tech/ursa"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        Width="400"
-        Height="300"
+        Width="460"
+        Height="320"
         x:Class="UiharuMind.Shared.Windows.StringContentEditWindow"
-        Title="StringContentEditWindow">
+        Title="{loc:Loc EditContentTitle}">
 
     <Design.DataContext>
         <common:StringContentEditWindowViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <!-- 标题由系统标题栏承担(调用方经 ShowStringEditWindow 传入),窗内不再另起一条横条:
+         这个窗口只有 320 高,一条 24 号字的分隔条要吃掉八分之一 -->
+    <Grid RowDefinitions="*,Auto" Margin="12">
 
-        <u:Divider Content="Input" FontSize="24" />
+        <!-- 这里编辑的是会话标题、条目名一类的短内容,也可能是一整条对话消息,
+             所以行号关掉、自动换行开着——横向滚动看一句话是折磨。
+             工具条也关掉:宿主是个只有两个按钮的小窗,右上角挂三个图标喧宾夺主。
+             搜索仍可用 Ctrl+F(AvaloniaEdit 自带,不依赖那个按钮) -->
+        <LongTextView Text="{Binding ContentStr}"
+                      IsEditable="True"
+                      IsToolbarVisible="False"
+                      ShowLineNumbers="False"
+                      WordWrap="True" />
 
-        <!-- 短文本档：这里编辑的是会话标题、消息一类的短内容，行号只会碍眼，
-             自动换行则要开着——横向滚动看一句话是折磨 -->
-        <Panel Grid.Row="1" Margin="10">
-            <LongTextView Text="{Binding ContentStr}"
-                          IsEditable="True"
-                          ShowLineNumbers="False"
-                          WordWrap="True" />
-        </Panel>
-
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center"
-                    Spacing="10" Margin="0,0,0,10">
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="10" Margin="0,12,0,0">
             <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
-            <Button Content="{loc:Loc SaveBtn}" Click="OkButton_Click" />
+            <Button Content="{loc:Loc SaveBtn}" Classes="Primary" Click="OkButton_Click" />
         </StackPanel>
     </Grid>
 

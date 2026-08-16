@@ -209,7 +209,7 @@ public partial class SessionListItem : ObservableObject
     [RelayCommand]
     public async Task Rename()
     {
-        string? result = await UIManager.ShowStringEditWindow(_meta.Title);
+        string? result = await UIManager.ShowStringEditWindow(_meta.Title, title: Lang.EditSessionTitleTitle);
         if (string.IsNullOrWhiteSpace(result) || result == _meta.Title) return;
 
         // 标题是纯显示字段:改名不动文件、不删不加。

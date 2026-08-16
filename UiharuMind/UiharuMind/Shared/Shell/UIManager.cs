@@ -276,10 +276,20 @@ public static class UIManager
     }
 
 //===================open====================
-    public static async Task<string?> ShowStringEditWindow(string content, Window? owner = null)
+    /// <summary>
+    /// 弹出通用的文本编辑窗
+    /// </summary>
+    /// <param name="content">初始内容</param>
+    /// <param name="owner">属主窗口，为空取当前焦点窗口</param>
+    /// <param name="title">窗口标题。<b>说清楚在改什么</b>——四个调用方改的东西各不相同；
+    /// 为空则用通用的「编辑」</param>
+    /// <returns>确定则返回编辑后的文本，取消返回 null</returns>
+    public static async Task<string?> ShowStringEditWindow(string content, Window? owner = null,
+        string? title = null)
     {
         StringContentEditWindow window = new StringContentEditWindow();
         if (IconUtils.DefaultAppIcon != null) window.Icon = new WindowIcon(IconUtils.DefaultAppIcon);
+        if (!string.IsNullOrEmpty(title)) window.Title = title;
         window.DataContext = new StringContentEditWindowViewModel(content, null);
         return await window.ShowDialog<string?>(owner ?? UIManager.GetFocusWindow());
     }

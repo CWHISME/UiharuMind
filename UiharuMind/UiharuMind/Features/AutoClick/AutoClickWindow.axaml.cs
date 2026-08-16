@@ -10,6 +10,7 @@ using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AutoClick;
 using UiharuMind.Features.Settings;
+using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Features.AutoClick;
 
@@ -147,7 +148,7 @@ public partial class AutoClickWindow : UiharuWindowBase
     private async void RenameSessionMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         if (((Control)e.Source!).DataContext is not AutoClickSession session) return;
-        var result = await UIManager.ShowStringEditWindow(session.Name, this);
+        var result = await UIManager.ShowStringEditWindow(session.Name, this, Lang.RenameTitle);
         if (!string.IsNullOrWhiteSpace(result))
         {
             _viewModel.RenameSession(session, result);

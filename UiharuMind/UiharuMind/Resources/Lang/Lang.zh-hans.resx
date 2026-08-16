@@ -725,6 +725,18 @@
     <data name="ParameterSettings" xml:space="preserve">
         <value>参数设置</value>
     </data>
+    <data name="EditContentTitle" xml:space="preserve">
+        <value>编辑</value>
+    </data>
+    <data name="EditSessionTitleTitle" xml:space="preserve">
+        <value>编辑会话标题</value>
+    </data>
+    <data name="EditMessageTitle" xml:space="preserve">
+        <value>编辑消息</value>
+    </data>
+    <data name="RenameTitle" xml:space="preserve">
+        <value>重命名</value>
+    </data>
     <data name="CancelBtn" xml:space="preserve">
         <value>取消</value>
     </data>
