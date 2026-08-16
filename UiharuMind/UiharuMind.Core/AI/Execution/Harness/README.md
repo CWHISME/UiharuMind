@@ -11,7 +11,6 @@
 > `ToolAutoApprovalRuleContext`、`DisableFileAccess` 移除（文件工具只随 `FileAccessStore` 出现）、
 > shell 改为 `AsAIFunction()` 普通工具挂载（默认名 run_shell、默认自包审批）、
 > `AgentModeProvider`/`MessageInjectingChatClient` 转异步 API。
-> `MfaFileEditor` 删除条件仍未满足（`FileEditor` 依旧 internal）。
 > ⚠️ 复查方法教训：框架的 XML 文档把 internal 成员也生成了文档,"XML 里有"≠public,以编译为准。
 
 ## 本目录（垫片文件）
@@ -21,7 +20,10 @@
 | `MfaLogger.cs` | 框架内部日志（含工具执行失败的真实异常）默认无处可去，只能实现 ILogger 转发到自有日志 | 框架提供直接日志回调 |
 | `MfaLoggerFactory.cs` | 框架经 ILoggerFactory 索取日志器 | 同上 |
 | `MfaServiceProvider.cs` | 框架中间件只认 IServiceProvider，为一个日志器不值得引入完整 DI 容器 | 框架提供轻量注入口 |
-| `MfaFileEditor.cs` | 框架 `FileEditor`（replace/replace_lines 逻辑）为 internal，整份复制 | 框架公开该类（1.16 复查：仍 internal） |
+
+> `MfaFileEditor.cs`（框架 `FileEditor` 的 replace/replace_lines 逻辑复制品）已删除：
+> 编辑语义改为自持（`FileEditPlanner`，见 ADR 0007），不再等框架把那个类公开——
+> 框架那套语义（盲改行号 / 单处精确替换）正是我们要摆脱的东西。
 
 ## 散点（带 [MFA绕坑] 标记）
 

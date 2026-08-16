@@ -399,12 +399,9 @@ public class SubAgentBoundaryTests
 
         Assert.Contains(PermissiveFileAccessTools.ReadToolName, names);
         Assert.Contains(WebSearchTool.ToolName, names);
-        string[] mutating =
-        [
-            PermissiveFileAccessTools.WriteToolName, PermissiveFileAccessTools.EditToolName,
-            PermissiveFileAccessTools.ReplaceToolName, PermissiveFileAccessTools.DeleteToolName,
-            CharacterRunnerFactory.ShellToolName,
-        ];
+        // 名单取自工具侧的那一份,不在测试里重抄一遍:漏抄一个新增的写工具,
+        // 这条不变量就会在不报错的情况下失效
+        string[] mutating = [..PermissiveFileAccessTools.MutatingToolNames, CharacterRunnerFactory.ShellToolName];
         Assert.DoesNotContain(names, name => mutating.Contains(name));
     }
 

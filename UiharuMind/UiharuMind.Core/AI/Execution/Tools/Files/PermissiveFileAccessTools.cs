@@ -9,8 +9,6 @@
 
 using System.ComponentModel;
 using System.Text;
-using Glacier.Grep;
-using Meziantou.Framework.Globbing;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Harness;
@@ -19,38 +17,54 @@ namespace UiharuMind.Core.AI.Execution.Files;
 
 // [MFA绕坑] 绕:框架 FileAccessProvider 拒绝一切绝对路径 因:该类 internal 无法继承修改 删除条件:框架允许配置路径策略
 /// <summary>
-/// 自带的 file_access_* 工具集,替代 MFA 内置的 FileAccessProvider。
+/// 自带的文件工具集,替代 MFA 内置的 FileAccessProvider。
 /// MFA 的 FileAccessProvider 在调用存储前会用 StorePaths.NormalizeRelativePath 拒绝一切绝对路径,
 /// 且该类为 internal 无法继承/修改;因此这里完全自行实现文件访问:
 /// - 相对路径解析到工作区根目录;
-/// - 绝对路径直接访问真实文件系统(需用户审批);
-/// 仅做符号链接/重解析点防护避免越权。
-/// Glob 采用 Meziantou.Framework.Globbing 实现递归路径枚举;Grep 采用 Glacier.Grep 高性能检索引擎。
-/// 编辑逻辑(replace / replace_lines)通过 MfaFileEditor 转发到本地复制的实现。
-/// 每个工具包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
+/// - 绝对路径直接访问真实文件系统。
+///
+/// <b>工作区外的写入没有在这一层拦</b>,拦在审批规则里(<c>ApprovalModeMapper</c>):
+/// 任何权限档下首次越界写入都要用户点一次,包括完全自动档。放在那一层是因为「越界」是<b>授权</b>
+/// 问题而不是路径解析问题——同一条判据还要服务 shell,而且用户点了"本会话允许"之后要能真的放行。
+///
+/// 五个工具:Read / Write / Edit / Glob / Grep。
+/// Glob 采用 Meziantou.Framework.Globbing 实现递归路径枚举;Grep 采用 Glacier.Grep 高性能检索引擎
+/// (它自带 .gitignore/.ignore/.rgignore 的层级排除,对齐 ripgrep 行为)。
+/// 编辑语义(唯一匹配/重叠检测/保守 fuzzy/落盘保真)全在 <see cref="FileEditPlanner"/>,
+/// 本类只负责路径解析、限幅与落盘。写工具各包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
 /// </summary>
 internal sealed class PermissiveFileAccessTools
 {
     public const string ReadToolName = "Read";
     public const string WriteToolName = "Write";
-    public const string ReplaceToolName = "Replace";
-    public const string DeleteToolName = "Delete";
     public const string GrepToolName = "Grep";
     public const string GlobToolName = "Glob";
     public const string EditToolName = "Edit";
 
+    /// <summary>会改动文件的那几个工具。越界写入的审批判据按这份名单认工具</summary>
+    public static readonly string[] MutatingToolNames = [WriteToolName, EditToolName];
+
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
     //    Glob 已在 SimpleGlobber 内限 300 条;shell 由框架 MaxOutputBytes(64KiB)截断。——
     internal const int DefaultReadLineLimit = 2000; //未显式传 limit 时的行数上限
+
+    /// <summary>
+    /// Read 单次返回的总量上限,按 <b>UTF-8 字节</b>算。
+    ///
+    /// 曾按字符算(120_000,注释写"约 3 万 token"),那是英文的 4 字符/token；中文约 1~1.5 字符/token,
+    /// 于是读一个中文文件实际能放进 8~12 万 token,是标称值的三四倍。本仓注释通篇中文、
+    /// docs 更是纯中文,一次 Read 就能吃掉大半个上下文。按字节算则中英文都落在 1.5 万 token 上下。
+    /// </summary>
+    internal const int MaxReadTotalBytes = 64 * 1024;
+
     internal const int MaxReadLineChars = 2000; //单行截断(压缩产物一行可达数百 KB)
-    internal const int MaxReadTotalChars = 120_000; //总量保险(约 3 万 token)
     internal const int MaxGrepMatches = 200; //Grep 命中上限(只限工具边界,UI 文件搜索仍全量)
     internal const int MaxGrepLineChars = 500; //Grep 单行截断
+    internal const int MaxEditDiffLines = 80; //Edit 回给模型的 diff 行数上限
 
     private readonly string _workspaceRoot;
     private readonly SimpleGlobber _glob;
     private readonly SimpleGrepper _grepper;
-
 
     public PermissiveFileAccessTools(string workspaceRoot)
     {
@@ -72,8 +86,6 @@ internal sealed class PermissiveFileAccessTools
         if (!disableWriteTools)
         {
             tools.Add(Wrap(AIFunctionFactory.Create(Write, new AIFunctionFactoryOptions { Name = WriteToolName })));
-            tools.Add(Wrap(AIFunctionFactory.Create(Replace, new AIFunctionFactoryOptions { Name = ReplaceToolName })));
-            tools.Add(Wrap(AIFunctionFactory.Create(DeleteImpl, new AIFunctionFactoryOptions { Name = DeleteToolName })));
             tools.Add(Wrap(AIFunctionFactory.Create(Edit, new AIFunctionFactoryOptions { Name = EditToolName })));
         }
 
@@ -82,21 +94,24 @@ internal sealed class PermissiveFileAccessTools
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
     }
 
-    [Description("搜索文件：标准 glob 语法")]
+    [Description("Find files by glob pattern.")]
     private Task<List<string>> Glob(
-        string pattern,
-        [Description("Absolute path or sub-folder (optional)")] string? root = null)
+        [Description("Glob pattern, e.g. \"**/*.cs\".")] string pattern,
+        [Description("Directory to search in, absolute or relative to the working directory (optional).")]
+        string? root = null)
         => _glob.SearchAsync(pattern, root);
 
-    [Description("文本搜索：标准 ripgrep 语法")]
+    [Description("Search file contents. Respects .gitignore.")]
     internal async Task<List<FileSearchResult>> Grep(
-        string query,
-        [Description("Enable regex mode")] bool isRegex = true,
-        [Description("是否区分大小写")] bool caseSensitive = false,
-        [Description("匹配行上下各显示多少个上下文行")] int contextLines = 0,
-        [Description("目录遍历最大深度（null 表示不限制）")] int? maxDepth = null,
-        [Description("按文件名（不含路径）过滤要搜索的文件")] string[]? fileGlobs = null,
-        [Description("Target directory (relative or absolute)")] string? directory = null,
+        [Description("Search pattern (ripgrep syntax).")] string query,
+        [Description("Treat the pattern as a regular expression.")] bool isRegex = true,
+        [Description("Case-sensitive search.")] bool caseSensitive = false,
+        [Description("How many lines of context to show around each match.")] int contextLines = 0,
+        [Description("Maximum directory depth to walk (null means no limit).")] int? maxDepth = null,
+        [Description("Only search files whose name matches one of these globs, e.g. \"*.cs\".")]
+        string[]? fileGlobs = null,
+        [Description("Directory to search in, absolute or relative to the working directory.")]
+        string? directory = null,
         CancellationToken ct = default)
     {
         List<GrepFileResult> results = await _grepper
@@ -137,10 +152,11 @@ internal sealed class PermissiveFileAccessTools
     [Description("""
                  Read a file's raw content.
                  - Lines are separated by newlines. The first line of your mental model is line 1.
-                 - At most 2000 lines are returned per call; a trailing notice tells you the offset to continue from.
+                 - At most 2000 lines or 64KB are returned per call, whichever comes first;
+                   a trailing notice tells you the offset to continue from.
                  """)]
     internal Task<string> Read(
-        [Description("File path (relative or absolute).")] string filePath,
+        [Description("File path, absolute or relative to the working directory.")] string filePath,
         [Description("1-based starting line.")] int offset = 1,
         [Description("Max lines to return (capped by the default window).")] int? limit = null,
         CancellationToken cancellationToken = default)
@@ -155,7 +171,7 @@ internal sealed class PermissiveFileAccessTools
 
         var lines = new List<string>();
         bool hasMore = false;
-        int totalChars = 0;
+        int totalBytes = 0;
         using var reader = new StreamReader(full, Encoding.UTF8);
         for (int current = 1; current < offset; current++)
         {
@@ -165,14 +181,14 @@ internal sealed class PermissiveFileAccessTools
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
-            if (lines.Count >= effectiveLimit || totalChars >= MaxReadTotalChars)
+            if (lines.Count >= effectiveLimit || totalBytes >= MaxReadTotalBytes)
             {
                 hasMore = true;
                 break;
             }
 
             if (line.Length > MaxReadLineChars) line = TruncateLine(line, MaxReadLineChars);
-            totalChars += line.Length + 1;
+            totalBytes += Encoding.UTF8.GetByteCount(line) + 1;
             lines.Add(line);
         }
 
@@ -185,10 +201,10 @@ internal sealed class PermissiveFileAccessTools
         return Task.FromResult(
             $"{content}\n…[truncated: showing lines {offset}–{nextOffset - 1}; continue with offset={nextOffset}]");
     }
-    
-    [Description("Create or fully overwrite a file. Prefer 'edit' for partial changes.")]
+
+    [Description("Create a new file, or replace an existing one wholesale. Use 'Edit' for partial changes.")]
     private async Task<string> Write(
-        [Description("File path (relative or absolute).")]
+        [Description("File path, absolute or relative to the working directory.")]
         string filePath,
         [Description("Full file content.")] string content,
         [Description("Must be true to overwrite an existing file.")]
@@ -196,115 +212,58 @@ internal sealed class PermissiveFileAccessTools
         CancellationToken ct = default)
     {
         string full = ResolvePath(filePath);
-        if (!overwrite && File.Exists(full))
-            return $"File exists. Set overwrite=true to replace, or use 'edit' to patch it.";
+        bool exists = File.Exists(full);
+        if (exists && !overwrite)
+            return "File exists. Set overwrite=true to replace it, or use 'Edit' to change part of it.";
 
-        await SaveAsync(full, content, ct);
+        // 覆盖已有文件时沿用它的 BOM 与行尾风格;新建文件则是无 BOM + 模型给的 \n。
+        // 不这么做的话,让模型重写一个 CRLF 文件会顺手把整份文件的行尾改掉
+        TextFileEnvelope envelope = exists
+            ? TextFileEnvelope.FromBytes(await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false))
+            : TextFileEnvelope.FromText(string.Empty);
+
+        await SaveAsync(full, envelope, envelope.ConvertNewLines(content), ct).ConfigureAwait(false);
         return $"Saved '{filePath}' ({content.Split('\n').Length} lines).";
     }
 
-    [Description("Replace occurrences of old_string with new_string in a file. Fails if old_string is not found, or if it occurs more than once and replace_all is false. Returns the number of occurrences replaced.")]
-    private async Task<string> Replace(string filePath, string oldString, string newString, bool replaceAll = false, CancellationToken ct = default)
+    [Description("""
+                 Change an existing file by exact text replacement.
+                 - Put every change to one file in a single call, as multiple entries in `edits`.
+                 - Every edits[].oldString is matched against the file as it is now, not against
+                   your earlier entries in the same call, and must match exactly one place.
+                 - Entries must not overlap. Merge nearby changes into one entry instead.
+                 - Nothing is written unless every entry applies; the error tells you what to fix.
+                 """)]
+    private async Task<string> Edit(
+        [Description("File path, absolute or relative to the working directory.")]
+        string filePath,
+        [Description("The replacements to make, all matched against the current file content.")]
+        List<FileEdit> edits,
+        CancellationToken ct = default)
     {
         string full = ResolvePath(filePath);
-        if (!File.Exists(full)) return $"File '{filePath}' not found.";
-        string content = await File.ReadAllTextAsync(full, Encoding.UTF8, ct).ConfigureAwait(false);
-        (string newContent, int count) = MfaFileEditor.ApplyReplace(content, oldString, newString, replaceAll);
-        await SaveAsync(full, newContent, ct);
-        return $"Replaced {count} occurrence(s) in '{filePath}'.";
-    }
-    
-    [Description("Edit lines in a file. Provide a list of edits, each with a 1-based line_number and a literal new_line (include your own trailing newline); an empty new_line deletes the line, including its line break. Fails on out-of-range or duplicate line numbers.")]
-    private async Task<string> Edit(string filePath, List<FileLineEdit>? lineEdits = null, CancellationToken ct = default)
-    {
-        string full = ResolvePath(filePath);
-        if (!File.Exists(full))
-            return $"File '{filePath}' not found.";
+        FileEditPlan plan = await FileEditPlanner.PlanFileAsync(full, filePath, edits, ct).ConfigureAwait(false);
+        if (!plan.Succeeded) return $"[Edit failed] {plan.Error}";
 
-        // 1. 读入并归一化，MFA 内部按 \n 算就不会失配
-        var raw = await File.ReadAllTextAsync(full, ct).ConfigureAwait(false);
-        var normalized = Norm(raw);
+        await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
-        try
-        {
-            string newContent;
-
-            if (lineEdits is { Count: > 0 })
-            {
-                // MFA 自己管行号校验，直接透传
-                newContent = MfaFileEditor.ApplyReplaceLines(normalized, lineEdits);
-            }
-            else
-            {
-                return "Error: provide lineedits.";
-            }
-
-            return await FlushAndReply(full, raw, newContent, $"Applied {lineEdits!.Count} line edit(s) to '{filePath}'.", ct);
-        }
-        catch (ArgumentException ex)
-        {
-            // MFA 抛的校验异常，转成 Tool 返回，不断 Function Call 链路
-            return $"[Edit failed] {ex.Message}";
-        }
+        string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines);
+        return $"Applied {edits.Count} edit(s) to '{filePath}'.\n{diff}";
     }
 
-    [Description("Delete a file.")]
-    private Task<string> DeleteImpl(string path,
-        [Description("If true and the target is a non-empty directory, recursively delete all contents.")] bool recursive = false)
-    {
-        string full = ResolvePath(path);
-    
-        if (File.Exists(full))
-        {
-            File.Delete(full);
-            return Task.FromResult($"File '{path}' deleted.");
-        }
-    
-        if (Directory.Exists(full))
-        {
-            // 若为非空目录且未指定递归，拒绝操作
-            if (!recursive && Directory.EnumerateFileSystemEntries(full).Any())
-            {
-                return Task.FromResult($"Directory '{path}' is not empty. Set 'recursive=true' to delete all contents.");
-            }
-        
-            Directory.Delete(full, recursive);
-            return Task.FromResult($"Directory '{path}' {(recursive ? "and its contents " : "")}deleted.");
-        }
-    
-        return Task.FromResult($"'{path}' does not exist.");
-
-    }
-
-    //写盘 + 友好话术
-    private async Task<string> FlushAndReply(string full, string before, string after, string okMsg, CancellationToken ct)
-    {
-        if (before == after) return $"[No change] Content was identical after substitution.";
-        await SaveAsync(full, after, ct);
-        return okMsg;
-    }
-    
-    //统一落盘
-    private Task SaveAsync(string full, string content, CancellationToken ct)
+    //统一落盘:BOM 与行尾按信封原样还原
+    private static Task SaveAsync(string full, TextFileEnvelope envelope, string content, CancellationToken ct)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-        return File.WriteAllTextAsync(full, content, Encoding.UTF8, ct);
+        return File.WriteAllBytesAsync(full, envelope.ToBytes(content), ct);
     }
 
-    //换行抹平
-    private static string Norm(string s) => s.Replace("\r\n", "\n");
-    
     // ---- 路径解析 ----
 
     private string ResolvePath(string path)
     {
-        if (Path.IsPathRooted(path))
-        {
-            string full = Path.GetFullPath(path);
-            return full;
-        }
-
-        string combined = Path.GetFullPath(Path.Combine(_workspaceRoot, path));
-        return combined;
+        return Path.IsPathRooted(path)
+            ? Path.GetFullPath(path)
+            : Path.GetFullPath(Path.Combine(_workspaceRoot, path));
     }
 }

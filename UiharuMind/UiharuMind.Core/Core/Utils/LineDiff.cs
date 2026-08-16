@@ -29,7 +29,12 @@ public enum ELineDiffKind
 /// </summary>
 /// <param name="Kind">类别</param>
 /// <param name="Text">行内容</param>
-public sealed record LineDiffEntry(ELineDiffKind Kind, string Text);
+/// <param name="LineNumber">
+/// 1 起的行号（新增行取新文件侧，其余取旧文件侧）；0 表示未知。
+/// <see cref="LineDiff.Compute"/> 只比较两段文本，算不出它们在文件里的位置，故一律留 0；
+/// 由知道位置的调用方（<c>FileEditPlanner</c>）填。
+/// </param>
+public sealed record LineDiffEntry(ELineDiffKind Kind, string Text, int LineNumber = 0);
 
 /// <summary>
 /// 行级文本 diff（LCS）。服务编辑审批卡片的可读渲染——

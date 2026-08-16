@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Files;
 
@@ -65,6 +66,27 @@ public class ToolOutputCapTests : IDisposable
 
         Assert.Contains("…[truncated]", result);
         Assert.True(result.Length < 3000, $"单行截断后总长应远小于原文,实际 {result.Length}");
+    }
+
+    /// <summary>
+    /// 总量上限按 UTF-8 字节算,而不是字符——中文一个字符三字节,按字符算会让中文文件
+    /// 实际放进三四倍于标称的 token。行数远未到顶时,字节上限必须先生效并给出续读点。
+    /// </summary>
+    [Fact]
+    public async Task Read_ChineseFile_IsCappedByBytesNotChars()
+    {
+        string path = Path.Combine(_dir, "chinese.md");
+        // 每行 100 个汉字 = 300 字节,300 行约 90KB,行数只有 300 远未到 2000
+        await File.WriteAllLinesAsync(path,
+            Enumerable.Range(1, 300).Select(_ => new string('测', 100)));
+
+        string result = await _tools.Read(path);
+
+        string[] lines = result.Split('\n');
+        Assert.Contains("continue with offset=", lines[^1]);
+        Assert.True(lines.Length - 1 < 300, $"应因字节上限提前截断,实际返回 {lines.Length - 1} 行");
+        Assert.True(Encoding.UTF8.GetByteCount(result) < PermissiveFileAccessTools.MaxReadTotalBytes * 2,
+            "截断后总字节应在上限量级内");
     }
 
     [Fact]
