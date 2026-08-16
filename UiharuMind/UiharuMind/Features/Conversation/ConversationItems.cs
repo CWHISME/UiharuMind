@@ -14,6 +14,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -96,6 +97,23 @@ public partial class ToolCallItem : ConversationItemBase
     [ObservableProperty] private bool _isSuccess = true;
     [ObservableProperty] private string _resultText = string.Empty;
     [ObservableProperty] private bool _isExpanded;
+
+    /// <summary>
+    /// 结果正文里的 diff 行（目前只有 <c>Edit</c> 会有）。空集合表示按纯文本渲染结果。
+    /// 编辑成功后的 diff 在审批卡片上有增删配色，在这张卡片上曾经是一片灰字——
+    /// 同一份 diff 两种观感，而这张卡片才是自动放行档位下唯一看得到改动的地方。
+    /// </summary>
+    public IReadOnlyList<DiffLineView> ResultDiffLines { get; private set; } = [];
+
+    /// <summary>是否有 diff 可展示（有则替换掉纯文本结果面板）</summary>
+    public bool HasResultDiff => ResultDiffLines.Count > 0;
+
+    partial void OnResultTextChanged(string value)
+    {
+        ResultDiffLines = DiffLineView.ParseToolResult(value);
+        OnPropertyChanged(nameof(ResultDiffLines));
+        OnPropertyChanged(nameof(HasResultDiff));
+    }
 
     [RelayCommand]
     private void ShowActivity()
@@ -244,6 +262,9 @@ public sealed class DiffLineView
     /// <summary>预演读文件的大小上限:卡片在 UI 线程上构造,不能为一个巨大文件卡住界面</summary>
     private const long MaxPreviewFileBytes = 1024 * 1024;
 
+    /// <summary>渲染过的 diff 行:前缀(+/-/空格) + 右对齐行号 + 空格 + 正文</summary>
+    private static readonly Regex DiffLinePattern = new(@"^([ +-])(\s*\d+) (.*)$", RegexOptions.Compiled);
+
     /// <summary>
     /// 从编辑类工具调用构建 diff 行;非编辑类工具返回空
     /// </summary>
@@ -269,6 +290,48 @@ public sealed class DiffLineView
             // 为它单独做一套红字告警,收益抵不上多养一条 UI 分支(见 ADR 0007 的决策记录)
             return [];
         }
+    }
+
+    /// <summary>
+    /// 从工具结果正文里认出 diff 段并染色；不是编辑结果则返回空（调用方按纯文本渲染）。
+    ///
+    /// 格式（前缀 + 右对齐行号 + 空格 + 正文）是我们自己在
+    /// <see cref="FileEditPlanner.RenderDiff"/> 里定的，认回来是<b>同一份代码两端</b>的事，
+    /// 不是解析外部格式。往返测试钉住这层耦合，改了渲染格式不会让这里静默失效。
+    ///
+    /// 为什么不干跑重算：这张卡片出现在<b>执行之后</b>，文件已经改了，
+    /// 拿 oldString 再去匹配必然落空。
+    /// </summary>
+    /// <param name="resultText">工具结果正文</param>
+    /// <returns>diff 行列表；非编辑结果为空</returns>
+    public static IReadOnlyList<DiffLineView> ParseToolResult(string? resultText)
+    {
+        if (string.IsNullOrEmpty(resultText) || !resultText.StartsWith("Applied ", StringComparison.Ordinal))
+            return [];
+
+        List<DiffLineView> lines = [];
+        bool sawDiffLine = false;
+        foreach (string raw in resultText.Split('\n'))
+        {
+            string line = raw.TrimEnd('\r');
+            Match match = DiffLinePattern.Match(line);
+            if (!match.Success)
+            {
+                lines.Add(Context(line)); //"Applied N edit(s) to ..." 与折叠提示原样留着
+                continue;
+            }
+
+            sawDiffLine = true;
+            string text = $"{match.Groups[2].Value} {match.Groups[3].Value}";
+            lines.Add(match.Groups[1].Value switch
+            {
+                "+" => Added(text),
+                "-" => Removed(text),
+                _ => Context(text),
+            });
+        }
+
+        return sawDiffLine ? Cap(lines) : [];
     }
 
     private static List<DiffLineView> BuildWriteDiff(IDictionary<string, object?>? args)

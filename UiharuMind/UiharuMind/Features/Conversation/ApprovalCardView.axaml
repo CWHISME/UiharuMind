@@ -21,21 +21,7 @@
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0,4" />
         </Style>
-        <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
-
-        <!-- diff 行配色(等宽字体沿用全局的 mono 类) -->
-        <Style Selector="TextBlock.diffline">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="4,0" />
-        </Style>
-        <Style Selector="TextBlock.diffline.added">
-            <Setter Property="Background" Value="{DynamicResource SemiGreen0}" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGreen7}" />
-        </Style>
-        <Style Selector="TextBlock.diffline.removed">
-            <Setter Property="Background" Value="{DynamicResource SemiRed0}" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiRed7}" />
-        </Style>
+        <!-- result-panel 与 diffline 配色已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
     </UserControl.Styles>
 
     <Border Classes="tool-card" Margin="0,6,40,6"

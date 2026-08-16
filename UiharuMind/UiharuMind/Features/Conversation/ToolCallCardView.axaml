@@ -119,8 +119,33 @@
             </Grid>
             <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
                 <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
-                <Border Classes="result-panel"
-                        IsVisible="{Binding ResultText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <!-- 编辑结果带 diff 时换成带增删配色的渲染:自动放行档位下这张卡片是唯一
+                     看得到改动的地方,一片灰字等于看不见改了什么。配色走全局 diffline 样式,
+                     与审批卡片同一支笔 -->
+                <Border Classes="result-panel" IsVisible="{Binding HasResultDiff}">
+                    <ScrollViewer MaxHeight="280"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ResultDiffLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Classes="mono diffline"
+                                               Classes.added="{Binding IsAdded}"
+                                               Classes.removed="{Binding IsRemoved}">
+                                        <Run Text="{Binding Prefix}" /><Run Text="{Binding Text}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+                <Border Classes="result-panel">
+                    <Border.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="ResultText" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                            <Binding Path="!HasResultDiff" />
+                        </MultiBinding>
+                    </Border.IsVisible>
                     <ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
                         <SelectableTextBlock Classes="mono" Text="{Binding ResultText}" TextWrapping="Wrap" />
                     </ScrollViewer>
