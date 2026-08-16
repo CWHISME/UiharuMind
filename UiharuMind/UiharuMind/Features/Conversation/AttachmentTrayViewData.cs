@@ -184,34 +184,33 @@ public partial class AttachmentTrayViewData : ObservableObject
     }
 
     /// <summary>
-    /// 带图片时在此处主动解析一次视觉模型:当前模型不支持识图才切到偏好的视觉模型
-    /// (写回 CurrentRunningModel,后续 LazyChatClient 直接使用)。
-    /// 不能指望发送链路下游——LazyChatClient 只在无模型时按 isVision=false 兜底,
-    /// 会挑中不支持识图的偏好模型;找不到视觉模型则维持原状,走路径引用 + ask_vision 降级。
+    /// 本轮图片该内联还是降级成路径引用，取决于生效的模型能否自己看图。
+    ///
+    /// <b>已经选了模型就一律尊重它</b>：选了个看不了图的模型，图片就走路径引用，
+    /// 由 <c>ask_vision</c> 去委托视觉模型答（装配那侧正是「当前模型看不了图才挂 ask_vision」）。
+    /// 替用户把模型换掉会让「行为突然变了」无法归因，而且他选那个模型往往是有原因的。
+    ///
+    /// 只有<b>一个模型都还没选</b>时才主动解析一次：那种情况下发送链路下游的
+    /// LazyChatClient 会按 <c>isVision=false</c> 兜底，挑中的很可能是不支持识图的偏好模型，
+    /// 而此刻并没有任何用户选择会被覆盖。解析不到视觉模型则维持原状，同样走路径引用降级。
     /// </summary>
     /// <param name="attachments">本轮附件</param>
     /// <returns>最终生效的模型是否支持识图</returns>
     private bool ResolveVisionModel(List<ConversationAttachment> attachments)
     {
-        // 判定必须走会话绑定的模型(与 SessionModelLabel / LazyChatClient 同口径):
-        // TryCheckModelRunning 只认全局当前模型,原先无条件调用等于把用户在本会话里
-        // 选定的视觉模型整个绕开,发图时被无声换掉
+        // 口径与 SessionModelLabel / LazyChatClient 一致:会话绑定的专属模型优先于全局当前模型
         ModelRunningData? effectiveModel = _session()?.ChatModelRunningData
                                            ?? LlmManager.Instance.CurrentRunningModel;
-        bool isVision = effectiveModel?.IsVisionModel == true;
-        if (isVision || !attachments.Any(x => x.IsImage)) return isVision;
+        if (effectiveModel != null) return effectiveModel.IsVisionModel;
+        if (!attachments.Any(x => x.IsImage)) return false;
 
         LlmManager.Instance.TryCheckModelRunning(true);
-        ModelRunningData? switched = LlmManager.Instance.CurrentRunningModel;
-        isVision = switched?.IsVisionModel == true;
-        // 换人这件事必须留痕:模型能力差异很大,静默切换会让"行为突然变了"无法归因
-        if (isVision && switched != effectiveModel)
-        {
-            Log.Warning($"Switched to vision model '{switched?.ModelName}' to send an image " +
-                        $"(was '{effectiveModel?.ModelName}').");
-        }
+        ModelRunningData? resolved = LlmManager.Instance.CurrentRunningModel;
+        if (resolved?.IsVisionModel != true) return false;
 
-        return isVision;
+        // 自动挑人这件事要留痕:后续"为什么用的是这个模型"只能靠它回答
+        Log.Warning($"Resolved vision model '{resolved.ModelName}' to send an image (none was selected).");
+        return true;
     }
 
     /// <summary>
