@@ -199,6 +199,11 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
     /// 注意「一律拒绝」只对<b>冒出来的</b>请求成立：命中权限档或
     /// <see cref="ScheduledAgentTask.PreAuthorizedCommands"/> 的调用由装配层的
     /// 自动放行规则处理，根本不会走到这里。
+    ///
+    /// 具体到本处写死的 <see cref="EAgentPermissionMode.AutoEdit"/> 档：工作区内的文件写入
+    /// 自动放行（任务能真的干活），<b>工作区外的写入与 shell 冒到这里被拒</b>——
+    /// 那正是无人值守场合该有的边界。这一档曾经一条规则都不加，于是定时任务的每一次
+    /// 文件写入都走到这里被拒，任务表面跑完、实际一个字没落盘。
     /// </summary>
     /// <returns>一个带轮次计数的审批策略，一次执行用一个</returns>
     private static ApprovalResolver DenyUnauthorizedApprovals()

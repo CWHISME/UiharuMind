@@ -12,7 +12,7 @@ namespace UiharuMind.Core.AI.Character;
 /// </summary>
 public class AgentToolConfig
 {
-    /// <summary>启用文件操作工具(Glob/Read/Write/Edit/Replace/Delete/Grep)</summary>
+    /// <summary>启用文件操作工具(Read/Write/Edit/Glob/Grep)。删文件走 shell，没有专门的工具</summary>
     public bool EnableFileAccess { get; set; } = true;
 
     /// <summary>启用 Shell 执行工具</summary>

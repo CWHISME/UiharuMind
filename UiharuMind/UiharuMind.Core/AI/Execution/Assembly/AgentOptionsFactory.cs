@@ -132,7 +132,8 @@ internal static class AgentOptionsFactory
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
             AutoApprovalRules = ApprovalModeMapper.BuildRules(plan.Profile.PermissionMode,
-                plan.Profile.PreAuthorizedShellPatterns, plan.Profile.SessionShellApprovalSource),
+                plan.WorkingDirectory, plan.Profile.PreAuthorizedShellPatterns,
+                plan.Profile.SessionShellApprovalSource),
         };
         options.ChatOptions = chatOptions;
         return options;

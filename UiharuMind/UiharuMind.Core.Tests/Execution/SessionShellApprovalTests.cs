@@ -1,7 +1,5 @@
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
-using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace UiharuMind.Core.Tests.Agent;
 
@@ -33,14 +31,14 @@ public class SessionShellApprovalTests
         FunctionCallContent shellCall = new("c1", CharacterRunnerFactory.ShellToolName,
             new Dictionary<string, object?> { ["command"] = "git status --short" });
 
-        Assert.False(await EvaluateAsync(rules, shellCall)); //清单为空:仍需人工审批
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, shellCall)); //清单为空:仍需人工审批
 
         patterns.Add("git status*"); //用户点了"记住同类命令"
-        Assert.True(await EvaluateAsync(rules, shellCall)); //同一规则集,立即生效
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(rules, shellCall)); //同一规则集,立即生效
 
         FunctionCallContent pushCall = new("c2", CharacterRunnerFactory.ShellToolName,
             new Dictionary<string, object?> { ["command"] = "git push origin main" });
-        Assert.False(await EvaluateAsync(rules, pushCall)); //前两词模式圈不住 push
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, pushCall)); //前两词模式圈不住 push
     }
 
     [Fact]
@@ -52,45 +50,8 @@ public class SessionShellApprovalTests
         FunctionCallContent writeCall = new("c1", "Write",
             new Dictionary<string, object?> { ["command"] = "anything" });
 
-        Assert.False(await EvaluateAsync(rules, writeCall));
-    }
-
-    private static async Task<bool> EvaluateAsync(
-        IEnumerable<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules, FunctionCallContent call)
-    {
-        // 1.16 起规则收上下文对象;用最小桩 agent/session 构造之
-        ChatClientAgent agent = new(new NullChatClient());
-        AgentSession session = await agent.CreateSessionAsync();
-        ToolAutoApprovalRuleContext context = new(call, agent, session, [], null);
-        foreach (var rule in rules)
-        {
-            if (await rule(context)) return true;
-        }
-
-        return false;
-    }
-
-    private sealed class NullChatClient : IChatClient
-    {
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
-            ChatOptions? options = null, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new ChatResponse());
-        }
-
-        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
-            IEnumerable<ChatMessage> messages, ChatOptions? options = null,
-            [System.Runtime.CompilerServices.EnumeratorCancellation]
-            CancellationToken cancellationToken = default)
-        {
-            await Task.CompletedTask;
-            yield break;
-        }
-
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
-
-        public void Dispose()
-        {
-        }
+        // shell 放行清单圈不住 Write;而 AutoEdit 档那条规则只放行工作区内的写入,
+        // 这次调用连 filePath 都没有 —— 无从判定,照样要审批
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, writeCall));
     }
 }

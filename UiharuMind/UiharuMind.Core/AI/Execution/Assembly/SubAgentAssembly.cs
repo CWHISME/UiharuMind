@@ -164,7 +164,10 @@ internal static class SubAgentAssembly
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
         AgentToolConfig config = input.Config;
-        // 完全自动档一律放行,子代理才可能真的写成东西;其余档位下写/shell 必然要问用户,故不挂
+        // 完全自动档一律放行,子代理才可能真的写成东西;其余档位下不挂写工具。
+        // 自动编辑档如今也会放行工作区内的写入,所以这里<b>可以</b>放宽到那一档——刻意没放:
+        // 那一档下越界写入仍要审批,而子代理没有审批通道(见 SubAgentTool 的说明),
+        // 给它一把"改工作区内可以、改外面就静默失效"的工具,比不给更难排查。
         bool canMutate = input.PermissionMode == EAgentPermissionMode.FullAuto;
 
         List<AITool> tools = new();
@@ -211,7 +214,7 @@ internal static class SubAgentAssembly
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
             AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
-                input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource),
+                input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource),
         };
         options.ChatOptions = new ChatOptions
         {
