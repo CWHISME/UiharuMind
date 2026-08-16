@@ -270,7 +270,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         // 子模型只吃窄依赖、不反向持有本类:附件盘取会话要用委托(首轮发送时会话还不存在),
         // 命令面板要能改写输入框并读当前角色,挂接器只需报忙碌态
-        Tray = new AttachmentTrayViewData(() => CurrentSession);
+        Tray = new AttachmentTrayViewData(() => CurrentSession, () => SessionCharacter);
         Palette = new CommandPaletteViewData(text => InputText = text, () => SessionCharacter);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
         _itemActions = new ConversationItemActions(Items, this);
@@ -337,6 +337,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void OnCurrentModelChanged(ModelRunningData? model)
     {
         OnPropertyChanged(nameof(SessionModelLabel));
+        Tray.NotifyVisionStateChanged(); //换成非视觉模型时,待发的图就该立刻出警示
         // 上限是跟着模型走的:换个模型,占用的分母、三条水位与配色档位全都变了
         RefreshTokenUsageText();
     }
@@ -770,12 +771,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private Task<ChatSession?> AttachAsync(ChatSessionMeta meta, CancellationToken cancellationToken) =>
         _binder.AttachAsync(meta, Workspace.Path, PermissionModeIndex, cancellationToken);
 
-    /// <summary>角色档位变了：三处可见性判据都挂在它身上</summary>
+    /// <summary>角色档位变了：四处可见性判据都挂在它身上（发图有没有退路也是按档位判的）</summary>
     private void NotifyCharacterKindChanged()
     {
         OnPropertyChanged(nameof(IsAgentSession));
         OnPropertyChanged(nameof(IsModeSwitchVisible));
         OnPropertyChanged(nameof(IsTodoListVisible));
+        Tray.NotifyVisionStateChanged();
     }
 
     private void ApplyMode()
@@ -1121,7 +1123,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private void ClearStreamState()
     {
+        // 气泡里的图是本会话现解出来的大位图,随条目走;条目被整体丢掉时没人会去释放它们,
+        // 于是切一次会话就漏掉一整个会话的图。先 Clear 摘掉绑定,再释放(顺序反了会撞渲染)
+        ConversationItemBase[] discarded = Items.ToArray();
         Items.Clear();
+        foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+
         Todos.Clear();
         HasTodos = false;
         HasEarlierMessages = false;

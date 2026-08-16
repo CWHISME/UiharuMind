@@ -192,52 +192,59 @@
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="4">
                 <!-- 附件 chips:附件盘挂在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置。
                      DataContext 整体切到附件盘,下面模板里的 $parent[ItemsControl] 才拿得到它 -->
-                <ItemsControl Grid.Row="0"
-                              DataContext="{Binding Tray}"
-                              ItemsSource="{Binding Attachments}"
-                              IsVisible="{Binding Attachments.Count}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="composer:ConversationAttachment">
-                            <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
-                                    Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
-                                <Grid>
-                                    <Button Classes="NoneStyle" Padding="0"
-                                            Cursor="Hand" HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"
-                                            Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).PreviewAttachmentCommand}"
-                                            CommandParameter="{Binding}">
-                                        <Grid VerticalAlignment="Center">
-                                            <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
-                                                   MaxHeight="48" MaxWidth="48" Stretch="Uniform"
-                                                   IsVisible="{Binding IsImage}" />
-                                            <StackPanel Orientation="Horizontal" Spacing="4"
-                                                        IsVisible="{Binding !IsImage}"
-                                                        VerticalAlignment="Center">
-                                                <ThemedSvgIcon IconName="file-text" Width="16" Height="16"
+                <StackPanel Grid.Row="0" DataContext="{Binding Tray}">
+                    <ItemsControl ItemsSource="{Binding Attachments}"
+                                  IsVisible="{Binding Attachments.Count}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="composer:ConversationAttachment">
+                                <Border Background="{DynamicResource SemiGrey2}" CornerRadius="10"
+                                        Padding="6,4" Margin="0,0,6,4" MaxWidth="180">
+                                    <Grid>
+                                        <Button Classes="NoneStyle" Padding="0"
+                                                Cursor="Hand" HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).PreviewAttachmentCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Grid VerticalAlignment="Center">
+                                                <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
+                                                       MaxHeight="48" MaxWidth="48" Stretch="Uniform"
+                                                       IsVisible="{Binding IsImage}" />
+                                                <StackPanel Orientation="Horizontal" Spacing="4"
+                                                            IsVisible="{Binding !IsImage}"
+                                                            VerticalAlignment="Center">
+                                                    <ThemedSvgIcon IconName="file-text" Width="16" Height="16"
+                                                                   VerticalAlignment="Center" />
+                                                    <TextBlock FontSize="11" Text="{Binding FileName}"
+                                                               Margin="0,3,0,0"
+                                                               MaxWidth="120" TextTrimming="CharacterEllipsis"
                                                                VerticalAlignment="Center" />
-                                                <TextBlock FontSize="11" Text="{Binding FileName}"
-                                                           Margin="0,3,0,0"
-                                                           MaxWidth="120" TextTrimming="CharacterEllipsis"
-                                                           VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Button>
-                                    <ThemedIconButton Classes="message-action"
-                                                      IconName="trash-2"
-                                                      HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                      Margin="0,-8,-8,0"
-                                                      Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).RemoveAttachmentCommand}"
-                                                      CommandParameter="{Binding}" />
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Button>
+                                        <ThemedIconButton Classes="message-action"
+                                                          IconName="trash-2"
+                                                          HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                          Margin="0,-8,-8,0"
+                                                          Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).RemoveAttachmentCommand}"
+                                                          CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <!-- 发图白发的警示:当前模型看不了图,角色档又没有 ask_vision 兜底(纯提示词档)。
+                         只提示,不阻止发送、不替用户换模型;换视觉模型或删掉图片后自行消失 -->
+                    <TextBlock Classes="muted" FontSize="11" Margin="2,0,2,2"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource SemiOrange5}"
+                               Text="{loc:Loc ChatImageUnreadableWarning}"
+                               IsVisible="{Binding IsImageUnreadableWarningVisible}" />
+                </StackPanel>
 
                 <!-- 宿主注入:输入框上方区域 -->
                 <ContentPresenter Grid.Row="1"

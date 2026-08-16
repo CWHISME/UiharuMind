@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,6 +21,7 @@ using System.Threading.Tasks;
 using System;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI;
@@ -37,16 +39,48 @@ namespace UiharuMind.Features.Conversation.Composer;
 public partial class AttachmentTrayViewData : ObservableObject
 {
     private readonly Func<ChatSession?> _session;
+    private readonly Func<CharacterData?> _character;
     private readonly List<string> _pendingOwnedFiles = new();
 
     /// <summary>附件集合(文件路径或内存字节),由输入框上方区域展示</summary>
     public ObservableCollection<ConversationAttachment> Attachments { get; } = new();
 
     /// <param name="session">取当前会话；尚未创建时为 null</param>
-    public AttachmentTrayViewData(Func<ChatSession?> session)
+    /// <param name="character">取本会话的角色；用于判断发图有没有退路</param>
+    public AttachmentTrayViewData(Func<ChatSession?> session, Func<CharacterData?> character)
     {
         _session = session;
+        _character = character;
+        // 加图/删图都会翻转警示,集合自己报就够;模型与角色变了要外部叫一声(见 NotifyVisionStateChanged)
+        Attachments.CollectionChanged += (_, _) => NotifyVisionStateChanged();
     }
+
+    /// <summary>
+    /// 本轮图片会不会白发：生效模型自己看不了图，角色又没有 <c>ask_vision</c> 兜底。
+    ///
+    /// 为真时附件盘上出一条警示，<b>但不阻止发送、也不替用户换模型</b>——
+    /// 选了模型就一律尊重它（见 <see cref="ResolveVisionModel"/>）。警示存在的意义只是
+    /// 别让「气泡里显示着图、模型只收到一行路径」这件事悄悄发生。
+    /// </summary>
+    public bool IsImageUnreadableWarningVisible
+    {
+        get
+        {
+            // 一个模型都还没选时不警示:发送链路那时会主动解析一次,很可能解析出视觉模型。
+            // 而在绑定读的 getter 里做那次解析会真的去启动模型,不能干
+            ModelRunningData? model = EffectiveModel();
+            if (model == null) return false;
+
+            return VisionFallback.WillDropImages(Attachments.Any(x => x.IsImage), model.IsVisionModel,
+                VisionFallback.HasFallback(_character()));
+        }
+    }
+
+    /// <summary>
+    /// 重算发图警示。切模型、切会话、换角色之后由宿主视图模型调用——
+    /// 附件盘刻意不订阅那些全局单例事件（订阅就得跟着反注销，本类没有生命周期钩子）
+    /// </summary>
+    public void NotifyVisionStateChanged() => OnPropertyChanged(nameof(IsImageUnreadableWarningVisible));
 
     /// <summary>添加文件附件</summary>
     public void AddAttachmentPath(string path)
@@ -129,7 +163,12 @@ public partial class AttachmentTrayViewData : ObservableObject
             return;
         }
 
-        if (bitmap != null) UIManager.ShowPreviewImageCopyWindowAtMousePosition(bitmap);
+        // 这张是本方法现解出来的、没有第二个持有者,所以走接管重载让预览窗直接吃掉。
+        // 走 Copy 重载会白克隆一份(整轮 PNG 编解码),而原图没人释放
+        // 对齐方式沿用 Copy 重载原本的居中默认值,换重载不该顺手挪动预览窗的位置
+        if (bitmap != null)
+            UIManager.ShowPreviewImageWindowAtMousePosition(bitmap, horizontalAlignment: HorizontalAlignment.Center,
+                verticalAlignment: VerticalAlignment.Center);
     }
 
     /// <summary>
@@ -198,9 +237,7 @@ public partial class AttachmentTrayViewData : ObservableObject
     /// <returns>最终生效的模型是否支持识图</returns>
     private bool ResolveVisionModel(List<ConversationAttachment> attachments)
     {
-        // 口径与 SessionModelLabel / LazyChatClient 一致:会话绑定的专属模型优先于全局当前模型
-        ModelRunningData? effectiveModel = _session()?.ChatModelRunningData
-                                           ?? LlmManager.Instance.CurrentRunningModel;
+        ModelRunningData? effectiveModel = EffectiveModel();
         if (effectiveModel != null) return effectiveModel.IsVisionModel;
         if (!attachments.Any(x => x.IsImage)) return false;
 
@@ -212,6 +249,10 @@ public partial class AttachmentTrayViewData : ObservableObject
         Log.Warning($"Resolved vision model '{resolved.ModelName}' to send an image (none was selected).");
         return true;
     }
+
+    /// 生效模型:会话绑定的专属模型优先于全局当前模型,口径与 SessionModelLabel / LazyChatClient 一致
+    private ModelRunningData? EffectiveModel() =>
+        _session()?.ChatModelRunningData ?? LlmManager.Instance.CurrentRunningModel;
 
     /// <summary>
     /// 附件的文本引用。粘贴来的图片会先落盘再引用其路径——否则模型只会收到一个
