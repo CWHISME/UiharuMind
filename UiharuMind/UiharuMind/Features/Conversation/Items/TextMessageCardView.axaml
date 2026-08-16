@@ -103,13 +103,15 @@
                         BorderBrush="{Binding SenderColor}"
                         HorizontalAlignment="{Binding Alignment}"
                         IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <!-- 纯文本档的口径:用户消息恒纯文本,其余只看用户的开关,<b>与是否生成完毕无关</b>。
+                         流式期间曾额外绑 !IsDone(输出完才转 markdown),那是笔糊涂账:
+                         增量本来就一直在喂 markdown 的 builder,延后的只是显示 -->
                     <common:SimpleMarkdownViewer HorizontalAlignment="Left"
                                                  MarkdownText="{Binding Message}">
                         <common:SimpleMarkdownViewer.IsPlaintext>
                             <MultiBinding
                                 Converter="{StaticResource MultiConditionBoolOrConverter}">
                                 <Binding Path="IsUser" />
-                                <Binding Path="!IsDone" />
                                 <Binding Path="DataContext.IsPlaintext"
                                          RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
                             </MultiBinding>

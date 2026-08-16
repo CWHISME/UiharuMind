@@ -25,12 +25,13 @@
 
     <Window.DataTemplates>
         <!-- 子代理的正文:整幅宽度。
-             IsPlaintext 绑 !IsDone 与会话流同一策略:流式期间走纯文本,
-             收尾后才切到 markdown 渲染——不绑的话该控件的默认值恒为 true,永远渲染不出 markdown -->
+             IsPlaintext 与会话流同一口径——只看用户的纯文本开关,与是否生成完毕无关;
+             绑到窗口而非直接读配置,是因为该控件的默认值恒为 true,不绑就永远渲染不出 markdown -->
         <DataTemplate DataType="items:TextConversationItem">
             <common:SimpleMarkdownViewer Margin="0,4" HorizontalAlignment="Stretch"
                                          MarkdownText="{Binding Message}"
-                                         IsPlaintext="{Binding !IsDone}" />
+                                         IsPlaintext="{Binding IsPlaintext,
+                                         RelativeSource={RelativeSource AncestorType=items:SubAgentActivityWindow}}" />
         </DataTemplate>
 
         <!-- 思考段:默认折叠。与会话流里完全同一个组件,不再各写一份模板 -->

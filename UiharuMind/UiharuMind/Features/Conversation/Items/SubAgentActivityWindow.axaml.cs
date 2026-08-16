@@ -7,8 +7,10 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.UIHolder;
 using UiharuMind.Shared.Windows;
@@ -27,7 +29,20 @@ namespace UiharuMind.Features.Conversation.Items;
 /// </summary>
 public partial class SubAgentActivityWindow : QuickWindowBase
 {
+    public static readonly StyledProperty<bool> IsPlaintextProperty =
+        AvaloniaProperty.Register<SubAgentActivityWindow, bool>(nameof(IsPlaintext));
+
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
+
+    /// <summary>
+    /// 正文是否以纯文本呈现（供正文模板绑定）。开窗时取一次用户设置的当前值——
+    /// 配置项本身没有变更通知，开着的窗口不跟随设置改动，下次开窗才生效。
+    /// </summary>
+    public bool IsPlaintext
+    {
+        get => GetValue(IsPlaintextProperty);
+        set => SetValue(IsPlaintextProperty, value);
+    }
 
     /// <summary>
     /// 打开一次工具调用的过程窗口
@@ -59,6 +74,7 @@ public partial class SubAgentActivityWindow : QuickWindowBase
     /// <param name="item">发起子代理的那张工具卡片</param>
     public void SetSource(ToolCallItem item)
     {
+        IsPlaintext = ChatSettingConfig.Current.IsChatPlainText;
         TaskTextBlock.Text = item.ArgumentSummary;
         ActivityList.ItemsSource = item.NestedItems;
         _autoScrollHolder.Resume();
