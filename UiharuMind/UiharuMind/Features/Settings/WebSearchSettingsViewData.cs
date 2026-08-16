@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.Configs;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Settings;
 
@@ -31,8 +32,7 @@ namespace UiharuMind.Features.Settings;
 /// </summary>
 public partial class WebSearchSettingsViewData : ObservableObject
 {
-    /// <summary>按兜底优先级排列的引擎</summary>
-    public ObservableCollection<WebSearchProviderItem> Items { get; } = new();
+    private readonly SettingsWriteBack _writeBack = new(() => AgentSettingConfig.Current.Save()); //写回闸门
 
     [ObservableProperty] private bool _isProbingAll;
 
@@ -41,12 +41,20 @@ public partial class WebSearchSettingsViewData : ObservableObject
     [ObservableProperty] private string _tavilyApiKey = string.Empty;
     [ObservableProperty] private string _braveSearchApiKey = string.Empty;
 
+    /// <summary>按兜底优先级排列的引擎</summary>
+    public ObservableCollection<WebSearchProviderItem> Items { get; } = new();
+
     public WebSearchSettingsViewData()
     {
-        AgentSettingConfig config = AgentSettingConfig.Current;
-        _firecrawlApiKey = config.FirecrawlApiKey;
-        _tavilyApiKey = config.TavilyApiKey;
-        _braveSearchApiKey = config.BraveSearchApiKey;
+        // 回填走 backing field,不惊动生成的 OnXChanged——那三个 handler 会顺带跑 Refresh(),
+        // 而构造末尾本来就要 Refresh 一次,没必要为三个 key 各读一遍链路状态
+        using (_writeBack.BeginLoad())
+        {
+            AgentSettingConfig config = AgentSettingConfig.Current;
+            _firecrawlApiKey = config.FirecrawlApiKey;
+            _tavilyApiKey = config.TavilyApiKey;
+            _braveSearchApiKey = config.BraveSearchApiKey;
+        }
 
         Refresh();
     }
@@ -55,21 +63,21 @@ public partial class WebSearchSettingsViewData : ObservableObject
     partial void OnFirecrawlApiKeyChanged(string value)
     {
         AgentSettingConfig.Current.FirecrawlApiKey = value;
-        AgentSettingConfig.Current.Save();
+        _writeBack.Save();
         Refresh(); //填不填 key 直接决定引擎是"可用"还是"未配置"
     }
 
     partial void OnTavilyApiKeyChanged(string value)
     {
         AgentSettingConfig.Current.TavilyApiKey = value;
-        AgentSettingConfig.Current.Save();
+        _writeBack.Save();
         Refresh();
     }
 
     partial void OnBraveSearchApiKeyChanged(string value)
     {
         AgentSettingConfig.Current.BraveSearchApiKey = value;
-        AgentSettingConfig.Current.Save();
+        _writeBack.Save();
         Refresh();
     }
 
@@ -102,43 +110,52 @@ public partial class WebSearchSettingsViewData : ObservableObject
     [RelayCommand]
     private async Task ProbeAll()
     {
-        if (IsProbingAll) return;
-
-        IsProbingAll = true;
-        foreach (WebSearchProviderItem item in Items) item.BeginProbe();
-
-        try
-        {
-            foreach (WebProviderProbe probe in await WebSearchDiagnostics.ProbeAllAsync())
+        await AsyncCommandScope.RunAsync(
+            v =>
             {
-                Find(probe.Name)?.Apply(probe);
-            }
-        }
-        finally
-        {
-            foreach (WebSearchProviderItem item in Items) item.EndProbe();
-            IsProbingAll = false;
-            Refresh(); //实测过程中可能有引擎被别的调用熔断，顺手把状态也刷新一遍
-        }
+                IsProbingAll = v;
+                foreach (WebSearchProviderItem item in Items)
+                {
+                    if (v) item.BeginProbe();
+                    else item.EndProbe();
+                }
+
+                if (!v) Refresh(); //实测过程中可能有引擎被别的调用熔断，顺手把状态也刷新一遍
+            },
+            async () =>
+            {
+                foreach (WebProviderProbe probe in await WebSearchDiagnostics.ProbeAllAsync())
+                {
+                    Find(probe.Name)?.Apply(probe);
+                }
+            },
+            skipIf: IsProbingAll);
     }
 
     /// <summary>只测某一个。改完 key、或想确认某个引擎是不是真活着时，不必把全链都跑一遍</summary>
     [RelayCommand]
     private async Task ProbeOne(WebSearchProviderItem? item)
     {
-        if (item == null || item.IsProbing) return;
+        if (item == null) return;
 
-        item.BeginProbe();
-        try
-        {
-            WebProviderProbe? probe = await WebSearchDiagnostics.ProbeAsync(item.Name);
-            if (probe != null) item.Apply(probe);
-        }
-        finally
-        {
-            item.EndProbe();
-            Refresh();
-        }
+        await AsyncCommandScope.RunAsync(
+            v =>
+            {
+                if (v)
+                {
+                    item.BeginProbe();
+                    return;
+                }
+
+                item.EndProbe();
+                Refresh();
+            },
+            async () =>
+            {
+                WebProviderProbe? probe = await WebSearchDiagnostics.ProbeAsync(item.Name);
+                if (probe != null) item.Apply(probe);
+            },
+            skipIf: item.IsProbing);
     }
 
     private WebSearchProviderItem? Find(string name)

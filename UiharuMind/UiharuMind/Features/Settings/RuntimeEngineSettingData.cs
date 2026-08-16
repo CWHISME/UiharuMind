@@ -23,6 +23,7 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Shared.Controls;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Settings;
 
@@ -75,7 +76,15 @@ public partial class RuntimeEngineSettingData : ObservableObject
     [RelayCommand]
     private async Task UpdateRemoteVersions()
     {
-        IsCheckingForUpdate = true;
+        await AsyncCommandScope.RunAsync(
+            v => IsCheckingForUpdate = v,
+            PullRemoteVersionsAsync,
+            e => UpdatedResutInfo = e.Message, //拉取失败就把原因写在结果那一行，界面本来就在显示它
+            IsCheckingForUpdate);
+    }
+
+    private async Task PullRemoteVersionsAsync()
+    {
         RemoteDwnloadListViewModel.ClearIfNotExists();
         var versions = await LlmManager.Instance.PullLatestRuntimeVersion();
         foreach (var version in versions.VersionsList)
@@ -85,7 +94,6 @@ public partial class RuntimeEngineSettingData : ObservableObject
         }
 
         UpdatedResutInfo = versions.ReleaseDate;
-        IsCheckingForUpdate = false;
     }
 
     [RelayCommand]

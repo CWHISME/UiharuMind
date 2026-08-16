@@ -22,10 +22,10 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Features.Models;
@@ -156,22 +156,10 @@ public partial class ModelPageData : PageDataBase
 
     protected override Control CreateView => new ModelPage();
 
-    private async void LoadModels()
+    // 原先是 async void：catch 之外再漏一个异常就是进程级崩溃。改成即发即忘，忙标志与日志交给作用域
+    private void LoadModels()
     {
-        try
-        {
-            IsBusy = true;
-            await App.ModelService.LoadModelList();
-            // OnPropertyChanged(nameof(ModelSources));
-        }
-        catch (Exception e)
-        {
-            Log.Error(e.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        _ = AsyncCommandScope.RunAsync(v => IsBusy = v, App.ModelService.LoadModelList);
     }
 
     private void UpdateModel(ModelRunningData model)

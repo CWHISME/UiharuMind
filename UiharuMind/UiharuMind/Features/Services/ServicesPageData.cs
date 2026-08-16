@@ -22,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Features.Models;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
@@ -384,23 +385,18 @@ public partial class ServicesPageData : PageDataBase
 
     private async Task<bool> RunEmbeddingActionAsync(Func<Task> action)
     {
-        try
-        {
-            IsEmbeddingBusy = true;
-            SaveEmbeddingSettings(false);
-            await action();
-            return true;
-        }
-        catch (Exception e)
-        {
-            _messageService.ShowNotification(e.Message, Loc.Text("ServicesEmbeddingStartFailed"), MessageSeverity.Error);
-            return false;
-        }
-        finally
-        {
-            IsEmbeddingBusy = false;
-            RefreshStatus();
-        }
+        bool succeeded = await AsyncCommandScope.RunAsync(
+            v => IsEmbeddingBusy = v,
+            async () =>
+            {
+                SaveEmbeddingSettings(false); //设置先落盘再起服务：起失败了用户填的东西也不该丢
+                await action();
+            },
+            e => _messageService.ShowNotification(
+                e.Message, Loc.Text("ServicesEmbeddingStartFailed"), MessageSeverity.Error));
+
+        RefreshStatus();
+        return succeeded;
     }
 
     private void InitializeSourceModes()
