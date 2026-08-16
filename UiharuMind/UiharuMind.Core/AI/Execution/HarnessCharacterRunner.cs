@@ -73,24 +73,22 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     /// </summary>
     private async Task EnsureHandleAsync(ChatSession session, CancellationToken cancellationToken)
     {
-        AgentAssemblyFacts snapshot = AgentAssemblyFacts.Capture(session);
-        if (_handle != null && snapshot.Equals(_lastSnapshot)) return;
-
-        AgentHandle newHandle = CharacterRunnerFactory.Instance.CreateAgent(new AgentBuildProfile
-        {
-            Character = session.CharacterData,
-            WorkspacePath = session.WorkspacePath,
-            PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
-            PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
-            PromptArguments = session.CustomParams,
+        // 每轮都造一份:它不过是几个字段与四个闭包,代价可忽略。
+        // 而让快照与装配<b>从同一个 profile 出发</b>,正是"装配读了、快照没比"那类缺陷
+        // 不再复发的前提——从前快照从 session 算、装配从 profile 算,是两条各自为政的路
+        AgentBuildProfile profile = AgentBuildProfile.FromSession(session,
             // 按请求时的挂接会话取会话级模型/记忆库(识图技能等会给临时会话绑定视觉模型),
             // 闭包读字段而非捕获参数:同一 handle 会跨会话复用
-            SessionModelSource = () => _attachedSession?.ChatModelRunningData,
-            SessionKnowledgeSource = () => _attachedSession?.Memory,
-            SessionShellApprovalSource = () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
+            sessionModelSource: () => _attachedSession?.ChatModelRunningData,
+            sessionKnowledgeSource: () => _attachedSession?.Memory,
+            sessionShellApprovalSource: () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
             // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
-            ActivitySink = content => _activityChannel?.Writer.TryWrite(content),
-        });
+            activitySink: content => _activityChannel?.Writer.TryWrite(content));
+
+        AgentAssemblyFacts snapshot = AgentAssemblyFacts.Capture(profile);
+        if (_handle != null && snapshot.Equals(_lastSnapshot)) return;
+
+        AgentHandle newHandle = CharacterRunnerFactory.Instance.CreateAgent(profile);
 
         if (_handle != null && _session != null)
         {

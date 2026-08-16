@@ -140,7 +140,10 @@ internal static class SubAgentAssembly
                 ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = workingDirectory })
                 : null;
             AITool? shellTool = shellExecutor?.AsAIFunction(CharacterRunnerFactory.ShellToolName);
-            IReadOnlyList<AITool>? mcpTools = fullAuto ? McpManager.Instance.GetCachedTools() : null;
+            // 与主 agent 同一份(装配时刻那一份)。这里曾经在派活回调里现取,
+            // 于是主子可能拿到不同的工具集;而工具集变化本就由 McpRevision 触发整体重建,
+            // 现取除了制造不一致,还让这一支永远碰不到单例、测不了
+            IReadOnlyList<AITool>? mcpTools = fullAuto ? plan.McpTools : null;
 
             // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
             return AgentAssembler.BuildHandle(client,

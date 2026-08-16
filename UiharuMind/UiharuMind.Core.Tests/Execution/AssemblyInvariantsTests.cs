@@ -697,6 +697,57 @@ public class SubAgentBoundaryTests
 /// </summary>
 public class AssemblySnapshotTests
 {
+    /// <summary>
+    /// 快照与装配现在<b>同一个入参</b>（profile），而 profile 只由这一个方法从会话构造。
+    /// 这条测试守的是那道接缝：漏搬一个字段，症状是「改了设置不重建 agent」——
+    /// 实机表现为改完权限档/工作目录不生效，而且极难归因。
+    /// </summary>
+    [Theory]
+    [InlineData("workspace")]
+    [InlineData("permission")]
+    [InlineData("preauth")]
+    [InlineData("params")]
+    public void FactsFromAProfile_ReactToEverySessionFieldTheyDependOn(string dimension)
+    {
+        AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(
+            AgentBuildProfile.FromSession(NewSession()));
+
+        ChatSession changed = NewSession();
+        switch (dimension)
+        {
+            case "workspace": changed.WorkspacePath = "/other"; break;
+            case "permission": changed.PermissionModeIndex = 2; break;
+            case "preauth": changed.PreAuthorizedShellPatterns = ["git status*"]; break;
+            //会话参数经模板渲染进系统提示,故要用一个真的引用了它的模板
+            case "params": changed.CustomParams["tone"] = "curt"; break;
+        }
+
+        Assert.NotEqual(baseline, AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(changed)));
+    }
+
+    [Fact]
+    public void FactsFromAProfile_AreStable_WhenNothingChanged()
+    {
+        Assert.Equal(
+            AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(NewSession())),
+            AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(NewSession())));
+    }
+
+    /// 带 CharacterData 的构造:让会话当场就位,不去问全局角色库(那有并发初始化隐患)
+    private static ChatSession NewSession()
+    {
+        CharacterData character = NewAgentCharacter();
+        character.Template = "语气：{{$tone}}"; //会话参数只有被模板引用才会进系统提示
+        ChatSession session = new("t", character)
+        {
+            IsTransient = true,
+            WorkspacePath = "/ws",
+            PermissionModeIndex = 1,
+        };
+        session.CustomParams["tone"] = "neutral";
+        return session;
+    }
+
     private static CharacterData NewAgentCharacter(AgentToolConfig? tools = null)
     {
         return new CharacterData

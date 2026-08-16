@@ -9,6 +9,7 @@
 
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
@@ -65,4 +66,46 @@ public class AgentBuildProfile
     /// 为空表示过程不外显。<b>只被渲染,不进历史也不回喂模型</b>——见 <see cref="ToolActivityContent"/>。
     /// </summary>
     public Action<AIContent>? ActivitySink { get; init; }
+
+    /// <summary>
+    /// 本次装配面对的模型：会话绑定的优先，回落全局当前模型。
+    /// 与 <c>LazyChatClient</c> 同一解析次序——识图工具挂不挂由它定，
+    /// <see cref="AgentAssemblyFacts"/> 与 <see cref="AgentAssemblyPlan"/> 都读这一份。
+    /// </summary>
+    /// <returns>当前模型；一个都没有则为 null</returns>
+    public ModelRunningData? ResolveCurrentModel()
+    {
+        return SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
+    }
+
+    /// <summary>
+    /// 从会话构造。<b>「会话的哪些字段进装配」只有这一处定义</b>——
+    /// 快照与装配都从产出的 profile 出发，因此这里漏一个字段，两边会一起漏，
+    /// 而不会像从前那样一边读到、另一边读不到（子智能体名单就是这么漏的）。
+    /// </summary>
+    /// <param name="session">会话</param>
+    /// <param name="sessionModelSource">会话级模型来源</param>
+    /// <param name="sessionKnowledgeSource">会话级知识库来源</param>
+    /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源</param>
+    /// <param name="activitySink">委派型工具的过程上报口</param>
+    /// <returns>构建配置</returns>
+    public static AgentBuildProfile FromSession(ChatSession session,
+        Func<ModelRunningData?>? sessionModelSource = null,
+        Func<MemoryData?>? sessionKnowledgeSource = null,
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
+        Action<AIContent>? activitySink = null)
+    {
+        return new AgentBuildProfile
+        {
+            Character = session.CharacterData,
+            WorkspacePath = session.WorkspacePath,
+            PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
+            PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
+            PromptArguments = session.CustomParams,
+            SessionModelSource = sessionModelSource,
+            SessionKnowledgeSource = sessionKnowledgeSource,
+            SessionShellApprovalSource = sessionShellApprovalSource,
+            ActivitySink = activitySink,
+        };
+    }
 }

@@ -103,24 +103,28 @@ public sealed record AgentAssemblyFacts
     public int McpRevision { get; init; }
 
     /// <summary>
-    /// 从会话捕获快照(装配输入的常规入口)。
+    /// 从构建配置捕获事实（装配输入的常规入口）。
     /// 系统提示词在此重算——角色卡与会话参数的编辑因此天然被捕获。
+    ///
+    /// <b>与装配同一个入参</b>：两者都从 profile 出发，因此「装配读了什么」与
+    /// 「重建判据比了什么」不可能各自漂移。这里曾经收的是 <c>ChatSession</c>，
+    /// 与装配收的 profile 是两条路——子智能体名单就是那样漏掉的：
+    /// 装配读它、快照不比它，于是改完名单不重建，回来仍按旧名单派活。
     /// </summary>
-    /// <param name="session">目标会话</param>
-    /// <returns>快照</returns>
-    public static AgentAssemblyFacts Capture(ChatSession session)
+    /// <param name="profile">构建配置</param>
+    /// <returns>装配事实</returns>
+    public static AgentAssemblyFacts Capture(AgentBuildProfile profile)
     {
-        CharacterData character = session.CharacterData;
-        return Capture(character, CharacterPromptBuilder.Build(character, session.CustomParams),
-            session.WorkspacePath,
-            (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
-            session.PreAuthorizedShellPatterns,
+        CharacterData character = profile.Character;
+        return Capture(character, CharacterPromptBuilder.Build(character, profile.PromptArguments),
+            profile.WorkspacePath,
+            profile.PermissionMode,
+            profile.PreAuthorizedShellPatterns,
             McpManager.Instance.Revision,
             character.Kind.IsAgent()
-                ? WorkspaceInstructionsLoader.Load(session.WorkspacePath)
+                ? WorkspaceInstructionsLoader.Load(profile.WorkspacePath)
                 : string.Empty,
-            // 与 LazyChatClient 同一解析次序:会话绑定模型优先,回落全局当前模型
-            session.ChatModelRunningData?.IsVisionModel == true,
+            profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
             character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null);
     }
