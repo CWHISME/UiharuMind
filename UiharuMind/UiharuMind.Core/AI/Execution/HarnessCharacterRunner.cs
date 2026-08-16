@@ -18,6 +18,7 @@ using UiharuMind.Core.Core.SimpleLog;
 
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Tools.Memory;
 
 namespace UiharuMind.Core.AI.Execution;
 

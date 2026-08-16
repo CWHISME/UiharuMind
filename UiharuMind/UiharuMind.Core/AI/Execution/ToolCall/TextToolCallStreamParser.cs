@@ -11,7 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.ToolCall;
 
 /// <summary>
 /// 从文本流中恢复漏成纯文本的工具调用(GLM 线格式:

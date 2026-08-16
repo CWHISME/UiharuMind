@@ -9,6 +9,8 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.SimpleLog;
 

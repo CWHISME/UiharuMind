@@ -18,8 +18,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.AI.Execution.Scheduler;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Shared.Utils.Tools;
 

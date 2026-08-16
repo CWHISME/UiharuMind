@@ -13,8 +13,10 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
+using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.Core;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;

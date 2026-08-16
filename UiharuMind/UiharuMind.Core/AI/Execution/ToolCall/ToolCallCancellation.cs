@@ -11,7 +11,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.ToolCall;
 
 /// <summary>
 /// 给「调用发出去了、结果永远不会来」的工具调用补一条取消结果。

@@ -11,7 +11,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
 /// 交接文档式压缩：上下文快满时，让<b>当前模型</b>把这段对话写成一份交接文档

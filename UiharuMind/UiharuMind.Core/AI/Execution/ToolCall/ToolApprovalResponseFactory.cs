@@ -10,7 +10,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.ToolCall;
 
 /// <summary>
 /// 工具审批的用户决定

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.Tests.Execution;
 

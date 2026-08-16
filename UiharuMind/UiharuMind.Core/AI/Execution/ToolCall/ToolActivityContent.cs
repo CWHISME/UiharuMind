@@ -9,7 +9,7 @@
 
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.ToolCall;
 
 /// <summary>
 /// 一次工具调用<b>内部</b>产生的活动内容,附带发起它的那次调用的标识,

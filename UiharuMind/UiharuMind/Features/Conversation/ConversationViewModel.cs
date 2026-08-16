@@ -31,6 +31,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;

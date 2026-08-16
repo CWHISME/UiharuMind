@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Features.Conversation;
 
 namespace UiharuMind.App.Tests.Conversation;

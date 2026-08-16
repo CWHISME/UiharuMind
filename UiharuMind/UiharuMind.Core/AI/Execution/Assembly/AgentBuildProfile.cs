@@ -13,6 +13,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 

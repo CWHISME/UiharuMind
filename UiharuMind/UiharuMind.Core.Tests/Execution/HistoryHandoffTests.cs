@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.History;
 
 namespace UiharuMind.Core.Tests.Execution;
 

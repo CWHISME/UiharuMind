@@ -9,7 +9,7 @@
 
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
 /// <b>当前已停用</b>——<see cref="SessionChatHistoryProvider"/> 不再调用它，那里写明了停用理由与接回条件。

@@ -13,7 +13,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 
 /// <summary>
 /// 把会话绑定的知识库检索结果注入本轮上下文。

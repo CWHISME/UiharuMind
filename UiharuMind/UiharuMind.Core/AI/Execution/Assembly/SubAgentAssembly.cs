@@ -259,14 +259,14 @@ internal static class SubAgentAssembly
         sb.AppendLine("# Method");
         if (config.EnableFileAccess)
         {
-            sb.AppendLine($"- Explore workspace files with `{PermissiveFileAccessTools.GlobToolName}`, "
+            sb.AppendLine($"- You can explore workspace files with `{PermissiveFileAccessTools.GlobToolName}`, "
                           + $"`{PermissiveFileAccessTools.GrepToolName}` and "
-                          + $"`{PermissiveFileAccessTools.ReadToolName}`. Pass explicit paths.");
+                          + $"`{PermissiveFileAccessTools.ReadToolName}`.");
         }
 
         if (config.EnableWebSearch)
         {
-            sb.AppendLine($"- Research the web with `{WebSearchTool.ToolName}`, "
+            sb.AppendLine($"- You can Research the web with `{WebSearchTool.ToolName}`, "
                           + $"then `{WebFetchTool.ToolName}` the promising results.");
         }
 

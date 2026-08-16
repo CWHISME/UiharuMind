@@ -12,6 +12,7 @@ using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 

@@ -55,15 +55,13 @@ public static class AgentToolPrompts
         // 也刻意不表态"该用相对还是绝对":文件工具纪律段与工作区 AGENTS.md 都可能有自己的主张,
         // 这里多一句偏好就会和它们打架(而互相矛盾的路径指示正是模型乱编路径的来源之一)
         return $"Your working directory is \"{workingDirectory}\".\n" +
-               "Tool paths may be absolute, or relative to that directory.\n" +
-               "Never invent a path and never pass a placeholder such as /path/to/project. " +
                "If you do not know where something is, search for it first.";
     }
 
     /// <summary>文件工具纪律段默认正文</summary>
     public const string FileAccessDefault =
         "- Use `Glob` to find files, `Grep` to search text, and `Read` a file before you change it.\n" +
-        "- Always pass explicit paths. If the location is unclear, run one `Glob` first instead of asking.\n" +
+        "- If the location is unclear, run one `Glob` first instead of asking.\n" +
         "- Make the smallest edit that works. Never rewrite a whole file for a small change.";
 
     /// <summary>识图工具纪律段默认正文</summary>

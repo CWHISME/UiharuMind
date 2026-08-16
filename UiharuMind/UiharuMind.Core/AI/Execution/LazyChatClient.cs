@@ -10,6 +10,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.AI.Execution;
 

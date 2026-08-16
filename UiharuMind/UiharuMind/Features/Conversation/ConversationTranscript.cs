@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Features.Conversation;

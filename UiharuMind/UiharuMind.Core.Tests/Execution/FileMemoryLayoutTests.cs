@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Tools.Memory;
 
 namespace UiharuMind.Core.Tests.Execution;
 

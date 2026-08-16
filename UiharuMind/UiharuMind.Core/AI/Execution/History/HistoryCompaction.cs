@@ -11,7 +11,7 @@ using System.Text;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.History;
 
 /// <summary>
 /// 历史压缩策略的装配（见 ADR 0006）。两段式，与框架 <c>ContextWindowCompactionStrategy</c> 同构：

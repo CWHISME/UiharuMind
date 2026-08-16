@@ -15,7 +15,6 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.Mcp;
-using UiharuMind.Core.AI.Execution.Scheduler;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
@@ -27,6 +26,7 @@ using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 
 namespace UiharuMind.Core.AI.Execution;
 

@@ -13,8 +13,9 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Harness;
-using UiharuMind.Core.AI.Execution.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.Memory;
+using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;

@@ -10,7 +10,7 @@
 using System.ComponentModel;
 using Microsoft.Extensions.AI;
 
-namespace UiharuMind.Core.AI.Execution.Scheduler;
+namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 
 /// <summary>
 /// 定时任务相关工具。create_scheduled_task 属危险操作,包装为需审批工具:

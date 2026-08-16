@@ -7,14 +7,13 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
-using Microsoft.Extensions.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Execution.Scheduler;
+namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 
 /// <summary>
 /// 进程内调度后端:任务列表 JSON 持久化,应用运行期内存计时器轮询触发;

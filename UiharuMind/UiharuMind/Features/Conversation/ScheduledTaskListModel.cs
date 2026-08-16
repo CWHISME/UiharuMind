@@ -14,7 +14,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.AI.Execution.Scheduler;
+using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation;

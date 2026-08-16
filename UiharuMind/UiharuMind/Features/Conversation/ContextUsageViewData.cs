@@ -11,6 +11,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation;

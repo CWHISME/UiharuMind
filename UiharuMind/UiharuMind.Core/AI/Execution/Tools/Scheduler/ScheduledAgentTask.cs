@@ -7,7 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-namespace UiharuMind.Core.AI.Execution.Scheduler;
+namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 
 /// <summary>
 /// 定时任务状态

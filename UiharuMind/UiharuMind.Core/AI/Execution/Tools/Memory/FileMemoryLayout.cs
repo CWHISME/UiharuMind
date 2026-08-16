@@ -11,7 +11,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 
 /// <summary>
 /// 文件记忆(框架 <c>FileMemoryProvider</c>)的磁盘布局:<b>一个角色一个目录，跨会话共享</b>，
