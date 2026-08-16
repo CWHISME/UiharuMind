@@ -118,7 +118,11 @@
                 </ToggleButton>
             </Grid>
             <StackPanel IsVisible="{Binding IsExpanded}" Spacing="6">
-                <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap" />
+                <!-- 有 diff 时不再堆参数原文:diff 已经把改动讲清楚了,而 Edit 的参数原文是一段
+                     转义过的 JSON,摆在 diff 上方只是噪音。跑的过程中(还没有结果)照常显示,
+                     失败时也照常显示——那时正需要它来排查 -->
+                <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsJson}" TextWrapping="Wrap"
+                                     IsVisible="{Binding !HasResultDiff}" />
                 <!-- 编辑结果带 diff 时换成带增删配色的渲染:自动放行档位下这张卡片是唯一
                      看得到改动的地方,一片灰字等于看不见改了什么。配色走全局 diffline 样式,
                      与审批卡片同一支笔 -->

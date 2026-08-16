@@ -277,8 +277,8 @@ public sealed class DiffLineView
         {
             List<DiffLineView> lines = call.Name switch
             {
-                "Write" => BuildWriteDiff(call.Arguments),
-                "Edit" => BuildEditDiff(call.Arguments, workspaceRoot),
+                FileToolNames.Write => BuildWriteDiff(call.Arguments),
+                FileToolNames.Edit => BuildEditDiff(call.Arguments, workspaceRoot),
                 _ => [],
             };
             return Cap(lines);
@@ -460,7 +460,9 @@ public static class AgentContentFormatter
     public static string GetToolIcon(string toolName)
     {
         if (toolName == "run_shell") return "❯";
-        if (toolName.StartsWith("file_access_", System.StringComparison.Ordinal)) return "📄";
+        // 曾经认的是 file_access_ 前缀(MFA 自带文件工具的命名),而我们那批工具早就自建改名了,
+        // 症状是文件工具的卡片一律显示通用扳手。名字改由 FileToolNames 提供,不再各写字面量
+        if (FileToolNames.All.Contains(toolName)) return "📄";
         if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script") return "✨";
         if (toolName == VisionTool.ToolName) return "👁";
         if (toolName == SchedulerTools.ToolName) return "⏰";
@@ -468,24 +470,56 @@ public static class AgentContentFormatter
         return "🔧";
     }
 
+    /// <summary>折叠标题栏是一行,摘要里任何一段都不该超过这个长度</summary>
+    private const int MaxSummaryValueChars = 80;
+
     /// <summary>
-    /// 提取参数摘要(命令原文 / 文件路径 / 首个字符串参数)
+    /// 摘要优先认的参数键。<c>filePath</c> 曾经不在里面,而文件工具的路径参数正是它——
+    /// 于是 Read/Write/Edit 全都落到兜底分支,把参数原样摊开当摘要。
+    /// Edit 那种结构化参数摊出来就是一行转义过的 <c>[{"oldString": "…\n…"}]</c>,毫无可读性。
+    /// </summary>
+    private static readonly string[] PrimaryArgumentKeys =
+        ["command", "filePath", "path", "pattern", "query", "skillName", "displayName", "imagePath", "task"];
+
+    /// <summary>
+    /// 提取参数摘要(命令原文 / 文件路径 / 首个字符串参数)。
+    /// 结构化参数只给条数不给内容——内容在展开后的 diff 里看得清楚得多。
     /// </summary>
     /// <param name="call">工具调用</param>
     /// <returns>摘要文本</returns>
     public static string SummarizeArguments(FunctionCallContent call)
     {
         if (call.Arguments == null || call.Arguments.Count == 0) return string.Empty;
-        foreach (string key in new[]
-                 { "command", "path", "pattern", "skillName", "displayName", "imagePath", "task" })
+
+        foreach (string key in PrimaryArgumentKeys)
         {
-            if (call.Arguments.TryGetValue(key, out object? value) && value != null)
-            {
-                string text = value.ToString() ?? string.Empty;
-                if (!string.IsNullOrEmpty(text)) return text;
-            }
+            if (!call.Arguments.TryGetValue(key, out object? value) || value == null) continue;
+
+            string text = Shorten(value.ToString());
+            if (text.Length == 0) continue;
+
+            int edits = CountArrayItems(call.Arguments, "edits");
+            return edits > 0 ? $"{text}  ({edits} edit{(edits == 1 ? string.Empty : "s")})" : text;
         }
 
-        return string.Join(", ", call.Arguments.Take(2).Select(x => $"{x.Key}: {x.Value}"));
+        return string.Join(", ", call.Arguments.Take(2).Select(x => $"{x.Key}: {Shorten(x.Value?.ToString())}"));
+    }
+
+    /// <summary>数组参数的元素个数;不是数组则为 0</summary>
+    private static int CountArrayItems(IDictionary<string, object?> args, string name)
+    {
+        return args.TryGetValue(name, out object? value) &&
+               value is JsonElement { ValueKind: JsonValueKind.Array } array
+            ? array.GetArrayLength()
+            : 0;
+    }
+
+    private static string Shorten(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+
+        // 转义过的换行留在一行摘要里只是噪音
+        string flat = text.Replace("\\n", " ").Replace('\n', ' ').Replace('\r', ' ').Trim();
+        return flat.Length <= MaxSummaryValueChars ? flat : flat[..MaxSummaryValueChars] + "…";
     }
 }

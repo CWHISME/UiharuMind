@@ -35,15 +35,6 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// </summary>
 internal sealed class PermissiveFileAccessTools
 {
-    public const string ReadToolName = "Read";
-    public const string WriteToolName = "Write";
-    public const string GrepToolName = "Grep";
-    public const string GlobToolName = "Glob";
-    public const string EditToolName = "Edit";
-
-    /// <summary>会改动文件的那几个工具。越界写入的审批判据按这份名单认工具</summary>
-    public static readonly string[] MutatingToolNames = [WriteToolName, EditToolName];
-
     // —— 输出限幅:工具输出直接进模型上下文,编码会话的上下文大头是工具结果而非对话。
     //    Glob 已在 SimpleGlobber 内限 300 条;shell 由框架 MaxOutputBytes(64KiB)截断。——
     internal const int DefaultReadLineLimit = 2000; //未显式传 limit 时的行数上限
@@ -78,15 +69,15 @@ internal sealed class PermissiveFileAccessTools
     {
         var tools = new List<AITool>
         {
-            AIFunctionFactory.Create(Read, new AIFunctionFactoryOptions { Name = ReadToolName }),
-            AIFunctionFactory.Create(Glob, new AIFunctionFactoryOptions { Name = GlobToolName }),
-            AIFunctionFactory.Create(Grep, new AIFunctionFactoryOptions { Name = GrepToolName }),
+            AIFunctionFactory.Create(Read, new AIFunctionFactoryOptions { Name = FileToolNames.Read }),
+            AIFunctionFactory.Create(Glob, new AIFunctionFactoryOptions { Name = FileToolNames.Glob }),
+            AIFunctionFactory.Create(Grep, new AIFunctionFactoryOptions { Name = FileToolNames.Grep }),
         };
 
         if (!disableWriteTools)
         {
-            tools.Add(Wrap(AIFunctionFactory.Create(Write, new AIFunctionFactoryOptions { Name = WriteToolName })));
-            tools.Add(Wrap(AIFunctionFactory.Create(Edit, new AIFunctionFactoryOptions { Name = EditToolName })));
+            tools.Add(Wrap(AIFunctionFactory.Create(Write, new AIFunctionFactoryOptions { Name = FileToolNames.Write })));
+            tools.Add(Wrap(AIFunctionFactory.Create(Edit, new AIFunctionFactoryOptions { Name = FileToolNames.Edit })));
         }
 
         return tools;

@@ -165,7 +165,7 @@ public static class ApprovalModeMapper
     }
 
     private static bool IsMutatingFileTool(FunctionCallContent functionCall)
-        => PermissiveFileAccessTools.MutatingToolNames.Contains(functionCall.Name);
+        => FileToolNames.Mutating.Contains(functionCall.Name);
 
     /// <summary>
     /// 这次调用是否是「工作区外的写入」。

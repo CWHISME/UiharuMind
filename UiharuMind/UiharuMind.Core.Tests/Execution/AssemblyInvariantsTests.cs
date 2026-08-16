@@ -397,11 +397,11 @@ public class SubAgentBoundaryTests
     {
         List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
 
-        Assert.Contains(PermissiveFileAccessTools.ReadToolName, names);
+        Assert.Contains(FileToolNames.Read, names);
         Assert.Contains(WebSearchTool.ToolName, names);
         // 名单取自工具侧的那一份,不在测试里重抄一遍:漏抄一个新增的写工具,
         // 这条不变量就会在不报错的情况下失效
-        string[] mutating = [..PermissiveFileAccessTools.MutatingToolNames, CharacterRunnerFactory.ShellToolName];
+        string[] mutating = [..FileToolNames.Mutating, CharacterRunnerFactory.ShellToolName];
         Assert.DoesNotContain(names, name => mutating.Contains(name));
     }
 
@@ -415,8 +415,8 @@ public class SubAgentBoundaryTests
         List<string> names = ToolNamesOf(
             SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: EAgentPermissionMode.FullAuto)));
 
-        Assert.Contains(PermissiveFileAccessTools.WriteToolName, names);
-        Assert.Contains(PermissiveFileAccessTools.EditToolName, names);
+        Assert.Contains(FileToolNames.Write, names);
+        Assert.Contains(FileToolNames.Edit, names);
     }
 
     /// <summary>
