@@ -166,7 +166,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
         if (request.ToolCall is FunctionCallContent call)
         {
             ToolName = call.Name;
-            ArgumentSummary = AgentContentFormatter.SummarizeArguments(call);
+            ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, workspaceRoot);
             SuggestedCommandPattern = call.Name == CharacterRunnerFactory.ShellToolName
                 ? ApprovalModeMapper.DeriveCommandPattern(
                     ApprovalModeMapper.ExtractCommand(call.Arguments) ?? string.Empty)
@@ -471,7 +471,7 @@ public static class AgentContentFormatter
     }
 
     /// <summary>折叠标题栏是一行,摘要里任何一段都不该超过这个长度</summary>
-    private const int MaxSummaryValueChars = 80;
+    private const int MaxSummaryValueChars = 60;
 
     /// <summary>
     /// 摘要优先认的参数键。<c>filePath</c> 曾经不在里面,而文件工具的路径参数正是它——
@@ -481,13 +481,17 @@ public static class AgentContentFormatter
     private static readonly string[] PrimaryArgumentKeys =
         ["command", "filePath", "path", "pattern", "query", "skillName", "displayName", "imagePath", "task"];
 
+    /// <summary>按路径口径收窄的那几个键(其余按普通文本收窄)</summary>
+    private static readonly string[] PathArgumentKeys = ["filePath", "path", "imagePath"];
+
     /// <summary>
     /// 提取参数摘要(命令原文 / 文件路径 / 首个字符串参数)。
     /// 结构化参数只给条数不给内容——内容在展开后的 diff 里看得清楚得多。
     /// </summary>
     /// <param name="call">工具调用</param>
+    /// <param name="workspaceRoot">工作目录:路径参数在它之下时显示成相对路径,可空</param>
     /// <returns>摘要文本</returns>
-    public static string SummarizeArguments(FunctionCallContent call)
+    public static string SummarizeArguments(FunctionCallContent call, string? workspaceRoot = null)
     {
         if (call.Arguments == null || call.Arguments.Count == 0) return string.Empty;
 
@@ -495,7 +499,9 @@ public static class AgentContentFormatter
         {
             if (!call.Arguments.TryGetValue(key, out object? value) || value == null) continue;
 
-            string text = Shorten(value.ToString());
+            string text = PathArgumentKeys.Contains(key)
+                ? ShortenPath(value.ToString(), workspaceRoot)
+                : Shorten(value.ToString());
             if (text.Length == 0) continue;
 
             int edits = CountArrayItems(call.Arguments, "edits");
@@ -512,6 +518,40 @@ public static class AgentContentFormatter
                value is JsonElement { ValueKind: JsonValueKind.Array } array
             ? array.GetArrayLength()
             : 0;
+    }
+
+    /// <summary>
+    /// 路径按<b>保尾</b>收窄:文件名比根目录前缀有信息量得多。
+    ///
+    /// 摘要那一列是 <c>TextTrimming=CharacterEllipsis</c>,从头保留的后果是——模型给了绝对路径时
+    /// 满屏都是工作目录前缀,文件名和后面的"(N edits)"全被裁在可视范围之外。
+    /// 能算成工作区相对路径时优先用它:那串前缀对用户是已知信息。
+    /// </summary>
+    private static string ShortenPath(string? path, string? workspaceRoot)
+    {
+        if (string.IsNullOrEmpty(path)) return string.Empty;
+
+        string display = path.Trim();
+        if (!string.IsNullOrEmpty(workspaceRoot) && Path.IsPathRooted(display))
+        {
+            try
+            {
+                string relative = Path.GetRelativePath(workspaceRoot, display);
+                // 回溯到工作区之外时保持绝对路径:"../../etc/hosts" 比绝对路径更难读,也更看不出越界
+                if (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative))
+                    display = relative.Replace('\\', '/');
+            }
+            catch (ArgumentException)
+            {
+                // 路径含非法字符,按原样收窄
+            }
+        }
+
+        if (display.Length <= MaxSummaryValueChars) return display;
+
+        string tail = display[^MaxSummaryValueChars..];
+        int cut = tail.IndexOf('/'); //从目录分隔处断开,不在文件名中间切
+        return "…" + (cut >= 0 && cut < 20 ? tail[cut..] : tail);
     }
 
     private static string Shorten(string? text)

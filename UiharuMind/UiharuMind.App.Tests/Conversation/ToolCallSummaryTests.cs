@@ -48,6 +48,47 @@ public class ToolCallSummaryTests
             AgentContentFormatter.SummarizeArguments(Call(FileToolNames.Read, ("filePath", "src/A.cs"))));
     }
 
+    /// <summary>
+    /// 工作区内的绝对路径显示成相对路径：那串前缀对用户是已知信息，
+    /// 而摘要那一列会把超出宽度的部分裁掉——前缀占满，文件名和编辑条数就都看不见了。
+    /// </summary>
+    [Fact]
+    public void AbsolutePathInsideWorkspace_IsShownRelative()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "ws");
+        FunctionCallContent call = Call(FileToolNames.Edit,
+            ("filePath", Path.Combine(root, "Assets", "MapTest.cs")),
+            ("edits", Json("""[{"oldString":"a","newString":"b"}]""")));
+
+        Assert.Equal("Assets/MapTest.cs  (1 edit)", AgentContentFormatter.SummarizeArguments(call, root));
+    }
+
+    /// <summary>越界写入保持绝对路径：<c>../../etc/hosts</c> 既难读，也更看不出它越界了</summary>
+    [Fact]
+    public void PathOutsideWorkspace_StaysAbsolute()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "ws");
+
+        string summary = AgentContentFormatter.SummarizeArguments(
+            Call(FileToolNames.Write, ("filePath", "/etc/hosts")), root);
+
+        Assert.Equal("/etc/hosts", summary);
+    }
+
+    /// <summary>路径过长时保<b>尾</b>：文件名比根目录前缀有信息量得多</summary>
+    [Fact]
+    public void OverlongPath_KeepsTheTail()
+    {
+        string path = "/Users/someone/Documents/UnityProjects/Works/SLG2/Client/UnityClient/Assets/MapTest.cs";
+
+        string summary = AgentContentFormatter.SummarizeArguments(
+            Call(FileToolNames.Read, ("filePath", path)));
+
+        Assert.StartsWith("…", summary);
+        Assert.EndsWith("Assets/MapTest.cs", summary);
+        Assert.DoesNotContain("/Users/someone", summary);
+    }
+
     /// <summary>摘要是一行:转义过的换行、真换行、过长的值都不该原样摆进去</summary>
     [Fact]
     public void LongOrMultilineValues_AreFlattenedAndTrimmed()
