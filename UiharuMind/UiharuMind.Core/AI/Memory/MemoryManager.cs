@@ -13,7 +13,7 @@ namespace UiharuMind.Core.AI.Memory;
 /// </summary>
 public class MemoryManager : UniquieContainerSingleton<MemoryManager, MemoryData>
 {
-    protected override string SaveRootPath => SettingConfig.MemoryDataPath;
+    protected override string SaveRootPath => AppPaths.Data.Memory;
 
     protected override void OnOrderedItems(List<MemoryData> items)
     {

@@ -53,7 +53,7 @@ internal sealed class LLamaCppRuntimeService
 
     public async Task<VersionManager> GetLocalVersions()
     {
-        VersionManager versions = await GetLocalVersions(SettingConfig.BackendRuntimeEnginePath)
+        VersionManager versions = await GetLocalVersions(AppPaths.External.Engine)
             .ConfigureAwait(false);
         if (versions.VersionsList.FindIndex(x => x.Name == LLamaCppSettingConfig.Current.SelectedRuntimeVersion) < 0)
         {
@@ -66,7 +66,7 @@ internal sealed class LLamaCppRuntimeService
 
     public async Task<VersionManager> PullLatestVersion()
     {
-        return await PullLatestVersion(SettingConfig.BackendRuntimeEnginePath).ConfigureAwait(false);
+        return await PullLatestVersion(AppPaths.External.Engine).ConfigureAwait(false);
     }
 
     public async Task Run(

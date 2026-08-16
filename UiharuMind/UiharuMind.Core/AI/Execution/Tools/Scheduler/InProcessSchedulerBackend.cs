@@ -24,7 +24,6 @@ namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 /// </summary>
 public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 {
-    private const string SaveFileName = "ScheduledAgentTasks.json";
     private const int MaxApprovalRounds = 4; //拒绝造成的追加轮次上限,防御模型反复请求同一授权
 
     /// <summary>拒绝理由,会送给模型——说清是"无人值守"而不是"用户不同意",模型才不会反复请求</summary>
@@ -44,7 +43,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
     public InProcessSchedulerBackend()
     {
-        List<ScheduledAgentTask>? loaded = SaveUtility.LoadRootFile<List<ScheduledAgentTask>>(SaveFileName);
+        List<ScheduledAgentTask>? loaded = SaveUtility.Load<List<ScheduledAgentTask>>(AppPaths.Data.ScheduledAgentTasks);
         if (loaded != null) _tasks.AddRange(loaded);
 
         // 上次运行遗留的 Running 状态视为失败;过期的待执行任务转 Missed
@@ -332,7 +331,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
     {
         lock (_locker)
         {
-            SaveUtility.SaveRootFile(SaveFileName, _tasks);
+            SaveUtility.Save(AppPaths.Data.ScheduledAgentTasks, _tasks);
         }
     }
 

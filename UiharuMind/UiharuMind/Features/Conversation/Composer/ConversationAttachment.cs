@@ -44,7 +44,7 @@ public class ConversationAttachment
 
         try
         {
-            string dir = Path.Combine(SettingConfig.SaveAgentDataPath, "Attachments");
+            string dir = AppPaths.Data.AgentAttachments;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
             string name = string.IsNullOrEmpty(FileName)

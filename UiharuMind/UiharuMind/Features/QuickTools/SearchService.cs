@@ -15,8 +15,6 @@ public record SearchItem(string Path, string FileName, int LineNumber, string Sn
 
 public class SearchService
 {
-    public const string HistoryFileName = "search_history.json";
-
     private SimpleGlobber _globber;
     private SimpleGrepper _grepper;
     private readonly List<string> _searchHistory;
@@ -24,7 +22,7 @@ public class SearchService
     public SearchService()
     {
         // 历史记录
-        _searchHistory = SaveUtility.LoadRootFile<List<string>>(HistoryFileName) ??
+        _searchHistory = SaveUtility.Load<List<string>>(AppPaths.Data.QuickSearchHistory) ??
                          new List<string>();
 
 
@@ -121,6 +119,6 @@ public class SearchService
 
     private void SaveHistory()
     {
-        SaveUtility.SaveRootFile(HistoryFileName, _searchHistory);
+        SaveUtility.Save(AppPaths.Data.QuickSearchHistory, _searchHistory);
     }
 }

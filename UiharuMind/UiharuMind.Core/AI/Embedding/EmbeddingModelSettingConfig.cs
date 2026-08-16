@@ -34,7 +34,7 @@ public class EmbeddingModelSettingConfig : TConfigBase<EmbeddingModelSettingConf
     [JsonIgnore] public string DefaultEmbeddedModelPath { get; set; } = "./InternalEmbeddedModels";
 
     //外部模型目录路径(可修改)
-    public string ExternalEmbeddedModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "EmbeddedModels");
+    public string ExternalEmbeddedModelPath { get; set; } = AppPaths.External.EmbeddedModels;
 
     /// <summary>
     /// 嵌入模型来源

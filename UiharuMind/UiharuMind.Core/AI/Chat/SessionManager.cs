@@ -401,13 +401,13 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public void RebuildIndex()
     {
         _metas.Clear();
-        if (!Directory.Exists(SettingConfig.SaveSessionDataPath))
+        if (!Directory.Exists(AppPaths.Data.Sessions))
         {
             SaveIndex();
             return;
         }
 
-        foreach (string file in Directory.GetFiles(SettingConfig.SaveSessionDataPath, "*" + MetaSuffix))
+        foreach (string file in Directory.GetFiles(AppPaths.Data.Sessions, "*" + MetaSuffix))
         {
             ChatSession? session = SaveUtility.Load<ChatSession>(file, SessionJsonOptions.Default);
             if (session == null) continue;
@@ -432,7 +432,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     {
         try
         {
-            string dir = SettingConfig.SaveSessionDataPath;
+            string dir = AppPaths.Data.Sessions;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             await File.WriteAllTextAsync(GetAgentStatePath(sessionId), state.GetRawText()).ConfigureAwait(false);
         }
@@ -481,26 +481,26 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
     private static string GetIndexPath()
     {
-        return Path.Combine(SettingConfig.SaveSessionDataPath, IndexFileName);
+        return Path.Combine(AppPaths.Data.Sessions, IndexFileName);
     }
 
     private static string GetBodyPath(string sessionId)
     {
-        return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + ".json");
+        return Path.Combine(AppPaths.Data.Sessions, sessionId + ".json");
     }
 
     private static string GetMetaPath(string sessionId)
     {
-        return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + MetaSuffix);
+        return Path.Combine(AppPaths.Data.Sessions, sessionId + MetaSuffix);
     }
 
     private static string GetHistoryPath(string sessionId)
     {
-        return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + HistorySuffix);
+        return Path.Combine(AppPaths.Data.Sessions, sessionId + HistorySuffix);
     }
 
     private static string GetAgentStatePath(string sessionId)
     {
-        return Path.Combine(SettingConfig.SaveSessionDataPath, sessionId + AgentStateSuffix);
+        return Path.Combine(AppPaths.Data.Sessions, sessionId + AgentStateSuffix);
     }
 }

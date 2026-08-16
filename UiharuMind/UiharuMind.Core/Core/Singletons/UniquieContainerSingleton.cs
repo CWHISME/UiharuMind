@@ -135,10 +135,7 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
             return;
         }
 
-        // if (!Directory.Exists(SettingConfig.SaveChatDataPath))
-        //     Directory.CreateDirectory(SettingConfig.SaveChatDataPath);
         string fileName = $"{chatSession.Name}.json";
-        //chatSession.LastTime.ToString("yyyy_MM_dd_HHmmss") + ".json";
         SaveUtility.Save(Path.Combine(SaveRootPath, fileName), chatSession);
     }
 
@@ -147,7 +144,6 @@ public abstract class UniquieContainerSingleton<TMgr, T> : Singleton<TMgr>, IIni
     /// </summary>
     public void DeleteFile(T item)
     {
-        // SaveUtility.Delete(Path.Combine(SettingConfig.SaveChatDataPath, fileName));
         DeleteFile(item.Name);
     }
 

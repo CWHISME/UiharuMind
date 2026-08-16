@@ -6,7 +6,7 @@ namespace UiharuMind.Core.Tests.AI;
 /// 索引库文件名的推导。
 ///
 /// 只测不碰磁盘的那部分：路径推导是纯函数，而原子换库与改名搬迁都要真写文件，
-/// 落在用户的实际数据目录下（<c>SettingConfig.MemoryEmbeddedPath</c> 是静态只读的），
+/// 落在用户的实际数据目录下（<c>AppPaths.Data.MemoryEmbeddings</c> 是静态只读的），
 /// 不适合在单测里跑——那几条留给手测清单。
 ///
 /// 库文件名跟随记忆库名称，所以「两个不同名称推导出同一个文件名」就意味着两份知识库

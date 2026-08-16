@@ -34,8 +34,6 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 /// </summary>
 internal sealed class McpTrustStore
 {
-    private const string FileName = "McpTrust.json";
-
     private readonly object _lock = new();
 
     /// 键为规范化后的工作区绝对路径
@@ -49,7 +47,7 @@ internal sealed class McpTrustStore
     public void Reload()
     {
         Dictionary<string, List<McpTrustRecord>> loaded =
-            SaveUtility.LoadRootFile<Dictionary<string, List<McpTrustRecord>>>(FileName)
+            SaveUtility.Load<Dictionary<string, List<McpTrustRecord>>>(AppPaths.Config.McpTrust)
             ?? new Dictionary<string, List<McpTrustRecord>>(StringComparer.Ordinal);
 
         Dictionary<string, List<McpTrustRecord>> alive = new(StringComparer.Ordinal);
@@ -203,7 +201,7 @@ internal sealed class McpTrustStore
 
         try
         {
-            SaveUtility.SaveRootFile(FileName, snapshot);
+            SaveUtility.Save(AppPaths.Config.McpTrust, snapshot);
         }
         catch (Exception e)
         {

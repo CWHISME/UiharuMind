@@ -36,8 +36,8 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         // 幂等:重复初始化不该抛"键已存在"
         CharacterDataDictionary.Clear();
 
-        var files = Directory.Exists(SettingConfig.SaveCharacterDataPath)
-            ? Directory.GetFiles(SettingConfig.SaveCharacterDataPath, "*.json", SearchOption.AllDirectories)
+        var files = Directory.Exists(AppPaths.Data.Characters)
+            ? Directory.GetFiles(AppPaths.Data.Characters, "*.json", SearchOption.AllDirectories)
             : null;
 
         if (files != null)
@@ -172,8 +172,8 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     {
         // 内置角色的覆盖文件单独放一个目录:清空该目录 = 全部恢复出厂
         string path = Enum.TryParse(characterData.CharacterId, out DefaultCharacter _)
-            ? SettingConfig.SaveDefaultCharacterDataPath
-            : SettingConfig.SaveCharacterDataPath;
+            ? AppPaths.Data.CharacterOverrides
+            : AppPaths.Data.Characters;
         return Path.Combine(path, characterData.CharacterId + ".json");
     }
 }

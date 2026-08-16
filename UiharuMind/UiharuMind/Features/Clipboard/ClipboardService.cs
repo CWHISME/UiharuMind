@@ -59,7 +59,6 @@ public class ClipboardService : IDisposable
     private static readonly DataFormat<byte[]> ImageFormatTiffMac = DataFormat.CreateBytesPlatformFormat(ImageTypeTiffMac);
 
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
-    public const string HistoryFileName = "clipboard_history.json";
 
     private Timer _timer;
 
@@ -80,7 +79,7 @@ public class ClipboardService : IDisposable
         _clipboardMonitor = CreateClipboardMonitor();
         if (_clipboardMonitor != null) _clipboardMonitor.OnClipboardChanged += OnSystemClipboardChanged;
 
-        ClipboardHistoryItems = SaveUtility.LoadRootFile<ObservableCollection<ClipboardItem>>(HistoryFileName) ??
+        ClipboardHistoryItems = SaveUtility.Load<ObservableCollection<ClipboardItem>>(AppPaths.Data.ClipboardHistory) ??
                                 new ObservableCollection<ClipboardItem>();
 
         //初始化定时器，每隔指定时间检测保存一次历史记录
@@ -179,7 +178,7 @@ public class ClipboardService : IDisposable
         ClipboardHistoryItems.Clear();
         _isHistoryDirty = true;
         OnTimerElapsed(null);
-        Directory.Delete(SettingConfig.SaveClipboardHistoryImagePath, true);
+        Directory.Delete(AppPaths.Data.ClipboardImages, true);
         OnClipboardChanged?.Invoke();
     }
 
@@ -232,7 +231,8 @@ public class ClipboardService : IDisposable
     {
         if (bitmap == null) return;
         string date = DateTime.Now.ToString("(yyyy-MM-dd HH:mm:ss)");
-        string fullPath = SaveUtility.GetSaveClipboardHistoryImagePath(fileName ?? $"Uiharu_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
+        string fullPath = Path.Combine(AppPaths.Data.ClipboardImages,
+            fileName ?? $"Uiharu_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         string? dir = Path.GetDirectoryName(fullPath);
         if (dir == null) return;
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
@@ -250,7 +250,7 @@ public class ClipboardService : IDisposable
     /// </summary>
     private void CheckAndRecordImagesInClipboardHistory()
     {
-        var files = Directory.GetFiles(SettingConfig.SaveClipboardHistoryImagePath, "*.png");
+        var files = Directory.GetFiles(AppPaths.Data.ClipboardImages, "*.png");
         foreach (var file in files)
         {
             var item = ClipboardHistoryItems.FirstOrDefault(x => x.IsImage && x.ImageSource.Equals(file, StringComparison.OrdinalIgnoreCase));
@@ -307,13 +307,13 @@ public class ClipboardService : IDisposable
     private void OnTimerElapsed(object? state)
     {
         if (!_isHistoryDirty) return;
-        SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
+        SaveUtility.Save(AppPaths.Data.ClipboardHistory, ClipboardHistoryItems);
         _isHistoryDirty = false;
     }
 
     public void Dispose()
     {
-        if (_isHistoryDirty) SaveUtility.SaveRootFile(HistoryFileName, ClipboardHistoryItems);
+        if (_isHistoryDirty) SaveUtility.Save(AppPaths.Data.ClipboardHistory, ClipboardHistoryItems);
         _isHistoryDirty = false;
         _clipboardMonitor?.Dispose();
         _timer.Dispose();

@@ -141,7 +141,7 @@ internal sealed class AgentAssemblyPlan
 
     private static string GetScratchDirectory()
     {
-        string path = Path.Combine(SettingConfig.SaveAgentDataPath, "Scratch");
+        string path = AppPaths.Cache.Scratch;
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         return path;
     }

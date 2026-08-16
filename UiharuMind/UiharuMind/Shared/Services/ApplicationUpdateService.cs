@@ -80,7 +80,7 @@ public partial class ApplicationUpdateService : ObservableObject
 
     private static string GetUpdatePackageRoot()
     {
-        string directory = Path.Combine(SettingConfig.SaveDataPath, "ApplicationUpdates");
+        string directory = AppPaths.Cache.Updates;
         Directory.CreateDirectory(directory);
         return directory;
     }

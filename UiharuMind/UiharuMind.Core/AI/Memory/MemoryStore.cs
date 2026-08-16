@@ -59,7 +59,7 @@ internal sealed class MemoryStore
 
     /// <summary>索引构建期间的临时库路径。与正式库同目录,才能用 File.Replace 原子替换</summary>
     public string TemporaryDatabasePath =>
-        Path.Combine(SettingConfig.MemoryEmbeddedPath, GetSafeFileName(_nameProvider()) + UpdatingSuffix);
+        Path.Combine(AppPaths.Data.MemoryEmbeddings, GetSafeFileName(_nameProvider()) + UpdatingSuffix);
 
     /// <summary>
     /// 按记忆库名推导正式库路径
@@ -68,7 +68,7 @@ internal sealed class MemoryStore
     /// <returns>库文件绝对路径</returns>
     public static string GetDatabasePath(string name)
     {
-        return Path.Combine(SettingConfig.MemoryEmbeddedPath, GetSafeFileName(name) + DatabaseSuffix);
+        return Path.Combine(AppPaths.Data.MemoryEmbeddings, GetSafeFileName(name) + DatabaseSuffix);
     }
 
     /// <summary>
@@ -194,7 +194,7 @@ internal sealed class MemoryStore
 
         // 顺带清掉两侧的临时库与备份:它们都以旧名字命名,留着只会让下次更新读到过期状态。
         DeleteDatabaseFiles(Path.Combine(
-            SettingConfig.MemoryEmbeddedPath, GetSafeFileName(oldName) + UpdatingSuffix));
+            AppPaths.Data.MemoryEmbeddings, GetSafeFileName(oldName) + UpdatingSuffix));
         DeleteDatabaseFiles(oldPath + BackupSuffix);
         if (!File.Exists(oldPath)) return; //还没建过索引,没什么可搬
 

@@ -28,8 +28,6 @@ public class PromptSnippet
 /// </summary>
 public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
 {
-    private const string FileName = "PromptSnippets.json";
-
     /// <summary>内置预设的嵌入资源名(首次运行播种用)</summary>
     private const string SeedResourceName = "PromptSnippets.json";
 
@@ -41,7 +39,7 @@ public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
     /// <summary>当前片段库(按加入顺序，界面直接展示)</summary>
     public IReadOnlyList<PromptSnippet> Snippets => _snippets;
 
-    private static string SavePath => Path.Combine(SettingConfig.SaveDataPath, FileName);
+    private static string SavePath => AppPaths.Data.PromptSnippets;
 
     public void OnInitialize()
     {

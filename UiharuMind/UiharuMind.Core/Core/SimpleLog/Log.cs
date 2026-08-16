@@ -33,6 +33,6 @@ public static class Log
 
     public static void CloseAndFlush()
     {
-        LogManager.Instance.SaveLog(SettingConfig.LogDataPath);
+        LogManager.Instance.SaveLog(AppPaths.Logs);
     }
 }

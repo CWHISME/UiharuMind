@@ -26,7 +26,7 @@ public class ConfigBase : INotifyPropertyChanged
 
     public void Save()
     {
-        if (AllowSelfSave) SaveUtility.SaveRootFile(this.GetType().Name, this);
+        if (AllowSelfSave) SaveUtility.Save(AppPaths.Config.ForType(this.GetType().Name), this);
         else Log.Error("Save is not allowed for this config: " + this.GetType().Name);
     }
 

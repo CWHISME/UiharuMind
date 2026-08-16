@@ -115,7 +115,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
     private const int MaxSearchDepth = 2; //与框架 AgentFileSkillsSource 的递归深度一致
 
     /// <summary>技能根目录</summary>
-    public string SkillsRootPath => Path.Combine(SettingConfig.SaveDataPath, "Skills/");
+    public string SkillsRootPath => AppPaths.Data.Skills;
 
     /// <summary>
     /// 构建供 HarnessAgent 使用的技能来源:只放"启用且参与模型自选"的技能。

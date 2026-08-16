@@ -23,7 +23,7 @@ public class AutoClickManager : UniquieContainerSingleton<AutoClickManager, Auto
         return session;
     }
 
-    protected override string SaveRootPath => SettingConfig.SaveAutoClickDataPath;
+    protected override string SaveRootPath => AppPaths.Data.AutoClick;
 
     protected override void OnOrderedItems(List<AutoClickSession> items)
     {

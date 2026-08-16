@@ -45,7 +45,7 @@ public class ModelSettingConfig : TConfigBase<ModelSettingConfig>
     [JsonIgnore] public string DefaultLocalModelPath { get; set; } = "./InternalModels";
 
     //外部模型目录路径(可修改)
-    public string LocalModelPath { get; set; } = Path.Combine(SettingConfig.RootDataPath, "Models");
+    public string LocalModelPath { get; set; } = AppPaths.External.Models;
 
     //之前扫描到的模型信息
     public Dictionary<string, GGufModelInfo> ModelInfos { get; set; } = new();

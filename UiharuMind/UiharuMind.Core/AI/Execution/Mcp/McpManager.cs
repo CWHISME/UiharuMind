@@ -33,14 +33,8 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 /// </summary>
 public class McpManager : Singleton<McpManager>, IInitialize
 {
-    /// <summary>标准形状的配置文件,可与别的 MCP 客户端互拷</summary>
-    private const string ConfigFileName = "McpServers.json";
-
-    /// <summary>本项目特有的两项(是否托管、是否注入自述),不进标准文件</summary>
-    private const string StateFileName = "McpServerStates.json";
-
     /// <summary>标准配置文件的完整路径。设置页展示它,用户可直接编辑或整段替换</summary>
-    public static string ConfigFilePath => SaveUtility.GetSaveDataPath(ConfigFileName);
+    public static string ConfigFilePath => AppPaths.Config.McpServers;
 
     /// <summary>
     /// 装配前等 server 连上的上限。取得比一次普通请求还长是有意的：
@@ -111,9 +105,9 @@ public class McpManager : Singleton<McpManager>, IInitialize
     public void Reload()
     {
         _trust.Reload();
-        McpServersFile file = SaveUtility.LoadRootFile<McpServersFile>(ConfigFileName) ?? new McpServersFile();
+        McpServersFile file = SaveUtility.Load<McpServersFile>(AppPaths.Config.McpServers) ?? new McpServersFile();
         Dictionary<string, McpServerLocalState> states =
-            SaveUtility.LoadRootFile<Dictionary<string, McpServerLocalState>>(StateFileName) ?? new();
+            SaveUtility.Load<Dictionary<string, McpServerLocalState>>(AppPaths.Config.McpServerStates) ?? new();
 
         List<McpServerConfig> configs = file.ToConfigs(states);
         List<McpClient> orphans = new();
@@ -1011,8 +1005,8 @@ public class McpManager : Singleton<McpManager>, IInitialize
         }
 
         var (standard, states) = McpServersFile.FromConfigs(snapshot);
-        SaveUtility.SaveRootFile(ConfigFileName, standard);
-        SaveUtility.SaveRootFile(StateFileName, states);
+        SaveUtility.Save(AppPaths.Config.McpServers, standard);
+        SaveUtility.Save(AppPaths.Config.McpServerStates, states);
     }
 
     /// <summary>一个 server 的运行态。只在 <c>_lock</c> 内读写</summary>

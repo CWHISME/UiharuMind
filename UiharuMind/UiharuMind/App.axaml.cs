@@ -251,7 +251,7 @@ public partial class App : Application, ILogger, IDisposable
 
     private void OnOpenSaveMenuItemClick(object? sender, EventArgs e)
     {
-        App.FilesService.OpenFolder(SettingConfig.SaveDataPath);
+        App.FilesService.OpenFolder(AppPaths.Root);
     }
 
     private void OnAutoClickMenuItemClick(object? sender, EventArgs e)

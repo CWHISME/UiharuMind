@@ -143,7 +143,7 @@ public partial class ServicesPageData : PageDataBase
 
     public string RuntimePath =>
         LlmManager.Instance.CurrentRuntimeVersion?.InstallDirectory ??
-        SettingConfig.BackendRuntimeEnginePath;
+        AppPaths.External.Engine;
 
     public string RemoteModelCount =>
         string.Format(Loc.Text("ServicesRemoteModelCountFormat"), LlmManager.Instance.RemoteModelCount);

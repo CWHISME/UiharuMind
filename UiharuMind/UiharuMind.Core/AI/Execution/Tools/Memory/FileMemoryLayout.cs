@@ -38,7 +38,7 @@ public static class FileMemoryLayout
     public const string StateKey = "FileMemoryProvider";
 
     /// <summary>所有角色的文件记忆目录的父目录</summary>
-    public static string RootPath => Path.Combine(SettingConfig.SaveAgentDataPath, "FileMemory");
+    public static string RootPath => AppPaths.Data.AgentFileMemory;
 
     /// <summary>
     /// 角色的文件记忆目录名(相对 <see cref="RootPath"/>)

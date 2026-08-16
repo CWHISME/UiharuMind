@@ -23,38 +23,6 @@ public class SettingConfig : TConfigBase<SettingConfig>
     public const string DefaultQuickTranslationShortcut = "Alt+Shift+Q";
     public const string DefaultQuickAutoClickShortcut = "Alt+Shift+G";
 
-    public static readonly string RootDataPath =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UiharuMind/");
-
-    public static readonly string SaveDataPath = Path.Combine(RootDataPath, "SaveData/");
-    public static readonly string SaveSettingDataPath = SaveDataPath + "SettingData/";
-    public static readonly string SaveChatDataPath = SaveDataPath + "ChatData/";
-    public static readonly string SaveCharacterDataPath = SaveDataPath + "CharacterData/";
-    public static readonly string SaveDefaultCharacterDataPath = SaveDataPath + "DefaultCharacterData/";
-    public static readonly string SaveAutoClickDataPath = SaveDataPath + "AutoClickData/";
-    public static readonly string SaveAgentDataPath = SaveDataPath + "AgentData/";
-
-    /// <summary>
-    /// 会话数据：角色对话与 agent 对话共用一套索引与文件布局。
-    /// 旧的 ChatData/ 与 AgentData/{sessionId}/ 就地废弃，不做迁移。
-    /// AgentData/ 目录本身保留，它还放着 FileMemory/ 与 Scratch/（不是会话数据）。
-    /// </summary>
-    public static readonly string SaveSessionDataPath = SaveDataPath + "SessionData/";
-    public static readonly string LogDataPath = Path.Combine(RootDataPath, "SaveLog/");
-    public static readonly string MemoryDataPath = Path.Combine(SaveDataPath, "MemoryData/");
-    public static readonly string SaveClipboardHistoryImagePath = Path.Combine(SaveDataPath, "ClipboardHistoryImage/");
-
-    /// <summary>
-    /// 本地服务引擎目录
-    /// </summary>
-    public static readonly string
-        BackendRuntimeEnginePath = Path.Combine(RootDataPath, "Runtime/"); //"./BackendRuntimeEngine/";
-
-    /// <summary>
-    /// 知识库路径
-    /// </summary>
-    public static readonly string MemoryEmbeddedPath = Path.Combine(MemoryDataPath, "MemoryEmbeddedCache/");
-
     /// <summary>
     /// 是否是本地服务模式
     /// </summary>

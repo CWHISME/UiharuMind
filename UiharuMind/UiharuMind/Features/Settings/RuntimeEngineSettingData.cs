@@ -99,7 +99,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
     [RelayCommand]
     private void OpenFolder()
     {
-        App.FilesService.OpenFolder(SettingConfig.BackendRuntimeEnginePath);
+        App.FilesService.OpenFolder(AppPaths.External.Engine);
     }
 
     private async Task InitializeAvailableVersions()

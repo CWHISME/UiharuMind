@@ -53,7 +53,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
     public DownloadListViewData ApplicationUpdateDownloadListViewModel { get; }
 
     public string VersionText => $"UiharuMind {App.Version}";
-    public string SaveDirectoryPath => SettingConfig.SaveDataPath;
+    public string SaveDirectoryPath => AppPaths.Root;
     public bool IsWindows => PlatformUtils.IsWindows;
 
     public GeneralSettingViewModel() : this(
@@ -134,7 +134,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
     [RelayCommand]
     private void OpenSaveFolder()
     {
-        App.FilesService.OpenFolder(SettingConfig.SaveDataPath);
+        App.FilesService.OpenFolder(AppPaths.Root);
     }
 
     [RelayCommand]

@@ -33,7 +33,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
             var characterId = character.ToString();
 
             string fileName = characterId + ".json";
-            string externalFileName = Path.Combine(SettingConfig.SaveDefaultCharacterDataPath, fileName);
+            string externalFileName = Path.Combine(AppPaths.Data.CharacterOverrides, fileName);
             CharacterData characterData = File.Exists(externalFileName)
                 ? SaveUtility.Load<CharacterData>(externalFileName) ??
                   EmbeddedResourcesUtils.ReadFromJson<CharacterData>(fileName)
