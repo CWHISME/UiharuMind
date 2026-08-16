@@ -68,6 +68,34 @@ public sealed class SessionRunRegistry
     public bool IsBusy(string? sessionId) => StateOf(sessionId) != ESessionRunState.Idle;
 
     /// <summary>
+    /// 当前所有非空闲会话的快照。导航栏的角标要按「哪一页有会话在忙」聚合，
+    /// 而分页归属只有取用方（按会话档位）分得清，所以这里只给原始清单
+    /// </summary>
+    /// <returns>会话标识与其状态</returns>
+    public List<KeyValuePair<string, ESessionRunState>> ActiveSessions()
+    {
+        lock (_locker)
+        {
+            List<KeyValuePair<string, ESessionRunState>> active = new(_runs.Count + _approvals.Count);
+            foreach (string sessionId in _runs.Keys)
+            {
+                active.Add(new(sessionId, _approvals.ContainsKey(sessionId)
+                    ? ESessionRunState.AwaitingApproval
+                    : ESessionRunState.Running));
+            }
+
+            // 理论上审批一定嵌在某一轮里面,但别让这个假设决定清单的完整性
+            foreach (string sessionId in _approvals.Keys)
+            {
+                if (!_runs.ContainsKey(sessionId))
+                    active.Add(new(sessionId, ESessionRunState.AwaitingApproval));
+            }
+
+            return active;
+        }
+    }
+
+    /// <summary>
     /// 标记一轮开始，<see cref="IDisposable.Dispose"/> 时标记结束。
     /// 必须放在 <c>using</c> 或 try/finally 里——漏一次这个会话就永久停在「在跑」上
     /// </summary>

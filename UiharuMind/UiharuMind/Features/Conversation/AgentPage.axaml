@@ -11,6 +11,7 @@
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:chars="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
              x:Class="UiharuMind.Features.Conversation.AgentPage"
              x:DataType="pages:AgentPageData">
@@ -205,19 +206,34 @@
                                         <MenuItem Header="{loc:Loc Copy}"
                                                   Command="{Binding CopyCommand}" />
                                         <MenuItem Header="{loc:Loc ClearChatHistory}"
+                                                  ToolTip.Tip="{Binding BusyTip}"
                                                   Command="{Binding ClearChatHistoryCommand}" />
                                         <MenuItem Header="{loc:Loc Delete}"
+                                                  ToolTip.Tip="{Binding BusyTip}"
                                                   Command="{Binding DeleteCommand}" />
                                     </ContextMenu>
                                 </Grid.ContextMenu>
-                                <StackPanel Grid.Column="0" Spacing="2">
-                                    <TextBlock Text="{Binding Name}" FontSize="13"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Classes="muted" FontSize="11"
-                                               Text="{Binding TimeString}" />
-                                </StackPanel>
+                                <!-- 指示器一列 + 文字一列:文字必须落在 * 列里,
+                                     否则长标题不再省略号截断而是撑出去 -->
+                                <Grid Grid.Column="0" ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                    <!-- 在跑用转圈(动效最能说明"它在动"),
+                                         待审批用橙点(那是要你去处理的,不是在自己跑) -->
+                                    <u:LoadingIcon Grid.Column="0" Width="12" Height="12"
+                                                   VerticalAlignment="Center" IsLoading="True"
+                                                   IsVisible="{Binding IsRunning}" />
+                                    <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center"
+                                             Fill="#FF9800"
+                                             IsVisible="{Binding IsAwaitingApproval}" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{Binding Name}" FontSize="13"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Classes="muted" FontSize="11"
+                                                   Text="{Binding TimeString}" />
+                                    </StackPanel>
+                                </Grid>
                                 <Button Grid.Column="1" Classes="session-delete" Padding="4"
                                         FontSize="10" Background="Transparent" Content="✕"
+                                        ToolTip.Tip="{Binding BusyTip}"
                                         Command="{Binding DeleteCommand}" />
                             </Grid>
                         </DataTemplate>

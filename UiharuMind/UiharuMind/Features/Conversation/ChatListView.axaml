@@ -45,8 +45,10 @@
                             <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
                             <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
                             <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
-                            <MenuItem Header="{loc:Loc ClearChatHistory}" Command="{Binding ClearChatHistoryCommand}" />
-                            <MenuItem Header="{loc:Loc Delete}" Command="{Binding DeleteCommand}" />
+                            <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
+                                      Command="{Binding ClearChatHistoryCommand}" />
+                            <MenuItem Header="{loc:Loc Delete}" ToolTip.Tip="{Binding BusyTip}"
+                                      Command="{Binding DeleteCommand}" />
                         </ContextMenu>
                     </Border.ContextMenu>
 
@@ -58,15 +60,22 @@
                         </Ellipse>
 
                         <Grid Grid.Column="1" RowDefinitions="Auto,Auto" MinWidth="0">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding Name}"
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                <!-- 运行指示器:在跑用转圈,待审批用橙点(要你去处理,不是在自己跑) -->
+                                <u:LoadingIcon Grid.Column="0" Width="12" Height="12"
+                                               VerticalAlignment="Center" IsLoading="True"
+                                               IsVisible="{Binding IsRunning}" />
+                                <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center"
+                                         Fill="#FF9800"
+                                         IsVisible="{Binding IsAwaitingApproval}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Name}"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource SemiGrey7}"
                                            TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1"
+                                <TextBlock Grid.Column="2"
                                            Classes="muted"
-                                           Text="{Binding TimeString}"
-                                           Margin="8,0,0,0" />
+                                           Text="{Binding TimeString}" />
                             </Grid>
                             <TextBlock Grid.Row="1"
                                        Classes="muted"

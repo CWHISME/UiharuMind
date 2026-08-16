@@ -2544,4 +2544,10 @@
     <data name="CharacterRenderedPreview" xml:space="preserve">
         <value>Show the rendered result</value>
     </data>
+    <data name="SessionStatusAwaitingApproval" xml:space="preserve">
+        <value>Awaiting approval</value>
+    </data>
+    <data name="SessionBusyCannotModify" xml:space="preserve">
+        <value>This session is still running. Stop it first.</value>
+    </data>
 </root>

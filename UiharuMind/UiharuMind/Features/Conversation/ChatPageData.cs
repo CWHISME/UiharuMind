@@ -37,6 +37,7 @@ public partial class ChatPageData : ConversationPageDataBase
         _chatInfoModel = App.ViewModel.GetViewModel<ChatInfoModel>();
 
         ChatListViewModel.EventOnSelectedSessionChanged += OnSelectedSessionChanged;
+        ChatListViewModel.EventOnSessionMutated += OnSessionMutated;
         OnSelectedSessionChanged(ChatListViewModel.SelectedSession);
     }
 
@@ -66,6 +67,13 @@ public partial class ChatPageData : ConversationPageDataBase
         _chatInfoModel.SetSession(obj);
         // 换实例后插件面板要按新实例的状态重新对齐(切到一个后台跑着的会话时它就是"进行中")
         NotifyChatState(Conversation.IsGenerating);
+    }
+
+    private void OnSessionMutated(SessionListItem item)
+    {
+        // 改名允许在跑的过程中进行,而重载会把界面条目清掉重新回放——正在流的那一轮会被拦腰截断
+        if (FindConversation(item.Meta.SessionId) is not { IsGenerating: false } target) return;
+        if (target == Conversation) _ = target.LoadSessionAsync(item.Meta);
     }
 
     private void OnConversationPropertyChanged(object? sender, PropertyChangedEventArgs e)

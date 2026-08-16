@@ -102,7 +102,15 @@ public partial class SessionListItem : ObservableObject
         IsRunning = state == ESessionRunState.Running;
         DeleteCommand.NotifyCanExecuteChanged();
         ClearChatHistoryCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(BusyTip));
     }
+
+    /// <summary>
+    /// 忙的时候解释删除/清空为何不可用；空闲时为 null，那样就不显示提示
+    /// </summary>
+    public string? BusyTip => CanMutateFiles
+        ? null
+        : LocalizationManager.Instance.GetString("SessionBusyCannotModify");
 
     /// <summary>
     /// 删除与清空历史是否可用。跑的过程中不行：它们会跟正在追写历史的那一轮抢文件

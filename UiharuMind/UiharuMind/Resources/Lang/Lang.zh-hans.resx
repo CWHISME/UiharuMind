@@ -2537,4 +2537,10 @@
     <data name="CharacterRenderedPreview" xml:space="preserve">
         <value>查看替换后的效果</value>
     </data>
+    <data name="SessionStatusAwaitingApproval" xml:space="preserve">
+        <value>等待审批</value>
+    </data>
+    <data name="SessionBusyCannotModify" xml:space="preserve">
+        <value>这个会话还在跑，先停止再操作</value>
+    </data>
 </root>

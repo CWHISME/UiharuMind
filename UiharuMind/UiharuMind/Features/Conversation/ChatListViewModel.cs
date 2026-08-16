@@ -31,6 +31,12 @@ public partial class ChatListViewModel : ViewModelBase
 
     public event Action<SessionListItem?>? EventOnSelectedSessionChanged;
 
+    /// <summary>
+    /// 会话被就地改写（改名/清空历史）。与「选中变了」分开：切会话现在是换视图模型实例，
+    /// 重发选中事件只会把同一个实例原样取回来，内容区不会重载
+    /// </summary>
+    public event Action<SessionListItem>? EventOnSessionMutated;
+
     public ChatListViewModel()
     {
         // 只读索引,本体按需加载(agent 会话的工具结果是全量持久化的,启动时全量反序列化会卡死);
@@ -88,7 +94,6 @@ public partial class ChatListViewModel : ViewModelBase
 
     private void OnItemMutated(SessionListItem item)
     {
-        // 被展示中的会话在条目上被就地改写(改名/清空),重发选中事件让内容区重载
-        if (item == SelectedSession) EventOnSelectedSessionChanged?.Invoke(item);
+        if (item == SelectedSession) EventOnSessionMutated?.Invoke(item);
     }
 }
