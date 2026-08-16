@@ -42,6 +42,13 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// <summary>标准配置文件的完整路径。设置页展示它,用户可直接编辑或整段替换</summary>
     public static string ConfigFilePath => SaveUtility.GetSaveDataPath(ConfigFileName);
 
+    /// <summary>
+    /// 装配前等 server 连上的上限。取得比一次普通请求还长是有意的：
+    /// 等一会儿换来「这一轮真的带着工具跑」，比让第一轮静默缺工具划算得多。
+    /// 而这笔等待每个进程只付一次——工具取回后就常驻缓存。
+    /// </summary>
+    private static readonly TimeSpan WarmupTimeout = TimeSpan.FromSeconds(10);
+
     /// 连续失败第 n 次之后的等待时长,末项为封顶值
     private static readonly TimeSpan[] RetryBackoff =
     [
@@ -77,10 +84,10 @@ public class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
-    /// 从磁盘重新读入配置（用户直接改了配置文件时用），并把托管中的 server 起在后台。
+    /// 从磁盘重新读入配置（用户直接改了配置文件时用）。
     ///
-    /// 启动时也走这里（<see cref="OnInitialize"/>），因此托管的 server 在没人开会话之前就已经在连了——
-    /// 代价是它们的子进程会随应用一起起来，收益是第一次发消息时工具已经在位。
+    /// <b>不在此处预连</b>：那会让托管 server 的子进程随应用一起起来，而这个应用还有截图、
+    /// 剪贴板、快捷问答一堆与 MCP 无关的功能。连接推迟到真正要用的那一刻，见 <see cref="WarmupAsync"/>。
     /// </summary>
     public void Reload()
     {
@@ -98,13 +105,6 @@ public class McpManager : Singleton<McpManager>, IInitialize
             orphans = _runtimes.Values.Where(x => x.Client != null).Select(x => x.Client!).ToList();
             _runtimes.Clear();
             _revision++;
-            // 顺手把托管中的 server 全部起在后台。不预连的话第一份装配必然赶不上——
-            // Resolve 遇到还没取到工具的 server 只能跳过它并在后台起连接,
-            // 于是"明明接了 MCP,工具却要等下一轮才出现"。退避与去重仍由 KickRefreshLocked 把关
-            foreach (McpServerConfig server in _servers)
-            {
-                if (server.IsEnabled) KickRefreshLocked(server, force: false);
-            }
         }
 
         foreach (McpClient client in orphans) _ = client.DisposeAsync();
@@ -216,6 +216,48 @@ public class McpManager : Singleton<McpManager>, IInitialize
     }
 
     /// <summary>
+    /// 等托管中、还没取回工具的 server 连上（<see cref="WarmupTimeout"/> 之内），装配前调。
+    ///
+    /// <b>不等的话第一次装配必然赶不上</b>：<see cref="Resolve"/> 撞见还没取到工具的 server 只能
+    /// 跳过它并在后台起连接。症状不是"慢一点"，而是<b>第一轮模型没有那些工具，而用户不知道为什么</b>——
+    /// 后一种糟得多。工具一旦取回就常驻缓存，所以这个等待每个进程只付一次。
+    ///
+    /// 超时不算错：那一轮照旧不带它走，后台连接继续，下一轮自然带上，
+    /// 而能力面板会把它显示成未连接。退避中（连过且失败过）的 server 不会拖住这里——
+    /// 它们的刷新任务早已结束，等于不等。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    public async Task WarmupAsync(CancellationToken cancellationToken = default)
+    {
+        List<Task> pending = new();
+        lock (_lock)
+        {
+            foreach (McpServerConfig server in _servers)
+            {
+                if (!server.IsEnabled) continue;
+
+                McpServerRuntime runtime = GetRuntimeLocked(server.Name);
+                if (runtime.Tools != null) continue; //已经取回,不必再等
+
+                KickRefreshLocked(server, force: false);
+                if (runtime.RefreshTask is { } task) pending.Add(task);
+            }
+        }
+
+        if (pending.Count == 0) return;
+
+        try
+        {
+            await Task.WhenAll(pending).WaitAsync(WarmupTimeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Log.Warning($"MCP warmup timed out after {WarmupTimeout.TotalSeconds:0}s; " +
+                        "this turn runs without the slow servers' tools");
+        }
+    }
+
+    /// <summary>
     /// 连上<b>指定的一个</b> server 并取回工具，等待完成（设置页的测试连接）。
     ///
     /// 刻意<b>不看托管开关</b>：新建的 server 默认不托管，而"填完配置就点测试"是最自然的顺序，
@@ -259,7 +301,8 @@ public class McpManager : Singleton<McpManager>, IInitialize
         if (!force && DateTime.UtcNow < runtime.NextAttemptUtc) return;
 
         runtime.Refreshing = true;
-        _ = Task.Run(() => RefreshServerAsync(server, CancellationToken.None));
+        // 任务留在运行态上:WarmupAsync 要等的就是它。丢掉句柄的话「等它连上」无从实现
+        runtime.RefreshTask = Task.Run(() => RefreshServerAsync(server, CancellationToken.None));
     }
 
     private async Task RefreshServerAsync(McpServerConfig server, CancellationToken cancellationToken)
@@ -432,6 +475,10 @@ public class McpManager : Singleton<McpManager>, IInitialize
         public string Instructions { get; set; } = string.Empty;
         public string? Error { get; set; }
         public bool Refreshing { get; set; }
+
+        /// 正在跑的那次刷新;WarmupAsync 据此等待。失败过的那次是已完成任务,等于不等
+        public Task? RefreshTask { get; set; }
+
         public int FailureCount { get; set; }
         public DateTime NextAttemptUtc { get; set; }
     }

@@ -18,6 +18,7 @@ using UiharuMind.Core.Core.SimpleLog;
 
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 
 namespace UiharuMind.Core.AI.Execution;
@@ -85,6 +86,14 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             sessionShellApprovalSource: () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
             // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
             activitySink: content => _activityChannel?.Writer.TryWrite(content));
+
+        // MCP 工具是异步取回的,而快照与装配都从「此刻取得到什么」出发——所以等待必须在采集之前。
+        // 放到这里而不是应用启动时:托管 server 的子进程因此只在真要用它的那一刻才起来,
+        // 而这个应用还有截图、剪贴板、快捷问答一堆与 MCP 无关的功能(见 McpManager.WarmupAsync)
+        if (profile.Character.Kind.IsAgent())
+        {
+            await McpManager.Instance.WarmupAsync(cancellationToken).ConfigureAwait(false);
+        }
 
         AgentAssemblyFacts snapshot = AgentAssemblyFacts.Capture(profile);
         if (_handle != null && snapshot.Equals(_lastSnapshot)) return;
