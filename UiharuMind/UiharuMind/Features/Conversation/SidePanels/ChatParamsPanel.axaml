@@ -19,6 +19,7 @@
             <u:Divider Content="{loc:Loc ParameterSettings}" />
             <settingViews:SettingPanelView Padding="10,0"
                                            IsVerticleTitle="True"
+                                           IsTitleVisible="False"
                                            SettingConfig="{Binding Character.Config.ExecutionSettings}" />
         </StackPanel>
     </Border>

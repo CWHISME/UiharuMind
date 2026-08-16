@@ -54,6 +54,19 @@ public partial class SettingPanelView : UserControl
         set => SetValue(SettingConfigProperty, value);
     }
 
+    public static readonly StyledProperty<bool> IsTitleVisibleProperty =
+        AvaloniaProperty.Register<SettingPanelView, bool>(nameof(IsTitleVisible), true);
+
+    /// <summary>
+    /// 是否显示设置类自己的标题。宿主已经给了一行标题时关掉它，否则两行标题叠着
+    /// （角色编辑页与会话详情栏都属于这种）
+    /// </summary>
+    public bool IsTitleVisible
+    {
+        get => GetValue(IsTitleVisibleProperty);
+        set => SetValue(IsTitleVisibleProperty, value);
+    }
+
     public static readonly StyledProperty<bool> IsVerticleTitleProperty =
         AvaloniaProperty.Register<SettingPanelView, bool>(nameof(IsVerticleTitle),
             defaultBindingMode: BindingMode.TwoWay);
@@ -99,10 +112,20 @@ public partial class SettingPanelView : UserControl
         SettingListView.SettingConfig = _currentSettingConfig;
     }
 
+    //标题优先级:可本地化的 SettingConfigName → 老的 DisplayName → 类名(兜底,出现它说明这个设置类漏了标注)
     private void RefreshTitle()
     {
         var type = _currentSettingConfig?.GetType();
-        Title.Content = type?.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? type?.Name;
+        if (type == null)
+        {
+            Title.Content = null;
+            return;
+        }
+
+        string displayName = type.GetDisplayName();
+        Title.Content = displayName != type.Name
+            ? displayName
+            : type.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? type.Name;
     }
     // private object? _settingConfig;
     //

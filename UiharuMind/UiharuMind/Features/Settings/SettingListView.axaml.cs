@@ -179,7 +179,7 @@ public partial class SettingListView : UserControl
     {
         var checkbox = new CheckBox
         {
-            Content = property.Name,
+            Content = property.GetDisplayName(),
             IsChecked = property.GetValue(SettingConfig) as bool?,
         };
 
@@ -352,15 +352,15 @@ public partial class SettingListView : UserControl
             }
             : new DockPanel() { LastChildFill = true };
 
-        //添加设置项标题
+        //添加设置项标题。竖排时标题独占一行,不该再被按在 120px 的固定宽里
         TextBlock title = new TextBlock
         {
-            Text = property.Name,
+            Text = property.GetDisplayName(),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Left,
-            Width = 120,
-            // FontSize = 14,
-            Margin = new Thickness(0, 0, 10, 0)
+            Width = IsVerticleTitle ? double.NaN : 120,
+            TextWrapping = IsVerticleTitle ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            Margin = IsVerticleTitle ? new Thickness(0, 0, 0, 4) : new Thickness(0, 0, 10, 0)
         };
         AddTooltip(title, property);
         panel.Children.Add(title);

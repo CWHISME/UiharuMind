@@ -312,7 +312,8 @@
                     <Border Name="ParametersSection" Classes="edit-card">
                         <StackPanel Spacing="8">
                             <TextBlock Classes="card-title" Text="{loc:Loc ParameterSettings}" />
-                            <settingViews:SettingPanelView SettingConfig="{Binding ChatPromptExecutionSettings}" />
+                            <settingViews:SettingPanelView SettingConfig="{Binding ChatPromptExecutionSettings}"
+                                                           IsTitleVisible="False" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

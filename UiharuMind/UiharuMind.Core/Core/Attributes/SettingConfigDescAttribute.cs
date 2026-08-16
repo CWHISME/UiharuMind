@@ -14,10 +14,12 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.Core.Attributes;
 
 [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
-public class SettingConfigDescAttribute : Attribute
+public class SettingConfigDescAttribute : Attribute, ILocalizedAttributeText
 {
     public string Description { get; set; }
     public string LanguageCode { get; set; }
+
+    string ILocalizedAttributeText.Text => Description;
 
     public SettingConfigDescAttribute(string description, string languageCode = LanguageUtils.EnglishUnitedStates)
     {

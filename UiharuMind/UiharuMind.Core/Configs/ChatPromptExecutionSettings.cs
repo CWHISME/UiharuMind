@@ -5,6 +5,8 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Configs;
 
+[SettingConfigName("Generation Parameters")]
+[SettingConfigName("生成参数", LanguageUtils.ChineseSimplified)]
 public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettings>
 {
     public ChatOptions ToChatOptions() => new()
@@ -22,6 +24,8 @@ public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettin
         LanguageUtils.ChineseSimplified)]
     [JsonPropertyName("temperature")]
     [SettingConfigRange(0f, 1.0f, 0.01f)]
+    [SettingConfigName("Temperature")]
+    [SettingConfigName("温度", LanguageUtils.ChineseSimplified)]
     public double? Temperature { get; set; } = 1.0;
 
     [SettingConfigDesc(
@@ -31,6 +35,8 @@ public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettin
         LanguageUtils.ChineseSimplified)]
     [JsonPropertyName("top_p")]
     [SettingConfigRange(0f, 1.0f, 0.01f)]
+    [SettingConfigName("Top P")]
+    [SettingConfigName("Top P", LanguageUtils.ChineseSimplified)]
     public double? TopP { get; set; } = 1.0;
 
     [SettingConfigDesc(
@@ -39,6 +45,8 @@ public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettin
         LanguageUtils.ChineseSimplified)]
     [SettingConfigRange(-2.0f, 2.0f, 0.01f)]
     [JsonPropertyName("presence_penalty")]
+    [SettingConfigName("Presence Penalty")]
+    [SettingConfigName("存在惩罚", LanguageUtils.ChineseSimplified)]
     public double? PresencePenalty { get; set; }
 
     [SettingConfigDesc(
@@ -47,5 +55,7 @@ public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettin
         LanguageUtils.ChineseSimplified)]
     [SettingConfigRange(-2.0f, 2.0f, 0.01f)]
     [JsonPropertyName("frequency_penalty")]
+    [SettingConfigName("Frequency Penalty")]
+    [SettingConfigName("频率惩罚", LanguageUtils.ChineseSimplified)]
     public double? FrequencyPenalty { get; set; }
 }
