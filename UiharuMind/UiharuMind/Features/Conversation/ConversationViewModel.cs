@@ -49,7 +49,7 @@ namespace UiharuMind.Features.Conversation;
 /// 由角色的 ECharacterKind 控制显隐，因此不需要为此分出子类；
 /// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
-public partial class ConversationViewModel : ViewModelBase, IDisposable
+public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IDisposable
 {
     /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
     public enum SendMode
@@ -225,6 +225,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
 
+    private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
     private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
@@ -272,6 +273,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         Tray = new AttachmentTrayViewData(() => CurrentSession);
         Palette = new CommandPaletteViewData(text => InputText = text, () => SessionCharacter);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
+        _itemActions = new ConversationItemActions(Items, this);
 
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
@@ -282,7 +284,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 : null;
         Workspace = new WorkspacePickerViewData(defaultWorkspace, OnWorkspacePathChanged);
 
-        _transcript = new ConversationTranscript(Items, CreateAssistantItem,
+        _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
             () => CurrentSession?.WorkspacePath);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
@@ -408,7 +410,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     {
         if (IsGenerating) return;
         ConversationItemBase? target = Items.LastOrDefault(x => x.CanRetry);
-        if (target != null) OnItemRetry(target);
+        if (target != null) _itemActions.Retry(target);
     }
 
     //================= 模式 / 配置 =================
@@ -544,7 +546,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             if (CurrentRunner is { } runner &&
                 await runner.TryInjectAsync(new[] { new ChatMessage(ChatRole.User, text) }))
             {
-                Items.Add(CreateUserItem(text));
+                Items.Add(ConversationItemFactory.CreateUser(text));
             }
 
             return;
@@ -567,7 +569,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         ChatMessage userMessage = Tray.BuildUserMessage(invocation?.InjectedText ?? text, attachments);
         if (invocation != null) NamedSkillAnnotations.Mark(userMessage, invocation, text);
 
-        Items.Add(CreateUserItem(text, userMessage, attachments));
+        Items.Add(ConversationItemFactory.CreateUser(text, userMessage, attachments));
         ScrollToEnd = true;
         await RunTurnAsync(userMessage, text);
     }
@@ -594,10 +596,10 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         session.History.Add(message);
         session.SaveAppended(before); //只追加这一条,不重写整份历史
 
-        TextConversationItem item = CreateAssistantItem();
+        TextConversationItem item = ConversationItemFactory.CreateAssistant(_currentCharacter);
         item.Append(text);
         item.IsDone = true;
-        Items.Add(WireItemActions(item, message));
+        Items.Add(_itemActions.Wire(item, message));
         ScrollToEnd = true;
     }
 
@@ -652,7 +654,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
                 break;
 
             case ETurnNotice.Persisted:
-                WireStreamedItems();
+                _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
                 break;
 
             case ETurnNotice.Ended:
@@ -923,7 +925,7 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     private List<ConversationItemBase> BuildHistoryItems(IReadOnlyList<ChatMessage> messages, int from, int to)
     {
         List<ConversationItemBase> buffer = new();
-        ConversationTranscript replay = new(buffer, CreateAssistantItem)
+        ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(_currentCharacter))
         {
             AutoCollapseThinking = IsAutoCollapseThinking,
         };
@@ -941,17 +943,17 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡,因此先于常规分派拦下
             if (HistoryHandoff.IsNote(message))
             {
-                buffer.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(DisplayTextOf(message)) });
+                buffer.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)) });
                 continue;
             }
 
             if (message.Role == ChatRole.User)
             {
-                string text = DisplayTextOf(message);
-                if (!IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || HasImage(message)))
+                string text = ConversationItemFactory.DisplayTextOf(message);
+                if (!ConversationItemFactory.IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || ConversationItemFactory.HasImage(message)))
                 {
-                    TextConversationItem userItem = WireItemActions(CreateUserItem(text, message), message);
-                    if (lastKnown is { } userStamp) userItem.Timestamp = TimestampText(userStamp);
+                    TextConversationItem userItem = _itemActions.Wire(ConversationItemFactory.CreateUser(text, message), message);
+                    if (lastKnown is { } userStamp) userItem.Timestamp = ConversationItemFactory.TimestampText(userStamp);
                     buffer.Add(userItem);
                 }
 
@@ -970,8 +972,8 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
             for (int i = before; i < buffer.Count; i++)
             {
                 if (buffer[i] is not TextConversationItem textItem) continue;
-                WireItemActions(textItem, message);
-                if (lastKnown is { } stamp) textItem.Timestamp = TimestampText(stamp);
+                _itemActions.Wire(textItem, message);
+                if (lastKnown is { } stamp) textItem.Timestamp = ConversationItemFactory.TimestampText(stamp);
             }
         }
 
@@ -979,55 +981,27 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         return buffer;
     }
 
-    /// <summary>
-    /// 识别非真实用户输入的 user 角色消息:框架上下文提供器注入的消息
-    /// (todo 快照、模式切换通知等)带 _attribution 溯源标记;审批回应为控制消息。
-    /// 它们是模型上下文的一部分(持久化属正常),但不应渲染为用户气泡。
-    /// </summary>
-    //================= 消息级操作 =================
+    //================= IConversationItemActionHost =================
+    // 显式实现:这五件事是给消息级操作用的,不该混进本类给界面绑定的公开面
 
-    /// <summary>
-    /// 给条目接上编辑/删除/分叉/重试。只有能定位回历史消息的条目才提供这些操作，
-    /// 因此流式进行中的占位条目与框架注入的内容不会出现这些按钮。
-    /// </summary>
-    private T WireItemActions<T>(T item, ChatMessage source) where T : ConversationItemBase
+    /// <inheritdoc />
+    ChatSession? IConversationItemActionHost.Session => CurrentSession;
+
+    /// <inheritdoc />
+    bool IConversationItemActionHost.IsGenerating => IsGenerating;
+
+    /// <inheritdoc />
+    void IConversationItemActionHost.Rerun(ChatMessage input)
     {
-        item.SourceMessage = source;
-        // 点名调用的气泡显示的是 /技能名 那一行,而消息正文是注入的技能全文;
-        // 放开编辑会把正文改写成那一行,当场毁掉注入内容
-        if (NamedSkillAnnotations.InputOf(source) == null) item.EditedCallback = OnItemEdited;
-        item.DeleteCallback = OnItemDeleted;
-        item.BranchCallback = OnItemBranch;
-        // 重试语义是"从这条用户输入起重新生成",因此只挂在用户消息上
-        if (source.Role == ChatRole.User) item.RetryCallback = OnItemRetry;
-        return item;
+        ScrollToEnd = true;
+        _ = RunTurnAsync(input, ConversationItemFactory.DisplayTextOf(input));
     }
 
-    /// <summary>
-    /// 一轮结束后，历史已由提供器写入（本轮输入 + 回复）。
-    /// 把界面上刚产出的、还没有来源消息的文本气泡按角色与历史尾部配对，使其也能被操作。
-    /// </summary>
-    private void WireStreamedItems()
-    {
-        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
-        int cursor = history.Count - 1;
+    /// <inheritdoc />
+    void IConversationItemActionHost.NotifySessionsChanged() => SessionsChanged?.Invoke();
 
-        for (int i = Items.Count - 1; i >= 0 && cursor >= 0; i--)
-        {
-            if (Items[i] is not TextConversationItem item) continue;
-            if (item.SourceMessage != null) break; //再往前都是回放来的,已经关联过
-
-            // 只在角色一致时配对,不一致说明界面与历史的形状对不上,宁可不提供操作
-            ChatRole expected = item.IsUser ? ChatRole.User : ChatRole.Assistant;
-            while (cursor >= 0 && history[cursor].Role != expected) cursor--;
-            if (cursor < 0) break;
-
-            WireItemActions(item, history[cursor]);
-            cursor--;
-        }
-
-        OnPropertyChanged(nameof(CanRegenerate)); //接线不触发集合事件,需手动刷新
-    }
+    /// <inheritdoc />
+    void IConversationItemActionHost.NotifyItemsWired() => OnPropertyChanged(nameof(CanRegenerate));
 
     private ChatSession? CurrentSession =>
         CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);
@@ -1089,85 +1063,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
         return (int)EThinkingMode.Default;
     }
 
-    private void OnItemEdited(ConversationItemBase item)
-    {
-        if (item.SourceMessage == null) return;
 
-        // 就地改写 TextContent:ChatMessage.Text 是只读的(所有 TextContent 的拼接),
-        // 且不能整体替换 Contents,否则会丢掉同一条消息里的图片
-        TextContent? text = item.SourceMessage.Contents.OfType<TextContent>().FirstOrDefault();
-        if (text != null) text.Text = item.Message;
-        else item.SourceMessage.Contents.Add(new TextContent(item.Message));
 
-        CurrentSession?.Save();
-    }
 
-    private void OnItemDeleted(ConversationItemBase item)
-    {
-        ChatSession? session = CurrentSession;
-        if (session != null && item.SourceMessage != null)
-        {
-            session.History.Remove(item.SourceMessage);
-            session.Save();
-        }
 
-        Items.Remove(item);
-    }
 
-    private void OnItemBranch(ConversationItemBase item)
-    {
-        ChatSession? session = CurrentSession;
-        if (session == null || item.SourceMessage == null) return;
-
-        int index = session.History.IndexOf(item.SourceMessage);
-        if (index < 0) return;
-
-        ChatSession branch = SessionManager.Instance.DeepCopy(session);
-        branch.SessionId = Guid.NewGuid().ToString("N");
-        branch.Title = $"{session.Title} {LocalizationManager.Instance.GetString("ChatBranchSuffix")}";
-        branch.CreatedAt = DateTimeOffset.Now;
-        // 附件文件仍归原会话所有:两边都登记会导致删除任一方时打断另一方
-        branch.OwnedAttachmentFiles.Clear();
-        // 保留到该条消息为止
-        branch.History.RemoveRange(index + 1, branch.History.Count - index - 1);
-        SessionManager.Instance.Add(branch);
-        SessionsChanged?.Invoke();
-    }
-
-    private void OnItemRetry(ConversationItemBase item)
-    {
-        ChatSession? session = CurrentSession;
-        if (session == null || item.SourceMessage == null || IsGenerating) return;
-
-        int index = session.History.IndexOf(item.SourceMessage);
-        if (index < 0) return;
-
-        // 丢弃该条用户输入之后的全部历史,再以它为输入重跑一轮
-        ChatMessage input = session.History[index];
-        session.History.RemoveRange(index, session.History.Count - index);
-        session.Save();
-
-        int itemIndex = Items.IndexOf(item);
-        if (itemIndex >= 0)
-        {
-            for (int i = Items.Count - 1; i >= itemIndex; i--) Items.RemoveAt(i);
-        }
-
-        Items.Add(WireItemActions(CreateUserItem(DisplayTextOf(input), input), input));
-        ScrollToEnd = true;
-        _ = RunTurnAsync(input, DisplayTextOf(input));
-    }
-
-    private static bool HasImage(ChatMessage message)
-    {
-        return message.Contents.OfType<DataContent>().Any(x => x.HasTopLevelMediaType("image"));
-    }
-
-    private static bool IsFrameworkInjected(ChatMessage message)
-    {
-        if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true) return true;
-        return message.Contents.Any(x => x is ToolApprovalResponseContent);
-    }
 
     //================= 能力面板 =================
 
@@ -1213,77 +1113,11 @@ public partial class ConversationViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>条目与标题用的显示文本:点名调用取用户敲的那一行,其余取消息正文</summary>
-    private static string DisplayTextOf(ChatMessage message)
-    {
-        return NamedSkillAnnotations.InputOf(message) ?? message.Text;
-    }
 
     //================= 条目构造 =================
 
-    /// <summary>气泡上那一行时间的格式,只此一处定义</summary>
-    private static string TimestampText(DateTimeOffset at) => at.LocalDateTime.ToString("HH:mm");
-
-    private static TextConversationItem CreateUserItem(string text, ChatMessage? source = null,
-        List<ConversationAttachment>? attachments = null)
-    {
-        TextConversationItem item = new(true)
-        {
-            Message = text,
-            SenderName = LocalizationManager.Instance.GetString("AgentSenderUser"),
-            SenderColor = Avalonia.Media.Brushes.LightGreen,
-            Icon = IconUtils.DefaultUserIcon,
-            Timestamp = TimestampText(source?.CreatedAt ?? DateTimeOffset.Now),
-        };
-
-        // 点名调用:消息正文是注入的技能全文,气泡只显示用户敲的那一行,正文折叠备查
-        if (source != null && NamedSkillAnnotations.InputOf(source) is { } typedLine)
-        {
-            item.Message = typedLine;
-            item.InjectedText = source.Text;
-        }
-
-        // 优先显示**真正发出去的那一份**(消息里的 DataContent):它是缩放重编码之后的结果,
-        // 界面因此所见即所得——模型看到什么,你就看到什么。
-        // 这同时消掉了一处不一致:原先实时发送显示原图、重载会话后显示压缩图,同一条消息两副面孔
-        // 一条消息可以带多张图,全都要显示——只取第一张的话,一次发四张图气泡里就只剩一张
-        List<DataContent> images = source?.Contents
-            .OfType<DataContent>()
-            .Where(x => x.HasTopLevelMediaType("image"))
-            .ToList() ?? [];
-        if (images.Count > 0)
-        {
-            foreach (DataContent image in images) item.AddImage(image.Data);
-            return item;
-        }
-
-        // 没内联字节的情况:非视觉模型下 BuildUserMessage 把附件降级成了文本引用。
-        // 但用户附了图就该在界面上看到,与模型能否看图无关,所以回落到附件本身
-        if (attachments == null) return item;
-        foreach (ConversationAttachment attached in attachments.Where(x => x.IsImage))
-        {
-            item.AddImage(AttachmentTrayViewData.ReadAttachmentBytes(attached));
-        }
-
-        return item;
-    }
 
     /// <summary>助手条目:名字与头像取自当前会话的角色</summary>
-    private TextConversationItem CreateAssistantItem()
-    {
-        return new TextConversationItem(false)
-        {
-            SenderName = string.IsNullOrEmpty(_currentCharacter?.CharacterName)
-                ? "Agent"
-                : _currentCharacter!.CharacterName,
-            SenderColor = Avalonia.Media.Brushes.DeepSkyBlue,
-            Icon = _currentCharacter == null
-                ? IconUtils.DefaultCharIcon
-                : IconUtils.GetCharacterBitmapOrDefault(_currentCharacter),
-            //流式产出的壳:此刻确实就是现在。回放历史时由 BuildHistoryItems 按源消息校准
-            Timestamp = TimestampText(DateTimeOffset.Now),
-            IsDone = false,
-        };
-    }
 
     private void ClearStreamState()
     {
