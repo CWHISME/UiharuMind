@@ -125,7 +125,7 @@ public partial class App : Application, ILogger, IDisposable
     /// <summary>
     /// 版本号
     /// </summary>
-    public static Version Version = new Version(0, 1, 0);
+    public static Version Version => AppInfo.Version;
 
     public static void JumpToPage(MenuPages page)
     {
