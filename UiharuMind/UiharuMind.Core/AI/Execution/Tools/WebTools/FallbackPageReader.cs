@@ -71,7 +71,7 @@ internal sealed class FallbackPageReader
             catch (Exception e)
             {
                 //只有服务级故障才计入熔断:单个 URL 读不了不该连累后面所有 URL
-                if (WebServiceCircuit.IsServiceLevelFailure(e)) WebServiceCircuit.RecordFailure(reader.Name);
+                if (WebServiceCircuit.IsServiceLevelFailure(e)) WebServiceCircuit.RecordFailure(reader.Name, e.Message);
                 result = PageReadResult.Fail(e.Message);
             }
 

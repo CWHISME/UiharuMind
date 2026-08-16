@@ -21,11 +21,7 @@
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0,4" />
         </Style>
-        <Style Selector="Border.result-panel">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="8" />
-        </Style>
+        <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
 
         <!-- diff 行配色(等宽字体沿用全局的 mono 类) -->
         <Style Selector="TextBlock.diffline">

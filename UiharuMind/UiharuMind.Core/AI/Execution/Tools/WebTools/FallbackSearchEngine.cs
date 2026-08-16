@@ -9,6 +9,9 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 /// </summary>
 internal sealed class FallbackSearchEngine
 {
+    /// <summary>全局共用的一条链。设置页的健康面板要看的就是它,不能另起一份</summary>
+    public static FallbackSearchEngine Shared { get; } = new();
+
     private readonly ISearchProvider[] _chain =
     {
         new FirecrawlSearchProvider(),
@@ -17,6 +20,9 @@ internal sealed class FallbackSearchEngine
         new DuckDuckGoLiteProvider(),
         new BingHtmlProvider()
     };
+
+    /// <summary>链上的引擎,顺序即优先级</summary>
+    public IReadOnlyList<ISearchProvider> Providers => _chain;
 
     public async Task<IReadOnlyList<SearchResultItem>> SearchAsync(
         string query, int maxCount, CancellationToken ct)
@@ -54,7 +60,7 @@ internal sealed class FallbackSearchEngine
             }
             catch (Exception e)
             {
-                if (WebServiceCircuit.IsServiceLevelFailure(e)) WebServiceCircuit.RecordFailure(p.Name);
+                if (WebServiceCircuit.IsServiceLevelFailure(e)) WebServiceCircuit.RecordFailure(p.Name, e.Message);
                 Log.Warning($"[WebSearch] miss '{p.Name}': {e.Message}");
             }
         }

@@ -47,21 +47,7 @@
             <Setter Property="BorderThickness" Value="2" />
             <Setter Property="Padding" Value="9" />
         </Style>
-        <Style Selector="Border.status-dot">
-            <Setter Property="Width" Value="8" />
-            <Setter Property="Height" Value="8" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Background" Value="{DynamicResource MessageStatusWarningBrush}" />
-        </Style>
-        <Style Selector="Border.status-dot[Tag=Ready]">
-            <Setter Property="Background" Value="{DynamicResource MessageStatusSuccessBrush}" />
-        </Style>
-        <Style Selector="Border.status-dot[Tag=Error]">
-            <Setter Property="Background" Value="{DynamicResource MessageStatusErrorBrush}" />
-        </Style>
-        <Style Selector="Border.status-dot[Tag=Progress]">
-            <Setter Property="Background" Value="{DynamicResource MessageStatusInfoBrush}" />
-        </Style>
+        <!-- status-dot 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
         <Style Selector="Border.detail-panel">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />

@@ -20,11 +20,7 @@
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0,4" />
         </Style>
-        <Style Selector="Border.result-panel">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="8" />
-        </Style>
+        <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
         <Style Selector="Border.spin">
             <Style.Animations>
                 <Animation Duration="0:0:1.2" IterationCount="INFINITE">
@@ -94,22 +90,22 @@
                                 <TextBlock Text="◠" FontSize="11"
                                            Foreground="{DynamicResource SemiBlue5}" />
                             </Border>
-                            <Ellipse Width="8" Height="8" Fill="#4CAF50">
-                                <Ellipse.IsVisible>
+                            <Border Classes="status-dot" Tag="Ready">
+                                <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                                         <Binding Path="!IsRunning" />
                                         <Binding Path="IsSuccess" />
                                     </MultiBinding>
-                                </Ellipse.IsVisible>
-                            </Ellipse>
-                            <Ellipse Width="8" Height="8" Fill="IndianRed">
-                                <Ellipse.IsVisible>
+                                </Border.IsVisible>
+                            </Border>
+                            <Border Classes="status-dot" Tag="Error">
+                                <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                                         <Binding Path="!IsRunning" />
                                         <Binding Path="!IsSuccess" />
                                     </MultiBinding>
-                                </Ellipse.IsVisible>
-                            </Ellipse>
+                                </Border.IsVisible>
+                            </Border>
                             <ThemedSvgIcon Width="14" Height="14" IconName="chevron-down">
                                 <ThemedSvgIcon.RenderTransform>
                                     <RotateTransform Angle="{Binding IsExpanded,

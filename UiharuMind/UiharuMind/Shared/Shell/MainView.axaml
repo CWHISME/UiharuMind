@@ -104,16 +104,14 @@
                                     </ThemedIconToggleButton>
                                     <!-- 运行角标:未选中时才显示(选中即这一页在眼前,页内已有状态)。
                                          这个尺寸下形状分不出来,只分颜色,具体状态靠 ToolTip -->
-                                    <Ellipse Width="8" Height="8" Margin="0,6,6,0"
-                                             HorizontalAlignment="Right" VerticalAlignment="Top"
-                                             IsHitTestVisible="False"
-                                             Fill="#4CAF50"
-                                             IsVisible="{Binding ShowRunningBadge}" />
-                                    <Ellipse Width="8" Height="8" Margin="0,6,6,0"
-                                             HorizontalAlignment="Right" VerticalAlignment="Top"
-                                             IsHitTestVisible="False"
-                                             Fill="#FF9800"
-                                             IsVisible="{Binding ShowApprovalBadge}" />
+                                    <Border Classes="status-dot" Tag="Ready" Margin="0,6,6,0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            IsHitTestVisible="False"
+                                            IsVisible="{Binding ShowRunningBadge}" />
+                                    <Border Classes="status-dot" Margin="0,6,6,0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            IsHitTestVisible="False"
+                                            IsVisible="{Binding ShowApprovalBadge}" />
                                 </Panel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

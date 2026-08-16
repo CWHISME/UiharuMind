@@ -10,17 +10,12 @@ internal sealed class DuckDuckGoLiteProvider : BaseSearchProvider
     public override Task<IReadOnlyList<SearchResultItem>> SearchAsync(
         string query, int maxCount, CancellationToken ct)
     {
-        HttpRequestMessage req = CreateRequest(HttpMethod.Post, "https://lite.duckduckgo.com/lite/");
-        req.Content = new FormUrlEncodedContent(new[]
-        {
-            new KeyValuePair<string, string>("q", query),
-            new KeyValuePair<string, string>("kl", "wt-wt")
-        });
-
-        return SendAndParseAsync(req, doc => Parse(doc, maxCount), ct);
+        string url = $"https://lite.duckduckgo.com/lite/?q={Uri.EscapeDataString(query)}&kl=wt-wt";
+        HttpRequestMessage req = CreateRequest(HttpMethod.Get, url);
+        return SendAndParseAsync(req, maxCount, ct);
     }
 
-    private static IEnumerable<SearchResultItem> Parse(IDocument doc, int maxCount)
+    protected override IEnumerable<SearchResultItem> ParseResults(IDocument doc, int maxCount)
     {
         return doc.QuerySelectorAll("a.result-link")
             .Take(maxCount)

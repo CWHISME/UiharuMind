@@ -30,10 +30,9 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
     [ObservableProperty] private bool _defaultPlanMode;
 
-    //================= 搜索凭据(能力开关已下沉到角色,见 ADR 0003) =================
-    [ObservableProperty] private string _firecrawlApiKey = string.Empty;
-    [ObservableProperty] private string _tavilyApiKey = string.Empty;
-    [ObservableProperty] private string _braveSearchApiKey = string.Empty;
+    //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
+    /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
+    public WebSearchSettingsViewData WebSearch { get; } = new();
 
     //================= MCP =================
     public ObservableCollection<McpServerConfig> McpServers { get; } = new();
@@ -50,9 +49,6 @@ public partial class AgentSettingViewData : ViewModelBase
         _defaultPermissionModeIndex = config.DefaultPermissionModeIndex;
         _defaultWorkspacePath = config.DefaultWorkspacePath;
         _defaultPlanMode = config.DefaultPlanMode;
-        _firecrawlApiKey = config.FirecrawlApiKey;
-        _tavilyApiKey = config.TavilyApiKey;
-        _braveSearchApiKey = config.BraveSearchApiKey;
 
         RefreshServers();
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
@@ -74,25 +70,6 @@ public partial class AgentSettingViewData : ViewModelBase
     partial void OnDefaultPlanModeChanged(bool value)
     {
         AgentSettingConfig.Current.DefaultPlanMode = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    //================= 能力门控:开关/提示词的写入在 AgentGateItem 内完成 =================
-    partial void OnFirecrawlApiKeyChanged(string value)
-    {
-        AgentSettingConfig.Current.FirecrawlApiKey = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnTavilyApiKeyChanged(string value)
-    {
-        AgentSettingConfig.Current.TavilyApiKey = value;
-        AgentSettingConfig.Current.Save();
-    }
-
-    partial void OnBraveSearchApiKeyChanged(string value)
-    {
-        AgentSettingConfig.Current.BraveSearchApiKey = value;
         AgentSettingConfig.Current.Save();
     }
 

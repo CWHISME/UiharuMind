@@ -55,6 +55,7 @@ internal static class WebServiceCircuit
     {
         public int ConsecutiveFailures;
         public long OpenUntilTick;
+        public string? LastError;
     }
 
     private static readonly ConcurrentDictionary<string, ServiceState> States = new();
@@ -89,12 +90,24 @@ internal static class WebServiceCircuit
     }
 
     /// <summary>
+    /// 该服务最近一次失败的原因,没失败过则为 null。设置页拿它显示"上次为什么不通"
+    /// </summary>
+    /// <param name="service">服务名</param>
+    /// <returns>最近一次失败原因</returns>
+    public static string? GetLastError(string service)
+    {
+        return States.TryGetValue(service, out ServiceState? state) ? Volatile.Read(ref state.LastError) : null;
+    }
+
+    /// <summary>
     /// 记一次失败,累计到阈值则熔断
     /// </summary>
     /// <param name="service">服务名</param>
-    public static void RecordFailure(string service)
+    /// <param name="reason">失败原因,留作设置页展示</param>
+    public static void RecordFailure(string service, string? reason = null)
     {
         ServiceState state = States.GetOrAdd(service, _ => new ServiceState());
+        if (reason != null) Volatile.Write(ref state.LastError, reason);
         if (Interlocked.Increment(ref state.ConsecutiveFailures) < FailureThreshold) return;
 
         Interlocked.Exchange(ref state.ConsecutiveFailures, 0);

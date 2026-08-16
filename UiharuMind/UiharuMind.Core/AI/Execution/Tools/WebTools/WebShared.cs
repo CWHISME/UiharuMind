@@ -33,6 +33,9 @@ internal static class WebShared
         req.Headers.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
         req.Headers.Add("DNT", "1");
         req.Headers.Add("Upgrade-Insecure-Requests", "1");
+        req.Headers.Add("Sec-CH-UA-Mobile", "?0");
+        req.Headers.Add("Sec-CH-UA-Platform", "\"macOS\"");
+        req.Headers.Add("Sec-Fetch-User", "?1");
 
         return req;
     }

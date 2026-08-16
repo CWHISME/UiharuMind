@@ -31,11 +31,10 @@
                 <Border Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
                     <StackPanel Spacing="6">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                     Fill="#4CAF50" IsVisible="{Binding Conversation.IsGenerating}" />
-                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                     Fill="{DynamicResource SemiGrey4}"
-                                     IsVisible="{Binding !Conversation.IsGenerating}" />
+                            <Border Classes="status-dot" Tag="Ready"
+                                    IsVisible="{Binding Conversation.IsGenerating}" />
+                            <Border Classes="status-dot" Tag="Idle"
+                                    IsVisible="{Binding !Conversation.IsGenerating}" />
                             <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
                                        IsVisible="{Binding Conversation.IsGenerating}" />
                             <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"

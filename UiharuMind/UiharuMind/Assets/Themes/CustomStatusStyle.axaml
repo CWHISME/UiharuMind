@@ -1,0 +1,43 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        状态指示与结果面板的公共样式。
+
+        这两样原先散在各处各写一份：status-dot 定义在 MemorySelectWindow，
+        result-panel 在 ToolCallCardView 和 ApprovalCardView 里各抄了一遍，
+        另有几处直接写死 #4CAF50 / IndianRed 的 Ellipse——同一个"绿点表示正常"，
+        颜色、直径、暗色主题下的表现却各不相同。统一收在这里。
+    -->
+
+    <!-- 状态圆点。颜色走 Tag，语义色取自 ThemeColors，明暗主题各有一套 -->
+    <Style Selector="Border.status-dot">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <!-- 没给 Tag 或 Tag 不认识时按"需要注意"处理，比默默显示成正常安全 -->
+        <Setter Property="Background" Value="{DynamicResource MessageStatusWarningBrush}" />
+    </Style>
+    <Style Selector="Border.status-dot[Tag=Ready]">
+        <Setter Property="Background" Value="{DynamicResource MessageStatusSuccessBrush}" />
+    </Style>
+    <Style Selector="Border.status-dot[Tag=Error]">
+        <Setter Property="Background" Value="{DynamicResource MessageStatusErrorBrush}" />
+    </Style>
+    <Style Selector="Border.status-dot[Tag=Progress]">
+        <Setter Property="Background" Value="{DynamicResource MessageStatusInfoBrush}" />
+    </Style>
+    <!-- 未启用/未配置：既不是正常也不是出错，不该抢注意力 -->
+    <Style Selector="Border.status-dot[Tag=Idle]">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey4}" />
+    </Style>
+
+    <!-- 结果/输出的承托底板：工具调用结果、审批 diff、体检回显都用它 -->
+    <Style Selector="Border.result-panel">
+        <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="8" />
+    </Style>
+
+</Styles>

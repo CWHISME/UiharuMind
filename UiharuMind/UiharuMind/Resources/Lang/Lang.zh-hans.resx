@@ -383,6 +383,33 @@
     <data name="AgentSettingWebSearchKeysDesc" xml:space="preserve">
         <value>全部可选。Firecrawl 不填 key 也能用（按 IP 限额），搜索与读网页都优先走它，失败再依次回退其它引擎。</value>
     </data>
+    <data name="AgentSettingSearchHealth" xml:space="preserve">
+        <value>搜索引擎状态</value>
+    </data>
+    <data name="AgentSettingSearchHealthDesc" xml:space="preserve">
+        <value>按兜底顺序排列，上面的先试；某一环没结果或失败就自动落到下一环。</value>
+    </data>
+    <data name="AgentSettingSearchProbe" xml:space="preserve">
+        <value>测试全部</value>
+    </data>
+    <data name="AgentSettingSearchProbeOne" xml:space="preserve">
+        <value>测试</value>
+    </data>
+    <data name="AgentSettingSearchProbing" xml:space="preserve">
+        <value>测试中…</value>
+    </data>
+    <data name="AgentSettingSearchRefresh" xml:space="preserve">
+        <value>刷新</value>
+    </data>
+    <data name="AgentSettingSearchStateReady" xml:space="preserve">
+        <value>可用</value>
+    </data>
+    <data name="AgentSettingSearchStateNotConfigured" xml:space="preserve">
+        <value>未配置</value>
+    </data>
+    <data name="AgentSettingSearchStateCooling" xml:space="preserve">
+        <value>冷却中</value>
+    </data>
     <data name="AgentSave" xml:space="preserve">
         <value>保存</value>
     </data>

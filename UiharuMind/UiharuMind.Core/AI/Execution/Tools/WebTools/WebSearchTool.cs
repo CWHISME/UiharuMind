@@ -9,7 +9,7 @@ public static class WebSearchTool
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
     public const string ToolName = "WebSearch";
 
-    private static readonly FallbackSearchEngine Engine = new();
+    private static FallbackSearchEngine Engine => FallbackSearchEngine.Shared;
 
     public static AITool Create()
     {

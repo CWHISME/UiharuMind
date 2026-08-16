@@ -46,16 +46,22 @@ internal abstract partial class BaseSearchProvider : ISearchProvider
     }
 
     /// <summary>
-    /// 发请求、解析 DOM、交给 <paramref name="parse"/> 挑结果。
-    /// BrowsingContext 和 IDocument 都在本方法内建立并释放:AngleSharp 的 context 不是线程安全的,
-    /// 多个 agent 同时搜索时共用一个迟早出事。
+    /// 从结果页 DOM 里挑条目。子类只需要认得自家的选择器。
+    /// </summary>
+    /// <param name="doc">结果页 DOM</param>
+    /// <param name="maxCount">结果上限</param>
+    /// <returns>结果条目</returns>
+    protected abstract IEnumerable<SearchResultItem> ParseResults(IDocument doc, int maxCount);
+
+    /// <summary>
+    /// 发请求、解析 DOM、挑结果。
     /// </summary>
     /// <param name="request">已备好的请求</param>
-    /// <param name="parse">从结果页 DOM 里挑条目</param>
+    /// <param name="maxCount">结果上限</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>结果列表;命中风控页时为空</returns>
     protected async Task<IReadOnlyList<SearchResultItem>> SendAndParseAsync(
-        HttpRequestMessage request, Func<IDocument, IEnumerable<SearchResultItem>> parse, CancellationToken ct)
+        HttpRequestMessage request, int maxCount, CancellationToken ct)
     {
         using (request)
         {
@@ -64,11 +70,27 @@ internal abstract partial class BaseSearchProvider : ISearchProvider
             if (!resp.IsSuccessStatusCode) throw new HttpRequestException($"HTTP {(int)resp.StatusCode}");
 
             string html = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            using IBrowsingContext context = BrowsingContext.New(Configuration.Default);
-            using IDocument doc = await context.OpenAsync(req => req.Content(html), ct).ConfigureAwait(false);
-
-            return IsBlocked(doc) ? [] : parse(doc).ToList();
+            return await ParseHtmlAsync(html, maxCount).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// 把一段结果页 HTML 解析成条目。
+    ///
+    /// 单独留这个入口是为了能用存档的真实结果页做回归:搜索引擎改版时,选择器会<b>无声</b>失效——
+    /// 解析出 0 条,日志只说一句"没搜到",没人会察觉。DDG 就是这么悄悄挂掉的。
+    /// BrowsingContext 与 IDocument 都在这里建立并释放:AngleSharp 的 context 不是线程安全的,
+    /// 多个 agent 同时搜索时共用一个迟早出事。
+    /// </summary>
+    /// <param name="html">结果页 HTML</param>
+    /// <param name="maxCount">结果上限</param>
+    /// <returns>结果列表;命中风控页时为空</returns>
+    internal async Task<IReadOnlyList<SearchResultItem>> ParseHtmlAsync(string html, int maxCount)
+    {
+        using IBrowsingContext context = BrowsingContext.New(Configuration.Default);
+        using IDocument doc = await context.OpenAsync(req => req.Content(html)).ConfigureAwait(false);
+
+        return IsBlocked(doc) ? [] : ParseResults(doc, maxCount).ToList();
     }
 
     /// <summary>

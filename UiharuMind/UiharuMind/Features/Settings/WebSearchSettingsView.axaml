@@ -1,0 +1,127 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="420"
+             x:Class="UiharuMind.Features.Settings.WebSearchSettingsView"
+             x:DataType="vm:WebSearchSettingsViewData">
+
+    <UserControl.Styles>
+        <Style Selector="Border.form-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <!-- 一行一个引擎的底板。圆点与回显底板走全局样式，见 CustomStatusStyle.axaml -->
+        <Style Selector="Border.status-row">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,7" />
+        </Style>
+        <Style Selector="TextBlock.key-label">
+            <Setter Property="Width" Value="66" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="12">
+        <!-- 凭据。Firecrawl 不填也能用，另两个不填就等于没这一环 -->
+        <Border Classes="form-pane">
+            <StackPanel Spacing="6">
+                <TextBlock FontSize="13" FontWeight="SemiBold" Text="{loc:Loc AgentSettingWebSearchKeys}" />
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                           Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                    <TextBlock Classes="key-label" Text="Firecrawl" />
+                    <TextBox Width="300" PasswordChar="●" Text="{Binding FirecrawlApiKey}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="key-label" Text="Tavily" />
+                    <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="key-label" Text="Brave" />
+                    <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 链路状态：谁配好了、谁在冷却、上次为什么不通，以及实测抓到了什么 -->
+        <Border Classes="form-pane">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Text="{loc:Loc AgentSettingSearchHealth}" />
+                        <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                   Text="{loc:Loc AgentSettingSearchHealthDesc}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                            Content="{loc:Loc AgentSettingSearchRefresh}"
+                            Command="{Binding RefreshCommand}" />
+                    <Button Grid.Column="2" Classes="Primary" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Content="{Binding ProbeAllButtonText}"
+                            IsEnabled="{Binding !IsProbingAll}"
+                            Command="{Binding ProbeAllCommand}" />
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding Items}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="6" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:WebSearchProviderItem">
+                            <Border Classes="status-row">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="18,Auto,*,Auto,Auto" ColumnSpacing="8">
+                                        <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
+                                                   Text="{Binding Order}" />
+                                        <Border Grid.Column="1" Classes="status-dot" Tag="{Binding StatusKey}" />
+                                        <StackPanel Grid.Column="2" Spacing="1" VerticalAlignment="Center">
+                                            <TextBlock FontSize="13" Text="{Binding Name}" />
+                                            <TextBlock Classes="muted" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Text="{Binding Message}"
+                                                       IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3" Spacing="1" VerticalAlignment="Center"
+                                                    HorizontalAlignment="Right">
+                                            <TextBlock Classes="muted" FontSize="11" TextAlignment="Right"
+                                                       Text="{Binding StateText}" />
+                                            <TextBlock Classes="mono" FontSize="11" TextAlignment="Right"
+                                                       Text="{Binding ProbeText}"
+                                                       IsVisible="{Binding ProbeText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
+                                        <!-- 单测：改完一个 key 就想立刻确认它通不通，没必要把整条链跑一遍。
+                                             这里的 DataContext 是本控件的 VM，强转才立得住 -->
+                                        <Button Grid.Column="4" FontSize="11" Padding="8,3" CornerRadius="6"
+                                                VerticalAlignment="Center"
+                                                Content="{loc:Loc AgentSettingSearchProbeOne}"
+                                                IsEnabled="{Binding !IsProbing}"
+                                                CommandParameter="{Binding}"
+                                                Command="{Binding $parent[ItemsControl].((vm:WebSearchSettingsViewData)DataContext).ProbeOneCommand}" />
+                                    </Grid>
+
+                                    <!-- 实测抓回来的原物。条数对不代表内容对，摆出来才看得出真假 -->
+                                    <Border Classes="result-panel" Margin="26,0,0,0"
+                                            IsVisible="{Binding Preview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
+                                            <SelectableTextBlock Classes="mono" FontSize="11"
+                                                                 Text="{Binding Preview}" TextWrapping="Wrap" />
+                                        </ScrollViewer>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+
+</UserControl>

@@ -393,6 +393,33 @@
     <data name="AgentSettingWebSearchKeysDesc" xml:space="preserve">
         <value>All optional. Firecrawl works without a key (rate-limited per IP) and is tried first for both search and page reading; other engines are used as fallbacks.</value>
     </data>
+    <data name="AgentSettingSearchHealth" xml:space="preserve">
+        <value>Search engines</value>
+    </data>
+    <data name="AgentSettingSearchHealthDesc" xml:space="preserve">
+        <value>Listed in fallback order; the first one that answers wins, failures drop to the next.</value>
+    </data>
+    <data name="AgentSettingSearchProbe" xml:space="preserve">
+        <value>Test all</value>
+    </data>
+    <data name="AgentSettingSearchProbeOne" xml:space="preserve">
+        <value>Test</value>
+    </data>
+    <data name="AgentSettingSearchProbing" xml:space="preserve">
+        <value>Testing…</value>
+    </data>
+    <data name="AgentSettingSearchRefresh" xml:space="preserve">
+        <value>Refresh</value>
+    </data>
+    <data name="AgentSettingSearchStateReady" xml:space="preserve">
+        <value>Ready</value>
+    </data>
+    <data name="AgentSettingSearchStateNotConfigured" xml:space="preserve">
+        <value>No API key</value>
+    </data>
+    <data name="AgentSettingSearchStateCooling" xml:space="preserve">
+        <value>Cooling down</value>
+    </data>
     <data name="AgentSave" xml:space="preserve">
         <value>Save</value>
     </data>

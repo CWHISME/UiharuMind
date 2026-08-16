@@ -60,26 +60,9 @@
                                    Text="{loc:Loc AgentSettingCapabilitiesMoved}" />
                     </Border>
 
-                    <Border Classes="form-pane" Padding="14">
-                        <StackPanel Spacing="6">
-                            <TextBlock FontSize="13" FontWeight="SemiBold"
-                                       Text="{loc:Loc AgentSettingWebSearchKeys}" />
-                            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                       Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                <TextBlock Width="60" VerticalAlignment="Center" Text="Firecrawl" />
-                                <TextBox Width="300" PasswordChar="●" Text="{Binding FirecrawlApiKey}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Width="60" VerticalAlignment="Center" Text="Tavily" />
-                                <TextBox Width="300" PasswordChar="●" Text="{Binding TavilyApiKey}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Width="60" VerticalAlignment="Center" Text="Brave" />
-                                <TextBox Width="300" PasswordChar="●" Text="{Binding BraveSearchApiKey}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                    <!-- 联网搜索(凭据 + 链路状态)自成一块，见 WebSearchSettingsView -->
+                    <vm:WebSearchSettingsView DataContext="{Binding WebSearch}" />
+
                 </StackPanel>
             </ScrollViewer>
         </TabItem>

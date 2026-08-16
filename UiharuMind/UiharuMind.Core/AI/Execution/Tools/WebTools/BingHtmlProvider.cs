@@ -11,7 +11,7 @@ internal sealed class BingHtmlProvider : BaseSearchProvider
         string query, int maxCount, CancellationToken ct)
     {
         string uri = $"https://www.bing.com/search?q={Uri.EscapeDataString(query)}&setlang=en";
-        return SendAndParseAsync(CreateRequest(HttpMethod.Get, uri), doc => Parse(doc, maxCount), ct);
+        return SendAndParseAsync(CreateRequest(HttpMethod.Get, uri), maxCount, ct);
     }
 
     /// <summary>Bing 的拦截页有自己的特征</summary>
@@ -20,7 +20,7 @@ internal sealed class BingHtmlProvider : BaseSearchProvider
         return base.IsBlocked(doc) || doc.QuerySelector("#b_sydConvCont, .b_caption.b_noRedirect") != null;
     }
 
-    private static IEnumerable<SearchResultItem> Parse(IDocument doc, int maxCount)
+    protected override IEnumerable<SearchResultItem> ParseResults(IDocument doc, int maxCount)
     {
         return doc.QuerySelectorAll(".b_algo")
             .Take(maxCount)
