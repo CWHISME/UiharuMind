@@ -22,7 +22,7 @@ namespace UiharuMind.Core.AI.Execution;
 public static class VisionTool
 {
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
-    public const string ToolName = "ask_vision";
+    public const string ToolName = "ViewImage";
 
     /// <summary>
     /// 创建识图 AIFunction

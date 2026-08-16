@@ -13,7 +13,7 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 
 /// <summary>
-/// 定时任务相关工具。create_scheduled_task 属危险操作,包装为需审批工具:
+/// 定时任务相关工具。ScheduleTask 属危险操作,包装为需审批工具:
 /// 用户批准创建 = 授予任务附带的预授权命令,到点无人值守执行。
 ///
 /// <b>刻意不提供权限档参数</b>:新任务一律落在 <see cref="ScheduledAgentTask.PermissionMode"/>
@@ -23,7 +23,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Scheduler;
 public static class SchedulerTools
 {
     /// <summary>工具名。提示词与卡片图标等处提到本工具时一律引用这个常量</summary>
-    public const string ToolName = "create_scheduled_task";
+    public const string ToolName = "ScheduleTask";
 
     /// <summary>
     /// 创建"登记定时任务"工具

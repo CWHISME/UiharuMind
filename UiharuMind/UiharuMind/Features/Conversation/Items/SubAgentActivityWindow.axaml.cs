@@ -16,7 +16,7 @@ using UiharuMind.Shared.Windows;
 namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>
-/// 子代理过程窗口：只读地展示一次 <c>run_subagent</c> 调用内部的全部活动。
+/// 子代理过程窗口：只读地展示一次 <c>RunSubAgent</c> 调用内部的全部活动。
 ///
 /// 只读是按构造成立的——窗口里根本没有输入框，也没有任何回写路径，
 /// 不需要给 ConversationViewModel 加「只读模式」。

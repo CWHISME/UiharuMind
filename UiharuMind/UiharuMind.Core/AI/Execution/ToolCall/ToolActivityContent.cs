@@ -20,7 +20,7 @@ namespace UiharuMind.Core.AI.Execution.ToolCall;
 /// 因此过程只走执行者的输出流(纯输出,历史落盘由 <c>SessionChatHistoryProvider</c> 另行负责),
 /// 只被渲染,永不回喂模型。
 ///
-/// 只有多轮的工具才值得走这条通道。<c>ask_vision</c> 刻意不接:它是单轮的,
+/// 只有多轮的工具才值得走这条通道。<c>ViewImage</c> 刻意不接:它是单轮的,
 /// 推出来的增量与返回值是同一份文本,接上只是把同一段话显示两遍。
 /// </summary>
 public sealed class ToolActivityContent : AIContent

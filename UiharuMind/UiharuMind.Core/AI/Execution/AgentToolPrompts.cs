@@ -92,7 +92,7 @@ public static class AgentToolPrompts
     /// <summary>识图工具纪律段默认正文</summary>
     public const string VisionToolDefault =
         "- Attachments arrive as `[Attached file: <path>]`. To see what an image shows, " +
-        "call `ask_vision` with that path. Never guess from the file name.";
+        "call `ViewImage` with that path. Never guess from the file name.";
 
     /// <summary>知识库检索工具纪律段默认正文</summary>
     public const string KnowledgeSearchDefault =
@@ -118,7 +118,7 @@ public static class AgentToolPrompts
 
     /// <summary>
     /// 两种"记忆"都启用时的辨析句。只在两者都挂载时出现——
-    /// 模型这一侧同时看得见 <c>file_memory_*</c> 与 <c>knowledge_search</c>，
+    /// 模型这一侧同时看得见 <c>file_memory_*</c> 与 <c>KnowledgeSearch</c>，
     /// 名字都像"搜记忆"，而选错的表现是检索不到却不报错。
     /// </summary>
     public static readonly string MemoryDisambiguation =

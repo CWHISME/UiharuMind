@@ -63,7 +63,7 @@ public class CharacterData
 
     /// <summary>
     /// 可委派的子智能体名单(只对 <see cref="ECharacterKind.Agent"/> 有意义)：
-    /// 名单里每一项是一个智能体档角色，<c>run_subagent</c> 据此让模型挑一个派活；
+    /// 名单里每一项是一个智能体档角色，<c>RunSubAgent</c> 据此让模型挑一个派活；
     /// 为空则退回内置的通用匿名子代理。
     /// 装配时按档位过滤而非信任存档——旧存档里这里可能躺着工具人角色。
     /// </summary>

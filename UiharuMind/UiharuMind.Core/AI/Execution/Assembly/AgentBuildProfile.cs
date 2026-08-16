@@ -52,7 +52,7 @@ public class AgentBuildProfile
     public Func<ModelRunningData?>? SessionModelSource { get; init; }
 
     /// <summary>
-    /// 会话级知识库来源(knowledge_search 工具执行时解析,锁定当前挂接会话的单库)
+    /// 会话级知识库来源(KnowledgeSearch 工具执行时解析,锁定当前挂接会话的单库)
     /// </summary>
     public Func<MemoryData?>? SessionKnowledgeSource { get; init; }
 

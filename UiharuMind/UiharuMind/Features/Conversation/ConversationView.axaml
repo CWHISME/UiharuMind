@@ -237,7 +237,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <!-- 发图白发的警示:当前模型看不了图,角色档又没有 ask_vision 兜底(纯提示词档)。
+                    <!-- 发图白发的警示:当前模型看不了图,角色档又没有 ViewImage 兜底(纯提示词档)。
                          只提示,不阻止发送、不替用户换模型;换视觉模型或删掉图片后自行消失 -->
                     <TextBlock Classes="muted" FontSize="11" Margin="2,0,2,2"
                                TextWrapping="Wrap"

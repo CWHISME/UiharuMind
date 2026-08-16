@@ -143,7 +143,7 @@
 
 ### 子智能体名单（MountAgents）
 
-名单里每一项是一个智能体档角色，`run_subagent` 的 `agent` 参数据此点名。
+名单里每一项是一个智能体档角色，`RunSubAgent` 的 `agent` 参数据此点名。
 名单为空则退回通用匿名子代理。
 
 ⚠️ 不变量：**子智能体不能比派活的那一个能力更大**，且它自己不能再有子代理。
@@ -277,7 +277,7 @@
 ### Knowledge（知识库）
 
 **用户提供**的可检索文档集合，挂到角色或会话上，靠嵌入做 RAG 检索。
-体现为 `MemoryData`（历史命名）、`MemoryManager`、`MemorySources`；工具是 `knowledge_search`。
+体现为 `MemoryData`（历史命名）、`MemoryManager`、`MemorySources`；工具是 `KnowledgeSearch`。
 用户可见说法目前仍是**记忆库**，认定说法是**知识库**。
 
 ⚠️ 不要与 FileMemory 混淆。知识库是别人给它看的材料。

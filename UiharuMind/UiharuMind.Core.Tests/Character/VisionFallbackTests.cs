@@ -3,7 +3,7 @@ using UiharuMind.Core.AI.Character;
 namespace UiharuMind.Core.Tests.Character;
 
 /// <summary>
-/// 「发图有没有退路」的判据。这条判据同时被装配侧（挂不挂 ask_vision）与界面侧
+/// 「发图有没有退路」的判据。这条判据同时被装配侧（挂不挂 ViewImage）与界面侧
 /// （附件盘要不要出警示）消费，一旦两边岔开，症状就是气泡里显示着图片、
 /// 模型其实只收到一行路径文本——界面在撒谎，而且不报任何错。
 /// </summary>
@@ -50,7 +50,7 @@ public class VisionFallbackTests
     [InlineData(false, false, true, false)]
     [InlineData(true, true, false, false)] //模型自己看得了图
     [InlineData(true, true, true, false)]
-    [InlineData(true, false, true, false)] //看不了但有 ask_vision 兜着
+    [InlineData(true, false, true, false)] //看不了但有 ViewImage 兜着
     [InlineData(true, false, false, true)] //有图 + 看不了 + 没退路 = 白发
     public void WillDropImages_OnlyWhenAllThreeHold(bool hasImage, bool modelSupportsVision, bool hasFallback,
         bool expected)

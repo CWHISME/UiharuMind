@@ -22,7 +22,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 ///
 /// 每轮都会跑一次检索，但只有 <see cref="MemorySearcher"/> 的相关性闸门放行时才注入；
 /// 与本次提问无关的轮次（「你好」之类）注入 0 token。
-/// 改为由模型主动调用 knowledge_search 工具是后续独立一步——那需要按后端能力分流，
+/// 改为由模型主动调用 KnowledgeSearch 工具是后续独立一步——那需要按后端能力分流，
 /// 因为 LLamaSharpChatClient 完全忽略 ChatOptions.Tools，本地模型下工具调用是零支持。
 /// </summary>
 internal sealed class MemoryContextProvider : AIContextProvider
@@ -61,7 +61,7 @@ internal sealed class MemoryContextProvider : AIContextProvider
     /// </summary>
     private const int QueryTurnCount = 3;
 
-    private readonly bool _hasKnowledgeTool; //本 agent 是否装配了 knowledge_search(agent 档才有)
+    private readonly bool _hasKnowledgeTool; //本 agent 是否装配了 KnowledgeSearch(agent 档才有)
 
     public MemoryContextProvider(bool hasKnowledgeTool = false)
     {
@@ -87,7 +87,7 @@ internal sealed class MemoryContextProvider : AIContextProvider
         MemoryData? memory = session?.Memory;
         if (memory == null) return empty;
 
-        // 装配了 knowledge_search 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入;
+        // 装配了 KnowledgeSearch 且当前模型支持工具调用时,检索交给模型按需发起,不再每轮强制注入;
         // 本地 LLamaSharp 完全忽略 ChatOptions.Tools,只能留在注入模式
         if (_hasKnowledgeTool && session!.ChatModelRunningData?.SupportsToolCalling == true) return empty;
 
@@ -126,7 +126,7 @@ internal sealed class MemoryContextProvider : AIContextProvider
     /// 本轮消息此刻也还没进会话历史——它由 <c>StoreChatHistoryAsync</c> 在轮次结束后才追加，
     /// 所以两个来源都要，缺一不可。
     ///
-    /// 只在注入路径这么做。knowledge_search 工具那条路的查询词是模型自己写的、本来就完整，
+    /// 只在注入路径这么做。KnowledgeSearch 工具那条路的查询词是模型自己写的、本来就完整，
     /// 再往前面拼一段聊天记录只会把查询向量拉偏，所以这段不能下沉到 <see cref="MemorySearcher"/>。
     /// </summary>
     /// <param name="history">会话已落盘的历史，按时序</param>

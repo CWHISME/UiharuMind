@@ -25,7 +25,7 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 public static class KnowledgeTool
 {
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
-    public const string ToolName = "knowledge_search";
+    public const string ToolName = "KnowledgeSearch";
 
     /// <summary>
     /// 创建知识库检索 AIFunction

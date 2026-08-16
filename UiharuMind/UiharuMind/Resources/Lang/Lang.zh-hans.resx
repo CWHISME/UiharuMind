@@ -336,13 +336,13 @@
         <value>定时任务</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
-        <value>识图工具（ask_vision）</value>
+        <value>识图工具（ViewImage）</value>
     </data>
     <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
-        <value>知识库检索工具（knowledge_search）</value>
+        <value>知识库检索工具（KnowledgeSearch）</value>
     </data>
     <data name="AgentSettingCapSubAgent" xml:space="preserve">
-        <value>子代理（run_subagent）</value>
+        <value>子代理（RunSubAgent）</value>
     </data>
     <data name="SubAgentViewActivity" xml:space="preserve">
         <value>查看过程</value>
@@ -390,19 +390,19 @@
         <value>网络搜索与网页抓取（WebSearch / WebFetch）。填入 API key 后优先走官方搜索接口，未填时使用免费的网页抓取兜底。</value>
     </data>
     <data name="AgentGateDescVisionTool" xml:space="preserve">
-        <value>让不识图的模型把图片问题转交给视觉模型（ask_vision）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
+        <value>让不识图的模型把图片问题转交给视觉模型（ViewImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
-        <value>检索会话挂载的知识库（knowledge_search）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记是"文件记忆"，两回事。</value>
+        <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记是"文件记忆"，两回事。</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
-        <value>把探查委派给子代理（run_subagent），只有报告回到主对话，原始材料不进主上下文。子代理继承本会话的权限档：完全自动档下它也拿到写文件与 shell，其余档位下只拿只读工具——它无头运行，没法停下来等审批。它的过程从工具卡片上开一个只读窗口查看，不随会话存档。</value>
+        <value>把探查委派给子代理（RunSubAgent），只有报告回到主对话，原始材料不进主上下文。子代理继承本会话的权限档：完全自动档下它也拿到写文件与 shell，其余档位下只拿只读工具——它无头运行，没法停下来等审批。它的过程从工具卡片上开一个只读窗口查看，不随会话存档。</value>
     </data>
     <data name="AgentGateDescFileMemory" xml:space="preserve">
         <value>Agent 自己记的笔记（file_memory_* 工具），按角色分目录存放，同一角色的所有会话共享。角色改名时笔记目录跟着一起改名。与会话挂载的知识库是两回事。</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
-        <value>创建定时任务（create_scheduled_task），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>
+        <value>创建定时任务（ScheduleTask），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>
     </data>
     <data name="AgentGateDescTodoList" xml:space="preserve">
         <value>侧栏展示的 agent 任务清单。关闭后侧栏面板隐藏，agent 也不再维护待办。</value>
@@ -2607,7 +2607,7 @@
         <value>可委派的子智能体</value>
     </data>
     <data name="CharacterSubAgentsDesc" xml:space="preserve">
-        <value>挂进来的智能体会出现在 run_subagent 的可选名单里，模型可以点名把探查派给它。它的能力取「它自己那份」与本智能体的交集——不会比本智能体更大。名单为空时仍有一个通用子代理可用。</value>
+        <value>挂进来的智能体会出现在 RunSubAgent 的可选名单里，模型可以点名把探查派给它。它的能力取「它自己那份」与本智能体的交集——不会比本智能体更大。名单为空时仍有一个通用子代理可用。</value>
     </data>
     <data name="CharacterSubAgentsRemove" xml:space="preserve">
         <value>移出名单</value>

@@ -56,7 +56,7 @@ public partial class AttachmentTrayViewData : ObservableObject
     }
 
     /// <summary>
-    /// 本轮图片会不会白发：生效模型自己看不了图，角色又没有 <c>ask_vision</c> 兜底。
+    /// 本轮图片会不会白发：生效模型自己看不了图，角色又没有 <c>ViewImage</c> 兜底。
     ///
     /// 为真时附件盘上出一条警示，<b>但不阻止发送、也不替用户换模型</b>——
     /// 选了模型就一律尊重它（见 <see cref="ResolveVisionModel"/>）。警示存在的意义只是
@@ -194,7 +194,7 @@ public partial class AttachmentTrayViewData : ObservableObject
                 try
                 {
                     byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
-                    // 只缩发出去的那一份:磁盘附件与界面预览仍是原图,ask_vision 拿到的也还是原文件
+                    // 只缩发出去的那一份:磁盘附件与界面预览仍是原图,ViewImage 拿到的也还是原文件
                     (byte[] inlineBytes, string inlineType) =
                         ConversationImageDownscaler.Downscale(data, attachment.MediaType);
                     contents!.Add(new DataContent(inlineBytes, inlineType));
@@ -226,7 +226,7 @@ public partial class AttachmentTrayViewData : ObservableObject
     /// 本轮图片该内联还是降级成路径引用，取决于生效的模型能否自己看图。
     ///
     /// <b>已经选了模型就一律尊重它</b>：选了个看不了图的模型，图片就走路径引用，
-    /// 由 <c>ask_vision</c> 去委托视觉模型答（装配那侧正是「当前模型看不了图才挂 ask_vision」）。
+    /// 由 <c>ViewImage</c> 去委托视觉模型答（装配那侧正是「当前模型看不了图才挂 ViewImage」）。
     /// 替用户把模型换掉会让「行为突然变了」无法归因，而且他选那个模型往往是有原因的。
     ///
     /// 只有<b>一个模型都还没选</b>时才主动解析一次：那种情况下发送链路下游的

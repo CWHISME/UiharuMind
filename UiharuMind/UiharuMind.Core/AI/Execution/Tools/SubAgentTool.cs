@@ -36,7 +36,7 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 public static class SubAgentTool
 {
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
-    public const string ToolName = "run_subagent";
+    public const string ToolName = "RunSubAgent";
 
     /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,

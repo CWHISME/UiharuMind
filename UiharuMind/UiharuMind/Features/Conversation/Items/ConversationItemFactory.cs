@@ -129,7 +129,7 @@ public static class ConversationItemFactory
 
     /// <summary>
     /// 知识库检索卡片。复用 <see cref="ToolCallItem"/> 而不是新开一种条目：
-    /// 注入路径与 <c>knowledge_search</c> 工具路径展示的是同一件事，
+    /// 注入路径与 <c>KnowledgeSearch</c> 工具路径展示的是同一件事，
     /// 长成两种样子只会让「换个后端界面就变了」，而工具那条路已经是这张卡。
     /// </summary>
     /// <param name="snippets">片段全文</param>

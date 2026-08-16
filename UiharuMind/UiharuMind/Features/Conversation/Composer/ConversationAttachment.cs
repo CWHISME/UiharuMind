@@ -33,7 +33,7 @@ public class ConversationAttachment
     ///
     /// 必要性：非视觉模型下附件不会被内联为 DataContent，而是以路径文本引用的形式送给模型。
     /// 粘贴的图片原本没有路径，只有一个自动生成的文件名，模型收到的是一个既无内容也无路径的
-    /// 名字，完全无用；而识图工具 ask_vision 要的正是一个 File.Exists 通得过的路径。
+    /// 名字，完全无用；而识图工具 ViewImage 要的正是一个 File.Exists 通得过的路径。
     /// 落盘之后这两件事同时成立。
     /// </summary>
     /// <returns>文件路径；落盘失败返回 null</returns>

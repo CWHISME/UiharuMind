@@ -24,16 +24,16 @@ public class AgentToolConfig
     /// <summary>启用文件记忆(框架 FileMemoryProvider,agent 自记的笔记,按角色分目录跨会话共享)</summary>
     public bool EnableFileMemory { get; set; } = true;
 
-    /// <summary>启用定时任务工具(create_scheduled_task)</summary>
+    /// <summary>启用定时任务工具(ScheduleTask)</summary>
     public bool EnableScheduledTasks { get; set; } = true;
 
-    /// <summary>启用识图工具(ask_vision,委托视觉模型答图片问题)</summary>
+    /// <summary>启用识图工具(ViewImage,委托视觉模型答图片问题)</summary>
     public bool EnableVisionTool { get; set; } = true;
 
-    /// <summary>启用知识库检索工具(knowledge_search,检索会话挂载的嵌入知识库)</summary>
+    /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
-    /// <summary>启用子代理工具(run_subagent,把探查委派给子代理,过程不吃主上下文)</summary>
+    /// <summary>启用子代理工具(RunSubAgent,把探查委派给子代理,过程不吃主上下文)</summary>
     public bool EnableSubAgent { get; set; } = true;
 
     /// <summary>启用任务清单(框架 TodoProvider;关闭时对话侧栏的任务清单同步隐藏)</summary>

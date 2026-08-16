@@ -105,7 +105,7 @@ internal static class AgentAssembler
             Add(EAgentCapability.Shell, shellExecutor.AsAIFunction(CharacterRunnerFactory.ShellToolName));
         }
 
-        // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,ask_vision 是多余的绕路。
+        // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,ViewImage 是多余的绕路。
         // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
         if (plan.MountVisionTool)
         {
