@@ -98,6 +98,9 @@ public partial class ToolCallItem : ConversationItemBase
 
     [ObservableProperty] private string _argumentSummary = string.Empty;
     [ObservableProperty] private string _argumentsJson = string.Empty;
+
+    /// <summary>本次调用涉及的文件路径（没有则为空）。只用来给全文窗按扩展名挑语法高亮</summary>
+    [ObservableProperty] private string _filePath = string.Empty;
     [ObservableProperty] private bool _isRunning = true;
     [ObservableProperty] private bool _isSuccess = true;
     [ObservableProperty] private string _resultText = string.Empty;
@@ -183,14 +186,18 @@ public partial class ToolCallItem : ConversationItemBase
     [RelayCommand]
     private void ShowFullResult()
     {
-        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextResult")}", ResultText);
+        // Read 之类工具的结果就是某个文件的正文,按它的扩展名高亮;其余工具拿不到路径,纯文本
+        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextResult")}", ResultText, FilePath);
     }
 
     /// <summary>把参数原文交给全文窗</summary>
     [RelayCommand]
     private void ShowFullArguments()
     {
-        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextArguments")}", ArgumentsJson);
+        // 与结果同一个口径:语言只由"这次调用涉及哪个文件"决定,不按工具名也不按参数名分支——
+        // Write 的正文在参数里(content),Read 的正文在结果里,新工具放哪都不用改这里。
+        // 开头那几行"filePath: …"在任何语法下都只是普通标识符,不上色但也不会乱
+        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextArguments")}", ArgumentsJson, FilePath);
     }
 
     [RelayCommand]
@@ -587,6 +594,28 @@ public static class AgentContentFormatter
         }
 
         return string.Join(", ", call.Arguments.Take(2).Select(x => $"{x.Key}: {Shorten(x.Value?.ToString())}"));
+    }
+
+    /// <summary>
+    /// 取工具调用涉及的文件路径，供全文窗按扩展名选语法高亮。
+    /// <b>不猜内容</b>——只认参数里明写的路径键，没有就返回空
+    /// </summary>
+    /// <param name="call">工具调用</param>
+    /// <returns>文件路径；该工具不涉及文件时为空串</returns>
+    public static string GetFilePath(FunctionCallContent call)
+    {
+        if (call.Arguments == null) return string.Empty;
+
+        foreach (string key in PathArgumentKeys)
+        {
+            if (call.Arguments.TryGetValue(key, out object? value) && value != null)
+            {
+                string path = value.ToString() ?? string.Empty;
+                if (path.Length > 0) return path;
+            }
+        }
+
+        return string.Empty;
     }
 
     /// <summary>数组参数的元素个数;不是数组则为 0</summary>

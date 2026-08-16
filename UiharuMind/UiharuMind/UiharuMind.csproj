@@ -24,6 +24,7 @@
 		<!-- 长文本查看/编辑内核。要的是它内建的<b>按行虚拟化</b>:SelectableTextBlock 与 TextBox
 		     都没有文本虚拟化,几十万字的工具结果塞进去必然卡死。搜索/行号/跨行选中是白得的 -->
 		<PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+		<PackageReference Include="AvaloniaEdit.TextMate" Version="12.0.0" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
 		<PackageReference Include="LiveMarkdown.Avalonia" Version="2.2.0" />

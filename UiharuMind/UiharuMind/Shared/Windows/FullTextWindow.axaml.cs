@@ -27,9 +27,10 @@ public partial class FullTextWindow : QuickWindowBase
     /// </summary>
     /// <param name="title">标题栏文案</param>
     /// <param name="text">正文全文</param>
-    public static void Show(string title, string text)
+    /// <param name="syntaxSourceName">决定语法高亮的文件名/扩展名，为空则不高亮</param>
+    public static void Show(string title, string text, string? syntaxSourceName = null)
     {
-        UIManager.ShowWindow<FullTextWindow>(x => x.SetSource(title, text), isMulti: true);
+        UIManager.ShowWindow<FullTextWindow>(x => x.SetSource(title, text, syntaxSourceName), isMulti: true);
     }
 
     public FullTextWindow()
@@ -49,10 +50,13 @@ public partial class FullTextWindow : QuickWindowBase
     /// </summary>
     /// <param name="title">标题栏文案</param>
     /// <param name="text">正文全文</param>
-    public void SetSource(string title, string text)
+    /// <param name="syntaxSourceName">决定语法高亮的文件名/扩展名，为空则不高亮。
+    /// 窗口会复用，所以这一项也必须每次显式设</param>
+    public void SetSource(string title, string text, string? syntaxSourceName = null)
     {
         Title = title;
         TitleTextBlock.Text = title;
+        TextView.SyntaxSourceName = syntaxSourceName;
         TextView.Text = text;
         TextView.ScrollToTop();
     }

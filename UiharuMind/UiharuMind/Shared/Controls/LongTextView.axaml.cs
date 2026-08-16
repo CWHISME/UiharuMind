@@ -12,7 +12,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using System.IO;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.TextMate;
+using TextMateSharp.Grammars;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Shared.Controls;
@@ -28,6 +32,8 @@ public partial class LongTextView : UserControl
 {
     private bool _isSyncingText; //防止属性与文档互相回灌
     private bool _scrollToTopPending; //在加载完成前请求过回顶，等 Loaded 补做
+    private TextMate.Installation? _textMate; //装上才有高亮，不高亮时彻底卸掉
+    private TextDocument? _highlightedDocument; //当前这份安装绑的是哪个文档，换文档要重装
 
     /// <summary>正文</summary>
     public static readonly StyledProperty<string?> TextProperty =
@@ -50,6 +56,18 @@ public partial class LongTextView : UserControl
     /// <summary>是否显示自带工具条，默认显示</summary>
     public static readonly StyledProperty<bool> IsToolbarVisibleProperty =
         AvaloniaProperty.Register<LongTextView, bool>(nameof(IsToolbarVisible), true);
+
+    /// <summary>语法高亮的语言来源（文件名或扩展名），默认无高亮</summary>
+    public static readonly StyledProperty<string?> SyntaxSourceNameProperty =
+        AvaloniaProperty.Register<LongTextView, string?>(nameof(SyntaxSourceName));
+
+    /// <summary>超过这个字符数一律不上高亮：全文窗的立身之本是"几十万字秒开"，不能为配色让路</summary>
+    private const int MaxHighlightChars = 256 * 1024;
+
+    // 语法表与主题按主题名全进程共用一份:构造 RegistryOptions 要加载主题与整套语法定义,
+    // 按控件实例建的话,多开几个全文窗就是重复加载几份
+    private static RegistryOptions? _sharedRegistryOptions;
+    private static ThemeName _sharedRegistryTheme;
 
     /// <summary>正文</summary>
     public string? Text
@@ -88,6 +106,22 @@ public partial class LongTextView : UserControl
     {
         get => GetValue(IsToolbarVisibleProperty);
         set => SetValue(IsToolbarVisibleProperty, value);
+    }
+
+    /// <summary>
+    /// 语法高亮的语言来源：给一个<b>文件名或扩展名</b>（<c>Foo.cs</c> / <c>.cs</c> / <c>.json</c>），
+    /// 由 TextMate 按扩展名挑语法。为空、认不出、或正文超过
+    /// <see cref="MaxHighlightChars"/> 时一律不高亮。
+    ///
+    /// 用扩展名而不是语言名，是因为调用方手上现成的信息就是文件路径（工具调用的 <c>filePath</c> 参数），
+    /// 按扩展名选是<b>确定的</b>，按内容猜语言会猜错。
+    ///
+    /// 配色走 TextMate 主题，与 markdown 代码块同一套（DarkPlus / LightPlus），跟随应用主题切换。
+    /// </summary>
+    public string? SyntaxSourceName
+    {
+        get => GetValue(SyntaxSourceNameProperty);
+        set => SetValue(SyntaxSourceNameProperty, value);
     }
 
     public LongTextView()
@@ -130,6 +164,7 @@ public partial class LongTextView : UserControl
         if (change.Property == TextProperty)
         {
             ApplyText();
+            ApplySyntax(); //正文换了要重判大小闸门
         }
         else if (change.Property == IsEditableProperty)
         {
@@ -145,6 +180,89 @@ public partial class LongTextView : UserControl
         {
             Editor.ShowLineNumbers = ShowLineNumbers;
         }
+        else if (change.Property == SyntaxSourceNameProperty)
+        {
+            ApplySyntax();
+        }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
+        ApplySyntax();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (Application.Current != null) Application.Current.ActualThemeVariantChanged -= OnThemeChanged;
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        // TextMate 的配色是安装时固化进去的,换主题只能整份重装
+        UninstallTextMate();
+        ApplySyntax();
+    }
+
+    /// <summary>
+    /// 按当前语言与主题重装 TextMate。装不上（没给扩展名、认不出、文本太大）就彻底卸掉，
+    /// 回到纯文本——宁可不高亮，也不让大文本卡住
+    /// </summary>
+    private void ApplySyntax()
+    {
+        string? scope = ResolveScope();
+        if (scope == null)
+        {
+            UninstallTextMate();
+            return;
+        }
+
+        // 安装是绑在当时那个 Document 上的,而 ApplyText 每次都换一份新文档(为清撤销栈与选区)。
+        // 沿用旧安装的话,分词器的行状态与当前文档对不上——表现为同一个关键字有的行上色、有的行不上
+        if (_textMate == null || !ReferenceEquals(_highlightedDocument, Editor.Document))
+        {
+            UninstallTextMate();
+            _textMate = Editor.InstallTextMate(GetRegistryOptions());
+            _highlightedDocument = Editor.Document;
+        }
+
+        _textMate.SetGrammar(scope);
+    }
+
+    private string? ResolveScope()
+    {
+        if (string.IsNullOrEmpty(SyntaxSourceName)) return null;
+        if ((Text?.Length ?? 0) > MaxHighlightChars) return null;
+
+        string extension = Path.GetExtension(SyntaxSourceName);
+        if (string.IsNullOrEmpty(extension)) return null;
+
+        RegistryOptions options = GetRegistryOptions();
+        Language? language = options.GetLanguageByExtension(extension);
+        return language == null ? null : options.GetScopeByLanguageId(language.Id);
+    }
+
+    //注册表同时决定了配色。主题名与 markdown 代码块用的是同一套,两处观感因此一致
+    private static RegistryOptions GetRegistryOptions()
+    {
+        ThemeName themeName = ApplicationThemeManager.IsDarkTheme() ? ThemeName.DarkPlus : ThemeName.LightPlus;
+        if (_sharedRegistryOptions == null || _sharedRegistryTheme != themeName)
+        {
+            _sharedRegistryOptions = new RegistryOptions(themeName);
+            _sharedRegistryTheme = themeName;
+        }
+
+        return _sharedRegistryOptions;
+    }
+
+    private void UninstallTextMate()
+    {
+        if (_textMate == null) return;
+        _textMate.Dispose();
+        _textMate = null;
+        _highlightedDocument = null;
     }
 
     private void ApplyText()
