@@ -23,10 +23,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
             <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
         </Style>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
     </UserControl.Styles>
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">

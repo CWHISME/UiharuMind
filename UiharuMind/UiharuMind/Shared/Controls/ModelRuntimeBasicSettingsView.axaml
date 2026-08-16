@@ -13,10 +13,6 @@
     </Design.DataContext>
 
     <UserControl.Styles>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
         <Style Selector="Border.runtime-strip">
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Padding" Value="8,6" />

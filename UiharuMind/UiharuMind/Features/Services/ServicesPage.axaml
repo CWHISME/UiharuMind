@@ -39,10 +39,6 @@
         <Style Selector="Border.overview-card[Tag=Danger]">
             <Setter Property="BorderBrush" Value="{DynamicResource MessageStatusErrorBrush}" />
         </Style>
-        <Style Selector="TextBlock.muted">
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
         <Style Selector="TextBox.compact">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="10,5" />
