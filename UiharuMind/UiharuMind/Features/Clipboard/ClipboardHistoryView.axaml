@@ -5,14 +5,28 @@
              xmlns:clipboardViewData="clr-namespace:UiharuMind.Features.Clipboard"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Features.Clipboard.ClipboardHistoryView"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <UserControl.Resources>
-        <clipboardViewData:FilePathToImageConverter x:Key="FilePathToImageConverter" />
+        <converters:FilePathToImageConverter x:Key="FilePathToImageConverter" />
     </UserControl.Resources>
-    
+
+    <UserControl.DataTemplates>
+        <!-- 悬停预览。挂成隐式模板而非内联在 ToolTip.Tip 里:内联那份随列表条目一起构造,
+             整屏截图会在没人悬停时就被解码;交给 ToolTip 这个 ContentControl 则弹出才 realize。
+             列表条目走 ListBox.ItemTemplate,显式模板优先,不会被这份顶掉 -->
+        <DataTemplate DataType="clipboardViewData:ClipboardItem">
+            <Panel>
+                <Image Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=400}"
+                       IsVisible="{Binding IsImage}" />
+                <TextBlock Text="{Binding Text}" IsVisible="{Binding !IsImage}" />
+            </Panel>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
     <Design.DataContext>
         <clipboardViewData:ClipboardHistoryViewModel />
     </Design.DataContext>
@@ -91,17 +105,15 @@
                                     <MenuItem Header="{loc:Loc DeleteAll}" Click="MenuItemDeleteAll_Click" />
                                 </ContextMenu>
                             </Grid.ContextMenu>
-                            <Image MaxHeight="80" Source="{Binding ImageSource,Converter={StaticResource FilePathToImageConverter}}" Stretch="Uniform" StretchDirection="Both" IsVisible="{Binding IsImage}" />
+                            <Image MaxHeight="80" Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=80}" Stretch="Uniform" StretchDirection="Both" IsVisible="{Binding IsImage}" />
                             <TextBlock Grid.Row="1" Text="{Binding Text}" IsVisible="{Binding !IsImage}"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
                             <controls:ThemedSvgIcon Grid.Row="2" IconName="star" IsVisible="{Binding IsFavorite}" 
                                                      Height="12" Width="12" HorizontalAlignment="Left" />
+                            <!-- 内容交给上面那份隐式 DataTemplate,悬停时才解码 -->
                             <ToolTip.Tip>
-                                <Panel>
-                                    <Image Source="{Binding ImageSource,Converter={StaticResource FilePathToImageConverter}}" IsVisible="{Binding IsImage}"></Image>
-                                    <TextBlock Text="{Binding Text}" IsVisible="{Binding !IsImage}" />
-                                </Panel>
+                                <Binding />
                             </ToolTip.Tip>
                         </Grid>
                     </DataTemplate>

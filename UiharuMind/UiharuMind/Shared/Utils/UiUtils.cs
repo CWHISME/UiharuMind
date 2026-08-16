@@ -10,6 +10,7 @@
  ****************************************************************************/
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -25,9 +26,38 @@ namespace UiharuMind.Shared.Utils;
 public static class UiUtils
 {
     // 位图所有权口径：本类里凡是「返回 Bitmap」的都是产出，调用方接管、负责释放
-    // （ImageToBitmap(Async)、BuildBitmap、CloneBitmap、Base64ToBitmap）；
+    // （ImageToBitmap(Async)、BuildBitmap、CloneBitmap、Base64ToBitmap、DecodeBitmap）；
     // 凡是「吃 Bitmap 返回别的东西」的都只是借用，不改动也不释放
     // （BitmapToBytes、BitmapToBase64）
+
+    /// <summary>
+    /// 从流解码位图。<paramref name="targetHeight"/> 大于 0 时按该高度解码——
+    /// 缩略图不要解整张原图，一张 4K 截图解成 80px 与解成原尺寸差着两个数量级。
+    /// <b>调用方接管返回的位图</b>
+    /// </summary>
+    /// <param name="stream">图片流</param>
+    /// <param name="targetHeight">目标高度，0 或负数表示按原尺寸解码</param>
+    /// <returns>位图；调用方接管</returns>
+    public static Bitmap DecodeBitmap(Stream stream, int targetHeight)
+    {
+        return targetHeight > 0 ? Bitmap.DecodeToHeight(stream, targetHeight) : new Bitmap(stream);
+    }
+
+    /// <summary>
+    /// 解析绑定里传来的目标解码高度（<c>ConverterParameter</c>），拿不到就是按原尺寸解码
+    /// </summary>
+    /// <param name="parameter">转换器参数，XAML 里写字面量时是字符串</param>
+    /// <returns>目标高度；未指定或非法为 0</returns>
+    public static int ParseTargetHeight(object? parameter)
+    {
+        return parameter switch
+        {
+            int height => height,
+            string text when int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                => parsed,
+            _ => 0,
+        };
+    }
 
     /// <summary>
     /// 将 IImage 转换为 Bitmap（后台线程取像素）。<b>调用方接管返回的位图</b>

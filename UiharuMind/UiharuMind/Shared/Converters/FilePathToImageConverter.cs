@@ -2,12 +2,13 @@ using System;
 using System.Globalization;
 using System.IO;
 using Avalonia.Data.Converters;
-using Avalonia.Media.Imaging;
+using UiharuMind.Shared.Utils;
 
-namespace UiharuMind.Features.Clipboard;
+namespace UiharuMind.Shared.Converters;
 
 /// <summary>
-/// 系统图片全文件路径转 Bitmap
+/// 系统图片全文件路径转 Bitmap。
+/// <c>ConverterParameter</c> 给目标高度（缩略图必须给，否则一张 4K 截图会整张解码）；不给则按原尺寸解。
 /// </summary>
 public class FilePathToImageConverter : IValueConverter
 {
@@ -24,7 +25,7 @@ public class FilePathToImageConverter : IValueConverter
                 return null;
 
             using var stream = File.OpenRead(filePath);
-            return new Bitmap(stream);
+            return UiUtils.DecodeBitmap(stream, UiUtils.ParseTargetHeight(parameter));
         }
         catch (Exception ex)
         {

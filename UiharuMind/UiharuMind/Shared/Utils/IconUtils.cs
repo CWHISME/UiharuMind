@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using UiharuMind.Core.AI.Character;
@@ -15,6 +16,11 @@ public class IconUtils
     private static Bitmap? _defaultToolCharIcon;
     private static Bitmap? _defaultUserIcon;
 
+    private static readonly Dictionary<string, CharacterIconEntry> CharacterIcons = new(); //角色自带头像,按角色缓存
+
+    //缓存项连来源 base64 一起存:角色改了头像,来源串跟着变,据此失效
+    private readonly record struct CharacterIconEntry(string Source, Bitmap Bitmap);
+
     /// <summary>应用图标。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultAppIcon => _defaultIcon ??= LoadDefaultBitmap("Icon.png");
 
@@ -30,16 +36,16 @@ public class IconUtils
     /// <summary>
     /// 取角色头像（<c>CharacterIcon</c> 是 base64 编码的图片），没有则回落到默认头像。
     ///
-    /// <b>返回值的所有权是混合的</b>：角色自带头像时是现解出来的一张新位图，
-    /// 回落时是上面那几张进程级共用的默认图。调用方分不出来是哪一种，
-    /// 所以<b>一律不得 Dispose 本方法的返回值</b>——释放到默认图上会清空整个进程的头像。
-    /// 头像本来就小而长寿，代价只是每次回落多留一张图给 GC。
+    /// 返回值<b>一律归进程级缓存所有，谁都不得 Dispose</b>：回落时是上面那几张共用的默认图，
+    /// 角色自带头像时是本类按角色缓存的那一张。头像属于规则 2-3 的「小而长寿」一档。
+    /// 角色改了头像下一次调用自动重解，被顶掉的旧图不释放、交给 GC。
     /// </summary>
     /// <param name="characterData">角色</param>
     /// <returns>头像位图；加载失败为 null。不得释放</returns>
     public static Bitmap? GetCharacterBitmapOrDefault(CharacterData characterData)
     {
-        if (string.IsNullOrEmpty(characterData.CharacterIcon))
+        var source = characterData.CharacterIcon;
+        if (string.IsNullOrEmpty(source))
         {
             return characterData.Kind switch
             {
@@ -49,9 +55,40 @@ public class IconUtils
             };
         }
 
-        var icon = characterData.CharacterIcon.Base64ToBitmap();
-        if (icon == null) return DefaultCharIcon;
-        return icon;
+        return GetOrDecodeCharacterIcon(characterData.CharacterId, source) ?? DefaultCharIcon;
+    }
+
+    private static Bitmap? GetOrDecodeCharacterIcon(string characterId, string source)
+    {
+        if (string.IsNullOrEmpty(characterId)) return DecodeIcon(source); //没有稳定标识就没法缓存
+
+        lock (CharacterIcons)
+        {
+            // 先比引用:同一个 CharacterData 反复读取时这一步就命中,不必逐字符比几十 KB
+            if (CharacterIcons.TryGetValue(characterId, out var cached) &&
+                (ReferenceEquals(cached.Source, source) || cached.Source == source))
+            {
+                return cached.Bitmap;
+            }
+
+            var bitmap = DecodeIcon(source);
+            if (bitmap != null) CharacterIcons[characterId] = new CharacterIconEntry(source, bitmap);
+            return bitmap;
+        }
+    }
+
+    //base64 是用户数据,坏串只该回落到默认头像,不该顺着绑定抛上去
+    private static Bitmap? DecodeIcon(string source)
+    {
+        try
+        {
+            return source.Base64ToBitmap();
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Decode character icon failed: {e.Message}");
+            return null;
+        }
     }
 
     /// <summary>

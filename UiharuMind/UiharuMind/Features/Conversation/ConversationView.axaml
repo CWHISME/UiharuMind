@@ -211,7 +211,7 @@
                                                 Command="{Binding $parent[ItemsControl].((composer:AttachmentTrayViewData)DataContext).PreviewAttachmentCommand}"
                                                 CommandParameter="{Binding}">
                                             <Grid VerticalAlignment="Center">
-                                                <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}}"
+                                                <Image Source="{Binding Converter={StaticResource AttachmentToImageConverter}, ConverterParameter=48}"
                                                        MaxHeight="48" MaxWidth="48" Stretch="Uniform"
                                                        IsVisible="{Binding IsImage}" />
                                                 <StackPanel Orientation="Horizontal" Spacing="4"

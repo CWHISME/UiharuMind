@@ -2,13 +2,14 @@ using System;
 using System.Globalization;
 using System.IO;
 using Avalonia.Data.Converters;
-using Avalonia.Media.Imaging;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Conversation.Composer;
 
 /// <summary>
 /// ConversationAttachment 转 Bitmap,供输入框上方缩略图显示。
 /// 文件附件按路径读取;内存附件按字节流读取。
+/// <c>ConverterParameter</c> 给目标高度（缩略图必须给）；不给则按原尺寸解。
 /// </summary>
 public class AttachmentToImageConverter : IValueConverter
 {
@@ -19,18 +20,20 @@ public class AttachmentToImageConverter : IValueConverter
         if (value is not ConversationAttachment attachment) return null;
         if (!attachment.IsImage) return null;
 
+        int targetHeight = UiUtils.ParseTargetHeight(parameter);
+
         try
         {
             if (attachment.Bytes != null)
             {
                 using var stream = new MemoryStream(attachment.Bytes);
-                return new Bitmap(stream);
+                return UiUtils.DecodeBitmap(stream, targetHeight);
             }
 
             if (!string.IsNullOrEmpty(attachment.FilePath) && File.Exists(attachment.FilePath))
             {
                 using var stream = File.OpenRead(attachment.FilePath);
-                return new Bitmap(stream);
+                return UiUtils.DecodeBitmap(stream, targetHeight);
             }
         }
         catch (Exception ex)

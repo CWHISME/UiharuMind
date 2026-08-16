@@ -38,7 +38,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // private int _screenWidth;
     // private int _screenHeight;
     private Screen? _currentScreen;
-    private IImage? _image; //整屏原始像素(Core 的截图类型),切屏与关窗时随 ClearData 丢弃
+    //整屏原始像素(HPPH.IImage,纯托管像素数组、不是 IDisposable),切屏与关窗时随 ClearData 置空交给 GC
+    private IImage? _image;
     private Bitmap? _screenshot; //整屏解码后的位图,几 MB 到几十 MB(Retina),本窗唯一所有者
 
     // private bool _error = false;
@@ -254,6 +255,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         InfoPanel.IsVisible = false;
         MainPanel.IsVisible = false;
         SetScreenshot(null);
+        _image = null;
         _startPoint = new Point(0, 0);
         _isSelecting = false;
         _currentScreen = null;
