@@ -21,12 +21,8 @@ using Avalonia.Threading;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Features.Memory;
-using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.RemoteOpenAI;
 using UiharuMind.Features.ScreenCapture;
-using UiharuMind.Features.Characters;
 
 namespace UiharuMind.Shared.Shell;
 
@@ -288,51 +284,7 @@ public static class UIManager
         return await window.ShowDialog<string?>(owner ?? UIManager.GetFocusWindow());
     }
 
-    public static void ShowEditCharacterWindow(CharacterInfoViewData? characterInfo,
-        Action<CharacterInfoViewData>? onSureCallback)
-    {
-        // 传 null 即新建:档位由调用方在数据上定好(见 CharacterListViewData.AddCharacter)
-        characterInfo ??= new CharacterInfoViewData();
-        UIManager.ShowWindow<CharacterEditWindow>(x =>
-        {
-            x.DataContext = characterInfo;
-            x.OnSureCallback = onSureCallback;
-        });
-    }
-
-    public static void ShowMemorySelectWindow(Window owner, Action<MemoryData>? onSelectMemory,
-        MemoryData? selectedMemory)
-    {
-        var window = new MemorySelectWindow();
-        window.DataContext = new MemorySelectWindowModel(selectedMemory, onSelectMemory, window.Close);
-        window.ShowDialogStackWindow(owner);
-    }
-
-    public static void ShowMemoryEditorWindow(Window owner, MemoryData memoryData, Action? onClose = null)
-    {
-        var window = new MemoryEditorWindow
-        {
-            DataContext = new MemoryEditorWindowModel(memoryData, onClose)
-        };
-        window.ShowDialogStackWindow(owner);
-    }
-
-    public static async Task<MemoryTextSource?> ShowMemoryTextSourceEditWindow(
-        Window owner, MemoryTextSource? source = null)
-    {
-        var window = new MemoryTextSourceEditWindow
-        {
-            DataContext = new MemoryTextSourceEditWindowModel(source)
-        };
-        return await window.ShowDialog<MemoryTextSource?>(owner);
-    }
-
-    public static async Task<MemoryCreateRequest?> ShowMemoryCreateWindow(Window owner)
-    {
-        var window = new MemoryCreateWindow
-        {
-            DataContext = new MemoryCreateWindowModel()
-        };
-        return await window.ShowDialog<MemoryCreateRequest?>(owner);
-    }
+    // feature 专属的窗口打开器住在各自 feature 里:
+    // 角色见 Features/Characters/CharacterWindows,知识库见 Features/Memory/MemoryWindows。
+    // 这里只留通用机制(窗口栈、焦点窗口、字符串编辑、图片预览)
 }

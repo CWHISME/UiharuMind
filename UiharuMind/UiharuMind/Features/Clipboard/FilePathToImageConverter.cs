@@ -4,7 +4,7 @@ using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media.Imaging;
 
-namespace UiharuMind.Shared.Converters;
+namespace UiharuMind.Features.Clipboard;
 
 /// <summary>
 /// 系统图片全文件路径转 Bitmap

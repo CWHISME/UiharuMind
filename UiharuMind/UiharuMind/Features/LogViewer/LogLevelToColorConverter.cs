@@ -10,27 +10,29 @@
  ****************************************************************************/
 
 using System;
-using Microsoft.Extensions.AI;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using Avalonia.Layout;
-using UiharuMind.Core.AI.Chat;
+using Avalonia.Media;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Shared.Converters;
+namespace UiharuMind.Features.LogViewer;
 
-/// <summary>
-/// 如果角色为 User，返回右边，否则返回左边
-/// </summary>
-public class UserLeftRightConverter : IValueConverter
+public class LogLevelToColorConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // ChatRole 是 struct 而非枚举，不能用常量模式匹配
-        if (value is not ChatRole role) return HorizontalAlignment.Left;
-        if (role == ChatRole.System) return HorizontalAlignment.Center;
-        if (role == ChatRole.User) return HorizontalAlignment.Right;
-        return HorizontalAlignment.Left;
+        if (value is ELogType level)
+        {
+            return level switch
+            {
+                ELogType.Error => Brushes.Red,
+                ELogType.Warning => Brushes.Orange,
+                ELogType.Log => Brushes.Gray,
+                _ => Brushes.Black,
+            };
+        }
+
+        return Brushes.Black;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

@@ -3,7 +3,6 @@
         xmlns:vm="clr-namespace:UiharuMind.Features.QuickTools"
         xmlns:icons="clr-namespace:UiharuMind.Shared.Controls"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-        xmlns:convs="clr-namespace:UiharuMind.Shared.Converters"
         x:Class="UiharuMind.Features.QuickTools.FileSearchWindow"
         Title="{loc:Loc FileSearchTitle}"
         Width="800" Height="600"
@@ -96,7 +95,7 @@
                                 </Grid.ContextMenu>
                                 <icons:ThemedSvgIcon Grid.Column="0"
                                                      Width="16" Height="16"
-                                                     IconName="{Binding IsContentSearch, Converter={x:Static convs:BoolToIconConverter.Instance}}"
+                                                     IconName="{Binding IsContentSearch, Converter={x:Static vm:SearchModeToIconConverter.Instance}}"
                                                      Margin="0,0,10,0"/>
 
                                 <StackPanel Grid.Column="1">

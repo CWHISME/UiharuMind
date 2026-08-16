@@ -150,7 +150,7 @@ public partial class CharacterListViewData : ObservableObject
         // 不预填就等于新建出来的智能体默认少了这段。用户可以照常改写或删掉
         if (character.Kind.IsAgent()) character.Template = AgentToolPrompts.AgentWorkLoop;
 
-        UIManager.ShowEditCharacterWindow(new CharacterInfoViewData(character),
+        CharacterWindows.ShowEditCharacterWindow(new CharacterInfoViewData(character),
             x => x.TryAddToNewCharacterData());
     }
 

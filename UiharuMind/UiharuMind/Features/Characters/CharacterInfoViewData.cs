@@ -231,7 +231,7 @@ public partial class CharacterInfoViewData : ObservableObject
         if (!CharacterManager.Instance.TryAddNewCharacterData(_characterData))
         {
             if (await _messageService.ConfirmAsync(Lang.AddDuplicateCharacterTips))
-                UIManager.ShowEditCharacterWindow(this, x => TryAddToNewCharacterData(onSuccess));
+                CharacterWindows.ShowEditCharacterWindow(this, x => TryAddToNewCharacterData(onSuccess));
         }
         else
         {
@@ -273,7 +273,7 @@ public partial class CharacterInfoViewData : ObservableObject
     [RelayCommand]
     public void EditCharacter()
     {
-        UIManager.ShowEditCharacterWindow(this, x => x.SaveCharacter());
+        CharacterWindows.ShowEditCharacterWindow(this, x => x.SaveCharacter());
     }
 
     [RelayCommand]

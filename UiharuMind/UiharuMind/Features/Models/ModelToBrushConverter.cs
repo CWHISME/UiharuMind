@@ -20,7 +20,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Memory;
 
-namespace UiharuMind.Shared.Converters;
+namespace UiharuMind.Features.Models;
 
 public class ModelToBrushConverter : IValueConverter
 {

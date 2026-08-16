@@ -155,7 +155,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     private async Task AddText()
     {
         MemoryTextSource? source =
-            await UIManager.ShowMemoryTextSourceEditWindow(UIManager.GetFocusWindow());
+            await MemoryWindows.ShowMemoryTextSourceEditWindow(UIManager.GetFocusWindow());
         if (source == null) return;
 
         TextSources.Add(source);
@@ -180,7 +180,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     private async Task EditText(MemoryTextSource source)
     {
         MemoryTextSource? edited =
-            await UIManager.ShowMemoryTextSourceEditWindow(UIManager.GetFocusWindow(), source);
+            await MemoryWindows.ShowMemoryTextSourceEditWindow(UIManager.GetFocusWindow(), source);
         if (edited == null) return;
 
         source.Title = edited.Title;

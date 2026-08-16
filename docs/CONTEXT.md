@@ -384,4 +384,16 @@ _Avoid_: 被动技能、自动技能、手动技能
 
 被**两个以上** Feature 引用的东西。只被一个 Feature 引用的不算 Shared。
 
+引用数只是初筛，真正的判据是**它是否绑定了某个领域概念**：
+
+- 绑定领域类型或领域语义的，归该 Feature。`AttachmentToImageConverter` 收的是
+  `ConversationAttachment`；`SearchModeToIconConverter` 硬编码 `file-text`/`search`
+  两个图标——名字通用，实现只服务文件搜索窗，那就是 QuickTools 的东西。
+- 语义纯通用的留在 Shared，**哪怕当下只有一个 Feature 用**。`IntToBoolConverter`、
+  `AddConverter` 这类里没有任何领域概念，搬进某个 Feature 只会制造错误的归属信号，
+  下一个 Feature 要用时多半会重写一份。
+
+同理，Feature 专属的窗口打开器归各自 Feature（`CharacterWindows` / `MemoryWindows`），
+`UIManager` 只留通用机制——窗口栈、焦点窗口、字符串编辑、图片预览。
+
 > Feature 与 Shared 的目录位置、归属判定规则与命名禁例见 [../AGENTS.md](../AGENTS.md)「结构约定」。

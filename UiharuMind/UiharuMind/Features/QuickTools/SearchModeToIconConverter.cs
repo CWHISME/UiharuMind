@@ -2,11 +2,11 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace UiharuMind.Shared.Converters;
+namespace UiharuMind.Features.QuickTools;
 
-public class BoolToIconConverter : IValueConverter
+public class SearchModeToIconConverter : IValueConverter
 {
-    public static readonly BoolToIconConverter Instance = new();
+    public static readonly SearchModeToIconConverter Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

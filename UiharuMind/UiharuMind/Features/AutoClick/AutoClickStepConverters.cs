@@ -3,7 +3,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
 
-namespace UiharuMind.Shared.Converters;
+namespace UiharuMind.Features.AutoClick;
 
 public class AutoClickIndentConverter : IValueConverter
 {

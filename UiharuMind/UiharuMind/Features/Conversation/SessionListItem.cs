@@ -201,7 +201,7 @@ public partial class SessionListItem : ObservableObject
     [RelayCommand]
     public void EditCharacter()
     {
-        UIManager.ShowEditCharacterWindow(new CharacterInfoViewData(Session.CharacterData),
+        CharacterWindows.ShowEditCharacterWindow(new CharacterInfoViewData(Session.CharacterData),
             x => x.SaveCharacter());
     }
 

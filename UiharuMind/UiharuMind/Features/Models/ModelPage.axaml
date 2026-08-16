@@ -8,7 +8,6 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
               x:DataType="pages:ModelPageData"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
@@ -17,7 +16,7 @@
     </Design.DataContext>
 
     <UserControl.Resources>
-        <converters:ModelToBrushConverter x:Key="ModelToBrushConverter" />
+        <pages:ModelToBrushConverter x:Key="ModelToBrushConverter" />
     </UserControl.Resources>
 
 

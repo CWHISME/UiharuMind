@@ -17,6 +17,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Features.Memory;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -51,7 +52,7 @@ public partial class ConversationMemoryViewData : ObservableObject
     [RelayCommand]
     private void MemoryEditor()
     {
-        UIManager.ShowMemorySelectWindow(UIManager.GetFocusWindow(), x => { MemoryData = x; },
+        MemoryWindows.ShowMemorySelectWindow(UIManager.GetFocusWindow(), x => { MemoryData = x; },
             MemoryData);
     }
 

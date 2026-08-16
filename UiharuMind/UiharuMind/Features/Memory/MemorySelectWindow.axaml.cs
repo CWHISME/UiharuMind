@@ -124,7 +124,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
     private void EditMemory()
     {
         if (SelectedItem == null) return;
-        UIManager.ShowMemoryEditorWindow(UIManager.GetFocusWindow(), SelectedItem.Memory,
+        MemoryWindows.ShowMemoryEditorWindow(UIManager.GetFocusWindow(), SelectedItem.Memory,
             SelectedItem.Refresh);
     }
 
@@ -146,7 +146,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
     private async Task CreateMemory()
     {
         MemoryCreateRequest? request =
-            await UIManager.ShowMemoryCreateWindow(UIManager.GetFocusWindow());
+            await MemoryWindows.ShowMemoryCreateWindow(UIManager.GetFocusWindow());
         if (request == null) return;
 
         MemoryData memory = MemoryManager.Instance.AddNewItem(request.Name);
@@ -157,7 +157,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
         Memories.Insert(0, item);
         ApplyFilter();
         SelectedItem = item;
-        UIManager.ShowMemoryEditorWindow(UIManager.GetFocusWindow(), memory, item.Refresh);
+        MemoryWindows.ShowMemoryEditorWindow(UIManager.GetFocusWindow(), memory, item.Refresh);
     }
 
     private void ApplyFilter()

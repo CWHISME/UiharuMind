@@ -18,7 +18,7 @@
 
     <UserControl.Resources>
         <converters:MultiConditionBoolOrConverter x:Key="MultiConditionBoolOrConverter" />
-        <converters:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
+        <conv:AttachmentToImageConverter x:Key="AttachmentToImageConverter" />
     </UserControl.Resources>
 
     <UserControl.Styles>

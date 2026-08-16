@@ -3,9 +3,8 @@ using System.Globalization;
 using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media.Imaging;
-using UiharuMind.Features.Conversation;
 
-namespace UiharuMind.Shared.Converters;
+namespace UiharuMind.Features.Conversation;
 
 /// <summary>
 /// ConversationAttachment 转 Bitmap,供输入框上方缩略图显示。

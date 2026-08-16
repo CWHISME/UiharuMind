@@ -5,7 +5,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:UiharuMind.Features.AutoClick"
     xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-    xmlns:converters="clr-namespace:UiharuMind.Shared.Converters"
     xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
     mc:Ignorable="d"
     d:DesignWidth="1180"
@@ -23,8 +22,8 @@
     </Design.DataContext>
 
     <Window.Resources>
-        <converters:AutoClickIndentConverter x:Key="AutoClickIndentConverter" />
-        <converters:AutoClickKindGlyphConverter x:Key="AutoClickKindGlyphConverter" />
+        <vm:AutoClickIndentConverter x:Key="AutoClickIndentConverter" />
+        <vm:AutoClickKindGlyphConverter x:Key="AutoClickKindGlyphConverter" />
     </Window.Resources>
 
     <Window.Styles>
