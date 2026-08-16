@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.Process;
@@ -77,6 +79,34 @@ public abstract class PromptActionBase
 
         CurModelRunningData = modelRunningData;
         return OnRunAsync(modelRunningData!, userInput, _args, cancellationToken);
+    }
+
+    /// <summary>
+    /// 跑一遍并产出<b>完整内容</b>增量（正文之外还有思考等）。默认实现把正文包成
+    /// <see cref="TextContent"/>——只有真正走临时会话的形态才有内容流可透出，
+    /// 其余形态照旧只有正文，调用方无需分辨。
+    /// </summary>
+    /// <param name="userInput">用户输入</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>内容增量流</returns>
+    public virtual IAsyncEnumerable<AIContent> RunContentAsync(string userInput,
+        CancellationToken cancellationToken = default)
+    {
+        return ToContentStream(RunAsync(userInput, cancellationToken));
+    }
+
+    /// <summary>
+    /// 把只有正文的流包成内容流
+    /// </summary>
+    /// <param name="texts">正文增量流</param>
+    /// <returns>内容增量流</returns>
+    protected static async IAsyncEnumerable<AIContent> ToContentStream(IAsyncEnumerable<string> texts,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (string delta in texts.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            yield return new TextContent(delta);
+        }
     }
 
     // public abstract CharacterData Character { get; }

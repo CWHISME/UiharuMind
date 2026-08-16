@@ -23,7 +23,9 @@
         </Style>
     </UserControl.Styles>
 
-    <!-- MaxWidth 与工具卡片同一条绑定:右边缘因此落在同一处 -->
+    <!-- MaxWidth 与工具卡片同一条绑定:右边缘因此落在同一处。
+         代价是本卡片<b>必须被 ItemsControl 宿主</b>——快捷对话窗因此也用 ItemsControl 装它,
+         而不是直接摆一个,否则这条绑定失效、宽度不再受约束 -->
     <Border Classes="tool-card ghost"
             MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
             Converter={x:Static AddConverter.Instance},

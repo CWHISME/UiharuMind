@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:u="https://irihi.tech/ursa"
         xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
         mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
@@ -32,7 +33,18 @@
         <!--     <SelectableTextBlock Name="ResultTextBlock" TextWrapping="Wrap" Background="Transparent" Margin="10,0,10,0"></SelectableTextBlock> -->
         <!-- </ScrollViewer> -->
         <ScrollViewer Grid.Row="2" Name="ScrollViewer" Margin="0,10">
-            <common:SimpleMarkdownViewer Name="ResultTextBlock" />
+            <StackPanel Spacing="6">
+                <!-- 思考段:与会话流同一张卡片。装在 ItemsControl 里不只是为了多段——
+                     ThinkingCardView 的宽度绑在最近的 ItemsControl 上,少了它宽度就没约束 -->
+                <ItemsControl Name="ThinkingList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="items:ThinkingItem">
+                            <items:ThinkingCardView />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <common:SimpleMarkdownViewer Name="ResultTextBlock" />
+            </StackPanel>
         </ScrollViewer>
         <DockPanel Grid.Row="3" Name="ToolPanel">
             <CheckBox Content="{loc:Loc Plaintext}"

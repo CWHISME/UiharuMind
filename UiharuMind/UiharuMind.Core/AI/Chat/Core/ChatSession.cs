@@ -390,18 +390,20 @@ public class ChatSession
     }
 
     /// <summary>
-    /// 流式生成一条回复。
+    /// 流式生成一条回复，产出<b>完整内容</b>增量（正文、思考等）。
     /// 本轮的输入与输出由历史提供器统一写入历史，调用方不要预先把输入加进 <see cref="History"/>。
+    /// 只要正文的调用方自行过滤 <see cref="TextContent"/>——不在这里额外开一条只出正文的口子，
+    /// 否则取消补存那段逻辑就要跟着复制一份。
     /// </summary>
     /// <param name="input">本轮用户输入；为 null 表示基于现有历史重新生成</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>文本<b>增量</b>流；需要全文请由调用方累积</returns>
-    public async IAsyncEnumerable<string> GenerateCompletionStreaming(ChatMessage? input = null,
+    /// <returns>内容<b>增量</b>流</returns>
+    public async IAsyncEnumerable<AIContent> GenerateCompletionStreamingContent(ChatMessage? input = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (input == null && Count == 0)
         {
-            yield return "Error: No message";
+            yield return new TextContent("Error: No message");
             yield break;
         }
 
@@ -411,12 +413,12 @@ public class ChatSession
         StringBuilder finalText = StringBuilderPool.Get();
         try
         {
-            await foreach (string delta in Runner.RunTextAsync(turnInput, cancellationToken)
+            await foreach (AIContent content in Runner.RunAsync(turnInput, cancellationToken)
                                .ConfigureAwait(false))
             {
-                // 只在本地累积一份用于取消时补存,对外透出的仍是增量
-                finalText.Append(delta);
-                yield return delta;
+                // 只在本地累积一份正文用于取消时补存,对外透出的仍是增量
+                if (content is TextContent { Text.Length: > 0 } text) finalText.Append(text.Text);
+                yield return content;
             }
         }
         finally
