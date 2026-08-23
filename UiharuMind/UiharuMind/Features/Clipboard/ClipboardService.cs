@@ -265,6 +265,7 @@ public class ClipboardService : IDisposable
     /// </summary>
     private void CheckAndRecordImagesInClipboardHistory()
     {
+        if(!Directory.Exists(AppPaths.Data.ClipboardImages)) return;
         var files = Directory.GetFiles(AppPaths.Data.ClipboardImages, "*.png");
         foreach (var file in files)
         {

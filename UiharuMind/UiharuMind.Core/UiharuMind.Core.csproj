@@ -18,7 +18,7 @@
       <PackageReference Include="AngleSharp" Version="1.5.2" />
       <PackageReference Include="CommunityToolkit.VectorData.SqliteVec" Version="1.0.1-preview" />
       <!-- tiktoken o200k 词表数据:Microsoft.ML.Tokenizers 本体已由 Agents.AI 传递引入 -->
-      <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="6.0.0" />
+      <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
       <PackageReference Include="CliWrap" Version="3.8.1" />
       <PackageReference Include="Downloader" Version="3.3.3" />
       <PackageReference Include="Glacier.Grep" Version="1.0.0" />
