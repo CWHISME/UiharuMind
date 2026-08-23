@@ -48,7 +48,7 @@
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpCompress" Version="0.49.1" />
-      <PackageReference Include="SharpHook" Version="7.1.1" />
+      <PackageReference Include="SharpHook" Version="7.1.3" />
       <PackageReference Include="UTF.Unknown" Version="2.6.0" />
       <PackageReference Include="WebLookup" Version="0.2.1" />
     </ItemGroup>

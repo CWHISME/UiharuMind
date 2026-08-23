@@ -52,6 +52,12 @@ public static class ScreenCaptureManager
             return;
         }
 
+        if (UiharuCoreManager.Instance.IsLinux)
+        {
+            await GetLinuxScreenCapture();
+            return;
+        }
+
         await GetMacScreenCaptureFromClipboard();
     }
 
@@ -83,6 +89,20 @@ public static class ScreenCaptureManager
         var image = await App.Clipboard.GetImageFromClipboard();
         App.Clipboard.RecordImageToHistory(image);
         UIManager.ShowPreviewImageWindowAtMousePosition(image, App.ScreensService.MousePressedPosition, App.ScreensService.MouseReleasedPosition);
+    }
+
+    /// <summary>
+    /// Linux 专用，调用桌面环境原生 CLI 截屏（交互式选区）后读取图像显示
+    /// </summary>
+    public static async Task GetLinuxScreenCapture()
+    {
+        using var stream = await new ScreenCaptureLinux().CaptureRegionAsync();
+        if (stream == null) return;
+
+        var bitmap = new Bitmap(stream);
+        App.Clipboard.RecordImageToHistory(bitmap);
+        UIManager.ShowPreviewImageWindowAtMousePosition(bitmap, App.ScreensService.MousePressedPosition,
+            App.ScreensService.MouseReleasedPosition);
     }
 
     public static async void OpenOcr(string filePath, int width, int height)

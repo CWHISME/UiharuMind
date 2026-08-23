@@ -27,6 +27,7 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
 {
     public bool IsWindows => PlatformUtils.IsWindows;
     public bool IsMacOs => PlatformUtils.IsMacOS;
+    public bool IsLinux => PlatformUtils.IsLinux;
 
     // public UiharuCoreManager()
     // {

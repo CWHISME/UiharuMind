@@ -338,7 +338,7 @@ public class ClipboardService : IDisposable
 
     //==========================================================
 
-    static IClipboardMonitor? CreateClipboardMonitor()
+    IClipboardMonitor? CreateClipboardMonitor()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
@@ -348,6 +348,11 @@ public class ClipboardService : IDisposable
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             return new WindowsClipboardMonitor();
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            return new LinuxClipboardMonitor(() => GetFromClipboard(), 1000);
         }
 
         Log.Error("This platform is not supported for clipboard monitoring.");
