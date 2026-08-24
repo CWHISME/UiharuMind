@@ -2847,7 +2847,7 @@ Allow them?</value>
         <value>Input Devices</value>
     </data>
     <data name="PermissionLinuxInputDevicesDesc" xml:space="preserve">
-        <value>Required for global shortcuts on Wayland (reads /dev/input)</value>
+        <value>Required for global shortcuts on Wayland (reads /dev/input). After adding yourself to the input group you must log out and back in, otherwise the current session still cannot read the devices.</value>
     </data>
     <data name="PermissionLinuxUinput" xml:space="preserve">
         <value>Input Simulation</value>

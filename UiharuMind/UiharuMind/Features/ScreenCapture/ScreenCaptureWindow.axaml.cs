@@ -276,7 +276,6 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         Height = bounds.Height / scaling;
         // WindowState = WindowState.FullScreen;
         //展示截图
-        // Log.Debug("展示截图");
         DisplayCapture();
     }
 

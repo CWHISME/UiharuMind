@@ -45,9 +45,7 @@ internal sealed class ScreenshotPortalClient
     {
         try
         {
-            var connection = DBusConnection.Session;
-            await connection.ConnectAsync().ConfigureAwait(false);
-
+            using var connection = await CreateConnectionAsync().ConfigureAwait(false);
             return await CallNameHasOwnerAsync(connection).ConfigureAwait(false);
         }
         catch (Exception e)
@@ -55,6 +53,17 @@ internal sealed class ScreenshotPortalClient
             Log.Debug($"探测 Portal 可用性失败：{e.Message}");
             return false;
         }
+    }
+
+    /// <summary>
+    /// 新建一条显式连接。不能用 DBusConnection.Session 这个自动连接单例：
+    /// 在其上调用 WatchSignalAsync/CallMethodAsync 会抛 "Method cannot be used on autoconnect connections"。
+    /// </summary>
+    private static async Task<DBusConnection> CreateConnectionAsync()
+    {
+        var connection = new DBusConnection(DBusAddress.Session);
+        await connection.ConnectAsync().ConfigureAwait(false);
+        return connection;
     }
 
     /// MessageWriter 是 ref struct，不能跨 await 存活，因此消息构造必须留在同步方法里
@@ -76,19 +85,24 @@ internal sealed class ScreenshotPortalClient
     }
 
     /// <summary>
-    /// 请求一张整屏截图
+    /// 请求一张截图
     /// </summary>
     /// <param name="parentWindowHandle">
     /// Portal 的 parent_window 句柄。X11/XWayland 下为 "x11:0x{窗口ID}"，纯 Wayland 下为 "wayland:"。
     /// 不可传空串：xdg-desktop-portal-gnome 46 起会拒绝空句柄。
     /// </param>
+    /// <param name="interactive">
+    /// true 走交互式截图：选框由 portal/Shell 以特权层级绘制，天然盖住菜单栏与 dock（GNOME Wayland 下
+    /// 普通应用窗口无法稳定压过面板，故这是唯一可靠的覆盖方式）。返回的是已裁剪到所选区域的图片。
+    /// false 为整屏抓取，选框交给应用自绘遮罩。
+    /// </param>
     /// <returns>调用状态与截图文件 URI</returns>
-    public async Task<(PortalStatus Status, string? Uri)> RequestScreenshotAsync(string parentWindowHandle)
+    public async Task<(PortalStatus Status, string? Uri)> RequestScreenshotAsync(string parentWindowHandle,
+        bool interactive = false)
     {
         try
         {
-            var connection = DBusConnection.Session;
-            await connection.ConnectAsync().ConfigureAwait(false);
+            using var connection = await CreateConnectionAsync().ConfigureAwait(false);
 
             string token = $"uiharu_{Guid.NewGuid():N}";
             string requestPath = BuildRequestPath(connection.UniqueName, token);
@@ -98,8 +112,8 @@ internal sealed class ScreenshotPortalClient
 
             using var subscription = await connection.WatchSignalAsync(
                 PortalService,
-                RequestInterface,
                 requestPath,
+                RequestInterface,
                 "Response",
                 ReadResponse,
                 (exception, value) =>
@@ -111,7 +125,7 @@ internal sealed class ScreenshotPortalClient
                 false,
                 ObserverFlags.None).ConfigureAwait(false);
 
-            await CallScreenshotAsync(connection, parentWindowHandle, token).ConfigureAwait(false);
+            await CallScreenshotAsync(connection, parentWindowHandle, token, interactive).ConfigureAwait(false);
 
             var finished = await Task.WhenAny(completion.Task, Task.Delay(ResponseTimeout)).ConfigureAwait(false);
             if (finished != completion.Task)
@@ -148,7 +162,8 @@ internal sealed class ScreenshotPortalClient
             or "org.freedesktop.DBus.Error.NameHasNoOwner";
     }
 
-    private static Task CallScreenshotAsync(DBusConnection connection, string parentWindowHandle, string token)
+    private static Task CallScreenshotAsync(DBusConnection connection, string parentWindowHandle, string token,
+        bool interactive)
     {
         using var writer = connection.GetMessageWriter();
         writer.WriteMethodCallHeader(
@@ -162,8 +177,9 @@ internal sealed class ScreenshotPortalClient
         writer.WriteDictionary(new Dictionary<string, VariantValue>
         {
             ["handle_token"] = VariantValue.String(token),
-            // 非交互：只要整屏原图，选区交给应用自绘的遮罩窗，以保住放大镜/贴图/OCR 全套交互
-            ["interactive"] = VariantValue.Bool(false)
+            // interactive=true 时由 portal/Shell 自绘选框（特权层级，盖住菜单栏与 dock），
+            // 返回已裁剪到所选区域的图片；false 则只抓整屏原图，选区交给应用自绘遮罩窗
+            ["interactive"] = VariantValue.Bool(interactive)
         });
 
         return connection.CallMethodAsync(writer.CreateMessage());

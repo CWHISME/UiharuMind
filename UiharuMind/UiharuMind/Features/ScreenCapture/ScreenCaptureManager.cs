@@ -93,21 +93,19 @@ public static class ScreenCaptureManager
     }
 
     /// <summary>
-    /// Linux 专用：先经 Portal 抓一张整屏，再把它当冻结底图交给自绘的选区遮罩窗。
-    /// 顺序不能反——Portal 抓的是"当前桌面"，遮罩窗一旦显示就会把自己也抓进去。
+    /// Linux 专用：走 Portal 交互式截图。选框由 portal/Shell 以特权层级绘制，天然盖住菜单栏与 dock，
+    /// 返回的图片已是裁剪后的区域。这样绕开了"普通应用窗口无法在 GNOME Wayland 上稳定压过面板"的限制——
+    /// 自绘全屏遮罩窗会被 compositor 反复收回。选区过程中的实时放大镜等交互会交给 portal 的选框，
+    /// 截图后的预览、OCR、标注仍在 UiharuMind 内完成。
     /// </summary>
     private static async Task ShowLinuxCaptureOverlay()
     {
-        var screen = App.ScreensService.MouseScreen;
-        var frame = await ScreenFrameProvider.CaptureAsync(screen, App.ScreensService.MouseScreenIndex,
-            App.DummyWindow);
-        if (frame == null)
-        {
-            UIManager.ShowWindow<PermissionGuideWindow>();
-            return;
-        }
+        var bitmap = await ScreenFrameProvider.CaptureInteractiveAsync(App.DummyWindow);
+        if (bitmap == null) return;
 
-        UIManager.ShowWindow<ScreenCaptureWindow>(window => window.SetPreCapturedFrame(frame, screen));
+        App.Clipboard.RecordImageToHistory(bitmap);
+        UIManager.ShowPreviewImageWindowAtMousePosition(
+            bitmap, size: null, HorizontalAlignment.Center, VerticalAlignment.Center);
     }
 
     public static async void OpenOcr(string filePath, int width, int height)

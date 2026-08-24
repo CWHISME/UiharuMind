@@ -28,13 +28,20 @@ public class ScreenCaptureLinux : IScreenCapture
 {
     private readonly ScreenshotPortalClient _portalClient = new();
 
+    /// 最近一次真实截图的成败。null 表示尚未截过。
+    /// 权限引导用它把「Portal 守护进程在跑」与「截图确实能成功」区分开：
+    /// 前者只是组件装好了，后者才是真能抓屏。仅探测守护进程会让指示常绿（假阳性）。
+    public static bool? LastCaptureSucceeded { get; private set; }
+
     /// <summary>
-    /// 探测 xdg-desktop-portal 后端是否在线，供权限引导界面区分失败原因
+    /// 探测截图能力是否可用，供权限引导界面区分失败原因。
+    /// 不只看 Portal 守护进程在不在跑，还要看最近一次真实截图是否成功，避免守护进程在线但截图实际失败仍报「已授权」。
     /// </summary>
-    /// <returns>后端在线返回 true</returns>
-    public static Task<bool> IsPortalAvailableAsync()
+    /// <returns>能力可用返回 true</returns>
+    public static async Task<bool> IsPortalAvailableAsync()
     {
-        return ScreenshotPortalClient.IsPortalAvailableAsync();
+        if (!await ScreenshotPortalClient.IsPortalAvailableAsync()) return false;
+        return LastCaptureSucceeded != false;
     }
 
     public async Task<Stream?> CaptureFullScreenAsync(string parentWindowHandle)
@@ -42,10 +49,32 @@ public class ScreenCaptureLinux : IScreenCapture
         var (status, uri) = await _portalClient.RequestScreenshotAsync(parentWindowHandle);
         if (status != PortalStatus.Success || uri == null)
         {
+            LastCaptureSucceeded = false;
             if (status == PortalStatus.Unavailable) return await CaptureWithGrimAsync();
             return null;
         }
 
+        LastCaptureSucceeded = true;
+        return await ReadAndDeleteAsync(UriToPath(uri));
+    }
+
+    /// <summary>
+    /// 交互式截图：选框由 portal/Shell 渲染（特权层级，盖住菜单栏与 dock），返回已裁剪到所选区域的图片流。
+    /// GNOME Wayland 下普通应用窗口无法稳定压过面板，故这是唯一能覆盖 shell 的截图方式。
+    /// 用户取消（response=1）或失败均返回 null。
+    /// </summary>
+    /// <param name="parentWindowHandle">Portal 的 parent_window 句柄</param>
+    /// <returns>裁剪后图片流；取消或失败返回 null</returns>
+    public async Task<Stream?> CaptureInteractiveAsync(string parentWindowHandle)
+    {
+        var (status, uri) = await _portalClient.RequestScreenshotAsync(parentWindowHandle, interactive: true);
+        if (status != PortalStatus.Success || uri == null)
+        {
+            LastCaptureSucceeded = false;
+            return null;
+        }
+
+        LastCaptureSucceeded = true;
         return await ReadAndDeleteAsync(UriToPath(uri));
     }
 

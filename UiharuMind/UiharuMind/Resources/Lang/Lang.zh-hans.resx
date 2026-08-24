@@ -2840,7 +2840,7 @@
         <value>输入设备读取</value>
     </data>
     <data name="PermissionLinuxInputDevicesDesc" xml:space="preserve">
-        <value>Wayland 下的全局快捷键需要此权限（读取 /dev/input）</value>
+        <value>Wayland 下的全局快捷键需要此权限（读取 /dev/input）。加入 input 组后必须注销并重新登录，否则当前会话仍未加载该组、依旧无权读取。</value>
     </data>
     <data name="PermissionLinuxUinput" xml:space="preserve">
         <value>输入模拟</value>

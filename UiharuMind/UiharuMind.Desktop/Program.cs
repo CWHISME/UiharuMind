@@ -60,15 +60,16 @@ class Program
     /// <returns>已选定后端的构建器</returns>
     private static AppBuilder ConfigureWindowingBackend(AppBuilder builder)
     {
+        return builder.UsePlatformDetect();
         if (!OperatingSystem.IsLinux()) return builder.UsePlatformDetect();
 
         var backend = Environment.GetEnvironmentVariable(LinuxBackendVariable);
         if (string.Equals(backend, "wayland", StringComparison.OrdinalIgnoreCase))
         {
             // 带回退：合成器不可用时自动退回 X11，避免开关设错就起不来
-            return builder.UseWaylandWithFallback();
+            return builder.UseWaylandWithFallback().UseSkia();
         }
 
-        return builder.UseX11();
+        return builder.UseX11().UseSkia();
     }
 }

@@ -1,8 +1,11 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
@@ -36,11 +39,47 @@ public static class ScreenFrameProvider
         return null;
     }
 
+    /// <summary>
+    /// Linux 交互式截图：选框由 portal/Shell 绘制（盖住菜单栏与 dock），返回已裁剪的图片。
+    /// 非 Linux 平台返回 null（该路径只服务于 GNOME Wayland 等无法用普通窗口覆盖面板的场景）。
+    /// </summary>
+    /// <param name="parentWindow">供 Portal 定位父窗口句柄</param>
+    /// <returns>裁剪后的位图；用户取消或失败返回 null</returns>
+    public static async Task<Bitmap?> CaptureInteractiveAsync(Window? parentWindow)
+    {
+        if (!UiharuCoreManager.Instance.IsLinux) return null;
+
+        var handle = BuildParentWindowHandle(parentWindow);
+        await using var stream = await new ScreenCaptureLinux().CaptureInteractiveAsync(handle);
+        if (stream == null) return null;
+
+        // new Avalonia.Bitmap 必须在 UI 线程构造，否则 X11 后端触碰 Xlib 崩溃
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                using var buffer = new MemoryStream();
+                stream.CopyTo(buffer);
+                buffer.Position = 0;
+                return new Bitmap(buffer);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"交互式截图解码失败：{e.Message}");
+                return null;
+            }
+        });
+    }
+
     private static async Task<IScreenFrame?> CaptureLinuxAsync(Screen screen, Window? parentWindow)
     {
         await using var stream =
             await new ScreenCaptureLinux().CaptureFullScreenAsync(BuildParentWindowHandle(parentWindow));
-        return stream == null ? null : SkiaScreenFrame.TryCreate(stream, screen.Bounds);
+        if (stream == null) return null;
+
+        // SkiaScreenFrame.TryCreate 内部会 new Avalonia.Bitmap，必须在 UI 线程构造，
+        // 否则在 X11 后端下会触碰 Xlib 触发 xcb_xlib_threads_sequence_lost 崩溃
+        return await Dispatcher.UIThread.InvokeAsync(() => SkiaScreenFrame.TryCreate(stream, screen.Bounds));
     }
 
     /// <summary>

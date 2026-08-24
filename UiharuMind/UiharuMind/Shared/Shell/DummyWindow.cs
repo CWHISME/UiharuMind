@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
@@ -18,6 +19,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using SharpHook.Data;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Services.Permissions;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using Ursa.Controls;
@@ -100,25 +102,46 @@ public class DummyWindow : Window
         RegistryClipboardTool();
         Hide();
 
+        // Linux 上钩子失败是软失败：拿不到 /dev/input 会静默降级到 SharpHook（Wayland 下收不到事件），
+        // 不会抛异常、也不会触发上面的回调。所以这里直接按能力探测主动弹引导窗，缺哪一项就提示哪一项。
+        if (PlatformUtils.IsLinux) _ = ShowPermissionGuideIfNeededAsync();
+
         //if(UiharuCoreManager.Instance.IsWindows) 
         // LaunchMainWindow();
         // _isInit = true;
+    }
+
+    private async Task ShowPermissionGuideIfNeededAsync()
+    {
+        try
+        {
+            var provider = PlatformPermissionProviderFactory.Create();
+            await provider.RefreshAsync();
+            if (provider.Items.Any(item => !item.IsGranted))
+            {
+                Dispatcher.UIThread.Post(() => UIManager.ShowWindow<PermissionGuideWindow>());
+            }
+        }
+        catch (Exception)
+        {
+            // 探测失败不应阻断启动
+        }
     }
 
     private void OnQuickKeyInitFailure()
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (PlatformUtils.IsMacOS)
-            {
-                UIManager.ShowWindow<PermissionGuideWindow>();
-            }
-            else
-            {
-                _ = App.Services.GetRequiredService<IMessageService>().ShowWarningAsync(
-                    "Failed to bind system shortcut keys. Please make sure the application has the required permissions and try again.",
-                    "UiharuMind: Ops!");
-            }
+        if (PlatformUtils.IsMacOS)
+        {
+            UIManager.ShowWindow<PermissionGuideWindow>();
+        }
+        else
+        {
+            _ = App.Services.GetRequiredService<IMessageService>().ShowWarningAsync(
+                "Failed to bind system shortcut keys. Please make sure the application has the required permissions and try again.",
+                "UiharuMind: Ops!");
+        }
         });
     }
 
