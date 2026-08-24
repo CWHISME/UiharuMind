@@ -154,7 +154,7 @@ internal sealed class PermissiveFileAccessTools
 
     [Description("Search file contents. Respects .gitignore.")]
     internal async Task<GrepToolResult> Grep(
-        [Description("Search pattern (ripgrep syntax).")] string query,
+        [Description("Search pattern (ripgrep syntax).")] string pattern,
         [Description("Treat the pattern as a regular expression. "
                      + "A pattern that does not compile as one is retried as a literal string, "
                      + "and the result says so.")]
@@ -172,7 +172,7 @@ internal sealed class PermissiveFileAccessTools
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
-            .SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
+            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
             .ConfigureAwait(false);
 
         if (outcome.Failure != null)
@@ -248,11 +248,11 @@ internal sealed class PermissiveFileAccessTools
             // 不说一声它对"为什么少了几条命中"会推错
             if (outcome.FellBackToLiteral)
             {
-                parts.Add($"\"{query}\" does not compile as a regular expression, "
+                parts.Add($"\"{pattern}\" does not compile as a regular expression, "
                           + "so it was searched as a literal string. "
                           + "Pass isRegex false to do that on purpose.");
             }
-            else if (!string.Equals(outcome.EffectiveQuery, query, StringComparison.Ordinal))
+            else if (!string.Equals(outcome.EffectiveQuery, pattern, StringComparison.Ordinal))
             {
                 parts.Add($"The pattern was normalised to \"{outcome.EffectiveQuery}\" "
                           + "so that a leading wildcard means \"anything\".");
