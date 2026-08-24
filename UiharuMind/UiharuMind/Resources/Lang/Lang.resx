@@ -2843,4 +2843,28 @@ Allow them?</value>
     <data name="CharacterEditorDiscardTips" xml:space="preserve">
         <value>Discard the unsaved changes to this character?</value>
     </data>
+    <data name="PermissionLinuxInputDevices" xml:space="preserve">
+        <value>Input Devices</value>
+    </data>
+    <data name="PermissionLinuxInputDevicesDesc" xml:space="preserve">
+        <value>Required for global shortcuts on Wayland (reads /dev/input)</value>
+    </data>
+    <data name="PermissionLinuxUinput" xml:space="preserve">
+        <value>Input Simulation</value>
+    </data>
+    <data name="PermissionLinuxUinputDesc" xml:space="preserve">
+        <value>Required for auto-click playback (writes /dev/uinput)</value>
+    </data>
+    <data name="PermissionLinuxPortal" xml:space="preserve">
+        <value>Desktop Portal</value>
+    </data>
+    <data name="PermissionLinuxPortalDesc" xml:space="preserve">
+        <value>Required for screen capture on Wayland</value>
+    </data>
+    <data name="PermissionCopyCommand" xml:space="preserve">
+        <value>Copy Command</value>
+    </data>
+    <data name="PermissionCommandCopied" xml:space="preserve">
+        <value>Command copied. Run it in a terminal, then log out and back in.</value>
+    </data>
 </root>

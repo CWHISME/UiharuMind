@@ -12,6 +12,7 @@
 using SharpHook.Data;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Singletons;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Input;
 
@@ -48,6 +49,15 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// 鼠标点击事件（仅在短按时触发，长按不触发）
     /// </summary>
     public event Action<MouseEventData>? EventOnMouseClicked;
+
+    /// <summary>修饰键全集，注入前的等待与组合键判定都以它为准</summary>
+    private static readonly KeyCode[] ModifierKeys =
+    {
+        KeyCode.VcLeftShift, KeyCode.VcRightShift,
+        KeyCode.VcLeftControl, KeyCode.VcRightControl,
+        KeyCode.VcLeftAlt, KeyCode.VcRightAlt,
+        KeyCode.VcLeftMeta, KeyCode.VcRightMeta
+    };
 
     private readonly IInputHookBackend _hookBackend;
     private readonly object _stateLock = new();
@@ -135,6 +145,37 @@ public class InputManager : Singleton<InputManager>, IInitialize
             _mousePressTimes.Clear();
         }
     }
+
+    /// <summary>
+    /// 是否有任意修饰键处于物理按下状态。
+    /// 输入模拟在注入前需要据此等待用户松手，否则注入的组合键会与用户手上按着的修饰键叠加。
+    /// </summary>
+    /// <returns>有任一修饰键按下返回 True</returns>
+    public bool IsAnyModifierPressed()
+    {
+        lock (_stateLock)
+        {
+            return _pressedKeys.Overlaps(ModifierKeys);
+        }
+    }
+
+    /// <summary>
+    /// 取当前鼠标的像素位置。
+    /// Linux 的 evdev 事件只带相对位移，屏幕坐标要向定位器带外查询；
+    /// 其余平台的钩子事件自带坐标，直接用最近一次事件的值。
+    /// </summary>
+    /// <returns>鼠标像素坐标</returns>
+    public static (short X, short Y) GetPointerPosition()
+    {
+        if (InputBackendFactory.PointerLocator.TryGetPosition(out short x, out short y)) return (x, y);
+        return (MouseData.X, MouseData.Y);
+    }
+
+    /// <summary>
+    /// 全局光标位置当前是否可查询。不可查询时，依赖鼠标位置的弹窗应退化为居中显示。
+    /// </summary>
+    public static bool IsPointerPositionAvailable =>
+        InputBackendFactory.PointerLocator.IsAvailable || !PlatformUtils.IsLinux;
 
     public IDisposable SuspendRegisteredShortcuts()
     {

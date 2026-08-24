@@ -1,0 +1,3 @@
+# UiharuMind：把 /dev/uinput 交给 uinput 组，使输入模拟无需 root。
+# 装法见同目录 setup-linux.sh。
+KERNEL=="uinput", GROUP="uinput", MODE="0660"

@@ -2836,4 +2836,28 @@
     <data name="CharacterEditorDiscardTips" xml:space="preserve">
         <value>放弃这个角色未保存的改动？</value>
     </data>
+    <data name="PermissionLinuxInputDevices" xml:space="preserve">
+        <value>输入设备读取</value>
+    </data>
+    <data name="PermissionLinuxInputDevicesDesc" xml:space="preserve">
+        <value>Wayland 下的全局快捷键需要此权限（读取 /dev/input）</value>
+    </data>
+    <data name="PermissionLinuxUinput" xml:space="preserve">
+        <value>输入模拟</value>
+    </data>
+    <data name="PermissionLinuxUinputDesc" xml:space="preserve">
+        <value>自动点击回放需要此权限（写入 /dev/uinput）</value>
+    </data>
+    <data name="PermissionLinuxPortal" xml:space="preserve">
+        <value>桌面 Portal</value>
+    </data>
+    <data name="PermissionLinuxPortalDesc" xml:space="preserve">
+        <value>Wayland 下的屏幕截图需要此组件</value>
+    </data>
+    <data name="PermissionCopyCommand" xml:space="preserve">
+        <value>复制命令</value>
+    </data>
+    <data name="PermissionCommandCopied" xml:space="preserve">
+        <value>命令已复制，请在终端执行后重新登录。</value>
+    </data>
 </root>

@@ -16,7 +16,10 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
-    <PackageReference Include="ProDiagnostics" Version="12.0.4" />
+    <!-- 仅为 UIHARU_LINUX_BACKEND=wayland 的对照实验而引入；默认仍跑 X11(XWayland)，
+         因为纯 Wayland 协议不支持按坐标定位窗口 -->
+    <PackageReference Include="Avalonia.Wayland" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="ProDiagnostics" Version="12.1.0.4" />
   </ItemGroup>
 
   <ItemGroup>

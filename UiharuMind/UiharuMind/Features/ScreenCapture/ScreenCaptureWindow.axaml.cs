@@ -19,6 +19,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using HPPH;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Features.ScreenCapture.Frames;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
@@ -38,9 +39,19 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // private int _screenWidth;
     // private int _screenHeight;
     private Screen? _currentScreen;
-    //整屏原始像素(HPPH.IImage,纯托管像素数组、不是 IDisposable),切屏与关窗时随 ClearData 置空交给 GC
-    private IImage? _image;
-    private Bitmap? _screenshot; //整屏解码后的位图,几 MB 到几十 MB(Retina),本窗唯一所有者
+    //当前屏的冻结画面(底图+裁剪能力),几 MB 到几十 MB,本窗唯一所有者
+    private IScreenFrame? _frame;
+
+    //Linux 下必须在遮罩窗显示之前抓图,否则 Portal 抓到的是遮罩自己;抓好的帧经此字段交进来
+    private IScreenFrame? _pendingFrame;
+
+    //遮罩窗铺满整屏并独占指针,窗内事件坐标就是屏幕坐标真值。
+    //不再向全局钩子要鼠标位置:纯 Wayland 下拿不到,而这里本来就不需要
+    private PixelPoint _lastPointerPixel;
+    private PixelPoint _releasedPointerPixel;
+
+    //预抓帧所属的屏幕。非空即表示本次截图走预抓路径，不再跟随鼠标切屏
+    private Screen? _pendingScreen;
 
     // private bool _error = false;
 
@@ -129,6 +140,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         if (!MainPanel.IsVisible) return;
+        TrackPointer(e);
         PointerUpdateKind pointerUpdateKind = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
         if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
         {
@@ -149,6 +161,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         if (!MainPanel.IsVisible) return;
+        TrackPointer(e);
         if (!_isSelecting)
         {
             UpdateExtraInfo();
@@ -175,8 +188,18 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
-        // App.ScreensService.MousePosition = PixelPoint.FromPoint(e.GetPosition(this), App.ScreensService.Scaling);
+        TrackPointer(e);
+        _releasedPointerPixel = _lastPointerPixel;
         if (_isSelecting) DoAreaCapture();
+    }
+
+    /// 把窗内事件坐标换算成桌面绝对像素并留存。遮罩窗铺满目标屏且独占指针，
+    /// 这就是本次截图期间唯一可靠的鼠标位置来源，纯 Wayland 下同样成立
+    private void TrackPointer(PointerEventArgs e)
+    {
+        if (_currentScreen == null) return;
+        var local = PixelPoint.FromPoint(e.GetPosition(this), _currentScreen.Scaling);
+        _lastPointerPixel = _currentScreen.Bounds.Position + (PixelVector)local;
     }
 
     private void UpdateExtraInfo()
@@ -190,7 +213,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         if (_currentScreen == null) return;
         try
         {
-            var position = UiUtils.EnsurePositionWithinScreen(_currentScreen, App.ScreensService.MousePosition,
+            var position = UiUtils.EnsurePositionWithinScreen(_currentScreen, _lastPointerPixel,
                 InfoPanel.Bounds.Size, new Size(25, 25));
 
             if (correct)
@@ -200,7 +223,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             }
 
             // PixelPoint pixelPoint = PixelPoint.FromPoint(point, _currentScreen.Scaling);
-            var mousePosition = App.ScreensService.MousePosition;
+            var mousePosition = _lastPointerPixel;
             PositionText.Text =
                 $"{Lang.ScreenCapturePosition}:({Math.Clamp(mousePosition.X, 0, _currentScreen.Bounds.Width)},{Math.Clamp(mousePosition.Y, 0, _currentScreen.Bounds.Height)})";
             ResolutionText.Text = $"{Lang.ScreenCaptureResolution}:({width}x{height})";
@@ -216,11 +239,26 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     }
 
     /// <summary>
+    /// 交进一帧预先抓好的整屏画面。<b>本窗接管该帧</b>
+    /// </summary>
+    /// <param name="frame">已抓好的整屏帧</param>
+    /// <param name="screen">该帧所属的屏幕</param>
+    public void SetPreCapturedFrame(IScreenFrame frame, Screen screen)
+    {
+        _pendingFrame?.Dispose();
+        _pendingFrame = frame;
+        _pendingScreen = screen;
+    }
+
+    /// <summary>
     /// 动态切换了多屏，更新截图区域
     /// </summary>
     private async void UpdateCaptureScreen()
     {
-        var currentScreen = App.ScreensService.MouseScreen;
+        // 预抓帧只有一张：Linux 下重抓意味着再走一次 Portal，会再弹一次授权框，因此不跟随切屏
+        if (_pendingScreen != null && _frame != null) return;
+
+        var currentScreen = _pendingScreen ?? App.ScreensService.MouseScreen;
         if (currentScreen == _currentScreen || currentScreen == null) return;
         //清理当前数据
         // Log.Debug("清理当前数据");
@@ -254,23 +292,27 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         Canvas.SetTop(SelectionRectangle, 0);
         InfoPanel.IsVisible = false;
         MainPanel.IsVisible = false;
-        SetScreenshot(null);
-        _image = null;
+        SetFrame(null);
+        _pendingFrame?.Dispose();
+        _pendingFrame = null;
+        _pendingScreen = null;
         _startPoint = new Point(0, 0);
+        _lastPointerPixel = default;
+        _releasedPointerPixel = default;
         _isSelecting = false;
         _currentScreen = null;
     }
 
-    /// 换掉整屏底图并释放上一张。整屏位图是全应用最大的一次分配,又每次截图都来一张,
+    /// 换掉整屏帧并释放上一帧。整屏位图是全应用最大的一次分配,又每次截图都来一张,
     /// 交给 GC 意味着连开几次截图就能堆出几百 MB。先把新值挂上界面、再释放旧值:
     /// 反过来做的话已释放的位图还挂在 Image.Source 上,下一帧渲染就撞上去
-    private void SetScreenshot(Bitmap? bitmap)
+    private void SetFrame(IScreenFrame? frame)
     {
-        Bitmap? stale = _screenshot;
-        if (ReferenceEquals(stale, bitmap)) return;
+        IScreenFrame? stale = _frame;
+        if (ReferenceEquals(stale, frame)) return;
 
-        _screenshot = bitmap;
-        ScreenshotImage.Source = bitmap;
+        _frame = frame;
+        ScreenshotImage.Source = frame?.Display;
         stale?.Dispose();
     }
 
@@ -282,29 +324,29 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     }
 
     /// <summary>
-    /// 执行全屏截图
+    /// 取得当前屏的整屏画面：优先用外部预抓好的一帧，否则现场抓取
     /// </summary>
     private async Task CaptureScreen()
     {
-        SetScreenshot(null);
+        SetFrame(null);
 
-        _image = await ScreenCaptureWin.CaptureAsync(App.ScreensService.MouseScreenIndex);
-        if (_image == null)
+        if (_pendingFrame != null)
         {
-            Log.Warning("Failed to capture screen");
+            var pending = _pendingFrame;
+            _pendingFrame = null;
+            SetFrame(pending);
+            return;
+        }
+
+        var screen = App.ScreensService.MouseScreen;
+        var frame = await ScreenFrameProvider.CaptureAsync(screen, App.ScreensService.MouseScreenIndex, this);
+        if (frame == null)
+        {
             Close();
             return;
         }
 
-        var image = await _image.ImageToBitmapAsync(); //await App.Clipboard.GetImageFromClipboard();
-        if (image == null)
-        {
-            Log.Warning("Failed to convert capture screen image to bitmap");
-            Close();
-            return;
-        }
-
-        SetScreenshot(image);
+        SetFrame(frame);
     }
 
     /// <summary>
@@ -313,34 +355,31 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     private void DoAreaCapture()
     {
         _isSelecting = false;
-        // Log.Warning(
-        //     $"{SelectionRectangle.Width} {SelectionRectangle.Height} startPoint:{_startPoint} currentPos:{App.ScreensService.MousePosition}");
-        if (_image is { Width: > 0, Height: > 0 } && _currentScreen != null && SelectionRectangle.Width > 0 &&
+        if (_frame != null && _currentScreen != null && SelectionRectangle.Width > 0 &&
             SelectionRectangle.Height > 0)
         {
             try
             {
-                PixelPoint startPixelPoint =
-                    PixelPoint.FromPoint(_startPoint, _currentScreen.Scaling);
+                // 起点与终点都来自本窗的指针事件，换算到桌面绝对像素后交给帧裁剪
+                var scaling = _currentScreen.Scaling;
+                var origin = _currentScreen.Bounds.Position;
+                PixelPoint startPixelPoint = origin + (PixelVector)PixelPoint.FromPoint(_startPoint, scaling);
+                PixelPoint endPixelPoint = _releasedPointerPixel;
 
-                // 计算实际起始点（确保起始点是左上角）
-                PixelPoint mousePosition = App.ScreensService.MousePosition;
-                int actualStartX = Math.Min(startPixelPoint.X, mousePosition.X);
-                int actualStartY = Math.Min(startPixelPoint.Y, mousePosition.Y);
+                var region = new PixelRect(
+                    Math.Min(startPixelPoint.X, endPixelPoint.X),
+                    Math.Min(startPixelPoint.Y, endPixelPoint.Y),
+                    (int)(SelectionRectangle.Width * scaling),
+                    (int)(SelectionRectangle.Height * scaling));
 
-                var childImage = _image[actualStartX, actualStartY,
-                    (int)(SelectionRectangle.Width * _currentScreen.Scaling),
-                    (int)(SelectionRectangle.Height * _currentScreen.Scaling)];
-                var image = childImage.ImageToBitmap();
-                // image.dp = new Size(SelectionRectangle.Width, SelectionRectangle.Height);
-
-                // UIManager.ShowPreviewImageWindowAtMousePosition(image,
-                //     new Size(SelectionRectangle.Width, SelectionRectangle.Height));
-
-                // 落盘只是借用,必须排在移交之前:下一句起这张图就归预览窗了,它随时可能被释放
-                App.Clipboard.RecordImageToHistory(image);
-                //校正截图的上下左右不同方向拖动方式
-                UIManager.ShowPreviewImageWindowAtMousePosition(image, PixelPoint.FromPoint(_startPoint, App.ScreensService.Scaling), App.ScreensService.MouseReleasedPosition);
+                var image = _frame.Crop(region);
+                if (image != null)
+                {
+                    // 落盘只是借用,必须排在移交之前:下一句起这张图就归预览窗了,它随时可能被释放
+                    App.Clipboard.RecordImageToHistory(image);
+                    //校正截图的上下左右不同方向拖动方式
+                    UIManager.ShowPreviewImageWindowAtMousePosition(image, startPixelPoint, endPixelPoint);
+                }
             }
             catch (Exception e)
             {

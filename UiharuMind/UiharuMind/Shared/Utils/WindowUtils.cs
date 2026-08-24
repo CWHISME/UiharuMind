@@ -30,10 +30,19 @@ public static class WindowUtils
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment verticalAlignment = VerticalAlignment.Top, double width = 0, double height = 0, int offsetX = 0, int offsetY = 0)
     {
-        var pos = App.ScreensService.MousePosition;
         var fallbackSize = GetMeasuredWindowSize(window);
         if (width <= 0 || double.IsNaN(width) || double.IsInfinity(width)) width = fallbackSize.Width;
         if (height <= 0 || double.IsNaN(height) || double.IsInfinity(height)) height = fallbackSize.Height;
+
+        // 纯 Wayland 下客户端无法查询全局光标位置，此时按鼠标定位只会把窗口丢到一个陈旧坐标上，
+        // 不如落到当前屏中央——所有依赖本方法的弹窗因此得到统一的降级行为
+        if (!App.ScreensService.IsMousePositionReliable)
+        {
+            SetWindowToScreenCenter(window, new Size(width, height));
+            return;
+        }
+
+        var pos = App.ScreensService.MousePosition;
         Dispatcher.UIThread.Invoke(() =>
         {
             var windowWidth = width;
@@ -67,6 +76,25 @@ public static class WindowUtils
 
             var finalPos = new PixelPoint((int)(posX + offsetX * scaling), (int)(posY + offsetY * scaling));
             window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, new Size(windowWidth, windowHeight));
+        }, DispatcherPriority.MaxValue);
+    }
+
+    /// <summary>
+    /// 把窗口放到当前活动屏的中央，用作鼠标位置不可用时的降级落点
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <param name="size">窗口尺寸（DIP）</param>
+    private static void SetWindowToScreenCenter(Window window, Size size)
+    {
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            var screen = App.ScreensService.GetSafeActivationScreen();
+            var bounds = screen.Bounds;
+            var scaling = screen.Scaling;
+            var finalPos = new PixelPoint(
+                bounds.X + (int)((bounds.Width - size.Width * scaling) / 2),
+                bounds.Y + (int)((bounds.Height - size.Height * scaling) / 2));
+            window.Position = UiUtils.EnsurePositionWithinScreen(finalPos, size);
         }, DispatcherPriority.MaxValue);
     }
 

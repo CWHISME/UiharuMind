@@ -12,69 +12,87 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.Utils;
+using UiharuMind.Core.Core.UiharuScreenCapture.Portal;
 
 namespace UiharuMind.Core.Core.UiharuScreenCapture;
 
 /// <summary>
-/// Linux 截屏后端：按桌面环境探测选择原生 CLI 做交互式选区，产出 PNG 流。
-/// Wayland 下应用无法自绘选区遮罩，交互交给系统工具完成。
+/// Linux 整屏抓取：统一走 xdg-desktop-portal 的 Screenshot 接口。
+///
+/// 不再保留 gnome-screenshot / spectacle / scrot 等 CLI 分支：GNOME 49 起
+/// gnome-screenshot 因失去私有 API 访问权而完全失效，且 CLI 的交互式选区会顶掉
+/// 应用自己的选区 UI。grim 仅作为 Portal 缺席时的 wlroots 兜底保留。
 /// </summary>
 public class ScreenCaptureLinux : IScreenCapture
 {
-    public async Task<Stream?> CaptureRegionAsync()
+    private readonly ScreenshotPortalClient _portalClient = new();
+
+    /// <summary>
+    /// 探测 xdg-desktop-portal 后端是否在线，供权限引导界面区分失败原因
+    /// </summary>
+    /// <returns>后端在线返回 true</returns>
+    public static Task<bool> IsPortalAvailableAsync()
     {
-        var tmp = Path.Combine(Path.GetTempPath(), $"UiharuCapture_{Guid.NewGuid():N}.png");
-        var (tool, args) = ResolveCommand(tmp);
-        if (tool == null)
+        return ScreenshotPortalClient.IsPortalAvailableAsync();
+    }
+
+    public async Task<Stream?> CaptureFullScreenAsync(string parentWindowHandle)
+    {
+        var (status, uri) = await _portalClient.RequestScreenshotAsync(parentWindowHandle);
+        if (status != PortalStatus.Success || uri == null)
         {
-            Log.Error("Linux 未找到可用的截屏工具（需 gnome-screenshot / spectacle / grim / scrot 之一）。");
+            if (status == PortalStatus.Unavailable) return await CaptureWithGrimAsync();
             return null;
         }
 
-        var ok = await ProcessHelper.StartProcess(tool, args);
-        if (!ok || !File.Exists(tmp))
-        {
-            Log.Error($"通过 {tool} 截屏失败。");
-            return null;
-        }
+        return await ReadAndDeleteAsync(UriToPath(uri));
+    }
+
+    /// Portal 交出的是 XDG_RUNTIME_DIR 下的临时文件，读完必须删掉，否则每次截图都留一份整屏原图
+    private static async Task<Stream?> ReadAndDeleteAsync(string? path)
+    {
+        if (path == null || !File.Exists(path)) return null;
 
         try
         {
-            var bytes = await File.ReadAllBytesAsync(tmp);
+            var bytes = await File.ReadAllBytesAsync(path);
             return new MemoryStream(bytes);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"读取截图文件失败：{e.Message}");
+            return null;
         }
         finally
         {
-            File.Delete(tmp);
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception)
+            {
+                // 删不掉不影响本次截图
+            }
         }
     }
 
-    private static (string? tool, string args) ResolveCommand(string tmp)
+    private static string? UriToPath(string uri)
     {
-        switch (PlatformUtils.DesktopEnvironment)
+        return Uri.TryCreate(uri, UriKind.Absolute, out var parsed) && parsed.IsFile ? parsed.LocalPath : null;
+    }
+
+    /// wlroots 系（sway/Hyprland）在没装 portal 后端时仍可用 grim，作为最后兜底
+    private static async Task<Stream?> CaptureWithGrimAsync()
+    {
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"UiharuCapture_{Guid.NewGuid():N}.png");
+        var succeeded = await Process.ProcessHelper.StartProcess("grim", temporaryPath);
+        if (!succeeded || !File.Exists(temporaryPath))
         {
-            case LinuxDesktopEnvironment.Gnome:
-                return ("gnome-screenshot", $"-a -f {tmp}");
-            case LinuxDesktopEnvironment.Kde:
-                return ("spectacle", $"-a -o {tmp}");
-            case LinuxDesktopEnvironment.Wlr:
-                if (IsCommandAvailable("slurp"))
-                    return ("bash", $"-c \"grim -g $(slurp) {tmp}\"");
-                return ("grim", tmp);
-            default:
-                if (PlatformUtils.IsWayland)
-                    return ("grim", tmp);
-                if (IsCommandAvailable("scrot"))
-                    return ("scrot", $"-s {tmp}");
-                return ("gnome-screenshot", $"-a -f {tmp}");
+            Log.Error("Portal 不可用且 grim 也未能截图，请安装 xdg-desktop-portal 对应后端。");
+            return null;
         }
-    }
 
-    private static bool IsCommandAvailable(string command)
-    {
-        return ProcessHelper.StartProcess("which", command).GetAwaiter().GetResult();
+        return await ReadAndDeleteAsync(temporaryPath);
     }
 }

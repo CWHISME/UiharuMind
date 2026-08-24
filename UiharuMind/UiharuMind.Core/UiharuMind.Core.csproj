@@ -49,6 +49,9 @@
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
       <PackageReference Include="SharpCompress" Version="0.49.1" />
       <PackageReference Include="SharpHook" Version="7.1.3" />
+      <!-- Avalonia.FreeDesktop 已传递引入同一版本，这里显式声明是因为 Core 不引用 Avalonia，
+           而 Wayland 下的截图必须经 xdg-desktop-portal 的 D-Bus 接口 -->
+      <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
       <PackageReference Include="UTF.Unknown" Version="2.6.0" />
       <PackageReference Include="WebLookup" Version="0.2.1" />
     </ItemGroup>

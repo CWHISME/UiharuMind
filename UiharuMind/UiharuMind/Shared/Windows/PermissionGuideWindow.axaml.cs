@@ -1,23 +1,21 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Services.Permissions;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Input;
 
 namespace UiharuMind.Shared.Windows;
 
 public partial class PermissionGuideWindow : UiharuWindowBase
 {
+    private readonly IPlatformPermissionProvider _permissionProvider = PlatformPermissionProviderFactory.Create();
     private bool _firstActivation = true;
     private bool _hookFailed;
     private bool _skipCloseCheck;
@@ -26,8 +24,7 @@ public partial class PermissionGuideWindow : UiharuWindowBase
     {
         InitializeComponent();
 
-        AccessibilitySettingsButton.Click += OnOpenAccessibilitySettings;
-        ScreenRecordingSettingsButton.Click += OnOpenScreenRecordingSettings;
+        PermissionItemsControl.ItemsSource = _permissionProvider.Items;
         SkipButton.Click += OnActionButton;
 
         Activated += OnWindowActivated;
@@ -46,70 +43,14 @@ public partial class PermissionGuideWindow : UiharuWindowBase
         TryHook();
     }
 
-    private void RefreshPermissions()
+    private async void RefreshPermissions()
     {
-        if (PlatformUtils.IsMacOS)
-        {
-            UpdatePermissionStatus(
-                MacPermissionService.IsAccessibilityGranted(),
-                AccessibilityStatusDot,
-                AccessibilityStatusText,
-                AccessibilitySettingsButton);
-
-            UpdatePermissionStatus(
-                MacPermissionService.IsScreenRecordingGranted(),
-                ScreenRecordingStatusDot,
-                ScreenRecordingStatusText,
-                ScreenRecordingSettingsButton);
-        }
-        else
-        {
-            UpdatePermissionStatus(true, AccessibilityStatusDot, AccessibilityStatusText, AccessibilitySettingsButton);
-            UpdatePermissionStatus(true, ScreenRecordingStatusDot, ScreenRecordingStatusText, ScreenRecordingSettingsButton);
-        }
-    }
-
-    private static void UpdatePermissionStatus(
-        bool granted,
-        Ellipse statusDot,
-        TextBlock statusText,
-        Button settingsButton)
-    {
-        if (granted)
-        {
-            statusDot.Classes.Clear();
-            statusDot.Classes.Add("StatusDotGranted");
-            statusText.Classes.Clear();
-            statusText.Classes.Add("StatusGranted");
-            statusText.Text = LocalizationManager.Instance.GetString("PermissionGranted");
-            settingsButton.IsVisible = false;
-        }
-        else
-        {
-            statusDot.Classes.Clear();
-            statusDot.Classes.Add("StatusDotDenied");
-            statusText.Classes.Clear();
-            statusText.Classes.Add("StatusDenied");
-            statusText.Text = LocalizationManager.Instance.GetString("PermissionNotGranted");
-            settingsButton.IsVisible = true;
-        }
-    }
-
-    private void OnOpenAccessibilitySettings(object? sender, RoutedEventArgs e)
-    {
-        if (PlatformUtils.IsMacOS)
-            MacPermissionService.OpenAccessibilitySettings();
-    }
-
-    private void OnOpenScreenRecordingSettings(object? sender, RoutedEventArgs e)
-    {
-        if (PlatformUtils.IsMacOS)
-            MacPermissionService.OpenScreenRecordingSettings();
+        await _permissionProvider.RefreshAsync();
     }
 
     private void TryHook()
     {
-        if (!MacPermissionService.IsAccessibilityGranted()) return;
+        if (!_permissionProvider.IsInputHookAllowed) return;
         InputManager.Instance.Start(OnQuickKeyInitFailure);
     }
 
@@ -187,7 +128,7 @@ public partial class PermissionGuideWindow : UiharuWindowBase
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        if (!_hookFailed && MacPermissionService.IsAccessibilityGranted())
+        if (!_hookFailed && _permissionProvider.IsInputHookAllowed)
         {
             InputManager.Instance.Start(() => { });
         }

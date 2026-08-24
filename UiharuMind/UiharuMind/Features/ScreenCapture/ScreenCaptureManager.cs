@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using UiharuMind.Features.ScreenCapture.Frames;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.Process;
@@ -54,7 +55,7 @@ public static class ScreenCaptureManager
 
         if (UiharuCoreManager.Instance.IsLinux)
         {
-            await GetLinuxScreenCapture();
+            await ShowLinuxCaptureOverlay();
             return;
         }
 
@@ -92,17 +93,21 @@ public static class ScreenCaptureManager
     }
 
     /// <summary>
-    /// Linux 专用，调用桌面环境原生 CLI 截屏（交互式选区）后读取图像显示
+    /// Linux 专用：先经 Portal 抓一张整屏，再把它当冻结底图交给自绘的选区遮罩窗。
+    /// 顺序不能反——Portal 抓的是"当前桌面"，遮罩窗一旦显示就会把自己也抓进去。
     /// </summary>
-    public static async Task GetLinuxScreenCapture()
+    private static async Task ShowLinuxCaptureOverlay()
     {
-        using var stream = await new ScreenCaptureLinux().CaptureRegionAsync();
-        if (stream == null) return;
+        var screen = App.ScreensService.MouseScreen;
+        var frame = await ScreenFrameProvider.CaptureAsync(screen, App.ScreensService.MouseScreenIndex,
+            App.DummyWindow);
+        if (frame == null)
+        {
+            UIManager.ShowWindow<PermissionGuideWindow>();
+            return;
+        }
 
-        var bitmap = new Bitmap(stream);
-        App.Clipboard.RecordImageToHistory(bitmap);
-        UIManager.ShowPreviewImageWindowAtMousePosition(bitmap, App.ScreensService.MousePressedPosition,
-            App.ScreensService.MouseReleasedPosition);
+        UIManager.ShowWindow<ScreenCaptureWindow>(window => window.SetPreCapturedFrame(frame, screen));
     }
 
     public static async void OpenOcr(string filePath, int width, int height)

@@ -19,7 +19,9 @@ using SharpHook.Data;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core;
 using UiharuMind.Core.Input;
+using UiharuMind.Core.Input.Linux;
 using UiharuMind.Features.ScreenCapture;
 
 namespace UiharuMind.Shared.Services;
@@ -39,9 +41,19 @@ public class ScreensService
     /// </summary>
     public PixelPoint MousePosition
     {
-        get => new(InputManager.MouseData.X, InputManager.MouseData.Y);
+        get
+        {
+            var (x, y) = InputManager.GetPointerPosition();
+            return new PixelPoint(x, y);
+        }
         set => InputManager.MouseData = new MouseEventData() { X = (short)value.X, Y = (short)value.Y };
     }
+
+    /// <summary>
+    /// 全局鼠标位置当前是否可信。
+    /// 纯 Wayland 下客户端无法查询全局光标位置，此时「在鼠标处弹出」的窗口应退化为居中显示。
+    /// </summary>
+    public bool IsMousePositionReliable => InputManager.IsPointerPositionAvailable;
 
     /// <summary>
     /// 上一鼠标按下的像素位置
@@ -69,6 +81,24 @@ public class ScreensService
     public ScreensService(Window target)
     {
         _target = target;
+        SyncLinuxDesktopMetrics();
+    }
+
+    /// <summary>
+    /// 把虚拟桌面尺寸同步给 Core。
+    /// uinput 的绝对定位设备用归一化坐标，只有知道桌面多大才能把像素换算过去，
+    /// 而这个尺寸只有 UI 层拿得到。
+    /// </summary>
+    public void SyncLinuxDesktopMetrics()
+    {
+        if (!UiharuCoreManager.Instance.IsLinux) return;
+
+        var screens = _target.Screens.All;
+        if (screens.Count == 0) return;
+
+        int right = screens.Max(screen => screen.Bounds.Right);
+        int bottom = screens.Max(screen => screen.Bounds.Bottom);
+        LinuxDesktopMetrics.Update(right, bottom);
     }
 
     /// <summary>

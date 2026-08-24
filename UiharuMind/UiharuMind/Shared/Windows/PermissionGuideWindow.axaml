@@ -77,63 +77,49 @@
                            FontStyle="Italic"
                            Margin="0,0,0,4" />
 
-                <Border Classes="CardSection">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-                        <Border Width="36" Height="36" CornerRadius="8"
-                                Background="{DynamicResource SemiGrey2}"
-                                VerticalAlignment="Center"
-                                HorizontalAlignment="Center">
-                            <controls:ThemedSvgIcon Width="20" Height="20" IconName="settings"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{loc:Loc PermissionAccessibility}" Classes="PermissionName" />
-                            <TextBlock Text="{loc:Loc PermissionAccessibilityDesc}"
-                                       Classes="PermissionDesc" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                         Name="AccessibilityStatusDot" />
-                                <TextBlock Name="AccessibilityStatusText" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <Button Name="AccessibilitySettingsButton"
-                                    FontSize="11" Padding="8,3"
-                                    IsVisible="False"
-                                    Content="{loc:Loc PermissionOpenSettings}" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <Border Classes="CardSection">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-                        <Border Width="36" Height="36" CornerRadius="8"
-                                Background="{DynamicResource SemiGrey2}"
-                                VerticalAlignment="Center"
-                                HorizontalAlignment="Center">
-                            <controls:ThemedSvgIcon Width="20" Height="20" IconName="image"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                            <TextBlock Text="{loc:Loc PermissionScreenRecording}" Classes="PermissionName" />
-                            <TextBlock Text="{loc:Loc PermissionScreenRecordingDesc}"
-                                       Classes="PermissionDesc" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                                         Name="ScreenRecordingStatusDot" />
-                                <TextBlock Name="ScreenRecordingStatusText" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <Button Name="ScreenRecordingSettingsButton"
-                                    FontSize="11" Padding="8,3"
-                                    IsVisible="False"
-                                    Content="{loc:Loc PermissionOpenSettings}" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
+                <ItemsControl Name="PermissionItemsControl">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="12" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Classes="CardSection">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                    <Border Width="36" Height="36" CornerRadius="8"
+                                            Background="{DynamicResource SemiGrey2}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center">
+                                        <controls:ThemedSvgIcon Width="20" Height="20"
+                                                                IconName="{Binding IconName}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{Binding Name}" Classes="PermissionName" />
+                                        <TextBlock Text="{Binding Description}" Classes="PermissionDesc" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                                    HorizontalAlignment="Right">
+                                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                                     Classes.StatusDotGranted="{Binding IsGranted}"
+                                                     Classes.StatusDotDenied="{Binding !IsGranted}" />
+                                            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"
+                                                       Classes.StatusGranted="{Binding IsGranted}"
+                                                       Classes.StatusDenied="{Binding !IsGranted}" />
+                                        </StackPanel>
+                                        <Button FontSize="11" Padding="8,3"
+                                                IsVisible="{Binding IsActionVisible}"
+                                                Command="{Binding ActionCommand}"
+                                                Content="{Binding ActionLabel}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
             </StackPanel>
         </ScrollViewer>
