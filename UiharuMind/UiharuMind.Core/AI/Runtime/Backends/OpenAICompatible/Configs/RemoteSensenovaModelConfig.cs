@@ -19,7 +19,8 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
         new Dictionary<string, RemoteModelIdVariant>
         {
             ["deepseek-v4-flash"] = new(ContextLength: 1048576),
-            ["sensenova-6.7-flash-lite"] = new(ContextLength: 262144, true),
+            ["glm-5.2"] = new(ContextLength: 1048576),
+            ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, true),
         };
 
     public override int Port { get; set; }
