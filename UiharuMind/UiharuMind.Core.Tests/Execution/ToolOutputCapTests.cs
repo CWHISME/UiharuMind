@@ -95,14 +95,16 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "haystack.txt");
         await File.WriteAllLinesAsync(path, Enumerable.Range(1, 300).Select(i => $"needle {i}"));
 
-        List<FileSearchResult> results = await _tools.Grep("needle");
+        GrepToolResult result = await _tools.Grep("needle");
 
-        // 按文件聚合:300 处命中来自同一个文件 → 一条文件条目 + 一条哨兵
-        Assert.Equal(2, results.Count);
-        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches, results[0].MatchingLines.Count);
-        Assert.Equal("[truncated]", results[^1].FileName);
-        Assert.Contains("100 more", results[^1].Snippet);
-        Assert.Contains("Narrow the query", results[^1].Snippet);
+        // 按文件聚合:300 处命中来自同一个文件 → 一条文件条目。
+        // 截断的说明走 Notice 而不再是一条 FileName = "[truncated]" 的假命中:
+        // 假条目让模型分不清"这是一处命中"和"这是一句话"
+        FileSearchResult file = Assert.Single(result.Matches);
+        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches, file.MatchingLines.Count);
+        Assert.NotNull(result.Notice);
+        Assert.Contains("100 more", result.Notice);
+        Assert.Contains("Narrow the query", result.Notice);
     }
 
     /// <summary>
@@ -115,9 +117,9 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "ctx.txt");
         await File.WriteAllLinesAsync(path, ["l1", "l2", "target", "l4", "l5"]);
 
-        List<FileSearchResult> results = await _tools.Grep("target", contextLines: 1);
+        GrepToolResult result = await _tools.Grep("target", contextLines: 1);
 
-        FileSearchResult file = Assert.Single(results);
+        FileSearchResult file = Assert.Single(result.Matches);
         Assert.Equal([2, 3, 4], file.MatchingLines.Select(x => x.LineNumber).ToArray());
         Assert.Equal(["l2", "target", "l4"], file.MatchingLines.Select(x => x.Line).ToArray());
     }
@@ -129,9 +131,9 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "dense.txt");
         await File.WriteAllLinesAsync(path, ["hit", "hit", "hit"]);
 
-        List<FileSearchResult> results = await _tools.Grep("hit", contextLines: 2);
+        GrepToolResult result = await _tools.Grep("hit", contextLines: 2);
 
-        FileSearchResult file = Assert.Single(results);
+        FileSearchResult file = Assert.Single(result.Matches);
         Assert.Equal([1, 2, 3], file.MatchingLines.Select(x => x.LineNumber).ToArray());
     }
 

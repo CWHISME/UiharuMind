@@ -74,8 +74,12 @@ internal static class AgentAssembler
         List<AgentToolEntry> toolEntries = BuildTools(plan, client, shellExecutor);
         chatOptions.Tools = toolEntries.Select(x => x.Tool).ToList();
 
+        // 构造后即可读,不必等 InitializeAsync(实测)。读不到就不写那一句——
+        // 宁可不说,也不能告诉模型一个错的 shell
+        string shellBinary = shellExecutor?.ResolvedShellBinary ?? string.Empty;
+
         HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan, history, contextProviders,
-            chatOptions, out IReadOnlyList<AgentPromptSegment> promptSegments);
+            chatOptions, shellBinary, out IReadOnlyList<AgentPromptSegment> promptSegments);
         return BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments,
             plan.InputEstimate);
     }

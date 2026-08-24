@@ -111,13 +111,13 @@ internal static class AgentOptionsFactory
     /// <returns>框架选项</returns>
     internal static HarnessAgentOptions BuildAgentOptions(AgentAssemblyPlan plan,
         ChatHistoryProvider history, List<AIContextProvider> contextProviders, ChatOptions chatOptions,
-        out IReadOnlyList<AgentPromptSegment> promptSegments)
+        string shellBinary, out IReadOnlyList<AgentPromptSegment> promptSegments)
     {
         CharacterData character = plan.Character;
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
-            out promptSegments);
+            shellBinary, out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Glacier.Grep;
 
 namespace UiharuMind.Core.AI.Execution.Files;
@@ -51,22 +52,29 @@ public sealed class SimpleGrepper
 
     public SimpleGrepper(string workspaceRoot)
     {
-        _rootDirectory = workspaceRoot;
+        _rootDirectory = Path.GetFullPath(workspaceRoot);
     }
 
     /// <summary>
-    /// 搜索文本
+    /// 搜索文本。<b>失败与"搜到 0 条"分开返回</b>，见 <see cref="GrepOutcome"/>。
+    ///
+    /// 从前这里有两个坑，都是"骗模型"级别的：目录不存在直接 <c>return new()</c>，
+    /// 与"这个词确实没有"完全无法区分——模型于是换个关键词在错目录里反复搜；
+    /// 引擎异常则被包装成一条 <c>FileName = ""</c> 的假命中，模型看到的是"有 1 条结果"。
+    ///
+    /// <paramref name="isRegex"/> 为 true 时先做一步 glob 味归一化，编译不过再降级为字面串，
+    /// 见 <see cref="NormalizeRegex"/>。
     /// </summary>
     /// <param name="query">要搜索的内容</param>
-    /// <param name="isRegex">为 true 时把 query 当正则，否则按字面量</param>
+    /// <param name="isRegex">为 true 时把 query 当正则（编译不过会自动降级为字面量），否则按字面量</param>
     /// <param name="caseSensitive">是否区分大小写</param>
     /// <param name="contextLines">命中行上下各带几行上下文</param>
     /// <param name="maxDepth">目录遍历最大深度（null 不限制）</param>
     /// <param name="fileGlobs">按<b>文件名</b>（不含路径）过滤，如 <c>*.cs</c>；null/空则不过滤</param>
     /// <param name="directory">搜索根：绝对路径直接用，相对路径拼工作区</param>
     /// <param name="ct">取消令牌</param>
-    /// <returns>命中列表，每处命中一条</returns>
-    public async Task<List<GrepMatchResult>> SearchAsync(
+    /// <returns>命中列表与失败原因</returns>
+    public async Task<GrepOutcome> SearchAsync(
         string query,
         bool isRegex = false,
         bool caseSensitive = false,
@@ -76,21 +84,45 @@ public sealed class SimpleGrepper
         string? directory = null,
         CancellationToken ct = default)
     {
-        // 外部绝对路径直接当搜索根，否则拼 workspace
-        string target = string.IsNullOrWhiteSpace(directory)
-            ? _rootDirectory
-            : Path.IsPathFullyQualified(directory)
-                ? Path.GetFullPath(directory)
-                : Path.GetFullPath(Path.Combine(_rootDirectory, directory));
+        string target = SearchRoot.Resolve(_rootDirectory, directory);
 
         if (!Directory.Exists(target))
-            return new();
+        {
+            return new GrepOutcome
+            {
+                ResolvedDirectory = target,
+                EffectiveQuery = query,
+                Failure = new SearchFailure
+                {
+                    Kind = ESearchFailureKind.DirectoryNotFound,
+                    RequestedDirectory = directory,
+                    ResolvedDirectory = target,
+                    WorkingDirectory = _rootDirectory,
+                    Pattern = query,
+                },
+            };
+        }
+
+        string effective = query;
+        bool fellBack = false;
+        if (isRegex)
+        {
+            effective = NormalizeRegex(query);
+            if (!IsCompilableRegex(effective))
+            {
+                // 降级而不是报错:模型写的多半是想当通配符用的字面串,按字面搜正是它要的东西。
+                // 但降级这件事必须回报给模型,否则它对"为什么少了几条命中"会推错
+                effective = query;
+                isRegex = false;
+                fellBack = true;
+            }
+        }
 
         try
         {
             var engine = new SearchEngine(target);
             List<SearchResult> matches = await engine.SearchAsync(
-                query: query,
+                query: effective,
                 isRegex: isRegex,
                 caseSensitive: caseSensitive,
                 contextLines: contextLines,
@@ -103,17 +135,79 @@ public sealed class SimpleGrepper
                 ct.ThrowIfCancellationRequested();
                 results.Add(new GrepMatchResult
                 {
-                    FileName = match.FilePath,
+                    // 引擎回的是相对搜索根的路径,换算成相对工作区——否则缩了 directory 之后
+                    // 回来的路径喂给 Read 会解析到别处(见 SearchRoot.ToPortablePath)
+                    FileName = SearchRoot.ToPortablePath(_rootDirectory, Path.Combine(target, match.FilePath)),
                     Snippet = match.MatchContent?.TrimEnd() ?? "",
                     MatchingLines = BuildLines(match),
                 });
             }
 
-            return results;
+            return new GrepOutcome
+            {
+                Matches = results,
+                ResolvedDirectory = target,
+                FellBackToLiteral = fellBack,
+                EffectiveQuery = effective,
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw; //取消是正常流程,由调用方处理,不该伪装成一次搜索失败
         }
         catch (Exception ex)
         {
-            return new() { new() { FileName = "", Snippet = $"Search failed: {ex.Message}" } };
+            return new GrepOutcome
+            {
+                ResolvedDirectory = target,
+                EffectiveQuery = effective,
+                FellBackToLiteral = fellBack,
+                Failure = new SearchFailure
+                {
+                    Kind = ESearchFailureKind.EngineFailed,
+                    RequestedDirectory = directory,
+                    ResolvedDirectory = target,
+                    WorkingDirectory = _rootDirectory,
+                    Pattern = effective,
+                    Detail = ex.Message,
+                },
+            };
+        }
+    }
+
+    /// <summary>
+    /// glob 味归一化：把无从量化的前导 <c>*</c> 补成 <c>.*</c>。
+    ///
+    /// 实测模型偏爱写 <c>*Foo</c>、<c>*Foo*</c> 这种半 glob 半正则的东西，而它<b>两条路都不通</b>：
+    /// 当正则非法（<c>Quantifier '*' following nothing</c>），当字面串也搜不到。
+    /// 补成 <c>.*Foo</c> 才是它真正想表达的意思。
+    ///
+    /// <b>只动首尾这一处</b>：中间的 <c>*</c> 前面总有东西可量化，那是合法正则，
+    /// 替换它反而会改掉一个本来写对了的表达式的语义。
+    /// </summary>
+    /// <param name="query">调用方给的表达式</param>
+    /// <returns>归一化之后的表达式</returns>
+    internal static string NormalizeRegex(string query)
+    {
+        if (string.IsNullOrEmpty(query)) return query;
+
+        string result = query;
+        if (result.StartsWith('*')) result = "." + result;
+        // 尾随的 * 本身是合法的(前面有东西可量化);只有 "foo**" 这种连着两个才无从量化
+        if (result.EndsWith("**")) result = result[..^1];
+        return result;
+    }
+
+    private static bool IsCompilableRegex(string pattern)
+    {
+        try
+        {
+            _ = new Regex(pattern);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
         }
     }
 

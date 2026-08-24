@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -102,20 +103,30 @@ public partial class SearchViewModel : ViewModelBase
 
         try
         {
-            var results = await _searchService.SearchAsync(
+            SearchOutcome outcome = await _searchService.SearchAsync(
                 SearchQuery,
                 IsContentMode,
                 IsRegexMode,
                 IsCaseSensitive,
                 _searchCts.Token);
 
-            var display = results.Take(MaxResults).ToList();
+            // 失败要说出来。从前失败会伪装成一条搜索结果(目录不存在的提示串当文件名显示),
+            // 或者被静默吞成"0 结果"——两种都让用户分不清"没搜到"和"没搜成"
+            string? failureText = DescribeFailure(outcome);
+            if (failureText != null)
+            {
+                HasNoResults = true;
+                StatusMessage = failureText;
+                return;
+            }
+
+            var display = outcome.Items.Take(MaxResults).ToList();
             foreach (var item in display)
             {
                 Results.Add(item);
             }
 
-            var count = results.Count;
+            var count = outcome.Items.Count;
             HasNoResults = count == 0;
             StatusMessage = count > MaxResults
                 ? string.Format(LocalizationManager.Instance.GetString("FileSearchStatusResultFormat"), count) + $" (top {MaxResults})"
@@ -129,6 +140,37 @@ public partial class SearchViewModel : ViewModelBase
         {
             IsSearching = false;
         }
+    }
+
+    /// <summary>
+    /// 把失败原因渲染成状态行文案。同一份结构化事实，模型那侧由
+    /// <c>SearchFailureRenderer</c> 渲染成给模型看的英文说明，这里渲染成给用户看的本地化文案。
+    /// </summary>
+    /// <param name="outcome">一次搜索的结果</param>
+    /// <returns>失败文案；没失败则为 null</returns>
+    private static string? DescribeFailure(SearchOutcome outcome)
+    {
+        if (outcome.ErrorDetail != null)
+        {
+            return string.Format(LocalizationManager.Instance.GetString("FileSearchStatusFailed"),
+                outcome.ErrorDetail);
+        }
+
+        if (outcome.Failure == null) return null;
+
+        return outcome.Failure.Kind switch
+        {
+            ESearchFailureKind.DirectoryNotFound => string.Format(
+                LocalizationManager.Instance.GetString("FileSearchStatusDirectoryNotFound"),
+                outcome.Failure.ResolvedDirectory),
+            ESearchFailureKind.InvalidGlobPattern => string.Format(
+                LocalizationManager.Instance.GetString("FileSearchStatusInvalidPattern"),
+                outcome.Failure.Detail),
+            // 界面侧的 glob 会自动包成 **/*query*,所以"没有通配符"这一种在这里不会发生;
+            // 真落到这里就按通用失败报，总比静默好
+            _ => string.Format(LocalizationManager.Instance.GetString("FileSearchStatusFailed"),
+                outcome.Failure.Detail),
+        };
     }
 
     [RelayCommand]

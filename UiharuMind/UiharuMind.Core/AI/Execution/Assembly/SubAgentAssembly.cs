@@ -69,6 +69,9 @@ internal static class SubAgentAssembly
         /// </summary>
         public AITool? ShellTool { get; init; }
 
+        /// <summary>实际解析出来的 shell 可执行路径;没挂 shell 则为 null</summary>
+        public string? ShellBinary { get; init; }
+
         /// <summary>MCP 工具集(完全自动档才挂;它们可能改东西,较低档位下会卡在无人回应的审批上)</summary>
         public IReadOnlyList<AITool>? McpTools { get; init; }
 
@@ -99,7 +102,7 @@ internal static class SubAgentAssembly
         string workingDirectory = plan.WorkingDirectory;
         bool fullAuto = profile.PermissionMode == EAgentPermissionMode.FullAuto;
 
-        SubAgentAssemblyInput Probe(AITool? shellTool, IReadOnlyList<AITool>? mcpTools,
+        SubAgentAssemblyInput Probe(AITool? shellTool, string? shellBinary, IReadOnlyList<AITool>? mcpTools,
             AgentToolConfig effectiveConfig, string persona, string name) => new()
         {
             Compaction = plan.Compaction,
@@ -111,6 +114,7 @@ internal static class SubAgentAssembly
             PermissionMode = profile.PermissionMode,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
+            ShellBinary = shellBinary,
             McpTools = mcpTools,
             // 自述绑在工具上:没给工具就不该给用法,那只是白占上下文
             McpInstructions = mcpTools == null ? string.Empty : plan.Mcp.Instructions,
@@ -119,7 +123,7 @@ internal static class SubAgentAssembly
         };
 
         // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
-        if (BuildSubAgentOptions(Probe(null, null, config, string.Empty, string.Empty)) == null) return null;
+        if (BuildSubAgentOptions(Probe(null, null, null, config, string.Empty, string.Empty)) == null) return null;
 
         IReadOnlyList<CharacterData> mounted = plan.MountedAgents;
         List<SubAgentChoice> roster = mounted
@@ -152,7 +156,7 @@ internal static class SubAgentAssembly
 
             // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
             return AgentAssembler.BuildHandle(client,
-                BuildSubAgentOptions(Probe(shellTool, mcpTools, effective, persona, name))!, shellExecutor);
+                BuildSubAgentOptions(Probe(shellTool, shellExecutor?.ResolvedShellBinary, mcpTools, effective, persona, name))!, shellExecutor);
         }, roster, profile.ActivitySink);
     }
 
@@ -189,6 +193,9 @@ internal static class SubAgentAssembly
         }
 
         bool hasVision = config.EnableVisionTool && input.VisionToolAvailable;
+        // 与 hasVision 同一口径:纪律段里指名的工具必须真的在这份工具集里(有不变量测试钉住),
+        // 所以判据取"装配结果"而不是"配置意图"——shell 只在完全自动档随 ShellTool 挂上
+        bool hasShell = canMutate && input.ShellTool != null;
         if (hasVision)
         {
             tools.Add(VisionTool.Create(input.WorkingDirectory));
@@ -223,7 +230,8 @@ internal static class SubAgentAssembly
         };
         options.ChatOptions = new ChatOptions
         {
-            Instructions = BuildSubAgentInstructions(config, hasVision, canMutate,
+            Instructions = BuildSubAgentInstructions(config, hasVision, hasShell,
+                input.ShellBinary ?? string.Empty, canMutate,
                 input.WorkingDirectory, input.WorkspaceInstructions, input.McpInstructions, input.Persona),
             Tools = tools,
         };
@@ -244,12 +252,15 @@ internal static class SubAgentAssembly
     /// </summary>
     /// <param name="config">能力配置</param>
     /// <param name="hasVision">识图工具是否已装配</param>
+    /// <param name="hasShell">命令行工具是否已装配</param>
+    /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
     /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <param name="mcpInstructions">MCP server 自述（与主 agent 同一份）</param>
     /// <returns>提示词</returns>
-    private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool canMutate,
+    private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool hasShell,
+        string shellBinary, bool canMutate,
         string workingDirectory, string workspaceInstructions, string mcpInstructions, string persona = "")
     {
         StringBuilder sb = new();
@@ -261,43 +272,47 @@ internal static class SubAgentAssembly
             sb.AppendLine();
         }
 
-        sb.AppendLine("# Role");
-        sb.AppendLine("You are a sub-agent of UiharuMind, delegated one task by the main agent. "
-                      + "You work alone and report back.");
+        sb.AppendLine(AgentPromptHeadings.SubAgentRole);
+        sb.AppendLine("你是 UiharuMind 的子代理，主 agent 派给你一件任务。你独立干完，然后回报。");
+        // 护栏句:本段整段中文,而子代理连一句用户原话都看不到,更容易被提示词的语言带跑
+        sb.AppendLine(AgentToolPrompts.LanguageNeutrality);
         sb.AppendLine();
-        sb.AppendLine("# Method");
+        sb.AppendLine(AgentPromptHeadings.SubAgentMethod);
         if (config.EnableFileAccess)
         {
-            sb.AppendLine($"- You can explore workspace files with `{FileToolNames.Glob}`, "
-                          + $"`{FileToolNames.Grep}` and "
-                          + $"`{FileToolNames.Read}`.");
+            sb.AppendLine($"- 你可以用 `{FileToolNames.Glob}`、`{FileToolNames.Grep}` 和 "
+                          + $"`{FileToolNames.Read}` 探查工作区里的文件。");
         }
 
         if (config.EnableWebSearch)
         {
-            sb.AppendLine($"- You can Research the web with `{WebSearchTool.ToolName}`, "
-                          + $"then `{WebFetchTool.ToolName}` the promising results.");
+            sb.AppendLine($"- 你可以用 `{WebSearchTool.ToolName}` 查网上的资料，"
+                          + $"再对看着有戏的结果用 `{WebFetchTool.ToolName}` 取正文。");
         }
 
         if (hasVision)
         {
-            sb.AppendLine($"- For image files, call `{VisionTool.ToolName}` with the file path.");
+            sb.AppendLine($"- 遇到图片文件，拿文件路径调用 `{VisionTool.ToolName}`。");
         }
 
         // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
         sb.AppendLine(canMutate
-            ? "- You may change things, but only what the task asks for. Nothing else."
-            : "- You are read-only: you cannot write files and have no shell. Report what should change; "
-              + "the main agent makes the edits.");
-        sb.AppendLine("- You cannot ask for clarification and nobody will approve anything for you. "
-                      + "Work with what the task gives you.");
-        sb.AppendLine("- Return a focused report: conclusions first, then the evidence (paths, URLs, quotes).");
+            ? "- 你可以改东西，但只改任务要求的那些，别的一概不动。"
+            : "- 你是只读的：写不了文件，也没有 shell。把该改什么报上来，由主 agent 去改。");
+        // 完全自动档的子代理拿的是同一个 Shell,不该是全场唯一不知道怎么用它的人
+        if (hasShell)
+        {
+            sb.AppendLine(AgentToolPrompts.BuildShell(config.EnableFileAccess, shellBinary));
+        }
+
+        sb.AppendLine("- 你没法问人要说明，也不会有人替你批准任何操作。就拿任务里给的东西干。");
+        sb.AppendLine("- 回一份聚焦的报告：先给结论，再给依据（路径、链接、原文）。");
         sb.AppendLine();
         sb.Append(AgentToolPrompts.AgentWorkLoop);
 
         // 与主 agent 同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
         // 没有任何线索能反推出根目录在哪。段落正文经 AgentInstructionsComposer 共用,
-        // 这里只是没有 # Tools 那层外壳,故标题用一级
+        // 这里只是没有 # 工具 那层外壳,故标题用一级
         if (workingDirectory.Length > 0)
         {
             sb.AppendLine();

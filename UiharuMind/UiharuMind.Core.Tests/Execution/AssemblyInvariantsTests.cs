@@ -221,17 +221,17 @@ public class HarnessInstructionsCompositionTests
 
         Assert.Equal(string.Empty, options.HarnessInstructions); //框架分层弃用,整段自己拼
         int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
-        int disciplines = instructions.IndexOf("## File operations", StringComparison.Ordinal);
+        int disciplines = instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal);
         Assert.True(persona >= 0, "角色人格丢了");
         Assert.True(disciplines > persona, "工具纪律必须排在角色人格之后");
         Assert.DoesNotContain("helpful AI assistant", instructions); //身份只由角色说
     }
 
     /// <summary>
-    /// 工具纪律段挂在自己的 <c># Tools</c> 父标题之下。
+    /// 工具纪律段挂在自己的 <c># 工具</c> 父标题之下。
     ///
-    /// 这不是排版洁癖：角色段（agent 档默认角色卡）以 <c># Work loop</c> 起头，
-    /// 工具纪律若像从前那样直接从 <c>## Working directory</c> 开始，
+    /// 这不是排版洁癖：角色段（agent 档默认角色卡）以 <c># 工作循环</c> 起头，
+    /// 工具纪律若像从前那样直接从 <c>## 工作目录</c> 开始，
     /// 按 markdown 结构读就整个成了「工作循环」的子节——层级说了一件与事实不符的事。
     /// </summary>
     [Fact]
@@ -240,18 +240,19 @@ public class HarnessInstructionsCompositionTests
         HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        int tools = instructions.IndexOf("# Tools", StringComparison.Ordinal);
+        int tools = instructions.IndexOf(AgentPromptHeadings.Tools, StringComparison.Ordinal);
         Assert.True(tools >= 0, "工具纪律段缺少父标题");
         //每个二级段都在父标题之后,没有一个跑到外面去
-        foreach (string section in new[] { "## Working directory", "## File operations" })
+        foreach (string section in new[]
+                 { AgentPromptHeadings.WorkingDirectory("##"), AgentPromptHeadings.FileOperations })
         {
             int at = instructions.IndexOf(section, StringComparison.Ordinal);
-            Assert.True(at > tools, $"{section} 跑到了 # Tools 之外");
+            Assert.True(at > tools, $"{section} 跑到了 {AgentPromptHeadings.Tools} 之外");
         }
     }
 
     /// <summary>
-    /// 一项工具纪律都没有时整段不出现：只挂一个空的 <c># Tools</c> 标题是纯噪声
+    /// 一项工具纪律都没有时整段不出现：只挂一个空的父标题是纯噪声
     /// </summary>
     [Fact]
     public void ToolDisciplines_AreOmittedEntirely_WhenNothingIsMounted()
@@ -262,11 +263,53 @@ public class HarnessInstructionsCompositionTests
             EnableVisionTool = false,
             EnableKnowledgeSearchTool = false,
             EnableSubAgent = false,
+            // 这一项从前漏在这里:它默认为 true,于是这份"什么都没挂"的配置其实挂着 shell。
+            // 从前看不出来是因为 shell 没有纪律段——它是唯一挂了工具却零指示的能力
+            EnableShellExecution = false,
         };
 
         HarnessAgentOptions options = BuildAgentOptions(string.Empty, nothing);
 
-        Assert.DoesNotContain("# Tools", options.ChatOptions?.Instructions ?? string.Empty);
+        Assert.DoesNotContain(AgentPromptHeadings.Tools, options.ChatOptions?.Instructions ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 命令行纪律段<b>不许指名文件工具</b>，除非文件工具也在场。
+    ///
+    /// 「shell 开、文件访问关」是这条的关键组合：那一段前两条讲的是「这件事该归 `Shell`
+    /// 还是归文件工具」，会指名 Read/Edit/Write，而那三个只随 <c>EnableFileAccess</c> 出现。
+    /// 少了这条，它们会在文件工具缺席时照样发出去，指挥模型去调不存在的工具——
+    /// 而这种失败在实机上极难归因（表现只是一次工具调用失败）。
+    ///
+    /// 主 agent 的通用版（按真实工具集校验反引号）做不了：装配一份真工具集要一个 chat client，
+    /// 本套测试的助手只拼提示词。子代理那侧有通用版，见
+    /// <c>SubAgentInstructions_OnlyNameToolsThatExist</c>。
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ShellDiscipline_NamesFileTools_OnlyWhenFileAccessIsMounted(bool fileAccess)
+    {
+        AgentToolConfig config = new()
+        {
+            EnableFileAccess = fileAccess,
+            EnableShellExecution = true,
+            EnableVisionTool = false,
+            EnableKnowledgeSearchTool = false,
+            EnableSubAgent = false,
+        };
+
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", config);
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(AgentPromptHeadings.Shell, instructions); //shell 开着,这一节必须在
+        Assert.Contains($"`{CharacterRunnerFactory.ShellToolName}`", instructions);
+
+        foreach (string fileTool in new[] { FileToolNames.Read, FileToolNames.Edit, FileToolNames.Write })
+        {
+            if (fileAccess) continue;
+            Assert.DoesNotContain($"`{fileTool}`", instructions);
+        }
     }
 
     /// <summary>
@@ -281,7 +324,7 @@ public class HarnessInstructionsCompositionTests
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
         Assert.True(instructions.IndexOf("never touch the vendor folder", StringComparison.Ordinal) >
-                    instructions.IndexOf("## File operations", StringComparison.Ordinal),
+                    instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal),
             "工作区规矩必须排在工具纪律之后");
     }
 
@@ -327,7 +370,7 @@ public class HarnessInstructionsCompositionTests
         string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", tools)
             .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.DoesNotContain("## File operations", instructions);
+        Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
         Assert.DoesNotContain(AgentToolPrompts.SubAgentDefault, instructions);
     }
 
@@ -406,8 +449,9 @@ public class HarnessInstructionsCompositionTests
             Mcp = mcp ?? McpToolSet.Empty,
         };
 
+        // shell 路径固定给一个假值:本套测试只校验拼接与顺序,真解析出来的 shell 因机而异
         return AgentOptionsFactory.BuildAgentOptions(plan, new StubHistoryProvider(), [], chatOptions,
-            out segments);
+            "/bin/bash", out segments);
     }
 
     private sealed class StubHistoryProvider : ChatHistoryProvider
@@ -558,7 +602,7 @@ public class SubAgentBoundaryTests
 
     /// <summary>
     /// 子代理与主 agent 同一口径：工作循环归它自己那份指令，harness 段为空。
-    /// 框架默认那段的身份句会和子代理指令开头的 "# Role" 抢身份(见 ADR 0004)。
+    /// 框架默认那段的身份句会和子代理指令开头的「# 角色」抢身份(见 ADR 0004)。
     /// </summary>
     [Fact]
     public void SubAgent_KeepsTheWorkLoopInItsOwnInstructions()
@@ -616,7 +660,7 @@ public class SubAgentBoundaryTests
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
         Assert.Equal("Researcher", options.Name);
         Assert.True(instructions.IndexOf("I am the research specialist", StringComparison.Ordinal) <
-                    instructions.IndexOf("# Role", StringComparison.Ordinal),
+                    instructions.IndexOf(AgentPromptHeadings.SubAgentRole, StringComparison.Ordinal),
             "子智能体的人格必须排在子代理身份段之前");
     }
 

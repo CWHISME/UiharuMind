@@ -2436,6 +2436,15 @@
     <data name="FileSearchCurrentDirectory" xml:space="preserve">
         <value>Directory:</value>
     </data>
+    <data name="FileSearchStatusDirectoryNotFound" xml:space="preserve">
+        <value>Directory not found: {0}</value>
+    </data>
+    <data name="FileSearchStatusInvalidPattern" xml:space="preserve">
+        <value>Invalid search pattern: {0}</value>
+    </data>
+    <data name="FileSearchStatusFailed" xml:space="preserve">
+        <value>Search failed: {0}</value>
+    </data>
     <data name="FileSearchStatusReady" xml:space="preserve">
         <value>Ready</value>
     </data>

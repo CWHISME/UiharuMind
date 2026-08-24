@@ -12,6 +12,8 @@ using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Harness;
+using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.AI.Execution.Files;
 
@@ -69,45 +71,119 @@ internal sealed class PermissiveFileAccessTools
     {
         var tools = new List<AITool>
         {
-            AIFunctionFactory.Create(Read, new AIFunctionFactoryOptions { Name = FileToolNames.Read }),
-            AIFunctionFactory.Create(Glob, new AIFunctionFactoryOptions { Name = FileToolNames.Glob }),
-            AIFunctionFactory.Create(Grep, new AIFunctionFactoryOptions { Name = FileToolNames.Grep }),
+            AIFunctionFactory.Create(Read, ToolOptions(FileToolNames.Read)),
+            AIFunctionFactory.Create(Glob, ToolOptions(FileToolNames.Glob)),
+            AIFunctionFactory.Create(Grep, ToolOptions(FileToolNames.Grep)),
         };
 
         if (!disableWriteTools)
         {
-            tools.Add(Wrap(AIFunctionFactory.Create(Write, new AIFunctionFactoryOptions { Name = FileToolNames.Write })));
-            tools.Add(Wrap(AIFunctionFactory.Create(Edit, new AIFunctionFactoryOptions { Name = FileToolNames.Edit })));
+            tools.Add(Wrap(AIFunctionFactory.Create(Write, ToolOptions(FileToolNames.Write))));
+            tools.Add(Wrap(AIFunctionFactory.Create(Edit, ToolOptions(FileToolNames.Edit))));
         }
 
         return tools;
 
         static AITool Wrap(AIFunction function) => new ApprovalRequiredAIFunction(function);
+
+        // 宽容口径:fileGlobs 是 string[],而模型常给一个标量字符串,
+        // 从前那会死在反序列化上并回一句它看不懂的框架异常(见 ToolJson)
+        static AIFunctionFactoryOptions ToolOptions(string name) =>
+            new() { Name = name, SerializerOptions = ToolJson.Lenient };
     }
 
     [Description("Find files by glob pattern.")]
-    private Task<List<string>> Glob(
+    private async Task<GlobToolResult> Glob(
         [Description("Glob pattern, e.g. \"**/*.cs\".")] string pattern,
-        [Description("Directory to search in, absolute or relative to the working directory (optional).")]
-        string? root = null)
-        => _glob.SearchAsync(pattern, root);
+        [Description("Omit this: by default the whole working directory is searched. "
+                     + "Pass it only to narrow the search to one subdirectory, "
+                     + "relative to the working directory. Returned paths are relative to the "
+                     + "working directory either way, so you can pass them straight to `Read`.")]
+        string? directory = null)
+    {
+        GlobOutcome outcome = await _glob.SearchAsync(pattern, directory).ConfigureAwait(false);
+
+        if (outcome.Failure != null)
+        {
+            return new GlobToolResult
+            {
+                Notice = SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep),
+            };
+        }
+
+        // 0 命中要明说。裸一个空列表分不出"搜过了确实没有"与"根本没搜成",
+        // 而模型对这两种情况该做的下一步完全不同
+        // 面向模型的渲染只在这一层做:每个文件都标大小。纪律段要求它"绝不要把一整个大文件
+        // 拉进上下文",却从来不给判断依据——这是那句要求唯一缺的东西。
+        // 只标超阈值的文件试过,不行:没有标注就分不清"这个小"和"这个没测",
+        // 一堆小文件全无标注也就没法排序、选不出该先读哪个。
+        // 一条约 4 token,而一次误读大文件是上万 token,期望值上很划算
+        // 文件在前、目录在后,各组内按路径。搜索器给的是纯路径字典序,那会让同一层的
+        // [FILE] 与 [DIR] 逐行交替(README.md / cmake / data / default.nix / docs …),
+        // 扫起来很费劲。文件才是可行动的东西——拿到路径下一步就是 Read/Edit,
+        // 而 `**/*` 里的目录多数时候只是结构信息,压在后面即可。
+        // 排序只在这一层做:界面那侧有自己的习惯(见 SearchService)
+        return new GlobToolResult
+        {
+            Entries = outcome.Entries
+                .OrderBy(x => x.IsDirectory)
+                .ThenBy(x => x.Path, StringComparer.Ordinal)
+                .Select(Render)
+                .ToList(),
+            Notice = BuildGlobNotice(outcome),
+        };
+
+        static string Render(GlobEntry entry) => entry.IsDirectory
+            ? $"[DIR]  {entry.Path}"
+            : $"[FILE] {entry.Path} ({GameUtils.FormatBytes(entry.SizeBytes)})";
+    }
+
+    private static string? BuildGlobNotice(GlobOutcome outcome)
+    {
+        if (outcome.Entries.Count == 0)
+        {
+            return $"Searched \"{outcome.ResolvedDirectory}\" — 0 matches. The directory exists; "
+                   + "nothing matched the pattern.";
+        }
+
+        return outcome.Truncated
+            ? $"Showing the first {outcome.Entries.Count} entries; more were dropped. "
+              + "Narrow the pattern or scope it with directory."
+            : null;
+    }
 
     [Description("Search file contents. Respects .gitignore.")]
-    internal async Task<List<FileSearchResult>> Grep(
+    internal async Task<GrepToolResult> Grep(
         [Description("Search pattern (ripgrep syntax).")] string query,
-        [Description("Treat the pattern as a regular expression.")] bool isRegex = true,
+        [Description("Treat the pattern as a regular expression. "
+                     + "A pattern that does not compile as one is retried as a literal string, "
+                     + "and the result says so.")]
+        bool isRegex = true,
         [Description("Case-sensitive search.")] bool caseSensitive = false,
         [Description("How many lines of context to show around each match.")] int contextLines = 0,
         [Description("Maximum directory depth to walk (null means no limit).")] int? maxDepth = null,
         [Description("Only search files whose name matches one of these globs, e.g. \"*.cs\".")]
         string[]? fileGlobs = null,
-        [Description("Directory to search in, absolute or relative to the working directory.")]
+        [Description("Omit this: by default the whole working directory is searched. "
+                     + "Pass it only to narrow the search to one subdirectory, "
+                     + "relative to the working directory. Returned paths are relative to the "
+                     + "working directory either way, so you can pass them straight to `Read`.")]
         string? directory = null,
         CancellationToken ct = default)
     {
-        List<GrepMatchResult> results = await _grepper
+        GrepOutcome outcome = await _grepper
             .SearchAsync(query, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
             .ConfigureAwait(false);
+
+        if (outcome.Failure != null)
+        {
+            return new GrepToolResult
+            {
+                Notice = SearchFailureRenderer.Render(outcome.Failure, FileToolNames.Grep),
+            };
+        }
+
+        IReadOnlyList<GrepMatchResult> results = outcome.Matches;
 
         // 自有结果 → 框架工具结果的转换只发生在这里,按文件聚合与命中限幅也只发生在这里。
         // 聚合是为模型做的:同一文件十处命中摊成十条,文件名就要重复十遍,而模型真正需要的是
@@ -160,18 +236,43 @@ internal sealed class PermissiveFileAccessTools
             file.MatchingLines.Sort((a, b) => a.LineNumber.CompareTo(b.LineNumber));
         }
 
-        if (droppedMatches > 0)
-        {
-            converted.Add(new FileSearchResult
-            {
-                FileName = "[truncated]",
-                Snippet = $"Showing the first {MaxGrepMatches} matches; {droppedMatches} more "
-                          + $"across {droppedFiles.Count} file(s) were dropped. "
-                          + "Narrow the query, or scope it with fileGlobs/directory.",
-            });
-        }
+        // 说明走 Notice 字段,不再塞一条 FileName = "[truncated]" 的假命中:
+        // 那种假条目正是模型分不清"命中"与"一句话"的来源
+        return new GrepToolResult { Matches = converted, Notice = BuildGrepNotice() };
 
-        return converted;
+        string? BuildGrepNotice()
+        {
+            List<string> parts = [];
+
+            // 降级必须说。模型以为自己传的是正则,实际按字面搜的,
+            // 不说一声它对"为什么少了几条命中"会推错
+            if (outcome.FellBackToLiteral)
+            {
+                parts.Add($"\"{query}\" does not compile as a regular expression, "
+                          + "so it was searched as a literal string. "
+                          + "Pass isRegex false to do that on purpose.");
+            }
+            else if (!string.Equals(outcome.EffectiveQuery, query, StringComparison.Ordinal))
+            {
+                parts.Add($"The pattern was normalised to \"{outcome.EffectiveQuery}\" "
+                          + "so that a leading wildcard means \"anything\".");
+            }
+
+            if (converted.Count == 0)
+            {
+                parts.Add($"Searched \"{outcome.ResolvedDirectory}\" — 0 matches. "
+                          + "The directory exists; nothing there matched.");
+            }
+
+            if (droppedMatches > 0)
+            {
+                parts.Add($"Showing the first {MaxGrepMatches} matches; {droppedMatches} more "
+                          + $"across {droppedFiles.Count} file(s) were dropped. "
+                          + "Narrow the query, or scope it with fileGlobs/directory.");
+            }
+
+            return parts.Count == 0 ? null : string.Join(" ", parts);
+        }
     }
 
     /// <summary>超长行截断(限幅只服务工具输出,不改动底层搜索结果)</summary>
@@ -229,8 +330,13 @@ internal sealed class PermissiveFileAccessTools
         if (!hasMore) return Task.FromResult(content);
 
         int nextOffset = offset + lines.Count;
+        // 带上文件总大小:光说"续读 offset=31",模型不知道是再翻一页就完还是要翻六十页,
+        // 也就无从判断该继续翻还是改用 `Grep` 定位。总行数会更贴(offset/limit 按行算),
+        // 但那要读到文件末尾才知道——正好违背这个工具存在的意义;文件大小是 O(1) 的代理值
+        string size = GameUtils.FormatBytes(new FileInfo(full).Length);
         return Task.FromResult(
-            $"{content}\n…[truncated: showing lines {offset}–{nextOffset - 1}; continue with offset={nextOffset}]");
+            $"{content}\n…[truncated: showing lines {offset}–{nextOffset - 1} of a {size} file; "
+            + $"continue with offset={nextOffset}]");
     }
 
     [Description("Create a new file, or replace an existing one wholesale. Use 'Edit' for partial changes.")]

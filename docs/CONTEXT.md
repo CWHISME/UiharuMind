@@ -107,6 +107,20 @@
 ⚠️ **工作循环属于角色层**（`AgentToolPrompts.AgentWorkLoop`）。见
 [ADR 0004](adr/0004-工作循环指令从框架默认搬到角色提示词.md)。
 
+⚠️ **我们自己写的提示词散文一律中文，标题也中文，只留一份**（`AgentToolPrompts`、
+`AgentPromptHeadings`、子代理体例）。工具与参数的 `[Description]` **保持英文**。
+中文纪律段必须配 `AgentToolPrompts.LanguageNeutrality` 那句护栏，否则模型回复语言会被拽走。见
+[ADR 0017](adr/0017-提示词散文改中文，搜索失败改结构化.md)。
+
+⚠️ **路径的默认口径是「相对工作目录」**，只在工作目录段表态一次，别处不要再说。同上 ADR。
+
+⚠️ **搜索失败是结构化的**（`GlobOutcome` / `GrepOutcome` 的 `Failure`），不许再把错误
+塞回结果列表当假条目。「搜到 0 条」与「没搜成」必须分得开。同上 ADR。
+
+⚠️ **挂了工具就得有纪律段**，shell 也不例外（`AgentToolPrompts.BuildShell`）。而纪律段里
+用反引号指名的工具，判据一律取**装配结果**而不是配置意图——否则会指向没挂上的工具。见
+[ADR 0017](adr/0017-提示词散文改中文，搜索失败改结构化.md)。
+
 ⚠️ 「对话模板」这个词已作废——那个字段是提示词的第二个抽屉，已并入 `Template`。见
 [ADR 0015](adr/0015-对话模板退役，旧值不迁移.md)。
 

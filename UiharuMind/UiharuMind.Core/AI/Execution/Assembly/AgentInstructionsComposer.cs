@@ -17,17 +17,8 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class AgentInstructionsComposer
 {
-    /// <summary>
-    /// 工作区规矩段的标题。主 agent 与子代理<b>逐字共用这一段</b>——
-    /// 子代理干的正是探查工作区的活，不该是全场唯一不知道工作区规矩的人
-    /// </summary>
-    private const string WorkspaceHeading = "# Workspace Instructions (from the project's AGENTS.md)";
-
-    /// <summary>
-    /// MCP server 自述段的标题。主 agent 与子代理共用——完全自动档的子代理拿的是同一份 MCP 工具，
-    /// 不该是全场唯一不知道怎么用它们的人
-    /// </summary>
-    private const string McpHeading = "# MCP servers";
+    // 标题一律取自 AgentPromptHeadings：工作区规矩段与 MCP 自述段主 agent 与子代理逐字共用
+    // ——子代理干的正是探查工作区的活、拿的是同一份 MCP 工具，不该是全场唯一不知道规矩的人。
 
     /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
@@ -46,6 +37,7 @@ internal static class AgentInstructionsComposer
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
+    /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
     /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
@@ -53,12 +45,12 @@ internal static class AgentInstructionsComposer
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
-        string mcpInstructions, out IReadOnlyList<AgentPromptSegment> segments)
+        string mcpInstructions, string shellBinary, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
-        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory),
+        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary),
             EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
@@ -81,12 +73,12 @@ internal static class AgentInstructionsComposer
     /// <returns>整段文本</returns>
     internal static string McpSection(string mcpInstructions)
     {
-        return $"{McpHeading}\n\n{mcpInstructions}";
+        return $"{AgentPromptHeadings.Mcp}\n\n{mcpInstructions}";
     }
 
     /// <summary>
     /// 工作目录段。<b>两种装配形态共用这一段正文</b>，只有标题级别不同：
-    /// 主 agent 里它是 <c># Tools</c> 的一个分项（工作目录正是给那些工具用的根），
+    /// 主 agent 里它是 <c># 工具</c> 的一个分项（工作目录正是给那些工具用的根），
     /// 子代理里没有那个外层，它自己就是一个顶级段。
     /// </summary>
     /// <param name="workingDirectory">工作目录绝对路径</param>
@@ -94,7 +86,7 @@ internal static class AgentInstructionsComposer
     /// <returns>整段文本</returns>
     internal static string WorkingDirectorySection(string workingDirectory, string heading)
     {
-        return $"{heading} Working directory\n{AgentToolPrompts.BuildWorkingDirectory(workingDirectory)}";
+        return $"{AgentPromptHeadings.WorkingDirectory(heading)}\n{AgentToolPrompts.BuildWorkingDirectory(workingDirectory)}";
     }
 
     /// <summary>
@@ -104,7 +96,7 @@ internal static class AgentInstructionsComposer
     /// <returns>整段文本</returns>
     internal static string WorkspaceSection(string workspaceInstructions)
     {
-        return $"{WorkspaceHeading}\n{workspaceInstructions}";
+        return $"{AgentPromptHeadings.Workspace}\n{workspaceInstructions}";
     }
 
     private static void AppendSection(StringBuilder sb, string? section, EPromptSection kind,
@@ -127,16 +119,16 @@ internal static class AgentInstructionsComposer
     /// (<see cref="AgentToolPrompts.AgentWorkLoop"/>),理由见 ADR 0004:框架默认那段用户看不见,
     /// 还带一句"You are a helpful AI assistant"抢在角色人格之前。
     ///
-    /// 本段由 <see cref="Compose"/> 接在角色段之后，整体挂在一个 <c># Tools</c> 父标题之下。
-    /// <b>那个父标题不是装饰</b>：角色段（agent 档默认角色卡）以 <c># Work loop</c> 起头，
-    /// 本段若直接从 <c>## Working directory</c> 开始，按 markdown 结构读就整个成了
+    /// 本段由 <see cref="Compose"/> 接在角色段之后，整体挂在一个 <c># 工具</c> 父标题之下。
+    /// <b>那个父标题不是装饰</b>：角色段（agent 档默认角色卡）以 <c># 工作循环</c> 起头，
+    /// 本段若直接从 <c>## 工作目录</c> 开始，按 markdown 结构读就整个成了
     /// 「工作循环」的子节——层级说的是一件与事实不符的事。
     /// </summary>
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
-        string workingDirectory)
+        string workingDirectory, string shellBinary)
     {
         StringBuilder sb = new();
 
@@ -151,14 +143,23 @@ internal static class AgentInstructionsComposer
         {
             sb.AppendLine();
             sb.AppendLine();
-            sb.AppendLine("## File operations");
+            sb.AppendLine(AgentPromptHeadings.FileOperations);
             sb.AppendLine(AgentToolPrompts.FileAccessDefault);
+        }
+
+        // shell 有自己的一节:它曾是唯一挂了工具却零指示的能力,而缺口的表现是模型
+        // 拿 Write 重写全文去做一次 mv(见 AgentToolPrompts.ShellDefault)
+        if (config.EnableShellExecution)
+        {
+            sb.AppendLine();
+            sb.AppendLine(AgentPromptHeadings.Shell);
+            sb.AppendLine(AgentToolPrompts.BuildShell(config.EnableFileAccess, shellBinary));
         }
 
         if (config.EnableVisionTool && visionToolMounted)
         {
             sb.AppendLine();
-            sb.AppendLine("## Images");
+            sb.AppendLine(AgentPromptHeadings.Images);
             sb.AppendLine(AgentToolPrompts.VisionToolDefault);
         }
 
@@ -166,7 +167,7 @@ internal static class AgentInstructionsComposer
         if (config.EnableKnowledgeSearchTool)
         {
             sb.AppendLine();
-            sb.AppendLine("## Knowledge base");
+            sb.AppendLine(AgentPromptHeadings.KnowledgeBase);
             sb.AppendLine(AgentToolPrompts.KnowledgeSearchDefault);
         }
 
@@ -180,14 +181,17 @@ internal static class AgentInstructionsComposer
         if (config.EnableSubAgent)
         {
             sb.AppendLine();
-            sb.AppendLine("## Delegation");
+            sb.AppendLine(AgentPromptHeadings.Delegation);
             sb.AppendLine(AgentToolPrompts.SubAgentDefault);
         }
 
-        //一项都没有就整段不出现:光挂一个空的 # Tools 标题是纯噪声
+        //一项都没有就整段不出现:光挂一个空的父标题是纯噪声
         if (sb.Length == 0) return string.Empty;
 
-        return "# Tools\n\n" + sb;
+        // 护栏句紧跟父标题:本段整段中文,而它每轮都发、体量压过用户那几句话,
+        // 不钉一句"别照着这段的语言回复",小模型的输出语言就会被拽向中文。
+        // 挂在这里而不是工作循环段,是因为那段会落进用户存档、用户删得掉(见 AgentToolPrompts)
+        return $"{AgentPromptHeadings.Tools}\n\n{AgentToolPrompts.LanguageNeutrality}\n\n" + sb;
     }
 
     /// <summary>

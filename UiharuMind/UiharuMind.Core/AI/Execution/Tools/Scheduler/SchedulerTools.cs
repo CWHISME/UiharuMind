@@ -46,10 +46,16 @@ public static class SchedulerTools
                              "e.g. [\"git add*\", \"git commit*\"]. Anything else will be denied at run time.")]
                 string[]? preAuthorizedCommands
             ) => CreateTaskAsync(workspacePath, displayName, prompt, delayMinutes, fireAtIso, preAuthorizedCommands),
-            ToolName,
-            "Schedule an agent task to run automatically at a future time " +
-            "(e.g. 'commit the repo in 30 minutes'). List every shell command pattern the task will need " +
-            "in preAuthorizedCommands - unattended execution denies everything else.");
+            // 宽容口径:preAuthorizedCommands 也是 string[],模型给标量字符串时照收(见 ToolJson)
+            new AIFunctionFactoryOptions
+            {
+                Name = ToolName,
+                Description = "Schedule an agent task to run automatically at a future time " +
+                              "(e.g. 'commit the repo in 30 minutes'). List every shell command pattern " +
+                              "the task will need in preAuthorizedCommands - unattended execution denies " +
+                              "everything else.",
+                SerializerOptions = ToolJson.Lenient,
+            });
 
         return new ApprovalRequiredAIFunction(function);
     }
