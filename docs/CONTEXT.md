@@ -243,6 +243,9 @@
 另立执行面，见 [ADR 0019](adr/0019-代码执行不设独立工具，走shell与受管venv.md)。
 所以它没有 `AgentToolConfig` 开关，只有「建了没有」（`PythonEnvironment.IsReady`，进装配快照）。
 
+⚠️ 它经 `PATH` 前置**激活**进 agent 的 shell（`PythonEnvironment.BuildActivationEnvironment`），
+所以模型写的是裸 `python` / `pip`。代价是那个 shell 里**系统 Python 被遮蔽**。
+
 ⚠️ 因此**不要说「代码执行工具」「代码解释器」「Python 沙箱」**。前两个指向一个不存在的工具；
 第三个是谎——它爆炸半径与 shell 同级，只是不联网。
 
@@ -255,6 +258,10 @@ markdown 渲染器据此把图显示出来，随历史持久化。
 ⚠️ 不要与**对话附件**（`AppPaths.Data.AgentAttachments`）混淆：那边是**用户**发进来的。
 
 ⚠️ 归 `Data` 而非 `Cache`：对话正文以链接引用它们，清掉就等于历史里留下一堆坏图。
+
+⚠️ 引用格式是 `[![说明](file:///…)](file:///…)`，**外层那道链接不是多余的**——裸图片在
+markdown 渲染器里没有 `HRef`，显示得出来但点不开。点击由 `SimpleMarkdownViewer.OnLinkClick`
+接住：本地图片走贴图窗口，其余交系统。
 
 ### Skill（技能）
 

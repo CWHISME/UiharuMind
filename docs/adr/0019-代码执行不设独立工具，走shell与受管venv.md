@@ -17,25 +17,42 @@ agent 要跑 Python（精确算术、结构化数据处理、出图表）。**�
    就等于在改用户的系统环境，而审批卡上看到的只是一条平平无奇的 pip 命令。
    虚拟环境让「解释器归用户、包归我们」两件事同时成立。
 
-2. **第三方包由 agent 自己装**，纪律段里指名 `{venv}/bin/python -m pip install`。
+2. **环境经 `PATH` 前置激活，纪律段里不写解释器路径。** `LocalShellExecutorOptions.Environment`
+   把 venv 的可执行目录前置进 `PATH`、并设上 `VIRTUAL_ENV`，模型直接写 `python` / `pip`。
+
+   最初那版把解释器绝对路径写进纪律段，于是**每次调用都要模型自己给一个含空格的长路径加引号**
+   （macOS 上是 `Application Support`）——忘一次就是一条断命令加一轮白烧，还每次多烧
+   ~25 token。**代价明说**：agent 的 shell 里**系统 Python 被遮蔽**。工作区自身是 Python
+   项目、带自己的 venv 时，裸 `python` 会落到我们这个环境里；纪律段有一句对冲，
+   但 `PATH` 是静默生效的，那句话拦不住每一次。取舍的理由是：裸 `python` 在未激活任何环境时
+   本来就是「`PATH` 上碰巧是谁」，原先指向系统 Python 也不是值得保护的语义。
+
+3. **第三方包由 agent 自己装**（`pip install <包名>`）。
    我们不预置科学栈：预置什么都是猜，而装错了还占几百 MB。
 
-3. **建环境是设置页的显式一步，不做惰性创建。** `AgentAssemblyPlan.Resolve` 是全仓唯一读外部
+4. **建环境是设置页的显式一步，不做惰性创建。** `AgentAssemblyPlan.Resolve` 是全仓唯一读外部
    世界的地方，而且是同步的、从不等网络；建环境要起子进程、解压标准库，几十秒起步。
    装配期只读 `PythonEnvironment.IsReady` 这一个布尔，它进 `AgentAssemblyFacts`——
    用户建完环境，不重开会话下一轮就生效。
 
-4. **探测与创建都带超时，超时按失败处理。** macOS 上 `/usr/bin/python3` 是个存根，
+5. **探测与创建都带超时，超时按失败处理。** macOS 上 `/usr/bin/python3` 是个存根，
    没装 Xcode Command Line Tools 时执行它会弹 GUI 安装对话框并**无限期挂住子进程**。
    `File.Exists` 判断不出来，只有超时能把那种情况变回一次干净失败。
 
-5. **产出经 `file://` 进对话，不做捕获管道。** 图表写进 `AppPaths.Data.AgentOutputs`，
+6. **产出经 `file://` 进对话，不做捕获管道。** 图表写进 `AppPaths.Data.AgentOutputs`，
    模型在回复正文里用 `![说明](file:///…)` 引用它。对话正文本来就按 markdown 渲染，
    而 `LiveMarkdown.Avalonia` 的默认 image handler 就含 `LocalFile`——图片因此自动显示、
    随历史持久化、重开会话仍在。**URI 前缀由纪律段直接给出**，不让模型自己拼
    （Windows 上 `C:\a\b` 要变成 `file:///C:/a/b`，反斜杠与盘符两处都得改）。
 
-6. **产出目录归 `Data` 而非 `Cache`。** 对话正文以链接引用它们，清掉就等于历史里留下一堆坏图；
+   **图片必须包一层链接**：`[![说明](file:///…)](file:///…)`。裸 `![](…)` 在 `LiveMarkdown`
+   里渲染成一个 `HRef` 为 null 的 `Link`，而文档明写此时「the link will be disabled and
+   will not respond to clicks」——图看得见，点不开。顺带把 `SimpleMarkdownViewer` 的
+   `LinkClick` 接上（此前全仓一处未接，**所有**链接都点不动）：本地图片走自家贴图窗口
+   （`UIManager.ShowPreviewImageWindowAtMousePosition`，可钉在屏幕上对着看，而系统默认程序
+   会把焦点整个抢走），其余交系统。
+
+7. **产出目录归 `Data` 而非 `Cache`。** 对话正文以链接引用它们，清掉就等于历史里留下一堆坏图；
    它们也不可重建——重跑一次是另一次推理。
 
 ## 为什么否决 LocalCodeAct
@@ -48,7 +65,7 @@ agent 要跑 Python（精确算术、结构化数据处理、出图表）。**�
 | 环境确定、包可控 | **不是它的功劳**，是 venv 的功劳。shell 拿 `{venv}/bin/python` 一样确定 |
 | 资源限制（timeout / 输出上限） | 近乎白给。shell 侧框架已有 `MaxOutputBytes` 64 KiB |
 | 省 token、代码里编排（`call_tool`） | **必须放弃**，理由见下 |
-| 文件捕获（新文件自动变 `DataContent`） | 真增量，但被决策 5 以更便宜的方式覆盖，且捕获策略完全归我们 |
+| 文件捕获（新文件自动变 `DataContent`） | 真增量，但被决策 6 以更便宜的方式覆盖，且捕获策略完全归我们 |
 | 多行代码免转义 | 真增量，但被「先 `Write` 成 .py 再跑」覆盖，且那条四种 shell 都成立 |
 | 子进程不继承宿主环境变量 | 真增量。接受这个缺口——shell 本来就继承 |
 
