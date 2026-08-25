@@ -38,7 +38,8 @@ internal static class AgentInstructionsComposer
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
-    /// <param name="pythonInterpreter">受管 Python 环境的解释器路径;空串则整段不写</param>
+    /// <param name="pythonInterpreter">受管 Python 环境的解释器路径。<b>只作闸门</b>——
+    /// 空串则整段不写；非空时正文里也不印它，环境已由 PATH 前置激活</param>
     /// <param name="pythonOutputDirectory">产出目录绝对路径(给用户看的图表落在这儿)</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
@@ -166,7 +167,7 @@ internal static class AgentInstructionsComposer
             {
                 sb.AppendLine();
                 sb.AppendLine(AgentPromptHeadings.Python);
-                sb.AppendLine(AgentToolPrompts.BuildPython(pythonInterpreter, pythonOutputDirectory,
+                sb.AppendLine(AgentToolPrompts.BuildPython(pythonOutputDirectory,
                     config.EnableFileAccess));
             }
         }

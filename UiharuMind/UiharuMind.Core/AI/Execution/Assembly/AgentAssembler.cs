@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -67,8 +67,13 @@ internal static class AgentAssembler
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
+        // ShellEnvironment 只在受管 Python 环境就绪时非空,内容是一次 venv 激活(见 AgentAssemblyPlan)
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution
-            ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = plan.WorkingDirectory })
+            ? new LocalShellExecutor(new LocalShellExecutorOptions
+            {
+                WorkingDirectory = plan.WorkingDirectory,
+                Environment = plan.ShellEnvironment?.ToDictionary(x => x.Key, x => x.Value),
+            })
             : null;
 
         List<AgentToolEntry> toolEntries = BuildTools(plan, client, shellExecutor);

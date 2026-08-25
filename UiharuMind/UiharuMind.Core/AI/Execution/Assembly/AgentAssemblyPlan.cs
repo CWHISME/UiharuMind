@@ -83,6 +83,22 @@ internal sealed class AgentAssemblyPlan
     /// </summary>
     public string PythonOutputDirectory { get; init; } = string.Empty;
 
+    /// <summary>
+    /// 给 shell 追加的环境变量。目前只有一件事：把受管 Python 环境<b>前置</b>进 `PATH`
+    /// 并设上 `VIRTUAL_ENV`——也就是标准的 venv 激活。
+    ///
+    /// 这么做是为了让模型写裸 `python` / `pip`：受管环境的路径含空格
+    /// （macOS 上是 `Application Support`），每次调用都要模型自己记得加引号，
+    /// 忘一次就是一条断命令加一轮白烧。
+    ///
+    /// ⚠️ 代价：agent 的 shell 里<b>系统 Python 被遮蔽</b>。工作区自身是 Python 项目、
+    /// 带自己的 venv 时，裸 `python` 会落到我们这个环境里。纪律段有一句对冲，
+    /// 但 PATH 是静默生效的，那句话拦不住每一次。
+    ///
+    /// null 表示不改环境（受管环境未就绪，或没挂 shell）。
+    /// </summary>
+    public IReadOnlyDictionary<string, string?>? ShellEnvironment { get; init; }
+
     /// <summary>历史压缩策略；为 null 表示不压缩</summary>
     public CompactionStrategy? Compaction { get; init; }
 
@@ -142,6 +158,10 @@ internal sealed class AgentAssemblyPlan
             PythonOutputDirectory = config.EnableShellExecution && PythonEnvironment.IsReady
                 ? EnsureDirectory(AppPaths.Data.AgentOutputs)
                 : string.Empty,
+            // 读宿主 PATH 属于"读外部世界",只能在这里做——AgentAssembler 是不碰单例的纯函数
+            ShellEnvironment = config.EnableShellExecution && PythonEnvironment.IsReady
+                ? PythonEnvironment.BuildActivationEnvironment()
+                : null,
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),
             ModelSupportsVision = CurrentModel(profile)?.IsVisionModel == true,

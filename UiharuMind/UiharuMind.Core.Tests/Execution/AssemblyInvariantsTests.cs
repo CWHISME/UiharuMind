@@ -338,7 +338,10 @@ public class HarnessInstructionsCompositionTests
         }
 
         Assert.Contains(AgentPromptHeadings.Python, instructions);
-        Assert.Contains(interpreter, instructions); //解释器必须指名绝对路径,PATH 上那个不是它
+        // 反过来钉:解释器的绝对路径<b>不许</b>出现。环境由 PATH 前置激活,写进提示词就等于
+        // 要求模型每次给一个含空格的长路径加引号(见 ADR 0019)
+        Assert.DoesNotContain(interpreter, instructions);
+        Assert.Contains("pip install", instructions);
         Assert.True(
             instructions.IndexOf(AgentPromptHeadings.Python, StringComparison.Ordinal) >
             instructions.IndexOf(AgentPromptHeadings.Shell, StringComparison.Ordinal),

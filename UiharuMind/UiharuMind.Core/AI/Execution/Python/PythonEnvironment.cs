@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -63,6 +63,37 @@ public static class PythonEnvironment
 
     /// <summary>环境是否已就绪。<b>装配期唯一读的那个事实</b></summary>
     public static bool IsReady => File.Exists(InterpreterPath);
+
+    /// <summary>
+    /// venv 里可执行文件所在目录（<c>bin</c> / Windows 上 <c>Scripts</c>）。
+    /// 里面除了解释器还有 <c>pip</c>，前置进 <c>PATH</c> 之后两者一起生效
+    /// </summary>
+    public static string BinaryDirectory =>
+        Path.Combine(Root, OperatingSystem.IsWindows() ? "Scripts" : "bin");
+
+    /// <summary>
+    /// 构造一次「venv 激活」的环境变量增量：<c>PATH</c> 前置本环境的可执行目录，
+    /// 并设上 <c>VIRTUAL_ENV</c>（pip 与不少工具靠它判断自己在哪个环境里）。
+    ///
+    /// <b>前置而非追加</b>：追加等于没做——系统 Python 在前面就先被解析到了。
+    /// 因此这也意味着 agent 的 shell 里系统 Python 被遮蔽，这是有意的取舍，见 ADR 0019。
+    /// </summary>
+    /// <returns>环境变量增量；环境未就绪时为 null</returns>
+    public static IReadOnlyDictionary<string, string?>? BuildActivationEnvironment()
+    {
+        if (!IsReady) return null;
+
+        string existing = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        string path = existing.Length > 0
+            ? $"{BinaryDirectory}{Path.PathSeparator}{existing}"
+            : BinaryDirectory;
+
+        return new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["PATH"] = path,
+            ["VIRTUAL_ENV"] = Root,
+        };
+    }
 
     /// <summary>
     /// 探测可用的宿主解释器：配置里填了就只认那一个，否则按 PATH 找。

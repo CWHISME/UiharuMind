@@ -180,23 +180,31 @@ public static class AgentToolPrompts
     /// <summary>
     /// 受管 Python 环境纪律段。
     ///
-    /// <b>这一段不对应任何工具</b>——Python 由 <c>Shell</c> 跑，我们只是告诉模型"跑哪一个"。
+    /// <b>这一段不对应任何工具</b>——Python 由 <c>Shell</c> 跑，我们只是告诉模型它已经就位。
     /// 刻意不引入独立的代码执行工具，理由见 ADR 0019：两个执行面模型要二选一，
     /// 而它相对 shell 的增量抵不上那份代价。
+    ///
+    /// <b>不写解释器绝对路径</b>：环境已经通过 <c>PATH</c> 前置激活（见
+    /// <c>PythonEnvironment.BuildActivationEnvironment</c>），裸 <c>python</c> 就是它。
+    /// 早先那版把绝对路径写进这里，于是每次调用都要模型自己给一个含空格的长路径加引号
+    /// ——忘一次就是一条断命令加一轮白烧。
     /// </summary>
-    /// <param name="interpreterPath">受管环境里的解释器绝对路径</param>
     /// <param name="outputDirectory">产出目录绝对路径</param>
     /// <param name="fileAccessMounted">文件工具是否已装配（决定教哪种写代码的方式）</param>
     /// <returns>整段正文</returns>
-    public static string BuildPython(string interpreterPath, string outputDirectory, bool fileAccessMounted)
+    public static string BuildPython(string outputDirectory, bool fileAccessMounted)
     {
         StringBuilder sb = new();
 
-        // 指名绝对路径是这一段的全部要害:PATH 上那个 python 不是这一个,
-        // 装进去的包也不在那儿。模型只要图省事写 python3,后面每一步都对不上
-        sb.AppendLine($"- 要跑 Python，用 `Shell` 调这个解释器的绝对路径：{interpreterPath}");
         sb.AppendLine(
-            "- 不要写 `python` 或 `python3`。那是系统里另一个解释器，装进上面这个环境的包它一个也看不见。");
+            "- 你的 shell 里 `python` 与 `pip` 已经指向一个专供你使用的虚拟环境，不是系统 Python。" +
+            "直接写 `python`、`pip`，不要去找解释器的绝对路径。");
+        sb.AppendLine("- 缺第三方包就自己装：`pip install <包名>`。装进的是这个环境，不影响系统。");
+
+        // 遮蔽的对冲句。PATH 是静默生效的,这一句拦不住每一次,但至少给了正确写法
+        sb.AppendLine(
+            "- 例外：工作区自己带虚拟环境时（`.venv`、`venv` 这类目录），" +
+            "跑那个项目的代码要用它自己的解释器路径，别用裸 `python`——你手上这个环境没有它的依赖。");
 
         // 多行代码怎么送进去是按平台分岔的:heredoc 只在 POSIX shell 成立,
         // cmd 与 PowerShell 下根本没有。所以有文件工具时一律走"写成文件再跑",那是四种 shell 都成立的
@@ -212,16 +220,14 @@ public static class AgentToolPrompts
                 "- 命令行里塞多行代码容易被引号和转义搞坏。写不下就分成几个短的 `-c` 调用。");
         }
 
-        sb.AppendLine(
-            $"- 缺第三方包就自己装：`{interpreterPath} -m pip install <包名>`。装进的是上面那个环境，不影响系统。");
-
         // 产出这两句是"用户能不能看到"的唯一通路:对话正文按 markdown 渲染,
         // 本地文件图片走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
         string uriPrefix = ToFileUriPrefix(outputDirectory);
         sb.AppendLine(
             $"- 图表、导出的数据这类**要给用户看**的产出，写到这个目录：{outputDirectory}");
         sb.Append(
-            $"- 写完在回复正文里用 `![说明]({uriPrefix}文件名)` 引用它，用户才看得见。" +
+            $"- 写完在回复正文里照这个格式引用它：`[![说明]({uriPrefix}文件名)]({uriPrefix}文件名)`。" +
+            "外层那道方括号不是多余的——少了它图片显示得出来但点不开。" +
             "路径写别处、或者只报一句文件名，对话里就什么都不会出现。");
 
         return sb.ToString();
