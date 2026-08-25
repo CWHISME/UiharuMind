@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -44,6 +44,15 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 
     /// <summary>Brave Search API key(同上,优先级次于 Tavily)</summary>
     public string BraveSearchApiKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 宿主 Python 解释器路径。<b>只用于创建受管虚拟环境那一次</b>,建完之后 agent 用的
+    /// 一直是虚拟环境里那个,与这里填的是谁无关。
+    ///
+    /// 空 = 自动探测(PATH 上的 python3/python)。填它是为了自动探测不中的情况:
+    /// 探测只认 PATH,而 Windows 上装了 Python 却没勾"Add to PATH"是常态。
+    /// </summary>
+    public string PythonInterpreterPath { get; set; } = string.Empty;
 
     /// <summary><see cref="RecentWorkspaces"/> 的条数上限</summary>
     public const int RecentWorkspacesLimit = 10;

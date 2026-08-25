@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -98,6 +98,16 @@ public static class AppPaths
         /// <summary>对话附件</summary>
         public static readonly string AgentAttachments = Path.Combine(AgentRoot, "Attachments");
 
+        /// <summary>
+        /// agent 想让用户看到的产出(跑 Python 画的图、导出的数据)。
+        ///
+        /// <b>归 Data 而非 Cache</b>:对话正文里以 <c>file://</c> 链接引用它们,
+        /// 清掉就等于历史里留下一堆坏图。它们也不可重建——重跑一次是另一次推理。
+        ///
+        /// ⚠️ 与 <see cref="AgentAttachments"/> 分工:那边是<b>用户</b>发进来的,这边是 agent 产出的。
+        /// </summary>
+        public static readonly string AgentOutputs = Path.Combine(AgentRoot, "Outputs");
+
         /// <summary>快捷工具面板的搜索历史</summary>
         public static readonly string QuickSearchHistory =
             Path.Combine(Root, "QuickTools", "QuickSearchHistory.json");
@@ -113,6 +123,7 @@ public static class AppPaths
 
         /// <summary>下载的应用安装包</summary>
         public static readonly string Updates = Path.Combine(Root, "Updates");
+
     }
 
     /// <summary>用户自管的大件:模型权重与后端引擎,应用只读不生成</summary>
@@ -132,5 +143,11 @@ public static class AppPaths
 
         /// <summary>本地服务引擎(llama.cpp 等)</summary>
         public static readonly string Engine = Path.Combine(Root, "Engine");
+
+        /// <summary>
+        /// 受管 Python 虚拟环境。解释器由用户提供,这个目录由我们建、由 agent 往里装包。
+        /// 归 External 是因为它与引擎同性质:体量大(装完科学栈可达数百 MB)、可重建但重建很贵。
+        /// </summary>
+        public static readonly string PythonEnv = Path.Combine(Root, "PythonEnv");
     }
 }
