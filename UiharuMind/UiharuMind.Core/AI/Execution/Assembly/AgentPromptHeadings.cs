@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -38,6 +38,9 @@ public static class AgentPromptHeadings
 
     /// <summary>命令行纪律段</summary>
     public const string Shell = "## 命令行";
+
+    /// <summary>受管 Python 环境纪律段。它挂在命令行之下的同级位置——Python 由 shell 跑</summary>
+    public const string Python = "## Python";
 
     /// <summary>子代理委派纪律段</summary>
     public const string Delegation = "## 委派";

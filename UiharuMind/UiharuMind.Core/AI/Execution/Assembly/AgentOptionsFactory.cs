@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -117,7 +117,7 @@ internal static class AgentOptionsFactory
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
-            shellBinary, out promptSegments);
+            shellBinary, plan.PythonInterpreterPath, plan.PythonOutputDirectory, out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);

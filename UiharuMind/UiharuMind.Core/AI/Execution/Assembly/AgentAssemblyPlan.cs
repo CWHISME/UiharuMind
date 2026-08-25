@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -15,6 +15,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.AI.Execution.Python;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.Core;
@@ -68,6 +69,20 @@ internal sealed class AgentAssemblyPlan
     /// <summary>文件记忆存储的父目录；能力关闭时为 null</summary>
     public FileSystemAgentFileStore? FileMemoryStore { get; init; }
 
+    /// <summary>
+    /// 受管 Python 环境里那个解释器的绝对路径；环境未就绪或没挂 shell 时为空串。
+    ///
+    /// 它只影响提示词——<b>不是一个工具</b>。模型拿 <c>Shell</c> 跑它，见 ADR 0019。
+    /// 空串则整段不发：说了一个不存在的解释器，模型会照着调然后失败一次。
+    /// </summary>
+    public string PythonInterpreterPath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 产出目录：模型跑 Python 画的图往这儿写，回复里以 <c>file://</c> 引用它，用户就看得见。
+    /// 与 <see cref="PythonInterpreterPath"/> 同生同灭（那个为空时这个也为空）。
+    /// </summary>
+    public string PythonOutputDirectory { get; init; } = string.Empty;
+
     /// <summary>历史压缩策略；为 null 表示不压缩</summary>
     public CompactionStrategy? Compaction { get; init; }
 
@@ -119,6 +134,14 @@ internal sealed class AgentAssemblyPlan
             Compaction = compaction,
             InputEstimate = estimate,
             WorkingDirectory = profile.WorkspacePath ?? GetScratchDirectory(),
+            // 只是读一个文件在不在,不起进程、不等网络——建环境是设置页的显式一步(见 PythonEnvironment)。
+            // 没挂 shell 就没人跑得动它,那时说了也是纯噪声
+            PythonInterpreterPath = config.EnableShellExecution && PythonEnvironment.IsReady
+                ? PythonEnvironment.InterpreterPath
+                : string.Empty,
+            PythonOutputDirectory = config.EnableShellExecution && PythonEnvironment.IsReady
+                ? EnsureDirectory(AppPaths.Data.AgentOutputs)
+                : string.Empty,
             // 提前读出:子代理要继承同一份
             WorkspaceInstructions = WorkspaceInstructionsLoader.Load(profile.WorkspacePath),
             ModelSupportsVision = CurrentModel(profile)?.IsVisionModel == true,
@@ -139,9 +162,10 @@ internal sealed class AgentAssemblyPlan
     private static ModelRunningData? CurrentModel(AgentBuildProfile profile) =>
         profile.SessionModelSource?.Invoke() ?? LlmManager.Instance.CurrentRunningModel;
 
-    private static string GetScratchDirectory()
+    private static string GetScratchDirectory() => EnsureDirectory(AppPaths.Cache.Scratch);
+
+    private static string EnsureDirectory(string path)
     {
-        string path = AppPaths.Cache.Scratch;
         if (!Directory.Exists(path)) Directory.CreateDirectory(path);
         return path;
     }

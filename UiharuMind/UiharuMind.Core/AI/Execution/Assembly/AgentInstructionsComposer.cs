@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -38,6 +38,8 @@ internal static class AgentInstructionsComposer
     /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
     /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
+    /// <param name="pythonInterpreter">受管 Python 环境的解释器路径;空串则整段不写</param>
+    /// <param name="pythonOutputDirectory">产出目录绝对路径(给用户看的图表落在这儿)</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
     /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
@@ -45,13 +47,14 @@ internal static class AgentInstructionsComposer
     /// <returns>整段系统提示</returns>
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
-        string mcpInstructions, string shellBinary, out IReadOnlyList<AgentPromptSegment> segments)
+        string mcpInstructions, string shellBinary, string pythonInterpreter,
+        string pythonOutputDirectory, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
-        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary),
-            EPromptSection.ToolDisciplines, registry);
+        AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
+            pythonInterpreter, pythonOutputDirectory), EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
             AppendSection(sb, McpSection(mcpInstructions), EPromptSection.Mcp, registry);
@@ -128,7 +131,8 @@ internal static class AgentInstructionsComposer
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
-        string workingDirectory, string shellBinary)
+        string workingDirectory, string shellBinary, string pythonInterpreter,
+        string pythonOutputDirectory)
     {
         StringBuilder sb = new();
 
@@ -154,6 +158,17 @@ internal static class AgentInstructionsComposer
             sb.AppendLine();
             sb.AppendLine(AgentPromptHeadings.Shell);
             sb.AppendLine(AgentToolPrompts.BuildShell(config.EnableFileAccess, shellBinary));
+
+            // Python 是 shell 的一个分项,不是独立能力(ADR 0019),故嵌在这个 if 里。
+            // 判据取环境是否真的就绪而非某个开关——告诉模型一个不存在的解释器,
+            // 它会照着调然后白烧一次调用(同 ADR 0017"判据取装配结果"那条)
+            if (pythonInterpreter.Length > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine(AgentPromptHeadings.Python);
+                sb.AppendLine(AgentToolPrompts.BuildPython(pythonInterpreter, pythonOutputDirectory,
+                    config.EnableFileAccess));
+            }
         }
 
         if (config.EnableVisionTool && visionToolMounted)

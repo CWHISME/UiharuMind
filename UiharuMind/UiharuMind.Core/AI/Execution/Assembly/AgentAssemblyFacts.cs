@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Python;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -56,6 +57,13 @@ public sealed record AgentAssemblyFacts
 
     /// <summary>shell 工具开关</summary>
     public bool Shell { get; init; }
+
+    /// <summary>
+    /// 受管 Python 环境是否就绪。它不是工具开关，而是 shell 纪律段的一个输入
+    /// （见 <c>AgentToolPrompts.BuildPython</c>）——用户在设置页建完环境，
+    /// 不重开会话也该让模型知道那个解释器在了。
+    /// </summary>
+    public bool PythonEnvReady { get; init; }
 
     /// <summary>网络搜索工具开关</summary>
     public bool WebSearch { get; init; }
@@ -133,7 +141,8 @@ public sealed record AgentAssemblyFacts
                 : string.Empty,
             profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
-            character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null);
+            character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
+            PythonEnvironment.IsReady);
     }
 
     /// <summary>
@@ -148,12 +157,14 @@ public sealed record AgentAssemblyFacts
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
     /// <param name="mountedAgents">已解析的子智能体名单（过滤规则见 <c>CharacterRunnerFactory.ResolveMountedAgents</c>）</param>
+    /// <param name="pythonEnvReady">受管 Python 环境是否已就绪</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
         int mcpRevision, string workspaceInstructions = "",
-        bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null)
+        bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
+        bool pythonEnvReady = false)
     {
         // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.Kind.IsAgent();
@@ -171,6 +182,8 @@ public sealed record AgentAssemblyFacts
                 : string.Empty,
             FileAccess = isAgent && config.EnableFileAccess,
             Shell = isAgent && config.EnableShellExecution,
+            //只在挂了 shell 时入账:没 shell 就没人跑得动它,纪律段本来也不发
+            PythonEnvReady = isAgent && config.EnableShellExecution && pythonEnvReady,
             WebSearch = isAgent && config.EnableWebSearch,
             FileMemory = isAgent && config.EnableFileMemory,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,

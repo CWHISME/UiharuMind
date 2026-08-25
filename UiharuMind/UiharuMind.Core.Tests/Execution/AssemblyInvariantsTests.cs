@@ -313,6 +313,73 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
+    /// 受管 Python 环境的纪律段<b>只在环境真的就绪时出现</b>，且必须寄生在命令行那一节之下。
+    ///
+    /// 两条都是承重的：Python 不是一个工具，是 <c>Shell</c> 的一个分项（见 ADR 0019）。
+    /// 环境没建就把解释器路径写进提示词，模型会照着调然后白烧一次调用——
+    /// 与 ADR 0017「判据取装配结果而非配置意图」是同一条道理。
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PythonDiscipline_AppearsOnlyWhenEnvironmentIsReady(bool ready)
+    {
+        AgentToolConfig config = new() { EnableShellExecution = true, EnableFileAccess = true };
+        string interpreter = ready ? "/tmp/uiharu-python-test/bin/python" : string.Empty;
+
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", config,
+            pythonInterpreter: interpreter);
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        if (!ready)
+        {
+            Assert.DoesNotContain(AgentPromptHeadings.Python, instructions);
+            return;
+        }
+
+        Assert.Contains(AgentPromptHeadings.Python, instructions);
+        Assert.Contains(interpreter, instructions); //解释器必须指名绝对路径,PATH 上那个不是它
+        Assert.True(
+            instructions.IndexOf(AgentPromptHeadings.Python, StringComparison.Ordinal) >
+            instructions.IndexOf(AgentPromptHeadings.Shell, StringComparison.Ordinal),
+            "Python 段必须排在命令行段之后——它是那一节的分项");
+    }
+
+    /// <summary>
+    /// 没挂 shell 就<b>绝不</b>发 Python 段：没有任何工具跑得动那个解释器，
+    /// 说了纯属噪声，还会诱导模型去找一个不存在的执行途径。
+    /// </summary>
+    [Fact]
+    public void PythonDiscipline_NeverAppearsWithoutShell()
+    {
+        AgentToolConfig config = new() { EnableShellExecution = false, EnableFileAccess = true };
+
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", config,
+            pythonInterpreter: "/tmp/uiharu-python-test/bin/python");
+
+        Assert.DoesNotContain(AgentPromptHeadings.Python,
+            options.ChatOptions?.Instructions ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 产出的 <c>file://</c> 前缀由我们算好写进提示词，<b>不让模型自己拼 URI</b>——
+    /// Windows 上 <c>C:\a\b</c> 要变成 <c>file:///C:/a/b</c>，反斜杠与盘符两处都得改，
+    /// 拼错的表现是对话里一张图都不出现，而且完全看不出为什么。
+    /// </summary>
+    [Fact]
+    public void PythonDiscipline_GivesFileUriPrefix()
+    {
+        AgentToolConfig config = new() { EnableShellExecution = true, EnableFileAccess = true };
+
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", config,
+            pythonInterpreter: "/tmp/uiharu-python-test/bin/python");
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(new Uri(PythonOutputDirectory + Path.DirectorySeparatorChar).AbsoluteUri,
+            instructions);
+    }
+
+    /// <summary>
     /// 工作区规矩排在我们这段的最尾(框架 provider 段仍在其后,那不由我们控制)。
     /// 它是"这个项目的特殊规矩"，该压在通用纪律之后。
     /// </summary>
@@ -415,15 +482,21 @@ public class HarnessInstructionsCompositionTests
         Assert.All(segments.Where(x => x.Section != EPromptSection.Mcp), x => Assert.True(x.CountsTowardTotal));
     }
 
+    /// <summary>产出目录:本套测试不碰真实 AppPaths,只要是个合法绝对路径就够</summary>
+    private static readonly string PythonOutputDirectory =
+        Path.Combine(Path.GetTempPath(), "uiharu-agent-outputs-test");
+
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
-        AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null)
+        AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null,
+        string pythonInterpreter = "")
     {
-        return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp);
+        return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp,
+            pythonInterpreter);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
-        string workspaceInstructions = "", McpToolSet? mcp = null)
+        string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "")
     {
         CharacterData character = new()
         {
@@ -447,6 +520,8 @@ public class HarnessInstructionsCompositionTests
             WorkspaceInstructions = workspaceInstructions,
             SkillsSource = new AgentFileSkillsSource(skillsDir),
             Mcp = mcp ?? McpToolSet.Empty,
+            PythonInterpreterPath = pythonInterpreter,
+            PythonOutputDirectory = pythonInterpreter.Length > 0 ? PythonOutputDirectory : string.Empty,
         };
 
         // shell 路径固定给一个假值:本套测试只校验拼接与顺序,真解析出来的 shell 因机而异

@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -175,6 +175,72 @@ public static class AgentToolPrompts
             "先说清你要做什么，再做。");
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 受管 Python 环境纪律段。
+    ///
+    /// <b>这一段不对应任何工具</b>——Python 由 <c>Shell</c> 跑，我们只是告诉模型"跑哪一个"。
+    /// 刻意不引入独立的代码执行工具，理由见 ADR 0019：两个执行面模型要二选一，
+    /// 而它相对 shell 的增量抵不上那份代价。
+    /// </summary>
+    /// <param name="interpreterPath">受管环境里的解释器绝对路径</param>
+    /// <param name="outputDirectory">产出目录绝对路径</param>
+    /// <param name="fileAccessMounted">文件工具是否已装配（决定教哪种写代码的方式）</param>
+    /// <returns>整段正文</returns>
+    public static string BuildPython(string interpreterPath, string outputDirectory, bool fileAccessMounted)
+    {
+        StringBuilder sb = new();
+
+        // 指名绝对路径是这一段的全部要害:PATH 上那个 python 不是这一个,
+        // 装进去的包也不在那儿。模型只要图省事写 python3,后面每一步都对不上
+        sb.AppendLine($"- 要跑 Python，用 `Shell` 调这个解释器的绝对路径：{interpreterPath}");
+        sb.AppendLine(
+            "- 不要写 `python` 或 `python3`。那是系统里另一个解释器，装进上面这个环境的包它一个也看不见。");
+
+        // 多行代码怎么送进去是按平台分岔的:heredoc 只在 POSIX shell 成立,
+        // cmd 与 PowerShell 下根本没有。所以有文件工具时一律走"写成文件再跑",那是四种 shell 都成立的
+        if (fileAccessMounted)
+        {
+            sb.AppendLine(
+                "- 超过一行的代码，先用 `Write` 写成一个 `.py` 文件，再用 `Shell` 跑它。" +
+                "不要把多行代码塞进命令行——引号和转义会被 shell 改写，出错了还看不出是哪一步坏的。");
+        }
+        else
+        {
+            sb.AppendLine(
+                "- 命令行里塞多行代码容易被引号和转义搞坏。写不下就分成几个短的 `-c` 调用。");
+        }
+
+        sb.AppendLine(
+            $"- 缺第三方包就自己装：`{interpreterPath} -m pip install <包名>`。装进的是上面那个环境，不影响系统。");
+
+        // 产出这两句是"用户能不能看到"的唯一通路:对话正文按 markdown 渲染,
+        // 本地文件图片走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
+        string uriPrefix = ToFileUriPrefix(outputDirectory);
+        sb.AppendLine(
+            $"- 图表、导出的数据这类**要给用户看**的产出，写到这个目录：{outputDirectory}");
+        sb.Append(
+            $"- 写完在回复正文里用 `![说明]({uriPrefix}文件名)` 引用它，用户才看得见。" +
+            "路径写别处、或者只报一句文件名，对话里就什么都不会出现。");
+
+        return sb.ToString();
+    }
+
+    /// 目录的 file:// 前缀(带尾斜杠)。让模型自己拼 URI 会在 Windows 上翻车——
+    /// C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改
+    private static string ToFileUriPrefix(string directory)
+    {
+        try
+        {
+            string full = Path.GetFullPath(directory);
+            if (!full.EndsWith(Path.DirectorySeparatorChar)) full += Path.DirectorySeparatorChar;
+            return new Uri(full).AbsoluteUri;
+        }
+        catch (Exception)
+        {
+            return string.Empty; //路径非法时退化成空前缀,总比抛在装配路上强
+        }
     }
 
     /// <summary>识图工具纪律段默认正文</summary>
