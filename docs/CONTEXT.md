@@ -252,12 +252,16 @@
 ### agent 产出（Agent Outputs）
 
 agent **想让用户看到**的文件（跑 Python 画的图、导出的数据），落在
-`AppPaths.Data.AgentOutputs`。模型在回复正文里用 `![说明](file:///…)` 引用，
+`AppPaths.Data.AgentOutputs` 下**按会话分的子目录**里，目录名是 `{会话标题}_{会话id前8位}`
+（`AgentOutputLayout`）。模型在回复正文里用 `![说明](file:///…)` 引用，
 markdown 渲染器据此把图显示出来，随历史持久化。
 
 ⚠️ 不要与**对话附件**（`AppPaths.Data.AgentAttachments`）混淆：那边是**用户**发进来的。
 
 ⚠️ 归 `Data` 而非 `Cache`：对话正文以链接引用它们，清掉就等于历史里留下一堆坏图。
+
+⚠️ **改名不搬目录**——路径已经写进历史，一搬就是一片打不开的图。所以同一个会话改名后可能有
+多个产出目录，清理按 id 后缀通配。这一点与 [FileMemory](#filememory文件记忆) 刻意相反。
 
 ⚠️ 引用格式是 `[![说明](file:///…)](file:///…)`，**外层那道链接不是多余的**——裸图片在
 markdown 渲染器里没有 `HRef`，显示得出来但点不开。点击由 `SimpleMarkdownViewer.OnLinkClick`
