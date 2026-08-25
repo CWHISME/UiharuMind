@@ -65,6 +65,12 @@ public sealed record AgentAssemblyFacts
     /// </summary>
     public bool PythonEnvReady { get; init; }
 
+    /// <summary>
+    /// 产出目录名。提示词里逐字写着这个路径，改会话标题就会换目录，
+    /// 不入账则模型继续往旧目录写，而用户在新目录里什么都看不到。
+    /// </summary>
+    public string OutputFolderName { get; init; } = string.Empty;
+
     /// <summary>网络搜索工具开关</summary>
     public bool WebSearch { get; init; }
 
@@ -142,7 +148,7 @@ public sealed record AgentAssemblyFacts
             profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
             character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
-            PythonEnvironment.IsReady);
+            PythonEnvironment.IsReady, profile.OutputFolderName);
     }
 
     /// <summary>
@@ -158,13 +164,14 @@ public sealed record AgentAssemblyFacts
     /// <param name="modelSupportsVision">当前模型是否自带视觉</param>
     /// <param name="mountedAgents">已解析的子智能体名单（过滤规则见 <c>CharacterRunnerFactory.ResolveMountedAgents</c>）</param>
     /// <param name="pythonEnvReady">受管 Python 环境是否已就绪</param>
+    /// <param name="outputFolderName">产出目录名</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
         int mcpRevision, string workspaceInstructions = "",
         bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
-        bool pythonEnvReady = false)
+        bool pythonEnvReady = false, string outputFolderName = "")
     {
         // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.Kind.IsAgent();
@@ -184,6 +191,7 @@ public sealed record AgentAssemblyFacts
             Shell = isAgent && config.EnableShellExecution,
             //只在挂了 shell 时入账:没 shell 就没人跑得动它,纪律段本来也不发
             PythonEnvReady = isAgent && config.EnableShellExecution && pythonEnvReady,
+            OutputFolderName = isAgent && config.EnableShellExecution ? outputFolderName : string.Empty,
             WebSearch = isAgent && config.EnableWebSearch,
             FileMemory = isAgent && config.EnableFileMemory,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,

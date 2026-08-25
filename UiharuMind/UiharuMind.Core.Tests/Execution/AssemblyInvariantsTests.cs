@@ -899,6 +899,7 @@ public class AssemblySnapshotTests
     [InlineData("permission")]
     [InlineData("preauth")]
     [InlineData("params")]
+    [InlineData("title")]
     public void FactsFromAProfile_ReactToEverySessionFieldTheyDependOn(string dimension)
     {
         AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(
@@ -912,6 +913,8 @@ public class AssemblySnapshotTests
             case "preauth": changed.PreAuthorizedShellPatterns = ["git status*"]; break;
             //会话参数经模板渲染进系统提示,故要用一个真的引用了它的模板
             case "params": changed.CustomParams["tone"] = "curt"; break;
+            //标题进产出目录名,提示词里逐字写着那个路径,改了不重建模型就往旧目录写
+            case "title": changed.Title = "另一个标题"; break;
         }
 
         Assert.NotEqual(baseline, AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(changed)));
@@ -935,6 +938,9 @@ public class AssemblySnapshotTests
             IsTransient = true,
             WorkspacePath = "/ws",
             PermissionModeIndex = 1,
+            // 会话 id 写死:它进快照(产出目录名按会话分,见 AgentOutputLayout),
+            // 每次新建都换一个的话,「改了某个字段就该重建」那几条会因为 id 不同而<b>假绿</b>
+            SessionId = "0123456789abcdef0123456789abcdef",
         };
         session.CustomParams["tone"] = "neutral";
         return session;

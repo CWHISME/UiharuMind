@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -10,6 +10,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
@@ -342,6 +343,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         SaveUtility.Delete(GetHistoryPath(sessionId));
         SaveUtility.Delete(GetBodyPath(sessionId)); //旧单文件格式残留
         SaveUtility.Delete(GetAgentStatePath(sessionId));
+        AgentOutputLayout.DeleteAll(sessionId); //agent 画的图与导出的数据,按 id 后缀通配
         if (wasIndexed) SaveIndex();
 
         if (session != null) OnSessionRemoved?.Invoke(session);

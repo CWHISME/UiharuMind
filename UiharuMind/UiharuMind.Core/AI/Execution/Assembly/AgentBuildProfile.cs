@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -90,6 +90,15 @@ public class AgentBuildProfile
     /// <param name="sessionShellApprovalSource">会话级 shell 放行模式来源</param>
     /// <param name="activitySink">委派型工具的过程上报口</param>
     /// <returns>构建配置</returns>
+    /// <summary>
+    /// 本会话的产出目录名（相对 <c>AgentOutputLayout.RootPath</c>）；无会话时为空串。
+    ///
+    /// 只带名字不带完整路径，是因为<b>建目录是副作用</b>，只允许发生在
+    /// <c>AgentAssemblyPlan.Resolve</c> 里。名字随会话标题变，因此它也进装配快照
+    /// ——提示词里逐字写着这个路径，改了标题不重建就等于告诉模型一个已经不用的目录。
+    /// </summary>
+    public string OutputFolderName { get; init; } = string.Empty;
+
     public static AgentBuildProfile FromSession(ChatSession session,
         Func<ModelRunningData?>? sessionModelSource = null,
         Func<MemoryData?>? sessionKnowledgeSource = null,
@@ -103,6 +112,7 @@ public class AgentBuildProfile
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
+            OutputFolderName = AgentOutputLayout.GetFolderName(session.Title, session.SessionId),
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,
