@@ -233,6 +233,29 @@
 ⚠️ **越界写入（工作区外的写入）是贯穿三档的硬规则，完全自动档也要问一次。**
 放行矩阵见 [ADR 0010](adr/0010-权限档定版三档，越界写入贯穿三档.md)。
 
+### 受管 Python 环境（Managed Python Environment）
+
+一个由我们创建、agent 自己往里装包的 Python 虚拟环境，落在 `AppPaths.External.PythonEnv`。
+**解释器归用户**（探测 PATH，或在设置页手填），**环境归我们**。
+体现为 `PythonEnvironment`、`PythonEnvSettingsViewData`。
+
+⚠️ **它不是一个工具，也不是能力开关。** agent 拿 `Shell` 去调那个解释器——本仓刻意不为跑代码
+另立执行面，见 [ADR 0019](adr/0019-代码执行不设独立工具，走shell与受管venv.md)。
+所以它没有 `AgentToolConfig` 开关，只有「建了没有」（`PythonEnvironment.IsReady`，进装配快照）。
+
+⚠️ 因此**不要说「代码执行工具」「代码解释器」「Python 沙箱」**。前两个指向一个不存在的工具；
+第三个是谎——它爆炸半径与 shell 同级，只是不联网。
+
+### agent 产出（Agent Outputs）
+
+agent **想让用户看到**的文件（跑 Python 画的图、导出的数据），落在
+`AppPaths.Data.AgentOutputs`。模型在回复正文里用 `![说明](file:///…)` 引用，
+markdown 渲染器据此把图显示出来，随历史持久化。
+
+⚠️ 不要与**对话附件**（`AppPaths.Data.AgentAttachments`）混淆：那边是**用户**发进来的。
+
+⚠️ 归 `Data` 而非 `Cache`：对话正文以链接引用它们，清掉就等于历史里留下一堆坏图。
+
 ### Skill（技能）
 
 遵循 [agentskills.io](https://agentskills.io) `SKILL.md` 规范的技能包。
