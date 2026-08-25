@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -11,14 +11,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
+using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -208,7 +214,60 @@ public partial class SimpleMarkdownViewer : UserControl
         // _scrollViewerAutoScrollHolder =
         //     new ScrollViewerAutoScrollHolder((ScrollViewer)this.LogicalChildren[0].LogicalChildren[0]);
 
+        // 链接点击此前全仓一处未接,于是回复里的链接与图片一律点不动。
+        // agent 产出的图表正是以 markdown 图片进对话的(见 ADR 0019),这条不接它就打不开
+        MarkdownTextRender.LinkClick += OnLinkClick;
+
         if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
+    }
+
+    /// <summary>
+    /// 图片扩展名白名单。<b>按扩展名而非探测文件头</b>：点击要立刻有反应，
+    /// 而读一遍文件头再决定开哪个窗口，在网络盘上就是一次可感知的卡顿
+    /// </summary>
+    private static readonly string[] ImageExtensions =
+        [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"];
+
+    /// <summary>
+    /// 链接点击：本地图片走自家贴图窗口，其余交给系统。
+    ///
+    /// 图片单独一档是因为它是 agent 产出的主要形态——用贴图窗口打开可以钉在屏幕上对着看，
+    /// 而系统默认程序会把焦点整个抢走。
+    /// </summary>
+    private void OnLinkClick(object? sender, LinkClickedEventArgs e)
+    {
+        Uri uri = e.HRef;
+        try
+        {
+            if (!uri.IsFile)
+            {
+                TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(uri);
+                return;
+            }
+
+            string path = uri.LocalPath;
+            if (!File.Exists(path))
+            {
+                Log.Warning($"Link target not found: {path}");
+                return;
+            }
+
+            if (ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            {
+                // 这张位图是我们现读的,交出去就不再碰——预览窗关闭时由它释放(见 UIManager 注释)
+                UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(path),
+                    horizontalAlignment: HorizontalAlignment.Center,
+                    verticalAlignment: VerticalAlignment.Center);
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            //坏链接、缺文件、解码失败都不该把一次点击变成崩溃
+            Log.Warning($"Open link failed '{uri}': {ex.Message}");
+        }
     }
 
     public void ForceSetText(string text)
