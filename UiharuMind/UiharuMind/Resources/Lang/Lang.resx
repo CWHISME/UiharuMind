@@ -2867,4 +2867,25 @@ Allow them?</value>
     <data name="PermissionCommandCopied" xml:space="preserve">
         <value>Command copied. Run it in a terminal, then log out and back in.</value>
     </data>
+  <data name="AgentSettingPython" xml:space="preserve">
+    <value>Managed Python environment</value>
+  </data>
+  <data name="AgentSettingPythonDesc" xml:space="preserve">
+    <value>The interpreter is yours; the virtual environment is ours. Once it is ready, the agent runs Python through the Shell tool and installs packages into this environment only — your system Python is never touched.</value>
+  </data>
+  <data name="AgentSettingPythonInterpreter" xml:space="preserve">
+    <value>Host interpreter (leave empty to auto-detect from PATH)</value>
+  </data>
+  <data name="AgentSettingPythonAutoDetect" xml:space="preserve">
+    <value>Auto-detect</value>
+  </data>
+  <data name="AgentSettingPythonProbe" xml:space="preserve">
+    <value>Detect</value>
+  </data>
+  <data name="AgentSettingPythonCreate" xml:space="preserve">
+    <value>Create environment</value>
+  </data>
+  <data name="AgentSettingPythonRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
 </root>

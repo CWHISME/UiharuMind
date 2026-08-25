@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="240"
+             x:Class="UiharuMind.Features.Settings.PythonEnvSettingsView"
+             x:DataType="vm:PythonEnvSettingsViewData">
+
+    <UserControl.Styles>
+        <Style Selector="Border.form-pane">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="form-pane">
+        <StackPanel Spacing="6">
+            <TextBlock FontSize="13" FontWeight="SemiBold" Text="{loc:Loc AgentSettingPython}" />
+            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                       Text="{loc:Loc AgentSettingPythonDesc}" />
+
+            <TextBlock Classes="muted" FontSize="11" Margin="0,6,0,0"
+                       Text="{loc:Loc AgentSettingPythonInterpreter}" />
+            <TextBox Text="{Binding InterpreterPath}" Watermark="{loc:Loc AgentSettingPythonAutoDetect}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                <Button Content="{loc:Loc AgentSettingPythonProbe}"
+                        IsEnabled="{Binding !IsBusy}" Command="{Binding ProbeCommand}" />
+                <Button Content="{loc:Loc AgentSettingPythonCreate}"
+                        IsEnabled="{Binding !IsBusy}" Command="{Binding CreateCommand}" />
+                <Button Content="{loc:Loc AgentSettingPythonRemove}"
+                        IsEnabled="{Binding IsReady}" Command="{Binding RemoveCommand}" />
+            </StackPanel>
+
+            <!-- 就绪与否是这一块唯一要一眼看到的事实:纪律段发不发、模型知不知道有 Python,全看它 -->
+            <TextBlock Classes="muted" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"
+                       IsVisible="{Binding IsReady}" Text="{Binding EnvironmentRoot}" />
+            <SelectableTextBlock FontSize="11" TextWrapping="Wrap" Text="{Binding Status}"
+                                 IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+    </Border>
+</UserControl>

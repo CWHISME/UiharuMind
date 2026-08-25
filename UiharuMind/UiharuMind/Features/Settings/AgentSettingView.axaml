@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -61,6 +61,9 @@
 
                     <!-- 联网搜索(凭据 + 链路状态)自成一块，见 WebSearchSettingsView -->
                     <vm:WebSearchSettingsView DataContext="{Binding WebSearch}" />
+
+                    <!-- 受管 Python 环境。它不是能力开关:agent 用 Shell 调那个解释器,见 ADR 0019 -->
+                    <vm:PythonEnvSettingsView DataContext="{Binding PythonEnv}" />
 
                 </StackPanel>
             </ScrollViewer>

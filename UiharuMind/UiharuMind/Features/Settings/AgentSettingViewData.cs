@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -35,6 +35,13 @@ public partial class AgentSettingViewData : ViewModelBase
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
     public WebSearchSettingsViewData WebSearch { get; } = new();
+
+    //================= 受管 Python 环境 =================
+    /// <summary>
+    /// 解释器探测与虚拟环境创建自成一块，见 <see cref="PythonEnvSettingsViewData"/>。
+    /// 它挂在能力页而不是常规页：它讲的是"agent 能不能跑 Python"，与联网搜索凭据同性质。
+    /// </summary>
+    public PythonEnvSettingsViewData PythonEnv { get; } = new();
 
     //================= MCP =================
     /// <summary>server 列表、连接状态与编辑缓冲自成一块,见 <see cref="McpSettingsViewData"/></summary>

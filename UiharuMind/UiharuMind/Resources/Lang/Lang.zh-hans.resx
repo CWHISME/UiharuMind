@@ -2860,4 +2860,25 @@
     <data name="PermissionCommandCopied" xml:space="preserve">
         <value>命令已复制，请在终端执行后重新登录。</value>
     </data>
+  <data name="AgentSettingPython" xml:space="preserve">
+    <value>受管 Python 环境</value>
+  </data>
+  <data name="AgentSettingPythonDesc" xml:space="preserve">
+    <value>解释器归你，虚拟环境归我们。建好之后 agent 用命令行工具调它跑 Python，装包也只装进这个环境，不会动你的系统 Python。</value>
+  </data>
+  <data name="AgentSettingPythonInterpreter" xml:space="preserve">
+    <value>宿主解释器（留空则从 PATH 自动探测）</value>
+  </data>
+  <data name="AgentSettingPythonAutoDetect" xml:space="preserve">
+    <value>自动探测</value>
+  </data>
+  <data name="AgentSettingPythonProbe" xml:space="preserve">
+    <value>探测</value>
+  </data>
+  <data name="AgentSettingPythonCreate" xml:space="preserve">
+    <value>创建环境</value>
+  </data>
+  <data name="AgentSettingPythonRemove" xml:space="preserve">
+    <value>移除</value>
+  </data>
 </root>
