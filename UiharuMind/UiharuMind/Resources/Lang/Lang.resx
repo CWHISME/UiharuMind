@@ -510,6 +510,18 @@
     <data name="AgentSkillsNotLoaded" xml:space="preserve">
         <value>not loaded</value>
     </data>
+    <data name="AgentSkillsDuplicateHint" xml:space="preserve">
+        <value>Not loaded: another skill with the same name was found first, at {0}. Remove one of the two.</value>
+    </data>
+    <data name="AgentSkillsDuplicate" xml:space="preserve">
+        <value>duplicate name</value>
+    </data>
+    <data name="AgentSkillsLocalGroup" xml:space="preserve">
+        <value>Local skills</value>
+    </data>
+    <data name="AgentSkillsEmpty" xml:space="preserve">
+        <value>No skills found. Drop a skill package into the folder above, or create one — nesting is fine, any depth is scanned.</value>
+    </data>
     <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
         <value>Rejected by the SKILL.md spec check — the skill name must match its directory name. See the log for the exact reason.</value>
     </data>

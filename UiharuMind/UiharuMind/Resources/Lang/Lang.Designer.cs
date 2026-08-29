@@ -803,6 +803,30 @@ namespace UiharuMind.Resources.Lang {
             }
         }
 
+        public static string AgentSkillsDuplicateHint {
+            get {
+                return ResourceManager.GetString("AgentSkillsDuplicateHint", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsDuplicate {
+            get {
+                return ResourceManager.GetString("AgentSkillsDuplicate", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsLocalGroup {
+            get {
+                return ResourceManager.GetString("AgentSkillsLocalGroup", resourceCulture);
+            }
+        }
+
+        public static string AgentSkillsEmpty {
+            get {
+                return ResourceManager.GetString("AgentSkillsEmpty", resourceCulture);
+            }
+        }
+
         public static string AgentSkillsNotLoadedHint {
             get {
                 return ResourceManager.GetString("AgentSkillsNotLoadedHint", resourceCulture);

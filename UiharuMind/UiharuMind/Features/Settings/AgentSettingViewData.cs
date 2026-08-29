@@ -48,7 +48,11 @@ public partial class AgentSettingViewData : ViewModelBase
     public McpSettingsViewData Mcp { get; } = new();
 
     //================= 技能 =================
-    public ObservableCollection<SkillDisplayItem> Skills { get; } = new();
+    /// <summary>按「包 → 分类」两级分好组的技能列表</summary>
+    public ObservableCollection<SkillGroupItem> SkillGroups { get; } = new();
+
+    /// <summary>一个技能都没扫到</summary>
+    [ObservableProperty] private bool _hasNoSkills;
 
     /// <summary>
     /// 技能目录的完整路径。显式摆出来是为了让第三方生成器有地方可指——
@@ -111,6 +115,7 @@ public partial class AgentSettingViewData : ViewModelBase
     [RelayCommand]
     private async Task ReloadSkills()
     {
+        SkillCatalog.Instance.Invalidate(); //扫描结果是缓存的,不作废就只是把同一份重画一遍
         await RefreshSkillsAsync();
     }
 
@@ -128,38 +133,8 @@ public partial class AgentSettingViewData : ViewModelBase
     {
         List<SkillCatalogEntry> entries = await SkillCatalog.Instance.GetEntriesAsync();
 
-        Skills.Clear();
-        foreach (SkillCatalogEntry entry in entries)
-        {
-            Skills.Add(new SkillDisplayItem(entry));
-        }
-    }
-}
-
-/// <summary>
-/// 技能列表显示项（只读展示）。启停<b>不在这里</b>——技能与工具同类，属"这个智能体有什么能力"，
-/// 按角色配（见 <see cref="AgentToolConfig.DisabledSkills"/> 与角色编辑页）。
-/// 「模型可自选」由 SKILL.md 自己声明，属技能包的一部分而非用户偏好，同样只读。
-/// </summary>
-public class SkillDisplayItem
-{
-    /// <summary>技能名(即目录名)</summary>
-    public string Name { get; }
-
-    /// <summary>技能描述(模型自选时的匹配依据)</summary>
-    public string Description { get; }
-
-    /// <summary>是否已成功加载</summary>
-    public bool IsLoaded { get; }
-
-    /// <summary>是否退出了模型自选(只能点名调用)</summary>
-    public bool IsUserInvokedOnly { get; }
-
-    public SkillDisplayItem(SkillCatalogEntry entry)
-    {
-        Name = entry.Name;
-        Description = entry.Description;
-        IsLoaded = entry.IsLoaded;
-        IsUserInvokedOnly = !entry.IsModelInvocable;
+        SkillGroups.Clear();
+        foreach (SkillGroupItem group in SkillGrouping.Build(entries)) SkillGroups.Add(group);
+        HasNoSkills = SkillGroups.Count == 0;
     }
 }

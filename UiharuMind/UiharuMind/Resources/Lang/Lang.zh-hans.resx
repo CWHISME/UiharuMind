@@ -500,6 +500,18 @@
     <data name="AgentSkillsNotLoaded" xml:space="preserve">
         <value>未加载</value>
     </data>
+    <data name="AgentSkillsDuplicateHint" xml:space="preserve">
+        <value>未加载：同名技能已被先扫到的那个占用，在 {0}。两个里删掉一个。</value>
+    </data>
+    <data name="AgentSkillsDuplicate" xml:space="preserve">
+        <value>重名</value>
+    </data>
+    <data name="AgentSkillsLocalGroup" xml:space="preserve">
+        <value>本地技能</value>
+    </data>
+    <data name="AgentSkillsEmpty" xml:space="preserve">
+        <value>没扫到技能。把技能包放进上面的目录，或新建一个——可以带包裹目录，任意层级都会扫到。</value>
+    </data>
     <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
         <value>不符合 SKILL.md 规范校验被拒——技能名必须与目录名一致。具体原因见日志。</value>
     </data>

@@ -10,11 +10,17 @@ using Meziantou.Framework.Globbing;
 /// </summary>
 public sealed class SimpleGlobber
 {
+    /// <summary>
+    /// 任何搜索都不该进的目录。写成 <c>**/名字</c> 而不是 <c>**/名字/**</c>：
+    /// 本库的 <c>**</c> 只匹配目录段，末尾的 <c>/**</c> 之后还要再有一个文件段才算命中，
+    /// 于是 <c>**/node_modules/**</c> 对任何路径都返回 false——排除从来不生效。
+    /// 匹配目录名本身，再由 <see cref="GlobEnum.ShouldRecurseIntoEntry"/> 拦住下探即可。
+    /// </summary>
     private static readonly GlobCollection HardSkips = new(
-        Glob.Parse("**/node_modules/**", GlobOptions.IgnoreCase),
-        Glob.Parse("**/.git/**", GlobOptions.IgnoreCase),
-        Glob.Parse("**/bin/**", GlobOptions.IgnoreCase),
-        Glob.Parse("**/obj/**", GlobOptions.IgnoreCase)
+        Glob.Parse("**/node_modules", GlobOptions.IgnoreCase),
+        Glob.Parse("**/.git", GlobOptions.IgnoreCase),
+        Glob.Parse("**/bin", GlobOptions.IgnoreCase),
+        Glob.Parse("**/obj", GlobOptions.IgnoreCase)
     );
 
     private string _rootDirectory;
@@ -164,7 +170,7 @@ public sealed class SimpleGlobber
         protected override bool ShouldIncludeEntry(ref FileSystemEntry e)
         {
             string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/');
-            if (_skip.IsMatch(rel)) return false;
+            if (IsHardSkipped(rel)) return false; //不下探已经挡住了里面的东西，这里挡的是这个目录自己
 
             bool isDir = e.Attributes.HasFlag(FileAttributes.Directory);
             return !(_dirsOnly && !isDir) && _glob.IsMatch(rel);
@@ -174,7 +180,22 @@ public sealed class SimpleGlobber
         {
             // 剪枝：被硬排除 or 不可能命中用户 pattern，直接不进目录
             string rel = Path.GetRelativePath(_root, Path.Join(e.Directory, e.FileName)).Replace('\\', '/').TrimEnd('/');
-            return !_skip.IsMatch(rel) && _glob.IsPartialMatch(rel.AsSpan());
+            return !IsHardSkipped(rel) && _glob.IsPartialMatch(rel.AsSpan());
+        }
+
+        /// <summary>
+        /// 硬排除判定。<c>GlobCollection.IsMatch</c> 的入参是<b>目录段与名字段两截</b>，
+        /// 整条路径当一个参数传进去只会落在"目录"上、名字为空，于是恒为 false。
+        /// 类型传 null：这几条 pattern 没有结尾斜杠，本库把它们归为文件型，
+        /// 指名 <c>PathItemType.Directory</c> 反而匹配不上。
+        /// </summary>
+        /// <param name="relativePath">相对搜索根的路径，/ 分隔</param>
+        /// <returns>是否命中硬排除</returns>
+        private bool IsHardSkipped(string relativePath)
+        {
+            int slash = relativePath.LastIndexOf('/');
+            ReadOnlySpan<char> directory = slash < 0 ? [] : relativePath.AsSpan(0, slash);
+            return _skip.IsMatch(directory, relativePath.AsSpan(slash + 1), null);
         }
     }
 }

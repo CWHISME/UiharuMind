@@ -96,38 +96,68 @@
                                          TextTrimming="CharacterEllipsis" Text="{Binding SkillsRootPath}" />
                 </StackPanel>
                 <ScrollViewer Grid.Row="2" Margin="0,10,0,0">
-                    <ItemsControl ItemsSource="{Binding Skills}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:SkillDisplayItem">
-                                <Border Classes="form-pane" Margin="0,4" Padding="12,8">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <StackPanel Grid.Column="0" Spacing="2">
+                    <StackPanel Spacing="6">
+                        <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,6"
+                                   Text="{loc:Loc AgentSkillsEmpty}" IsVisible="{Binding HasNoSkills}" />
+                        <!-- 两级:包 → 分类。生态里的技能包普遍是「包名/skills/分类/技能名」,
+                             只按包名分会得到一个几十条的大组,等于没分(见 SkillGrouping) -->
+                        <ItemsControl ItemsSource="{Binding SkillGroups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SkillGroupItem">
+                                    <Expander Margin="0,2" IsExpanded="True" HorizontalAlignment="Stretch">
+                                        <Expander.Header>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                                                <!-- 只读标记:模型自选由 SKILL.md 自己声明,用户不能覆盖 -->
-                                                <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource SemiBlue5}"
-                                                           IsVisible="{Binding IsUserInvokedOnly}"
-                                                           Text="{loc:Loc AgentSkillsUserInvoked}"
-                                                           ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
-                                                <TextBlock FontSize="11" VerticalAlignment="Center"
-                                                           Foreground="IndianRed"
-                                                           IsVisible="{Binding !IsLoaded}"
-                                                           Text="{loc:Loc AgentSkillsNotLoaded}" />
+                                                <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                                           Text="{Binding SkillCount}" />
                                             </StackPanel>
-                                            <TextBlock FontSize="12"
-                                                       Foreground="{DynamicResource SemiGrey5}"
-                                                       Text="{Binding Description}" TextWrapping="Wrap"
-                                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                            <TextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
-                                                       IsVisible="{Binding !IsLoaded}"
-                                                       Text="{loc:Loc AgentSkillsNotLoadedHint}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                        </Expander.Header>
+                                        <ItemsControl ItemsSource="{Binding Categories}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:SkillCategoryItem">
+                                                    <StackPanel Margin="0,2">
+                                                        <TextBlock Classes="muted" FontSize="11" Margin="2,6,0,2"
+                                                                   IsVisible="{Binding HasName}"
+                                                                   Text="{Binding Name}" />
+                                                        <ItemsControl ItemsSource="{Binding Skills}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:SkillDisplayItem">
+                                                                    <Border Classes="form-pane" Margin="0,3" Padding="12,8">
+                                                                        <StackPanel Spacing="2">
+                                                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                                <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                                                                                <!-- 只读标记:模型自选由 SKILL.md 自己声明,用户不能覆盖 -->
+                                                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                                           Foreground="{DynamicResource SemiBlue5}"
+                                                                                           IsVisible="{Binding IsUserInvokedOnly}"
+                                                                                           Text="{loc:Loc AgentSkillsUserInvoked}"
+                                                                                           ToolTip.Tip="{loc:Loc AgentSkillsUserInvokedTip}" />
+                                                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                                                           Foreground="IndianRed"
+                                                                                           IsVisible="{Binding !IsLoaded}"
+                                                                                           Text="{loc:Loc AgentSkillsNotLoaded}" />
+                                                                            </StackPanel>
+                                                                            <TextBlock FontSize="12"
+                                                                                       Foreground="{DynamicResource SemiGrey5}"
+                                                                                       Text="{Binding Description}" TextWrapping="Wrap"
+                                                                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                                            <TextBlock FontSize="12" Foreground="IndianRed" TextWrapping="Wrap"
+                                                                                       Text="{Binding LoadFailureHint}"
+                                                                                       IsVisible="{Binding LoadFailureHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </ScrollViewer>
             </Grid>
         </TabItem>

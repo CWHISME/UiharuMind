@@ -31,17 +31,44 @@ public class SkillCatalogEntry
     public string DirectoryPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// 相对技能根的目录路径,一律用 / 分隔(如 <c>pack/skills/engineering/tdd</c>)。
+    /// 只给事实不给分组:怎么按它分组是展示决策,留在 UI 层。
+    /// </summary>
+    public string RelativePath { get; init; } = string.Empty;
+
+    /// <summary>
     /// 是否参与模型自选。false 表示 SKILL.md 里声明了
     /// <see cref="SkillCatalog.DisableModelInvocationKey"/>,该技能只剩点名调用可达。
     /// </summary>
     public bool IsModelInvocable { get; init; } = true;
 
+    /// <summary>加载状态。设置页据此标记,免得用户看着开关是开的、实际从未生效</summary>
+    public ESkillLoadState LoadState { get; init; } = ESkillLoadState.Loaded;
+
     /// <summary>
-    /// 框架是否接受加载。false 表示目录里有 SKILL.md 却被规范校验拒掉
-    /// (最常见是技能名与目录名不一致),具体原因在日志里。设置页据此标"未加载",
-    /// 免得用户看着开关是开的、实际从未生效。
+    /// 顶掉本技能的那个技能目录路径。仅 <see cref="ESkillLoadState.DuplicateName"/> 时有值,
+    /// 用户要据此判断该删哪一个
     /// </summary>
-    public bool IsLoaded { get; init; } = true;
+    public string DuplicateOfPath { get; init; } = string.Empty;
+
+    /// <summary>框架是否接受加载</summary>
+    public bool IsLoaded => LoadState == ESkillLoadState.Loaded;
+}
+
+/// <summary>
+/// 技能的加载状态。两种失败要给用户的动作完全不同(改 SKILL.md / 删掉一个包),
+/// 因此不能合并成一个 bool
+/// </summary>
+public enum ESkillLoadState
+{
+    /// <summary>已加载</summary>
+    Loaded,
+
+    /// <summary>不符合 SKILL.md 规范校验被拒,最常见是技能名与目录名不一致,具体原因在日志里</summary>
+    Invalid,
+
+    /// <summary>技能名与另一个已加载的技能重复,被先到的顶掉</summary>
+    DuplicateName,
 }
 
 /// <summary>
@@ -112,10 +139,47 @@ public class SkillCatalog : Singleton<SkillCatalog>
 
     private const string SkillFileName = "SKILL.md";
 
-    private const int MaxSearchDepth = 2; //与框架 AgentFileSkillsSource 的递归深度一致
+    private readonly SkillDirectoryScanner _scanner = new();
+    private readonly Lock _sourceLock = new();
+    private AgentSkillsSource? _sharedSource; //扫盘 + 解析的结果缓存,设置页「重新扫描」负责作废
 
     /// <summary>技能根目录</summary>
     public string SkillsRootPath => AppPaths.Data.Skills;
+
+    /// <summary>
+    /// 全进程共用的技能来源:<c>Caching(Deduplicating(DeepFile))</c>。
+    ///
+    /// 三层各司其职——<see cref="DeepFileSkillsSource"/> 扫出任意深度的技能目录并交框架解析;
+    /// 去重层收拾多根扫描的重叠(不套它会拿到成对的重复项),顺带把重名技能按先到先得压成一个;
+    /// 缓存层让设置页刷新、每次点名调用、每次建会话共用同一份扫描结果。
+    ///
+    /// 缓存隔离键钉成常量:默认按 agent 隔离,而本来源根本不看 <c>context</c>,
+    /// 按 agent 分只会让同一份结果被反复扫。
+    /// </summary>
+    private AgentSkillsSource SharedSource
+    {
+        get
+        {
+            lock (_sourceLock)
+            {
+                return _sharedSource ??= new CachingAgentSkillsSource(
+                    new DeduplicatingAgentSkillsSource(new DeepFileSkillsSource(SkillsRootPath)),
+                    new CachingAgentSkillsSourceOptions { CacheIsolationKeySelector = _ => string.Empty });
+            }
+        }
+    }
+
+    /// <summary>
+    /// 丢弃缓存的扫描结果,下次读取重新扫盘。设置页的「重新扫描」与「新建技能」用
+    /// </summary>
+    public void Invalidate()
+    {
+        lock (_sourceLock)
+        {
+            _sharedSource?.Dispose();
+            _sharedSource = null;
+        }
+    }
 
     /// <summary>
     /// 构建供 HarnessAgent 使用的技能来源:只放"启用且参与模型自选"的技能。
@@ -126,9 +190,9 @@ public class SkillCatalog : Singleton<SkillCatalog>
     /// <returns>技能来源</returns>
     public AgentSkillsSource BuildSkillsSource(IEnumerable<string> disabledSkills)
     {
-        AgentFileSkillsSource fileSource = new(SkillsRootPath);
         HashSet<string> disabled = new(disabledSkills, StringComparer.OrdinalIgnoreCase);
-        return new FilteringAgentSkillsSource(fileSource, (skill, _) => IsAdvertised(skill, disabled));
+        // 过滤层按角色一个,底下的扫描与解析共用 SharedSource——禁用清单是角色的,扫描结果不是
+        return new FilteringAgentSkillsSource(SharedSource, (skill, _) => IsAdvertised(skill, disabled));
     }
 
     /// <summary>
@@ -151,33 +215,81 @@ public class SkillCatalog : Singleton<SkillCatalog>
     public async Task<List<SkillCatalogEntry>> GetEntriesAsync()
     {
         List<SkillCatalogEntry> entries = new();
-        HashSet<string> loadedDirectories = new(StringComparer.Ordinal);
+        Dictionary<string, string> loadedDirectories = new(StringComparer.Ordinal); //目录 -> 技能名
+        Dictionary<string, string> loadedNames = new(StringComparer.OrdinalIgnoreCase); //技能名 -> 目录
 
         foreach (AgentSkill skill in await LoadSkillsAsync().ConfigureAwait(false))
         {
-            string directory = (skill as AgentFileSkill)?.Path ?? string.Empty;
-            if (directory.Length > 0) loadedDirectories.Add(directory);
+            string directory = NormalizePath((skill as AgentFileSkill)?.Path ?? string.Empty);
+            if (directory.Length > 0)
+            {
+                loadedDirectories[directory] = skill.Frontmatter.Name;
+                loadedNames.TryAdd(skill.Frontmatter.Name, directory);
+            }
+
             entries.Add(new SkillCatalogEntry
             {
                 Name = skill.Frontmatter.Name,
                 Description = skill.Frontmatter.Description,
                 DirectoryPath = directory,
+                RelativePath = ToRelativePath(directory),
                 IsModelInvocable = IsModelInvocable(skill),
             });
         }
 
-        foreach (string directory in DiscoverSkillDirectories())
+        // 扫得到却没进上面那份列表的目录:要么规范校验没过,要么技能名撞了别人。
+        // 两者给用户的动作不同(改 SKILL.md / 删掉一个包),所以要分开判
+        foreach (SkillDirectory directory in await _scanner.ScanAsync(SkillsRootPath).ConfigureAwait(false))
         {
-            if (loadedDirectories.Contains(directory)) continue;
+            string full = NormalizePath(directory.FullPath);
+            if (loadedDirectories.ContainsKey(full)) continue;
+
+            string name = ReadDeclaredName(full);
+            bool duplicated = name.Length > 0 && loadedNames.ContainsKey(name);
             entries.Add(new SkillCatalogEntry
             {
-                Name = Path.GetFileName(directory),
-                DirectoryPath = directory,
-                IsLoaded = false,
+                Name = name.Length > 0 ? name : Path.GetFileName(full),
+                DirectoryPath = full,
+                RelativePath = directory.RelativePath,
+                LoadState = duplicated ? ESkillLoadState.DuplicateName : ESkillLoadState.Invalid,
+                DuplicateOfPath = duplicated ? loadedNames[name] : string.Empty,
             });
         }
 
         return entries;
+    }
+
+    /// <summary>取一个技能目录自己声明的技能名;读不到为空串</summary>
+    private static string ReadDeclaredName(string directory)
+    {
+        try
+        {
+            string file = Path.Combine(directory, SkillFileName);
+            return File.Exists(file)
+                ? ReadTopLevelFrontmatterValue(File.ReadAllText(file), "name") ?? string.Empty
+                : string.Empty;
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Read skill name failed '{directory}': {e.Message}");
+            return string.Empty;
+        }
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return path.Length == 0 ? path : Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    }
+
+    /// <summary>技能目录绝对路径 → 相对技能根的路径(/ 分隔);不在根下时退回目录名</summary>
+    private string ToRelativePath(string directory)
+    {
+        if (directory.Length == 0) return string.Empty;
+
+        string relative = Path.GetRelativePath(SkillsRootPath, directory).Replace('\\', '/');
+        return relative.StartsWith("../", StringComparison.Ordinal) || Path.IsPathFullyQualified(relative)
+            ? Path.GetFileName(directory)
+            : relative;
     }
 
     /// <summary>
@@ -304,6 +416,7 @@ public class SkillCatalog : Singleton<SkillCatalog>
             string directory = Path.Combine(SkillsRootPath, name);
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, SkillFileName), BuildTemplate(name));
+            Invalidate(); //刚落盘的技能要立刻出现在列表里
             return directory;
         }
         catch (Exception e)
@@ -331,13 +444,12 @@ public class SkillCatalog : Singleton<SkillCatalog>
                 """;
     }
 
-    // [MFA绕坑] 绕:枚举技能时给 GetSkillsAsync 传 null 上下文 因:AgentSkillsSourceContext 强制要求 agent 非空,而设置页与 / 补全都没有 agent;AgentFileSkillsSource 完全忽略该参数 删除条件:框架提供不需要 agent 的枚举入口
+    // [MFA绕坑] 绕:枚举技能时给 GetSkillsAsync 传 null 上下文 因:AgentSkillsSourceContext 强制要求 agent 非空,而设置页与 / 补全都没有 agent;文件来源完全忽略该参数 删除条件:框架提供不需要 agent 的枚举入口
     private async Task<IList<AgentSkill>> LoadSkillsAsync()
     {
         try
         {
-            AgentFileSkillsSource source = new(SkillsRootPath);
-            return await source.GetSkillsAsync(null!).ConfigureAwait(false);
+            return await SharedSource.GetSkillsAsync(null!).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -410,37 +522,6 @@ public class SkillCatalog : Singleton<SkillCatalog>
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// 按框架同样的规则递归找技能目录:目录里有 SKILL.md 即是技能且不再下探,
-    /// 否则继续下探,最深 <see cref="MaxSearchDepth"/> 层。规则跑偏会让"未加载"误报。
-    /// </summary>
-    /// <returns>技能目录绝对路径列表</returns>
-    private List<string> DiscoverSkillDirectories()
-    {
-        List<string> results = new();
-        if (Directory.Exists(SkillsRootPath)) Search(SkillsRootPath, results, 0);
-        return results;
-
-        static void Search(string directory, List<string> results, int depth)
-        {
-            if (File.Exists(Path.Combine(directory, SkillFileName)))
-            {
-                results.Add(Path.GetFullPath(directory));
-                return;
-            }
-
-            if (depth >= MaxSearchDepth) return;
-            try
-            {
-                foreach (string child in Directory.EnumerateDirectories(directory)) Search(child, results, depth + 1);
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"Scan skill directory failed '{directory}': {e.Message}");
-            }
-        }
     }
 
     /// <summary>
