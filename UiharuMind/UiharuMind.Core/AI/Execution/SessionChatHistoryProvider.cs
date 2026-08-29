@@ -95,16 +95,25 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         return new ValueTask<IEnumerable<ChatMessage>>(supplied);
     }
 
-    // [MFA绕坑] 绕:取消轮次时自己补写请求消息 因:基类 InvokedCoreAsync 把"有异常"一律当作本轮没发生过,直接跳过持久化 删除条件:框架区分取消与真失败
+    // [MFA绕坑] 绕:失败轮次时自己补写请求消息 因:基类 InvokedCoreAsync 把"有异常"一律当作本轮没发生过,直接跳过持久化 删除条件:框架在失败时也落已经发生的请求消息
     /// <summary>
-    /// 用户点停止在框架眼里是一次失败的调用，基类于是跳过持久化——刚发出去的那条用户消息
-    /// 就此不进历史，界面上还留着，下一轮请求里却凭空少一条。取消不等于没发生，这里补上请求消息。
+    /// 失败（用户点停止，或撞网络/限流）在框架眼里都是一次没发生过的调用，基类于是跳过持久化。
+    /// 可它确实发生了，而<b>请求消息里躺着这一轮的既成事实</b>，丢掉就是两个 bug：
+    /// <list type="number">
+    /// <item>刚发出去的那条用户消息不进历史，界面上还留着，下一轮请求里却凭空少一条。</item>
+    /// <item>工具结果由<b>下一次</b>服务调用带上（per-service-call 持久化下，落盘发生在那一次调用之后），
+    /// 于是那一次一失败，已经跑完的工具结果跟着丢——历史里剩一条没有结果的 tool_call：
+    /// 重开会话时卡片显示「历史里没有这次调用的结果」，严格的服务端还会因这条孤儿调用直接 400。</item>
+    /// </list>
+    ///
+    /// 只补请求侧，不会多写任何东西：失败时 <c>ResponseMessages</c> 本就为 null
+    /// （半截回复由 <c>TurnDriver</c> 从渲染侧取，走另一条路）。
     /// </summary>
     protected override ValueTask InvokedCoreAsync(InvokedContext context, CancellationToken cancellationToken = default)
     {
-        if (context.InvokeException is OperationCanceledException || cancellationToken.IsCancellationRequested)
+        if (context.InvokeException != null || cancellationToken.IsCancellationRequested)
         {
-            // 令牌此刻已被取消,存盘本身是同步的,传 None 免得被后续 API 当作又一次取消
+            // 取消时令牌此刻已被取消,存盘本身是同步的,传 None 免得被后续 API 当作又一次取消
             return StoreChatHistoryAsync(context, CancellationToken.None);
         }
 

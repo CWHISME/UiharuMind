@@ -122,6 +122,8 @@ public sealed class TurnDriver : IDisposable
             _notify?.Invoke(new TurnNotice(ETurnNotice.KnowledgeRetrieved, snippets));
 
         session.KnowledgeRetrieved += OnKnowledgeRetrieved;
+        //本轮没等到结果的工具调用该按什么口径收:默认「用户停止」,撞失败时改成失败口径
+        string interruptionNote = ToolCallCancellation.ResultText;
         try
         {
             List<ChatMessage>? nextMessages = new() { userMessage };
@@ -156,7 +158,7 @@ public sealed class TurnDriver : IDisposable
                 }
                 catch (OperationCanceledException)
                 {
-                    SettleCancelledTurn(session);
+                    SettleInterruptedTurn(session, interruptionNote);
                     break;
                 }
 
@@ -182,6 +184,11 @@ public sealed class TurnDriver : IDisposable
         catch (Exception e)
         {
             Log.Error($"Agent turn failed: {e}");
+            // 失败与取消在历史上是同一种残局:那条工具结果永远不会来,半截回复也没人落盘。
+            // 框架在失败路径上补的只有请求消息(见 SessionChatHistoryProvider.InvokedCoreAsync),
+            // 响应侧它拿不到——不在这里收,重开会话就是一次没有结果的调用加一段消失的回复
+            interruptionNote = ToolCallCancellation.FailureResultText;
+            SettleInterruptedTurn(session, interruptionNote);
             _notify?.Invoke(new TurnNotice(ETurnNotice.Failed, e.Message));
         }
         finally
@@ -191,7 +198,7 @@ public sealed class TurnDriver : IDisposable
             // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
             // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作。
             // 不做本地化:补写进历史的是同一句英文,重开会话时卡片显示的就是它,两边措辞得一致
-            _sink?.StopRunningToolCalls(ToolCallCancellation.ResultText);
+            _sink?.StopRunningToolCalls(interruptionNote);
             _sink?.CloseNestedActivity();
             IsRunning = false;
             _runCancellation = null;
@@ -232,7 +239,7 @@ public sealed class TurnDriver : IDisposable
     {
         if (!IsRunning) return;
         _runCancellation?.Cancel();
-        if (_activeSession is { } session) SettleCancelledTurn(session);
+        if (_activeSession is { } session) SettleInterruptedTurn(session, ToolCallCancellation.ResultText);
     }
 
     /// <summary>
@@ -318,9 +325,9 @@ public sealed class TurnDriver : IDisposable
     }
 
     /// <summary>
-    /// 收拾被取消的一轮，让历史回到自洽状态。两件事：
+    /// 收拾被打断的一轮（用户停止，或撞网络失败），让历史回到自洽状态。两件事：
     /// <list type="number">
-    /// <item>给没等到结果的工具调用补上取消结果——否则历史里留着孤儿 tool_call，
+    /// <item>给没等到结果的工具调用补上结果——否则历史里留着孤儿 tool_call，
     /// 严格的服务端（OpenAI、Anthropic）会直接 400，这个会话从此发不出话。</item>
     /// <item>把已经吐出来的半截回复写进历史——框架在失败路径上不落任何响应消息
     /// （<see cref="SessionChatHistoryProvider"/> 补回了请求消息，但响应侧它拿不到），
@@ -331,10 +338,12 @@ public sealed class TurnDriver : IDisposable
     /// 再写一遍就会在会话里多出一句一模一样的话（切换会话回来才看得见）。
     /// </summary>
     /// <param name="session">当前会话</param>
-    private void SettleCancelledTurn(ChatSession session)
+    /// <param name="toolResultNote">补写给未完成工具调用的结果正文（停止与失败两种口径）</param>
+    private void SettleInterruptedTurn(ChatSession session, string toolResultNote)
     {
-        // 先补工具结果再落正文:结果必须紧跟在它那条调用之后,顺序反了历史就对不上
-        ToolCallCancellation.CloseUnansweredAtTail(session);
+        // 先补工具结果再落正文:结果必须紧跟在它那条调用之后,顺序反了历史就对不上。
+        // 框架已经把真正的结果落进去时这里是空操作——补写只针对没配对的调用
+        ToolCallCancellation.CloseUnansweredAtTail(session, toolResultNote);
 
         if (_sink?.TakeStreamingText() is not { } text) return;
 

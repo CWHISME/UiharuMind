@@ -45,10 +45,10 @@ public static class SubAgentTool
     /// 存在的理由是<b>无人值守</b>:定时任务到点后没人看着,一个死循环的子代理会一直烧本地模型。
     /// 交互场景下用户看得见嵌套过程、也按得动停止,不靠这条兜底。
     /// </summary>
-    public const int MaxIterations = 16;
+    public const int MaxIterations = 32768;
 
     /// <summary>子代理单次运行的墙钟上限,同为无人值守兜底</summary>
-    public static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan Timeout = TimeSpan.FromHours(24);
 
     /// <summary>
     /// 创建子代理 AIFunction

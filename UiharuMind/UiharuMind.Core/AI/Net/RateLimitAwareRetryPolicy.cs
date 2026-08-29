@@ -46,7 +46,7 @@ internal sealed class RateLimitAwareRetryPolicy : ClientRetryPolicy
 
     private const int RateLimitStatus = 429;
     private static readonly TimeSpan RateLimitBaseDelay = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan RateLimitMaxDelay = TimeSpan.FromSeconds(32);
+    private static readonly TimeSpan RateLimitMaxDelay = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan TransientBaseDelay = TimeSpan.FromSeconds(0.8);
     private static readonly TimeSpan TransientMaxDelay = TimeSpan.FromSeconds(3.2);
     private static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(60); //服务端给的等待也要封顶,否则一个离谱的值就能把界面挂住

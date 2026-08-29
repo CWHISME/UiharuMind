@@ -16,8 +16,9 @@ namespace UiharuMind.Core.AI.Execution.ToolCall;
 /// <summary>
 /// 给「调用发出去了、结果永远不会来」的工具调用补一条取消结果。
 ///
-/// 中途停止时这种调用是必然产物：模型那次请求本身成功返回了（助手消息带 tool_call，
-/// 逐次服务调用当场落盘），随后在<b>执行工具</b>的过程中被掐断，结果消息因此从未产生。
+/// 中途停止（以及轮次撞网络失败）时这种调用是必然产物：模型那次请求本身成功返回了
+/// （助手消息带 tool_call，逐次服务调用当场落盘），随后在<b>执行工具</b>的过程中被掐断，
+/// 结果消息因此从未产生。
 /// 历史里于是留下一条孤儿 tool_call——OpenAI 与 Anthropic 都要求带 tool_calls 的助手消息
 /// 必须有配对的结果，否则整个请求 400，这个会话从此发不出话。
 ///
@@ -31,6 +32,13 @@ public static class ToolCallCancellation
 
     /// <summary>补写的结果正文。英文与历史里其它模型可见的占位文本同口径</summary>
     public const string ResultText = Marker + " The user stopped this turn before the tool returned.";
+
+    /// <summary>
+    /// 轮次失败（撞网络/限流，不是用户点的停止）时补写的结果正文。
+    /// 与 <see cref="ResultText"/> 共用标记：对界面与模型而言两者是同一件事——
+    /// 这次调用没有结果，区别只在原因，而原因值得如实告诉模型。
+    /// </summary>
+    public const string FailureResultText = Marker + " This turn failed before the tool returned.";
 
     /// <summary>
     /// 判断一条工具结果是否为取消补写的
@@ -50,23 +58,25 @@ public static class ToolCallCancellation
     /// 留下的），追加到末尾反而会打乱顺序，所以只记一条日志、不动它。
     /// </summary>
     /// <param name="session">当前会话</param>
+    /// <param name="resultText">补写的结果正文，默认按「用户停止」口径</param>
     /// <returns>补写的条数</returns>
-    public static int CloseUnansweredAtTail(ChatSession session)
+    public static int CloseUnansweredAtTail(ChatSession session, string? resultText = null)
     {
         List<string> unanswered = FindUnansweredAtTail(session.History);
         if (unanswered.Count == 0) return 0;
 
+        string text = resultText ?? ResultText;
         int before = session.History.Count;
         foreach (string callId in unanswered)
         {
-            session.History.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(callId, ResultText)])
+            session.History.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(callId, text)])
             {
                 CreatedAt = DateTimeOffset.Now,
             });
         }
 
         session.SaveAppended(before);
-        Log.Debug($"Closed {unanswered.Count} unanswered tool call(s) after the turn was stopped.");
+        Log.Debug($"Closed {unanswered.Count} unanswered tool call(s) after the turn was interrupted.");
         return unanswered.Count;
     }
 

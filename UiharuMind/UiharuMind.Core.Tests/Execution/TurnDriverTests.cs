@@ -261,6 +261,44 @@ public class TurnDriverTests
         Assert.Equal("连接断了", failed.Payload);
     }
 
+    [Fact]
+    public async Task Failure_ClosesUnansweredToolCallsAndKeepsTheHalfReply()
+    {
+        //撞网络失败与用户停止在历史上是同一种残局:不收的话重开会话是一条没有结果的
+        //孤儿 tool_call(界面显示"历史里没有这次调用的结果",严格的服务端直接 400)
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        session.History.Add(AssistantCall("c1"));
+
+        FakeSink sink = new("半截回复");
+        StubRunner runner = new(Failing("连接断了"));
+        TurnDriver driver = new(sink, new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt());
+
+        FunctionResultContent result = Assert.IsType<FunctionResultContent>(
+            Assert.Single(session.History[2].Contents));
+        Assert.Equal(ChatRole.Tool, session.History[2].Role);
+        Assert.Equal("c1", result.CallId);
+        Assert.Equal(ToolCallCancellation.FailureResultText, result.Result);
+
+        Assert.Equal(ChatRole.Assistant, session.History[3].Role);
+        Assert.Equal("半截回复", session.History[3].Text);
+    }
+
+    [Fact]
+    public async Task Failure_StopsRunningToolCardsWithTheFailureNote()
+    {
+        //卡片上写的与补进历史的必须是同一句:重开会话时显示的是历史里那份
+        FakeSink sink = new();
+        StubRunner runner = new(Failing("连接断了"));
+        TurnDriver driver = new(sink, new TurnUsageLedger());
+
+        await driver.RunAsync(NewSession(), runner, Prompt());
+
+        Assert.Equal([ToolCallCancellation.FailureResultText], sink.StopNotes);
+    }
+
     //================= 退出收尾 =================
 
     [Fact]
