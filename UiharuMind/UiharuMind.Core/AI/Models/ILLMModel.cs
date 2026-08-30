@@ -29,4 +29,11 @@ public interface ILlmModel
     /// <param name="thinkingMode">本次请求的思考力度</param>
     /// <returns>要写入请求 JSON 的键值对;无需追加时为空</returns>
     public IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams(EThinkingMode thinkingMode) => null;
+
+    /// <summary>
+    /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的 reasoning_content。
+    /// 目前只有 DeepSeek 已确认有此强制要求;其余共用 thinking/reasoning_effort 参数的
+    /// 兼容服务未必有此限制,默认不开,避免给不需要的后端塞进多余字段。
+    /// </summary>
+    public bool RequiresReasoningContentRoundtrip => false;
 }

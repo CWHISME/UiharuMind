@@ -18,9 +18,9 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
     public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
         new Dictionary<string, RemoteModelIdVariant>
         {
-            ["deepseek-v4-flash"] = new(ContextLength: 1048576),
+            ["deepseek-v4-flash"] = new(ContextLength: 1048576, RequiresReasoningContentRoundtrip: true),
             ["glm-5.2"] = new(ContextLength: 1048576),
-            ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, true),
+            ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, IsVision: true),
         };
 
     public override int Port { get; set; }

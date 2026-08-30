@@ -77,6 +77,34 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     private string _contextLengthText = "";
 
     [ObservableProperty] private bool _isVisionEditable = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripFollowPreset))]
+    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOn))]
+    [NotifyPropertyChangedFor(nameof(IsReasoningRoundtripForceOff))]
+    private bool? _requiresReasoningContentRoundtripOverride;
+
+    /// <summary>三选一单选组:跟随预设(覆盖为空)</summary>
+    public bool IsReasoningRoundtripFollowPreset
+    {
+        get => RequiresReasoningContentRoundtripOverride == null;
+        set { if (value) RequiresReasoningContentRoundtripOverride = null; }
+    }
+
+    /// <summary>三选一单选组:强制开启</summary>
+    public bool IsReasoningRoundtripForceOn
+    {
+        get => RequiresReasoningContentRoundtripOverride == true;
+        set { if (value) RequiresReasoningContentRoundtripOverride = true; }
+    }
+
+    /// <summary>三选一单选组:强制关闭</summary>
+    public bool IsReasoningRoundtripForceOff
+    {
+        get => RequiresReasoningContentRoundtripOverride == false;
+        set { if (value) RequiresReasoningContentRoundtripOverride = false; }
+    }
+
     [ObservableProperty] private bool _hasModelIdOptions;
     [ObservableProperty] private bool _isPresetProvider;
     [ObservableProperty] private bool _hasCopySources;
@@ -97,7 +125,14 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<ModelIdOptionItem> ModelIdOptions { get; } = new();
 
-    [ObservableProperty] private ModelIdOptionItem? _selectedModelIdOption;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PresetRequiresReasoningContentRoundtrip))]
+    private ModelIdOptionItem? _selectedModelIdOption;
+
+    /// <summary>
+    /// 覆盖开关留空(跟随预设)时,当前选中模型实际会解析成的值,供界面提示用
+    /// </summary>
+    public bool PresetRequiresReasoningContentRoundtrip => SelectedModelIdOption?.RequiresReasoningContentRoundtrip ?? false;
 
     /// <summary>
     /// 上下文长度内置档位
@@ -209,6 +244,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         config.ContextLength =
             int.TryParse(ContextLengthText.Trim(), out var contextLength) && contextLength > 0 ? contextLength : 0;
         if (IsVisionEditable) config.IsVision = IsVision;
+        config.RequiresReasoningContentRoundtripOverride = RequiresReasoningContentRoundtripOverride;
         target.ApiKey = ApiKey;
         return target;
     }
@@ -255,6 +291,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         ModelDescription = config.ModelDescription ?? "";
         ContextLengthText = config.ContextLength > 0 ? config.ContextLength.ToString() : "";
         IsVision = config.IsVision;
+        RequiresReasoningContentRoundtripOverride = config.RequiresReasoningContentRoundtripOverride;
         ApiKey = apiKey;
     }
 
@@ -267,10 +304,12 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         {
             bool isVision = false;
             int contextLength = 0;
+            bool requiresReasoningContentRoundtrip = false;
             if (config.ModelIdVariants.TryGetValue(option, out var variant))
             {
                 isVision = variant.IsVision;
                 contextLength = variant.ContextLength;
+                requiresReasoningContentRoundtrip = variant.RequiresReasoningContentRoundtrip;
             }
 
             ModelIdOptions.Add(new ModelIdOptionItem
@@ -278,6 +317,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
                 Id = option,
                 IsVision = isVision,
                 ContextLength = contextLength,
+                RequiresReasoningContentRoundtrip = requiresReasoningContentRoundtrip,
             });
         }
 
@@ -309,6 +349,8 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         if (option == null) return;
         if (option.ContextLength > 0) ContextLengthText = option.ContextLength.ToString();
         if (IsVisionEditable) IsVision = option.IsVision;
+        // 换了模型,之前针对旧模型的手动覆盖不该带过来——重置为"跟随预设",预设值随下拉框联动展示
+        RequiresReasoningContentRoundtripOverride = null;
     }
 
     /// <summary>
@@ -343,6 +385,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         /// 默认上下文长度,0 表示未预设
         /// </summary>
         public int ContextLength { get; init; }
+
+        /// <summary>
+        /// 思考模式下带 tool_calls 时,该模型是否要求原样带回 reasoning_content
+        /// </summary>
+        public bool RequiresReasoningContentRoundtrip { get; init; }
 
         /// <summary>
         /// 下拉框显示的文本

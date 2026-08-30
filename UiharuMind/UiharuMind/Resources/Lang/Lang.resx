@@ -2541,6 +2541,27 @@
     <data name="RemoteModelVisionHint" xml:space="preserve">
         <value>Enable if the model accepts image input.</value>
     </data>
+    <data name="RemoteModelReasoningRoundtripLabel" xml:space="preserve">
+        <value>Reasoning Content Round-trip</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripHint" xml:space="preserve">
+        <value>Some thinking-mode models require the reasoning content to be echoed back with tool calls, or requests fail. "Follow preset" resolves this automatically per model.</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripPresetOn" xml:space="preserve">
+        <value>Current preset for this model: required.</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripPresetOff" xml:space="preserve">
+        <value>Current preset for this model: not required.</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripFollowPreset" xml:space="preserve">
+        <value>Follow preset</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripForceOn" xml:space="preserve">
+        <value>Force on</value>
+    </data>
+    <data name="RemoteModelReasoningRoundtripForceOff" xml:space="preserve">
+        <value>Force off</value>
+    </data>
     <data name="RemoteModelApiKeyPlaceholder" xml:space="preserve">
         <value>Paste your API key</value>
     </data>

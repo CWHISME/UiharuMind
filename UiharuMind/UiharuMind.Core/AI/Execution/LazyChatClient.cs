@@ -33,8 +33,11 @@ public class LazyChatClient : IChatClient
     public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        IReadOnlyList<ChatMessage> messageList = AsList(messages);
+        LlmRequestContext.PendingReasoningByCallId = CollectReasoningByCallId(messageList);
+
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
-        ChatResponse response = await client.GetResponseAsync(messages, options, cancellationToken)
+        ChatResponse response = await client.GetResponseAsync(messageList, options, cancellationToken)
             .ConfigureAwait(false);
 
         HashSet<string>? toolNames = CollectToolNames(options);
@@ -51,13 +54,16 @@ public class LazyChatClient : IChatClient
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        IReadOnlyList<ChatMessage> messageList = AsList(messages);
+        LlmRequestContext.PendingReasoningByCallId = CollectReasoningByCallId(messageList);
+
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
 
         HashSet<string>? toolNames = CollectToolNames(options);
         if (toolNames == null)
         {
             await foreach (ChatResponseUpdate update in client
-                               .GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
+                               .GetStreamingResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false))
             {
                 yield return update;
             }
@@ -72,7 +78,7 @@ public class LazyChatClient : IChatClient
         TextToolCallStreamParser reasoningParser = new(toolNames);
 
         await foreach (ChatResponseUpdate update in client
-                           .GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
+                           .GetStreamingResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false))
         {
             List<AIContent> rebuilt = new(update.Contents.Count);
             foreach (AIContent content in update.Contents)
@@ -102,6 +108,45 @@ public class LazyChatClient : IChatClient
         {
             yield return new ChatResponseUpdate(ChatRole.Assistant, tail);
         }
+    }
+
+    /// <summary>历史消息可能是一次性的枚举,重复枚举(转发给底层客户端+扫描思考正文)前先落地一份</summary>
+    private static IReadOnlyList<ChatMessage> AsList(IEnumerable<ChatMessage> messages) =>
+        messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
+
+    /// <summary>
+    /// 从历史消息里按 tool_call id 收集对应的思考正文,供 <see cref="LlmRequestContext.PendingReasoningByCallId"/>
+    /// 使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
+    /// 同一条 assistant 消息里的思考正文对该消息所有 tool_calls 一视同仁。
+    /// </summary>
+    private static IReadOnlyDictionary<string, string>? CollectReasoningByCallId(IReadOnlyList<ChatMessage> messages)
+    {
+        Dictionary<string, string>? map = null;
+        foreach (ChatMessage message in messages)
+        {
+            if (message.Role != ChatRole.Assistant) continue;
+
+            string? reasoningText = null;
+            List<string>? callIds = null;
+            foreach (AIContent content in message.Contents)
+            {
+                switch (content)
+                {
+                    case TextReasoningContent { Text.Length: > 0 } rc:
+                        reasoningText = rc.Text;
+                        break;
+                    case FunctionCallContent fc:
+                        (callIds ??= new List<string>()).Add(fc.CallId);
+                        break;
+                }
+            }
+
+            if (reasoningText == null || callIds == null) continue;
+            map ??= new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (string callId in callIds) map[callId] = reasoningText;
+        }
+
+        return map;
     }
 
     /// <summary>

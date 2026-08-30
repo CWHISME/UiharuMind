@@ -18,8 +18,8 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
     public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
         new Dictionary<string, RemoteModelIdVariant>
         {
-            ["deepseek-v4-flash"] = new(ContextLength: 1048576),
-            ["deepseek-v4-pro"] = new(ContextLength: 1048576),
+            ["deepseek-v4-flash"] = new(ContextLength: 1048576, RequiresReasoningContentRoundtrip: true),
+            ["deepseek-v4-pro"] = new(ContextLength: 1048576, RequiresReasoningContentRoundtrip: true),
         };
 
     public override int Port { get; set; }

@@ -85,12 +85,26 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         {
             var extraParams = _model?.GetExtraParams(LlmRequestContext.ThinkingMode);
             bool forbidToolCalls = LlmRequestContext.ForbidToolCalls;
+            // 只对已确认要求 reasoning_content 回填的模型(目前只有 DeepSeek)生效,
+            // 其余共用 thinking/reasoning_effort 参数的兼容服务不无谓塞多余字段
+            var reasoningByCallId = _model?.RequiresReasoningContentRoundtrip == true
+                ? LlmRequestContext.PendingReasoningByCallId
+                : null;
             string? jsonContent = null;
 
-            // 注入额外参数必须整体读出来重建 JSON,这一份读取是功能要求,躲不掉
-            if (extraParams is { Count: > 0 } || forbidToolCalls)
+            // 大多数请求不含畸形 tool_calls 参数,先做一次廉价子串扫描,避免每次都解析 JSON
+            bool needsArgFix = false;
+            if (extraParams is not { Count: > 0 } && !forbidToolCalls)
             {
                 jsonContent = await request.Content.ReadAsStringAsync(cancellationToken);
+                needsArgFix = jsonContent.Contains("\"arguments\":\"null\"") ||
+                              jsonContent.Contains("\"arguments\": \"null\"");
+            }
+
+            // 注入额外参数/修复畸形参数/回填思考正文都必须整体读出来重建 JSON,这一份读取是功能要求,躲不掉
+            if (extraParams is { Count: > 0 } || forbidToolCalls || needsArgFix || reasoningByCallId is { Count: > 0 })
+            {
+                jsonContent ??= await request.Content.ReadAsStringAsync(cancellationToken);
                 var jsonNode = JsonNode.Parse(jsonContent)?.AsObject();
 
                 if (jsonNode != null)
@@ -107,6 +121,10 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
                     // 只能在这一层直接写进请求体
                     if (forbidToolCalls) jsonNode["tool_choice"] = "none";
 
+                    if (needsArgFix) SanitizeMalformedToolCallArguments(jsonNode);
+
+                    if (reasoningByCallId is { Count: > 0 }) RestoreReasoningContent(jsonNode, reasoningByCallId);
+
                     jsonContent = jsonNode.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
                     request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
                 }
@@ -118,6 +136,62 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         var response = await base.SendAsync(request, cancellationToken);
         await LogFailureAsync(response, cancellationToken);
         return await SanitizeResponseAsync(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// 模型偶发地把无参调用的 arguments 序列化成字面字符串 "null"(而非空对象 "{}")。
+    /// 部分 OpenAI 兼容后端会对历史里的 arguments 做 json.loads 后 .items(),
+    /// 解析出 None 就直接 400——'NoneType' object has no attribute 'items'。
+    /// 修的是发出去的历史,不影响这次调用本身的执行结果。
+    /// </summary>
+    /// <param name="jsonNode">请求体根对象</param>
+    private static void SanitizeMalformedToolCallArguments(JsonObject jsonNode)
+    {
+        if (jsonNode["messages"] is not JsonArray messages) return;
+
+        foreach (var message in messages)
+        {
+            if (message?["tool_calls"] is not JsonArray toolCalls) continue;
+
+            foreach (var toolCall in toolCalls)
+            {
+                if (toolCall?["function"] is not JsonObject function) continue;
+                if (function["arguments"] is JsonValue value &&
+                    value.TryGetValue(out string? arguments) && arguments == "null")
+                {
+                    function["arguments"] = "{}";
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 思考模式下,助手消息带 tool_calls 时接口要求原样带回当时的 reasoning_content,
+    /// 否则报 "If thinking mode and tool_calls, reasoning_content must be passed back to the API"。
+    /// 标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉,
+    /// 只能按 tool_call id 从 <see cref="LlmRequestContext.PendingReasoningByCallId"/> 找回来补上。
+    /// </summary>
+    /// <param name="jsonNode">请求体根对象</param>
+    /// <param name="reasoningByCallId">本次请求历史里,按 tool_call id 索引的思考正文</param>
+    private static void RestoreReasoningContent(JsonObject jsonNode,
+        IReadOnlyDictionary<string, string> reasoningByCallId)
+    {
+        if (jsonNode["messages"] is not JsonArray messages) return;
+
+        foreach (var message in messages)
+        {
+            if (message is not JsonObject messageObj) continue;
+            if (messageObj["reasoning_content"] != null) continue; // 已经带了,不覆盖
+            if (messageObj["tool_calls"] is not JsonArray { Count: > 0 } toolCalls) continue;
+            if (toolCalls[0] is not JsonObject firstCall) continue;
+
+            if (firstCall["id"] is JsonValue idValue &&
+                idValue.TryGetValue(out string? callId) &&
+                reasoningByCallId.TryGetValue(callId, out string? reasoningText))
+            {
+                messageObj["reasoning_content"] = reasoningText;
+            }
+        }
     }
 
     //兜底闸,正常内容够不着:抹掉 base64 之后还这么长的多半是出了别的岔子,不该让一条日志吃掉整个面板
