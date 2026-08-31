@@ -49,7 +49,9 @@ public static class HistoryJsonl
     }
 
     /// <summary>
-    /// 逐行解析,残缺/损坏行跳过并告警
+    /// 逐行解析,残缺/损坏行跳过并告警。
+    /// 顺带规整内容(见 <see cref="ChatContentNormalizer"/>):老会话里堆着的空正文与思考碎片
+    /// 会随历史一轮轮重新发给模型,读进来就清掉,历史文件本身不动
     /// </summary>
     /// <param name="lines">文本行</param>
     /// <returns>解析成功的消息</returns>
@@ -62,7 +64,9 @@ public static class HistoryJsonl
             try
             {
                 ChatMessage? message = JsonSerializer.Deserialize<ChatMessage>(line, LineOptions);
-                if (message != null) result.Add(message);
+                if (message == null) continue;
+                ChatContentNormalizer.Normalize(message);
+                result.Add(message);
             }
             catch (JsonException e)
             {

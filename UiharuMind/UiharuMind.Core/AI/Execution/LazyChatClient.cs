@@ -8,7 +8,9 @@
  ****************************************************************************/
 
 using System.Runtime.CompilerServices;
+using System.Text;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.ToolCall;
 
@@ -65,6 +67,7 @@ public class LazyChatClient : IChatClient
             await foreach (ChatResponseUpdate update in client
                                .GetStreamingResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false))
             {
+                DropEmptyTextContents(update);
                 yield return update;
             }
 
@@ -92,7 +95,8 @@ public class LazyChatClient : IChatClient
                         Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
                         break;
                     default:
-                        rebuilt.Add(content);
+                        //空正文/空思考不留:它们只会把思考段切碎,详见 ChatContentNormalizer
+                        if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
                         break;
                 }
             }
@@ -110,6 +114,32 @@ public class LazyChatClient : IChatClient
         }
     }
 
+    /// <summary>
+    /// 丢掉增量里的空正文/空思考。必须赶在框架把增量合并成消息<b>之前</b>做:
+    /// 合并只并连续同类型的内容,空正文一格一格插在思考中间,合并后就是几十段碎片
+    /// (详见 <see cref="ChatContentNormalizer"/>)。
+    /// </summary>
+    /// <param name="update">流式增量(就地修改)</param>
+    private static void DropEmptyTextContents(ChatResponseUpdate update)
+    {
+        IList<AIContent> contents = update.Contents;
+        int kept = 0;
+        foreach (AIContent content in contents)
+        {
+            if (!ChatContentNormalizer.IsEmptyTextLike(content)) kept++;
+        }
+
+        if (kept == contents.Count) return; //绝大多数增量本就干净,不重建列表
+
+        List<AIContent> rebuilt = new(kept);
+        foreach (AIContent content in contents)
+        {
+            if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
+        }
+
+        update.Contents = rebuilt;
+    }
+
     /// <summary>历史消息可能是一次性的枚举,重复枚举(转发给底层客户端+扫描思考正文)前先落地一份</summary>
     private static IReadOnlyList<ChatMessage> AsList(IEnumerable<ChatMessage> messages) =>
         messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
@@ -118,6 +148,9 @@ public class LazyChatClient : IChatClient
     /// 从历史消息里按 tool_call id 收集对应的思考正文,供 <see cref="LlmRequestContext.PendingReasoningByCallId"/>
     /// 使用——转发给底层客户端之前,消息里的 <see cref="TextReasoningContent"/> 还在,过了这一层就没处找了。
     /// 同一条 assistant 消息里的思考正文对该消息所有 tool_calls 一视同仁。
+    ///
+    /// 一条消息里可能躺着多段思考(老会话是逐 chunk 落下的碎片),要拼齐了发回去——
+    /// 只取其中一段等于把思考截成一句话,接口那边照样对不上。
     /// </summary>
     private static IReadOnlyDictionary<string, string>? CollectReasoningByCallId(IReadOnlyList<ChatMessage> messages)
     {
@@ -126,14 +159,14 @@ public class LazyChatClient : IChatClient
         {
             if (message.Role != ChatRole.Assistant) continue;
 
-            string? reasoningText = null;
+            StringBuilder? reasoning = null;
             List<string>? callIds = null;
             foreach (AIContent content in message.Contents)
             {
                 switch (content)
                 {
                     case TextReasoningContent { Text.Length: > 0 } rc:
-                        reasoningText = rc.Text;
+                        (reasoning ??= new StringBuilder()).Append(rc.Text);
                         break;
                     case FunctionCallContent fc:
                         (callIds ??= new List<string>()).Add(fc.CallId);
@@ -141,7 +174,8 @@ public class LazyChatClient : IChatClient
                 }
             }
 
-            if (reasoningText == null || callIds == null) continue;
+            if (reasoning == null || callIds == null) continue;
+            string reasoningText = reasoning.ToString();
             map ??= new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (string callId in callIds) map[callId] = reasoningText;
         }
@@ -192,7 +226,7 @@ public class LazyChatClient : IChatClient
                     Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
                     break;
                 default:
-                    rebuilt.Add(content);
+                    if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
                     break;
             }
         }

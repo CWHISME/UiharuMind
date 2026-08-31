@@ -90,21 +90,18 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             var reasoningByCallId = _model?.RequiresReasoningContentRoundtrip == true
                 ? LlmRequestContext.PendingReasoningByCallId
                 : null;
-            string? jsonContent = null;
+            // 正文无论如何都要读:下面几道改写要它,日志也要它。
+            // 曾经按条件延后读,结果是畸形参数扫描只在「不注入额外参数」的分支里做,
+            // 一开思考模式这道修复就静默失效——恰恰是最需要它的路径
+            string jsonContent = await request.Content.ReadAsStringAsync(cancellationToken);
 
             // 大多数请求不含畸形 tool_calls 参数,先做一次廉价子串扫描,避免每次都解析 JSON
-            bool needsArgFix = false;
-            if (extraParams is not { Count: > 0 } && !forbidToolCalls)
-            {
-                jsonContent = await request.Content.ReadAsStringAsync(cancellationToken);
-                needsArgFix = jsonContent.Contains("\"arguments\":\"null\"") ||
-                              jsonContent.Contains("\"arguments\": \"null\"");
-            }
+            bool needsArgFix = jsonContent.Contains("\"arguments\":\"null\"") ||
+                               jsonContent.Contains("\"arguments\": \"null\"");
 
-            // 注入额外参数/修复畸形参数/回填思考正文都必须整体读出来重建 JSON,这一份读取是功能要求,躲不掉
+            // 注入额外参数/修复畸形参数/回填思考正文都必须解析成 JSON 重建
             if (extraParams is { Count: > 0 } || forbidToolCalls || needsArgFix || reasoningByCallId is { Count: > 0 })
             {
-                jsonContent ??= await request.Content.ReadAsStringAsync(cancellationToken);
                 var jsonNode = JsonNode.Parse(jsonContent)?.AsObject();
 
                 if (jsonNode != null)
@@ -130,7 +127,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
                 }
             }
 
-            await LogRequestAsync(request, jsonContent, cancellationToken);
+            LogRequest(jsonContent);
         }
 
         var response = await base.SendAsync(request, cancellationToken);
@@ -205,26 +202,10 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     ///
     /// 原先那道 <c>Regex.Unescape</c> 已去掉：它等于再复制一份，而且遇到非法转义序列会当场抛。
     /// </summary>
-    /// <param name="request">请求</param>
-    /// <param name="knownContent">已因注入额外参数而读出的正文；未读过时为 null</param>
-    /// <param name="cancellationToken">取消标记</param>
-    private static async Task LogRequestAsync(HttpRequestMessage request, string? knownContent,
-        CancellationToken cancellationToken)
+    /// <param name="content">实际发出的正文</param>
+    private static void LogRequest(string content)
     {
-        if (knownContent == null)
-        {
-            try
-            {
-                knownContent = await request.Content!.ReadAsStringAsync(cancellationToken);
-            }
-            catch (Exception e)
-            {
-                Log.Debug($"Read request body for logging failed: {e.Message}");
-                return;
-            }
-        }
-
-        Log.Debug($"OpenAI-compatible request ({knownContent.Length:N0} chars): {ForLog(knownContent)}");
+        Log.Debug($"OpenAI-compatible request ({content.Length:N0} chars): {ForLog(content)}");
     }
 
     // data: URL 形式(MEAI 的 OpenAI 客户端就发这个),以及裸 base64 字符串值。
