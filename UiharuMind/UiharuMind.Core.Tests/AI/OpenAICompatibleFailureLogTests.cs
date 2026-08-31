@@ -105,6 +105,20 @@ public class OpenAICompatibleFailureLogTests
     }
 
     [Fact]
+    public void EscapedNewlinesInsideStringValues_BecomeRealNewlines()
+    {
+        // 字符串值里的换行原本被 JSON 编码成字面 \n,日志里连成两行很难看;
+        // 只还原字符串值内部,结构性的换行(WriteIndented 插的)不动
+        const string body = """{"content":"第一行\n第二行","nested":{"s":"甲\n乙"}}""";
+
+        string logged = OpenAICompatibleHttpHandler.ForLog(body);
+
+        Assert.Contains("第一行\n第二行", logged);
+        Assert.Contains("甲\n乙", logged);
+        Assert.DoesNotContain("\\n", logged);
+    }
+
+    [Fact]
     public void NonJsonBody_IsLeftAlone()
     {
         //错误响应未必是 JSON,格式化失败不该影响任何事

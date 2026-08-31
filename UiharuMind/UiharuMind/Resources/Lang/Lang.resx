@@ -330,6 +330,24 @@
     <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
         <value>Start new sessions in plan mode</value>
     </data>
+    <data name="AgentSettingSubAgent" xml:space="preserve">
+        <value>Sub-agents</value>
+    </data>
+    <data name="AgentSettingGeneralSubAgentModel" xml:space="preserve">
+        <value>General sub-agent model</value>
+    </data>
+    <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
+        <value>General sub-agents do actual modification tasks. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
+    </data>
+    <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
+        <value>Explorer sub-agent model</value>
+    </data>
+    <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
+        <value>Explorer sub-agents do lightweight research (surveying files, searching code) and are always read-only. A cheaper model saves cost. Leave empty to fall back to the main agent's model.</value>
+    </data>
+    <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
+        <value>(Not set — falls back to the main agent model)</value>
+    </data>
     <data name="AgentSettingCapabilities" xml:space="preserve">
         <value>Capabilities</value>
     </data>

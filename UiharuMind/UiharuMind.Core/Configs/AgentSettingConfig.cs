@@ -54,6 +54,20 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// </summary>
     public string PythonInterpreterPath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 探索型子代理使用的模型名(空 = 回退到主 agent 模型)。
+    /// 探索型子代理做的是初级调研(通览文件、搜代码),不需要高级模型;
+    /// 配一个轻量模型可省成本、加快响应。在设置页 agent 专用页签里选。
+    /// </summary>
+    public string ExplorerSubAgentModelName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 通用子代理使用的模型名(空 = 回退到主 agent 模型)。
+    /// 通用子代理做实际修改操作,可给它配一个与主 agent 不同的模型
+    /// (比如主 agent 用推理慢的大模型,通用子代理用快模型)。
+    /// </summary>
+    public string GeneralSubAgentModelName { get; set; } = string.Empty;
+
     /// <summary><see cref="RecentWorkspaces"/> 的条数上限</summary>
     public const int RecentWorkspacesLimit = 10;
 

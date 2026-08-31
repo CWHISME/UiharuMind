@@ -470,7 +470,8 @@
                              文案由 BusyLabel 按 ETurnBusy 映射，再加一种不必再复制一块 StackPanel -->
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                     IsVisible="{Binding BusyLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <u:LoadingIcon IsLoading="True" />
+                            <!-- IsLoading 绑到 BusyLabel 而非硬编码 True:不可见时停动画,避免后台空转 -->
+                            <u:LoadingIcon IsLoading="{Binding BusyLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding BusyLabel}" />
                         </StackPanel>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">

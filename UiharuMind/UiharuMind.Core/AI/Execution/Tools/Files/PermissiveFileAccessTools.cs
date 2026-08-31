@@ -47,8 +47,12 @@ internal sealed class PermissiveFileAccessTools
     /// 曾按字符算(120_000,注释写"约 3 万 token"),那是英文的 4 字符/token；中文约 1~1.5 字符/token,
     /// 于是读一个中文文件实际能放进 8~12 万 token,是标称值的三四倍。本仓注释通篇中文、
     /// docs 更是纯中文,一次 Read 就能吃掉大半个上下文。按字节算则中英文都落在 1.5 万 token 上下。
+    ///
+    /// 64KB→1MB:远程大模型(DeepSeek 1M 上下文)读 3000 行文件需分 3 次,分段读撑爆本地小模型
+    /// 上下文后引发截断重填、模型失忆、提前停手。1MB 能覆盖绝大多数源文件一次读完,
+    /// 同时给本地小模型留一个安全天花板。传 limit=-1 可绕过此限制读全文。
     /// </summary>
-    internal const int MaxReadTotalBytes = 64 * 1024;
+    internal const int MaxReadTotalBytes = 1024 * 1024;
 
     internal const int MaxReadLineChars = 2000; //单行截断(压缩产物一行可达数百 KB)
     internal const int MaxGrepMatches = 200; //Grep 命中上限(只限工具边界,UI 文件搜索仍全量)
@@ -284,22 +288,27 @@ internal sealed class PermissiveFileAccessTools
     [Description("""
                  Read a file's raw content.
                  - Lines are separated by newlines. The first line of your mental model is line 1.
-                 - At most 2000 lines or 64KB are returned per call, whichever comes first;
+                 - By default at most 2000 lines or 1MB are returned per call, whichever comes first;
                    a trailing notice tells you the offset to continue from.
+                 - Pass limit=-1 to read the entire file in one call, bypassing the byte cap.
+                   Use this when you need to understand the whole file for refactoring.
                  """)]
     internal Task<string> Read(
         [Description("File path, absolute or relative to the working directory.")] string filePath,
         [Description("1-based starting line.")] int offset = 1,
-        [Description("Max lines to return (capped by the default window).")] int? limit = null,
+        [Description("Max lines to return. Pass -1 to read the entire file (bypasses the 1MB byte cap). " +
+                     "When omitted, defaults to 2000 lines.")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
         string full = ResolvePath(filePath);
         if (!File.Exists(full)) return Task.FromResult($"File '{filePath}' not found.");
 
         if (offset < 1) offset = 1;
-        // 上限从"模型自觉"改为强制:不传 limit 时套默认窗口,总量另设保险——
+        // limit=-1:全文读模式,绕过字节上限,读完整个文件
+        // 其余:不传 limit 时套默认窗口,总量另设保险——
         // 编码会话一次误读大文件就是几万 token,截断必须由工具侧兜底
-        int effectiveLimit = Math.Max(1, limit ?? DefaultReadLineLimit);
+        bool fullFile = limit == -1;
+        int effectiveLimit = fullFile ? int.MaxValue : Math.Max(1, limit ?? DefaultReadLineLimit);
 
         var lines = new List<string>();
         bool hasMore = false;
@@ -313,7 +322,7 @@ internal sealed class PermissiveFileAccessTools
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
-            if (lines.Count >= effectiveLimit || totalBytes >= MaxReadTotalBytes)
+            if (!fullFile && (lines.Count >= effectiveLimit || totalBytes >= MaxReadTotalBytes))
             {
                 hasMore = true;
                 break;

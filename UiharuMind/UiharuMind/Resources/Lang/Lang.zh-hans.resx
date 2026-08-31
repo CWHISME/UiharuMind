@@ -320,6 +320,24 @@
     <data name="AgentSettingDefaultPlanMode" xml:space="preserve">
         <value>新会话默认开启计划模式</value>
     </data>
+    <data name="AgentSettingSubAgent" xml:space="preserve">
+        <value>子代理</value>
+    </data>
+    <data name="AgentSettingGeneralSubAgentModel" xml:space="preserve">
+        <value>通用子代理模型</value>
+    </data>
+    <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
+        <value>通用子代理负责实际修改任务。给它指定运行模型；留空则回退到主 agent 模型。</value>
+    </data>
+    <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
+        <value>探索型子代理模型</value>
+    </data>
+    <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
+        <value>探索子代理做初级调研(通览文件、搜代码)，始终只读。选一个轻量模型可省成本。留空则回退到主 agent 模型。</value>
+    </data>
+    <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
+        <value>(未设置 — 回退到主 agent 模型)</value>
+    </data>
     <data name="AgentSettingCapabilities" xml:space="preserve">
         <value>能力开关</value>
     </data>

@@ -122,9 +122,15 @@ internal static class AgentAssembler
         }
 
         // 子代理:工具集与权限档都从主 agent 派生,全部能力都关掉时不挂载
-        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client) is { } subAgentTool)
+        // 通用子代理:可改文件(FullAuto 下),用主 agent 模型
+        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client, SubAgentProfile.General) is { } subAgentTool)
         {
             Add(EAgentCapability.SubAgent, subAgentTool);
+        }
+        // 探索子代理:始终只读,可用轻量模型(在设置页 agent 专用页签里选)
+        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client, SubAgentProfile.Explorer) is { } explorerTool)
+        {
+            Add(EAgentCapability.SubAgent, explorerTool);
         }
 
         if (config.EnableKnowledgeSearchTool)

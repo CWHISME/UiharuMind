@@ -29,5 +29,5 @@ public class DebugSettingConfig : TConfigBase<DebugSettingConfig>
     /// </summary>
     [SettingConfigDesc("log conversation streaming performance metrics")]
     [SettingConfigDesc("打印会话流式性能指标(条目数/上屏延迟/布局耗时)", LanguageUtils.ChineseSimplified)]
-    public bool IsConversationPerfProbeEnabled { get; set; } = true;
+    public bool IsConversationPerfProbeEnabled { get; set; }
 }

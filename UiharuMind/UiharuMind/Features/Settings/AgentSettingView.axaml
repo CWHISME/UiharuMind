@@ -49,6 +49,44 @@
             </StackPanel>
         </TabItem>
 
+        <!-- ===================== 子代理 ===================== -->
+        <TabItem Header="{loc:Loc AgentSettingSubAgent}">
+            <StackPanel Margin="0,12" Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
+
+                <TextBlock Classes="field-label" Text="{loc:Loc AgentSettingGeneralSubAgentModel}" />
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                           Text="{loc:Loc AgentSettingGeneralSubAgentModelDesc}" />
+                <ComboBox ItemsSource="{Binding AvailableModels}"
+                          SelectedItem="{Binding GeneralSubAgentModel}"
+                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                          MinWidth="300" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <TextBlock Classes="field-label" Margin="0,16,0,2" Text="{loc:Loc AgentSettingExplorerSubAgentModel}" />
+                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                           Text="{loc:Loc AgentSettingExplorerSubAgentModelDesc}" />
+                <ComboBox ItemsSource="{Binding AvailableModels}"
+                          SelectedItem="{Binding ExplorerSubAgentModel}"
+                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
+                          MinWidth="300" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </TabItem>
+
         <!-- 能力门控:左列 toggle+名称,右栏详细描述/提示词/专属设置 -->
         <TabItem Header="{loc:Loc AgentSettingCapabilities}">
             <ScrollViewer Margin="0,12">

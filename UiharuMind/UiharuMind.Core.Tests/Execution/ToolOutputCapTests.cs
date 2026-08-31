@@ -70,23 +70,47 @@ public class ToolOutputCapTests : IDisposable
 
     /// <summary>
     /// 总量上限按 UTF-8 字节算,而不是字符——中文一个字符三字节,按字符算会让中文文件
-    /// 实际放进三四倍于标称的 token。行数远未到顶时,字节上限必须先生效并给出续读点。
+    /// 实际放进三四倍于标称的 token。传 limit=4000 绕过行数限制,让 1MB 字节上限先生效。
     /// </summary>
     [Fact]
     public async Task Read_ChineseFile_IsCappedByBytesNotChars()
     {
         string path = Path.Combine(_dir, "chinese.md");
-        // 每行 100 个汉字 = 300 字节,300 行约 90KB,行数只有 300 远未到 2000
+        // 每行 100 个汉字 = 301 字节,4000 行约 1.2MB,传 limit=4000 绕过行数限制
         await File.WriteAllLinesAsync(path,
-            Enumerable.Range(1, 300).Select(_ => new string('测', 100)));
+            Enumerable.Range(1, 4000).Select(_ => new string('测', 100)));
 
-        string result = await _tools.Read(path);
+        string result = await _tools.Read(path, limit: 4000);
 
         string[] lines = result.Split('\n');
         Assert.Contains("continue with offset=", lines[^1]);
-        Assert.True(lines.Length - 1 < 300, $"应因字节上限提前截断,实际返回 {lines.Length - 1} 行");
+        Assert.True(lines.Length - 1 < 4000, $"应因字节上限提前截断,实际返回 {lines.Length - 1} 行");
         Assert.True(Encoding.UTF8.GetByteCount(result) < PermissiveFileAccessTools.MaxReadTotalBytes * 2,
             "截断后总字节应在上限量级内");
+    }
+
+    /// <summary>
+    /// limit=-1 是全文读模式:绕过 1MB 字节上限,读完整个文件。
+    /// 用于需要完整理解文件以做重构的场景——分段读容易让模型忘了前面读了什么。
+    /// </summary>
+    [Fact]
+    public async Task Read_WithLimitNegativeOne_ReadsEntireFile()
+    {
+        string path = Path.Combine(_dir, "full.txt");
+        // 3000 行 × 约 500 字节/行 = 1.5MB,超过 1MB 字节上限
+        await File.WriteAllLinesAsync(path,
+            Enumerable.Range(1, 3000).Select(i => new string('x', 480) + i));
+
+        string result = await _tools.Read(path, limit: -1);
+
+        // 全文读绕过字节上限,不应有截断提示
+        Assert.DoesNotContain("[truncated", result);
+        Assert.DoesNotContain("continue with offset=", result);
+        // 应包含最后一行
+        Assert.Contains("3000", result);
+        // 总字节应超过 1MB(证明绕过了字节上限)
+        Assert.True(Encoding.UTF8.GetByteCount(result) > PermissiveFileAccessTools.MaxReadTotalBytes,
+            "limit=-1 应绕过字节上限,实际返回字节应超过上限");
     }
 
     [Fact]

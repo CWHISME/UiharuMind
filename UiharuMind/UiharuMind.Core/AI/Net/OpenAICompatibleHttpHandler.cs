@@ -259,12 +259,53 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         try
         {
             JsonNode? node = JsonNode.Parse(text);
-            return node?.ToJsonString(LogJsonOptions) ?? text;
+            if (node == null) return text;
+            return UnescapeJsonStringNewlines(node.ToJsonString(LogJsonOptions) ?? text);
         }
         catch (JsonException)
         {
             return text;
         }
+    }
+
+    // 字符串值里的换行被序列化器转义成字面 \n,日志里连成两行中间夹个反斜杠很难看。
+    // WriteIndented 展开后,结构性的换行是<b>真换行</b>,字面 \n 只可能出现在字符串值内部,
+    // 因此顺着 JSON 字符串扫描,把字符串值里的 \n 还原成真换行。不进字符串的结构换行不动。
+    private static string UnescapeJsonStringNewlines(string pretty)
+    {
+        if (!pretty.Contains(@"\n", StringComparison.Ordinal)) return pretty;
+
+        StringBuilder sb = new(pretty.Length);
+        bool inString = false;
+        for (int i = 0; i < pretty.Length; i++)
+        {
+            char c = pretty[i];
+
+            if (inString)
+            {
+                if (c == '"')
+                {
+                    inString = false;
+                    sb.Append(c);
+                }
+                else if (c == '\\' && i + 1 < pretty.Length && pretty[i + 1] == 'n')
+                {
+                    sb.Append('\n');
+                    i++; //吞掉后面的 n
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            else
+            {
+                if (c == '"') inString = true;
+                sb.Append(c);
+            }
+        }
+
+        return sb.ToString();
     }
 
     //各家名字都不一样(OpenAI 用 x-ratelimit-*,Anthropic 用 anthropic-ratelimit-*,

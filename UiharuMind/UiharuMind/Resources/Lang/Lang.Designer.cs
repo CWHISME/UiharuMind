@@ -581,6 +581,42 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentSettingSubAgent {
+            get {
+                return ResourceManager.GetString("AgentSettingSubAgent", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingGeneralSubAgentModel {
+            get {
+                return ResourceManager.GetString("AgentSettingGeneralSubAgentModel", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingGeneralSubAgentModelDesc {
+            get {
+                return ResourceManager.GetString("AgentSettingGeneralSubAgentModelDesc", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingExplorerSubAgentModel {
+            get {
+                return ResourceManager.GetString("AgentSettingExplorerSubAgentModel", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingExplorerSubAgentModelDesc {
+            get {
+                return ResourceManager.GetString("AgentSettingExplorerSubAgentModelDesc", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSubAgentFallbackHint {
+            get {
+                return ResourceManager.GetString("AgentSettingSubAgentFallbackHint", resourceCulture);
+            }
+        }
+        
         public static string AgentSettingCapabilities {
             get {
                 return ResourceManager.GetString("AgentSettingCapabilities", resourceCulture);

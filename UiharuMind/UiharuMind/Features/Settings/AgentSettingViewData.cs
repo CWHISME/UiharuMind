@@ -20,6 +20,8 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.AI;
+using UiharuMind.Core.AI.Core;
 
 namespace UiharuMind.Features.Settings;
 
@@ -31,6 +33,22 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private int _defaultPermissionModeIndex;
     [ObservableProperty] private string _defaultWorkspacePath = string.Empty;
     [ObservableProperty] private bool _defaultPlanMode;
+
+    //================= 子代理 =================
+    /// <summary>
+    /// 可选模型列表(与顶栏模型选择器同源)。子代理从中选模型。
+    /// </summary>
+    public ObservableCollection<ModelRunningData> AvailableModels { get; } = new();
+
+    /// <summary>
+    /// 当前选中的通用子代理模型。null = 回退到主 agent 模型。
+    /// </summary>
+    [ObservableProperty] private ModelRunningData? _generalSubAgentModel;
+
+    /// <summary>
+    /// 当前选中的探索型子代理模型。null = 回退到主 agent 模型。
+    /// </summary>
+    [ObservableProperty] private ModelRunningData? _explorerSubAgentModel;
 
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
@@ -72,6 +90,7 @@ public partial class AgentSettingViewData : ViewModelBase
             DefaultPlanMode = config.DefaultPlanMode;
         }
 
+        LoadAvailableModels();
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
     }
 
@@ -92,6 +111,40 @@ public partial class AgentSettingViewData : ViewModelBase
     {
         AgentSettingConfig.Current.DefaultPlanMode = value;
         _writeBack.Save();
+    }
+
+    //================= 子代理:变更即存 =================
+    partial void OnGeneralSubAgentModelChanged(ModelRunningData? value)
+    {
+        AgentSettingConfig.Current.GeneralSubAgentModelName = value?.ModelName ?? string.Empty;
+        _writeBack.Save();
+    }
+
+    partial void OnExplorerSubAgentModelChanged(ModelRunningData? value)
+    {
+        AgentSettingConfig.Current.ExplorerSubAgentModelName = value?.ModelName ?? string.Empty;
+        _writeBack.Save();
+    }
+
+    /// <summary>
+    /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用与探索型子代理模型。
+    /// </summary>
+    private void LoadAvailableModels()
+    {
+        AvailableModels.Clear();
+        foreach (ModelRunningData model in LlmManager.Instance.GetModelList())
+            AvailableModels.Add(model);
+
+        AgentSettingConfig config = AgentSettingConfig.Current;
+        if (!string.IsNullOrWhiteSpace(config.GeneralSubAgentModelName))
+        {
+            GeneralSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.GeneralSubAgentModelName);
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.ExplorerSubAgentModelName))
+        {
+            ExplorerSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.ExplorerSubAgentModelName);
+        }
     }
 
     [RelayCommand]

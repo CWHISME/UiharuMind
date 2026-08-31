@@ -36,7 +36,8 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 public static class SubAgentTool
 {
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上</summary>
-    public const string ToolName = "RunSubAgent";
+    public const string ToolGeneralName = "RunGeneralSubAgent";
+    public const string ToolExplorerName = "RunExploreSubAgent";
 
     /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,
@@ -62,17 +63,16 @@ public static class SubAgentTool
     /// <param name="activitySink">过程上报口(挂到执行者本轮的输出通道);为空则过程不外显</param>
     /// <returns>工具实例</returns>
     public static AITool Create(Func<string?, AgentHandle> handleFactory,
-        IReadOnlyList<SubAgentChoice> roster, Action<AIContent>? activitySink)
+        IReadOnlyList<SubAgentChoice> roster, Action<AIContent>? activitySink,
+        SubAgentProfile? profile = null)
     {
         // 刻意没有"自定义子代理提示词"这个参数。曾经有过,实测本地模型往里填的是与 task 重复的
         // 泛泛套话(给一个代码项目写"调查团队成员、截止日期、资源分配"),既没信息量又挤掉了
         // 固定段该起的作用。要给子代理换人格,请在角色上挂一个子智能体,而不是让模型现编。
-        string description =
-            "Delegate an investigation to a sub-agent and get back a focused report. "
-            + "Use it for broad exploration (surveying many files, researching a topic on the web) "
-            + "so the raw material never enters your own context. The sub-agent runs to completion "
-            + "before this returns. It has the same permissions as you, minus anything that would "
-            + "need approval — it cannot stop to ask, so put everything it needs in the task.";
+        // 策略对象未传时回退到通用子代理(兼容现有调用方)
+        profile ??= SubAgentProfile.General;
+        string description = profile.Description;
+        string toolName = profile.ToolName;
         if (roster.Count > 0)
         {
             StringBuilder sb = new(description);
@@ -96,7 +96,7 @@ public static class SubAgentTool
                 CancellationToken cancellationToken = default) =>
                 await RunAsync(handleFactory, activitySink, task, agent, cancellationToken)
                     .ConfigureAwait(false),
-            ToolName,
+            toolName,
             description);
     }
 
@@ -131,6 +131,23 @@ public static class SubAgentTool
                     report.Add(content);
                 }
             }
+
+            // 代码兜底:模型以工具调用结束、之后没产出文本(没写收尾总结)。
+            // 提示层硬约束挡住大多数,这里兜漏网的——追加一轮"请总结"让模型补上报告。
+            if (report.NeedsSummary && !timeoutSource.Token.IsCancellationRequested)
+            {
+                const string summaryPrompt = "请用一段话总结你的发现和结论，作为最终报告。";
+                await foreach (AgentResponseUpdate update in handle.Agent
+                                   .RunStreamingAsync(summaryPrompt, session, cancellationToken: timeoutSource.Token)
+                                   .ConfigureAwait(false))
+                {
+                    foreach (AIContent content in update.Contents)
+                    {
+                        sink?.Invoke(new ToolActivityContent(callId, content));
+                        report.Add(content);
+                    }
+                }
+            }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -156,6 +173,7 @@ public static class SubAgentTool
     {
         private readonly StringBuilder _report = new(); //最后一次工具调用之后的正文
         private readonly StringBuilder _allText = new(); //全程正文,仅在报告为空时兜底
+        private bool _hadToolCall; //是否出现过至少一次工具调用
 
         /// <summary>
         /// 喂入一段内容
@@ -168,6 +186,7 @@ public static class SubAgentTool
                 case FunctionCallContent:
                     // 到此为止的正文都是"我接下来要查什么"的旁白,不是报告
                     _report.Clear();
+                    _hadToolCall = true;
                     break;
                 // 只取正文:思考段属过程,永不进主 agent 的上下文
                 case TextContent { Text.Length: > 0 } text:
@@ -176,6 +195,12 @@ public static class SubAgentTool
                     break;
             }
         }
+
+        /// <summary>
+        /// 是否有旁白但缺少收尾总结——模型以工具调用结束、之后没产出文本。
+        /// 用于代码兜底:追加一轮"请总结"让模型补上报告。
+        /// </summary>
+        public bool NeedsSummary => _hadToolCall && _report.Length == 0 && _allText.Length > 0;
 
         /// <summary>
         /// 生成交给主 agent 的报告

@@ -13,10 +13,12 @@ using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.Configs;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 
@@ -86,6 +88,9 @@ internal static class SubAgentAssembly
 
         /// <summary>历史压缩策略(与主 agent 同一份);为 null 则不压缩</summary>
         public CompactionStrategy? Compaction { get; init; }
+
+        /// <summary>子代理策略(类型、模型源、提示词侧重点);未传时用通用子代理</summary>
+        public SubAgentProfile SubAgentProfile { get; init; } = SubAgentProfile.General;
     }
 
     /// <summary>
@@ -94,13 +99,47 @@ internal static class SubAgentAssembly
     /// </summary>
     /// <param name="plan">主 agent 的装配计划（工作目录、工作区规矩、权限档与名单由此继承）</param>
     /// <param name="client">模型客户端(与主 agent 同一惰性客户端)</param>
+    /// <param name="subProfile">子代理策略;未传时用通用子代理(兼容现有调用方)</param>
     /// <returns>工具;无任何能力可用时为 null</returns>
-    public static AITool? TryCreateTool(AgentAssemblyPlan plan, IChatClient client)
+    public static AITool? TryCreateTool(AgentAssemblyPlan plan, IChatClient client,
+        SubAgentProfile? subProfile = null)
     {
+        subProfile ??= SubAgentProfile.General;
         AgentBuildProfile profile = plan.Profile;
         AgentToolConfig config = plan.Config;
         string workingDirectory = plan.WorkingDirectory;
-        bool fullAuto = profile.PermissionMode == EAgentPermissionMode.FullAuto;
+        // 探索型始终只读,覆盖主 agent 的权限档;通用型继承主 agent 的权限档
+        EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
+            ? EAgentPermissionMode.ReadOnly
+            : profile.PermissionMode;
+        bool fullAuto = effectivePermission == EAgentPermissionMode.FullAuto;
+
+        // 各类型子代理可用各自配置的独立模型;未配置或不可热切换时回退到主 agent 的模型。
+        // 无条件包一层惰性客户端:模型名<b>在闭包里现读</b>,不在装配时刻固化——
+        // 改完设置不重建 agent,下一次调用即生效(模型按设计不入装配快照,
+        // 见 AgentAssemblyFacts 注释"惰性客户端按请求解析,切换无需重建")。
+        // 配置的<b>远程</b>模型未运行时经 TryCheckModelRunning 的 ref 重载即发即忘拉起:
+        // 它只改局部变量不碰全局当前模型(主 agent 的模型不被抢走),而远程客户端是同步构造
+        // (RemoteModelManager.Run 直接 CreateChatClient),CompleteLoading 几乎同步完成,
+        // 交给 LazyChatClient 等它就绪即可——绝不会等满 30 秒。
+        // 配置的<b>本地</b>模型无法热切换(TryCheckModelRunning 返回 false),干净回退主模型,
+        // 绝不把永远不会就绪的模型交给 LazyChatClient 死等——那正是 "Model is not running" 的来源。
+        IChatClient effectiveClient = new LazyChatClient(() =>
+        {
+            string name = subProfile.ResolveModelName(AgentSettingConfig.Current);
+            if (!string.IsNullOrWhiteSpace(name)
+                && LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? configured))
+            {
+                ModelRunningData? candidate = configured;
+                if (LlmManager.Instance.TryCheckModelRunning(false, ref candidate)
+                    && candidate is { ChatClient: not null })
+                {
+                    return candidate;
+                }
+            }
+
+            return plan.Profile.ResolveCurrentModel();
+        });
 
         SubAgentAssemblyInput Probe(AITool? shellTool, string? shellBinary, IReadOnlyList<AITool>? mcpTools,
             AgentToolConfig effectiveConfig, string persona, string name) => new()
@@ -111,7 +150,7 @@ internal static class SubAgentAssembly
             Name = name,
             WorkingDirectory = workingDirectory,
             VisionToolAvailable = plan.MountVisionTool,
-            PermissionMode = profile.PermissionMode,
+            PermissionMode = effectivePermission,
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
             ShellBinary = shellBinary,
@@ -120,6 +159,7 @@ internal static class SubAgentAssembly
             McpInstructions = mcpTools == null ? string.Empty : plan.Mcp.Instructions,
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
+            SubAgentProfile = subProfile,
         };
 
         // 先探一次:全部能力都关掉时不挂载(shell/MCP 不参与这个判定,它们只在完全自动档才有)
@@ -155,9 +195,9 @@ internal static class SubAgentAssembly
             IReadOnlyList<AITool>? mcpTools = fullAuto ? plan.Mcp.Tools : null;
 
             // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
-            return AgentAssembler.BuildHandle(client,
+            return AgentAssembler.BuildHandle(effectiveClient,
                 BuildSubAgentOptions(Probe(shellTool, shellExecutor?.ResolvedShellBinary, mcpTools, effective, persona, name))!, shellExecutor);
-        }, roster, profile.ActivitySink);
+        }, roster, profile.ActivitySink, subProfile);
     }
 
     /// <summary>
@@ -232,7 +272,8 @@ internal static class SubAgentAssembly
         {
             Instructions = BuildSubAgentInstructions(config, hasVision, hasShell,
                 input.ShellBinary ?? string.Empty, canMutate,
-                input.WorkingDirectory, input.WorkspaceInstructions, input.McpInstructions, input.Persona),
+                input.WorkingDirectory, input.WorkspaceInstructions, input.McpInstructions,
+                input.Persona, input.SubAgentProfile),
             Tools = tools,
         };
         return options;
@@ -261,8 +302,10 @@ internal static class SubAgentAssembly
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool hasShell,
         string shellBinary, bool canMutate,
-        string workingDirectory, string workspaceInstructions, string mcpInstructions, string persona = "")
+        string workingDirectory, string workspaceInstructions, string mcpInstructions,
+        string persona = "", SubAgentProfile? subProfile = null)
     {
+        subProfile ??= SubAgentProfile.General;
         StringBuilder sb = new();
         // 点名的子智能体先说自己是谁(与主 agent 同一口径:人格在最前,见 ADR 0005),
         // 随后才是"你是被派活的子代理"这套边界与体例
@@ -274,6 +317,7 @@ internal static class SubAgentAssembly
 
         sb.AppendLine(AgentPromptHeadings.SubAgentRole);
         sb.AppendLine("你是 UiharuMind 的子代理，主 agent 派给你一件任务。你独立干完，然后回报。");
+        sb.AppendLine(subProfile.RoleHint);
         // 护栏句:本段整段中文,而子代理连一句用户原话都看不到,更容易被提示词的语言带跑
         sb.AppendLine(AgentToolPrompts.LanguageNeutrality);
         sb.AppendLine();
@@ -307,6 +351,8 @@ internal static class SubAgentAssembly
 
         sb.AppendLine("- 你没法问人要说明，也不会有人替你批准任何操作。就拿任务里给的东西干。");
         sb.AppendLine("- 回一份聚焦的报告：先给结论，再给依据（路径、链接、原文）。");
+        sb.AppendLine("- 所有工具调用结束后，你必须产出一段文本作为最终报告，" +
+                       "不得以工具调用作为最后一个动作结束。");
         sb.AppendLine();
         sb.Append(AgentToolPrompts.AgentWorkLoop);
 

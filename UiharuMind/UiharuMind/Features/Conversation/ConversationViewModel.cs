@@ -232,6 +232,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
+    private CancellationTokenSource? _tokenRefreshDebounce; //打字时合并刷新,避免每个字符都触发 ToolTip 重排
 
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
     private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
@@ -1156,7 +1157,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             {
                 if (version != _inputCountVersion) return;
                 _usage.InputEstimate = count;
-                RefreshTokenUsageText();
+                // 防抖:打字时每个字符都会触发一次估算,合并到停手后一次性刷新,
+                // 避免 ToolTip 里的 ContextUsagePanel 跟着每个字符重排而闪烁
+                _tokenRefreshDebounce?.Cancel();
+                _tokenRefreshDebounce = new CancellationTokenSource();
+                CancellationToken token = _tokenRefreshDebounce.Token;
+                DispatcherTimer.RunOnce(() =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    RefreshTokenUsageText();
+                }, TimeSpan.FromMilliseconds(200));
             });
         });
     }

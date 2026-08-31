@@ -68,6 +68,11 @@ public sealed class TurnUsageLedger
     /// 服务端不报这个数的话就无从判断缓存有没有生效——只能靠它来验证，不能靠推理。
     /// </summary>
     public long LastCachedInput { get; private set; }
+    
+    /// <summary>
+    /// 最近一次响应服务端报的当前 token 统计。
+    /// </summary>
+    public long TotalTokenCount { get; private set; }
 
     /// <summary>本轮输出 token</summary>
     public long TurnOutput { get; private set; }
@@ -105,6 +110,8 @@ public sealed class TurnUsageLedger
             LastCachedInput = ReadCachedTokens(details); //不报就归零,不能留着上一次的数冒充本次命中
         }
 
+        TotalTokenCount = details.TotalTokenCount??0;
+        
         TurnInput += input;
         TurnOutput += output;
         SessionInput += input;
@@ -120,6 +127,7 @@ public sealed class TurnUsageLedger
     /// <returns>命中的输入 token 数</returns>
     internal static long ReadCachedTokens(UsageDetails details)
     {
+        if (details.CachedInputTokenCount != null) return (long)details.CachedInputTokenCount;
         if (details.AdditionalCounts == null) return 0;
 
         foreach (KeyValuePair<string, long> pair in details.AdditionalCounts)
