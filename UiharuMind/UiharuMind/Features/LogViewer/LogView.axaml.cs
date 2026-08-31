@@ -9,7 +9,6 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -29,7 +28,6 @@ public partial class LogView : UserControl
 
     private bool _isDragging;
     private Border? _selectedControl;
-    private LogLevelToColorConverter _logLevelToColorConverter = new LogLevelToColorConverter();
 
     public LogView()
     {
@@ -80,9 +78,6 @@ public partial class LogView : UserControl
                 _selectedControl.Background = new SolidColorBrush(new Color(
                     (byte)(ApplicationThemeManager.IsDarkTheme() ? 118 : 40), 118, 118, 118));
 
-                DetailText.Foreground =
-                    (IBrush)_logLevelToColorConverter.Convert(logItem.LogType, typeof(LogItem), null,
-                        CultureInfo.CurrentCulture);
                 DetailText.Text = logItem.LogString;
             }
         }

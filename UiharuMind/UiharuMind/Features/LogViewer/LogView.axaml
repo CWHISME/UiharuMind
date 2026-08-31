@@ -5,6 +5,7 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.Features.LogViewer"
              xmlns:extends="clr-namespace:UiharuMind.Extends"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Features.LogViewer.LogView">
 
@@ -44,11 +45,8 @@
         <GridSplitter Grid.Row="1" ResizeBehavior="PreviousAndNext" Height="5" HorizontalAlignment="Stretch" />
 
         <!-- detail text -->
-        <ScrollViewer Grid.Row="2">
-            <TextBox Name="DetailText" VerticalAlignment="Stretch" VerticalContentAlignment="Top" IsReadOnly="True"
-                     TextWrapping="Wrap"
-                     Padding="5"
-                     BorderThickness="0" />
-        </ScrollViewer>
+        <controls:LongTextView Grid.Row="2" Name="DetailText"
+                               IsEditable="False" IsToolbarVisible="False"
+                               ShowLineNumbers="False" WordWrap="True" />
     </Grid>
 </UserControl>
