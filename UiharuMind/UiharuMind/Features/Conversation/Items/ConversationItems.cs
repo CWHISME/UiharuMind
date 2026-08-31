@@ -34,25 +34,20 @@ namespace UiharuMind.Features.Conversation.Items;
 /// <summary>
 /// 思考过程条目(默认折叠,弱化展示)
 /// </summary>
-public partial class ThinkingItem : ConversationItemBase
+public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 {
     private readonly StringBuilder _buffer = new();
+    private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
 
     /// <summary>
-    /// UI 侧节流。思考流是全场最高频、最低价值的一路,而每次把累积全文重设给
+    /// UI 侧上屏间隔。思考流是全场最高频、最低价值的一路,而每次把累积全文重设给
     /// TextBlock 都要一次全量文本重排,成本随长度二次增长——本地模型下子代理思考几千 token
-    /// 就足以把界面拖住。节流到 ~7Hz 仍然"看得见它在想",重排次数却降两个数量级。
-    /// 尾巴由 <see cref="Flush"/> 保证不丢。
+    /// 就足以把界面拖住。~7Hz 仍然"看得见它在想",重排次数却降两个数量级。
+    /// 节拍由 <see cref="StreamFlushPump"/> 统一给,尾巴由 <see cref="Flush"/> 保证不丢。
     /// </summary>
-    private readonly ValueUiDelayUpdater<object?> _throttle;
+    public int FlushIntervalMs => 150;
 
     [ObservableProperty] private bool _isExpanded;
-
-    public ThinkingItem()
-    {
-        // 传 null 而非全文:值在真正触发时才从 buffer 取,免得每个 token 都白白拼一次全文
-        _throttle = new ValueUiDelayUpdater<object?>(_ => Message = _buffer.ToString(), 150);
-    }
 
     /// <summary>
     /// 追加一段流式增量
@@ -60,8 +55,8 @@ public partial class ThinkingItem : ConversationItemBase
     /// <param name="delta">增量文本</param>
     public void Append(string delta)
     {
-        _buffer.Append(delta);
-        _ = _throttle.UpdateValue(null);
+        lock (_bufferGate) _buffer.Append(delta);
+        StreamFlushPump.Request(this);
     }
 
     /// <summary>
@@ -69,8 +64,14 @@ public partial class ThinkingItem : ConversationItemBase
     /// </summary>
     public void Flush()
     {
-        Message = _buffer.ToString();
+        string text;
+        // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
+        lock (_bufferGate) text = _buffer.ToString();
+        Message = text;
     }
+
+    /// <inheritdoc />
+    void IStreamFlushTarget.FlushForDisplay() => Flush();
 }
 
 /// <summary>

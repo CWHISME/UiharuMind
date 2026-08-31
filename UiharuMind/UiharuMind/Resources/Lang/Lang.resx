@@ -121,7 +121,10 @@
         <value>Thinking stays expanded while streaming and collapses when the segment finishes; uncheck to keep it expanded.</value>
     </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
-        <value>Load earlier messages</value>
+        <value>Scroll up to load earlier messages</value>
+    </data>
+    <data name="ChatHistoryStart" xml:space="preserve">
+        <value>Beginning of the conversation</value>
     </data>
     <data name="ChatInputTips" xml:space="preserve">
         <value>Shift+Enter</value>

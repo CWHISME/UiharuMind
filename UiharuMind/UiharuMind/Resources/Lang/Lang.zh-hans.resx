@@ -114,7 +114,10 @@
         <value>思考过程在流式输出时保持展开,结束后自动折叠;取消勾选则保持展开。</value>
     </data>
     <data name="ChatLoadEarlier" xml:space="preserve">
-        <value>加载更早的消息</value>
+        <value>上滚加载更早的消息</value>
+    </data>
+    <data name="ChatHistoryStart" xml:space="preserve">
+        <value>已到会话开头</value>
     </data>
     <data name="ChatInputTips" xml:space="preserve">
         <value>Shift+Enter 换行</value>

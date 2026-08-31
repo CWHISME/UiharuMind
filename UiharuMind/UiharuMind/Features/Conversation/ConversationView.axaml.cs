@@ -14,9 +14,11 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
+using UiharuMind.Shared.Diagnostics;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.UIHolder;
@@ -70,13 +72,20 @@ public partial class ConversationView : UserControl
         set => SetValue(EmptyContentProperty, value);
     }
 
+    /// <summary>离顶多少像素以内算"滚到顶了"。留一点余量,让续窗在用户撞到顶之前就开始</summary>
+    private const double EarlierLoadThreshold = 32.0;
+
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
     private ConversationViewModel? _viewModel;
+    private bool _isLoadingEarlier; //正在续一窗更早的消息(防抖)
 
     public ConversationView()
     {
         InitializeComponent();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
+        Viewer.ScrollChanged += OnViewerScrollChanged;
+        // 探针关着时连事件都不挂:布局回调是每次布局都会跑的路径,不该为一个默认关闭的诊断付钱
+        if (StreamPerfProbe.IsEnabled) Viewer.LayoutUpdated += OnViewerLayoutUpdated;
         DataContextChanged += OnDataContextChanged;
         InputBox.PastingFromClipboard += OnPastingFromClipboard;
         DragDrop.SetAllowDrop(ComposerBorder, true);
@@ -136,6 +145,7 @@ public partial class ConversationView : UserControl
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             _viewModel.Palette.SkillCandidateAccepted -= OnSkillCandidateAccepted;
+            _viewModel.IsStuckToBottomSource = null;
         }
 
         _viewModel = DataContext as ConversationViewModel;
@@ -143,6 +153,8 @@ public partial class ConversationView : UserControl
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
             _viewModel.Palette.SkillCandidateAccepted += OnSkillCandidateAccepted;
+            // 滚动状态只有本视图知道,而运行期裁剪要靠它决定能不能裁(见 ConversationItemWindowTrimmer)
+            _viewModel.IsStuckToBottomSource = () => _autoScrollHolder.IsStuckToBottom;
         }
     }
 
@@ -158,16 +170,50 @@ public partial class ConversationView : UserControl
         }
     }
 
-    private void OnLoadEarlierClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// 滚到顶自动续一窗更早的消息。取代原先那个「加载更早」按钮——要用户自己去点才回得去，
+    /// 是长会话里最难用的一处。
+    /// </summary>
+    private void OnViewerScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
+        if (_isLoadingEarlier) return;
         if (DataContext is not ConversationViewModel vm) return;
+        if (!vm.HasEarlierMessages || vm.IsSessionLoading) return;
+        // 内容还没多到能滚就不续:此时 Offset 恒为 0,不判这一条会一路把整段历史续完
+        if (Viewer.Extent.Height <= Viewer.Viewport.Height) return;
+        if (Viewer.Offset.Y > EarlierLoadThreshold) return;
 
-        // 前插会把现有内容整体下推,按前插高度补偿 Offset 以保持视口内容不动
-        double extentBefore = Viewer.Extent.Height;
-        double offsetBefore = Viewer.Offset.Y;
-        vm.LoadEarlierMessages();
-        Viewer.UpdateLayout();
-        Viewer.Offset = new Vector(Viewer.Offset.X, offsetBefore + Viewer.Extent.Height - extentBefore);
+        // 不在滚动回调里当场做:前插要跟一次同步 UpdateLayout 才能算补偿量,
+        // 而在 ScrollChanged 里同步跑整棵树的布局是自找麻烦。
+        // 排到 Loaded 去做,整段落在同一个派发任务里——中间不会渲染出一帧错位的视口
+        _isLoadingEarlier = true;
+        Dispatcher.UIThread.Post(() => LoadEarlierKeepingViewport(vm), DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// 续一窗更早的消息，并按前插高度补偿 Offset 以保持视口内容不动
+    /// </summary>
+    private void LoadEarlierKeepingViewport(ConversationViewModel vm)
+    {
+        try
+        {
+            double extentBefore = Viewer.Extent.Height;
+            double offsetBefore = Viewer.Offset.Y;
+            vm.LoadEarlierMessages();
+            Viewer.UpdateLayout();
+            Viewer.Offset = new Vector(Viewer.Offset.X, offsetBefore + Viewer.Extent.Height - extentBefore);
+        }
+        finally
+        {
+            // 防抖:补偿之后 Offset 通常已经离开顶部,但新的一窗不足一屏高时它仍在顶部——
+            // 再排一轮才解锁,免得一次滚动手势连锁把整段历史续完
+            Dispatcher.UIThread.Post(() => _isLoadingEarlier = false, DispatcherPriority.Background);
+        }
+    }
+
+    private void OnViewerLayoutUpdated(object? sender, EventArgs e)
+    {
+        StreamPerfProbe.ReportLayoutUpdated(_viewModel?.Items.Count ?? 0);
     }
 
     private async void OnPastingFromClipboard(object? sender, RoutedEventArgs e)

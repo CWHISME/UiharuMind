@@ -77,6 +77,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private bool _isPlaintext;
     [ObservableProperty] private bool _isAutoCollapseThinking;
     [ObservableProperty] private bool _hasEarlierMessages;
+
+    /// <summary>
+    /// 本会话是否已经续过至少一窗更早的消息。只用来决定顶部那行「已到会话开头」显不显示——
+    /// 短会话本来就没有更早的消息，一进来就挂那一行是噪音。
+    /// </summary>
+    [ObservableProperty] private bool _hasLoadedEarlier;
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
     [ObservableProperty] private int _thinkingModeIndex; //本会话思考力度,序号即 EThinkingMode
     [ObservableProperty] private string _tokenUsageText = string.Empty; //token 统计(输入估算/本轮/会话累计)
@@ -232,10 +238,18 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
+    private readonly ConversationItemWindowTrimmer _trimmer; //运行期把涨上来的条目裁回上限
     private readonly TurnUsageLedger _usage = new(); //token 账本
 
     /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
     public ContextUsageViewData ContextUsage { get; } = new();
+
+    /// <summary>
+    /// 界面是否跟在底部，由宿主视图接上（它才持有那个滚动容器）。
+    /// <b>没接上时按「不在底部」处理</b>——运行期裁剪宁可不裁，也不能在看不见滚动状态时
+    /// 把用户正在读的内容摘掉。
+    /// </summary>
+    public Func<bool>? IsStuckToBottomSource { get; set; }
 
     /// <summary>
     /// 本轮是否正在跑。装配会话的那一小段也算在内——那时执行者还没接手，
@@ -276,6 +290,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Palette = new CommandPaletteViewData(text => InputText = text, () => SessionCharacter);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
         _itemActions = new ConversationItemActions(Items, this);
+        _trimmer = new ConversationItemWindowTrimmer(Items, _historyWindow,
+            () => CurrentRunner?.GetHistory() ?? [],
+            () => IsStuckToBottomSource?.Invoke() ?? false);
 
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
@@ -728,6 +745,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.Persisted:
                 _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
+                // 裁剪必须排在回填之后:锚点就是回填出来的那些来源消息
+                if (_trimmer.TrimIfNeeded()) HasEarlierMessages = _historyWindow.HasEarlier;
                 break;
 
             case ETurnNotice.Ended:
@@ -1001,6 +1020,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         HasEarlierMessages = _historyWindow.HasEarlier;
+        HasLoadedEarlier = true;
     }
 
     /// <summary>
@@ -1236,6 +1256,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Todos.Clear();
         HasTodos = false;
         HasEarlierMessages = false;
+        HasLoadedEarlier = false;
         _historyWindow.Clear();
         _transcript.Reset();
         _usage.Reset();

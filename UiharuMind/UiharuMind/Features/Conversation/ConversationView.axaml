@@ -134,11 +134,24 @@
                           HorizontalScrollBarVisibility="Disabled"
                           uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
                 <StackPanel Margin="10">
-                    <Button HorizontalAlignment="Center"
-                            Margin="0,0,0,10"
-                            IsVisible="{Binding HasEarlierMessages}"
-                            Click="OnLoadEarlierClick"
-                            Content="{loc:Loc ChatLoadEarlier}" />
+                    <!-- 顶部状态行(不是按钮):更早的消息由滚到顶自动续,见 OnViewerScrollChanged。
+                         原先这里是一个「加载更早」按钮——要用户自己去点才回得去,是长会话里最难用的一处。
+                         「已到开头」只在真的续过至少一窗之后才显示:短会话本来就没有更早的消息,
+                         一上来就挂一行"已到开头"是纯噪音 -->
+                    <TextBlock Classes="muted" HorizontalAlignment="Center"
+                               Margin="0,0,0,10"
+                               IsVisible="{Binding HasEarlierMessages}"
+                               Text="{loc:Loc ChatLoadEarlier}" />
+                    <TextBlock Classes="muted" HorizontalAlignment="Center"
+                               Margin="0,0,0,10"
+                               Text="{loc:Loc ChatHistoryStart}">
+                        <TextBlock.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="!HasEarlierMessages" />
+                                <Binding Path="HasLoadedEarlier" />
+                            </MultiBinding>
+                        </TextBlock.IsVisible>
+                    </TextBlock>
                     <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
                         <ItemsControl.DataTemplates>
                     <!-- 思考过程:弱化折叠条。视觉与行为都在 ThinkingCardView 里,

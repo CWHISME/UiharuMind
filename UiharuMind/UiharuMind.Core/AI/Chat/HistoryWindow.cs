@@ -67,6 +67,19 @@ public sealed class HistoryWindow
     }
 
     /// <summary>
+    /// 直接把窗口起点挪到指定下标（运行期裁剪用）。
+    ///
+    /// 与 <see cref="Reset"/> / <see cref="Extend"/> 的区别是<b>起点由外部锚点给定</b>：
+    /// 裁剪方是按界面条目找到边界的，那条边界对应哪个历史下标只有它知道，
+    /// 本类算不出来。窗口仍然只负责回答「起点在哪」，语义没有变宽。
+    /// </summary>
+    /// <param name="start">新的窗口起点；负值按 0 处理</param>
+    public void SetStart(int start)
+    {
+        Start = Math.Max(0, start);
+    }
+
+    /// <summary>
     /// 清空（回到无历史状态）
     /// </summary>
     public void Clear()

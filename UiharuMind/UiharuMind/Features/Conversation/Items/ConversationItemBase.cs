@@ -156,18 +156,20 @@ public abstract partial class ConversationItemBase : ObservableObject
 /// <summary>
 /// 标准文本气泡条目(支持流式追加),ConversationView 内置其模板
 /// </summary>
-public partial class TextConversationItem : ConversationItemBase
+public partial class TextConversationItem : ConversationItemBase, IStreamFlushTarget
 {
     private readonly StringBuilder _buffer = new();
+    private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
     private readonly bool _isUser;
     private readonly bool _isNarration;
 
     /// <summary>
-    /// UI 侧节流。流式期间每个 token 都把累积全文重设一次,渲染侧要么做全量文本重排、
+    /// UI 侧上屏间隔。流式期间每个 token 都把累积全文重设一次,渲染侧要么做全量文本重排、
     /// 要么重解析整篇 markdown,成本随长度二次增长。50ms(~20Hz)肉眼仍是连续的,
-    /// 重排次数却降一个数量级。尾巴由 <see cref="Flush"/> 保证不丢。
+    /// 重排次数却降一个数量级。节拍由 <see cref="StreamFlushPump"/> 统一给,
+    /// 尾巴由 <see cref="Flush"/> 保证不丢。
     /// </summary>
-    private readonly ValueUiDelayUpdater<object?> _throttle;
+    public int FlushIntervalMs => 50;
 
     public override bool IsUser => _isUser;
 
@@ -205,8 +207,6 @@ public partial class TextConversationItem : ConversationItemBase
     {
         _isUser = isUser;
         _isNarration = isNarration;
-        // 传 null 而非全文:值在真正触发时才从 buffer 取,免得每个 token 都白白拼一次全文
-        _throttle = new ValueUiDelayUpdater<object?>(_ => Message = _buffer.ToString(), 50);
     }
 
     /// <summary>
@@ -215,18 +215,24 @@ public partial class TextConversationItem : ConversationItemBase
     /// <param name="delta">增量文本</param>
     public void Append(string delta)
     {
-        _buffer.Append(delta);
-        _ = _throttle.UpdateValue(null);
+        lock (_bufferGate) _buffer.Append(delta);
+        StreamFlushPump.Request(this);
     }
 
     /// <summary>
     /// 立即把缓冲同步到 <see cref="ConversationItemBase.Message"/>(段落收尾时调用)。
-    /// 节流器允许最后一次追加晚到 50ms，收尾处必须显式冲刷，否则最后几个字会短暂缺失。
+    /// 节拍器允许最后一次追加晚到一拍，收尾处必须显式冲刷，否则最后几个字会短暂缺失。
     /// </summary>
     public void Flush()
     {
-        Message = _buffer.ToString();
+        string text;
+        // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
+        lock (_bufferGate) text = _buffer.ToString();
+        Message = text;
     }
+
+    /// <inheritdoc />
+    void IStreamFlushTarget.FlushForDisplay() => Flush();
 
     /// <summary>
     /// 追加一张消息里的图片；解码失败则跳过这一张

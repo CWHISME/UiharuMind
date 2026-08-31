@@ -173,6 +173,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ChatHistoryStart {
+            get {
+                return ResourceManager.GetString("ChatHistoryStart", resourceCulture);
+            }
+        }
+        
         public static string ChatInputTips {
             get {
                 return ResourceManager.GetString("ChatInputTips", resourceCulture);
