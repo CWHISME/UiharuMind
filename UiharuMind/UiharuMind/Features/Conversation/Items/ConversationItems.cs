@@ -552,7 +552,7 @@ public static class AgentContentFormatter
         if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script") return "✨";
         if (toolName == VisionTool.ToolName) return "👁";
         if (toolName == SchedulerTools.ToolName) return "⏰";
-        if (toolName == SubAgentTool.ToolName) return "🤖";
+        if (toolName == SubAgentTool.ToolExplorerName||toolName == SubAgentTool.ToolGeneralName) return "🤖";
         return "🔧";
     }
 
