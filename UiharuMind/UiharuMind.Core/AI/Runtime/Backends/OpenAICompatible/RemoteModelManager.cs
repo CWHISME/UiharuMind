@@ -66,6 +66,10 @@ internal sealed class RemoteModelManager
             Transport = new HttpClientPipelineTransport(new HttpClient(handler)),
             // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短
             RetryPolicy = new RateLimitAwareRetryPolicy(),
+            // 流式响应的读闸默认 100s:思考期 chunk 间隔一长就被 ReadTimeoutStream 掐断,
+            // 且那异常在 HTTP 200 之后冒出,OpenAICompatibleHttpHandler 看不到,只会被上层当用户取消吞掉。
+            // 读卡的裁决完全交给上层 CancellationToken(用户停止按钮),这里不设静态时限
+            NetworkTimeout = Timeout.InfiniteTimeSpan,
         };
         var client = new ChatClient(model.ModelId,
             new ApiKeyCredential(model is RemoteModelInfo remoteModel ? remoteModel.ApiKey : ""), options);

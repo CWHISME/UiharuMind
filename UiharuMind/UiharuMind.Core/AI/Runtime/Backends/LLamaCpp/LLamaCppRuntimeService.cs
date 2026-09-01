@@ -158,7 +158,9 @@ internal sealed class LLamaCppRuntimeService
         var handler = new OpenAICompatibleHttpHandler(model, port: LLamaCppSettingConfig.Current.DefaultPort);
         var options = new OpenAIClientOptions
         {
-            Transport = new HttpClientPipelineTransport(new HttpClient(handler))
+            Transport = new HttpClientPipelineTransport(new HttpClient(handler)),
+            // 流式读闸默认 100s 会掐掉思考期长停顿,详见 RemoteModelManager 同款注释
+            NetworkTimeout = Timeout.InfiniteTimeSpan,
         };
         var client = new ChatClient("UiharuMind", new ApiKeyCredential("None"), options);
         return client.AsIChatClient();

@@ -640,7 +640,9 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.FullAuto)]
     public void SubAgentTools_DoNotIncludeSubAgentItself(EAgentPermissionMode mode)
     {
-        Assert.DoesNotContain(SubAgentTool.ToolName,
+        Assert.DoesNotContain(SubAgentTool.ToolGeneralName,
+            ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode))));
+        Assert.DoesNotContain(SubAgentTool.ToolExplorerName,
             ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode))));
     }
 
