@@ -225,8 +225,16 @@ public partial class ConversationView : UserControl
     {
         const int maxSettlePasses = 4;
 
+        // 这一段的开销压倒性地来自布局:实测两轮共 274ms,其中 231ms 是四次 UpdateLayout,
+        // 实体化连 markdown 解析只占 43ms(解析本身仅 14ms)。试过把每轮的两次布局并成一次,
+        // 三次实测 258/277/258ms —— 没有收益,因为钱都在"加了一窗条目之后的第一次布局"上,
+        // 后续几次的 measure 缓存大多有效。而且那样会在高度变化后用过时的 extent 贴底。
+        long anchorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+        int passes = 0;
+
         for (int pass = 0; pass < maxSettlePasses; pass++)
         {
+            passes++;
             Viewer.UpdateLayout(); //拿到真实高度
             ScrollToBottom();
             Viewer.UpdateLayout(); //贴底后视口换了内容,让新的几何落地
@@ -234,6 +242,7 @@ public partial class ConversationView : UserControl
         }
 
         ScrollToBottom();
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/anchor:passes={passes}", anchorBegin);
     }
 
     /// <summary>

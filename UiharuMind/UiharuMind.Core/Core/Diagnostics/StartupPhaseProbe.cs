@@ -60,5 +60,27 @@ public static class StartupPhaseProbe
         Log.Debug($"[startup] {phase} +{deltaMs:F0}ms (t={totalMs:F0}ms)");
     }
 
+    /// <summary>
+    /// 取一段度量的起点，配合 <see cref="End"/> 使用
+    /// </summary>
+    /// <returns>起点时间戳；探针关闭时为 0</returns>
+    public static long Begin() => IsEnabled ? Stopwatch.GetTimestamp() : 0;
+
+    /// <summary>
+    /// 报告一段<b>范围确定</b>的耗时。与 <see cref="Mark"/> 的区别是它不受"上一个打点在哪"的
+    /// 影响——单向时间线的每个数字都是个桶，桶里装什么取决于前一个打点的位置，
+    /// 想把账落到具体一个方法上就必须成对度量。
+    /// </summary>
+    /// <param name="phase">阶段名</param>
+    /// <param name="beginTicks"><see cref="Begin"/> 的返回值</param>
+    public static void End(string phase, long beginTicks)
+    {
+        if (!IsEnabled || beginTicks == 0) return;
+
+        double elapsedMs = ToMilliseconds(Stopwatch.GetTimestamp() - beginTicks);
+        if (elapsedMs < ReportThresholdMs) return;
+        Log.Debug($"[startup] {phase} ={elapsedMs:F0}ms");
+    }
+
     private static double ToMilliseconds(long ticks) => ticks * 1000.0 / Stopwatch.Frequency;
 }

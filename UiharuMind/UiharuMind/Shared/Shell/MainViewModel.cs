@@ -98,6 +98,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         _viewPageModels.TryGetValue(message, out var vmPage);
         if (vmPage == null)
         {
+            long vmCtorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
             vmPage = message switch
             {
                 MenuPages.MenuAgentKey => ActivatorUtilities.CreateInstance<AgentPageData>(_services),
@@ -110,7 +111,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
                 MenuPages.MenuHelpKey => ActivatorUtilities.CreateInstance<HelpPageData>(_services),
                 _ => GetPage(MenuPages.MenuModelKey),
             };
-            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark($"page/create-vm:{message}");
+            global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"page/vm-ctor:{message}", vmCtorBegin);
             _viewPageModels.Add(message, vmPage);
         }
 

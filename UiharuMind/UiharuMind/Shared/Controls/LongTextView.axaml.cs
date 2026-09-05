@@ -150,6 +150,29 @@ public partial class LongTextView : UserControl
     private bool _scrollMonitorWired;
 
     /// <summary>
+    /// 抑制用户滚动检测。程序化滚动(ScrollToTop/ScrollToEnd/挂起补做的 ScrollToHome)
+    /// 也会触发 <see cref="ScrollOffsetChanged"/>，若不抑制会把刚设好的 <see cref="FollowTail"/>
+    /// 误关——典型症状：思考中首次打开全文窗不跟底（Loaded 后补做的回顶把 FollowTail 关了），
+    /// 第二次打开窗口已 Loaded、回顶发生在 FollowTail=true 之前，反而正常。
+    /// ScrollOffsetChanged 在 AvaloniaEdit 内部是同步触发的，所以这里用标志包围同步调用栈即可。
+    /// </summary>
+    private bool _suppressScrollMonitor;
+
+    /// <summary>抑制用户滚动检测地执行一次程序化滚动，避免误关 FollowTail</summary>
+    private void ProgrammaticScroll(Action scroll)
+    {
+        _suppressScrollMonitor = true;
+        try
+        {
+            scroll();
+        }
+        finally
+        {
+            _suppressScrollMonitor = false;
+        }
+    }
+
+    /// <summary>
     /// 模板应用后给内部滚动视图挂监听。
     /// </summary>
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -169,9 +192,12 @@ public partial class LongTextView : UserControl
         Editor.CaretOffset = 0;
         // 没加载完时编辑器内部还没有滚动条可滚，记一笔等 Loaded 补做：
         // 缓存窗口换源正好落在这一档（先 SetSource 再 Show）
-        if (Editor.IsLoaded) Editor.ScrollToHome();
+        if (Editor.IsLoaded) ProgrammaticScroll(() => Editor.ScrollToHome());
         else _scrollToTopPending = true;
     }
+
+    /// <summary>未 Loaded 时挂起的滚底请求(Loaded 后补做,优先于回顶)</summary>
+    private bool _scrollToEndPending;
 
     /// <summary>离底多少像素以内算"在底部"。亚像素布局下精确相等不可靠(与 ScrollViewerAutoScrollHolder 同一常数)</summary>
     private const double BottomTolerance = 4.0;
@@ -210,11 +236,24 @@ public partial class LongTextView : UserControl
 
     /// <summary>
     /// 把视图滚到底部(流式追加后跟读)。
+    /// 未 Loaded 时挂起,Loaded 后补做——否则首次打开全文窗(思考中)滚底不生效,
+    /// 只剩 OnLoaded 补做的回顶把视口拉到顶部,看起来就是不跟底;第二次打开窗口已 Loaded,
+    /// ScrollToEnd 立即生效,所以"第二次才正常"。滚底优先于回顶:换源默认回顶,
+    /// 但宿主显式滚底就是要看最新,挂起阶段直接覆盖回顶挂起。
     /// </summary>
     public void ScrollToEnd()
     {
         Editor.CaretOffset = Editor.Document.TextLength;
-        Editor.ScrollToEnd();
+        if (Editor.IsLoaded)
+        {
+            ProgrammaticScroll(() => Editor.ScrollToEnd());
+        }
+        else
+        {
+            // 未 Loaded:滚底挂起,且优先级高于回顶(覆盖 _scrollToTopPending)
+            _scrollToEndPending = true;
+            _scrollToTopPending = false;
+        }
     }
 
     /// <summary>
@@ -225,6 +264,8 @@ public partial class LongTextView : UserControl
     /// </summary>
     private void OnScrollOffsetChanged(object? sender, EventArgs e)
     {
+        // 程序化滚动(回顶/滚底)不算用户意图,直接忽略
+        if (_suppressScrollMonitor) return;
         // 上翻 = 用户想读旧内容:让开。只有"确实离底"才算,避免在底部轻滚也被误关
         if (!IsAtBottom) FollowTail = false;
     }
@@ -234,9 +275,19 @@ public partial class LongTextView : UserControl
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
+        // 挂起阶段可能同时排过回顶与滚底(换源先回顶,宿主再显式滚底);滚底优先。
+        // 两者都是程序化滚动,不能误关 FollowTail
+        if (_scrollToEndPending)
+        {
+            _scrollToEndPending = false;
+            _scrollToTopPending = false;
+            ProgrammaticScroll(() => Editor.ScrollToEnd());
+            return;
+        }
+
         if (!_scrollToTopPending) return;
         _scrollToTopPending = false;
-        Editor.ScrollToHome();
+        ProgrammaticScroll(() => Editor.ScrollToHome());
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

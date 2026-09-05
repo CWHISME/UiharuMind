@@ -70,8 +70,9 @@ public partial class MainView : UserControl
         Control? active = null;
         if (_viewModel?.Content is IViewControl viewControl)
         {
+            long viewCtorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
             active = viewControl.View;
-            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("page/create-view");
+            global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/view-ctor", viewCtorBegin);
             // ContentControl 时代页面靠"内容即数据上下文"隐式继承,常驻宿主必须显式赋值
             if (!ReferenceEquals(active.DataContext, _viewModel.Content)) active.DataContext = _viewModel.Content;
             if (!PageHost.Children.Contains(active)) PageHost.Children.Add(active);
@@ -86,10 +87,11 @@ public partial class MainView : UserControl
         // 顺带让探针量到的 layout 真正归因于这一次切页
         if (active != null && PageSwitchPerfProbe.IsSwitchPending)
         {
+            long layoutBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
             PageSwitchPerfProbe.BeginLayout(active, this);
             active.UpdateLayout();
             PageSwitchPerfProbe.ReportRendered();
-            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("page/layout");
+            global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/layout", layoutBegin);
         }
 
         if (active == null) return;
