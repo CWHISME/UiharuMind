@@ -21,7 +21,7 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
             ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 327680, RequiresReasoningContentRoundtrip: true),
             ["deepseek-v4-pro"] = new(ContextLength: 1048576, MaxTokens: 327680, RequiresReasoningContentRoundtrip: true),
             ["glm-5.2"] = new(ContextLength: 1048576, MaxTokens: 65535),
-            ["kimi-k3"] = new(ContextLength: 1048576, MaxTokens: 131072),
+            ["kimi-k3"] = new(ContextLength: 1048576, MaxTokens: 131072,IsVision:true),
             ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, MaxTokens: 65535, IsVision: true),
         };
 
