@@ -2603,6 +2603,27 @@
     <data name="RemoteModelContextLengthInvalid" xml:space="preserve">
         <value>上下文长度需为正整数。</value>
     </data>
+    <data name="RemoteModelThinkingModeLabel" xml:space="preserve">
+        <value>思考模式</value>
+    </data>
+    <data name="RemoteModelThinkingModeHint" xml:space="preserve">
+        <value>该模型的思考力度。默认跟随模型自身行为;其余档位随每次请求下发(不支持的后端会忽略)。</value>
+    </data>
+    <data name="RemoteModelMaxTokensLabel" xml:space="preserve">
+        <value>最大输出 Tokens</value>
+    </data>
+    <data name="RemoteModelMaxTokensPlaceholder" xml:space="preserve">
+        <value>可选，例如 16384</value>
+    </data>
+    <data name="RemoteModelMaxTokensHint" xml:space="preserve">
+        <value>最大输出预算(token 数)，留空则按所选思考档位取默认预算。</value>
+    </data>
+    <data name="RemoteModelMaxTokensInvalid" xml:space="preserve">
+        <value>最大输出 Tokens 需为正整数。</value>
+    </data>
+    <data name="ThinkingModeLight" xml:space="preserve">
+        <value>思考:轻</value>
+    </data>
     <data name="RepeatModelNameTips" xml:space="preserve">
         <value>模型名称已存在！</value>
     </data>

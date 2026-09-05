@@ -152,6 +152,20 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc RemoteModelThinkingModeLabel}" FontWeight="SemiBold" />
+                        <ComboBox ItemsSource="{Binding ThinkingModeOptions}"
+                                  SelectedIndex="{Binding ThinkingModeIndex}"
+                                  HorizontalAlignment="Stretch">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Display}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="{loc:Loc RemoteModelThinkingModeHint}" Classes="muted" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
                         <TextBlock Text="{loc:Loc ApiKey}" FontWeight="SemiBold" />
                         <TextBox Text="{Binding ApiKey}" PasswordChar="*"
                                  PlaceholderText="{loc:Loc RemoteModelApiKeyPlaceholder}" />
@@ -206,6 +220,16 @@
                                        IsVisible="{Binding !PresetRequiresReasoningContentRoundtrip}"
                                        Text="{loc:Loc RemoteModelReasoningRoundtripPresetOff}" />
                         </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{loc:Loc RemoteModelMaxTokensLabel}" FontWeight="SemiBold" />
+                            <TextBox Text="{Binding MaxTokensText}"
+                                     PlaceholderText="{Binding MaxTokensPlaceholder}"
+                                     HorizontalAlignment="Stretch" />
+                            <TextBlock Text="{loc:Loc RemoteModelMaxTokensHint}" Classes="muted" TextWrapping="Wrap" />
+                            <TextBlock Classes="error" Text="{loc:Loc RemoteModelMaxTokensInvalid}"
+                                       IsVisible="{Binding HasMaxTokensError}" />
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- 预设服务商:默认参数收进高级设置 -->
@@ -256,6 +280,16 @@
                                 <TextBlock Classes="muted" TextWrapping="Wrap"
                                            IsVisible="{Binding !PresetRequiresReasoningContentRoundtrip}"
                                            Text="{loc:Loc RemoteModelReasoningRoundtripPresetOff}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="{loc:Loc RemoteModelMaxTokensLabel}" FontWeight="SemiBold" />
+                                <TextBox Text="{Binding MaxTokensText}"
+                                         PlaceholderText="{Binding MaxTokensPlaceholder}"
+                                         HorizontalAlignment="Stretch" />
+                                <TextBlock Text="{loc:Loc RemoteModelMaxTokensHint}" Classes="muted" TextWrapping="Wrap" />
+                                <TextBlock Classes="error" Text="{loc:Loc RemoteModelMaxTokensInvalid}"
+                                           IsVisible="{Binding HasMaxTokensError}" />
                             </StackPanel>
                         </StackPanel>
                     </Expander>

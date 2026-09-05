@@ -83,7 +83,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         request.RequestUri = _baseUri;
         if (request.Method == HttpMethod.Post && request.Content != null)
         {
-            var extraParams = _model?.GetExtraParams(LlmRequestContext.ThinkingMode);
+            var extraParams = _model?.GetExtraParams();
             bool forbidToolCalls = LlmRequestContext.ForbidToolCalls;
             // 只对已确认要求 reasoning_content 回填的模型(目前只有 DeepSeek)生效,
             // 其余共用 thinking/reasoning_effort 参数的兼容服务不无谓塞多余字段

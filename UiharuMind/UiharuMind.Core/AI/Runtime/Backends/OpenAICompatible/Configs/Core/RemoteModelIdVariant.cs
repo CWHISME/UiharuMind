@@ -1,9 +1,10 @@
 namespace UiharuMind.Core.Configs.RemoteAI;
 
 /// <summary>
-/// 单个 ModelId 的预设:默认上下文大小与是否支持视觉
+/// 单个 ModelId 的预设:默认上下文大小、默认输出预算与是否支持视觉
 /// </summary>
 /// <param name="ContextLength">默认上下文窗口(token 数),0 表示未设置</param>
+/// <param name="MaxTokens">默认最大输出预算(token 数),0 表示未设置</param>
 /// <param name="IsVision">是否支持视觉</param>
 /// <param name="RequiresReasoningContentRoundtrip">
 /// 思考模式下,助手消息带 tool_calls 时是否要求原样带回当时的 reasoning_content。
@@ -12,6 +13,7 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
+    int MaxTokens = 0,
     bool IsVision = false,
     bool RequiresReasoningContentRoundtrip = false)
 {

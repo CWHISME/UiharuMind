@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models;
 
@@ -76,6 +77,39 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasContextLengthError))]
     private string _contextLengthText = "";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanConfirm))]
+    [NotifyPropertyChangedFor(nameof(HasMaxTokensError))]
+    private string _maxTokensText = "";
+
+    /// <summary>
+    /// 思考档位选项(与 EThinkingMode 枚举一一对应,序号即枚举序号)。
+    /// 显示文案取本地化键 ThinkingMode{枚举名}
+    /// </summary>
+    public ThinkingModeOptionItem[] ThinkingModeOptions { get; } =
+        Enum.GetValues<EThinkingMode>()
+            .Select(mode => new ThinkingModeOptionItem(mode))
+            .ToArray();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MaxTokensPlaceholder))]
+    private int _thinkingModeIndex; //思考档位序号,即 EThinkingMode
+
+    /// <summary>
+    /// MaxTokens 输入框占位提示:显示该模型未填时实际会用到的默认输出预算
+    /// (当前 ModelId 的预设值,没有预设才落到思考档位兜底值)
+    /// </summary>
+    public string MaxTokensPlaceholder
+    {
+        get
+        {
+            int defaultTokens = SelectedModelIdOption?.MaxTokens > 0
+                ? SelectedModelIdOption.MaxTokens
+                : BaseRemoteModelConfig.GetDefaultMaxTokens((EThinkingMode)ThinkingModeIndex);
+            return defaultTokens > 0 ? defaultTokens.ToString() : string.Empty;
+        }
+    }
+
     [ObservableProperty] private bool _isVisionEditable = true;
 
     [ObservableProperty]
@@ -127,6 +161,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PresetRequiresReasoningContentRoundtrip))]
+    [NotifyPropertyChangedFor(nameof(MaxTokensPlaceholder))]
     private ModelIdOptionItem? _selectedModelIdOption;
 
     /// <summary>
@@ -182,9 +217,22 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 最大输出预算非法(留空视为未设置,合法)
+    /// </summary>
+    public bool HasMaxTokensError
+    {
+        get
+        {
+            var text = MaxTokensText.Trim();
+            return text.Length > 0 && !(int.TryParse(text, out var value) && value > 0);
+        }
+    }
+
+    /// <summary>
     /// 是否允许确认
     /// </summary>
-    public bool CanConfirm => !HasNameError && !HasDuplicateNameError && !HasApiKeyError && !HasContextLengthError;
+    public bool CanConfirm => !HasNameError && !HasDuplicateNameError && !HasApiKeyError &&
+                              !HasContextLengthError && !HasMaxTokensError;
 
     public CreateRemoteLlmModelWindowViewModel() : this(null)
     {
@@ -243,6 +291,9 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         config.ModelDescription = ModelDescription;
         config.ContextLength =
             int.TryParse(ContextLengthText.Trim(), out var contextLength) && contextLength > 0 ? contextLength : 0;
+        config.MaxTokens =
+            int.TryParse(MaxTokensText.Trim(), out var maxTokens) && maxTokens > 0 ? maxTokens : 0;
+        config.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
         if (IsVisionEditable) config.IsVision = IsVision;
         config.RequiresReasoningContentRoundtripOverride = RequiresReasoningContentRoundtripOverride;
         target.ApiKey = ApiKey;
@@ -290,6 +341,8 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         ModelId = config.ModelId ?? "";
         ModelDescription = config.ModelDescription ?? "";
         ContextLengthText = config.ContextLength > 0 ? config.ContextLength.ToString() : "";
+        MaxTokensText = config.MaxTokens > 0 ? config.MaxTokens.ToString() : "";
+        ThinkingModeIndex = (int)config.ThinkingMode;
         IsVision = config.IsVision;
         RequiresReasoningContentRoundtripOverride = config.RequiresReasoningContentRoundtripOverride;
         ApiKey = apiKey;
@@ -304,11 +357,13 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         {
             bool isVision = false;
             int contextLength = 0;
+            int maxTokens = 0;
             bool requiresReasoningContentRoundtrip = false;
             if (config.ModelIdVariants.TryGetValue(option, out var variant))
             {
                 isVision = variant.IsVision;
                 contextLength = variant.ContextLength;
+                maxTokens = variant.MaxTokens;
                 requiresReasoningContentRoundtrip = variant.RequiresReasoningContentRoundtrip;
             }
 
@@ -317,6 +372,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
                 Id = option,
                 IsVision = isVision,
                 ContextLength = contextLength,
+                MaxTokens = maxTokens,
                 RequiresReasoningContentRoundtrip = requiresReasoningContentRoundtrip,
             });
         }
@@ -348,6 +404,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     {
         if (option == null) return;
         if (option.ContextLength > 0) ContextLengthText = option.ContextLength.ToString();
+        if (option.MaxTokens > 0) MaxTokensText = option.MaxTokens.ToString();
         if (IsVisionEditable) IsVision = option.IsVision;
         // 换了模型,之前针对旧模型的手动覆盖不该带过来——重置为"跟随预设",预设值随下拉框联动展示
         RequiresReasoningContentRoundtripOverride = null;
@@ -387,6 +444,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         public int ContextLength { get; init; }
 
         /// <summary>
+        /// 默认最大输出预算,0 表示未预设
+        /// </summary>
+        public int MaxTokens { get; init; }
+
+        /// <summary>
         /// 思考模式下带 tool_calls 时,该模型是否要求原样带回 reasoning_content
         /// </summary>
         public bool RequiresReasoningContentRoundtrip { get; init; }
@@ -416,5 +478,32 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         /// 对应的配置类型
         /// </summary>
         public required Type ConfigType { get; init; }
+    }
+
+    /// <summary>
+    /// 思考档位下拉条目:携带枚举值与本地化显示名
+    /// </summary>
+    public sealed class ThinkingModeOptionItem
+    {
+        public ThinkingModeOptionItem(EThinkingMode mode)
+        {
+            Mode = mode;
+            Display = LocalizationManager.Instance.GetString($"ThinkingMode{mode}");
+        }
+
+        /// <summary>
+        /// 思考档位
+        /// </summary>
+        public EThinkingMode Mode { get; }
+
+        /// <summary>
+        /// 本地化显示名
+        /// </summary>
+        public string Display { get; }
+
+        /// <summary>
+        /// 下拉框默认显示的文本
+        /// </summary>
+        public override string ToString() => Display;
     }
 }

@@ -13,7 +13,6 @@ using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
-using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution;
@@ -102,14 +101,11 @@ public sealed class TurnDriver : IDisposable
     /// <param name="runner">该会话的执行者（必须是已 <c>AttachAsync</c> 到 <paramref name="session"/> 的那一个）</param>
     /// <param name="userMessage">用户消息（已装配好附件与技能正文）</param>
     /// <param name="resolver">审批回应的取得方式；传 null 表示不进入审批轮次</param>
-    /// <param name="thinkingMode">本轮思考力度</param>
     public async Task RunAsync(ChatSession session, ICharacterRunner runner, ChatMessage userMessage,
-        ApprovalResolver? resolver = null, EThinkingMode thinkingMode = EThinkingMode.Default)
+        ApprovalResolver? resolver = null)
     {
         IsRunning = true;
         _activeSession = session;
-        // 思考力度随本次异步流下发到 HTTP 层(SDK 无逐请求参数通道)
-        LlmRequestContext.ThinkingMode = thinkingMode;
         _usage.BeginTurn();
         _ratioLogged = false;
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析

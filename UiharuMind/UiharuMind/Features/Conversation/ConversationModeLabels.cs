@@ -9,7 +9,6 @@
 
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Features.Conversation;
 
@@ -65,18 +64,6 @@ public static class ConversationModeLabels
     /// <param name="index">权限档序号</param>
     /// <returns>本地化文案</returns>
     public static string PermissionTooltip(int index) => PermissionLabel(index);
-
-    /// <summary>思考力度状态键(EThinkingMode 名)</summary>
-    /// <param name="index">思考力度序号,即 EThinkingMode</param>
-    /// <returns>状态键</returns>
-    public static string ThinkingKey(int index) => ((EThinkingMode)index).ToString();
-
-    /// <summary>思考力度悬停提示</summary>
-    /// <param name="index">思考力度序号,即 EThinkingMode</param>
-    /// <returns>本地化文案</returns>
-    public static string ThinkingTooltip(int index) =>
-        LocalizationManager.Instance.GetString($"ThinkingMode{(EThinkingMode)index}") +
-        $"\n{LocalizationManager.Instance.GetString("ThinkingModeTips")}";
 
     /// <summary>发送身份对应的图标名</summary>
     /// <param name="isUser">是否以用户身份发送</param>

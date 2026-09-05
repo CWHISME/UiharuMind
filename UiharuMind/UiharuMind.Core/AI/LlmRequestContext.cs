@@ -1,5 +1,3 @@
-using UiharuMind.Core.AI.Models;
-
 namespace UiharuMind.Core.AI;
 
 /// <summary>
@@ -9,15 +7,6 @@ namespace UiharuMind.Core.AI;
 /// </summary>
 public static class LlmRequestContext
 {
-    private static readonly AsyncLocal<EThinkingMode> _thinkingMode = new();
-
-    /// <summary>本次请求的思考力度(未设置为 Default,即沿用模型配置)</summary>
-    public static EThinkingMode ThinkingMode
-    {
-        get => _thinkingMode.Value;
-        set => _thinkingMode.Value = value;
-    }
-
     private static readonly AsyncLocal<bool> _forbidToolCalls = new();
 
     /// <summary>

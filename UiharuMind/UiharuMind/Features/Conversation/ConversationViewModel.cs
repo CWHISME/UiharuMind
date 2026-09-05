@@ -84,7 +84,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     [ObservableProperty] private bool _hasLoadedEarlier;
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
-    [ObservableProperty] private int _thinkingModeIndex; //本会话思考力度,序号即 EThinkingMode
     [ObservableProperty] private string _tokenUsageText = string.Empty; //token 统计(输入估算/本轮/会话累计)
 
     [RelayCommand]
@@ -198,12 +197,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>权限档悬停提示</summary>
     public string PermissionTooltip => ConversationModeLabels.PermissionTooltip(PermissionModeIndex);
 
-    /// <summary>思考力度状态键(EThinkingMode 名)</summary>
-    public string ThinkingModeKey => ConversationModeLabels.ThinkingKey(ThinkingModeIndex);
-
-    /// <summary>思考力度悬停提示</summary>
-    public string ThinkingTooltip => ConversationModeLabels.ThinkingTooltip(ThinkingModeIndex);
-
     /// <summary>发送身份对应的图标名(user/bot)</summary>
     public string SenderIconName => ConversationModeLabels.SenderIcon(SenderMode == SendMode.User);
 
@@ -224,8 +217,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(SenderModeKey));
         OnPropertyChanged(nameof(SenderTooltip));
     }
-
-    private const string ThinkingModeParamName = "ThinkingMode"; //CustomParams 中的思考力度键
 
     private CancellationTokenSource? _prepareCancellation; //会话装配阶段的取消源,此后由 TurnDriver 接手
     private bool _isPreparing; //正在装配会话(此时 TurnDriver 还没开始跑)
@@ -368,7 +359,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(ModeLabel));
         OnPropertyChanged(nameof(ModeTooltip));
         OnPropertyChanged(nameof(PermissionTooltip));
-        OnPropertyChanged(nameof(ThinkingTooltip));
         OnPropertyChanged(nameof(SenderTooltip));
         RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
     }
@@ -453,17 +443,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(ModeLabel));
         OnPropertyChanged(nameof(ModeKey));
         OnPropertyChanged(nameof(ModeTooltip));
-    }
-
-    partial void OnThinkingModeIndexChanged(int value)
-    {
-        OnPropertyChanged(nameof(ThinkingModeKey));
-        OnPropertyChanged(nameof(ThinkingTooltip));
-        if (CurrentMeta == null || _isLoadingSession) return;
-        ChatSession? session = CurrentSession;
-        if (session == null) return;
-        session.CustomParams[ThinkingModeParamName] = ((EThinkingMode)value).ToString();
-        session.SaveMeta(); //头字段小文件,直接原子写
     }
 
     partial void OnPermissionModeIndexChanged(int value)
@@ -814,8 +793,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             }
 
             // 交接给运行侧:它在返回之前就同步登记好了运行态,两段之间没有空窗
-            await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync,
-                (EThinkingMode)ThinkingModeIndex);
+            await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
         }
         catch (OperationCanceledException)
         {
@@ -910,7 +888,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (meta == null)
         {
             IsSessionLoading = false;
-            ThinkingModeIndex = (int)EThinkingMode.Default; //CurrentMeta 为空,处理器自然不落盘
             MemoryPanel?.Detach();
             MemoryPanel = null;
             RefreshTokenUsageText();
@@ -953,15 +930,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             MemoryPanel?.Detach();
             MemoryPanel = new ConversationMemoryViewData(body);
-            _isLoadingSession = true;
-            try
-            {
-                ThinkingModeIndex = ReadThinkingModeIndex(body);
-            }
-            finally
-            {
-                _isLoadingSession = false;
-            }
 
             CurrentMode = await body.Runner.GetModeAsync();
             ReplayMessages(body.Runner.GetHistory());
@@ -1187,23 +1155,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         TokenUsageText = _usage.Text;
         ContextUsage.Refresh(_usage, SessionModelLabel);
     }
-
-    private static int ReadThinkingModeIndex(ChatSession session)
-    {
-        if (session.CustomParams.TryGetValue(ThinkingModeParamName, out object? value) &&
-            Enum.TryParse(value?.ToString(), out EThinkingMode mode))
-        {
-            return (int)mode;
-        }
-
-        return (int)EThinkingMode.Default;
-    }
-
-
-
-
-
-
 
     //================= 能力面板 =================
 

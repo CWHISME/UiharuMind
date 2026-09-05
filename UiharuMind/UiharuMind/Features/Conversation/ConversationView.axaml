@@ -50,21 +50,6 @@
         <Style Selector="ThemedIconButton.permission-state[Tag=FullAuto] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="OrangeRed" />
         </Style>
-        <Style Selector="ThemedIconButton.thinking-state[Tag=Default] controls|ThemedSvgIcon">
-            <Setter Property="CurrentColor" Value="Gray" />
-        </Style>
-        <Style Selector="ThemedIconButton.thinking-state[Tag=None] controls|ThemedSvgIcon">
-            <Setter Property="CurrentColor" Value="DimGray" />
-        </Style>
-        <Style Selector="ThemedIconButton.thinking-state[Tag=Medium] controls|ThemedSvgIcon">
-            <Setter Property="CurrentColor" Value="DodgerBlue" />
-        </Style>
-        <Style Selector="ThemedIconButton.thinking-state[Tag=High] controls|ThemedSvgIcon">
-            <Setter Property="CurrentColor" Value="Orange" />
-        </Style>
-        <Style Selector="ThemedIconButton.thinking-state[Tag=Max] controls|ThemedSvgIcon">
-            <Setter Property="CurrentColor" Value="OrangeRed" />
-        </Style>
         <Style Selector="ThemedIconButton.sender-state[Tag=User] controls|ThemedSvgIcon">
             <Setter Property="CurrentColor" Value="LightGreen" />
         </Style>
@@ -356,58 +341,6 @@
                                                     <TextBlock Text="{loc:Loc AgentPermissionFullAuto}" />
                                                     <TextBlock Classes="muted"
                                                                Text="{loc:Loc AgentPermissionFullAutoDesc}" />
-                                                </StackPanel>
-                                            </ListBoxItem>
-                                        </ListBox>
-                                    </Border>
-                                </Flyout>
-                            </ThemedIconButton.Flyout>
-                        </ThemedIconButton>
-                        <ThemedIconButton Classes="thinking-state"
-                                          IconName="brain"
-                                          Tag="{Binding ThinkingModeKey}"
-                                          ToolTips="{Binding ThinkingTooltip}">
-                            <ThemedIconButton.Flyout>
-                                <Flyout Placement="Top">
-                                    <Border Padding="6" CornerRadius="8"
-                                            Background="{DynamicResource SemiGrey0}"
-                                            BorderBrush="{DynamicResource SemiGrey2}"
-                                            BorderThickness="1">
-                                        <ListBox Classes="option-list"
-                                                 SelectedIndex="{Binding ThinkingModeIndex}">
-                                            <ListBoxItem>
-                                                <StackPanel>
-                                                    <TextBlock Text="{loc:Loc ThinkingModeDefault}" />
-                                                    <TextBlock Classes="muted"
-                                                               Text="{loc:Loc ThinkingModeDefaultDesc}" />
-                                                </StackPanel>
-                                            </ListBoxItem>
-                                            <ListBoxItem>
-                                                <StackPanel>
-                                                    <TextBlock Text="{loc:Loc ThinkingModeNone}" />
-                                                    <TextBlock Classes="muted"
-                                                               Text="{loc:Loc ThinkingModeNoneDesc}" />
-                                                </StackPanel>
-                                            </ListBoxItem>
-                                            <ListBoxItem>
-                                                <StackPanel>
-                                                    <TextBlock Text="{loc:Loc ThinkingModeMedium}" />
-                                                    <TextBlock Classes="muted"
-                                                               Text="{loc:Loc ThinkingModeMediumDesc}" />
-                                                </StackPanel>
-                                            </ListBoxItem>
-                                            <ListBoxItem>
-                                                <StackPanel>
-                                                    <TextBlock Text="{loc:Loc ThinkingModeHigh}" />
-                                                    <TextBlock Classes="muted"
-                                                               Text="{loc:Loc ThinkingModeHighDesc}" />
-                                                </StackPanel>
-                                            </ListBoxItem>
-                                            <ListBoxItem>
-                                                <StackPanel>
-                                                    <TextBlock Text="{loc:Loc ThinkingModeMax}" />
-                                                    <TextBlock Classes="muted"
-                                                               Text="{loc:Loc ThinkingModeMaxDesc}" />
                                                 </StackPanel>
                                             </ListBoxItem>
                                         </ListBox>

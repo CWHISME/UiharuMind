@@ -2610,6 +2610,27 @@
     <data name="RemoteModelContextLengthInvalid" xml:space="preserve">
         <value>Context length must be a positive integer.</value>
     </data>
+    <data name="RemoteModelThinkingModeLabel" xml:space="preserve">
+        <value>Thinking Mode</value>
+    </data>
+    <data name="RemoteModelThinkingModeHint" xml:space="preserve">
+        <value>Thinking effort for this model. Default follows the model's own behavior; other levels are sent with each request (backends that don't support it will ignore it).</value>
+    </data>
+    <data name="RemoteModelMaxTokensLabel" xml:space="preserve">
+        <value>Max Output Tokens</value>
+    </data>
+    <data name="RemoteModelMaxTokensPlaceholder" xml:space="preserve">
+        <value>Optional, e.g. 16384</value>
+    </data>
+    <data name="RemoteModelMaxTokensHint" xml:space="preserve">
+        <value>Maximum output budget in tokens; leave empty to use the default budget for the selected thinking mode.</value>
+    </data>
+    <data name="RemoteModelMaxTokensInvalid" xml:space="preserve">
+        <value>Max output tokens must be a positive integer.</value>
+    </data>
+    <data name="ThinkingModeLight" xml:space="preserve">
+        <value>Think: light</value>
+    </data>
     <data name="RepeatModelNameTips" xml:space="preserve">
         <value>Model name already exists!</value>
     </data>

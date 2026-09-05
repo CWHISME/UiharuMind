@@ -71,6 +71,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ThinkingModeLight {
+            get {
+                return ResourceManager.GetString("ThinkingModeLight", resourceCulture);
+            }
+        }
+        
         public static string ThinkingModeMedium {
             get {
                 return ResourceManager.GetString("ThinkingModeMedium", resourceCulture);
@@ -4898,6 +4904,42 @@ namespace UiharuMind.Resources.Lang {
         public static string RemoteModelContextLengthInvalid {
             get {
                 return ResourceManager.GetString("RemoteModelContextLengthInvalid", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelThinkingModeLabel {
+            get {
+                return ResourceManager.GetString("RemoteModelThinkingModeLabel", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelThinkingModeHint {
+            get {
+                return ResourceManager.GetString("RemoteModelThinkingModeHint", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelMaxTokensLabel {
+            get {
+                return ResourceManager.GetString("RemoteModelMaxTokensLabel", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelMaxTokensPlaceholder {
+            get {
+                return ResourceManager.GetString("RemoteModelMaxTokensPlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelMaxTokensHint {
+            get {
+                return ResourceManager.GetString("RemoteModelMaxTokensHint", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelMaxTokensInvalid {
+            get {
+                return ResourceManager.GetString("RemoteModelMaxTokensInvalid", resourceCulture);
             }
         }
         
