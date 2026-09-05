@@ -296,11 +296,12 @@ public sealed class TurnDriver : IDisposable
             Log.Debug($"Usage additional counts: {string.Join(", ", counts.Select(x => $"{x.Key}={x.Value}"))}");
         }
 
-        (long input, long output) = _usage.Add(details);
+        (long input, long output, long reasoning) = _usage.Add(details);
         _usage.EstimatedInput = runner.InputEstimate?.Total ?? 0;
         _usage.FixedOverhead = runner.InputEstimate?.FixedOverhead ?? 0;
         session.TotalInputTokens += input;
         session.TotalOutputTokens += output;
+        session.TotalReasoningTokens += reasoning;
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
         LogUsageRatio(runner);
         _notify?.Invoke(new TurnNotice(ETurnNotice.UsageObserved));

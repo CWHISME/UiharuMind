@@ -46,7 +46,7 @@
             </StackPanel>
         </pages:ConversationPageShell.EmptyContent>
 
-        <!-- 右栏:会话详情插件面板 -->
+        <!-- 右栏:会话详情插件面板 + 上下文占用 -->
         <pages:ConversationPageShell.RightPaneContent>
             <DockPanel>
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*" Margin="14,12,14,8">
@@ -58,6 +58,11 @@
                                    MaxLines="1" />
                     </StackPanel>
                 </Grid>
+                <Border DockPanel.Dock="Top" Margin="8,0,8,0"
+                        BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
+                        CornerRadius="8" Padding="8">
+                    <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
+                </Border>
                 <panels:ChatInfoView Margin="8,0,8,8" />
             </DockPanel>
         </pages:ConversationPageShell.RightPaneContent>

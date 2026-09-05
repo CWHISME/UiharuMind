@@ -41,11 +41,16 @@
             </StackPanel>
         </pages:ConversationPageShell.EmptyContent>
 
-        <!-- 右栏:workspace + todo/定时任务 -->
+        <!-- 右栏:workspace + 上下文占用 + todo/定时任务 -->
         <pages:ConversationPageShell.RightPaneContent>
-            <Grid RowDefinitions="Auto,*" Margin="12">
+            <Grid RowDefinitions="Auto,Auto,*" Margin="12">
                 <panels:AgentWorkspacePanel Grid.Row="0" Margin="0,0,0,10" />
-                <panels:AgentSidePanel Grid.Row="1" />
+                <Border Grid.Row="1" Margin="0,0,0,10"
+                        BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
+                        CornerRadius="8" Padding="8">
+                    <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
+                </Border>
+                <panels:AgentSidePanel Grid.Row="2" />
             </Grid>
         </pages:ConversationPageShell.RightPaneContent>
 

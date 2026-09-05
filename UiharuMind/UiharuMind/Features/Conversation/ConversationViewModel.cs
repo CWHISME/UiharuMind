@@ -996,7 +996,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
         if (CurrentSession is { } session)
         {
-            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens);
+            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
+                session.TotalReasoningTokens);
         }
 
         RefreshTokenUsageText();

@@ -6,6 +6,7 @@ using UiharuMind.Features.Conversation.Items;
 
 namespace UiharuMind.App.Tests.Conversation;
 
+
 /// <summary>
 /// 转录器：AIContent 流 → 条目序列。这是流式渲染唯一的装配入口，
 /// 以前埋在 1355 行的 ViewModel 里、只能靠实机验证。
@@ -94,6 +95,23 @@ public class ConversationTranscriptTests
 
         ThinkingItem thinking = Assert.IsType<ThinkingItem>(Assert.Single(items));
         Assert.True(thinking.IsExpanded);
+    }
+
+    [Fact]
+    public void ThinkingItem_Flush_PublishesDurationAndCharCountStats()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("推理内容"));
+        ThinkingItem thinking = Assert.IsType<ThinkingItem>(Assert.Single(items));
+
+        // 流式进行中统计标签不该先行出现(节拍泵没跑,标题栏保持干净)
+        Assert.Equal(string.Empty, thinking.StatsText);
+
+        transcript.CloseSegment();
+
+        Assert.Equal("推理内容", FlushedMessage(thinking));
+        Assert.False(string.IsNullOrEmpty(thinking.StatsText));
     }
 
     [Fact]

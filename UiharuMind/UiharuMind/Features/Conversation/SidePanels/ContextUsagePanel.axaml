@@ -8,20 +8,18 @@
              x:Class="UiharuMind.Features.Conversation.SidePanels.ContextUsagePanel"
              x:DataType="panels:ContextUsageViewData">
 
-    <!-- 上下文占用的悬停面板：模型名与上限、两段进度条、压缩水位刻度与三段归因。
-         配对的数据是 ContextUsageViewData——那个类早就独立了，只有这块 axaml 一直内联在
-         ConversationView.axaml 的 ToolTip.Tip 里。
+    <!-- 上下文占用的统计面板：模型名与上限、两段进度条、压缩水位刻度与三段归因。
+         配对的数据是 ContextUsageViewData。
+         输入框 ToolTip 与右侧栏复用的同一份控件。
 
          进度条<b>两段叠放</b>：上层是服务端报的那段（实色），下层画到有效占用、半透明，
          区分出「这一截是我们估的、服务端没计入」。口径见 ADR 0009。 -->
 
     <UserControl.Styles>
         <!-- 上下文占用条:颜色即压缩档位。轨道必须可见——占用低时进度块只有一两像素,
-             没有轨道衬着就看不出这是一根进度条,只像一个小色块 -->
-        <Style Selector="ProgressBar.contextUsage /template/ Border#PART_Track">
-            <Setter Property="Background" Value="{DynamicResource SemiGrey3}" />
-            <Setter Property="Opacity" Value="1" />
-        </Style>
+             没有轨道衬着就看不出这是一根进度条,只像一个小色块。
+             轨道背景直接走 ProgressBar.Background(Semi 模板里没有 PART_Track,
+             背景由模板里的 ProgressBarRoot 用 TemplateBinding 取) -->
         <Style Selector="ProgressBar.contextUsage[Tag=Normal] /template/ Border#PART_Indicator">
             <Setter Property="Background" Value="MediumSeaGreen" />
         </Style>
@@ -31,16 +29,15 @@
         <Style Selector="ProgressBar.contextUsage[Tag=Truncating] /template/ Border#PART_Indicator">
             <Setter Property="Background" Value="OrangeRed" />
         </Style>
-        <!-- 两段叠放:上层是服务端报的那段(实色),轨道透明才不会盖住底层 -->
-        <Style Selector="ProgressBar.contextUsage.reported /template/ Border#PART_Track">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
+        <!-- 两段叠放:上层轨道必须透明才不会盖住底层。Semi 没有 PART_Track,
+             轨道背景在 ProgressBarRoot 上,由 ProgressBar.Background 驱动,
+             所以表现在直接把 reported 的 Background 设为 Transparent -->
         <Style Selector="ProgressBar.contextUsage.unreported /template/ Border#PART_Indicator">
             <Setter Property="Opacity" Value="0.45" />
         </Style>
     </UserControl.Styles>
 
-    <StackPanel MinWidth="240" Spacing="6">
+    <StackPanel Spacing="6">
     <!-- 模型名 + 上下文上限 -->
     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasData}">
         <TextBlock Text="{Binding ModelName}" FontWeight="SemiBold"
@@ -52,15 +49,19 @@
     <!-- 占用条：颜色随压缩档位变，Tag 由样式选择器取用。
          两段叠放——底层画到有效占用（含服务端未计入的那截，淡色），
          上层只画服务端报的那段（实色，可与官方控制台对账）。
-         上层轨道必须透明，否则会把底层那截盖掉 -->
+         上层轨道必须透明，否则会把底层那截盖掉。
+         两个都要 MinWidth=0:Semi 主题对横向 ProgressBar 有 MinWidth=200 的默认,
+         右栏窄时会把进度条撑出可视区、整条被裁掉,拉宽才出现。
+         轨道灰色直接给底层(Background),上层 Transparent,与模板结构一致 -->
     <Grid IsVisible="{Binding HasData}" Height="6">
         <ProgressBar Classes="contextUsage unreported" Tag="{Binding StateKey}"
                      Minimum="0" Maximum="100" Value="{Binding EffectivePercent}"
-                     Height="6" CornerRadius="3"
+                     Height="6" CornerRadius="3" MinWidth="0"
                      Background="{DynamicResource SemiGrey3}" />
         <ProgressBar Classes="contextUsage reported" Tag="{Binding StateKey}"
                      Minimum="0" Maximum="100" Value="{Binding UsagePercent}"
-                     Height="6" CornerRadius="3" />
+                     Height="6" CornerRadius="3" MinWidth="0"
+                     Background="Transparent" />
     </Grid>
 
     <!-- 没有模型就没有上限,整个面板算不出来:说清楚为什么,别只给一个空框 -->
@@ -72,15 +73,19 @@
           IsVisible="{Binding UsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextUsageLabel}" />
         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                   Text="{Binding UsageText}" />
+                   Text="{Binding UsageText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding UsageText}" />
     </Grid>
 
-    <!-- 服务端报的那段:原样显示,可与官方控制台对账 -->
+    <!-- 报告占用:只有服务端少报(有未计入差额)时才出现,与「未计入」配对对账。
+         平时不显示——绝大多数服务端报全量,亮出来只是跟上面的「上下文」重复 -->
     <Grid ColumnDefinitions="Auto,*"
+          ToolTip.Tip="{loc:Loc ContextReportedTip}"
           IsVisible="{Binding ReportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextReportedLabel}" />
         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                   Text="{Binding ReportedText}" />
+                   Text="{Binding ReportedText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding ReportedText}" />
     </Grid>
 
     <!-- 服务端没计入的那段。口径一致时整行不出现——绝大多数服务端报的就是全量 -->
@@ -89,14 +94,24 @@
           IsVisible="{Binding UnreportedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextUnreportedLabel}" />
         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                   Text="{Binding UnreportedText}" />
+                   Text="{Binding UnreportedText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding UnreportedText}" />
     </Grid>
 
     <Grid ColumnDefinitions="Auto,*"
           IsVisible="{Binding CachedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextCachedLabel}" />
         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                   Text="{Binding CachedText}" />
+                   Text="{Binding CachedText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding CachedText}" />
+    </Grid>
+
+    <Grid ColumnDefinitions="Auto,*"
+          IsVisible="{Binding ReasoningText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Classes="muted" Text="{loc:Loc ContextReasoningLabel}" />
+        <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
+                   Text="{Binding ReasoningText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding ReasoningText}" />
     </Grid>
 
     <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
@@ -106,14 +121,16 @@
           IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextTurnLabel}" />
         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                   Text="{Binding TurnText}" />
+                   Text="{Binding TurnText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding TurnText}" />
     </Grid>
 
     <Grid ColumnDefinitions="Auto,*"
           IsVisible="{Binding SessionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextSessionLabel}" />
         <TextBlock Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Right"
-                   Text="{Binding SessionText}" />
+                   Text="{Binding SessionText}" TextTrimming="CharacterEllipsis"
+                   ToolTip.Tip="{Binding SessionText}" />
     </Grid>
     </StackPanel>
 

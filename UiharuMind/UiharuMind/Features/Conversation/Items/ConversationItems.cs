@@ -38,13 +38,14 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 {
     private readonly StringBuilder _buffer = new();
     private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
+    private readonly DateTime _startedAt = DateTime.Now; //本段思考开始时刻,收尾时用来算耗时
 
     /// <summary>
     /// 流式期间上屏的预览长度上限。展开的思考段每 150ms 把累积全文重设给 TextBlock,
     /// 全量文本重排成本随长度二次增长——思考一长(实测单段能到几十万字符)就把 UI 线程拖死,
     /// 表现为"思考过长直接断开且无报错"。预览截断把每次上屏的文本量钉在常数,段落收尾才渲染全文。
     /// </summary>
-    private const int StreamingPreviewChars = 12_000;
+    private const int StreamingPreviewChars = 1024;
 
     /// <summary>
     /// UI 侧上屏间隔。思考流是全场最高频、最低价值的一路,而每次把累积全文重设给
@@ -52,9 +53,12 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     /// 就足以把界面拖住。~7Hz 仍然"看得见它在想",重排次数却降两个数量级。
     /// 节拍由 <see cref="StreamFlushPump"/> 统一给,尾巴由 <see cref="Flush"/> 保证不丢。
     /// </summary>
-    public int FlushIntervalMs => 150;
+    public int FlushIntervalMs => 50;
 
     [ObservableProperty] private bool _isExpanded;
+
+    /// <summary>标题栏统计,如「耗时 2.4s · 1,234 字」;收尾(Flush)前为空</summary>
+    [ObservableProperty] private string _statsText = string.Empty;
 
     /// <summary>
     /// 追加一段流式增量
@@ -76,6 +80,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
         lock (_bufferGate) text = _buffer.ToString();
         Message = text;
+        UpdateStats(text.Length);
     }
 
     /// <inheritdoc />
@@ -83,9 +88,10 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     void IStreamFlushTarget.FlushForDisplay()
     {
         string text;
+        int len;
         lock (_bufferGate)
         {
-            int len = _buffer.Length;
+            len = _buffer.Length;
             if (len <= StreamingPreviewChars)
             {
                 text = _buffer.ToString();
@@ -99,6 +105,29 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         }
 
         Message = text;
+        // 与 Flush 同样地锁外赋值:属性变更会引发绑定与布局,不该攥着锁做
+        UpdateStats(len);
+    }
+
+    /// <summary>刷新标题栏的耗时与字符数(流式期间也随节拍走,收尾为准)</summary>
+    /// <param name="charCount">缓冲里的字符数</param>
+    private void UpdateStats(int charCount)
+    {
+        StatsText = string.Format(Loc.Text("AgentThinkingStatsFormat"),
+            FormatDuration(DateTime.Now - _startedAt), charCount.ToString("N0"));
+    }
+
+    /// <summary>
+    /// 耗时显示格式:1 分钟内给秒(带一位小数),1 小时内给分+秒,更久给时+分。
+    /// 思考段短则几秒、长则几十分钟,统一给到秒级就够了。
+    /// </summary>
+    /// <param name="span">耗时</param>
+    /// <returns>显示文本</returns>
+    private static string FormatDuration(TimeSpan span)
+    {
+        if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
+        if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m {span.Seconds}s";
+        return $"{span.TotalSeconds:0.#}s";
     }
 }
 

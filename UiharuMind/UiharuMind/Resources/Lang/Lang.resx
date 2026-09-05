@@ -105,8 +105,14 @@
     <data name="ContextCachedLabel" xml:space="preserve">
         <value>Cached</value>
     </data>
+    <data name="ContextReasoningLabel" xml:space="preserve">
+        <value>Reasoning</value>
+    </data>
     <data name="ContextReportedLabel" xml:space="preserve">
-        <value>Server reported</value>
+        <value>Reported occupancy</value>
+    </data>
+    <data name="ContextReportedTip" xml:space="preserve">
+        <value>Input tokens reported by the server. Only shown when it's lower than the effective occupancy (the server leaves out tool definitions / the system prompt): reported + uncounted = effective.</value>
     </data>
     <data name="ContextUnreportedLabel" xml:space="preserve">
         <value>Not counted (est.)</value>
@@ -158,6 +164,9 @@
     </data>
     <data name="AgentThinking" xml:space="preserve">
         <value>Thinking</value>
+    </data>
+    <data name="AgentThinkingStatsFormat" xml:space="preserve">
+        <value>{0} · {1} chars</value>
     </data>
     <data name="AgentApprovalTitle" xml:space="preserve">
         <value>Approval required</value>

@@ -64,6 +64,9 @@ public partial class ContextUsageViewData : ObservableObject
     /// <summary>前缀缓存命中的显示文本；服务端不报时为空</summary>
     [ObservableProperty] private string _cachedText = string.Empty;
 
+    /// <summary>思考（推理）token 的显示文本；服务端不报时为空</summary>
+    [ObservableProperty] private string _reasoningText = string.Empty;
+
     /// <summary>档位键，供样式选色：Normal / Evicting / Truncating</summary>
     [ObservableProperty] private string _stateKey = NormalState;
 
@@ -94,9 +97,19 @@ public partial class ContextUsageViewData : ObservableObject
             ? $"↑{TurnUsageLedger.FormatExact(ledger.SessionInput)}  ↓{TurnUsageLedger.FormatExact(ledger.SessionOutput)}"
             : string.Empty;
 
-        // 缓存命中与上限无关,有就报
-        CachedText = ledger.LastCachedInput > 0
-            ? $"{TurnUsageLedger.FormatExact(ledger.LastCachedInput)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
+        // 缓存命中与上限无关,有就报。命中率 = 最近一次命中的输入 / 服务端报的输入
+        long cached = ledger.LastCachedInput;
+        CachedText = cached > 0 && ledger.LastInput > 0
+            ? $"{Math.Clamp(cached * 100 / ledger.LastInput, 0, 100)}% · " +
+              $"{TurnUsageLedger.FormatExact(cached)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
+            : string.Empty;
+
+        // 思考 token：显示<b>会话累计</b>，并给出占累计总消耗（输入+输出）的比例。
+        // 不报就整行不出。占比用累计口径，跟上下两行(本轮/累计)同一个求和视角
+        long reasoning = ledger.SessionReasoningTokens;
+        long totalSpent = ledger.SessionInput + ledger.SessionOutput;
+        ReasoningText = reasoning > 0 && totalSpent > 0
+            ? $"{TurnUsageLedger.FormatExact(reasoning)} ({Math.Clamp(reasoning * 100 / totalSpent, 0, 100)}%)"
             : string.Empty;
 
         if (contextLength <= 0)
@@ -111,6 +124,7 @@ public partial class ContextUsageViewData : ObservableObject
             EffectivePercent = 0;
             ReportedText = string.Empty;
             UnreportedText = string.Empty;
+            ReasoningText = string.Empty;
             StateKey = NormalState;
             return;
         }
@@ -126,9 +140,14 @@ public partial class ContextUsageViewData : ObservableObject
         // 两段:实色画服务端报的,淡色补上它没计入的那截。整条填充到有效占用
         UsagePercent = Percent(ledger.LastInput, contextLength);
         EffectivePercent = Percent(usage, contextLength);
-        ReportedText = ledger.LastInput > 0 ? TurnUsageLedger.FormatExact(ledger.LastInput) : string.Empty;
-        // 口径一致时这一行整行不出现:绝大多数服务端报的就是全量,摆一个恒为 0 的数只是噪音
-        UnreportedText = ledger.UnreportedInput > 0
+        // 报告占用与未计入是同一件事的两半:只有服务端少报(未计入 > 0)时才亮出来对账——
+        // 绝大多数服务端报的就是全量,两行都显示会跟上面的「上下文」重复,纯噪音。
+        // 有差额时一起出:报告占用 + 未计入 = 有效占用,一眼读得出关系
+        bool hasGap = ledger.UnreportedInput > 0;
+        ReportedText = hasGap && ledger.LastInput > 0
+            ? TurnUsageLedger.FormatExact(ledger.LastInput)
+            : string.Empty;
+        UnreportedText = hasGap
             ? TurnUsageLedger.FormatExact(ledger.UnreportedInput)
             : string.Empty;
 

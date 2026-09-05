@@ -98,8 +98,14 @@
     <data name="ContextCachedLabel" xml:space="preserve">
         <value>缓存命中</value>
     </data>
+    <data name="ContextReasoningLabel" xml:space="preserve">
+        <value>思考</value>
+    </data>
     <data name="ContextReportedLabel" xml:space="preserve">
-        <value>服务端报告</value>
+        <value>报告占用</value>
+    </data>
+    <data name="ContextReportedTip" xml:space="preserve">
+        <value>服务端报的输入 token。只有当它比有效占用低（服务端少报工具定义/系统提示）时才亮出来对账：报告占用 + 未计入 = 有效占用。</value>
     </data>
     <data name="ContextUnreportedLabel" xml:space="preserve">
         <value>未计入（估）</value>
@@ -148,6 +154,9 @@
     </data>
     <data name="AgentThinking" xml:space="preserve">
         <value>思考过程</value>
+    </data>
+    <data name="AgentThinkingStatsFormat" xml:space="preserve">
+        <value>{0} · {1} 字</value>
     </data>
     <data name="AgentApprovalTitle" xml:space="preserve">
         <value>需要审批</value>

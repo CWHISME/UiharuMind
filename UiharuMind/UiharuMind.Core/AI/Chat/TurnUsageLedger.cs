@@ -74,6 +74,18 @@ public sealed class TurnUsageLedger
     /// </summary>
     public long TotalTokenCount { get; private set; }
 
+    /// <summary>
+    /// 最近一次响应里服务端报的思考（推理）token，0 表示不报或没有。
+    /// 服务端通常把思考 token 算在输出里，单列一份是为了能看出"回复里有多少是思考"。
+    /// </summary>
+    public long LastReasoningTokens { get; private set; }
+
+    /// <summary>
+    /// 会话累计思考（推理）token。随本体持久化（见 <c>ChatSession.TotalReasoningTokens</c>），
+    /// 切回会话时由 RestoreSession 恢复。
+    /// </summary>
+    public long SessionReasoningTokens { get; private set; }
+
     /// <summary>本轮输出 token</summary>
     public long TurnOutput { get; private set; }
 
@@ -99,15 +111,20 @@ public sealed class TurnUsageLedger
     /// 计入一次响应用量
     /// </summary>
     /// <param name="details">响应携带的用量</param>
-    /// <returns>本次的增量，供调用方写回会话本体</returns>
-    public (long Input, long Output) Add(UsageDetails details)
+    /// <returns>本次的增量（输入、输出、思考），供调用方写回会话本体</returns>
+    public (long Input, long Output, long Reasoning) Add(UsageDetails details)
     {
+        //输入消息（含 system、历史对话、用户消息）的 token 数
         long input = details.InputTokenCount ?? 0;
+        //模型生成的回复 token 数（含推理 token）,不含历史
         long output = details.OutputTokenCount ?? 0;
+        long reasoning = 0;
         if (input > 0)
         {
             LastInput = input;
             LastCachedInput = ReadCachedTokens(details); //不报就归零,不能留着上一次的数冒充本次命中
+            LastReasoningTokens = details.ReasoningTokenCount ?? 0; //同理:没报这次数就归零
+            reasoning = LastReasoningTokens;
         }
 
         TotalTokenCount = details.TotalTokenCount??0;
@@ -116,7 +133,8 @@ public sealed class TurnUsageLedger
         TurnOutput += output;
         SessionInput += input;
         SessionOutput += output;
-        return (input, output);
+        SessionReasoningTokens += reasoning;
+        return (input, output, reasoning);
     }
 
     /// <summary>
@@ -130,12 +148,25 @@ public sealed class TurnUsageLedger
         if (details.CachedInputTokenCount != null) return (long)details.CachedInputTokenCount;
         if (details.AdditionalCounts == null) return 0;
 
+        // 键名各家不同。注意 DeepSeek 会同时报 prompt_cache_hit_tokens 与
+        // prompt_cache_miss_tokens 两个键——两者都含 "cach"，字典遍历顺序不定，
+        // 先到的未必是命中数。所以优先匹配明确含 "hit" 的键，找不到再退回纯 "cach" 键。
+        long? cached = null;
         foreach (KeyValuePair<string, long> pair in details.AdditionalCounts)
         {
-            if (pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase)) return pair.Value;
+            if (pair.Key.Contains("hit", StringComparison.OrdinalIgnoreCase) &&
+                pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase))
+            {
+                return pair.Value;
+            }
+
+            if (pair.Key.Contains("cach", StringComparison.OrdinalIgnoreCase) && cached == null)
+            {
+                cached = pair.Value;
+            }
         }
 
-        return 0;
+        return cached ?? 0;
     }
 
     /// <summary>
@@ -144,11 +175,13 @@ public sealed class TurnUsageLedger
     /// <param name="input">累计输入</param>
     /// <param name="output">累计输出</param>
     /// <param name="lastInput">最近一次响应的输入 token（上下文占用），未知传 0</param>
-    public void RestoreSession(long input, long output, long lastInput = 0)
+    /// <param name="reasoning">累计思考 token，未知传 0</param>
+    public void RestoreSession(long input, long output, long lastInput = 0, long reasoning = 0)
     {
         SessionInput = input;
         SessionOutput = output;
         LastInput = lastInput;
+        SessionReasoningTokens = reasoning;
     }
 
     /// <summary>
@@ -162,8 +195,11 @@ public sealed class TurnUsageLedger
         EstimatedInput = 0; //同理:它是另一半口径,留着会让新会话一开始就顶着旧会话的固定开销
         FixedOverhead = 0;
         LastCachedInput = 0;
+        LastReasoningTokens = 0;
+        TotalTokenCount = 0;
         SessionInput = 0;
         SessionOutput = 0;
+        SessionReasoningTokens = 0;
     }
 
     /// <summary>

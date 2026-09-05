@@ -16,10 +16,11 @@ public class TurnUsageLedgerTests
     {
         TurnUsageLedger ledger = new();
 
-        (long input, long output) = ledger.Add(Usage(10, 20));
+        (long input, long output, long reasoning) = ledger.Add(Usage(10, 20));
 
         Assert.Equal(10, input);
         Assert.Equal(20, output);
+        Assert.Equal(0, reasoning);
         Assert.Equal(10, ledger.TurnInput);
         Assert.Equal(20, ledger.TurnOutput);
         Assert.Equal(10, ledger.SessionInput);
@@ -31,10 +32,11 @@ public class TurnUsageLedgerTests
     {
         TurnUsageLedger ledger = new();
 
-        (long input, long output) = ledger.Add(new UsageDetails());
+        (long input, long output, long reasoning) = ledger.Add(new UsageDetails());
 
         Assert.Equal(0, input);
         Assert.Equal(0, output);
+        Assert.Equal(0, reasoning);
         Assert.Equal(string.Empty, ledger.Text);
     }
 

@@ -66,6 +66,12 @@ public class ChatSession
     public long TotalOutputTokens { get; set; }
 
     /// <summary>
+    /// 会话累计思考（推理）token。与累计值一样记在本体上——
+    /// 响应 usage 不随消息持久化，不记的话切回会话思考累计就丢了。
+    /// </summary>
+    public long TotalReasoningTokens { get; set; }
+
+    /// <summary>
     /// 最近一次响应的输入 token，即这个会话的上下文占用。
     /// 与累计值一样记在本体上——不记的话每次切回会话都要等下一次响应才知道有多满。
     /// </summary>

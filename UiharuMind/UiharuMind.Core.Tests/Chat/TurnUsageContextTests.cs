@@ -92,6 +92,80 @@ public class TurnUsageContextTests
         Assert.Equal(6000, TurnUsageLedger.ReadCachedTokens(details));
     }
 
+    /// <summary>
+    /// DeepSeek 一类会同时报 hit 与 miss 两个键，字典遍历顺序不定——
+    /// 只按 "cach" 子串找可能撞上 miss 的数。命中优先键必须显式匹配 hit。
+    /// </summary>
+    [Fact]
+    public void CachedTokens_PreferHitOverMissWhenBothReported()
+    {
+        UsageDetails details = new()
+        {
+            InputTokenCount = 8000,
+            AdditionalCounts = new()
+            {
+                ["prompt_cache_miss_tokens"] = 2000,
+                ["prompt_cache_hit_tokens"] = 6000,
+            },
+        };
+
+        Assert.Equal(6000, TurnUsageLedger.ReadCachedTokens(details));
+    }
+
+    [Fact]
+    public void ReasoningTokens_AreRecordedPerResponseAndReset()
+    {
+        TurnUsageLedger ledger = new();
+        ledger.Add(new UsageDetails { InputTokenCount = 8000, OutputTokenCount = 300, ReasoningTokenCount = 120 });
+
+        Assert.Equal(120, ledger.LastReasoningTokens);
+
+        // 没报这次数不能留着上一次的冒充
+        ledger.Add(new UsageDetails { InputTokenCount = 9000, OutputTokenCount = 100 });
+        Assert.Equal(0, ledger.LastReasoningTokens);
+
+        ledger.Reset();
+        Assert.Equal(0, ledger.LastReasoningTokens);
+    }
+
+    [Fact]
+    public void SessionReasoningTokens_AccumulateAcrossResponses()
+    {
+        TurnUsageLedger ledger = new();
+        ledger.Add(new UsageDetails { InputTokenCount = 8000, OutputTokenCount = 300, ReasoningTokenCount = 120 });
+        ledger.Add(new UsageDetails { InputTokenCount = 9000, OutputTokenCount = 100, ReasoningTokenCount = 80 });
+
+        Assert.Equal(200, ledger.SessionReasoningTokens);
+    }
+
+    [Fact]
+    public void ReasoningTokens_DoNotAccumulateIntoSessionWhenUnreported()
+    {
+        TurnUsageLedger ledger = new();
+        ledger.Add(new UsageDetails { InputTokenCount = 8000, OutputTokenCount = 300, ReasoningTokenCount = 120 });
+        // 下一次不报思考,累计数保持上一轮的值,不能追加一个 0 把它盖掉
+        ledger.Add(new UsageDetails { InputTokenCount = 9000, OutputTokenCount = 100 });
+
+        Assert.Equal(120, ledger.SessionReasoningTokens);
+    }
+
+    [Fact]
+    public void RestoreSession_BringsBackReasoningAccumulation()
+    {
+        TurnUsageLedger ledger = new();
+        ledger.RestoreSession(50_000, 3_000, 12_345, 456);
+
+        Assert.Equal(456, ledger.SessionReasoningTokens);
+    }
+
+    [Fact]
+    public void ReasoningTokens_AreZeroWhenTheProviderDoesNotReportThem()
+    {
+        UsageDetails details = new() { InputTokenCount = 8000 };
+
+        Assert.Null(details.ReasoningTokenCount);
+    }
+
     [Fact]
     public void CachedTokens_AreZeroWhenTheProviderDoesNotReportThem()
     {
