@@ -51,8 +51,8 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     /// <summary>侧栏可拖到的最宽宽度</summary>
     private const float MaxPaneWidth = 400;
 
-    [ObservableProperty] private float _leftPaneWidth = 200;
-    [ObservableProperty] private float _rightPaneWidth = 200;
+    [ObservableProperty] private float _leftPaneWidth = 233;
+    [ObservableProperty] private float _rightPaneWidth = 233;
     [ObservableProperty] private bool _isLeftPaneOpen = true;
     [ObservableProperty] private bool _isRightPaneOpen = true;
 

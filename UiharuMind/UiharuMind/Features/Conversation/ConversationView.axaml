@@ -394,8 +394,13 @@
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                 VerticalAlignment="Center">
+                        <!-- 默认 Placement=Pointer 会把提示面板锚在光标下:这段文本在状态栏最右、
+                             紧贴窗口右缘,面板宽放不下时自动翻转到左侧,正好盖在光标底下→PointerExited→
+                             面板关→PointerEntered→面板开,开开关键循环就是"hover 上一直闪"。
+                             改成固定 Left,面板锚在文本自身、不随光标重叠,规避该循环(Avalonia #15486/#20980) -->
                         <TextBlock Classes="muted" VerticalAlignment="Center"
                                    Text="{Binding TokenUsageText}"
+                                   ToolTip.Placement="Left"
                                    IsVisible="{Binding TokenUsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <ToolTip.Tip>
                                     <panels:ContextUsagePanel DataContext="{Binding ContextUsage}" />

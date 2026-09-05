@@ -86,37 +86,44 @@
                                  Fill="#FF9800"
                                  IsVisible="{Binding IsAwaitingApproval}" />
 
-                        <Grid Grid.Column="1" RowDefinitions="Auto,Auto" MinWidth="0">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding Name}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource SemiGrey7}"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1"
-                                           Classes="muted"
-                                           Text="{Binding TimeString}" />
-                            </Grid>
-                            <!-- 副行:角色名 + 描述。
+                        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" MinWidth="0">
+                            <TextBlock Grid.Row="0"
+                                       Text="{Binding Name}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SemiGrey7}"
+                                       TextWrapping="NoWrap"
+                                       MaxLines="1"
+                                       TextTrimming="CharacterEllipsis" />
+                            <!-- 副行:时间 + 角色名 横排(都是短内容,不会挤),
+                                 描述单独一行——长描述不再跟角色名挤成一团。
                                  角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
                                  推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                            <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏 -->
+                            <TextBlock Grid.Row="1"
+                                       Classes="muted"
+                                       Text="{Binding Description}"
+                                       IsVisible="{Binding HasDistinctDescription}"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxLines="1"
+                                       FontSize="11" />
+                            <!-- 末行:时间 + 角色名。两页末行都以时间开头、统一吸收字体 descender,
+                                 负边距量级一致。角色名只在 agent 页显示(对话页隐藏头像),
+                                 所以 agent 页回到两行:标题 + 时间+角色名。
+                                 负边距只抵消末行基线以下的一小截空白:先试 -1,不够/过头再调 -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,0,0,-5">
+                                <TextBlock Classes="muted"
+                                           Text="{Binding TimeString}" />
                                 <TextBlock Classes="muted"
                                            Text="{Binding CharacterName}"
                                            IsVisible="{Binding !$parent[sessions:SessionListView].ShowAvatar}"
                                            TextTrimming="CharacterEllipsis"
                                            MaxWidth="110" />
-                                <TextBlock Classes="muted"
-                                           Text="{Binding Description}"
-                                           IsVisible="{Binding HasDistinctDescription}"
-                                           TextTrimming="CharacterEllipsis"
-                                           MaxLines="2" />
                             </StackPanel>
                         </Grid>
                     </Grid>
 
                     <Button Grid.Column="2" Classes="session-delete" Padding="4"
-                            VerticalAlignment="Top" FontSize="10" Content="✕"
+                            VerticalAlignment="Center" FontSize="10" Content="✕"
                             ToolTip.Tip="{Binding BusyTip}"
                             Command="{Binding DeleteCommand}" />
                 </Grid>
