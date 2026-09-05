@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
@@ -25,6 +26,15 @@ namespace UiharuMind.Core.AI.Execution;
 public class LazyChatClient : IChatClient
 {
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>流式中途被服务端掐断(HttpIOException: ResponseEnded)的重试次数上限。</summary>
+    private const int StreamingRetryMaxAttempts = 6;
+
+    /// <summary>断线重试退避基数:1s、2s、4s…封顶 <see cref="StreamingRetryMaxDelay"/></summary>
+    private static readonly TimeSpan StreamingRetryBaseDelay = TimeSpan.FromSeconds(1);
+
+    /// <summary>断线重试退避封顶。连续断线多半是服务端/网络不稳,等太久的收益有限</summary>
+    private static readonly TimeSpan StreamingRetryMaxDelay = TimeSpan.FromSeconds(8);
 
     private readonly Func<ModelRunningData?>? _sessionModelSource; //会话级模型来源,优先于全局当前模型
 
@@ -61,25 +71,57 @@ public class LazyChatClient : IChatClient
         LlmRequestContext.PendingReasoningByCallId = CollectReasoningByCallId(messageList);
 
         IChatClient client = await ResolveAsync(cancellationToken).ConfigureAwait(false);
-
         HashSet<string>? toolNames = CollectToolNames(options);
-        if (toolNames == null)
+
+        // 流式中途被服务端掐断(HttpIOException: ResponseEnded)时重发整个请求再试几次。
+        // 这类失败发生在响应头已到手、body 读到一半的时候,SDK 的限流/瞬时重试看不见它,
+        // 不在这里兜底就一路冒到 TurnDriver,整轮 agent 任务直接作废。
+        // 正常流以 [DONE] 收尾,不会抛 HttpIOException,自然走不到重试。
+        // 重试代价:若断线前已向上层吐过完整的工具调用,重发会让同一调用被框架再执行一次——
+        // 好在工具调用通常出现在流中后段,断线多发在思考/等待的停顿期,此时尚无新调用产出。
+        for (int attempt = 1; ; attempt++)
         {
-            await foreach (ChatResponseUpdate update in client
-                               .GetStreamingResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false))
+            bool retryable = false;
+            await foreach (var (update, failure) in StreamOnceAsync(
+                               client, messageList, options, toolNames, cancellationToken).ConfigureAwait(false))
             {
-                DropEmptyTextContents(update);
-                yield return update;
+                if (failure != null)
+                {
+                    retryable = true;
+                    if (attempt >= StreamingRetryMaxAttempts)
+                    {
+                        Log.Warning($"[stream] response dropped mid-stream, giving up after {attempt} attempts: {failure.Message}");
+                        ExceptionDispatchInfo.Capture(failure).Throw();
+                    }
+
+                    TimeSpan delay = StreamingRetryDelay(attempt);
+                    Log.Warning($"[stream] response dropped mid-stream ({failure.Message}); " +
+                                $"retry {attempt}/{StreamingRetryMaxAttempts} in {delay.TotalSeconds:0.#}s.");
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                    break;
+                }
+
+                yield return update!;
             }
 
-            yield break;
+            if (!retryable) yield break;
         }
+    }
 
+    /// <summary>
+    /// 单次流式枚举。中途断线(HttpIOException)不向外抛,而是产出 (null, 异常) 让上层决定重试;
+    /// 正常产出 (update, null)。手动驱动 MoveNextAsync 是为了把 yield 从带 catch 的 try 里挪出来
+    /// (C# 不允许在带 catch 的 try 内 yield)。
+    /// </summary>
+    private async IAsyncEnumerable<(ChatResponseUpdate? Update, HttpIOException? Failure)> StreamOnceAsync(
+        IChatClient client, IReadOnlyList<ChatMessage> messages, ChatOptions? options, HashSet<string>? toolNames,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         // 文本工具调用恢复:GLM 线格式的调用可能以纯文本漏进正文或思考通道
         // (服务端未翻译成结构化 tool_calls 时),在此转回 FunctionCallContent,
         // 使上层框架的函数调用循环照常执行。两通道各持解析器,互不串流。
-        TextToolCallStreamParser textParser = new(toolNames);
-        TextToolCallStreamParser reasoningParser = new(toolNames);
+        TextToolCallStreamParser? textParser = toolNames == null ? null : new TextToolCallStreamParser(toolNames);
+        TextToolCallStreamParser? reasoningParser = toolNames == null ? null : new TextToolCallStreamParser(toolNames);
 
         // [诊断] 统计思考/正文各收到多少字符。流完整收完但界面没有正文时,
         // 这条日志能区分"服务端根本没发正文"与"发了但被上层丢了"
@@ -87,45 +129,87 @@ public class LazyChatClient : IChatClient
         int textChars = 0;
         string? lastFinishReason = null; //最后见到的 finish_reason(SDK 解析后的值)
 
-        await foreach (ChatResponseUpdate update in client
-                           .GetStreamingResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false))
+        IAsyncEnumerator<ChatResponseUpdate> enumerator = client
+            .GetStreamingResponseAsync(messages, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+        await using (enumerator.ConfigureAwait(false))
         {
-            if (update.FinishReason is { } reason) lastFinishReason = reason.ToString();
-
-            List<AIContent> rebuilt = new(update.Contents.Count);
-            foreach (AIContent content in update.Contents)
+            while (true)
             {
-                switch (content)
+                ChatResponseUpdate? update = null;
+                HttpIOException? failure = null;
+                try
                 {
-                    case TextContent { Text.Length: > 0 } tc:
-                        textChars += tc.Text.Length;
-                        Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
-                        break;
-                    case TextReasoningContent { Text.Length: > 0 } rc:
-                        reasoningChars += rc.Text.Length;
-                        Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
-                        break;
-                    default:
-                        //空正文/空思考不留:它们只会把思考段切碎,详见 ChatContentNormalizer
-                        if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
-                        break;
+                    if (!await enumerator.MoveNextAsync().ConfigureAwait(false)) break;
+                    update = enumerator.Current;
                 }
-            }
+                catch (HttpIOException e) when (!cancellationToken.IsCancellationRequested)
+                {
+                    failure = e;
+                }
 
-            update.Contents = rebuilt;
-            yield return update;
+                if (failure != null)
+                {
+                    yield return (null, failure);
+                    yield break;
+                }
+
+                // 能走到这里,update 必已赋值(failure 分支已退出);断言使其可空性收窄
+                update = update!;
+
+                if (textParser == null)
+                {
+                    DropEmptyTextContents(update);
+                    yield return (update, null);
+                    continue;
+                }
+
+                if (update.FinishReason is { } reason) lastFinishReason = reason.ToString();
+
+                List<AIContent> rebuilt = new(update.Contents.Count);
+                foreach (AIContent content in update.Contents)
+                {
+                    switch (content)
+                    {
+                        case TextContent { Text.Length: > 0 } tc:
+                            textChars += tc.Text.Length;
+                            Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
+                            break;
+                        case TextReasoningContent { Text.Length: > 0 } rc:
+                            reasoningChars += rc.Text.Length;
+                            Append(rebuilt, reasoningParser!.Feed(rc.Text), isReasoning: true);
+                            break;
+                        default:
+                            //空正文/空思考不留:它们只会把思考段切碎,详见 ChatContentNormalizer
+                            if (!ChatContentNormalizer.IsEmptyTextLike(content)) rebuilt.Add(content);
+                            break;
+                    }
+                }
+
+                update.Contents = rebuilt;
+                yield return (update, null);
+            }
         }
+
+        if (textParser == null) yield break;
 
         Log.Debug($"[stream] assistant reply ended: reasoning={reasoningChars:N0} chars, text={textChars:N0} chars, " +
                   $"finish_reason={(lastFinishReason ?? "(none)")}.");
 
         List<AIContent> tail = new();
         Append(tail, textParser.Flush(), isReasoning: false);
-        Append(tail, reasoningParser.Flush(), isReasoning: true);
+        Append(tail, reasoningParser!.Flush(), isReasoning: true);
         if (tail.Count > 0)
         {
-            yield return new ChatResponseUpdate(ChatRole.Assistant, tail);
+            yield return (new ChatResponseUpdate(ChatRole.Assistant, tail), null);
         }
+    }
+
+    /// <summary>断线重试退避:以 <see cref="StreamingRetryBaseDelay"/> 为基数的指数退避,封顶 <see cref="StreamingRetryMaxDelay"/></summary>
+    /// <param name="attempt">当前是第几次尝试(从 1 开始)</param>
+    private static TimeSpan StreamingRetryDelay(int attempt)
+    {
+        double scaled = StreamingRetryBaseDelay.TotalSeconds * Math.Pow(2, Math.Max(0, attempt - 1));
+        return TimeSpan.FromSeconds(Math.Min(scaled, StreamingRetryMaxDelay.TotalSeconds));
     }
 
     /// <summary>
