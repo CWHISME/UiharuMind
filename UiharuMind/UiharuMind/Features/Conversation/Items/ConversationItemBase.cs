@@ -49,9 +49,9 @@ public abstract partial class ConversationItemBase : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanEdit))]
     private Action<ConversationItemBase>? _editedCallback;
 
-    /// <summary>删除回调(为空则隐藏删除按钮)</summary>
+    /// <summary>删除回调(为空则隐藏删除按钮)。异步:删除前要弹确认</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanDelete))]
-    private Action<ConversationItemBase>? _deleteCallback;
+    private Func<ConversationItemBase, Task>? _deleteCallback;
 
     /// <summary>重试回调(为空则隐藏重试按钮)</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanRetry))]
@@ -135,9 +135,9 @@ public abstract partial class ConversationItemBase : ObservableObject
     }
 
     [RelayCommand]
-    private void Delete()
+    private async Task Delete()
     {
-        DeleteCallback?.Invoke(this);
+        if (DeleteCallback != null) await DeleteCallback(this);
     }
 
     [RelayCommand]

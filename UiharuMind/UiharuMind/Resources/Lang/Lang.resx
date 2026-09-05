@@ -796,6 +796,12 @@
     <data name="DeleteTips" xml:space="preserve">
         <value>Are you sure?</value>
     </data>
+    <data name="MessageDeleteConfirm" xml:space="preserve">
+        <value>Delete this message?</value>
+    </data>
+    <data name="MessageDeleteTurnConfirmFormat" xml:space="preserve">
+        <value>Delete this message and its related content ({0} items in total)? This cannot be undone.</value>
+    </data>
     <data name="ClearTips" xml:space="preserve">
         <value>Are you sure?</value>
     </data>

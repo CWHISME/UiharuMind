@@ -1034,7 +1034,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡,因此先于常规分派拦下
             if (HistoryHandoff.IsNote(message))
             {
-                buffer.Add(new HandoffItem { Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)) });
+                buffer.Add(new HandoffItem
+                {
+                    Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)),
+                    SourceMessage = message,
+                });
                 continue;
             }
 
@@ -1054,7 +1058,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 它的角色是 Tool,落进下面的助手分支会被当成工具结果去配对一个不存在的调用
             if (ChatMessageAnnotations.IsKnowledge(message))
             {
-                buffer.Add(ConversationItemFactory.CreateKnowledgeCard(message.Text));
+                ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(message.Text);
+                knowledgeCard.SourceMessage = message;
+                buffer.Add(knowledgeCard);
                 continue;
             }
 
@@ -1079,10 +1085,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             replay.CloseSegment();
 
-            // 本条消息产出的文本气泡可定位回这条消息,据此提供消息级操作
+            // 本条消息产出的<b>每一个</b>条目都记下来源:删除是按「来源落在删除集合里」
+            // 摘条目的,漏记的条目会在来源消失后成为删不掉的残留(思考卡、工具卡都没有
+            // 自己的删除按钮)。消息级操作只挂在文本气泡上——只有它有那一行按钮
             for (int i = before; i < buffer.Count; i++)
             {
+                buffer[i].SourceMessage = message;
                 if (buffer[i] is not TextConversationItem textItem) continue;
+
                 _itemActions.Wire(textItem, message);
                 if (lastKnown is { } stamp) textItem.Timestamp = ConversationItemFactory.TimestampText(stamp);
             }

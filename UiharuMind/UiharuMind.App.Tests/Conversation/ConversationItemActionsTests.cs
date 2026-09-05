@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 
@@ -39,7 +40,7 @@ public class ConversationItemActionsTests
         (TextConversationItem item, List<string> changed) = NewItem();
         Assert.False(item.CanDelete);
 
-        item.DeleteCallback = _ => { };
+        item.DeleteCallback = _ => Task.CompletedTask;
 
         Assert.True(item.CanDelete);
         Assert.Contains(nameof(item.CanDelete), changed);
