@@ -61,6 +61,16 @@
             <Setter Property="TextElement.Background" Value="Transparent"/>
             <Setter Property="TextElement.Foreground" Value="{DynamicResource MessageStatusInfoBrush}"/>
         </Style>
+        <!-- 引用块( > text )由库渲成带 QuoteBlock 类的 Border。默认背景吃
+             SecondaryCardBackgroundColor(60% 半透明黑,白色主题下就是灰黑底+黑字),
+             左边框吃暖米色 QuoteBorderColor,两套主题都难看。
+             这里改成:背景用 CodeBlockBackgroundBrush(浅色 #E5E6EB / 深色 #36383D),
+             跟卡片底柔和拉开差距又不脏;左边框用主题强调色。文字保持正文色,
+             区块感由背景承担,不需要把文字压灰 -->
+        <Style Selector="Border.QuoteBlock">
+            <Setter Property="Background" Value="{DynamicResource CodeBlockBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageStatusInfoBrush}"/>
+        </Style>
     </UserControl.Styles>
 
     <Panel Name="MainPanel">
