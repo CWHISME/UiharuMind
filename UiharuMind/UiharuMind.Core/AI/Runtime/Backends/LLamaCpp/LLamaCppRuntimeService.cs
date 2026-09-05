@@ -156,9 +156,11 @@ internal sealed class LLamaCppRuntimeService
     private IChatClient CreateChatClient(ILlmModel model)
     {
         var handler = new OpenAICompatibleHttpHandler(model, port: LLamaCppSettingConfig.Current.DefaultPort);
+        // HttpClient.Timeout 默认 100s,对 stream=true 的响应等响应头时就会掐掉长思考,显式关掉
+        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         var options = new OpenAIClientOptions
         {
-            Transport = new HttpClientPipelineTransport(new HttpClient(handler)),
+            Transport = new HttpClientPipelineTransport(httpClient),
             // 流式读闸默认 100s 会掐掉思考期长停顿,详见 RemoteModelManager 同款注释
             NetworkTimeout = Timeout.InfiniteTimeSpan,
         };

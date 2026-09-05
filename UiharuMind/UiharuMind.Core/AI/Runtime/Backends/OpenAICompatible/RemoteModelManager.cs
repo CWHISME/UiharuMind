@@ -61,9 +61,12 @@ internal sealed class RemoteModelManager
     {
         var handler = new OpenAICompatibleHttpHandler(
             model, model.ModelPath + (model.Port > 0 ? ":" + model.Port : ""));
+        // HttpClient.Timeout 默认就是 100s(管到响应头/首字节),SDK 自带客户端反而设成了 Infinite。
+        // 流式长思考会撞它,一并关掉,裁决交给上层 CancellationToken
+        var httpClient = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         var options = new OpenAIClientOptions
         {
-            Transport = new HttpClientPipelineTransport(new HttpClient(handler)),
+            Transport = new HttpClientPipelineTransport(httpClient),
             // SDK 默认重试对限流太急(3 次 / 6 秒内打完),免费档模型的共享配额窗口远不止这么短
             RetryPolicy = new RateLimitAwareRetryPolicy(),
             // 流式响应的读闸默认 100s:思考期 chunk 间隔一长就被 ReadTimeoutStream 掐断,

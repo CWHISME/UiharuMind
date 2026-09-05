@@ -131,6 +131,10 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         }
 
         var response = await base.SendAsync(request, cancellationToken);
+        // 诊断:无条件记录响应媒体类型与状态码——SseSanitizingContent 只在 text/event-stream 时介入,
+        // 非该媒体类型的流不经过 SseSanitizingStream,此类故障的桩也就全都不在链路上
+        Log.Debug($"OpenAI-compatible response: {(int)response.StatusCode} {response.ReasonPhrase}, " +
+                  $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}");
         await LogFailureAsync(response, cancellationToken);
         return await SanitizeResponseAsync(response, cancellationToken);
     }
@@ -399,6 +403,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         if (!_baseUri.AbsolutePath.Contains("chat/completions", StringComparison.OrdinalIgnoreCase)) return response;
 
         var mediaType = response.Content.Headers.ContentType?.MediaType;
+        Log.Debug($"SanitizeResponse: mediaType='{mediaType ?? "(null)"}'");
         if (mediaType == "text/event-stream")
         {
             response.Content = new SseSanitizingContent(response.Content);

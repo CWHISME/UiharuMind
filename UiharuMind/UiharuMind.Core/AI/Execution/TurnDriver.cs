@@ -156,8 +156,15 @@ public sealed class TurnDriver : IDisposable
                         _sink?.Apply(content);
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException e)
                 {
+                    // 用户点停止时本轮 token 会被取消;若不是它取消的 OCE(读超时/连接被掐),
+                    // 之前会被当成用户停止静默吞掉,连一条日志都没有。这里留个痕迹便于查证。
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        Log.Warning($"Turn interrupted by unexpected cancellation: {e.GetType().Name}: {e.Message}");
+                    }
+
                     SettleInterruptedTurn(session, interruptionNote);
                     break;
                 }

@@ -13,6 +13,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -80,18 +81,28 @@ public class LazyChatClient : IChatClient
         TextToolCallStreamParser textParser = new(toolNames);
         TextToolCallStreamParser reasoningParser = new(toolNames);
 
+        // [诊断] 统计思考/正文各收到多少字符。流完整收完但界面没有正文时,
+        // 这条日志能区分"服务端根本没发正文"与"发了但被上层丢了"
+        int reasoningChars = 0;
+        int textChars = 0;
+        string? lastFinishReason = null; //最后见到的 finish_reason(SDK 解析后的值)
+
         await foreach (ChatResponseUpdate update in client
                            .GetStreamingResponseAsync(messageList, options, cancellationToken).ConfigureAwait(false))
         {
+            if (update.FinishReason is { } reason) lastFinishReason = reason.ToString();
+
             List<AIContent> rebuilt = new(update.Contents.Count);
             foreach (AIContent content in update.Contents)
             {
                 switch (content)
                 {
                     case TextContent { Text.Length: > 0 } tc:
+                        textChars += tc.Text.Length;
                         Append(rebuilt, textParser.Feed(tc.Text), isReasoning: false);
                         break;
                     case TextReasoningContent { Text.Length: > 0 } rc:
+                        reasoningChars += rc.Text.Length;
                         Append(rebuilt, reasoningParser.Feed(rc.Text), isReasoning: true);
                         break;
                     default:
@@ -104,6 +115,9 @@ public class LazyChatClient : IChatClient
             update.Contents = rebuilt;
             yield return update;
         }
+
+        Log.Debug($"[stream] assistant reply ended: reasoning={reasoningChars:N0} chars, text={textChars:N0} chars, " +
+                  $"finish_reason={(lastFinishReason ?? "(none)")}.");
 
         List<AIContent> tail = new();
         Append(tail, textParser.Flush(), isReasoning: false);

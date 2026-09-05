@@ -40,6 +40,13 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     private readonly object _bufferGate = new(); //追加来自推理线程,冲刷在 UI 线程,两边都要过锁
 
     /// <summary>
+    /// 流式期间上屏的预览长度上限。展开的思考段每 150ms 把累积全文重设给 TextBlock,
+    /// 全量文本重排成本随长度二次增长——思考一长(实测单段能到几十万字符)就把 UI 线程拖死,
+    /// 表现为"思考过长直接断开且无报错"。预览截断把每次上屏的文本量钉在常数,段落收尾才渲染全文。
+    /// </summary>
+    private const int StreamingPreviewChars = 12_000;
+
+    /// <summary>
     /// UI 侧上屏间隔。思考流是全场最高频、最低价值的一路,而每次把累积全文重设给
     /// TextBlock 都要一次全量文本重排,成本随长度二次增长——本地模型下子代理思考几千 token
     /// 就足以把界面拖住。~7Hz 仍然"看得见它在想",重排次数却降两个数量级。
@@ -60,7 +67,8 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     }
 
     /// <summary>
-    /// 立即把缓冲同步到 <see cref="ConversationItemBase.Message"/>(段落收尾时调用)
+    /// 立即把缓冲同步到 <see cref="ConversationItemBase.Message"/>(段落收尾时调用)。
+    /// 收尾语义:赋<b>全文</b>,此时只重排一次,可接受
     /// </summary>
     public void Flush()
     {
@@ -71,7 +79,27 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     }
 
     /// <inheritdoc />
-    void IStreamFlushTarget.FlushForDisplay() => Flush();
+    // 流式上屏:只赋<b>尾部</b>截断预览,把重排成本钉在常数。全文等收尾(Flush)再上
+    void IStreamFlushTarget.FlushForDisplay()
+    {
+        string text;
+        lock (_bufferGate)
+        {
+            int len = _buffer.Length;
+            if (len <= StreamingPreviewChars)
+            {
+                text = _buffer.ToString();
+            }
+            else
+            {
+                // 显示尾部:用户想看的是"它现在在想什么",最新内容在末尾
+                text = $"…(思考中,已 {len:N0} 字符)\n" +
+                       _buffer.ToString(len - StreamingPreviewChars, StreamingPreviewChars);
+            }
+        }
+
+        Message = text;
+    }
 }
 
 /// <summary>
