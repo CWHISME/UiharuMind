@@ -224,6 +224,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
     private CancellationTokenSource? _tokenRefreshDebounce; //打字时合并刷新,避免每个字符都触发 ToolTip 重排
+    private CancellationTokenSource? _usageRefreshDebounce; //流式期合并 UsageObserved 刷新,避免每个 chunk 都重排 ToolTip
 
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
     private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
@@ -377,6 +378,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
         _prepareCancellation?.Cancel();
+        _tokenRefreshDebounce?.Cancel();
+        _usageRefreshDebounce?.Cancel();
         _driver.Dispose();
         MemoryPanel?.Detach();
     }
@@ -732,6 +735,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             case ETurnNotice.Ended:
                 _transcript.ResolveApprovals(_transcript.PendingApprovals.ToList());
                 SessionsChanged?.Invoke();
+                // 流式期间的 UsageObserved 走防抖合并,停流后立刻补刷最终值,
+                // 不能等下一个事件或防抖窗口——否则最后一个数要拖 250ms 才上屏
+                DebouncedRefreshTokenUsage(force: true);
                 break;
 
             case ETurnNotice.Failed:
@@ -743,7 +749,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 break;
 
             case ETurnNotice.UsageObserved:
-                RefreshTokenUsageText();
+                // 流式期间 provider 通常每个 chunk 都带 UsageContent,逐块直达会让状态栏文本与
+                // ToolTip 面板跟着每个 chunk 重排而闪烁;合并到 250ms 窗口内一次性刷新。
+                // 账本值仍逐块记准,这里只是界面刷新频率的节流,与打字防抖同一套路
+                DebouncedRefreshTokenUsage();
                 break;
 
             case ETurnNotice.KnowledgeRetrieved:
@@ -1154,6 +1163,37 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                                 ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
         TokenUsageText = _usage.Text;
         ContextUsage.Refresh(_usage, SessionModelLabel);
+    }
+
+    /// <summary>
+    /// 合并刷新 token 统计。流式期间 provider 每个 chunk 都带 UsageContent 时,
+    /// <see cref="ETurnNotice.UsageObserved"/> 会高频到达——每次都重排状态栏文本与
+    /// ToolTip 面板就闪。这里把刷新收进 250ms 窗口,窗口内只刷一次;
+    /// <paramref name="force"/> 跳过合并立即刷(流结束时补最终值)。
+    /// </summary>
+    /// <param name="force">是否立即刷新,不合并</param>
+    private void DebouncedRefreshTokenUsage(bool force = false)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => DebouncedRefreshTokenUsage(force));
+            return;
+        }
+
+        _usageRefreshDebounce?.Cancel();
+        if (force)
+        {
+            RefreshTokenUsageText();
+            return;
+        }
+
+        _usageRefreshDebounce = new CancellationTokenSource();
+        CancellationToken token = _usageRefreshDebounce.Token;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (token.IsCancellationRequested) return;
+            RefreshTokenUsageText();
+        }, TimeSpan.FromMilliseconds(250));
     }
 
     //================= 能力面板 =================

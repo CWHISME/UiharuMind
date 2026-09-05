@@ -91,10 +91,10 @@
         <value>Context</value>
     </data>
     <data name="ContextTurnLabel" xml:space="preserve">
-        <value>This turn</value>
+        <value>Turn usage</value>
     </data>
     <data name="ContextSessionLabel" xml:space="preserve">
-        <value>Total spend</value>
+        <value>Total usage</value>
     </data>
     <data name="ContextCompactionHint" xml:space="preserve">
         <value>Fold tool results at {0} → handoff at {1} → drop oldest at {2}</value>
@@ -167,6 +167,9 @@
     </data>
     <data name="AgentThinkingStatsFormat" xml:space="preserve">
         <value>{0} · {1} chars</value>
+    </data>
+    <data name="AgentThinkingTruncatedFormat" xml:space="preserve">
+        <value>…(truncated, {0} chars)</value>
     </data>
     <data name="AgentApprovalTitle" xml:space="preserve">
         <value>Approval required</value>

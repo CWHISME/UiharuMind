@@ -104,12 +104,11 @@ public partial class ContextUsageViewData : ObservableObject
               $"{TurnUsageLedger.FormatExact(cached)} / {TurnUsageLedger.FormatExact(ledger.LastInput)}"
             : string.Empty;
 
-        // 思考 token：显示<b>会话累计</b>，并给出占累计总消耗（输入+输出）的比例。
-        // 不报就整行不出。占比用累计口径，跟上下两行(本轮/累计)同一个求和视角
-        long reasoning = ledger.SessionReasoningTokens;
-        long totalSpent = ledger.SessionInput + ledger.SessionOutput;
-        ReasoningText = reasoning > 0 && totalSpent > 0
-            ? $"{TurnUsageLedger.FormatExact(reasoning)} ({Math.Clamp(reasoning * 100 / totalSpent, 0, 100)}%)"
+        // 思考 token：显示<b>会话累计</b>的数量。比率和底数刻意不显示——
+        // 思考的累计口径跟「上下文」那个最近占用不是一回事，摆出 % 会让人拿错数去比。
+        // 只给会话累计量，跟下面「累计消耗」的视角一致即可
+        ReasoningText = ledger.SessionReasoningTokens > 0
+            ? TurnUsageLedger.FormatExact(ledger.SessionReasoningTokens)
             : string.Empty;
 
         if (contextLength <= 0)

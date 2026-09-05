@@ -257,6 +257,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentThinkingTruncatedFormat {
+            get {
+                return ResourceManager.GetString("AgentThinkingTruncatedFormat", resourceCulture);
+            }
+        }
+        
         public static string AgentApprovalTitle {
             get {
                 return ResourceManager.GetString("AgentApprovalTitle", resourceCulture);

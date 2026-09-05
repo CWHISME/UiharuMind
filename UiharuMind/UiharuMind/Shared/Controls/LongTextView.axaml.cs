@@ -10,7 +10,9 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using System.IO;
 using AvaloniaEdit.Document;
@@ -134,8 +136,30 @@ public partial class LongTextView : UserControl
         Editor.WordWrap = WordWrap;
         Editor.ShowLineNumbers = ShowLineNumbers;
         Editor.TextChanged += OnEditorTextChanged;
+        // 跟底与滚轮的关系不能靠 PointerWheelChanged 冒泡:AvaloniaEdit 内部会把滚轮
+        // 标记 handled,冒泡上不来。改挂 TextView.ScrollOffsetChanged——任何滚动来源
+        // (滚轮/滚动条/触控板)都会触发它,可靠得多。模板未应用前 TextView 不可用,
+        // 所以在 OnApplyTemplate 之后接线
         ApplyText();
     }
+
+    /// <summary>是否处于「跟底」模式：追加后自动滚到底。默认关闭；流式宿主打开时开启</summary>
+    public bool FollowTail { get; set; }
+
+    /// <summary>是否已给内部 TextView 挂上滚动监听(模板应用后才可用,只挂一次)</summary>
+    private bool _scrollMonitorWired;
+
+    /// <summary>
+    /// 模板应用后给内部滚动视图挂监听。
+    /// </summary>
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        if (_scrollMonitorWired || Editor.TextArea?.TextView == null) return;
+        _scrollMonitorWired = true;
+        Editor.TextArea.TextView.ScrollOffsetChanged += OnScrollOffsetChanged;
+    }
+
 
     /// <summary>
     /// 把视图滚回顶部。窗口复用时换源必须调，否则新内容停在上一份的滚动位置
@@ -148,6 +172,64 @@ public partial class LongTextView : UserControl
         if (Editor.IsLoaded) Editor.ScrollToHome();
         else _scrollToTopPending = true;
     }
+
+    /// <summary>离底多少像素以内算"在底部"。亚像素布局下精确相等不可靠(与 ScrollViewerAutoScrollHolder 同一常数)</summary>
+    private const double BottomTolerance = 4.0;
+
+    /// <summary>当前视口是否贴着文档底部</summary>
+    private bool IsAtBottom =>
+        Math.Max(0, Editor.ExtentHeight - Editor.ViewportHeight) - Editor.VerticalOffset <= BottomTolerance;
+
+    /// <summary>
+    /// 把追加文本接到当前文档末尾(流式场景用)。
+    /// 走 <see cref="TextDocument.Insert"/> 而不是重建 <see cref="TextDocument"/>——
+    /// AvaloniaEdit 的文档增量插入按行维护，几十万字符的流式追加不会像全量重设那样成本二次增长。
+    /// 语法高亮不重装：追加只在同一份文档上改，TextMate 的文档状态与当前文档仍是同一份。
+    /// <b>不</b>回写 <see cref="Text"/> 属性：回写会触发 <see cref="ApplyText"/> 重建文档并滚回顶部，
+    /// 增量语义当场被毁。增量场景下的复制请由宿主从数据源取全文，不要依赖本属性。
+    ///
+    /// 跟底是<b>状态机 + 几何兜底</b>两道闸：
+    /// <list type="number">
+    /// <item><see cref="FollowTail"/>（滚轮上翻关掉的用户意图）；</item>
+    /// <item><see cref="IsAtBottom"/>——追加前视口本来贴着底部就继续滚。</item>
+    /// </list>
+    /// 第 2 道闸是关键：恢复跟底<b>不依赖滚轮事件</b>。用户上翻读旧内容后用滚动条
+    /// 拖回底部不会再触发滚轮，纯靠滚轮恢复就会从此停住；几何兜底让「回到底部」
+    /// 本身在下一次追加时自动生效。
+    /// 几何量必须在 insert <b>前</b>取样：insert 之后 Extent 要等布局刷新才更新，
+    /// 那时 IsAtBottom 量到的是旧几何，会把"应该跟"误判成"不跟"。
+    /// </summary>
+    /// <param name="delta">追加文本</param>
+    public void AppendText(string delta)
+    {
+        if (string.IsNullOrEmpty(delta)) return;
+        bool shouldFollow = FollowTail || IsAtBottom; //insert 前取样
+        Editor.Document.Insert(Editor.Document.TextLength, delta);
+        if (shouldFollow) ScrollToEnd();
+    }
+
+    /// <summary>
+    /// 把视图滚到底部(流式追加后跟读)。
+    /// </summary>
+    public void ScrollToEnd()
+    {
+        Editor.CaretOffset = Editor.Document.TextLength;
+        Editor.ScrollToEnd();
+    }
+
+    /// <summary>
+    /// 内部滚动视图偏移变化：任何滚动来源(滚轮/滚动条/触控板)都走这里。
+    /// 上翻离开跟底;回到底部时 <see cref="AppendText"/> 的几何兜底负责恢复,
+    /// 这里只负责"用户意图"那一半——因为程序化滚底(ScrollToEnd)也会触发本事件,
+    /// 若在这里恢复 FollowTail 会导致跟底被自己的滚动写死。
+    /// </summary>
+    private void OnScrollOffsetChanged(object? sender, EventArgs e)
+    {
+        // 上翻 = 用户想读旧内容:让开。只有"确实离底"才算,避免在底部轻滚也被误关
+        if (!IsAtBottom) FollowTail = false;
+    }
+
+
 
     protected override void OnLoaded(RoutedEventArgs e)
     {

@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="640" d:DesignHeight="480"
+        Width="640"
+        Height="480"
+        MinWidth="400" MinHeight="300"
+        x:Class="UiharuMind.Features.Conversation.Items.ThinkingDetailWindow"
+        Title="ThinkingDetailWindow">
+
+    <!-- 思考细节窗口：把一条思考段的全文从卡片里请出来单独看。
+         形状与 FullTextWindow / QuickChatResultWindow 一致：自绘标题栏 + 拖动 + 关闭。
+         正文用 LongTextView(AvaloniaEdit 内核,按行虚拟化)——思考段能到几十万字符,
+         SelectableTextBlock 撑不住,这也是它不用卡片正文、单独开窗的原因。
+         流式期间订阅 ThinkingItem.ContentChanged 增量追加,跟到底。 -->
+    <Grid RowDefinitions="Auto,*" Margin="10">
+        <Border Height="34" Background="Transparent" PointerPressed="InputElement_OnPointerPressed">
+            <DockPanel LastChildFill="False">
+                <TextBlock Name="TitleTextBlock" FontSize="15" FontWeight="SemiBold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right"
+                        HorizontalAlignment="Right" Click="CloseButton_Click" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                            Margin="0,0,8,0" VerticalAlignment="Center">
+                    <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="copy"
+                                      ToolTip.Tip="{loc:Loc LongTextCopyAll}"
+                                      Click="CopyButton_Click" />
+                    <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="search"
+                                      ToolTip.Tip="{loc:Loc LongTextSearch}"
+                                      Click="SearchButton_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <LongTextView Grid.Row="1" Name="TextView" IsEditable="False" IsToolbarVisible="False"
+                      WordWrap="True" ShowLineNumbers="False" />
+    </Grid>
+
+</Window>

@@ -45,7 +45,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     /// 全量文本重排成本随长度二次增长——思考一长(实测单段能到几十万字符)就把 UI 线程拖死,
     /// 表现为"思考过长直接断开且无报错"。预览截断把每次上屏的文本量钉在常数,段落收尾才渲染全文。
     /// </summary>
-    private const int StreamingPreviewChars = 1024;
+    private const int StreamingPreviewChars = 512;
 
     /// <summary>
     /// UI 侧上屏间隔。思考流是全场最高频、最低价值的一路,而每次把累积全文重设给
@@ -59,6 +59,49 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 
     /// <summary>标题栏统计,如「耗时 2.4s · 1,234 字」;收尾(Flush)前为空</summary>
     [ObservableProperty] private string _statsText = string.Empty;
+
+    /// <summary>流式预览是否已截断(截断时卡片上出现「查看全文」按钮)</summary>
+    [ObservableProperty] private bool _isPreviewTruncated;
+
+    /// <summary>
+    /// 全文增量订阅者及其「已消费到的缓冲长度」（游标）。每人各记各的——
+    /// 多个全文窗先后打开互不干扰：后开的窗口基线是打开那一刻，
+    /// 先开的窗口照常收自己缺的那段，不会因为新订阅者出现而丢数据。
+    /// 读写都只在 UI 线程（订阅发生在窗口打开，推送发生在节拍）。
+    /// </summary>
+    private readonly Dictionary<Action<string>, int> _contentSubscribers = new();
+
+    /// <summary>
+    /// 订阅全文增量并返回<b>订阅时刻的全量快照</b>。
+    /// 读快照与设游标在锁内一次性完成——若增量落在快照之前，它已被包含在全量里；
+    /// 落在订阅之后，会通过回调补上。窗口只需把返回值喂给全文控件，再等回调 append。
+    /// </summary>
+    /// <param name="handler">增量接收者（UI 线程调用）</param>
+    /// <returns>当前全量文本</returns>
+    public string SubscribeContent(Action<string> handler)
+    {
+        lock (_bufferGate)
+        {
+            _contentSubscribers[handler] = _buffer.Length;
+            return _buffer.ToString();
+        }
+    }
+
+    /// <summary>退订全文增量</summary>
+    /// <param name="handler">与订阅时相同的委托</param>
+    public void UnsubscribeContent(Action<string> handler)
+    {
+        _contentSubscribers.Remove(handler);
+    }
+
+    /// <summary>取缓冲全文快照(任意线程可调,取的是当下值)</summary>
+    public string CurrentText
+    {
+        get
+        {
+            lock (_bufferGate) return _buffer.ToString();
+        }
+    }
 
     /// <summary>
     /// 追加一段流式增量
@@ -77,14 +120,27 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     public void Flush()
     {
         string text;
+        int fullLen;
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
-        lock (_bufferGate) text = _buffer.ToString();
+        lock (_bufferGate)
+        {
+            string full = _buffer.ToString();
+            fullLen = full.Length;
+            // 思考完毕后的正常展开也走同一套截断:超限时上截断预览而非全文,
+            // 避免几十万字内联进卡片把 UI 拖死。全文阅读走「查看全文」窗(ShowFullText)
+            text = IsTruncated(fullLen) ? BuildTruncatedPreview(fullLen) : full;
+        }
+
         Message = text;
-        UpdateStats(text.Length);
+        NotifyContentChanged(); //收尾补上最后一段增量;没有订阅者时零成本
+        UpdateStats(fullLen); //统计用全文长度,不随截断预览缩水
+        IsPreviewTruncated = IsTruncated(fullLen); //超限的长思考收尾后仍保留「查看全文」入口
     }
 
     /// <inheritdoc />
-    // 流式上屏:只赋<b>尾部</b>截断预览,把重排成本钉在常数。全文等收尾(Flush)再上
+    // 流式上屏:只赋<b>头部</b>截断预览,把重排成本钉在常数。全文等收尾(Flush)再上。
+    // 为什么锚在头部而不是尾部:尾窗每次滑动,卡片高度随行数逐拍跳——就是"高低起伏"闪烁的根源。
+    // 头部起点钉在 0,内容逐拍不变,高度稳定;想看最新与全量去全文窗(ShowFullText),按增量追着流走。
     void IStreamFlushTarget.FlushForDisplay()
     {
         string text;
@@ -92,21 +148,75 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         lock (_bufferGate)
         {
             len = _buffer.Length;
-            if (len <= StreamingPreviewChars)
-            {
-                text = _buffer.ToString();
-            }
-            else
-            {
-                // 显示尾部:用户想看的是"它现在在想什么",最新内容在末尾
-                text = $"…(思考中,已 {len:N0} 字符)\n" +
-                       _buffer.ToString(len - StreamingPreviewChars, StreamingPreviewChars);
-            }
+            text = IsTruncated(len) ? BuildTruncatedPreview(len) : _buffer.ToString();
         }
 
         Message = text;
+        NotifyContentChanged();
         // 与 Flush 同样地锁外赋值:属性变更会引发绑定与布局,不该攥着锁做
         UpdateStats(len);
+        IsPreviewTruncated = IsTruncated(len);
+    }
+
+    /// <summary>
+    /// 是否需要对上屏文本做截断。流式(FlushForDisplay)与收尾(Flush)共用同一个判断——
+    /// 只要超过预览上限就算截断，卡片据此显示「查看全文」入口。
+    /// </summary>
+    /// <param name="len">缓冲长度</param>
+    /// <returns>超限返回 true</returns>
+    private static bool IsTruncated(int len) => len > StreamingPreviewChars;
+
+    /// <summary>
+    /// 构建截断预览：头部锚定 + 本地化截断提示。
+    /// 头部起点钉在 0,内容逐拍不变,高度稳定;想看最新与全量去全文窗(ShowFullText)。
+    /// 必须在持有 <see cref="_bufferGate"/> 时调用(内部要读 buffer)。
+    /// 文案统一为「已截断」,流式中与收尾后都成立,不引入时态。
+    /// </summary>
+    /// <param name="len">缓冲长度(已确认 &gt; <see cref="StreamingPreviewChars"/>)</param>
+    /// <returns>上屏的截断文本</returns>
+    private string BuildTruncatedPreview(int len)
+    {
+        return _buffer.ToString(0, StreamingPreviewChars) +
+               "\n" + string.Format(Loc.Text("AgentThinkingTruncatedFormat"), len.ToString("N0"));
+    }
+
+    /// <summary>
+    /// 把自各订阅者游标以来的增量推给订阅者并推进游标（只在 UI 线程调用）。
+    /// 没有任何订阅者时直接返回，不掏 buffer。
+    /// </summary>
+    private void NotifyContentChanged()
+    {
+        List<(Action<string> Handler, string Delta, int NewCursor)>? deliveries = null;
+        lock (_bufferGate)
+        {
+            if (_contentSubscribers.Count == 0) return;
+            int len = _buffer.Length;
+            foreach (KeyValuePair<Action<string>, int> subscriber in _contentSubscribers)
+            {
+                int start = subscriber.Value;
+                if (start >= len) continue;
+                deliveries ??= [];
+                deliveries.Add((subscriber.Key, _buffer.ToString(start, len - start), len));
+            }
+        }
+
+        if (deliveries == null) return;
+        foreach ((Action<string> handler, string delta, int cursor) in deliveries)
+        {
+            try
+            {
+                handler(delta);
+            }
+            finally
+            {
+                // 回调执行期间可能已退订(如用户点关闭,OnPreClose 里退订)——
+                // 此时不该把游标写回去,否则退订被抵消,关了的窗口继续收增量
+                if (_contentSubscribers.ContainsKey(handler))
+                {
+                    _contentSubscribers[handler] = cursor;
+                }
+            }
+        }
     }
 
     /// <summary>刷新标题栏的耗时与字符数(流式期间也随节拍走,收尾为准)</summary>
@@ -128,6 +238,13 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
         if (span.TotalMinutes >= 1) return $"{(int)span.TotalMinutes}m {span.Seconds}s";
         return $"{span.TotalSeconds:0.#}s";
+    }
+
+    /// <summary>打开全文窗(卡片上的「查看全文」按钮)</summary>
+    [RelayCommand]
+    private void ShowFullText()
+    {
+        ThinkingDetailWindow.Show(this);
     }
 }
 

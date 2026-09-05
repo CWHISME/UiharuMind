@@ -3,6 +3,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Shared.Utils.Tools;
 
 namespace UiharuMind.App.Tests.Conversation;
 
@@ -112,6 +113,96 @@ public class ConversationTranscriptTests
 
         Assert.Equal("推理内容", FlushedMessage(thinking));
         Assert.False(string.IsNullOrEmpty(thinking.StatsText));
+    }
+
+    /// <summary>
+    /// 截断预览锚在头部而不是尾部：起点钉在 0、内容不变，卡片高度才不随节拍跳。
+    /// 截断时标记 IsPreviewTruncated，卡片上据此显示「查看全文」按钮。
+    /// </summary>
+    [Fact]
+    public void ThinkingItem_TruncatedPreview_AnchorsHeadAndFlagsButton()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent(new string('思', 2000)));
+        ThinkingItem thinking = Assert.IsType<ThinkingItem>(Assert.Single(items));
+
+        ((IStreamFlushTarget)thinking).FlushForDisplay();
+
+        Assert.True(thinking.IsPreviewTruncated);
+        Assert.StartsWith("思", thinking.Message); //头部锚定
+        Assert.Contains("…", thinking.Message); //截断提示
+
+        transcript.CloseSegment();
+
+        // 收尾也走同一套截断:超限仍保留「查看全文」入口,Message 是截断预览而非全文
+        Assert.True(thinking.IsPreviewTruncated);
+        Assert.StartsWith("思", thinking.Message);
+        Assert.Contains("…", thinking.Message);
+    }
+
+    /// <summary>订阅返回订阅时刻的全量快照，后续增量走回调</summary>
+    [Fact]
+    public void SubscribeContent_ReturnsSnapshotAndPushesDeltas()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("开头"));
+        ThinkingItem thinking = Assert.IsType<ThinkingItem>(Assert.Single(items));
+
+        var received = new List<string>();
+        string snapshot = thinking.SubscribeContent(received.Add);
+        Assert.Equal("开头", snapshot);
+
+        transcript.Apply(new TextReasoningContent("中间"));
+        transcript.Apply(new TextReasoningContent("结尾"));
+        transcript.CloseSegment(); //收尾 Flush,把订阅后的增量一次性推给订阅者
+
+        Assert.Equal("中间结尾", string.Concat(received));
+    }
+
+    /// <summary>多个订阅者各记各的游标,后开的窗口不干扰先开的</summary>
+    [Fact]
+    public void SubscribeContent_MultipleSubscribers_EachGetsOwnDelta()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("一"));
+        ThinkingItem thinking = Assert.IsType<ThinkingItem>(Assert.Single(items));
+
+        var first = new List<string>();
+        thinking.SubscribeContent(first.Add);
+
+        transcript.Apply(new TextReasoningContent("二"));
+
+        var second = new List<string>();
+        thinking.SubscribeContent(second.Add);
+
+        transcript.CloseSegment();
+
+        // first 游标停在「一」之后,只该拿到「二」;second 订阅时「二」已在快照之外,
+        // 但订阅后没有新内容,所以拿不到任何增量
+        Assert.Equal("二", string.Concat(first));
+        Assert.Equal(string.Empty, string.Concat(second));
+    }
+
+    /// <summary>退订后不再收到增量</summary>
+    [Fact]
+    public void UnsubscribeContent_StopsDeliveries()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("一"));
+        ThinkingItem thinking = Assert.IsType<ThinkingItem>(Assert.Single(items));
+
+        var received = new List<string>();
+        thinking.SubscribeContent(received.Add);
+        thinking.UnsubscribeContent(received.Add);
+
+        transcript.Apply(new TextReasoningContent("二"));
+        transcript.CloseSegment();
+
+        Assert.Empty(received);
     }
 
     [Fact]

@@ -106,6 +106,11 @@
                    ToolTip.Tip="{Binding CachedText}" />
     </Grid>
 
+    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
+               IsVisible="{Binding HasData}" Text="{Binding ThresholdText}" />
+
+    <!-- 思考统计:只显示会话累计数量,不摆比率(比率底数是累计消耗,跟「上下文」的最近占用不是一回事)。
+         放在本轮/累计之前,它是累计口径但只报一个数,不跟下面两行排成同一形状 -->
     <Grid ColumnDefinitions="Auto,*"
           IsVisible="{Binding ReasoningText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
         <TextBlock Classes="muted" Text="{loc:Loc ContextReasoningLabel}" />
@@ -113,9 +118,6 @@
                    Text="{Binding ReasoningText}" TextTrimming="CharacterEllipsis"
                    ToolTip.Tip="{Binding ReasoningText}" />
     </Grid>
-
-    <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="11"
-               IsVisible="{Binding HasData}" Text="{Binding ThresholdText}" />
 
     <Grid ColumnDefinitions="Auto,*"
           IsVisible="{Binding TurnText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
