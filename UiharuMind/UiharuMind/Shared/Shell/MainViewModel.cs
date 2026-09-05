@@ -29,6 +29,7 @@ using UiharuMind.Features.Settings;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Data;
 using UiharuMind.Features.Conversation.Pages;
+using UiharuMind.Shared.Diagnostics;
 
 namespace UiharuMind.Shared.Shell;
 
@@ -76,8 +77,10 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 
     partial void OnContentChanged(ViewModelBase? oldValue, ViewModelBase? newValue)
     {
+        PageSwitchPerfProbe.BeginSwitch(newValue?.GetType().Name ?? "none");
         oldValue?.OnDisable();
         newValue?.OnEnable();
+        PageSwitchPerfProbe.ReportEnabled();
     }
 
     // public void Receive(string message)
@@ -107,6 +110,7 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
                 MenuPages.MenuHelpKey => ActivatorUtilities.CreateInstance<HelpPageData>(_services),
                 _ => GetPage(MenuPages.MenuModelKey),
             };
+            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark($"page/create-vm:{message}");
             _viewPageModels.Add(message, vmPage);
         }
 

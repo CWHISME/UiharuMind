@@ -64,6 +64,10 @@ public sealed record RuntimeDeviceInfo(
 {
     public bool HasMemoryInfo => TotalMemoryBytes > 0 && AvailableMemoryBytes > 0;
     public bool HasGpuMemoryInfo => GpuTotalMemoryBytes > 0 || GpuAvailableMemoryBytes > 0;
+
+    /// <summary>尚未完成采集时的占位值。采集要跑外部进程,不该为了拿初值而阻塞调用方</summary>
+    public static RuntimeDeviceInfo Empty { get; } =
+        new(0, 0, 0, 0, 0, string.Empty, string.Empty, string.Empty, DateTimeOffset.MinValue);
 }
 
 public sealed record RuntimeLoadRisk(

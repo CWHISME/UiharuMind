@@ -33,6 +33,7 @@ namespace UiharuMind.Features.Models;
 public partial class ModelPageData : PageDataBase
 {
     private readonly IMessageService _messageService;
+    private bool _isSyncingModelPath; //切页对齐路径期间抑制提示
     // public string? Title { get; set; } = "Model Viewer";
     // public string? ModelPrefix { get; set; } = "Local models folder: ";
     [ObservableProperty] private string? _modelPath;
@@ -145,13 +146,24 @@ public partial class ModelPageData : PageDataBase
     partial void OnModelPathChanged(string? value)
     {
         LoadModels();
-        _messageService.ShowNotification("Model list updated.");
+        // 切页时的对齐不是用户改的路径,不该弹提示
+        if (!_isSyncingModelPath) _messageService.ShowNotification("Model list updated.");
     }
 
     public override void OnEnable()
     {
         base.OnEnable();
-        ModelPath = ModelSettingConfig.Current.LocalModelPath;
+        if (ModelPath == ModelSettingConfig.Current.LocalModelPath) return;
+
+        _isSyncingModelPath = true;
+        try
+        {
+            ModelPath = ModelSettingConfig.Current.LocalModelPath;
+        }
+        finally
+        {
+            _isSyncingModelPath = false;
+        }
     }
 
     protected override Control CreateView => new ModelPage();

@@ -175,8 +175,18 @@ public partial class ModelService : ObservableObject
 
     public async Task LoadModelList()
     {
-        var list = await LlmManager.Instance.ReloadModelList().ConfigureAwait(false);
+        // 整段扫盘丢到线程池:ReloadModelList 一路 ConfigureAwait(false),但
+        // RefreshModelsAsync 首个 await 之前的同步前缀会落在调用方线程上——
+        // 而调用方是切页路径,那段前缀就直接顶在 UI 线程上(实测 150~280ms)
+        List<ModelRunningData> list =
+            await Task.Run(LlmManager.Instance.ReloadModelList).ConfigureAwait(false);
 
+        // ModelSources 是列表的 ItemsSource,只能在 UI 线程改动
+        await Dispatcher.UIThread.InvokeAsync(() => ApplyModelList(list));
+    }
+
+    private void ApplyModelList(List<ModelRunningData> list)
+    {
         //清理旧的
         List<ModelRunningData> toDel = new List<ModelRunningData>();
         foreach (var oldItem in ModelSources)
@@ -192,7 +202,6 @@ public partial class ModelService : ObservableObject
         }
 
         //添加新的
-        // ModelSources.Clear();
         foreach (var model in list)
         {
             if (ModelSources.Contains(model)) continue;

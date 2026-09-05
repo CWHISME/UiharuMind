@@ -20,6 +20,8 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Markdig;
+using Markdig.Syntax;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
 using UiharuMind.Core.Core.SimpleLog;
@@ -75,6 +77,10 @@ public partial class SimpleMarkdownViewer : UserControl
     /// 此刻是否落在视口里。收到过视口通知才作数——没通知时那份矩形是空的，
     /// 而"没通知"要走的是兜底那条路，不是判定成看不见
     private bool IsInViewport => _viewportSeen && _lastViewport.Intersects(new Rect(Bounds.Size));
+
+    /// 出队时是否该直接丢掉：排队期间滚走了就不必再转，真滚回去时视口通知会重新排队。
+    /// 带上 Bounds 是因为没量到几何时视口矩形必然不相交，那时不该当成"看不见"
+    private bool ShouldSkipRealize => _viewportSeen && Bounds.Height > 0 && !IsInViewport;
 
     protected override void OnLoaded(RoutedEventArgs e)
     {
@@ -135,6 +141,7 @@ public partial class SimpleMarkdownViewer : UserControl
         {
             SimpleMarkdownViewer viewer = PendingRealize.Dequeue();
             viewer._isQueued = false;
+            if (viewer.ShouldSkipRealize) continue;
             if (viewer.Realize()) break; //真干了活就让出这一帧;跳过的不算数,继续找下一个
         }
 
@@ -150,9 +157,46 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         if (_isRealized || _isPlaintextCache) return false;
         _isRealized = true;
+        SeedDocumentUpdate();
         MarkdownTextRender.MarkdownBuilder = _markdownBuilder;
         ApplyDisplayMode();
         return true;
+    }
+
+    /// <summary>
+    /// 立刻转成 markdown，既不等视口通知也不排队。<b>"看得见吗"由调用方判断</b>——
+    /// 列表刚建出来时气泡还没 <c>Loaded</c>，没订阅视口通知也就不会进 <see cref="PendingRealize"/>，
+    /// 走队列的话这一屏必然是先显示原文再变 markdown
+    /// </summary>
+    /// <returns>真的转了返回 true；已转过或处于纯文本档则返回 false</returns>
+    public bool RealizeNow()
+    {
+        return Realize();
+    }
+
+    /// <summary>
+    /// 接 builder 之前先同步塞一份已解析好的文档，让第一帧的高度就是最终高度。
+    ///
+    /// 只接 <c>MarkdownBuilder</c> 的话，渲染器要等 <c>MarkdownUpdateProducer</c>
+    /// 异步排完才建出视觉树（库文档：<i>coordinates ... asynchronous document updates</i>），
+    /// 那期间 <c>Extent</c> 一直在长——表现就是气泡从底部一格一格闪出来、滚动条长度跟着变。
+    /// 版本号取自 builder 的快照，随后 producer 发布的更新才对得上同一条版本线。
+    /// </summary>
+    private void SeedDocumentUpdate()
+    {
+        try
+        {
+            ObservableStringBuilderSnapshot snapshot = _markdownBuilder.CaptureSnapshot();
+            if (string.IsNullOrEmpty(snapshot.Text)) return;
+
+            MarkdownDocument document = Markdown.Parse(snapshot.Text, MarkdownUpdateProducer.DefaultPipeline);
+            MarkdownTextRender.DocumentUpdate = new MarkdownDocumentUpdate.Full(document, snapshot.Version);
+        }
+        catch (Exception e)
+        {
+            // 预解析只为让第一帧高度就对,失败了让 builder 那条路照常兜住
+            Log.Warning($"Markdown pre-parse failed: {e.Message}");
+        }
     }
 
     private void ApplyDisplayMode()

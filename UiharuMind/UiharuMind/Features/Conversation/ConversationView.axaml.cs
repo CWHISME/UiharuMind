@@ -18,6 +18,8 @@ using Avalonia.Threading;
 using System;
 using System.Collections.Specialized;
 using System.Linq;
+using Avalonia.VisualTree;
+using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Diagnostics;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -159,6 +161,23 @@ public partial class ConversationView : UserControl
         }
     }
 
+    /// <summary>
+    /// 首启补一次贴底与实体化。
+    ///
+    /// 会话是在 <c>ConversationPageDataBase</c> 的构造里就即发即忘启动加载的，视图晚于它创建，
+    /// 所以首次打开时 <c>IsSessionLoading</c> 那次翻转很可能<b>没人在听</b>——
+    /// <see cref="OnViewModelPropertyChanged"/> 收不到，那一次的贴底与同步实体化就整个丢了，
+    /// 表现为第一次打开先显示原文再变 markdown、之后切换都正常。
+    /// </summary>
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        if (_viewModel is not { IsSessionLoading: false } vm || vm.Items.Count == 0) return;
+
+        AnchorToBottom();
+        _autoScrollHolder.Resume();
+    }
+
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         // 会话构建完成后恢复跟底。不能在集合 Reset 时恢复——
@@ -167,6 +186,7 @@ public partial class ConversationView : UserControl
         if (e.PropertyName == nameof(ConversationViewModel.IsSessionLoading) &&
             _viewModel is { IsSessionLoading: false })
         {
+            AnchorToBottom();
             _autoScrollHolder.Resume();
         }
     }
@@ -189,6 +209,66 @@ public partial class ConversationView : UserControl
         // 排到 Loaded 去做,整段落在同一个派发任务里——中间不会渲染出一帧错位的视口
         _isLoadingEarlier = true;
         Dispatcher.UIThread.Post(() => LoadEarlierKeepingViewport(vm), DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// 同步贴到底，并把可见那一屏的 markdown 一并转完。
+    ///
+    /// 两件事都必须同步做完再交出去：交给 <c>Loaded</c> 去贴底的话，布局与渲染的优先级
+    /// 都高于它，中间必然先画出一帧顶部视口；而贴底后视口内那几条若留给逐帧放行的队列，
+    /// 高度会一格一格长高，内容看着从底部闪出来。
+    ///
+    /// 转 markdown 会改高度、改高度会换掉视口内容，所以要迭代到稳定；
+    /// <c>MaxSettlePasses</c> 是保险，防止病态内容把这里拖成死循环
+    /// </summary>
+    private void AnchorToBottom()
+    {
+        const int maxSettlePasses = 4;
+
+        for (int pass = 0; pass < maxSettlePasses; pass++)
+        {
+            Viewer.UpdateLayout(); //拿到真实高度
+            ScrollToBottom();
+            Viewer.UpdateLayout(); //贴底后视口换了内容,让新的几何落地
+            if (!RealizeVisibleBubbles()) break;
+        }
+
+        ScrollToBottom();
+    }
+
+    /// <summary>
+    /// 把此刻落在视口内、还没转 markdown 的气泡当场转掉。
+    ///
+    /// 不走 <c>SimpleMarkdownViewer</c> 的排队机制：那个队列靠视口通知填充，而视口通知的
+    /// 处理器是在气泡 <c>OnLoaded</c> 时订阅的——列表刚建出来时气泡还没 <c>Loaded</c>，
+    /// 队列因此是空的，这一屏就会退回逐帧放行，表现为先显示原文再变 markdown。
+    /// 这里直接按几何判断，不依赖任何事件时序。
+    /// </summary>
+    /// <returns>真的转了至少一个返回 true</returns>
+    private bool RealizeVisibleBubbles()
+    {
+        double viewportHeight = Viewer.Viewport.Height;
+        if (viewportHeight <= 0) return false;
+
+        bool realizedAny = false;
+        foreach (SimpleMarkdownViewer bubble in MessageList.GetVisualDescendants().OfType<SimpleMarkdownViewer>())
+        {
+            // 换算到 Viewer 自身坐标系,这一步已经把滚动偏移算进去了
+            Point? topLeft = bubble.TranslatePoint(default, Viewer);
+            if (topLeft == null) continue;
+
+            double top = topLeft.Value.Y;
+            if (top + bubble.Bounds.Height < 0 || top > viewportHeight) continue;
+            if (bubble.RealizeNow()) realizedAny = true;
+        }
+
+        return realizedAny;
+    }
+
+    private void ScrollToBottom()
+    {
+        Viewer.Offset = new Vector(Viewer.Offset.X,
+            Math.Max(0, Viewer.Extent.Height - Viewer.Viewport.Height));
     }
 
     /// <summary>

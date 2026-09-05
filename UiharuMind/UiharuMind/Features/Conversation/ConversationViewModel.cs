@@ -949,8 +949,18 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             CurrentMode = await body.Runner.GetModeAsync();
             ReplayMessages(body.Runner.GetHistory());
-            await RefreshTodosAsync();
-            await RefreshCapabilitiesAsync();
+
+            // 就在这里收尾,不能拖到下面两个 await 之后:视图靠这一步同步贴到底,
+            // 而 await 会让出线程——中间那一帧会把列表按 offset 0(会话顶部)画出来,
+            // 于是变成"先显示开头再跳到底部"。侧栏的 todo 与能力清单不属于消息列表,
+            // 晚一点填上不影响列表已经就位这个事实
+            if (loadVersion == _loadVersion) IsSessionLoading = false;
+
+            // 侧栏(todo 与能力清单)与消息列表无关,不该挡在会话加载的关键路径上:
+            // 实测两者串行占掉约 550ms,而此时列表已经显示出来了。
+            // 两个方法各自带 try/catch,即发即忘不会漏掉异常
+            _ = RefreshTodosAsync();
+            _ = RefreshCapabilitiesAsync();
         }
         catch (Exception e)
         {
@@ -1263,7 +1273,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>条目与标题用的显示文本:点名调用取用户敲的那一行,其余取消息正文</summary>
 
     //================= 条目构造 =================
-
 
     /// <summary>助手条目:名字与头像取自当前会话的角色</summary>
 

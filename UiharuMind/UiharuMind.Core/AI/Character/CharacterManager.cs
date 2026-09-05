@@ -37,6 +37,19 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
 
     // private CharacterData? _userCharacterData;
 
+    /// <summary>
+    /// 后台预热角色库。
+    ///
+    /// 首次取用实测要 200ms——用户目录里只有一个 1KB 的角色文件，所以与文件多少无关，
+    /// 那是首次反序列化连带的契约构建与 JIT。而第一个碰到它的是会话列表按档位过滤
+    /// （<c>CharacterKindRouting</c>），那时正卡在启动的关键路径上；挪到后台后这一段降到 7ms。
+    /// 与 <c>LlmTokenizer.Warmup</c> 同一个办法。
+    /// </summary>
+    public static void Warmup()
+    {
+        _ = Task.Run(() => _ = Instance);
+    }
+
     public void OnInitialize()
     {
         // 幂等:重复初始化不该抛"键已存在"
@@ -50,6 +63,10 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         {
             foreach (var file in files)
             {
+                // 提示词片段就落在角色目录里(见 AppPaths.Data.PromptSnippets),但它是个数组,
+                // 当角色卡解析必然抛 JsonException——每次启动都白抛一次
+                if (string.Equals(file, AppPaths.Data.PromptSnippets, StringComparison.OrdinalIgnoreCase)) continue;
+
                 var characterData = SaveUtility.Load<CharacterData>(file);
                 if (characterData != null)
                 {

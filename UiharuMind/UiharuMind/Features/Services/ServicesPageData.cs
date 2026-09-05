@@ -10,11 +10,13 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -41,7 +43,7 @@ public partial class ServicesPageData : PageDataBase
     private readonly EmbeddingModelSettingConfig _embeddingConfig = ConfigManager.Instance.EmbeddingModelSetting;
     private bool _isSyncingStatus;
     private string? _lastChatModelName;
-    private RuntimeDeviceInfo _deviceInfo = RuntimeDeviceInfoProvider.Capture();
+    private RuntimeDeviceInfo _deviceInfo = RuntimeDeviceInfo.Empty;
 
     [ObservableProperty] private bool _isEmbeddingBusy;
     [ObservableProperty] private bool _isEmbeddingEnabled;
@@ -192,8 +194,33 @@ public partial class ServicesPageData : PageDataBase
     public override void OnEnable()
     {
         base.OnEnable();
-        RefreshManagedEmbeddingModels();
-        RefreshStatus();
+        _ = RefreshOnEnableAsync();
+    }
+
+    // 切页路径上什么都不做。三件事各有各的理由推后:
+    //   RefreshStatus 会让 30 多个计算属性重算一遍(实测 40~57ms),而模型与嵌入服务的
+    //     状态变化本来就有各自的订阅在推,这里只是兜底,晚一帧无妨
+    //   扫目录是文件 IO
+    //   设备采集要起外部进程(macOS 上 sysctl×2 + vm_stat)
+    private async Task RefreshOnEnableAsync()
+    {
+        await Dispatcher.UIThread.InvokeAsync(RefreshStatus, DispatcherPriority.Background);
+
+        IReadOnlyList<EmbeddingModelCandidate> candidates =
+            await Task.Run(static () => EmbeddingModelService.GetManagedCandidates());
+        ApplyManagedEmbeddingModels(candidates);
+        await RefreshDeviceInfoAsync();
+    }
+
+    private async Task RefreshDeviceInfoAsync()
+    {
+        _deviceInfo = await Task.Run(static () => RuntimeDeviceInfoProvider.Capture());
+        OnPropertyChanged(nameof(DeviceCpuUsageText));
+        OnPropertyChanged(nameof(DeviceMemoryText));
+        OnPropertyChanged(nameof(DeviceCpuName));
+        OnPropertyChanged(nameof(DeviceGpuName));
+        OnPropertyChanged(nameof(DeviceGpuMemoryText));
+        OnPropertyChanged(nameof(DeviceGpuMemoryNote));
     }
 
     protected override Control CreateView => new ServicesPage();
@@ -204,6 +231,7 @@ public partial class ServicesPageData : PageDataBase
         await App.ModelService.LoadModelList();
         RefreshManagedEmbeddingModels();
         RefreshStatus();
+        await RefreshDeviceInfoAsync();
     }
 
     [RelayCommand]
@@ -472,9 +500,14 @@ public partial class ServicesPageData : PageDataBase
 
     private void RefreshManagedEmbeddingModels()
     {
+        ApplyManagedEmbeddingModels(EmbeddingModelService.GetManagedCandidates());
+    }
+
+    private void ApplyManagedEmbeddingModels(IReadOnlyList<EmbeddingModelCandidate> candidates)
+    {
         string selectedPath = _embeddingConfig.ModelPath;
         ManagedEmbeddingModels.Clear();
-        foreach (EmbeddingModelCandidate candidate in EmbeddingModelService.GetManagedCandidates())
+        foreach (EmbeddingModelCandidate candidate in candidates)
         {
             ManagedEmbeddingModels.Add(new EmbeddingModelCandidateViewData(
                 candidate,
@@ -535,7 +568,6 @@ public partial class ServicesPageData : PageDataBase
 
     private void RefreshStatus()
     {
-        _deviceInfo = RuntimeDeviceInfoProvider.Capture();
         if (App.ModelService.CurModelRunningData != null)
             _lastChatModelName = App.ModelService.CurModelRunningData.ModelName;
 

@@ -49,6 +49,7 @@ public partial class App : Application, ILogger, IDisposable
 
     public override void OnFrameworkInitializationCompleted()
     {
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -57,12 +58,15 @@ public partial class App : Application, ILogger, IDisposable
             //     DataContext = new MainViewModel()
             // };
             DummyWindow = new DummyWindow();
+            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("dummy-window");
 
             Clipboard = new ClipboardService(DummyWindow);
+            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("clipboard-service");
             FilesService = new FilesService();
             ScreensService = new ScreensService(DummyWindow);
             ModelService = new ModelService();
             MemoryService = new MemoryService();
+            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("app-services");
 
             Services = new ServiceCollection()
                 .AddSingleton(ScreensService)
@@ -71,7 +75,9 @@ public partial class App : Application, ILogger, IDisposable
                 .AddSingleton<MainViewModel>()
                 .AddSingleton<SearchService>()
                 .BuildServiceProvider();
+            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("di-container");
             DummyWindow.InitializeMainViewModel(Services.GetRequiredService<MainViewModel>());
+            UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("main-viewmodel");
 
             desktop.MainWindow = DummyWindow;
 
@@ -86,9 +92,12 @@ public partial class App : Application, ILogger, IDisposable
         }
 
         base.OnFrameworkInitializationCompleted();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("base-framework-init");
 
         LocalizationManager.Instance.InitializeFromConfig();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("localization");
         ApplicationThemeManager.InitializeFromConfig();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("theme");
         UiharuCoreManager.Instance.Init();
 
         // Process.GetCurrentProcess().Exited += OnExit;
@@ -96,19 +105,23 @@ public partial class App : Application, ILogger, IDisposable
 
         //强行清理可能残留的进程
         ProcessHelper.ForceClearAllProcesses();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("clear-stale-processes");
 
         // var name= FontUtils.GetFontFamilyName("F:\\项目\\个人\\UiharuMind\\UiharuMind\\UiharuMind\\Assets\\Fonts\\DreamHanSansCN-W12.ttf");
 
         //自动打开主窗口
 #if !DEBUG
         DummyWindow.LaunchMainWindow();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("launch-main-window");
 #endif
 #if DEBUG
         this.AttachDevTools();
 #endif
 
         DeliverTrayFunc();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("tray");
         _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
+        UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("update-check-kickoff");
         Log.Debug("UiharuMind started.");
     }
 
