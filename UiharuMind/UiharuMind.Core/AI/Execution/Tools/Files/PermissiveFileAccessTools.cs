@@ -166,7 +166,10 @@ internal sealed class PermissiveFileAccessTools
         [Description("Case-sensitive search.")] bool caseSensitive = false,
         [Description("How many lines of context to show around each match.")] int contextLines = 0,
         [Description("Maximum directory depth to walk (null means no limit).")] int? maxDepth = null,
-        [Description("Only search files whose name matches one of these globs, e.g. \"*.cs\".")]
+        [Description("Only search files whose name matches one of these globs, e.g. \"*.cs\". "
+                     + "Only the file name is matched - do NOT include a path or '**/' prefix "
+                     + "(e.g. not \"**/*.cs\"); to limit the directory use the 'directory' argument. "
+                     + "A leading '**/' or path in a glob is stripped to the bare file name.")]
         string[]? fileGlobs = null,
         [Description("Omit this: by default the whole working directory is searched. "
                      + "Pass it only to narrow the search to one subdirectory, "

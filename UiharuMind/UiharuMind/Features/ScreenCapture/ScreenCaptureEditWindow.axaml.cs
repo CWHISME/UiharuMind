@@ -14,7 +14,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using SharpHook.Native;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;

@@ -70,6 +70,43 @@ public class SearchFailureVisibilityTests : IDisposable
     }
 
     /// <summary>
+    /// <c>fileGlobs</c> 带路径分隔符（<c>**/*.cs</c>）也必须命中。
+    ///
+    /// 底层 Glacier.Grep 是拿纯文件名去匹配 <c>MatchesSimpleExpression</c>，<c>*</c> 不跨目录分隔符，
+    /// 于是模型（受 Glob 工具习惯影响）传 <c>**/*.cs</c> 会<b>永远 0 命中</b>。
+    /// 宽容口径把路径部分剥成纯文件名再交给引擎。
+    /// </summary>
+    [Fact]
+    public async Task Grep_FileGlobsWithPathPrefix_IsStrippedAndHits()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub"));
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep.cs"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep.txt"), "needle");
+
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", fileGlobs: ["**/*.cs"]);
+
+        Assert.Null(outcome.Failure);
+        GrepMatchResult match = Assert.Single(outcome.Matches);
+        Assert.EndsWith(".cs", match.FileName);
+        Assert.DoesNotContain(outcome.Matches, m => m.FileName.EndsWith(".txt"));
+    }
+
+    /// <summary>纯文件名 glob 原样生效，不能被剥路径的改动波及</summary>
+    [Fact]
+    public async Task Grep_FileGlobsBareName_StillHits()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub"));
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "hit.cs"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "hit.txt"), "needle");
+
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", fileGlobs: ["*.cs"]);
+
+        Assert.Null(outcome.Failure);
+        GrepMatchResult match = Assert.Single(outcome.Matches);
+        Assert.EndsWith(".cs", match.FileName);
+    }
+
+    /// <summary>
     /// <c>*Foo</c>：模型实测最爱写的那一种。归一化成 <c>.*Foo</c> 之后必须一次命中，
     /// 而不是抛正则语法错、也不是 0 命中。
     /// </summary>

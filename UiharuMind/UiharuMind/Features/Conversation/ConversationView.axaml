@@ -286,7 +286,9 @@
                          AcceptsReturn="True"
                          PlaceholderText="{Binding InputPlaceholder}">
                     <TextBox.KeyBindings>
-                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="{Binding SendGesture}" />
+                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Ctrl+Enter" />
+                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Meta+Enter" />
+                        <KeyBinding Command="{Binding SendMessageCommand}" Gesture="Alt+Enter" />
                         <KeyBinding Command="{Binding InputExtraCommand}" Gesture="Tab" />
                     </TextBox.KeyBindings>
                 </TextBox>

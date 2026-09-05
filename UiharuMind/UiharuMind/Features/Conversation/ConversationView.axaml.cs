@@ -96,7 +96,8 @@ public partial class ConversationView : UserControl
         // 回车与 Tab 则相反——它们绑在输入框的 KeyBindings 上,而 Avalonia 由
         // KeyboardDevice.ProcessRawEvent 沿视觉父链在 raise 路由事件之前就处理掉 KeyBindings,
         // 因此那两个键是在 SendMessage/InputExtra 命令入口改道的,不在这里。
-        // 这里仍留一个回车分支作兜底:SendGesture 若改成 Ctrl+Enter,裸回车就没有 KeyBinding 了
+        // 发送是 Ctrl+Enter(KeyBinding),裸回车在补全关闭时落回 TextBox 默认换行,
+        // 补全开着时由下面的回车分支兜底采纳候选
         ComposerBorder.AddHandler(KeyDownEvent, OnComposerKeyDown, RoutingStrategies.Tunnel);
         SkillPicker.PointerReleased += OnSkillPickerPointerReleased;
     }

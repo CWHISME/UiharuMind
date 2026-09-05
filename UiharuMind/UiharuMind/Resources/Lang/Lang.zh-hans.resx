@@ -126,7 +126,7 @@
         <value>已到会话开头</value>
     </data>
     <data name="ChatInputTips" xml:space="preserve">
-        <value>Shift+Enter 换行</value>
+        <value>Ctrl/Meta/Alt+Enter 发送，Enter 换行</value>
     </data>
     <data name="EjectModel" xml:space="preserve">
         <value>卸载</value>
@@ -219,7 +219,7 @@
         <value>计划</value>
     </data>
     <data name="AgentInputWatermark" xml:space="preserve">
-        <value>描述任务…(Enter 发送,Tab 切换模式)</value>
+        <value>描述任务…(Ctrl/Meta/Alt+Enter 发送,Tab 切换模式,Enter 换行)</value>
     </data>
     <data name="AgentModeExecute" xml:space="preserve">
         <value>执行</value>

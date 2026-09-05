@@ -238,17 +238,19 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// 只保存会话头与索引,不动历史文件(标题/参数/统计等头字段变更用)
     /// </summary>
     /// <param name="session">会话</param>
-    public void SaveMeta(ChatSession session)
+    /// <param name="touchUpdatedAt">是否刷新 UpdatedAt 并通知列表重排。
+    /// 草稿这类高频、低价值的旁置状态落盘时应传 false,避免打字就搅动列表排序</param>
+    public void SaveMeta(ChatSession session, bool touchUpdatedAt = true)
     {
         if (session.IsTransient) return;
 
-        session.UpdatedAt = DateTimeOffset.Now;
+        if (touchUpdatedAt) session.UpdatedAt = DateTimeOffset.Now;
         _loaded[session.SessionId] = session;
         // 会话头冗余保存同一份元数据,索引损坏时可据此重建
         SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
         _metas[session.SessionId] = session.ToMeta();
         SaveIndex();
-        OnSessionMetaUpdated?.Invoke(session);
+        if (touchUpdatedAt) OnSessionMetaUpdated?.Invoke(session);
     }
 
     /// <summary>

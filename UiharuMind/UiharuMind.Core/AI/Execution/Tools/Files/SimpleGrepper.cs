@@ -127,7 +127,7 @@ public sealed class SimpleGrepper
                 caseSensitive: caseSensitive,
                 contextLines: contextLines,
                 maxDepth: maxDepth,
-                fileGlobs: fileGlobs ?? Array.Empty<string>()).ConfigureAwait(false);
+                fileGlobs: NormalizeFileGlobs(fileGlobs)).ConfigureAwait(false);
 
             var results = new List<GrepMatchResult>(matches.Count);
             foreach (SearchResult match in matches)
@@ -209,6 +209,38 @@ public sealed class SimpleGrepper
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 宽容 `fileGlobs`：把带路径的写法剥成纯文件名，再交给底层引擎。
+    ///
+    /// 底层 <c>Glacier.Grep</c> 对每个 glob 是拿<b>纯文件名</b>（<c>Path.GetFileName</c>）去匹配
+    /// <c>FileSystemName.MatchesSimpleExpression</c>——<c>*</c> 不跨目录分隔符，于是
+    /// <c>**/*.cs</c>、<c>src/**/*.cs</c> 这类带路径的写法<b>永远 0 命中</b>。
+    /// 而模型（受 Glob 工具习惯影响）恰好爱这么写。
+    ///
+    /// 做法：glob 里但凡含目录分隔符（/、\、<c>**</c>），就只保留最后一段文件名模式；
+    /// 要限定目录请走 <c>directory</c> 参数。纯文件名（<c>*.cs</c>）原样不动。
+    /// </summary>
+    internal static string[] NormalizeFileGlobs(string[]? fileGlobs)
+    {
+        if (fileGlobs == null || fileGlobs.Length == 0) return [];
+
+        var normalized = new string[fileGlobs.Length];
+        for (int i = 0; i < fileGlobs.Length; i++)
+        {
+            string glob = fileGlobs[i];
+            if (!string.IsNullOrEmpty(glob)
+                && (glob.Contains('/') || glob.Contains('\\')))
+            {
+                int slash = Math.Max(glob.LastIndexOf('/'), glob.LastIndexOf('\\'));
+                glob = glob[(slash + 1)..];
+            }
+
+            normalized[i] = glob;
+        }
+
+        return normalized;
     }
 
     /// <summary>

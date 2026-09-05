@@ -133,7 +133,7 @@
         <value>Beginning of the conversation</value>
     </data>
     <data name="ChatInputTips" xml:space="preserve">
-        <value>Shift+Enter</value>
+        <value>Ctrl/Meta/Alt+Enter to send, Enter for newline</value>
     </data>
     <data name="EjectModel" xml:space="preserve">
         <value>Eject Model</value>
@@ -229,7 +229,7 @@
         <value>Plan</value>
     </data>
     <data name="AgentInputWatermark" xml:space="preserve">
-        <value>Describe a task… (Enter to send, Tab to switch mode)</value>
+        <value>Describe a task… (Ctrl/Meta/Alt+Enter to send, Tab to switch mode, Enter for newline)</value>
     </data>
     <data name="AgentModeExecute" xml:space="preserve">
         <value>Build</value>

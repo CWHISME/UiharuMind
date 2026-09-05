@@ -72,7 +72,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private string _inputText = string.Empty;
     [ObservableProperty] private string _inputPlaceholder = string.Empty;
     [ObservableProperty] private bool _scrollToEnd;
-    [ObservableProperty] private KeyGesture _sendGesture = new(Key.Enter);
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private bool _isPlaintext;
     [ObservableProperty] private bool _isAutoCollapseThinking;
@@ -97,6 +96,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         string text = InputText.Trim();
         if (string.IsNullOrEmpty(text)) return;
         InputText = string.Empty;
+        // 发送即视为消费掉草稿,不再回填
+        if (CurrentSession is { } sent) sent.ComposerDraft = "";
         await SendCoreAsync(text);
     }
 
@@ -372,6 +373,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public void Dispose()
     {
+        // 实例被弃用前把草稿落盘(静默,不动列表排序)。此后恢复靠会话头上的 ComposerDraft
+        if (CurrentSession is { } disposing) disposing.SaveMeta(false);
+
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
         _driver.StateChanged -= OnDriverStateChanged;
@@ -940,6 +944,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel?.Detach();
             MemoryPanel = new ConversationMemoryViewData(body);
 
+            // 切回会话时恢复输入框草稿
+            InputText = body.ComposerDraft;
+
             CurrentMode = await body.Runner.GetModeAsync();
             ReplayMessages(body.Runner.GetHistory());
             await RefreshTodosAsync();
@@ -1117,6 +1124,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     partial void OnInputTextChanged(string value)
     {
+        // 同步到会话草稿(纯内存)。落盘时机交给宿主:切会话/切页/弃用时由页面壳调 SaveMeta
+        if (CurrentSession is { } session) session.ComposerDraft = value;
+
         _ = Palette.RefreshSkillCandidatesAsync(value); //点名补全:仅在整行以 / 开头且技能名未写完时弹出
 
         int version = ++_inputCountVersion;

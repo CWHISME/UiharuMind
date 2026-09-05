@@ -134,6 +134,9 @@ public class ChatSession
         return snippets;
     }
 
+    /// <summary>输入框草稿（尚未发送的输入内容）。随会话头持久化，切会话/重启后恢复；发送成功后清空。</summary>
+    public string ComposerDraft { get; set; } = "";
+
     /// <summary>自定义模板参数</summary>
     public Dictionary<string, object?> CustomParams { get; set; } = [];
 
@@ -464,9 +467,10 @@ public class ChatSession
     /// <summary>
     /// 只保存会话头(标题/参数/统计等),不动历史文件
     /// </summary>
-    public void SaveMeta()
+    /// <param name="touchUpdatedAt">是否刷新 UpdatedAt 并通知列表重排(草稿落盘时传 false)</param>
+    public void SaveMeta(bool touchUpdatedAt = true)
     {
-        SessionManager.Instance.SaveMeta(this);
+        SessionManager.Instance.SaveMeta(this, touchUpdatedAt);
     }
 
     /// <summary>
