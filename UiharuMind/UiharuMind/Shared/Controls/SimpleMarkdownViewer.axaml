@@ -51,8 +51,15 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style Selector="InlineUIContainer.Code Border">
-            <Setter Property="Background" Value="Transparent"/>
+        <!-- 行内代码( `code` )由 CodeInline(Run) 渲染,背景是所在 MarkdownTextBlock
+             用 CodeInline.Background 画出来的圆角块。库默认背景是 60% 半透明黑
+             (SecondaryCardBackgroundColor),又暗又脏。这里统一置 Transparent 去掉背景块
+             (两套主题一致,不设的话会吃库默认的脏背景),代码感靠字色撑:
+             前景用各主题强调色 MessageStatusInfoBrush(浅色 #1769E0 / 深色 #84ADFF)。
+             这条 style 挂在控件自身,比库挂在 App 的全局样式更靠近控件,能盖住它 -->
+        <Style Selector="avalonia2|CodeInline">
+            <Setter Property="TextElement.Background" Value="Transparent"/>
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource MessageStatusInfoBrush}"/>
         </Style>
     </UserControl.Styles>
 
