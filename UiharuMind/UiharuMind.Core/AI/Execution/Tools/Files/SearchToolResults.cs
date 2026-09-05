@@ -7,8 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using Microsoft.Agents.AI;
-
 namespace UiharuMind.Core.AI.Execution.Files;
 
 /// <summary>
@@ -27,11 +25,27 @@ public sealed class GlobToolResult
     public string? Notice { get; set; }
 }
 
+/// <summary>
+/// 一个文件的一组命中行。
+///
+/// 按文件分组让模型一眼数出「几个文件、各几处」，路径只出现一次，token 远省于铺平的一行一命中
+/// （同一文件命中越多越省）。行内容保持 grep 味：命中行 <c>行号: 内容</c>，上下文行 <c>行号- 内容</c>，
+/// 行号拿来发 <c>Read offset=</c> 依旧毫不费力。
+/// </summary>
+public sealed class GrepFileHits
+{
+    /// <summary>文件路径（相对工作区）</summary>
+    public string File { get; set; } = string.Empty;
+
+    /// <summary>命中行与其上下文，按行号升序</summary>
+    public List<string> Lines { get; set; } = [];
+}
+
 /// <summary>文本搜索工具回给模型的形状，与 <see cref="GlobToolResult"/> 同构</summary>
 public sealed class GrepToolResult
 {
-    /// <summary>按文件聚合后的命中；没搜成时为空</summary>
-    public List<FileSearchResult> Matches { get; set; } = [];
+    /// <summary>按文件分组的命中；没搜成时为空</summary>
+    public List<GrepFileHits> Matches { get; set; } = [];
 
     /// <summary>给模型的说明：失败原因、自动降级、0 命中、被截断。没有要说的就是 null</summary>
     public string? Notice { get; set; }

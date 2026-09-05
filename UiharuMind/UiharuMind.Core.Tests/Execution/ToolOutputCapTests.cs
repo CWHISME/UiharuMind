@@ -1,5 +1,4 @@
 using System.Text;
-using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Files;
 
 namespace UiharuMind.Core.Tests.Agent;
@@ -121,11 +120,10 @@ public class ToolOutputCapTests : IDisposable
 
         GrepToolResult result = await _tools.Grep("needle");
 
-        // 按文件聚合:300 处命中来自同一个文件 → 一条文件条目。
-        // 截断的说明走 Notice 而不再是一条 FileName = "[truncated]" 的假命中:
-        // 假条目让模型分不清"这是一处命中"和"这是一句话"
-        FileSearchResult file = Assert.Single(result.Matches);
-        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches, file.MatchingLines.Count);
+        // 按文件分组:300 处命中来自同一文件 → 一组,但命中数仍封顶在 200
+        GrepFileHits file = Assert.Single(result.Matches);
+        Assert.Equal("haystack.txt", file.File);
+        Assert.Equal(PermissiveFileAccessTools.MaxGrepMatches, file.Lines.Count);
         Assert.NotNull(result.Notice);
         Assert.Contains("100 more", result.Notice);
         Assert.Contains("Narrow the query", result.Notice);
@@ -143,12 +141,13 @@ public class ToolOutputCapTests : IDisposable
 
         GrepToolResult result = await _tools.Grep("target", contextLines: 1);
 
-        FileSearchResult file = Assert.Single(result.Matches);
-        Assert.Equal([2, 3, 4], file.MatchingLines.Select(x => x.LineNumber).ToArray());
-        Assert.Equal(["l2", "target", "l4"], file.MatchingLines.Select(x => x.Line).ToArray());
+        // 组内行保持 grep 味:命中行 "N:content",上下文行 "N-content"(对齐 ripgrep)
+        GrepFileHits file = Assert.Single(result.Matches);
+        Assert.Equal("ctx.txt", file.File);
+        Assert.Equal(["2-l2", "3:target", "4-l4"], file.Lines);
     }
 
-    /// <summary>同一文件的多处命中聚合成一条,相邻命中重叠的上下文行只出现一次</summary>
+    /// <summary>同一文件的多处命中,重叠上下文行只出现一次;行号升序</summary>
     [Fact]
     public async Task Grep_AggregatesPerFile_AndDeduplicatesOverlappingContext()
     {
@@ -157,8 +156,18 @@ public class ToolOutputCapTests : IDisposable
 
         GrepToolResult result = await _tools.Grep("hit", contextLines: 2);
 
-        FileSearchResult file = Assert.Single(result.Matches);
-        Assert.Equal([1, 2, 3], file.MatchingLines.Select(x => x.LineNumber).ToArray());
+        GrepFileHits file = Assert.Single(result.Matches);
+        Assert.Equal("dense.txt", file.File);
+        // 三处命中+重叠上下文去重后,行号仍是 1/2/3,按行号升序
+        Assert.Equal(3, file.Lines.Count);
+        Assert.Equal([1, 2, 3], file.Lines.Select(ParseLineNumber).ToArray());
+
+        static int ParseLineNumber(string s)
+        {
+            // 形如 "N:content"(命中)或 "N-content"(上下文),行号就是开头那串数字
+            int end = s.IndexOfAny([':', '-']);
+            return int.Parse(s[..end]);
+        }
     }
 
     [Fact]

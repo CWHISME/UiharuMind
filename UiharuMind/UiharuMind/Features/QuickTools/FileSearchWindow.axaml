@@ -101,9 +101,9 @@
                                 <StackPanel Grid.Column="1">
                                     <TextBlock Text="{Binding FileName}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="{Binding Path}" FontSize="11" Foreground="Gray"
-                                               MaxLines="2" TextWrapping="Wrap"/>
+                                               TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="{Binding Snippet}" FontSize="11" Foreground="Gray"
-                                               MaxLines="2" TextWrapping="Wrap"/>
+                                               TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
 
                                 <TextBlock Grid.Column="2"

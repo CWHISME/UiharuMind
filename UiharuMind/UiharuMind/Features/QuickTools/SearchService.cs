@@ -101,7 +101,7 @@ public class SearchService
                     r.FileName,
                     Path.GetFileName(r.FileName),
                     r.MatchingLines.FirstOrDefault()?.LineNumber ?? 0,
-                    r.Snippet,
+                    TruncateSnippet(r.Snippet),
                     true
                 )).ToList(), null, null);
             }
@@ -136,5 +136,18 @@ public class SearchService
     private void SaveHistory()
     {
         SaveUtility.Save(AppPaths.Data.QuickSearchHistory, _searchHistory);
+    }
+
+    /// <summary>
+    /// 界面预览片段上限。文件里常有压缩产物一行几百 KB（模型侧工具输出有 MaxGrepLineChars=500
+    /// 截断，界面这条路径从前没有）——TextTrimming 仍要等整行字形整形才知道从哪截断，
+    /// 虚拟化滚动滚到那一行就卡一下。预览本来就只够看一两行，这里截断，打开文件不受影响。
+    /// </summary>
+    private const int MaxSnippetChars = 500;
+
+    private static string TruncateSnippet(string snippet)
+    {
+        if (snippet.Length <= MaxSnippetChars) return snippet;
+        return snippet[..MaxSnippetChars] + "…";
     }
 }

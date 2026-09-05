@@ -192,12 +192,14 @@ internal sealed class PermissiveFileAccessTools
 
         IReadOnlyList<GrepMatchResult> results = outcome.Matches;
 
-        // 自有结果 → 框架工具结果的转换只发生在这里,按文件聚合与命中限幅也只发生在这里。
-        // 聚合是为模型做的:同一文件十处命中摊成十条,文件名就要重复十遍,而模型真正需要的是
-        // "哪个文件、第几行"。界面那侧要的是可逐条点开的命中列表,所以不在 grepper 里聚合。
-        List<FileSearchResult> converted = [];
-        Dictionary<string, FileSearchResult> byFile = new(StringComparer.Ordinal);
-        Dictionary<string, HashSet<int>> seenLines = new(StringComparer.Ordinal);
+        // 自有结果 → 工具结果的转换只发生在这里:按文件分组 + 每行 grep 味文本,
+        // 命中限幅也只发生在这里。
+        // 界面那侧要的是可逐条点开的命中列表,那层读的是 SimpleGrepper 的结构化结果,
+        // 不经这里——所以这里可以放心为模型优化成紧凑的分组视图。
+        var converted = new List<GrepFileHits>();
+        var byFile = new Dictionary<string, GrepFileHits>(StringComparer.Ordinal);
+        var pendingLines = new Dictionary<string, List<(int LineNumber, string Text)>>(StringComparer.Ordinal);
+        var seenLines = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
         int remaining = MaxGrepMatches;
         int droppedMatches = 0;
         HashSet<string> droppedFiles = new(StringComparer.Ordinal);
@@ -211,36 +213,36 @@ internal sealed class PermissiveFileAccessTools
                 continue;
             }
 
+            // 限幅按“命中处”计(一处命中连同它的上下文行算一条);
+            // 上下文重叠去重按文件计——同一文件多处命中的上下文会互相重叠,只保留一次
             remaining--;
-            if (!byFile.TryGetValue(result.FileName, out FileSearchResult? file))
+            if (!byFile.TryGetValue(result.FileName, out GrepFileHits? file))
             {
-                file = new FileSearchResult
-                {
-                    FileName = result.FileName,
-                    Snippet = TruncateLine(result.Snippet, MaxGrepLineChars),
-                    MatchingLines = [],
-                };
-                byFile[result.FileName] = file;
-                seenLines[result.FileName] = [];
+                byFile[result.FileName] = file = new GrepFileHits { File = result.FileName };
                 converted.Add(file);
+                pendingLines[result.FileName] = [];
+                seenLines[result.FileName] = [];
             }
 
-            // 相邻命中的上下文会重叠,同一行只保留一次
             HashSet<int> seen = seenLines[result.FileName];
             foreach (GrepMatchLine line in result.MatchingLines)
             {
                 if (!seen.Add(line.LineNumber)) continue;
-                file.MatchingLines.Add(new FileSearchMatch
-                {
-                    LineNumber = line.LineNumber,
-                    Line = TruncateLine(line.Line, MaxGrepLineChars),
-                });
+
+                // 路径只在组头出现一次;行内只需行号 + 分隔符。
+                // 命中行用 : 分隔行号,上下文行用 -(对齐 ripgrep)
+                pendingLines[result.FileName].Add((line.LineNumber,
+                    line.IsMatch
+                        ? $"{line.LineNumber}:{TruncateLine(line.Line, MaxGrepLineChars)}"
+                        : $"{line.LineNumber}-{TruncateLine(line.Line, MaxGrepLineChars)}"));
             }
         }
 
-        foreach (FileSearchResult file in converted)
+        // 组内按行号升序,模型一眼能数出“哪几处、第几行”
+        foreach ((string fileName, List<(int, string)> lines) in pendingLines)
         {
-            file.MatchingLines.Sort((a, b) => a.LineNumber.CompareTo(b.LineNumber));
+            lines.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+            byFile[fileName].Lines = lines.Select(x => x.Item2).ToList();
         }
 
         // 说明走 Notice 字段,不再塞一条 FileName = "[truncated]" 的假命中:
