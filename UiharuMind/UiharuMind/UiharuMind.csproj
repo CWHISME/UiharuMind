@@ -15,29 +15,29 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="Avalonia" Version="12.1.2" />
 		<!-- 显式引用:Avalonia 自己在用它,但我们要的 JPEG 编码 Avalonia 的 Bitmap.Save 给不了
 		     (它只写 PNG,quality 参数不改格式),照片用 PNG 存下来是 JPEG 的 5~10 倍 -->
-		<PackageReference Include="SkiaSharp" Version="3.119.3-preview.1.1" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="SkiaSharp" Version="4.151.2" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
 		<!-- 长文本查看/编辑内核。要的是它内建的<b>按行虚拟化</b>:SelectableTextBlock 与 TextBox
 		     都没有文本虚拟化,几十万字的工具结果塞进去必然卡死。搜索/行号/跨行选中是白得的 -->
 		<PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
 		<PackageReference Include="AvaloniaEdit.TextMate" Version="12.0.0" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 		<PackageReference Include="LiveMarkdown.Avalonia" Version="2.4.0" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.1" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
 		<!--主题包-->
-		<PackageReference Include="Irihi.Ursa" Version="2.0.1" />
+		<PackageReference Include="Irihi.Ursa" Version="2.2.0" />
 
-		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.0.1" />
+		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.2.0" />
 		<PackageReference Include="ProDiagnostics" Version="12.1.0.4" />
 		<PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
 		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.1.0.1" />
-		<PackageReference Include="SharpHook" Version="7.1.3" />
-		<PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.13" />
+		<PackageReference Include="SharpHook" Version="8.0.0" />
+		<PackageReference Include="Svg.Controls.Skia.Avalonia" Version="12.0.0.17" />
 	</ItemGroup>
 
 	<ItemGroup>

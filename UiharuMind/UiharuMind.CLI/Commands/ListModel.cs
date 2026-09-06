@@ -10,13 +10,13 @@
  ****************************************************************************/
 
 using CliFx;
-using CliFx.Attributes;
+using CliFx.Binding;
 using CliFx.Infrastructure;
 
 namespace UiharuMind.CLI.Commands;
 
 [Command("list", Description = "List local model.")]
-public class ListModelCommand : ICommand
+public partial class ListModelCommand : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {

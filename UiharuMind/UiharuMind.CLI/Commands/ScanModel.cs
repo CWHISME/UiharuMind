@@ -10,13 +10,13 @@
  ****************************************************************************/
 
 using CliFx;
-using CliFx.Attributes;
+using CliFx.Binding;
 using CliFx.Infrastructure;
 
 namespace UiharuMind.CLI.Commands;
 
 [Command("scan", Description = "Force Scan local model.")]
-public class ScanModelCommand : ICommand
+public partial class ScanModelCommand : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {

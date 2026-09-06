@@ -35,7 +35,7 @@ public static class SimpleArchiveHelper
 
         await Task.Run(() =>
         {
-            using IArchive archive = ArchiveFactory.OpenArchive(archivePath, new ReaderOptions());
+            using IArchive archive = ArchiveFactory.Open(archivePath, new ReaderOptions());
             foreach (IArchiveEntry entry in archive.Entries)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -59,7 +59,7 @@ public static class SimpleArchiveHelper
                     ExtractFullPath = true,
                     Overwrite = true,
                     PreserveFileTime = true,
-                    SymbolicLinkHandler = (linkPath, linkTarget) =>
+                    WriteSymbolicLink = (linkPath, linkTarget) =>
                         CreateSymbolicLinkSafely(extractRoot, linkPath, linkTarget)
                 });
                 TryApplyUnixMode(entry, destinationPath);

@@ -10,13 +10,13 @@
  ****************************************************************************/
 
 using CliFx;
-using CliFx.Attributes;
+using CliFx.Binding;
 using CliFx.Infrastructure;
 
 namespace UiharuMind.CLI.Commands;
 
 [Command("capture", Description = "Screen Capture.")]
-public class ScreenCaptureCommand : ICommand
+public partial class ScreenCaptureCommand : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {

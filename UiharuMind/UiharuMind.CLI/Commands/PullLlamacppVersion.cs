@@ -10,13 +10,13 @@
  ****************************************************************************/
 
 using CliFx;
-using CliFx.Attributes;
+using CliFx.Binding;
 using CliFx.Infrastructure;
 
 namespace UiharuMind.CLI.Commands;
 
 [Command("pull", Description = "pull latest version info.")]
-public class PullLlamacppVersion : ICommand
+public partial class PullLlamacppVersion : ICommand
 {
     public async ValueTask ExecuteAsync(IConsole console)
     {

@@ -17,10 +17,10 @@ public sealed class SimpleGlobber
     /// 匹配目录名本身，再由 <see cref="GlobEnum.ShouldRecurseIntoEntry"/> 拦住下探即可。
     /// </summary>
     private static readonly GlobCollection HardSkips = new(
-        Glob.Parse("**/node_modules", GlobOptions.IgnoreCase),
-        Glob.Parse("**/.git", GlobOptions.IgnoreCase),
-        Glob.Parse("**/bin", GlobOptions.IgnoreCase),
-        Glob.Parse("**/obj", GlobOptions.IgnoreCase)
+        Glob.Parse("**/node_modules", GlobDialect.Standard, GlobOptions.IgnoreCase),
+        Glob.Parse("**/.git", GlobDialect.Standard, GlobOptions.IgnoreCase),
+        Glob.Parse("**/bin", GlobDialect.Standard, GlobOptions.IgnoreCase),
+        Glob.Parse("**/obj", GlobDialect.Standard, GlobOptions.IgnoreCase)
     );
 
     private string _rootDirectory;
@@ -77,7 +77,7 @@ public sealed class SimpleGlobber
         Glob glob;
         try
         {
-            glob = Glob.Parse(pattern.TrimEnd('/'), GlobOptions.IgnoreCase);
+            glob = Glob.Parse(pattern.TrimEnd('/'), GlobDialect.Standard, GlobOptions.IgnoreCase);
         }
         catch (Exception e)
         {

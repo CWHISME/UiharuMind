@@ -10,19 +10,19 @@
  ****************************************************************************/
 
 using CliFx;
-using CliFx.Attributes;
+using CliFx.Binding;
 using CliFx.Infrastructure;
 
 namespace UiharuMind.CLI.Commands;
 
 [Command("load", Description = "load local model.")]
-public class LoadModelCommand : ICommand
+public partial class LoadModelCommand : ICommand
 {
     [CommandParameter(0, Description = "order or model name.")]
-    public required string OrderOrName { get; init; }
+    public required string OrderOrName { get; set; }
 
-    [CommandParameter(1, Description = "port.", IsRequired = false)]
-    public int Port { get; init; } = 1369;
+    [CommandParameter(1, Description = "port.")]
+    public int Port { get; set; } = 1369;
 
     public async ValueTask ExecuteAsync(IConsole console)
     {

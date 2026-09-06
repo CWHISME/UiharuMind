@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using SharpHook;
 using SharpHook.Data;
+using SharpHook.Providers;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.Input;
@@ -46,7 +47,7 @@ public class SharpHookInputHookBackend : IInputHookBackend
 
     private static GlobalHookBase CreateHook()
     {
-        return new SimpleGlobalHook(GlobalHookType.All);
+        return new SimpleGlobalHook(UioHookProvider.Instance);
     }
 
     private static void SafeInvoke(Action? action)

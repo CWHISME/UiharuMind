@@ -1,6 +1,6 @@
 ﻿using CliFx;
 
-await new CliApplicationBuilder()
+await new CommandLineApplicationBuilder()
     .AddCommandsFromThisAssembly()
     .Build()
     .RunAsync();

@@ -845,7 +845,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
         {
             McpClient client = await ConnectAsync(server, cancellationToken).ConfigureAwait(false);
             IReadOnlyList<AIFunction> tools = await client
-                .ListAgentToolsWithTaskSupportAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                .ListAgentToolsWithTasksAsync(options: null, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             bool stale = false;
             lock (_lock)

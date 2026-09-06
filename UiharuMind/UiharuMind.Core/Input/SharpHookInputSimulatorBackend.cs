@@ -1,11 +1,13 @@
 using SharpHook;
 using SharpHook.Data;
+using SharpHook.Providers;
+using SharpHook.Simulation;
 
 namespace UiharuMind.Core.Input;
 
 public class SharpHookInputSimulatorBackend : IInputSimulatorBackend
 {
-    private readonly EventSimulator _globalSimulator = new();
+    private readonly EventSimulator _globalSimulator = EventSimulator.Create("UiharuMind", UioHookProvider.Instance);
 
     public void SendMouseMove(short x, short y)
     {

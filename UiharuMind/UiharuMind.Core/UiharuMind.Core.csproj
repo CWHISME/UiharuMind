@@ -15,43 +15,43 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="AngleSharp" Version="1.5.2" />
+      <PackageReference Include="AngleSharp" Version="1.8.0" />
       <PackageReference Include="CommunityToolkit.VectorData.SqliteVec" Version="1.0.1-preview" />
       <!-- tiktoken o200k 词表数据:Microsoft.ML.Tokenizers 本体已由 Agents.AI 传递引入 -->
       <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
-      <PackageReference Include="CliWrap" Version="3.8.1" />
-      <PackageReference Include="Downloader" Version="3.3.3" />
+      <PackageReference Include="CliWrap" Version="3.10.5" />
+      <PackageReference Include="Downloader" Version="5.9.6" />
       <PackageReference Include="Glacier.Grep" Version="1.0.0" />
       <PackageReference Include="LLamaSharp" Version="0.27.0" />
       <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
-      <PackageReference Include="Meziantou.Framework.Globbing" Version="4.0.0" />
+      <PackageReference Include="Meziantou.Framework.Globbing" Version="5.0.3" />
       <!-- Agent Framework 面(含 preview/alpha 包)只挡编译期外流:UI 层若直接引用其类型将变成编译错误,
            迫使一切经 ICharacterRunner 收口。
            必须是 compile 而非 all —— all 会连 runtime 资产一起挡掉,
            导致这些包及其传递依赖(如 ModelContextProtocol.Core)不进 app head 输出目录,运行时抛 FileNotFoundException。
            后三项是 PrivateAssets 的默认值,显式写出以免被覆盖。
            Microsoft.Extensions.AI 是稳定的公共货币,完全不设限。 -->
-      <PackageReference Include="Microsoft.Agents.AI" Version="1.16.0">
+      <PackageReference Include="Microsoft.Agents.AI" Version="1.20.0">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.16.0">
+      <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.20.0">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.16.0-preview.260730.1">
+      <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.20.0-preview.260831.1">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.16.0-alpha.260730.1">
+      <PackageReference Include="Microsoft.Agents.AI.Mcp" Version="1.20.0-alpha.260831.1">
         <PrivateAssets>compile;contentfiles;analyzers;build</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
-      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
+      <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
+      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
       <PackageReference Include="ScreenCapture.NET.DX11" Version="3.0.0" />
-      <PackageReference Include="SharpCompress" Version="0.49.1" />
-      <PackageReference Include="SharpHook" Version="7.1.3" />
+      <PackageReference Include="SharpCompress" Version="1.0.0" />
+      <PackageReference Include="SharpHook" Version="8.0.0" />
       <!-- Avalonia.FreeDesktop 已传递引入同一版本，这里显式声明是因为 Core 不引用 Avalonia，
            而 Wayland 下的截图必须经 xdg-desktop-portal 的 D-Bus 接口 -->
-      <PackageReference Include="Tmds.DBus.Protocol" Version="0.92.0" />
-      <PackageReference Include="UTF.Unknown" Version="2.6.0" />
+      <PackageReference Include="Tmds.DBus.Protocol" Version="0.95.1" />
+      <PackageReference Include="UTF.Unknown" Version="2.7.0" />
       <PackageReference Include="WebLookup" Version="0.2.1" />
     </ItemGroup>
 
