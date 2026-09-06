@@ -222,6 +222,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private CancellationTokenSource? _prepareCancellation; //会话装配阶段的取消源,此后由 TurnDriver 接手
     private bool _isPreparing; //正在装配会话(此时 TurnDriver 还没开始跑)
     private int _loadVersion; //会话加载版本号,用于放弃已被新切换取代的旧加载
+    private bool _isDisplayed = true; //本实例是否正显示在界面上
+    private ChatSessionMeta? _deferredLoad; //中途被切走而欠下的那次装载,切回来时接着做
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
     private CancellationTokenSource? _tokenRefreshDebounce; //打字时合并刷新,避免每个字符都触发 ToolTip 重排
@@ -878,6 +880,27 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     //================= 加载与回放 =================
 
     /// <summary>
+    /// 本实例是否正显示在界面上（由页面壳在切换当前会话时维护）。
+    ///
+    /// 缓存里的实例不止一个：后台还在跑的那些也留着。装载一个长会话要占掉主线程几百毫秒，
+    /// 而快速点会话列表时这些装载会叠在一起，表现为<b>整个列表都点不动</b>——
+    /// 所以切走的那一份中途就停，欠账留到切回来再补（见 <see cref="LoadSessionAsync"/>）。
+    /// </summary>
+    public bool IsDisplayed
+    {
+        get => _isDisplayed;
+        set
+        {
+            if (_isDisplayed == value) return;
+            _isDisplayed = value;
+            if (!value || _deferredLoad is not { } deferred) return;
+
+            _deferredLoad = null;
+            _ = LoadSessionAsync(deferred);
+        }
+    }
+
+    /// <summary>
     /// 装载指定会话(null = 新会话空态)。
     ///
     /// <b>不再取消正在跑的轮次</b>：现在每个会话有自己的视图模型实例，切会话是换实例，
@@ -927,14 +950,27 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _isLoadingSession = false;
         }
 
+        // 每个悬挂点都要问一次:这次装载还算不算数(被更新的切换取代 / 已经不在界面上了)
+        bool Abandoned()
+        {
+            if (loadVersion != _loadVersion) return true;
+            if (IsDisplayed) return false;
+
+            // 装载中途被切走:剩下的活没人看,而它照样跟新会话抢主线程——
+            // 快速点会话列表时"整个列表都变迟钝"就有它一份。欠账记下,切回来再接着做
+            _deferredLoad = meta;
+            IsSessionLoading = false;
+            return true;
+        }
+
         // 分帧:先让"清空旧会话"渲染出去,再构建新会话,把一次长冻结拆成两段短的
         await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
-        if (loadVersion != _loadVersion) return;
+        if (Abandoned()) return;
 
         try
         {
             ChatSession? body = await AttachAsync(meta, CancellationToken.None);
-            if (loadVersion != _loadVersion) return;
+            if (Abandoned()) return;
             if (body == null)
             {
                 Items.Add(new ErrorItem { Message = $"Session '{meta.SessionId}' could not be loaded." });
@@ -948,6 +984,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             InputText = body.ComposerDraft;
 
             CurrentMode = await body.Runner.GetModeAsync();
+            if (Abandoned()) return;
+
             ReplayMessages(body.Runner.GetHistory());
 
             // 就在这里收尾,不能拖到下面两个 await 之后:视图靠这一步同步贴到底,
@@ -976,7 +1014,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>
     /// 历史消息回放:与实时流共用 ApplyContent 管道。
-    /// 只渲染最近一窗,更早的由"加载更早"按批前插——非虚拟化列表靠数据开窗保住长会话性能
+    /// 只渲染最近的<b>首屏</b>,凑够一窗的那几条由 <see cref="FillFirstWindow"/> 在界面可见之后补,
+    /// 更早的由"加载更早"按批前插——非虚拟化列表靠数据开窗保住长会话性能
     /// </summary>
     private void ReplayMessages(IReadOnlyList<ChatMessage> messages)
     {
@@ -1000,15 +1039,45 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>
     /// 向前扩展一窗历史。由视图层调用,滚动位置的保持由调用方负责
     /// </summary>
-    public void LoadEarlierMessages()
+    /// <returns>真的前插了条目返回 true(调用方据此决定要不要补偿视口)</returns>
+    public bool LoadEarlierMessages()
     {
         IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
         if (_historyWindow.Extend(history.Count) is not { } range)
         {
             HasEarlierMessages = false;
-            return;
+            return false;
         }
 
+        PrependHistory(history, range);
+        HasLoadedEarlier = true;
+        return true;
+    }
+
+    /// <summary>
+    /// 把首屏补齐到整窗。切会话时只回放首屏,省下的那几条布局是"点下去到看见"这段延迟的大头;
+    /// 界面贴底可见之后由视图层在空闲时调用本方法补上。滚动位置的保持同样由调用方负责。
+    ///
+    /// 与 <see cref="LoadEarlierMessages"/> 不同,这不是用户往前翻,所以不置 <see cref="HasLoadedEarlier"/>——
+    /// 那个标记只用来决定要不要显示"已到开头"
+    /// </summary>
+    /// <returns>真的补了条目返回 true</returns>
+    public bool FillFirstWindow()
+    {
+        IReadOnlyList<ChatMessage> history = CurrentRunner?.GetHistory() ?? [];
+        if (_historyWindow.FillFirstWindow(history.Count) is not { } range)
+        {
+            HasEarlierMessages = _historyWindow.HasEarlier;
+            return false;
+        }
+
+        PrependHistory(history, range);
+        return true;
+    }
+
+    /// <summary>把一段历史前插到条目集合头部</summary>
+    private void PrependHistory(IReadOnlyList<ChatMessage> history, (int From, int To) range)
+    {
         List<ConversationItemBase> buffer = BuildHistoryItems(history, range.From, range.To);
         for (int i = 0; i < buffer.Count; i++)
         {
@@ -1016,7 +1085,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         HasEarlierMessages = _historyWindow.HasEarlier;
-        HasLoadedEarlier = true;
     }
 
     /// <summary>

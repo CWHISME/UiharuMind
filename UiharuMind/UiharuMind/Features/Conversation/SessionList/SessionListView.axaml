@@ -44,7 +44,15 @@
              SelectedItem="{Binding SelectedSession}">
         <ListBox.ItemTemplate>
             <DataTemplate x:DataType="sessions:SessionListItem">
-                <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
+                <!-- 悬停给全文:标题与描述在这窄侧栏里都是单行截断的,看不到尾 -->
+                <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent"
+                      ToolTip.ShowDelay="600"
+                      ToolTip.Placement="Pointer">
+                    <!-- 明确给换行与上限宽度:标题本来就是因为放不下才截断的,
+                         提示里再拉成一条长横条等于没解决问题 -->
+                    <ToolTip.Tip>
+                        <TextBlock Text="{Binding FullTextTip}" TextWrapping="Wrap" MaxWidth="320" />
+                    </ToolTip.Tip>
                     <Grid.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />

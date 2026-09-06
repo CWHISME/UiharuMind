@@ -55,10 +55,14 @@ public partial class SessionListItem : ObservableObject
     public ChatSession Session => _session ??=
         SessionManager.Instance.Load(_meta.SessionId) ?? new ChatSession { SessionId = _meta.SessionId };
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    [NotifyPropertyChangedFor(nameof(FullTextTip))]
     private string _name;
 
-    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDistinctDescription))]
+    [NotifyPropertyChangedFor(nameof(FullTextTip))]
     private string _description;
 
     [ObservableProperty] private string _timeString;
@@ -82,6 +86,12 @@ public partial class SessionListItem : ObservableObject
     /// </summary>
     public bool HasDistinctDescription =>
         Description.Length > 0 && !string.Equals(Description, Name, StringComparison.Ordinal);
+
+    /// <summary>
+    /// 悬停提示：条目里被截断的那几行的全文。标题与描述在列表里都是单行截断的，
+    /// 侧栏又窄，长标题看不到尾——描述值得单独占一行时（对话页）一并给出
+    /// </summary>
+    public string FullTextTip => HasDistinctDescription ? $"{Name}\n{Description}" : Name;
 
     /// <summary>
     /// 角色头像。<b>惰性解码</b>——列表可能有成百条，在构造期逐条解码位图会在开页时

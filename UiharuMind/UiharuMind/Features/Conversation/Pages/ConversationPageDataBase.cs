@@ -116,6 +116,16 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     [ObservableProperty] private ConversationViewModel _conversation = null!;
 
     /// <summary>
+    /// 换当前实例时同步「谁在界面上」。切走的那份据此中止还没做完的装载——
+    /// 它抢的是同一个主线程，快速点会话列表时列表本身就是被这些装载卡住的
+    /// </summary>
+    partial void OnConversationChanged(ConversationViewModel? oldValue, ConversationViewModel newValue)
+    {
+        if (oldValue != null) oldValue.IsDisplayed = false;
+        newValue.IsDisplayed = true;
+    }
+
+    /// <summary>
     /// 造一个本页配置好的视图模型（新建会话用的默认角色、输入框占位文案等）
     /// </summary>
     /// <returns>新实例</returns>

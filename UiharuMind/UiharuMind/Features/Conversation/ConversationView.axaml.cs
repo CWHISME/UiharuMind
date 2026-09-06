@@ -176,6 +176,7 @@ public partial class ConversationView : UserControl
 
         AnchorToBottom();
         _autoScrollHolder.Resume();
+        ScheduleFirstWindowFill(vm);
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -184,11 +185,33 @@ public partial class ConversationView : UserControl
         // 清空布局把 Offset 钳回去的事件可能晚于 Reset 到达,会把刚恢复的跟随再关掉;
         // 构建完成之后只剩内容增长事件,跟随不会再被误关
         if (e.PropertyName == nameof(ConversationViewModel.IsSessionLoading) &&
-            _viewModel is { IsSessionLoading: false })
+            _viewModel is { IsSessionLoading: false } vm)
         {
             AnchorToBottom();
             _autoScrollHolder.Resume();
+            ScheduleFirstWindowFill(vm);
         }
+    }
+
+    /// <summary>
+    /// 首屏贴底之后，把窗口剩下的那几条补上。
+    ///
+    /// 切会话的冻结压倒性地在布局上（见 <see cref="AnchorToBottom"/> 的实测），所以回放只给首屏，
+    /// 剩下的挪到这里——用户已经看见内容了，这段布局落在他读第一屏的时间里。
+    /// 排到 Background 而不是当场做：当场做等于没分批
+    /// </summary>
+    private void ScheduleFirstWindowFill(ConversationViewModel vm)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            // 期间可能已经换了会话:那份补齐属于旧的视图模型,别插到新会话的列表上。
+            // 不能用 _isLoadingEarlier 挡在派发之前——那样会连着把下一个会话的补齐也吞掉
+            if (!ReferenceEquals(_viewModel, vm)) return;
+
+            // 与"滚到顶自动续窗"互斥:补齐期间来的滚动不该再续一窗(标志由补偿路径解锁)
+            _isLoadingEarlier = true;
+            PrependKeepingViewport(vm.FillFirstWindow);
+        }, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -208,7 +231,7 @@ public partial class ConversationView : UserControl
         // 而在 ScrollChanged 里同步跑整棵树的布局是自找麻烦。
         // 排到 Loaded 去做,整段落在同一个派发任务里——中间不会渲染出一帧错位的视口
         _isLoadingEarlier = true;
-        Dispatcher.UIThread.Post(() => LoadEarlierKeepingViewport(vm), DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() => PrependKeepingViewport(vm.LoadEarlierMessages), DispatcherPriority.Loaded);
     }
 
     /// <summary>
@@ -281,15 +304,17 @@ public partial class ConversationView : UserControl
     }
 
     /// <summary>
-    /// 续一窗更早的消息，并按前插高度补偿 Offset 以保持视口内容不动
+    /// 前插一段历史，并按前插高度补偿 Offset 以保持视口内容不动。
+    /// 跟底时同一个补偿量正好把视口留在底部，所以续窗与首屏补齐共用这一条路径
     /// </summary>
-    private void LoadEarlierKeepingViewport(ConversationViewModel vm)
+    /// <param name="prepend">真正做前插的动作（续更早 / 补齐首屏），什么都没插时返回 false</param>
+    private void PrependKeepingViewport(Func<bool> prepend)
     {
         try
         {
             double extentBefore = Viewer.Extent.Height;
             double offsetBefore = Viewer.Offset.Y;
-            vm.LoadEarlierMessages();
+            if (!prepend()) return; //没插进东西就不必为补偿跑一次全量布局
             Viewer.UpdateLayout();
             Viewer.Offset = new Vector(Viewer.Offset.X, offsetBefore + Viewer.Extent.Height - extentBefore);
         }
