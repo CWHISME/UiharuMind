@@ -208,6 +208,10 @@ public partial class ConversationView : UserControl
             // 不能用 _isLoadingEarlier 挡在派发之前——那样会连着把下一个会话的补齐也吞掉
             if (!ReferenceEquals(_viewModel, vm)) return;
 
+            // 首屏已够一屏就能滚:滚动续窗会接手欠的那几条(Extend 一并取回),
+            // 不用在这里多插一次布局。只有填不满一屏、滑不动时才补
+            if (Viewer.Extent.Height > Viewer.Viewport.Height) return;
+            
             // 与"滚到顶自动续窗"互斥:补齐期间来的滚动不该再续一窗(标志由补偿路径解锁)
             _isLoadingEarlier = true;
             PrependKeepingViewport(vm.FillFirstWindow);
@@ -221,6 +225,10 @@ public partial class ConversationView : UserControl
     private void OnViewerScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (_isLoadingEarlier) return;
+        // extent 增长是"内容变多要贴底",不是"用户滚到顶"。初始贴底时 AnchorToBottom 第一次
+        // UpdateLayout 会让 extent 首度长高,此刻 Offset 还在顶部(0),若不当心会把这一窗续掉,
+        // 表现为首屏 5 条贴完底后进度条又涨成 10 条
+        if (e.ExtentDelta.Y > 0) return;
         if (DataContext is not ConversationViewModel vm) return;
         if (!vm.HasEarlierMessages || vm.IsSessionLoading) return;
         // 内容还没多到能滚就不续:此时 Offset 恒为 0,不判这一条会一路把整段历史续完

@@ -41,7 +41,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// 等一会儿换来「这一轮真的带着工具跑」，比让第一轮静默缺工具划算得多。
     /// 而这笔等待每个进程只付一次——工具取回后就常驻缓存。
     /// </summary>
-    private static readonly TimeSpan WarmupTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan WarmupTimeout = TimeSpan.FromSeconds(3);
 
     /// <summary>
     /// 零租约之后连接留存多久。

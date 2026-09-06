@@ -20,7 +20,7 @@ public sealed class HistoryWindow
     private int _firstScreenDeficit; //首屏之后还欠多少条才够整窗
 
     /// <summary>默认每批窗口大小</summary>
-    public const int DefaultSize = 5;
+    public const int DefaultSize = 10;
 
     /// <summary>
     /// 默认首屏批次大小。切会话时先只渲染这么多条，剩下的凑够一窗由
