@@ -47,4 +47,7 @@ public class ChatSessionMeta
 
     /// <summary>消息条数（列表展示，避免为此加载本体）</summary>
     public int MessageCount { get; set; }
+
+    /// <summary>是否有未发送的输入草稿（列表据此显示小标记，避免为此加载本体）</summary>
+    public bool HasComposerDraft { get; set; }
 }

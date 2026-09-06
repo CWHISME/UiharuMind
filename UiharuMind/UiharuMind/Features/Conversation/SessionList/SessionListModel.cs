@@ -100,6 +100,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionAdded += OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved += OnSessionRemoved;
         SessionManager.Instance.OnSessionMetaUpdated += OnSessionMetaUpdated;
+        SessionManager.Instance.OnSessionDraftChanged += OnSessionDraftChanged;
         SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
     }
 
@@ -237,6 +238,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionAdded -= OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved -= OnSessionRemoved;
         SessionManager.Instance.OnSessionMetaUpdated -= OnSessionMetaUpdated;
+        SessionManager.Instance.OnSessionDraftChanged -= OnSessionDraftChanged;
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
         foreach (SessionListItem item in Sessions) Detach(item);
     }
@@ -245,8 +247,25 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
     partial void OnSelectedSessionChanged(SessionListItem? value)
     {
+        // 无论静默与否都同步"当前展示"标记:SelectWithoutNotifying 也改了选中,
+        // 页面壳据此判断当前会话,而 IsCurrent 是列表项的界面状态,不归 SelectionChanged 管
+        UpdateCurrent(value);
         if (_suppressSelectionNotify) return;
         SelectionChanged?.Invoke(value);
+    }
+
+    /// <summary>
+    /// 把每条的 <see cref="SessionListItem.IsCurrent"/> 对齐到当前选中。
+    /// 幂等:只有状态不同的条目才写回,已同步的不重复触发通知。
+    /// 切换会话是低频操作,整列遍历一次可接受
+    /// </summary>
+    private void UpdateCurrent(SessionListItem? value)
+    {
+        foreach (SessionListItem item in Sessions)
+        {
+            bool current = ReferenceEquals(item, value);
+            if (item.IsCurrent != current) item.IsCurrent = current;
+        }
     }
 
     private List<ChatSessionMeta> ListSessions()
@@ -299,6 +318,15 @@ public partial class SessionListModel : ObservableObject, IDisposable
     private void OnRunStateChanged(string sessionId) =>
         // 可能来自后台线程(无头执行),而条目是界面绑定的
         _post(() => Find(sessionId)?.RefreshRunState());
+
+    /// <summary>
+    /// 某会话的草稿状态变了。只更新那一条的小标记,不做全量重排——
+    /// 草稿落盘走的是 touchUpdatedAt=false 分支,UpdatedAt 没动,列表顺序不该变。
+    /// 必须接上<paramref name="meta"/>新引用:条目读 HasDraft 取自 _meta,
+    /// 只刷 IsDraftVisible 而旧 meta 还是 false,标记就永远亮不起来
+    /// </summary>
+    private void OnSessionDraftChanged(ChatSession session, ChatSessionMeta meta) =>
+        _post(() => Find(session.SessionId)?.UpdateMeta(meta));
 
     /// <summary>
     /// 摘掉一个条目。两条路径都会到这里——全局的会话删除通知，以及条目自己的删除命令

@@ -87,13 +87,20 @@
                                  IsVisible="{Binding IsAwaitingApproval}" />
 
                         <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" MinWidth="0">
-                            <TextBlock Grid.Row="0"
-                                       Text="{Binding Name}"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SemiGrey7}"
-                                       TextWrapping="NoWrap"
-                                       MaxLines="1"
-                                       TextTrimming="CharacterEllipsis" />
+                            <!-- 草稿标记:非当前会话且有未发送输入时在标题前亮一个小圆点 -->
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" MinWidth="0">
+                                <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
+                                         VerticalAlignment="Center"
+                                         Fill="#7AA2F7"
+                                         IsVisible="{Binding IsDraftVisible}" />
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SemiGrey7}"
+                                           TextWrapping="NoWrap"
+                                           MaxLines="1"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
                             <!-- 副行:时间 + 角色名 横排(都是短内容,不会挤),
                                  描述单独一行——长描述不再跟角色名挤成一团。
                                  角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——

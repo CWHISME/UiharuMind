@@ -100,6 +100,17 @@ public partial class SessionListItem : ObservableObject
         }
     }
 
+    /// <summary>本会话有未发送的输入草稿（列表据此显示小标记）</summary>
+    public bool HasDraft => _meta.HasComposerDraft;
+
+    /// <summary>本会话当前正被展示（自己看得到输入框，不必再加草稿标记）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDraftVisible))]
+    private bool _isCurrent;
+
+    /// <summary>草稿标记是否可见：有草稿且不是当前会话</summary>
+    public bool IsDraftVisible => HasDraft && !IsCurrent;
+
     /// <summary>本会话有轮次在跑（界面轮次或定时任务的无头轮次）</summary>
     [ObservableProperty] private bool _isRunning;
 
@@ -158,6 +169,8 @@ public partial class SessionListItem : ObservableObject
         Name = meta.Title;
         Description = meta.Description;
         TimeString = CalcTimeString();
+        OnPropertyChanged(nameof(HasDraft));
+        OnPropertyChanged(nameof(IsDraftVisible));
     }
 
     //================= 运行态 =================

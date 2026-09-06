@@ -349,13 +349,72 @@ public class SessionListModelTests
         Assert.Equal(0, selectionRaised);
     }
 
-    //================= 条目显示 =================
+    //================= 草稿标记 =================
+
+    private static SessionListItem DraftItem(bool hasDraft)
+    {
+        return new SessionListItem(
+            new ChatSessionMeta { SessionId = "s", HasComposerDraft = hasDraft },
+            new StubMessageService());
+    }
 
     private static SessionListItem Item(string title, string description)
     {
         return new SessionListItem(
             new ChatSessionMeta { SessionId = "s", Title = title, Description = description },
             new StubMessageService());
+    }
+
+    [Fact]
+    public void Draft_VisibleOnlyWhenHasDraftAndNotCurrent()
+    {
+        SessionListItem item = DraftItem(true);
+        // 刚建条目不选中(非当前),有草稿就该亮
+        Assert.True(item.HasDraft);
+        Assert.False(item.IsCurrent);
+        Assert.True(item.IsDraftVisible);
+
+        // 变成当前会话:自己看得到输入框,标记收起
+        item.IsCurrent = true;
+        Assert.False(item.IsDraftVisible);
+    }
+
+    [Fact]
+    public void Draft_HiddenWhenNoDraft()
+    {
+        SessionListItem item = DraftItem(false);
+        Assert.False(item.IsDraftVisible);
+
+        item.IsCurrent = true;
+        Assert.False(item.IsDraftVisible);
+    }
+
+    [Fact]
+    public void Select_SetsIsCurrentOnTheChosenItemAndClearsOthers()
+    {
+        SessionListModel model = Create(() => [Meta("a"), Meta("b")]);
+        SessionListItem a = model.Sessions[0];
+        SessionListItem b = model.Sessions[1];
+
+        model.SelectWithoutNotifying(a); //静默选中也应同步当前标记
+        Assert.True(a.IsCurrent);
+        Assert.False(b.IsCurrent);
+
+        model.SelectWithoutNotifying(b);
+        Assert.False(a.IsCurrent);
+        Assert.True(b.IsCurrent);
+    }
+
+    [Fact]
+    public void Draft_Reevaluated_AfterUpdateMeta()
+    {
+        SessionListItem item = DraftItem(false);
+        Assert.False(item.IsDraftVisible);
+
+        item.UpdateMeta(new ChatSessionMeta { SessionId = "s", HasComposerDraft = true });
+
+        Assert.True(item.HasDraft);
+        Assert.True(item.IsDraftVisible);
     }
 
     [Fact]

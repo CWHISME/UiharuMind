@@ -305,6 +305,7 @@ public class ChatSession
             CreatedAt = CreatedAt,
             UpdatedAt = UpdatedAt,
             MessageCount = History.Count,
+            HasComposerDraft = !string.IsNullOrWhiteSpace(ComposerDraft),
         };
     }
 

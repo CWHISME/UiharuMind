@@ -51,6 +51,17 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public event Action<ChatSession>? OnSessionMetaUpdated;
 
     /// <summary>
+    /// 会话的输入草稿状态变了（有/无未发送输入）。
+    ///
+    /// 与 <see cref="OnSessionMetaUpdated"/> 分开：草稿落盘走 <see cref="SaveMeta"/> 的
+    /// <c>touchUpdatedAt=false</c> 分支（不重排），但列表项上的小标记仍要随之刷新。
+    /// 只在草稿状态<b>翻转</b>时抛，避免每次打字/落盘都搅动列表。
+    /// 参数携带<b>落盘后的新元数据</b>：列表项要换引用才能读到新的草稿标记，
+    /// 只刷那一条不必做全量 Sync。
+    /// </summary>
+    public event Action<ChatSession, ChatSessionMeta>? OnSessionDraftChanged;
+
+    /// <summary>
     /// 运行态登记处：界面的运行指示器、「跑时禁用删除」都读它，
     /// 界面轮次与无头轮次都往它上面登记
     /// </summary>
@@ -248,8 +259,11 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         _loaded[session.SessionId] = session;
         // 会话头冗余保存同一份元数据,索引损坏时可据此重建
         SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
+        bool draftChanged = _metas.TryGetValue(session.SessionId, out ChatSessionMeta? prev)
+            && prev.HasComposerDraft != !string.IsNullOrWhiteSpace(session.ComposerDraft);
         _metas[session.SessionId] = session.ToMeta();
         SaveIndex();
+        if (!touchUpdatedAt && draftChanged) OnSessionDraftChanged?.Invoke(session, _metas[session.SessionId]);
         if (touchUpdatedAt) OnSessionMetaUpdated?.Invoke(session);
     }
 
