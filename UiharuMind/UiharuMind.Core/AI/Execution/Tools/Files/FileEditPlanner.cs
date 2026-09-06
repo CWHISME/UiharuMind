@@ -151,8 +151,7 @@ public static class FileEditPlanner
             {
                 case ELocateResult.NotFound:
                     return FileEditPlan.Failed(
-                        $"edits[{i}].oldString was not found in '{label}'. It must match the file exactly, "
-                        + "whitespace and line breaks included. Read the file again and copy the text from it.");
+                        BuildNotFoundMessage(i, oldString, label, text, lines));
 
                 case ELocateResult.NotUnique:
                     return FileEditPlan.Failed(
@@ -214,6 +213,90 @@ public static class FileEditPlanner
     }
 
     // ---- 定位 ----
+
+    /// <summary>
+    /// 组装 NotFound 话术:在标准提示后追加「最近的行」候选,让模型一步修正而不是反复读抄。
+    /// oldString 拿<b>第一行</b>当锚,与文件各行算编辑距离,取最接近的一行;
+    /// 距离超过阈值(不够像)就不给候选,避免误导。
+    /// </summary>
+    private static string BuildNotFoundMessage(int index, string oldString, string label,
+        string text, List<Line> lines)
+    {
+        string message = $"edits[{index}].oldString was not found in '{label}'. It must match the file exactly, "
+                         + "whitespace and line breaks included. Read the file again and copy the text from it.";
+
+        // 取 oldString 首行作为锚,只比到 200 字符为止(超长行不比,省得算编辑距离)。
+        // 空 oldString 已在上游拦截,这里能拿到非空首行。
+        string anchor = oldString.Split('\n')[0].TrimEnd();
+        if (anchor.Length == 0 || anchor.Length > 200) return message;
+
+        int bestLine = -1;
+        string bestText = string.Empty;
+        int bestDistance = int.MaxValue;
+        for (int i = 0; i < lines.Count; i++)
+        {
+            string candidate = LineText(text, lines[i]).TrimEnd();
+            if (candidate.Length == 0 || candidate.Length > 200) continue;
+
+            int distance = DamerauLevenshtein(anchor, candidate);
+            if (distance >= bestDistance) continue;
+            bestDistance = distance;
+            bestLine = i + 1; //1 起
+            bestText = candidate;
+        }
+
+        // 阈值:距离小于锚长的一半才算"足够像"(近似,避免短行全相似误报)
+        if (bestLine < 0 || bestDistance > anchor.Length / 2) return message;
+
+        // 本地截断(不入依赖 PermissiveFileAccessTools.TruncateLine):只为控制话术长度
+        string shown = bestText.Length <= 120 ? bestText : bestText[..120] + " …[truncated]";
+        return message + $" Closest match: line {bestLine}: \"{shown}\".";
+    }
+
+    /// <summary>
+    /// Damerau-Levenshtein 编辑距离,上限 <paramref name="max"/> 即提前剪枝(返回 max+1)。
+    /// 只需"够不够近",不需要精确距离。
+    /// </summary>
+    private static int DamerauLevenshtein(string a, string b, int max = 60)
+    {
+        int n = a.Length;
+        int m = b.Length;
+        if (Math.Abs(n - m) > max) return max + 1;
+        if (n == 0) return m;
+        if (m == 0) return n;
+
+        int[] prev = new int[m + 1];
+        int[] curr = new int[m + 1];
+        int[] prevPrev = new int[m + 1];
+        for (int j = 0; j <= m; j++) { prev[j] = j; curr[j] = j; }
+
+        int rowMin = 0;
+        for (int i = 1; i <= n; i++)
+        {
+            (prevPrev, prev, curr) = (prev, curr, prevPrev);
+            curr[0] = i;
+            rowMin = i;
+            for (int j = 1; j <= m; j++)
+            {
+                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                int insert = prev[j] + 1;
+                int delete = curr[j - 1] + 1;
+                int sub = prev[j - 1] + cost;
+                int val = Math.Min(insert, Math.Min(delete, sub));
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
+                {
+                    val = Math.Min(val, prevPrev[j - 2] + 1);
+                }
+
+                curr[j] = val;
+                if (val < rowMin) rowMin = val;
+            }
+
+            if (rowMin > max) return max + 1;
+        }
+
+        return curr[m];
+    }
 
     private static Location Locate(string text, List<Line> lines, string oldString)
     {

@@ -81,6 +81,37 @@ public class FileEditPlannerTests
         Assert.Contains("was not found", plan.Error);
     }
 
+    // ---- NotFound 候选提示 ----
+
+    /// <summary>
+    /// oldString 找不到时,如果它跟文件里某一行足够像,话术里要带"第几行附近"的候选,
+    /// 让模型一步修正而不是反复读抄
+    /// </summary>
+    [Fact]
+    public void MissingOldString_GivesClosestLineHint()
+    {
+        FileEditPlan plan = Plan("public void Send()  \n{\n}\n", ("public void SendMsg()\n{", "public void SendMsg()\n{\n    Log();\n}"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("was not found", plan.Error);
+        Assert.Contains("line 1", plan.Error);
+        Assert.Contains("public void Send()", plan.Error);
+    }
+
+    /// <summary>
+    /// oldString 与文件里任何一行都不够像时<b>不</b>给候选——避免把"没找到"误导向"第 N 行"
+    /// 让模型以为差一点点,实际差了十万八千里
+    /// </summary>
+    [Fact]
+    public void MissingOldString_FarFromEveryLine_NoHint()
+    {
+        FileEditPlan plan = Plan("a\n完全无关的一行\nc\n", ("zzzzz_qwerty_alpha\n{", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("was not found", plan.Error);
+        Assert.DoesNotContain("Closest match", plan.Error);
+    }
+
     [Fact]
     public void EmptyOldString_Fails()
     {
