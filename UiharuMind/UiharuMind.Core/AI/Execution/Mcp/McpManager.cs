@@ -934,9 +934,21 @@ public class McpManager : Singleton<McpManager>, IInitialize
 
         if (existing != null) return existing;
 
-        McpClient client = await McpClient
-            .CreateAsync(CreateTransport(server), ClientOptions, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        // 先按官方 SDK transport（Streamable HTTP）连；若引擎只实现纯 POST（对 GET/SSE 回 405/411），
+        // 则退级到纯 POST transport 重建。判断见 IsPostOnlyRejection。
+        McpClient client;
+        try
+        {
+            client = await McpClient
+                .CreateAsync(CreateTransport(server), ClientOptions, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception e) when (IsPostOnlyRejection(e))
+        {
+            client = await McpClient
+                .CreateAsync(CreatePostOnlyTransport(server), ClientOptions, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         McpClient? raced = null;
         lock (_lock)
@@ -976,6 +988,36 @@ public class McpManager : Singleton<McpManager>, IInitialize
                 ? server.EnvironmentVariables.ToDictionary(x => x.Key, string? (x) => x.Value)
                 : null,
         });
+    }
+
+    /// <summary>
+    /// 引擎只实现了纯 POST（Streamable HTTP 握手里的 GET/SSE 被回 405、或 POST 没带 Content-Length 回 411）
+    /// 时，改用纯 POST transport 连接。
+    /// </summary>
+    private static IClientTransport CreatePostOnlyTransport(McpServerConfig server)
+    {
+        return new PostOnlyClientTransport(server.Name, new Uri(server.Url),
+            new HttpClient(), server.Headers.Count > 0 ? server.Headers : null);
+    }
+
+    /// <summary>
+    /// 判断连接失败是否源于「server 只认 POST」：SDK 把 405/411 包在 HttpRequestException 里。
+    /// 是则值得回退到纯 POST transport 重试一次，否则不必（是其它真错）。
+    /// </summary>
+    private static bool IsPostOnlyRejection(Exception e)
+    {
+        for (Exception? cur = e; cur != null; cur = cur.InnerException)
+        {
+            if (cur is HttpRequestException)
+            {
+                string msg = cur.Message;
+                if (msg.Contains("405") || msg.Contains("MethodNotAllowed") ||
+                    msg.Contains("411") || msg.Contains("LengthRequired"))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
