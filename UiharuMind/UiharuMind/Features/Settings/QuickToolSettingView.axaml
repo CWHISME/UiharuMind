@@ -2,17 +2,54 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:settingViews="clr-namespace:UiharuMind.Features.Settings"
-             xmlns:configs="clr-namespace:UiharuMind.Core.Configs;assembly=UiharuMind.Core"
+             xmlns:vm="clr-namespace:UiharuMind.Features.Settings"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.Settings.QuickToolSettingView">
+             x:Class="UiharuMind.Features.Settings.QuickToolSettingView"
+             x:DataType="vm:QuickToolSettingViewData">
 
     <Design.DataContext>
-        <configs:QuickToolSetting />
+        <vm:QuickToolSettingViewData />
     </Design.DataContext>
 
-    <StackPanel>
-        <settingViews:SettingPanelView SettingConfig="{Binding }" />
+    <UserControl.Styles>
+        <Style Selector="TextBlock.field-label">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
+            <Setter Property="Margin" Value="0,8,0,2" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Margin="0,12" Spacing="4" MaxWidth="520" HorizontalAlignment="Left">
+        <TextBlock Classes="field-label" Text="{loc:Loc QuickToolDefaultModel}" />
+        <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                   Foreground="{DynamicResource SemiGrey6}"
+                   Text="{loc:Loc QuickToolDefaultModelDesc}" />
+        <ComboBox ItemsSource="{Binding AvailableModels}"
+                  SelectedItem="{Binding DefaultModel}"
+                  PlaceholderText="{loc:Loc QuickToolDefaultModelFallbackHint}"
+                  MinWidth="300" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <TextBlock Classes="field-label" Margin="0,16,0,2" Text="{loc:Loc QuickToolDefaultVisionModel}" />
+        <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
+                   Foreground="{DynamicResource SemiGrey6}"
+                   Text="{loc:Loc QuickToolDefaultVisionModelDesc}" />
+        <ComboBox ItemsSource="{Binding AvailableVisionModels}"
+                  SelectedItem="{Binding DefaultVisionModel}"
+                  PlaceholderText="{loc:Loc QuickToolDefaultVisionModelFallbackHint}"
+                  MinWidth="300" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
     </StackPanel>
 
 </UserControl>

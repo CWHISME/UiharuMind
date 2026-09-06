@@ -2531,6 +2531,48 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string QuickToolSetting {
+            get {
+                return ResourceManager.GetString("QuickToolSetting", resourceCulture);
+            }
+        }
+        
+        public static string QuickToolDefaultModel {
+            get {
+                return ResourceManager.GetString("QuickToolDefaultModel", resourceCulture);
+            }
+        }
+        
+        public static string QuickToolDefaultModelDesc {
+            get {
+                return ResourceManager.GetString("QuickToolDefaultModelDesc", resourceCulture);
+            }
+        }
+        
+        public static string QuickToolDefaultModelFallbackHint {
+            get {
+                return ResourceManager.GetString("QuickToolDefaultModelFallbackHint", resourceCulture);
+            }
+        }
+        
+        public static string QuickToolDefaultVisionModel {
+            get {
+                return ResourceManager.GetString("QuickToolDefaultVisionModel", resourceCulture);
+            }
+        }
+        
+        public static string QuickToolDefaultVisionModelDesc {
+            get {
+                return ResourceManager.GetString("QuickToolDefaultVisionModelDesc", resourceCulture);
+            }
+        }
+        
+        public static string QuickToolDefaultVisionModelFallbackHint {
+            get {
+                return ResourceManager.GetString("QuickToolDefaultVisionModelFallbackHint", resourceCulture);
+            }
+        }
+        
         public static string GlobalShortcuts {
             get {
                 return ResourceManager.GetString("GlobalShortcuts", resourceCulture);

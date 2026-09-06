@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.Utils;
 
@@ -60,7 +61,34 @@ public abstract class PromptActionBase
     public virtual IAsyncEnumerable<string> RunAsync(string userInput,
         CancellationToken cancellationToken = default)
     {
-        return RunAsync(LlmManager.Instance.CurrentRunningModel, userInput, cancellationToken);
+        return RunAsync(ResolveQuickToolModel() ?? LlmManager.Instance.CurrentRunningModel,
+            userInput, cancellationToken);
+    }
+
+    /// <summary>
+    /// 解析快捷工具应使用的模型：优先取快捷工具设置里配的默认模型(视觉/文本各一档)，
+    /// 解析失败(本地模型未加载、不可热切换等)则回退全局当前模型。
+    /// 与子代理专用模型同一套现读口径(见 SubAgentAssembly)：改完设置下一次调用即生效，
+    /// 且只改局部变量不碰全局当前模型——主对话顶栏的模型不被快捷工具抢走。
+    /// </summary>
+    /// <returns>解析出的模型；未配置或解析失败时返回 null，由调用方回退全局模型</returns>
+    private ModelRunningData? ResolveQuickToolModel()
+    {
+        QuickToolSetting setting = QuickToolSetting.Current;
+        string name = IsVision ? setting.DefaultVisionModelName : setting.DefaultModelName;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+
+        if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? configured))
+            return null;
+
+        ModelRunningData? candidate = configured;
+        if (LlmManager.Instance.TryCheckModelRunning(IsVision, ref candidate)
+            && candidate is { ChatClient: not null })
+        {
+            return candidate;
+        }
+
+        return null;
     }
 
     public virtual IAsyncEnumerable<string> RunAsync(ModelRunningData? modelRunningData, string userInput,

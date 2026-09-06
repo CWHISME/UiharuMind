@@ -13,6 +13,7 @@ public partial class SettingsWindow : UiharuWindowBase
     private readonly RuntimeEngineSettingView _runtimeEngineSettingView = new();
     private readonly ShortcutSettingView _shortcutSettingView = new();
     private readonly AgentSettingView _agentSettingView = new();
+    private readonly QuickToolSettingView _quickToolSettingView = new();
     private readonly HelpPageData _helpPageData = (HelpPageData)App.ViewModel.GetPage(MenuPages.MenuHelpKey);
     private readonly AboutPage _aboutPage = new();
 
@@ -39,6 +40,11 @@ public partial class SettingsWindow : UiharuWindowBase
     private void OnShortcutsClick(object? sender, RoutedEventArgs e)
     {
         Select(ShortcutsButton, _shortcutSettingView, "ShortcutsSetting");
+    }
+
+    private void OnQuickToolClick(object? sender, RoutedEventArgs e)
+    {
+        Select(QuickToolButton, _quickToolSettingView, "QuickToolSetting");
     }
 
     private void OnAgentClick(object? sender, RoutedEventArgs e)
@@ -70,6 +76,7 @@ public partial class SettingsWindow : UiharuWindowBase
         RuntimeButton.Classes.Set("selected", selectedButton == RuntimeButton);
         AgentButton.Classes.Set("selected", selectedButton == AgentButton);
         ShortcutsButton.Classes.Set("selected", selectedButton == ShortcutsButton);
+        QuickToolButton.Classes.Set("selected", selectedButton == QuickToolButton);
         HelpButton.Classes.Set("selected", selectedButton == HelpButton);
         AboutButton.Classes.Set("selected", selectedButton == AboutButton);
         SettingsContent.Content = content;

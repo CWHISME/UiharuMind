@@ -1383,6 +1383,27 @@
     <data name="AboutFontCredit" xml:space="preserve">
         <value>Font: Huawei HarmonyOS Sans.</value>
     </data>
+    <data name="QuickToolSetting" xml:space="preserve">
+        <value>Quick tools</value>
+    </data>
+    <data name="QuickToolDefaultModel" xml:space="preserve">
+        <value>Default model</value>
+    </data>
+    <data name="QuickToolDefaultModelDesc" xml:space="preserve">
+        <value>Model used by text quick tools (explain / translate / think / ask, etc.). Leave empty to follow the model selected in the title bar.</value>
+    </data>
+    <data name="QuickToolDefaultModelFallbackHint" xml:space="preserve">
+        <value>(Not set — follows the title bar model)</value>
+    </data>
+    <data name="QuickToolDefaultVisionModel" xml:space="preserve">
+        <value>Default vision model</value>
+    </data>
+    <data name="QuickToolDefaultVisionModelDesc" xml:space="preserve">
+        <value>Model used by vision quick tools (OCR / image question). Only vision-capable models are listed. Leave empty to follow automatic vision model selection.</value>
+    </data>
+    <data name="QuickToolDefaultVisionModelFallbackHint" xml:space="preserve">
+        <value>(Not set — follows automatic vision model selection)</value>
+    </data>
     <data name="ShortcutsSetting" xml:space="preserve">
         <value>Shortcuts</value>
     </data>

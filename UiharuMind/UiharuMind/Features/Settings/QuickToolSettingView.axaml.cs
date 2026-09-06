@@ -5,25 +5,20 @@
  *
  * https://wangjiaying.top
  * https://github.com/CWHISME/UiharuMind
- *
- * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 
 namespace UiharuMind.Features.Settings;
 
 /// <summary>
-/// 用于快捷功能设置、包括界面等相关设置
+/// 快捷工具设置页：文本类/视觉类默认模型两个下拉。
 /// </summary>
 public partial class QuickToolSettingView : UserControl
 {
     public QuickToolSettingView()
     {
         InitializeComponent();
-
-        DataContext = App.ViewModel.GetViewModel<SettingViewModel>().QuickToolSettingConfig;
+        DataContext = new QuickToolSettingViewData();
     }
 }
