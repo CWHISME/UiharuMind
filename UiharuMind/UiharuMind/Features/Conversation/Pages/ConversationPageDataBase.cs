@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -180,7 +180,6 @@ public abstract partial class ConversationPageDataBase : PageDataBase
 
         Conversation = target;
         PruneConversations();
-        UiharuMind.Shared.Diagnostics.ConversationSwitchBench.Start(this); //探针关着时是空调用
         StartupPhaseProbe.End($"conversation/switch:cached={(cacheHit ? 1 : 0)},live={_conversations.Count}", switchBegin);
     }
 
@@ -225,8 +224,6 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         {
             ConversationViewModel conversation = _conversations[i];
             if (conversation == Conversation || conversation.IsGenerating) continue;
-            // 压测钉住实例:平时只有"还在跑"的会话会留下,而卡顿正出在那种会话上
-            if (UiharuMind.Shared.Diagnostics.ConversationSwitchBench.PinsInstances) continue;
             Discard(conversation);
         }
     }
