@@ -19,7 +19,7 @@
 Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远程模型，含角色扮演对话、
 工作区 agent、截图 OCR、剪贴板历史、知识库检索等。产品功能见 [README.md](README.md)。
 
-解决方案 `UiharuMind/UiharuMind.sln` 下八个项目：
+解决方案 `UiharuMind/UiharuMind.sln` 下六个项目：
 
 | 项目 | 是什么 |
 |---|---|
@@ -27,8 +27,6 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 | `UiharuMind` | Avalonia UI 层（下称 **App 项目**） |
 | `UiharuMind.Desktop` | 桌面入口（实际运行的就是它） |
 | `UiharuMind.CLI` | 命令行入口 |
-| `UiharuMind.Android` | Android 入口，**需额外 workload，本机通常构建不了** |
-| `UiharuMind.Browser` | WASM 入口，**需额外 workload，本机通常构建不了** |
 | `UiharuMind.Core.Tests` | Core 的测试 |
 | `UiharuMind.App.Tests` | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
 
@@ -41,19 +39,13 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 在解决方案目录 `UiharuMind/` 下执行：
 
 ```bash
-dotnet build UiharuMind.Core/UiharuMind.Core.csproj
-dotnet build UiharuMind/UiharuMind.csproj              # App 项目，axaml 错误在这里暴露
-dotnet build UiharuMind.Desktop/UiharuMind.Desktop.csproj
+dotnet build UiharuMind.sln
 dotnet test  UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj
 dotnet test  UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
 ```
 
-**`dotnet build UiharuMind.sln` 必然报两个 `NETSDK1147` 错误**（Android/Browser 缺
-`wasm-tools-net8`、`android` workload）。那与你的改动**无关**，不要试图修它，也不要因此
-以为自己改坏了。要验证全仓，逐个构建上面五个项目。
-
 axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
-「App 项目编译通过」是很强的信号。
+「解决方案编译通过」是很强的信号。
 
 ## 代码规范
 
