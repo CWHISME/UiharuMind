@@ -166,6 +166,25 @@ public sealed class MacScreenFrame : IScreenFrame
         }
     }
 
+    public Color? SampleColor(PixelPoint screenUnits)
+    {
+        if (_source == null) return null;
+        int x = (int)Math.Round((screenUnits.X - Origin.X) * _pixelScale);
+        int y = (int)Math.Round((screenUnits.Y - Origin.Y) * _pixelScale);
+        if (x < 0 || y < 0 || x >= _source.Width || y >= _source.Height) return null;
+
+        try
+        {
+            SKColor color = _source.GetPixel(x, y);
+            return Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"取色失败：{e.Message}");
+            return null;
+        }
+    }
+
     public void Dispose()
     {
         _display?.Dispose();

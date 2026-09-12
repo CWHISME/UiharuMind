@@ -9,28 +9,45 @@
     <Panel Name="MainPanel">
         <Image Name="ScreenshotImage" Stretch="Uniform" />
 
+        <Canvas Name="ScreenshotCanvas" Background="Transparent">
+            <!-- 全屏变暗，Data 是全窗减去高亮洞（CombinedGeometry Exclude），洞的位置每帧跟着选区/悬停窗走 -->
+            <Path x:Name="DimLayer" Fill="#66000000" />
+            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue" />
+        </Canvas>
+
+        <!-- tips 必须在暗层之后，之前被 50% 黑盖在下面看不见 -->
         <Border Name="InfoPanel" HorizontalAlignment="Left" VerticalAlignment="Top" BorderThickness="1"
                 BorderBrush="Silver"
                 Background="#333333"
-                MinWidth="100" Padding="10">
+                Padding="10">
             <StackPanel>
-                <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
-                <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
-                <!-- <TextBlock Name="ColorText" Text="xxx" Foreground="White" /> -->
-                <!-- <TextBlock Name="TipsText" Text="xxx" Foreground="White" /> -->
+                <!-- 悬停：放大镜取色 -->
+                <StackPanel Name="MagnifierPanel">
+                    <Grid Name="MagnifierGrid" Width="120" Height="120">
+                        <Image Name="MagnifierImage" Stretch="UniformToFill" />
+                        <Path Name="MagnifierGridLines" Stroke="#88FFFFFF" StrokeThickness="0.5" />
+                        <Path Name="MagnifierCross" Stroke="#2E9BFF" StrokeThickness="2" />
+                        <Rectangle Name="MagnifierCenter" Width="10" Height="10"
+                                   Stroke="White" StrokeThickness="1.5" Fill="#66000000"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Name="MagnifierPositionText" Text="坐标：" Foreground="White" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Rectangle Name="MagnifierSwatch" Width="14" Height="14" Fill="White" />
+                            <TextBlock Name="MagnifierColorText" Text="" Foreground="White" />
+                        </StackPanel>
+                        <TextBlock Name="MagnifierHintCopy" Text="按 ⌘+C 复制颜色值" Foreground="Gray" FontSize="11" />
+                        <TextBlock Name="MagnifierHintToggle" Text="按 Shift 切换 RGB/HEX" Foreground="Gray" FontSize="11" />
+                    </StackPanel>
+                </StackPanel>
+                <!-- 拖选：位置/尺寸 -->
+                <StackPanel Name="SelectionInfoPanel" IsVisible="False">
+                    <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
+                    <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
+                </StackPanel>
             </StackPanel>
         </Border>
-
-        <Canvas Name="ScreenshotCanvas" Background="#22000000">
-            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue" />
-            <!-- <Rectangle Width="400" -->
-            <!--            Height="400" -->
-            <!--            Fill="Red"> -->
-            <!--     <Rectangle.OpacityMask> -->
-            <!--         <VisualBrush Visual="{Binding #SelectionRectangle}" Opacity="0.5"/> -->
-            <!--     </Rectangle.OpacityMask> -->
-            <!-- </Rectangle> -->
-        </Canvas>
 
     </Panel>
 </Window>

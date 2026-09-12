@@ -1,5 +1,6 @@
 using System;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
 namespace UiharuMind.Features.ScreenCapture.Frames;
@@ -34,4 +35,11 @@ public interface IScreenFrame : IDisposable
     /// Windows 下像素，macOS 下 point），内部自行减去 Origin 并换算到像素</param>
     /// <returns>裁剪结果；区域非法或裁剪失败返回 null</returns>
     Bitmap? Crop(PixelRect desktopRegion);
+
+    /// <summary>
+    /// 取屏幕坐标系中一点的颜色，用于放大镜取色。与 Crop 同口径，各实现内部自行换算到像素。
+    /// </summary>
+    /// <param name="screenUnits">屏幕坐标系坐标</param>
+    /// <returns>颜色；越界或失败返回 null</returns>
+    Color? SampleColor(PixelPoint screenUnits);
 }

@@ -1,9 +1,12 @@
 using System;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using HPPH;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Shared.Utils;
+using MediaColor = Avalonia.Media.Color;
 
 namespace UiharuMind.Features.ScreenCapture.Frames;
 
@@ -58,6 +61,34 @@ public sealed class HpphScreenFrame : IScreenFrame
             Log.Warning($"裁剪整屏失败：{e.Message}");
             return null;
         }
+    }
+
+    public MediaColor? SampleColor(PixelPoint screenUnits)
+    {
+        int x = screenUnits.X - Origin.X;
+        int y = screenUnits.Y - Origin.Y;
+        if (x < 0 || y < 0 || x >= _image.Width || y >= _image.Height) return null;
+
+        // 与 UiUtils.BuildBitmap 同口径：底层是 Bgra8888，直接按字节读
+        MediaColor? color = null;
+        try
+        {
+            _image.GetCaptureImagePointer((data, stride) =>
+            {
+                int offset = y * stride + x * 4;
+                byte b = Marshal.ReadByte(data, offset);
+                byte g = Marshal.ReadByte(data, offset + 1);
+                byte r = Marshal.ReadByte(data, offset + 2);
+                byte a = Marshal.ReadByte(data, offset + 3);
+                color = MediaColor.FromArgb(a, r, g, b);
+            });
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"取色失败：{e.Message}");
+        }
+
+        return color;
     }
 
     /// 整屏位图是全应用最大的一次分配，且每次截图都来一张，必须确定性释放

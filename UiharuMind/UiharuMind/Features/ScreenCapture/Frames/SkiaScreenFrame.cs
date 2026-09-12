@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using SkiaSharp;
 using UiharuMind.Core.Core.SimpleLog;
@@ -101,6 +102,25 @@ public sealed class SkiaScreenFrame : IScreenFrame
         catch (Exception e)
         {
             Log.Warning($"裁剪整屏失败：{e.Message}");
+            return null;
+        }
+    }
+
+    public Color? SampleColor(PixelPoint screenUnits)
+    {
+        if (_source == null) return null;
+        int x = screenUnits.X - Origin.X;
+        int y = screenUnits.Y - Origin.Y;
+        if (x < 0 || y < 0 || x >= _source.Width || y >= _source.Height) return null;
+
+        try
+        {
+            SKColor color = _source.GetPixel(x, y);
+            return Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"取色失败：{e.Message}");
             return null;
         }
     }

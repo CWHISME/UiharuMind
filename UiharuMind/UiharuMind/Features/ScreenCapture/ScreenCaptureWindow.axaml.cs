@@ -10,11 +10,14 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
@@ -27,6 +30,7 @@ using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
+using UiharuMind.Core;
 
 namespace UiharuMind.Features.ScreenCapture;
 
@@ -55,6 +59,13 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     // 显示前只备帧不落几何，OnPostShow 再落位（见 UpdateCaptureScreen）
     private bool _deferredGeometry;
+
+    // 放大镜状态：上次取到的颜色（复制用）、RGB/HEX 显示切换
+    private readonly SolidColorBrush _magnifierBrush = new(Colors.White);
+    private bool _showHex;
+    private Color? _lastSampleColor;
+    private string _copyHintText = "";
+
 
     // 窗口收不到的按下（菜单栏顶边等）由全局钩子补位，组合而非继承
     private GlobalPointerDriver? _hookDriver;
@@ -128,6 +139,32 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         // 先隐身示人：首帧布局与位图上传完成前，合成器看到全透明窗口就是一闪
         Opacity = 0;
         this.SetSimpledecorationPureWindow(true);
+        BuildMagnifierOverlay();
+        MagnifierSwatch.Fill = _magnifierBrush;
+        _copyHintText = UiharuCoreManager.Instance.IsMacOs ? "按 ⌘+C 复制颜色值" : "按 Ctrl+C 复制颜色值";
+        MagnifierHintCopy.Text = _copyHintText;
+    }
+
+    // 放大镜的网格与十字线是静态的，建一次：15 格 × 8px = 120
+    private void BuildMagnifierOverlay()
+    {
+        const int cells = 15;
+        const double cell = 8.0;
+        var grid = new GeometryGroup();
+        for (int i = 0; i <= cells; i++)
+        {
+            double p = i * cell;
+            grid.Children.Add(new LineGeometry(new Point(p, 0), new Point(p, cells * cell)));
+            grid.Children.Add(new LineGeometry(new Point(0, p), new Point(cells * cell, p)));
+        }
+
+        MagnifierGridLines.Data = grid;
+
+        var cross = new GeometryGroup();
+        double mid = cells * cell / 2;
+        cross.Children.Add(new LineGeometry(new Point(mid, 0), new Point(mid, cells * cell)));
+        cross.Children.Add(new LineGeometry(new Point(0, mid), new Point(cells * cell, mid)));
+        MagnifierCross.Data = cross;
     }
 
     protected override void OnPreShow()
@@ -268,6 +305,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         // InfoPanel.IsVisible = true;
         Canvas.SetLeft(SelectionRectangle, windowDip.X);
         Canvas.SetTop(SelectionRectangle, windowDip.Y);
+        ShowSelectionInfo();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -277,7 +315,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         RevealTipsOnFirstPointer();
         if (!_isSelecting)
         {
-            UpdateExtraInfo();
+            ShowMagnifierInfo();
+            UpdateMagnifier();
             return;
         }
 
@@ -302,6 +341,124 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
         //==额外信息==
         UpdateExtraInfo((int)width, (int)height, true);
+        UpdateDimHole();
+    }
+
+    private void ShowMagnifierInfo()
+    {
+        MagnifierPanel.IsVisible = true;
+        SelectionInfoPanel.IsVisible = false;
+    }
+
+    private void ShowSelectionInfo()
+    {
+        MagnifierPanel.IsVisible = false;
+        SelectionInfoPanel.IsVisible = true;
+    }
+
+    // 悬停放大镜：以光标为中心裁 15x15 DIP，经 CroppedBitmap 零拷贝放大到 120px，
+    // 同时取色并报物理像素坐标。面板位置沿用 tips 旧逻辑
+    private void UpdateMagnifier()
+    {
+        if (_frame == null || _currentScreen == null) return;
+        var display = _frame.Display;
+        double toPixels = DisplayUnits.ScreenBoundsToPixels(_currentScreen.Scaling, RenderScaling);
+
+        const double dipCells = 15;
+        int sizePx = Math.Max(1, (int)Math.Round(dipCells * toPixels));
+        int cxi = (int)Math.Round((_lastPointerPixel.X - _frame.Origin.X) * toPixels);
+        int cyi = (int)Math.Round((_lastPointerPixel.Y - _frame.Origin.Y) * toPixels);
+        var bounds = new PixelRect(0, 0, display.PixelSize.Width, display.PixelSize.Height);
+        int w = Math.Min(sizePx, bounds.Width);
+        int h = Math.Min(sizePx, bounds.Height);
+        int x = Math.Clamp(cxi - sizePx / 2, 0, Math.Max(0, bounds.Width - sizePx));
+        int y = Math.Clamp(cyi - sizePx / 2, 0, Math.Max(0, bounds.Height - sizePx));
+        var rect = new PixelRect(x, y, w, h);
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+        MagnifierImage.Source = new CroppedBitmap(display, rect);
+
+        int physX = (int)Math.Round(_lastPointerPixel.X * toPixels);
+        int physY = (int)Math.Round(_lastPointerPixel.Y * toPixels);
+        MagnifierPositionText.Text = $"坐标：{physX}, {physY}";
+
+        var color = _frame.SampleColor(_lastPointerPixel);
+        if (color != null)
+        {
+            _lastSampleColor = color.Value;
+            RefreshColorText();
+        }
+
+        var position = UiUtils.EnsurePositionWithinScreen(_currentScreen, _lastPointerPixel,
+            InfoPanel.Bounds.Size, new Size(25, 25));
+        Point point = position.ToPoint(_currentScreen.Scaling);
+        Point origin = Position.ToPoint(_currentScreen.Scaling);
+        InfoPanel.Margin = new Thickness(Math.Floor(point.X - origin.X), Math.Floor(point.Y - origin.Y), 0, 0);
+    }
+
+    private void RefreshColorText()
+    {
+        if (_lastSampleColor == null) return;
+        var color = _lastSampleColor.Value;
+        MagnifierColorText.Text = _showHex
+            ? $"#{color.R:X2}{color.G:X2}{color.B:X2}"
+            : $"{color.R}, {color.G}, {color.B}";
+        _magnifierBrush.Color = color;
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
+        {
+            _showHex = !_showHex;
+            RefreshColorText();
+            e.Handled = true;
+            return;
+        }
+
+        bool copyModifier = e.KeyModifiers.HasFlag(
+            UiharuCoreManager.Instance.IsMacOs ? KeyModifiers.Meta : KeyModifiers.Control);
+        if (e.Key == Key.C && copyModifier)
+        {
+            CopySampledColor();
+            e.Handled = true;
+        }
+    }
+
+    private void CopySampledColor()
+    {
+        if (_lastSampleColor == null) return;
+        string text = MagnifierColorText.Text ?? "";
+        if (string.IsNullOrEmpty(text)) return;
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard == null) return;
+            _ = clipboard.SetValueAsync(DataFormat.Text, text);
+            MagnifierHintCopy.Text = "已复制";
+            DispatcherTimer.RunOnce(() => MagnifierHintCopy.Text = _copyHintText,
+                TimeSpan.FromMilliseconds(800));
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"复制颜色值失败：{ex.Message}");
+        }
+    }
+
+    // 暗层打洞：拖选中洞跟选区框，没有则全暗。
+    // 注意必须每次重建 CombinedGeometry 实例再挂到 Data 上：只改嵌套矩形的话，
+    // CombinedGeometry 不订阅子级变化，渲染永远停在第一次构建的样子
+    private void UpdateDimHole()
+    {
+        var full = new RectangleGeometry(new Rect(0, 0, Math.Max(0, Width), Math.Max(0, Height)));
+        Rect hole = new();
+        if (_isSelecting && SelectionRectangle.Width > 0 && SelectionRectangle.Height > 0)
+        {
+            hole = new Rect(Canvas.GetLeft(SelectionRectangle), Canvas.GetTop(SelectionRectangle),
+                SelectionRectangle.Width, SelectionRectangle.Height);
+        }
+
+        DimLayer.Data = new CombinedGeometry(GeometryCombineMode.Exclude, full, new RectangleGeometry(hole));
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -508,6 +665,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         Canvas.SetTop(SelectionRectangle, 0);
         InfoPanel.IsVisible = false;
         MainPanel.IsVisible = false;
+        // 放大镜借了底图的视图，先断开再释放帧，否则渲染线程撞上已释放的位图
+        MagnifierImage.Source = null;
         SetFrame(null);
         _pendingFrame?.Dispose();
         _pendingFrame = null;
@@ -516,6 +675,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         _lastPointerPixel = default;
         _releasedPointerPixel = default;
         _isSelecting = false;
+        UpdateDimHole();
         _currentScreen = null;
     }
 
@@ -537,6 +697,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         MainPanel.IsVisible = true;
         // InfoPanel 等第一次拿到鼠标位置再显示：刚打开时 _lastPointerPixel 还是 (0,0)，
         // 直接显示会在左上角闪一下。见 OnPointerMoved/OnPointerPressed。
+        ShowMagnifierInfo();
+        UpdateDimHole();
         UpdateExtraInfo();
     }
 
@@ -578,36 +740,48 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     private void DoAreaCapture()
     {
         _isSelecting = false;
-        if (_frame != null && _currentScreen != null && SelectionRectangle.Width > 0 &&
-            SelectionRectangle.Height > 0)
+        if (_frame == null || _currentScreen == null)
         {
-            try
-            {
-                // 起点与终点都来自本窗的指针事件，换算到桌面绝对像素后交给帧裁剪
-                var scaling = _currentScreen.Scaling;
-                var origin = _currentScreen.Bounds.Position;
-                PixelPoint startPixelPoint = origin + (PixelVector)PixelPoint.FromPoint(_startPoint, scaling);
-                PixelPoint endPixelPoint = _releasedPointerPixel;
+            Close();
+            return;
+        }
 
-                var region = new PixelRect(
-                    Math.Min(startPixelPoint.X, endPixelPoint.X),
-                    Math.Min(startPixelPoint.Y, endPixelPoint.Y),
-                    (int)(SelectionRectangle.Width * scaling),
-                    (int)(SelectionRectangle.Height * scaling));
+        PixelRect region;
+        PixelPoint startPixelPoint;
+        PixelPoint endPixelPoint;
+        if (SelectionRectangle.Width > 0 && SelectionRectangle.Height > 0)
+        {
+            // 起点与终点都来自本窗的指针事件，换算到屏幕坐标后交给帧裁剪
+            var scaling = _currentScreen.Scaling;
+            var origin = _currentScreen.Bounds.Position;
+            startPixelPoint = origin + (PixelVector)PixelPoint.FromPoint(_startPoint, scaling);
+            endPixelPoint = _releasedPointerPixel;
+            region = new PixelRect(
+                Math.Min(startPixelPoint.X, endPixelPoint.X),
+                Math.Min(startPixelPoint.Y, endPixelPoint.Y),
+                (int)(SelectionRectangle.Width * scaling),
+                (int)(SelectionRectangle.Height * scaling));
+        }
+        else
+        {
+            Close();
+            return;
+        }
 
-                var image = _frame.Crop(region);
-                if (image != null)
-                {
-                    // 落盘只是借用,必须排在移交之前:下一句起这张图就归预览窗了,它随时可能被释放
-                    App.Clipboard.RecordImageToHistory(image);
-                    //校正截图的上下左右不同方向拖动方式
-                    UIManager.ShowPreviewImageWindowAtMousePosition(image, startPixelPoint, endPixelPoint);
-                }
-            }
-            catch (Exception e)
+        try
+        {
+            var image = _frame.Crop(region);
+            if (image != null)
             {
-                Log.Warning(e.StackTrace);
+                // 落盘只是借用,必须排在移交之前:下一句起这张图就归预览窗了,它随时可能被释放
+                App.Clipboard.RecordImageToHistory(image);
+                //校正截图的上下左右不同方向拖动方式
+                UIManager.ShowPreviewImageWindowAtMousePosition(image, startPixelPoint, endPixelPoint);
             }
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e.StackTrace);
         }
 
         Close();
