@@ -158,6 +158,16 @@ public partial class ConversationView : UserControl
             _viewModel.Palette.SkillCandidateAccepted += OnSkillCandidateAccepted;
             // 滚动状态只有本视图知道,而运行期裁剪要靠它决定能不能裁(见 ConversationItemWindowTrimmer)
             _viewModel.IsStuckToBottomSource = () => _autoScrollHolder.IsStuckToBottom;
+
+            // 换会话就恢复跟底。Viewer 与跟底状态是全局唯一那一份,上一个会话里"用户上滚过"
+            // 这件事不该跟着传给下一个——空态尤其:它没有内容可贴底,也就没有那次
+            // AnchorToBottom 帮它恢复,而首轮回复要靠跟底才跟得上
+            _autoScrollHolder.Resume();
+
+            // 切回一个缓存实例(后台跑着的那些)是**不走加载的**:IsSessionLoading 一次都不翻,
+            // 于是下面那个处理器收不到通知,贴底与实体化整个丢掉——而 Viewer 与跟底状态
+            // 是全局唯一那一份,还留着上一个会话的 offset。这里补上
+            if (_viewModel is { IsSessionLoading: false } cached && cached.Items.Count > 0) ScheduleSettle(cached);
         }
     }
 
@@ -174,9 +184,7 @@ public partial class ConversationView : UserControl
         base.OnLoaded(e);
         if (_viewModel is not { IsSessionLoading: false } vm || vm.Items.Count == 0) return;
 
-        AnchorToBottom();
-        _autoScrollHolder.Resume();
-        ScheduleFirstWindowFill(vm);
+        SettleNow(vm);
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -187,34 +195,89 @@ public partial class ConversationView : UserControl
         if (e.PropertyName == nameof(ConversationViewModel.IsSessionLoading) &&
             _viewModel is { IsSessionLoading: false } vm)
         {
-            AnchorToBottom();
-            _autoScrollHolder.Resume();
-            ScheduleFirstWindowFill(vm);
+            SettleNow(vm);
         }
     }
 
     /// <summary>
-    /// 首屏贴底之后，把窗口剩下的那几条补上。
+    /// 换 DataContext 之后再落位。
     ///
-    /// 切会话的冻结压倒性地在布局上（见 <see cref="AnchorToBottom"/> 的实测），所以回放只给首屏，
-    /// 剩下的挪到这里——用户已经看见内容了，这段布局落在他读第一屏的时间里。
+    /// <b>不能在 <c>DataContextChanged</c> 里当场做。</b>那一刻 <c>MessageList.ItemsSource</c>
+    /// 还是上一个会话的集合——Avalonia 把本控件的 <c>DataContextChanged</c> 排在子控件绑定
+    /// 更新<b>之前</b>（实测：事件里读到的是 null，赋值语句返回后才是新集合）。当场贴底就是
+    /// 贴在旧内容上，等绑定落地、列表整体重建，offset 成了陈旧值，看着就是「从底部闪上来又弹回去」。
+    ///
+    /// 优先级取 <see cref="DispatcherPriority.Normal"/>(8)：它是个新的派发任务，绑定必已落地；
+    /// 而它<b>高于</b> <see cref="DispatcherPriority.Render"/>(4)，中间不会渲染出错的一帧。
+    /// 换成 <c>Loaded</c>(1) 或 <c>Background</c>(-2) 都低于 Render，那才会先画错一帧再纠正
+    /// （<see cref="AnchorToBottom"/> 注释里记的就是这个坑）。
+    /// </summary>
+    /// <param name="vm">已就绪的视图模型</param>
+    private void ScheduleSettle(ConversationViewModel vm)
+    {
+        long queuedAt = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!ReferenceEquals(_viewModel, vm)) return;
+
+            global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("conversation/settle-delay", queuedAt);
+            SettleNow(vm);
+        }, DispatcherPriority.Normal);
+    }
+
+    /// <summary>
+    /// 让消息列表就位：同步贴到底并把可见那一屏转完，恢复自动跟底，再把不足一屏的部分补上。
+    ///
+    /// 三个调用点（首启、加载完成、切回缓存实例）此前各写一份，而<b>第三个当初漏了</b>——
+    /// 收敛成一处，下一次加一个入口就不会再漏。切回缓存实例那一路必须经
+    /// <see cref="ScheduleSettle"/> 进来，不能直接调本方法。
+    /// </summary>
+    /// <param name="vm">已就绪的视图模型</param>
+    private void SettleNow(ConversationViewModel vm)
+    {
+        long settleBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+        AnchorToBottom();
+        _autoScrollHolder.Resume();
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/settle:items={vm.Items.Count}", settleBegin);
+        ScheduleViewportTopUp(vm);
+    }
+
+    /// <summary>
+    /// 贴底之后把不足一屏的部分补上。
+    ///
+    /// 切会话的冻结压倒性地在布局上（见 <see cref="AnchorToBottom"/> 的实测），所以关键路径上
+    /// 只给一屏：加载路径给首屏（<c>HistoryWindow.FirstScreenSize</c>），切回缓存实例则由运行期裁剪
+    /// 压到首屏量级（<c>ConversationItemWindowTrimmer.DefaultBackgroundMaxItems</c>）。
+    /// 两条路径欠下的都在这里还——用户已经看见内容了，这段布局落在他读第一屏的时间里。
     /// 排到 Background 而不是当场做：当场做等于没分批
     /// </summary>
-    private void ScheduleFirstWindowFill(ConversationViewModel vm)
+    private void ScheduleViewportTopUp(ConversationViewModel vm)
     {
+        const int maxTopUpPasses = 4;
+
         Dispatcher.UIThread.Post(() =>
         {
             // 期间可能已经换了会话:那份补齐属于旧的视图模型,别插到新会话的列表上。
             // 不能用 _isLoadingEarlier 挡在派发之前——那样会连着把下一个会话的补齐也吞掉
             if (!ReferenceEquals(_viewModel, vm)) return;
 
-            // 首屏已够一屏就能滚:滚动续窗会接手欠的那几条(Extend 一并取回),
-            // 不用在这里多插一次布局。只有填不满一屏、滑不动时才补
-            if (Viewer.Extent.Height > Viewer.Viewport.Height) return;
-            
-            // 与"滚到顶自动续窗"互斥:补齐期间来的滚动不该再续一窗(标志由补偿路径解锁)
-            _isLoadingEarlier = true;
-            PrependKeepingViewport(vm.FillFirstWindow);
+            long topUpBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+            int topUpPasses = 0;
+            for (int pass = 0; pass < maxTopUpPasses; pass++)
+            {
+                topUpPasses++;
+                // 已够一屏就能滚:剩下的交给"滚到顶自动续窗",不用在这里多插一次布局
+                if (Viewer.Extent.Height > Viewer.Viewport.Height) break;
+
+                // 与"滚到顶自动续窗"互斥:补齐期间来的滚动不该再续一窗(标志由补偿路径解锁)
+                _isLoadingEarlier = true;
+                // 先还首屏那笔账,不够一屏再按窗续。续窗这一路是必须的兜底:
+                // 运行期裁剪之后首屏账已经清零(SetStart),而裁到不足一屏就滚不动,
+                // 滚不动则 OnViewerScrollChanged 那条自动续窗永远不触发——更早的消息就再也回不来了
+                if (!PrependKeepingViewport(() => vm.FillFirstWindow() || vm.LoadEarlierMessages())) break;
+            }
+
+            global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/topup:passes={topUpPasses},items={MessageList.ItemCount}", topUpBegin);
         }, DispatcherPriority.Background);
     }
 
@@ -256,11 +319,12 @@ public partial class ConversationView : UserControl
     {
         const int maxSettlePasses = 4;
 
+        long anchorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
+
         // 这一段的开销压倒性地来自布局:实测两轮共 274ms,其中 231ms 是四次 UpdateLayout,
         // 实体化连 markdown 解析只占 43ms(解析本身仅 14ms)。试过把每轮的两次布局并成一次,
         // 三次实测 258/277/258ms —— 没有收益,因为钱都在"加了一窗条目之后的第一次布局"上,
         // 后续几次的 measure 缓存大多有效。而且那样会在高度变化后用过时的 extent 贴底。
-        long anchorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
         int passes = 0;
 
         for (int pass = 0; pass < maxSettlePasses; pass++)
@@ -273,7 +337,7 @@ public partial class ConversationView : UserControl
         }
 
         ScrollToBottom();
-        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/anchor:passes={passes}", anchorBegin);
+        global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/anchor:passes={passes},items={MessageList.ItemCount}", anchorBegin);
     }
 
     /// <summary>
@@ -316,15 +380,17 @@ public partial class ConversationView : UserControl
     /// 跟底时同一个补偿量正好把视口留在底部，所以续窗与首屏补齐共用这一条路径
     /// </summary>
     /// <param name="prepend">真正做前插的动作（续更早 / 补齐首屏），什么都没插时返回 false</param>
-    private void PrependKeepingViewport(Func<bool> prepend)
+    /// <returns>真的插了并补偿过返回 true（调用方据此决定要不要再补一轮）</returns>
+    private bool PrependKeepingViewport(Func<bool> prepend)
     {
         try
         {
             double extentBefore = Viewer.Extent.Height;
             double offsetBefore = Viewer.Offset.Y;
-            if (!prepend()) return; //没插进东西就不必为补偿跑一次全量布局
+            if (!prepend()) return false; //没插进东西就不必为补偿跑一次全量布局
             Viewer.UpdateLayout();
             Viewer.Offset = new Vector(Viewer.Offset.X, offsetBefore + Viewer.Extent.Height - extentBefore);
+            return true;
         }
         finally
         {

@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Features.Conversation.SessionList;
 using UiharuMind.Shared.Shell;
 
@@ -161,7 +162,13 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         // 会丢掉当前那个空实例、另建一个,整个视图的 DataContext 跟着换掉,右栏整块重建一次
         if (Conversation != null && Conversation.CurrentMeta?.SessionId == meta?.SessionId) return;
 
+        // 探针:这一段是切会话的**同步窗口**——点下去到交回消息循环之间 UI 线程被占的部分。
+        // 切换之后几帧里发生的事(落位、裁剪、逐帧放行的 markdown)不在这个桶里,
+        // 那些各有自己的打点,合起来才对得上 UiStallProbe 报的那一次掉帧
+        long switchBegin = StartupPhaseProbe.Begin();
+
         ConversationViewModel? target = meta == null ? null : FindConversation(meta.SessionId);
+        bool cacheHit = target != null;
         if (target == null)
         {
             target = CreateConversation();
@@ -173,6 +180,8 @@ public abstract partial class ConversationPageDataBase : PageDataBase
 
         Conversation = target;
         PruneConversations();
+        UiharuMind.Shared.Diagnostics.ConversationSwitchBench.Start(this); //探针关着时是空调用
+        StartupPhaseProbe.End($"conversation/switch:cached={(cacheHit ? 1 : 0)},live={_conversations.Count}", switchBegin);
     }
 
     /// <summary>
@@ -216,6 +225,8 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         {
             ConversationViewModel conversation = _conversations[i];
             if (conversation == Conversation || conversation.IsGenerating) continue;
+            // 压测钉住实例:平时只有"还在跑"的会话会留下,而卡顿正出在那种会话上
+            if (UiharuMind.Shared.Diagnostics.ConversationSwitchBench.PinsInstances) continue;
             Discard(conversation);
         }
     }

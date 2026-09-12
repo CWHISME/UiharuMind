@@ -37,6 +37,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Conversation.Composer;
 using UiharuMind.Features.Conversation.Items;
@@ -242,8 +243,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>
     /// 界面是否跟在底部，由宿主视图接上（它才持有那个滚动容器）。
-    /// <b>没接上时按「不在底部」处理</b>——运行期裁剪宁可不裁，也不能在看不见滚动状态时
-    /// 把用户正在读的内容摘掉。
+    /// 视图切走时会把它<b>置回 null</b>，而那等于「没有视口」而不是「视口不在底部」——
+    /// 运行期裁剪的闸门因此要连 <see cref="IsDisplayed"/> 一起看，不能把 null 折成 false
+    /// （折成 false 的那版让后台会话一轮都没裁过，切回去就是几百条一次性重新布局）。
     /// </summary>
     public Func<bool>? IsStuckToBottomSource { get; set; }
 
@@ -288,7 +290,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _itemActions = new ConversationItemActions(Items, this);
         _trimmer = new ConversationItemWindowTrimmer(Items, _historyWindow,
             () => CurrentRunner?.GetHistory() ?? [],
-            () => IsStuckToBottomSource?.Invoke() ?? false);
+            // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
+            () => !IsDisplayed || (IsStuckToBottomSource?.Invoke() ?? true));
 
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
@@ -734,8 +737,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.Persisted:
                 _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
-                // 裁剪必须排在回填之后:锚点就是回填出来的那些来源消息
-                if (_trimmer.TrimIfNeeded()) HasEarlierMessages = _historyWindow.HasEarlier;
+                // 裁剪必须排在回填之后:锚点就是回填出来的那些来源消息。
+                // 不在界面上的会话直接按首屏量级裁——它在后台可能还要跑很多轮,
+                // 每轮都只裁回运行期上限的话,切回去照样是一屏之外的条目在重新实体化
+                bool trimmed = IsDisplayed ? _trimmer.TrimIfNeeded() : _trimmer.TrimToBackgroundBudget();
+                if (trimmed) HasEarlierMessages = _historyWindow.HasEarlier;
                 break;
 
             case ETurnNotice.Ended:
@@ -893,11 +899,43 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             if (_isDisplayed == value) return;
             _isDisplayed = value;
-            if (!value || _deferredLoad is not { } deferred) return;
+            if (!value)
+            {
+                ScheduleBackgroundTrim();
+                return;
+            }
+
+            if (_deferredLoad is not { } deferred) return;
 
             _deferredLoad = null;
             _ = LoadSessionAsync(deferred);
         }
+    }
+
+    /// <summary>
+    /// 切走之后把条目压到「后台上限」。
+    ///
+    /// 排到 Background 优先级而不是就地做：切走那一刻视图还绑在本实例上（页面壳先翻
+    /// <see cref="IsDisplayed"/>，DataContext 的替换晚一步到），就地裁等于在「让切换变快」
+    /// 这件事上先付一次布局；排到队尾时视图已经换给新会话，本集合不再有人绑，裁剪是纯内存操作。
+    /// </summary>
+    private void ScheduleBackgroundTrim()
+    {
+        // 两个数分开量:排队延迟说明这次裁剪有没有被饿着,耗时说明它值不值得占关键路径
+        long queuedAt = StartupPhaseProbe.Begin();
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsDisplayed) return; //这一小会儿里又切回来了,当前上限自己会管
+
+            StartupPhaseProbe.End("conversation/trim-delay", queuedAt);
+            long trimBegin = StartupPhaseProbe.Begin();
+            int before = Items.Count;
+            if (_trimmer.TrimToBackgroundBudget()) HasEarlierMessages = _historyWindow.HasEarlier;
+            StartupPhaseProbe.End($"conversation/trim:{before}->{Items.Count}", trimBegin);
+            // Normal 而不是 Background:切走的会话往往正在流式输出,而流式期间高优先级任务
+            // 不断进来,Background 会被饿着——那等于切回去时这次裁剪还没发生。
+            // Normal 同样排在 DataContext 替换之后(替换是同步做完的),不会误裁到已经绑上的集合
+        }, DispatcherPriority.Normal);
     }
 
     /// <summary>
@@ -969,7 +1007,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         try
         {
+            long attachBegin = StartupPhaseProbe.Begin();
             ChatSession? body = await AttachAsync(meta, CancellationToken.None);
+            // 墙上时间:里面有真正的 await(预连、装配),不等于 UI 线程被占这么久。
+            // 与 ui-stall 的间隔对照才说明问题——两个数接近就说明它是在 UI 线程上同步跑的
+            StartupPhaseProbe.End("conversation/attach-wall", attachBegin);
             if (Abandoned()) return;
             if (body == null)
             {
@@ -1019,6 +1061,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     private void ReplayMessages(IReadOnlyList<ChatMessage> messages)
     {
+        long replayBegin = StartupPhaseProbe.Begin();
         (int from, int to) = _historyWindow.Reset(messages.Count);
         HasEarlierMessages = _historyWindow.HasEarlier;
         foreach (ConversationItemBase item in BuildHistoryItems(messages, from, to))
@@ -1034,6 +1077,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         RefreshTokenUsageText();
+        StartupPhaseProbe.End($"conversation/replay:items={Items.Count},history={messages.Count}", replayBegin);
     }
 
     /// <summary>
