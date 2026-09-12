@@ -22,8 +22,12 @@ INFO_PLIST="Info.plist"
 ICON_FILE="../UiharuMind/Assets/Icon.png"
 EXEC="Exec"
 
-# Extract version from App.axaml.cs
-APP_VERSION=$(grep "public static Version Version" ../UiharuMind/App.axaml.cs | grep -o 'new Version([0-9, ]*' | sed 's/new Version(//' | tr -d ' ' | tr ',' '.')
+# 版本号取自 Directory.Build.props 的 <Version>（唯一来源，与 AppInfo.Version 同源）
+APP_VERSION=$(dotnet msbuild ../UiharuMind.Desktop/UiharuMind.Desktop.csproj -getProperty:Version -nologo)
+if [ -z "$APP_VERSION" ]; then
+    echo "取不到 <Version>，中止" >&2
+    exit 1
+fi
 APP_SHORT_VERSION=$APP_VERSION
 
 if [ -d "$APP_NAME" ]
@@ -37,17 +41,13 @@ mkdir "$APP_NAME/Contents"
 mkdir "$APP_NAME/Contents/MacOS"
 mkdir "$APP_NAME/Contents/Resources"
 
-# Patch Info.plist with correct version
-if command -v /usr/libexec/PlistBuddy &> /dev/null; then
-    TEMP_INFO_PLIST=$(mktemp)
-    cp "$INFO_PLIST" "$TEMP_INFO_PLIST"
-    /usr/libexec/PlistBuddy -c "Set CFBundleVersion $APP_VERSION" "$TEMP_INFO_PLIST"
-    /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $APP_SHORT_VERSION" "$TEMP_INFO_PLIST"
-    cp "$TEMP_INFO_PLIST" "$APP_NAME/Contents/Info.plist"
-    rm "$TEMP_INFO_PLIST"
-else
-    cp "$INFO_PLIST" "$APP_NAME/Contents/Info.plist"
-fi
+# 用真实版本号填 Info.plist
+TEMP_INFO_PLIST=$(mktemp)
+cp "$INFO_PLIST" "$TEMP_INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set CFBundleVersion $APP_VERSION" "$TEMP_INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $APP_SHORT_VERSION" "$TEMP_INFO_PLIST"
+cp "$TEMP_INFO_PLIST" "$APP_NAME/Contents/Info.plist"
+rm "$TEMP_INFO_PLIST"
 cp "$EXEC" "$APP_NAME/Contents/MacOS/$EXEC"
 cp "$ICON_FILE" "$APP_NAME/Contents/Resources/Icon.png"
 cp -a "$PUBLISH_OUTPUT_DIRECTORY/." "$APP_NAME/Contents/MacOS"

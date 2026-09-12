@@ -1,5 +1,7 @@
 <Project>
   <PropertyGroup>
+    <!-- 版本号唯一来源：AppInfo.Version 从程序集读取，Info.plist 由构建脚本填 -->
+    <Version>0.1.0</Version>
     <Nullable>enable</Nullable>
     <AvaloniaVersion>12.1.2</AvaloniaVersion>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>

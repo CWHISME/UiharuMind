@@ -2,6 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- CFBundleVersion / CFBundleShortVersionString 由 buildMac.sh 用 <Version> 覆写，此处为占位 -->
 	<key>CFBundleIdentifier</key>
 	<string>com.cwhisme.uiharumind</string>
 	<key>CFBundleName</key>
