@@ -21,7 +21,7 @@ namespace UiharuMind.Features.Conversation.QuickChat;
 public partial class QuickChatViewWindow : QuickWindowBase
 {
     private const double DefaultWidth = 500; //会话里有工具卡片与代码块,窄了每张都折行
-    private const double DefaultHeight = 640;
+    private const double DefaultHeight = 666;
 
     /// <summary>
     /// 文档型窗口要参与 macOS 的常规模式，否则应用停在附属态，

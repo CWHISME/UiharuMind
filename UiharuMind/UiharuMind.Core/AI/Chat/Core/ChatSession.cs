@@ -143,30 +143,47 @@ public class ChatSession
     /// 历史被追加了（参数是新增段的起始下标）。<b>外驱的界面壳靠它跟上</b>——
     /// 它不驱动这一轮，拿不到内容流，只能等这个信号再去读新增的那几条。
     ///
-    /// 粒度是<b>每次服务调用</b>（框架每调一次模型就落一次盘），不是逐 token：
-    /// 观察者看到的是"一条消息/一次工具调用完成了"，没有打字机效果。
-    /// 想要逐 token 就得再开一条内容流，而那会让"谁在渲染"多出一份真相。
+    /// 粒度是<b>每次服务调用</b>（框架每调一次模型就落一次盘），不是逐 token。
+    /// 逐 token 走的是 <see cref="LiveTurn"/>：同一条内容流的分岔，不是第二份真相。
+    /// 两者的分工写在那里。
     ///
     /// ⚠️ <b>可能来自后台线程</b>（子代理与定时任务都不在 UI 线程上），订阅方自行 marshal。
     /// </summary>
     public event Action<int>? HistoryAppended;
 
     /// <summary>
-    /// 历史被<b>整份改写</b>了（不是追加）。与 <see cref="HistoryAppended"/> 分开是因为
-    /// 界面处置方式不同：追加只需补渲染新增那几条，改写只能整个回放一遍。
+    /// 本会话的实时内容分岔口。跑这一轮的 <c>TurnDriver</c> 把内容交给它，
+    /// 打开着的窗口把自己的渲染落点挂上去（<see cref="LiveTurnStream.Observe"/>），
+    /// 于是<b>观察者也能逐 token 看</b>，而不是只等按服务调用粒度落盘的 <see cref="HistoryAppended"/>。
+    ///
+    /// 与历史的分工：流负责助手正文/思考段/工具卡这些由内容流产出的东西，
+    /// 历史负责它产不出的那几类（用户插话、检索卡、旁白、交接文档、后续报告）与落盘配对。
+    /// </summary>
+    [JsonIgnore]
+    public LiveTurnStream LiveTurn { get; } = new();
+
+    /// <summary>
+    /// 历史里的某<b>一条被原地换掉</b>了（不是追加）。参数是下标与<b>被换掉的那一条</b>
+    /// ——界面靠后者认回自己当初为它渲染出的条目，从而只重建那一处。
+    ///
+    /// 带上位置而不是发个"整份改写了"：界面若因此清空重放，满屏气泡的 markdown 渲染器
+    /// 会一起重建，表现是整个窗口闪一下。
     ///
     /// 目前唯一的来源是「后续报告原地替换上一份」（见 <c>SubAgentReportHandoff</c>）——
     /// 刻意<b>不</b>由 <see cref="Save"/> 统一发：那个方法到处都在调，
-    /// 变成每次保存都让界面重放一次。
+    /// 变成每次保存都让界面重建一次。
     ///
     /// ⚠️ 同样<b>可能来自后台线程</b>，订阅方自行 marshal。
     /// </summary>
-    public event Action? HistoryRewritten;
+    public event Action<int, ChatMessage>? HistoryMessageReplaced;
 
     /// <summary>
-    /// 通知订阅方历史已被整份改写。只该由「确实绕过了当前界面去改历史」的那些路径调用
+    /// 通知订阅方历史里的某一条被原地换掉了。只该由「确实绕过了当前界面去改历史」的那些路径调用
     /// </summary>
-    public void NotifyHistoryRewritten() => HistoryRewritten?.Invoke();
+    /// <param name="index">被替换的下标</param>
+    /// <param name="replaced">被换掉的那一条</param>
+    public void NotifyHistoryMessageReplaced(int index, ChatMessage replaced) =>
+        HistoryMessageReplaced?.Invoke(index, replaced);
 
     /// <summary>
     /// 记录本轮检索到的知识库片段：存进一次性凭据等落盘，同时通知界面即时显示
@@ -560,6 +577,8 @@ public class ChatSession
     public void SaveAppended(int fromIndex)
     {
         SessionManager.Instance.Append(this, fromIndex);
+        // 落了盘的那一段不必再给中途挂上来的观察者补发:它从历史里读得到,补发就是渲染两遍
+        LiveTurn.NoteHistoryPersisted();
         HistoryAppended?.Invoke(fromIndex);
     }
 

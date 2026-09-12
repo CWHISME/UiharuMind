@@ -238,6 +238,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private ChatSession? _signalSession; //已挂上历史变更信号的会话
+    private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
+    private readonly ITurnSink _liveObserverSink; //实时流的落点:同一个转录器,外面包一层 UI 线程 marshal
     private ConversationItemBase? _taskPlaceholder; //子会话任务的占位条目,真消息落盘后撤掉
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly ConversationItemWindowTrimmer _trimmer; //运行期把涨上来的条目裁回上限
@@ -334,6 +336,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
+        // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
+        _liveObserverSink = new LiveObserverSink(_transcript);
         _driver.StateChanged += OnDriverStateChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
 
@@ -395,11 +399,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 这个会话的历史被追加了。两条来路：外驱时它是<b>唯一</b>的实时来源
-    /// （不驱动这一轮就拿不到内容流），以及别处往我的历史里写了东西
-    /// （子会话把后续报告交回派活者）。
+    /// 这个会话的历史被追加了。两条来路：一轮跑完/跑到某次服务调用时的落盘，
+    /// 以及别处往我的历史里写了东西（子会话把后续报告交回派活者）。
     ///
-    /// 粒度是每次服务调用，不是逐 token（见 <c>ChatSession.HistoryAppended</c>）。
+    /// 粒度是每次服务调用，不是逐 token——逐 token 走的是实时内容流
+    /// （<c>ChatSession.LiveTurn</c>），本方法据此分两档处理。
     /// </summary>
     /// <param name="fromIndex">新增段的起始下标</param>
     private void OnSessionHistoryAppended(int fromIndex)
@@ -407,26 +411,68 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 自己正在跑的那一轮由实时流渲染,这里再补一遍就是每条显示两次
         if (_driver.IsRunning) return;
 
+        // 别人驱动的那一轮也在往我这里流内容,同理:流已经渲染过的不能再渲染一遍
+        bool streaming = CurrentSession?.LiveTurn.IsTurnRunning == true;
+
         Dispatcher.UIThread.Post(() =>
         {
             if (CurrentSession is not { } session) return;
             IReadOnlyList<ChatMessage> history = session.History;
             if (fromIndex < 0 || fromIndex >= history.Count) return;
 
-            // 真消息来了就撤掉占位,否则任务会显示两遍
-            if (_taskPlaceholder is { } placeholder)
-            {
-                Items.Remove(placeholder);
-                _taskPlaceholder = null;
-            }
-
-            foreach (ConversationItemBase item in BuildHistoryItems(history, fromIndex, history.Count))
-            {
-                Items.Add(item);
-            }
+            if (streaming) AppendAlongsideStream(history, fromIndex);
+            else AppendWholeSlice(history, fromIndex);
 
             RefreshTokenUsageText();
         });
+    }
+
+    /// <summary>没有实时流时：整段照回放渲染</summary>
+    private void AppendWholeSlice(IReadOnlyList<ChatMessage> history, int fromIndex)
+    {
+        // 真消息来了就撤掉占位,否则任务会显示两遍
+        if (_taskPlaceholder is { } placeholder)
+        {
+            Items.Remove(placeholder);
+            _taskPlaceholder = null;
+        }
+
+        foreach (ConversationItemBase item in BuildHistoryItems(history, fromIndex, history.Count, liveTail: true))
+        {
+            Items.Add(item);
+        }
+    }
+
+    /// <summary>
+    /// 一轮正往界面流内容时落的盘：<b>内容流产出的那几类已经渲染过了</b>，这里只补它产不出的
+    /// （用户插话、检索卡、旁白、交接文档、后续报告），再把流式条目与消息配对。
+    /// 归属判据只有一份（<see cref="ConversationMessageOrigin"/>），两条路都问它。
+    /// </summary>
+    private void AppendAlongsideStream(IReadOnlyList<ChatMessage> history, int fromIndex)
+    {
+        for (int i = fromIndex; i < history.Count; i++)
+        {
+            ChatMessage message = history[i];
+            if (ConversationMessageOrigin.IsProducedByContentStream(ConversationMessageOrigin.KindOf(message)))
+                continue;
+
+            // 子会话的任务占位就是这条用户消息本身:就地转正,别摘了再画一遍
+            // ——摘掉重画会让它排到已经流出来的助手正文后面去
+            if (_taskPlaceholder is TextConversationItem placeholder && message.Role == ChatRole.User)
+            {
+                _itemActions.Wire(placeholder, message);
+                _taskPlaceholder = null;
+                continue;
+            }
+
+            foreach (ConversationItemBase item in BuildHistoryItems(history, i, i + 1, liveTail: true))
+            {
+                Items.Add(item);
+            }
+        }
+
+        // 流式条目此刻才能与落了盘的消息配对,配上了才有编辑/删除/分叉
+        _itemActions.WireStreamed(history);
     }
 
     /// <summary>
@@ -450,18 +496,57 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 历史被别处整份改写了（后续报告替换了上一份）。追加能补渲染，改写只能整个回放一遍。
+    /// 历史里的某一条被别处原地换掉了（后续报告替换了上一份）。
+    ///
+    /// <b>只重建那一条产出的条目</b>，不整份回放：markdown 是按条目、进视口才逐帧启用渲染器的
+    /// （见 <c>SimpleMarkdownViewer</c>），清空重建等于让满屏气泡一起退回纯文本再一条条转回来
+    /// ——用户看到的就是整个窗口闪一下。
     /// </summary>
-    private void OnSessionHistoryRewritten()
+    /// <param name="index">被替换的下标</param>
+    /// <param name="replaced">被换掉的那一条（界面靠它认回自己渲染出的条目）</param>
+    private void OnSessionHistoryReplaced(int index, ChatMessage replaced)
     {
         if (_driver.IsRunning) return;
 
         Dispatcher.UIThread.Post(() =>
         {
             if (CurrentSession is not { } session) return;
-            _taskPlaceholder = null;
-            Items.Clear();
-            ReplayMessages(session.History);
+            IReadOnlyList<ChatMessage> history = session.History;
+            if (index < 0 || index >= history.Count) return;
+
+            // 旧那条产出的条目可能不止一个(工具卡、思考卡…),按来源整组认出来
+            List<int> slots = new();
+            for (int i = 0; i < Items.Count; i++)
+            {
+                if (ReferenceEquals(Items[i].SourceMessage, replaced)) slots.Add(i);
+            }
+
+            // 那一条落在历史开窗之外(没渲染过),此刻也不该凭空补出来
+            if (slots.Count == 0) return;
+
+            List<ConversationItemBase> rebuilt = BuildHistoryItems(history, index, index + 1);
+
+            // 后续报告就是一条文本:能原地改就别动集合。摘掉再插回去会重建那一处的
+            // markdown 渲染器(它按条目、进视口才启用),内容一字没变也要闪一下
+            if (slots.Count == 1 && rebuilt is [TextConversationItem fresh] &&
+                Items[slots[0]] is TextConversationItem existing)
+            {
+                fresh.Flush();
+                existing.Message = fresh.Message;
+                existing.Timestamp = fresh.Timestamp;
+                _itemActions.Wire(existing, history[index]); //来源换人了,编辑/删除得指向新那条
+                return;
+            }
+
+            for (int i = slots.Count - 1; i >= 0; i--)
+            {
+                Items.RemoveAt(slots[i]);
+            }
+
+            for (int i = 0; i < rebuilt.Count; i++)
+            {
+                Items.Insert(slots[0] + i, rebuilt[i]);
+            }
         });
     }
 
@@ -471,7 +556,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         DetachSessionSignals();
         _signalSession = session;
         session.HistoryAppended += OnSessionHistoryAppended;
-        session.HistoryRewritten += OnSessionHistoryRewritten;
+        session.HistoryMessageReplaced += OnSessionHistoryReplaced;
+        // 挂上这个会话的实时内容流。自己驱动时按身份去重,不会渲染两遍;
+        // 这一轮跑到一半才挂上来也补得齐(尚未落盘的那一段会当场补发)
+        _liveObservation = session.LiveTurn.Observe(_liveObserverSink, _transcript);
     }
 
     /// <summary>摘掉订阅。会话比本视图活得久，不摘就是一路泄漏到已销毁的视图上</summary>
@@ -479,7 +567,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         if (_signalSession is not { } previous) return;
         previous.HistoryAppended -= OnSessionHistoryAppended;
-        previous.HistoryRewritten -= OnSessionHistoryRewritten;
+        previous.HistoryMessageReplaced -= OnSessionHistoryReplaced;
+        _liveObservation?.Dispose();
+        _liveObservation = null;
         _signalSession = null;
     }
 
@@ -1264,7 +1354,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         long replayBegin = StartupPhaseProbe.Begin();
         (int from, int to) = _historyWindow.Reset(messages.Count);
         HasEarlierMessages = _historyWindow.HasEarlier;
-        foreach (ConversationItemBase item in BuildHistoryItems(messages, from, to))
+        // 有一轮正跑着的时候,历史末尾那次工具调用的结果多半正在路上(它是下一次服务调用的
+        // 请求消息,随那次落盘,而实时流这就会把它送来)。按"历史里没有结果"收掉它就是谎报
+        bool live = CurrentSession?.LiveTurn.IsTurnRunning == true;
+        foreach (ConversationItemBase item in BuildHistoryItems(messages, from, to, liveTail: live))
         {
             Items.Add(item);
         }
@@ -1335,10 +1428,21 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 回放一段历史到独立缓冲：用一个不订阅用量的转录器实例装配，
     /// 因此不会污染本轮/累计计数（累计口径由 <see cref="ReplayMessages"/> 从会话本体恢复）。
     /// </summary>
-    private List<ConversationItemBase> BuildHistoryItems(IReadOnlyList<ChatMessage> messages, int from, int to)
+    /// <param name="messages">历史</param>
+    /// <param name="from">起始下标</param>
+    /// <param name="to">结束下标（不含）</param>
+    /// <param name="liveTail">
+    /// 这一段是<b>还在长的尾巴</b>（外驱会话每次服务调用补渲染一段）而不是定格的历史。
+    /// 此时：结果要能配回更早那批里的工具卡（调用与结果落在不同批），
+    /// 且尚无结果的调用得继续转圈——按"历史里没有结果"收掉它就是谎报，
+    /// 而下一批真把结果送来时卡片早已定格。
+    /// </param>
+    private List<ConversationItemBase> BuildHistoryItems(IReadOnlyList<ChatMessage> messages, int from, int to,
+        bool liveTail = false)
     {
         List<ConversationItemBase> buffer = new();
-        ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(_currentCharacter))
+        ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
+            renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)Items : null)
         {
             AutoCollapseThinking = IsAutoCollapseThinking,
         };
@@ -1353,63 +1457,77 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             ChatMessage message = messages[index];
             lastKnown = message.CreatedAt ?? lastKnown;
-            // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡,因此先于常规分派拦下
-            if (HistoryHandoff.IsNote(message))
+            // 渲染归属只有一份判据:哪些由内容流产出、哪些只能从历史来,
+            // 实时流观察那条路问的是同一个函数(见 ConversationMessageOrigin)
+            switch (ConversationMessageOrigin.KindOf(message))
             {
-                buffer.Add(new HandoffItem
+                // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡
+                case EHistoryItemKind.HandoffNote:
+                    buffer.Add(new HandoffItem
+                    {
+                        Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)),
+                        SourceMessage = message,
+                    });
+                    continue;
+
+                // 开场白是 assistant 消息(要供给模型,否则首轮又自我介绍一遍),但画成居中旁白
+                case EHistoryItemKind.Narration:
                 {
-                    Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)),
-                    SourceMessage = message,
-                });
-                continue;
-            }
-
-            // 开场白是 assistant 消息(要供给模型,否则首轮又自我介绍一遍),但画成居中旁白,
-            // 因此也先于常规分派拦下——落到下面的助手分支就会被画成角色气泡
-            if (ChatMessageAnnotations.IsNarration(message))
-            {
-                TextConversationItem narration = _itemActions.Wire(
-                    ConversationItemFactory.CreateNarration(message), message);
-                if (lastKnown is { } narrationStamp)
-                    narration.Timestamp = ConversationItemFactory.TimestampText(narrationStamp);
-                buffer.Add(narration);
-                continue;
-            }
-
-            // 检索片段同样是「落盘但不是对话」,渲染成检索卡片,也先于常规分派拦下——
-            // 它的角色是 Tool,落进下面的助手分支会被当成工具结果去配对一个不存在的调用
-            if (ChatMessageAnnotations.IsKnowledge(message))
-            {
-                ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(message.Text);
-                knowledgeCard.SourceMessage = message;
-                buffer.Add(knowledgeCard);
-                continue;
-            }
-
-            // 子会话的后续报告:角色是 User(它要供给模型),但<b>不是用户说的话</b>——
-            // 落进下面的用户分支会画成用户气泡,等于把子代理的结论安到用户头上。
-            // 借旁白那套呈现:居中、无头像无名字,表示"这条不归对话双方任何一方"
-            if (ChatMessageAnnotations.IsSubAgentReport(message))
-            {
-                TextConversationItem reportItem = _itemActions.Wire(
-                    ConversationItemFactory.CreateNarration(message), message);
-                if (lastKnown is { } reportStamp)
-                    reportItem.Timestamp = ConversationItemFactory.TimestampText(reportStamp);
-                buffer.Add(reportItem);
-                continue;
-            }
-
-            if (message.Role == ChatRole.User)
-            {
-                string text = ConversationItemFactory.DisplayTextOf(message);
-                if (!ConversationItemFactory.IsFrameworkInjected(message) && (!string.IsNullOrWhiteSpace(text) || ConversationItemFactory.HasImage(message)))
-                {
-                    TextConversationItem userItem = _itemActions.Wire(ConversationItemFactory.CreateUser(text, message), message);
-                    if (lastKnown is { } userStamp) userItem.Timestamp = ConversationItemFactory.TimestampText(userStamp);
-                    buffer.Add(userItem);
+                    TextConversationItem narration = _itemActions.Wire(
+                        ConversationItemFactory.CreateNarration(message), message);
+                    if (lastKnown is { } narrationStamp)
+                        narration.Timestamp = ConversationItemFactory.TimestampText(narrationStamp);
+                    buffer.Add(narration);
+                    continue;
                 }
 
-                continue;
+                // 检索片段同样是「落盘但不是对话」:它的角色是 Tool,
+                // 落进助手那一档会被当成工具结果去配对一个不存在的调用
+                case EHistoryItemKind.Knowledge:
+                {
+                    ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(message.Text);
+                    knowledgeCard.SourceMessage = message;
+                    buffer.Add(knowledgeCard);
+                    continue;
+                }
+
+                // 子会话的后续报告:角色是 User(它要供给模型),但<b>不是用户说的话</b>——
+                // 画成用户气泡等于把子代理的结论安到用户头上。借旁白那套呈现:
+                // 居中、无头像无名字,表示"这条不归对话双方任何一方"
+                case EHistoryItemKind.SubAgentReport:
+                {
+                    TextConversationItem reportItem = _itemActions.Wire(
+                        ConversationItemFactory.CreateNarration(message), message);
+                    if (lastKnown is { } reportStamp)
+                        reportItem.Timestamp = ConversationItemFactory.TimestampText(reportStamp);
+                    buffer.Add(reportItem);
+                    continue;
+                }
+
+                case EHistoryItemKind.UserInput:
+                {
+                    string text = ConversationItemFactory.DisplayTextOf(message);
+                    if (!ConversationItemFactory.IsFrameworkInjected(message) &&
+                        (!string.IsNullOrWhiteSpace(text) || ConversationItemFactory.HasImage(message)))
+                    {
+                        TextConversationItem userItem =
+                            _itemActions.Wire(ConversationItemFactory.CreateUser(text, message), message);
+                        if (lastKnown is { } userStamp)
+                            userItem.Timestamp = ConversationItemFactory.TimestampText(userStamp);
+                        buffer.Add(userItem);
+                    }
+
+                    continue;
+                }
+
+                case EHistoryItemKind.StreamContents:
+                    break; //落到下面交给转录器按内容装配
+
+                default:
+                    // 种类加了一项却没在这里表态。抛出来而不是默默画错:
+                    // 静默的重复或缺失查起来要命,而这条路一跑就炸
+                    throw new ArgumentOutOfRangeException(nameof(message),
+                        $"Unhandled history item kind for message role '{message.Role}'.");
             }
 
             int before = buffer.Count;
@@ -1436,7 +1554,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             }
         }
 
-        replay.FinalizeReplay(LocalizationManager.Instance.GetString("AgentToolCallUnfinished"));
+        if (liveTail) replay.CloseSegment();
+        else replay.FinalizeReplay(LocalizationManager.Instance.GetString("AgentToolCallUnfinished"));
+
         return buffer;
     }
 

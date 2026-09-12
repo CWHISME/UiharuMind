@@ -40,6 +40,7 @@ public sealed class TurnDriver : IDisposable
     private static bool _usageKeysLogged; //附加计数的键名各家不同,只需认一次
 
     private readonly ITurnSink? _sink;
+    private ITurnSink? _turnSink; //本轮的实际落点:自己的 sink 加上挂在这个会话上的观察者
     private readonly TurnUsageLedger _usage;
     private readonly Action<TurnNotice>? _notify;
 
@@ -124,6 +125,9 @@ public sealed class TurnDriver : IDisposable
         runner.SetTurnContext(resolver, _sink != null);
         //本轮没等到结果的工具调用该按什么口径收:默认「用户停止」,撞失败时改成失败口径
         string interruptionNote = ToolCallCancellation.ResultText;
+        // 岔口的释放必须晚到 finally 里:收尾的 CloseSegment/StopRunningToolCalls 与失败路径的
+        // 落库都要经过它,拆早了自己的落点都收不到那几下
+        LiveTurnStream.Scope? liveScope = null;
         try
         {
             List<ChatMessage>? nextMessages = new() { userMessage };
@@ -131,6 +135,12 @@ public sealed class TurnDriver : IDisposable
             // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
             // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下
             using IDisposable runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
+
+            // 本轮的内容流从这里分岔:自己的落点之外,打开着这个会话的窗口也挂在上面。
+            // 子代理那一轮的落点只攒报告(见 SubAgentTool.SubAgentTurnSink),
+            // 没有这个岔口,子会话窗口就只能等落盘,工具结果要晚整整一次模型调用才出现
+            liveScope = session.LiveTurn.BeginTurn(_sink);
+            _turnSink = liveScope.Sink;
 
             // MCP 连接的租约:这一轮期间该工作区的连接不会被空闲回收。
             // 子进程是进程级共享资源,而「有没有一轮正在跑」是它是否在被占用的唯一诚实答案——
@@ -153,7 +163,7 @@ public sealed class TurnDriver : IDisposable
                     {
                         if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
                         if (content is UsageContent usage) RecordUsage(session, runner, usage.Details);
-                        _sink?.Apply(content);
+                        _turnSink?.Apply(content);
                     }
                 }
                 catch (OperationCanceledException e)
@@ -169,7 +179,7 @@ public sealed class TurnDriver : IDisposable
                     break;
                 }
 
-                _sink?.CloseSegment();
+                _turnSink?.CloseSegment();
                 _notify?.Invoke(new TurnNotice(ETurnNotice.RoundCompleted));
 
                 if (roundRequests.Count == 0 || resolver == null) break;
@@ -204,11 +214,13 @@ public sealed class TurnDriver : IDisposable
             // 摘掉本轮的审批通道:执行者跨轮次复用,留着会让下一轮的子代理把请求
             // 送进一个已经没人守的回应口
             runner.SetTurnContext(null, false);
-            _sink?.CloseSegment();
+            _turnSink?.CloseSegment();
             // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
             // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作。
             // 不做本地化:补写进历史的是同一句英文,重开会话时卡片显示的就是它,两边措辞得一致
-            _sink?.StopRunningToolCalls(interruptionNote);
+            _turnSink?.StopRunningToolCalls(interruptionNote);
+            liveScope?.Dispose(); //岔口随本轮消失,观察者的订阅仍挂在会话上等下一轮
+            _turnSink = null;
             IsRunning = false;
             _runCancellation = null;
             _activeSession = null;
@@ -385,7 +397,8 @@ public sealed class TurnDriver : IDisposable
         // 框架已经把真正的结果落进去时这里是空操作——补写只针对没配对的调用
         ToolCallCancellation.CloseUnansweredAtTail(session, toolResultNote);
 
-        if (_sink?.TakeStreamingText() is not { } text) return;
+        // 退出收尾(SettleForShutdown)时本轮的岔口已经拆了,回落到自己的落点
+        if ((_turnSink ?? _sink)?.TakeStreamingText() is not { } text) return;
 
         int before = session.History.Count;
         session.History.Add(session.CreateMessage(ChatRole.Assistant, text));

@@ -457,6 +457,45 @@ public class ConversationTranscriptTests
         Assert.False(call.IsSuccess);
     }
 
+    /// <summary>
+    /// 外驱会话是按「每次服务调用」补渲染的：工具调用与它的结果落在<b>不同批</b>里。
+    /// 只认本批的话结果永远配不上调用，卡片会一直停在「历史里没有这次调用的结果」，
+    /// 关掉界面重开(整份回放)才对上——这正是子代理窗口那个 bug
+    /// </summary>
+    [Fact]
+    public void ToolResult_PairsWithACallRenderedInAnEarlierBatch()
+    {
+        List<ConversationItemBase> rendered = new();
+        ConversationTranscript first = new(rendered, () => new TextConversationItem(false));
+        first.Apply(new FunctionCallContent("a", "run_shell", null));
+
+        List<ConversationItemBase> batch = new();
+        ConversationTranscript second = new(batch, () => new TextConversationItem(false),
+            renderedBefore: rendered);
+        second.Apply(new FunctionResultContent("a", "ok"));
+
+        ToolCallItem call = rendered.OfType<ToolCallItem>().Single();
+        Assert.False(call.IsRunning);
+        Assert.True(call.IsSuccess);
+        Assert.Equal("ok", call.ResultText);
+        Assert.Empty(batch); //结果只回写卡片,不该再造一个条目
+    }
+
+    /// <summary>委派入口同样跨批到达：结果先到,SubSessionStartedContent 也要认得回更早那张卡</summary>
+    [Fact]
+    public void SubSessionStarted_PairsWithACallRenderedInAnEarlierBatch()
+    {
+        List<ConversationItemBase> rendered = new();
+        ConversationTranscript first = new(rendered, () => new TextConversationItem(false));
+        first.Apply(new FunctionCallContent("a", "sub_agent", null));
+
+        ConversationTranscript second = new(new List<ConversationItemBase>(),
+            () => new TextConversationItem(false), renderedBefore: rendered);
+        second.Apply(new SubSessionStartedContent("a", "sub-1"));
+
+        Assert.Equal("sub-1", rendered.OfType<ToolCallItem>().Single().SubSessionId);
+    }
+
     [Fact]
     public void NormalToolResult_StaysSuccessful()
     {

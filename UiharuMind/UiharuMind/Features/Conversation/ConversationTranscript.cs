@@ -35,6 +35,7 @@ namespace UiharuMind.Features.Conversation;
 public sealed class ConversationTranscript : ITurnSink
 {
     private readonly IList<ConversationItemBase> _target;
+    private readonly IReadOnlyList<ConversationItemBase>? _renderedBefore; //更早已渲染出去的条目(增量装配时用于跨批配对)
     private readonly Func<TextConversationItem> _createAssistantItem;
     private readonly Action<string>? _rememberShellPattern;
     private readonly Func<string?>? _workspaceRootSource; //审批卡片预演 diff 要用它解析相对路径
@@ -59,13 +60,20 @@ public sealed class ConversationTranscript : ITurnSink
     /// <param name="createAssistantItem">助手气泡工厂（名字与头像取自当前会话角色）</param>
     /// <param name="rememberShellPattern">「本会话放行同类命令」的落点</param>
     /// <param name="workspaceRootSource">当前工作目录的来源（现取现用：会话中途改工作目录也能跟上）</param>
+    /// <param name="renderedBefore">
+    /// 本次装配<b>之前</b>就已经渲染出去的条目。只在增量装配（外驱会话每次服务调用补渲染一段）时给：
+    /// 那时工具调用与它的结果落在<b>不同批</b>里，只认本批的话结果永远配不上调用，
+    /// 卡片会一直停在「历史里没有这次调用的结果」，直到整份回放才对上。
+    /// </param>
     public ConversationTranscript(
         IList<ConversationItemBase> target,
         Func<TextConversationItem> createAssistantItem,
         Action<string>? rememberShellPattern = null,
-        Func<string?>? workspaceRootSource = null)
+        Func<string?>? workspaceRootSource = null,
+        IReadOnlyList<ConversationItemBase>? renderedBefore = null)
     {
         _target = target;
+        _renderedBefore = renderedBefore;
         _isUiBound = target is INotifyCollectionChanged;
         _createAssistantItem = createAssistantItem;
         _rememberShellPattern = rememberShellPattern;
@@ -125,7 +133,7 @@ public sealed class ConversationTranscript : ITurnSink
                 break;
 
             case FunctionResultContent result:
-                if (_target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == result.CallId) is { } item)
+                if (FindCall(result.CallId) is { } item)
                 {
                     item.IsRunning = false;
                     // 取消补写的结果要显示成失败:它没跑完,绿点会是假消息。
@@ -142,7 +150,7 @@ public sealed class ConversationTranscript : ITurnSink
             // 一次委派开始了:把子会话标识挂到对应卡片上,用户此刻就能点开看。
             // 过程本身不走这里——它是子会话自己的历史
             case SubSessionStartedContent started:
-                if (_target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == started.CallId) is { } launched)
+                if (FindCall(started.CallId) is { } launched)
                 {
                     launched.SubSessionId = started.SubSessionId;
                 }
@@ -169,6 +177,13 @@ public sealed class ConversationTranscript : ITurnSink
         }
     }
 
+
+    /// <summary>按 CallId 找回工具卡片：先看本次装配的产出，再看更早已渲染出去的那些</summary>
+    private ToolCallItem? FindCall(string? callId)
+    {
+        return _target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == callId)
+               ?? _renderedBefore?.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == callId);
+    }
 
     /// <summary>
     /// 收尾当前流段：冲刷解析器残留、标记文本气泡完成、按设置折叠思考段

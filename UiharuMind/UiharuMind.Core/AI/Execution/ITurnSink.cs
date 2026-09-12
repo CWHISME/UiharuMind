@@ -17,6 +17,9 @@ namespace UiharuMind.Core.AI.Execution;
 ///
 /// 界面侧由 <c>ConversationTranscript</c> 实现（这五个成员它本来就有，逐字同名）；
 /// 无头执行（定时任务）没有要渲染的东西，传 null 即可。
+///
+/// 一轮的落点可以不止一个：驱动者之外，打开着这个会话的窗口也挂在
+/// <c>ChatSession.LiveTurn</c> 上，由 <see cref="LiveTurnStream"/> 一并转发。
 /// </summary>
 public interface ITurnSink
 {

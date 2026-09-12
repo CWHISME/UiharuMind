@@ -69,10 +69,17 @@ public static class SubAgentReportHandoff
         ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace);
         if (replaceInPlace)
         {
+            ChatMessage superseded = parent.History[existing];
+            // 结论没变就什么都不做:交回是幂等的。照写不误的话派活者的历史文件要整份重写一遍,
+            // 界面还得为一条一字未改的消息重建条目——用户看到的就是"点一次闪一次"
+            if (string.Equals(superseded.Text, message.Text, StringComparison.Ordinal))
+                return EHandoffOutcome.Replaced;
+
             parent.History[existing] = message;
             parent.Save(); //改的是中间那条,只能整份重写
-            // 派活者的界面壳(如果开着)得知道:这一份不是它写的,不发信号它会一直显示旧的
-            parent.NotifyHistoryRewritten();
+            // 派活者的界面壳(如果开着)得知道:这一份不是它写的,不发信号它会一直显示旧的。
+            // 带上被换掉的那一条,界面据此只重建那一处——整份重放会让满屏 markdown 闪一下
+            parent.NotifyHistoryMessageReplaced(existing, superseded);
             return EHandoffOutcome.Replaced;
         }
 

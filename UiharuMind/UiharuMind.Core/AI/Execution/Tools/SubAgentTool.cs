@@ -329,9 +329,10 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 子代理这一轮的渲染落点。它<b>不往界面转发任何东西</b>——界面看子会话靠的是
-    /// 子会话自己的历史增量落盘（<c>ChatSession.HistoryAppended</c>），
-    /// 不再有第二条内容流。这里只攒交给主 agent 的报告。
+    /// 子代理这一轮的渲染落点。它只攒交给主 agent 的报告，<b>自己不认识界面</b>——
+    /// 打开着的子会话窗口看到的实时内容，来自 <c>TurnDriver</c> 在
+    /// <c>ChatSession.LiveTurn</c> 上开的那个分岔口（同一条流的另一个订阅者），
+    /// 与本类无关。
     /// </summary>
     private sealed class SubAgentTurnSink : ITurnSink
     {
