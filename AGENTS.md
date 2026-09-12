@@ -70,6 +70,21 @@ axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`）�
 共享部分在 `common.sh`（取版本、发布、签名、打包）。macOS 的 bundle 签名必须是**最后一步**，
 签完再往里拷东西密封就失效了。
 
+### macOS 签名必须用自签名证书，不能用 ad-hoc
+
+TCC（辅助功能 / 屏幕录制授权）把权限钉在 app 的**指定要求**上。ad-hoc 没有颁发者，
+系统退化成用 cdhash 当身份，而那个值每次编译都变——表现是「权限列表里条目还在，
+但权限已失效」。证书签名的指定要求是 `identifier "com.cwhisme.uiharumind" and
+certificate leaf = H"..."`，cdhash 照变但 DR 不变，授权跨版本保留。
+
+证书是自签名的，本地 `openssl` 生成、永久复用，不需要 Apple 账号（Gatekeeper 的
+「无法验证开发者」不受影响，那需要付费 Developer ID）。生成与启用见
+[Build/signing/README.md](UiharuMind/Build/signing/README.md)。**别重新生成**——换证书
+等于换身份，所有用户要再授权一次。
+
+证书不在 keychain 时：本机回退 ad-hoc 并打警告（fork 与新机器仍能构建），
+CI 上（`CI=true`）硬失败，避免发出身份不对的 Release。
+
 CI（`.github/workflows/`）：`ci.yml` 在 push/PR 上构建加测试；`release.yml` 由 `v*` tag 触发，
 先断言 tag 与 `<Version>` 一致，再在三平台上**调用上面这些脚本**（打包逻辑只有一份），
 产物加 `SHA256SUMS` 发成草稿 Release。

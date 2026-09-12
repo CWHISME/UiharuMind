@@ -1,3 +1,6 @@
 UiharuMind/Build/Tmp/
 UiharuMind/Build/Output/
+# 私钥：即便是自签名也不进仓库
+UiharuMind/Build/signing/*.p12
+UiharuMind/Build/signing/*.p12.base64
 .DS_Store

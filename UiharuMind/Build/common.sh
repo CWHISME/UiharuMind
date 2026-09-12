@@ -28,13 +28,39 @@ publish_for() {
     fi
 }
 
-# bundle 级 ad-hoc 签名。Apple Silicon 上 arm64 可执行文件必须有签名才能运行，
+# bundle 级签名。Apple Silicon 上 arm64 可执行文件必须有签名才能运行，
 # dotnet 只签了 apphost，bundle 整体（含 Info.plist 密封）还得自己来。
-# ad-hoc 不是可信颁发者，用户仍需在「隐私与安全性」里放行；真买了 Developer ID
-# 之后应改成由内到外逐个签（先 dylib 再 bundle），而不是 --deep。
+#
+# 必须用自签名证书而不是 ad-hoc：macOS 的 TCC 把辅助功能/屏幕录制的授权钉在
+# 「指定要求」上，ad-hoc 没有颁发者，系统只能退化成用 cdhash——那个值每次编译都变，
+# 用户每次更新都要重新授权。证书签名的指定要求是「bundle ID + 证书」，跨版本稳定。
+# 证书没有则跑 Build/generateSigningCert.sh 生成，再 security import 进 keychain。
+#
+# 真买了 Developer ID 之后应改成由内到外逐个签（先 dylib 再 bundle），而不是 --deep。
+SIGN_IDENTITY="${SIGN_IDENTITY:-UiharuMind Self-Signed}"
+
 sign_bundle() {
     local bundle="$1"
 
+    if security find-identity -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
+        codesign --force --deep --sign "$SIGN_IDENTITY" --timestamp=none "$bundle"
+        codesign --verify --deep --strict "$bundle"
+        echo "已签名（$SIGN_IDENTITY）：$bundle"
+        return 0
+    fi
+
+    # CI 上静默回退成 ad-hoc 会发出一个身份不对的 Release，而这种错误只有用户
+    # 升级时才暴露，所以这里必须红
+    if [ "${CI:-}" = "true" ]; then
+        echo "keychain 里找不到 '$SIGN_IDENTITY'，CI 上不允许回退到 ad-hoc" >&2
+        echo "请确认 MACOS_CERTIFICATE / MACOS_CERTIFICATE_PWD / MACOS_SIGNING_IDENTITY 三个 secret 已配置" >&2
+        return 1
+    fi
+
+    # 本机回退：新克隆的机器、别人的 fork 都该能构建出可跑的包
+    echo "警告：keychain 里找不到 '$SIGN_IDENTITY'，回退到 ad-hoc 签名" >&2
+    echo "警告：ad-hoc 包的辅助功能授权在每次重新编译后都会失效" >&2
+    echo "警告：跑 Build/generateSigningCert.sh 生成证书可消除此问题" >&2
     codesign --force --deep --sign - --timestamp=none "$bundle"
     codesign --verify --deep --strict "$bundle"
     echo "已 ad-hoc 签名：$bundle"

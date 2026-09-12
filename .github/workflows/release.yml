@@ -79,11 +79,46 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/global.json') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # 打包逻辑（组 .app bundle、填 plist、ad-hoc 签名、压包）只在这些脚本里有一份，
+      # 用与本机同一张自签名证书签，TCC 的辅助功能授权才能跨版本保留。
+      # 缺 secret 时 sign_bundle 会硬失败（CI=true），不会静默发出身份不对的包
+      - name: 导入签名证书
+        if: runner.os == 'macOS'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${MACOS_CERTIFICATE:-}" ]; then
+            echo "缺少 MACOS_CERTIFICATE secret —— 见 UiharuMind/Build/signing/README.md" >&2
+            exit 1
+          fi
+
+          cert=$(mktemp).p12
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$cert"
+
+          # 临时 keychain，跑完就随 runner 一起消失
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security import "$cert" -k "$keychain" -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign -A
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$keychain" >/dev/null
+          # 放进搜索列表，codesign 才找得到这个身份
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
+          rm -f "$cert"
+
+          security find-identity -p codesigning "$keychain"
+
+      # 打包逻辑（组 .app bundle、填 plist、签名、压包）只在这些脚本里有一份，
       # 本机和 CI 走的是同一条路
       - name: 构建并打包
         working-directory: UiharuMind/Build
         shell: ${{ matrix.shell }}
+        env:
+          SIGN_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
         run: ${{ matrix.script }}
 
       - name: 上传产物

@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -29,6 +29,11 @@
         <Style Selector="TextBlock.PermissionDesc">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.PermissionHint">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource SemiOrange5}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style Selector="TextBlock.StatusGranted">
@@ -99,6 +104,8 @@
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                         <TextBlock Text="{Binding Name}" Classes="PermissionName" />
                                         <TextBlock Text="{Binding Description}" Classes="PermissionDesc" />
+                                        <TextBlock Text="{Binding Hint}" Classes="PermissionHint"
+                                                   IsVisible="{Binding IsHintVisible}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="6">
                                         <StackPanel Orientation="Horizontal" Spacing="6"

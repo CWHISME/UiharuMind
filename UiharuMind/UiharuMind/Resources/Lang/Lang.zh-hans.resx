@@ -1,4 +1,4 @@
-<root>
+﻿<root>
     <resheader name="resmimetype">
         <value>text/microsoft-resx</value>
     </resheader>
@@ -2425,6 +2425,9 @@
     </data>
     <data name="PermissionAccessibilityDesc" xml:space="preserve">
         <value>全局键盘快捷键需要此权限</value>
+    </data>
+    <data name="PermissionAccessibilityStaleHint" xml:space="preserve">
+        <value>如果列表里已经有本应用却仍不生效，请先用 − 按钮移除再重新添加——旧版本留下的条目已经对不上了。</value>
     </data>
     <data name="PermissionScreenRecording" xml:space="preserve">
         <value>屏幕录制</value>

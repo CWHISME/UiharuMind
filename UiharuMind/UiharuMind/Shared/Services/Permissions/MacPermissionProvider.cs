@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using CommunityToolkit.Mvvm.Input;
 using System.Threading.Tasks;
 using UiharuMind.Resources.Lang;
@@ -25,7 +25,8 @@ public sealed class MacPermissionProvider : IPlatformPermissionProvider
             Description = LocalizationManager.Instance.GetString("PermissionAccessibilityDesc"),
             IconName = "settings",
             ActionLabel = LocalizationManager.Instance.GetString("PermissionOpenSettings"),
-            ActionCommand = new RelayCommand(MacPermissionService.OpenAccessibilitySettings)
+            ActionCommand = new RelayCommand(MacPermissionService.OpenAccessibilitySettings),
+            Hint = LocalizationManager.Instance.GetString("PermissionAccessibilityStaleHint")
         };
 
         _screenRecording = new PermissionItem

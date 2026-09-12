@@ -1,4 +1,4 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
 
@@ -28,6 +28,12 @@ public sealed class PermissionItem : ObservableObject
     /// <summary>点击修复按钮时执行的命令；为 null 表示本项没有可执行的修复入口</summary>
     public ICommand? ActionCommand { get; init; }
 
+    /// <summary>
+    /// 排障提示，只在缺权限时出现。给的是「按了修复按钮仍然不生效」那种情形的下一步，
+    /// 所以不能塞进 Description——那行在已授权时也会显示。
+    /// </summary>
+    public string? Hint { get; init; }
+
     /// <summary>是否已获得该权限</summary>
     public bool IsGranted
     {
@@ -36,6 +42,7 @@ public sealed class PermissionItem : ObservableObject
         {
             if (!SetProperty(ref _isGranted, value)) return;
             OnPropertyChanged(nameof(IsActionVisible));
+            OnPropertyChanged(nameof(IsHintVisible));
             OnPropertyChanged(nameof(StatusText));
         }
     }
@@ -46,4 +53,7 @@ public sealed class PermissionItem : ObservableObject
 
     /// <summary>修复按钮是否可见：仅在缺权限且确有修复入口时出现</summary>
     public bool IsActionVisible => !IsGranted && ActionCommand != null;
+
+    /// <summary>排障提示是否可见：仅在缺权限且确有提示时出现</summary>
+    public bool IsHintVisible => !IsGranted && !string.IsNullOrEmpty(Hint);
 }
