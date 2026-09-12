@@ -31,3 +31,4 @@ cp -a "$PUBLISH_OUTPUT_DIRECTORY/." "$APP_NAME/Contents/MacOS"
 # 签名必须是最后一步：签完再往 bundle 里拷任何东西都会让密封失效。
 # buildMacFull.sh 在它之后还要拷模型，所以那边会重新调一次 sign_bundle
 sign_bundle "$APP_NAME"
+package_bundle "$APP_NAME"

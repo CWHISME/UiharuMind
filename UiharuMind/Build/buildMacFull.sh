@@ -27,5 +27,6 @@ copy_internal_asset "$SUPPORT_DIR/EmbededModels" "InternalEmbededModels"
 copy_internal_asset "$SUPPORT_DIR/Runtime" "InternalRuntime"
 copy_internal_asset "$HOME/Documents/Studys/LLMModel/InternalModels" "InternalModels"
 
-# buildMac.sh 已经签过一次，但上面往 bundle 里拷了东西，密封失效，必须重签
+# buildMac.sh 已经签过一次，但上面往 bundle 里拷了东西，密封失效，必须重签后重新打包
 sign_bundle "$APP_NAME"
+package_bundle "$APP_NAME" "-full"

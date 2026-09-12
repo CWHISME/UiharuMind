@@ -39,3 +39,15 @@ sign_bundle() {
     codesign --verify --deep --strict "$bundle"
     echo "已 ad-hoc 签名：$bundle"
 }
+
+# 压包必须用 ditto：zip 不保留 bundle 的扩展属性与符号链接，签名会在解包后失效。
+# 第二个参数是文件名后缀（Full 包用它区分，避免覆盖 slim 包）
+package_bundle() {
+    local bundle="$1"
+    local suffix="${2:-}"
+    local archive="Output/UiharuMind-$APP_VERSION-osx-arm64$suffix.zip"
+
+    rm -f "$archive"
+    ditto -c -k --sequesterRsrc --keepParent "$bundle" "$archive"
+    echo "已打包：$archive"
+}

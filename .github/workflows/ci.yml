@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一分支上新的推送取消旧的跑
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: UiharuMind
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # global.json 钉的是 9.0.0 + rollForward:latestMajor，接受 10.x
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 缓存 NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: 还原
+        run: dotnet restore UiharuMind.sln
+
+      # axaml 的命名空间与 x:Class 错误在这里炸（AVLN2000）
+      - name: 构建
+        run: dotnet build UiharuMind.sln --configuration Release --no-restore
+
+      - name: Core 测试
+        run: dotnet test UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj --configuration Release --no-build
+
+      - name: App 测试
+        run: dotnet test UiharuMind.App.Tests/UiharuMind.App.Tests.csproj --configuration Release --no-build

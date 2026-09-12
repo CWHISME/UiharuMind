@@ -47,6 +47,35 @@ dotnet test  UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
 axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
 「解决方案编译通过」是很强的信号。
 
+## 打包与发版
+
+版本号的**唯一来源**是 `UiharuMind/Directory.Build.props` 的 `<Version>`。`AppInfo.Version`
+从程序集读、`Info.plist` 由脚本填、CI 拿它校验 tag——都别再写第二份。
+
+发布参数（自包含、ReadyToRun、单文件）收在 `UiharuMind.Desktop.csproj` 里，按 RID 生效，
+脚本与 CI 只需给 `-r <RID>`。**不开 `PublishTrimmed`，也不上 NativeAOT**：全仓默认反射绑定
+（`AvaloniaUseCompiledBindingsByDefault=false`，90 个 axaml 只有 30 个有 `x:DataType`）加上
+反射 JSON，裁剪与 AOT 都会造成静默的运行时失败。前置条件是先把编译绑定与 JSON source-gen
+做完，那之前别碰。
+
+`UiharuMind/Build/` 下：
+
+| 脚本 | 产物 |
+|---|---|
+| `buildMac.sh` | `Output/UiharuMind-<版本>-osx-arm64.zip`（.app bundle，ad-hoc 签名） |
+| `buildMacFull.sh` | 同上加 `-full` 后缀，额外带入本机的 Runtime/模型（缺则跳过） |
+| `buildLinux.sh` | `Output/UiharuMind-<版本>-linux-x64.tar.gz` |
+| `buildWin.bat` | `Output/UiharuMind-<版本>-win-x64.zip` |
+
+共享部分在 `common.sh`（取版本、发布、签名、打包）。macOS 的 bundle 签名必须是**最后一步**，
+签完再往里拷东西密封就失效了。
+
+CI（`.github/workflows/`）：`ci.yml` 在 push/PR 上构建加测试；`release.yml` 由 `v*` tag 触发，
+先断言 tag 与 `<Version>` 一致，再在三平台上**调用上面这些脚本**（打包逻辑只有一份），
+产物加 `SHA256SUMS` 发成草稿 Release。
+
+Mac 包只有 ad-hoc 签名、未经公证，用户首次打开需手动放行——放行说明写在 Release notes 里。
+
 ## 代码规范
 
 正确使用注释：注释精简、无冗余注释，简单代码可忽略，必要代码才进行合理注释。

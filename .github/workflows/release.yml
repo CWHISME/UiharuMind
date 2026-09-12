@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # tag 与 <Version> 不一致就在这里断掉，别浪费三个平台的构建
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - id: resolve
+        name: 取 <Version> 并校验 tag
+        working-directory: UiharuMind
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(dotnet msbuild UiharuMind.Desktop/UiharuMind.Desktop.csproj -getProperty:Version -nologo)
+          if [ -z "$version" ]; then
+            echo "取不到 <Version>" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "<Version> = $version"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag_version="${GITHUB_REF_NAME#v}"
+            if [ "$tag_version" != "$version" ]; then
+              echo "tag ($GITHUB_REF_NAME) 与 <Version> ($version) 不一致" >&2
+              exit 1
+            fi
+            echo "tag $GITHUB_REF_NAME 与 <Version> 一致"
+          fi
+
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macos-14 是 arm64。不写 macos-latest —— 它的架构会随 GitHub 换代漂移
+          - os: macos-14
+            shell: bash
+            script: ./buildMac.sh
+            artifact: UiharuMind-${{ needs.version.outputs.version }}-osx-arm64.zip
+          - os: ubuntu-latest
+            shell: bash
+            script: ./buildLinux.sh
+            artifact: UiharuMind-${{ needs.version.outputs.version }}-linux-x64.tar.gz
+          - os: windows-latest
+            shell: cmd
+            script: buildWin.bat
+            artifact: UiharuMind-${{ needs.version.outputs.version }}-win-x64.zip
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 缓存 NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # 打包逻辑（组 .app bundle、填 plist、ad-hoc 签名、压包）只在这些脚本里有一份，
+      # 本机和 CI 走的是同一条路
+      - name: 构建并打包
+        working-directory: UiharuMind/Build
+        shell: ${{ matrix.shell }}
+        run: ${{ matrix.script }}
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: UiharuMind/Build/Output/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 算 checksum
+        working-directory: artifacts
+        run: |
+          set -euo pipefail
+          sha256sum UiharuMind-* > SHA256SUMS
+          cat SHA256SUMS
+
+      # 草稿状态：发布前人过一眼。未签名的 Mac 包需要用户手动放行，说明写在 notes 里
+      - name: 建草稿 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_TYPE:-branch}"
+          if [ "$tag" = "tag" ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="v$VERSION"
+          fi
+
+          cat > notes.md <<'NOTES'
+          ## macOS
+
+          包未经 Apple 公证，首次打开会被 Gatekeeper 拦下（「无法验证开发者」）。
+          两种放行方式，任选其一：
+
+          - 系统设置 → 隐私与安全性 → 找到 UiharuMind → 「仍要打开」
+          - 或在终端执行：`xattr -dr com.apple.quarantine /Applications/UiharuMind.app`
+
+          校验完整性：`shasum -a 256 -c SHA256SUMS`
+
+          ## Linux
+
+          解包即用：`tar -xzf UiharuMind-*-linux-x64.tar.gz && ./UiharuMind/UiharuMind.Desktop`
+          NOTES
+
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "UiharuMind $VERSION" \
+            --notes-file notes.md \
+            --draft \
+            artifacts/*
