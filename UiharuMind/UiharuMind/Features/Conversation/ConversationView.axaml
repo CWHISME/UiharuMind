@@ -213,7 +213,8 @@
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="4">
                 <!-- 附件 chips:附件盘挂在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置。
                      DataContext 整体切到附件盘,下面模板里的 $parent[ItemsControl] 才拿得到它 -->
-                <StackPanel Grid.Row="0" DataContext="{Binding Tray}">
+                <StackPanel Grid.Row="0">
+                <StackPanel DataContext="{Binding Tray}">
                     <ItemsControl ItemsSource="{Binding Attachments}"
                                   IsVisible="{Binding Attachments.Count}">
                         <ItemsControl.ItemsPanel>
@@ -265,6 +266,31 @@
                                Foreground="{DynamicResource SemiOrange5}"
                                Text="{loc:Loc ChatImageUnreadableWarning}"
                                IsVisible="{Binding IsImageUnreadableWarningVisible}" />
+                </StackPanel>
+                <!-- 待发的插话:已入注入队列、模型还没消费。它们不进时间轴(位置要等消费那一刻才定),
+                     不列出来的话看着像没发出去 -->
+                <ItemsControl ItemsSource="{Binding PendingInterjections}"
+                              IsVisible="{Binding PendingInterjections.Count}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="conv:PendingInterjectionViewData">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="2,0,2,2">
+                                <u:LoadingIcon IsLoading="True" Width="12" Height="12" VerticalAlignment="Center" />
+                                <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                           Text="{loc:Loc AgentInterjectionPending}" />
+                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                           MaxWidth="360" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding Text}" ToolTip.Tip="{Binding Text}" />
+                                <!-- 撤回这条插话:提示条与注入队列一起撤掉,见 RemoveInterjection -->
+                                <ThemedIconButton Classes="message-action"
+                                                  IconName="trash-2"
+                                                  VerticalAlignment="Center"
+                                                  ToolTip.Tip="{loc:Loc InterjectionRemoveTip}"
+                                                  Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveInterjectionCommand}"
+                                                  CommandParameter="{Binding Message}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 </StackPanel>
 
                 <!-- 宿主注入:输入框上方区域 -->
@@ -437,18 +463,27 @@
                             <u:LoadingIcon IsLoading="{Binding BusyLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding BusyLabel}" />
                         </StackPanel>
-                        <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="8">
+                        <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="6"
+                                    VerticalAlignment="Center">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
+                            <!-- 只有别处驱动那一轮才有文案:自己跑着的时候正文正在往外冒,
+                                 再挂一行字是废话。窄窗口下截断,不许把按钮挤出去 -->
+                            <TextBlock Classes="muted" VerticalAlignment="Center" MaxWidth="140"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{Binding RunStateLabel}"
+                                       ToolTip.Tip="{Binding RunStateLabel}"
+                                       IsVisible="{Binding RunStateLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             <ThemedIconButton IconName="stop"
                                               CurrentColor="Red"
                                               Command="{Binding StopSendingCommand}"
                                               ToolTips="{loc:Loc StopGenerating}" />
                         </StackPanel>
+                        <!-- 跑着的时候<b>不藏</b>发送按钮:那时它是「插话」。藏了的话中途想说一句
+                             就只剩快捷键一条路,而按钮上写的字已经说明了区别 -->
                         <Button CornerRadius="10"
-                                IsVisible="{Binding !IsGenerating}"
                                 IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 Command="{Binding SendMessageCommand}"
-                                Content="{loc:Loc Send}" />
+                                Content="{Binding SendButtonText}" />
                     </StackPanel>
                 </Grid>
             </Grid>

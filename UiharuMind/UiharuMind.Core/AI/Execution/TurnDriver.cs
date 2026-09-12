@@ -102,15 +102,22 @@ public sealed class TurnDriver : IDisposable
     /// <param name="runner">该会话的执行者（必须是已 <c>AttachAsync</c> 到 <paramref name="session"/> 的那一个）</param>
     /// <param name="userMessage">用户消息（已装配好附件与技能正文）</param>
     /// <param name="resolver">审批回应的取得方式；传 null 表示不进入审批轮次</param>
+    /// <param name="externalCancellation">
+    /// 外层的取消令牌，与本轮自己的取消源<b>串起来</b>。
+    ///
+    /// 子代理那一轮必须传：它跑在派活者的一次工具调用<b>里面</b>，用户在派活者窗口点停止时
+    /// 取消的是派活者那一轮的令牌。不串的话子代理照跑不误，表现是"主会话的停止按钮没效果，
+    /// 得去子会话窗口再点一次"。定时任务的无头轮次同理。
+    /// </param>
     public async Task RunAsync(ChatSession session, ICharacterRunner runner, ChatMessage userMessage,
-        ApprovalResolver? resolver = null)
+        ApprovalResolver? resolver = null, CancellationToken externalCancellation = default)
     {
         IsRunning = true;
         _activeSession = session;
         _usage.BeginTurn();
         _ratioLogged = false;
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析
-        _runCancellation = new CancellationTokenSource();
+        _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(externalCancellation);
         CancellationToken cancellationToken = _runCancellation.Token;
 
         // 只在轮内订阅:MemoryContextProvider 够不着 sink,而会话是长命的——
@@ -141,6 +148,10 @@ public sealed class TurnDriver : IDisposable
             // 没有这个岔口,子会话窗口就只能等落盘,工具结果要晚整整一次模型调用才出现
             liveScope = session.LiveTurn.BeginTurn(_sink);
             _turnSink = liveScope.Sink;
+            // 本轮的输入是这条流的第一项:观察别人这一轮的窗口(子会话窗口)据此在正确位置
+            // 画出提问,而不是等落盘后补在已经流出来的回复后面。驱动者自己那一格发送时已经
+            // 画过同一个实例,由它按引用去重
+            _turnSink.Apply(new UserMessageContent(userMessage));
 
             // MCP 连接的租约:这一轮期间该工作区的连接不会被空闲回收。
             // 子进程是进程级共享资源,而「有没有一轮正在跑」是它是否在被占用的唯一诚实答案——

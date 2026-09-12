@@ -73,6 +73,8 @@ public class RunTextSemanticsTests
 
         public Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages) => Task.FromResult(false);
 
+        public Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages) => Task.CompletedTask;
+
         public ValueTask DisposeAsync() => default;
     }
 }

@@ -35,6 +35,14 @@ public sealed class LiveTurnStream
     private ITurnSink? _primary; //本轮的驱动落点(没有观察者时它就是全部)
     private bool _turnRunning;
 
+    /// <summary>
+    /// 本轮的内容流结束了（正常跑完、失败、被停止，都算）。
+    /// 观察者据此收尾——比如拿历史对一遍自己画出来的东西。
+    ///
+    /// ⚠️ <b>可能来自后台线程</b>，订阅方自行 marshal。
+    /// </summary>
+    public event Action? TurnEnded;
+
     /// <summary>这个会话此刻有没有一轮正在往外流内容</summary>
     public bool IsTurnRunning
     {
@@ -201,10 +209,13 @@ public sealed class LiveTurnStream
         {
             lock (_owner._gate)
             {
+                if (!_owner._turnRunning) return; //重复释放不再广播
                 _owner._turnRunning = false;
                 _owner._primary = null;
                 _owner._pending.Clear();
             }
+
+            Safe(() => _owner.TurnEnded?.Invoke());
         }
     }
 

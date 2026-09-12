@@ -26,8 +26,12 @@ namespace UiharuMind.Features.Conversation;
 /// 实时流与历史回放是同一个类的两个实例，区别只在构造时交代的落点集合
 /// ——因此不再需要「按落点判空来分叉」这种隐式开关。
 ///
-/// 藏在里面的复杂度：八种内容的分派、正文流里 &lt;think&gt; 段的分离、工具调用与结果按
+/// 藏在里面的复杂度：十种内容的分派、正文流里 &lt;think&gt; 段的分离、工具调用与结果按
 /// CallId 的配对回写、流段的开合、审批请求的待决与本轮收集。
+///
+/// 流段的边界<b>不由本类推演</b>：一次服务调用结束时执行者发 <see cref="MessageBoundaryContent"/>，
+/// 用户消息被消费时发 <see cref="UserMessageContent"/>——本类只照着收段、画气泡。
+/// 遇到工具调用与 think/text 切换仍然收段，那是同一条消息之内的形状，回放走的也是同一规则。
 ///
 /// 它是 <see cref="ITurnSink"/> 的界面侧实现——<see cref="TurnDriver"/> 只认那五个成员，
 /// 因此不认识本类，也不认识任何条目类型。
@@ -37,6 +41,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly IList<ConversationItemBase> _target;
     private readonly IReadOnlyList<ConversationItemBase>? _renderedBefore; //更早已渲染出去的条目(增量装配时用于跨批配对)
     private readonly Func<TextConversationItem> _createAssistantItem;
+    private readonly Func<ChatMessage, TextConversationItem?> _createUserItem;
     private readonly Action<string>? _rememberShellPattern;
     private readonly Func<string?>? _workspaceRootSource; //审批卡片预演 diff 要用它解析相对路径
     private readonly ThinkTagStreamParser _thinkParser = new();
@@ -56,8 +61,15 @@ public sealed class ConversationTranscript : ITurnSink
     /// <summary>调用了框架内务工具（todo 之类），调用方据此刷新对应面板</summary>
     public event Action? HousekeepingToolCalled;
 
+    /// <summary>一条用户消息被模型消费并画出来了（插话的待发提示据此撤掉）</summary>
+    public event Action<ChatMessage>? UserMessageRendered;
+
     /// <param name="target">条目落点：实时流直写界面集合，回放写入构建缓冲</param>
     /// <param name="createAssistantItem">助手气泡工厂（名字与头像取自当前会话角色）</param>
+    /// <param name="createUserItem">
+    /// 用户气泡工厂（消息 → 已接好来源的条目；返回 null 表示这条不画，比如框架注入的空消息）。
+    /// 省略则不画用户消息——回放缓冲不需要，历史里的用户消息由调用方按种类自己画
+    /// </param>
     /// <param name="rememberShellPattern">「本会话放行同类命令」的落点</param>
     /// <param name="workspaceRootSource">当前工作目录的来源（现取现用：会话中途改工作目录也能跟上）</param>
     /// <param name="renderedBefore">
@@ -70,12 +82,14 @@ public sealed class ConversationTranscript : ITurnSink
         Func<TextConversationItem> createAssistantItem,
         Action<string>? rememberShellPattern = null,
         Func<string?>? workspaceRootSource = null,
-        IReadOnlyList<ConversationItemBase>? renderedBefore = null)
+        IReadOnlyList<ConversationItemBase>? renderedBefore = null,
+        Func<ChatMessage, TextConversationItem?>? createUserItem = null)
     {
         _target = target;
         _renderedBefore = renderedBefore;
         _isUiBound = target is INotifyCollectionChanged;
         _createAssistantItem = createAssistantItem;
+        _createUserItem = createUserItem ?? (_ => null);
         _rememberShellPattern = rememberShellPattern;
         _workspaceRootSource = workspaceRootSource;
     }
@@ -157,6 +171,15 @@ public sealed class ConversationTranscript : ITurnSink
 
                 break;
 
+            // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
+            case MessageBoundaryContent:
+                CloseSegment();
+                break;
+
+            case UserMessageContent consumed:
+                RenderUserMessage(consumed.Message);
+                break;
+
             case ToolApprovalRequestContent approvalRequest:
                 CloseSegment();
                 ApprovalRequestItem approvalItem = new(approvalRequest, _workspaceRootSource?.Invoke())
@@ -178,6 +201,27 @@ public sealed class ConversationTranscript : ITurnSink
     }
 
 
+    /// <summary>
+    /// 模型消费了一条用户消息：在<b>此刻</b>的位置画出它。
+    /// 发送方那一格发送时已经用同一个实例画过（乐观显示），按引用认出来就不再画。
+    /// </summary>
+    private void RenderUserMessage(ChatMessage message)
+    {
+        if (HasUserItemFor(message)) return;
+
+        CloseSegment();
+        if (_createUserItem(message) is not { } item) return;
+
+        _target.Add(item);
+        UserMessageRendered?.Invoke(message);
+    }
+
+    private bool HasUserItemFor(ChatMessage message)
+    {
+        return _target.Concat(_renderedBefore ?? [])
+            .Any(x => x is TextConversationItem { IsUser: true } && ReferenceEquals(x.SourceMessage, message));
+    }
+
     /// <summary>按 CallId 找回工具卡片：先看本次装配的产出，再看更早已渲染出去的那些</summary>
     private ToolCallItem? FindCall(string? callId)
     {
@@ -192,20 +236,8 @@ public sealed class ConversationTranscript : ITurnSink
     {
         _thinkParser.Complete(AppendText, AppendThinking);
         // 两个条目的 Message 都是节流更新的,收尾必须显式冲刷,否则最后几个字会短暂缺失
-        if (_streamingText != null)
-        {
-            _streamingText.Flush();
-            _streamingText.IsDone = true;
-        }
-
-        if (_streamingThinking != null)
-        {
-            _streamingThinking.Flush();
-            if (AutoCollapseThinking) _streamingThinking.IsExpanded = false;
-        }
-
-        _streamingText = null;
-        _streamingThinking = null;
+        CloseText();
+        CloseThinking();
     }
 
     /// <summary>
@@ -316,14 +348,44 @@ public sealed class ConversationTranscript : ITurnSink
 
     private void AppendText(string delta)
     {
+        CloseThinking();
         if (_streamingText == null) _target.Add(_streamingText = _createAssistantItem());
         _streamingText.Append(delta);
     }
 
     private void AppendThinking(string delta)
     {
+        CloseText();
         // 流式进行中保持展开,能看到它在想什么;段落收尾时按设置折叠
         if (_streamingThinking == null) _target.Add(_streamingThinking = new ThinkingItem { IsExpanded = true });
         _streamingThinking.Append(delta);
+    }
+
+    /// <summary>
+    /// 收尾正文段。<b>思考段一开始就得收</b>：条目是按到达顺序进集合的，而 <c>_streamingText</c>
+    /// 指着的那条气泡排在思考卡<b>前面</b>——不收尾的话，思考之后的正文会续进那条气泡里，
+    /// 界面上就成了「回答在思考过程上面」。而历史里它们是两条消息，重开会话立刻对不上
+    /// （这正是子会话窗口那个「实时看是一坨、重开就分开了」）。
+    ///
+    /// 同一条消息里 think/text 交替也照此拆分——回放走的是同一个管线、同一套规则，
+    /// 两边形状因此恒等。
+    /// </summary>
+    private void CloseText()
+    {
+        if (_streamingText is not { } text) return;
+
+        text.Flush(); //正文是节流更新的,不冲刷的话最后几个字会留在缓冲里
+        text.IsDone = true;
+        _streamingText = null;
+    }
+
+    /// <summary>收尾思考段：冲刷并按设置折叠</summary>
+    private void CloseThinking()
+    {
+        if (_streamingThinking is not { } thinking) return;
+
+        thinking.Flush();
+        if (AutoCollapseThinking) thinking.IsExpanded = false;
+        _streamingThinking = null;
     }
 }

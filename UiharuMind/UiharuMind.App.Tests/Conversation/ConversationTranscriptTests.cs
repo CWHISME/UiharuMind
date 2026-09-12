@@ -78,6 +78,97 @@ public class ConversationTranscriptTests
         Assert.Equal("第二段", FlushedMessage(items[1]));
     }
 
+    //================= 执行者给出的边界 =================
+
+    /// <summary>
+    /// 一轮之内两次服务调用的正文在流里是<b>连着</b>的（插话之后那次调用正是"文本接文本"），
+    /// 靠工具调用或 think/text 切换猜不出边界。执行者在落盘那一刻发边界，这里照着收段。
+    /// </summary>
+    [Fact]
+    public void MessageBoundary_SplitsConsecutiveTextIntoTwoBubbles()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextContent("第一次调用的回复"));
+        transcript.Apply(MessageBoundaryContent.Instance);
+        transcript.Apply(new TextContent("第二次调用的回复"));
+
+        Assert.Equal(2, items.Count);
+        Assert.True(((TextConversationItem)items[0]).IsDone);
+        Assert.Equal("第一次调用的回复", FlushedMessage(items[0]));
+        Assert.Equal("第二次调用的回复", FlushedMessage(items[1]));
+    }
+
+    private static (ConversationTranscript Transcript, List<ConversationItemBase> Items) CreateWithUserFactory(
+        IReadOnlyList<ConversationItemBase>? renderedBefore = null)
+    {
+        List<ConversationItemBase> items = new();
+        ConversationTranscript transcript = new(items, () => new TextConversationItem(false) { IsDone = false },
+            renderedBefore: renderedBefore,
+            createUserItem: message => new TextConversationItem(true) { Message = message.Text, SourceMessage = message });
+        return (transcript, items);
+    }
+
+    /// <summary>被消费的用户消息画在<b>此刻</b>的位置：前面的回复收段，后面的回复另起气泡</summary>
+    [Fact]
+    public void UserMessage_IsRenderedWhereItWasConsumed()
+    {
+        var (transcript, items) = CreateWithUserFactory();
+        ChatMessage interjection = new(ChatRole.User, "666");
+
+        transcript.Apply(new TextContent("先答一半"));
+        transcript.Apply(new UserMessageContent(interjection, isInterjection: true));
+        transcript.Apply(new TextContent("再答插话"));
+
+        Assert.Equal(3, items.Count);
+        Assert.True(((TextConversationItem)items[0]).IsDone);
+        TextConversationItem user = Assert.IsType<TextConversationItem>(items[1]);
+        Assert.True(user.IsUser);
+        Assert.Same(interjection, user.SourceMessage);
+        Assert.Equal("再答插话", FlushedMessage(items[2]));
+    }
+
+    /// <summary>
+    /// 发送方那一格发送时已经画过同一个实例（乐观显示），流里再来一次不能画第二遍。
+    /// 按<b>引用</b>认，不按正文——正文相同的两句是两条消息。
+    /// </summary>
+    [Fact]
+    public void UserMessage_AlreadyShownForTheSameInstance_IsNotDrawnTwice()
+    {
+        var (transcript, items) = CreateWithUserFactory();
+        ChatMessage prompt = new(ChatRole.User, "开工");
+        ChatMessage sameTextOtherMessage = new(ChatRole.User, "开工");
+        items.Add(new TextConversationItem(true) { Message = "开工", SourceMessage = prompt });
+
+        transcript.Apply(new UserMessageContent(prompt));
+        transcript.Apply(new UserMessageContent(sameTextOtherMessage));
+
+        Assert.Equal(2, items.Count);
+        Assert.Same(sameTextOtherMessage, items[1].SourceMessage);
+    }
+
+    [Fact]
+    public void UserMessage_ShownInAnEarlierBatch_IsRecognisedThroughRenderedBefore()
+    {
+        ChatMessage prompt = new(ChatRole.User, "开工");
+        List<ConversationItemBase> earlier = [new TextConversationItem(true) { Message = "开工", SourceMessage = prompt }];
+        var (transcript, items) = CreateWithUserFactory(earlier);
+
+        transcript.Apply(new UserMessageContent(prompt));
+
+        Assert.Empty(items);
+    }
+
+    [Fact]
+    public void UserMessage_WithoutAFactory_IsIgnored()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new UserMessageContent(new ChatMessage(ChatRole.User, "开工")));
+
+        Assert.Empty(items);
+    }
+
     [Fact]
     public void EmptyText_ProducesNothing()
     {
@@ -259,6 +350,48 @@ public class ConversationTranscriptTests
 
         Assert.Equal("分段推理", FlushedMessage(items[0]));
         Assert.Equal("答案", FlushedMessage(items[1]));
+    }
+
+    /// <summary>
+    /// 思考段与正文段互斥。条目按到达顺序进集合，正在流的那条气泡排在后来的思考卡<b>前面</b>
+    /// ——不收尾的话，思考之后的正文会续进那条气泡里，界面上就成了「回答在思考过程上面」，
+    /// 而历史里它们是两条消息，重开会话立刻对不上（子会话窗口那个「实时看是一坨、
+    /// 重开就分开了」正是它）。
+    /// </summary>
+    [Fact]
+    public void TextAfterThinking_StartsANewBubble()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextContent("第一段回答"));
+        transcript.Apply(new TextReasoningContent("再想想"));
+        transcript.Apply(new TextContent("第二段回答"));
+        transcript.CloseSegment();
+
+        Assert.Equal(3, items.Count);
+        Assert.Equal("第一段回答", FlushedMessage(items[0]));
+        Assert.IsType<ThinkingItem>(items[1]);
+        Assert.Equal("第二段回答", FlushedMessage(items[2]));
+        Assert.True(((TextConversationItem)items[0]).IsDone); //上一段已经收尾,不会再往里追加
+    }
+
+    /// <summary>
+    /// 反向同理：正文开始就把思考段收掉，否则之后的推理会续进正文<b>上面</b>那张思考卡
+    /// </summary>
+    [Fact]
+    public void ThinkingAfterText_StartsANewThinkingCard()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextReasoningContent("先想"));
+        transcript.Apply(new TextContent("说一句"));
+        transcript.Apply(new TextReasoningContent("再想"));
+        transcript.CloseSegment();
+
+        Assert.Equal(3, items.Count);
+        Assert.Equal("先想", FlushedMessage(items[0]));
+        Assert.Equal("说一句", FlushedMessage(items[1]));
+        Assert.Equal("再想", FlushedMessage(items[2]));
     }
 
     [Fact]

@@ -42,6 +42,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private Channel<AIContent>? _activityChannel; //本轮的输出通道,委派型工具的过程经此并入内容流
     private ApprovalResolver? _turnApprovalResolver; //本轮的审批通道,子代理跑自己的轮次时共用
     private bool _turnAttended; //本轮有没有人看着,子代理的墙钟分档据此
+    private readonly object _injectedGate = new();
+    private readonly List<ChatMessage> _injected = new(); //已投入注入队列、尚未被模型消费的插话
 
     public bool HasSession => _session != null;
 
@@ -257,6 +259,20 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             _activityChannel = channel;
             AgentHandle handle = _handle;
             AgentSession session = _session;
+            ChatSession? attached = _attachedSession;
+
+            // 消息边界由落盘那一刻给出:框架每完成一次服务调用就落一次盘,而落盘发生在
+            // 框架自己的枚举流程里,也就是在本泵两次取到 update 之间——写进通道的位置因此
+            // 恰好落在两次调用的内容之间。边界之后的第一条模型内容即下一次调用的开头,
+            // 那一刻注入队列已被取走,正是判定"哪几句插话被这次调用消费了"的时机
+            ServiceCallState callState = new();
+            Action onPersisted = () =>
+            {
+                channel.Writer.TryWrite(MessageBoundaryContent.Instance);
+                callState.AwaitingCallStart = true;
+            };
+            if (attached != null) attached.ServiceCallPersisted += onPersisted;
+
             // 消费方提前 break(不取消令牌)时用它给泵收尾,否则末尾的 await 会挂死
             CancellationTokenSource pumpSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             Task pump = Task.Run(async () =>
@@ -267,6 +283,13 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                                        .RunStreamingAsync(messages, session, cancellationToken: pumpSource.Token)
                                        .ConfigureAwait(false))
                     {
+                        if (callState.AwaitingCallStart && StartsServiceCall(update))
+                        {
+                            callState.AwaitingCallStart = false;
+                            await EmitConsumedInjectionsAsync(handle, session, channel, pumpSource.Token)
+                                .ConfigureAwait(false);
+                        }
+
                         foreach (AIContent content in update.Contents) channel.Writer.TryWrite(content);
                     }
 
@@ -289,6 +312,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             }
             finally
             {
+                if (attached != null) attached.ServiceCallPersisted -= onPersisted;
                 _activityChannel = null;
                 await pumpSource.CancelAsync().ConfigureAwait(false);
                 await pump.ConfigureAwait(false);
@@ -353,8 +377,79 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public async Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages)
     {
         if (_handle?.MessageInjector == null || _session == null) return false;
-        await _handle.MessageInjector.EnqueueMessagesAsync(_session, messages).ConfigureAwait(false);
+
+        // 先登记再入队:入队之后队列随时可能被取走,登记晚了就认不出"它被消费了"
+        List<ChatMessage> list = messages.ToList();
+        lock (_injectedGate) _injected.AddRange(list);
+        await _handle.MessageInjector.EnqueueMessagesAsync(_session, list).ConfigureAwait(false);
         return true;
+    }
+
+    /// <inheritdoc />
+    public async Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages)
+    {
+        if (_handle?.MessageInjector == null || _session == null || messages.Count == 0) return;
+
+        foreach (ChatMessage message in messages)
+        {
+            // 仍在队列里 = 未消费,可以安全撤回:从队列摘掉,并把登记表里那条也移除——
+            // 登记表是"它会被发进内容流"的依据,留着会让界面认定已消费而多画一个气泡。
+            // 已被消费(撤不回来)的静默放过,它此刻已经画进时间轴,
+            // 界面提示由 UserMessageRendered 自己撤,这里不碰。
+            bool removed = await PendingInjectionQueueAccess.RemoveAsync(
+                _handle.MessageInjector, _session, message).ConfigureAwait(false);
+            if (removed)
+            {
+                lock (_injectedGate) _injected.Remove(message);
+            }
+        }
+    }
+
+    /// <summary>一次服务调用的起点：第一条<b>模型产出</b>的内容。工具结果是框架在两次调用之间补的,不算</summary>
+    private static bool StartsServiceCall(AgentResponseUpdate update)
+    {
+        foreach (AIContent content in update.Contents)
+        {
+            if (content is not FunctionResultContent) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 一次服务调用刚开始：登记过的插话里凡是已不在注入队列里的，就是被这次调用取走的，
+    /// 按被消费的口径发进内容流——排在这次调用的任何产出之前。
+    ///
+    /// 用队列快照做判据而不是"边界之后一律算消费"：插话若落在框架取走队列<b>之后</b>、
+    /// 第一条内容<b>之前</b>，它其实要等下一次调用才被消费，此刻仍在队列里，这里自然放过。
+    /// </summary>
+    private async Task EmitConsumedInjectionsAsync(AgentHandle handle, AgentSession session,
+        Channel<AIContent> channel, CancellationToken cancellationToken)
+    {
+        List<ChatMessage> tracked;
+        lock (_injectedGate)
+        {
+            if (_injected.Count == 0) return;
+            tracked = _injected.ToList();
+        }
+
+        IReadOnlyList<ChatMessage> pending = handle.MessageInjector == null
+            ? []
+            : await handle.MessageInjector.GetPendingMessagesAsync(session, cancellationToken).ConfigureAwait(false);
+
+        foreach (ChatMessage message in tracked)
+        {
+            if (pending.Any(x => ReferenceEquals(x, message))) continue;
+
+            lock (_injectedGate) _injected.Remove(message);
+            channel.Writer.TryWrite(new UserMessageContent(message, isInterjection: true));
+        }
+    }
+
+    /// <summary>泵与落盘回调共享的一格状态：两者跑在同一条执行流上，不需要同步</summary>
+    private sealed class ServiceCallState
+    {
+        public bool AwaitingCallStart = true; //下一条模型内容是否是一次新调用的开头
     }
 
     public async ValueTask DisposeAsync()

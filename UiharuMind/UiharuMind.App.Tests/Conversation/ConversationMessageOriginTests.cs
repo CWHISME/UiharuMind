@@ -22,13 +22,17 @@ public class ConversationMessageOriginTests
             ConversationMessageOrigin.KindOf(new ChatMessage(ChatRole.Tool, "结果")));
     }
 
+    /// <summary>
+    /// 用户消息由内容流画：执行者在模型消费它的那一刻发 <c>UserMessageContent</c>。
+    /// 落盘时再画一遍就是"同一句话两条"，而且新画的那条排在已经流出来的回复后面。
+    /// </summary>
     [Fact]
-    public void UserInputOnlyComesFromHistory()
+    public void UserInputComesFromTheContentStreamWhileATurnRuns()
     {
         EHistoryItemKind kind = ConversationMessageOrigin.KindOf(new ChatMessage(ChatRole.User, "插一句"));
 
         Assert.Equal(EHistoryItemKind.UserInput, kind);
-        Assert.False(ConversationMessageOrigin.IsProducedByContentStream(kind));
+        Assert.True(ConversationMessageOrigin.IsProducedByContentStream(kind));
     }
 
     /// <summary>
@@ -74,16 +78,17 @@ public class ConversationMessageOriginTests
     }
 
     /// <summary>
-    /// 只有内容流那一类归流渲染，其余全归历史。这条互补关系一旦破掉，
+    /// 归流渲染的只有模型产出与被消费的用户消息，其余全归历史。这条互补关系一旦破掉，
     /// 要么有东西被画两遍、要么有东西谁都不画。
     /// </summary>
     [Fact]
-    public void ExactlyOneKindComesFromTheContentStream()
+    public void OnlyStreamContentsAndUserInputComeFromTheContentStream()
     {
         EHistoryItemKind[] fromStream = Enum.GetValues<EHistoryItemKind>()
             .Where(ConversationMessageOrigin.IsProducedByContentStream)
+            .Order()
             .ToArray();
 
-        Assert.Equal([EHistoryItemKind.StreamContents], fromStream);
+        Assert.Equal([EHistoryItemKind.UserInput, EHistoryItemKind.StreamContents], fromStream);
     }
 }

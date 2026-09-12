@@ -146,6 +146,13 @@ public interface ICharacterRunner : IAsyncDisposable
     /// <param name="messages">插入的消息</param>
     /// <returns>成功入队返回 true；当前不支持插话返回 false</returns>
     Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages);
+
+    /// <summary>
+    /// 撤回尚未被模型消费的插话：把这些消息从注入队列里摘掉，模型之后不会再收到。
+    /// 已被消费（正在那一轮里）的消息静默忽略——它已经画进时间轴，撤不回来了。
+    /// </summary>
+    /// <param name="messages">要撤回的插话</param>
+    Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages);
 }
 
 /// <summary>

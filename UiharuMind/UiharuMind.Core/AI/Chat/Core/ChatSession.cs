@@ -152,12 +152,31 @@ public class ChatSession
     public event Action<int>? HistoryAppended;
 
     /// <summary>
+    /// 框架完成了<b>一次服务调用</b>并把它的请求与响应落进了历史。
+    ///
+    /// 与 <see cref="HistoryAppended"/> 的区别：那个信号凡追加都发（别处交回报告也算），
+    /// 这个只在执行者自己的服务调用边界上发——执行者据此往内容流里放消息边界
+    /// （<c>MessageBoundaryContent</c>），中途被别人追加一条不会把正在流的气泡切成两半。
+    ///
+    /// ⚠️ 来自执行线程，订阅方自行 marshal。
+    /// </summary>
+    public event Action? ServiceCallPersisted;
+
+    /// <summary>
+    /// 通报一次服务调用已落盘（由历史提供器在每次落盘后调用）
+    /// </summary>
+    public void NotifyServiceCallPersisted()
+    {
+        ServiceCallPersisted?.Invoke();
+    }
+
+    /// <summary>
     /// 本会话的实时内容分岔口。跑这一轮的 <c>TurnDriver</c> 把内容交给它，
     /// 打开着的窗口把自己的渲染落点挂上去（<see cref="LiveTurnStream.Observe"/>），
     /// 于是<b>观察者也能逐 token 看</b>，而不是只等按服务调用粒度落盘的 <see cref="HistoryAppended"/>。
     ///
-    /// 与历史的分工：流负责助手正文/思考段/工具卡这些由内容流产出的东西，
-    /// 历史负责它产不出的那几类（用户插话、检索卡、旁白、交接文档、后续报告）与落盘配对。
+    /// 与历史的分工：流负责助手正文/思考段/工具卡以及被消费的用户消息（<c>UserMessageContent</c>），
+    /// 历史负责它产不出的那几类（检索卡、旁白、交接文档、后续报告）与落盘配对。
     /// </summary>
     [JsonIgnore]
     public LiveTurnStream LiveTurn { get; } = new();

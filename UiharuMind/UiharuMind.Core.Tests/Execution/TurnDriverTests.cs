@@ -66,6 +66,44 @@ public class TurnDriverTests
 
     //================= 内容流与收尾 =================
 
+    /// <summary>
+    /// 外层取消要串进这一轮。子代理跑在派活者的一次工具调用<b>里面</b>，
+    /// 用户在派活者窗口点的停止取消的是派活者那一轮的令牌——不串的话子代理照跑不误，
+    /// 表现是"主会话的停止按钮没效果，得去子会话窗口再点一次"（超时同理掐不动它）。
+    /// </summary>
+    [Fact]
+    public async Task ExternalCancellation_ReachesTheRun()
+    {
+        using CancellationTokenSource external = new();
+        StubRunner runner = new(Round(new TextContent("你好")));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
+        await external.CancelAsync();
+
+        await driver.RunAsync(NewSession(), runner, Prompt(), null, external.Token);
+
+        Assert.True(runner.LastToken.IsCancellationRequested);
+    }
+
+
+    /// <summary>
+    /// 本轮的输入是内容流的第一项。观察这一轮的窗口（子会话窗口）据此在正确位置画出提问，
+    /// 而不是等落盘后补在已经流出来的回复后面；发送方那一格按同一个实例去重。
+    /// </summary>
+    [Fact]
+    public async Task TurnInput_IsTheFirstContentOfTheStream()
+    {
+        FakeSink sink = new();
+        StubRunner runner = new(Round(new TextContent("你好")));
+        TurnDriver driver = new(sink, new TurnUsageLedger());
+        ChatMessage prompt = Prompt();
+
+        await driver.RunAsync(NewSession(), runner, prompt);
+
+        UserMessageContent first = Assert.IsType<UserMessageContent>(sink.Applied[0]);
+        Assert.Same(prompt, first.Message);
+        Assert.False(first.IsInterjection);
+    }
+
     [Fact]
     public async Task EveryContent_ReachesTheSink()
     {
@@ -492,9 +530,13 @@ public class TurnDriverTests
 
         public ChatOptions? ChatOptions => null;
 
+        /// <summary>最近一轮拿到的取消令牌（外层取消有没有串进来，看它）</summary>
+        public CancellationToken LastToken { get; private set; }
+
         public async IAsyncEnumerable<AIContent> RunAsync(IEnumerable<ChatMessage> messages,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            LastToken = cancellationToken;
             ReceivedRounds.Add(messages.ToList());
             IEnumerable<AIContent> contents = _rounds.Count > 0 ? _rounds.Dequeue()() : [];
             foreach (AIContent content in contents)
@@ -523,6 +565,8 @@ public class TurnDriverTests
             Task.FromResult<IReadOnlyList<TodoSnapshot>>([]);
 
         public Task<bool> TryInjectAsync(IEnumerable<ChatMessage> messages) => Task.FromResult(false);
+
+        public Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages) => Task.CompletedTask;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

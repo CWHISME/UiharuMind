@@ -71,6 +71,21 @@
     <data name="HandoffHeader" xml:space="preserve">
         <value>交接文档 —— 模型看不到这条之前的内容了</value>
     </data>
+    <data name="AgentInterject" xml:space="preserve">
+        <value>插话</value>
+    </data>
+    <data name="AgentInterjectionPending" xml:space="preserve">
+        <value>等待插话…</value>
+    </data>
+    <data name="AgentInterjectUnavailable" xml:space="preserve">
+        <value>现在插不进去：执行者还在启动中，稍后再试。</value>
+    </data>
+    <data name="InterjectionRemoveTip" xml:space="preserve">
+        <value>撤回这条插话（模型还没读到）</value>
+    </data>
+    <data name="AgentRunningExternally" xml:space="preserve">
+        <value>别处正在运行…</value>
+    </data>
     <data name="HandoffWriting" xml:space="preserve">
         <value>正在整理交接文档…</value>
     </data>

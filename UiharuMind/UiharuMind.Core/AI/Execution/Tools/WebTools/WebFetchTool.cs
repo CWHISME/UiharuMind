@@ -20,7 +20,7 @@ public static class WebFetchTool
     /// <summary>工具名。提示词里提到本工具时一律引用这个常量</summary>
     public const string ToolName = "WebFetch";
 
-    private const int MaxChars = 6500;
+    private const int MaxChars = 65536;
 
     private static readonly FallbackPageReader Reader = new();
 

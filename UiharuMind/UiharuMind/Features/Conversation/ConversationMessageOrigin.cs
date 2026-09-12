@@ -28,7 +28,7 @@ public enum EHistoryItemKind
     /// <summary>子会话交回的后续报告，借旁白那套呈现</summary>
     SubAgentReport,
 
-    /// <summary>用户输入（含插话）</summary>
+    /// <summary>用户输入（含插话）。一轮跑着的时候由内容流画（<c>UserMessageContent</c>），回放时从历史画</summary>
     UserInput,
 
     /// <summary>助手与工具的内容，交给转录器按 <see cref="AIContent"/> 装配</summary>
@@ -40,8 +40,8 @@ public enum EHistoryItemKind
 /// 两条路都问它，避免各写一套 if 链之后悄悄漂移。
 ///
 /// 为什么需要它：一轮跑起来之后，内容流与历史落盘都会到达界面。
-/// 内容流产出的那些（助手正文、思考段、工具卡）由流渲染，落盘时只做条目与消息的配对；
-/// 而流<b>产不出</b>的那几类（用户插话、检索卡、旁白、交接文档、后续报告）只能由历史渲染。
+/// 内容流产出的那些（助手正文、思考段、工具卡、被消费的用户消息）由流渲染，落盘时只做条目与消息的配对；
+/// 而流<b>产不出</b>的那几类（检索卡、旁白、交接文档、后续报告）只能由历史渲染。
 /// 分错一边的后果是静默的重复或缺失，所以判据只留一份。
 /// </summary>
 public static class ConversationMessageOrigin
@@ -82,7 +82,7 @@ public static class ConversationMessageOrigin
         EHistoryItemKind.Narration => false,
         EHistoryItemKind.Knowledge => false,
         EHistoryItemKind.SubAgentReport => false,
-        EHistoryItemKind.UserInput => false,
+        EHistoryItemKind.UserInput => true,
     };
 #pragma warning restore CS8524
 }

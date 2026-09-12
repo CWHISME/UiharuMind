@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
 
@@ -257,13 +258,19 @@ public static class SubAgentTool
 
         SubAgentTurnSink turnSink = new();
         bool timedOut = false;
+        // 委派期间主 agent 那一头是同步阻塞的,日志里不留痕就只剩一段无法解释的沉默——
+        // 用户看着像卡死(实际是子代理在跑)。起止各一条,带上子会话标识便于对到那个窗口
+        long startedAt = Environment.TickCount64;
+        Log.Debug($"Sub-agent turn started: session={session.SessionId} title=\"{session.Title}\"");
         try
         {
             await session.Runner.AttachAsync(session, timeoutSource.Token).ConfigureAwait(false);
 
             using TurnDriver driver = new(turnSink, new TurnUsageLedger());
+            // 令牌要串进去:派活者窗口的停止按钮取消的是派活者那一轮,
+            // 不串的话子代理照跑不误(超时也掐不动它)
             await driver.RunAsync(session, session.Runner, new ChatMessage(ChatRole.User, message),
-                context.ApprovalSource?.Invoke()).ConfigureAwait(false);
+                context.ApprovalSource?.Invoke(), timeoutSource.Token).ConfigureAwait(false);
 
             // 代码兜底:模型以工具调用结束、之后没产出文本(没写收尾总结)。
             // 提示层硬约束挡住大多数,这里兜漏网的——追加一轮"请总结"让模型补上报告
@@ -272,7 +279,7 @@ public static class SubAgentTool
                 using TurnDriver summaryDriver = new(turnSink, new TurnUsageLedger());
                 await summaryDriver.RunAsync(session, session.Runner,
                         new ChatMessage(ChatRole.User, "请用一段话总结你的发现和结论，作为最终报告。"),
-                        context.ApprovalSource?.Invoke())
+                        context.ApprovalSource?.Invoke(), timeoutSource.Token)
                     .ConfigureAwait(false);
             }
         }
@@ -288,8 +295,12 @@ public static class SubAgentTool
             await session.DisposeRunnerAsync().ConfigureAwait(false);
         }
 
-        return turnSink.Report.Build(timedOut, limit, session.SessionId,
+        string report = turnSink.Report.Build(timedOut, limit, session.SessionId,
             cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
+        string outcome = timedOut ? "timed out" : cancellationToken.IsCancellationRequested ? "stopped" : "done";
+        Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
+                  + $"elapsed={(Environment.TickCount64 - startedAt) / 1000}s report={report.Length} chars");
+        return report;
     }
 
     /// <summary>
@@ -348,6 +359,7 @@ public static class SubAgentTool
         {
             Report.Add(content);
             if (content is TextContent { Text.Length: > 0 } text) _streaming.Append(text.Text);
+            if (content is UserMessageContent { IsInterjection: true }) SawUserInterjection = true;
         }
 
         public void CloseSegment() => _streaming.Clear();
@@ -363,9 +375,6 @@ public static class SubAgentTool
             _streaming.Clear();
             return text;
         }
-
-        /// <summary>记下用户往子会话里插了话</summary>
-        public void NoteUserInterjection() => SawUserInterjection = true;
     }
 
     /// <summary>

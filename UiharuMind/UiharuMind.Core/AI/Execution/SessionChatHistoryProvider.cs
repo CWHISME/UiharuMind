@@ -142,6 +142,8 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
 
         // 常规轮次只追加新消息,落盘成本与会话长度无关
         if (session.History.Count != before) session.SaveAppended(before);
+        // 有没有新消息都算一次调用边界:此后流出来的内容属于下一条助手消息
+        session.NotifyServiceCallPersisted();
         return default;
     }
 

@@ -280,6 +280,19 @@
 
 ⚠️ 不要叫「托管」——那个词已被 MCP 占用（托管 / 可用 / 预连 / server 自述）。
 
+### 插话（Interjection）
+
+一轮跑着的时候用户发的那句话：进注入队列（`ICharacterRunner.TryInjectAsync`），
+模型在**下一次服务调用开头**取走。被取走之前它**不在时间轴上**——只在输入区显示为
+「等待插话」；被取走那一刻执行者往内容流里发 `UserMessageContent(isInterjection: true)`，
+转录器在那个位置画出气泡。位置由消费时刻决定，不由发送时刻决定。
+
+### 消息边界（Message Boundary）
+
+一次服务调用结束、请求与响应刚落盘的那一刻。执行者往内容流里放 `MessageBoundaryContent`，
+转录器据此收段；之后流出来的正文属于下一条助手消息。边界由产出方明说，界面**不推演**
+——从前靠"遇到工具调用 / think 与 text 切换"猜，"文本接文本"（插话之后那次调用）猜不出。
+
 ### 权限档（Permission Mode）
 
 「这个会话里，哪些工具调用不用问用户」。会话级三档：`ReadOnly` / `AutoEdit` / `FullAuto`。

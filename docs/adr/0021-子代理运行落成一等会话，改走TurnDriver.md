@@ -174,6 +174,21 @@
 > 待补发缓冲只存"已产出但还没落盘"的那一段（`SaveAppended` 一落盘就清），
 > 于是中途打开窗口也补得齐，而内存钉在一次服务调用的量级。
 
+> **再修订（消息边界与用户消息进流）**：上面把用户插话归给历史渲染，实践里坏在两处。
+> 其一，一轮内多次服务调用的正文在流里是**连着**的，界面只能靠"遇到工具调用 / think 与 text
+> 切换"猜边界，插话之后那次调用是"文本接文本"，两条都不命中，第二条回复续进了上一条气泡。
+> 其二，插话要等消费它的那次调用**结束**才落盘，界面先乐观显示、后按正文认领，位置与时间戳
+> 都对不上（"回答排在提问前面""同一句话两条"）。
+>
+> 修法是让产出方把这两件事**明说在流里**，界面不再推演：`SessionChatHistoryProvider` 每落一次盘
+> 触发 `ChatSession.ServiceCallPersisted`，`HarnessCharacterRunner` 据此往流里放
+> `MessageBoundaryContent`；下一条模型内容到来即新调用开头，此刻拿注入队列快照
+> （`MessageInjectingChatClient.GetPendingMessagesAsync`）认出哪几句插话已被取走，逐条发
+> `UserMessageContent(isInterjection: true)`；`TurnDriver` 在轮首发本轮输入的 `UserMessageContent`。
+> 转录器遇边界收段、遇用户消息画气泡，按**引用**去重（发送方那一格发送时已画过同一个实例）。
+> 归属规则相应改成：用户输入也由流渲染（`IsProducedByContentStream(UserInput) == true`）；
+> 插话在被消费之前只在输入区显示为「等待插话」，不进时间轴。
+
 一次性的**标识交接**仍然保留（`SubSessionStartedContent`）：子会话 id 虽然也缀在工具结果里，
 但结果要等跑完才有，而"跑着的时候点开看看"正是这件事的重点。一条，不是一条流。
 

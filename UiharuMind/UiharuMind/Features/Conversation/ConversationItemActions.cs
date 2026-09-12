@@ -92,23 +92,37 @@ public sealed class ConversationItemActions
     }
 
     /// <summary>
-    /// 一轮结束后，历史已由提供器写入（本轮输入 + 回复）。
-    /// 把界面上刚产出的、还没有来源消息的文本气泡按角色与历史尾部配对，使其也能被操作。
+    /// 一轮结束后（或跑到一次落盘），历史已由提供器写入。
+    /// 把界面上刚产出的、来源还没落到历史里的文本气泡按角色与历史尾部配对，使其也能被操作。
+    ///
+    /// 「已配对」的判据是<b>来源就在历史里</b>，不是「来源非空」：实时画出来的用户气泡
+    /// 接的是发送时那个实例，而框架交给持久化的是重建的副本——只看非空会让它永远指着
+    /// 一条不在历史里的消息，编辑/删除因此静默失效。
     /// </summary>
     /// <param name="history">当前历史</param>
     public void WireStreamed(IReadOnlyList<ChatMessage> history)
     {
+        HashSet<ChatMessage> persisted = new(history, ReferenceEqualityComparer.Instance);
         int cursor = history.Count - 1;
 
         for (int i = _items.Count - 1; i >= 0 && cursor >= 0; i--)
         {
             if (_items[i] is not TextConversationItem item) continue;
-            if (item.SourceMessage != null) break; //再往前都是回放来的,已经关联过
+            if (item.SourceMessage is { } source && persisted.Contains(source)) break; //再往前都是配好的
 
             // 只在角色一致时配对,不一致说明界面与历史的形状对不上,宁可不提供操作
             ChatRole expected = item.IsUser ? ChatRole.User : ChatRole.Assistant;
             while (cursor >= 0 && history[cursor].Role != expected) cursor--;
             if (cursor < 0) break;
+
+            // 用户气泡再问一句「正文对得上吗」:形状对不上时宁可不接,接错了编辑/删除会改错消息。
+            // 助手气泡不做这一道:正文是流式攒的,与落盘那份未必逐字相同
+            if (item.IsUser &&
+                !string.Equals(ConversationItemFactory.DisplayTextOf(history[cursor]), item.Message,
+                    StringComparison.Ordinal))
+            {
+                break;
+            }
 
             Wire(item, history[cursor]);
             cursor--;

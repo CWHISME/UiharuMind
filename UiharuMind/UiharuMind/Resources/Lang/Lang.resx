@@ -78,6 +78,21 @@
     <data name="HandoffHeader" xml:space="preserve">
         <value>Context handoff — the model cannot see anything before this point</value>
     </data>
+    <data name="AgentInterject" xml:space="preserve">
+        <value>Interject</value>
+    </data>
+    <data name="AgentInterjectionPending" xml:space="preserve">
+        <value>Waiting to interject…</value>
+    </data>
+    <data name="AgentInterjectUnavailable" xml:space="preserve">
+        <value>Cannot interject right now; the agent is still starting up. Try again in a moment.</value>
+    </data>
+    <data name="InterjectionRemoveTip" xml:space="preserve">
+        <value>Withdraw this interjection before the model reads it</value>
+    </data>
+    <data name="AgentRunningExternally" xml:space="preserve">
+        <value>Running elsewhere…</value>
+    </data>
     <data name="HandoffWriting" xml:space="preserve">
         <value>Writing context handoff…</value>
     </data>
