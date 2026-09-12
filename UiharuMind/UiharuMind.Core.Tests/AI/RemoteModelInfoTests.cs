@@ -1,5 +1,6 @@
 using System.Text.Json;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 
@@ -53,5 +54,31 @@ public class RemoteModelInfoTests
         string b = AesEncryptionUtils.EncryptString("key-two");
 
         Assert.NotEqual(a, b);
+    }
+
+    [Fact]
+    public void RequiresReasoningContentRoundtrip_ForwardsPresetValue()
+    {
+        var deepseek = new RemoteModelInfo
+        {
+            Config = new RemoteDeepSeekModelConfig { ModelId = "deepseek-v4-flash" },
+        };
+        var generic = new RemoteModelInfo { Config = new RemoteModelConfig() };
+
+        Assert.True(deepseek.RequiresReasoningContentRoundtrip);
+        Assert.False(generic.RequiresReasoningContentRoundtrip);
+    }
+
+    [Fact]
+    public void OmitSamplingParams_ForwardsConfigValue()
+    {
+        var kimi = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3", OmitSamplingParams = true },
+        };
+        var generic = new RemoteModelInfo { Config = new RemoteModelConfig() };
+
+        Assert.True(kimi.OmitSamplingParams);
+        Assert.False(generic.OmitSamplingParams);
     }
 }

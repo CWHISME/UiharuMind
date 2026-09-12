@@ -29,6 +29,7 @@ public class RemoteModelInfo : ILlmModel
     [JsonIgnore] public int Port => Config.Port;
     [JsonIgnore] public int ContextLength => Config.ContextLength;
     [JsonIgnore] public bool OmitSamplingParams => Config.OmitSamplingParams;
+    [JsonIgnore] public bool RequiresReasoningContentRoundtrip => Config.RequiresReasoningContentRoundtrip;
     public virtual IReadOnlyList<KeyValuePair<string, JsonNode?>>? GetExtraParams() =>
         Config.GetExtraParams();
 

@@ -176,10 +176,11 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     /// 否则报 "If thinking mode and tool_calls, reasoning_content must be passed back to the API"。
     /// 标准 ChatMessage→wire 消息转换认不出 <c>TextReasoningContent</c>,序列化时会把它悄悄丢掉,
     /// 只能按 tool_call id 从 <see cref="LlmRequestContext.PendingReasoningByCallId"/> 找回来补上。
+    /// 一条消息可带多个 tool_calls,任一 id 命中即恢复整条消息的思考正文。
     /// </summary>
     /// <param name="jsonNode">请求体根对象</param>
     /// <param name="reasoningByCallId">本次请求历史里,按 tool_call id 索引的思考正文</param>
-    private static void RestoreReasoningContent(JsonObject jsonNode,
+    internal static void RestoreReasoningContent(JsonObject jsonNode,
         IReadOnlyDictionary<string, string> reasoningByCallId)
     {
         if (jsonNode["messages"] is not JsonArray messages) return;
@@ -189,14 +190,21 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             if (message is not JsonObject messageObj) continue;
             if (messageObj["reasoning_content"] != null) continue; // 已经带了,不覆盖
             if (messageObj["tool_calls"] is not JsonArray { Count: > 0 } toolCalls) continue;
-            if (toolCalls[0] is not JsonObject firstCall) continue;
 
-            if (firstCall["id"] is JsonValue idValue &&
-                idValue.TryGetValue(out string? callId) &&
-                reasoningByCallId.TryGetValue(callId, out string? reasoningText))
+            string? reasoningText = null;
+            foreach (var toolCall in toolCalls)
             {
-                messageObj["reasoning_content"] = reasoningText;
+                if (toolCall is not JsonObject call) continue;
+                if (call["id"] is JsonValue idValue &&
+                    idValue.TryGetValue(out string? callId) &&
+                    reasoningByCallId.TryGetValue(callId, out string? text))
+                {
+                    reasoningText = text;
+                    break;
+                }
             }
+
+            if (reasoningText != null) messageObj["reasoning_content"] = reasoningText;
         }
     }
 
