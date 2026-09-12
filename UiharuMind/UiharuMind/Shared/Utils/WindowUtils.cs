@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -222,5 +223,71 @@ public static class WindowUtils
     {
         var parent = TopLevel.GetTopLevel(control);
         return (Window)parent!;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CocoaRect
+    {
+        public double X;
+        public double Y;
+        public double Width;
+        public double Height;
+    }
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "sel_registerName")]
+    private static extern IntPtr SelRegisterName(string selectorName);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void ObjcMsgSendRect(
+        IntPtr receiver,
+        IntPtr selector,
+        CocoaRect rect,
+        byte display,
+        byte animate);
+
+    /// <summary>
+    /// macOS 下把位置与内容尺寸一次提交给 NSWindow（setFrame:display:animate:）。
+    /// Avalonia 托管层里 Position 立即生效、Width/Height 要走布局后到，分开设逐格撕裂闪烁。
+    /// 成功后调用方只需同步 Width/Height 供内容布局，Position 不必再设。
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <param name="position">窗口左上（Avalonia 口径，Y 朝下）</param>
+    /// <param name="clientSize">内容尺寸（DIP）</param>
+    /// <returns>成功 true；非 macOS 或任何失败 false，调用方走托管老路</returns>
+    public static bool TrySetWindowFrame(this Window window, PixelPoint position, Size clientSize)
+    {
+        if (!OperatingSystem.IsMacOS()) return false;
+        try
+        {
+            var handle = window.TryGetPlatformHandle();
+            if (handle == null || handle.Handle == IntPtr.Zero) return false;
+            var primary = window.Screens.Primary;
+            if (primary == null) return false;
+            if (clientSize.Width <= 0 || clientSize.Height <= 0) return false;
+
+            // chrome 取 frame 与 content 的当前差值，本窗扩展 client area，正常接近 0
+            var frameSize = window.FrameSize;
+            var currentClient = window.ClientSize;
+            double chromeWidth = frameSize.HasValue ? Math.Max(0, frameSize.Value.Width - currentClient.Width) : 0;
+            double chromeHeight = frameSize.HasValue ? Math.Max(0, frameSize.Value.Height - currentClient.Height) : 0;
+            double frameHeight = clientSize.Height + chromeHeight;
+
+            // 与 Avalonia native 的 ConvertPointY 同口径：以 primary 顶为基准翻转 Y
+            double primaryTop = primary.Bounds.Y + primary.Bounds.Height;
+            var rect = new CocoaRect
+            {
+                X = position.X,
+                Y = primaryTop - position.Y - frameHeight,
+                Width = clientSize.Width + chromeWidth,
+                Height = frameHeight
+            };
+            ObjcMsgSendRect(handle.Handle, SelRegisterName("setFrame:display:animate:"), rect, 1, 0);
+            return true;
+        }
+        catch
+        {
+            // native 调用失败就回退托管老路，不能把缩放搞坏
+            return false;
+        }
     }
 }

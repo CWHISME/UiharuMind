@@ -77,10 +77,13 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     // private const double MinScale = 0.20f;
     // private const double MaxScale = 12.0f;
     private const double ScaleStep = 0.1f;
+    private const int ZoomQualityRestoreMs = 150;
 
     private double _aspectRatio = 1.0f;
     private double _currentScale = 1.0f;
     private Size _currentSize;
+    private BitmapInterpolationMode? _zoomRestoreQuality;
+    private int _zoomQualityGeneration;
     // private PixelPoint _currentPixelPoint;
 
     /// <summary>
@@ -112,6 +115,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         }
 
         SetImageSize(_originSize);
+        _currentScale = 1.0; // 换图后缩放归一，否则沿用旧 scale 下一次滚轮会跳变
 
         if (pos == null) this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height);
     }
@@ -170,75 +174,68 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         if (e.Delta.Y != 0)
         {
             // 计算新的缩放比例
-            // float sign = Math.Sign(e.Delta.Y);
-            var newScale = (float)(_currentScale * (1 + e.Delta.Y * ScaleStep));
+            var newScale = _currentScale * (1 + e.Delta.Y * ScaleStep);
 
-            // 限制缩放比例在最小和最大值之间
-            // newScale < MinScale || newScale > MaxScale ||
-            if (newScale > _currentScale &&
-                (this._currentSize.Width >= MaxWidth || this._currentSize.Height >= MaxHeight) ||
-                //限制最小缩放
-                newScale < _currentScale &&
-                (this._currentSize.Width <= MinWidth || this._currentSize.Height <= MinHeight))
-            {
-                return;
-            }
-
-            // if ((_currentSize.Width > Width || _currentSize.Height > Height) && newScale > _currentScale) return;
-            // if ((_currentSize.Width < MinWidth || _currentSize.Height < MinHeight) && newScale < _currentScale) return;
-
-            // 计算缩放前后鼠标位置的变化
-            // var oldMousePos = new Point(mousePosition.X / _currentScale, mousePosition.Y / _currentScale);
-            // var newMousePos = new Point(mousePosition.X / newScale, mousePosition.Y / newScale);
-
-            // 更新当前缩放比例
-            _currentScale = newScale;
-
-            // Dispatcher.UIThread.Post(() =>
-            // {
-            // 调整窗口大小以适应新的内容大小
-            // var newWidth = Math.Clamp(_originSize.Width * _currentScale, 0, MaxWidth);
-            // var newHeight = Math.Clamp(_originSize.Height * _currentScale, 0, MaxHeight);
-            // 计算新的宽度，并限制在上下限之间
-            // var newWidth = Math.Clamp(_originSize.Width * _currentScale, 0, MaxWidth);
+            // 上下限沿用窗口 Min/Max，只收敛到这一处钳制
+            double minScale = Math.Min(MinWidth / _originSize.Width, MinHeight / _originSize.Height);
+            double maxScale = Math.Min(MaxWidth / _originSize.Width, MaxHeight / _originSize.Height);
+            if (double.IsFinite(maxScale)) newScale = Math.Min(newScale, maxScale);
+            newScale = Math.Max(newScale, minScale);
+            if (Math.Abs(newScale - _currentScale) < 0.001) return;
 
             var newSize =
-                _originSize.ScaleByWidth(_currentScale, _aspectRatio, MinWidth, MinHeight, MaxWidth, MaxHeight);
-            // // 计算图像宽度和高度的变化量
-            // var widthChange = newWidth - _currentSize.Width;
-            // var heightChange = newHeight - _currentSize.Height;
-            // // if (sign > 0)
-            // {
-            //     widthChange *= 0.5f;
-            //     heightChange *= 0.5f;
-            // }
+                _originSize.ScaleByWidth(newScale, _aspectRatio, MinWidth, MinHeight, MaxWidth, MaxHeight);
+            if (_currentSize.Width <= 0 || _currentSize.Height <= 0) return;
+            if (newSize.Width <= 0 || newSize.Height <= 0) return;
 
-            // 计算新的窗口位置
+            // 光标锚定： trunc 改 Round，收敛只做一次
             double zoomX = newSize.Width / _currentSize.Width;
             double zoomY = newSize.Height / _currentSize.Height;
 
             //调整窗口位置
-            int newPosX = (int)(curPos.X - (mousePosition.X * (zoomX - 1)));
-            int newPosY = (int)(curPos.Y - (mousePosition.Y * (zoomY - 1)));
+            int newPosX = (int)Math.Round(curPos.X - (mousePosition.X * (zoomX - 1)));
+            int newPosY = (int)Math.Round(curPos.Y - (mousePosition.Y * (zoomY - 1)));
 
             var pos = new PixelPoint(newPosX, newPosY);
-            // var size = new Size((int)newWidth, (int)newHeight);
 
             //确保鼠标位置在缩放后不超出界面
             pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, newSize);
 
-            Dispatcher.UIThread.InvokeAsync(() =>
+            // 以钳制后的实际尺寸为准存 scale，否则顶到上下限时两者脱钩，往回滚会先卡住再跳变
+            _currentScale = newSize.Width / _originSize.Width;
+            MarkZoomInteractive();
+
+            // macOS 原子提交：位置与尺寸一次 setFrame 落盘，不再分两帧撕裂；
+            // 失败或非 macOS 才走托管老路
+            if (this.TrySetWindowFrame(pos, newSize))
             {
-                // StopRendering();
-                this.Position = pos;
                 SetImageSize(newSize);
-                // StartRendering();
-                // InvalidateMeasure();
-            }, DispatcherPriority.MaxValue);
-            // });
+            }
+            else
+            {
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    this.Position = pos;
+                    SetImageSize(newSize);
+                }, DispatcherPriority.MaxValue);
+            }
 
             e.Handled = true;
         }
+    }
+
+    // 手势期间降为低质量重采样，停稳后恢复原档，避免逐帧高质量重采样拖慢 UI 线程
+    private void MarkZoomInteractive()
+    {
+        _zoomRestoreQuality ??= RenderOptions.GetBitmapInterpolationMode(ImageContent);
+        if (RenderOptions.GetBitmapInterpolationMode(ImageContent) != BitmapInterpolationMode.LowQuality)
+            RenderOptions.SetBitmapInterpolationMode(ImageContent, BitmapInterpolationMode.LowQuality);
+        int generation = ++_zoomQualityGeneration;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (generation == _zoomQualityGeneration && _zoomRestoreQuality.HasValue)
+                RenderOptions.SetBitmapInterpolationMode(ImageContent, _zoomRestoreQuality.Value);
+        }, TimeSpan.FromMilliseconds(ZoomQualityRestoreMs), DispatcherPriority.Background);
     }
 
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
