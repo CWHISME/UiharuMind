@@ -1,6 +1,25 @@
 namespace UiharuMind.Core.AI.Character;
 
 /// <summary>
+/// 文件记忆的归属范围。
+///
+/// 两档是<b>同一棵树的两层</b>：角色级是 <c>FileMemory/{角色}_{id}/</c>，
+/// 项目级是它下面再多一段工作区。角色在外层是刻意的——ADR 0002 的核心性质是
+/// 「角色 A 的笔记不能漏进角色 B」，反过来嵌套就把这条丢了，且改名对账要改成遍历每个工作区。
+/// </summary>
+public enum EFileMemoryScope
+{
+    /// <summary>按角色：同一角色换会话、换工作区都记得（ADR 0002 的原始行为）</summary>
+    Character,
+
+    /// <summary>
+    /// 按角色 × 工作区：同一角色在不同项目里各记一份。
+    /// <b>没绑工作区时回落角色级</b>——绝不能落进 Scratch，那是可丢弃的缓存树（ADR 0013）。
+    /// </summary>
+    Workspace,
+}
+
+/// <summary>
 /// 一个智能体的能力配置：装哪些工具、禁用哪些技能。<b>只对
 /// <see cref="ECharacterKind.Agent"/> 有意义</b>，其余档位一律不装工具。
 ///
@@ -23,6 +42,12 @@ public class AgentToolConfig
 
     /// <summary>启用文件记忆(框架 FileMemoryProvider,agent 自记的笔记,按角色分目录跨会话共享)</summary>
     public bool EnableFileMemory { get; set; } = true;
+
+    /// <summary>
+    /// 文件记忆的归属范围。默认<see cref="EFileMemoryScope.Character"/>——那正是现存记忆
+    /// 所在的路径，因此这一档对已有数据完全无感（见 ADR 0002 修正案）。
+    /// </summary>
+    public EFileMemoryScope FileMemoryScope { get; set; } = EFileMemoryScope.Character;
 
     /// <summary>启用定时任务工具(ScheduleTask)</summary>
     public bool EnableScheduledTasks { get; set; } = true;
@@ -74,6 +99,12 @@ public class AgentToolConfig
             EnableShellExecution = EnableShellExecution && other.EnableShellExecution,
             EnableWebSearch = EnableWebSearch && other.EnableWebSearch,
             EnableFileMemory = EnableFileMemory && other.EnableFileMemory,
+            // 范围不是"能力大小"而是位置,取隔离更强的那一侧:与"子代理不能比父代理能力更大"同向,
+            // 父代理按项目隔离时,子代理不该把笔记写到跨项目共享的那一层去
+            FileMemoryScope = FileMemoryScope == EFileMemoryScope.Workspace
+                              || other.FileMemoryScope == EFileMemoryScope.Workspace
+                ? EFileMemoryScope.Workspace
+                : EFileMemoryScope.Character,
             EnableScheduledTasks = EnableScheduledTasks && other.EnableScheduledTasks,
             EnableVisionTool = EnableVisionTool && other.EnableVisionTool,
             EnableKnowledgeSearchTool = EnableKnowledgeSearchTool && other.EnableKnowledgeSearchTool,

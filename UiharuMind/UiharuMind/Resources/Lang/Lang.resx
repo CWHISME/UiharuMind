@@ -444,6 +444,21 @@
     <data name="AgentGateDescFileMemory" xml:space="preserve">
         <value>The agent's own notes (file_memory_* tools), stored per character and shared across that character's sessions. Renaming a character moves its notes folder along with it. Different from the knowledge base attached to a session.</value>
     </data>
+    <data name="AgentSettingCapFileMemoryPerWorkspace" xml:space="preserve">
+        <value>Keep file memory per project</value>
+    </data>
+    <data name="AgentGateDescFileMemoryPerWorkspace" xml:space="preserve">
+        <value>Store this character's notes separately for each bound workspace, instead of one shared set across all projects. Existing notes stay where they are: the per-project folders sit underneath the character's folder. Sessions with no workspace bound fall back to the shared set.</value>
+    </data>
+    <data name="AgentFileMemoryCountNote" xml:space="preserve">
+        <value>{0} memories</value>
+    </data>
+    <data name="AgentFileMemoryOverLimitNote" xml:space="preserve">
+        <value>{0} memories — past {1}, older ones are no longer indexed</value>
+    </data>
+    <data name="AgentFileMemoryPerWorkspaceNote" xml:space="preserve">
+        <value>counted per project</value>
+    </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>Create scheduled tasks (ScheduleTask) that run headlessly at a later time with pre-authorized shell commands only.</value>
     </data>

@@ -1,4 +1,5 @@
 using Microsoft.Agents.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 
@@ -196,6 +197,110 @@ public class FileMemoryLayoutTests : IDisposable
 
         Assert.Equal("Misaka_1a2b3c4d5e6f7788990011223344aabb", FileMemoryLayout.Reconcile(_root, "Misaka", CharacterId));
         Assert.Single(Directory.EnumerateDirectories(_root));
+    }
+
+    /// <summary>
+    /// 工作区键必须<b>跨进程稳定</b>。曾经的坑候选是 <c>string.GetHashCode</c>——它每进程随机化，
+    /// 重启一次就换一个目录名，表现是「记忆莫名其妙丢了，但文件还在磁盘上」。
+    /// </summary>
+    [Fact]
+    public void WorkspaceSegment_IsStableAndCarriesTheFolderName()
+    {
+        string segment = FileMemoryLayout.GetWorkspaceSegment("/Users/me/projects/client");
+
+        Assert.Equal(segment, FileMemoryLayout.GetWorkspaceSegment("/Users/me/projects/client"));
+        Assert.StartsWith("client_", segment);
+    }
+
+    /// <summary>
+    /// 同名不同路径的两个项目必须落到不同的键：只用目录名的话「两个都叫 client」会共用一份记忆，
+    /// 那就是跨项目污染——而按项目隔离正是这一档存在的理由。
+    /// </summary>
+    [Fact]
+    public void WorkspaceSegment_DistinguishesSameNamedProjects()
+    {
+        Assert.NotEqual(
+            FileMemoryLayout.GetWorkspaceSegment("/Users/me/a/client"),
+            FileMemoryLayout.GetWorkspaceSegment("/Users/me/b/client"));
+    }
+
+    /// <summary>
+    /// 同一个工作区经不同写法进来必须归一到同一个键，否则一个项目会分裂成几份记忆。
+    /// Linux 之外的文件系统不区分大小写，故大小写也要归一。
+    /// </summary>
+    [Fact]
+    public void WorkspaceSegment_NormalizesTrailingSeparator()
+    {
+        Assert.Equal(
+            FileMemoryLayout.GetWorkspaceSegment("/Users/me/projects/client"),
+            FileMemoryLayout.GetWorkspaceSegment("/Users/me/projects/client/"));
+    }
+
+    /// <summary>项目级：在角色目录<b>下面</b>再多一段，角色隔离这条性质不能丢（ADR 0002）</summary>
+    [Fact]
+    public void Reconcile_NestsWorkspaceUnderTheCharacterFolder()
+    {
+        CharacterData character = NewCharacter(EFileMemoryScope.Workspace);
+
+        string folder = FileMemoryLayout.Reconcile(_root, character, "/Users/me/projects/client");
+
+        Assert.StartsWith($"Misaka_{CharacterId}/", folder);
+        Assert.Contains("client_", folder);
+    }
+
+    /// <summary>
+    /// 选了项目级却没绑工作区：回落角色级。落进 Scratch 会是「记了但会没」，
+    /// 而那是可丢弃的缓存树（ADR 0013）。
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Reconcile_FallsBackToCharacterScopeWithoutWorkspace(string? workspacePath)
+    {
+        CharacterData character = NewCharacter(EFileMemoryScope.Workspace);
+
+        Assert.Equal($"Misaka_{CharacterId}", FileMemoryLayout.Reconcile(_root, character, workspacePath));
+    }
+
+    /// <summary>角色级下即便绑了工作区也不该分目录——那是现存记忆所在的那一层</summary>
+    [Fact]
+    public void Reconcile_IgnoresWorkspaceInCharacterScope()
+    {
+        CharacterData character = NewCharacter(EFileMemoryScope.Character);
+
+        Assert.Equal($"Misaka_{CharacterId}",
+            FileMemoryLayout.Reconcile(_root, character, "/Users/me/projects/client"));
+    }
+
+    /// <summary>
+    /// 数条数要排掉框架的两类内部文件（描述侧车与索引本身）。
+    /// 不排的话 50 条记忆在磁盘上是 101 个文件，界面提示直接错一倍。
+    /// </summary>
+    [Fact]
+    public void CountMemories_ExcludesFrameworkInternalFiles()
+    {
+        string folder = CreateFolder($"Misaka_{CharacterId}", "notes.md");
+        File.WriteAllText(Path.Combine(folder, "notes_description.md"), "desc");
+        File.WriteAllText(Path.Combine(folder, "memories.md"), "# Memory Index");
+        File.WriteAllText(Path.Combine(folder, "prefs.md"), "content");
+
+        Assert.Equal(2, FileMemoryLayout.CountMemories(_root, NewCharacter(EFileMemoryScope.Character)));
+    }
+
+    /// <summary>目录还不存在时是 0 条，不是异常——编辑页每次打开都会问这个数</summary>
+    [Fact]
+    public void CountMemories_IsZeroWhenNothingWrittenYet()
+    {
+        Assert.Equal(0, FileMemoryLayout.CountMemories(_root, NewCharacter(EFileMemoryScope.Character)));
+    }
+
+    private static CharacterData NewCharacter(EFileMemoryScope scope)
+    {
+        CharacterData character = new() { CharacterId = CharacterId, Kind = ECharacterKind.Agent };
+        character.CharacterName = "Misaka";
+        character.Tools.FileMemoryScope = scope;
+        return character;
     }
 
     private string CreateFolder(string folderName, string fileName)

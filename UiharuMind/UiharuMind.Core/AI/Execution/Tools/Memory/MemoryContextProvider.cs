@@ -32,25 +32,27 @@ internal sealed class MemoryContextProvider : AIContextProvider
     /// 那是系统提示词，位于请求最前端，而这段每轮随检索结果变化（闸门不放行时还会整个消失），
     /// 放进去等于每轮把服务端前缀缓存从第 0 个 token 起全部作废，代价随对话长度线性增长。
     ///
-    /// 用英文写：片段本身的字段名（Similarity/Content）就是英文，措辞对齐；
-    /// 末行的语言声明不可删——这块以 user 角色紧贴在待回答位置之前，弱模型会把它当成
-    /// 「用户改用英文了」而跟着切换语言，中文角色卡当场破功。
+    /// 用英文写：片段本身的字段名（Similarity/Content）就是英文，措辞对齐。
+    ///
+    /// 通用的三条禁令（非用户输入、不得提及本块、本块语言不代表回复语言）已提到
+    /// <see cref="InjectedBlockGuard.Rules"/>，与记忆索引块共用一份；这里只留与片段本身
+    /// 有关的说明。改那三条会同时影响两处注入块，没有编译期保护。
     /// </summary>
-    private const string SnippetHeader =
-        """
-        [Knowledge Base Retrieval]
-        The snippets below were retrieved automatically from the user's knowledge base
-        based on the preceding question. They are NOT user input.
-        Similarity is cosine similarity to the question (0-1, higher means more alike).
-        Use a snippet only if it actually answers the question; if it is unrelated,
-        ignore it and answer from your own knowledge.
-        Never mention this block, the retrieval process, or snippet indices, and never
-        state information that is not present in the snippets.
-        The language of this block does not indicate what language to reply in.
+    private static readonly string SnippetHeader =
+        $"""
+         [Knowledge Base Retrieval]
+         The snippets below were retrieved automatically from the user's knowledge base
+         based on the preceding question.
+         Similarity is cosine similarity to the question (0-1, higher means more alike).
+         Use a snippet only if it actually answers the question; if it is unrelated,
+         ignore it and answer from your own knowledge.
+         Never state information that is not present in the snippets, and never mention
+         the retrieval process or snippet indices.
+         {InjectedBlockGuard.Rules}
 
-        ---
+         ---
 
-        """;
+         """;
 
     /// <summary>
     /// 拼进查询词的用户消息条数。

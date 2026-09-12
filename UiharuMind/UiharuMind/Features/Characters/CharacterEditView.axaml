@@ -119,6 +119,10 @@
                                                        MaxWidth="360" TextWrapping="Wrap" />
                                         </ToolTip.Tip>
                                     </controls:ThemedSvgIcon>
+                                    <!-- 行内附注:说明段只在悬停时可见,要提醒用户的内容必须留在行上 -->
+                                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                               Text="{Binding Note}" IsVisible="{Binding HasNote}"
+                                               TextWrapping="NoWrap" />
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

@@ -185,8 +185,12 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
         try
         {
+            // 工作区随会话走,故范围解析也只能在这里做:装配侧那份 plan 不知道本次挂的是哪个会话
             agentSession.StateBag.SetValue(FileMemoryLayout.StateKey,
-                new FileMemoryState { WorkingFolder = FileMemoryLayout.Reconcile(session.CharacterData) });
+                new FileMemoryState
+                {
+                    WorkingFolder = FileMemoryLayout.Reconcile(session.CharacterData, session.WorkspacePath),
+                });
         }
         catch (Exception e)
         {

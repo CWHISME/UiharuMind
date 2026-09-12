@@ -103,7 +103,8 @@ public partial class CharacterDraft : ObservableObject
     /// 智能体的能力面板(工具开关 + 技能勾选)。惰性建:非智能体档的编辑页不显示这块,
     /// 建它要读盘解析技能包。它直写<b>草稿</b>身上那份能力配置,因此同样受取消保护
     /// </summary>
-    public AgentToolViewData AgentTools => _agentTools ??= new AgentToolViewData(_draft.Tools, CapabilitySnapshot);
+    public AgentToolViewData AgentTools =>
+        _agentTools ??= new AgentToolViewData(_draft.Tools, CapabilitySnapshot, _draft);
 
     /// <summary>
     /// 当前会话实际挂上的能力快照，用来给能力面板标估算占用。

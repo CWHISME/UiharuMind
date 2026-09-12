@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -30,6 +31,20 @@ namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 public static class FileMemoryLayout
 {
     private const int MaxNameLength = 32; //目录名里角色名部分的长度上限
+    private const int WorkspaceHashLength = 8; //工作区键里哈希部分的十六进制位数
+
+    /// <summary>
+    /// 框架索引里最多列多少条（<c>FileMemoryProvider.MaxIndexEntries</c>）。
+    ///
+    /// <b>这是抄来的一份</b>——那边是 private const，拿不到也钉不住。抄错的后果只是界面上的
+    /// 条数提示早报或晚报，不影响任何行为，所以不值得为它引入反射。
+    /// 越过这个数之后，框架按<b>文件名字母序</b>截断（不是按时间），靠后的记忆不再进索引，
+    /// 模型也就再想不起去读——这是已知代价，见 ADR 0002 修正案。
+    /// </summary>
+    public const int IndexEntryLimit = 50;
+
+    private const string DescriptionSuffix = "_description.md"; //框架的描述侧车后缀,数条数时要排掉
+    private const string IndexFileName = "memories.md"; //框架的索引文件名,同上
 
     /// <summary>
     /// 框架状态包里存 <c>FileMemoryState</c> 的键。等于框架 <c>FileMemoryProvider.StateKeys</c>
@@ -67,13 +82,118 @@ public static class FileMemoryLayout
     }
 
     /// <summary>
-    /// 对账并返回该角色应使用的目录名：磁盘上存在同一 id 后缀但名字不同的目录，就把它搬到目标名。
+    /// 对账并返回该角色本次应使用的目录：磁盘上存在同一 id 后缀但名字不同的目录，就把它搬到目标名；
+    /// 角色选了<see cref="EFileMemoryScope.Workspace"/> 且本次绑了工作区时，再往下多一段工作区。
     /// </summary>
     /// <param name="character">角色</param>
-    /// <returns>目录名(相对 <see cref="RootPath"/>)</returns>
-    public static string Reconcile(CharacterData character)
+    /// <param name="workspacePath">本次会话绑定的工作区绝对路径；未绑定为 null 或空串</param>
+    /// <returns>目录名(相对 <see cref="RootPath"/>)，项目级时形如 <c>角色_id/工作区_哈希</c></returns>
+    public static string Reconcile(CharacterData character, string? workspacePath = null)
     {
-        return Reconcile(RootPath, character.CharacterName, character.CharacterId);
+        return Reconcile(RootPath, character, workspacePath);
+    }
+
+    /// <inheritdoc cref="Reconcile(CharacterData,string)"/>
+    /// <param name="rootPath">父目录（显式入参，可单测）</param>
+    /// <param name="character">角色</param>
+    /// <param name="workspacePath">本次会话绑定的工作区绝对路径；未绑定为 null 或空串</param>
+    public static string Reconcile(string rootPath, CharacterData character, string? workspacePath = null)
+    {
+        // 改名对账只认外层的角色目录:工作区那一段挂在它下面,跟着一起搬,故这里一行不用改
+        string characterFolder = Reconcile(rootPath, character.CharacterName, character.CharacterId);
+        return AppendWorkspace(characterFolder, character.Tools.FileMemoryScope, workspacePath);
+    }
+
+    /// <summary>
+    /// 按范围决定要不要在角色目录下再加一段工作区。
+    /// </summary>
+    /// <param name="characterFolder">角色目录名</param>
+    /// <param name="scope">归属范围</param>
+    /// <param name="workspacePath">工作区绝对路径；未绑定为 null 或空串</param>
+    /// <returns>最终目录名</returns>
+    private static string AppendWorkspace(string characterFolder, EFileMemoryScope scope, string? workspacePath)
+    {
+        // 选了项目级却没绑工作区:回落角色级。落进 Scratch 是"记了但会没",比不记更坏;
+        // 直接关掉文件记忆则会让用户看到"开关开着但模型说没有记忆工具"
+        if (scope != EFileMemoryScope.Workspace || string.IsNullOrWhiteSpace(workspacePath))
+            return characterFolder;
+
+        return $"{characterFolder}/{GetWorkspaceSegment(workspacePath)}";
+    }
+
+    /// <summary>
+    /// 工作区路径 → 目录名一段：<c>目录名_短哈希</c>。
+    ///
+    /// 两半都不可省。光用目录名会撞（两个项目都叫 <c>client</c>，撞了就是记忆互相污染）；
+    /// 光用哈希用户在文件管理器里认不出是哪个项目——与 ADR 0002「目录名里带角色名」同一个取舍。
+    ///
+    /// 哈希取 SHA256 而非 <c>string.GetHashCode</c>：后者每进程随机化，
+    /// 重启一次就换一个目录，记忆当场"丢"。
+    /// </summary>
+    /// <param name="workspacePath">工作区路径</param>
+    /// <returns>目录名一段</returns>
+    public static string GetWorkspaceSegment(string workspacePath)
+    {
+        // 先归一再算:同一个工作区经不同写法(相对路径、大小写、尾斜杠)进来必须落到同一段,
+        // 否则同一个项目会分裂成几份记忆
+        string full = Path.GetFullPath(workspacePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string canonical = OperatingSystem.IsLinux() ? full : full.ToLowerInvariant();
+
+        byte[] hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
+        string suffix = Convert.ToHexString(hash)[..WorkspaceHashLength].ToLowerInvariant();
+
+        string name = Sanitize(Path.GetFileName(full), MaxNameLength);
+        return name.Length == 0 ? suffix : $"{name}_{suffix}";
+    }
+
+    /// <summary>
+    /// 数这个角色（在本次范围下）已经记了多少条记忆，供界面提示用。
+    ///
+    /// <b>刻意不做对账</b>：<see cref="Reconcile(CharacterData,string)"/> 会搬目录，
+    /// 而这是个纯查询，界面打开一次就搬一次目录是意外的副作用。代价是刚改名、还没挂接过的角色
+    /// 这里读的是新名字的空目录 —— 显示 0 条，下一次挂接后自动正确。
+    ///
+    /// 排掉框架的两类内部文件：描述侧车与索引本身。不排的话 50 条记忆在磁盘上是 101 个文件，
+    /// 提示直接错一倍。
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <param name="workspacePath">工作区绝对路径；未绑定为 null 或空串</param>
+    /// <returns>记忆条数；目录不存在时为 0</returns>
+    public static int CountMemories(CharacterData character, string? workspacePath = null)
+    {
+        return CountMemories(RootPath, character, workspacePath);
+    }
+
+    /// <inheritdoc cref="CountMemories(CharacterData,string)"/>
+    /// <param name="rootPath">父目录（显式入参，可单测）</param>
+    /// <param name="character">角色</param>
+    /// <param name="workspacePath">工作区绝对路径；未绑定为 null 或空串</param>
+    public static int CountMemories(string rootPath, CharacterData character, string? workspacePath = null)
+    {
+        string folder = AppendWorkspace(GetFolderName(character), character.Tools.FileMemoryScope, workspacePath);
+        string path = Path.Combine(rootPath, folder.Replace('/', Path.DirectorySeparatorChar));
+        if (!Directory.Exists(path)) return 0;
+
+        try
+        {
+            return Directory.EnumerateFiles(path)
+                .Select(Path.GetFileName)
+                .Count(name => name != null && !IsInternalFile(name));
+        }
+        catch (Exception e)
+        {
+            // 数不出来就当没有:这只喂一句界面提示,不该让编辑页构造失败
+            Log.Warning($"File memory: count failed for '{folder}': {e.Message}");
+            return 0;
+        }
+    }
+
+    /// <summary>是否框架的内部文件（描述侧车或索引本身），与框架 <c>IsInternalFile</c> 同口径</summary>
+    private static bool IsInternalFile(string fileName)
+    {
+        return fileName.EndsWith(DescriptionSuffix, StringComparison.OrdinalIgnoreCase)
+               || fileName.Equals(IndexFileName, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
