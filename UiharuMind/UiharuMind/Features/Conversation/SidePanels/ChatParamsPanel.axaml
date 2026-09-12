@@ -17,10 +17,20 @@
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}">
         <StackPanel>
             <u:Divider Content="{loc:Loc ParameterSettings}" />
+            <Grid ColumnDefinitions="*,Auto" Margin="10,4,10,4">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="SemiBold" />
+                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                              IsChecked="{Binding Character.Config.ExecutionSettings.OmitSamplingParams}" />
+            </Grid>
             <settingViews:SettingPanelView Padding="10,0"
                                            IsVerticleTitle="True"
                                            IsTitleVisible="False"
-                                           SettingConfig="{Binding Character.Config.ExecutionSettings}" />
+                                           SettingConfig="{Binding Character.Config.ExecutionSettings}"
+                                           IsEnabled="{Binding !Character.Config.ExecutionSettings.OmitSamplingParams}" />
         </StackPanel>
     </Border>
 

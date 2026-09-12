@@ -63,6 +63,8 @@
                         CornerRadius="8" Padding="8">
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
                 </Border>
+                <panels:SessionModelPanel DockPanel.Dock="Top" Margin="8,8,8,0"
+                                          DataContext="{Binding Conversation.SessionModel}" />
                 <panels:ChatInfoView Margin="8,0,8,8" />
             </DockPanel>
         </pages:ConversationPageShell.RightPaneContent>

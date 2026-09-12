@@ -43,14 +43,16 @@
 
         <!-- 右栏:workspace + 上下文占用 + todo/定时任务 -->
         <pages:ConversationPageShell.RightPaneContent>
-            <Grid RowDefinitions="Auto,Auto,*" Margin="12">
+            <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="12">
                 <panels:AgentWorkspacePanel Grid.Row="0" Margin="0,0,0,10" />
-                <Border Grid.Row="1" Margin="0,0,0,10"
+                <panels:SessionModelPanel Grid.Row="1" Margin="0,0,0,10"
+                                          DataContext="{Binding Conversation.SessionModel}" />
+                <Border Grid.Row="2" Margin="0,0,0,10"
                         BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
                         CornerRadius="8" Padding="8">
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
                 </Border>
-                <panels:AgentSidePanel Grid.Row="2" />
+                <panels:AgentSidePanel Grid.Row="3" />
             </Grid>
         </pages:ConversationPageShell.RightPaneContent>
 

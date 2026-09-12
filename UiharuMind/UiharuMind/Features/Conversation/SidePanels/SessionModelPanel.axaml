@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:u="https://irihi.tech/ursa"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="UiharuMind.Features.Conversation.SidePanels.SessionModelPanel">
+
+    <Design.DataContext>
+        <panels:SessionModelViewData />
+    </Design.DataContext>
+
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" Padding="5"
+            IsVisible="{Binding HasSession, FallbackValue=False}">
+        <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{loc:Loc SessionModelTitle}" VerticalAlignment="Center" />
+                <u:Badge Header="{loc:Loc SessionModelOverrideBadge}"
+                         IsVisible="{Binding HasOverride}" />
+            </StackPanel>
+            <!-- 闭合态只放纯文本：右栏窄，徽章加长名必溢出；全名悬停看 -->
+            <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding SelectedOption}"
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="{Binding SelectedOption.DisplayName}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="5"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="{Binding DisplayName}">
+                            <u:Badge Header="{loc:Loc ModelStateRemote}"
+                                     Background="SpringGreen"
+                                     IsVisible="{Binding IsRemoteModel, Mode=OneWay}" />
+                            <u:Badge Header="{loc:Loc ModelStateVision}"
+                                     Background="Gold"
+                                     IsVisible="{Binding IsVisionModel, Mode=OneWay}" />
+                            <TextBlock Text="{Binding DisplayName}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+                <ComboBox.SelectionBoxItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding DisplayName}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </DataTemplate>
+                </ComboBox.SelectionBoxItemTemplate>
+            </ComboBox>
+            <TextBlock Text="{Binding EffectiveHint}" Classes="muted" TextWrapping="Wrap"
+                       IsVisible="{Binding EffectiveHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+    </Border>
+
+</UserControl>

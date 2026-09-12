@@ -11,6 +11,7 @@
       "allow_dangerously_set_content": false
     },
     "ExecutionSettings": {
+      "omit_sampling_params": true,
       "temperature": 0.6,
       "top_p": 0.8
     }

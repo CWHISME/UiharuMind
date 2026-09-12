@@ -9,13 +9,35 @@ namespace UiharuMind.Core.Configs;
 [SettingConfigName("生成参数", LanguageUtils.ChineseSimplified)]
 public class ChatPromptExecutionSettings : TConfigBase<ChatPromptExecutionSettings>
 {
-    public ChatOptions ToChatOptions() => new()
+    private bool _omitSamplingParams;
+
+    public ChatOptions ToChatOptions()
     {
-        Temperature = Temperature is null ? null : (float)Temperature.Value,
-        TopP = TopP is null ? null : (float)TopP.Value,
-        PresencePenalty = PresencePenalty is null ? null : (float)PresencePenalty.Value,
-        FrequencyPenalty = FrequencyPenalty is null ? null : (float)FrequencyPenalty.Value
-    };
+        if (OmitSamplingParams) return new();
+        return new()
+        {
+            Temperature = Temperature is null ? null : (float)Temperature.Value,
+            TopP = TopP is null ? null : (float)TopP.Value,
+            PresencePenalty = PresencePenalty is null ? null : (float)PresencePenalty.Value,
+            FrequencyPenalty = FrequencyPenalty is null ? null : (float)FrequencyPenalty.Value
+        };
+    }
+
+    /// <summary>
+    /// 为 true 时不发送任何采样参数,改用模型服务端默认。存量缺字段反序列化为 false,行为不变。
+    /// </summary>
+    [JsonPropertyName("omit_sampling_params")]
+    [SettingConfigIgnoreDisplay]
+    public bool OmitSamplingParams
+    {
+        get => _omitSamplingParams;
+        set
+        {
+            if (_omitSamplingParams == value) return;
+            _omitSamplingParams = value;
+            OnPropertyChanged();
+        }
+    }
 
     [SettingConfigDesc(
         "Temperature controls the randomness of the completion. The higher the temperature, the more random the completion. Default is 1.0.")]

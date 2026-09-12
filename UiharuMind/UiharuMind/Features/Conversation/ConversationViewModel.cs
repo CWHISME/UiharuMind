@@ -131,6 +131,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>工作目录选择器(当前目录与最近列表);工作目录这份状态由它持有</summary>
     public WorkspacePickerViewData Workspace { get; }
 
+    /// <summary>本会话模型（默认跟随全局，选过即钉选）。右栏面板绑这一份</summary>
+    public SessionModelViewData SessionModel { get; }
+
     [ObservableProperty] private int _permissionModeIndex = 1; //默认 AutoEdit
     [ObservableProperty] private EAgentMode _currentMode = EAgentMode.Execute;
     [ObservableProperty] private bool _hasTodos;
@@ -175,7 +178,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public string ModeLabel => ConversationModeLabels.ModeLabel(CurrentMode);
 
     /// <summary>
-    /// 当前会话对应的模型名:会话绑定的专属模型 → 全局当前模型 →
+    /// 当前会话对应的模型名:会话覆写名(找不到时回落全局但保留名字) → 全局当前模型 →
     /// 将被自动解析的偏好模型(未选模型时发送会走同一解析函数,显示与实际使用一致)
     /// </summary>
     public string SessionModelLabel =>
@@ -301,6 +304,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 ? agentSetting.DefaultWorkspacePath
                 : null;
         Workspace = new WorkspacePickerViewData(defaultWorkspace, OnWorkspacePathChanged);
+        SessionModel = new SessionModelViewData(() => CurrentMeta, () => _isLoadingSession, OnSessionModelChanged);
+        SessionModel.Refresh();
 
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
@@ -355,8 +360,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void OnCurrentModelChanged(ModelRunningData? model)
     {
         OnPropertyChanged(nameof(SessionModelLabel));
+        SessionModel.Refresh(); //默认项的跟随对象变了,下拉标签跟着变
         Tray.NotifyVisionStateChanged(); //换成非视觉模型时,待发的图就该立刻出警示
         // 上限是跟着模型走的:换个模型,占用的分母、三条水位与配色档位全都变了
+        RefreshTokenUsageText();
+    }
+
+    /// <summary>本会话的覆写变了，有效模型与用量分母都跟着变，走与全局切换同一套刷新</summary>
+    private void OnSessionModelChanged()
+    {
+        OnPropertyChanged(nameof(SessionModelLabel));
+        Tray.NotifyVisionStateChanged();
         RefreshTokenUsageText();
     }
 
@@ -382,6 +396,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentSession is { } disposing) disposing.SaveMeta(false);
 
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
+        SessionModel.Dispose();
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
         _driver.StateChanged -= OnDriverStateChanged;
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
@@ -857,10 +872,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             _currentCharacter = CharacterManager.Instance.GetCharacterData(NewSessionCharacterId);
             ChatSession created = await _binder.CreateAsync(_currentCharacter, titleSeed,
-                Workspace.Path, PermissionModeIndex, cancellationToken);
+                Workspace.Path, PermissionModeIndex, cancellationToken, SessionModel.TakeDraft());
 
             CurrentMeta = created.ToMeta();
             Title = CurrentMeta.Title;
+            SessionModel.Refresh(); //首轮新建的会话（尤其懒建页）此前无元数据，面板据此现身
+            OnPropertyChanged(nameof(SessionModelLabel));
             NotifyCharacterKindChanged();
             MemoryPanel = new ConversationMemoryViewData(created);
             ApplyMode();
@@ -968,6 +985,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
         NotifyCharacterKindChanged();
         OnPropertyChanged(nameof(SessionModelLabel));
+        SessionModel.Refresh();
         OnPropertyChanged(nameof(ActiveCharacterName));
         OnPropertyChanged(nameof(ActiveCharacterDescription));
         OnPropertyChanged(nameof(ActiveCharacterIcon));

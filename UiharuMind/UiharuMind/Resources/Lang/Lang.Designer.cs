@@ -197,6 +197,36 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string SessionModelTitle {
+            get {
+                return ResourceManager.GetString("SessionModelTitle", resourceCulture);
+            }
+        }
+        
+        public static string SessionModelDefault {
+            get {
+                return ResourceManager.GetString("SessionModelDefault", resourceCulture);
+            }
+        }
+        
+        public static string SessionModelOverrideBadge {
+            get {
+                return ResourceManager.GetString("SessionModelOverrideBadge", resourceCulture);
+            }
+        }
+        
+        public static string SessionModelUnavailableSuffix {
+            get {
+                return ResourceManager.GetString("SessionModelUnavailableSuffix", resourceCulture);
+            }
+        }
+        
+        public static string SessionModelEffectiveFormat {
+            get {
+                return ResourceManager.GetString("SessionModelEffectiveFormat", resourceCulture);
+            }
+        }
+        
         public static string MessageInfoTitle {
             get {
                 return ResourceManager.GetString("MessageInfoTitle", resourceCulture);

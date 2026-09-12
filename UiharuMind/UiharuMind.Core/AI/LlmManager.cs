@@ -285,6 +285,21 @@ public class LlmManager : Singleton<LlmManager>, IInitialize
         return true;
     }
 
+    /// <summary>
+    /// 确保指定模型已启动。会话钉选的模型可能从未跑起来（全局未选时）。
+    /// 远程模型即发即忘拉起，由调用方的就绪等待接住；本地模型一次只能跑一个且要走
+    /// 顶栏的风险确认流程，这里不自动加载——起不来由调用方回落或报错。
+    /// </summary>
+    /// <param name="model">要确保的模型</param>
+    public void EnsureModelStarted(ModelRunningData model)
+    {
+        if (model.IsRunning || model.IsLoading || model.ChatClient != null) return;
+        if (!model.IsRemoteModel) return;
+        ModelRunningData starting = model;
+        _ = _runtimeService.StartChatModelAsync(starting,
+            onLoaded: () => OnCurrentModelChanged?.Invoke(starting));
+    }
+
     private void SetCurrentRunningModel(ModelRunningData? value, bool stopPrevious = true)
     {
         if (value == _curModelRunningData) return;

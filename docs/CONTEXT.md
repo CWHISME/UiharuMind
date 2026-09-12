@@ -295,6 +295,26 @@ markdown 渲染器里没有 `HRef`，显示得出来但点不开。点击由 `Si
 跑模型的后端。Execution 装配「要问什么」，Runtime 负责「怎么问到模型」。
 包括本地 llama.cpp 进程、LLamaSharp、OpenAI 兼容 HTTP 等，以及 `ChatThread`。
 
+### 全局当前模型
+
+顶栏在用的那个，内存单例、重启不落盘。体现为 `LlmManager.CurrentRunningModel`。
+
+⚠️ 不要叫它「默认模型」——默认是会话有没有覆写的事，不是它的名字。
+
+### 会话覆写
+
+钉在单个会话上的模型名，空即无覆写、跟随全局。体现为 `ChatSession` 上的覆写值与
+`ChatSessionMeta` 里的持久化名。
+
+⚠️ 不要叫它「会话模型」——那会跟下面的有效模型撞名。
+
+### 有效模型
+
+实际问话的那个：`会话覆写 ?? 全局当前模型 ?? 偏好自动挑`。
+体现为 `AgentBuildProfile.ResolveCurrentModel()`、`ConversationViewModel.SessionModelLabel`。
+
+⚠️ 不要光说「当前模型」——不带前缀时分不清是全局还是有效。
+
 ### 上下文预算（Context Budget）
 
 分母三个层层收缩，分子两个，**都不要混用**：

@@ -346,6 +346,32 @@ public class LazyChatClient : IChatClient
         // 不持有底层客户端所有权
     }
 
+    /// <summary>候选模型（会话钉选优先）的处置</summary>
+    internal enum SessionCandidateDecision
+    {
+        /// <summary>直接用它（运行中、正在加载、远程可拉起）</summary>
+        UseCandidate,
+        /// <summary>回落全局（未运行的本地钉选，名字保留）</summary>
+        UseGlobal,
+        /// <summary>就地报错，不空等 30 秒</summary>
+        FailFast,
+    }
+
+    /// <summary>
+    /// 候选模型的处置：运行中/加载中/已就绪用它；远程未起用它（拉起后等就绪）；
+    /// 本地未起回落全局；回无可回就地报错。纯函数，可单测。
+    /// </summary>
+    /// <param name="candidate">会话钉选优先解析出的候选</param>
+    /// <param name="global">全局当前模型</param>
+    internal static SessionCandidateDecision DecideCandidate(ModelRunningData candidate, ModelRunningData? global)
+    {
+        if (candidate.IsRunning || candidate.IsLoading || candidate.ChatClient != null)
+            return SessionCandidateDecision.UseCandidate;
+        if (candidate.IsRemoteModel) return SessionCandidateDecision.UseCandidate;
+        if (global != null && !ReferenceEquals(global, candidate)) return SessionCandidateDecision.UseGlobal;
+        return SessionCandidateDecision.FailFast;
+    }
+
     /// <summary>
     /// 解析当前模型客户端;远程模型启动中时限时等待就绪
     /// </summary>
@@ -362,6 +388,20 @@ public class LazyChatClient : IChatClient
             model = LlmManager.Instance.CurrentRunningModel;
         }
         if (model == null) throw new InvalidOperationException("Model is not running.");
+
+        // 钉选命中但从未启动（全局未选时）：远程顺手拉起后等就绪；本地一次只能跑一个，
+        // 未运行的本地钉选回落全局（名字保留），回无可回就地报错、不空等 30 秒
+        ModelRunningData? global = LlmManager.Instance.CurrentRunningModel;
+        switch (DecideCandidate(model, global))
+        {
+            case SessionCandidateDecision.UseGlobal:
+                model = global!;
+                break;
+            case SessionCandidateDecision.FailFast:
+                throw new InvalidOperationException($"Model '{model.ModelName}' is not running.");
+        }
+
+        if (model.IsRemoteModel) LlmManager.Instance.EnsureModelStarted(model);
 
         DateTimeOffset deadline = DateTimeOffset.Now + ReadyTimeout;
         while (model.ChatClient == null && DateTimeOffset.Now < deadline)

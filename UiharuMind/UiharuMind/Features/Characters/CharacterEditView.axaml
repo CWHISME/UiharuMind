@@ -309,8 +309,18 @@
                     <Border Name="ParametersSection" Classes="edit-card">
                         <StackPanel Spacing="8">
                             <TextBlock Classes="card-title" Text="{loc:Loc ParameterSettings}" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                              IsChecked="{Binding ChatPromptExecutionSettings.OmitSamplingParams}" />
+                            </Grid>
                             <settingViews:SettingPanelView SettingConfig="{Binding ChatPromptExecutionSettings}"
-                                                           IsTitleVisible="False" />
+                                                           IsTitleVisible="False"
+                                                           IsEnabled="{Binding !ChatPromptExecutionSettings.OmitSamplingParams}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>

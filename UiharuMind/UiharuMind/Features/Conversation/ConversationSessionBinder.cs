@@ -46,9 +46,11 @@ public sealed class ConversationSessionBinder
     /// <param name="workspacePath">界面当前的工作目录</param>
     /// <param name="permissionModeIndex">界面当前的权限档</param>
     /// <param name="cancellationToken">取消标记</param>
+    /// <param name="sessionModelName">空态草稿的覆写模型名；为空即默认跟随全局</param>
     /// <returns>已挂接的会话本体</returns>
     public async Task<ChatSession> CreateAsync(CharacterData character, string titleSeed,
-        string? workspacePath, int permissionModeIndex, CancellationToken cancellationToken)
+        string? workspacePath, int permissionModeIndex, CancellationToken cancellationToken,
+        string? sessionModelName = null)
     {
         ChatSession created = new()
         {
@@ -57,6 +59,7 @@ public sealed class ConversationSessionBinder
             Description = string.Empty,
             WorkspacePath = workspacePath,
             PermissionModeIndex = permissionModeIndex,
+            SessionModelName = sessionModelName,
         };
         SessionManager.Instance.Add(created);
         WatchBusy(created.Runner); //必须在 AttachAsync 之前,预连就在它里面
@@ -98,6 +101,7 @@ public sealed class ConversationSessionBinder
         if (session == null) return;
         session.WorkspacePath = meta.WorkspacePath;
         session.PermissionModeIndex = meta.PermissionModeIndex;
+        session.SessionModelName = meta.SessionModelName;
         session.SaveMeta(); //只动头字段,不必重写整份历史
     }
 

@@ -131,6 +131,21 @@
     <data name="EjectModel" xml:space="preserve">
         <value>卸载</value>
     </data>
+    <data name="SessionModelTitle" xml:space="preserve">
+        <value>本会话模型</value>
+    </data>
+    <data name="SessionModelDefault" xml:space="preserve">
+        <value>默认（跟随全局）</value>
+    </data>
+    <data name="SessionModelOverrideBadge" xml:space="preserve">
+        <value>会话专属</value>
+    </data>
+    <data name="SessionModelUnavailableSuffix" xml:space="preserve">
+        <value>不可用</value>
+    </data>
+    <data name="SessionModelEffectiveFormat" xml:space="preserve">
+        <value>实际使用：{0}</value>
+    </data>
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>提示</value>
     </data>

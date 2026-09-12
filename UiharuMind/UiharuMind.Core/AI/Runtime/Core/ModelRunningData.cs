@@ -92,6 +92,12 @@ public class ModelRunningData : INotifyPropertyChanged
     public bool IsRunning => _isLoaded && _chatClient != null && !((_cts?.IsCancellationRequested) ?? true);
 
     /// <summary>
+    /// 是否正在加载中（已开始、既未就绪也不算失败）。重复拉起会重置进度并造成双跑，
+    /// 自动拉起前必须先看它，而不是只看 <see cref="IsRunning"/>
+    /// </summary>
+    public bool IsLoading => !_isLoaded && _cts != null;
+
+    /// <summary>
     /// 0~1,1表示加载完成 100%
     /// </summary>
     public float LoadingPercent { get; private set; } = 0;

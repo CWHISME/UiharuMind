@@ -138,6 +138,21 @@
     <data name="EjectModel" xml:space="preserve">
         <value>Eject Model</value>
     </data>
+    <data name="SessionModelTitle" xml:space="preserve">
+        <value>Session model</value>
+    </data>
+    <data name="SessionModelDefault" xml:space="preserve">
+        <value>Default (follow global)</value>
+    </data>
+    <data name="SessionModelOverrideBadge" xml:space="preserve">
+        <value>Session</value>
+    </data>
+    <data name="SessionModelUnavailableSuffix" xml:space="preserve">
+        <value>unavailable</value>
+    </data>
+    <data name="SessionModelEffectiveFormat" xml:space="preserve">
+        <value>In effect: {0}</value>
+    </data>
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>Info</value>
     </data>

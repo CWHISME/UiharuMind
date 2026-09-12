@@ -59,6 +59,9 @@ public class ChatSession
     /// <summary>权限档索引（仅 agent 会话有意义）</summary>
     public int PermissionModeIndex { get; set; } = 1;
 
+    /// <summary>会话覆写的模型名；为空表示无覆写、跟随全局当前模型</summary>
+    public string? SessionModelName { get; set; }
+
     /// <summary>会话累计输入 token（响应 usage 不随消息持久化，累计值记在本体上）</summary>
     public long TotalInputTokens { get; set; }
 
@@ -252,12 +255,31 @@ public class ChatSession
 
     [JsonIgnore] private ModelRunningData? _modelRunningData;
 
-    /// <summary>该对话对应的模型</summary>
+    /// <summary>该对话是否有会话覆写（钉选了专属模型）</summary>
+    [JsonIgnore]
+    public bool HasSessionModelOverride => !string.IsNullOrEmpty(SessionModelName);
+
+    /// <summary>
+    /// 该对话实际问话的模型（有效模型）：运行期覆写 → 会话覆写名 → 全局当前模型。
+    /// 会话覆写名在模型列表里找不到时回落全局，但名字保留（模型回来自动恢复）。
+    /// </summary>
     [JsonIgnore]
     public ModelRunningData? ChatModelRunningData
     {
-        get => _modelRunningData ?? LlmManager.Instance.CurrentRunningModel;
-        set => _modelRunningData = value;
+        get => _modelRunningData ?? FindModelByName(SessionModelName) ?? LlmManager.Instance.CurrentRunningModel;
+        set
+        {
+            _modelRunningData = value;
+            // 临时会话转正（Persist）走 JSON 落盘，JsonIgnore 的运行期覆写带不过去——
+            // 在这里把名字一并盖到持久化字段上，转正后覆写不丢
+            if (value != null) SessionModelName = value.ModelName;
+        }
+    }
+
+    private static ModelRunningData? FindModelByName(string? modelName)
+    {
+        if (string.IsNullOrEmpty(modelName)) return null;
+        return LlmManager.Instance.CacheModelDictionary.GetValueOrDefault(modelName);
     }
 
     /// <summary>首条消息时间;历史为空或该消息没有时间戳时回落会话创建时间</summary>
@@ -302,6 +324,7 @@ public class ChatSession
             MemoryName = MemoryName,
             WorkspacePath = WorkspacePath,
             PermissionModeIndex = PermissionModeIndex,
+            SessionModelName = SessionModelName,
             CreatedAt = CreatedAt,
             UpdatedAt = UpdatedAt,
             MessageCount = History.Count,
