@@ -245,18 +245,61 @@ public static class WindowUtils
         byte display,
         byte animate);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool NativeSetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
+
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+
     /// <summary>
-    /// macOS 下把位置与内容尺寸一次提交给 NSWindow（setFrame:display:animate:）。
+    /// 把位置与内容尺寸一次提交给原生窗口，macOS 走 setFrame:display:animate:，
+    /// Windows 走 SetWindowPos（位置加尺寸单次调用）。
     /// Avalonia 托管层里 Position 立即生效、Width/Height 要走布局后到，分开设逐格撕裂闪烁。
     /// 成功后调用方只需同步 Width/Height 供内容布局，Position 不必再设。
     /// </summary>
     /// <param name="window">目标窗口</param>
-    /// <param name="position">窗口左上（Avalonia 口径，Y 朝下）</param>
+    /// <param name="position">窗口左上（本平台 Position 口径：macOS 是 point，Windows 是物理像素）</param>
     /// <param name="clientSize">内容尺寸（DIP）</param>
-    /// <returns>成功 true；非 macOS 或任何失败 false，调用方走托管老路</returns>
+    /// <returns>成功 true；其他平台或任何失败 false，调用方走托管老路</returns>
     public static bool TrySetWindowFrame(this Window window, PixelPoint position, Size clientSize)
     {
-        if (!OperatingSystem.IsMacOS()) return false;
+        if (OperatingSystem.IsMacOS()) return TrySetWindowFrameMac(window, position, clientSize);
+        if (OperatingSystem.IsWindows()) return TrySetWindowFrameWin(window, position, clientSize);
+        return false;
+    }
+
+    private static bool TrySetWindowFrameWin(Window window, PixelPoint position, Size clientSize)
+    {
+        try
+        {
+            var handle = window.TryGetPlatformHandle();
+            if (handle == null || handle.Handle == IntPtr.Zero || handle.HandleDescriptor != "HWND") return false;
+            var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary;
+            double scaling = screen?.Scaling ?? 1.0;
+            int width = (int)Math.Round(clientSize.Width * scaling);
+            int height = (int)Math.Round(clientSize.Height * scaling);
+            if (width <= 0 || height <= 0) return false;
+            // 与 Avalonia Win32 后端同 flags，只是多带上尺寸一次提交
+            NativeSetWindowPos(handle.Handle, IntPtr.Zero, position.X, position.Y, width, height,
+                SwpNoZOrder | SwpNoActivate);
+            return true;
+        }
+        catch
+        {
+            // native 调用失败就回退托管老路，不能把缩放搞坏
+            return false;
+        }
+    }
+
+    private static bool TrySetWindowFrameMac(Window window, PixelPoint position, Size clientSize)
+    {
         try
         {
             var handle = window.TryGetPlatformHandle();

@@ -188,13 +188,15 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             if (_currentSize.Width <= 0 || _currentSize.Height <= 0) return;
             if (newSize.Width <= 0 || newSize.Height <= 0) return;
 
-            // 光标锚定： trunc 改 Round，收敛只做一次
+            // 光标锚定： trunc 改 Round，收敛只做一次；
+            // Windows 的 Position 是物理像素，需乘 scaling，macOS 与 GetPosition 同单位不用乘
+            double positionUnitsPerDip = OperatingSystem.IsWindows() ? App.ScreensService.Scaling : 1.0;
             double zoomX = newSize.Width / _currentSize.Width;
             double zoomY = newSize.Height / _currentSize.Height;
 
             //调整窗口位置
-            int newPosX = (int)Math.Round(curPos.X - (mousePosition.X * (zoomX - 1)));
-            int newPosY = (int)Math.Round(curPos.Y - (mousePosition.Y * (zoomY - 1)));
+            int newPosX = (int)Math.Round(curPos.X - (mousePosition.X * positionUnitsPerDip * (zoomX - 1)));
+            int newPosY = (int)Math.Round(curPos.Y - (mousePosition.Y * positionUnitsPerDip * (zoomY - 1)));
 
             var pos = new PixelPoint(newPosX, newPosY);
 
