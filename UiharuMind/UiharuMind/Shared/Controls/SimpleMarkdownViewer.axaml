@@ -71,6 +71,22 @@
             <Setter Property="Background" Value="{DynamicResource CodeBlockBackgroundBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource MessageStatusInfoBrush}"/>
         </Style>
+        <!-- 表格由库渲成带 Table / TableCell 类的 Border。默认背景吃 CardBackgroundColor
+             (约 8% 半透明黑),分隔线吃 BorderColor(约 24% 半透明黑)——半透明黑叠深色底
+             上几乎看不见,所以深色主题下表格分隔线直接"消失"。
+             库的表格结构只有横向分隔线(每个 TableCell 是独立 Border,只有下边框),
+             没有竖线、没有外框。所以这里:分隔线换实色 CodeBlockBorderBrush,
+             并给外层 Border.Table 补一个完整外框 + 柔和浅底,把表格区域"围"起来,
+             否则只剩几条横线会很散。表头 Header 只设了更粗的 BorderThickness、
+             未设 BorderBrush,自动继承这条线的颜色 -->
+        <Style Selector="Border.Table">
+            <Setter Property="Background" Value="{DynamicResource CodeBlockContentBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CodeBlockBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="Border.TableCell">
+            <Setter Property="BorderBrush" Value="{DynamicResource CodeBlockBorderBrush}"/>
+        </Style>
     </UserControl.Styles>
 
     <Panel Name="MainPanel">
