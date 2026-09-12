@@ -11,11 +11,16 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 这是模型本身(如 DeepSeek)的接口约束,与转售它的供应商无关——同一供应商下的其它
 /// 模型(如商汤转售的 GLM/自研模型)未必有此限制,因此按 ModelId 逐条声明,不挂在配置类上。
 /// </param>
+/// <param name="OmitSamplingParams">
+/// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
+/// 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,因此按 ModelId 逐条声明。
+/// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
     int MaxTokens = 0,
     bool IsVision = false,
-    bool RequiresReasoningContentRoundtrip = false)
+    bool RequiresReasoningContentRoundtrip = false,
+    bool OmitSamplingParams = false)
 {
     /// <summary>
     /// 空表,供未声明预设的配置使用

@@ -90,6 +90,8 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             var reasoningByCallId = _model?.RequiresReasoningContentRoundtrip == true
                 ? LlmRequestContext.PendingReasoningByCallId
                 : null;
+            // 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,开启后删掉这四个字段,不碰其它参数
+            bool omitSamplingParams = _model?.OmitSamplingParams == true;
             // 正文无论如何都要读:下面几道改写要它,日志也要它。
             // 曾经按条件延后读,结果是畸形参数扫描只在「不注入额外参数」的分支里做,
             // 一开思考模式这道修复就静默失效——恰恰是最需要它的路径
@@ -100,12 +102,15 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
                                jsonContent.Contains("\"arguments\": \"null\"");
 
             // 注入额外参数/修复畸形参数/回填思考正文都必须解析成 JSON 重建
-            if (extraParams is { Count: > 0 } || forbidToolCalls || needsArgFix || reasoningByCallId is { Count: > 0 })
+            if (extraParams is { Count: > 0 } || forbidToolCalls || needsArgFix || reasoningByCallId is { Count: > 0 } ||
+                omitSamplingParams)
             {
                 var jsonNode = JsonNode.Parse(jsonContent)?.AsObject();
 
                 if (jsonNode != null)
                 {
+                    if (omitSamplingParams) StripSamplingParams(jsonNode);
+
                     if (extraParams != null)
                     {
                         foreach (var extraParam in extraParams)
@@ -193,6 +198,24 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
                 messageObj["reasoning_content"] = reasoningText;
             }
         }
+    }
+
+    /// <summary>
+    /// 开启 <c>OmitSamplingParams</c> 的模型要删掉的采样参数。只删这四个,
+    /// <c>max_tokens/thinking/tool_choice</c> 等不受影响。
+    /// </summary>
+    internal static readonly string[] SamplingParamKeys =
+        ["temperature", "top_p", "presence_penalty", "frequency_penalty"];
+
+    /// <summary>
+    /// 删掉请求体里的采样参数,供采样参数固定的模型(如 Kimi)使用——
+    /// 这类服务端对显式传值直接 400,只能不发,让服务端用默认值。
+    /// </summary>
+    /// <param name="jsonNode">请求体根对象</param>
+    internal static void StripSamplingParams(JsonObject jsonNode)
+    {
+        foreach (string key in SamplingParamKeys)
+            jsonNode.Remove(key);
     }
 
     //兜底闸,正常内容够不着:抹掉 base64 之后还这么长的多半是出了别的岔子,不该让一条日志吃掉整个面板

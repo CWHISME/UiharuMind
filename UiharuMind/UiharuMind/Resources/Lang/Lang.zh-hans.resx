@@ -2639,6 +2639,12 @@
     <data name="RemoteModelReasoningRoundtripForceOff" xml:space="preserve">
         <value>强制关闭</value>
     </data>
+    <data name="RemoteModelOmitSamplingParamsLabel" xml:space="preserve">
+        <value>不发送采样参数</value>
+    </data>
+    <data name="RemoteModelOmitSamplingParamsHint" xml:space="preserve">
+        <value>不发送 temperature、top_p 与 presence/frequency penalty。适用于采样参数固定、不接受显式传值的模型(如 Kimi)，否则请求会被拒绝。</value>
+    </data>
     <data name="RemoteModelApiKeyPlaceholder" xml:space="preserve">
         <value>粘贴你的 API Key</value>
     </data>

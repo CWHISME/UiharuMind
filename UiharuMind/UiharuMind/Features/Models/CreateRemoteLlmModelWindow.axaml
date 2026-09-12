@@ -198,6 +198,15 @@
                                           IsChecked="{Binding IsVision}"
                                           IsEnabled="{Binding IsVisionEditable}" />
                         </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                          IsChecked="{Binding OmitSamplingParams}" />
+                        </Grid>
                         <StackPanel Spacing="2">
                             <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripLabel}" FontWeight="SemiBold" />
                             <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripHint}" Classes="muted"
@@ -258,6 +267,15 @@
                                 <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
                                               IsChecked="{Binding IsVision}"
                                               IsEnabled="{Binding IsVisionEditable}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                              IsChecked="{Binding OmitSamplingParams}" />
                             </Grid>
                             <StackPanel Spacing="2">
                                 <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripLabel}" FontWeight="SemiBold" />

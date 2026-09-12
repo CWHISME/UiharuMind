@@ -35,4 +35,10 @@ public interface ILlmModel
     /// 兼容服务未必有此限制,默认不开,避免给不需要的后端塞进多余字段。
     /// </summary>
     public bool RequiresReasoningContentRoundtrip => false;
+
+    /// <summary>
+    /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
+    /// 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,默认发送,按模型单独开启。
+    /// </summary>
+    public bool OmitSamplingParams => false;
 }

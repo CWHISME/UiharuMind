@@ -66,6 +66,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     [ObservableProperty] private string _modelId = "";
     [ObservableProperty] private string _modelDescription = "";
     [ObservableProperty] private bool _isVision;
+    [ObservableProperty] private bool _omitSamplingParams;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanConfirm))]
@@ -295,6 +296,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
             int.TryParse(MaxTokensText.Trim(), out var maxTokens) && maxTokens > 0 ? maxTokens : 0;
         config.ThinkingMode = (EThinkingMode)ThinkingModeIndex;
         if (IsVisionEditable) config.IsVision = IsVision;
+        config.OmitSamplingParams = OmitSamplingParams;
         config.RequiresReasoningContentRoundtripOverride = RequiresReasoningContentRoundtripOverride;
         target.ApiKey = ApiKey;
         return target;
@@ -344,6 +346,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         MaxTokensText = config.MaxTokens > 0 ? config.MaxTokens.ToString() : "";
         ThinkingModeIndex = (int)config.ThinkingMode;
         IsVision = config.IsVision;
+        OmitSamplingParams = config.OmitSamplingParams;
         RequiresReasoningContentRoundtripOverride = config.RequiresReasoningContentRoundtripOverride;
         ApiKey = apiKey;
     }
@@ -359,12 +362,14 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
             int contextLength = 0;
             int maxTokens = 0;
             bool requiresReasoningContentRoundtrip = false;
+            bool omitSamplingParams = false;
             if (config.ModelIdVariants.TryGetValue(option, out var variant))
             {
                 isVision = variant.IsVision;
                 contextLength = variant.ContextLength;
                 maxTokens = variant.MaxTokens;
                 requiresReasoningContentRoundtrip = variant.RequiresReasoningContentRoundtrip;
+                omitSamplingParams = variant.OmitSamplingParams;
             }
 
             ModelIdOptions.Add(new ModelIdOptionItem
@@ -374,6 +379,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
                 ContextLength = contextLength,
                 MaxTokens = maxTokens,
                 RequiresReasoningContentRoundtrip = requiresReasoningContentRoundtrip,
+                OmitSamplingParams = omitSamplingParams,
             });
         }
 
@@ -406,6 +412,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         if (option.ContextLength > 0) ContextLengthText = option.ContextLength.ToString();
         if (option.MaxTokens > 0) MaxTokensText = option.MaxTokens.ToString();
         if (IsVisionEditable) IsVision = option.IsVision;
+        OmitSamplingParams = option.OmitSamplingParams;
         // 换了模型,之前针对旧模型的手动覆盖不该带过来——重置为"跟随预设",预设值随下拉框联动展示
         RequiresReasoningContentRoundtripOverride = null;
     }
@@ -452,6 +459,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         /// 思考模式下带 tool_calls 时,该模型是否要求原样带回 reasoning_content
         /// </summary>
         public bool RequiresReasoningContentRoundtrip { get; init; }
+
+        /// <summary>
+        /// 该模型是否默认不发送采样参数(temperature 等固定参数的模型,如 Kimi)
+        /// </summary>
+        public bool OmitSamplingParams { get; init; }
 
         /// <summary>
         /// 下拉框显示的文本

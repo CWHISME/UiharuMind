@@ -2646,6 +2646,12 @@
     <data name="RemoteModelReasoningRoundtripForceOff" xml:space="preserve">
         <value>Force off</value>
     </data>
+    <data name="RemoteModelOmitSamplingParamsLabel" xml:space="preserve">
+        <value>Omit sampling parameters</value>
+    </data>
+    <data name="RemoteModelOmitSamplingParamsHint" xml:space="preserve">
+        <value>Skip temperature, top_p and presence/frequency penalties. Required by models with fixed sampling params (e.g. Kimi), which reject requests carrying them.</value>
+    </data>
     <data name="RemoteModelApiKeyPlaceholder" xml:space="preserve">
         <value>Paste your API key</value>
     </data>

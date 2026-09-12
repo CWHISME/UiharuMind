@@ -17,6 +17,12 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public virtual bool IsVision { get; set; }
 
     /// <summary>
+    /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
+    /// 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求。新建模型时按预设表预填一次,之后各存各的。
+    /// </summary>
+    public virtual bool OmitSamplingParams { get; set; }
+
+    /// <summary>
     /// 模型最大上下文窗口(token 数),0 表示未设置
     /// </summary>
     [SettingConfigIgnoreDisplay]
