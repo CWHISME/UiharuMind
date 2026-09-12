@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using UiharuMind.Core.AI.Models;
+using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.LLM;
 
 namespace UiharuMind.Core.Tests.AI;
@@ -127,5 +129,26 @@ public class OpenAICompatibleReasoningRoundtripTests
 
         var message = (JsonObject)json["messages"]![0]!;
         Assert.Null(message["reasoning_content"]);
+    }
+
+    [Fact]
+    public void KimiK3Preset_OmitsSamplingParamsAndRequiresReasoningRoundtrip()
+    {
+        var config = new RemoteSensenovaModelConfig();
+        var preset = config.ModelIdVariants["kimi-k3"];
+
+        Assert.True(preset.OmitSamplingParams);
+        Assert.True(preset.RequiresReasoningContentRoundtrip);
+    }
+
+    [Fact]
+    public void KimiK3ModelInfo_FollowsPresetWithoutOverride()
+    {
+        var info = new RemoteModelInfo
+        {
+            Config = new RemoteSensenovaModelConfig { ModelId = "kimi-k3" },
+        };
+
+        Assert.True(info.RequiresReasoningContentRoundtrip);
     }
 }

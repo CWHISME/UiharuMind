@@ -50,37 +50,36 @@ public class InjectedContextRewriterTests
     }
 
     /// <summary>
-    /// 索引块要换上带防御的引导句，而<b>正文一个字不能少</b>——引导句换错了只是没治好自言自语，
-    /// 正文丢了则是记忆当场消失。
+    /// 记忆索引消息<b>整条丢弃</b>：记忆的存在与用法已由框架注入的系统提示段常驻，
+    /// 这张清单（连同更早的指针形态）都不该再入上下文——需要时 model 用
+    /// <c>file_memory_ls</c>/<c>grep</c>/<c>read</c> 主动取新鲜数据即可。
     /// </summary>
     [Fact]
-    public void RewriteMessages_ReplacesFileMemoryHeaderAndKeepsBody()
+    public void RewriteMessages_DropsIndexEntirely()
     {
         const string body = "# Memory Index\n\n- **prefs.md**: user prefers concise answers\n";
         ChatMessage injected = Attribute(new ChatMessage(ChatRole.User,
             "The following is your memory index — a list of files you have previously written. " + body));
 
-        ChatMessage result = InjectedContextRewriter.RewriteMessages([injected])[0];
+        List<ChatMessage> result = InjectedContextRewriter.RewriteMessages([injected]);
 
-        Assert.DoesNotContain("The following is your memory index", result.Text);
-        Assert.Contains(InjectedBlockGuard.Rules, result.Text);
-        Assert.Contains(body, result.Text);
+        // 整条消息都不该在结果里,不管是引导句、清单正文还是指针
+        Assert.Empty(result);
     }
 
     /// <summary>
-    /// 改写后必须仍带溯源标记，否则 <c>SessionChatHistoryProvider</c> 会把它当成真实对话落盘，
-    /// 于是历史里每轮多一份陈旧索引并逐轮回灌。
+    /// 记忆索引消息整条过滤后，结果里不应再有它——因此它更不可能被
+    /// <c>SessionChatHistoryProvider</c> 当成真实对话落盘（比旧版"改写但保留"更强的保证：
+    /// 消息都不存在了，自然没有逐轮回灌陈旧索引的问题）。
     /// </summary>
     [Fact]
-    public void RewriteMessages_KeepsAttributionSoItStaysOutOfHistory()
+    public void RewriteMessages_IndexNeverEntersResult()
     {
         ChatMessage injected = Attribute(new ChatMessage(ChatRole.User, "lead-in # Memory Index\n- **a.md**"));
 
-        ChatMessage result = InjectedContextRewriter.RewriteMessages([injected])[0];
+        List<ChatMessage> result = InjectedContextRewriter.RewriteMessages([injected]);
 
-        Assert.Equal(AgentRequestMessageSourceType.AIContextProvider,
-            result.GetAgentRequestMessageSourceType());
-        Assert.Equal(FileMemorySourceId, result.GetAgentRequestMessageSourceId());
+        Assert.Empty(result);
     }
 
     /// <summary>

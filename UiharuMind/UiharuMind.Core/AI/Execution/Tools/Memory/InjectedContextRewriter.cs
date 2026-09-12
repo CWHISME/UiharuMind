@@ -30,7 +30,7 @@ namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 ///
 /// 目前治两件事，都出在框架的 <c>FileMemoryProvider</c> 上：
 /// <list type="number">
-/// <item><description><b>记忆索引块的措辞</b>——见 <see cref="RewriteFileMemoryIndex"/>。</description></item>
+/// <item><description><b>记忆索引消息整条过滤</b>——见 <see cref="Rewrite"/>。</description></item>
 /// <item><description><b>删除工具没有审批</b>——见 <see cref="GateTools"/>。</description></item>
 /// </list>
 /// Todo 与 mode 两个 provider 是同一套注入套路，暂不纳入：待办清单每轮变化且模型确实需要
@@ -40,27 +40,6 @@ internal sealed class InjectedContextRewriter : AIContextProvider
 {
     /// <summary>框架 provider 的类型全名，即它盖在注入消息上的来源标识</summary>
     private static readonly string FileMemorySourceId = typeof(FileMemoryProvider).FullName!;
-
-    /// <summary>
-    /// 索引正文的首行。框架 <c>RebuildMemoryIndexAsync</c> 写死以此开头，
-    /// 用它把硬编码的引导句与正文切开；切不开就整段留着（宁可措辞旧，也不能把索引弄丢）。
-    /// </summary>
-    private const string IndexBodyMarker = "# Memory Index";
-
-    /// <summary>
-    /// 换给记忆索引的引导句。与框架那句的差别只有两点，但都是要紧的：
-    /// 它明说这不是用户说的话，且明令不得在回复里提及。
-    /// </summary>
-    private static readonly string FileMemoryHeader =
-        $"""
-         [Memory Index]
-         An index of the memory files you wrote in earlier sessions, listed by name and description.
-         Read any of them with the file_memory_read tool when it is relevant to the current task.
-         {InjectedBlockGuard.Rules}
-
-         ---
-
-         """;
 
     public override IReadOnlyList<string> StateKeys => [];
 
@@ -88,51 +67,22 @@ internal sealed class InjectedContextRewriter : AIContextProvider
         List<ChatMessage> result = new();
         foreach (ChatMessage message in messages)
         {
-            result.Add(Rewrite(message));
+            ChatMessage? rewritten = Rewrite(message);
+            if (rewritten != null) result.Add(rewritten);
         }
 
         return result;
     }
 
-    private static ChatMessage Rewrite(ChatMessage message)
+    private static ChatMessage? Rewrite(ChatMessage message)
     {
         if (message.GetAgentRequestMessageSourceType() != AgentRequestMessageSourceType.AIContextProvider)
             return message;
 
-        return message.GetAgentRequestMessageSourceId() == FileMemorySourceId
-            ? RewriteFileMemoryIndex(message)
-            : message;
-    }
-
-    /// <summary>
-    /// 把记忆索引块的引导句换成带防御的那一版。
-    ///
-    /// 框架那条消息是 <c>ChatRole.User</c> 加一句无防御的引导（措辞硬编码在
-    /// <c>FileMemoryProvider.ProvideAIContextAsync</c> 里，<c>FileMemoryProviderOptions</c>
-    /// 只暴露系统提示那段，改不到这里），而它是本轮<b>最后一条用户消息</b>——
-    /// 模型于是照着回「已收到记忆索引，稍后整理」。
-    ///
-    /// <b>角色仍保留 User</b>：换成 System 在本地模型上会出事——llama.cpp 一侧的 chat template
-    /// 大多只认开头一条 system，对话中段的第二条轻则被静默丢弃、重则撑坏模板结构，
-    /// 净效果是「远程有记忆、本地没记忆」这类最难自查的分裂行为。
-    /// </summary>
-    /// <param name="message">框架注入的那条消息</param>
-    /// <returns>换过措辞的消息；正文切不出来时原样返回</returns>
-    private static ChatMessage RewriteFileMemoryIndex(ChatMessage message)
-    {
-        string text = message.Text;
-        int bodyStart = text.IndexOf(IndexBodyMarker, StringComparison.Ordinal);
-        if (bodyStart < 0) return message;
-
-        ChatMessage rewritten = new(message.Role, FileMemoryHeader + text[bodyStart..])
-        {
-            CreatedAt = message.CreatedAt,
-        };
-
-        // 溯源标记要一并带上,否则这条消息会被 SessionChatHistoryProvider 当成真实对话落盘,
-        // 于是历史里每轮多一份陈旧索引
-        return rewritten.WithAgentRequestMessageSource(
-            AgentRequestMessageSourceType.AIContextProvider, FileMemorySourceId);
+        // 记忆索引消息整条过滤掉:记忆的存在与用法已在系统提示里常驻(框架注入的
+        // ## File Based Memory 段),这份索引只是快捷清单,model 用到时用 file_memory_ls/grep/read
+        // 主动取新鲜数据即可;因此此处直接以 null 丢弃,不再注入任何清单或指针
+        return message.GetAgentRequestMessageSourceId() == FileMemorySourceId ? null : message;
     }
 
     /// <summary>
