@@ -251,6 +251,18 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentThinkingCharsFormat {
+            get {
+                return ResourceManager.GetString("AgentThinkingCharsFormat", resourceCulture);
+            }
+        }
+        
+        public static string AgentThinkingSpeedFormat {
+            get {
+                return ResourceManager.GetString("AgentThinkingSpeedFormat", resourceCulture);
+            }
+        }
+        
         public static string AgentThinkingStatsFormat {
             get {
                 return ResourceManager.GetString("AgentThinkingStatsFormat", resourceCulture);

@@ -165,8 +165,14 @@
     <data name="AgentThinking" xml:space="preserve">
         <value>Thinking</value>
     </data>
+    <data name="AgentThinkingCharsFormat" xml:space="preserve">
+        <value>{0} chars</value>
+    </data>
+    <data name="AgentThinkingSpeedFormat" xml:space="preserve">
+        <value> · {0} chars/s</value>
+    </data>
     <data name="AgentThinkingStatsFormat" xml:space="preserve">
-        <value>{0} · {1} chars</value>
+        <value>{0} · {1} chars{2}</value>
     </data>
     <data name="AgentThinkingTruncatedFormat" xml:space="preserve">
         <value>…(truncated, {0} chars)</value>

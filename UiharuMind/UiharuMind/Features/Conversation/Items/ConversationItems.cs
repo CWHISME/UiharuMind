@@ -57,7 +57,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 
     [ObservableProperty] private bool _isExpanded;
 
-    /// <summary>标题栏统计,如「耗时 2.4s · 1,234 字」;收尾(Flush)前为空</summary>
+    /// <summary>标题栏统计,如「2.4s · 1,234 字 · 514 字/秒」;收尾(Flush)前为空</summary>
     [ObservableProperty] private string _statsText = string.Empty;
 
     /// <summary>流式预览是否已截断(截断时卡片上出现「查看全文」按钮)</summary>
@@ -119,6 +119,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     /// </summary>
     public void Flush()
     {
+        if (_isStatsFrozen) return; //回放冻结:存档值已定,收尾重算只会把它抹成 0.1s
         string text;
         int fullLen;
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
@@ -134,6 +135,10 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         Message = text;
         NotifyContentChanged(); //收尾补上最后一段增量;没有订阅者时零成本
         UpdateStats(fullLen); //统计用全文长度,不随截断预览缩水
+        // 收尾快照:写回历史用此刻的值——条目驻留内存期间 Now 只会越涨越假
+        _closedElapsed = DateTime.Now - _startedAt;
+        _closedChars = fullLen;
+        _isClosed = true;
         IsPreviewTruncated = IsTruncated(fullLen); //超限的长思考收尾后仍保留「查看全文」入口
     }
 
@@ -143,6 +148,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     // 头部起点钉在 0,内容逐拍不变,高度稳定;想看最新与全量去全文窗(ShowFullText),按增量追着流走。
     void IStreamFlushTarget.FlushForDisplay()
     {
+        if (_isStatsFrozen) return; //回放冻结:泵的延迟冲刷不能盖掉存档值
         string text;
         int len;
         lock (_bufferGate)
@@ -153,9 +159,13 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
 
         Message = text;
         NotifyContentChanged();
+        IsPreviewTruncated = IsTruncated(len);
+        // 统计节流:超过 1s 后标题数字 1s 一跳,50ms 跟着刷只会让它乱跳。
+        // 正文预览不受影响——它是头部锚定的,本来就不跳。
+        DateTime now = DateTime.Now;
+        if (now - _startedAt >= TimeSpan.FromSeconds(1) && now - _lastStatsAt < TimeSpan.FromSeconds(1)) return;
         // 与 Flush 同样地锁外赋值:属性变更会引发绑定与布局,不该攥着锁做
         UpdateStats(len);
-        IsPreviewTruncated = IsTruncated(len);
     }
 
     /// <summary>
@@ -219,12 +229,12 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
         }
     }
 
-    /// <summary>刷新标题栏的耗时与字符数(流式期间也随节拍走,收尾为准)</summary>
+    /// <summary>刷新标题栏的耗时、字符数与速度(流式期间受节拍节流,收尾为准)</summary>
     /// <param name="charCount">缓冲里的字符数</param>
     private void UpdateStats(int charCount)
     {
-        StatsText = string.Format(Loc.Text("AgentThinkingStatsFormat"),
-            FormatDuration(DateTime.Now - _startedAt), charCount.ToString("N0"));
+        StatsText = FormatStats(DateTime.Now - _startedAt, charCount);
+        _lastStatsAt = DateTime.Now;
     }
 
     /// <summary>

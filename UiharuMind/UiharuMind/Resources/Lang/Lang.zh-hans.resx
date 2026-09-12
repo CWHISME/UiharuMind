@@ -155,8 +155,14 @@
     <data name="AgentThinking" xml:space="preserve">
         <value>思考过程</value>
     </data>
+    <data name="AgentThinkingCharsFormat" xml:space="preserve">
+        <value>{0} 字</value>
+    </data>
+    <data name="AgentThinkingSpeedFormat" xml:space="preserve">
+        <value> · {0} 字/秒</value>
+    </data>
     <data name="AgentThinkingStatsFormat" xml:space="preserve">
-        <value>{0} · {1} 字</value>
+        <value>{0} · {1} 字{2}</value>
     </data>
     <data name="AgentThinkingTruncatedFormat" xml:space="preserve">
         <value>…(已截断,共 {0} 字符)</value>

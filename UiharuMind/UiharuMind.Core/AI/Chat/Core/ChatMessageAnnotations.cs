@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -82,6 +83,20 @@ public static class ChatMessageAnnotations
     public const string Narration = "_narration";
 
     /// <summary>
+    /// 思考耗时标记：值为毫秒数。带此键的消息<b>要落盘、不供给模型判断</b>——
+    /// 它是呈现轴：回放时思考卡片据此冻结显示真实耗时，而不是按重建时刻现算一个 0.1s。
+    ///
+    /// 与 <see cref="ThinkingChars"/> 成对出现：速度由两数现算，不另存。
+    /// 同一条消息有多段思考时存合并值（耗时与字数各自求和），删除/分叉/压缩改写历史时不会错位。
+    /// </summary>
+    public const string ThinkingDurationMs = "_thinkingDurationMs";
+
+    /// <summary>
+    /// 思考字数标记：值为字符数，与 <see cref="ThinkingDurationMs"/> 成对出现。
+    /// </summary>
+    public const string ThinkingChars = "_thinkingChars";
+
+    /// <summary>
     /// 判断是否为旁白消息（开场白）
     /// </summary>
     /// <param name="message">消息</param>
@@ -98,4 +113,64 @@ public static class ChatMessageAnnotations
     /// <returns>带 <see cref="Knowledge"/> 标记时返回 True</returns>
     public static bool IsKnowledge(ChatMessage message) =>
         message.AdditionalProperties?.ContainsKey(Knowledge) == true;
+
+    /// <summary>
+    /// 写一条消息的思考统计（耗时毫秒 + 字数）。就地写：调用方持有的是历史里的同一引用。
+    /// </summary>
+    /// <param name="message">目标消息</param>
+    /// <param name="durationMs">思考耗时毫秒</param>
+    /// <param name="chars">思考字数</param>
+    public static void WriteThinkingStats(ChatMessage message, long durationMs, long chars)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[ThinkingDurationMs] = durationMs;
+        message.AdditionalProperties[ThinkingChars] = chars;
+    }
+
+    /// <summary>
+    /// 读一条消息的思考统计。落盘往返后值会变成 <c>JsonElement</c>（见点名输入的同类问题），
+    /// 因此按 long / int / double / string / JsonElement 逐一兼容，不强转。
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <param name="duration">思考耗时</param>
+    /// <param name="chars">思考字数</param>
+    /// <returns>两个键齐全且合法返回 True</returns>
+    public static bool TryReadThinkingStats(ChatMessage message, out TimeSpan duration, out long chars)
+    {
+        duration = TimeSpan.Zero;
+        chars = 0;
+        if (message.AdditionalProperties == null) return false;
+        if (!TryGetInt64(message.AdditionalProperties, ThinkingDurationMs, out long ms)) return false;
+        if (!TryGetInt64(message.AdditionalProperties, ThinkingChars, out chars)) return false;
+        if (ms < 0 || chars < 0) return false;
+        duration = TimeSpan.FromMilliseconds(ms);
+        return true;
+    }
+
+    private static bool TryGetInt64(AdditionalPropertiesDictionary props, string key, out long value)
+    {
+        value = 0;
+        if (!props.TryGetValue(key, out object? raw) || raw == null) return false;
+        switch (raw)
+        {
+            case long l:
+                value = l;
+                return true;
+            case int i:
+                value = i;
+                return true;
+            case double d:
+                value = (long)d;
+                return true;
+            case string s:
+                return long.TryParse(s, out value);
+            case JsonElement { ValueKind: JsonValueKind.Number } n when n.TryGetInt64(out long parsed):
+                value = parsed;
+                return true;
+            case JsonElement { ValueKind: JsonValueKind.String } s:
+                return long.TryParse(s.GetString(), out value);
+            default:
+                return false;
+        }
+    }
 }
