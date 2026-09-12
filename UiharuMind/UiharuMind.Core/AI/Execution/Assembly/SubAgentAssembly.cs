@@ -94,6 +94,114 @@ internal static class SubAgentAssembly
     }
 
     /// <summary>
+    /// 按一份<b>子会话</b>的装配计划直接造出子代理句柄。
+    ///
+    /// 与 <see cref="TryCreateTool"/> 的分工：那边是「主 agent 要一把委派工具」，
+    /// 派活时在闭包里现装；这边是「一个子会话要跑自己的轮次」，走的是
+    /// <c>AgentAssembler.Assemble</c> 的正规路径。两条路必须产出同一形状的 agent——
+    /// 否则重开一个子会话续跑时，装配出来的能力会与它当初被派出去时不一致。
+    ///
+    /// 子会话的角色：点名的那一种就是子智能体本人（人格取它的，能力取交集）；
+    /// 匿名的那一种角色沿用派活者（于是能力天然等于派活者那一份），但<b>人格必须为空</b>——
+    /// 通用子代理不是派活者的分身。
+    /// </summary>
+    /// <param name="plan">子会话的装配计划（<c>Profile.SubAgent</c> 必须非空）</param>
+    /// <returns>agent 句柄</returns>
+    public static AgentHandle BuildFromPlan(AgentAssemblyPlan plan)
+    {
+        SubSessionAssembly assembled = BuildSubSessionAssembly(plan);
+        // 模型走会话覆写(派活时已把解析结果钉在子会话上,见 SubAgentTool.ResolveSubAgentModelName)——
+        // 与主 agent 同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
+        return AgentAssembler.BuildHandle(new LazyChatClient(plan.Profile.SessionModelSource),
+            assembled.Options, assembled.Shell);
+    }
+
+    /// <summary>子会话装配的产物：框架选项，以及要随句柄一同释放的 shell 执行器</summary>
+    /// <param name="Options">框架选项</param>
+    /// <param name="Shell">shell 执行器；未挂时为 null</param>
+    internal readonly record struct SubSessionAssembly(HarnessAgentOptions Options, LocalShellExecutor? Shell);
+
+    /// <summary>
+    /// 把子会话的装配计划变成框架选项。<b>与造 agent 分开</b>是为了能不起模型地单测——
+    /// 「历史持久化接没接上」这类缺陷是静默的（会话照跑、盘上什么都没有、界面一片空白），
+    /// 只能靠测试在装配这一层拦住。
+    /// </summary>
+    /// <param name="plan">子会话的装配计划</param>
+    /// <returns>选项与 shell 执行器</returns>
+    internal static SubSessionAssembly BuildSubSessionAssembly(AgentAssemblyPlan plan)
+    {
+        AgentBuildProfile profile = plan.Profile;
+        SubAgentIdentity identity = profile.SubAgent
+                                    ?? throw new InvalidOperationException("BuildFromPlan 只接受子会话的装配计划");
+        SubAgentProfile subProfile = identity.Type == ESubAgentType.Explorer
+            ? SubAgentProfile.Explorer
+            : SubAgentProfile.General;
+
+        EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
+            ? EAgentPermissionMode.ReadOnly
+            : profile.PermissionMode;
+        // 挂不挂 shell/MCP 与档位无关了,只看是不是探索档——能不能真的执行由审批规则把关
+        bool canMutate = !subProfile.ForceReadOnly;
+
+        bool named = identity.AgentName.Length > 0;
+        // 点名的那一个:能力取「自己的 ∩ 派活者的」——挂一个开着 shell 的子智能体，
+        // 不该给关掉了 shell 的派活者开后门。
+        //
+        // 匿名的那一个:<b>直接取派活者那一份，不走交集</b>。它的角色卡(内置 SubAgent)
+        // 只是身份载体，那张卡上的 Tools 不参与计算——否则 AgentToolConfig 将来新增一个
+        // 默认关闭的能力，匿名子代理就会悄悄少一样东西，而没有任何地方会报错。
+        //
+        // 派活者已被删除时退回只用自己的那一份(只会更小，见 SubAgentParentConfig)
+        AgentToolConfig effectiveConfig = plan.SubAgentParentConfig is { } parentConfig
+            ? (named ? plan.Config.Intersect(parentConfig) : parentConfig)
+            : plan.Config;
+        string persona = named ? CharacterPromptBuilder.Build(plan.Character, profile.PromptArguments) : string.Empty;
+
+        LocalShellExecutor? shellExecutor = canMutate && effectiveConfig.EnableShellExecution
+            ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = plan.WorkingDirectory })
+            : null;
+        AITool? shellTool = shellExecutor?.AsAIFunction(CharacterRunnerFactory.ShellToolName);
+        IReadOnlyList<AITool>? mcpTools = canMutate ? plan.Mcp.Tools : null;
+
+        SubAgentAssemblyInput input = new()
+        {
+            Compaction = plan.Compaction,
+            Config = effectiveConfig,
+            Persona = persona,
+            Name = identity.AgentName,
+            WorkingDirectory = plan.WorkingDirectory,
+            VisionToolAvailable = plan.MountVisionTool,
+            PermissionMode = effectivePermission,
+            WorkspaceInstructions = plan.WorkspaceInstructions,
+            ShellTool = shellTool,
+            ShellBinary = shellExecutor?.ResolvedShellBinary,
+            McpTools = mcpTools,
+            McpInstructions = mcpTools == null ? string.Empty : plan.Mcp.Instructions,
+            PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
+            SessionShellApprovalSource = profile.SessionShellApprovalSource,
+            SubAgentProfile = subProfile,
+        };
+
+        HarnessAgentOptions? options = BuildSubAgentOptions(input);
+        if (options == null)
+        {
+            // 一个能力都没有:仍要给出一个可运行的 agent(否则这个子会话打不开),
+            // 但它只剩纯对话——能力被裁到零本身就是派活者那边的配置结果
+            options = AgentOptionsFactory.CreateSubAgentBaseOptions(plan.Compaction);
+            options.Name = identity.AgentName.Length > 0 ? identity.AgentName : "SubAgent";
+            options.ChatOptions = new ChatOptions { Instructions = persona };
+        }
+
+        // 历史落到子会话自己的文件里。<b>没有这一句子会话就等于没跑过</b>——
+        // 框架不写、ChatSession.History 恒空、窗口一片空白、HistoryAppended 永不触发。
+        // 主 agent 那条路在 AgentOptionsFactory.BuildAgentOptions 里设同一个东西;
+        // 从前子代理是一次性的纯工具循环,不需要它,于是 CreateSubAgentBaseOptions 里没有
+        options.ChatHistoryProvider = new SessionChatHistoryProvider();
+
+        return new SubSessionAssembly(options, shellExecutor);
+    }
+
+    /// <summary>
     /// 创建子代理工具。每次调用重新装配:装配本身是纯内存组装代价可忽略,
     /// 而 shell 执行器是有生命周期的资源,必须一次调用一个、用完即弃。
     /// </summary>
@@ -113,33 +221,6 @@ internal static class SubAgentAssembly
             ? EAgentPermissionMode.ReadOnly
             : profile.PermissionMode;
         bool fullAuto = effectivePermission == EAgentPermissionMode.FullAuto;
-
-        // 各类型子代理可用各自配置的独立模型;未配置或不可热切换时回退到主 agent 的模型。
-        // 无条件包一层惰性客户端:模型名<b>在闭包里现读</b>,不在装配时刻固化——
-        // 改完设置不重建 agent,下一次调用即生效(模型按设计不入装配快照,
-        // 见 AgentAssemblyFacts 注释"惰性客户端按请求解析,切换无需重建")。
-        // 配置的<b>远程</b>模型未运行时经 TryCheckModelRunning 的 ref 重载即发即忘拉起:
-        // 它只改局部变量不碰全局当前模型(主 agent 的模型不被抢走),而远程客户端是同步构造
-        // (RemoteModelManager.Run 直接 CreateChatClient),CompleteLoading 几乎同步完成,
-        // 交给 LazyChatClient 等它就绪即可——绝不会等满 30 秒。
-        // 配置的<b>本地</b>模型无法热切换(TryCheckModelRunning 返回 false),干净回退主模型,
-        // 绝不把永远不会就绪的模型交给 LazyChatClient 死等——那正是 "Model is not running" 的来源。
-        IChatClient effectiveClient = new LazyChatClient(() =>
-        {
-            string name = subProfile.ResolveModelName(AgentSettingConfig.Current);
-            if (!string.IsNullOrWhiteSpace(name)
-                && LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? configured))
-            {
-                ModelRunningData? candidate = configured;
-                if (LlmManager.Instance.TryCheckModelRunning(false, ref candidate)
-                    && candidate is { ChatClient: not null })
-                {
-                    return candidate;
-                }
-            }
-
-            return plan.Profile.ResolveCurrentModel();
-        });
 
         SubAgentAssemblyInput Probe(AITool? shellTool, string? shellBinary, IReadOnlyList<AITool>? mcpTools,
             AgentToolConfig effectiveConfig, string persona, string name) => new()
@@ -167,57 +248,76 @@ internal static class SubAgentAssembly
 
         IReadOnlyList<CharacterData> mounted = plan.MountedAgents;
         List<SubAgentChoice> roster = mounted
-            .Select(x => new SubAgentChoice(AgentOptionsFactory.SanitizeAgentName(x.CharacterName, x.CharacterId), x.Description))
+            .Select(x => new SubAgentChoice(
+                AgentOptionsFactory.SanitizeAgentName(x.CharacterName, x.CharacterId),
+                x.Description, x.CharacterId))
             .ToList();
 
-        return SubAgentTool.Create(agentName =>
+        return SubAgentTool.Create(BuildLaunchContext(plan, subProfile, roster));
+    }
+
+    /// <summary>
+    /// 创建续跑/追问工具。只在<b>至少挂上了一档派活工具</b>时才挂——
+    /// 没有派过活就没有子会话可续，白占一份工具定义（固定开销每轮重发）。
+    /// </summary>
+    /// <param name="plan">派活者的装配计划</param>
+    /// <returns>工具；不该挂时为 null</returns>
+    public static AITool? TryCreateContinueTool(AgentAssemblyPlan plan)
+    {
+        List<SubAgentChoice> roster = plan.MountedAgents
+            .Select(x => new SubAgentChoice(
+                AgentOptionsFactory.SanitizeAgentName(x.CharacterName, x.CharacterId),
+                x.Description, x.CharacterId))
+            .ToList();
+        return SubAgentTool.CreateContinueTool(BuildLaunchContext(plan, SubAgentProfile.General, roster));
+    }
+
+    /// <summary>
+    /// 组一份派活上下文。子会话的字段几乎全部从派活者继承，因此这里没有任何决策，
+    /// 只有搬运——真正的装配发生在子会话自己挂接执行者的那一刻（<see cref="BuildFromPlan"/>）。
+    /// </summary>
+    /// <param name="plan">派活者的装配计划</param>
+    /// <param name="subProfile">子代理档</param>
+    /// <param name="roster">可点名的子智能体名单</param>
+    /// <returns>派活上下文</returns>
+    internal static SubAgentTool.LaunchContext BuildLaunchContext(AgentAssemblyPlan plan,
+        SubAgentProfile subProfile, IReadOnlyList<SubAgentChoice> roster)
+    {
+        AgentBuildProfile profile = plan.Profile;
+        return new SubAgentTool.LaunchContext
         {
-            // 点名的那一个:人格取它的 Template,能力取"它与父代理的交集"——
-            // 挂一个开着 shell 的子智能体不该给关掉了 shell 的父代理开后门
-            CharacterData? child = agentName == null
-                ? null
-                : mounted.FirstOrDefault(x =>
-                    string.Equals(AgentOptionsFactory.SanitizeAgentName(x.CharacterName, x.CharacterId), agentName,
-                        StringComparison.OrdinalIgnoreCase));
-            AgentToolConfig effective = child == null ? config : child.Tools.Intersect(config);
-            string persona = child == null ? string.Empty : CharacterPromptBuilder.Build(child);
-            string name = child == null
-                ? string.Empty
-                : AgentOptionsFactory.SanitizeAgentName(child.CharacterName, child.CharacterId);
-
-            LocalShellExecutor? shellExecutor = fullAuto && effective.EnableShellExecution
-                ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = workingDirectory })
-                : null;
-            AITool? shellTool = shellExecutor?.AsAIFunction(CharacterRunnerFactory.ShellToolName);
-            // 与主 agent 同一份(装配时刻那一份)。这里曾经在派活回调里现取,
-            // 于是主子可能拿到不同的工具集;而工具集变化本就由 McpRevision 触发整体重建,
-            // 现取除了制造不一致,还让这一支永远碰不到单例、测不了
-            IReadOnlyList<AITool>? mcpTools = fullAuto ? plan.Mcp.Tools : null;
-
-            // 走同一个 BuildHandle:日志转发与工具错误详情两件事只有一处定义
-            return AgentAssembler.BuildHandle(effectiveClient,
-                BuildSubAgentOptions(Probe(shellTool, shellExecutor?.ResolvedShellBinary, mcpTools, effective, persona, name))!, shellExecutor);
-        }, roster, profile.ActivitySink, subProfile);
+            ParentSessionId = profile.SessionId,
+            WorkspacePath = profile.WorkspacePath,
+            PermissionModeIndex = (int)profile.PermissionMode,
+            PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
+            Profile = subProfile,
+            Roster = roster,
+            IsAttendedSource = profile.IsAttendedSource,
+            SubSessionStarted = profile.SubSessionStarted,
+            ApprovalSource = profile.SubAgentApprovalSource,
+        };
     }
 
     /// <summary>
     /// 子代理装配选项(纯函数,不碰单例)。不变量,均由测试钉住:
     /// 工具集<b>不含子代理工具自身</b>(无限递归);不含主代理特有的那批
     /// (技能/定时任务/记忆检索——子代理拿的是一份任务书,不需要再自己装载指令或排定时任务);
-    /// <b>非完全自动档下必须只读</b>——子代理没有审批通道,给它一个必然要问用户的工具
-    /// 等于给一把静默失效的工具(框架遇到 <c>ApprovalRequiredAIFunction</c> 不执行,
-    /// 只产出一条无人回应的审批请求)。
+    /// <b>探索档恒定只读</b>(产品决定:调研不该顺手改东西)。其余档位挂什么由能力配置定、
+    /// 能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主 agent 同一口径,
+    /// 因为子代理现在跑自己的 <c>TurnDriver</c>,审批请求冒到派活者这一轮的回应口(ADR 0021)。
     /// </summary>
     /// <param name="input">装配输入</param>
     /// <returns>框架选项;无任何能力启用时为 null</returns>
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
         AgentToolConfig config = input.Config;
-        // 完全自动档一律放行,子代理才可能真的写成东西;其余档位下不挂写工具。
-        // 自动编辑档如今也会放行工作区内的写入,所以这里<b>可以</b>放宽到那一档——刻意没放:
-        // 那一档下越界写入仍要审批,而子代理没有审批通道(见 SubAgentTool 的说明),
-        // 给它一把"改工作区内可以、改外面就静默失效"的工具,比不给更难排查。
-        bool canMutate = input.PermissionMode == EAgentPermissionMode.FullAuto;
+        // 子代理现在有审批通道了(它跑自己的 TurnDriver,请求冒到派活者这一轮的回应口),
+        // 于是「非完全自动档必须只读」那条硬裁剪解除——挂什么由能力配置定,
+        // 能不能动手由 ApprovalModeMapper 定,与主 agent 完全同一口径(见 ADR 0021)。
+        //
+        // 唯一仍然恒定只读的是<b>探索档</b>:那是产品决定而不是技术限制
+        // (调研就该只读,免得一次"看一眼"顺手改了东西)。
+        bool canMutate = !input.SubAgentProfile.ForceReadOnly;
 
         List<AITool> tools = new();
         if (config.EnableFileAccess)
@@ -316,7 +416,7 @@ internal static class SubAgentAssembly
         }
 
         sb.AppendLine(AgentPromptHeadings.SubAgentRole);
-        sb.AppendLine("你是 UiharuMind 的子代理，主 agent 派给你一件任务。你独立干完，然后回报。");
+        sb.AppendLine("你是 UiharuMind 的子代理，主代理派给你一件任务。你独立干完，然后回报。");
         sb.AppendLine(subProfile.RoleHint);
         // 护栏句:本段整段中文,而子代理连一句用户原话都看不到,更容易被提示词的语言带跑
         sb.AppendLine(AgentToolPrompts.LanguageNeutrality);

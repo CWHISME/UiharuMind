@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Shared.Utils.Tools;
@@ -528,20 +529,38 @@ public class ConversationTranscriptTests
         Assert.Equal("已停止", stopped.ResultText);
     }
 
+    /// <summary>
+    /// 派活的那一刻子会话标识就该挂到卡片上——「跑着的时候点开看看」正是这件事的重点，
+    /// 而工具结果要等跑完才有。
+    /// </summary>
     [Fact]
-    public void StopRunningToolCalls_ReachesNestedActivity()
+    public void SubSessionStarted_AttachesIdToItsCard()
     {
         var (transcript, items) = Create();
-        transcript.Apply(new FunctionCallContent("outer", "sub_agent", null));
-        //子代理过程里自己又调了一个工具,同样停在半路
-        transcript.Apply(new ToolActivityContent("outer", new FunctionCallContent("inner", "run_shell", null)));
+        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolGeneralName, null));
+        transcript.Apply(new FunctionCallContent("other", "run_shell", null));
+        transcript.Apply(new SubSessionStartedContent("outer", "sub123"));
 
-        transcript.StopRunningToolCalls("已停止");
+        ToolCallItem delegated = items.OfType<ToolCallItem>().Single(x => x.CallId == "outer");
+        ToolCallItem plain = items.OfType<ToolCallItem>().Single(x => x.CallId == "other");
+        Assert.Equal("sub123", delegated.SubSessionId);
+        Assert.True(delegated.HasSubSession);
+        Assert.False(plain.HasSubSession); //普通工具调用不该长出入口
+    }
 
-        ToolCallItem outer = items.OfType<ToolCallItem>().Single();
-        ToolCallItem inner = outer.NestedItems.OfType<ToolCallItem>().Single();
-        Assert.False(outer.IsRunning);
-        Assert.False(inner.IsRunning);
+    /// <summary>
+    /// 回放历史时 <c>SubSessionStartedContent</c> 早已随当时那一轮消失，
+    /// 入口只能从落了盘的工具结果里认回来——否则重开会话后子会话就再也打不开了。
+    /// </summary>
+    [Fact]
+    public void SubSessionId_IsRecoveredFromPersistedResult()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolGeneralName, null));
+        transcript.Apply(new FunctionResultContent("outer", "结论是这样。\n[sub-session: abc987]"));
+
+        ToolCallItem card = items.OfType<ToolCallItem>().Single();
+        Assert.Equal("abc987", card.SubSessionId);
     }
 
     /// <summary>

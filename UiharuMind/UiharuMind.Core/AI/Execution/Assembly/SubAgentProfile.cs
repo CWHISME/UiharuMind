@@ -77,11 +77,17 @@ public sealed record SubAgentProfile
     {
         Type = ESubAgentType.General,
         ToolName = SubAgentTool.ToolGeneralName,
+        // 两段描述共用一条<b>互斥判据</b>:这次委派要不要改变任何东西。
+        // 从前两边各说各的(一边"要改东西时用我",一边"要读很多东西时用我"),而大量任务
+        // 两头都沾,模型就倒向描述覆盖面更宽的探索档。判据里还要有"拿不准就用这个",
+        // 否则中间地带仍然无主。
         Description =
             "Delegate a task to a general-purpose sub-agent and get back a focused report. " +
-            "Use it for tasks that may need actual modifications (in FullAuto mode). " +
-            "The sub-agent runs to completion before this returns. " +
-            "It has the same permissions as you, minus anything that would need approval.",
+            "Use it whenever the task may need to CHANGE anything - editing files, running commands, " +
+            "using MCP tools - or when you are not sure whether it will. This is the default choice; " +
+            "only prefer " + SubAgentTool.ToolExplorerName + " when the task is purely about finding things out. " +
+            "It has the same tools and permission mode as you, and anything needing approval " +
+            "is asked of the user as usual. It runs to completion before this returns.",
     };
 
     /// <summary>探索子代理策略</summary>
@@ -90,10 +96,11 @@ public sealed record SubAgentProfile
         Type = ESubAgentType.Explorer,
         ToolName = SubAgentTool.ToolExplorerName,
         Description =
-            "Delegate an exploration task to a lightweight read-only sub-agent. " +
-            "Use it for broad exploration (surveying many files, researching a topic on the web) " +
-            "so the raw material never enters your own context. " +
-            "This sub-agent is always read-only and may use a cheaper model. " +
-            "It runs to completion before this returns.",
+            "Delegate a READ-ONLY investigation to a lightweight sub-agent and get back a focused report. " +
+            "Use it only when the task is purely about finding things out - surveying many files, " +
+            "searching code, researching a topic on the web - so the raw material never enters your own context. " +
+            "It CANNOT edit files, run commands or use MCP tools: if the task might need any of those, " +
+            "use " + SubAgentTool.ToolGeneralName + " instead. " +
+            "It may run on a cheaper model. It runs to completion before this returns.",
     };
 }

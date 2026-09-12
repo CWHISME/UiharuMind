@@ -83,6 +83,16 @@ public static class ChatMessageAnnotations
     public const string Narration = "_narration";
 
     /// <summary>
+    /// 后续报告标记，值为产出它的那个子会话标识。带此键的消息<b>要落盘、要供给模型</b>——
+    /// 它是用户在子会话里点「交回主 agent」送进来的结论，形状同 <see cref="Narration"/>：
+    /// 一条货真价实的消息，只是渲染成一张独立卡片。
+    ///
+    /// 之所以不走注入队列（<c>ICharacterRunner.TryInjectAsync</c>）：那条通道不落盘，
+    /// 拿不到注入器时还会静默失败——用它送一份来之不易的结论风险不对等。见 ADR 0021。
+    /// </summary>
+    public const string SubAgentReport = "_subAgentReport";
+
+    /// <summary>
     /// 思考耗时标记：值为毫秒数。带此键的消息<b>要落盘、不供给模型判断</b>——
     /// 它是呈现轴：回放时思考卡片据此冻结显示真实耗时，而不是按重建时刻现算一个 0.1s。
     ///
@@ -103,6 +113,25 @@ public static class ChatMessageAnnotations
     /// <returns>带 <see cref="Narration"/> 标记时返回 True</returns>
     public static bool IsNarration(ChatMessage message) =>
         message.AdditionalProperties?.ContainsKey(Narration) == true;
+
+    /// <summary>
+    /// 判断是否为子会话的后续报告消息
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带 <see cref="SubAgentReport"/> 标记时返回 True</returns>
+    public static bool IsSubAgentReport(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(SubAgentReport) == true;
+
+    /// <summary>
+    /// 读后续报告指向的子会话标识。落盘往返后值会变成 <c>JsonElement</c>，一律经 <c>ToString</c>
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>子会话标识；不是后续报告时为空串</returns>
+    public static string ReadSubAgentReportSession(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(SubAgentReport, out object? raw) != true) return string.Empty;
+        return raw?.ToString() ?? string.Empty;
+    }
 
     /// <summary>
     /// 判断是否为知识库检索片段消息。

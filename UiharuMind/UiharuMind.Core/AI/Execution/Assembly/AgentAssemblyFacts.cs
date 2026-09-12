@@ -37,6 +37,15 @@ public sealed record AgentAssemblyFacts
     /// <summary>角色种类(决定装配形态)</summary>
     public required ECharacterKind Kind { get; init; }
 
+    /// <summary>
+    /// 子会话身份指纹（`子代理档:点名的子智能体名`）；主会话为空串。
+    ///
+    /// 必须入账：句柄会跨会话复用（<c>EnsureHandleAsync</c> 只比快照），
+    /// 而同角色、同权限档的主会话与子会话在其余字段上完全一样——不比这一项，
+    /// 子会话会捡到主会话那个能力更大的 agent，正是不变量禁止的事。
+    /// </summary>
+    public string SubAgentKey { get; init; } = string.Empty;
+
     /// <summary>重算好的系统提示词(角色模板+会话参数),角色卡与参数的变化经此显形</summary>
     public required string Instructions { get; init; }
 
@@ -148,7 +157,8 @@ public sealed record AgentAssemblyFacts
             profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
             character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
-            PythonEnvironment.IsReady, profile.OutputFolderName);
+            PythonEnvironment.IsReady, profile.OutputFolderName,
+            profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty);
     }
 
     /// <summary>
@@ -165,13 +175,15 @@ public sealed record AgentAssemblyFacts
     /// <param name="mountedAgents">已解析的子智能体名单（过滤规则见 <c>CharacterRunnerFactory.ResolveMountedAgents</c>）</param>
     /// <param name="pythonEnvReady">受管 Python 环境是否已就绪</param>
     /// <param name="outputFolderName">产出目录名</param>
+    /// <param name="subAgentKey">子会话身份指纹；主会话传空串</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
         EAgentPermissionMode permission, IReadOnlyList<string>? preAuthorizedShellPatterns,
         int mcpRevision, string workspaceInstructions = "",
         bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
-        bool pythonEnvReady = false, string outputFolderName = "")
+        bool pythonEnvReady = false, string outputFolderName = "",
+        string subAgentKey = "")
     {
         // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.Kind.IsAgent();
@@ -180,6 +192,7 @@ public sealed record AgentAssemblyFacts
         {
             CharacterId = character.CharacterId,
             Kind = character.Kind,
+            SubAgentKey = subAgentKey,
             Instructions = instructions,
             ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),
             WorkspacePath = isAgent ? workspacePath : null,

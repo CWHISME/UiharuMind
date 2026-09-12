@@ -7,7 +7,9 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Assembly;
 
 namespace UiharuMind.Core.AI.Chat;
 
@@ -53,4 +55,24 @@ public class ChatSessionMeta
 
     /// <summary>是否有未发送的输入草稿（列表据此显示小标记，避免为此加载本体）</summary>
     public bool HasComposerDraft { get; set; }
+
+    /// <summary>
+    /// 派活给它的那个会话；为空表示这是一个普通会话。非空即<b>子会话</b>：
+    /// 不进左栏列表，入口是父会话流里的工具卡片与右栏「子代理」面板，随父会话级联删除。
+    /// </summary>
+    public string? ParentSessionId { get; set; }
+
+    /// <summary>
+    /// 会话是不是子会话（<see cref="ParentSessionId"/> 非空）。
+    /// 不入索引文件：它是算出来的，落进 json 就是一个只读的假字段，
+    /// 改了 <see cref="ParentSessionId"/> 而它还是旧值时没有任何地方会报错
+    /// </summary>
+    [JsonIgnore]
+    public bool IsSubSession => !string.IsNullOrEmpty(ParentSessionId);
+
+    /// <summary>子会话装配成哪一种子代理（仅子会话有意义）</summary>
+    public ESubAgentType SubAgentType { get; set; } = ESubAgentType.General;
+
+    /// <summary>被点名的子智能体名；空串表示通用匿名子代理（仅子会话有意义）</summary>
+    public string SubAgentName { get; set; } = string.Empty;
 }

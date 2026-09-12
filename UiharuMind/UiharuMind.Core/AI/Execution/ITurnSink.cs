@@ -38,11 +38,6 @@ public interface ITurnSink
     void StopRunningToolCalls(string note);
 
     /// <summary>
-    /// 一轮结束时收尾残留的嵌套过程（只可能来自被取消的委派调用）
-    /// </summary>
-    void CloseNestedActivity();
-
-    /// <summary>
     /// 收尾并取走「正在流的那一段正文」。
     ///
     /// 取消时用它落库：本轮更早的那些段落已经由框架逐次服务调用各自落过盘了，

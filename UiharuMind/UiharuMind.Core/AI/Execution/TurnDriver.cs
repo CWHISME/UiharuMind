@@ -118,6 +118,10 @@ public sealed class TurnDriver : IDisposable
             _notify?.Invoke(new TurnNotice(ETurnNotice.KnowledgeRetrieved, snippets));
 
         session.KnowledgeRetrieved += OnKnowledgeRetrieved;
+        // 把本轮的审批通道交给执行者:子代理会在一次工具调用内部跑自己的轮次,
+        // 它产出的审批请求要冒到同一个回应口(见 ADR 0021)
+        // 没有渲染落点就是没人看着(定时任务走的正是这一条)
+        runner.SetTurnContext(resolver, _sink != null);
         //本轮没等到结果的工具调用该按什么口径收:默认「用户停止」,撞失败时改成失败口径
         string interruptionNote = ToolCallCancellation.ResultText;
         try
@@ -197,12 +201,14 @@ public sealed class TurnDriver : IDisposable
         finally
         {
             session.KnowledgeRetrieved -= OnKnowledgeRetrieved;
+            // 摘掉本轮的审批通道:执行者跨轮次复用,留着会让下一轮的子代理把请求
+            // 送进一个已经没人守的回应口
+            runner.SetTurnContext(null, false);
             _sink?.CloseSegment();
             // 中途停止(或出错)时那条工具结果永远不会来,卡片会一直转圈。放在收尾里而不是取消分支里:
             // 出错路径同样收不到结果,而正常结束时本就没有还在跑的调用,这里是空操作。
             // 不做本地化:补写进历史的是同一句英文,重开会话时卡片显示的就是它,两边措辞得一致
             _sink?.StopRunningToolCalls(interruptionNote);
-            _sink?.CloseNestedActivity();
             IsRunning = false;
             _runCancellation = null;
             _activeSession = null;
@@ -243,6 +249,36 @@ public sealed class TurnDriver : IDisposable
         if (!IsRunning) return;
         _runCancellation?.Cancel();
         if (_activeSession is { } session) SettleInterruptedTurn(session, ToolCallCancellation.ResultText);
+    }
+
+    /// <summary>
+    /// 取消某个会话正在跑的那一轮，<b>不管是谁在驱动它</b>。
+    ///
+    /// 存在的理由是<b>外驱</b>：子会话的窗口、正在跑的定时任务会话，界面壳自己的
+    /// <see cref="Cancel"/> 对它们无效（那一轮不是它开的）。而"停止"按钮既然显示出来了，
+    /// 就必须真能停——否则是一个骗人的按钮。
+    ///
+    /// 取消之后的收尾照旧走 <c>SettleInterruptedTurn</c>：历史被补上取消结果封口，
+    /// 所以停完还能接着续（见 ADR 0021）。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>真的取消了至少一轮返回 true</returns>
+    public static bool CancelSession(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return false;
+
+        TurnDriver[] drivers;
+        lock (_liveDrivers) drivers = _liveDrivers.ToArray();
+
+        bool cancelled = false;
+        foreach (TurnDriver driver in drivers)
+        {
+            if (driver._activeSession?.SessionId != sessionId) continue;
+            driver.Cancel();
+            cancelled = true;
+        }
+
+        return cancelled;
     }
 
     /// <summary>

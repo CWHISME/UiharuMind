@@ -217,6 +217,51 @@
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>
+                    <!-- 子代理:本会话派过的子会话索引。<b>常驻显示不条件隐藏</b>——
+                         右栏页签靠下标绑定(见 AgentPageData.SelectedSidePanelIndex),
+                         Todo 已经会飘一次了,再来一个条件页签就是复利 -->
+                    <TabItem FontSize="13">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{loc:Loc AgentSubAgentTitle}" />
+                                <TextBlock Text="{Binding SubAgents.Items.Count}"
+                                           IsVisible="{Binding SubAgents.Items.Count}" />
+                            </StackPanel>
+                        </TabItem.Header>
+                        <ScrollViewer Margin="0,6,0,0">
+                            <StackPanel>
+                                <TextBlock Classes="muted" TextWrapping="Wrap"
+                                           IsVisible="{Binding !SubAgents.Items.Count}"
+                                           Text="{loc:Loc AgentSubAgentEmpty}" />
+                                <ItemsControl ItemsSource="{Binding SubAgents.Items}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="panels:SubSessionDisplayItem">
+                                            <Button Classes="text-row" HorizontalAlignment="Stretch"
+                                                    Margin="0,3" Command="{Binding Open}"
+                                                    ToolTip.Tip="{Binding Title}">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                                    <Border Grid.Column="0" Classes="status-dot"
+                                                            VerticalAlignment="Center"
+                                                            Tag="{Binding StatusKey}" />
+                                                    <StackPanel Grid.Column="1" Spacing="2">
+                                                        <TextBlock FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Text="{Binding Title}" />
+                                                        <TextBlock Classes="muted" FontSize="10"
+                                                                   IsVisible="{Binding HasAgentName}"
+                                                                   Text="{Binding AgentName}" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2" Classes="muted" FontSize="10"
+                                                               VerticalAlignment="Center"
+                                                               Text="{Binding TimeString}" />
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
                     <TabItem FontSize="13">
                         <TabItem.Header>
                             <StackPanel Orientation="Horizontal" Spacing="4">

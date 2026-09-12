@@ -553,12 +553,13 @@ public class HarnessInstructionsCompositionTests
 /// <summary>
 /// 不变量之四：<b>子代理不越权、不递归</b>。
 ///
-/// 子代理在主 agent 的一次工具调用内部无头运行，<b>没有审批通道</b>——现有审批往返靠
-/// 「结束本轮再带回应重跑」，而此刻主 agent 正同步阻塞在工具里，做不到。
-/// 所以它的权限只能继承主 agent 的档位：完全自动档下一律放行，它才可能真的写成东西；
-/// 其余档位下写/shell 必然要问用户，给了等于给一把静默失效的工具（框架遇到
-/// <c>ApprovalRequiredAIFunction</c> 不执行它，只产出一条无人回应的审批请求，
-/// 症状是子代理什么都没干却正常结束——最难查的那一类）。
+/// 子代理现在跑<b>它自己的</b> <c>TurnDriver</c>（一次委派就是一个子会话），
+/// 审批请求冒到派活者这一轮的回应口，所以「非完全自动档必须只读」那条硬裁剪已经解除：
+/// 挂什么由能力配置定，能不能动手由 <see cref="ApprovalModeMapper"/> 定，
+/// 与主 agent 完全同一口径（见 ADR 0021）。
+///
+/// 仍然钉死的两条：<b>探索档恒定只读</b>（产品决定——调研不该顺手改东西），
+/// 以及<b>工具集绝不含子代理工具自身</b>（无限递归）。
 /// </summary>
 public class SubAgentBoundaryTests
 {
@@ -584,12 +585,18 @@ public class SubAgentBoundaryTests
         return options!.ChatOptions!.Tools!.OfType<AIFunction>().Select(x => x.Name).ToList();
     }
 
+    /// <summary>
+    /// 探索档恒定只读，<b>与档位无关</b>。这是产品决定不是技术限制：
+    /// 一次"去看一眼"不该顺手改掉东西。
+    /// </summary>
     [Theory]
     [InlineData(EAgentPermissionMode.ReadOnly)]
     [InlineData(EAgentPermissionMode.AutoEdit)]
-    public void SubAgentTools_AreReadOnly_BelowFullAuto(EAgentPermissionMode mode)
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public void SubAgentTools_AreReadOnly_ForExplorer(EAgentPermissionMode mode)
     {
-        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: mode) with { SubAgentProfile = SubAgentProfile.Explorer }));
 
         Assert.Contains(FileToolNames.Read, names);
         Assert.Contains(WebSearchTool.ToolName, names);
@@ -600,14 +607,17 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 完全自动档下才给可变更工具——那一档 <see cref="ApprovalModeMapper"/> 会加
-    /// 全放行规则，子代理不会卡在没人回应的审批上。
+    /// 通用档在<b>每一个</b>权限档下都挂写工具——能不能真的动手交给
+    /// <see cref="ApprovalModeMapper"/>，与主 agent 同一口径。
+    /// 这条从前是反的（非完全自动档削成只读），改动理由见 ADR 0021。
     /// </summary>
-    [Fact]
-    public void SubAgentTools_IncludeWriteTools_UnderFullAuto()
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public void SubAgentTools_IncludeWriteTools_ForGeneral(EAgentPermissionMode mode)
     {
-        List<string> names = ToolNamesOf(
-            SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: EAgentPermissionMode.FullAuto)));
+        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode)));
 
         Assert.Contains(FileToolNames.Write, names);
         Assert.Contains(FileToolNames.Edit, names);
@@ -628,6 +638,48 @@ public class SubAgentBoundaryTests
         List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules =
             options.ToolApprovalAgentOptions!.AutoApprovalRules!.ToList();
         Assert.Equal(ApprovalModeMapper.BuildRules(EAgentPermissionMode.FullAuto).Count, rules.Count);
+    }
+
+    /// <summary>
+    /// <b>子会话必须接上历史持久化。</b>
+    ///
+    /// 这条不是洁癖：<c>AgentOptionsFactory.CreateSubAgentBaseOptions</c> 不设
+    /// <c>ChatHistoryProvider</c>（从前子代理是一次性的纯工具循环，不需要落盘），
+    /// 所以子会话这条路<b>必须自己补上</b>。漏了的表现是完全静默——子代理照跑、日志照出，
+    /// 而 <c>ChatSession.History</c> 恒空：窗口一片空白、连派出去的那条任务都看不见、
+    /// <c>HistoryAppended</c> 永不触发、续跑没有上下文可续。实机踩过一次。
+    /// </summary>
+    [Fact]
+    public void SubSession_AlwaysPersistsItsHistory()
+    {
+        AgentAssemblyPlan plan = NewSubSessionPlan();
+
+        SubAgentAssembly.SubSessionAssembly assembled = SubAgentAssembly.BuildSubSessionAssembly(plan);
+
+        Assert.NotNull(assembled.Options.ChatHistoryProvider);
+    }
+
+    /// <summary>
+    /// 一个子会话的装配计划：匿名通用档，关掉 shell 免得测试真去解析本机 shell。
+    /// </summary>
+    private static AgentAssemblyPlan NewSubSessionPlan()
+    {
+        CharacterData character = new()
+        {
+            CharacterId = nameof(DefaultCharacter.GeneralSubAgent),
+            Kind = ECharacterKind.Agent,
+            Tools = new AgentToolConfig { EnableShellExecution = false },
+        };
+        return new AgentAssemblyPlan
+        {
+            Profile = new AgentBuildProfile
+            {
+                Character = character,
+                PermissionMode = EAgentPermissionMode.AutoEdit,
+                SubAgent = new SubAgentIdentity("parent-1", ESubAgentType.General, string.Empty),
+            },
+            WorkingDirectory = TestWorkingDirectory,
+        };
     }
 
     /// <summary>

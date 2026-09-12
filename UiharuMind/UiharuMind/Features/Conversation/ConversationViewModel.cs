@@ -237,6 +237,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
+    private ChatSession? _signalSession; //已挂上历史变更信号的会话
+    private ConversationItemBase? _taskPlaceholder; //子会话任务的占位条目,真消息落盘后撤掉
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly ConversationItemWindowTrimmer _trimmer; //运行期把涨上来的条目裁回上限
     private readonly TurnUsageLedger _usage = new(); //token 账本
@@ -256,7 +258,25 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 本轮是否正在跑。装配会话的那一小段也算在内——那时执行者还没接手，
     /// 但界面必须已经显示停止按钮，否则用户能在装配期间再发一条。
     /// </summary>
-    public bool IsGenerating => _isPreparing || _driver.IsRunning;
+    public bool IsGenerating => _isPreparing || _driver.IsRunning || IsExternallyDriven;
+
+    /// <summary>
+    /// 本会话这一轮是<b>别处</b>在驱动的（子代理跑着、定时任务无人值守跑着、
+    /// 或者同一个会话在另一个界面壳里跑着）。
+    ///
+    /// 判据只能取运行态登记处：自己的 <see cref="_driver"/> 闲着并不代表会话空闲。
+    /// 认错的后果不是显示不好看——用户打的字会走「发下一轮」而不是「插话」，
+    /// 排进了队列却什么都不说（见 ADR 0021 的外驱条目）。
+    /// </summary>
+    /// <summary>
+    /// 本会话是不是一个子会话（决定要不要显示「交回主代理」）。
+    /// 会话是异步装载的，所以<b>装载完成时必须发一次变更通知</b>，
+    /// 否则绑定停在初始的 false 上，那个按钮永远不出现
+    /// </summary>
+    public bool IsSubSession => CurrentSession?.IsSubSession == true;
+
+    public bool IsExternallyDriven =>
+        !_driver.IsRunning && SessionManager.Instance.Running.IsBusy(CurrentMeta?.SessionId);
 
     /// <summary>运行态指示点的配色键（status-dot 样式按 Tag 选色）</summary>
     public string RunStatusKey => IsGenerating ? "Ready" : "Idle";
@@ -315,6 +335,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
         _driver.StateChanged += OnDriverStateChanged;
+        SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
 
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
         _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
@@ -334,6 +355,134 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>
     /// 运行态或忙碌态变化。运行侧不认识绑定，属性变更由这里代它抛出。
     /// </summary>
+    /// <summary>
+    /// 运行态登记处变了。<b>可能来自后台线程</b>（无头执行与子代理都不在 UI 线程上），
+    /// 所以 marshal 之后再动界面属性
+    /// </summary>
+    /// <param name="sessionId">状态变化的会话</param>
+    /// <summary>
+    /// 把本子会话最新的结论交回派活者。
+    ///
+    /// 手动而不是自动：用户开这个窗口未必是为了帮派活者干活，手动那一下就是表态。
+    /// 交回之后<b>不起新轮</b>——让派活者在用户没要求时自己动起来，
+    /// 「这一轮的用户消息是什么」就没法回答了（见 ADR 0022 的轮次归属）。
+    /// </summary>
+    [RelayCommand]
+    private void HandBackToParent()
+    {
+        if (CurrentSession is not { } session) return;
+
+        EHandoffOutcome outcome = SubAgentReportHandoff.Submit(session);
+        string key = outcome switch
+        {
+            EHandoffOutcome.Appended => "SubAgentHandoffDone",
+            EHandoffOutcome.Replaced => "SubAgentHandoffReplaced",
+            EHandoffOutcome.ParentBusy => "SubAgentHandoffParentBusy",
+            EHandoffOutcome.ParentMissing => "SubAgentHandoffParentMissing",
+            EHandoffOutcome.NothingToReport => "SubAgentHandoffNothing",
+            _ => "SubAgentHandoffNothing",
+        };
+        HandoffNotice = Loc.Text(key);
+    }
+
+    /// <summary>「交回主 agent」的结果提示（交回是一次性动作，没有别的反馈渠道）</summary>
+    [ObservableProperty] private string _handoffNotice = string.Empty;
+
+    private void OnSessionRunStateChanged(string sessionId)
+    {
+        if (sessionId != CurrentMeta?.SessionId) return;
+        Dispatcher.UIThread.Post(NotifyRunStateChanged);
+    }
+
+    /// <summary>
+    /// 这个会话的历史被追加了。两条来路：外驱时它是<b>唯一</b>的实时来源
+    /// （不驱动这一轮就拿不到内容流），以及别处往我的历史里写了东西
+    /// （子会话把后续报告交回派活者）。
+    ///
+    /// 粒度是每次服务调用，不是逐 token（见 <c>ChatSession.HistoryAppended</c>）。
+    /// </summary>
+    /// <param name="fromIndex">新增段的起始下标</param>
+    private void OnSessionHistoryAppended(int fromIndex)
+    {
+        // 自己正在跑的那一轮由实时流渲染,这里再补一遍就是每条显示两次
+        if (_driver.IsRunning) return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (CurrentSession is not { } session) return;
+            IReadOnlyList<ChatMessage> history = session.History;
+            if (fromIndex < 0 || fromIndex >= history.Count) return;
+
+            // 真消息来了就撤掉占位,否则任务会显示两遍
+            if (_taskPlaceholder is { } placeholder)
+            {
+                Items.Remove(placeholder);
+                _taskPlaceholder = null;
+            }
+
+            foreach (ConversationItemBase item in BuildHistoryItems(history, fromIndex, history.Count))
+            {
+                Items.Add(item);
+            }
+
+            RefreshTokenUsageText();
+        });
+    }
+
+    /// <summary>
+    /// 子会话刚派出去、历史还空着时，先把<b>任务本身</b>显示出来。
+    ///
+    /// 任务要等框架第一次 <c>StoreChatHistoryAsync</c> 才落盘，而那发生在第一次模型调用
+    /// <b>完成之后</b>——中间那段（可能是一次很慢的工具调用）窗口会整个空着，
+    /// 连「派出去干什么」都看不到。主会话没这个问题，因为发送时就乐观地把气泡加进去了。
+    ///
+    /// 这是<b>占位</b>不是历史：真消息一落盘就把它换掉（<see cref="OnSessionHistoryAppended"/>）。
+    /// </summary>
+    /// <param name="session">刚装载的会话</param>
+    private void SeedSubSessionTask(ChatSession session)
+    {
+        _taskPlaceholder = null;
+        if (!session.IsSubSession || session.History.Count > 0) return;
+        if (string.IsNullOrWhiteSpace(session.Description)) return;
+
+        _taskPlaceholder = ConversationItemFactory.CreateUser(session.Description);
+        Items.Add(_taskPlaceholder);
+    }
+
+    /// <summary>
+    /// 历史被别处整份改写了（后续报告替换了上一份）。追加能补渲染，改写只能整个回放一遍。
+    /// </summary>
+    private void OnSessionHistoryRewritten()
+    {
+        if (_driver.IsRunning) return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (CurrentSession is not { } session) return;
+            _taskPlaceholder = null;
+            Items.Clear();
+            ReplayMessages(session.History);
+        });
+    }
+
+    /// <summary>挂上「别处改了这个会话的历史」的两个信号。重复挂接先摘再挂，不攒订阅</summary>
+    private void AttachSessionSignals(ChatSession session)
+    {
+        DetachSessionSignals();
+        _signalSession = session;
+        session.HistoryAppended += OnSessionHistoryAppended;
+        session.HistoryRewritten += OnSessionHistoryRewritten;
+    }
+
+    /// <summary>摘掉订阅。会话比本视图活得久，不摘就是一路泄漏到已销毁的视图上</summary>
+    private void DetachSessionSignals()
+    {
+        if (_signalSession is not { } previous) return;
+        previous.HistoryAppended -= OnSessionHistoryAppended;
+        previous.HistoryRewritten -= OnSessionHistoryRewritten;
+        _signalSession = null;
+    }
+
     private void OnDriverStateChanged()
     {
         NotifyRunStateChanged();
@@ -399,6 +548,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         SessionModel.Dispose();
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
         _driver.StateChanged -= OnDriverStateChanged;
+        SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
+        DetachSessionSignals();
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
         _prepareCancellation?.Cancel();
@@ -704,6 +855,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         _prepareCancellation?.Cancel(); //还卡在装配阶段时也要停得下来
         _driver.Cancel();
+        // 外驱时要停的是别处那一轮——自己的 driver 根本没在跑。
+        // 停止按钮既然显示出来了就必须真能停,否则是个骗人的按钮
+        if (IsExternallyDriven) TurnDriver.CancelSession(CurrentMeta?.SessionId);
         _transcript.CancelPendingApprovals();
     }
 
@@ -1038,7 +1192,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         try
         {
             long attachBegin = StartupPhaseProbe.Begin();
-            ChatSession? body = await AttachAsync(meta, CancellationToken.None);
+            // 会话正被别处驱动时<b>不能挂接</b>:执行者的闸门被那一轮整轮占着
+            // (HarnessCharacterRunner.RunAsync 持有 _gate),挂接会一直等到它跑完,
+            // 表现是窗口一片空白。而外驱视图要的三样都不需要挂接——
+            // 历史读盘、实时靠 HistoryAppended、插话走 TryInjectAsync(不碰闸门)。
+            // 也不写回工作目录与权限档:那是正在跑的那一轮的配置,不该被观察者改掉
+            bool externallyDriven = SessionManager.Instance.Running.IsBusy(meta.SessionId);
+            ChatSession? body = externallyDriven
+                ? SessionManager.Instance.Load(meta.SessionId)
+                : await AttachAsync(meta, CancellationToken.None);
             // 墙上时间:里面有真正的 await(预连、装配),不等于 UI 线程被占这么久。
             // 与 ui-stall 的间隔对照才说明问题——两个数接近就说明它是在 UI 线程上同步跑的
             StartupPhaseProbe.End("conversation/attach-wall", attachBegin);
@@ -1051,6 +1213,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             MemoryPanel?.Detach();
             MemoryPanel = new ConversationMemoryViewData(body);
+            OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
 
             // 切回会话时恢复输入框草稿
             InputText = body.ComposerDraft;
@@ -1058,7 +1221,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             CurrentMode = await body.Runner.GetModeAsync();
             if (Abandoned()) return;
 
-            ReplayMessages(body.Runner.GetHistory());
+            // 信号一律挂上,不只外驱时:「别处改了这个会话的历史」还有另一条来路——
+            // 子会话窗口点「交回主代理」会往<b>派活者</b>的历史里写,而派活者此刻很可能就闲着
+            // 开在界面上。不挂的话那条报告要关掉会话再打开才看得见
+            AttachSessionSignals(body);
+
+            // 外驱时执行者未必绑好,历史一律从会话本体读(两者本就是同一份)
+            ReplayMessages(externallyDriven ? body.History : body.Runner.GetHistory());
+            SeedSubSessionTask(body);
 
             // 就在这里收尾,不能拖到下面两个 await 之后:视图靠这一步同步贴到底,
             // 而 await 会让出线程——中间那一帧会把列表按 offset 0(会话顶部)画出来,
@@ -1213,6 +1383,19 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(message.Text);
                 knowledgeCard.SourceMessage = message;
                 buffer.Add(knowledgeCard);
+                continue;
+            }
+
+            // 子会话的后续报告:角色是 User(它要供给模型),但<b>不是用户说的话</b>——
+            // 落进下面的用户分支会画成用户气泡,等于把子代理的结论安到用户头上。
+            // 借旁白那套呈现:居中、无头像无名字,表示"这条不归对话双方任何一方"
+            if (ChatMessageAnnotations.IsSubAgentReport(message))
+            {
+                TextConversationItem reportItem = _itemActions.Wire(
+                    ConversationItemFactory.CreateNarration(message), message);
+                if (lastKnown is { } reportStamp)
+                    reportItem.Timestamp = ConversationItemFactory.TimestampText(reportStamp);
+                buffer.Add(reportItem);
                 continue;
             }
 

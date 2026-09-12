@@ -85,8 +85,19 @@
                                Text="{Binding SessionModelLabel}"
                                TextTrimming="CharacterEllipsis" MaxLines="1"
                                IsVisible="{Binding SessionModelLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <!-- 「交回主代理」的结果。那是一次性动作,没有别的反馈渠道 -->
+                    <TextBlock Classes="muted" FontSize="11"
+                               Text="{Binding HandoffNotice}"
+                               TextTrimming="CharacterEllipsis" MaxLines="1"
+                               IsVisible="{Binding HandoffNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <!-- 子会话专属:把结论交回派它出来的那个会话。会话级动作,
+                         与「重新生成」同一形态放在头部——输入区那一行已经满了 -->
+                    <ThemedIconButton IconName="import"
+                                      Command="{Binding HandBackToParentCommand}"
+                                      IsVisible="{Binding IsSubSession}"
+                                      ToolTips="{loc:Loc SubAgentHandBackTip}" />
                     <ThemedIconButton IconName="repeat"
                                       Command="{Binding RegenerateLastCommand}"
                                       IsVisible="{Binding CanRegenerate}"
@@ -139,6 +150,18 @@
                     </TextBlock>
                     <ItemsControl Name="MessageList" ItemsSource="{Binding Items}">
                         <ItemsControl.DataTemplates>
+                    <!-- 工具卡片与审批卡片。曾经放在 ConversationPageShell 里，理由是
+                         「聊天档角色不挂工具，那一页用不着」——但决定用不用得着的是<b>宿主</b>
+                         而不是页面：子会话浮窗直接托管本控件、不经页面壳，
+                         而子代理的对话主体正是工具调用，留在上面就是一片空白 -->
+                    <DataTemplate DataType="{x:Type items:ToolCallItem}">
+                        <items:ToolCallCardView />
+                    </DataTemplate>
+
+                    <DataTemplate DataType="{x:Type items:ApprovalRequestItem}">
+                        <items:ApprovalCardView />
+                    </DataTemplate>
+
                     <!-- 思考过程:弱化折叠条。视觉与行为都在 ThinkingCardView 里,
                          与工具卡片同一套几何(会话流与子代理过程窗口共用同一份组件) -->
                     <DataTemplate DataType="{x:Type items:ThinkingItem}">

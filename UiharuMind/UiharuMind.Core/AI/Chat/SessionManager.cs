@@ -119,6 +119,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private List<ChatSessionMeta> GetSessions(Func<ChatSessionMeta, bool> predicate)
     {
         return _metas.Values
+            // 子会话不进左栏:左栏是跨会话导航,而子会话是会话内的事。
+            // 它仍然在索引里(右栏「子代理」面板按 ParentSessionId 取用),只是不在这两个出口露面
+            .Where(x => !x.IsSubSession)
             .Where(predicate)
             .OrderByDescending(x => x.UpdatedAt)
             .ToList();
@@ -132,6 +135,21 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public static ECharacterKind KindOf(ChatSessionMeta meta)
     {
         return CharacterManager.Instance.GetCharacterData(meta.CharacterId).Kind;
+    }
+
+    /// <summary>
+    /// 取某个会话派出去的全部子会话，按最后更新时间倒序。
+    /// 右栏「子代理」面板的数据源——无需新存储，索引里本来就有
+    /// </summary>
+    /// <param name="parentSessionId">派活者的会话标识</param>
+    /// <returns>子会话元数据列表</returns>
+    public List<ChatSessionMeta> GetSubSessions(string? parentSessionId)
+    {
+        if (string.IsNullOrEmpty(parentSessionId)) return [];
+        return _metas.Values
+            .Where(x => string.Equals(x.ParentSessionId, parentSessionId, StringComparison.Ordinal))
+            .OrderByDescending(x => x.UpdatedAt)
+            .ToList();
     }
 
     /// <summary>
@@ -347,6 +365,14 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <param name="sessionId">会话标识</param>
     public void Delete(string sessionId)
     {
+        // 级联删掉它派出去的子会话:子会话的入口全都挂在派活者身上(卡片与右栏面板),
+        // 派活者没了它们就再也打不开,留在盘上只是孤儿。先收集再删——
+        // 递归调用会改 _metas,边遍历边删会抛
+        foreach (ChatSessionMeta child in GetSubSessions(sessionId))
+        {
+            Delete(child.SessionId);
+        }
+
         // 附件路径记在本体里,所以要在删文件之前把它读出来
         ChatSession? session = Load(sessionId);
         DeleteOwnedAttachments(session);

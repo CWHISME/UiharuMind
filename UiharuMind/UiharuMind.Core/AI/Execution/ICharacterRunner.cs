@@ -128,6 +128,19 @@ public interface ICharacterRunner : IAsyncDisposable
     TurnInputEstimate? InputEstimate => null;
 
     /// <summary>
+    /// 交出本轮的上下文：审批回应通道与"有没有人看着"。
+    /// 委派型工具（子代理）跑自己的轮次时要用<b>同一条</b>审批通道，
+    /// 否则它产出的审批请求没人回应——那正是子代理从前必须被削成只读的原因（见 ADR 0021）。
+    ///
+    /// 默认空实现：不走 harness 的形态没有委派型工具，也就无处可用。
+    /// </summary>
+    /// <param name="resolver">审批回应的取得方式；轮次结束时传 null 摘掉</param>
+    /// <param name="isAttended">本轮有没有人看着（界面在渲染）</param>
+    void SetTurnContext(ApprovalResolver? resolver, bool isAttended)
+    {
+    }
+
+    /// <summary>
     /// 运行中插话：把消息投入注入队列，agent 下一次机会消费
     /// </summary>
     /// <param name="messages">插入的消息</param>

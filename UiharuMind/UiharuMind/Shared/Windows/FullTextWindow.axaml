@@ -9,7 +9,7 @@
         x:Class="UiharuMind.Shared.Windows.FullTextWindow"
         Title="FullTextWindow">
 
-    <!-- 形状与 SubAgentActivityWindow 一致：自绘标题栏 + 拖动 + 关闭按钮 -->
+    <!-- 形状与 QuickChatViewWindow 一致：自绘标题栏 + 拖动 + 关闭按钮 -->
     <Grid RowDefinitions="Auto,*" Margin="10">
         <Border Height="34" Background="Transparent" PointerPressed="InputElement_OnPointerPressed">
             <DockPanel LastChildFill="False">

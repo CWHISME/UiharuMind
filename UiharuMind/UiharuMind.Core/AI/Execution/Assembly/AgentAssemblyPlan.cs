@@ -11,6 +11,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.History;
@@ -109,6 +110,14 @@ internal sealed class AgentAssemblyPlan
     public TurnInputEstimate InputEstimate { get; init; } = new();
 
     /// <summary>驱动整个装配的角色</summary>
+    /// <summary>
+    /// 派活给它的那个会话的能力配置（仅子会话有意义）。
+    /// 子代理的能力取「自己的 ∩ 派活者的」——挂一个开着 shell 的子智能体，
+    /// 不该给关掉了 shell 的派活者开后门。派活者已不存在时为 null，
+    /// 那时退回只用自己的配置（子会话仍受权限档与只读裁剪约束）。
+    /// </summary>
+    public AgentToolConfig? SubAgentParentConfig { get; init; }
+
     public CharacterData Character => Profile.Character;
 
     /// <summary>能力配置。没有全局总闸，运行时只有角色自带这一份在说话（ADR 0003）</summary>
@@ -147,6 +156,7 @@ internal sealed class AgentAssemblyPlan
         return new AgentAssemblyPlan
         {
             Profile = profile,
+            SubAgentParentConfig = ResolveParentConfig(profile.SubAgent),
             Compaction = compaction,
             InputEstimate = estimate,
             WorkingDirectory = profile.WorkspacePath ?? GetScratchDirectory(),
@@ -180,6 +190,16 @@ internal sealed class AgentAssemblyPlan
                 ? new FileSystemAgentFileStore(FileMemoryLayout.RootPath)
                 : null,
         };
+    }
+
+    /// 派活者的能力配置:按会话找角色。派活者可能已被删除——那时返回 null 而不是抛,
+    /// 子会话仍能打开与续跑(能力只会更小,不会更大)
+    private static AgentToolConfig? ResolveParentConfig(SubAgentIdentity? identity)
+    {
+        if (identity == null) return null;
+        ChatSessionMeta? parent = SessionManager.Instance.GetMeta(identity.ParentSessionId);
+        if (parent == null) return null;
+        return CharacterManager.Instance.GetCharacterData(parent.CharacterId).Tools;
     }
 
     /// 会话绑定模型优先,回落全局当前模型——与 LazyChatClient 同一解析次序

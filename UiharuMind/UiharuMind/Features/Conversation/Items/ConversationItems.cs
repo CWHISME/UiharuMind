@@ -273,13 +273,34 @@ public partial class ToolCallItem : ConversationItemBase
     public string IconGlyph { get; init; } = "🔧";
 
     /// <summary>
-    /// 本次调用<b>内部</b>的过程条目(目前只有子代理会产生)。空集合即普通工具,卡片上不出现入口。
+    /// 本次委派建出来的<b>子会话</b>标识；空串即普通工具调用，卡片上不出现入口。
     ///
-    /// 不在卡片里就地渲染:条目模板是按整幅宽度设计的,嵌进卡片会被层层削宽、
-    /// 滚动区互相嵌套。改由 <see cref="SubAgentActivityWindow"/> 只读展开。
-    /// 只存内存,不落盘:过程的价值集中在刚跑完那几分钟,而它一旦进会话档就有回灌进模型上下文的风险。
+    /// 两条来路，都指向同一个 id：跑着的时候由 <c>SubSessionStartedContent</c> 现场交过来，
+    /// 回放历史时从工具结果末尾的 <c>[sub-session: …]</c> 认出来。
+    /// 过程本身不在这里——它是子会话自己的历史，点开即读（见 ADR 0021）。
     /// </summary>
-    public ObservableCollection<ConversationItemBase> NestedItems { get; } = new();
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSubSession))]
+    private string _subSessionId = string.Empty;
+
+    /// <summary>这张卡片是不是一次子代理委派</summary>
+    public bool HasSubSession => SubSessionId.Length > 0;
+
+    /// <summary>工具结果里那行子会话标识（回放时据此恢复入口）</summary>
+    private static readonly Regex _subSessionMarker = new(@"\[sub-session:\s*([A-Za-z0-9]+)\]",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// 从工具结果里认出子会话标识。回放历史时走这条——那时 <c>SubSessionStartedContent</c>
+    /// 早已随当时那一轮消失，而结果文本是落了盘的
+    /// </summary>
+    /// <param name="resultText">工具结果正文</param>
+    /// <returns>子会话标识；没有则为空串</returns>
+    public static string ParseSubSessionId(string? resultText)
+    {
+        if (string.IsNullOrEmpty(resultText)) return string.Empty;
+        Match match = _subSessionMarker.Match(resultText);
+        return match.Success ? match.Groups[1].Value : string.Empty;
+    }
 
     [ObservableProperty] private string _argumentSummary = string.Empty;
     [ObservableProperty] private string _argumentsJson = string.Empty;
@@ -385,10 +406,15 @@ public partial class ToolCallItem : ConversationItemBase
         FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextArguments")}", ArgumentsJson, FilePath);
     }
 
+    /// <summary>
+    /// 打开这次委派的子会话。与右栏「子代理」面板点进去<b>是同一个动作</b>——
+    /// 一个窗口、一个视图、一份 ViewModel，跑着还是跑完了由它自己判（外驱模式）
+    /// </summary>
     [RelayCommand]
     private void ShowActivity()
     {
-        SubAgentActivityWindow.Show(this);
+        if (SubSessionId.Length == 0) return;
+        SubSessionWindowOpener.Open(SubSessionId);
     }
 }
 

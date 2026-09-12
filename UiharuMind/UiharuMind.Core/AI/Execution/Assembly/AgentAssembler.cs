@@ -45,6 +45,12 @@ internal static class AgentAssembler
     {
         AgentBuildProfile profile = plan.Profile;
         CharacterData character = plan.Character;
+
+        // 子会话走子代理那条装配：它的能力是「自己的 ∩ 派活者的」并受只读裁剪，
+        // 与主 agent 那条路产出的形状不同。判据取会话上持久化的身份而非调用方参数——
+        // 重开一个子会话续跑时没人再传参数，走错路就是把不变量违掉（见 ADR 0021）
+        if (profile.SubAgent != null) return SubAgentAssembly.BuildFromPlan(plan);
+
         IChatClient client = new LazyChatClient(profile.SessionModelSource);
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
         SessionChatHistoryProvider history = new();
@@ -152,6 +158,14 @@ internal static class AgentAssembler
         if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client, SubAgentProfile.Explorer) is { } explorerTool)
         {
             Add(EAgentCapability.SubAgent, explorerTool);
+        }
+
+        // 续跑/追问:只在真的挂上了派活工具时才挂——没派过活就没有子会话可续。
+        // 判据取<b>装配结果</b>而不是配置意图,与纪律段同一口径
+        if (tools.Any(x => x.Capability == EAgentCapability.SubAgent)
+            && SubAgentAssembly.TryCreateContinueTool(plan) is { } continueTool)
+        {
+            Add(EAgentCapability.SubAgent, continueTool);
         }
 
         if (config.EnableKnowledgeSearchTool)

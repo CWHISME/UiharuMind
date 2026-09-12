@@ -55,8 +55,7 @@
                         VerticalAlignment="Center"
                         Command="{Binding ShowActivityCommand}"
                         Content="{loc:Loc SubAgentViewActivity}"
-                        IsVisible="{Binding NestedItems.Count,
-                        Converter={x:Static IntToBoolConverter.Instance}}" />
+                        IsVisible="{Binding HasSubSession}" />
                 <ToggleButton Grid.Column="0" Classes="NoneStyle"
                               Cursor="Hand"
                               MaxHeight="32"

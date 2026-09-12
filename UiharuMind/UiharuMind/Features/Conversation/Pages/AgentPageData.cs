@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Features.Conversation.SessionList;
+using UiharuMind.Features.Conversation.SidePanels;
 
 namespace UiharuMind.Features.Conversation.Pages;
 
@@ -24,6 +25,12 @@ public partial class AgentPageData : ConversationPageDataBase
 
     /// <summary>定时任务侧栏</summary>
     public ScheduledTaskListModel Scheduled { get; }
+
+    /// <summary>
+    /// 子代理侧栏：本会话派过的子会话索引。子会话不进左栏（那是跨会话导航），
+    /// 而工具卡片在长会话里会被滚没——这里是它的第二个入口
+    /// </summary>
+    public SubAgentListViewData SubAgents { get; }
 
     /// <summary>
     /// 右栏页签的选中项。<b>显式绑定而不是由 TabControl 自己定</b>，两个原因：
@@ -51,11 +58,13 @@ public partial class AgentPageData : ConversationPageDataBase
         SessionList.Removed += OnSessionRemoved;
 
         Scheduled = new ScheduledTaskListModel(OpenSession);
+        SubAgents = new SubAgentListViewData(() => Conversation?.CurrentMeta?.SessionId);
 
         // 启动时恢复最近会话(历史加载不依赖模型状态)
         SessionListItem? first = SessionList.Sessions.Count > 0 ? SessionList.Sessions[0] : null;
         SwitchConversation(first?.Meta);
         SessionList.SelectWithoutNotifying(first);
+        SubAgents.Refresh();
     }
 
     protected override ConversationViewModel CreateConversation()
@@ -85,9 +94,14 @@ public partial class AgentPageData : ConversationPageDataBase
         // 只切空态,不建会话:首轮发送时才入索引(懒建)
         SessionList.SelectWithoutNotifying(null);
         SwitchConversation(null);
+        SubAgents.Refresh();
     }
 
-    private void OnSelectionChanged(SessionListItem? item) => SwitchConversation(item?.Meta);
+    private void OnSelectionChanged(SessionListItem? item)
+    {
+        SwitchConversation(item?.Meta);
+        SubAgents.Refresh(); //换会话就换一套子代理索引
+    }
 
     private void OnSessionMutated(SessionListItem item)
     {

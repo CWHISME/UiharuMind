@@ -18,6 +18,7 @@ using UiharuMind.Core.Core.SimpleLog;
 
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 
@@ -39,6 +40,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     private ChatSession? _attachedSession; //当前挂接的会话本体,供惰性客户端按请求解析会话级模型
     private AgentAssemblyFacts? _lastSnapshot; //上次装配消费的输入快照
     private Channel<AIContent>? _activityChannel; //本轮的输出通道,委派型工具的过程经此并入内容流
+    private ApprovalResolver? _turnApprovalResolver; //本轮的审批通道,子代理跑自己的轮次时共用
+    private bool _turnAttended; //本轮有没有人看着,子代理的墙钟分档据此
 
     public bool HasSession => _session != null;
 
@@ -55,6 +58,12 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         if (_busy == value) return;
         _busy = value;
         BusyChanged?.Invoke();
+    }
+
+    public void SetTurnContext(ApprovalResolver? resolver, bool isAttended)
+    {
+        _turnApprovalResolver = resolver;
+        _turnAttended = isAttended;
     }
 
     public async Task AttachAsync(ChatSession session, CancellationToken cancellationToken = default)
@@ -98,7 +107,11 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             sessionKnowledgeSource: () => _attachedSession?.Memory,
             sessionShellApprovalSource: () => _attachedSession?.SnapshotSessionApprovedShellPatterns(),
             // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
-            activitySink: content => _activityChannel?.Writer.TryWrite(content));
+            // 闭包读字段:handle 跨轮次复用,而这两样每轮由 TurnDriver 交进来
+            isAttendedSource: () => _turnAttended,
+            subAgentApprovalSource: () => _turnApprovalResolver,
+            subSessionStarted: (callId, subSessionId) => _activityChannel?.Writer
+                .TryWrite(new SubSessionStartedContent(callId, subSessionId)));
 
         // MCP 工具是异步取回的,而快照与装配都从「此刻取得到什么」出发——所以等待必须在采集之前。
         // 放到这里而不是应用启动时:托管 server 的子进程因此只在真要用它的那一刻才起来,

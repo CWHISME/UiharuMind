@@ -11,19 +11,6 @@
              x:Class="UiharuMind.Features.Conversation.Pages.ConversationPageShell"
              x:DataType="pages:ConversationPageDataBase">
 
-    <!-- 特型条目模板:沿逻辑树被 ConversationView 内的 ItemsControl 查找到。
-         ItemsControl 找不到匹配时会沿逻辑树向上找,一路找到这里。
-         聊天档角色不挂工具,那一页正常情况下不会出现这两种条目——留着是防御:
-         转录器照样能产出它们,没有模板就会渲染成 ToString() -->
-    <UserControl.DataTemplates>
-        <DataTemplate DataType="items:ToolCallItem">
-            <items:ToolCallCardView />
-        </DataTemplate>
-        <DataTemplate DataType="items:ApprovalRequestItem">
-            <items:ApprovalCardView />
-        </DataTemplate>
-    </UserControl.DataTemplates>
-
     <UserControl.Styles>
         <Style Selector="Border.workspace-pane">
             <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />

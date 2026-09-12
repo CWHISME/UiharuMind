@@ -41,7 +41,6 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly ThinkTagStreamParser _thinkParser = new();
     private readonly List<ApprovalRequestItem> _pending = new(); //待决审批(可被整体取消)
     private readonly List<ApprovalRequestItem> _round = new(); //本轮新增审批(供运行循环回应)
-    private readonly Dictionary<string, ConversationTranscript> _nested = new(); //按 CallId 的嵌套转录器
     private readonly bool _isUiBound; //落点是否为界面绑定集合(回放缓冲是普通 List,不是)
     private TextConversationItem? _streamingText;
     private ThinkingItem? _streamingThinking;
@@ -133,20 +132,21 @@ public sealed class ConversationTranscript : ITurnSink
                     // 判据只能取正文——Exception 带 [JsonIgnore],存盘再读回来就没了
                     item.IsSuccess = result.Exception == null && !ToolCallCancellation.IsCancelled(result);
                     item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
-                }
-
-                // 嵌套转录随本次调用一同收尾并弃用:过程条目留在卡片上,转录器不再累积
-                if (_nested.Remove(result.CallId, out ConversationTranscript? finished))
-                {
-                    finished.CloseSegment();
+                    // 回放历史时 SubSessionStartedContent 早已随当时那一轮消失,
+                    // 入口只能从落了盘的结果文本里认回来
+                    if (!item.HasSubSession) item.SubSessionId = ToolCallItem.ParseSubSessionId(item.ResultText);
                 }
 
                 break;
 
-            // 子代理的内部过程。它只走执行者的输出流,不进历史也不回喂模型;
-            // 装配逻辑与顶层完全同一份——过程转录器就是本类的另一个实例,落点换成那张卡片
-            case ToolActivityContent activity:
-                if (ResolveNested(activity.CallId) is { } nested) nested.Apply(activity.Inner);
+            // 一次委派开始了:把子会话标识挂到对应卡片上,用户此刻就能点开看。
+            // 过程本身不走这里——它是子会话自己的历史
+            case SubSessionStartedContent started:
+                if (_target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == started.CallId) is { } launched)
+                {
+                    launched.SubSessionId = started.SubSessionId;
+                }
+
                 break;
 
             case ToolApprovalRequestContent approvalRequest:
@@ -169,28 +169,6 @@ public sealed class ConversationTranscript : ITurnSink
         }
     }
 
-    /// <summary>
-    /// 取（必要时新建）某次工具调用的嵌套转录器。
-    /// 卡片还没到位就丢弃这段过程——它只影响显示,而且正常时序下调用先于过程。
-    /// </summary>
-    /// <param name="callId">工具调用标识</param>
-    /// <returns>嵌套转录器；找不到对应卡片时为 null</returns>
-    private ConversationTranscript? ResolveNested(string callId)
-    {
-        if (_nested.TryGetValue(callId, out ConversationTranscript? existing)) return existing;
-
-        ToolCallItem? card = _target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == callId);
-        if (card == null) return null;
-
-        // 过程里的助手气泡不带头像与名字:它是子代理的正文,不是本会话角色在说话
-        ConversationTranscript transcript = new(card.NestedItems, () => new TextConversationItem(false),
-            workspaceRootSource: _workspaceRootSource)
-        {
-            AutoCollapseThinking = AutoCollapseThinking,
-        };
-        _nested[callId] = transcript;
-        return transcript;
-    }
 
     /// <summary>
     /// 收尾当前流段：冲刷解析器残留、标记文本气泡完成、按设置折叠思考段
@@ -248,8 +226,6 @@ public sealed class ConversationTranscript : ITurnSink
     {
         foreach (ToolCallItem call in items.OfType<ToolCallItem>())
         {
-            // 子代理的过程里也可能挂着没收的调用,一并收掉
-            StopRunningToolCalls(call.NestedItems, note);
             if (!call.IsRunning) continue;
 
             call.IsRunning = false;
@@ -258,23 +234,6 @@ public sealed class ConversationTranscript : ITurnSink
         }
     }
 
-    /// <summary>
-    /// 一轮结束时收尾嵌套过程。委派型工具是同步的，过程在本轮的内容流结束时必然已经跑完，
-    /// 所以此时残留的嵌套转录器只可能来自被取消的调用——不收尾会让卡片里最后一个气泡
-    /// 永远停在「正在输出」的形态。
-    ///
-    /// 不放在 <see cref="CloseSegment"/> 里：那个方法每遇到一次工具调用就会被调，
-    /// 并行工具调用时会把另一次调用尚在进行的嵌套段提前掐断。
-    /// </summary>
-    public void CloseNestedActivity()
-    {
-        foreach (ConversationTranscript nested in _nested.Values)
-        {
-            nested.CloseSegment();
-        }
-
-        _nested.Clear();
-    }
 
     /// <summary>
     /// 回放收尾：历史里的工具调用一律已结束，未回应的审批按拒绝处理
@@ -335,7 +294,6 @@ public sealed class ConversationTranscript : ITurnSink
     {
         _pending.Clear();
         _round.Clear();
-        _nested.Clear();
         _streamingText = null;
         _streamingThinking = null;
         _thinkParser.Reset();

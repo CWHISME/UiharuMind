@@ -112,6 +112,24 @@ public enum DefaultCharacter
     /// </summary>
     WorkspaceAgent,
 
+    /// <summary>
+    /// 匿名<b>通用</b>子代理的身份载体(Kind = Agent，内部角色不进角色库)。
+    ///
+    /// 它只提供名字与头像：提示词由 <c>SubAgentAssembly.BuildSubAgentInstructions</c> 现拼，
+    /// 能力直接取派活者那一份——所以这张卡上的 Template 与 Tools <b>都不参与计算</b>
+    /// （Template 必须保持为空，有不变量测试钉住：填了也不会生效，那是最难查的一类无操作）。
+    /// 存在的理由是子会话要能被打开：没有它，匿名子代理只能顶着派活者的名字和头像，
+    /// 看起来像在跟主代理说话。
+    /// </summary>
+    GeneralSubAgent,
+
+    /// <summary>
+    /// 匿名<b>探索</b>子代理的身份载体。与 <see cref="GeneralSubAgent"/> 同一形态，
+    /// 分开一张只为了<b>身份不混</b>：探索档恒定只读、另配轻量模型，
+    /// 两种跑法在界面上顶着同一个名字，用户分不清这次委派到底能不能改东西。
+    /// </summary>
+    ExploreSubAgent,
+
     Translator,
     TranslatorAdvanced,
     VisionOcr,

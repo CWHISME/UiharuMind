@@ -533,6 +533,66 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentSubAgentTitle {
+            get {
+                return ResourceManager.GetString("AgentSubAgentTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentSubAgentEmpty {
+            get {
+                return ResourceManager.GetString("AgentSubAgentEmpty", resourceCulture);
+            }
+        }
+        
+        public static string AgentSubAgentRunning {
+            get {
+                return ResourceManager.GetString("AgentSubAgentRunning", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandBack {
+            get {
+                return ResourceManager.GetString("SubAgentHandBack", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandBackTip {
+            get {
+                return ResourceManager.GetString("SubAgentHandBackTip", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandoffDone {
+            get {
+                return ResourceManager.GetString("SubAgentHandoffDone", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandoffReplaced {
+            get {
+                return ResourceManager.GetString("SubAgentHandoffReplaced", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandoffParentBusy {
+            get {
+                return ResourceManager.GetString("SubAgentHandoffParentBusy", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandoffParentMissing {
+            get {
+                return ResourceManager.GetString("SubAgentHandoffParentMissing", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandoffNothing {
+            get {
+                return ResourceManager.GetString("SubAgentHandoffNothing", resourceCulture);
+            }
+        }
+        
         public static string AgentScheduledTitle {
             get {
                 return ResourceManager.GetString("AgentScheduledTitle", resourceCulture);

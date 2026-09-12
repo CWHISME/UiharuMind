@@ -309,6 +309,36 @@
     <data name="AgentToolCallUnfinished" xml:space="preserve">
         <value>No result was recorded for this call.</value>
     </data>
+    <data name="AgentSubAgentTitle" xml:space="preserve">
+        <value>Sub-agents</value>
+    </data>
+    <data name="AgentSubAgentEmpty" xml:space="preserve">
+        <value>This session has not delegated anything yet</value>
+    </data>
+    <data name="AgentSubAgentRunning" xml:space="preserve">
+        <value>Running</value>
+    </data>
+    <data name="SubAgentHandBack" xml:space="preserve">
+        <value>Hand back to main agent</value>
+    </data>
+    <data name="SubAgentHandBackTip" xml:space="preserve">
+        <value>Send this sub-agent's latest conclusion back to the session that delegated it. It will read it on its next turn.</value>
+    </data>
+    <data name="SubAgentHandoffDone" xml:space="preserve">
+        <value>Handed back. The main agent will read it on its next turn.</value>
+    </data>
+    <data name="SubAgentHandoffReplaced" xml:space="preserve">
+        <value>Handed back, replacing the earlier one (the main agent had not read it yet).</value>
+    </data>
+    <data name="SubAgentHandoffParentBusy" xml:space="preserve">
+        <value>The main agent is running right now - try again once it stops.</value>
+    </data>
+    <data name="SubAgentHandoffParentMissing" xml:space="preserve">
+        <value>The session that delegated this no longer exists.</value>
+    </data>
+    <data name="SubAgentHandoffNothing" xml:space="preserve">
+        <value>There is no conclusion to hand back yet.</value>
+    </data>
     <data name="AgentScheduledTitle" xml:space="preserve">
         <value>Scheduled</value>
     </data>

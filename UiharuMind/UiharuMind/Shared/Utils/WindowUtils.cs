@@ -130,6 +130,25 @@ public static class WindowUtils
     }
 
 
+    /// <summary>
+    /// 文档型窗口：有系统标题栏、进任务栏、不置顶、可缩放。
+    ///
+    /// 与 <see cref="SetSimpledecorationWindow"/> 正好相反。那一套是为<b>转瞬即逝的浮窗</b>
+    /// 设的（置顶、无标题栏、不进任务栏），用在「开着看一阵子、还要切回来」的窗口上三条全错：
+    /// 置顶压着别的活、alt-tab 回不来、窗口列表里认不出是哪一个。
+    /// </summary>
+    /// <param name="window">窗口</param>
+    public static void SetDocumentWindow(this Window window)
+    {
+        window.Topmost = false;
+        window.WindowState = WindowState.Normal;
+        window.CanResize = true;
+        window.WindowDecorations = WindowDecorations.Full;
+        // 系统自己画标题栏,客户区就不该再伸进去——否则内容会顶到标题栏底下
+        window.ExtendClientAreaToDecorationsHint = false;
+        window.ShowInTaskbar = true;
+    }
+
     public static void SetSimpledecorationPureWindow(this Window window, bool isTopmost = true)
     {
         //连背景边框也没有的窗口

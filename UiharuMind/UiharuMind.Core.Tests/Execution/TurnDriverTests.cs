@@ -115,7 +115,6 @@ public class TurnDriverTests
         await driver.RunAsync(NewSession(), runner, Prompt());
 
         Assert.Equal([CancelNote], sink.StopNotes);
-        Assert.Equal(1, sink.CloseNestedActivityCalls);
     }
 
     [Fact]
@@ -129,7 +128,6 @@ public class TurnDriverTests
         await driver.RunAsync(NewSession(), runner, Prompt());
 
         Assert.Equal([CancelNote], sink.StopNotes);
-        Assert.Equal(1, sink.CloseNestedActivityCalls);
     }
 
     //================= 审批回环 =================
@@ -452,8 +450,6 @@ public class TurnDriverTests
 
         public int CloseSegmentCalls { get; private set; }
 
-        public int CloseNestedActivityCalls { get; private set; }
-
         public int TakeStreamingTextCalls { get; private set; }
 
         /// <summary>流到某一段时插进来做点别的（模拟用户点停止、进程退出）</summary>
@@ -468,8 +464,6 @@ public class TurnDriverTests
         public void CloseSegment() => CloseSegmentCalls++;
 
         public void StopRunningToolCalls(string note) => StopNotes.Add(note);
-
-        public void CloseNestedActivity() => CloseNestedActivityCalls++;
 
         public string? TakeStreamingText()
         {

@@ -13,6 +13,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
@@ -61,6 +62,28 @@ public class ChatSession
 
     /// <summary>会话覆写的模型名；为空表示无覆写、跟随全局当前模型</summary>
     public string? SessionModelName { get; set; }
+
+    /// <summary>
+    /// 派活给它的那个会话；为空表示这是一个普通会话。非空即<b>子会话</b>，
+    /// 见 <c>docs/CONTEXT.md</c> 的「子会话」与 ADR 0021。
+    /// </summary>
+    public string? ParentSessionId { get; set; }
+
+    /// <summary>会话是不是子会话</summary>
+    [JsonIgnore]
+    public bool IsSubSession => !string.IsNullOrEmpty(ParentSessionId);
+
+    /// <summary>
+    /// 子会话装配成哪一种子代理。<b>必须落盘</b>：重开一个子会话续跑时，装配要按同一档重建，
+    /// 否则探索型会被重建成通用型——那就是「子代理比派活的能力更大」。仅子会话有意义。
+    /// </summary>
+    public ESubAgentType SubAgentType { get; set; } = ESubAgentType.General;
+
+    /// <summary>
+    /// 被点名的子智能体名（`AgentOptionsFactory.SanitizeAgentName` 的产物）；
+    /// 空串表示通用匿名子代理（人格为空、能力取派活者那一份）。仅子会话有意义。
+    /// </summary>
+    public string SubAgentName { get; set; } = string.Empty;
 
     /// <summary>会话累计输入 token（响应 usage 不随消息持久化，累计值记在本体上）</summary>
     public long TotalInputTokens { get; set; }
@@ -115,6 +138,35 @@ public class ChatSession
 
     /// <summary>本轮检索到片段时触发，供 <c>TurnDriver</c> 转成界面通知</summary>
     public event Action<string>? KnowledgeRetrieved;
+
+    /// <summary>
+    /// 历史被追加了（参数是新增段的起始下标）。<b>外驱的界面壳靠它跟上</b>——
+    /// 它不驱动这一轮，拿不到内容流，只能等这个信号再去读新增的那几条。
+    ///
+    /// 粒度是<b>每次服务调用</b>（框架每调一次模型就落一次盘），不是逐 token：
+    /// 观察者看到的是"一条消息/一次工具调用完成了"，没有打字机效果。
+    /// 想要逐 token 就得再开一条内容流，而那会让"谁在渲染"多出一份真相。
+    ///
+    /// ⚠️ <b>可能来自后台线程</b>（子代理与定时任务都不在 UI 线程上），订阅方自行 marshal。
+    /// </summary>
+    public event Action<int>? HistoryAppended;
+
+    /// <summary>
+    /// 历史被<b>整份改写</b>了（不是追加）。与 <see cref="HistoryAppended"/> 分开是因为
+    /// 界面处置方式不同：追加只需补渲染新增那几条，改写只能整个回放一遍。
+    ///
+    /// 目前唯一的来源是「后续报告原地替换上一份」（见 <c>SubAgentReportHandoff</c>）——
+    /// 刻意<b>不</b>由 <see cref="Save"/> 统一发：那个方法到处都在调，
+    /// 变成每次保存都让界面重放一次。
+    ///
+    /// ⚠️ 同样<b>可能来自后台线程</b>，订阅方自行 marshal。
+    /// </summary>
+    public event Action? HistoryRewritten;
+
+    /// <summary>
+    /// 通知订阅方历史已被整份改写。只该由「确实绕过了当前界面去改历史」的那些路径调用
+    /// </summary>
+    public void NotifyHistoryRewritten() => HistoryRewritten?.Invoke();
 
     /// <summary>
     /// 记录本轮检索到的知识库片段：存进一次性凭据等落盘，同时通知界面即时显示
@@ -329,6 +381,9 @@ public class ChatSession
             UpdatedAt = UpdatedAt,
             MessageCount = History.Count,
             HasComposerDraft = !string.IsNullOrWhiteSpace(ComposerDraft),
+            ParentSessionId = ParentSessionId,
+            SubAgentType = SubAgentType,
+            SubAgentName = SubAgentName,
         };
     }
 
@@ -505,6 +560,7 @@ public class ChatSession
     public void SaveAppended(int fromIndex)
     {
         SessionManager.Instance.Append(this, fromIndex);
+        HistoryAppended?.Invoke(fromIndex);
     }
 
 
