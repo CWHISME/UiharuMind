@@ -102,10 +102,22 @@ public class ScreensService
     }
 
     /// <summary>
-    /// 获取当前鼠标所在的屏幕
+    /// 获取当前鼠标所在的屏幕。注意：钩子给的是物理像素，mac 的 Bounds 是 point，
+    /// Retina 下直接查会 miss，加一次半值重试；都 miss 才回退主屏。
+    /// 已知局限：混合缩放多屏下，像素坐标可能恰好落进另一块屏的 point 范围，
+    /// 此时仍会认错屏（抓屏链路有尺寸自校验兜底）。
     /// </summary>
     /// <returns></returns>
-    public Screen MouseScreen => _target.Screens.ScreenFromPoint(MousePosition) ?? App.DummyWindow.Screens.Primary ?? App.DummyWindow.Screens.All[0];
+    public Screen MouseScreen
+    {
+        get
+        {
+            var pos = MousePosition;
+            return _target.Screens.ScreenFromPoint(pos)
+                ?? _target.Screens.ScreenFromPoint(new PixelPoint(pos.X / 2, pos.Y / 2))
+                ?? App.DummyWindow.Screens.Primary ?? App.DummyWindow.Screens.All[0];
+        }
+    }
 
     /// <summary>
     /// 当前屏幕缩放比例

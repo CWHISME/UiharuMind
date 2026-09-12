@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
@@ -27,6 +28,7 @@ public static class ScreenFrameProvider
     public static async Task<IScreenFrame?> CaptureAsync(Screen screen, int screenIndex, Window? parentWindow)
     {
         if (UiharuCoreManager.Instance.IsLinux) return await CaptureLinuxAsync(screen, parentWindow);
+        if (UiharuCoreManager.Instance.IsMacOs) return await CaptureMacAsync(screen);
         return await CaptureWindowsAsync(screen, screenIndex);
     }
 
@@ -37,6 +39,77 @@ public static class ScreenFrameProvider
 
         Log.Warning("Failed to capture screen");
         return null;
+    }
+
+    /// <summary>
+    /// macOS 整屏抓帧：screencapture 按屏序号静默抓取（无系统 UI）。
+    /// -D 序号与 Screens.All 顺序不保证一致（3 屏以上尤其），所以按猜测顺序逐个抓、
+    /// 以 PNG 尺寸匹配目标屏（point 的整数倍）为准，第一个对上的就是要抓的那块屏。
+    /// 必须在遮罩窗显示之前调用，抓到的 PNG 里才没有遮罩自己。
+    /// </summary>
+    /// <param name="screen">目标屏幕</param>
+    /// <returns>整屏帧；非 macOS 或都对不上返回 null</returns>
+    public static async Task<IScreenFrame?> CaptureMacAsync(Screen screen)
+    {
+        if (!UiharuCoreManager.Instance.IsMacOs) return null;
+
+        var screens = App.DummyWindow.Screens.All;
+        int guessed = 0;
+        for (int i = 0; i < screens.Count; i++)
+        {
+            if (ReferenceEquals(screens[i], screen))
+            {
+                guessed = i + 1;
+                break;
+            }
+        }
+
+        if (guessed <= 0) guessed = screen.IsPrimary ? 1 : 2;
+
+        // 猜中的先试，其余按序号补试，PNG 尺寸对上才算抓到
+        var order = new List<int> { guessed };
+        for (int i = 1; i <= screens.Count; i++)
+        {
+            if (i != guessed) order.Add(i);
+        }
+
+        foreach (int index in order)
+        {
+            var frame = await TryCaptureMacDisplayAsync(index, screen);
+            if (frame != null)
+            {
+                if (index != guessed)
+                    Log.Debug($"mac 抓屏序号与屏幕顺序不一致：目标屏用 -D{index} 才对上。");
+                return frame;
+            }
+        }
+
+        Log.Warning("mac 整屏抓取失败：所有显示器序号都对不上目标屏。");
+        return null;
+    }
+
+    private static async Task<IScreenFrame?> TryCaptureMacDisplayAsync(int displayIndex, Screen screen)
+    {
+        string tmp = Path.Combine(Path.GetTempPath(), $"uiharu-cap-{Guid.NewGuid():N}.png");
+        try
+        {
+            if (!await ScreenCaptureMac.CaptureDisplayToFile(displayIndex, tmp)) return null;
+
+            // X11 教训：位图放 UI 线程构造，各后端统一；
+            // 尺寸对不上（抓错屏）TryCreate 内部会拦下返回 null
+            return await Dispatcher.UIThread.InvokeAsync(() => MacScreenFrame.TryCreate(tmp, screen.Bounds));
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tmp)) File.Delete(tmp);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"删除截图临时文件失败：{e.Message}");
+            }
+        }
     }
 
     /// <summary>

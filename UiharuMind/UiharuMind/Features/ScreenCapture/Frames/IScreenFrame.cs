@@ -8,7 +8,8 @@ namespace UiharuMind.Features.ScreenCapture.Frames;
 /// 一帧冻结的整屏画面，覆盖范围恰为某一块屏幕。
 ///
 /// 抽掉这层是因为各平台的整屏来源天差地别：Windows 走 DXGI 逐屏拿到 HPPH 像素数组，
-/// Linux 只能从 xdg-desktop-portal 拿一张覆盖整个桌面的 PNG 再裁到目标屏。
+/// Linux 只能从 xdg-desktop-portal 拿一张覆盖整个桌面的 PNG 再裁到目标屏，
+/// macOS 用 screencapture 按屏静默抓取（point 与像素差着 backing 倍率，帧内自行换算）。
 /// 而选区遮罩窗需要的只有两件事——一张铺满窗口的底图，以及按矩形裁剪的能力，
 /// 于是把差异全部关在这个接口后面。
 /// </summary>
@@ -29,7 +30,8 @@ public interface IScreenFrame : IDisposable
     /// <summary>
     /// 裁剪出一块新位图。<b>调用方接管返回的位图</b>
     /// </summary>
-    /// <param name="desktopRegion">裁剪区域，使用桌面绝对像素坐标（内部自行减去 Origin）</param>
+    /// <param name="desktopRegion">裁剪区域，使用屏幕坐标系（与 Screen.Bounds 同口径：
+    /// Windows 下像素，macOS 下 point），内部自行减去 Origin 并换算到像素</param>
     /// <returns>裁剪结果；区域非法或裁剪失败返回 null</returns>
     Bitmap? Crop(PixelRect desktopRegion);
 }

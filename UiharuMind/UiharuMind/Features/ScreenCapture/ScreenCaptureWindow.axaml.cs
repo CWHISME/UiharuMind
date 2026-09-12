@@ -17,16 +17,16 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using HPPH;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Features.ScreenCapture.Frames;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
-using UiharuMind.Core.Input;
-using UiharuMind.Core;
 
 namespace UiharuMind.Features.ScreenCapture;
 
@@ -53,6 +53,12 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     //预抓帧所属的屏幕。非空即表示本次截图走预抓路径，不再跟随鼠标切屏
     private Screen? _pendingScreen;
 
+    // 显示前只备帧不落几何，OnPostShow 再落位（见 UpdateCaptureScreen）
+    private bool _deferredGeometry;
+
+    // 窗口收不到的按下（菜单栏顶边等）由全局钩子补位，组合而非继承
+    private GlobalPointerDriver? _hookDriver;
+
     // private bool _error = false;
 
     public override bool IsCacheWindow => false;
@@ -62,6 +68,11 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     {
         InitializeComponent();
         InitializeWindow();
+        _hookDriver = new GlobalPointerDriver(this, () => _currentScreen);
+        _hookDriver.Pressed += OnHookPressed;
+        _hookDriver.Moved += OnHookMoved;
+        _hookDriver.Released += OnHookReleased;
+        _hookDriver.RightPressed += OnHookRightPressed;
 
         // SelectionRectangle.Fill =new SolidColorBrush(Color.FromArgb(200,200 ,200, 100));
         // InfoPanel.Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0));
@@ -114,12 +125,63 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     {
         CanResize = false;
         ShowInTaskbar = false;
+        // 先隐身示人：首帧布局与位图上传完成前，合成器看到全透明窗口就是一闪
+        Opacity = 0;
         this.SetSimpledecorationPureWindow(true);
     }
 
     protected override void OnPreShow()
     {
         UpdateCaptureScreen();
+    }
+
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        // 分步隔离：任何一步炸了都不能把窗晾在半初始化状态（隐形全屏窗会吃掉所有点击）
+        try
+        {
+            // Show 之后再抬层级：与 capcap 同方案，盖住菜单栏/Dock
+            OverlayWindowService.ApplyNativeFullscreenOverlayStyle(this);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"遮罩抬层级失败：{e.Message}");
+        }
+
+        try
+        {
+            // 收起本应用菜单：菜单标题会拦截点击，空菜单栏区域才能落到遮罩上
+            OverlayWindowService.SuppressAppMenuForCapture();
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"收起应用菜单失败：{e.Message}");
+        }
+
+        try
+        {
+            if (_deferredGeometry)
+            {
+                _deferredGeometry = false;
+                ApplyGeometryAndShow();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"遮罩落几何失败：{e.Message}");
+        }
+
+        // 最终兜底：上面无论哪步出岔子，1 秒后只要窗还在就强制显形，
+        // 绝不留一扇隐形全屏窗在顶层吃点击
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (IsVisible && Opacity < 1.0)
+            {
+                Log.Warning("截图遮罩显形兜底触发，可能有步骤失败，检查上方日志。");
+                Opacity = 1.0;
+            }
+        }, TimeSpan.FromMilliseconds(1000));
     }
 
     protected override void OnKeyUp(KeyEventArgs e)
@@ -134,23 +196,60 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnPreClose()
     {
         _currentScreen = null;
+        OverlayWindowService.RestoreAppMenuAfterCapture();
+        StopRevealTimer();
+        _hookDriver?.Dispose();
+        _hookDriver = null;
         ClearData();
+    }
+
+    // 钩子补位事件：窗口事件坐标精确，到了会覆盖这里的值（同一次物理事件，幂等）
+    private void OnHookPressed(Point windowDip, PixelPoint screenUnits)
+    {
+        if (!MainPanel.IsVisible) return;
+        _lastPointerPixel = screenUnits;
+        RevealTipsOnFirstPointer();
+        BeginSelection(windowDip);
+    }
+
+    private void OnHookMoved(Point windowDip, PixelPoint screenUnits)
+    {
+        if (!_isSelecting) return;
+        _lastPointerPixel = screenUnits;
+        UpdateSelectionRect(windowDip);
+    }
+
+    private void OnHookReleased(PixelPoint screenUnits)
+    {
+        if (!_isSelecting) return;
+        _releasedPointerPixel = screenUnits;
+        DoAreaCapture();
+    }
+
+    private void OnHookRightPressed()
+    {
+        SafeClose(0.15f);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         if (!MainPanel.IsVisible) return;
         TrackPointer(e);
+        RevealTipsOnFirstPointer();
         PointerUpdateKind pointerUpdateKind = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
-        if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed)
+        // 右键按下分两种：纯右键是取消；带 Alt（不带 Control/Command）的右键按框选处理。
+        // 理由有二：macOS 把 Control+左键报成右键；触发快捷键默认 Alt+Shift+Z，
+        // 手指没松开就拖时，这次点击带着 Alt 余键进来，或被触控板认成双指次级点按。
+        // 此时用户本意都是框选。真想取消的话，纯右键与 Esc 都还在
+        bool hasAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+        bool hasControl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        bool hasMeta = e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+        bool isControlLeft = pointerUpdateKind == PointerUpdateKind.RightButtonPressed && hasControl;
+        bool isAltRightAsLeft = pointerUpdateKind == PointerUpdateKind.RightButtonPressed &&
+                                hasAlt && !hasControl && !hasMeta;
+        if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed || isControlLeft || isAltRightAsLeft)
         {
-            _isSelecting = true;
-            _startPoint = e.GetPosition(ScreenshotCanvas);
-            SelectionRectangle.Width = 0;
-            SelectionRectangle.Height = 0;
-            // InfoPanel.IsVisible = true;
-            Canvas.SetLeft(SelectionRectangle, _startPoint.X);
-            Canvas.SetTop(SelectionRectangle, _startPoint.Y);
+            BeginSelection(e.GetPosition(ScreenshotCanvas));
         }
         else if (pointerUpdateKind == PointerUpdateKind.RightButtonPressed)
         {
@@ -158,10 +257,24 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         }
     }
 
+    // 以窗内 DIP 坐标开始一次框选。窗口事件与钩子事件都会调它：
+    // 窗口事件坐标精确，总是覆盖；钩子只补窗口收不到的那一下（菜单栏顶边）
+    private void BeginSelection(Point windowDip)
+    {
+        _isSelecting = true;
+        _startPoint = windowDip;
+        SelectionRectangle.Width = 0;
+        SelectionRectangle.Height = 0;
+        // InfoPanel.IsVisible = true;
+        Canvas.SetLeft(SelectionRectangle, windowDip.X);
+        Canvas.SetTop(SelectionRectangle, windowDip.Y);
+    }
+
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         if (!MainPanel.IsVisible) return;
         TrackPointer(e);
+        RevealTipsOnFirstPointer();
         if (!_isSelecting)
         {
             UpdateExtraInfo();
@@ -172,7 +285,12 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
         UpdateCaptureScreen();
 
-        var currentPosition = e.GetPosition(ScreenshotCanvas);
+        UpdateSelectionRect(e.GetPosition(ScreenshotCanvas));
+    }
+
+    // 按窗内 DIP 坐标刷新选区框。窗口移动与钩子移动都会调它，同一手势内坐标一致，幂等
+    private void UpdateSelectionRect(Point currentPosition)
+    {
         var width = Math.Ceiling(Math.Abs(currentPosition.X - _startPoint.X));
         var height = Math.Ceiling(Math.Abs(currentPosition.Y - _startPoint.Y));
         var left = Math.Ceiling(Math.Min(_startPoint.X, currentPosition.X));
@@ -198,8 +316,11 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     private void TrackPointer(PointerEventArgs e)
     {
         if (_currentScreen == null) return;
-        var local = PixelPoint.FromPoint(e.GetPosition(this), _currentScreen.Scaling);
-        _lastPointerPixel = _currentScreen.Bounds.Position + (PixelVector)local;
+        // 四舍五入而非截断：右下角最后一个像素中心 1919.5 应记为 1920，否则 tips 与选区永远少 1px
+        var local = e.GetPosition(this);
+        double scaling = _currentScreen.Scaling;
+        var offset = new PixelVector((int)Math.Round(local.X * scaling), (int)Math.Round(local.Y * scaling));
+        _lastPointerPixel = _currentScreen.Bounds.Position + offset;
     }
 
     private void UpdateExtraInfo()
@@ -216,21 +337,33 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             var position = UiUtils.EnsurePositionWithinScreen(_currentScreen, _lastPointerPixel,
                 InfoPanel.Bounds.Size, new Size(25, 25));
 
+            // 物理像素：换算收敛到 DisplayUnits（mac 的 Bounds/选区是 point，Windows 下本来就是像素）
+            double boundsToPixels = DisplayUnits.ScreenBoundsToPixels(_currentScreen.Scaling, RenderScaling);
+            double pixelsPerDip = DisplayUnits.PixelsPerDip(_currentScreen.Scaling, RenderScaling);
             if (correct)
             {
-                width = (int)Math.Ceiling(width * _currentScreen.Scaling);
-                height = (int)Math.Ceiling(height * _currentScreen.Scaling);
+                width = (int)Math.Ceiling(width * pixelsPerDip);
+                height = (int)Math.Ceiling(height * pixelsPerDip);
+            }
+            else
+            {
+                width = (int)Math.Ceiling(width * boundsToPixels);
+                height = (int)Math.Ceiling(height * boundsToPixels);
             }
 
             // PixelPoint pixelPoint = PixelPoint.FromPoint(point, _currentScreen.Scaling);
-            var mousePosition = _lastPointerPixel;
+            var mousePosition = new PixelPoint(
+                (int)Math.Round(_lastPointerPixel.X * boundsToPixels),
+                (int)Math.Round(_lastPointerPixel.Y * boundsToPixels));
             PositionText.Text =
-                $"{Lang.ScreenCapturePosition}:({Math.Clamp(mousePosition.X, 0, _currentScreen.Bounds.Width)},{Math.Clamp(mousePosition.Y, 0, _currentScreen.Bounds.Height)})";
+                $"{Lang.ScreenCapturePosition}:({Math.Clamp(mousePosition.X, 0, (int)(_currentScreen.Bounds.Width * boundsToPixels))},{Math.Clamp(mousePosition.Y, 0, (int)(_currentScreen.Bounds.Height * boundsToPixels))})";
             ResolutionText.Text = $"{Lang.ScreenCaptureResolution}:({width}x{height})";
             // TipsText.Text = $"{point.X} {point.Y}";
             Point point = position.ToPoint(_currentScreen.Scaling);
             // Log.Debug($"position:({position.X},{position.Y}) point:({point.X},{point.Y})");
-            InfoPanel.Margin = new Thickness(Math.Floor(point.X), Math.Floor(point.Y), 0, 0);
+            // Margin 是窗内相对坐标，屏幕坐标要先减掉窗口原点（主屏原点为 0 才一直没暴露）
+            Point origin = Position.ToPoint(_currentScreen.Scaling);
+            InfoPanel.Margin = new Thickness(Math.Floor(point.X - origin.X), Math.Floor(point.Y - origin.Y), 0, 0);
         }
         catch (Exception e)
         {
@@ -262,21 +395,105 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         if (currentScreen == _currentScreen || currentScreen == null) return;
         //清理当前数据
         // Log.Debug("清理当前数据");
+        // 预抓帧是外部交入的所有权，ClearData 会连它一起释放——先取出再交还，
+        // 让 CaptureScreen 按原逻辑消费
+        IScreenFrame? preCaptured = _pendingFrame;
+        _pendingFrame = null;
         ClearData();
+        if (preCaptured != null)
+        {
+            _pendingFrame = preCaptured;
+            _pendingScreen = currentScreen;
+        }
         // Log.Debug("更新截图");
         //截屏
         await CaptureScreen();
         // Log.Debug("截图完成");
         //更新截图数据
         _currentScreen = currentScreen;
+        if (!IsVisible)
+        {
+            // 显示前只备好帧：此时设尺寸会被 native 按 visibleFrame 裁掉，
+            // 遮罩一生下来就小于全屏。几何等 OnPostShow 一次落位
+            _deferredGeometry = true;
+            return;
+        }
+
+        ApplyGeometryAndShow();
+    }
+
+    // Show 之后落几何：native 不再裁剪，位置与尺寸经原子提交一次落盘
+    private void ApplyGeometryAndShow()
+    {
+        if (_currentScreen == null || _frame == null) return;
         var bounds = _currentScreen.Bounds;
-        Position = bounds.Position;
         var scaling = _currentScreen.Scaling;
-        Width = bounds.Width / scaling;
-        Height = bounds.Height / scaling;
-        // WindowState = WindowState.FullScreen;
+        var size = new Size(bounds.Width / scaling, bounds.Height / scaling);
+        var pos = bounds.Position;
+        if (this.TrySetWindowFrame(pos, size))
+        {
+            // 原子提交已落位，只同步托管尺寸供内容布局
+            Width = size.Width;
+            Height = size.Height;
+        }
+        else
+        {
+            Position = pos;
+            Width = size.Width;
+            Height = size.Height;
+        }
+
         //展示截图
         DisplayCapture();
+
+        // 首秀才需要等几何落位：跨屏重抓时窗口本来就是可见的，不能再藏
+        if (Opacity < 1.0)
+            ScheduleReveal(size);
+    }
+
+    private DispatcherTimer? _revealTimer;
+    private int _revealSteadyFrames;
+    private int _revealTicks;
+
+    // 轮询等原生 frame 真正长到目标尺寸：布局→ClientSize→setContentSize 是异步链，
+    // 定时猜（比如 50ms）极易在半路提前打开，看到的就是从小撑大加横向撕裂。
+    // ClientSize到位即布局已出，原生调用是同步跟下来的，再稳两帧给合成器呈现，必不闪；
+    // 30 拍（约半秒）还没好就直接放行，不能一直藏着
+    private void ScheduleReveal(Size target)
+    {
+        StopRevealTimer();
+        _revealSteadyFrames = 0;
+        _revealTicks = 0;
+        _revealTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _revealTimer.Tick += (_, _) =>
+        {
+            _revealTicks++;
+            if (_frame == null || _currentScreen == null)
+            {
+                StopRevealTimer();
+                return;
+            }
+
+            if (Math.Abs(ClientSize.Width - target.Width) < 1.0 &&
+                Math.Abs(ClientSize.Height - target.Height) < 1.0)
+                _revealSteadyFrames++;
+            else
+                _revealSteadyFrames = 0;
+
+            if (_revealSteadyFrames >= 2 || _revealTicks >= 30)
+            {
+                Opacity = 1.0;
+                StopRevealTimer();
+            }
+        };
+        _revealTimer.Start();
+    }
+
+    private void StopRevealTimer()
+    {
+        if (_revealTimer == null) return;
+        _revealTimer.Stop();
+        _revealTimer = null;
     }
 
     private void ClearData()
@@ -318,8 +535,15 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     private void DisplayCapture()
     {
         MainPanel.IsVisible = true;
-        InfoPanel.IsVisible = true;
+        // InfoPanel 等第一次拿到鼠标位置再显示：刚打开时 _lastPointerPixel 还是 (0,0)，
+        // 直接显示会在左上角闪一下。见 OnPointerMoved/OnPointerPressed。
         UpdateExtraInfo();
+    }
+
+    // 第一次拿到可信鼠标位置时再把 tips 显示出来
+    private void RevealTipsOnFirstPointer()
+    {
+        if (!InfoPanel.IsVisible) InfoPanel.IsVisible = true;
     }
 
     /// <summary>

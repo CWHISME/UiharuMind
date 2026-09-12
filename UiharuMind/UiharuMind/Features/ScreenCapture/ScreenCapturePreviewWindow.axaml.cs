@@ -23,6 +23,7 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Input;
@@ -100,7 +101,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     {
         // Content = new Image { Source = image };
         var scaling = App.ScreensService.Scaling;
-        _originSize = size ?? image.PixelSize.ToSize(scaling);
+        _originSize = size ?? DefaultDisplaySize(image, scaling);
         // _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
         // 计算原始尺寸的比例
         _aspectRatio = _originSize.Width / _originSize.Height;
@@ -131,6 +132,15 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         this.Width = newSize.Width;
         this.Height = newSize.Height;
         // ClientSize = newSize;
+    }
+
+    // 自带 DPI 的位图（如 mac 2x 抓屏，Dpi=192）按 Size（point）显示；
+    // 无 DPI 信息的一律 96，走像素除缩放的老逻辑
+    private static Size DefaultDisplaySize(Bitmap image, double scaling)
+    {
+        var dpi = image.Dpi;
+        if (Math.Abs(dpi.X - 96) > 0.01 || Math.Abs(dpi.Y - 96) > 0.01) return image.Size;
+        return image.PixelSize.ToSize(scaling);
     }
 
     private void SafeSetImage(Bitmap? image)
@@ -189,8 +199,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             if (newSize.Width <= 0 || newSize.Height <= 0) return;
 
             // 光标锚定： trunc 改 Round，收敛只做一次；
-            // Windows 的 Position 是物理像素，需乘 scaling，macOS 与 GetPosition 同单位不用乘
-            double positionUnitsPerDip = OperatingSystem.IsWindows() ? App.ScreensService.Scaling : 1.0;
+            // Position 与窗内偏移的单位换算收敛到 DisplayUnits（mac 全是 point，Windows 差一个屏缩放）
+            double positionUnitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
             double zoomX = newSize.Width / _currentSize.Width;
             double zoomY = newSize.Height / _currentSize.Height;
 
