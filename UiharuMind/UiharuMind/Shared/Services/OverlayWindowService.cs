@@ -101,6 +101,20 @@ public static class OverlayWindowService
             NsWindowCollectionBehaviorCanJoinAllSpaces | NsWindowCollectionBehaviorFullScreenAuxiliary);
     }
 
+    /// <summary>
+    /// 钉图窗：只把层级抬到菜单栏之上（与遮罩同值），不碰 Space 归属。
+    /// 普通窗口层级在菜单栏之下，只能滑到它底下；抬层级后才能拖上去盖住它。
+    /// 在窗口 Show 之后调用。
+    /// </summary>
+    /// <param name="window">钉图窗口</param>
+    public static void ApplyNativePinAboveMenuBarStyle(Window window)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var handle = window.TryGetPlatformHandle();
+        if (handle == null || handle.Handle == IntPtr.Zero) return;
+        ObjcMsgSendLong(handle.Handle, SelRegisterName("setLevel:"), NsScreenSaverWindowLevel);
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct CocoaRect
     {

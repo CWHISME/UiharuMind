@@ -60,7 +60,9 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         //SizeToContent = SizeToContent.WidthAndHeight;
 
-        this.SetSimpledecorationWindow();
+        // 必须 borderless：带 titled mask 的窗口会被 AppKit 框在标题栏可够到的范围，
+        // setFrameTopLeftPoint 直接顶到 y=30 就不动了，永远盖不上菜单栏（遮罩是 None，不受影响）
+        this.SetSimpledecorationPureWindow();
         ShowActivated = false;
         ShowInTaskbar = false;
 
@@ -124,6 +126,13 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     protected override void OnInitWindowPosition()
     {
         // base.OnInitWindowPosition();
+    }
+
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        // 钉图也要能拖到菜单栏上面去：只抬层级，不换 Space 归属
+        OverlayWindowService.ApplyNativePinAboveMenuBarStyle(this);
     }
 
     private void SetImageSize(Size newSize)
@@ -264,6 +273,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         {
             _dragStartPoint = e.GetPosition(this);
             _isDragging = true;
+            // 抓住指针：拖进菜单栏后移动事件不再按命中路由，没有捕获窗会冻在菜单栏边缘
+            e.Pointer.Capture(this);
         }
     }
 
@@ -274,10 +285,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             var position = e.GetPosition(this);
             var diff = position - _dragStartPoint;
 
+            // 窗口位移是 Position 口径（mac point，Windows 像素），DIP 差值要换算
+            double unitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
             var windowPosition = this.Position;
             windowPosition = new PixelPoint(
-                (int)Math.Round(windowPosition.X + diff.X),
-                (int)Math.Round(windowPosition.Y + diff.Y)
+                (int)Math.Round(windowPosition.X + diff.X * unitsPerDip),
+                (int)Math.Round(windowPosition.Y + diff.Y * unitsPerDip)
             );
             // Log.Debug($"windowPosition: {windowPosition}");
             this.Position = windowPosition;
@@ -287,6 +300,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _isDragging = false;
+        e.Pointer.Capture(null);
     }
 
     protected override void OnClosed(EventArgs e)
