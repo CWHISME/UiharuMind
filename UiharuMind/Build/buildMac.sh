@@ -1,53 +1,33 @@
 #!/bin/bash
+set -euo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd $SCRIPT_DIR
+cd "$SCRIPT_DIR"
+source common.sh
 
 TARGET_RUNTIME="osx-arm64"
 PUBLISH_OUTPUT_DIRECTORY="Tmp/Mac"
-
-dotnet publish ../UiharuMind.Desktop --output "$PUBLISH_OUTPUT_DIRECTORY" -r "$TARGET_RUNTIME" --configuration Release -p:UseAppHost=true --self-contained
-
-if [ -d "$PUBLISH_OUTPUT_DIRECTORY/runtimes" ]; then
-    find "$PUBLISH_OUTPUT_DIRECTORY/runtimes" -mindepth 1 -maxdepth 1 -type d ! -name "$TARGET_RUNTIME" -exec rm -rf {} +
-fi
-
-mkdir -p Output
-
 APP_NAME="Output/UiharuMind.app"
-# PUBLISH_OUTPUT_DIRECTORY should point to the output directory of your dotnet publish command.
-# One example is /path/to/your/csproj/bin/Release/netcoreapp3.1/osx-x64/publish/.
-# If you want to change output directories, add `--output /my/directory/path` to your `dotnet publish` command.
 INFO_PLIST="Info.plist"
 ICON_FILE="../UiharuMind/Assets/Icon.png"
-EXEC="Exec"
 
-# 版本号取自 Directory.Build.props 的 <Version>（唯一来源，与 AppInfo.Version 同源）
-APP_VERSION=$(dotnet msbuild ../UiharuMind.Desktop/UiharuMind.Desktop.csproj -getProperty:Version -nologo)
-if [ -z "$APP_VERSION" ]; then
-    echo "取不到 <Version>，中止" >&2
-    exit 1
-fi
-APP_SHORT_VERSION=$APP_VERSION
+APP_VERSION=$(resolve_version)
+publish_for "$TARGET_RUNTIME" "$PUBLISH_OUTPUT_DIRECTORY"
 
-if [ -d "$APP_NAME" ]
-then
-    rm -rf "$APP_NAME"
-fi
+# 组 .app bundle
+rm -rf "$APP_NAME"
+mkdir -p "$APP_NAME/Contents/MacOS" "$APP_NAME/Contents/Resources"
 
-mkdir "$APP_NAME"
-
-mkdir "$APP_NAME/Contents"
-mkdir "$APP_NAME/Contents/MacOS"
-mkdir "$APP_NAME/Contents/Resources"
-
-# 用真实版本号填 Info.plist
 TEMP_INFO_PLIST=$(mktemp)
 cp "$INFO_PLIST" "$TEMP_INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set CFBundleVersion $APP_VERSION" "$TEMP_INFO_PLIST"
-/usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $APP_SHORT_VERSION" "$TEMP_INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $APP_VERSION" "$TEMP_INFO_PLIST"
 cp "$TEMP_INFO_PLIST" "$APP_NAME/Contents/Info.plist"
 rm "$TEMP_INFO_PLIST"
-cp "$EXEC" "$APP_NAME/Contents/MacOS/$EXEC"
+
 cp "$ICON_FILE" "$APP_NAME/Contents/Resources/Icon.png"
 cp -a "$PUBLISH_OUTPUT_DIRECTORY/." "$APP_NAME/Contents/MacOS"
+
+# 签名必须是最后一步：签完再往 bundle 里拷任何东西都会让密封失效。
+# buildMacFull.sh 在它之后还要拷模型，所以那边会重新调一次 sign_bundle
+sign_bundle "$APP_NAME"
