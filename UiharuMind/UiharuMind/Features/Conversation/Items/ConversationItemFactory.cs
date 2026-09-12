@@ -131,11 +131,15 @@ public static class ConversationItemFactory
     /// 识别非真实用户输入的 user 角色消息:框架上下文提供器注入的消息
     /// (todo 快照、模式切换通知等)带 _attribution 溯源标记;审批回应为控制消息。
     /// 它们是模型上下文的一部分(持久化属正常),但不应渲染为用户气泡。
+    /// 点名调用(/技能名)是例外:它明确定义为要落盘 + 渲染成折叠气泡,即便历史副本
+    /// 被框架回灌时盖上了 _attribution,也不该被当成框架注入滤掉。
     /// </summary>
     /// <param name="message">消息</param>
     /// <returns>是否为框架注入</returns>
     public static bool IsFrameworkInjected(ChatMessage message)
     {
+        // 点名调用是用 _namedSkill 兜底的(见 NamedSkillAnnotations.Mark),不受 _attribution 屏蔽
+        if (NamedSkillAnnotations.InputOf(message) != null) return false;
         if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true) return true;
         return message.Contents.Any(x => x is ToolApprovalResponseContent);
     }
