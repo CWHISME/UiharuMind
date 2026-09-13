@@ -107,6 +107,21 @@ public static class ChatMessageAnnotations
     public const string ThinkingChars = "_thinkingChars";
 
     /// <summary>
+    /// 摘掉框架盖上的 <see cref="Attribution"/> 溯源标记。
+    ///
+    /// 框架把供给出去的历史消息<b>就地</b>盖章（我们交出去的是同一批实例），
+    /// 于是一条货真价实的用户输入在跑过一轮之后就带上了「不属于我们的历史」这个标记。
+    /// 它<b>再次被当作本轮输入</b>（重新生成走的正是这条路：把原消息从历史里摘出来重跑）时，
+    /// 持久化那一关会按标记把它滤掉——消息再也回不到历史，界面上还在，重开会话就没了。
+    /// 因此凡是我们自己发起的一轮，输入消息一律先摘章：它按定义就是我们的。
+    /// </summary>
+    /// <param name="message">消息</param>
+    public static void ClearAttribution(ChatMessage message)
+    {
+        message.AdditionalProperties?.Remove(Attribution);
+    }
+
+    /// <summary>
     /// 判断是否为旁白消息（开场白）
     /// </summary>
     /// <param name="message">消息</param>

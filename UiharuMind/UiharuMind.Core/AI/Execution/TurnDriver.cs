@@ -112,6 +112,10 @@ public sealed class TurnDriver : IDisposable
     public async Task RunAsync(ChatSession session, ICharacterRunner runner, ChatMessage userMessage,
         ApprovalResolver? resolver = null, CancellationToken externalCancellation = default)
     {
+        // 输入消息按定义就是我们的:重新生成会把跑过一轮的原消息重新当输入送进来,
+        // 而它此刻带着框架就地盖的 _attribution,不摘掉的话持久化会把它当注入消息滤掉
+        ChatMessageAnnotations.ClearAttribution(userMessage);
+
         IsRunning = true;
         _activeSession = session;
         _usage.BeginTurn();

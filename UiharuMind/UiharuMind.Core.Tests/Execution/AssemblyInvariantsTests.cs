@@ -116,6 +116,32 @@ public class HistoryAttributionTests
     }
 
     /// <summary>
+    /// 重新生成把跑过一轮的原消息重新当输入送进来，而框架此刻已在它身上就地盖了 _attribution。
+    /// 摘章是 <c>TurnDriver.RunAsync</c> 的开场动作——漏了就是「气泡还在、重开会话没了」，
+    /// 见 bug 记录（首条点名调用重新生成之后从历史里消失）。
+    /// </summary>
+    [Fact]
+    public void RerunInput_AfterAttributionStamp_IsOwnedAgain()
+    {
+        ChatMessage input = new(ChatRole.User, "# Skill: wayfinder\n...")
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                [ChatMessageAnnotations.NamedSkill] = "wayfinder",
+                [ChatMessageAnnotations.Attribution] = "ChatHistory",
+            },
+        };
+
+        Assert.False(SessionChatHistoryProvider.IsOwnedByUs(input));
+
+        ChatMessageAnnotations.ClearAttribution(input);
+
+        Assert.True(SessionChatHistoryProvider.IsOwnedByUs(input));
+        //摘的只是溯源章,呈现轴上的标记不能跟着丢——气泡要靠它折叠成用户敲的那一行
+        Assert.True(input.AdditionalProperties!.ContainsKey(ChatMessageAnnotations.NamedSkill));
+    }
+
+    /// <summary>
     /// 知识库检索片段是「存而不供」：由 <c>StoreChatHistoryAsync</c> 直接写进历史，
     /// 供给时被滤掉，因此不该再从 RequestMessages 那条路进来一次。
     /// 漏了这道就是逐轮翻倍——与交接文档同一类隐患。
