@@ -26,6 +26,8 @@ using Avalonia.Threading;
 using Clowd.Clipboard;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core;
+using UiharuMind.Core.Configs;
+using UiharuMind.Core.Core.Clipboard;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Features.Clipboard;
@@ -40,9 +42,9 @@ public class ClipboardService : IDisposable
     private readonly IClipboardMonitor? _clipboardMonitor;
 
     /// <summary>
-    /// 历史记录
+    /// 历史记录。每次变更立即落盘，本类只负责调它，不再持有任何历史内容
     /// </summary>
-    public ObservableCollection<ClipboardItem> ClipboardHistoryItems { get; }
+    public ClipboardHistoryStore History { get; }
 
     public event Action<string>? OnClipboardStringChanged;
 
@@ -60,10 +62,8 @@ public class ClipboardService : IDisposable
 
     // public string ImageType => PlatformUtils.IsWindows ? ImageTypePngWin : ImageTypePngMac;
 
-    private Timer _timer;
-
-    private bool _isHistoryDirty;
     private bool _isSelfCopying;
+    private string? _lastRecordedText; //上一条记进历史的文本,只用于去重
 
     public bool IsSelfCopying
     {
@@ -79,11 +79,11 @@ public class ClipboardService : IDisposable
         _clipboardMonitor = CreateClipboardMonitor();
         if (_clipboardMonitor != null) _clipboardMonitor.OnClipboardChanged += OnSystemClipboardChanged;
 
-        ClipboardHistoryItems = SaveUtility.Load<ObservableCollection<ClipboardItem>>(AppPaths.Data.ClipboardHistory) ??
-                                new ObservableCollection<ClipboardItem>();
+        History = new ClipboardHistoryStore(AppPaths.Data.ClipboardHistory);
 
-        //初始化定时器，每隔指定时间检测保存一次历史记录
-        _timer = new Timer(OnTimerElapsed, null, TimeSpan.Zero, TimeSpan.FromHours(1));
+        //按用户设置清理过期记录(默认关闭)。收藏项由存储层豁免
+        int retentionDays = ConfigManager.Instance.Setting.ClipboardRetentionDays;
+        if (retentionDays > 0) DeleteClipboardHistoryOlderThan(retentionDays);
 
         //检查图片目录是否存在图片，但是历史记录又没有添加的
         Task.Run(CheckAndRecordImagesInClipboardHistory);
@@ -190,51 +190,55 @@ public class ClipboardService : IDisposable
     /// </summary>
     public void ClearClipboardHistory()
     {
-        ClipboardHistoryItems.Clear();
-        _isHistoryDirty = true;
-        OnTimerElapsed(null);
-        Directory.Delete(AppPaths.Data.ClipboardImages, true);
+        DeleteImageFiles(History.Clear());
         OnClipboardChanged?.Invoke();
     }
 
     /// <summary>
-    /// 将指定记录移动至第一个
+    /// 将指定记录移动至第一个。只改排序键，不动它的时间
     /// </summary>
-    /// <param name="item"></param>
-    public void MoveClipboardHistoryItemFirst(ClipboardItem item)
+    /// <param name="id">记录主键</param>
+    public void MoveClipboardHistoryItemFirst(long id)
     {
-        var index = ClipboardHistoryItems.IndexOf(item);
-        if (index <= 0) return;
-        ClipboardHistoryItems.Move(index, 0);
-        _isHistoryDirty = true;
+        History.MoveToFront(id);
         OnClipboardChanged?.Invoke();
     }
 
     /// <summary>
     /// 删除指定记录
     /// </summary>
-    /// <param name="item"></param>
-    public void DeleteClipboardHistoryItem(ClipboardItem item)
+    /// <param name="ids">记录主键</param>
+    public void DeleteClipboardHistoryItems(IReadOnlyCollection<long> ids)
     {
-        ClipboardHistoryItems.Remove(item);
-        if (item.IsImage) File.Delete(item.ImageSource);
-        _isHistoryDirty = true;
+        DeleteImageFiles(History.Delete(ids));
         OnClipboardChanged?.Invoke();
     }
 
     /// <summary>
-    /// 删除指定记录
+    /// 清理指定天数之前的非收藏记录
     /// </summary>
-    public void DeleteClipboardHistoryItem(IList<ClipboardItem> list)
+    /// <param name="days">保留天数</param>
+    public void DeleteClipboardHistoryOlderThan(int days)
     {
-        foreach (var item in list)
+        DeleteImageFiles(History.DeleteOlderThan(DateTime.Now.AddDays(-days)));
+        OnClipboardChanged?.Invoke();
+    }
+
+    // 图片文件必须在记录落盘之后才删。反过来一旦崩在中间,
+    // 历史里就留下一条指向不存在文件的记录,而那个反过来没人能修
+    private static void DeleteImageFiles(IEnumerable<string> paths)
+    {
+        foreach (string path in paths)
         {
-            ClipboardHistoryItems.Remove(item);
-            if (item.IsImage) File.Delete(item.ImageSource);
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"Delete clipboard image failed: {e.Message}");
+            }
         }
-
-        _isHistoryDirty = true;
-        OnClipboardChanged?.Invoke();
     }
 
     /// <summary>
@@ -245,14 +249,13 @@ public class ClipboardService : IDisposable
     public void RecordImageToHistory(Bitmap? bitmap, string? fileName = null)
     {
         if (bitmap == null) return;
-        string date = DateTime.Now.ToString("(yyyy-MM-dd HH:mm:ss)");
         string fullPath = Path.Combine(AppPaths.Data.ClipboardImages,
             fileName ?? $"Uiharu_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         string? dir = Path.GetDirectoryName(fullPath);
         if (dir == null) return;
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
         if (!File.Exists(fullPath)) bitmap.Save(fullPath);
-        ClipboardHistoryItems.Insert(0, new ClipboardItem(date, "", fullPath));
+        History.AddImage(fullPath);
         Dispatcher.UIThread.Post(() =>
         {
             // OnClipboardImageChanged?.Invoke(bitmap);
@@ -267,16 +270,15 @@ public class ClipboardService : IDisposable
     {
         if(!Directory.Exists(AppPaths.Data.ClipboardImages)) return;
         var files = Directory.GetFiles(AppPaths.Data.ClipboardImages, "*.png");
+        bool recorded = false;
         foreach (var file in files)
         {
-            var item = ClipboardHistoryItems.FirstOrDefault(x => x.IsImage && x.ImageSource.Equals(file, StringComparison.OrdinalIgnoreCase));
-            if (item == null)
-            {
-                using var bitmap = new Bitmap(file);
-                RecordImageToHistory(bitmap, Path.GetFileName(file));
-                _isHistoryDirty = true;
-            }
+            // 补记只写一条记录,不再把 PNG 解码成 Bitmap 再原样存回去——
+            // 那一趟解码+编码纯属白做,启动时有几十张图就卡几十次
+            if (History.AddImageIfMissing(file) != null) recorded = true;
         }
+
+        if (recorded) Dispatcher.UIThread.Post(() => OnClipboardChanged?.Invoke());
     }
 
     private void OnSystemClipboardChanged()
@@ -301,11 +303,11 @@ public class ClipboardService : IDisposable
                     return;
                 }
 
-                //排除一下相同项
-                if (ClipboardHistoryItems.Count > 0 &&
-                    clipboardContent.Length == ClipboardHistoryItems[0].Text.Length &&
-                    ClipboardHistoryItems[0].Text.Equals(clipboardContent, StringComparison.Ordinal)) return;
-                ClipboardHistoryItems.Insert(0, new ClipboardItem(clipboardContent));
+                //排除一下相同项。比的是内存里记着的上一条,不回查数据库:
+                //系统剪贴板每变一次就查一次全文,纯属浪费
+                if (string.Equals(_lastRecordedText, clipboardContent, StringComparison.Ordinal)) return;
+                _lastRecordedText = clipboardContent;
+                History.AddText(clipboardContent);
                 OnClipboardStringChanged?.Invoke(clipboardContent);
                 OnClipboardChanged?.Invoke();
             }
@@ -313,26 +315,15 @@ public class ClipboardService : IDisposable
             {
                 Log.Warning(e.Message);
             }
-            finally
-            {
-                _isHistoryDirty = true;
-            }
         });
-    }
-
-    private void OnTimerElapsed(object? state)
-    {
-        if (!_isHistoryDirty) return;
-        SaveUtility.Save(AppPaths.Data.ClipboardHistory, ClipboardHistoryItems);
-        _isHistoryDirty = false;
     }
 
     public void Dispose()
     {
-        if (_isHistoryDirty) SaveUtility.Save(AppPaths.Data.ClipboardHistory, ClipboardHistoryItems);
-        _isHistoryDirty = false;
+        // 没有「退出时保存」这一步了:每次变更当场就已落盘,
+        // 调试模式直接终止进程也不会丢——那正是旧实现丢一大截的原因
         _clipboardMonitor?.Dispose();
-        _timer.Dispose();
+        History.Dispose();
     }
 
 

@@ -37,9 +37,24 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
     [ObservableProperty] private LanguageOption? _selectedLanguage;
     [ObservableProperty] private ThemeOption? _selectedTheme;
-    [ObservableProperty] private string[] _logLevelList;
-    [ObservableProperty] private int _logSelectedTypeIndex;
     [ObservableProperty] private bool _enableFullscreenGameInputSupport;
+
+    /// <summary>
+    /// 剪贴板历史自动清理的保留天数，0 = 不清理（默认）。收藏项永远豁免。
+    /// <b>改完在下次启动时生效</b>——刻意没有「立即清理」按钮：为省一次重启而配一套
+    /// 确认弹窗与结果提示，不划算。
+    /// 直接读写配置而不进 <c>_writeBack</c>：那道闸是给 DebugSetting 那几项用的
+    /// </summary>
+    public decimal ClipboardRetentionDays
+    {
+        get => ConfigManager.Instance.Setting.ClipboardRetentionDays;
+        set
+        {
+            ConfigManager.Instance.Setting.ClipboardRetentionDays = (int)value;
+            OnPropertyChanged();
+        }
+    }
+
     [ObservableProperty] private bool _isCheckingForAppUpdate;
     [ObservableProperty] private bool _hasAppUpdate;
     [ObservableProperty] private bool _hasAppUpdateError;
@@ -53,7 +68,6 @@ public partial class GeneralSettingViewModel : ViewModelBase
     public DownloadListViewData ApplicationUpdateDownloadListViewModel { get; }
 
     public string VersionText => $"UiharuMind {App.Version}";
-    public string SaveDirectoryPath => AppPaths.Root;
     public bool IsWindows => PlatformUtils.IsWindows;
 
     public GeneralSettingViewModel() : this(
@@ -79,18 +93,10 @@ public partial class GeneralSettingViewModel : ViewModelBase
             LanguageOptions.Add(new LanguageOption(cultureInfo));
         }
 
-        var max = (int)ELogType.Error + 1;
-        LogLevelList = new string[max];
-        for (var i = 0; i < max; i++)
-        {
-            LogLevelList[i] = ((ELogType)i).ToString();
-        }
-
         //从配置回填界面:此前这里一进设置页就把 DebugSetting 原样重写一遍落盘,
         //全屏输入那一项还得靠自带的 _isInitialized 挡住回填触发的重启确认弹窗
         using (_writeBack.BeginLoad())
         {
-            LogSelectedTypeIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
             EnableFullscreenGameInputSupport = ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport;
             RefreshThemeOptions();
             RefreshSelectedLanguage();
@@ -114,12 +120,6 @@ public partial class GeneralSettingViewModel : ViewModelBase
         ApplicationThemeManager.ApplyTheme(value.ThemeMode, true);
     }
 
-    partial void OnLogSelectedTypeIndexChanged(int value)
-    {
-        ConfigManager.Instance.DebugSetting.LogTypeInfo = (ELogType)value;
-        _writeBack.Save();
-    }
-
     async partial void OnEnableFullscreenGameInputSupportChanged(bool value)
     {
         if (_writeBack.IsLoading) return;
@@ -129,12 +129,6 @@ public partial class GeneralSettingViewModel : ViewModelBase
         {
             ApplicationRestartService.Restart();
         }
-    }
-
-    [RelayCommand]
-    private void OpenSaveFolder()
-    {
-        App.FilesService.OpenFolder(AppPaths.Root);
     }
 
     [RelayCommand]

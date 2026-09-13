@@ -5,33 +5,45 @@
  *
  * https://wangjiaying.top
  * https://github.com/CWHISME/UiharuMind
- *
- * Latest Update: 2024.10.07
  ****************************************************************************/
 
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Shell;
-using Ursa.Controls;
-using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Features.Clipboard;
+using UiharuMind.Core.Core.Clipboard;
 
 namespace UiharuMind.Features.Clipboard;
 
+/// <summary>
+/// 剪贴板历史列表。<b>分页</b>加载，筛选与搜索都下沉到 SQL——
+/// 因此搜的是全部历史，而不是「已经加载进列表的那一页」。
+///
+/// <para>
+/// 防抖与「取消上一次在途查询」两条是从 <c>SearchViewModel</c> 搬过来的：
+/// 不取消的话，慢查询的结果会晚到并覆盖掉新查询的结果，表现为列表跳回上一个词。
+/// </para>
+/// </summary>
 public partial class ClipboardHistoryViewModel : ViewModelBase
 {
-    // public ObservableCollection<ClipboardItem> ClipboardHistoryItems => App.Clipboard.ClipboardHistoryItems;
+    private const int PageSize = 200;
+    private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>当前已加载的条目。翻页只往尾部 <c>Add</c>，不重建</summary>
+    public ObservableCollection<ClipboardItem> Items { get; } = new();
 
     [ObservableProperty] private string _title = "";
-    [ObservableProperty] private ObservableCollection<ClipboardItem> _filteredClipboardHistoryItems;
 
-    // private List<ClipboardItem> _allItems;
+    private long? _cursor; //下一页的游标,取上一页最后一条的排序键
+    private bool _hasMore = true;
+    private bool _isLoading;
+    private int _generation; //每次重来都 +1,用来丢弃晚到的旧结果
+    private DispatcherTimer? _debounceTimer;
 
     private bool _isSearchActive;
 
@@ -46,7 +58,8 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
                 IsImageFilterActive = false;
                 IsFavoriteFilterActive = false;
             }
-            else PerformSearch(false);
+
+            Reload();
         }
     }
 
@@ -63,7 +76,8 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
                 IsSearchActive = false;
                 IsFavoriteFilterActive = false;
             }
-            else PerformSearch(false);
+
+            Reload();
         }
     }
 
@@ -80,12 +94,12 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
                 IsSearchActive = false;
                 IsImageFilterActive = false;
             }
-            else PerformSearch(false);
+
+            Reload();
         }
     }
 
     private string _searchText = string.Empty;
-    private Timer? _debounceTimer; // 防抖定时器
 
     public string SearchText
     {
@@ -94,23 +108,18 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         {
             _searchText = value;
             OnPropertyChanged();
-            PerformSearch();
+            ReloadDebounced();
         }
     }
 
     public ClipboardHistoryViewModel()
     {
-        // _allItems = new List<ClipboardItem>(App.Clipboard.ClipboardHistoryItems);
-        FilteredClipboardHistoryItems = new ObservableCollection<ClipboardItem>(App.Clipboard.ClipboardHistoryItems);
-
-        RefreshTitle();
-        // App.Clipboard.OnClipboardStringChanged += OnClipboardStringChanged;
+        App.Clipboard.OnClipboardChanged += OnClipboardChanged;
+        Reload();
     }
 
-    public void SyncData()
-    {
-        PerformSearch(false);
-    }
+    /// <summary>窗口再次打开时重新拉取</summary>
+    public void SyncData() => Reload();
 
     public void Copy(ClipboardItem item)
     {
@@ -120,126 +129,112 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
 
     public void Delete(ClipboardItem item)
     {
-        App.Clipboard.DeleteClipboardHistoryItem(item);
+        App.Clipboard.DeleteClipboardHistoryItems([item.Id]);
+        Items.Remove(item); //只摘掉这一条,不整页重建
+        RefreshTitle();
     }
 
     public void ToggleFavorite(ClipboardItem item)
     {
         item.IsFavorite = !item.IsFavorite;
-        PerformSearch(false);
+        App.Clipboard.History.SetFavorite(item.Id, item.IsFavorite);
+        if (IsFavoriteFilterActive && !item.IsFavorite) Items.Remove(item);
+        RefreshTitle();
     }
 
     public void DeleteAll()
     {
-        //如果处于搜索中，仅删除所有搜索结果
+        //如果处于筛选中，仅删除当前筛选出的结果
         if (IsSearchActive || IsImageFilterActive || IsFavoriteFilterActive)
         {
-            App.Clipboard.DeleteClipboardHistoryItem(FilteredClipboardHistoryItems);
+            List<long> ids = [];
+            foreach (ClipboardItem item in Items) ids.Add(item.Id);
+            App.Clipboard.DeleteClipboardHistoryItems(ids);
         }
         else App.Clipboard.ClearClipboardHistory();
+
+        Reload();
     }
 
-    // private void OnClipboardStringChanged(string obj)
-    // {
-    //     // 更新所有项目缓存
-    //     // _allItems = new List<ClipboardItem>(App.Clipboard.ClipboardHistoryItems);
-    //
-    //     PerformSearch(_searchText);
-    //     // OnPropertyChanged(nameof(ClipboardHistoryItems));
-    // }
-
-    private void PerformSearch(bool delay = true)
+    /// <summary>
+    /// 续取下一页。列表滚到接近底部时调用，重复调用是安全的
+    /// </summary>
+    public void LoadNextPage()
     {
-        // 使用防抖机制，减少频繁搜索
-        _debounceTimer?.Dispose();
-        if (delay) _debounceTimer = new Timer(_ => { Dispatcher.UIThread.Invoke(() => PerformSearch(SearchText)); }, null, TimeSpan.FromMilliseconds(300), Timeout.InfiniteTimeSpan);
-        else Dispatcher.UIThread.Invoke(() => PerformSearch(SearchText));
+        if (_isLoading || !_hasMore) return;
+        _ = LoadPageAsync(_generation);
     }
 
-    private void PerformSearch(string value)
+    /// <summary>重新从第一页开始加载</summary>
+    public void Reload()
     {
-        var sourceItems = App.Clipboard.ClipboardHistoryItems;
+        _generation++;
+        _cursor = null;
+        _hasMore = true;
+        _isLoading = false;
+        Items.Clear();
+        _ = LoadPageAsync(_generation);
+    }
 
-        // 如果没有激活任何过滤条件，显示所有项目
-        if (!IsSearchActive && !IsImageFilterActive && !IsFavoriteFilterActive)
+    private void ReloadDebounced()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer = new DispatcherTimer { Interval = SearchDebounce };
+        _debounceTimer.Tick += (_, _) =>
         {
-            if (IsCollectionEqual(FilteredClipboardHistoryItems, sourceItems))
-            {
-                return;
-            }
+            _debounceTimer?.Stop();
+            Reload();
+        };
+        _debounceTimer.Start();
+    }
 
-            UpdateFilteredItems(sourceItems);
+    private async Task LoadPageAsync(int generation)
+    {
+        _isLoading = true;
+        try
+        {
+            ClipboardHistoryFilter filter = BuildFilter();
+            long? cursor = _cursor;
+            List<ClipboardHistoryEntry> page =
+                await Task.Run(() => App.Clipboard.History.GetPage(filter, cursor, PageSize));
+
+            if (generation != _generation) return; //筛选条件已经变了,这一页是上一次查询的结果
+
+            foreach (ClipboardHistoryEntry entry in page) Items.Add(new ClipboardItem(entry));
+            if (page.Count > 0) _cursor = page[^1].SortKey;
+            _hasMore = page.Count == PageSize;
             RefreshTitle();
-            return;
         }
-
-        // 执行过滤
-        IEnumerable<ClipboardItem> filtered = sourceItems;
-
-        // 图片过滤
-        if (IsImageFilterActive)
+        finally
         {
-            filtered = filtered.Where(item => item.IsImage);
+            if (generation == _generation) _isLoading = false;
         }
-
-        // 收藏过滤
-        if (IsFavoriteFilterActive)
-        {
-            filtered = filtered.Where(item => item.IsFavorite);
-        }
-
-        // 文本搜索过滤
-        if (IsSearchActive && !string.IsNullOrWhiteSpace(value))
-        {
-            filtered = filtered.Where(item =>
-                !string.IsNullOrEmpty(item.Text) &&
-                item.Text.Contains(value, StringComparison.OrdinalIgnoreCase));
-        }
-
-        var filteredList = filtered.ToList();
-
-        // 只在结果变化时更新
-        if (!IsCollectionEqual(FilteredClipboardHistoryItems, filteredList))
-        {
-            UpdateFilteredItems(filteredList);
-        }
-
-        RefreshTitle();
     }
 
-    private bool IsCollectionEqual(ObservableCollection<ClipboardItem> collection, IEnumerable<ClipboardItem> items)
+    private ClipboardHistoryFilter BuildFilter() => new(
+        IsSearchActive ? SearchText : null,
+        IsImageFilterActive,
+        IsFavoriteFilterActive);
+
+    // 只在用户还停在第一页时才自动刷新:已经往下翻了还整页重建的话,
+    // 正在看的位置会被一次复制操作顶掉
+    private void OnClipboardChanged()
     {
-        var itemList = items.ToList();
-        if (collection.Count != itemList.Count)
-        {
-            return false;
-        }
-
-        if (collection.Count > 0)
-        {
-            if (!collection[0].Equals(itemList[0])) return false;
-        }
-
-        return true;
-    }
-
-    private void UpdateFilteredItems(IEnumerable<ClipboardItem> items)
-    {
-        FilteredClipboardHistoryItems.Clear();
-        foreach (var item in items)
-        {
-            FilteredClipboardHistoryItems.Add(item);
-        }
+        if (Items.Count > PageSize) return;
+        if (Dispatcher.UIThread.CheckAccess()) Reload();
+        else Dispatcher.UIThread.Post(Reload);
     }
 
     private void RefreshTitle()
     {
+        int total = App.Clipboard.History.Count(ClipboardHistoryFilter.None);
         if (IsSearchActive || IsImageFilterActive || IsFavoriteFilterActive)
         {
-            Title = string.Format(Lang.ClipboardHistoryCount, FilteredClipboardHistoryItems.Count + "/" + App.Clipboard.ClipboardHistoryItems.Count);
+            string loaded = _hasMore ? $"{Items.Count}+" : Items.Count.ToString();
+            Title = string.Format(Lang.ClipboardHistoryCount, $"{loaded}/{total}");
             return;
         }
 
-        Title = string.Format(Lang.ClipboardHistoryCount, App.Clipboard.ClipboardHistoryItems.Count);
+        Title = string.Format(Lang.ClipboardHistoryCount, total);
     }
 }

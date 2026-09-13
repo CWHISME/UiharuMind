@@ -81,8 +81,14 @@ public static class AppPaths
 
         private static readonly string ClipboardRoot = Path.Combine(Root, "Clipboard");
 
-        /// <summary>剪贴板历史记录</summary>
-        public static readonly string ClipboardHistory = Path.Combine(ClipboardRoot, "ClipboardHistory.json");
+        /// <summary>
+        /// 剪贴板历史记录。
+        /// <para>
+        /// ⚠️ 旧版的 <c>ClipboardHistory.json</c> 仍可能留在同一目录下，<b>刻意不迁移也不删除</b>——
+        /// 它是全量重写的 JSON，撑不住无上限的历史，详见 <c>docs/adr/0024</c>。
+        /// </para>
+        /// </summary>
+        public static readonly string ClipboardHistory = Path.Combine(ClipboardRoot, "ClipboardHistory.db");
 
         /// <summary>剪贴板历史图片</summary>
         public static readonly string ClipboardImages = Path.Combine(ClipboardRoot, "Images");

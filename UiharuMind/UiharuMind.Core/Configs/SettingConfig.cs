@@ -28,6 +28,26 @@ public class SettingConfig : TConfigBase<SettingConfig>
     /// </summary>
     public bool IsLocalServer { get; set; } = true;
 
+    private int _clipboardRetentionDays;
+
+    /// <summary>
+    /// 剪贴板历史自动清理的保留天数，<b>0 表示不清理</b>（默认）。收藏项永远豁免。
+    /// <para>
+    /// 刻意默认关闭：历史本身没有上限，什么时候该清只有用户自己知道——
+    /// 给旋钮，不替他决定。
+    /// </para>
+    /// </summary>
+    public int ClipboardRetentionDays
+    {
+        get => _clipboardRetentionDays;
+        set
+        {
+            _clipboardRetentionDays = value < 0 ? 0 : value;
+            OnPropertyChanged();
+            Save();
+        }
+    }
+
     private string _languageCode = LanguageUtils.GetSupportedCultureOrDefault(null).Name;
     private string _themeMode = "Default";
 

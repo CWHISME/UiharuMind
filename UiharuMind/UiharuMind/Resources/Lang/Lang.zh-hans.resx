@@ -3100,4 +3100,49 @@
   <data name="AgentSettingPythonRemove" xml:space="preserve">
     <value>移除</value>
   </data>
+    <data name="LogFilterLevelAll" xml:space="preserve">
+        <value>全部等级</value>
+    </data>
+    <data name="LogFilterLevelWarning" xml:space="preserve">
+        <value>警告以上</value>
+    </data>
+    <data name="LogFilterLevelError" xml:space="preserve">
+        <value>仅错误</value>
+    </data>
+    <data name="LogFilterLevelTip" xml:space="preserve">
+        <value>最低等级。它同时决定记不记录，不只是显示</value>
+    </data>
+    <data name="LogFilterCategoryAll" xml:space="preserve">
+        <value>全部分类</value>
+    </data>
+    <data name="LogFilterCategoryGeneral" xml:space="preserve">
+        <value>通用</value>
+    </data>
+    <data name="LogFilterCategoryRequest" xml:space="preserve">
+        <value>模型请求</value>
+    </data>
+    <data name="LogFilterCategoryResponse" xml:space="preserve">
+        <value>模型响应</value>
+    </data>
+    <data name="LogOpenFolder" xml:space="preserve">
+        <value>打开日志目录</value>
+    </data>
+    <data name="LogExportFiltered" xml:space="preserve">
+        <value>导出当前筛选</value>
+    </data>
+    <data name="LogClear" xml:space="preserve">
+        <value>清空</value>
+    </data>
+    <data name="LogBodyEvicted" xml:space="preserve">
+        <value>（该条正文已因日志滚动被清理）</value>
+    </data>
+    <data name="ClipboardRetentionTitle" xml:space="preserve">
+        <value>剪贴板历史自动清理（天）</value>
+    </data>
+    <data name="ClipboardRetentionDesc" xml:space="preserve">
+        <value>超过这个天数的记录会被删除；0 = 不清理，收藏项永远保留</value>
+    </data>
+    <data name="ClipboardTooltipMore" xml:space="preserve">
+        <value>…（共 {0} 字）</value>
+    </data>
 </root>

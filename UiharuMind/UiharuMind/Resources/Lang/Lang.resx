@@ -3107,4 +3107,49 @@ Allow them?</value>
   <data name="AgentSettingPythonRemove" xml:space="preserve">
     <value>Remove</value>
   </data>
+    <data name="LogFilterLevelAll" xml:space="preserve">
+        <value>All levels</value>
+    </data>
+    <data name="LogFilterLevelWarning" xml:space="preserve">
+        <value>Warning and above</value>
+    </data>
+    <data name="LogFilterLevelError" xml:space="preserve">
+        <value>Errors only</value>
+    </data>
+    <data name="LogFilterLevelTip" xml:space="preserve">
+        <value>Minimum level. It decides what gets recorded, not just what is shown.</value>
+    </data>
+    <data name="LogFilterCategoryAll" xml:space="preserve">
+        <value>All categories</value>
+    </data>
+    <data name="LogFilterCategoryGeneral" xml:space="preserve">
+        <value>General</value>
+    </data>
+    <data name="LogFilterCategoryRequest" xml:space="preserve">
+        <value>Model request</value>
+    </data>
+    <data name="LogFilterCategoryResponse" xml:space="preserve">
+        <value>Model response</value>
+    </data>
+    <data name="LogOpenFolder" xml:space="preserve">
+        <value>Open log folder</value>
+    </data>
+    <data name="LogExportFiltered" xml:space="preserve">
+        <value>Export current filter</value>
+    </data>
+    <data name="LogClear" xml:space="preserve">
+        <value>Clear</value>
+    </data>
+    <data name="LogBodyEvicted" xml:space="preserve">
+        <value>(This entry's body was removed by log rotation)</value>
+    </data>
+    <data name="ClipboardRetentionTitle" xml:space="preserve">
+        <value>Clipboard history auto-clean (days)</value>
+    </data>
+    <data name="ClipboardRetentionDesc" xml:space="preserve">
+        <value>Entries older than this are deleted. 0 = never clean; favorites are always kept.</value>
+    </data>
+    <data name="ClipboardTooltipMore" xml:space="preserve">
+        <value>… ({0} chars in total)</value>
+    </data>
 </root>

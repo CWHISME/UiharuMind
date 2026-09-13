@@ -9,7 +9,9 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using Avalonia;
+using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -26,7 +28,11 @@ namespace UiharuMind.Features.Clipboard;
 
 public partial class ClipboardHistoryView : UserControl
 {
+    private const double NextPageThreshold = 400; //离底多少像素开始续页
+    private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(300);
+
     private readonly IMessageService _messageService;
+    private DispatcherTimer? _hoverTimer;
 
     public ClipboardHistoryView()
     {
@@ -40,6 +46,30 @@ public partial class ClipboardHistoryView : UserControl
     {
         base.OnInitialized();
         App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().SyncData();
+        HistoryListBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnHistoryScrollChanged);
+    }
+
+    // 快滚到底时续取下一页。列表是分页加载的,历史没有上限,不可能一次全读进来
+    private void OnHistoryScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (sender is not ScrollViewer viewer) return;
+        if (viewer.Offset.Y < viewer.Extent.Height - viewer.Viewport.Height - NextPageThreshold) return;
+        App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().LoadNextPage();
+    }
+
+    // 悬停取全文要防抖:鼠标从列表上扫过一趟就是几十次读盘
+    private void Item_OnPointerEntered(object? sender, PointerEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is not ClipboardItem item) return;
+
+        _hoverTimer?.Stop();
+        _hoverTimer = new DispatcherTimer { Interval = HoverDelay };
+        _hoverTimer.Tick += (_, _) =>
+        {
+            _hoverTimer?.Stop();
+            _ = item.LoadTooltipAsync();
+        };
+        _hoverTimer.Start();
     }
 
     // private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

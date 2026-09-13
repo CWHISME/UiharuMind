@@ -176,18 +176,18 @@
                            FontWeight="SemiBold" />
                 <Border Classes="SettingsSection">
                     <StackPanel>
+                        <!-- 日志等级那一项已搬到日志页顶部的下拉:改等级时人正看着日志,
+                             跑到设置里改再回来看是多余的一趟 -->
                         <Grid ColumnDefinitions="*,Auto" MinHeight="44">
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc SettingLogLevelTitle}" />
-                                <TextBlock Text="{loc:Loc SettingLogLevelDesc}"
+                                <TextBlock Text="{loc:Loc ClipboardRetentionTitle}" />
+                                <TextBlock Text="{loc:Loc ClipboardRetentionDesc}"
                                            FontSize="12"
                                            Foreground="{DynamicResource SemiGrey6}" />
                             </StackPanel>
-                            <ComboBox Grid.Column="1"
-                                      Width="160"
-                                      ItemsSource="{Binding LogLevelList}"
-                                      SelectedIndex="{Binding LogSelectedTypeIndex}"
-                                      VerticalAlignment="Center" />
+                            <NumericUpDown Grid.Column="1" Width="120" Minimum="0" Maximum="3650" Increment="1"
+                                           FormatString="0" VerticalAlignment="Center"
+                                           Value="{Binding ClipboardRetentionDays}" />
                         </Grid>
                         <Border Height="1" Background="{DynamicResource SemiGrey2}" IsVisible="{Binding IsWindows}" />
                         <Grid ColumnDefinitions="*,Auto" MinHeight="52" IsVisible="{Binding IsWindows}">
@@ -202,23 +202,8 @@
                                       IsChecked="{Binding EnableFullscreenGameInputSupport}"
                                       VerticalAlignment="Center" />
                         </Grid>
-                        <Border Height="1" Background="{DynamicResource SemiGrey2}" />
-                        <Grid ColumnDefinitions="*,Auto" MinHeight="44">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc SaveDirectory}" />
-                                <TextBlock Text="{Binding SaveDirectoryPath}"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SemiGrey6}" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Command="{Binding OpenSaveFolderCommand}"
-                                    VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />
-                                    <TextBlock Text="{loc:Loc OpenDirectory}" />
-                                </StackPanel>
-                            </Button>
-                        </Grid>
+                        <!-- 「保存目录」那一行已删:托盘菜单的 TrayMenuOpenSaveDir 开的是同一个
+                             AppPaths.Root,日志目录另有日志页的入口 -->
                     </StackPanel>
                 </Border>
             </StackPanel>

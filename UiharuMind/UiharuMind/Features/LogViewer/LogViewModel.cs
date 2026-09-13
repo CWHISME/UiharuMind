@@ -16,6 +16,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Collections;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -33,7 +34,7 @@ public partial class LogViewModel : ViewModelBase
     private const int TrimBatch = 5_000;
 
     /// <summary>正文已被滚动淘汰时的占位文本</summary>
-    public const string DeadBodyHint = "（该条正文已因日志滚动被清理）";
+    private static string DeadBodyHint => LocalizationManager.Instance.GetString("LogBodyEvicted");
 
     /// <summary>倒序视图，绑给列表</summary>
     public ReversedObservableList<LogIndexEntry> Items { get; } = new();
@@ -45,6 +46,12 @@ public partial class LogViewModel : ViewModelBase
     /// <summary>分类筛选：0 全部 / 1 通用 / 2 请求 / 3 响应</summary>
     [ObservableProperty] private int _categoryFilterIndex;
 
+    /// <summary>
+    /// 最低等级，序号即 <see cref="ELogType"/>。改动会写回配置——
+    /// 它同时决定<b>面板显示</b>与<b>哪些日志会被记下来</b>，不是纯视图状态
+    /// </summary>
+    [ObservableProperty] private int _minLevelIndex = (int)ConfigManager.Instance.DebugSetting.LogTypeInfo;
+
     public LogViewModel()
     {
         Rebuild();
@@ -52,6 +59,13 @@ public partial class LogViewModel : ViewModelBase
     }
 
     partial void OnCategoryFilterIndexChanged(int value) => Rebuild();
+
+    partial void OnMinLevelIndexChanged(int value)
+    {
+        ConfigManager.Instance.DebugSetting.LogTypeInfo = (ELogType)value;
+        ConfigManager.Instance.DebugSetting.Save();
+        Rebuild();
+    }
 
     partial void OnSelectedEntryChanged(LogIndexEntry? value)
     {
