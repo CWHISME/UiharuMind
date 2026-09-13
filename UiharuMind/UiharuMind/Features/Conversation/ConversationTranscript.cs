@@ -380,6 +380,9 @@ public sealed class ConversationTranscript : ITurnSink
     private void AppendText(string delta)
     {
         CloseThinking();
+        // 纯空白增量不开新气泡：部分模型调工具时 content 会带 "\n\n" 这类空白，
+        // 开了气泡就是头像 + 空白边框，工具卡之外的纯噪音。有实质正文进来时再开。
+        if (_streamingText == null && string.IsNullOrWhiteSpace(delta)) return;
         if (_streamingText == null) _target.Add(_streamingText = _createAssistantItem());
         _streamingText.Append(delta);
     }
@@ -406,7 +409,13 @@ public sealed class ConversationTranscript : ITurnSink
         if (_streamingText is not { } text) return;
 
         text.Flush(); //正文是节流更新的,不冲刷的话最后几个字会留在缓冲里
-        text.IsDone = true;
+        // 空白兜底：空白可能分多次增量进来（首段建泡时拦不住），收尾时整条仍是空白
+        // （无图、无注入正文）就摘掉——调工具前后那几个 "\n" 不该留一个空气泡。
+        // 用户气泡不走这里（工厂直建），用户亲手发的空白不受影响。
+        if (string.IsNullOrWhiteSpace(text.Message) && !text.HasImage && !text.HasInjectedText)
+            _target.Remove(text);
+        else
+            text.IsDone = true;
         _streamingText = null;
     }
 

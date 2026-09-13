@@ -413,6 +413,45 @@ public class ConversationTranscriptTests
     }
 
     [Fact]
+    public void WhitespaceTextBeforeToolCall_LeavesNoEmptyBubble()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextContent("\n\n"));
+        transcript.Apply(new FunctionCallContent("call-1", "read_file",
+            new Dictionary<string, object?> { ["path"] = "a.txt" }));
+
+        ToolCallItem call = Assert.IsType<ToolCallItem>(Assert.Single(items));
+        Assert.Equal("call-1", call.CallId);
+    }
+
+    [Fact]
+    public void WhitespaceTextBetweenToolCalls_LeavesOnlyToolCards()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new FunctionCallContent("a", "tool_a", null));
+        transcript.Apply(new TextContent("  \n "));
+        transcript.Apply(new FunctionCallContent("b", "tool_b", null));
+
+        Assert.Equal(2, items.Count);
+        Assert.All(items, x => Assert.IsType<ToolCallItem>(x));
+    }
+
+    [Fact]
+    public void TextWithRealContentAroundWhitespace_IsKept()
+    {
+        var (transcript, items) = Create();
+
+        transcript.Apply(new TextContent("\n\n"));
+        transcript.Apply(new TextContent("有实质内容"));
+        transcript.CloseSegment();
+
+        TextConversationItem text = Assert.IsType<TextConversationItem>(Assert.Single(items));
+        Assert.Equal("有实质内容", FlushedMessage(text));
+    }
+
+    [Fact]
     public void FunctionResult_PairsBackToItsCallById()
     {
         var (transcript, items) = Create();
