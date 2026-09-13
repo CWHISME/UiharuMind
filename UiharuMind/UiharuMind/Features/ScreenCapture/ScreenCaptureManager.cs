@@ -20,6 +20,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using UiharuMind.Features.ScreenCapture.Frames;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
@@ -53,19 +54,61 @@ public static class ScreenCaptureManager
 
     public static async void CaptureScreen()
     {
-        if (UiharuCoreManager.Instance.IsWindows)
-        {
-            UIManager.ShowWindow<ScreenCaptureWindow>();
-            return;
-        }
-
+        // Linux 走 Portal 交互式截图，不经过自家遮罩窗；Win/Mac 共用桌面遮罩链路
         if (UiharuCoreManager.Instance.IsLinux)
         {
             await ShowLinuxCaptureOverlay();
             return;
         }
 
-        await ShowMacCaptureOverlay();
+        await ShowDesktopCaptureOverlay();
+    }
+
+    // 截屏会话守卫：一次只留一个遮罩，新的直接丢弃（Esc 关掉再截）
+    private static bool TryEnterCaptureSession()
+    {
+        if (Interlocked.Exchange(ref _captureSessionActive, 1) == 1)
+        {
+            Log.Debug("截图会话进行中，重复触发已丢弃。");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void ExitCaptureSession()
+    {
+        Interlocked.Exchange(ref _captureSessionActive, 0);
+    }
+
+    /// <summary>
+    /// 打开选区遮罩窗（Mac/Windows 共用）。各平台差异经 configure 交入（如 Mac 的预抓帧）。
+    /// </summary>
+    /// <param name="configure">开窗后在 UI 线程执行的差异配置，可为 null</param>
+    private static void OpenCaptureOverlay(Action<ScreenCaptureWindow>? configure = null)
+    {
+        // 一次只留一个遮罩：旧的不关，新旧叠在一起极易误判（层级/冻结帧都不同）
+        try
+        {
+            _activeCaptureWindow?.Close();
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"关闭旧截图遮罩失败：{e.Message}");
+        }
+
+        // isMulti:true：创建路径必走 action，守卫的释放挂载才不会丢；
+        // 会话守卫保证正常情况下一次只留一个遮罩，叠窗走不到
+        UIManager.ShowWindow<ScreenCaptureWindow>(window =>
+        {
+            _activeCaptureWindow = window;
+            window.OnPreCloseEvent += () =>
+            {
+                if (ReferenceEquals(_activeCaptureWindow, window)) _activeCaptureWindow = null;
+                ExitCaptureSession();
+            };
+            configure?.Invoke(window);
+        }, isMulti: true);
     }
 
     public static void SyncDockWindow(ScreenCapturePreviewWindow? window)
@@ -99,16 +142,14 @@ public static class ScreenCaptureManager
     }
 
     /// <summary>
-    /// macOS：先静默抓整屏（无系统 UI），再进自家选区遮罩窗，预抓帧经 SetPreCapturedFrame 交入。
-    /// 预抓失败（无权限、抓错屏）回退系统截图老路。
+    /// Win/Mac 共用：先静默抓整屏（无系统 UI），再进选区遮罩窗，帧经 SetPreCapturedFrame 交入。
+    /// 必须在遮罩显示之前抓：Win 的 DXGI 抓合成后桌面、Mac 的 screencapture 同理，
+    /// 晚了都会把遮罩自己抓进底图（跨屏重抓那下同样，因此也不跟随切屏）。
+    /// Mac 预抓失败（无权限、抓错屏）回退系统截图老路；Win 抓失败直接收工。
     /// </summary>
-    private static async Task ShowMacCaptureOverlay()
+    private static async Task ShowDesktopCaptureOverlay()
     {
-        if (Interlocked.Exchange(ref _captureSessionActive, 1) == 1)
-        {
-            Log.Debug("截图会话进行中，重复触发已丢弃。");
-            return;
-        }
+        if (!TryEnterCaptureSession()) return;
 
         try
         {
@@ -116,43 +157,31 @@ public static class ScreenCaptureManager
             var frame = await ScreenFrameProvider.CaptureAsync(screen, App.ScreensService.MouseScreenIndex, App.DummyWindow);
             if (frame == null)
             {
-                // 回退老路不经过遮罩，会话在这里结束，不能等 OnPreClose
-                try
+                // Mac 回退老路不经过遮罩，会话在这里结束，不能等 OnPreClose
+                if (UiharuCoreManager.Instance.IsMacOs)
                 {
-                    await GetMacScreenCaptureFromClipboard();
-                }
-                finally
-                {
-                    Interlocked.Exchange(ref _captureSessionActive, 0);
+                    try
+                    {
+                        await GetMacScreenCaptureFromClipboard();
+                    }
+                    finally
+                    {
+                        ExitCaptureSession();
+                    }
+
+                    return;
                 }
 
+                ExitCaptureSession();
+                Log.Warning("整屏抓取失败，本次截图取消。");
                 return;
             }
 
-            // 一次只留一个遮罩：旧的不关，新旧叠在一起极易误判（层级/冻结帧都不同）
-            try
-            {
-                _activeCaptureWindow?.Close();
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"关闭旧截图遮罩失败：{e.Message}");
-            }
-
-            UIManager.ShowWindow<ScreenCaptureWindow>(window =>
-            {
-                _activeCaptureWindow = window;
-                window.OnPreCloseEvent += () =>
-                {
-                    if (ReferenceEquals(_activeCaptureWindow, window)) _activeCaptureWindow = null;
-                    Interlocked.Exchange(ref _captureSessionActive, 0);
-                };
-                window.SetPreCapturedFrame(frame, screen);
-            }, isMulti: true);
+            OpenCaptureOverlay(window => window.SetPreCapturedFrame(frame, screen));
         }
         catch (Exception e)
         {
-            Interlocked.Exchange(ref _captureSessionActive, 0);
+            ExitCaptureSession();
             Log.Warning($"打开截图遮罩失败：{e.Message}");
         }
     }

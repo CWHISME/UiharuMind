@@ -232,7 +232,23 @@ public class DummyWindow : Window
             return;
         }
 
-        InputManager.Instance.RegisterKey(new KeyCombinationData(mainKey, onTrigger, modifiers, name));
+        // 全局钩子跑在后台线程，直接调 UI 会跨线程崩（偶发原生 SIGSEGV）。
+        // 所有快捷键动作都是开界面，统一封送到 UI 线程；Core 层保持无 UI 依赖，不在里面封送。
+        // Post 不阻塞钩子分发，抑制键重复的判定仍在钩子线程按原逻辑走
+        InputManager.Instance.RegisterKey(new KeyCombinationData(mainKey, () =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    onTrigger();
+                }
+                catch (Exception e)
+                {
+                    Log.Warning($"Shortcut '{name}' failed: {e.Message}");
+                }
+            });
+        }, modifiers, name));
     }
 
     private void RegistryClipboardTool()

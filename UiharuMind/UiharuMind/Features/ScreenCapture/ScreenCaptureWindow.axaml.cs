@@ -545,7 +545,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     /// </summary>
     private async void UpdateCaptureScreen()
     {
-        // 预抓帧只有一张：Linux 下重抓意味着再走一次 Portal，会再弹一次授权框，因此不跟随切屏
+        // 预抓帧只有一张：遮罩可见后重抓会把自己也抓进底图，因此不跟随切屏
         if (_pendingScreen != null && _frame != null) return;
 
         var currentScreen = _pendingScreen ?? App.ScreensService.MouseScreen;
@@ -775,6 +775,9 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             {
                 // 落盘只是借用,必须排在移交之前:下一句起这张图就归预览窗了,它随时可能被释放
                 App.Clipboard.RecordImageToHistory(image);
+                // 截图即复制:剪贴板那份必须是独立的一张(见 ClipboardService 注释),预览窗接管原图
+                Bitmap? forClipboard = image.CloneBitmap();
+                if (forClipboard != null) App.Clipboard.CopyImageToClipboard(forClipboard, true);
                 //校正截图的上下左右不同方向拖动方式
                 UIManager.ShowPreviewImageWindowAtMousePosition(image, startPixelPoint, endPixelPoint);
             }
