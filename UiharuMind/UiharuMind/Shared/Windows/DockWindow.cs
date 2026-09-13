@@ -25,6 +25,12 @@ namespace UiharuMind.Shared.Windows;
 public interface IDockedWindow
 {
     public event Action? OnPreCloseEvent;
+
+    /// <summary>
+    /// 停靠锚点：内容区相对窗口左上的位置与大小（DIP）。
+    /// 停靠窗贴的是内容边缘，而不是窗口边缘——窗口可能为阴影之类多留了一圈透明留白。
+    /// </summary>
+    Rect DockAnchorBounds { get; }
 }
 
 public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
@@ -179,13 +185,20 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
             if (CurrentSnapWindow == null)
                 return;
 
-            OnFollowTarget(CurrentSnapWindow.Position, CurrentSnapWindow.ClientSize);
+            OnFollowTarget(CurrentSnapWindow.Position, CurrentSnapWindow.DockAnchorBounds);
         });
     }
 
-    protected virtual void OnFollowTarget(PixelPoint targetPosition, Size targetSize)
+    /// <summary>
+    /// 把自己摆到目标窗内容区的正下方。
+    /// </summary>
+    /// <param name="targetPosition">目标窗口位置（Position 口径）</param>
+    /// <param name="anchor">目标窗的内容区（相对其左上，DIP）</param>
+    protected virtual void OnFollowTarget(PixelPoint targetPosition, Rect anchor)
     {
-        targetSize *= App.ScreensService.Scaling;
-        Position = new PixelPoint(targetPosition.X, targetPosition.Y + (int)targetSize.Height + 5);
+        var scaling = App.ScreensService.Scaling;
+        Position = new PixelPoint(
+            targetPosition.X + (int)(anchor.X * scaling),
+            targetPosition.Y + (int)(anchor.Bottom * scaling) + 2);
     }
 }

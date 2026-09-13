@@ -1313,6 +1313,21 @@
     <data name="ScreenCaptureDockWindow_BtnEdit" xml:space="preserve">
         <value>编辑</value>
     </data>
+    <data name="ScreenCaptureDockWindow_BtnTextSelect" xml:space="preserve">
+        <value>识别文字</value>
+    </data>
+    <data name="PreviewOcr_Recognizing" xml:space="preserve">
+        <value>识别中…</value>
+    </data>
+    <data name="PreviewOcr_NoText" xml:space="preserve">
+        <value>图中没有文字</value>
+    </data>
+    <data name="PreviewOcr_SelectAll" xml:space="preserve">
+        <value>全选</value>
+    </data>
+    <data name="PreviewOcr_Copied" xml:space="preserve">
+        <value>已复制</value>
+    </data>
     <data name="ScreenCaptureDockWindow_BtnCopy" xml:space="preserve">
         <value>复制</value>
     </data>

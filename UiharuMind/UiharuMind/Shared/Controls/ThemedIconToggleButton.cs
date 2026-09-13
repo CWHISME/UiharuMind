@@ -130,22 +130,20 @@ public class ThemedIconToggleButton : ThemedIconButton
     {
         if (_icon == null) return;
 
-        // 如果已选中且有指定的选中颜色，则使用选中颜色
-        // 否则使用默认颜色（ThemedIconButton 的 CurrentColor）
-        if (IsChecked == true && CheckedForeground != null)
+        // 选中色 > 本按钮的 CurrentColor > 主题色。
+        // 少了中间那档，选中态一取消就会跳回主题色，无视调用方设的 CurrentColor（深色工具条上表现为图标发黑）
+        if (IsChecked == true && CheckedForeground is ISolidColorBrush checkedBrush)
         {
-            // 将 IBrush 转换为 Color
-            if (CheckedForeground is ISolidColorBrush solidBrush)
-            {
-                _icon.CurrentColor = solidBrush.Color;
-            }
+            _icon.CurrentColor = checkedBrush.Color;
+        }
+        else if (CurrentColor.HasValue)
+        {
+            _icon.CurrentColor = CurrentColor.Value;
         }
         else
         {
-            // 恢复为默认颜色
-            _icon.ClearValue(Avalonia.Svg.Skia.Svg.CurrentColorProperty);;
-
-            // 强制重新应用主题颜色
+            // 恢复为主题色
+            _icon.ClearValue(Avalonia.Svg.Skia.Svg.CurrentColorProperty);
             _icon.InvalidateVisual();
         }
     }

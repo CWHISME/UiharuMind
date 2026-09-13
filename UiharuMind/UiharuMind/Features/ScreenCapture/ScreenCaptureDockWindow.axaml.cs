@@ -10,13 +10,13 @@
  ****************************************************************************/
 
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.AI.Character;
@@ -32,6 +32,9 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     public ScreenCaptureDockWindow()
     {
         SizeToContent = SizeToContent.WidthAndHeight;
+        // 基类给的是 BorderOnly：窗口自己还带一层不透明底，圆角胶囊外圈会漏出白边。
+        // 这条工具条只是一颗浮在截图上的胶囊，要的是纯透明窗
+        this.SetSimpledecorationPureWindow();
         InitializeComponent();
     }
 
@@ -42,12 +45,21 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         // OcrBtn.IsVisible = PlatformUtils.IsMacOS;
     }
 
-    private void OnOcrBtnClick(object? sender, RoutedEventArgs e)
+    protected override void OnPostShow()
     {
-        if (!IsValid()) return;
-        var path = Path.GetTempPath() + "ocr.png";
-        CurrentSnapWindow!.ImageSource!.Save(path);
-        ScreenCaptureManager.OpenOcr(path, (int)CurrentSnapWindow.Width, (int)CurrentSnapWindow.Height);
+        base.OnPostShow();
+        // 必须压在钉图窗之上：贴图为投影留的那圈透明留白会盖到工具条头上，
+        // 同档位时点一下贴图就把工具条压下去了
+        OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.PinnedDock);
+        // 平台隔离：有没有系统 OCR 只问工厂，业务代码不写平台分支
+        OcrTextBtn.IsVisible = ScreenCapturePreviewWindow.OcrSupported;
+        OcrTextBtn.IsChecked = CurrentSnapWindow?.OcrMode == true;
+    }
+
+    private void OnOcrTextToggleChanged(object? sender, RoutedEventArgs e)
+    {
+        if (CurrentSnapWindow == null || !ScreenCapturePreviewWindow.OcrSupported) return;
+        CurrentSnapWindow.SetOcrMode(OcrTextBtn.IsChecked == true);
     }
 
     private void OnCopyBtnClick(object? sender, RoutedEventArgs e)
@@ -98,7 +110,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         var backupPos = CurrentSnapWindow.Position;
         ScreenCaptureEditWindow window = new ScreenCaptureEditWindow(
             curImage, backupPos,
-            new Size(CurrentSnapWindow.Width, CurrentSnapWindow.Height), (bitmap) =>
+            CurrentSnapWindow.DisplaySize, (bitmap) =>
             {
                 CurrentSnapWindow.SetImage(bitmap, pos: backupPos);
                 CurrentSnapWindow.ImageOriginSource = CurrentSnapWindow.ImageBackupSource = backup;

@@ -21,15 +21,31 @@ public static class OverlayWindowService
     }
 
     /// <summary>
-    /// 全屏截图标注层：macOS 下把窗口抬到 screenSaver 层级并允许跨 Space，
-    /// 盖住菜单栏/Dock（Topmost 只到 floating 层，盖不住菜单栏）。Windows 下 Topmost 已够，无需处理。
+    /// 全屏截图标注层：macOS 下把窗口抬到菜单栏之上并允许跨 Space
+    /// （Topmost 只到 floating 层，盖不住菜单栏）。Windows 下 Topmost 已够，无需处理。
     /// 在窗口 Show 之后调用，Show 之前 native 行为可能被重置。
     /// </summary>
     /// <param name="window">全屏覆盖窗口</param>
     public static void ApplyNativeFullscreenOverlayStyle(Window window)
     {
         if (!OperatingSystem.IsMacOS()) return;
-        ApplyMacFullscreenOverlayStyle(window);
+        ApplyNativeWindowLevel(window, EOverlayWindowLevel.FullscreenOverlay);
+        ApplyMacJoinAllSpaces(window);
+    }
+
+    /// <summary>
+    /// 把窗口抬到指定的置顶档位（仅 macOS 有效；Windows 的 Topmost 只有一档，无需处理）。
+    /// <b>所有越过菜单栏的窗口都从这里取层级</b>，谁压谁只看 <see cref="EOverlayWindowLevel"/> 的排序。
+    /// 在窗口 Show 之后调用，Show 之前 native 设置可能被重置。
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <param name="level">档位</param>
+    public static void ApplyNativeWindowLevel(Window window, EOverlayWindowLevel level)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var handle = window.TryGetPlatformHandle();
+        if (handle == null || handle.Handle == IntPtr.Zero) return;
+        ObjcMsgSendLong(handle.Handle, SelRegisterName("setLevel:"), (long)level);
     }
 
     [SupportedOSPlatform("windows")]
@@ -85,34 +101,17 @@ public static class OverlayWindowService
         ObjcMsgSendBool(nsWindow, SelRegisterName("setIgnoresMouseEvents:"), true);
     }
 
-    private const long NsScreenSaverWindowLevel = 1000;
     private const ulong NsWindowCollectionBehaviorCanJoinAllSpaces = 1;
     private const ulong NsWindowCollectionBehaviorFullScreenAuxiliary = 1u << 8;
 
     [SupportedOSPlatform("macos")]
-    private static void ApplyMacFullscreenOverlayStyle(Window window)
+    private static void ApplyMacJoinAllSpaces(Window window)
     {
         var handle = window.TryGetPlatformHandle();
         if (handle == null || handle.Handle == IntPtr.Zero) return;
 
-        var nsWindow = handle.Handle;
-        ObjcMsgSendLong(nsWindow, SelRegisterName("setLevel:"), NsScreenSaverWindowLevel);
-        ObjcMsgSendULong(nsWindow, SelRegisterName("setCollectionBehavior:"),
+        ObjcMsgSendULong(handle.Handle, SelRegisterName("setCollectionBehavior:"),
             NsWindowCollectionBehaviorCanJoinAllSpaces | NsWindowCollectionBehaviorFullScreenAuxiliary);
-    }
-
-    /// <summary>
-    /// 钉图窗：只把层级抬到菜单栏之上（与遮罩同值），不碰 Space 归属。
-    /// 普通窗口层级在菜单栏之下，只能滑到它底下；抬层级后才能拖上去盖住它。
-    /// 在窗口 Show 之后调用。
-    /// </summary>
-    /// <param name="window">钉图窗口</param>
-    public static void ApplyNativePinAboveMenuBarStyle(Window window)
-    {
-        if (!OperatingSystem.IsMacOS()) return;
-        var handle = window.TryGetPlatformHandle();
-        if (handle == null || handle.Handle == IntPtr.Zero) return;
-        ObjcMsgSendLong(handle.Handle, SelRegisterName("setLevel:"), NsScreenSaverWindowLevel);
     }
 
     [StructLayout(LayoutKind.Sequential)]

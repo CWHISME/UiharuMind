@@ -2345,6 +2345,36 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ScreenCaptureDockWindow_BtnTextSelect {
+            get {
+                return ResourceManager.GetString("ScreenCaptureDockWindow_BtnTextSelect", resourceCulture);
+            }
+        }
+        
+        public static string PreviewOcr_Recognizing {
+            get {
+                return ResourceManager.GetString("PreviewOcr_Recognizing", resourceCulture);
+            }
+        }
+        
+        public static string PreviewOcr_NoText {
+            get {
+                return ResourceManager.GetString("PreviewOcr_NoText", resourceCulture);
+            }
+        }
+        
+        public static string PreviewOcr_SelectAll {
+            get {
+                return ResourceManager.GetString("PreviewOcr_SelectAll", resourceCulture);
+            }
+        }
+        
+        public static string PreviewOcr_Copied {
+            get {
+                return ResourceManager.GetString("PreviewOcr_Copied", resourceCulture);
+            }
+        }
+        
         public static string ScreenCaptureDockWindow_BtnOldOcr {
             get {
                 return ResourceManager.GetString("ScreenCaptureDockWindow_BtnOldOcr", resourceCulture);

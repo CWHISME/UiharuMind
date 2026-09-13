@@ -13,32 +13,48 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using Avalonia.Styling;
 using Avalonia.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Input;
+using UiharuMind.Features.ScreenCapture.Ocr;
 
 namespace UiharuMind.Features.ScreenCapture;
 
-public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindow //Window, IDockedWindow
+public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindow
 {
+    // 阴影留白：BoxShadow 画在 Border 之外，窗口不留出这一圈就会被窗口边界裁掉（看不见阴影）。
+    // 代价是贴图四周多出一圈透明的死区，点不到底下的应用——数值只够放下阴影，不再多留
+    private static readonly Thickness ShadowMargin = new(12, 8, 12, 16);
+
+    private const double MinDisplayLength = 50;
+    private const double ScaleStep = 0.1f;
+    private const int ZoomQualityRestoreMs = 150;
+
     public override bool ContributesToMacRegularMode => false;
 
     private Point _dragStartPoint;
     private bool _isDragging;
     private Size _originSize;
-    // private double _minScale;
+    private Size _maxDisplaySize = new(double.PositiveInfinity, double.PositiveInfinity);
+    private double _aspectRatio = 1.0f;
+    private double _currentScale = 1.0f;
+    private Size _currentSize;
+    private BitmapInterpolationMode? _zoomRestoreQuality;
+    private int _zoomQualityGeneration;
 
+    // OCR：本窗只管开关、跑识别、把行交给选择层；选择/复制/右键菜单都在层里
+    private readonly IOcrTextRecognizer _ocrRecognizer = OcrRecognizerFactory.Create();
+    private bool _ocrMode;
+    private int _ocrGeneration;
 
     // 截图尺寸的位图,本窗是它们的唯一所有者:关窗/隐藏即释放(见 SafeSetImage)。
     // 三个字段允许指向同一实例,释放前必须按引用去重。
@@ -52,13 +68,20 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     /// <summary>当前正显示的那一张；停靠栏的复制/保存/OCR 都借它，但不得释放</summary>
     public Bitmap? ImageSource;
-    // public Bitmap? ImageNewSource;
 
     public ScreenCapturePreviewWindow()
     {
         InitializeComponent();
 
-        //SizeToContent = SizeToContent.WidthAndHeight;
+        FrameBorder.Margin = ShadowMargin;
+        FrameBorder.BoxShadow = new BoxShadows(new BoxShadow
+        {
+            Color = Color.FromArgb(0x80, 0, 0, 0),
+            Blur = 18,
+            Spread = 1,
+            OffsetX = 0,
+            OffsetY = 6
+        });
 
         // 必须 borderless：带 titled mask 的窗口会被 AppKit 框在标题栏可够到的范围，
         // setFrameTopLeftPoint 直接顶到 y=30 就不动了，永远盖不上菜单栏（遮罩是 None，不受影响）
@@ -66,28 +89,35 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         ShowActivated = false;
         ShowInTaskbar = false;
 
-        this.MinWidth = 50;
-        this.MinHeight = 50;
+        MinWidth = MinDisplayLength + ShadowMargin.Left + ShadowMargin.Right;
+        MinHeight = MinDisplayLength + ShadowMargin.Top + ShadowMargin.Bottom;
+
+        OcrLayer.CopyRequested += CopyOcrText;
 
         PointerPressed += OnPointerPressed;
         PointerMoved += OnPointerMoved;
         PointerReleased += OnPointerReleased;
         PointerWheelChanged += OnPointerWheelChangedEvent;
         PointerEntered += OnMouseEnter;
-        // PointerExited += OnMouseLeave;
     }
 
-    // private const double MinScale = 0.20f;
-    // private const double MaxScale = 12.0f;
-    private const double ScaleStep = 0.1f;
-    private const int ZoomQualityRestoreMs = 150;
+    /// <summary>
+    /// 当前图片的显示尺寸（不含阴影留白），与窗口尺寸差一圈 <see cref="ShadowMargin"/>。
+    /// </summary>
+    public Size DisplaySize => _currentSize;
 
-    private double _aspectRatio = 1.0f;
-    private double _currentScale = 1.0f;
-    private Size _currentSize;
-    private BitmapInterpolationMode? _zoomRestoreQuality;
-    private int _zoomQualityGeneration;
-    // private PixelPoint _currentPixelPoint;
+    /// <inheritdoc />
+    public Rect DockAnchorBounds => new(ShadowMargin.Left, ShadowMargin.Top, _currentSize.Width, _currentSize.Height);
+
+    /// <summary>
+    /// OCR 文字选择模式是否打开（Dock 工具条的开关读这个状态回显）。
+    /// </summary>
+    public bool OcrMode => _ocrMode;
+
+    /// <summary>
+    /// 当前平台是否有可用的系统 OCR。Dock 工具条用它决定显不显示入口。
+    /// </summary>
+    public static bool OcrSupported => OcrRecognizerFactory.IsSupported;
 
     /// <summary>
     /// 显示一张图。<b>本窗接管这张位图</b>——关窗或隐藏时会释放它，调用方交出之后不要再用。
@@ -98,13 +128,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     /// <param name="pos">窗口位置，null 表示跟随鼠标</param>
     /// <param name="horizontalAlignment">相对鼠标的水平对齐</param>
     /// <param name="verticalAlignment">相对鼠标的垂直对齐</param>
-    public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
+    public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null,
+        HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment verticalAlignment = VerticalAlignment.Top)
     {
-        // Content = new Image { Source = image };
         var scaling = App.ScreensService.Scaling;
         _originSize = size ?? DefaultDisplaySize(image, scaling);
-        // _minScale = Math.Min(100.0 / _originSize.Width, 100.0 / _originSize.Height);
         // 计算原始尺寸的比例
         _aspectRatio = _originSize.Width / _originSize.Height;
 
@@ -113,14 +142,20 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         var bounds = App.ScreensService.MouseScreen?.Bounds;
         if (bounds != null)
         {
-            MaxWidth = bounds.Value.Width / scaling * 2;
-            MaxHeight = bounds.Value.Height / scaling * 2;
+            _maxDisplaySize = new Size(bounds.Value.Width / scaling * 2, bounds.Value.Height / scaling * 2);
+            var maxWindow = ToWindowSize(_maxDisplaySize);
+            MaxWidth = maxWindow.Width;
+            MaxHeight = maxWindow.Height;
         }
 
-        SetImageSize(_originSize);
+        SetDisplaySize(_originSize);
         _currentScale = 1.0; // 换图后缩放归一，否则沿用旧 scale 下一次滚轮会跳变
 
-        if (pos == null) this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height);
+        if (pos == null)
+        {
+            var windowSize = ToWindowSize(_originSize);
+            this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, windowSize.Width, windowSize.Height);
+        }
     }
 
     protected override void OnInitWindowPosition()
@@ -132,15 +167,22 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     {
         base.OnPostShow();
         // 钉图也要能拖到菜单栏上面去：只抬层级，不换 Space 归属
-        OverlayWindowService.ApplyNativePinAboveMenuBarStyle(this);
+        OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.Pinned);
     }
 
-    private void SetImageSize(Size newSize)
+    /// <summary>
+    /// 图片显示尺寸 → 窗口尺寸：外面多一圈给阴影用的透明留白。
+    /// </summary>
+    private static Size ToWindowSize(Size displaySize) => new(
+        displaySize.Width + ShadowMargin.Left + ShadowMargin.Right,
+        displaySize.Height + ShadowMargin.Top + ShadowMargin.Bottom);
+
+    private void SetDisplaySize(Size newSize)
     {
         _currentSize = newSize;
-        this.Width = newSize.Width;
-        this.Height = newSize.Height;
-        // ClientSize = newSize;
+        var windowSize = ToWindowSize(newSize);
+        Width = windowSize.Width;
+        Height = windowSize.Height;
     }
 
     // 自带 DPI 的位图（如 mac 2x 抓屏，Dpi=192）按 Size（point）显示；
@@ -173,6 +215,10 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         ImageContent.Source = image;
 
         foreach (Bitmap old in stale) old.Dispose();
+
+        // 换图后旧行盒失效；框选态则对新图重跑一遍
+        ResetOcr();
+        if (_ocrMode && image != null) BeginRecognize();
     }
 
     private void OnMouseEnter(object? sender, PointerEventArgs e)
@@ -180,69 +226,63 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         ScreenCaptureManager.SyncDockWindow(this);
     }
 
-    // private void OnMouseLeave(object? sender, PointerEventArgs e)
-    // {
-    //     ScreenCaptureManager.SyncBreakDockWindow(this);
-    // }
-
     private void OnPointerWheelChangedEvent(object? sender, PointerWheelEventArgs e)
     {
+        if (e.Delta.Y == 0) return;
+
         var mousePosition = e.GetPosition(ImageContent);
         var curPos = Position;
 
-        if (e.Delta.Y != 0)
+        // 计算新的缩放比例；上下限收敛到显示尺寸这一处钳制
+        var newScale = _currentScale * (1 + e.Delta.Y * ScaleStep);
+        double minScale = Math.Min(MinDisplayLength / _originSize.Width, MinDisplayLength / _originSize.Height);
+        double maxScale = Math.Min(_maxDisplaySize.Width / _originSize.Width,
+            _maxDisplaySize.Height / _originSize.Height);
+        if (double.IsFinite(maxScale)) newScale = Math.Min(newScale, maxScale);
+        newScale = Math.Max(newScale, minScale);
+        if (Math.Abs(newScale - _currentScale) < 0.001) return;
+
+        var newSize = _originSize.ScaleByWidth(newScale, _aspectRatio, MinDisplayLength, MinDisplayLength,
+            _maxDisplaySize.Width, _maxDisplaySize.Height);
+        if (_currentSize.Width <= 0 || _currentSize.Height <= 0) return;
+        if (newSize.Width <= 0 || newSize.Height <= 0) return;
+
+        // 光标锚定： trunc 改 Round，收敛只做一次；
+        // Position 与窗内偏移的单位换算收敛到 DisplayUnits（mac 全是 point，Windows 差一个屏缩放）
+        double positionUnitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
+        double zoomX = newSize.Width / _currentSize.Width;
+        double zoomY = newSize.Height / _currentSize.Height;
+
+        //调整窗口位置（阴影留白是常量，窗口位移与图片位移一一对应）
+        int newPosX = (int)Math.Round(curPos.X - (mousePosition.X * positionUnitsPerDip * (zoomX - 1)));
+        int newPosY = (int)Math.Round(curPos.Y - (mousePosition.Y * positionUnitsPerDip * (zoomY - 1)));
+
+        var pos = new PixelPoint(newPosX, newPosY);
+        var newWindowSize = ToWindowSize(newSize);
+
+        //确保鼠标位置在缩放后不超出界面
+        pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, newWindowSize);
+
+        // 以钳制后的实际尺寸为准存 scale，否则顶到上下限时两者脱钩，往回滚会先卡住再跳变
+        _currentScale = newSize.Width / _originSize.Width;
+        MarkZoomInteractive();
+
+        // macOS 原子提交：位置与尺寸一次 setFrame 落盘，不再分两帧撕裂；
+        // 失败或非 macOS 才走托管老路
+        if (this.TrySetWindowFrame(pos, newWindowSize))
         {
-            // 计算新的缩放比例
-            var newScale = _currentScale * (1 + e.Delta.Y * ScaleStep);
-
-            // 上下限沿用窗口 Min/Max，只收敛到这一处钳制
-            double minScale = Math.Min(MinWidth / _originSize.Width, MinHeight / _originSize.Height);
-            double maxScale = Math.Min(MaxWidth / _originSize.Width, MaxHeight / _originSize.Height);
-            if (double.IsFinite(maxScale)) newScale = Math.Min(newScale, maxScale);
-            newScale = Math.Max(newScale, minScale);
-            if (Math.Abs(newScale - _currentScale) < 0.001) return;
-
-            var newSize =
-                _originSize.ScaleByWidth(newScale, _aspectRatio, MinWidth, MinHeight, MaxWidth, MaxHeight);
-            if (_currentSize.Width <= 0 || _currentSize.Height <= 0) return;
-            if (newSize.Width <= 0 || newSize.Height <= 0) return;
-
-            // 光标锚定： trunc 改 Round，收敛只做一次；
-            // Position 与窗内偏移的单位换算收敛到 DisplayUnits（mac 全是 point，Windows 差一个屏缩放）
-            double positionUnitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
-            double zoomX = newSize.Width / _currentSize.Width;
-            double zoomY = newSize.Height / _currentSize.Height;
-
-            //调整窗口位置
-            int newPosX = (int)Math.Round(curPos.X - (mousePosition.X * positionUnitsPerDip * (zoomX - 1)));
-            int newPosY = (int)Math.Round(curPos.Y - (mousePosition.Y * positionUnitsPerDip * (zoomY - 1)));
-
-            var pos = new PixelPoint(newPosX, newPosY);
-
-            //确保鼠标位置在缩放后不超出界面
-            pos += UiUtils.EnsureMousePositionWithinTargetOffset(pos, newSize);
-
-            // 以钳制后的实际尺寸为准存 scale，否则顶到上下限时两者脱钩，往回滚会先卡住再跳变
-            _currentScale = newSize.Width / _originSize.Width;
-            MarkZoomInteractive();
-
-            // macOS 原子提交：位置与尺寸一次 setFrame 落盘，不再分两帧撕裂；
-            // 失败或非 macOS 才走托管老路
-            if (this.TrySetWindowFrame(pos, newSize))
-            {
-                SetImageSize(newSize);
-            }
-            else
-            {
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    this.Position = pos;
-                    SetImageSize(newSize);
-                }, DispatcherPriority.MaxValue);
-            }
-
-            e.Handled = true;
+            SetDisplaySize(newSize);
         }
+        else
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Position = pos;
+                SetDisplaySize(newSize);
+            }, DispatcherPriority.MaxValue);
+        }
+
+        e.Handled = true;
     }
 
     // 手势期间降为低质量重采样，停稳后恢复原档，避免逐帧高质量重采样拖慢 UI 线程
@@ -259,13 +299,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         }, TimeSpan.FromMilliseconds(ZoomQualityRestoreMs), DispatcherPriority.Background);
     }
 
+    // 落在 OCR 文字行上的按下已被选择层吃掉（Handled），到不了这里，拖窗因此不会和选字打架
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.ClickCount == 2)
         {
-            // ScreenCaptureManager.SyncDockWindow(null);
             SafeClose(0.1f);
-            // Close();
             return;
         }
 
@@ -280,21 +319,17 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_isDragging)
-        {
-            var position = e.GetPosition(this);
-            var diff = position - _dragStartPoint;
+        if (!_isDragging) return;
 
-            // 窗口位移是 Position 口径（mac point，Windows 像素），DIP 差值要换算
-            double unitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
-            var windowPosition = this.Position;
-            windowPosition = new PixelPoint(
-                (int)Math.Round(windowPosition.X + diff.X * unitsPerDip),
-                (int)Math.Round(windowPosition.Y + diff.Y * unitsPerDip)
-            );
-            // Log.Debug($"windowPosition: {windowPosition}");
-            this.Position = windowPosition;
-        }
+        var position = e.GetPosition(this);
+        var diff = position - _dragStartPoint;
+
+        // 窗口位移是 Position 口径（mac point，Windows 像素），DIP 差值要换算
+        double unitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
+        var windowPosition = Position;
+        Position = new PixelPoint(
+            (int)Math.Round(windowPosition.X + diff.X * unitsPerDip),
+            (int)Math.Round(windowPosition.Y + diff.Y * unitsPerDip));
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -303,15 +338,98 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         e.Pointer.Capture(null);
     }
 
+    /// <summary>
+    /// 开关 OCR 文字选择。打开时把当前图送识别器跑一遍，出结果后即可在图上逐字选取。
+    /// </summary>
+    /// <param name="on">打开还是关闭</param>
+    public void SetOcrMode(bool on)
+    {
+        if (on == _ocrMode) return;
+        _ocrMode = on;
+        ResetOcr();
+        if (on) BeginRecognize();
+    }
+
+    // 作废进行中的识别并收掉界面上的 OCR 痕迹
+    private void ResetOcr()
+    {
+        _ocrGeneration++;
+        OcrLayer.Clear();
+        OcrLoadingBar.IsVisible = false;
+    }
+
+    private void BeginRecognize()
+    {
+        if (ImageSource == null || !OcrSupported) return;
+        ShowOcrTip(Lang.PreviewOcr_Recognizing, autoHide: false);
+        _ = RunOcrAsync(_ocrGeneration, ImageSource);
+    }
+
+    private async Task RunOcrAsync(int generation, Bitmap source)
+    {
+        try
+        {
+            var lines = await _ocrRecognizer.RecognizeAsync(source).ConfigureAwait(true);
+            if (generation != _ocrGeneration || !_ocrMode) return;
+
+            OcrLoadingBar.IsVisible = false;
+            if (lines.Count == 0)
+            {
+                ShowOcrTip(Lang.PreviewOcr_NoText, autoHide: true);
+                return;
+            }
+
+            OcrLayer.SetLines(lines);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"OCR 文字选择失败：{e.Message}");
+            if (generation == _ocrGeneration) OcrLoadingBar.IsVisible = false;
+        }
+    }
+
+    private void ShowOcrTip(string text, bool autoHide)
+    {
+        OcrLoadingText.Text = text;
+        OcrLoadingBar.IsVisible = true;
+        if (!autoHide) return;
+
+        int generation = _ocrGeneration;
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (generation == _ocrGeneration) OcrLoadingBar.IsVisible = false;
+        }, TimeSpan.FromMilliseconds(1500));
+    }
+
+    // 复制成功后剪贴板事件会照常触发，浮动快捷工具（QuickToolWindow）按原链路接手
+    private void CopyOcrText(string text)
+    {
+        try
+        {
+            App.Clipboard.CopyToClipboard(text);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"复制选中文字失败：{e.Message}");
+            return;
+        }
+
+        string preview = text.Length > 42 ? text[..42] + "…" : text.Replace("\n", " ");
+        App.Services.GetRequiredService<IMessageService>()
+            .ShowNotification($"{Lang.PreviewOcr_Copied}：{preview}", severity: MessageSeverity.Success);
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        ResetOcr();
         SafeSetImage(null);
     }
 
     public override void Hide()
     {
         base.Hide();
+        ResetOcr();
         SafeSetImage(null);
     }
 }

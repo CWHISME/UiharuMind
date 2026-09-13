@@ -1323,6 +1323,21 @@
     <data name="ScreenCaptureDockWindow_BtnEdit" xml:space="preserve">
         <value>Edit</value>
     </data>
+    <data name="ScreenCaptureDockWindow_BtnTextSelect" xml:space="preserve">
+        <value>Select Text</value>
+    </data>
+    <data name="PreviewOcr_Recognizing" xml:space="preserve">
+        <value>Recognizing…</value>
+    </data>
+    <data name="PreviewOcr_NoText" xml:space="preserve">
+        <value>No text in image</value>
+    </data>
+    <data name="PreviewOcr_SelectAll" xml:space="preserve">
+        <value>Select All</value>
+    </data>
+    <data name="PreviewOcr_Copied" xml:space="preserve">
+        <value>Copied</value>
+    </data>
     <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
         <value>System OCR</value>
     </data>

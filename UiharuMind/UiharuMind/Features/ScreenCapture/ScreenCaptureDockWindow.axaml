@@ -2,33 +2,45 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
-             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-        mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="50"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="40"
         x:Class="UiharuMind.Features.ScreenCapture.ScreenCaptureDockWindow"
+        Background="Transparent"
         Title="ScreenCaptureDockWindow">
 
     <Window.Styles>
-        <Style Selector="Button">
-            <!-- <Setter Property="Width" Value="32" /> -->
-            <Setter Property="Height" Value="32" />
+        <!-- :is() 不可省：类型选择器只匹配精确类型，少了它 ThemedIconToggleButton 一条都套不上 -->
+        <!-- 不设 CurrentColor：ThemedSvgIcon 没被外部指定颜色时自己跟随主题变体 -->
+        <Style Selector=":is(ThemedIconButton)">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector=":is(ThemedIconButton):pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey2}" />
+        </Style>
+        <Style Selector=":is(ThemedIconButton):pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SemiGrey3}" />
         </Style>
     </Window.Styles>
 
-    <StackPanel Orientation="Horizontal">
-        <ThemedIconButton Click="OnEditBtnClick" IconName="image-edit" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnEdit}"/>
-        <ThemedIconButton Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick" IconName="refresh-cw" />
-        <!-- <Button Name="OcrBtn" Click="OnOcrBtnClick"> -->
-        <!--     <PathIcon Data="{StaticResource file-text}" /> -->
-        <!--     <ToolTip.Tip> -->
-        <!--         <TextBlock Text="{loc:Loc ScreenCaptureDockWindow_BtnOldOcr}" /> -->
-        <!--     </ToolTip.Tip> -->
-        <!-- </Button> -->
-        <ThemedIconButton Click="OnExplainAiBtnClick" IconName="book-search" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnExplain}"/>
-        <ThemedIconButton Click="OnOcrAiBtnClick" IconName="file-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnOcr}"/>
-        <ThemedIconButton Click="OnVisionAiBtnClick" IconName="message-circle-more" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnVision}"/>
-        <ThemedIconButton Click="OnCopyBtnClick" IconName="copy" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnCopy}"/>
-        <ThemedIconButton Click="OnSaveBtnClick" IconName="save" ToolTips="{loc:Loc SaveBtn}"/>
-    </StackPanel>
+    <!-- 胶囊工具条：配色全取主题，跟着亮/暗色走。CornerRadius 取半高，正好是胶囊。
+         这里刻意不加 BoxShadow：窗口按内容收紧、没有留白，投影只会在圆角外被裁成一圈硬边灰块 -->
+    <Border Name="PillBorder" CornerRadius="18" Background="{DynamicResource SemiGrey0}"
+            BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" Padding="3">
+        <StackPanel Orientation="Horizontal" Spacing="0">
+            <ThemedIconButton Click="OnEditBtnClick" IconName="image-edit" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnEdit}"/>
+            <ThemedIconToggleButton Name="OcrTextBtn" IconName="scan-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnTextSelect}"
+                                    CheckedForeground="{DynamicResource SemiBlue5}"
+                                    IsCheckedChanged="OnOcrTextToggleChanged" />
+            <ThemedIconButton Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick" IconName="refresh-cw" />
+            <ThemedIconButton Click="OnExplainAiBtnClick" IconName="book-search" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnExplain}"/>
+            <ThemedIconButton Click="OnOcrAiBtnClick" IconName="file-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnOcr}"/>
+            <!-- <ThemedIconButton Click="OnVisionAiBtnClick" IconName="message-circle-more" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnVision}"/> -->
+            <ThemedIconButton Click="OnCopyBtnClick" IconName="copy" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnCopy}"/>
+            <ThemedIconButton Click="OnSaveBtnClick" IconName="save" ToolTips="{loc:Loc SaveBtn}"/>
+        </StackPanel>
+    </Border>
 
 </Window>

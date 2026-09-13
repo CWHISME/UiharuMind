@@ -15,6 +15,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using SharpHook.Data;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Input;
 
@@ -46,6 +47,8 @@ public class QuickFloatingWindowBase : QuickWindowBase
     protected override void OnPostShow()
     {
         base.OnPostShow();
+        // 这类浮窗是「复制完马上要看到」的提示，必须压在钉图窗之上，否则被贴图整个盖掉
+        OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.FloatingTool);
         Dispatcher.UIThread.Post(SetWindowPosition, DispatcherPriority.Loaded);
     }
 

@@ -27,19 +27,15 @@
         <Setter Property="BorderThickness" Value="0" />
     </Style>
 
-    <!-- ThemedIconButton 图标按钮统一为无背景 -->
-    <Style Selector="ThemedIconButton">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Width" Value="32" />
-        <Setter Property="Height" Value="32" />
-        <Setter Property="MinWidth" Value="12" />
-        <Setter Property="MinHeight" Value="12" />
-        <Setter Property="Padding" Value="4" />
-        <Setter Property="CornerRadius" Value="4" />
-    </Style>
-    <Style Selector="ThemedIconToggleButton">
+    <!-- ThemedIconButton 图标按钮统一为无背景。
+         :is() 一并罩住派生的 ThemedIconToggleButton——类型选择器只匹配精确类型，
+         写成 "ThemedIconButton" 的话子类一条都套不上，只能整段复制一遍。
+
+         图标按钮的两种状态各占一个属性，别混：<b>底色只表达悬停/按下</b>，
+         <b>选中用 CheckedForeground 改图标颜色</b>（见 LongTextView、FullTextWindow）。
+         选中若也去改底色（CheckedBackground），就和悬停抢同一个属性，
+         而模板里的 ContentPresenter 样式优先级高过控件设的底色，鼠标一移上去选中态就被顶没了 -->
+    <Style Selector=":is(ThemedIconButton)">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />

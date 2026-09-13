@@ -2,8 +2,27 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:ocr="clr-namespace:UiharuMind.Features.ScreenCapture.Ocr"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Features.ScreenCapture.ScreenCapturePreviewWindow"
+        Background="Transparent"
         Title="ScreenCaptureWindow">
-    <Image Name="ImageContent" />
+
+    <!-- 贴图本体：不做圆角，只留阴影定边界。Margin 由代码按阴影留白设置（见 ShadowMargin） -->
+    <Border Name="FrameBorder" BorderThickness="0">
+        <Panel>
+            <Image Name="ImageContent" Stretch="Fill" />
+
+            <!-- OCR 文字选择层：识别出结果才显示，逐字选择与右键菜单交给层内的文本控件 -->
+            <ocr:OcrTextSelectionLayer Name="OcrLayer" />
+
+            <Border Name="OcrLoadingBar" IsVisible="False"
+                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0"
+                    Background="#E6262626" CornerRadius="14" Padding="14,7">
+                <TextBlock Name="OcrLoadingText" Foreground="White" FontSize="12"
+                           Text="{loc:Loc PreviewOcr_Recognizing}" />
+            </Border>
+        </Panel>
+    </Border>
 </Window>
