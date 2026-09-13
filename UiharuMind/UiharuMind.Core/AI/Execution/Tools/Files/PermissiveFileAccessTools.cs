@@ -52,11 +52,19 @@ internal sealed class PermissiveFileAccessTools
     /// 上下文后引发截断重填、模型失忆、提前停手。1MB 能覆盖绝大多数源文件一次读完,
     /// 同时给本地小模型留一个安全天花板。传 limit=-1 可绕过此限制读全文。
     /// </summary>
-    internal const int MaxReadTotalBytes = 1024 * 1024;
+    internal const int MaxReadTotalBytes = 32 * 1024;
 
     internal const int MaxReadLineChars = 2000; //单行截断(压缩产物一行可达数百 KB)
     internal const int MaxGrepMatches = 200; //Grep 命中上限(只限工具边界,UI 文件搜索仍全量)
     internal const int MaxGrepLineChars = 500; //Grep 单行截断
+
+    /// <summary>Grep 正文输出预算,按 <b>UTF-8 字节</b>算(与 Read 同口径)。超了不返半截正文,
+    /// 整页换成命中地图——半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上。</summary>
+    internal const int MaxGrepOutputBytes = 32 * 1024;
+
+    /// <summary>地图模式最多列出的文件数(按命中数降序取 Top N;命中极度分散本身就是"搜宽了"的信号)</summary>
+    internal const int MaxGrepMapFiles = 50;
+
     internal const int MaxEditDiffLines = 80; //Edit 回给模型的 diff 行数上限
 
     private readonly string _workspaceRoot;
@@ -156,7 +164,7 @@ internal sealed class PermissiveFileAccessTools
             : null;
     }
 
-    [Description("Search file contents. Respects .gitignore.")]
+    [Description("Search file contents. Respects .gitignore. If hits are too many, returns a hit map instead of inline lines: then narrow with fileGlobs/directory or Read the listed files — never re-search with a broader term.")]
     internal async Task<GrepToolResult> Grep(
         [Description("Search pattern (ripgrep syntax).")] string pattern,
         [Description("Treat the pattern as a regular expression. "
@@ -191,6 +199,32 @@ internal sealed class PermissiveFileAccessTools
         }
 
         IReadOnlyList<GrepMatchResult> results = outcome.Matches;
+
+        // 全量命中的每文件统计——地图模式用。引擎本来就全量返回,这里免费算;
+        // 不随 200 上限截断,地图才能看到被丢掉的部分在哪。
+        var fileStats = new Dictionary<string, (int Hits, int FirstLine, int LastLine, string Snippet)>(StringComparer.Ordinal);
+        foreach (GrepMatchResult result in results)
+        {
+            if (!fileStats.TryGetValue(result.FileName, out var stat))
+            {
+                stat = (Hits: 0, FirstLine: int.MaxValue, LastLine: 0, Snippet: string.Empty);
+            }
+
+            int first = int.MaxValue;
+            int last = 0;
+            foreach (GrepMatchLine line in result.MatchingLines)
+            {
+                if (!line.IsMatch) continue;
+                if (line.LineNumber < first) first = line.LineNumber;
+                if (line.LineNumber > last) last = line.LineNumber;
+            }
+
+            stat.Hits++;
+            if (first < stat.FirstLine) stat.FirstLine = first;
+            if (last > stat.LastLine) stat.LastLine = last;
+            if (stat.Snippet.Length == 0) stat.Snippet = result.Snippet;
+            fileStats[result.FileName] = stat;
+        }
 
         // 自有结果 → 工具结果的转换只发生在这里:按文件分组 + 每行 grep 味文本,
         // 命中限幅也只发生在这里。
@@ -245,9 +279,51 @@ internal sealed class PermissiveFileAccessTools
             byFile[fileName].Lines = lines.Select(x => x.Item2).ToList();
         }
 
+        // 正文输出字节预算:超了整页换地图,不带半截正文。
+        // 半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上
+        int bodyBytes = 0;
+        foreach (GrepFileHits file in converted)
+        {
+            bodyBytes += Encoding.UTF8.GetByteCount(file.File) + 1;
+            foreach (string line in file.Lines)
+            {
+                bodyBytes += Encoding.UTF8.GetByteCount(line) + 1;
+            }
+        }
+
+        if (bodyBytes > MaxGrepOutputBytes)
+        {
+            return BuildHitMap();
+        }
+
         // 说明走 Notice 字段,不再塞一条 FileName = "[truncated]" 的假命中:
         // 那种假条目正是模型分不清"命中"与"一句话"的来源
         return new GrepToolResult { Matches = converted, Notice = BuildGrepNotice() };
+
+        GrepToolResult BuildHitMap()
+        {
+            List<GrepMapEntry> map = fileStats
+                .OrderByDescending(x => x.Value.Hits)
+                .ThenBy(x => x.Key, StringComparer.Ordinal)
+                .Take(MaxGrepMapFiles)
+                .Select(x => new GrepMapEntry
+                {
+                    File = x.Key,
+                    Hits = x.Value.Hits,
+                    FirstLine = x.Value.FirstLine,
+                    LastLine = x.Value.LastLine,
+                    Snippet = TruncateLine(x.Value.Snippet, MaxGrepLineChars),
+                })
+                .ToList();
+
+            // 刻意不给正文:模型第一反应应是判断"词是不是搜宽了",而不是将就着读半截扫描序正文。
+            // 定点 Read 或收窄重搜都行;唯独别换更宽的词重搜——那会把刚截掉的内容原样再灌一遍(回灌)
+            string notice = $"{results.Count} matches across {fileStats.Count} file(s) — too broad to return inline. "
+                            + $"Showing the top {map.Count} files by hit count; `Read` the files below, "
+                            + "or narrow the query (fileGlobs/directory) instead of re-searching with a broader term.";
+
+            return new GrepToolResult { Matches = [], Map = map, Notice = notice };
+        }
 
         string? BuildGrepNotice()
         {
@@ -297,6 +373,8 @@ internal sealed class PermissiveFileAccessTools
                    a trailing notice tells you the offset to continue from.
                  - Pass limit=-1 to read the entire file in one call, bypassing the byte cap.
                    Use this when you need to understand the whole file for refactoring.
+                 - When you only need part of a large file, locate the interesting lines with Grep first,
+                   then read a slice with offset/limit — don't pull the whole file for a detail.
                  """)]
     internal Task<string> Read(
         [Description("File path, absolute or relative to the working directory.")] string filePath,

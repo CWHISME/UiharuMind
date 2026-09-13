@@ -170,6 +170,53 @@ public class ToolOutputCapTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// 命中过多(正文超过 32KB 字节预算)时不返半截正文,整页换成命中地图。
+    /// 半截正文按扫描序取、无相关度排序,留着只会让模型锚定到运气好的文件上;
+    /// 地图给全量分布(不随 200 上限截短),模型据它定点 Read 或收窄重搜。
+    /// </summary>
+    [Fact]
+    public async Task Grep_OverByteBudget_SwitchesToHitMap()
+    {
+        string path = Path.Combine(_dir, "wide.txt");
+        // 400 处命中 × ~290 字节 = 约 116KB;200 上限封顶后正文仍有约 58KB,远超 32KB 预算
+        await File.WriteAllLinesAsync(path,
+            Enumerable.Range(1, 400).Select(i => "needle " + new string('x', 280) + i));
+
+        GrepToolResult result = await _tools.Grep("needle");
+
+        Assert.Empty(result.Matches); //正文整页换掉
+        Assert.NotNull(result.Map);
+        GrepMapEntry entry = Assert.Single(result.Map);
+        Assert.Equal("wide.txt", entry.File);
+        Assert.Equal(400, entry.Hits); //地图给全量分布,不被 200 上限截短
+        Assert.Equal(1, entry.FirstLine);
+        Assert.Equal(400, entry.LastLine);
+        Assert.Contains("matches across", result.Notice);
+        Assert.Contains("too broad", result.Notice);
+    }
+
+    /// <summary>地图按命中数降序取 Top 50:命中极度分散本身就是"搜宽了"的信号,看前 50 就够下判断</summary>
+    [Fact]
+    public async Task Grep_Map_IsTop50ByHits()
+    {
+        for (int f = 0; f < 60; f++)
+        {
+            string path = Path.Combine(_dir, $"f{f:D2}.txt");
+            // 10 处命中/文件 × 约 260 字节 = 200 上限封顶后正文约 52KB,触发地图模式
+            await File.WriteAllLinesAsync(path,
+                Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i));
+        }
+
+        GrepToolResult result = await _tools.Grep("needle");
+
+        Assert.Empty(result.Matches);
+        Assert.NotNull(result.Map);
+        Assert.Equal(PermissiveFileAccessTools.MaxGrepMapFiles, result.Map.Count);
+        Assert.All(result.Map, e => Assert.Equal(10, e.Hits));
+        Assert.Contains("600 matches across 60 file(s)", result.Notice);
+    }
+
     [Fact]
     public void TruncateLine_RespectsBudget()
     {

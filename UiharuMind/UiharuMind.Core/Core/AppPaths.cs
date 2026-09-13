@@ -124,6 +124,9 @@ public static class AppPaths
         /// <summary>下载的应用安装包</summary>
         public static readonly string Updates = Path.Combine(Root, "Updates");
 
+        /// <summary>WebFetch 截断时落盘的网页全文:可再生(重新抓一次即可)、用户可随手删</summary>
+        public static readonly string FetchedPages = Path.Combine(Root, "FetchedPages");
+
     }
 
     /// <summary>用户自管的大件:模型权重与后端引擎,应用只读不生成</summary>

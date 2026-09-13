@@ -41,11 +41,39 @@ public sealed class GrepFileHits
     public List<string> Lines { get; set; } = [];
 }
 
+/// <summary>
+/// 地图模式下的一个条目：告诉模型「被丢掉的命中分布在哪」。
+///
+/// 命中过多时正文会被整页换成这张地图——半截正文是按扫描序取的、没有相关度排序，
+/// 留着只会让模型锚定到运气好的文件上；地图则让模型直接对「哪些文件命中多」下判断：
+/// 定点 <c>Read</c>，或意识到这个词搜宽了、换更窄的关键词。
+/// </summary>
+public sealed class GrepMapEntry
+{
+    /// <summary>文件路径（相对工作区）</summary>
+    public string File { get; set; } = string.Empty;
+
+    /// <summary>该文件命中处数（一处命中连同其上下文行算一条）</summary>
+    public int Hits { get; set; }
+
+    /// <summary>命中行号区间 [FirstLine, LastLine]，拿来发 <c>Read offset=</c> 正好</summary>
+    public int FirstLine { get; set; }
+
+    /// <summary>命中行号区间上界</summary>
+    public int LastLine { get; set; }
+
+    /// <summary>首条命中片段（预览用，已按行截断）</summary>
+    public string Snippet { get; set; } = string.Empty;
+}
+
 /// <summary>文本搜索工具回给模型的形状，与 <see cref="GlobToolResult"/> 同构</summary>
 public sealed class GrepToolResult
 {
-    /// <summary>按文件分组的命中；没搜成时为空</summary>
+    /// <summary>按文件分组的命中；没搜成时为空。地图模式下也为空（正文被整页换掉）</summary>
     public List<GrepFileHits> Matches { get; set; } = [];
+
+    /// <summary>地图模式：命中过多时给的每文件命中分布，供定点 Read；正文模式为 null</summary>
+    public List<GrepMapEntry>? Map { get; set; }
 
     /// <summary>给模型的说明：失败原因、自动降级、0 命中、被截断。没有要说的就是 null</summary>
     public string? Notice { get; set; }
