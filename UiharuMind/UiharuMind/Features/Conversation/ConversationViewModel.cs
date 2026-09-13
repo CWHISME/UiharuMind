@@ -27,6 +27,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Mcp;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
@@ -366,9 +367,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
         _transcript.UserMessageRendered += OnUserMessageRendered;
+        _transcript.ApprovalRequestCreated += OnApprovalRequestCreated;
+        _transcript.SubSessionAttached += RefreshSubSessionApprovalWait;
+        // 登记与画卡在两个线程上各走各的,谁先都有可能——登记侧也喊一声,让已经画出来的卡回头认领
+        SubSessionApprovalRegistry.Instance.PendingAdded += OnNestedApprovalsPending;
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
-        _liveObserverSink = new LiveObserverSink(_transcript);
+        // 子会话才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
+        _liveObserverSink = new LiveObserverSink(_transcript, () => CurrentSession?.IsSubSession == true);
         _driver.StateChanged += OnDriverStateChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
 
@@ -425,7 +431,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private void OnSessionRunStateChanged(string sessionId)
     {
-        if (sessionId != CurrentMeta?.SessionId) return;
+        // 别人的运行态也要看一眼:派出去的子会话卡在审批上时,派活那张卡要挂出提示
+        if (sessionId != CurrentMeta?.SessionId)
+        {
+            RefreshSubSessionApprovalWait(sessionId);
+            return;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             NotifyRunStateChanged();
@@ -479,6 +491,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Dispatcher.UIThread.Post(() =>
         {
             if (CurrentSession is not { } session) return;
+            // 观察窗里没被认领的审批卡（复开的窗口、超时已拒的）到此不会再有人点，
+            // 按拒绝收视觉。已认领已决出的不受影响（幂等）。
+            _transcript.CancelPendingApprovals();
             if (ConversationOrderCheck.FindDivergence(Items, session.History) is not { } divergence) return;
 
             Log.Warning($"Conversation items diverged from history ({divergence}); replaying the window.");
@@ -541,6 +556,50 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             if (ReferenceEquals(PendingInterjections[i].Message, message)) PendingInterjections.RemoveAt(i);
         }
+    }
+
+    /// <summary>
+    /// 画出了一张审批卡：子会话窗口认领嵌套审批，把卡的回应接到登记项上。
+    /// 父会话自己的卡认不到登记（没人登记过），原样走父轮次的回应口。
+    /// </summary>
+    private void OnApprovalRequestCreated(ApprovalRequestItem item)
+    {
+        if (CurrentSession is not { IsSubSession: true } session) return;
+        SubSessionApprovalRegistry.Instance.TryAdopt(session.SessionId, item.Request, item.Response);
+    }
+
+    /// <summary>
+    /// 有嵌套审批登记进来了：把本窗口已经画出来的待决卡片再认领一遍。
+    ///
+    /// 认领两头都要做——卡片可能先于登记诞生（内容流转发到界面是 Post 出去的），
+    /// 也可能后于登记诞生（晚开的窗口从流回放里拿到同一批请求）。重复认领无害：
+    /// 决定先到先得。<b>可能来自后台线程</b>，所以 marshal 之后再动界面。
+    /// </summary>
+    /// <param name="sessionId">登记进来的那个子会话</param>
+    private void OnNestedApprovalsPending(string sessionId)
+    {
+        if (sessionId != CurrentMeta?.SessionId) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (CurrentSession is not { IsSubSession: true } session) return;
+            foreach (ApprovalRequestItem item in _transcript.PendingApprovals.ToList())
+            {
+                SubSessionApprovalRegistry.Instance.TryAdopt(session.SessionId, item.Request, item.Response);
+            }
+        });
+    }
+
+    /// <summary>
+    /// 刷新「派出去的子会话正在等审批」提示。状态取自运行态登记处——
+    /// 子代理那一轮的审批等待本来就登记在册（<c>TurnDriver</c> 的 <c>BeginApprovalWait</c>），
+    /// 不必另铺一条通知链路。
+    /// </summary>
+    /// <param name="subSessionId">子会话标识</param>
+    private void RefreshSubSessionApprovalWait(string subSessionId)
+    {
+        bool waiting = SessionManager.Instance.Running.StateOf(subSessionId)
+                       == ESessionRunState.AwaitingApproval;
+        Dispatcher.UIThread.Post(() => _transcript.NoteSubSessionApprovalWait(subSessionId, waiting));
     }
 
     /// <summary>
@@ -739,6 +798,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         SessionModel.Dispose();
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+        _transcript.ApprovalRequestCreated -= OnApprovalRequestCreated;
+        _transcript.SubSessionAttached -= RefreshSubSessionApprovalWait;
+        SubSessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
         _driver.StateChanged -= OnDriverStateChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
         DetachSessionSignals();

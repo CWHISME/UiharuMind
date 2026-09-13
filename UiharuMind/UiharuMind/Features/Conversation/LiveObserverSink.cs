@@ -25,16 +25,24 @@ namespace UiharuMind.Features.Conversation;
 public sealed class LiveObserverSink : ITurnSink
 {
     private readonly ITurnSink _inner;
+    private readonly Func<bool>? _allowApproval;
 
     /// <param name="inner">真正的渲染落点（转录器）</param>
-    public LiveObserverSink(ITurnSink inner) => _inner = inner;
+    /// <param name="allowApproval">
+    /// 是否放行审批请求。子会话窗口放行——嵌套审批靠它弹出，认领后回应有人听；
+    /// 普通会话的观察窗仍丢弃——那张卡画出来也按不动（回应口在驱动的那一窗），
+    /// 而且永远等不到回应，会一直挂在待决清单上。
+    /// </param>
+    public LiveObserverSink(ITurnSink inner, Func<bool>? allowApproval = null)
+    {
+        _inner = inner;
+        _allowApproval = allowApproval;
+    }
 
     /// <inheritdoc />
     public void Apply(AIContent content)
     {
-        // 审批请求要送到<b>派活者那一轮</b>的回应口(见 ADR 0021):这个窗口画出来也按不动,
-        // 而且永远等不到回应,会一直挂在待决清单上
-        if (content is ToolApprovalRequestContent) return;
+        if (content is ToolApprovalRequestContent && !(_allowApproval?.Invoke() ?? false)) return;
 
         Post(() => _inner.Apply(content));
     }

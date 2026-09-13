@@ -75,6 +75,11 @@
                                    TextTrimming="CharacterEllipsis" />
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                                     VerticalAlignment="Center">
+                            <!-- 派出去的子代理在等用户去子会话点审批:跑圈照转,另挂这一句免得干等 -->
+                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SemiOrange5}"
+                                       Text="{loc:Loc SessionStatusAwaitingApproval}"
+                                       IsVisible="{Binding IsWaitingApproval}" />
                             <Border Classes="spin" Classes.running="{Binding IsRunning}"
                                     Width="12" Height="12" IsVisible="{Binding IsRunning}">
                                 <TextBlock Text="◠" FontSize="11"

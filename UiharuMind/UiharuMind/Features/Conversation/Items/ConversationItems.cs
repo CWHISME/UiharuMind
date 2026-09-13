@@ -309,6 +309,12 @@ public partial class ToolCallItem : ConversationItemBase
     [ObservableProperty] private string _filePath = string.Empty;
     [ObservableProperty] private bool _isRunning = true;
     [ObservableProperty] private bool _isSuccess = true;
+
+    /// <summary>
+    /// 派出去的子代理正在等用户去子会话点审批（状态取自运行态登记处，按 <see cref="SubSessionId"/> 对上）。
+    /// 跑圈照转（调用还没返回），另挂这一句免得盯着父会话的用户干等。
+    /// </summary>
+    [ObservableProperty] private bool _isWaitingApproval;
     [ObservableProperty] private string _resultText = string.Empty;
     [ObservableProperty] private bool _isExpanded;
 
@@ -426,6 +432,9 @@ public partial class ApprovalRequestItem : ConversationItemBase
     private readonly ToolApprovalRequestContent _request;
     private readonly TaskCompletionSource<ChatMessage> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>框架发来的审批请求（子窗口认领嵌套审批时按引用相认用）</summary>
+    public ToolApprovalRequestContent Request => _request;
 
     /// <summary>待审批工具名</summary>
     public string ToolName { get; }

@@ -16,6 +16,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools;
@@ -81,6 +82,17 @@ public static class SubAgentTool
     /// 而主力模型已转为远程——本地跑偏烧的是电,远程跑偏是账单事件(见 ADR 0022)。
     /// </summary>
     public static readonly TimeSpan UnattendedTimeout = TimeSpan.FromMinutes(30);
+
+    /// <summary>嵌套审批连续被拒造成的追加轮次上限,学无头路径的 <c>MaxApprovalRounds</c>——
+    /// 模型若执意重试同一动作,无限拒绝等于无限烧轮次。用户批准一次即清零(见
+    /// <see cref="ToolCall.NestedApprovalResolver"/>),掐的只是空转</summary>
+    private const int MaxDeniedApprovalRounds = 4;
+
+    /// <summary>
+    /// 嵌套审批等用户点选的上限。只发生在有人看着时：无人值守上游当场拒绝，轮不到等待。
+    /// 等待期间派活者那一轮同步阻塞（ADR 0022），到期/取消按拒绝收口、轮次继续。
+    /// </summary>
+    public static readonly TimeSpan NestedApprovalTimeout = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// 一次委派要用到的全部上下文。子会话的字段几乎全部从派活者继承——
@@ -260,10 +272,16 @@ public static class SubAgentTool
 
         SubAgentTurnSink turnSink = new();
         bool timedOut = false;
+        int unansweredClosed = 0; //审批未决封掉的孤儿调用数(正常结束路径用,见下)
         // 委派期间主 agent 那一头是同步阻塞的,日志里不留痕就只剩一段无法解释的沉默——
         // 用户看着像卡死(实际是子代理在跑)。起止各一条,带上子会话标识便于对到那个窗口
         long startedAt = Environment.TickCount64;
         Log.Debug($"Sub-agent turn started: session={session.SessionId} title=\"{session.Title}\"");
+        // 嵌套审批的回应口:先问派活者那一轮,接不住时登记到子会话等用户去那边点选(见 NestedApprovalResolver)
+        ApprovalResolver? resolver = NestedApprovalResolver.Create(context.ApprovalSource?.Invoke(),
+            session.SessionId, SubSessionApprovalRegistry.Instance, NestedApprovalTimeout,
+            MaxDeniedApprovalRounds, timeoutSource.Token);
+
         try
         {
             await session.Runner.AttachAsync(session, timeoutSource.Token).ConfigureAwait(false);
@@ -272,7 +290,13 @@ public static class SubAgentTool
             // 令牌要串进去:派活者窗口的停止按钮取消的是派活者那一轮,
             // 不串的话子代理照跑不误(超时也掐不动它)
             await driver.RunAsync(session, session.Runner, new ChatMessage(ChatRole.User, message),
-                context.ApprovalSource?.Invoke(), timeoutSource.Token).ConfigureAwait(false);
+                resolver, timeoutSource.Token).ConfigureAwait(false);
+
+            // 兜底网:正常结束时理论上不应再有孤儿(嵌套审批已按拒绝收口),
+            // 留着防其他漏网路径。先封再总结:总结那一轮要看到"没跑成",
+            // 否则模型会把没干的活写进报告
+            unansweredClosed = ToolCallCancellation.CloseUnansweredAtTail(session,
+                ToolCallCancellation.ApprovalUnansweredResultText);
 
             // 代码兜底:模型以工具调用结束、之后没产出文本(没写收尾总结)。
             // 提示层硬约束挡住大多数,这里兜漏网的——追加一轮"请总结"让模型补上报告
@@ -281,8 +305,12 @@ public static class SubAgentTool
                 using TurnDriver summaryDriver = new(turnSink, new TurnUsageLedger());
                 await summaryDriver.RunAsync(session, session.Runner,
                         new ChatMessage(ChatRole.User, "请用一段话总结你的发现和结论，作为最终报告。"),
-                        context.ApprovalSource?.Invoke(), timeoutSource.Token)
+                        resolver, timeoutSource.Token)
                     .ConfigureAwait(false);
+
+                // 总结那一轮同样可能撞上审批未决(同一条断路),再封一次——无孤儿时是空操作
+                unansweredClosed += ToolCallCancellation.CloseUnansweredAtTail(session,
+                    ToolCallCancellation.ApprovalUnansweredResultText);
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -299,6 +327,13 @@ public static class SubAgentTool
 
         string report = turnSink.Report.Build(timedOut, limit, session.SessionId,
             cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
+        if (unansweredClosed > 0)
+        {
+            // 有调用因审批未决根本没跑成,必须点名——否则主 agent 会把没干的活当成干完了
+            report += $"\n(note: {unansweredClosed} tool call(s) in the sub-session never ran - "
+                      + "their approvals were not answered before the turn ended. "
+                      + "Do not assume that work was done.)";
+        }
         string outcome = timedOut ? "timed out" : cancellationToken.IsCancellationRequested ? "stopped" : "done";
         Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
                   + $"elapsed={(Environment.TickCount64 - startedAt) / 1000}s report={report.Length} chars");

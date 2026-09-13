@@ -64,6 +64,18 @@ public sealed class ConversationTranscript : ITurnSink
     /// <summary>一条用户消息被模型消费并画出来了（插话的待发提示据此撤掉）</summary>
     public event Action<ChatMessage>? UserMessageRendered;
 
+    /// <summary>
+    /// 画出了一张审批卡。子会话窗口靠它认领嵌套审批：卡片背后的请求与登记处的是同一对象，
+    /// 命中即把卡的回应接到登记项上。父会话自己的审批卡命中不了（没登记过），原样不动。
+    /// </summary>
+    public event Action<ApprovalRequestItem>? ApprovalRequestCreated;
+
+    /// <summary>
+    /// 一张工具卡认到了自己的子会话（参数为子会话标识）。调用方据此补上它此刻的运行态
+    /// ——中途挂上来的窗口收不到之前那几下状态变化。
+    /// </summary>
+    public event Action<string>? SubSessionAttached;
+
     /// <param name="target">条目落点：实时流直写界面集合，回放写入构建缓冲</param>
     /// <param name="createAssistantItem">助手气泡工厂（名字与头像取自当前会话角色）</param>
     /// <param name="createUserItem">
@@ -165,6 +177,7 @@ public sealed class ConversationTranscript : ITurnSink
                 if (FindCall(started.CallId) is { } launched)
                 {
                     launched.SubSessionId = started.SubSessionId;
+                    SubSessionAttached?.Invoke(started.SubSessionId);
                 }
 
                 break;
@@ -189,6 +202,7 @@ public sealed class ConversationTranscript : ITurnSink
                 _target.Add(approvalItem);
                 _pending.Add(approvalItem);
                 _round.Add(approvalItem);
+                ApprovalRequestCreated?.Invoke(approvalItem);
                 break;
 
             case ErrorContent error:
@@ -220,6 +234,23 @@ public sealed class ConversationTranscript : ITurnSink
     {
         return _target.Concat(_renderedBefore ?? [])
             .Any(x => x is TextConversationItem { IsUser: true } && ReferenceEquals(x.SourceMessage, message));
+    }
+
+    /// <summary>
+    /// 派出去的子会话正在等（或不再等）用户点审批：把提示挂到派活那张卡上。
+    ///
+    /// 状态取自 <c>SessionRunRegistry</c>（子代理那一轮本来就登记在册），这里只负责上屏——
+    /// 不然盯着父会话的用户只看见一个转圈的卡片，干等到超时还莫名其妙。
+    /// </summary>
+    /// <param name="subSessionId">子会话标识</param>
+    /// <param name="waiting">是否正在等用户点选</param>
+    public void NoteSubSessionApprovalWait(string subSessionId, bool waiting)
+    {
+        if (subSessionId.Length == 0) return;
+        foreach (ToolCallItem call in _target.OfType<ToolCallItem>())
+        {
+            if (call.SubSessionId == subSessionId) call.IsWaitingApproval = waiting;
+        }
     }
 
     /// <summary>按 CallId 找回工具卡片：先看本次装配的产出，再看更早已渲染出去的那些</summary>

@@ -41,6 +41,17 @@ public static class ToolCallCancellation
     public const string FailureResultText = Marker + " This turn failed before the tool returned.";
 
     /// <summary>
+    /// 审批未决时补写的结果正文：调用发出去了，但审批请求在轮次结束前始终没人回应，
+    /// 函数根本没执行。共用 <c>[cancelled]</c> 标记——卡片按失败显示（它确实没跑完），
+    /// 下次打开该会话也不会把这条当成功的结果读。
+    ///
+    /// 目前唯一的调用方是子代理的正常结束路径：嵌套审批冒到派活者回应口后被静默丢掉
+    /// （派活者转录器本轮清单是空的），轮次正常结束、没人补过结果。
+    /// </summary>
+    public const string ApprovalUnansweredResultText = Marker
+        + " This tool call never ran: its approval request was not answered before the turn ended.";
+
+    /// <summary>
     /// 判断一条工具结果是否为取消补写的
     /// </summary>
     /// <param name="result">工具结果</param>
