@@ -132,6 +132,11 @@ public sealed class TurnDriver : IDisposable
         runner.SetTurnContext(resolver, _sink != null);
         //本轮没等到结果的工具调用该按什么口径收:默认「用户停止」,撞失败时改成失败口径
         string interruptionNote = ToolCallCancellation.ResultText;
+        // 思考统计只盖本轮新增的那一段:起点在轮首记下,计时器与内容流同寿,成功与失败两条路共用。
+        // 界面侧在 Persisted 通知里还会按显示计时覆盖一次(显示值更准),这里是子代理/定时任务等
+        // 无界面轮次的兜底,兼界面配对失败时的回填——只写缺统计的消息,已有值的不碰
+        int historyBefore = session.History.Count;
+        ThinkingStatsRecorder thinkingStats = new();
         // 岔口的释放必须晚到 finally 里:收尾的 CloseSegment/StopRunningToolCalls 与失败路径的
         // 落库都要经过它,拆早了自己的落点都收不到那几下
         LiveTurnStream.Scope? liveScope = null;
@@ -175,6 +180,7 @@ public sealed class TurnDriver : IDisposable
                         if (content is ToolApprovalRequestContent request) roundRequests.Add(request);
                         if (content is UsageContent usage) RecordUsage(session, runner, usage.Details);
                         _turnSink?.Apply(content);
+                        thinkingStats.NoteContent(content);
                     }
                 }
                 catch (OperationCanceledException e)
@@ -191,6 +197,7 @@ public sealed class TurnDriver : IDisposable
                 }
 
                 _turnSink?.CloseSegment();
+                thinkingStats.NoteSegmentClosed();
                 _notify?.Invoke(new TurnNotice(ETurnNotice.RoundCompleted));
 
                 if (roundRequests.Count == 0 || resolver == null) break;
@@ -207,6 +214,7 @@ public sealed class TurnDriver : IDisposable
             }
 
             await runner.SaveStateAsync();
+            StampThinkingStats(session, thinkingStats, historyBefore);
             _notify?.Invoke(new TurnNotice(ETurnNotice.Persisted));
         }
         catch (Exception e)
@@ -217,6 +225,7 @@ public sealed class TurnDriver : IDisposable
             // 响应侧它拿不到——不在这里收,重开会话就是一次没有结果的调用加一段消失的回复
             interruptionNote = ToolCallCancellation.FailureResultText;
             SettleInterruptedTurn(session, interruptionNote);
+            StampThinkingStats(session, thinkingStats, historyBefore);
             _notify?.Invoke(new TurnNotice(ETurnNotice.Failed, e.Message));
         }
         finally
@@ -332,6 +341,26 @@ public sealed class TurnDriver : IDisposable
     {
         lock (_liveDrivers) _liveDrivers.Remove(this);
         _runCancellation?.Cancel();
+    }
+
+    /// <summary>
+    /// 把本轮思考段的耗时写回历史并落盘。落盘是追加式的,写回发生在行已上盘之后,
+    /// 因此这里是一次全量重写——一轮一次,只在真有缺统计的思考段时触发。
+    /// 盖章本身永不打断一轮,异常只记日志:统计丢了可以接受,轮次崩了不行。
+    /// </summary>
+    /// <param name="session">本轮的会话</param>
+    /// <param name="recorder">本轮的思考计时器</param>
+    /// <param name="fromIndex">本轮新增段在历史里的起始下标</param>
+    private void StampThinkingStats(ChatSession session, ThinkingStatsRecorder recorder, int fromIndex)
+    {
+        try
+        {
+            if (recorder.Stamp(session.History, fromIndex) > 0) session.Save();
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Stamp thinking stats failed: {e.Message}");
+        }
     }
 
     /// <summary>

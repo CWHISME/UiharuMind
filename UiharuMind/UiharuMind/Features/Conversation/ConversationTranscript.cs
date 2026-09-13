@@ -116,17 +116,15 @@ public sealed class ConversationTranscript : ITurnSink
         VerifyUiAccess();
         switch (content)
         {
-            case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                AppendThinking(reasoning.Text);
-                break;
-
-            case TextContent text when !string.IsNullOrEmpty(text.Text):
-                // 本地/部分远程模型把 <think> 混在正文流里,经解析器分离成思考条目
-                _thinkParser.Feed(text.Text, AppendText, AppendThinking);
+            case TextReasoningContent reasoning:
+            case TextContent text:
+                // 思考边界走 ThinkingBoundary：空增量忽略、<think> 混排经解析器分离，
+                // 规则与计时器同一份，改一边另一边跟着变
+                ThinkingBoundary.Dispatch(content, _thinkParser, AppendText, AppendThinking, CloseSegment);
                 break;
 
             case FunctionCallContent call:
-                CloseSegment();
+                ThinkingBoundary.Dispatch(call, _thinkParser, AppendText, AppendThinking, CloseSegment);
                 if (AgentContentFormatter.IsHousekeepingTool(call.Name))
                 {
                     HousekeepingToolCalled?.Invoke();
@@ -172,16 +170,18 @@ public sealed class ConversationTranscript : ITurnSink
                 break;
 
             // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
-            case MessageBoundaryContent:
-                CloseSegment();
+            case MessageBoundaryContent boundary:
+                ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);
                 break;
 
             case UserMessageContent consumed:
+                // 这处的收段是有条件的:同一条已画过就早退,不收——不能走统一分发,
+                // 否则重复消费会把正开着的思考段提前切断
                 RenderUserMessage(consumed.Message);
                 break;
 
             case ToolApprovalRequestContent approvalRequest:
-                CloseSegment();
+                ThinkingBoundary.Dispatch(approvalRequest, _thinkParser, AppendText, AppendThinking, CloseSegment);
                 ApprovalRequestItem approvalItem = new(approvalRequest, _workspaceRootSource?.Invoke())
                 {
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),

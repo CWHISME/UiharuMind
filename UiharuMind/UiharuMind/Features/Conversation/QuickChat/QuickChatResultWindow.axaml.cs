@@ -185,15 +185,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
     /// <param name="content">来自技能的一段内容</param>
     private void ApplyContent(AIContent content)
     {
-        switch (content)
-        {
-            case TextReasoningContent { Text.Length: > 0 } reasoning:
-                AppendThinking(reasoning.Text);
-                break;
-            case TextContent { Text.Length: > 0 } text:
-                _thinkParser.Feed(text.Text, AppendContent, AppendThinking);
-                break;
-        }
+        ThinkingBoundary.Dispatch(content, _thinkParser, AppendContent, AppendThinking, CloseThinking);
     }
 
     private void AppendContent(string info)
