@@ -41,18 +41,18 @@ public class SearchFailureVisibilityTests : IDisposable
     }
 
     /// <summary>
-    /// 目录不存在<b>不能</b>再表现为「搜到 0 条」。失败原因里必须带上解析后的绝对路径——
+    /// 搜索范围不存在<b>不能</b>再表现为「搜到 0 条」。失败原因里必须带上解析后的绝对路径——
     /// 模型看不到自己那个相对路径被拼成了哪里，就只能再猜一次。
     /// </summary>
     [Fact]
-    public async Task Grep_DirectoryNotFound_IsAFailure_NotAnEmptyResult()
+    public async Task Grep_PathNotFound_IsAFailure_NotAnEmptyResult()
     {
-        GrepOutcome outcome = await _grepper.SearchAsync("anything", directory: "no-such-dir");
+        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: "no-such-file");
 
         Assert.NotNull(outcome.Failure);
-        Assert.Equal(ESearchFailureKind.DirectoryNotFound, outcome.Failure.Kind);
-        Assert.Equal("no-such-dir", outcome.Failure.RequestedDirectory);
-        Assert.Contains("no-such-dir", outcome.Failure.ResolvedDirectory);
+        Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
+        Assert.Equal("no-such-file", outcome.Failure.RequestedDirectory);
+        Assert.Contains("no-such-file", outcome.Failure.ResolvedDirectory);
         Assert.Equal(Path.GetFullPath(_dir), outcome.Failure.WorkingDirectory);
         Assert.Empty(outcome.Matches);
     }
@@ -154,17 +154,17 @@ public class SearchFailureVisibilityTests : IDisposable
     /// <b>搜索回的路径必须能直接当 Read 的入参</b>——这是"AI 老是用绝对路径"的病根。
     ///
     /// 两个搜索器从前按<b>搜索根</b>算相对路径，而 Read/Edit 按<b>工作区根</b>解析，
-    /// 于是 <c>directory</c> 一缩小，回来的路径就喂不回去。模型吃过几次之后倒向绝对路径，
+    /// 于是 <c>path</c> 一缩小，回来的路径就喂不回去。模型吃过几次之后倒向绝对路径，
     /// 那是它理性的选择：当时绝对路径是唯一跨工具通用的形式。这条测试就是那个坑的看门人。
     /// </summary>
     [Fact]
-    public async Task Grep_NarrowedByDirectory_ReturnsPathsRelativeToWorkspace()
+    public async Task Grep_NarrowedByPath_ReturnsPathsRelativeToWorkspace()
     {
         string sub = Path.Combine(_dir, "sub", "deep");
         Directory.CreateDirectory(sub);
         await File.WriteAllTextAsync(Path.Combine(sub, "hit.txt"), "needle");
 
-        GrepOutcome outcome = await _grepper.SearchAsync("needle", directory: "sub");
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "sub");
 
         GrepMatchResult match = Assert.Single(outcome.Matches);
         // 相对搜索根会是 "deep/hit.txt",那个路径喂给 Read 会解析到 <工作区>/deep/hit.txt
@@ -173,15 +173,15 @@ public class SearchFailureVisibilityTests : IDisposable
             "搜索回的路径必须能直接拼在工作区根上打开");
     }
 
-    /// <summary>Glob 同理：缩小 directory 之后回的路径仍相对工作区</summary>
+    /// <summary>Glob 同理：缩小 path 之后回的路径仍相对工作区</summary>
     [Fact]
-    public async Task Glob_NarrowedByDirectory_ReturnsPathsRelativeToWorkspace()
+    public async Task Glob_NarrowedByPath_ReturnsPathsRelativeToWorkspace()
     {
         string sub = Path.Combine(_dir, "sub", "deep");
         Directory.CreateDirectory(sub);
         await File.WriteAllTextAsync(Path.Combine(sub, "hit.cs"), "x");
 
-        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", directory: "sub");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", path: "sub");
 
         GlobEntry entry = Assert.Single(outcome.Entries);
         Assert.Equal("sub/deep/hit.cs", entry.Path);
@@ -189,14 +189,14 @@ public class SearchFailureVisibilityTests : IDisposable
         Assert.Equal(1, entry.SizeBytes); //大小是真取到的,不是占位 0
     }
 
-    /// <summary>Glob 的目录不存在同样是结构化失败，不再是塞进结果列表的一条假条目</summary>
+    /// <summary>Glob 的搜索范围不存在同样是结构化失败，不再是塞进结果列表的一条假条目</summary>
     [Fact]
-    public async Task Glob_DirectoryNotFound_IsAFailure_NotAFakeEntry()
+    public async Task Glob_PathNotFound_IsAFailure_NotAFakeEntry()
     {
-        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", directory: "nope");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", path: "nope");
 
         Assert.NotNull(outcome.Failure);
-        Assert.Equal(ESearchFailureKind.DirectoryNotFound, outcome.Failure.Kind);
+        Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
         Assert.Empty(outcome.Entries);
     }
 
@@ -265,4 +265,41 @@ public class SearchFailureVisibilityTests : IDisposable
         Assert.Equal(ESearchFailureKind.GlobHasNoWildcard, outcome.Failure.Kind);
         Assert.Empty(outcome.Entries);
     }
+
+    /// <summary>
+    /// <c>path</c> 收目录也收单个文件。单文件搜索必须只命中那一个文件：
+    /// 父目录下的同名文件（会被引擎一起枚举出来）与别的文件都不能混进来。
+    /// </summary>
+    [Fact]
+    public async Task Grep_PathIsSingleFile_OnlyHitsThatFile()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub"));
+        await File.WriteAllTextAsync(Path.Combine(_dir, "top.md"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "top.txt"), "needle");
+        // 同名文件会被父目录枚举出来,精确路径过滤必须把它挡掉
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "top.md"), "needle");
+
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "top.md");
+
+        Assert.Null(outcome.Failure);
+        GrepMatchResult match = Assert.Single(outcome.Matches);
+        Assert.Equal("top.md", match.FileName);
+    }
+
+    /// <summary>Glob 的 path 同样收单文件：同名的兄弟/深层文件不是它</summary>
+    [Fact]
+    public async Task Glob_PathIsSingleFile_OnlyThatFileWhenPatternMatches()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub", "deep"));
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "spec.md"), "x");
+        // 同名文件会被父目录枚举出来,精确路径过滤必须把它挡掉
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep", "spec.md"), "x");
+
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.md", path: "sub/spec.md");
+
+        Assert.Null(outcome.Failure);
+        GlobEntry entry = Assert.Single(outcome.Entries);
+        Assert.Equal("sub/spec.md", entry.Path);
+    }
+
 }

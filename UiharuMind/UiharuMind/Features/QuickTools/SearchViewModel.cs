@@ -160,7 +160,7 @@ public partial class SearchViewModel : ViewModelBase
 
         return outcome.Failure.Kind switch
         {
-            ESearchFailureKind.DirectoryNotFound => string.Format(
+            ESearchFailureKind.PathNotFound => string.Format(
                 LocalizationManager.Instance.GetString("FileSearchStatusDirectoryNotFound"),
                 outcome.Failure.ResolvedDirectory),
             ESearchFailureKind.InvalidGlobPattern => string.Format(

@@ -71,7 +71,7 @@ public sealed class SimpleGrepper
     /// <param name="contextLines">命中行上下各带几行上下文</param>
     /// <param name="maxDepth">目录遍历最大深度（null 不限制）</param>
     /// <param name="fileGlobs">按<b>文件名</b>（不含路径）过滤，如 <c>*.cs</c>；null/空则不过滤</param>
-    /// <param name="directory">搜索根：绝对路径直接用，相对路径拼工作区</param>
+    /// <param name="path">搜索范围：目录（在其下递归搜）或单个文件（只搜它）；绝对路径直接用，相对路径拼工作区</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>命中列表与失败原因</returns>
     public async Task<GrepOutcome> SearchAsync(
@@ -81,12 +81,15 @@ public sealed class SimpleGrepper
         int contextLines = 0,
         int? maxDepth = null,
         string[]? fileGlobs = null,
-        string? directory = null,
+        string? path = null,
         CancellationToken ct = default)
     {
-        string target = SearchRoot.Resolve(_rootDirectory, directory);
+        string target = SearchRoot.Resolve(_rootDirectory, path);
 
-        if (!Directory.Exists(target))
+        // 搜索范围只认两种东西：目录（递归搜）或单文件（只搜它）。
+        // 模型把文件路径往 directory 塞、或发明 path 参数,都是同一个缺口的两漏
+        bool isFileScope = !Directory.Exists(target) && File.Exists(target);
+        if (!Directory.Exists(target) && !isFileScope)
         {
             return new GrepOutcome
             {
@@ -94,13 +97,24 @@ public sealed class SimpleGrepper
                 EffectiveQuery = query,
                 Failure = new SearchFailure
                 {
-                    Kind = ESearchFailureKind.DirectoryNotFound,
-                    RequestedDirectory = directory,
+                    Kind = ESearchFailureKind.PathNotFound,
+                    RequestedDirectory = path,
                     ResolvedDirectory = target,
                     WorkingDirectory = _rootDirectory,
                     Pattern = query,
                 },
             };
+        }
+
+        // 单文件搜索：根落在父目录、fileGlobs 钉死裸文件名，命中再按精确路径过滤
+        // （父目录下同名文件会被引擎一起枚举出来，必须滤掉；深度对单文件没有意义，
+        // 传了 maxDepth 反而可能把目标文件自己排除掉）
+        string searchRoot = isFileScope ? Path.GetDirectoryName(target)! : target;
+        string[] effectiveFileGlobs = NormalizeFileGlobs(fileGlobs);
+        if (isFileScope)
+        {
+            effectiveFileGlobs = [Path.GetFileName(target)];
+            maxDepth = null;
         }
 
         string effective = query;
@@ -120,24 +134,32 @@ public sealed class SimpleGrepper
 
         try
         {
-            var engine = new SearchEngine(target);
+            var engine = new SearchEngine(searchRoot);
             List<SearchResult> matches = await engine.SearchAsync(
                 query: effective,
                 isRegex: isRegex,
                 caseSensitive: caseSensitive,
                 contextLines: contextLines,
                 maxDepth: maxDepth,
-                fileGlobs: NormalizeFileGlobs(fileGlobs)).ConfigureAwait(false);
+                fileGlobs: effectiveFileGlobs).ConfigureAwait(false);
 
             var results = new List<GrepMatchResult>(matches.Count);
             foreach (SearchResult match in matches)
             {
                 ct.ThrowIfCancellationRequested();
+                string absolute = Path.Combine(searchRoot, match.FilePath);
+                if (isFileScope
+                    // macOS 默认文件系统大小写不敏感,同源路径比较用忽略大小写
+                    && !string.Equals(Path.GetFullPath(absolute), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 results.Add(new GrepMatchResult
                 {
-                    // 引擎回的是相对搜索根的路径,换算成相对工作区——否则缩了 directory 之后
+                    // 引擎回的是相对搜索根的路径,换算成相对工作区——否则缩了 path 之后
                     // 回来的路径喂给 Read 会解析到别处(见 SearchRoot.ToPortablePath)
-                    FileName = SearchRoot.ToPortablePath(_rootDirectory, Path.Combine(target, match.FilePath)),
+                    FileName = SearchRoot.ToPortablePath(_rootDirectory, absolute),
                     Snippet = match.MatchContent?.TrimEnd() ?? "",
                     MatchingLines = BuildLines(match),
                 });
@@ -165,7 +187,7 @@ public sealed class SimpleGrepper
                 Failure = new SearchFailure
                 {
                     Kind = ESearchFailureKind.EngineFailed,
-                    RequestedDirectory = directory,
+                    RequestedDirectory = path,
                     ResolvedDirectory = target,
                     WorkingDirectory = _rootDirectory,
                     Pattern = effective,
@@ -220,7 +242,7 @@ public sealed class SimpleGrepper
     /// 而模型（受 Glob 工具习惯影响）恰好爱这么写。
     ///
     /// 做法：glob 里但凡含目录分隔符（/、\、<c>**</c>），就只保留最后一段文件名模式；
-    /// 要限定目录请走 <c>directory</c> 参数。纯文件名（<c>*.cs</c>）原样不动。
+    /// 要限定搜索范围请走 <c>path</c> 参数。纯文件名（<c>*.cs</c>）原样不动。
     /// </summary>
     internal static string[] NormalizeFileGlobs(string[]? fileGlobs)
     {

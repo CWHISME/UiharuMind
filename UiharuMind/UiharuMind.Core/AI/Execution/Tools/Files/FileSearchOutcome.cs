@@ -12,8 +12,8 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// <summary>搜索失败的种类</summary>
 public enum ESearchFailureKind
 {
-    /// <summary>搜索根目录不存在</summary>
-    DirectoryNotFound,
+    /// <summary>搜索范围（目录或单文件）不存在</summary>
+    PathNotFound,
 
     /// <summary>glob 表达式非法（语法错）</summary>
     InvalidGlobPattern,

@@ -16,25 +16,26 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public static class SearchRoot
 {
     /// <summary>
-    /// 解析搜索根：没传就是工作区根，绝对路径直接用，相对路径拼工作区根。
+    /// 解析搜索范围：没传就是工作区根，绝对路径直接用，相对路径拼工作区根。
+    /// 范围可以是目录（在其下递归搜）或单个文件（只搜它）。
     /// </summary>
     /// <param name="workingDirectory">工作区根目录</param>
-    /// <param name="directory">调用方给的目录，可为 null/空</param>
+    /// <param name="path">调用方给的搜索范围，可为 null/空</param>
     /// <returns>绝对路径</returns>
-    public static string Resolve(string workingDirectory, string? directory)
+    public static string Resolve(string workingDirectory, string? path)
     {
-        if (string.IsNullOrWhiteSpace(directory)) return Path.GetFullPath(workingDirectory);
+        if (string.IsNullOrWhiteSpace(path)) return Path.GetFullPath(workingDirectory);
 
-        return Path.IsPathFullyQualified(directory)
-            ? Path.GetFullPath(directory)
-            : Path.GetFullPath(Path.Combine(workingDirectory, directory));
+        return Path.IsPathFullyQualified(path)
+            ? Path.GetFullPath(path)
+            : Path.GetFullPath(Path.Combine(workingDirectory, path));
     }
 
     /// <summary>
     /// 搜索结果里一条路径该<b>怎么写给调用方</b>：能相对工作区就相对，否则给绝对路径。
     ///
     /// 基准必须是<b>工作区根</b>，不是本次的搜索根。从前两个搜索器都按搜索根算相对路径，
-    /// 于是 <c>Grep(directory: "Core")</c> 回来的 <c>AI/Foo.cs</c> 喂给 <c>Read</c> 会解析到
+    /// 于是 <c>Grep(path: "Core")</c> 回来的 <c>AI/Foo.cs</c> 喂给 <c>Read</c> 会解析到
     /// <c>&lt;工作区&gt;/AI/Foo.cs</c> —— 找不到。模型吃过几次之后就只信绝对路径了，
     /// 而那是它<b>理性</b>的选择：绝对路径是当时唯一跨工具通用的形式。
     /// 改成按工作区根算，搜索结果才第一次可以直接当 <c>Read</c> 的入参。

@@ -107,13 +107,14 @@ internal sealed class PermissiveFileAccessTools
     [Description("Find files by glob pattern.")]
     private async Task<GlobToolResult> Glob(
         [Description("Glob pattern, e.g. \"**/*.cs\".")] string pattern,
-        [Description("Omit this: by default the whole working directory is searched. "
-                     + "Pass it only to narrow the search to one subdirectory, "
-                     + "relative to the working directory. Returned paths are relative to the "
-                     + "working directory either way, so you can pass them straight to `Read`.")]
-        string? directory = null)
+        [Description("Where to search: a directory (search under it, e.g. \"Design/spec\") "
+                     + "or a single file (match only that file, e.g. \"Design/spec/04-世界层.md\"). "
+                     + "Omit it to search the whole working directory. "
+                     + "Relative or absolute. Returned paths are relative to the working directory either way, "
+                     + "so you can pass them straight to `Read`.")]
+        string? path = null)
     {
-        GlobOutcome outcome = await _glob.SearchAsync(pattern, directory).ConfigureAwait(false);
+        GlobOutcome outcome = await _glob.SearchAsync(pattern, path).ConfigureAwait(false);
 
         if (outcome.Failure != null)
         {
@@ -154,17 +155,17 @@ internal sealed class PermissiveFileAccessTools
     {
         if (outcome.Entries.Count == 0)
         {
-            return $"Searched \"{outcome.ResolvedDirectory}\" — 0 matches. The directory exists; "
+            return $"Searched \"{outcome.ResolvedDirectory}\" — 0 matches; the path exists, "
                    + "nothing matched the pattern.";
         }
 
         return outcome.Truncated
             ? $"Showing the first {outcome.Entries.Count} entries; more were dropped. "
-              + "Narrow the pattern or scope it with directory."
+              + "Narrow the pattern or scope it with path."
             : null;
     }
 
-    [Description("Search file contents. Respects .gitignore. If hits are too many, returns a hit map instead of inline lines: then narrow with fileGlobs/directory or Read the listed files — never re-search with a broader term.")]
+    [Description("Search file contents. Respects .gitignore. If hits are too many, returns a hit map instead of inline lines: then narrow with path/fileGlobs or Read the listed files — never re-search with a broader term.")]
     internal async Task<GrepToolResult> Grep(
         [Description("Search pattern (ripgrep syntax).")] string pattern,
         [Description("Treat the pattern as a regular expression. "
@@ -176,18 +177,20 @@ internal sealed class PermissiveFileAccessTools
         [Description("Maximum directory depth to walk (null means no limit).")] int? maxDepth = null,
         [Description("Only search files whose name matches one of these globs, e.g. \"*.cs\". "
                      + "Only the file name is matched - do NOT include a path or '**/' prefix "
-                     + "(e.g. not \"**/*.cs\"); to limit the directory use the 'directory' argument. "
+                     + "(e.g. not \"**/*.cs\"); to scope the search use the 'path' argument. "
+                     + "Ignored when path points to a single file. "
                      + "A leading '**/' or path in a glob is stripped to the bare file name.")]
         string[]? fileGlobs = null,
-        [Description("Omit this: by default the whole working directory is searched. "
-                     + "Pass it only to narrow the search to one subdirectory, "
-                     + "relative to the working directory. Returned paths are relative to the "
-                     + "working directory either way, so you can pass them straight to `Read`.")]
-        string? directory = null,
+        [Description("Where to search: a directory (search under it, e.g. \"Design/spec\"), "
+                     + "a single file (search only that file, e.g. \"Design/spec/04-世界层.md\"), "
+                     + "or omit it to search the whole working directory. "
+                     + "Relative or absolute. Returned paths are relative to the working directory either way, "
+                     + "so you can pass them straight to `Read`.")]
+        string? path = null,
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
-            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, directory, ct)
+            .SearchAsync(pattern, isRegex, caseSensitive, contextLines, maxDepth, fileGlobs, path, ct)
             .ConfigureAwait(false);
 
         if (outcome.Failure != null)
@@ -320,7 +323,7 @@ internal sealed class PermissiveFileAccessTools
             // 定点 Read 或收窄重搜都行;唯独别换更宽的词重搜——那会把刚截掉的内容原样再灌一遍(回灌)
             string notice = $"{results.Count} matches across {fileStats.Count} file(s) — too broad to return inline. "
                             + $"Showing the top {map.Count} files by hit count; `Read` the files below, "
-                            + "or narrow the query (fileGlobs/directory) instead of re-searching with a broader term.";
+                            + "or narrow the query (fileGlobs/path) instead of re-searching with a broader term.";
 
             return new GrepToolResult { Matches = [], Map = map, Notice = notice };
         }
@@ -345,15 +348,15 @@ internal sealed class PermissiveFileAccessTools
 
             if (converted.Count == 0)
             {
-                parts.Add($"Searched \"{outcome.ResolvedDirectory}\" — 0 matches. "
-                          + "The directory exists; nothing there matched.");
+                parts.Add($"Searched \"{outcome.ResolvedDirectory}\" — 0 matches; "
+                          + "the path exists, nothing there matched.");
             }
 
             if (droppedMatches > 0)
             {
                 parts.Add($"Showing the first {MaxGrepMatches} matches; {droppedMatches} more "
                           + $"across {droppedFiles.Count} file(s) were dropped. "
-                          + "Narrow the query, or scope it with fileGlobs/directory.");
+                          + "Narrow the query, or scope it with fileGlobs/path.");
             }
 
             return parts.Count == 0 ? null : string.Join(" ", parts);

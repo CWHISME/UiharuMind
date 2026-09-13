@@ -102,7 +102,7 @@ internal static class SearchFailureRenderer
     {
         return failure.Kind switch
         {
-            ESearchFailureKind.DirectoryNotFound => DirectoryNotFound(failure),
+            ESearchFailureKind.PathNotFound => PathNotFound(failure),
             ESearchFailureKind.InvalidGlobPattern =>
                 $"Invalid glob pattern \"{failure.Pattern}\": {failure.Detail} "
                 + "Patterns look like \"**/*.cs\" or \"src/**/Foo*\".",
@@ -120,19 +120,20 @@ internal static class SearchFailureRenderer
     }
 
     /// <summary>
-    /// 目录不存在。<b>必须回显解析后的绝对路径</b>：模型看不到自己那个相对路径被拼成了哪里，
-    /// 就只能再猜一次——这正是"试几次才找到正确用法"的机制。
+    /// 搜索范围（目录或单文件）不存在。<b>必须回显解析后的绝对路径</b>：模型看不到自己那个相对路径
+    /// 被拼成了哪里，就只能再猜一次——这正是"试几次才找到正确用法"的机制。
     /// </summary>
-    private static string DirectoryNotFound(SearchFailure failure)
+    private static string PathNotFound(SearchFailure failure)
     {
         if (string.IsNullOrWhiteSpace(failure.RequestedDirectory))
         {
             return $"The working directory \"{failure.WorkingDirectory}\" does not exist.";
         }
 
-        return $"Directory not found. You passed directory \"{failure.RequestedDirectory}\", "
+        return $"Path not found. You passed path \"{failure.RequestedDirectory}\", "
                + $"which resolves to \"{failure.ResolvedDirectory}\". "
                + $"The working directory is \"{failure.WorkingDirectory}\". "
-               + "Give directory relative to it, or omit directory to search the whole working directory.";
+               + "Pass a directory (search under it), a single file (search only that file), "
+               + "or omit path to search the whole working directory.";
     }
 }

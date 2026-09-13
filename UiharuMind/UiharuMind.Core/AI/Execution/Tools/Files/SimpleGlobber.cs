@@ -34,34 +34,40 @@ public sealed class SimpleGlobber
     /// 按 glob 表达式搜文件。<b>失败与"搜到 0 条"分开返回</b>，见 <see cref="GlobOutcome"/>：
     /// 从前失败是塞一条 <c>"[Error] ..."</c> 进结果列表，界面的快速搜索会把它当成一个文件名显示。
     /// </summary>
-    /// <param name="pattern">glob 表达式；目录可给绝对路径或相对工作区的相对路径</param>
-    /// <param name="directory">搜索根，为空则用工作区根</param>
+    /// <param name="pattern">glob 表达式</param>
+    /// <param name="path">搜索范围：目录或单个文件；绝对路径直接用，相对路径拼工作区，为空则用工作区根</param>
     /// <param name="maxResults">命中上限</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>命中条目与失败原因</returns>
     public async Task<GlobOutcome> SearchAsync(
         string pattern,
-        string? directory = null,
+        string? path = null,
         int maxResults = 300,
         CancellationToken ct = default)
     {
-        string searchRoot = SearchRoot.Resolve(_rootDirectory, directory);
+        string target = SearchRoot.Resolve(_rootDirectory, path);
 
-        if (!Directory.Exists(searchRoot))
+        bool isFileScope = !Directory.Exists(target) && File.Exists(target);
+        if (!Directory.Exists(target) && !isFileScope)
         {
-            return Failed(ESearchFailureKind.DirectoryNotFound, searchRoot, directory, pattern);
+            return Failed(ESearchFailureKind.PathNotFound, target, path, pattern);
         }
+
+        // 单文件搜索：根落在父目录，命中的条目再按精确路径滤到那一个文件
+        string searchRoot = isFileScope ? Path.GetDirectoryName(target)! : target;
 
         // 无通配符退化：LLM 经常把绝对路径当 pattern 传
         if (!LooksLikeGlob(pattern))
         {
             string candidate = ResolveCandidate(pattern, searchRoot);
-            if (File.Exists(candidate))
+            if (File.Exists(candidate)
+                && (!isFileScope
+                    || string.Equals(Path.GetFullPath(candidate), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)))
             {
                 // 直接透传返回，不进 Glob 引擎
                 return new GlobOutcome
                 {
-                    ResolvedDirectory = searchRoot,
+                    ResolvedDirectory = target,
                     Entries = new List<GlobEntry>
                     {
                         new(SearchRoot.ToPortablePath(_rootDirectory, candidate), false,
@@ -70,7 +76,7 @@ public sealed class SimpleGlobber
                 };
             }
 
-            return Failed(ESearchFailureKind.GlobHasNoWildcard, searchRoot, directory, pattern);
+            return Failed(ESearchFailureKind.GlobHasNoWildcard, searchRoot, path, pattern);
         }
 
         // 正常走 Glob
@@ -81,7 +87,7 @@ public sealed class SimpleGlobber
         }
         catch (Exception e)
         {
-            return Failed(ESearchFailureKind.InvalidGlobPattern, searchRoot, directory, pattern, e.Message);
+            return Failed(ESearchFailureKind.InvalidGlobPattern, searchRoot, path, pattern, e.Message);
         }
 
         bool dirsOnly = pattern.EndsWith('/');
@@ -101,8 +107,21 @@ public sealed class SimpleGlobber
             }
         }
 
+        if (isFileScope)
+        {
+            // 精确路径过滤：同名的兄弟/深层文件不是目标
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                if (!string.Equals(Path.GetFullPath(Path.Combine(_rootDirectory, list[i].Path)),
+                        Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+                {
+                    list.RemoveAt(i);
+                }
+            }
+        }
+
         list.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
-        return new GlobOutcome { Entries = list, ResolvedDirectory = searchRoot, Truncated = hitLimit };
+        return new GlobOutcome { Entries = list, ResolvedDirectory = target, Truncated = hitLimit };
     }
 
     private GlobOutcome Failed(ESearchFailureKind kind, string resolved, string? requested,

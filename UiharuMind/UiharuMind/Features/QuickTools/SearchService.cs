@@ -83,7 +83,7 @@ public class SearchService
         {
             if (isContentMode)
             {
-                // 搜索根即搜索器的根,故不再另传 directory:两者一致才能保证
+                // 搜索根即搜索器的根,故不再另传 path:两者一致才能保证
                 // 回来的相对路径与界面拼接用的 CurrentDirectory 同一个基准
                 GrepOutcome grep = await new SimpleGrepper(CurrentRoot).SearchAsync(
                     query,
@@ -92,7 +92,7 @@ public class SearchService
                     contextLines: 2,
                     maxDepth: null,
                     fileGlobs: null,
-                    directory: null,
+                    path: null,
                     ct).ConfigureAwait(false);
 
                 if (grep.Failure != null) return new SearchOutcome([], grep.Failure, null);
@@ -108,7 +108,7 @@ public class SearchService
 
             var pattern = query.Contains('*') || query.Contains('?') ? query : $"**/*{query}*";
             GlobOutcome glob = await new SimpleGlobber(CurrentRoot)
-                .SearchAsync(pattern, directory: null, ct: ct).ConfigureAwait(false);
+                .SearchAsync(pattern, path: null, ct: ct).ConfigureAwait(false);
 
             if (glob.Failure != null) return new SearchOutcome([], glob.Failure, null);
 
