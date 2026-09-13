@@ -207,7 +207,8 @@ internal static class AgentInstructionsComposer
         // 护栏句紧跟父标题:本段整段中文,而它每轮都发、体量压过用户那几句话,
         // 不钉一句"别照着这段的语言回复",小模型的输出语言就会被拽向中文。
         // 挂在这里而不是工作循环段,是因为那段会落进用户存档、用户删得掉(见 AgentToolPrompts)
-        return $"{AgentPromptHeadings.Tools}\n\n{AgentToolPrompts.LanguageNeutrality}\n\n" + sb;
+        return $"{AgentPromptHeadings.Tools}\n\n{AgentToolPrompts.LanguageNeutrality}\n" +
+               $"{AgentToolPrompts.ConcurrentCalls}\n\n" + sb;
     }
 
     /// <summary>

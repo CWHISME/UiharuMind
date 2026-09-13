@@ -227,6 +227,9 @@ internal static class AgentAssembler
         if (agent.GetService<FunctionInvokingChatClient>() is { } functionInvoker)
         {
             functionInvoker.IncludeDetailedErrors = true;
+            // 同一回复内的多个工具调用并行执行(框架默认串行)。全局开、不按工具分档,
+            // 依赖顺序的调用靠提示词让模型拆成多轮;子代理由此才能真的并发。见 ADR 0022 的修订段
+            functionInvoker.AllowConcurrentInvocation = true;
         }
 
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份

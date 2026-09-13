@@ -420,6 +420,7 @@ internal static class SubAgentAssembly
         sb.AppendLine(subProfile.RoleHint);
         // 护栏句:本段整段中文,而子代理连一句用户原话都看不到,更容易被提示词的语言带跑
         sb.AppendLine(AgentToolPrompts.LanguageNeutrality);
+        sb.AppendLine(AgentToolPrompts.ConcurrentCalls);
         sb.AppendLine();
         sb.AppendLine(AgentPromptHeadings.SubAgentMethod);
         if (config.EnableFileAccess)

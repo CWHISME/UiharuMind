@@ -35,6 +35,8 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 ///
 /// 仍然同步阻塞:主 agent 的这次工具调用等子代理跑完才返回。理由见 ADR 0022
 /// (原理由「本地模型单 slot」已失效,现在撑着的是「轮次归属」)。
+/// 阻塞不等于串行:同一回复里派出的多个子代理彼此<b>并行</b>跑,主 agent 等它们全部返回
+/// (<c>AllowConcurrentInvocation</c>,在 <c>AgentAssembler.BuildHandle</c> 打开)。
 ///
 /// 不变量:子代理工具集<b>绝不含本工具自身</b>(无限递归),也不含主代理特有的那批
 /// (技能/定时任务/记忆检索);能力取「自己的 ∩ 派活者的」。均由测试钉住。

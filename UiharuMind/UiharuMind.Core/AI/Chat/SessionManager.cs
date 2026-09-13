@@ -67,6 +67,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// </summary>
     public SessionRunRegistry Running { get; } = new();
 
+    // 两张表与索引落盘共用一把锁:子代理并发派出、定时任务无头跑着时用户新建会话,
+    // 都会从非 UI 线程进来。锁内只做内存操作与索引写盘,事件一律在锁外触发,免得监听方回调重入
+    private readonly object _locker = new();
     private readonly Dictionary<string, ChatSessionMeta> _metas = new();
 
     // 已加载的本体(含临时会话)。临时会话只存在于此,不落盘也不进 _metas。
@@ -74,21 +77,24 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
     public void OnInitialize()
     {
-        _metas.Clear();
-        _loaded.Clear();
-
-        List<ChatSessionMeta>? index =
-            SaveUtility.Load<List<ChatSessionMeta>>(GetIndexPath(), SessionJsonOptions.Default);
-        if (index == null)
+        lock (_locker)
         {
-            // 索引缺失或损坏:本体文件才是权威,扫目录重建
-            RebuildIndex();
-            return;
-        }
+            _metas.Clear();
+            _loaded.Clear();
 
-        foreach (ChatSessionMeta meta in index)
-        {
-            if (!string.IsNullOrEmpty(meta.SessionId)) _metas[meta.SessionId] = meta;
+            List<ChatSessionMeta>? index =
+                SaveUtility.Load<List<ChatSessionMeta>>(GetIndexPath(), SessionJsonOptions.Default);
+            if (index == null)
+            {
+                // 索引缺失或损坏:本体文件才是权威,扫目录重建
+                RebuildIndex();
+                return;
+            }
+
+            foreach (ChatSessionMeta meta in index)
+            {
+                if (!string.IsNullOrEmpty(meta.SessionId)) _metas[meta.SessionId] = meta;
+            }
         }
     }
 
@@ -98,7 +104,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <returns>元数据列表</returns>
     public List<ChatSessionMeta> GetSessions()
     {
-        return _metas.Values.OrderByDescending(x => x.UpdatedAt).ToList();
+        lock (_locker) return _metas.Values.OrderByDescending(x => x.UpdatedAt).ToList();
     }
 
     /// <summary>
@@ -118,13 +124,16 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     // 四档之后工具人的会话就会两页都不显示(实机踩过)。分区只有上面这两个出口
     private List<ChatSessionMeta> GetSessions(Func<ChatSessionMeta, bool> predicate)
     {
-        return _metas.Values
-            // 子会话不进左栏:左栏是跨会话导航,而子会话是会话内的事。
-            // 它仍然在索引里(右栏「子代理」面板按 ParentSessionId 取用),只是不在这两个出口露面
-            .Where(x => !x.IsSubSession)
-            .Where(predicate)
-            .OrderByDescending(x => x.UpdatedAt)
-            .ToList();
+        lock (_locker)
+        {
+            return _metas.Values
+                // 子会话不进左栏:左栏是跨会话导航,而子会话是会话内的事。
+                // 它仍然在索引里(右栏「子代理」面板按 ParentSessionId 取用),只是不在这两个出口露面
+                .Where(x => !x.IsSubSession)
+                .Where(predicate)
+                .OrderByDescending(x => x.UpdatedAt)
+                .ToList();
+        }
     }
 
     /// <summary>
@@ -146,10 +155,13 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public List<ChatSessionMeta> GetSubSessions(string? parentSessionId)
     {
         if (string.IsNullOrEmpty(parentSessionId)) return [];
-        return _metas.Values
-            .Where(x => string.Equals(x.ParentSessionId, parentSessionId, StringComparison.Ordinal))
-            .OrderByDescending(x => x.UpdatedAt)
-            .ToList();
+        lock (_locker)
+        {
+            return _metas.Values
+                .Where(x => string.Equals(x.ParentSessionId, parentSessionId, StringComparison.Ordinal))
+                .OrderByDescending(x => x.UpdatedAt)
+                .ToList();
+        }
     }
 
     /// <summary>
@@ -159,7 +171,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <returns>元数据；不存在为 null</returns>
     public ChatSessionMeta? GetMeta(string sessionId)
     {
-        return _metas.GetValueOrDefault(sessionId);
+        lock (_locker) return _metas.GetValueOrDefault(sessionId);
     }
 
     /// <summary>
@@ -170,19 +182,24 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public ChatSession? Load(string sessionId)
     {
         if (string.IsNullOrEmpty(sessionId)) return null;
-        if (_loaded.TryGetValue(sessionId, out ChatSession? cached)) return cached;
-
-        ChatSession? session = SaveUtility.Load<ChatSession>(GetMetaPath(sessionId), SessionJsonOptions.Default);
-        if (session == null)
+        // 读盘也在锁内:两个线程同时首次加载同一会话,否则会各持一份本体,历史被写坏
+        lock (_locker)
         {
-            Log.Warning($"Load chat session '{sessionId}' failed.");
-            return null;
-        }
+            if (_loaded.TryGetValue(sessionId, out ChatSession? cached)) return cached;
 
-        session.SessionId = sessionId;
-        session.History = LoadHistory(sessionId);
-        _loaded[sessionId] = session;
-        return session;
+            ChatSession? session =
+                SaveUtility.Load<ChatSession>(GetMetaPath(sessionId), SessionJsonOptions.Default);
+            if (session == null)
+            {
+                Log.Warning($"Load chat session '{sessionId}' failed.");
+                return null;
+            }
+
+            session.SessionId = sessionId;
+            session.History = LoadHistory(sessionId);
+            _loaded[sessionId] = session;
+            return session;
+        }
     }
 
     private static List<ChatMessage> LoadHistory(string sessionId)
@@ -234,7 +251,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
             foreach ((string key, object? value) in arguments) session.CustomParams[key] = value;
         }
 
-        _loaded[session.SessionId] = session;
+        lock (_locker) _loaded[session.SessionId] = session;
         return session;
     }
 
@@ -245,7 +262,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public void Add(ChatSession session)
     {
         session.IsTransient = false;
-        _loaded[session.SessionId] = session;
+        lock (_locker) _loaded[session.SessionId] = session;
         Save(session);
         OnSessionAdded?.Invoke(session);
     }
@@ -274,14 +291,21 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         if (session.IsTransient) return;
 
         if (touchUpdatedAt) session.UpdatedAt = DateTimeOffset.Now;
-        _loaded[session.SessionId] = session;
         // 会话头冗余保存同一份元数据,索引损坏时可据此重建
         SaveUtility.Save(GetMetaPath(session.SessionId), session, SessionJsonOptions.Default);
-        bool draftChanged = _metas.TryGetValue(session.SessionId, out ChatSessionMeta? prev)
-            && prev.HasComposerDraft != !string.IsNullOrWhiteSpace(session.ComposerDraft);
-        _metas[session.SessionId] = session.ToMeta();
-        SaveIndex();
-        if (!touchUpdatedAt && draftChanged) OnSessionDraftChanged?.Invoke(session, _metas[session.SessionId]);
+
+        ChatSessionMeta meta = session.ToMeta();
+        bool draftChanged;
+        lock (_locker)
+        {
+            _loaded[session.SessionId] = session;
+            draftChanged = _metas.TryGetValue(session.SessionId, out ChatSessionMeta? prev)
+                && prev.HasComposerDraft != meta.HasComposerDraft;
+            _metas[session.SessionId] = meta;
+            SaveIndex();
+        }
+
+        if (!touchUpdatedAt && draftChanged) OnSessionDraftChanged?.Invoke(session, meta);
         if (touchUpdatedAt) OnSessionMetaUpdated?.Invoke(session);
     }
 
@@ -378,15 +402,17 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         DeleteOwnedAttachments(session);
         DisposeRunner(session);
 
-        _loaded.Remove(sessionId);
-        bool wasIndexed = _metas.Remove(sessionId);
-
         SaveUtility.Delete(GetMetaPath(sessionId));
         SaveUtility.Delete(GetHistoryPath(sessionId));
         SaveUtility.Delete(GetBodyPath(sessionId)); //旧单文件格式残留
         SaveUtility.Delete(GetAgentStatePath(sessionId));
         AgentOutputLayout.DeleteAll(sessionId); //agent 画的图与导出的数据,按 id 后缀通配
-        if (wasIndexed) SaveIndex();
+
+        lock (_locker)
+        {
+            _loaded.Remove(sessionId);
+            if (_metas.Remove(sessionId)) SaveIndex();
+        }
 
         if (session != null) OnSessionRemoved?.Invoke(session);
     }
@@ -410,7 +436,12 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// <param name="sessionId">会话标识</param>
     public void Release(string sessionId)
     {
-        if (!_loaded.Remove(sessionId, out ChatSession? session)) return;
+        ChatSession? session;
+        lock (_locker)
+        {
+            if (!_loaded.Remove(sessionId, out session)) return;
+        }
+
         DisposeRunner(session);
     }
 
@@ -419,7 +450,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// </summary>
     public void DisposeAllRunners()
     {
-        foreach (ChatSession session in _loaded.Values)
+        List<ChatSession> sessions;
+        lock (_locker) sessions = _loaded.Values.ToList();
+        foreach (ChatSession session in sessions)
         {
             DisposeRunner(session);
         }
@@ -444,24 +477,27 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     /// </summary>
     public void RebuildIndex()
     {
-        _metas.Clear();
-        if (!Directory.Exists(AppPaths.Data.Sessions))
+        lock (_locker)
         {
+            _metas.Clear();
+            if (!Directory.Exists(AppPaths.Data.Sessions))
+            {
+                SaveIndex();
+                return;
+            }
+
+            foreach (string file in Directory.GetFiles(AppPaths.Data.Sessions, "*" + MetaSuffix))
+            {
+                ChatSession? session = SaveUtility.Load<ChatSession>(file, SessionJsonOptions.Default);
+                if (session == null) continue;
+
+                session.SessionId = Path.GetFileName(file)[..^MetaSuffix.Length];
+                _metas[session.SessionId] = session.ToMeta();
+            }
+
+            Log.Debug($"Session index rebuilt: {_metas.Count} sessions.");
             SaveIndex();
-            return;
         }
-
-        foreach (string file in Directory.GetFiles(AppPaths.Data.Sessions, "*" + MetaSuffix))
-        {
-            ChatSession? session = SaveUtility.Load<ChatSession>(file, SessionJsonOptions.Default);
-            if (session == null) continue;
-
-            session.SessionId = Path.GetFileName(file)[..^MetaSuffix.Length];
-            _metas[session.SessionId] = session.ToMeta();
-        }
-
-        Log.Debug($"Session index rebuilt: {_metas.Count} sessions.");
-        SaveIndex();
     }
 
     //================= 框架附加状态(可丢弃) =================
@@ -518,6 +554,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
     //================= 路径 =================
 
+    // 调用方须持有 _locker:枚举 _metas 与写 index.json 都不能与别的线程交错
     private void SaveIndex()
     {
         SaveUtility.Save(GetIndexPath(), _metas.Values.ToList(), SessionJsonOptions.Default);
