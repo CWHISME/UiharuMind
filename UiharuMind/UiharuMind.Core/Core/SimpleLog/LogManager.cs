@@ -5,134 +5,205 @@
  *
  * https://wangjiaying.top
  * https://github.com/CWHISME/UiharuMind
- *
- * Latest Update: 2024.10.07
  ****************************************************************************/
 
-using System.Text.Json;
+using System.Threading.Channels;
 
 namespace UiharuMind.Core.Core.SimpleLog;
 
+/// <summary>
+/// 日志入口。业务线程只负责把条目丢进 <see cref="Channel"/>（无锁、不阻塞、不碰 IO），
+/// 由后台单写线程负责落盘与向订阅方派发。
+///
+/// 刷盘策略：<c>Error</c> 立即刷，其余靠 2 秒定时器兜底。
+/// <b>刻意没有按缓冲大小刷盘的阈值</b>——主流条目都是几百字节，阈值永不触发，
+/// 留着只会让人误以为它在起作用；真正的大正文走 <c>Bodies.txt</c>，每条写完即刷。
+/// </summary>
 public class LogManager
 {
-    private const int MaxItems = 5000; //日志保留上限
-    private const int TrimBatch = 1000; //超限后一次裁掉的条数,摊薄 RemoveRange 的搬移开销
+    private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(2);
 
     private static LogManager? _instance;
     private static readonly object Locker = new object();
-    private static SpinLock _spinLocker = new SpinLock();
+    private static string? _defaultDirectory;
 
     public static LogManager Instance
     {
         get
         {
-            if (_instance == null)
-                lock (Locker)
-                {
-                    if (_instance == null) _instance = new LogManager();
-                    return _instance;
-                }
-
-            return _instance;
+            if (_instance != null) return _instance;
+            lock (Locker) return _instance ??= new LogManager(_defaultDirectory ?? AppPaths.Logs);
         }
     }
 
-    private readonly List<LogItem> _logItems = new List<LogItem>(64);
+    /// <summary>
+    /// 改掉单例的落盘位置。<b>只给测试用</b>，且必须在首次取 <see cref="Instance"/> 之前调用——
+    /// 否则测试会写进并轮换用户真实的日志目录
+    /// </summary>
+    /// <param name="directory">日志目录</param>
+    public static void UseDirectory(string directory) => _defaultDirectory = directory;
+
+    private readonly LogStore? _store;
+    private readonly Channel<LogItem> _channel =
+        Channel.CreateUnbounded<LogItem>(new UnboundedChannelOptions { SingleReader = true });
+
+    private long _enqueued; //入队序号
+    private long _processed; //已写完序号,与入队序号之间的差就是在途条目
+
+    private readonly Task _writerLoop;
+    private readonly Task _flushLoop;
+    private readonly CancellationTokenSource _shutdown = new();
 
     /// <summary>
-    /// 日志改变事件。在锁外触发,来自哪个线程取决于打日志的线程,订阅方需自行派发到所需线程
+    /// 日志落盘事件。来自<b>后台写入线程</b>，订阅方需自行派发到所需线程。
+    /// 订阅方抛出的异常不会影响写入线程，也不会影响打日志的业务线程
     /// </summary>
-    public event Action<LogItem>? OnLogChange;
+    public event Action<LogIndexEntry>? OnLogAppended;
 
     public ILogger? Logger;
 
-    // 入表必须独立于"有没有装 ILogger":写成 Logger?.Debug(str, AddLog(...)) 时,
-    // null 条件运算符会连实参一起跳过——Logger 未装好之前的日志一条都不会进列表
-    public void Log(string str)
-    {
-        LogItem item = AddLog(ELogType.Log, str);
-        Logger?.Debug(str, item);
-    }
+    /// <summary>日志目录</summary>
+    public string Directory => _store?.Directory ?? AppPaths.Logs;
 
-    public void LogWarning(string str)
+    public LogManager(string directory)
     {
-        LogItem item = AddLog(ELogType.Warning, str);
-        Logger?.Warning(str, item);
-    }
-
-    public void LogError(string str)
-    {
-        LogItem item = AddLog(ELogType.Error, str);
-        Logger?.Error(str, item);
-    }
-
-    /// <summary>
-    /// 取当前日志的快照
-    /// </summary>
-    /// <returns>独立副本,调用方可自由遍历,不会与写入线程竞争</returns>
-    public List<LogItem> GetSnapshot()
-    {
-        bool islock = false;
         try
         {
-            _spinLocker.Enter(ref islock);
-            return new List<LogItem>(_logItems);
+            _store = new LogStore(directory);
         }
-        finally
+        catch (Exception e)
         {
-            if (islock) _spinLocker.Exit();
+            Console.WriteLine($"Log store init failed, logs stay console-only: {e.Message}");
         }
+
+        _writerLoop = Task.Run(WriteLoopAsync);
+        _flushLoop = Task.Run(FlushLoopAsync);
     }
 
-    public void SaveLog(string path)
+    public void Log(string str, ELogCategory category = ELogCategory.General)
     {
-        if (!Directory.Exists(path)) Directory.CreateDirectory(path);
-        SaveUtility.Save();
-        string logPath = Path.Combine(path, "Log.txt");
-        if (File.Exists(logPath))
-        {
-            File.Move(logPath, Path.Combine(path, "LastLog.txt"), true);
-        }
+        LogItem item = new(ELogType.Log, str, category);
+        Logger?.Debug(str, item);
+        Enqueue(item);
+    }
 
-        File.WriteAllText(logPath,
-            JsonSerializer.Serialize(GetSnapshot(), new JsonSerializerOptions() { WriteIndented = true }));
+    public void LogWarning(string str, ELogCategory category = ELogCategory.General)
+    {
+        LogItem item = new(ELogType.Warning, str, category);
+        Logger?.Warning(str, item);
+        Enqueue(item);
+    }
+
+    public void LogError(string str, ELogCategory category = ELogCategory.General)
+    {
+        LogItem item = new(ELogType.Error, str, category);
+        Logger?.Error(str, item);
+        Enqueue(item);
+    }
+
+    /// <summary>取当前索引的快照</summary>
+    /// <returns>独立副本，调用方可自由遍历</returns>
+    public List<LogIndexEntry> GetSnapshot() => _store?.GetSnapshot() ?? [];
+
+    /// <summary>
+    /// 读回一条日志的完整正文
+    /// </summary>
+    /// <param name="entry">索引项</param>
+    /// <returns>正文；正文已被滚动淘汰（死链）时为 null</returns>
+    public string? ReadText(LogIndexEntry entry) => _store?.ReadText(entry);
+
+    /// <summary>把缓冲推给操作系统。<b>只刷不轮换</b>——轮换只发生在写满上限与进程启动</summary>
+    public void Flush()
+    {
+        WaitForDrain();
+        _store?.Flush();
     }
 
     public void ClearLog()
     {
-        bool islock = false;
-        try
-        {
-            _spinLocker.Enter(ref islock);
-            _logItems.Clear();
-        }
-        finally
-        {
-            if (islock) _spinLocker.Exit();
-        }
-
-        OnLogChange?.Invoke(new LogItem(ELogType.Log, "Clear Log!"));
+        WaitForDrain();
+        _store?.Clear();
+        Log("Clear Log!");
     }
 
-    private LogItem AddLog(ELogType type, string str)
+    /// <summary>停止写入线程并落盘。只在进程退出时调用</summary>
+    public void Shutdown()
     {
-        LogItem item = new LogItem(type, str);
-
-        bool islock = false;
+        _channel.Writer.TryComplete();
         try
         {
-            _spinLocker.Enter(ref islock);
-            _logItems.Add(item);
-            if (_logItems.Count > MaxItems) _logItems.RemoveRange(0, TrimBatch);
+            _writerLoop.Wait(TimeSpan.FromSeconds(3));
         }
-        finally
+        catch (Exception)
         {
-            if (islock) _spinLocker.Exit();
+            // 退出路径上不再抛
         }
 
-        // 事件必须在锁外触发:订阅方会同步改动 UI 绑定集合并触发布局,
-        // 在锁内做会让其他打日志的线程在 SpinLock 上空转等待整个 UI 过程
-        OnLogChange?.Invoke(item);
-        return item;
+        _shutdown.Cancel();
+        _store?.Flush();
+        _store?.Dispose();
+    }
+
+    private void Enqueue(LogItem item)
+    {
+        Interlocked.Increment(ref _enqueued);
+        // 队列已关(进程正在退出)就把序号补回来,否则 WaitForDrain 会空等到超时
+        if (!_channel.Writer.TryWrite(item)) Interlocked.Increment(ref _processed);
+    }
+
+    /// 等到入队的都写完为止。<b>只等队列为空是不够的</b>——条目被取出但还没写完时，
+    /// 队列已经是空的，崩溃路径上那条正好会漏掉
+    private void WaitForDrain()
+    {
+        long target = Interlocked.Read(ref _enqueued);
+        SpinWait spin = new();
+        while (Interlocked.Read(ref _processed) < target)
+        {
+            if (_writerLoop.IsCompleted) return; //写入线程已经走了,再等也没有意义
+            spin.SpinOnce();
+        }
+    }
+
+    private async Task WriteLoopAsync()
+    {
+        await foreach (LogItem item in _channel.Reader.ReadAllAsync())
+        {
+            LogIndexEntry? entry = null;
+            try
+            {
+                entry = _store?.Append(item);
+                if (item.LogType == ELogType.Error) _store?.Flush(); //错误必须落地:它下一秒可能就崩了
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Log write failed: {e.Message}"); //不能再走 Log,会递归
+            }
+
+            // 计数必须在派发之前推进:订阅方可能很慢,而 WaitForDrain 等的是"落盘完成"
+            Interlocked.Increment(ref _processed);
+
+            if (entry == null) continue;
+            try
+            {
+                OnLogAppended?.Invoke(entry);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Log subscriber failed: {e.Message}");
+            }
+        }
+    }
+
+    private async Task FlushLoopAsync()
+    {
+        try
+        {
+            using PeriodicTimer timer = new(FlushInterval);
+            while (await timer.WaitForNextTickAsync(_shutdown.Token)) _store?.Flush();
+        }
+        catch (OperationCanceledException)
+        {
+            // 正常退出
+        }
     }
 }

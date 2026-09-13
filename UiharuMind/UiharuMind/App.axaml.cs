@@ -207,7 +207,7 @@ public partial class App : Application, ILogger, IDisposable
         // 处理AppDomain级别的未处理异常
         var ex = (Exception)e.ExceptionObject;
         Log.Error(ex);
-        Log.CloseAndFlush();
+        Log.Flush();
         if (e.IsTerminating)
         {
             Log.Error("A critical error has occurred and the application will now close.");
@@ -222,12 +222,11 @@ public partial class App : Application, ILogger, IDisposable
         Log.Error(e.Exception);
         // 标记异常已处理
         e.Handled = true;
-        Log.CloseAndFlush();
+        Log.Flush();
     }
 
     public void Dispose()
     {
-        Log.CloseAndFlush();
         Clipboard.Dispose();
         // 先给还在跑的那些轮次补上取消结果,再放执行者:反过来的话补写会撞上正在被释放的执行者。
         // 登记在运行侧,因此界面上的对话与无头的定时任务一并收尾
@@ -235,6 +234,7 @@ public partial class App : Application, ILogger, IDisposable
         UiharuMind.Core.AI.Chat.SessionManager.Instance.DisposeAllRunners();
         (Services as IDisposable)?.Dispose();
         ProcessHelper.CancelAllProcesses();
+        Log.Shutdown(); //必须最后:它之后打的日志会被丢掉,而上面每一步都还在打日志
     }
 
     private void OnScreenCaptureClick(object? sender, EventArgs e)

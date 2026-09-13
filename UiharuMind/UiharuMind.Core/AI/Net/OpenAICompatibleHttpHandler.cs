@@ -139,7 +139,8 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         // 诊断:无条件记录响应媒体类型与状态码——SseSanitizingContent 只在 text/event-stream 时介入,
         // 非该媒体类型的流不经过 SseSanitizingStream,此类故障的桩也就全都不在链路上
         Log.Debug($"OpenAI-compatible response: {(int)response.StatusCode} {response.ReasonPhrase}, " +
-                  $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}");
+                  $"content-type: {response.Content?.Headers.ContentType?.MediaType ?? "(null)"}",
+            ELogCategory.LlmResponse);
         await LogFailureAsync(response, cancellationToken);
         return await SanitizeResponseAsync(response, cancellationToken);
     }
@@ -226,21 +227,21 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             jsonNode.Remove(key);
     }
 
-    //兜底闸,正常内容够不着:抹掉 base64 之后还这么长的多半是出了别的岔子,不该让一条日志吃掉整个面板
-    private const int LogSafetyLimit = 256 * 1024;
     private const int Base64RedactThreshold = 512; //比这短的 base64 留着,可能是真内容而不是附件
 
     /// <summary>
-    /// 请求体日志。<b>不截断</b>——提示词、工具定义与参数都要能完整看到，
-    /// 真正撑爆日志的从来不是正文长度而是内联的 base64 附件（一张图就十几 MB），
-    /// 所以只把 base64 载荷换成一句体量说明，其余原样保留。
+    /// 请求体日志。<b>完全不截断</b>——提示词、工具定义与参数都要能完整看到。
+    /// 超过阈值的正文由日志层外置到 <c>Bodies.txt</c>，面板只吃索引，
+    /// 因此这里再没有「一条日志吃掉整个面板」的问题（曾经那道 256KB 兜底闸已随之取消）。
     ///
-    /// 原先那道 <c>Regex.Unescape</c> 已去掉：它等于再复制一份，而且遇到非法转义序列会当场抛。
+    /// 仍然抹 base64：那不是截断，是把毫无阅读价值的附件载荷（一张图就十几 MB）
+    /// 换成一句体量说明。
     /// </summary>
     /// <param name="content">实际发出的正文</param>
     private static void LogRequest(string content)
     {
-        Log.Debug($"OpenAI-compatible request ({content.Length:N0} chars): {ForLog(content)}");
+        Log.Debug($"OpenAI-compatible request ({content.Length:N0} chars): {ForLog(content)}",
+            ELogCategory.LlmRequest);
     }
 
     // data: URL 形式(MEAI 的 OpenAI 客户端就发这个),以及裸 base64 字符串值。
@@ -266,6 +267,8 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
     ///
     /// 顺序不能反——先展开的话，那十几 MB 的 base64 会先被重新序列化一遍。
     /// 抹完之后正文通常只剩几 KB，展开的代价可以忽略。
+    ///
+    /// <b>不做任何长度截断</b>：磁盘上永不截断，截断只发生在面板的列表行。
     /// </summary>
     /// <param name="body">原始正文</param>
     /// <returns>可写进日志的文本</returns>
@@ -282,13 +285,10 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
             text = body; //抹不动就照原样,下面还有体量闸兜着
         }
 
-        text = Prettify(text);
-        return text.Length <= LogSafetyLimit
-            ? text
-            : string.Concat(text.AsSpan(0, LogSafetyLimit), $"…(+{text.Length - LogSafetyLimit:N0} chars)");
+        return Prettify(text);
     }
 
-    // 不是 JSON(或已被截断成半截)就原样返回:日志格式化失败不该影响任何事
+    // 不是 JSON 就原样返回:日志格式化失败不该影响任何事
     private static string Prettify(string text)
     {
         try
@@ -367,7 +367,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         StringBuilder sb = new($"OpenAI-compatible request failed: {(int)response.StatusCode} {response.ReasonPhrase}");
         if (diagnostics != null) sb.Append(" | ").Append(diagnostics);
         if (body.Length > 0) sb.Append('\n').Append(body);
-        Log.Warning(sb.ToString());
+        Log.Warning(sb.ToString(), ELogCategory.LlmResponse);
     }
 
     /// <summary>
@@ -434,7 +434,7 @@ class OpenAICompatibleHttpHandler : DelegatingHandler
         if (!_baseUri.AbsolutePath.Contains("chat/completions", StringComparison.OrdinalIgnoreCase)) return response;
 
         var mediaType = response.Content.Headers.ContentType?.MediaType;
-        Log.Debug($"SanitizeResponse: mediaType='{mediaType ?? "(null)"}'");
+        Log.Debug($"SanitizeResponse: mediaType='{mediaType ?? "(null)"}'", ELogCategory.LlmResponse);
         if (mediaType == "text/event-stream")
         {
             response.Content = new SseSanitizingContent(response.Content);

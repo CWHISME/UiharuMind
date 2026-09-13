@@ -2,12 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:u="https://irihi.tech/ursa"
              xmlns:viewData="clr-namespace:UiharuMind.Features.LogViewer"
-             xmlns:extends="clr-namespace:UiharuMind.Extends"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:log="clr-namespace:UiharuMind.Core.Core.SimpleLog;assembly=UiharuMind.Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="UiharuMind.Features.LogViewer.LogView">
+             x:Class="UiharuMind.Features.LogViewer.LogView"
+             x:DataType="viewData:LogViewModel">
 
     <Design.DataContext>
         <viewData:LogViewModel />
@@ -17,35 +17,44 @@
         <viewData:LogLevelToColorConverter x:Key="LogLevelToColorConverter" />
     </UserControl.Resources>
 
-    <Grid RowDefinitions="*,Auto,200" Background="Transparent">
-        <!-- log items -->
-        <ScrollViewer Name="Viewer" Grid.Row="0" u:ScrollTo.Direction="Bottom">
-            <ItemsControl Name="LogList" ItemsSource="{Binding Items}" PointerPressed="ListBox_PointerPressed"
-                          IsHitTestVisible="True">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <VirtualizingStackPanel />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="Transparent" CornerRadius="10"
-                                Padding="10,3,10,3">
-                            <TextBlock IsHitTestVisible="False" Text="{Binding LogShortString}"
-                                       Background="Transparent"
-                                       MaxHeight="40"
-                                       Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+    <Grid RowDefinitions="Auto,*,Auto,200" Background="Transparent">
+        <!-- toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="10,4">
+            <ComboBox SelectedIndex="{Binding CategoryFilterIndex}" MinWidth="110" VerticalAlignment="Center">
+                <ComboBoxItem>全部</ComboBoxItem>
+                <ComboBoxItem>通用</ComboBoxItem>
+                <ComboBoxItem>模型请求</ComboBoxItem>
+                <ComboBoxItem>模型响应</ComboBoxItem>
+            </ComboBox>
+            <Button Content="打开日志目录" Command="{Binding OpenFolderCommand}" />
+            <Button Content="导出当前筛选" Command="{Binding ExportCommand}" />
+            <Button Content="清空" Command="{Binding ClearCommand}" />
+        </StackPanel>
+
+        <!-- log items: 最新的在最顶上 -->
+        <ListBox Grid.Row="1" Name="LogList" ItemsSource="{Binding Items}"
+                 SelectedItem="{Binding SelectedEntry}"
+                 SelectionMode="Single" Background="Transparent">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="log:LogIndexEntry">
+                    <TextBlock Text="{Binding Preview}" MaxLines="1" TextTrimming="CharacterEllipsis"
+                               Background="Transparent"
+                               Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
 
         <!-- for resizing -->
-        <GridSplitter Grid.Row="1" ResizeBehavior="PreviousAndNext" Height="5" HorizontalAlignment="Stretch" />
+        <GridSplitter Grid.Row="2" ResizeBehavior="PreviousAndNext" Height="5" HorizontalAlignment="Stretch" />
 
         <!-- detail text -->
-        <controls:LongTextView Grid.Row="2" Name="DetailText"
+        <controls:LongTextView Grid.Row="3" Name="DetailText"
+                               Text="{Binding DetailText, Mode=OneWay}"
                                IsEditable="False" IsToolbarVisible="False"
                                ShowLineNumbers="False" WordWrap="True" />
     </Grid>

@@ -5,13 +5,17 @@
  *
  * https://wangjiaying.top
  * https://github.com/CWHISME/UiharuMind
- *
- * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Shared.Collections;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
@@ -19,50 +23,131 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Features.LogViewer;
 
 /// <summary>
-/// 日志列表。条目数有上限——列表常驻视觉树,无上限的话进程活多久它就长多久,
-/// 每条日志都在里面留一个容器
+/// 日志列表。持有的是<b>索引项</b>而不是正文——内存占用只随条数增长，
+/// 与正文体量无关。正文在点开某条时才从磁盘读回。
+/// <para>最新的在最顶上，靠 <see cref="ReversedObservableList{T}"/> 倒着读，不是 <c>Insert(0)</c>。</para>
 /// </summary>
-public class LogViewModel : ViewModelBase
+public partial class LogViewModel : ViewModelBase
 {
-    private const int MaxDisplayItems = 2000; //列表展示上限,超出后丢弃最早的
+    private const int MaxViewItems = 50_000; //与 LogStore 的索引上限对齐
+    private const int TrimBatch = 5_000;
 
-    public ObservableCollection<LogItem> Items { get; } = new();
+    /// <summary>正文已被滚动淘汰时的占位文本</summary>
+    public const string DeadBodyHint = "（该条正文已因日志滚动被清理）";
+
+    /// <summary>倒序视图，绑给列表</summary>
+    public ReversedObservableList<LogIndexEntry> Items { get; } = new();
+
+    [ObservableProperty] private LogIndexEntry? _selectedEntry;
+
+    [ObservableProperty] private string _detailText = string.Empty;
+
+    /// <summary>分类筛选：0 全部 / 1 通用 / 2 请求 / 3 响应</summary>
+    [ObservableProperty] private int _categoryFilterIndex;
 
     public LogViewModel()
     {
-        Backfill();
-        LogManager.Instance.OnLogChange += OnLogChange;
+        Rebuild();
+        LogManager.Instance.OnLogAppended += OnLogAppended;
     }
 
-    /// 回填只取最近一批。原先是在 Task.Run 里遍历 LogManager 的内部列表再逐条灌进来:
-    /// 既跨线程改动了 UI 绑定集合,又会与写入线程撞在同一个 List 上
-    private void Backfill()
-    {
-        ELogType level = ConfigManager.Instance.DebugSetting.LogTypeInfo;
-        List<LogItem> snapshot = LogManager.Instance.GetSnapshot();
+    partial void OnCategoryFilterIndexChanged(int value) => Rebuild();
 
-        // 从尾部往前收集最近 MaxDisplayItems 条,再正序灌入
-        List<LogItem> matched = new List<LogItem>();
-        for (int i = snapshot.Count - 1; i >= 0 && matched.Count < MaxDisplayItems; i--)
+    partial void OnSelectedEntryChanged(LogIndexEntry? value)
+    {
+        if (value == null)
         {
-            if (level <= snapshot[i].LogType) matched.Add(snapshot[i]);
+            DetailText = string.Empty;
+            return;
         }
 
-        for (int i = matched.Count - 1; i >= 0; i--) Items.Add(matched[i]);
+        // 可能是几 MB 的正文,读盘不占 UI 线程
+        _ = LoadDetailAsync(value);
     }
 
-    private void OnLogChange(LogItem obj)
-    {
-        if (ConfigManager.Instance.DebugSetting.LogTypeInfo > obj.LogType) return;
+    /// <summary>打开日志目录。<b>整个目录</b>才是完整的一份——外置正文在旁边的 Bodies.txt 里</summary>
+    [RelayCommand]
+    private void OpenFolder() => App.FilesService.OpenFolder(LogManager.Instance.Directory);
 
-        // 事件来自打日志的那个线程,改动绑定集合必须回到 UI 线程
-        if (Dispatcher.UIThread.CheckAccess()) Append(obj);
-        else Dispatcher.UIThread.Post(() => Append(obj));
+    /// <summary>清空</summary>
+    [RelayCommand]
+    private void Clear()
+    {
+        LogManager.Instance.ClearLog();
+        Items.Reset([]);
+        SelectedEntry = null;
     }
 
-    private void Append(LogItem item)
+    /// <summary>
+    /// 按当前筛选导出成一份纯文本。用户因此可以只发出错的那几条，
+    /// 而不必把含提示词的整份日志交出去
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportAsync()
     {
-        Items.Add(item);
-        if (Items.Count > MaxDisplayItems) Items.RemoveAt(0);
+        List<LogIndexEntry> entries = Items.ToAppendOrderList();
+        string path = Path.Combine(LogManager.Instance.Directory,
+            $"Export-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+
+        await Task.Run(() =>
+        {
+            StringBuilder sb = new();
+            foreach (LogIndexEntry entry in entries)
+            {
+                sb.Append('[').Append(entry.Time.ToString("yyyy-MM-dd HH:mm:ss")).Append("][")
+                    .Append(entry.LogType).Append("][").Append(entry.Category).AppendLine("]");
+                sb.AppendLine(LogManager.Instance.ReadText(entry) ?? DeadBodyHint).AppendLine();
+            }
+
+            File.WriteAllText(path, sb.ToString());
+        });
+
+        App.FilesService.OpenFolder(LogManager.Instance.Directory);
+    }
+
+    private async Task LoadDetailAsync(LogIndexEntry entry)
+    {
+        string text = await Task.Run(() => LogManager.Instance.ReadText(entry) ?? DeadBodyHint);
+        if (SelectedEntry == entry) DetailText = text; //读盘期间用户可能已经换选了
+    }
+
+    // 切换筛选条件时整体重建。回填只取索引快照,不碰正文
+    private void Rebuild()
+    {
+        List<LogIndexEntry> matched = new();
+        foreach (LogIndexEntry entry in LogManager.Instance.GetSnapshot())
+        {
+            if (Matches(entry)) matched.Add(entry);
+        }
+
+        if (matched.Count > MaxViewItems) matched.RemoveRange(0, matched.Count - MaxViewItems);
+        Items.Reset(matched);
+    }
+
+    private void OnLogAppended(LogIndexEntry entry)
+    {
+        if (!Matches(entry)) return;
+
+        // 事件来自后台写入线程,改动绑定集合必须回到 UI 线程
+        if (Dispatcher.UIThread.CheckAccess()) Append(entry);
+        else Dispatcher.UIThread.Post(() => Append(entry));
+    }
+
+    private void Append(LogIndexEntry entry)
+    {
+        Items.Append(entry);
+        if (Items.Count > MaxViewItems) Items.TrimOldest(TrimBatch);
+    }
+
+    private bool Matches(LogIndexEntry entry)
+    {
+        if (ConfigManager.Instance.DebugSetting.LogTypeInfo > entry.LogType) return false;
+        return CategoryFilterIndex switch
+        {
+            1 => entry.Category == ELogCategory.General,
+            2 => entry.Category == ELogCategory.LlmRequest,
+            3 => entry.Category == ELogCategory.LlmResponse,
+            _ => true,
+        };
     }
 }
