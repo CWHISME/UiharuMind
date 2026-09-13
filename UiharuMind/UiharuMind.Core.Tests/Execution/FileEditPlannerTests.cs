@@ -112,6 +112,58 @@ public class FileEditPlannerTests
         Assert.DoesNotContain("Closest match", plan.Error);
     }
 
+    /// <summary>
+    /// 整块只差缩进是旧版最常翻车的场景:单行评分会指向远处一句内容相近的注释。
+    /// 块级候选必须把内容同、空白差的行标成 [ws],并写清首空白数差。
+    /// </summary>
+    [Fact]
+    public void MissingOldString_WhitespaceOnlyDiff_NamesLineAndWhitespace()
+    {
+        FileEditPlan plan = Plan(
+            "/// <summary>搜索失败的种类</summary>\n"
+            + "public enum ESearchFailureKind\n"
+            + "{\n"
+            + "    /// <summary>搜索根目录不存在</summary>\n"
+            + "    DirectoryNotFound,\n",
+            ("    /// <summary>搜索失败的种类</summary>\n    public enum ESearchFailureKind\n    {\n"
+             + "        /// <summary>搜索根目录不存在</summary>\n        DirectoryNotFound,", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("Closest match: line 1 (5/5 lines content-matched)", plan.Error);
+        Assert.Contains("[ws]", plan.Error);
+        Assert.Contains("line 1: expected", plan.Error);
+        Assert.Contains("leading whitespace 4 vs 0", plan.Error);
+    }
+
+    /// <summary>
+    /// 块里第二行内容不同时,话术要指名是第几行,而不是只报一个笼统的"最近行"。
+    /// </summary>
+    [Fact]
+    public void MissingOldString_SecondLineDiffers_NamesThatLine()
+    {
+        FileEditPlan plan = Plan("first\nsecond\nthird\n",
+            ("first\nwrong\nthird", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("Closest match: line 1 (2/3 lines content-matched)", plan.Error);
+        Assert.Contains("line 2: expected 'wrong' but found 'second'", plan.Error);
+        Assert.Contains("content differs", plan.Error);
+    }
+
+    /// <summary>
+    /// 尾随换行的 oldString（要连换行一起换）失败时也要给块级候选——
+    /// 不能因为末尾空段直接放弃（镜像 LocateByLineWindow 的 consumesTerminator）。
+    /// </summary>
+    [Fact]
+    public void MissingOldString_TrailingNewlineBlock_GivesBlockHint()
+    {
+        FileEditPlan plan = Plan("first\nsecond\nthird\n", ("first\nsecon\n", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("Closest match: line 1 (1/2 lines content-matched)", plan.Error);
+        Assert.Contains("line 2: expected 'secon' but found 'second'", plan.Error);
+    }
+
     [Fact]
     public void EmptyOldString_Fails()
     {
