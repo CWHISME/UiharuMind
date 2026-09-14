@@ -27,6 +27,20 @@ public interface IDockedWindow
     public event Action? OnPreCloseEvent;
 
     /// <summary>
+    /// 停靠锚点变了（位置或内容尺寸）。
+    /// <see cref="Window.PositionChanged"/> 在系统拖动循环里太稀疏、缩放时又比内容尺寸早一步到，
+    /// 所以由目标窗在自己确实知道锚点变了的时候补一次通知。
+    /// </summary>
+    event Action? DockAnchorChanged;
+
+    /// <summary>
+    /// 停靠锚点的窗口原点（Position 口径）。
+    /// 系统拖动期间 <see cref="Window.Position"/> 约 110ms 才回灌一次，跟随窗照它贴就是一卡一卡，
+    /// 所以由目标窗给出「此刻真正在哪」。
+    /// </summary>
+    PixelPoint DockAnchorPosition { get; }
+
+    /// <summary>
     /// 停靠锚点：内容区相对窗口左上的位置与大小（DIP）。
     /// 停靠窗贴的是内容边缘，而不是窗口边缘——窗口可能为阴影之类多留了一圈透明留白。
     /// </summary>
@@ -83,6 +97,7 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
         if (CurrentSnapWindow != null)
         {
             CurrentSnapWindow.PositionChanged -= MainWindow_PositionChanged;
+            CurrentSnapWindow.DockAnchorChanged -= UpdateFollowerWindowPosition;
             CurrentSnapWindow.SizeChanged -= MainWindow_SizeChanged;
             CurrentSnapWindow.PointerExited -= MainWindow_OnMouseLeave;
             CurrentSnapWindow.Closing -= MainWindow_OnClose;
@@ -94,6 +109,7 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
         CurrentSnapWindow = mainWindow;
 
         CurrentSnapWindow.PositionChanged += MainWindow_PositionChanged;
+        CurrentSnapWindow.DockAnchorChanged += UpdateFollowerWindowPosition;
         CurrentSnapWindow.SizeChanged += MainWindow_SizeChanged;
         CurrentSnapWindow.PointerExited += MainWindow_OnMouseLeave;
         CurrentSnapWindow.Closing += MainWindow_OnClose;
@@ -185,7 +201,7 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
             if (CurrentSnapWindow == null)
                 return;
 
-            OnFollowTarget(CurrentSnapWindow.Position, CurrentSnapWindow.DockAnchorBounds);
+            OnFollowTarget(CurrentSnapWindow.DockAnchorPosition, CurrentSnapWindow.DockAnchorBounds);
         });
     }
 

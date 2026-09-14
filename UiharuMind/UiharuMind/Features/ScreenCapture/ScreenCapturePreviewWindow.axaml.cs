@@ -41,6 +41,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     public override bool ContributesToMacRegularMode => false;
 
+    private PixelVector _dragGrabOffset; //按下那一刻，全局鼠标相对窗口左上的偏移
+    private bool _isDragging;
     private Size _originSize;
     private Size _maxDisplaySize = new(double.PositiveInfinity, double.PositiveInfinity);
     private double _aspectRatio = 1.0f;
@@ -97,16 +99,23 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         MinHeight = MinDisplayLength + ShadowMargin.Top + ShadowMargin.Bottom;
 
         OcrLayer.CopyRequested += CopyOcrText;
-
-        PointerPressed += OnPointerPressed;
-        PointerWheelChanged += OnPointerWheelChangedEvent;
-        PointerEntered += OnMouseEnter;
     }
 
     /// <summary>
     /// 当前图片的显示尺寸（不含阴影留白），与窗口尺寸差一圈 <see cref="ShadowMargin"/>。
     /// </summary>
     public Size DisplaySize => _currentSize;
+
+    /// <inheritdoc />
+    public event Action? DockAnchorChanged;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 拖动中按全局鼠标反推：系统拖动把窗口交给 WindowServer 搬，<see cref="Window.Position"/>
+    /// 要 110ms 才同步一次（实测），拿它贴停靠栏就会明显落后于手。
+    /// </remarks>
+    public PixelPoint DockAnchorPosition =>
+        _isDragging ? App.ScreensService.MousePosition - _dragGrabOffset : Position;
 
     /// <inheritdoc />
     public Rect DockAnchorBounds => new(ShadowMargin.Left, ShadowMargin.Top, _currentSize.Width, _currentSize.Height);
@@ -168,11 +177,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     protected override void OnPostShow()
     {
         base.OnPostShow();
-        // 钉图要能拖到菜单栏上面去，所以抬层级；
-        // 而「显示器具有单独的空间」下，抬过层级的窗口会被钉死在某一块屏，
-        // 跨屏时超出边界的半边直接不画（看着就像拖不过去 / 逐渐消失），故一并放开 Space 归属
+        // 钉图也要能拖到菜单栏上面去：只抬层级，不换 Space 归属
         OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.Pinned);
-        OverlayWindowService.ApplyNativeJoinAllSpaces(this);
         ApplyPendingFrame();
     }
 
@@ -215,6 +221,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         var windowSize = ToWindowSize(newSize);
         Width = windowSize.Width;
         Height = windowSize.Height;
+        DockAnchorChanged?.Invoke();
     }
 
     // 位图一律 96 DPI（见 IScreenFrame.Display），显示尺寸只能由物理像素除以「每 DIP 多少像素」得到。
@@ -252,12 +259,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         if (_ocrMode && image != null) BeginRecognize();
     }
 
-    private void OnMouseEnter(object? sender, PointerEventArgs e)
+    protected override void OnPointerEntered(PointerEventArgs e)
     {
         ScreenCaptureManager.SyncDockWindow(this);
     }
-
-    private void OnPointerWheelChangedEvent(object? sender, PointerWheelEventArgs e)
+    
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         if (e.Delta.Y == 0) return;
 
@@ -331,7 +338,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     }
 
     // 落在 OCR 文字行上的按下已被选择层吃掉（Handled），到不了这里，拖窗因此不会和选字打架
-    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         if (e.ClickCount == 2)
         {
@@ -341,10 +348,27 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
-        // 交给系统拖动循环（mac 下是 performWindowDragWithEvent:），与其它窗口一致。
-        // 手写位移（按窗内偏移改 Position）在跨屏时会抖：事件里的窗内坐标按旧 frame 算，
-        // 却要和已经移动过的 Position 相加，残差每帧回灌
+        // 窗口本身交给系统拖动循环（mac 下是 performWindowDragWithEvent:），与其它窗口一致；
+        // 手写位移在跨屏时会抖（窗内坐标按旧 frame 算，却要和已移动的 Position 相加，残差每帧回灌）。
+        // 停靠栏跟随则不能再问窗口在哪，改用按下时记下的抓取偏移，按全局鼠标反推，见 DockAnchorPosition
+        _dragGrabOffset = App.ScreensService.MousePosition - Position;
+        _isDragging = App.ScreensService.IsMousePositionReliable;
         BeginMoveDrag(e);
+    }
+
+    // 系统拖动期间窗口照常收得到移动事件（只有 Position 是滞后的），跟随就挂在这里
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        if (!_isDragging) return;
+
+        // 系统拖动中收不到 PointerReleased，松手只能从按键状态里读
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _isDragging = false;
+            return;
+        }
+
+        DockAnchorChanged?.Invoke();
     }
 
     /// <summary>
