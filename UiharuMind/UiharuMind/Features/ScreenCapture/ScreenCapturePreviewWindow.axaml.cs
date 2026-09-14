@@ -51,6 +51,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private BitmapInterpolationMode? _zoomRestoreQuality;
     private int _zoomQualityGeneration;
 
+    // Show 之前设的窗口尺寸会被 macOS 按 visibleFrame 裁掉（native Resize 的 !_shown 钳制）：
+    // 竖着截一屏高时窗口被压矮、位置跟着上移，而 ImageContent 是 Stretch=Fill，于是图被压扁。
+    // 所以先把真实几何记下来，Show 之后再原子提交一次（缩放那一路本来就是这么落盘的）
+    private PixelPoint? _pendingFramePosition;
+    private Size? _pendingFrameSize;
+
     // OCR：本窗只管开关、跑识别、把行交给选择层；选择/复制/右键菜单都在层里
     private readonly IOcrTextRecognizer _ocrRecognizer = OcrRecognizerFactory.Create();
     private bool _ocrMode;
@@ -133,7 +139,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         VerticalAlignment verticalAlignment = VerticalAlignment.Top)
     {
         var scaling = App.ScreensService.Scaling;
-        _originSize = size ?? DefaultDisplaySize(image, scaling);
+        _originSize = size ?? DefaultDisplaySize(image);
         // 计算原始尺寸的比例
         _aspectRatio = _originSize.Width / _originSize.Height;
 
@@ -151,11 +157,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         SetDisplaySize(_originSize);
         _currentScale = 1.0; // 换图后缩放归一，否则沿用旧 scale 下一次滚轮会跳变
 
-        if (pos == null)
-        {
-            var windowSize = ToWindowSize(_originSize);
-            this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, windowSize.Width, windowSize.Height);
-        }
+        if (pos == null) AlignImageToMouse(horizontalAlignment, verticalAlignment);
+
+        // 见字段注释：Show 之前的尺寸可能被裁，落位推迟到 OnPostShow
+        _pendingFramePosition = Position;
+        _pendingFrameSize = ToWindowSize(_originSize);
     }
 
     protected override void OnInitWindowPosition()
@@ -168,6 +174,33 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         base.OnPostShow();
         // 钉图也要能拖到菜单栏上面去：只抬层级，不换 Space 归属
         OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.Pinned);
+        ApplyPendingFrame();
+    }
+
+    // Show 之后重新落一次几何，把 native 在 Show 那一刻按 visibleFrame 做的钳制顶回去
+    private void ApplyPendingFrame()
+    {
+        if (_pendingFramePosition is not { } pos || _pendingFrameSize is not { } size) return;
+        _pendingFramePosition = null;
+        _pendingFrameSize = null;
+
+        if (!this.TrySetWindowFrame(pos, size)) Position = pos;
+        Width = size.Width;
+        Height = size.Height;
+    }
+
+    // 让「图片」而不是「窗口」贴合截取范围。
+    // SetWindowToMousePosition 对齐的是窗口边，而图片被 ShadowMargin 内缩了一圈透明死区，
+    // 直接用窗口尺寸定位，图片就会朝拖动起点那侧偏掉一个 margin（往右下拖是左上偏，反向拖反向偏）。
+    // 办法是按图片尺寸算出图片该在的位置，再把窗口左上角往回退一个左上留白
+    private void AlignImageToMouse(HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment)
+    {
+        this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height);
+
+        double positionUnitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
+        Position -= new PixelVector(
+            (int)Math.Round(ShadowMargin.Left * positionUnitsPerDip),
+            (int)Math.Round(ShadowMargin.Top * positionUnitsPerDip));
     }
 
     /// <summary>
@@ -185,13 +218,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         Height = windowSize.Height;
     }
 
-    // 自带 DPI 的位图（如 mac 2x 抓屏，Dpi=192）按 Size（point）显示；
-    // 无 DPI 信息的一律 96，走像素除缩放的老逻辑
-    private static Size DefaultDisplaySize(Bitmap image, double scaling)
+    // 位图一律 96 DPI（见 IScreenFrame.Display），显示尺寸只能由物理像素除以「每 DIP 多少像素」得到。
+    // 这里必须走 DisplayUnits：mac 的 Screen.Scaling 恒为 1，直接拿它算会让 Retina 截图开出双倍大的窗
+    private Size DefaultDisplaySize(Bitmap image)
     {
-        var dpi = image.Dpi;
-        if (Math.Abs(dpi.X - 96) > 0.01 || Math.Abs(dpi.Y - 96) > 0.01) return image.Size;
-        return image.PixelSize.ToSize(scaling);
+        double pixelsPerDip = DisplayUnits.PixelsPerDip(App.ScreensService.Scaling, RenderScaling);
+        return image.PixelSize.ToSize(pixelsPerDip);
     }
 
     private void SafeSetImage(Bitmap? image)

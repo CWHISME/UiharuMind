@@ -11,20 +11,22 @@ namespace UiharuMind.Features.ScreenCapture.Frames;
 /// <summary>
 /// macOS 的整屏帧：screencapture 按屏序号静默抓到的 PNG。
 /// macOS 的 Screen.Scaling 恒为 1、Bounds 是 point，PNG 却是 backing 像素（Retina 下 2 倍），
-/// 所以帧内自带 PixelScale：Display 位图按 backing 标 DPI（Size 回到 point），Crop 进来的
-/// point 矩形内部乘回像素。调用方（遮罩窗的选区数学）全程只见 point。
+/// 所以帧内自带 pixelScale：Crop/SampleColor 进来的 point 坐标内部乘回像素，
+/// 调用方（遮罩窗的选区数学）全程只见 point。
+/// 位图本身一律 96 DPI，不拿 DPI 伪装尺寸——理由见 <see cref="IScreenFrame.Display"/>。
 /// </summary>
 public sealed class MacScreenFrame : IScreenFrame
 {
     private SKBitmap? _source; //像素，裁剪用；Display 是它的独立拷贝，一起释放
     private Bitmap? _display;
-    private readonly double _pixelScale;
 
     public Bitmap Display => _display!;
 
     public PixelPoint Origin { get; }
 
     public PixelSize PixelSize => _source == null ? default : new PixelSize(_source.Width, _source.Height);
+
+    private readonly double _pixelScale; //一个 point 对应多少物理像素（Retina 为 2）
 
     private MacScreenFrame(SKBitmap source, Bitmap display, PixelPoint origin, double pixelScale)
     {
@@ -68,7 +70,7 @@ public sealed class MacScreenFrame : IScreenFrame
             decoded = null;
             if (source == null) return null;
 
-            var display = ToBitmap(source, scale);
+            var display = ToBitmap(source);
             if (display == null)
             {
                 source.Dispose();
@@ -110,8 +112,8 @@ public sealed class MacScreenFrame : IScreenFrame
                 return null;
             }
 
-            // 指针构造会拷贝像素，subset 可释放；DPI 带上，预览窗直接按 point 显示
-            return ToBitmap(subset, _pixelScale);
+            // 指针构造会拷贝像素，subset 可释放
+            return ToBitmap(subset);
         }
         catch (Exception e)
         {
@@ -147,7 +149,7 @@ public sealed class MacScreenFrame : IScreenFrame
         }
     }
 
-    private static Bitmap? ToBitmap(SKBitmap bitmap, double scale)
+    private static Bitmap? ToBitmap(SKBitmap bitmap)
     {
         try
         {
@@ -156,7 +158,7 @@ public sealed class MacScreenFrame : IScreenFrame
                 AlphaFormat.Unpremul,
                 bitmap.GetPixels(),
                 new PixelSize(bitmap.Width, bitmap.Height),
-                new Vector(96 * scale, 96 * scale),
+                new Vector(96, 96),
                 bitmap.RowBytes);
         }
         catch (Exception e)

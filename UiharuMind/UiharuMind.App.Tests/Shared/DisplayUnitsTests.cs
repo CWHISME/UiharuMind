@@ -4,17 +4,18 @@ using UiharuMind.Shared.Utils;
 namespace UiharuMind.App.Tests.Shared;
 
 /// <summary>
-/// 钉住全局像素→窗口坐标的映射契约。хгалтору钩子看到的是全局物理像素，
-/// 窗口要的是窗内 DIP，中间差着主副屏原点与 backing，推导错一位就是选区错位。
+/// 钉住全局钩子坐标→窗内 DIP 的映射契约。钩子与 Screen.Bounds/Window.Position 同一个坐标系
+/// （Windows/Linux 物理像素、macOS point），窗口要的是窗内 DIP，中间只差窗口原点与每 DIP 的单位数；
+/// 这里推导错一位，拖选时选区就跟手错位、两个输入源交替刷新还会一直抖。
 /// </summary>
 public class DisplayUnitsTests
 {
-    // mac 主屏 Retina：point 原点 (0,0)，backing 2，窗 1512x982 铺满
+    // mac 主屏 Retina：钩子给的是 point，与窗口事件同口径，不许再除 backing
     [Fact]
-    public void MapMacPrimaryRetina()
+    public void MapMacPrimaryRetina_BottomRight()
     {
-        bool ok = DisplayUnits.TryMapGlobalPixelsToWindow(
-            3024, 1964, true, 2.0, 1.0,
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            1512, 982, 1.0,
             new PixelPoint(0, 0), new Size(1512, 982),
             out Point windowDip, out PixelPoint screenUnits);
 
@@ -27,23 +28,23 @@ public class DisplayUnitsTests
     [Fact]
     public void MapMacPrimaryRetina_Interior()
     {
-        bool ok = DisplayUnits.TryMapGlobalPixelsToWindow(
-            100, 100, true, 2.0, 1.0,
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            100, 100, 1.0,
             new PixelPoint(0, 0), new Size(1512, 982),
             out Point windowDip, out PixelPoint screenUnits);
 
         Assert.True(ok);
-        Assert.Equal(50, windowDip.X);
-        Assert.Equal(50, windowDip.Y);
-        Assert.Equal(new PixelPoint(50, 50), screenUnits);
+        Assert.Equal(100, windowDip.X);
+        Assert.Equal(100, windowDip.Y);
+        Assert.Equal(new PixelPoint(100, 100), screenUnits);
     }
 
-    // mac 副屏同缩放：point 原点 (1512,0)，backing 1，像素原点按同布局推算 (1512,0)
+    // mac 副屏：point 原点 (1512,0)，减掉窗口原点即窗内 DIP，不需要按屏推算像素原点
     [Fact]
-    public void MapMacSecondarySameScale()
+    public void MapMacSecondary()
     {
-        bool ok = DisplayUnits.TryMapGlobalPixelsToWindow(
-            2000, 500, false, 1.0, 1.0,
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            2000, 500, 1.0,
             new PixelPoint(1512, 0), new Size(1920, 1080),
             out Point windowDip, out PixelPoint screenUnits);
 
@@ -53,12 +54,12 @@ public class DisplayUnitsTests
         Assert.Equal(new PixelPoint(2000, 500), screenUnits);
     }
 
-    // Windows 主屏 150%：Position 是像素，DIP 要除 1.5
+    // Windows 主屏 150%：钩子与 Position 都是像素，DIP 要除 1.5
     [Fact]
     public void MapWindowsPrimaryScaled()
     {
-        bool ok = DisplayUnits.TryMapGlobalPixelsToWindow(
-            1920, 1080, true, 1.5, 1.5,
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            1920, 1080, 1.5,
             new PixelPoint(0, 0), new Size(1280, 720),
             out Point windowDip, out PixelPoint screenUnits);
 
@@ -68,12 +69,27 @@ public class DisplayUnitsTests
         Assert.Equal(new PixelPoint(1920, 1080), screenUnits);
     }
 
+    // Windows 副屏 150%：窗口原点也是像素，先减后除
+    [Fact]
+    public void MapWindowsSecondaryScaled()
+    {
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            2520, 300, 1.5,
+            new PixelPoint(1920, 0), new Size(1280, 720),
+            out Point windowDip, out PixelPoint screenUnits);
+
+        Assert.True(ok);
+        Assert.Equal(400, windowDip.X);
+        Assert.Equal(200, windowDip.Y);
+        Assert.Equal(new PixelPoint(2520, 300), screenUnits);
+    }
+
     // 落到窗外必须拒绝，宁可不用钩子数据
     [Fact]
     public void MapOutsideWindow_ReturnsFalse()
     {
-        bool ok = DisplayUnits.TryMapGlobalPixelsToWindow(
-            4000, 500, false, 1.0, 1.0,
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            4000, 500, 1.0,
             new PixelPoint(1512, 0), new Size(1920, 1080),
             out _, out _);
 
@@ -81,10 +97,10 @@ public class DisplayUnitsTests
     }
 
     [Fact]
-    public void MapInvalidBacking_ReturnsFalse()
+    public void MapInvalidUnits_ReturnsFalse()
     {
-        bool ok = DisplayUnits.TryMapGlobalPixelsToWindow(
-            100, 100, true, 0, 1.0,
+        bool ok = DisplayUnits.TryMapGlobalPointerToWindow(
+            100, 100, 0,
             new PixelPoint(0, 0), new Size(1512, 982),
             out _, out _);
 

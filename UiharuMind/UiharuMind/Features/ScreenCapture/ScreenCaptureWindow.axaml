@@ -10,9 +10,16 @@
         <Image Name="ScreenshotImage" Stretch="Uniform" />
 
         <Canvas Name="ScreenshotCanvas" Background="Transparent">
-            <!-- 全屏变暗，Data 是全窗减去高亮洞（CombinedGeometry Exclude），洞的位置每帧跟着选区/悬停窗走 -->
-            <Path x:Name="DimLayer" Fill="#66000000" />
-            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue" />
+            <!-- 全屏变暗：选区四周四条带子围出一个洞。
+                 不用 CombinedGeometry 打洞——那样每帧都得新建几何，丢弃的 SKPath 被终结器释放时，
+                 合成器的 render data 还引用着它，命中测试与渲染会撞上已释放的原生对象。
+                 四个矩形只改 Width/Height 与 Canvas 位置，不产生任何原生对象 -->
+            <Rectangle x:Name="DimTop" Fill="#66000000" IsHitTestVisible="False" />
+            <Rectangle x:Name="DimBottom" Fill="#66000000" IsHitTestVisible="False" />
+            <Rectangle x:Name="DimLeft" Fill="#66000000" IsHitTestVisible="False" />
+            <Rectangle x:Name="DimRight" Fill="#66000000" IsHitTestVisible="False" />
+            <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue"
+                       IsHitTestVisible="False" />
         </Canvas>
 
         <!-- tips 必须在暗层之后，之前被 50% 黑盖在下面看不见 -->

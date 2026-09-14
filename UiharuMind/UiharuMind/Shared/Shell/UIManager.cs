@@ -204,10 +204,11 @@ public static class UIManager
     /// <param name="image"></param>
     /// <param name="startMousePos">开始截图的鼠标位置</param>
     /// <param name="endMousePos">结束截图的鼠标位置</param>
+    /// <param name="size">显示尺寸（DIP），null 表示按图片自身推算</param>
     public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, PixelPoint startMousePos,
-        PixelPoint endMousePos)
+        PixelPoint endMousePos, Size? size = null)
     {
-        ShowPreviewImageWindowAtMousePosition(image, null,
+        ShowPreviewImageWindowAtMousePosition(image, size,
             endMousePos.X > startMousePos.X ? HorizontalAlignment.Left : HorizontalAlignment.Right,
             endMousePos.Y > startMousePos.Y ? VerticalAlignment.Top : VerticalAlignment.Bottom);
     }

@@ -17,8 +17,15 @@ namespace UiharuMind.Features.ScreenCapture.Frames;
 public interface IScreenFrame : IDisposable
 {
     /// <summary>
-    /// 本帧底图，尺寸与所属屏幕一致。<b>所有权归本对象</b>，
+    /// 本帧底图，像素尺寸与所属屏幕的物理像素一致。<b>所有权归本对象</b>，
     /// 调用方不得释放，也不得在本对象释放后继续引用。
+    /// <para>
+    /// <b>位图一律按 96 DPI 构造（Size == PixelSize），各实现不得用 DPI 伪装尺寸。</b>
+    /// Avalonia 的 Image 按 <c>Bitmap.Size</c>（DIP）算源矩形，Skia 后端却把源矩形当物理像素采样
+    /// （见 <c>DrawingContextImpl.DrawBitmap</c>），两端口径不一致：给 Retina 抓帧盖上 192 DPI
+    /// 让 Size 回到 point，画出来就只有左上角四分之一被放大铺满。
+    /// point 与像素的换算一律交给调用方按屏幕信息显式处理。
+    /// </para>
     /// </summary>
     Bitmap Display { get; }
 
@@ -33,7 +40,7 @@ public interface IScreenFrame : IDisposable
     /// </summary>
     /// <param name="desktopRegion">裁剪区域，使用屏幕坐标系（与 Screen.Bounds 同口径：
     /// Windows 下像素，macOS 下 point），内部自行减去 Origin 并换算到像素</param>
-    /// <returns>裁剪结果；区域非法或裁剪失败返回 null</returns>
+    /// <returns>裁剪结果（同样是 96 DPI 的像素位图）；区域非法或裁剪失败返回 null</returns>
     Bitmap? Crop(PixelRect desktopRegion);
 
     /// <summary>

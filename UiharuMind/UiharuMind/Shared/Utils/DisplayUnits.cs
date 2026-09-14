@@ -43,46 +43,43 @@ public static class DisplayUnits
     }
 
     /// <summary>
-    /// 全局物理像素（钩子坐标）转窗内 DIP。主屏精确（像素原点与 point 原点重合）；
-    /// 副屏按同缩放布局推算像素原点，落到窗外则失败——宁可不用，不引入错误起点。
+    /// 全局钩子坐标转窗内 DIP。
+    /// <para>
+    /// 钩子给的坐标与 <c>Screen.Bounds</c>/<c>Window.Position</c> 同一个坐标系：Windows/Linux 是
+    /// 物理像素，macOS 是 point（libuiohook 走 <c>CGEventGetLocation</c>，拿到的就是 NSScreen 那套
+    /// point）。所以只要减掉窗口原点再除以该坐标系每 DIP 多少单位即可，无需按屏推算像素原点。
+    /// </para>
+    /// <para>
+    /// 曾经把它当成物理像素处理，Retina 主屏下钩子坐标会被再除一次 backing，
+    /// 得到的是窗口事件坐标的一半——拖选时两个来源交替刷新，选区与 tips 就一直闪。
+    /// </para>
     /// 纯函数，可单测。
     /// </summary>
-    /// <param name="px">全局物理像素 X</param>
-    /// <param name="py">全局物理像素 Y</param>
-    /// <param name="isPrimary">目标屏是否主屏</param>
-    /// <param name="pixelsPerDip">见 <see cref="PixelsPerDip"/></param>
+    /// <param name="x">钩子报告的 X（屏幕坐标系）</param>
+    /// <param name="y">钩子报告的 Y（屏幕坐标系）</param>
     /// <param name="positionUnitsPerDip">见 <see cref="PositionUnitsPerDip"/></param>
     /// <param name="windowOrigin">窗口原点（Position 口径）</param>
     /// <param name="windowDipSize">窗口内容尺寸（DIP）</param>
     /// <param name="windowDip">窗内 DIP 坐标</param>
     /// <param name="screenUnits">屏幕坐标系坐标（与 Screen.Bounds 同口径）</param>
-    /// <returns>映射成功返回 True</returns>
-    public static bool TryMapGlobalPixelsToWindow(
-        int px, int py, bool isPrimary,
-        double pixelsPerDip, double positionUnitsPerDip,
+    /// <returns>落在窗口内、映射成功返回 True</returns>
+    public static bool TryMapGlobalPointerToWindow(
+        int x, int y, double positionUnitsPerDip,
         PixelPoint windowOrigin, Size windowDipSize,
         out Point windowDip, out PixelPoint screenUnits)
     {
         windowDip = default;
         screenUnits = default;
-        if (pixelsPerDip <= 0 || positionUnitsPerDip <= 0) return false;
+        if (positionUnitsPerDip <= 0) return false;
         if (windowDipSize.Width <= 0 || windowDipSize.Height <= 0) return false;
 
-        // 前提：调用方窗口铺满本屏（窗口原点即屏幕原点）。此时屏内 DIP = 原点 DIP + 像素偏移，
-        // 窗内 DIP = 屏内 − 窗口原点 = (P − G0) / ppd，原点相消，只剩像素原点 G0 一个假设：
-        // 主屏 G0 = (0,0) 精确；副屏按同缩放布局推算 G0 = 原点 DIP × ppd。
-        double originDipX = windowOrigin.X / positionUnitsPerDip;
-        double originDipY = windowOrigin.Y / positionUnitsPerDip;
-        double pixelOx = isPrimary ? 0 : originDipX * pixelsPerDip;
-        double pixelOy = isPrimary ? 0 : originDipY * pixelsPerDip;
-        double wx = (px - pixelOx) / pixelsPerDip;
-        double wy = (py - pixelOy) / pixelsPerDip;
+        double wx = (x - windowOrigin.X) / positionUnitsPerDip;
+        double wy = (y - windowOrigin.Y) / positionUnitsPerDip;
 
+        // 落到窗外（在别的屏上点的）直接拒绝，宁可不用钩子数据，也不引入错误坐标
         if (wx < -2 || wy < -2 || wx > windowDipSize.Width + 2 || wy > windowDipSize.Height + 2) return false;
         windowDip = new Point(wx, wy);
-        screenUnits = new PixelPoint(
-            windowOrigin.X + (int)Math.Round(wx * positionUnitsPerDip),
-            windowOrigin.Y + (int)Math.Round(wy * positionUnitsPerDip));
+        screenUnits = new PixelPoint(x, y);
         return true;
     }
 }
