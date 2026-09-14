@@ -54,6 +54,7 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
 
     private bool _pendingReveal; //本次 RequestShow 是真的从隐藏到显示，出现动画留到窗口显示后再播
     private OpacityChannel? _revealOpacity;
+    private bool _spanningScreens; //横跨两块屏期间先藏起来，躲开系统重新归属窗口时的花帧
     private bool _hiding; //淡出播放中，此时改贴别的窗口要把它截下来
 
     public override bool IsCacheWindow => true;
@@ -160,12 +161,30 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
 
     // 透明度走原生窗口 alpha：托管 Opacity 要等下一次渲染，而挪窗口/显示窗口是原生立即生效的，
     // 那一帧合成器会把上一帧渲染好的满透明度内容直接贴到新位置——就是切换贴图时闪的那一下。
-    // 拿不到原生通道（非 macOS）就回退托管 Opacity
-    private OpacityChannel RevealOpacity => _revealOpacity ??= new OpacityChannel(opacity =>
+    // 通道只记显隐动画要的值，真正落下去的还要乘上跨屏这一档，见 ApplyWindowAlpha
+    private OpacityChannel RevealOpacity => _revealOpacity ??= new OpacityChannel(_ => ApplyWindowAlpha());
+
+    // 拿不到原生通道（非 macOS）就回退托管 Opacity——那条路慢一帧，跨屏遮挡的效果也就打折
+    private void ApplyWindowAlpha()
     {
-        if (OverlayWindowService.TrySetNativeWindowAlpha(this, opacity)) return;
-        if (Content is Control content) content.Opacity = opacity;
-    });
+        double alpha = _spanningScreens ? 0 : RevealOpacity.Value;
+        if (OverlayWindowService.TrySetNativeWindowAlpha(this, alpha)) return;
+        if (Content is Control content) content.Opacity = alpha;
+    }
+
+    // 贴图被拖过屏幕交界时，跟随窗会被我们高频改位置，横跨两块屏的那段时间里系统要反复
+    // 重新归属并重绘它，中间的帧是花的。这段时间直接藏掉：原生 alpha 立即生效，不占渲染
+    private void UpdateScreenSpanState()
+    {
+        double scaling = App.ScreensService.Scaling;
+        var size = new PixelSize((int)Math.Round(Width * scaling), (int)Math.Round(Height * scaling));
+        bool spanning = size.Width > 0 && size.Height > 0 &&
+                        !App.ScreensService.IsWithinSingleScreen(new PixelRect(Position, size));
+        if (spanning == _spanningScreens) return;
+
+        _spanningScreens = spanning;
+        ApplyWindowAlpha();
+    }
 
     private void MainWindow_OnClose()
     {
@@ -263,5 +282,6 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
         Position = new PixelPoint(
             targetPosition.X + (int)(anchor.X * scaling),
             targetPosition.Y + (int)(anchor.Bottom * scaling) + 2);
+        UpdateScreenSpanState();
     }
 }

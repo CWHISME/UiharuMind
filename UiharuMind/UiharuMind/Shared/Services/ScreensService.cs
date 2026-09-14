@@ -147,6 +147,23 @@ public class ScreensService
         return -1;
     }
 
+    /// <summary>
+    /// 矩形是否完整落在某一块屏幕内（Position / Screen.Bounds 口径）。
+    /// 跨越屏幕边界的窗口在每次移动时都要被系统重新归属并重绘，中间几帧是花的，
+    /// 高频移动的跟随窗要靠它判断该不该先藏起来。
+    /// </summary>
+    /// <param name="rect">窗口矩形</param>
+    /// <returns>完整落在某一块屏内返回 True</returns>
+    public bool IsWithinSingleScreen(PixelRect rect)
+    {
+        foreach (var screen in _target.Screens.All)
+        {
+            if (screen.Bounds.Contains(rect)) return true;
+        }
+
+        return false;
+    }
+
     public Window? GetActiveWindow()
     {
         if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
