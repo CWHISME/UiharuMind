@@ -80,6 +80,16 @@ public static class WindowUtils
     }
 
     /// <summary>
+    /// 把窗口放到当前活动屏的中央
+    /// </summary>
+    /// <param name="window"></param>
+    public static void SetScreenCenterPosition(this Window window)
+    {
+        var fallbackSize = GetMeasuredWindowSize(window);
+        SetWindowToScreenCenter(window,fallbackSize);
+    }
+    
+    /// <summary>
     /// 把窗口放到当前活动屏的中央，用作鼠标位置不可用时的降级落点
     /// </summary>
     /// <param name="window">目标窗口</param>
@@ -148,7 +158,6 @@ public static class WindowUtils
         window.ShowInTaskbar = false;
     }
 
-
     /// <summary>
     /// 文档型窗口：有系统标题栏、进任务栏、不置顶、可缩放。
     ///
@@ -194,19 +203,6 @@ public static class WindowUtils
         window.ShowInTaskbar = false;
 
         OverlayWindowService.ApplyNativeNonInteractiveStyle(window);
-    }
-
-    public static void SetScreenCenterPosition(this Window window)
-    {
-        // 获取当前激活的屏幕
-        var screen = App.ScreensService.MouseScreen;
-        // 计算窗口在屏幕中心的坐标
-        var winSize = window.ClientSize;
-        var x = screen.WorkingArea.Right - (screen.WorkingArea.Width + winSize.Width) / 2;
-        var y = screen.WorkingArea.Bottom - (screen.WorkingArea.Height) / 2f - winSize.Height;
-
-        // 设置窗口位置
-        window.Position = new PixelPoint((int)x, (int)y);
     }
 
     /// <summary>

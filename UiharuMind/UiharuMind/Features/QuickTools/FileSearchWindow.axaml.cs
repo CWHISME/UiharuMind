@@ -14,6 +14,7 @@ using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.QuickTools;
 
@@ -35,6 +36,12 @@ public partial class FileSearchWindow : UiharuWindowBase
         AddHandler(DragDrop.DropEvent, OnDrop);
 
         ViewModel.Initialize();
+    }
+
+    protected override void OnPreShow()
+    {
+        base.OnPreShow();
+        this.SetScreenCenterPosition();
     }
 
     // private void OnDirectorySelectionChanged(object? sender, SelectionChangedEventArgs e)
