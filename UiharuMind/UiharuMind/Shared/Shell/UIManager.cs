@@ -97,12 +97,13 @@ public static class UIManager
             }
             else
             {
-                if (windowsList[0].ContributesToMacRegularMode) WindowActivationService.Activate(windowsList[0]);
+                if (windowsList[0].ContributesToMacRegularMode) windowsList[0].RequestFocus();
                 Log.Warning($"[{typeof(T).Name}] This window is already opened.");
             }
 
             RefreshMacApplicationActivationPolicy();
-            if (isActivate && window?.ContributesToMacRegularMode == true)
+            // 辅助窗口（快捷面板、浮窗）排除在外：整应用激活会把后台的主界面一起抬到前台
+            if (isActivate && window is { ContributesToMacRegularMode: true, IsMacAuxiliaryWindow: false })
                 MacApplicationActivationService.ActivateIgnoringOtherApps();
         }, DispatcherPriority.Render);
     }

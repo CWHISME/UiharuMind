@@ -21,6 +21,9 @@ public partial class FileSearchWindow : UiharuWindowBase
 {
     public override bool IsCacheWindow => true;
 
+    // 快捷键唤出的弹窗：取焦点时不激活本应用，免得把后台的主界面一起抬到前台
+    public override bool IsMacAuxiliaryWindow => true;
+
     public SearchViewModel ViewModel => (SearchViewModel)DataContext!;
 
     public FileSearchWindow()
