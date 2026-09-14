@@ -7,8 +7,6 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-using UiharuMind.Features.Settings;
-
 namespace UiharuMind.Resources.Lang {
     using System;
     
@@ -68,12 +66,6 @@ namespace UiharuMind.Resources.Lang {
         public static string ThinkingModeNone {
             get {
                 return ResourceManager.GetString("ThinkingModeNone", resourceCulture);
-            }
-        }
-        
-        public static string ThinkingModeLight {
-            get {
-                return ResourceManager.GetString("ThinkingModeLight", resourceCulture);
             }
         }
         
@@ -158,6 +150,132 @@ namespace UiharuMind.Resources.Lang {
         public static string TokenUsageTips {
             get {
                 return ResourceManager.GetString("TokenUsageTips", resourceCulture);
+            }
+        }
+        
+        public static string CompactCommandDescription {
+            get {
+                return ResourceManager.GetString("CompactCommandDescription", resourceCulture);
+            }
+        }
+        
+        public static string HandoffHeader {
+            get {
+                return ResourceManager.GetString("HandoffHeader", resourceCulture);
+            }
+        }
+        
+        public static string AgentInterject {
+            get {
+                return ResourceManager.GetString("AgentInterject", resourceCulture);
+            }
+        }
+        
+        public static string AgentInterjectionPending {
+            get {
+                return ResourceManager.GetString("AgentInterjectionPending", resourceCulture);
+            }
+        }
+        
+        public static string AgentInterjectUnavailable {
+            get {
+                return ResourceManager.GetString("AgentInterjectUnavailable", resourceCulture);
+            }
+        }
+        
+        public static string InterjectionRemoveTip {
+            get {
+                return ResourceManager.GetString("InterjectionRemoveTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentRunningExternally {
+            get {
+                return ResourceManager.GetString("AgentRunningExternally", resourceCulture);
+            }
+        }
+        
+        public static string HandoffWriting {
+            get {
+                return ResourceManager.GetString("HandoffWriting", resourceCulture);
+            }
+        }
+        
+        public static string HandoffFailed {
+            get {
+                return ResourceManager.GetString("HandoffFailed", resourceCulture);
+            }
+        }
+        
+        public static string HandoffNothingToCompact {
+            get {
+                return ResourceManager.GetString("HandoffNothingToCompact", resourceCulture);
+            }
+        }
+        
+        public static string ContextUsageLabel {
+            get {
+                return ResourceManager.GetString("ContextUsageLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextTurnLabel {
+            get {
+                return ResourceManager.GetString("ContextTurnLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextSessionLabel {
+            get {
+                return ResourceManager.GetString("ContextSessionLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextCompactionHint {
+            get {
+                return ResourceManager.GetString("ContextCompactionHint", resourceCulture);
+            }
+        }
+        
+        public static string ContextNoModel {
+            get {
+                return ResourceManager.GetString("ContextNoModel", resourceCulture);
+            }
+        }
+        
+        public static string ContextCachedLabel {
+            get {
+                return ResourceManager.GetString("ContextCachedLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextReasoningLabel {
+            get {
+                return ResourceManager.GetString("ContextReasoningLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextReportedLabel {
+            get {
+                return ResourceManager.GetString("ContextReportedLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextReportedTip {
+            get {
+                return ResourceManager.GetString("ContextReportedTip", resourceCulture);
+            }
+        }
+        
+        public static string ContextUnreportedLabel {
+            get {
+                return ResourceManager.GetString("ContextUnreportedLabel", resourceCulture);
+            }
+        }
+        
+        public static string ContextUnreportedTip {
+            get {
+                return ResourceManager.GetString("ContextUnreportedTip", resourceCulture);
             }
         }
         
@@ -460,61 +578,61 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("AgentWorkspaceClear", resourceCulture);
             }
         }
-
-        public static string CharacterKindAgent {
-            get {
-                return ResourceManager.GetString("CharacterKindAgent", resourceCulture);
-            }
-        }
-
-        public static string CharacterKindDesc {
-            get {
-                return ResourceManager.GetString("CharacterKindDesc", resourceCulture);
-            }
-        }
-
-        public static string CharacterPickerSearch {
-            get {
-                return ResourceManager.GetString("CharacterPickerSearch", resourceCulture);
-            }
-        }
-
-        public static string CharacterPickerEmpty {
-            get {
-                return ResourceManager.GetString("CharacterPickerEmpty", resourceCulture);
-            }
-        }
-
-        public static string AgentCharacterSwitch {
-            get {
-                return ResourceManager.GetString("AgentCharacterSwitch", resourceCulture);
-            }
-        }
-
+        
         public static string ChatNewSession {
             get {
                 return ResourceManager.GetString("ChatNewSession", resourceCulture);
             }
         }
-
+        
+        public static string CharacterKindAgent {
+            get {
+                return ResourceManager.GetString("CharacterKindAgent", resourceCulture);
+            }
+        }
+        
+        public static string CharacterKindDesc {
+            get {
+                return ResourceManager.GetString("CharacterKindDesc", resourceCulture);
+            }
+        }
+        
+        public static string CharacterPickerSearch {
+            get {
+                return ResourceManager.GetString("CharacterPickerSearch", resourceCulture);
+            }
+        }
+        
+        public static string CharacterPickerEmpty {
+            get {
+                return ResourceManager.GetString("CharacterPickerEmpty", resourceCulture);
+            }
+        }
+        
+        public static string AgentCharacterSwitch {
+            get {
+                return ResourceManager.GetString("AgentCharacterSwitch", resourceCulture);
+            }
+        }
+        
         public static string AgentWorkspaceRecent {
             get {
                 return ResourceManager.GetString("AgentWorkspaceRecent", resourceCulture);
             }
         }
-
+        
         public static string AgentWorkspaceRecentEmpty {
             get {
                 return ResourceManager.GetString("AgentWorkspaceRecentEmpty", resourceCulture);
             }
         }
-
+        
         public static string AgentWorkspaceForget {
             get {
                 return ResourceManager.GetString("AgentWorkspaceForget", resourceCulture);
             }
         }
-
+        
         public static string AgentSenderUser {
             get {
                 return ResourceManager.GetString("AgentSenderUser", resourceCulture);
@@ -530,6 +648,12 @@ namespace UiharuMind.Resources.Lang {
         public static string AgentStop {
             get {
                 return ResourceManager.GetString("AgentStop", resourceCulture);
+            }
+        }
+        
+        public static string AgentToolCallUnfinished {
+            get {
+                return ResourceManager.GetString("AgentToolCallUnfinished", resourceCulture);
             }
         }
         
@@ -785,6 +909,72 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentSettingCapSubAgent {
+            get {
+                return ResourceManager.GetString("AgentSettingCapSubAgent", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentViewActivity {
+            get {
+                return ResourceManager.GetString("SubAgentViewActivity", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentActivityTitle {
+            get {
+                return ResourceManager.GetString("SubAgentActivityTitle", resourceCulture);
+            }
+        }
+        
+        public static string ToolResultTruncatedFormat {
+            get {
+                return ResourceManager.GetString("ToolResultTruncatedFormat", resourceCulture);
+            }
+        }
+        
+        public static string ToolResultTruncatedSizeFormat {
+            get {
+                return ResourceManager.GetString("ToolResultTruncatedSizeFormat", resourceCulture);
+            }
+        }
+        
+        public static string ToolViewFullText {
+            get {
+                return ResourceManager.GetString("ToolViewFullText", resourceCulture);
+            }
+        }
+        
+        public static string ToolFullTextResult {
+            get {
+                return ResourceManager.GetString("ToolFullTextResult", resourceCulture);
+            }
+        }
+        
+        public static string ToolFullTextArguments {
+            get {
+                return ResourceManager.GetString("ToolFullTextArguments", resourceCulture);
+            }
+        }
+        
+        public static string LongTextCopyAll {
+            get {
+                return ResourceManager.GetString("LongTextCopyAll", resourceCulture);
+            }
+        }
+        
+        public static string LongTextWordWrap {
+            get {
+                return ResourceManager.GetString("LongTextWordWrap", resourceCulture);
+            }
+        }
+        
+        public static string LongTextSearch {
+            get {
+                return ResourceManager.GetString("LongTextSearch", resourceCulture);
+            }
+        }
+        
         public static string AgentSettingCapTodoList {
             get {
                 return ResourceManager.GetString("AgentSettingCapTodoList", resourceCulture);
@@ -827,9 +1017,45 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentGateDescSubAgent {
+            get {
+                return ResourceManager.GetString("AgentGateDescSubAgent", resourceCulture);
+            }
+        }
+        
         public static string AgentGateDescFileMemory {
             get {
                 return ResourceManager.GetString("AgentGateDescFileMemory", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingCapFileMemoryPerWorkspace {
+            get {
+                return ResourceManager.GetString("AgentSettingCapFileMemoryPerWorkspace", resourceCulture);
+            }
+        }
+        
+        public static string AgentGateDescFileMemoryPerWorkspace {
+            get {
+                return ResourceManager.GetString("AgentGateDescFileMemoryPerWorkspace", resourceCulture);
+            }
+        }
+        
+        public static string AgentFileMemoryCountNote {
+            get {
+                return ResourceManager.GetString("AgentFileMemoryCountNote", resourceCulture);
+            }
+        }
+        
+        public static string AgentFileMemoryOverLimitNote {
+            get {
+                return ResourceManager.GetString("AgentFileMemoryOverLimitNote", resourceCulture);
+            }
+        }
+        
+        public static string AgentFileMemoryPerWorkspaceNote {
+            get {
+                return ResourceManager.GetString("AgentFileMemoryPerWorkspaceNote", resourceCulture);
             }
         }
         
@@ -863,6 +1089,60 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentSettingSearchHealth {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchHealth", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchHealthDesc {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchHealthDesc", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchProbe {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchProbe", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchProbeOne {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchProbeOne", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchProbing {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchProbing", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchRefresh {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchRefresh", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchStateReady {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchStateReady", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchStateNotConfigured {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchStateNotConfigured", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingSearchStateCooling {
+            get {
+                return ResourceManager.GetString("AgentSettingSearchStateCooling", resourceCulture);
+            }
+        }
+        
         public static string AgentSave {
             get {
                 return ResourceManager.GetString("AgentSave", resourceCulture);
@@ -887,15 +1167,15 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentMcpArguments {
-            get {
-                return ResourceManager.GetString("AgentMcpArguments", resourceCulture);
-            }
-        }
-        
         public static string AgentMcpUrl {
             get {
                 return ResourceManager.GetString("AgentMcpUrl", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpArguments {
+            get {
+                return ResourceManager.GetString("AgentMcpArguments", resourceCulture);
             }
         }
         
@@ -929,6 +1209,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentMcpStatePendingApproval {
+            get {
+                return ResourceManager.GetString("AgentMcpStatePendingApproval", resourceCulture);
+            }
+        }
+        
         public static string AgentMcpStateFailed {
             get {
                 return ResourceManager.GetString("AgentMcpStateFailed", resourceCulture);
@@ -940,67 +1226,67 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("AgentSkillsOpenFolder", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsCreate {
             get {
                 return ResourceManager.GetString("AgentSkillsCreate", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsUserInvoked {
             get {
                 return ResourceManager.GetString("AgentSkillsUserInvoked", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsUserInvokedTip {
             get {
                 return ResourceManager.GetString("AgentSkillsUserInvokedTip", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsNotLoaded {
             get {
                 return ResourceManager.GetString("AgentSkillsNotLoaded", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsDuplicateHint {
             get {
                 return ResourceManager.GetString("AgentSkillsDuplicateHint", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsDuplicate {
             get {
                 return ResourceManager.GetString("AgentSkillsDuplicate", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsLocalGroup {
             get {
                 return ResourceManager.GetString("AgentSkillsLocalGroup", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsEmpty {
             get {
                 return ResourceManager.GetString("AgentSkillsEmpty", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsNotLoadedHint {
             get {
                 return ResourceManager.GetString("AgentSkillsNotLoadedHint", resourceCulture);
             }
         }
-
+        
         public static string SkillInvocationInjected {
             get {
                 return ResourceManager.GetString("SkillInvocationInjected", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsReload {
             get {
                 return ResourceManager.GetString("AgentSkillsReload", resourceCulture);
@@ -1469,6 +1755,18 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string MessageDeleteConfirm {
+            get {
+                return ResourceManager.GetString("MessageDeleteConfirm", resourceCulture);
+            }
+        }
+        
+        public static string MessageDeleteTurnConfirmFormat {
+            get {
+                return ResourceManager.GetString("MessageDeleteTurnConfirmFormat", resourceCulture);
+            }
+        }
+        
         public static string ClearTips {
             get {
                 return ResourceManager.GetString("ClearTips", resourceCulture);
@@ -1631,9 +1929,9 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string TrayMenuQuickAsk {
+        public static string TrayMenuQuickMenu {
             get {
-                return ResourceManager.GetString("TrayMenuQuickAsk", resourceCulture);
+                return ResourceManager.GetString("TrayMenuQuickMenu", resourceCulture);
             }
         }
         
@@ -2657,12 +2955,6 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string ShortcutsSetting {
-            get {
-                return ResourceManager.GetString("ShortcutsSetting", resourceCulture);
-            }
-        }
-        
         public static string QuickToolSetting {
             get {
                 return ResourceManager.GetString("QuickToolSetting", resourceCulture);
@@ -2702,6 +2994,12 @@ namespace UiharuMind.Resources.Lang {
         public static string QuickToolDefaultVisionModelFallbackHint {
             get {
                 return ResourceManager.GetString("QuickToolDefaultVisionModelFallbackHint", resourceCulture);
+            }
+        }
+        
+        public static string ShortcutsSetting {
+            get {
+                return ResourceManager.GetString("ShortcutsSetting", resourceCulture);
             }
         }
         
@@ -3779,6 +4077,30 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string MemoryRenameAction {
+            get {
+                return ResourceManager.GetString("MemoryRenameAction", resourceCulture);
+            }
+        }
+        
+        public static string MemoryNameInvalid {
+            get {
+                return ResourceManager.GetString("MemoryNameInvalid", resourceCulture);
+            }
+        }
+        
+        public static string MemoryRenamedToUniqueName {
+            get {
+                return ResourceManager.GetString("MemoryRenamedToUniqueName", resourceCulture);
+            }
+        }
+        
+        public static string MemoryRenameFailed {
+            get {
+                return ResourceManager.GetString("MemoryRenameFailed", resourceCulture);
+            }
+        }
+        
         public static string MemoryDescriptionFallback {
             get {
                 return ResourceManager.GetString("MemoryDescriptionFallback", resourceCulture);
@@ -3980,12 +4302,6 @@ namespace UiharuMind.Resources.Lang {
         public static string MemoryTextSaveHint {
             get {
                 return ResourceManager.GetString("MemoryTextSaveHint", resourceCulture);
-            }
-        }
-        
-        public static string MemoryNameInvalid {
-            get {
-                return ResourceManager.GetString("MemoryNameInvalid", resourceCulture);
             }
         }
         
@@ -4733,6 +5049,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string PermissionAccessibilityStaleHint {
+            get {
+                return ResourceManager.GetString("PermissionAccessibilityStaleHint", resourceCulture);
+            }
+        }
+        
         public static string PermissionScreenRecording {
             get {
                 return ResourceManager.GetString("PermissionScreenRecording", resourceCulture);
@@ -4880,6 +5202,24 @@ namespace UiharuMind.Resources.Lang {
         public static string FileSearchCurrentDirectory {
             get {
                 return ResourceManager.GetString("FileSearchCurrentDirectory", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusDirectoryNotFound {
+            get {
+                return ResourceManager.GetString("FileSearchStatusDirectoryNotFound", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusInvalidPattern {
+            get {
+                return ResourceManager.GetString("FileSearchStatusInvalidPattern", resourceCulture);
+            }
+        }
+        
+        public static string FileSearchStatusFailed {
+            get {
+                return ResourceManager.GetString("FileSearchStatusFailed", resourceCulture);
             }
         }
         
@@ -5051,6 +5391,60 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string RemoteModelReasoningRoundtripLabel {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripLabel", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelReasoningRoundtripHint {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripHint", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelReasoningRoundtripPresetOn {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripPresetOn", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelReasoningRoundtripPresetOff {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripPresetOff", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelReasoningRoundtripFollowPreset {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripFollowPreset", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelReasoningRoundtripForceOn {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripForceOn", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelReasoningRoundtripForceOff {
+            get {
+                return ResourceManager.GetString("RemoteModelReasoningRoundtripForceOff", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelOmitSamplingParamsLabel {
+            get {
+                return ResourceManager.GetString("RemoteModelOmitSamplingParamsLabel", resourceCulture);
+            }
+        }
+        
+        public static string RemoteModelOmitSamplingParamsHint {
+            get {
+                return ResourceManager.GetString("RemoteModelOmitSamplingParamsHint", resourceCulture);
+            }
+        }
+        
         public static string RemoteModelApiKeyPlaceholder {
             get {
                 return ResourceManager.GetString("RemoteModelApiKeyPlaceholder", resourceCulture);
@@ -5123,6 +5517,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ThinkingModeLight {
+            get {
+                return ResourceManager.GetString("ThinkingModeLight", resourceCulture);
+            }
+        }
+        
         public static string RepeatModelNameTips {
             get {
                 return ResourceManager.GetString("RepeatModelNameTips", resourceCulture);
@@ -5146,155 +5546,743 @@ namespace UiharuMind.Resources.Lang {
                 return ResourceManager.GetString("RemoteModelCopyFromExistingHint", resourceCulture);
             }
         }
+        
         public static string CharacterKindRoleplay {
             get {
                 return ResourceManager.GetString("CharacterKindRoleplay", resourceCulture);
             }
         }
-
+        
         public static string CharacterKindTool {
             get {
                 return ResourceManager.GetString("CharacterKindTool", resourceCulture);
             }
         }
-
+        
         public static string CharacterKindUserCard {
             get {
                 return ResourceManager.GetString("CharacterKindUserCard", resourceCulture);
             }
         }
-
+        
         public static string CharacterInjectUserCard {
             get {
                 return ResourceManager.GetString("CharacterInjectUserCard", resourceCulture);
             }
         }
-
+        
         public static string CharacterInjectUserCardDesc {
             get {
                 return ResourceManager.GetString("CharacterInjectUserCardDesc", resourceCulture);
             }
         }
-
+        
         public static string CharacterShowInternal {
             get {
                 return ResourceManager.GetString("CharacterShowInternal", resourceCulture);
             }
         }
-
+        
         public static string SnippetInsert {
             get {
                 return ResourceManager.GetString("SnippetInsert", resourceCulture);
             }
         }
-
+        
         public static string SnippetInsertDesc {
             get {
                 return ResourceManager.GetString("SnippetInsertDesc", resourceCulture);
             }
         }
-
+        
         public static string SnippetEmpty {
             get {
                 return ResourceManager.GetString("SnippetEmpty", resourceCulture);
             }
         }
-
+        
         public static string SnippetNameWatermark {
             get {
                 return ResourceManager.GetString("SnippetNameWatermark", resourceCulture);
             }
         }
-
+        
         public static string SnippetSaveCurrent {
             get {
                 return ResourceManager.GetString("SnippetSaveCurrent", resourceCulture);
             }
         }
-
+        
         public static string SnippetDelete {
             get {
                 return ResourceManager.GetString("SnippetDelete", resourceCulture);
             }
         }
-
+        
         public static string AgentSettingCapabilitiesMoved {
             get {
                 return ResourceManager.GetString("AgentSettingCapabilitiesMoved", resourceCulture);
             }
         }
-
+        
         public static string AgentSkillsPerAgentHint {
             get {
                 return ResourceManager.GetString("AgentSkillsPerAgentHint", resourceCulture);
             }
         }
-
+        
         public static string CharacterToolsTitle {
             get {
                 return ResourceManager.GetString("CharacterToolsTitle", resourceCulture);
             }
         }
-
+        
         public static string CharacterToolsDesc {
             get {
                 return ResourceManager.GetString("CharacterToolsDesc", resourceCulture);
             }
         }
-
+        
         public static string CharacterSkillsTitle {
             get {
                 return ResourceManager.GetString("CharacterSkillsTitle", resourceCulture);
             }
         }
-
+        
         public static string CharacterSkillsDesc {
             get {
                 return ResourceManager.GetString("CharacterSkillsDesc", resourceCulture);
             }
         }
-
+        
         public static string CharacterSkillsEmpty {
             get {
                 return ResourceManager.GetString("CharacterSkillsEmpty", resourceCulture);
             }
         }
-
+        
         public static string CharacterSubAgentsTitle {
             get {
                 return ResourceManager.GetString("CharacterSubAgentsTitle", resourceCulture);
             }
         }
-
+        
         public static string CharacterSubAgentsDesc {
             get {
                 return ResourceManager.GetString("CharacterSubAgentsDesc", resourceCulture);
             }
         }
-
+        
         public static string CharacterSubAgentsRemove {
             get {
                 return ResourceManager.GetString("CharacterSubAgentsRemove", resourceCulture);
             }
         }
-
+        
         public static string CharacterRenderedPreview {
             get {
                 return ResourceManager.GetString("CharacterRenderedPreview", resourceCulture);
             }
         }
-
-        public static string CharacterEditorDiscardTips {
+        
+        public static string SessionStatusAwaitingApproval {
             get {
-                return ResourceManager.GetString("CharacterEditorDiscardTips", resourceCulture);
+                return ResourceManager.GetString("SessionStatusAwaitingApproval", resourceCulture);
             }
         }
-
+        
+        public static string SessionBusyCannotModify {
+            get {
+                return ResourceManager.GetString("SessionBusyCannotModify", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpEnv {
+            get {
+                return ResourceManager.GetString("AgentMcpEnv", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpHeaders {
+            get {
+                return ResourceManager.GetString("AgentMcpHeaders", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpEnabledTip {
+            get {
+                return ResourceManager.GetString("AgentMcpEnabledTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpInjectInstructions {
+            get {
+                return ResourceManager.GetString("AgentMcpInjectInstructions", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpInjectInstructionsTip {
+            get {
+                return ResourceManager.GetString("AgentMcpInjectInstructionsTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpAdvancedTitle {
+            get {
+                return ResourceManager.GetString("AgentMcpAdvancedTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpConfigHint {
+            get {
+                return ResourceManager.GetString("AgentMcpConfigHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpOpenConfigFolder {
+            get {
+                return ResourceManager.GetString("AgentMcpOpenConfigFolder", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpReload {
+            get {
+                return ResourceManager.GetString("AgentMcpReload", resourceCulture);
+            }
+        }
+        
+        public static string AgentSkillsRootPath {
+            get {
+                return ResourceManager.GetString("AgentSkillsRootPath", resourceCulture);
+            }
+        }
+        
+        public static string CharacterMcpTitle {
+            get {
+                return ResourceManager.GetString("CharacterMcpTitle", resourceCulture);
+            }
+        }
+        
+        public static string CharacterMcpDesc {
+            get {
+                return ResourceManager.GetString("CharacterMcpDesc", resourceCulture);
+            }
+        }
+        
+        public static string CharacterMcpEmpty {
+            get {
+                return ResourceManager.GetString("CharacterMcpEmpty", resourceCulture);
+            }
+        }
+        
+        public static string CharacterMcpNotHosted {
+            get {
+                return ResourceManager.GetString("CharacterMcpNotHosted", resourceCulture);
+            }
+        }
+        
+        public static string CharacterMcpNotHostedTip {
+            get {
+                return ResourceManager.GetString("CharacterMcpNotHostedTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityTitle {
+            get {
+                return ResourceManager.GetString("AgentCapabilityTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityEmpty {
+            get {
+                return ResourceManager.GetString("AgentCapabilityEmpty", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityTools {
+            get {
+                return ResourceManager.GetString("AgentCapabilityTools", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilitySkills {
+            get {
+                return ResourceManager.GetString("AgentCapabilitySkills", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityTokenTip {
+            get {
+                return ResourceManager.GetString("AgentCapabilityTokenTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpInstructions {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpInstructions", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpRenamed {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpRenamed", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpRenamedTip {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpRenamedTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpPlanned {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpPlanned", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpPlannedTip {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpPlannedTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpFromProject {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpFromProject", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpFromGlobal {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpFromGlobal", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpShadowed {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpShadowed", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpNeedsApproval {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpNeedsApproval", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpHostingOff {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpHostingOff", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpDisabledByCharacter {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpDisabledByCharacter", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpLastSeen {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpLastSeen", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpApprovalTitle {
+            get {
+                return ResourceManager.GetString("AgentMcpApprovalTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpApprovalBody {
+            get {
+                return ResourceManager.GetString("AgentMcpApprovalBody", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpApprovalChangedMark {
+            get {
+                return ResourceManager.GetString("AgentMcpApprovalChangedMark", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpTrustedTitle {
+            get {
+                return ResourceManager.GetString("AgentMcpTrustedTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpTrustedTip {
+            get {
+                return ResourceManager.GetString("AgentMcpTrustedTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpTrustRevoke {
+            get {
+                return ResourceManager.GetString("AgentMcpTrustRevoke", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpForecast {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpForecast", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityMcpForecastTip {
+            get {
+                return ResourceManager.GetString("AgentCapabilityMcpForecastTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityEditHint {
+            get {
+                return ResourceManager.GetString("AgentCapabilityEditHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpTestTip {
+            get {
+                return ResourceManager.GetString("AgentMcpTestTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpEmptyTitle {
+            get {
+                return ResourceManager.GetString("AgentMcpEmptyTitle", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpEmptyDesc {
+            get {
+                return ResourceManager.GetString("AgentMcpEmptyDesc", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpEmptyCreate {
+            get {
+                return ResourceManager.GetString("AgentMcpEmptyCreate", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpPerAgentHint {
+            get {
+                return ResourceManager.GetString("AgentMcpPerAgentHint", resourceCulture);
+            }
+        }
+        
+        public static string AgentCharacterEdit {
+            get {
+                return ResourceManager.GetString("AgentCharacterEdit", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityTotal {
+            get {
+                return ResourceManager.GetString("AgentCapabilityTotal", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityOverBudget {
+            get {
+                return ResourceManager.GetString("AgentCapabilityOverBudget", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilitySkillResidentTip {
+            get {
+                return ResourceManager.GetString("AgentCapabilitySkillResidentTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentMcpConnecting {
+            get {
+                return ResourceManager.GetString("AgentMcpConnecting", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityCharacterPrompt {
+            get {
+                return ResourceManager.GetString("AgentCapabilityCharacterPrompt", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityWorkspaceRule {
+            get {
+                return ResourceManager.GetString("AgentCapabilityWorkspaceRule", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityToolRules {
+            get {
+                return ResourceManager.GetString("AgentCapabilityToolRules", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityPromptMcp {
+            get {
+                return ResourceManager.GetString("AgentCapabilityPromptMcp", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityPrompt {
+            get {
+                return ResourceManager.GetString("AgentCapabilityPrompt", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityPromptTip {
+            get {
+                return ResourceManager.GetString("AgentCapabilityPromptTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentCapabilityPromptNotCounted {
+            get {
+                return ResourceManager.GetString("AgentCapabilityPromptNotCounted", resourceCulture);
+            }
+        }
+        
+        public static string CharacterCapabilityTokenTip {
+            get {
+                return ResourceManager.GetString("CharacterCapabilityTokenTip", resourceCulture);
+            }
+        }
+        
+        public static string CharacterSkillTokenTip {
+            get {
+                return ResourceManager.GetString("CharacterSkillTokenTip", resourceCulture);
+            }
+        }
+        
+        public static string AgentTaskPermission {
+            get {
+                return ResourceManager.GetString("AgentTaskPermission", resourceCulture);
+            }
+        }
+        
+        public static string ChatImageUnreadableWarning {
+            get {
+                return ResourceManager.GetString("ChatImageUnreadableWarning", resourceCulture);
+            }
+        }
+        
+        public static string CharacterSearchPlaceholder {
+            get {
+                return ResourceManager.GetString("CharacterSearchPlaceholder", resourceCulture);
+            }
+        }
+        
+        public static string MoreActions {
+            get {
+                return ResourceManager.GetString("MoreActions", resourceCulture);
+            }
+        }
+        
+        public static string CharacterWorkspaceEmpty {
+            get {
+                return ResourceManager.GetString("CharacterWorkspaceEmpty", resourceCulture);
+            }
+        }
+        
         public static string CharacterEditorDirtyTips {
             get {
                 return ResourceManager.GetString("CharacterEditorDirtyTips", resourceCulture);
             }
         }
-
+        
+        public static string ResetBtn {
+            get {
+                return ResourceManager.GetString("ResetBtn", resourceCulture);
+            }
+        }
+        
+        public static string CharacterEditorDiscardTips {
+            get {
+                return ResourceManager.GetString("CharacterEditorDiscardTips", resourceCulture);
+            }
+        }
+        
+        public static string PermissionLinuxInputDevices {
+            get {
+                return ResourceManager.GetString("PermissionLinuxInputDevices", resourceCulture);
+            }
+        }
+        
+        public static string PermissionLinuxInputDevicesDesc {
+            get {
+                return ResourceManager.GetString("PermissionLinuxInputDevicesDesc", resourceCulture);
+            }
+        }
+        
+        public static string PermissionLinuxUinput {
+            get {
+                return ResourceManager.GetString("PermissionLinuxUinput", resourceCulture);
+            }
+        }
+        
+        public static string PermissionLinuxUinputDesc {
+            get {
+                return ResourceManager.GetString("PermissionLinuxUinputDesc", resourceCulture);
+            }
+        }
+        
+        public static string PermissionLinuxPortal {
+            get {
+                return ResourceManager.GetString("PermissionLinuxPortal", resourceCulture);
+            }
+        }
+        
+        public static string PermissionLinuxPortalDesc {
+            get {
+                return ResourceManager.GetString("PermissionLinuxPortalDesc", resourceCulture);
+            }
+        }
+        
+        public static string PermissionCopyCommand {
+            get {
+                return ResourceManager.GetString("PermissionCopyCommand", resourceCulture);
+            }
+        }
+        
+        public static string PermissionCommandCopied {
+            get {
+                return ResourceManager.GetString("PermissionCommandCopied", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPython {
+            get {
+                return ResourceManager.GetString("AgentSettingPython", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPythonDesc {
+            get {
+                return ResourceManager.GetString("AgentSettingPythonDesc", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPythonInterpreter {
+            get {
+                return ResourceManager.GetString("AgentSettingPythonInterpreter", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPythonAutoDetect {
+            get {
+                return ResourceManager.GetString("AgentSettingPythonAutoDetect", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPythonProbe {
+            get {
+                return ResourceManager.GetString("AgentSettingPythonProbe", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPythonCreate {
+            get {
+                return ResourceManager.GetString("AgentSettingPythonCreate", resourceCulture);
+            }
+        }
+        
+        public static string AgentSettingPythonRemove {
+            get {
+                return ResourceManager.GetString("AgentSettingPythonRemove", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterLevelAll {
+            get {
+                return ResourceManager.GetString("LogFilterLevelAll", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterLevelWarning {
+            get {
+                return ResourceManager.GetString("LogFilterLevelWarning", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterLevelError {
+            get {
+                return ResourceManager.GetString("LogFilterLevelError", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterLevelTip {
+            get {
+                return ResourceManager.GetString("LogFilterLevelTip", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterCategoryAll {
+            get {
+                return ResourceManager.GetString("LogFilterCategoryAll", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterCategoryGeneral {
+            get {
+                return ResourceManager.GetString("LogFilterCategoryGeneral", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterCategoryRequest {
+            get {
+                return ResourceManager.GetString("LogFilterCategoryRequest", resourceCulture);
+            }
+        }
+        
+        public static string LogFilterCategoryResponse {
+            get {
+                return ResourceManager.GetString("LogFilterCategoryResponse", resourceCulture);
+            }
+        }
+        
+        public static string LogOpenFolder {
+            get {
+                return ResourceManager.GetString("LogOpenFolder", resourceCulture);
+            }
+        }
+        
+        public static string LogExportFiltered {
+            get {
+                return ResourceManager.GetString("LogExportFiltered", resourceCulture);
+            }
+        }
+        
+        public static string LogClear {
+            get {
+                return ResourceManager.GetString("LogClear", resourceCulture);
+            }
+        }
+        
+        public static string LogBodyEvicted {
+            get {
+                return ResourceManager.GetString("LogBodyEvicted", resourceCulture);
+            }
+        }
+        
+        public static string ClipboardRetentionTitle {
+            get {
+                return ResourceManager.GetString("ClipboardRetentionTitle", resourceCulture);
+            }
+        }
+        
+        public static string ClipboardRetentionDesc {
+            get {
+                return ResourceManager.GetString("ClipboardRetentionDesc", resourceCulture);
+            }
+        }
+        
+        public static string ClipboardTooltipMore {
+            get {
+                return ResourceManager.GetString("ClipboardTooltipMore", resourceCulture);
+            }
+        }
     }
 }

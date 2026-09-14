@@ -74,7 +74,7 @@
                         <!-- <NativeMenuItem Header="Settings" /> -->
                         <NativeMenuItemSeparator />
                         <NativeMenuItem Header="{loc:Loc TrayMenuScreenCapture, SettingProperty=CaptureScreenShortcut}" Click="OnScreenCaptureClick" />
-                        <NativeMenuItem Header="{loc:Loc TrayMenuQuickAsk, SettingProperty=QuickStartChatShortcut}" Click="OnQuickAskClick" />
+                        <NativeMenuItem Header="{loc:Loc TrayMenuQuickMenu, SettingProperty=QuickStartChatShortcut}" Click="OnQuickAskClick" />
                         <NativeMenuItem Header="{loc:Loc TrayMenuClipboardHistory, SettingProperty=ClipboardHistoryShortcut}" Click="OnClipboardHistoryClick" />
                         <NativeMenuItem Header="{loc:Loc TrayMenuTranslateHistory, SettingProperty=QuickTranslationShortcut}" Click="OnTranslateMenuItemClick" />
                         <NativeMenuItem Header="{loc:Loc TrayMenuAutoClick, SettingProperty=QuickAutoClickShortcut}" Click="OnAutoClickMenuItemClick" />

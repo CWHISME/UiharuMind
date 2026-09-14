@@ -966,8 +966,8 @@
     <data name="TrayMenuScreenCapture" xml:space="preserve">
         <value>Screen Capture</value>
     </data>
-    <data name="TrayMenuQuickAsk" xml:space="preserve">
-        <value>Quick Ask</value>
+    <data name="TrayMenuQuickMenu" xml:space="preserve">
+        <value>QuickMenu</value>
     </data>
     <data name="TrayMenuClipboardHistory" xml:space="preserve">
         <value>Clipboard History</value>

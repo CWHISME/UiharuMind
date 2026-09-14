@@ -958,8 +958,8 @@
     <data name="TrayMenuScreenCapture" xml:space="preserve">
         <value>截图</value>
     </data>
-    <data name="TrayMenuQuickAsk" xml:space="preserve">
-        <value>快捷询问</value>
+    <data name="TrayMenuQuickMenu" xml:space="preserve">
+        <value>快捷菜单</value>
     </data>
     <data name="TrayMenuClipboardHistory" xml:space="preserve">
         <value>剪切板历史</value>
