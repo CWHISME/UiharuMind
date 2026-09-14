@@ -11,6 +11,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
@@ -197,6 +198,11 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
             session.SessionId = sessionId;
             session.History = LoadHistory(sessionId);
+            // 进程级中断(崩溃/强杀)时当场补的代码跑不到,孤儿 tool_call 留在盘上——
+            // 严格的服务端下一条请求直接 400,这个会话从此发不出话。读取时修:下次打开就有代码可跑了。
+            // 只补末尾那一轮(硬杀只会留下末尾孤儿),中间的历史遗留孤儿不碰(追加到末尾会打乱配对顺序);
+            // 补写幂等,已配对的不动,无孤儿时这里零开销
+            ToolCallCancellation.CloseUnansweredAtTail(session);
             _loaded[sessionId] = session;
             return session;
         }

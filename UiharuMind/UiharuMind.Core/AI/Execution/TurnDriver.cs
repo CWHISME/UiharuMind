@@ -204,7 +204,17 @@ public sealed class TurnDriver : IDisposable
                 thinkingStats.NoteSegmentClosed();
                 _notify?.Invoke(new TurnNotice(ETurnNotice.RoundCompleted));
 
-                if (roundRequests.Count == 0 || resolver == null) break;
+                if (roundRequests.Count == 0) break;
+
+                // 有审批请求但没有回应口(无头执行传 null):调用已经发出去,审批请求在轮次
+                // 结束前始终没人回应,函数根本没执行。不补上结果,历史里就留一条孤儿 tool_call
+                // (与 SubAgentTool 审批未决补写同一口径)
+                if (resolver == null)
+                {
+                    ToolCallCancellation.CloseUnansweredAtTail(session,
+                        ToolCallCancellation.ApprovalUnansweredResultText);
+                    break;
+                }
 
                 // 审批往返:等待回应,回应作为下一轮输入。
                 // 这段等待要单独登记:会话切走后审批卡片跟着看不见了,那一轮就静静挂在这里,
@@ -214,7 +224,15 @@ public sealed class TurnDriver : IDisposable
                     nextMessages = (await resolver(roundRequests)).ToList();
                 }
 
-                if (cancellationToken.IsCancellationRequested) break;
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    // 审批等待期间被取消:resolver 拿到的不是取消异常而是「拒绝」回应,正常返回,
+                    // 于是这一轮看起来是正常结束——但那次调用已经落盘、结果永远不会来。
+                    // 不补上就留孤儿 tool_call(严格服务端直接 400)。停完还能接着续,
+                    // 所以按「用户停止」口径补,与取消分支同款
+                    SettleInterruptedTurn(session, interruptionNote);
+                    break;
+                }
             }
 
             await runner.SaveStateAsync();

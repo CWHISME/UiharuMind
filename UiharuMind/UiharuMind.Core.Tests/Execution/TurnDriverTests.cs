@@ -216,6 +216,59 @@ public class TurnDriverTests
     }
 
     [Fact]
+    public async Task Approval_CancelledWhileWaiting_ClosesUnansweredToolCalls()
+    {
+        //审批等待期间用户点停止:CancelPendingApprovals 把审批按拒绝处理,resolver 正常返回
+        //而不是抛取消异常,这轮看起来像正常结束——但那次调用已经落盘、结果永远不会来。
+        //不收的话历史里留孤儿 tool_call(界面显示"历史里没有这次调用的结果",严格服务端直接 400)
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        session.History.Add(AssistantCall("c1"));
+
+        ToolApprovalRequestContent request = new("req-1", new FunctionCallContent("c1", "Shell", null));
+        using CancellationTokenSource cts = new();
+        StubRunner runner = new(Round(request));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(),
+            _ =>
+            {
+                cts.Cancel(); //审批等待期间用户点停止
+                return Task.FromResult<IReadOnlyList<ChatMessage>>([new ChatMessage(ChatRole.User, "denied")]);
+            },
+            cts.Token);
+
+        FunctionResultContent result = Assert.IsType<FunctionResultContent>(
+            Assert.Single(session.History[2].Contents));
+        Assert.Equal(ChatRole.Tool, session.History[2].Role);
+        Assert.Equal("c1", result.CallId);
+        Assert.Equal(ToolCallCancellation.ResultText, result.Result);
+    }
+
+    [Fact]
+    public async Task Approval_WithoutResolver_ClosesUnansweredToolCalls()
+    {
+        //无头执行没有回应口:调用发出去了,审批请求没人答,函数根本没执行。
+        //不补上就留孤儿 tool_call,与子代理审批未决补写同一口径
+        ChatSession session = NewSession();
+        session.History.Add(Prompt());
+        session.History.Add(AssistantCall("c1"));
+
+        ToolApprovalRequestContent request = new("req-1", new FunctionCallContent("c1", "Shell", null));
+        StubRunner runner = new(Round(request), Round(new TextContent("不该跑到这里")));
+        TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
+
+        await driver.RunAsync(session, runner, Prompt(), resolver: null);
+
+        FunctionResultContent result = Assert.IsType<FunctionResultContent>(
+            Assert.Single(session.History[2].Contents));
+        Assert.Equal(ChatRole.Tool, session.History[2].Role);
+        Assert.Equal("c1", result.CallId);
+        Assert.Equal(ToolCallCancellation.ApprovalUnansweredResultText, result.Result);
+        Assert.Single(runner.ReceivedRounds);
+    }
+
+    [Fact]
     public async Task NoApproval_EndsAfterOneRound()
     {
         StubRunner runner = new(Round(new TextContent("说完了")), Round(new TextContent("不该跑到这里")));

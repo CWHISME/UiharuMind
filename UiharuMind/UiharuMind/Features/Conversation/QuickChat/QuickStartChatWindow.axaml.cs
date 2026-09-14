@@ -106,19 +106,12 @@ public partial class QuickStartChatWindow : QuickWindowBase
         this.SetScreenCenterPosition();
     }
 
-    // protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    // protected override void OnOpened(EventArgs e)
     // {
-    //     base.OnAttachedToVisualTree(e);
-    //     InitPosition();
+    //     base.OnOpened(e);
+    //     InputBox.Focus();
+    //     // PlayOpenAnimation(() => { InputBox.Focus(); });
     // }
-
-    protected override void OnOpened(EventArgs e)
-    {
-        base.OnOpened(e);
-        this.SetScreenCenterPosition();
-        InputBox.Focus();
-        // PlayOpenAnimation(() => { InputBox.Focus(); });
-    }
 
     private void ResetInfo()
     {

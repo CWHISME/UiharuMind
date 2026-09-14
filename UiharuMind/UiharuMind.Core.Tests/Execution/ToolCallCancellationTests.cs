@@ -1,4 +1,6 @@
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
 
@@ -81,5 +83,61 @@ public class ToolCallCancellationTests
         Assert.True(ToolCallCancellation.IsCancelled(new FunctionResultContent("a", ToolCallCancellation.ResultText)));
         Assert.False(ToolCallCancellation.IsCancelled(new FunctionResultContent("a", "ok")));
         Assert.False(ToolCallCancellation.IsCancelled(new FunctionResultContent("a", null)));
+    }
+
+    //================= 读取时修复(硬杀后重开) =================
+
+    /// <summary>会话一律建成 transient:持久化路径整体短路,测的就是纯内存行为</summary>
+    private static ChatSession NewSession()
+    {
+        return new ChatSession("test", new CharacterData { CharacterId = "test" }) { IsTransient = true };
+    }
+
+    [Fact]
+    public void CloseUnansweredAtTail_AppendsCancelledResultsInCallOrder()
+    {
+        //进程被硬杀时当场补的代码跑不到,重开靠这里给末尾的孤儿调用补上取消结果
+        ChatSession session = NewSession();
+        session.History.Add(new(ChatRole.User, "开工"));
+        session.History.Add(Call("a", "b"));
+
+        int closed = ToolCallCancellation.CloseUnansweredAtTail(session);
+
+        Assert.Equal(2, closed);
+        Assert.Equal(4, session.History.Count);
+        FunctionResultContent first = Assert.IsType<FunctionResultContent>(session.History[2].Contents[0]);
+        Assert.Equal(ChatRole.Tool, session.History[2].Role);
+        Assert.Equal("a", first.CallId);
+        Assert.Equal(ToolCallCancellation.ResultText, first.Result);
+        FunctionResultContent second = Assert.IsType<FunctionResultContent>(session.History[3].Contents[0]);
+        Assert.Equal("b", second.CallId);
+    }
+
+    [Fact]
+    public void CloseUnansweredAtTail_IsIdempotent()
+    {
+        //重开修过一次,再开(或当场补再跑)不能再补一遍:已配对的调用不重复处理
+        ChatSession session = NewSession();
+        session.History.Add(Call("a"));
+
+        ToolCallCancellation.CloseUnansweredAtTail(session);
+        int again = ToolCallCancellation.CloseUnansweredAtTail(session);
+
+        Assert.Equal(0, again);
+        Assert.Equal(2, session.History.Count); //调用 + 一条取消结果,不重复
+    }
+
+    [Fact]
+    public void CloseUnansweredAtTail_LeavesMidHistoryOrphansAlone()
+    {
+        //读取修复与当场补同口径:只补末尾,历史中间的历史遗留孤儿不碰(追加到末尾会打乱配对顺序)
+        ChatSession session = NewSession();
+        session.History.Add(Call("old"));
+        session.History.Add(new(ChatRole.Assistant, "这轮后来正常说完了"));
+
+        int closed = ToolCallCancellation.CloseUnansweredAtTail(session);
+
+        Assert.Equal(0, closed);
+        Assert.Equal(2, session.History.Count);
     }
 }
