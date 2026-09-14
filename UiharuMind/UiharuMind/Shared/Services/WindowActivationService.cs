@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Shared.Services.Native;
 
 namespace UiharuMind.Shared.Services;
 
@@ -42,82 +43,39 @@ public static class WindowActivationService
         }
 
         var hwnd = handle.Handle;
-        if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+        if (Win32Native.IsIconic(hwnd)) Win32Native.ShowWindow(hwnd, Win32Native.SwRestore);
 
-        var foregroundWindow = GetForegroundWindow();
+        var foregroundWindow = Win32Native.GetForegroundWindow();
         var foregroundThreadId = foregroundWindow == IntPtr.Zero
             ? 0
-            : GetWindowThreadProcessId(foregroundWindow, out _);
-        var currentThreadId = GetCurrentThreadId();
+            : Win32Native.GetWindowThreadProcessId(foregroundWindow, out _);
+        var currentThreadId = Win32Native.GetCurrentThreadId();
         var attached = foregroundThreadId != 0 &&
                        foregroundThreadId != currentThreadId &&
-                       AttachThreadInput(currentThreadId, foregroundThreadId, true);
+                       Win32Native.AttachThreadInput(currentThreadId, foregroundThreadId, true);
 
         try
         {
             // if (window.Topmost)
             // {
-            //     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-            //         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            //     Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, 0, 0, 0, 0,
+            //         Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
             // }
             // else
             // {
-            //     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-            //         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-            //     SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
-            //         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            //     Win32Native.SetWindowPos(hwnd, Win32Native.HwndTopmost, 0, 0, 0, 0,
+            //         Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
+            //     Win32Native.SetWindowPos(hwnd, Win32Native.HwndNoTopmost, 0, 0, 0, 0,
+            //         Win32Native.SwpNoMove | Win32Native.SwpNoSize | Win32Native.SwpNoActivate);
             // }
-            BringWindowToTop(hwnd);
-            SetForegroundWindow(hwnd);
-            SetFocus(hwnd);
+            Win32Native.BringWindowToTop(hwnd);
+            Win32Native.SetForegroundWindow(hwnd);
+            Win32Native.SetFocus(hwnd);
         }
         finally
         {
-            if (attached) AttachThreadInput(currentThreadId, foregroundThreadId, false);
+            if (attached) Win32Native.AttachThreadInput(currentThreadId, foregroundThreadId, false);
         }
     }
 
-    private static readonly IntPtr HWND_TOPMOST = new(-1);
-    private static readonly IntPtr HWND_NOTOPMOST = new(-2);
-    private const int SW_RESTORE = 9;
-    private const uint SWP_NOSIZE = 0x0001;
-    private const uint SWP_NOMOVE = 0x0002;
-    private const uint SWP_NOACTIVATE = 0x0010;
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-
-    [DllImport("kernel32.dll")]
-    private static extern uint GetCurrentThreadId();
-
-    [DllImport("user32.dll")]
-    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-
-    [DllImport("user32.dll")]
-    private static extern bool BringWindowToTop(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr SetFocus(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    [DllImport("user32.dll")]
-    private static extern bool IsIconic(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetWindowPos(
-        IntPtr hWnd,
-        IntPtr hWndInsertAfter,
-        int x,
-        int y,
-        int cx,
-        int cy,
-        uint uFlags);
 }

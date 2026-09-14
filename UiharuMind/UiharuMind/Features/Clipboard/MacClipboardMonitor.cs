@@ -12,6 +12,7 @@
 using System;
 using System.Runtime.InteropServices;
 using Avalonia.Threading;
+using UiharuMind.Shared.Services.Native;
 
 namespace UiharuMind.Features.Clipboard;
 
@@ -20,22 +21,8 @@ namespace UiharuMind.Features.Clipboard;
 /// </summary>
 public class MacClipboardMonitor : IClipboardMonitor
 {
-    private const string ObjCLibrary = "/usr/lib/libobjc.A.dylib";
-
-    [DllImport(ObjCLibrary)]
-    private static extern IntPtr objc_getClass(string className);
-
-    [DllImport(ObjCLibrary)]
-    private static extern IntPtr sel_registerName(string selectorName);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern nint objc_msgSend_nint(IntPtr receiver, IntPtr selector);
-
-    private static readonly IntPtr GeneralPasteboardSelector = sel_registerName("generalPasteboard");
-    private static readonly IntPtr ChangeCountSelector = sel_registerName("changeCount");
+    private static readonly IntPtr GeneralPasteboardSelector = MacNative.Selector("generalPasteboard");
+    private static readonly IntPtr ChangeCountSelector = MacNative.Selector("changeCount");
 
     private readonly DispatcherTimer _clipboardCheckTimer;
     private readonly IntPtr _pasteboard;
@@ -47,10 +34,10 @@ public class MacClipboardMonitor : IClipboardMonitor
 
     public MacClipboardMonitor(double interval = 1000)
     {
-        IntPtr nsPasteboardClass = objc_getClass("NSPasteboard");
-        _pasteboard = objc_msgSend_IntPtr(nsPasteboardClass, GeneralPasteboardSelector);
+        IntPtr nsPasteboardClass = MacNative.GetClass("NSPasteboard");
+        _pasteboard = MacNative.SendPtr(nsPasteboardClass, GeneralPasteboardSelector);
 
-        _lastChangeCount = objc_msgSend_nint(_pasteboard, ChangeCountSelector);
+        _lastChangeCount = MacNative.SendNint(_pasteboard, ChangeCountSelector);
 
         _clipboardCheckTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -67,7 +54,7 @@ public class MacClipboardMonitor : IClipboardMonitor
         _isChecking = true;
         try
         {
-            nint currentChangeCount = objc_msgSend_nint(_pasteboard, ChangeCountSelector);
+            nint currentChangeCount = MacNative.SendNint(_pasteboard, ChangeCountSelector);
 
             if (currentChangeCount == _lastChangeCount) return;
 

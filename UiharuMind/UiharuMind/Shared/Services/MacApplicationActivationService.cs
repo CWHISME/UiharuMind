@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Services.Native;
 
 namespace UiharuMind.Shared.Services;
 
@@ -23,11 +24,11 @@ public static class MacApplicationActivationService
 
         try
         {
-            var app = GetSharedApplication();
+            var app = MacNative.SharedApplication();
             if (app == IntPtr.Zero) return;
 
             TryTransformProcessType(isRegular);
-            SetActivationPolicy(app, SelRegisterName("setActivationPolicy:"), policy);
+            MacNative.SendBoolRetLong(app, MacNative.Selector("setActivationPolicy:"), policy);
             _currentPolicy = policy;
         }
         catch (Exception e)
@@ -42,10 +43,10 @@ public static class MacApplicationActivationService
 
         try
         {
-            var app = GetSharedApplication();
+            var app = MacNative.SharedApplication();
             if (app == IntPtr.Zero) return;
 
-            ActivateIgnoringOtherApps(app, SelRegisterName("activateIgnoringOtherApps:"), true);
+            MacNative.SendBool(app, MacNative.Selector("activateIgnoringOtherApps:"), true);
         }
         catch (Exception e)
         {
@@ -72,30 +73,6 @@ public static class MacApplicationActivationService
             Log.Warning($"Failed to transform macOS process type: {error}");
         }
     }
-
-    private static IntPtr GetSharedApplication()
-    {
-        var nsApplication = ObjcGetClass("NSApplication");
-        if (nsApplication == IntPtr.Zero) return IntPtr.Zero;
-
-        return GetSharedApplication(nsApplication, SelRegisterName("sharedApplication"));
-    }
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]
-    private static extern IntPtr ObjcGetClass(string className);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "sel_registerName")]
-    private static extern IntPtr SelRegisterName(string selectorName);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr GetSharedApplication(IntPtr receiver, IntPtr selector);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private static extern bool SetActivationPolicy(IntPtr receiver, IntPtr selector, long activationPolicy);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern void ActivateIgnoringOtherApps(IntPtr receiver, IntPtr selector, [MarshalAs(UnmanagedType.I1)] bool flag);
 
     [DllImport("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")]
     private static extern int GetCurrentProcess(ref ProcessSerialNumber processSerialNumber);

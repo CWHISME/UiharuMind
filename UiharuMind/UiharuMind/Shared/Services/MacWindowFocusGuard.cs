@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using UiharuMind.Shared.Services.Native;
 
 namespace UiharuMind.Shared.Services;
 
@@ -76,9 +77,9 @@ public static class MacWindowFocusGuard
         try
         {
             // setCanBecomeKeyWindow: 由 Avalonia 的 AvnWindow 提供，原生 NSWindow 上没有这个 setter
-            var selector = SelRegisterName("setCanBecomeKeyWindow:");
-            if (!RespondsToSelector(nsWindow, SelRegisterName("respondsToSelector:"), selector)) return;
-            ObjcMsgSendBool(nsWindow, selector, value);
+            var selector = MacNative.Selector("setCanBecomeKeyWindow:");
+            if (!MacNative.SendBoolRet(nsWindow, MacNative.Selector("respondsToSelector:"), selector)) return;
+            MacNative.SendBool(nsWindow, selector, value);
         }
         catch
         {
@@ -86,16 +87,4 @@ public static class MacWindowFocusGuard
         }
     }
 
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "sel_registerName")]
-    private static extern IntPtr SelRegisterName(string selectorName);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    [return: MarshalAs(UnmanagedType.I1)]
-    private static extern bool RespondsToSelector(IntPtr receiver, IntPtr selector, IntPtr argSelector);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendBool(
-        IntPtr receiver,
-        IntPtr selector,
-        [MarshalAs(UnmanagedType.I1)] bool value);
 }

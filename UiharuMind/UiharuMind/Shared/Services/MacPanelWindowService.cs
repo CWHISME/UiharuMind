@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Services.Native;
 
 namespace UiharuMind.Shared.Services;
 
@@ -38,13 +39,13 @@ public static class MacPanelWindowService
             if (handle == null || handle.Handle == IntPtr.Zero) return false;
 
             var nsWindow = handle.Handle;
-            var panelClass = ObjcGetClass("AvnPanel");
+            var panelClass = MacNative.GetClass("AvnPanel");
             if (panelClass == IntPtr.Zero) return false;
-            if (ObjcGetObjectClass(nsWindow) != panelClass && ObjcSetClass(nsWindow, panelClass) == IntPtr.Zero)
+            if (MacNative.GetObjectClass(nsWindow) != panelClass && MacNative.SetObjectClass(nsWindow, panelClass) == IntPtr.Zero)
                 return false;
 
-            var styleMask = ObjcMsgSendULongRet(nsWindow, SelRegisterName("styleMask"));
-            ObjcMsgSendULong(nsWindow, SelRegisterName("setStyleMask:"), styleMask | NonactivatingPanelStyleMask);
+            var styleMask = MacNative.SendULongRet(nsWindow, MacNative.Selector("styleMask"));
+            MacNative.SendULong(nsWindow, MacNative.Selector("setStyleMask:"), styleMask | NonactivatingPanelStyleMask);
             return true;
         }
         catch (Exception e)
@@ -67,12 +68,12 @@ public static class MacPanelWindowService
             var handle = window.TryGetPlatformHandle();
             if (handle == null || handle.Handle == IntPtr.Zero) return;
 
-            ObjcMsgSendPtr(handle.Handle, SelRegisterName("makeKeyAndOrderFront:"), IntPtr.Zero);
+            MacNative.SendPtr(handle.Handle, MacNative.Selector("makeKeyAndOrderFront:"), IntPtr.Zero);
             // makeKeyAndOrderFront: 只在本应用内部排序，应用没激活时窗口仍被别的应用压着；
             // 而转成 panel 后它又不在 [NSApp orderedWindows] 里，激活时「把最前那个窗口带上来」
             // 也扫不到它——表现就是菜单栏已经是本应用、窗口却还被遮挡。orderFrontRegardless
             // 专门用来无视激活状态把窗口排到本层最前
-            ObjcMsgSendVoid(handle.Handle, SelRegisterName("orderFrontRegardless"));
+            MacNative.Send(handle.Handle, MacNative.Selector("orderFrontRegardless"));
         }
         catch (Exception e)
         {
@@ -99,12 +100,12 @@ public static class MacPanelWindowService
             // 激活瞬间不让其它窗口当 key，否则 AppKit 会把 key 还给上一个 key 窗口并抬起它
             MacWindowFocusGuard.SuppressKeyHandoff(window, TimeSpan.FromMilliseconds(500));
 
-            var runningApp = ObjcMsgSendPtrNoArg(ObjcGetClass("NSRunningApplication"),
-                SelRegisterName("currentApplication"));
+            var runningApp = MacNative.SendPtr(MacNative.GetClass("NSRunningApplication"),
+                MacNative.Selector("currentApplication"));
             if (runningApp == IntPtr.Zero) return;
 
             // 只带 ignoringOtherApps(1<<1)，不带 activateAllWindows(1<<0)
-            ObjcMsgSendULong(runningApp, SelRegisterName("activateWithOptions:"), 2);
+            MacNative.SendULong(runningApp, MacNative.Selector("activateWithOptions:"), 2);
         }
         catch (Exception e)
         {
@@ -112,31 +113,4 @@ public static class MacPanelWindowService
         }
     }
 
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "sel_registerName")]
-    private static extern IntPtr SelRegisterName(string selectorName);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_getClass")]
-    private static extern IntPtr ObjcGetClass(string className);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "object_getClass")]
-    private static extern IntPtr ObjcGetObjectClass(IntPtr obj);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "object_setClass")]
-    private static extern IntPtr ObjcSetClass(IntPtr obj, IntPtr cls);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern ulong ObjcMsgSendULongRet(IntPtr receiver, IntPtr selector);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendPtrNoArg(IntPtr receiver, IntPtr selector);
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendVoid(IntPtr receiver, IntPtr selector);
-
-
-    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendULong(IntPtr receiver, IntPtr selector, ulong value);
 }

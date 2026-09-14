@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Shared.Services.Native;
 
 namespace UiharuMind.Features.ScreenCapture.Ocr.Mac;
 
@@ -72,7 +73,7 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
     private static IReadOnlyList<OcrTextLine> RecognizeCore(string imagePath)
     {
         // .NET 线程池线程没有 autoreleasepool，不推一个的话自动释放对象会泄漏
-        IntPtr pool = ObjcAutoreleasePoolPush();
+        IntPtr pool = MacNative.AutoreleasePoolPush();
         try
         {
             byte[] utf8Path = Encoding.UTF8.GetBytes(imagePath);
@@ -107,7 +108,7 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
         }
         finally
         {
-            ObjcAutoreleasePoolPop(pool);
+            MacNative.AutoreleasePoolPop(pool);
         }
     }
 
@@ -119,51 +120,51 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
         IntPtr requestArray = IntPtr.Zero;
         try
         {
-            IntPtr handlerClass = ObjcGetClass("VNImageRequestHandler");
-            handler = ObjcMsgSendPtr(
-                ObjcMsgSendPtr(handlerClass, Sel("alloc")),
+            IntPtr handlerClass = MacNative.GetClass("VNImageRequestHandler");
+            handler = MacNative.SendPtr(
+                MacNative.SendPtr(handlerClass, Sel("alloc")),
                 Sel("initWithCGImage:options:"), cgImage, IntPtr.Zero);
 
-            IntPtr requestClass = ObjcGetClass("VNRecognizeTextRequest");
-            request = ObjcMsgSendPtr(ObjcMsgSendPtr(requestClass, Sel("alloc")), Sel("init"));
+            IntPtr requestClass = MacNative.GetClass("VNRecognizeTextRequest");
+            request = MacNative.SendPtr(MacNative.SendPtr(requestClass, Sel("alloc")), Sel("init"));
             if (request == IntPtr.Zero) return Array.Empty<OcrTextLine>();
 
-            ObjcMsgSendLong(request, Sel("setRecognitionLevel:"), 0); // Accurate
-            ObjcMsgSendBool(request, Sel("setUsesLanguageCorrection:"), true);
-            ObjcMsgSendBool(request, Sel("setAutomaticallyDetectsLanguage:"), true);
+            MacNative.SendLong(request, Sel("setRecognitionLevel:"), 0); // Accurate
+            MacNative.SendBool(request, Sel("setUsesLanguageCorrection:"), true);
+            MacNative.SendBool(request, Sel("setAutomaticallyDetectsLanguage:"), true);
 
-            languages = ObjcMsgSendPtr(ObjcMsgSendPtr(ObjcGetClass("NSMutableArray"), Sel("alloc")), Sel("init"));
+            languages = MacNative.SendPtr(MacNative.SendPtr(MacNative.GetClass("NSMutableArray"), Sel("alloc")), Sel("init"));
             foreach (string language in PreferredLanguages)
-                ObjcMsgSendVoid(languages, Sel("addObject:"), NsString(language));
-            ObjcMsgSendPtr(request, Sel("setRecognitionLanguages:"), languages);
+                MacNative.Send(languages, Sel("addObject:"), NsString(language));
+            MacNative.SendPtr(request, Sel("setRecognitionLanguages:"), languages);
 
-            requestArray = ObjcMsgSendPtr(ObjcMsgSendPtr(ObjcGetClass("NSMutableArray"), Sel("alloc")), Sel("init"));
-            ObjcMsgSendVoid(requestArray, Sel("addObject:"), request);
+            requestArray = MacNative.SendPtr(MacNative.SendPtr(MacNative.GetClass("NSMutableArray"), Sel("alloc")), Sel("init"));
+            MacNative.Send(requestArray, Sel("addObject:"), request);
 
-            byte ok = ObjcMsgSendRequest(handler, Sel("performRequests:error:"), requestArray, IntPtr.Zero);
+            byte ok = MacNative.SendByte(handler, Sel("performRequests:error:"), requestArray, IntPtr.Zero);
             if (ok == 0) return Array.Empty<OcrTextLine>();
 
             return ReadResults(request);
         }
         finally
         {
-            if (requestArray != IntPtr.Zero) ObjcMsgSendVoid(requestArray, Sel("release"));
-            if (languages != IntPtr.Zero) ObjcMsgSendVoid(languages, Sel("release"));
-            if (request != IntPtr.Zero) ObjcMsgSendVoid(request, Sel("release"));
-            if (handler != IntPtr.Zero) ObjcMsgSendVoid(handler, Sel("release"));
+            if (requestArray != IntPtr.Zero) MacNative.Send(requestArray, Sel("release"));
+            if (languages != IntPtr.Zero) MacNative.Send(languages, Sel("release"));
+            if (request != IntPtr.Zero) MacNative.Send(request, Sel("release"));
+            if (handler != IntPtr.Zero) MacNative.Send(handler, Sel("release"));
         }
     }
 
     private static IReadOnlyList<OcrTextLine> ReadResults(IntPtr request)
     {
-        IntPtr results = ObjcMsgSendPtr(request, Sel("results"));
+        IntPtr results = MacNative.SendPtr(request, Sel("results"));
         if (results == IntPtr.Zero) return Array.Empty<OcrTextLine>();
 
-        ulong count = ObjcMsgSendULong(results, Sel("count"));
+        ulong count = MacNative.SendULongRet(results, Sel("count"));
         var lines = new List<OcrTextLine>((int)Math.Min(count, 256));
         for (ulong i = 0; i < count; i++)
         {
-            IntPtr observation = ObjcMsgSendPtr(results, Sel("objectAtIndex:"), i);
+            IntPtr observation = MacNative.SendPtr(results, Sel("objectAtIndex:"), i);
             if (observation == IntPtr.Zero) continue;
 
             CGRect box = MsgSendRect(observation, Sel("boundingBox"));
@@ -193,22 +194,22 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
 
     private static string TopCandidateText(IntPtr observation)
     {
-        IntPtr candidates = ObjcMsgSendPtr(observation, Sel("topCandidates:"), (ulong)1);
+        IntPtr candidates = MacNative.SendPtr(observation, Sel("topCandidates:"), (ulong)1);
         if (candidates == IntPtr.Zero) return "";
-        if (ObjcMsgSendULong(candidates, Sel("count")) == 0) return "";
+        if (MacNative.SendULongRet(candidates, Sel("count")) == 0) return "";
 
-        IntPtr candidate = ObjcMsgSendPtr(candidates, Sel("objectAtIndex:"), (ulong)0);
+        IntPtr candidate = MacNative.SendPtr(candidates, Sel("objectAtIndex:"), (ulong)0);
         if (candidate == IntPtr.Zero) return "";
-        IntPtr nsText = ObjcMsgSendPtr(candidate, Sel("string"));
+        IntPtr nsText = MacNative.SendPtr(candidate, Sel("string"));
         if (nsText == IntPtr.Zero) return "";
-        IntPtr utf8 = ObjcMsgSendPtr(nsText, Sel("UTF8String"));
+        IntPtr utf8 = MacNative.SendPtr(nsText, Sel("UTF8String"));
         if (utf8 == IntPtr.Zero) return "";
         return Marshal.PtrToStringUTF8(utf8) ?? "";
     }
 
     private static IntPtr NsString(string value)
     {
-        return ObjcMsgSendString(ObjcGetClass("NSString"), Sel("stringWithUTF8String:"), value);
+        return MacNative.SendPtrAnsiString(MacNative.GetClass("NSString"), Sel("stringWithUTF8String:"), value);
     }
 
     private static double Clamp01(double value)
@@ -229,61 +230,14 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
 
     private static IntPtr Sel(string name)
     {
-        return SelRegisterName(name);
+        return MacNative.Selector(name);
     }
 
-    private const string ObjCLibrary = "/usr/lib/libobjc.A.dylib";
     private const string CoreFoundationLibrary = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
     private const string ImageIOLibrary = "/System/Library/Frameworks/ImageIO.framework/ImageIO";
 
-    [DllImport(ObjCLibrary, EntryPoint = "sel_registerName")]
-    private static extern IntPtr SelRegisterName(string selectorName);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_getClass")]
-    private static extern IntPtr ObjcGetClass(string className);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_autoreleasePoolPush")]
-    private static extern IntPtr ObjcAutoreleasePoolPush();
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_autoreleasePoolPop")]
-    private static extern void ObjcAutoreleasePoolPop(IntPtr pool);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendPtr(IntPtr receiver, IntPtr selector);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendPtr(IntPtr receiver, IntPtr selector, IntPtr arg);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendPtr(IntPtr receiver, IntPtr selector, IntPtr arg1, IntPtr arg2);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendPtr(IntPtr receiver, IntPtr selector, ulong arg);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern IntPtr ObjcMsgSendString(IntPtr receiver, IntPtr selector,
-        [MarshalAs(UnmanagedType.LPStr)] string arg);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendVoid(IntPtr receiver, IntPtr selector);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendVoid(IntPtr receiver, IntPtr selector, IntPtr arg);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendBool(IntPtr receiver, IntPtr selector,
-        [MarshalAs(UnmanagedType.I1)] bool value);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern void ObjcMsgSendLong(IntPtr receiver, IntPtr selector, long value);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern ulong ObjcMsgSendULong(IntPtr receiver, IntPtr selector);
-
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
-    private static extern byte ObjcMsgSendRequest(IntPtr receiver, IntPtr selector, IntPtr arg1, IntPtr arg2);
-
-    // ARM64 上没有 stret 入口，objc_msgSend 直接回传结构体；x86_64 才走 stret。
+    // 结构体返回值是唯一留在本文件的 objc 调用：ARM64 没有 stret 入口，objc_msgSend 直接回传结构体，
+    // x86_64 才走 stret，得按架构分流，不适合放进通用的 MacNative。
     // 两个 DllImport 都是延迟解析的，声明了也不会在另一架构上炸
     private static CGRect MsgSendRect(IntPtr receiver, IntPtr selector)
     {
@@ -293,10 +247,10 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
         return rect;
     }
 
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend")]
+    [DllImport(MacNative.ObjcLibrary, EntryPoint = "objc_msgSend")]
     private static extern CGRect ObjcMsgSendRect(IntPtr receiver, IntPtr selector);
 
-    [DllImport(ObjCLibrary, EntryPoint = "objc_msgSend_stret")]
+    [DllImport(MacNative.ObjcLibrary, EntryPoint = "objc_msgSend_stret")]
     private static extern void ObjcMsgSendStret(out CGRect rect, IntPtr receiver, IntPtr selector);
 
     [DllImport(CoreFoundationLibrary, EntryPoint = "CFURLCreateFromFileSystemRepresentation")]
