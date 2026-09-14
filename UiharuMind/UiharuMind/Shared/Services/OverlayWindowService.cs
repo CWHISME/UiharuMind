@@ -48,6 +48,26 @@ public static class OverlayWindowService
         ObjcMsgSendLong(handle.Handle, SelRegisterName("setLevel:"), (long)level);
     }
 
+    /// <summary>
+    /// 设置原生窗口整体透明度（目前只有 macOS 有实现）。
+    /// <para>
+    /// 托管层的 <c>Opacity</c> 要等下一次渲染才生效，而移动/显示窗口是原生立即生效的——
+    /// 两者撞在一起时，合成器会把上一帧渲染好的内容直接贴到新位置，看着就是闪一下。
+    /// 原生 alpha 由 WindowServer 当场应用，不经渲染，显隐动画用它才不会漏那一帧。
+    /// </para>
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <param name="alpha">0~1</param>
+    /// <returns>设置成功返回 True；其他平台或取不到句柄返回 False，调用方回退到托管 Opacity</returns>
+    public static bool TrySetNativeWindowAlpha(Window window, double alpha)
+    {
+        if (!OperatingSystem.IsMacOS()) return false;
+        var handle = window.TryGetPlatformHandle();
+        if (handle == null || handle.Handle == IntPtr.Zero) return false;
+        ObjcMsgSendDouble(handle.Handle, SelRegisterName("setAlphaValue:"), Math.Clamp(alpha, 0, 1));
+        return true;
+    }
+
     [SupportedOSPlatform("windows")]
     private static void ApplyWindowsClickThroughStyle(Window window)
     {
@@ -297,6 +317,12 @@ public static class OverlayWindowService
         IntPtr receiver,
         IntPtr selector,
         [MarshalAs(UnmanagedType.I1)] bool value);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void ObjcMsgSendDouble(
+        IntPtr receiver,
+        IntPtr selector,
+        double value);
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern void ObjcMsgSendLong(

@@ -17,6 +17,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -51,6 +52,10 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
 {
     protected T? CurrentSnapWindow;
 
+    private bool _pendingReveal; //本次 RequestShow 是真的从隐藏到显示，出现动画留到窗口显示后再播
+    private OpacityChannel? _revealOpacity;
+    private bool _hiding; //淡出播放中，此时改贴别的窗口要把它截下来
+
     public override bool IsCacheWindow => true;
     public override bool ContributesToMacRegularMode => false;
 
@@ -61,12 +66,6 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
         this.SetSimpledecorationWindow();
         ShowActivated = false;
     }
-
-    // protected override void OnOpened(EventArgs e)
-    // {
-    //     base.OnOpened(e);
-    //     UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], true);
-    // }
 
     protected override void OnPointerExited(PointerEventArgs e)
     {
@@ -79,16 +78,34 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
         // Log.Debug($"SetMainWindow {mainWindow}");
         if (mainWindow is not { IsVisible: true })
         {
-            SafeClose();
-            // UiAnimationUtils.PlayAlphaTransitionAnimation(this.VisualChildren[0], false, SafeClose);
+            _hiding = true;
+            PlayReveal(false, () =>
+            {
+                _hiding = false;
+                SafeClose();
+            });
             return;
         }
 
-        // if (this.VisualChildren.Count > 0) UiAnimationUtils.StopAnimation(this.VisualChildren[0]);
+        // 在两个贴图之间移动时，先收到旧窗的 PointerExited（已经开播淡出）、再收到新窗的 PointerEntered，
+        // 不把淡出截下来它就会一路播完并关窗，看着是闪一下就没了。
+        // 截的方式分两种：贴的还是同一个窗就从当前值淡回来（重播会弹一下），
+        // 换了窗则要先落到新位置、再整段重播，否则等于没有动画
+        bool wasOnScreen = IsVisible || _hiding;
+        _hiding = false;
+
+        // 凡是接下来要播出现动画的，都必须赶在 Show/挪位置之前先按到隐藏态，中间不留一帧满透明度的旧样子：
+        // 换窗时是先挪到新贴图下方才置隐，隐藏出现时则是 Show() 会立刻把上次渲染的满透明度内容贴出来
+        //（缓存窗的 Show 是 Post 的，置隐若留到 OnPostShow 就晚了一帧）。
+        // 只有「同一个贴图且还在屏上」例外，那种情况是从当前值淡回来，不能置隐
+        bool keepCurrentState = wasOnScreen && ReferenceEquals(mainWindow, CurrentSnapWindow);
+        if (!keepCurrentState) UiAnimationUtils.PrepareVerticalRevealTarget(Content as Control, RevealOpacity);
 
         if (ReferenceEquals(mainWindow, CurrentSnapWindow))
         {
             // Log.Debug($"SetMainWindow {mainWindow} ReferenceEquals");
+            if (wasOnScreen) PlayReveal(true, fromHidden: false);
+            else _pendingReveal = true;
             RequestShow(isActivate: false);
             UpdateFollowerWindowPosition();
             return;
@@ -117,8 +134,38 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
 
         RequestShow(isActivate: false);
         UpdateFollowerWindowPosition();
+        // 落位之后再播，动画才发生在新贴图那儿；还没显示则留给 OnPostShow
+        if (wasOnScreen) PlayReveal(true);
+        else _pendingReveal = true;
         // Log.Debug($"SetMainWindow {mainWindow} UpdateFollowerWindowPosition");
     }
+
+    // 缓存窗的 Show 是 Post 到空闲队列的，出现动画只能等窗口真显示了再播，
+    // 否则透明度在窗口露面之前就跑完了，看着只剩位移
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        if (!_pendingReveal) return;
+        _pendingReveal = false;
+        PlayReveal(true);
+    }
+
+    // 贴着目标窗出现/消失，硬切太生硬；隐藏播完才真正关窗，
+    // 半途又要显示时前一个动画被取消，关窗回调也随之作废（见 UiAnimationUtils）
+    private void PlayReveal(bool isShow, Action? onCompleted = null, bool fromHidden = true)
+    {
+        UiAnimationUtils.PlayVerticalRevealAnimation(Content as Control, isShow, onCompleted, fromHidden,
+            RevealOpacity);
+    }
+
+    // 透明度走原生窗口 alpha：托管 Opacity 要等下一次渲染，而挪窗口/显示窗口是原生立即生效的，
+    // 那一帧合成器会把上一帧渲染好的满透明度内容直接贴到新位置——就是切换贴图时闪的那一下。
+    // 拿不到原生通道（非 macOS）就回退托管 Opacity
+    private OpacityChannel RevealOpacity => _revealOpacity ??= new OpacityChannel(opacity =>
+    {
+        if (OverlayWindowService.TrySetNativeWindowAlpha(this, opacity)) return;
+        if (Content is Control content) content.Opacity = opacity;
+    });
 
     private void MainWindow_OnClose()
     {

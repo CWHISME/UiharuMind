@@ -26,6 +26,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture.Ocr;
+using UiharuMind.Core.Input;
 
 namespace UiharuMind.Features.ScreenCapture;
 
@@ -351,8 +352,9 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         // 窗口本身交给系统拖动循环（mac 下是 performWindowDragWithEvent:），与其它窗口一致；
         // 手写位移在跨屏时会抖（窗内坐标按旧 frame 算，却要和已移动的 Position 相加，残差每帧回灌）。
         // 停靠栏跟随则不能再问窗口在哪，改用按下时记下的抓取偏移，按全局鼠标反推，见 DockAnchorPosition
+        if (!App.ScreensService.IsMousePositionReliable) return;
         _dragGrabOffset = App.ScreensService.MousePosition - Position;
-        _isDragging = App.ScreensService.IsMousePositionReliable;
+        BeginDrag();
         BeginMoveDrag(e);
     }
 
@@ -360,15 +362,37 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         if (!_isDragging) return;
-
-        // 系统拖动中收不到 PointerReleased，松手只能从按键状态里读
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            _isDragging = false;
+            EndDrag();
             return;
         }
 
         DockAnchorChanged?.Invoke();
+    }
+
+    private void BeginDrag()
+    {
+        if (_isDragging) return;
+        _isDragging = true;
+        InputManager.Instance.EventOnMouseReleased += OnHookReleased;
+    }
+
+    // 拖动结束必须由全局钩子兜底：系统拖动中收不到 PointerReleased，
+    // 而松手时鼠标往往已经在别的窗口上，本窗再也等不到下一次 PointerMoved。
+    // 标记留着不清，DockAnchorPosition 就会一直按鼠标反推，停靠栏一悬上来便瞬移
+    private void EndDrag()
+    {
+        if (!_isDragging) return;
+        _isDragging = false;
+        InputManager.Instance.EventOnMouseReleased -= OnHookReleased;
+    }
+
+    // 钩子线程回调，只做转发
+    private void OnHookReleased(SharpHook.Data.MouseEventData data)
+    {
+        if (data.Button != SharpHook.Data.MouseButton.Button1) return;
+        Dispatcher.UIThread.Post(EndDrag);
     }
 
     /// <summary>
@@ -455,6 +479,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        EndDrag();
         ResetOcr();
         SafeSetImage(null);
     }
@@ -462,6 +487,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     public override void Hide()
     {
         base.Hide();
+        EndDrag();
         ResetOcr();
         SafeSetImage(null);
     }
