@@ -161,7 +161,7 @@ public partial class TranslationWindow : UiharuWindowBase
     protected override void OnPreShow()
     {
         base.OnPreShow();
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
+        this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
 
         if (_lastCharacterCount != CharacterManager.Instance.CharacterDataDictionary.Count)
         {

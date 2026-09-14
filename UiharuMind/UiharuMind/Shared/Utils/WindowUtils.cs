@@ -98,15 +98,34 @@ public static class WindowUtils
         }, DispatcherPriority.MaxValue);
     }
 
+    /// <summary>
+    /// 取用于定位计算的窗口尺寸。
+    /// <para>
+    /// 取值顺序有讲究：首次打开时窗口是在 <c>OnPreShow</c> 里定位的，那一刻还没布局过，
+    /// <see cref="TopLevel.ClientSize"/> 仍是原生窗口的默认值、与实际尺寸无关（实测 300x400 的弹窗
+    /// 会读到 1134x597），按它算偏移再经屏幕钳制，窗口就被丢到别处了。所以未布局时先信 axaml
+    /// 显式声明的 Width/Height。SizeToContent 的窗口没有声明尺寸，才轮到 ClientSize/DesiredSize
+    /// ——这类窗口都在 Show 之后才定位，那时读到的已经是真值。
+    /// </para>
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <returns>窗口尺寸（DIP）</returns>
     private static Size GetMeasuredWindowSize(Window window)
     {
         if (window.Bounds.Width > 0 && window.Bounds.Height > 0) return window.Bounds.Size;
+        if (IsValidDimension(window.Width) && IsValidDimension(window.Height))
+            return new Size(window.Width, window.Height);
         if (window.ClientSize.Width > 0 && window.ClientSize.Height > 0) return window.ClientSize;
         if (window.DesiredSize.Width > 0 && window.DesiredSize.Height > 0) return window.DesiredSize;
 
         var width = GetValidDimension(window.Width, window.MinWidth, 48);
         var height = GetValidDimension(window.Height, window.MinHeight, 48);
         return new Size(width, height);
+    }
+
+    private static bool IsValidDimension(double value)
+    {
+        return value > 0 && !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
     private static double GetValidDimension(double value, double minValue, double fallback)

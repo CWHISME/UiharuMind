@@ -1,6 +1,7 @@
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Input.Linux;
+using UiharuMind.Core.Input.Mac;
 using SharpHook.Data;
 
 namespace UiharuMind.Core.Input;
@@ -74,6 +75,8 @@ internal static class InputBackendFactory
 
     private static IPointerLocator CreatePointerLocator()
     {
+        // 钩子事件自带坐标，但要等第一个事件到来；启动后还没动鼠标就弹窗会拿到 (0,0)，故带外查一次
+        if (PlatformUtils.IsMacOS) return new MacPointerLocator();
         if (!PlatformUtils.IsLinux) return new UnavailablePointerLocator();
 
         var locator = X11PointerLocator.TryCreate();
