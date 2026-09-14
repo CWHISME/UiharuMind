@@ -31,7 +31,7 @@ public partial class QuickClipboardHistoryWindow : QuickWindowBase
     protected override void OnPreShow()
     {
         base.OnPreShow();
-        this.SetWindowToMousePosition(HorizontalAlignment.Right, VerticalAlignment.Center);
+        this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
         // BindMouseClickCloseEvent();
         OnClipboardChanged();
         HistoryView.HistoryListBox.ScrollIntoView(0);

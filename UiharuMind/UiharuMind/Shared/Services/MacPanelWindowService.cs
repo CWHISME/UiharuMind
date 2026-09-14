@@ -55,7 +55,7 @@ public static class MacPanelWindowService
     }
 
     /// <summary>
-    /// 给 panel 焦点：只把窗口带到前面并设为 key，不激活本应用。
+    /// 给 panel 焦点：把窗口设为 key 并排到本层最前，不激活本应用。
     /// </summary>
     /// <param name="window">已转成 panel 的浮窗</param>
     public static void FocusPanel(Window window)
@@ -66,7 +66,13 @@ public static class MacPanelWindowService
         {
             var handle = window.TryGetPlatformHandle();
             if (handle == null || handle.Handle == IntPtr.Zero) return;
+
             ObjcMsgSendPtr(handle.Handle, SelRegisterName("makeKeyAndOrderFront:"), IntPtr.Zero);
+            // makeKeyAndOrderFront: 只在本应用内部排序，应用没激活时窗口仍被别的应用压着；
+            // 而转成 panel 后它又不在 [NSApp orderedWindows] 里，激活时「把最前那个窗口带上来」
+            // 也扫不到它——表现就是菜单栏已经是本应用、窗口却还被遮挡。orderFrontRegardless
+            // 专门用来无视激活状态把窗口排到本层最前
+            ObjcMsgSendVoid(handle.Handle, SelRegisterName("orderFrontRegardless"));
         }
         catch (Exception e)
         {
@@ -126,6 +132,10 @@ public static class MacPanelWindowService
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr ObjcMsgSendPtrNoArg(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void ObjcMsgSendVoid(IntPtr receiver, IntPtr selector);
+
 
     [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
     private static extern void ObjcMsgSendULong(IntPtr receiver, IntPtr selector, ulong value);

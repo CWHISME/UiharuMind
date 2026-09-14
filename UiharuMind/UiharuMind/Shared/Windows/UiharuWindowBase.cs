@@ -19,7 +19,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Windows.Focus;
 
 namespace UiharuMind.Shared.Windows;
 
@@ -32,7 +32,7 @@ public abstract class UiharuWindowBase : Window
     protected int StartWidth;
     protected int StartHeight;
 
-    private bool _isNonactivatingPanel; //macOS：已转成 nonactivating panel，取焦点时不必激活本应用
+    private readonly IWindowFocusBehavior _focusBehavior = WindowFocusBehaviorFactory.Create();
 
     /// <summary>
     /// 是否不关闭，重复复用
@@ -42,10 +42,11 @@ public abstract class UiharuWindowBase : Window
     public virtual bool ContributesToMacRegularMode => true;
 
     /// <summary>
-    /// macOS：是否是辅助窗口。辅助窗口走 nonactivating panel 路线取焦点——不激活本应用，
-    /// 于是后台的主界面不会被一起抬到前台。浮窗、快捷面板、钉图窗都属于这一类。
+    /// 是否是辅助窗口（快捷面板、浮窗、钉图这类跟随操作弹出的窗口）。
+    /// 辅助窗口取焦点时不该惊动应用的其它窗口，具体怎么做由
+    /// <see cref="Focus.IWindowFocusBehavior"/> 按平台决定。
     /// </summary>
-    public virtual bool IsMacAuxiliaryWindow => !ContributesToMacRegularMode;
+    public virtual bool IsAuxiliaryWindow => !ContributesToMacRegularMode;
 
     protected UiharuWindowBase()
     {
@@ -62,9 +63,7 @@ public abstract class UiharuWindowBase : Window
         // UIManager.ClosingWindowSet.Add(this);
         // if (isActivate && IsAllowFocusOnOpen) ShowActivated = true;
         if (isFirstShow) OnInitWindowPosition();
-        // Avalonia 的 Show 带 activateIgnoringOtherApps:，会把本应用所有窗口整组抬到前台。
-        // 浮窗改走 panel 路线自己取焦点，这里必须先把它关掉
-        if (IsMacAuxiliaryWindow && PlatformUtils.IsMacOS) ShowActivated = false;
+        _focusBehavior.PrepareShow(this);
         OnPreShow();
         if (isFirstShow)
         {
@@ -73,7 +72,10 @@ public abstract class UiharuWindowBase : Window
             StartHeight = (int)Height;
             Show();
             OnPostShow();
-            if (IsMacAuxiliaryWindow) _isNonactivatingPanel = MacPanelWindowService.TryMakeNonactivatingPanel(this);
+            _focusBehavior.AfterShow(this);
+            // 必须先切 Dock 图标/激活策略再取焦点：accessory→regular 的 TransformProcessType
+            // 会把刚做的激活清掉，窗口就留在别的应用下面了（复用分支本来就是这个顺序）
+            UIManager.RefreshMacApplicationActivationPolicy();
             if (isActivate && IsAllowFocusOnOpen) RequestFocus();
         }
         else
@@ -89,7 +91,7 @@ public abstract class UiharuWindowBase : Window
             {
                 Show();
                 OnPostShow();
-                if (IsMacAuxiliaryWindow) _isNonactivatingPanel = MacPanelWindowService.TryMakeNonactivatingPanel(this);
+                _focusBehavior.AfterShow(this);
                 UIManager.RefreshMacApplicationActivationPolicy();
                 if (isActivate && IsAllowFocusOnOpen) RequestFocus();
             }, DispatcherPriority.ApplicationIdle);
@@ -103,21 +105,9 @@ public abstract class UiharuWindowBase : Window
     }
 
     /// <summary>
-    /// 让窗口取得焦点。辅助窗口只取键盘焦点，不激活本应用，用户原来那个应用继续留在前台。
+    /// 让窗口取得焦点。辅助窗口不会惊动应用的其它窗口。
     /// </summary>
-    public void RequestFocus()
-    {
-        if (!_isNonactivatingPanel)
-        {
-            WindowActivationService.Activate(this);
-            return;
-        }
-
-        MacPanelWindowService.FocusPanel(this);
-        // 置顶浮窗在 floating 层，后台应用也压得住；普通层级的（翻译、文件搜索）压不住前台应用，
-        // 必须激活本应用才看得见——但只带自己上来
-        if (!Topmost) MacPanelWindowService.ActivateAppForWindowOnly(this);
-    }
+    public void RequestFocus() => _focusBehavior.Focus(this);
 
     protected virtual bool IsAllowFocusOnOpen { get; set; } = true;
 
@@ -146,8 +136,7 @@ public abstract class UiharuWindowBase : Window
     {
         OnPreCloseEvent?.Invoke();
         OnPreClose();
-        // 关窗前掐断 macOS 的 key 改派，否则后台的主界面会被 orderFront 抬到最前
-        MacWindowFocusGuard.SuppressKeyHandoff(this);
+        _focusBehavior.PrepareClose(this);
         if (IsCacheWindow)
         {
             e.Cancel = true;

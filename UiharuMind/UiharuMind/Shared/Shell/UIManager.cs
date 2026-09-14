@@ -103,7 +103,7 @@ public static class UIManager
 
             RefreshMacApplicationActivationPolicy();
             // 辅助窗口（快捷面板、浮窗）排除在外：整应用激活会把后台的主界面一起抬到前台
-            if (isActivate && window is { ContributesToMacRegularMode: true, IsMacAuxiliaryWindow: false })
+            if (isActivate && window is { ContributesToMacRegularMode: true, IsAuxiliaryWindow: false })
                 MacApplicationActivationService.ActivateIgnoringOtherApps();
         }, DispatcherPriority.Render);
     }

@@ -14,6 +14,17 @@ namespace UiharuMind.Shared.Services;
 /// </summary>
 public enum EOverlayWindowLevel : long
 {
+    /// <summary>普通窗口，不置顶。= NSNormalWindowLevel</summary>
+    Normal = 0,
+
+    /// <summary>
+    /// 普通层与菜单栏之间的浮动层。= NSFloatingWindowLevel，不越过菜单栏。
+    /// 快捷键唤出的弹窗（翻译、文件搜索）临时借它压过前台应用——macOS 不让后台应用的普通层窗口
+    /// 排到前台应用之前，而全局快捷键唤出时用户没碰过本应用，自激活会被协作式激活机制拒绝。
+    /// 窗口一失焦就降回 <see cref="Normal"/>，不常驻。
+    /// </summary>
+    Floating = 3,
+
     /// <summary>钉在屏幕上的贴图窗。= NSStatusWindowLevel，压过菜单栏(24)与 Dock(20)</summary>
     Pinned = 25,
 
