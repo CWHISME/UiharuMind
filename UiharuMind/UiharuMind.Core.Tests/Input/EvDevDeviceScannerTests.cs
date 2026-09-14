@@ -67,4 +67,27 @@ public class EvDevDeviceScannerTests
     {
         Assert.Empty(EvDevDeviceScanner.Parse(new[] { "", "  ", "" }));
     }
+
+    /// 本应用自己用 uinput 造的虚拟设备必须被排除，否则监听会收到自己注入的按键，
+    /// 形成「一模拟就自触发」的回环
+    [Fact]
+    public void Parse_SkipsOwnVirtualDevices()
+    {
+        var lines = new[]
+        {
+            "I: Bus=0003 Vendor=0000 Product=0000 Version=0000",
+            $"N: Name=\"{EvDevDeviceScanner.VirtualDeviceNamePrefix} Keyboard\"",
+            "H: Handlers=sysrq kbd event20 ",
+            "B: EV=3",
+            "",
+            "I: Bus=0011 Vendor=0001 Product=0001 Version=ab41",
+            "N: Name=\"AT Translated Set 2 keyboard\"",
+            "H: Handlers=sysrq kbd event2 "
+        };
+
+        var devices = EvDevDeviceScanner.Parse(lines);
+
+        Assert.Single(devices);
+        Assert.Equal("/dev/input/event2", devices[0].EventPath);
+    }
 }

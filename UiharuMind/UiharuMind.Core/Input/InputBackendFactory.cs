@@ -2,6 +2,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.Input.Linux;
 using UiharuMind.Core.Input.Mac;
+using UiharuMind.Core.Input.Windows;
 using SharpHook.Data;
 
 namespace UiharuMind.Core.Input;
@@ -16,15 +17,22 @@ namespace UiharuMind.Core.Input;
 internal static class InputBackendFactory
 {
     private static IPointerLocator? _pointerLocator;
+    private static IModifierStateProvider? _modifierStateProvider;
 
     /// <summary>
     /// 全局光标定位器。非 Linux 平台的钩子事件自带坐标，返回不可用实例即可。
     /// </summary>
     public static IPointerLocator PointerLocator => _pointerLocator ??= CreatePointerLocator();
 
+    /// <summary>
+    /// 修饰键真值查询器。Linux 由 evdev 后端自带内核真值，无需此路。
+    /// </summary>
+    public static IModifierStateProvider ModifierStateProvider =>
+        _modifierStateProvider ??= CreateModifierStateProvider();
+
     public static IInputHookBackend CreateHookBackend()
     {
-        if (!PlatformUtils.IsLinux) return new SharpHookInputHookBackend();
+        if (!PlatformUtils.IsLinux) return new SharpHookInputHookBackend(ModifierStateProvider);
 
         var capabilities = LinuxInputCapabilities.Probe();
         if (capabilities.CanReadInputDevices)
@@ -47,7 +55,7 @@ internal static class InputBackendFactory
         Log.Warning(capabilities.HasInputDevices
             ? "无权读取 /dev/input/event*（需加入 input 组），降级到 SharpHook。"
             : "未发现任何输入设备，降级到 SharpHook。");
-        return new SharpHookInputHookBackend();
+        return new SharpHookInputHookBackend(ModifierStateProvider);
     }
 
     public static IInputSimulatorBackend CreateSimulatorBackend()
@@ -71,6 +79,13 @@ internal static class InputBackendFactory
 
         Log.Warning($"无权写入 {LinuxInputCapabilities.UinputDevicePath}，降级到 SharpHook。");
         return new SharpHookInputSimulatorBackend();
+    }
+
+    private static IModifierStateProvider CreateModifierStateProvider()
+    {
+        if (PlatformUtils.IsMacOS) return new MacModifierStateProvider();
+        if (PlatformUtils.IsWindows) return new WindowsModifierStateProvider();
+        return new UnavailableModifierStateProvider();
     }
 
     private static IPointerLocator CreatePointerLocator()
@@ -97,8 +112,8 @@ internal sealed class NullInputHookBackend : IInputHookBackend
     public bool IsRunning => false;
     public event Action? HookEnabled;
     public event Action? HookDisabled;
-    public event Func<KeyCode, bool>? KeyPressed;
-    public event Action<KeyCode>? KeyReleased;
+    public event Func<KeyEventInfo, bool>? KeyPressed;
+    public event Action<KeyEventInfo>? KeyReleased;
     public event Action<MouseEventData>? MousePressed;
     public event Action<MouseEventData>? MouseReleased;
     public event Action<MouseEventData>? MouseMoved;
@@ -106,7 +121,7 @@ internal sealed class NullInputHookBackend : IInputHookBackend
     public event Action<MouseWheelEventData>? MouseWheel;
 
     public Task RunAsync() => Task.CompletedTask;
-    public bool? IsKeyPressed(KeyCode keyCode) => null;
+    public EModifierKeys GetPressedModifiers() => EModifierKeys.None;
     public void Dispose() { }
 }
 

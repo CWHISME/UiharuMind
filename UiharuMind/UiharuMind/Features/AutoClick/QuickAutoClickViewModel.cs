@@ -1333,7 +1333,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         }
 
         if (shortcutMainKey != mainKey) return false;
-        return modifiers.All(InputManager.Instance.IsPressed);
+        return InputManager.Instance.MatchesPressedModifiers(modifiers);
     }
 
     private void RemoveStopHotkeySteps()

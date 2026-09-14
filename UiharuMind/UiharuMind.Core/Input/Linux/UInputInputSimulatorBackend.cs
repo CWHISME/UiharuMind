@@ -31,10 +31,10 @@ internal sealed class UInputInputSimulatorBackend : IInputSimulatorBackend, IDis
 
         // 延迟创建：没有自动点击需求的会话不该无谓地在系统里挂三台虚拟设备
         _keyboard = new Lazy<UInputDevice?>(() => UInputDevice.TryCreate(
-            "UiharuMind Virtual Keyboard", EvDevKeyCodeMapper.AllKeyCodes, Array.Empty<ushort>()));
+            EvDevDeviceScanner.VirtualDeviceNamePrefix + " Keyboard", EvDevKeyCodeMapper.AllKeyCodes, Array.Empty<ushort>()));
 
         _relativePointer = new Lazy<UInputDevice?>(() => UInputDevice.TryCreate(
-            "UiharuMind Virtual Pointer",
+            EvDevDeviceScanner.VirtualDeviceNamePrefix + " Pointer",
             new ushort[]
             {
                 LinuxInputNative.BtnLeft, LinuxInputNative.BtnRight, LinuxInputNative.BtnMiddle,
@@ -43,7 +43,7 @@ internal sealed class UInputInputSimulatorBackend : IInputSimulatorBackend, IDis
             new[] { LinuxInputNative.RelX, LinuxInputNative.RelY, LinuxInputNative.RelWheel }));
 
         _absolutePointer = new Lazy<UInputDevice?>(() => UInputDevice.TryCreate(
-            "UiharuMind Virtual Absolute Pointer",
+            EvDevDeviceScanner.VirtualDeviceNamePrefix + " Absolute Pointer",
             new ushort[] { LinuxInputNative.BtnLeft },
             Array.Empty<ushort>(),
             new Dictionary<ushort, int>

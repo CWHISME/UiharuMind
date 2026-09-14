@@ -16,22 +16,34 @@ using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Input;
 
+/// <summary>
+/// 全局输入的统一入口：管钩子生命周期、向应用分发输入事件、持有指针状态。
+/// <para>
+/// 按键状态交给 <see cref="KeyPressTracker"/>，快捷键交给 <see cref="ShortcutRegistry"/>，
+/// 点击判定交给 <see cref="MouseClickDetector"/>，平台差异交给 <see cref="IInputHookBackend"/>。
+/// 本类自己不保存任何「可能与操作系统失同步」的状态。
+/// </para>
+/// <para>
+/// 所有事件都在钩子线程上同步回调，UI 订阅方须自行封送到 UI 线程（Core 层不依赖 UI）。
+/// 回调里不要做耗时操作：macOS 的事件钩子有超时，超时会被系统直接停用。
+/// </para>
+/// </summary>
 public class InputManager : Singleton<InputManager>, IInitialize
 {
     /// <summary>
     /// 当前鼠标信息
     /// </summary>
-    public static MouseEventData MouseData;
+    public static MouseEventData MouseData { get; set; }
 
     /// <summary>
     /// 上一次鼠标按下位置信息
     /// </summary>
-    public static MouseEventData MousePressedData;
+    public static MouseEventData MousePressedData { get; set; }
 
     /// <summary>
     /// 上一次鼠标释放位置信息
     /// </summary>
-    public static MouseEventData MouseReleasedData;
+    public static MouseEventData MouseReleasedData { get; set; }
 
     /// <summary>
     /// 功能是否启用
@@ -50,36 +62,16 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// </summary>
     public event Action<MouseEventData>? EventOnMouseClicked;
 
-    /// <summary>修饰键全集，注入前的等待与组合键判定都以它为准</summary>
-    private static readonly KeyCode[] ModifierKeys =
-    {
-        KeyCode.VcLeftShift, KeyCode.VcRightShift,
-        KeyCode.VcLeftControl, KeyCode.VcRightControl,
-        KeyCode.VcLeftAlt, KeyCode.VcRightAlt,
-        KeyCode.VcLeftMeta, KeyCode.VcRightMeta
-    };
-
     private readonly IInputHookBackend _hookBackend;
-    private readonly object _stateLock = new();
-    private readonly HashSet<KeyCode> _pressedKeys = new();
-    private readonly Timer? _pressedStateSyncTimer;
-    private int _registeredShortcutSuspendCount;
+    private readonly KeyPressTracker _keyPressTracker = new();
+    private readonly ShortcutRegistry _shortcutRegistry = new();
+    private readonly MouseClickDetector _clickDetector = new();
 
-    /// <summary>
-    /// 组合键组合数据
-    /// </summary>
-    private readonly List<KeyCombinationData> _keyCombinations = new();
+    /// 本次 Start 期间钩子是否成功启用过，用于区分「启动失败」与「启用后被停掉」
+    private volatile bool _isEnabled;
 
-    // 鼠标按下时间记录，用于判断是否为点击
-    private readonly Dictionary<MouseButton, DateTime> _mousePressTimes = new();
-
-    /// <summary>
-    /// 点击阈值（毫秒），超过此时间视为长按而非点击
-    /// </summary>
-    private const int ClickThresholdMs = 300;
-
-    //是否启用过
-    private bool _isEnabled;
+    /// 0 空闲 / 1 启动中，挡住 DummyWindow 与权限引导窗的重复调用
+    private int _startGate;
 
     public InputManager()
     {
@@ -93,7 +85,6 @@ public class InputManager : Singleton<InputManager>, IInitialize
         _hookBackend.MouseMoved += OnMouseMoved;
         _hookBackend.MouseDragged += OnMouseDragged;
         _hookBackend.MouseWheel += OnMouseWheel;
-        _pressedStateSyncTimer = new Timer(_ => SyncPressedStateWithBackend(), null, 1000, 1000);
     }
 
     public void OnInitialize()
@@ -101,8 +92,16 @@ public class InputManager : Singleton<InputManager>, IInitialize
         // Start is triggered by DummyWindow after the Avalonia app is ready.
     }
 
+    /// <summary>
+    /// 启动全局钩子。已在运行或启动中时直接返回，故多处调用是安全的。
+    /// </summary>
+    /// <param name="onFailed">启动失败（通常是缺权限）时回调，钩子曾成功启用过则不回调</param>
     public async void Start(Action onFailed)
     {
+        if (_hookBackend.IsRunning) return;
+        if (Interlocked.CompareExchange(ref _startGate, 1, 0) != 0) return;
+
+        _isEnabled = false;
         try
         {
             await _hookBackend.RunAsync().ConfigureAwait(false);
@@ -113,6 +112,10 @@ public class InputManager : Singleton<InputManager>, IInitialize
             Stop();
             if (!_isEnabled) onFailed.Invoke();
         }
+        finally
+        {
+            Volatile.Write(ref _startGate, 0);
+        }
     }
 
     public void Stop()
@@ -120,30 +123,43 @@ public class InputManager : Singleton<InputManager>, IInitialize
         try
         {
             _hookBackend.Dispose();
-            ClearPressedState();
         }
         catch (Exception)
         {
             // ignored
         }
+        finally
+        {
+            ClearPressedState();
+        }
     }
 
+    /// <summary>
+    /// 查询按键是否处于按下状态。修饰键走操作系统真值，不受漏事件影响。
+    /// </summary>
+    /// <param name="keyCode">键码</param>
+    /// <returns>按下返回 True</returns>
     public bool IsPressed(KeyCode keyCode)
     {
-        SyncPressedStateWithBackend();
-        lock (_stateLock)
-        {
-            return _pressedKeys.Contains(keyCode);
-        }
+        if (keyCode.IsModifier()) _keyPressTracker.SyncModifiers(_hookBackend.GetPressedModifiers());
+        return _keyPressTracker.IsPressed(keyCode);
     }
 
     public void ClearPressedState()
     {
-        lock (_stateLock)
-        {
-            _pressedKeys.Clear();
-            _mousePressTimes.Clear();
-        }
+        _keyPressTracker.Reset();
+        _clickDetector.Reset();
+    }
+
+    /// <summary>
+    /// 取当前按下的修饰键，读的是操作系统真值而非事件累加值
+    /// </summary>
+    /// <returns>修饰键位集</returns>
+    public EModifierKeys GetPressedModifiers()
+    {
+        var modifiers = _hookBackend.GetPressedModifiers();
+        _keyPressTracker.SyncModifiers(modifiers);
+        return modifiers;
     }
 
     /// <summary>
@@ -151,12 +167,17 @@ public class InputManager : Singleton<InputManager>, IInitialize
     /// 输入模拟在注入前需要据此等待用户松手，否则注入的组合键会与用户手上按着的修饰键叠加。
     /// </summary>
     /// <returns>有任一修饰键按下返回 True</returns>
-    public bool IsAnyModifierPressed()
+    public bool IsAnyModifierPressed() => GetPressedModifiers() != EModifierKeys.None;
+
+    /// <summary>
+    /// 给定的修饰键组合是否与当前按下的修饰键完全一致（不分左右）。
+    /// 与快捷键触发共用一套排他语义，避免「热键触发得了、停止判定却不认」的不一致。
+    /// </summary>
+    /// <param name="modifiers">待比对的修饰键键码</param>
+    /// <returns>完全一致返回 True</returns>
+    public bool MatchesPressedModifiers(IEnumerable<KeyCode>? modifiers)
     {
-        lock (_stateLock)
-        {
-            return _pressedKeys.Overlaps(ModifierKeys);
-        }
+        return modifiers.ToModifiers().Fold() == GetPressedModifiers().Fold();
     }
 
     /// <summary>
@@ -177,131 +198,67 @@ public class InputManager : Singleton<InputManager>, IInitialize
     public static bool IsPointerPositionAvailable =>
         InputBackendFactory.PointerLocator.IsAvailable || !PlatformUtils.IsLinux;
 
-    public IDisposable SuspendRegisteredShortcuts()
-    {
-        Interlocked.Increment(ref _registeredShortcutSuspendCount);
-        ClearPressedState();
-        return new RegisteredShortcutSuspendScope(this);
-    }
+    /// <summary>
+    /// 挂起已注册快捷键的分发，用于快捷键录制界面。释放返回的句柄即恢复。
+    /// </summary>
+    /// <returns>释放即恢复的句柄</returns>
+    public IDisposable SuspendRegisteredShortcuts() => _shortcutRegistry.Suspend();
 
-    public void RegisterKey(KeyCombinationData keyCombination)
-    {
-        _keyCombinations.Add(keyCombination);
-    }
+    public void RegisterKey(KeyCombinationData keyCombination) => _shortcutRegistry.Register(keyCombination);
 
-    public void UnRegisterKey(KeyCombinationData keyCombination)
-    {
-        _keyCombinations.Remove(keyCombination);
-    }
+    public void UnRegisterKey(KeyCombinationData keyCombination) => _shortcutRegistry.Unregister(keyCombination);
 
-    public void ClearRegisteredKeys()
-    {
-        _keyCombinations.Clear();
-    }
+    public void ClearRegisteredKeys() => _shortcutRegistry.Clear();
 
     //=========Event Handler=========
 
-    private bool OnKeyPressed(KeyCode keyCode)
+    private bool OnKeyPressed(KeyEventInfo info)
     {
-        SyncPressedStateWithBackend();
-
-        // 如果这个键已经处于按下状态，说明是操作系统的键盘重复事件，不触发 EventOnKeyDown
-        lock (_stateLock)
+        // 自己注入的按键不参与状态与快捷键，否则「模拟一次快捷键」会把自己再触发一遍
+        if (info.IsSimulated)
         {
-            if (!_pressedKeys.Add(keyCode))
-            {
-                return false;
-            }
-        }
-
-        EventOnKeyDown?.Invoke(keyCode);
-        if (Volatile.Read(ref _registeredShortcutSuspendCount) > 0)
-        {
+            EventOnKeyDown?.Invoke(info.KeyCode);
             return false;
         }
 
-        foreach (var keyCombination in _keyCombinations)
-        {
-            if (keyCombination.MainKeyCode != keyCode) continue;
-            if (keyCombination.DecorateKeyCodes != null && !keyCombination.DecorateKeyCodes.All(IsPressed)) continue;
-            try
-            {
-                keyCombination.OnTrigger?.Invoke();
-            }
-            catch (Exception e)
-            {
-                Log.Warning(e.Message);
-            }
+        // 操作系统的键盘连发会反复发 KeyPressed，只有首次按下才算一次输入
+        if (!_keyPressTracker.TryBeginPress(info)) return false;
 
-            return true;
-        }
-
-        return false;
+        EventOnKeyDown?.Invoke(info.KeyCode);
+        return _shortcutRegistry.TryTrigger(info.KeyCode, info.Modifiers);
     }
 
-    private void OnKeyReleased(KeyCode keyCode)
+    private void OnKeyReleased(KeyEventInfo info)
     {
-        lock (_stateLock)
-        {
-            _pressedKeys.Remove(keyCode);
-        }
-
-        EventOnKeyUp?.Invoke(keyCode);
+        if (!info.IsSimulated) _keyPressTracker.EndPress(info);
+        EventOnKeyUp?.Invoke(info.KeyCode);
     }
 
     private void OnMousePressed(MouseEventData data)
     {
-        lock (_stateLock)
-        {
-            _mousePressTimes[data.Button] = DateTime.Now;
-        }
-
-        EventOnMousePressed?.Invoke(data);
+        _clickDetector.BeginPress(data.Button);
         MouseData = data;
         MousePressedData = data;
+        EventOnMousePressed?.Invoke(data);
     }
 
     private void OnMouseReleased(MouseEventData data)
     {
-        var button = data.Button;
-
-        DateTime pressTime;
-        lock (_stateLock)
-        {
-            if (!_mousePressTimes.TryGetValue(button, out pressTime))
-            {
-                pressTime = default;
-            }
-            else
-            {
-                _mousePressTimes.Remove(button);
-            }
-        }
-
-        if (pressTime != default)
-        {
-            var duration = (int)(DateTime.Now - pressTime).TotalMilliseconds;
-            if (duration <= ClickThresholdMs)
-            {
-                EventOnMouseClicked?.Invoke(data);
-            }
-        }
-
-        EventOnMouseReleased?.Invoke(data);
         MouseData = data;
         MouseReleasedData = data;
+        if (_clickDetector.EndPressIsClick(data.Button)) EventOnMouseClicked?.Invoke(data);
+        EventOnMouseReleased?.Invoke(data);
     }
 
     private void OnMouseMoved(MouseEventData data)
     {
-        EventOnMouseMoved?.Invoke(data);
         MouseData = data;
+        EventOnMouseMoved?.Invoke(data);
     }
 
     private void OnMouseDragged(MouseEventData data)
     {
-        EventOnMouseMoved?.Invoke(data);
-        MouseData = data;
+        OnMouseMoved(data);
     }
 
     private void OnMouseWheel(MouseWheelEventData data)
@@ -319,35 +276,5 @@ public class InputManager : Singleton<InputManager>, IInitialize
     {
         Log.Debug("OnHookDisabled");
         ClearPressedState();
-    }
-
-    private void ResumeRegisteredShortcuts()
-    {
-        if (Interlocked.CompareExchange(ref _registeredShortcutSuspendCount, 0, 0) <= 0) return;
-        Interlocked.Decrement(ref _registeredShortcutSuspendCount);
-        ClearPressedState();
-    }
-
-    private void SyncPressedStateWithBackend()
-    {
-        if (_pressedKeys.Count == 0) return;
-        lock (_stateLock)
-        {
-            _pressedKeys.RemoveWhere(keyCode => _hookBackend.IsKeyPressed(keyCode) == false);
-        }
-    }
-
-    private sealed class RegisteredShortcutSuspendScope(InputManager inputManager)
-        : IDisposable
-    {
-        private InputManager? _inputManager = inputManager;
-
-        public void Dispose()
-        {
-            var inputManager = _inputManager;
-            if (inputManager == null) return;
-            _inputManager = null;
-            inputManager.ResumeRegisteredShortcuts();
-        }
     }
 }

@@ -40,8 +40,8 @@ internal sealed class EvDevInputHookBackend : IInputHookBackend
 
     public event Action? HookEnabled;
     public event Action? HookDisabled;
-    public event Func<KeyCode, bool>? KeyPressed;
-    public event Action<KeyCode>? KeyReleased;
+    public event Func<KeyEventInfo, bool>? KeyPressed;
+    public event Action<KeyEventInfo>? KeyReleased;
     public event Action<MouseEventData>? MousePressed;
     public event Action<MouseEventData>? MouseReleased;
     public event Action<MouseEventData>? MouseMoved;
@@ -54,13 +54,16 @@ internal sealed class EvDevInputHookBackend : IInputHookBackend
     }
 
     /// <summary>
-    /// 与 SharpHook 后端不同，这里能给出真实的按下状态，无需返回 null 让上层猜。
+    /// evdev 读的就是内核的按键状态，这里给出的是真值而非推测。
     /// </summary>
-    public bool? IsKeyPressed(KeyCode keyCode)
+    /// <returns>当前按下的修饰键位集</returns>
+    public EModifierKeys GetPressedModifiers()
     {
         lock (_stateLock)
         {
-            return _pressedKeys.Contains(keyCode);
+            var modifiers = EModifierKeys.None;
+            foreach (var keyCode in _pressedKeys) modifiers |= keyCode.ToModifier();
+            return modifiers;
         }
     }
 
@@ -182,20 +185,26 @@ internal sealed class EvDevInputHookBackend : IInputHookBackend
         var keyCode = EvDevKeyCodeMapper.ToKeyCode(inputEvent.Code);
         if (keyCode == KeyCode.VcUndefined) return;
 
+        EModifierKeys modifiers;
         lock (_stateLock)
         {
             if (isDown) _pressedKeys.Add(keyCode);
             else _pressedKeys.Remove(keyCode);
+
+            modifiers = EModifierKeys.None;
+            foreach (var pressed in _pressedKeys) modifiers |= pressed.ToModifier();
         }
 
+        // 位集取自内核状态而非事件累加，故与 SharpHook 后端一样不可能出现修饰键残留
+        var info = new KeyEventInfo(keyCode, modifiers, IsSimulated: false);
         if (isDown)
         {
             // 返回值是「是否吞掉此键」。evdev 旁路监听无法吞键，调用结果只作日志用途之外的语义被丢弃
-            SafeInvoke(KeyPressed, keyCode);
+            SafeInvoke(KeyPressed, info);
         }
         else
         {
-            SafeInvoke(KeyReleased, keyCode);
+            SafeInvoke(KeyReleased, info);
         }
     }
 

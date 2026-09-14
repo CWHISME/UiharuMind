@@ -18,6 +18,10 @@ internal static class EvDevDeviceScanner
 {
     private const string ProcDevicesPath = "/proc/bus/input/devices";
 
+    /// 本应用用 uinput 造出来的虚拟设备前缀。必须排除，否则自己注入的按键会被自己监听到，
+    /// 形成「模拟即触发」的回环——录制回放里注入一次停止热键就会自停
+    internal const string VirtualDeviceNamePrefix = "UiharuMind Virtual";
+
     /// <summary>
     /// 枚举所有键盘或指针设备
     /// </summary>
@@ -74,6 +78,7 @@ internal static class EvDevDeviceScanner
     private static void AppendDevice(List<EvDevDeviceInfo> devices, string name, string handlers)
     {
         if (string.IsNullOrEmpty(handlers)) return;
+        if (name.StartsWith(VirtualDeviceNamePrefix, StringComparison.Ordinal)) return;
 
         var tokens = handlers.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var eventNode = tokens.FirstOrDefault(t => t.StartsWith("event", StringComparison.Ordinal));
