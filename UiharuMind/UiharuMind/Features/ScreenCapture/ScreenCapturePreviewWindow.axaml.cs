@@ -41,8 +41,6 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
     public override bool ContributesToMacRegularMode => false;
 
-    private Point _dragStartPoint;
-    private bool _isDragging;
     private Size _originSize;
     private Size _maxDisplaySize = new(double.PositiveInfinity, double.PositiveInfinity);
     private double _aspectRatio = 1.0f;
@@ -101,8 +99,6 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         OcrLayer.CopyRequested += CopyOcrText;
 
         PointerPressed += OnPointerPressed;
-        PointerMoved += OnPointerMoved;
-        PointerReleased += OnPointerReleased;
         PointerWheelChanged += OnPointerWheelChangedEvent;
         PointerEntered += OnMouseEnter;
     }
@@ -172,8 +168,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     protected override void OnPostShow()
     {
         base.OnPostShow();
-        // 钉图也要能拖到菜单栏上面去：只抬层级，不换 Space 归属
+        // 钉图要能拖到菜单栏上面去，所以抬层级；
+        // 而「显示器具有单独的空间」下，抬过层级的窗口会被钉死在某一块屏，
+        // 跨屏时超出边界的半边直接不画（看着就像拖不过去 / 逐渐消失），故一并放开 Space 归属
         OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.Pinned);
+        OverlayWindowService.ApplyNativeJoinAllSpaces(this);
         ApplyPendingFrame();
     }
 
@@ -340,34 +339,12 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             return;
         }
 
-        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-        {
-            _dragStartPoint = e.GetPosition(this);
-            _isDragging = true;
-            // 抓住指针：拖进菜单栏后移动事件不再按命中路由，没有捕获窗会冻在菜单栏边缘
-            e.Pointer.Capture(this);
-        }
-    }
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
-    private void OnPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (!_isDragging) return;
-
-        var position = e.GetPosition(this);
-        var diff = position - _dragStartPoint;
-
-        // 窗口位移是 Position 口径（mac point，Windows 像素），DIP 差值要换算
-        double unitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
-        var windowPosition = Position;
-        Position = new PixelPoint(
-            (int)Math.Round(windowPosition.X + diff.X * unitsPerDip),
-            (int)Math.Round(windowPosition.Y + diff.Y * unitsPerDip));
-    }
-
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        _isDragging = false;
-        e.Pointer.Capture(null);
+        // 交给系统拖动循环（mac 下是 performWindowDragWithEvent:），与其它窗口一致。
+        // 手写位移（按窗内偏移改 Position）在跨屏时会抖：事件里的窗内坐标按旧 frame 算，
+        // 却要和已经移动过的 Position 相加，残差每帧回灌
+        BeginMoveDrag(e);
     }
 
     /// <summary>
