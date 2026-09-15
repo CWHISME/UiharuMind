@@ -16,6 +16,7 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Conversation.Items;
 
@@ -237,19 +238,19 @@ public sealed class ConversationTranscript : ITurnSink
     }
 
     /// <summary>
-    /// 派出去的子会话正在等（或不再等）用户点审批：把提示挂到派活那张卡上。
+    /// 重刷每张委派卡的「已派出 / 结果待回」。
     ///
-    /// 状态取自 <c>SessionRunRegistry</c>（子代理那一轮本来就登记在册），这里只负责上屏——
-    /// 不然盯着父会话的用户只看见一个转圈的卡片，干等到超时还莫名其妙。
+    /// 整体重刷而不是只更新某一张：触发它的是父会话级的信号（名下的后台委派多了或少了一个），
+    /// 而一个父会话名下常态就有好几张卡。
     /// </summary>
-    /// <param name="subSessionId">子会话标识</param>
-    /// <param name="waiting">是否正在等用户点选</param>
-    public void NoteSubSessionApprovalWait(string subSessionId, bool waiting)
+    public void RefreshSubSessionPending()
     {
-        if (subSessionId.Length == 0) return;
         foreach (ToolCallItem call in _target.OfType<ToolCallItem>())
         {
-            if (call.SubSessionId == subSessionId) call.IsWaitingApproval = waiting;
+            if (call.SubSessionId is { Length: > 0 } id)
+            {
+                call.IsAwaitingReport = BackgroundSubAgentDispatcher.IsAwaitingReport(id);
+            }
         }
     }
 
@@ -333,15 +334,23 @@ public sealed class ConversationTranscript : ITurnSink
     }
 
     /// <summary>
-    /// 取本轮新增的审批请求。它们仍留在待决清单里（回应期间用户可能点停止），
+    /// 取<b>指定的那一批</b>审批请求对应的卡片。它们仍留在待决清单里（回应期间用户可能点停止），
     /// 直到 <see cref="ResolveApprovals"/> 把它们移出。
+    ///
+    /// ⚠️ <b>必须按请求对象相认，不能把攒着的整批抽干。</b>同一个会话上可能同时有两轮在跑
+    /// （用户那一轮与后台子代理回来时起的<b>唤醒轮</b>共用这一个转录器），无脑抽干会把
+    /// 别人那一轮的卡片领走——于是那一轮的 <c>resolver</c> 拿到空回应、循环正常退出，
+    /// 而它那次工具调用<b>永远没有结果</b>地留在历史里（实机踩到）。
+    /// 相认按引用，与子会话窗口认领嵌套审批同一口径。
     /// </summary>
-    /// <returns>本轮新增的审批请求</returns>
-    public IReadOnlyList<ApprovalRequestItem> TakeRoundApprovals()
+    /// <param name="requests">本轮要回应的请求</param>
+    /// <returns>对应的卡片；认不出的请求不会凭空造卡</returns>
+    public IReadOnlyList<ApprovalRequestItem> TakeRoundApprovals(
+        IReadOnlyList<ToolApprovalRequestContent> requests)
     {
-        List<ApprovalRequestItem> list = _round.ToList();
-        _round.Clear();
-        return list;
+        List<ApprovalRequestItem> mine = _round.Where(x => requests.Contains(x.Request)).ToList();
+        _round.RemoveAll(mine.Contains);
+        return mine;
     }
 
     /// <summary>

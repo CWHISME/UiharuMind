@@ -3145,4 +3145,22 @@
     <data name="ClipboardTooltipMore" xml:space="preserve">
         <value>…（共 {0} 字）</value>
     </data>
+    <data name="SubAgentApprovalWaiting" xml:space="preserve">
+        <value>有后台子代理在等你批准</value>
+    </data>
+    <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
+        <value>到右栏「子代理」面板处理。无人应答会按拒绝收口。</value>
+    </data>
+    <data name="SubAgentLongRunning" xml:space="preserve">
+        <value>有子代理已经跑了很久</value>
+    </data>
+    <data name="AgentStatusBackgroundWork" xml:space="preserve">
+        <value>子代理还在干活</value>
+    </data>
+    <data name="ToolCallAwaitingReport" xml:space="preserve">
+        <value>后台跑着</value>
+    </data>
+    <data name="SubAgentCopyIdTip" xml:space="preserve">
+        <value>复制这次委派的编号，可用来让主 agent 点名续跑它</value>
+    </data>
 </root>

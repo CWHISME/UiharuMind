@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -61,8 +62,21 @@ public interface IMessageService
         string? title = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 弹一条浮窗通知
+    /// </summary>
+    /// <param name="message">正文</param>
+    /// <param name="title">标题；为空按严重度取默认</param>
+    /// <param name="severity">严重度（决定配色与默认时长）</param>
+    /// <param name="duration">
+    /// 停留时长；为空按严重度取默认（一般 5 秒、出错 8 秒）。
+    ///
+    /// 显式给值是为了「<b>要你动手</b>」那一类——它们与「出错了」不同档：
+    /// 后者读完就完了，前者读完还得去点，5 秒读都读不完。
+    /// </param>
     void ShowNotification(
         string message,
         string? title = null,
-        MessageSeverity severity = MessageSeverity.Information);
+        MessageSeverity severity = MessageSeverity.Information,
+        TimeSpan? duration = null);
 }

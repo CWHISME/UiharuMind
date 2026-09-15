@@ -226,6 +226,12 @@
                                 <TextBlock Text="{loc:Loc AgentSubAgentTitle}" />
                                 <TextBlock Text="{Binding SubAgents.Items.Count}"
                                            IsVisible="{Binding SubAgents.Items.Count}" />
+                                <!-- 「总共派过几个」与「现在还有几个没完」是两件事,后者才是用户
+                                     此刻要知道的。委派默认后台执行之后它常态大于 1 -->
+                                <Border Classes="status-dot" Tag="Ready"
+                                        IsVisible="{Binding SubAgents.HasRunning}" />
+                                <TextBlock Text="{Binding SubAgents.RunningCount}"
+                                           IsVisible="{Binding SubAgents.HasRunning}" />
                             </StackPanel>
                         </TabItem.Header>
                         <ScrollViewer Margin="0,6,0,0">
@@ -239,7 +245,7 @@
                                             <Button Classes="text-row" HorizontalAlignment="Stretch"
                                                     Margin="0,3" Command="{Binding Open}"
                                                     ToolTip.Tip="{Binding Title}">
-                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                                                     <Border Grid.Column="0" Classes="status-dot"
                                                             VerticalAlignment="Center"
                                                             Tag="{Binding StatusKey}" />
@@ -254,6 +260,14 @@
                                                     <TextBlock Grid.Column="2" Classes="muted" FontSize="10"
                                                                VerticalAlignment="Center"
                                                                Text="{Binding TimeString}" />
+                                                    <!-- 复制编号:ContinueSubAgent 认的是它,而它原先只出现在
+                                                         工具卡的结果里,跑几十轮就滚没了 -->
+                                                    <ThemedIconButton Grid.Column="3"
+                                                                      Classes="message-action"
+                                                                      IconName="copy"
+                                                                      VerticalAlignment="Center"
+                                                                      ToolTip.Tip="{loc:Loc SubAgentCopyIdTip}"
+                                                                      Command="{Binding CopyId}" />
                                                 </Grid>
                                             </Button>
                                         </DataTemplate>

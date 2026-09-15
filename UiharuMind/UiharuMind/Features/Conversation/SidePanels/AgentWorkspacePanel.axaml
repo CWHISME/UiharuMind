@@ -41,8 +41,12 @@
                 <Border Classes="status-dot" Tag="{Binding Conversation.RunStatusKey}" />
                 <TextBlock FontSize="12" Text="{loc:Loc AgentStatusRunning}"
                            IsVisible="{Binding Conversation.IsGenerating}" />
+                <!-- 第三档:本会话闲着但名下的后台子代理还没回来。少了它,用户看到的是「空闲」,
+                     而实际上还有活在跑——这正是默认后台化之后的常态 -->
+                <TextBlock FontSize="12" Text="{loc:Loc AgentStatusBackgroundWork}"
+                           IsVisible="{Binding Conversation.HasBackgroundWorkOnly}" />
                 <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
-                           IsVisible="{Binding !Conversation.IsGenerating}" />
+                           IsVisible="{Binding !Conversation.HasPendingWork}" />
             </StackPanel>
             <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
                  换的是当前会话的角色,下一轮发送时装配自然重建。

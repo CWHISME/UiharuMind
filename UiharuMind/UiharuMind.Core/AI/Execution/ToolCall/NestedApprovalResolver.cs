@@ -27,7 +27,13 @@ internal static class NestedApprovalResolver
     /// <summary>
     /// 造一个嵌套审批通道。
     /// </summary>
-    /// <param name="parentResolver">派活者那一轮的回应口；为 null 表示这一跑不进审批轮次</param>
+    /// <param name="attended">
+    /// 有没有人看着这一跑。<b>false 表示这一跑不进审批轮次</b>（无人值守：上游当场拒绝，
+    /// 让它去登记处白等一轮超时毫无意义）。
+    ///
+    /// 从前这里收的是<b>派活者那一轮的回应口</b>，先递给它、接不住才登记。子代理默认后台化之后
+    /// 那一轮在本方法开跑前就已经结束，那条路<b>恒定接不住</b>，于是直接登记（见 ADR 0025）。
+    /// </param>
     /// <param name="sessionId">子会话标识（登记与日志用）</param>
     /// <param name="registry">登记处</param>
     /// <param name="timeout">无人点选时的等待上限，到期按拒绝收口</param>
@@ -37,18 +43,22 @@ internal static class NestedApprovalResolver
     /// 到顶返回空让轮次正常结束，防模型执意重试同一个动作烧轮次。
     /// </param>
     /// <param name="cancellationToken">轮次取消（用户点停止/墙钟超时）时按拒绝收口</param>
-    /// <returns>审批通道；<paramref name="parentResolver"/> 为 null 时同样返回 null</returns>
-    public static ApprovalResolver? Create(ApprovalResolver? parentResolver, string sessionId,
+    /// <param name="onWaiting">
+    /// 开始等人点选时调一次。<b>承重</b>：后台跑着的委派没人盯着那张卡，
+    /// <paramref name="timeout"/> 到期就按拒绝收口、报告里点名没干成——
+    /// 这条提示弹不出来，那次委派基本等于白跑。
+    /// </param>
+    /// <returns>审批通道；<paramref name="attended"/> 为 false 时返回 null</returns>
+    public static ApprovalResolver? Create(bool attended, string sessionId,
         SubSessionApprovalRegistry registry, TimeSpan timeout, int maxDeniedRounds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Action? onWaiting = null)
     {
-        if (parentResolver == null) return null;
+        if (!attended) return null;
 
         int deniedRounds = 0;
         return async requests =>
         {
-            IReadOnlyList<ChatMessage> responses = await parentResolver(requests).ConfigureAwait(false);
-            if (responses.Count > 0 || requests.Count == 0) return responses;
+            if (requests.Count == 0) return [];
 
             if (deniedRounds >= maxDeniedRounds)
             {
@@ -58,6 +68,7 @@ internal static class NestedApprovalResolver
             }
 
             Log.Debug($"Sub-agent turn '{sessionId}' waiting on {requests.Count} nested approval(s).");
+            onWaiting?.Invoke();
             IReadOnlyList<ChatMessage> decisions = await registry
                 .WaitForDecisionsAsync(sessionId, requests, timeout, cancellationToken)
                 .ConfigureAwait(false);

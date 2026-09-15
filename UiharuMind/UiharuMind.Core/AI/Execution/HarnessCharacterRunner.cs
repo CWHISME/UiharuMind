@@ -111,7 +111,6 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             // 同样闭包读字段:handle 会跨轮次复用,而通道每轮新建
             // 闭包读字段:handle 跨轮次复用,而这两样每轮由 TurnDriver 交进来
             isAttendedSource: () => _turnAttended,
-            subAgentApprovalSource: () => _turnApprovalResolver,
             subSessionStarted: (callId, subSessionId) => _activityChannel?.Writer
                 .TryWrite(new SubSessionStartedContent(callId, subSessionId)));
 

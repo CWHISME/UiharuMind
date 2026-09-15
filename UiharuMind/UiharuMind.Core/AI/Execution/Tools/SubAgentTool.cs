@@ -29,15 +29,14 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 /// 然后跑<b>它自己的</b> <see cref="TurnDriver"/>——与定时任务的无头轮次同一套编排。
 /// 于是落盘、续跑、再对话三件事全部沿用会话的既有能力,不另立实体(见 ADR 0021)。
 ///
-/// <b>审批通道</b>:子代理的审批请求冒到派活者<b>这一轮</b>的回应口
-/// (<see cref="ICharacterRunner.SetTurnApprovalResolver"/>)。从前没有这条通道,
-/// 是因为这里跑的是没有回环的裸循环,而不是"同步阻塞做不到"——
-/// <see cref="TurnDriver"/> 的审批回环从头到尾没离开过那次 await。
+/// <b>一律后台执行</b>(见 ADR 0025):工具当场返回一句「已派出、尚无结果」——那是一条合法且
+/// 已配对的工具结果,派活者那一轮照常自洽地封存。子代理跑完之后,结论走
+/// <see cref="Chat.SubAgentReportHandoff"/> 落进父会话历史,再由一轮<b>没有用户消息</b>的
+/// 唤醒轮交给模型。编排归 <see cref="BackgroundSubAgentDispatcher"/>,本类只管跑那一轮。
 ///
-/// 仍然同步阻塞:主 agent 的这次工具调用等子代理跑完才返回。理由见 ADR 0022
-/// (原理由「本地模型单 slot」已失效,现在撑着的是「轮次归属」)。
-/// 阻塞不等于串行:同一回复里派出的多个子代理彼此<b>并行</b>跑,主 agent 等它们全部返回
-/// (<c>AllowConcurrentInvocation</c>,在 <c>AgentAssembler.BuildHandle</c> 打开)。
+/// <b>审批通道</b>:请求登记到 <see cref="ToolCall.SubSessionApprovalRegistry"/>,由子会话窗口
+/// 画出卡片。<b>不再先问派活者那一轮</b>——它在子代理开跑前就结束了,恒定接不住。
+/// 于是那条「有审批在等你」的提示是承重的:<see cref="NestedApprovalTimeout"/> 到期按拒绝收口。
 ///
 /// 不变量:子代理工具集<b>绝不含本工具自身</b>(无限递归),也不含主代理特有的那批
 /// (技能/定时任务/记忆检索);能力取「自己的 ∩ 派活者的」。均由测试钉住。
@@ -90,7 +89,10 @@ public static class SubAgentTool
 
     /// <summary>
     /// 嵌套审批等用户点选的上限。只发生在有人看着时：无人值守上游当场拒绝，轮不到等待。
-    /// 等待期间派活者那一轮同步阻塞（ADR 0022），到期/取消按拒绝收口、轮次继续。
+    /// 到期/取消按拒绝收口、轮次继续，报告里点名哪些活没干成。
+    ///
+    /// ⚠️ 后台化之后<b>没人陪着等</b>了（派活者那一轮早已结束）。这个值刻意维持 5 分钟，
+    /// 代价是那条通知变成承重的——弹不出来，这次委派基本等于白跑。见 ADR 0025。
     /// </summary>
     public static readonly TimeSpan NestedApprovalTimeout = TimeSpan.FromMinutes(5);
 
@@ -117,9 +119,6 @@ public static class SubAgentTool
 
         /// <summary>可点名的子智能体名单;为空则只有通用匿名子代理</summary>
         public required IReadOnlyList<SubAgentChoice> Roster { get; init; }
-
-        /// <summary>派活者本轮的审批回应通道</summary>
-        public Func<ApprovalResolver?>? ApprovalSource { get; init; }
 
         /// <summary>本轮有没有人看着（每轮现取，见 <c>AgentBuildProfile.IsAttendedSource</c>）</summary>
         public Func<bool>? IsAttendedSource { get; init; }
@@ -157,13 +156,11 @@ public static class SubAgentTool
         }
 
         return AIFunctionFactory.Create(
-            async ([Description("The task for the sub-agent: what to find out, over what scope, "
+            ([Description("The task for the sub-agent: what to find out, over what scope, "
                                 + "and what the report should contain.")]
                 string task,
                 [Description("Which sub-agent to delegate to. Omit for a general-purpose one.")]
-                string? agent = null,
-                CancellationToken cancellationToken = default) =>
-                await LaunchAsync(context, task, agent, cancellationToken).ConfigureAwait(false),
+                string? agent = null) => Launch(context, task, agent),
             context.Profile.ToolName,
             description);
     }
@@ -177,13 +174,11 @@ public static class SubAgentTool
     public static AITool CreateContinueTool(LaunchContext context)
     {
         return AIFunctionFactory.Create(
-            async ([Description("The sub-session id returned by a previous delegation.")]
+            ([Description("The sub-session id returned by a previous delegation.")]
                 string subSession,
                 [Description("What to ask the sub-agent next: a follow-up question, "
                              + "a correction, or simply an instruction to continue.")]
-                string message,
-                CancellationToken cancellationToken = default) =>
-                await ContinueAsync(context, subSession, message, cancellationToken).ConfigureAwait(false),
+                string message) => Continue(context, subSession, message),
             ToolContinueName,
             "Continue an earlier sub-agent delegation: send it another message in the same "
             + "sub-session and get an updated report. Use it to follow up on a report, to correct "
@@ -191,8 +186,7 @@ public static class SubAgentTool
             + "The sub-session keeps everything it did before.");
     }
 
-    private static async Task<string> LaunchAsync(LaunchContext context, string task, string? agent,
-        CancellationToken cancellationToken)
+    private static string Launch(LaunchContext context, string task, string? agent)
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: task must not be empty.";
 
@@ -227,11 +221,10 @@ public static class SubAgentTool
         SessionManager.Instance.Add(session);
         NoteStarted(context, session.SessionId);
 
-        return await RunTurnAsync(context, session, task, cancellationToken).ConfigureAwait(false);
+        return DispatchToBackground(context, session, task);
     }
 
-    private static async Task<string> ContinueAsync(LaunchContext context, string subSessionId, string message,
-        CancellationToken cancellationToken)
+    private static string Continue(LaunchContext context, string subSessionId, string message)
     {
         if (string.IsNullOrWhiteSpace(subSessionId)) return "Error: subSession must not be empty.";
         if (string.IsNullOrWhiteSpace(message)) return "Error: message must not be empty.";
@@ -245,7 +238,23 @@ public static class SubAgentTool
         }
 
         NoteStarted(context, session.SessionId);
-        return await RunTurnAsync(context, session, message, cancellationToken).ConfigureAwait(false);
+        return DispatchToBackground(context, session, message);
+    }
+
+    /// <summary>
+    /// 把这次委派转入后台并当场给出工具结果。
+    ///
+    /// <b>「有没有人看着」在此刻定死</b>：<c>IsAttendedSource</c> 是派活者<b>那一轮</b>的
+    /// 现取委托，而那一轮马上就要结束了，跑到一半再问它答案已经不作数。
+    ///
+    /// <b>派活者的审批回应口不再尝试</b>：那一轮已经结束，恒定接不住（见 ADR 0025）。
+    /// 嵌套审批直接登记到子会话，等用户去那边点选。
+    /// </summary>
+    private static string DispatchToBackground(LaunchContext context, ChatSession session, string message)
+    {
+        bool attended = context.IsAttended;
+        return BackgroundSubAgentDispatcher.Dispatch(session,
+            token => RunTurnAsync(session, message, attended, token));
     }
 
     /// <summary>
@@ -262,35 +271,42 @@ public static class SubAgentTool
     /// 在子会话上跑一轮,并把结论收成报告。派活与续跑共用——
     /// 两者的差别只有"会话是新建的还是读回来的"
     /// </summary>
-    private static async Task<string> RunTurnAsync(LaunchContext context, ChatSession session, string message,
+    private static async Task<string> RunTurnAsync(ChatSession session, string message, bool attended,
         CancellationToken cancellationToken)
     {
-        TimeSpan limit = context.IsAttended ? Timeout : UnattendedTimeout;
+        TimeSpan limit = attended ? Timeout : UnattendedTimeout;
         using CancellationTokenSource timeoutSource =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(limit);
 
         SubAgentTurnSink turnSink = new();
         bool timedOut = false;
+        bool stopped = false; //被用户/外部停掉。派活者的令牌回答不了,只有 TurnDriver 知道
         int unansweredClosed = 0; //审批未决封掉的孤儿调用数(正常结束路径用,见下)
         // 委派期间主 agent 那一头是同步阻塞的,日志里不留痕就只剩一段无法解释的沉默——
         // 用户看着像卡死(实际是子代理在跑)。起止各一条,带上子会话标识便于对到那个窗口
         long startedAt = Environment.TickCount64;
         Log.Debug($"Sub-agent turn started: session={session.SessionId} title=\"{session.Title}\"");
         // 嵌套审批的回应口:先问派活者那一轮,接不住时登记到子会话等用户去那边点选(见 NestedApprovalResolver)
-        ApprovalResolver? resolver = NestedApprovalResolver.Create(context.ApprovalSource?.Invoke(),
+        // 派活者那一轮已经结束(工具当场返回了),它的回应口恒定接不住,不再尝试——直接登记到子会话。
+        // 于是那条「有审批在等你」的提示是**承重**的:5 分钟没人点就按拒绝收口(见 ADR 0025)
+        ApprovalResolver? resolver = NestedApprovalResolver.Create(attended,
             session.SessionId, SubSessionApprovalRegistry.Instance, NestedApprovalTimeout,
-            MaxDeniedApprovalRounds, timeoutSource.Token);
+            MaxDeniedApprovalRounds, timeoutSource.Token,
+            () => BackgroundSubAgentDispatcher.Notifier?.Invoke(
+                ESubAgentNotice.ApprovalWaiting, session.SessionId));
 
         try
         {
             await session.Runner.AttachAsync(session, timeoutSource.Token).ConfigureAwait(false);
 
             using TurnDriver driver = new(turnSink, new TurnUsageLedger());
-            // 令牌要串进去:派活者窗口的停止按钮取消的是派活者那一轮,
-            // 不串的话子代理照跑不误(超时也掐不动它)
+            // 令牌串的是本次委派自己的超时源。停止走 TurnDriver.CancelSession(子会话标识),
+            // 它取消的是 driver 内部那个链接源——所以「有没有被停」只能问 driver,
+            // 问我们手里这个令牌永远得到"没有"(见 TurnDriver.WasCancelled)
             await driver.RunAsync(session, session.Runner, new ChatMessage(ChatRole.User, message),
                 resolver, timeoutSource.Token).ConfigureAwait(false);
+            stopped = driver.WasCancelled && !timeoutSource.IsCancellationRequested;
 
             // 兜底网:正常结束时理论上不应再有孤儿(嵌套审批已按拒绝收口),
             // 留着防其他漏网路径。先封再总结:总结那一轮要看到"没跑成",
@@ -300,13 +316,20 @@ public static class SubAgentTool
 
             // 代码兜底:模型以工具调用结束、之后没产出文本(没写收尾总结)。
             // 提示层硬约束挡住大多数,这里兜漏网的——追加一轮"请总结"让模型补上报告
-            if (turnSink.Report.NeedsSummary && !timeoutSource.Token.IsCancellationRequested)
+            // 被停掉时**不追加这一轮**:那是一条自动发给子代理的「请总结」,
+            // 用户刚按下停止,紧接着又让它跑一轮,既违背那一下的意思,也会把报告变成一份
+            // 看起来完整的总结,主 agent 更难看出这次委派没干完。
+            // 守卫不能只看 timeoutSource:CancelSession 取消的是 driver 内部那个令牌,
+            // 这一个一动不动(见 TurnDriver.WasCancelled)
+            if (turnSink.Report.NeedsSummary && !stopped && !timeoutSource.Token.IsCancellationRequested)
             {
                 using TurnDriver summaryDriver = new(turnSink, new TurnUsageLedger());
+                //总结那一轮也可能被停,别把半截总结当成完整报告
                 await summaryDriver.RunAsync(session, session.Runner,
                         new ChatMessage(ChatRole.User, "请用一段话总结你的发现和结论，作为最终报告。"),
                         resolver, timeoutSource.Token)
                     .ConfigureAwait(false);
+                stopped |= summaryDriver.WasCancelled && !timeoutSource.IsCancellationRequested;
 
                 // 总结那一轮同样可能撞上审批未决(同一条断路),再封一次——无孤儿时是空操作
                 unansweredClosed += ToolCallCancellation.CloseUnansweredAtTail(session,
@@ -315,8 +338,11 @@ public static class SubAgentTool
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            // 只有超时才在此收口(外层取消是用户点了停止,应当继续向上抛)
-            timedOut = true;
+            // 撞在 TurnDriver 之外的取消(挂接阶段等)。分清是哪一种:只有本次委派自己的
+            // 墙钟超时才算超时,否则是外部停止——两者在报告里的措辞完全不同,
+            // 混成「超时」会让主 agent 以为是意外而不是用户的决定
+            timedOut = timeoutSource.IsCancellationRequested;
+            stopped = !timedOut;
         }
         finally
         {
@@ -326,7 +352,7 @@ public static class SubAgentTool
         }
 
         string report = turnSink.Report.Build(timedOut, limit, session.SessionId,
-            cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
+            stopped || cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
         if (unansweredClosed > 0)
         {
             // 有调用因审批未决根本没跑成,必须点名——否则主 agent 会把没干的活当成干完了
@@ -334,7 +360,7 @@ public static class SubAgentTool
                       + "their approvals were not answered before the turn ended. "
                       + "Do not assume that work was done.)";
         }
-        string outcome = timedOut ? "timed out" : cancellationToken.IsCancellationRequested ? "stopped" : "done";
+        string outcome = timedOut ? "timed out" : stopped || cancellationToken.IsCancellationRequested ? "stopped" : "done";
         Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
                   + $"elapsed={(Environment.TickCount64 - startedAt) / 1000}s report={report.Length} chars");
         return report;
@@ -499,13 +525,17 @@ public static class SubAgentTool
                 result.Append($"(sub-agent stopped: exceeded its {limit.TotalMinutes:0} minute time limit)");
             }
 
-            // 被用户中止与超时是两回事:前者意味着还能接着跑(历史已由 ToolCallCancellation 封口),
-            // 不说清楚主 agent 会把半截当成结论
+            // 被用户中止与超时是两回事:后者是意外,前者是**用户的决定**。
+            // 只说「还能接着跑」不够——实机见过主 agent 读完就自己重新派了一个,
+            // 等于把用户刚按下的停止撤销掉
             if (stoppedByUser)
             {
                 result.AppendLine();
-                result.Append("(sub-agent stopped: the user interrupted it. "
-                              + "Its sub-session is intact and can be continued.)");
+                result.Append("(sub-agent stopped: the USER deliberately interrupted it. "
+                              + "This was their decision, not a failure. Do NOT re-dispatch this task, "
+                              + "and do NOT work around it by doing the work yourself. "
+                              + "Report that it was stopped and ask what they want to do next. "
+                              + "The sub-session is intact if they ask you to resume it.)");
             }
 
             // 用户插话改变了这次委派的性质,主 agent 该知道自己拿到的不全是它自己要的东西

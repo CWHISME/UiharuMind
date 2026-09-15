@@ -104,6 +104,29 @@ public sealed class SessionRunRegistry
     public IDisposable BeginRun(string? sessionId) => new Scope(this, sessionId, _runs);
 
     /// <summary>
+    /// 只有这个会话此刻<b>完全空闲</b>时才标记一轮开始；已经有轮次（或卡在审批上）就返回 null。
+    ///
+    /// 「查一下忙不忙，不忙就开跑」写成两步是有竞态的：查与开之间用户正好发了一条，
+    /// 两轮就并行起来了。<b>唤醒轮</b>必须走这一条——它是给用户让路的那一方，
+    /// 而它与用户那一轮共用会话本体、执行者与转录器。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>抢到了返回结束标记用的作用域；已经有轮次在跑返回 null</returns>
+    public IDisposable? TryBeginRun(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return null;
+        lock (_locker)
+        {
+            if (_runs.ContainsKey(sessionId) || _approvals.ContainsKey(sessionId)) return null;
+            //在同一把锁里占住,查与占之间没有窗口
+            _runs[sessionId] = 1;
+        }
+
+        StateChanged?.Invoke(sessionId);
+        return new Scope(this, sessionId, _runs, alreadyCounted: true);
+    }
+
+    /// <summary>
     /// 标记一轮开始等待工具审批，<see cref="IDisposable.Dispose"/> 时结束等待。
     /// 嵌在 <see cref="BeginRun"/> 的作用域内部使用
     /// </summary>
@@ -141,12 +164,19 @@ public sealed class SessionRunRegistry
         private readonly Dictionary<string, int> _counters;
         private bool _released;
 
-        public Scope(SessionRunRegistry owner, string? sessionId, Dictionary<string, int> counters)
+        /// <param name="owner">登记处</param>
+        /// <param name="sessionId">会话标识</param>
+        /// <param name="counters">计数表</param>
+        /// <param name="alreadyCounted">
+        /// 调用方已经在自己那把锁里加过一次了（<see cref="TryBeginRun"/>），这里只负责减回去
+        /// </param>
+        public Scope(SessionRunRegistry owner, string? sessionId, Dictionary<string, int> counters,
+            bool alreadyCounted = false)
         {
             _owner = owner;
             _sessionId = sessionId;
             _counters = counters;
-            if (!string.IsNullOrEmpty(sessionId)) owner.Increase(sessionId, counters);
+            if (!alreadyCounted && !string.IsNullOrEmpty(sessionId)) owner.Increase(sessionId, counters);
         }
 
         public void Dispose()

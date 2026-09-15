@@ -51,8 +51,19 @@ public static class SubAgentReportHandoff
     /// 把子会话最新的结论交回派活者
     /// </summary>
     /// <param name="subSession">子会话</param>
+    /// <param name="interruption">
+    /// 这次交回是<b>被中止</b>的（进程退出时后台委派还没跑完）。非空时即使子会话里一个字都没有
+    /// 也要交回——「它没干完」本身就是派活者必须知道的事，否则父会话里那条「已派出」永远没有下文。
+    /// </param>
+    /// <param name="conclusion">
+    /// 要交回的结论正文。<b>后台委派必须给这一份</b>：委派跑完时攒出来的报告带着
+    /// 「用户中止了」「超时了」「有几个调用因审批未决没跑成」这些注记，而从子会话历史里
+    /// 现捞「最后一段助手正文」把它们全丢了——主 agent 于是把没干完的活当成干完了。
+    /// 为空时才回落到现捞（用户手动点「交回主 agent」走的就是那条）。
+    /// </param>
     /// <returns>交回结果</returns>
-    public static EHandoffOutcome Submit(ChatSession subSession)
+    public static EHandoffOutcome Submit(ChatSession subSession, string? interruption = null,
+        string? conclusion = null)
     {
         if (!subSession.IsSubSession) return EHandoffOutcome.NotASubSession;
 
@@ -61,12 +72,13 @@ public static class SubAgentReportHandoff
         // 派活者正在跑时不写:那一轮的历史由框架逐次服务调用追加,此刻插一条进去会与它交错
         if (SessionManager.Instance.Running.IsBusy(parent.SessionId)) return EHandoffOutcome.ParentBusy;
 
-        string conclusion = LastAssistantText(subSession);
-        if (conclusion.Length == 0) return EHandoffOutcome.NothingToReport;
+        conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
+        if (conclusion.Length == 0 && interruption == null) return EHandoffOutcome.NothingToReport;
 
         (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId);
 
-        ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace);
+        ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace,
+            interruption);
         if (replaceInPlace)
         {
             ChatMessage superseded = parent.History[existing];
@@ -132,21 +144,35 @@ public static class SubAgentReportHandoff
     /// 组装交回的那条消息。措辞必须<b>显式指回哪次委派</b>——派活者历史里往往已经躺着
     /// 一条矛盾的前情（那份半截报告说"没结论"），模型得看得出时序与归属
     /// </summary>
-    private static ChatMessage BuildMessage(ChatSession subSession, string conclusion, bool supersedes)
+    private static ChatMessage BuildMessage(ChatSession subSession, string conclusion, bool supersedes,
+        string? interruption)
     {
+        if (interruption != null)
+        {
+            string tail = conclusion.Length > 0
+                ? $"以下是它中止前已有的进展：\n\n{conclusion}"
+                : "它没有产出任何结论。**不要把这次委派当成已完成。**";
+            return Annotate(subSession,
+                $"你先前那次委派——子会话 `{subSession.SessionId}`（{subSession.Title}）"
+                + $"——{interruption}。{tail}");
+        }
+
         string head = supersedes
             ? $"以下是子会话 `{subSession.SessionId}`（{subSession.Title}）的**进一步结论**，"
               + "它修正了先前那份后续报告："
             : $"以下是你先前那次委派——子会话 `{subSession.SessionId}`（{subSession.Title}）"
               + "——在工具调用结束之后产出的**后续结论**：";
 
-        ChatMessage message = new(ChatRole.User, $"{head}\n\n{conclusion}")
+        return Annotate(subSession, $"{head}\n\n{conclusion}");
+    }
+
+    /// <summary>盖上后续报告标记：带它的消息要落盘、要供给模型，只是渲染成旁白那一套</summary>
+    private static ChatMessage Annotate(ChatSession subSession, string text) =>
+        new(ChatRole.User, text)
         {
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
                 [ChatMessageAnnotations.SubAgentReport] = subSession.SessionId,
             },
         };
-        return message;
-    }
 }

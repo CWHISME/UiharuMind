@@ -93,13 +93,6 @@ public class AgentBuildProfile
     public Func<bool>? IsAttendedSource { get; init; }
 
     /// <summary>
-    /// 本轮的审批回应取得方式。由执行者提供，指向<b>派活者这一轮</b>的审批通道——
-    /// 子代理跑自己的轮次时要用同一条，否则它产出的审批请求没人回应。
-    /// 无人值守（定时任务）时指向「一律拒绝」那一份。为空表示不进入审批轮次。
-    /// </summary>
-    public Func<ApprovalResolver?>? SubAgentApprovalSource { get; init; }
-
-    /// <summary>
     /// 本次装配面对的模型：会话绑定的优先，回落全局当前模型。
     /// 与 <c>LazyChatClient</c> 同一解析次序——识图工具挂不挂由它定，
     /// <see cref="AgentAssemblyFacts"/> 与 <see cref="AgentAssemblyPlan"/> 都读这一份。
@@ -135,7 +128,6 @@ public class AgentBuildProfile
         Func<MemoryData?>? sessionKnowledgeSource = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         Func<bool>? isAttendedSource = null,
-        Func<ApprovalResolver?>? subAgentApprovalSource = null,
         Action<string, string>? subSessionStarted = null)
     {
         return new AgentBuildProfile
@@ -154,7 +146,6 @@ public class AgentBuildProfile
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,
             IsAttendedSource = isAttendedSource,
-            SubAgentApprovalSource = subAgentApprovalSource,
             SubSessionStarted = subSessionStarted,
         };
     }

@@ -3152,4 +3152,22 @@ Allow them?</value>
     <data name="ClipboardTooltipMore" xml:space="preserve">
         <value>… ({0} chars in total)</value>
     </data>
+    <data name="SubAgentApprovalWaiting" xml:space="preserve">
+        <value>A background sub-agent needs your approval</value>
+    </data>
+    <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
+        <value>Open the sub-agent panel to decide. It is denied automatically if nobody answers.</value>
+    </data>
+    <data name="SubAgentLongRunning" xml:space="preserve">
+        <value>A sub-agent has been running for a long time</value>
+    </data>
+    <data name="AgentStatusBackgroundWork" xml:space="preserve">
+        <value>Sub-agents still working</value>
+    </data>
+    <data name="ToolCallAwaitingReport" xml:space="preserve">
+        <value>running in background</value>
+    </data>
+    <data name="SubAgentCopyIdTip" xml:space="preserve">
+        <value>Copy this delegation id, so you can ask the agent to resume this exact sub-agent</value>
+    </data>
 </root>

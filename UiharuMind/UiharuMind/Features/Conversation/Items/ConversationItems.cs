@@ -311,10 +311,13 @@ public partial class ToolCallItem : ConversationItemBase
     [ObservableProperty] private bool _isSuccess = true;
 
     /// <summary>
-    /// 派出去的子代理正在等用户去子会话点审批（状态取自运行态登记处，按 <see cref="SubSessionId"/> 对上）。
-    /// 跑圈照转（调用还没返回），另挂这一句免得盯着父会话的用户干等。
+    /// <b>已派出 / 结果待回</b>：这次委派转入后台跑着，工具调用本身早就返回了。
+    ///
+    /// 光看调用有没有结果不够——委派默认后台执行之后，卡片在派出后一秒内就拿到结果，
+    /// 于是显示成「成功」，而子代理还要跑好几分钟（实测中位数 3 分钟）。
+    /// 这一档 ADR 0021 就预付过（「不要设计成三态」），ADR 0025 把它用起来。
     /// </summary>
-    [ObservableProperty] private bool _isWaitingApproval;
+    [ObservableProperty] private bool _isAwaitingReport;
     [ObservableProperty] private string _resultText = string.Empty;
     [ObservableProperty] private bool _isExpanded;
 

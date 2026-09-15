@@ -7,8 +7,11 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Linq;
+using System.Text;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.History;
@@ -39,6 +42,10 @@ public static class HistoryHandoff
     private const double NoteBudgetRatio = 0.1; //交接文档自己占输入预算的比例
     private const int MinNoteTokens = 400;
     private const int MaxNoteTokens = 8000;
+    // 委派清单里每条摘要的篇幅。10 条 × 160 字 ≈ 1600 字,在交接文档自己的预算里是小头,
+    // 而这正是模型判断「该不该续这一个」的唯一依据——截太狠等于整段白写
+    private const int SubSessionSummaryChars = 160;
+
     private const int CharsPerToken = 2; //中英混排的保守估计:英文约 4、中文约 1.5,取 2 不至于让模型写超
 
     /// <summary>
@@ -103,6 +110,55 @@ public static class HistoryHandoff
     /// </summary>
     /// <param name="note">文档正文</param>
     /// <returns>可直接写进历史的消息</returns>
+    /// <summary>
+    /// 这个会话派出过的委派清单，<b>确定性追加</b>在交接文档正文之后。
+    ///
+    /// 存在的理由很窄：<c>ContinueSubAgent</c> 要子会话编号才能用，而编号只出现在回执与报告里
+    /// ——那些正是压缩要吃掉的东西。不补这一段，压缩之后「续跑上一次委派」这个能力就<b>够不着了</b>，
+    /// 模型只能重新派一个，把子代理攒下的上下文全丢掉。
+    ///
+    /// <b>不写进给模型的指令里让它自己带</b>：一长串十六进制编号正是摘要最先丢掉的东西。
+    /// 这里从会话索引现算，与模型写了什么无关；也因此每次压缩都重算一遍，二次压缩同样丢不掉。
+    /// </summary>
+    /// <param name="subSessions">该会话派出过的子会话，最近的在前</param>
+    /// <param name="max">最多列几条（老的那些用户多半会重新描述而不是点名续跑）</param>
+    /// <returns>要追加的段落；没有委派时为空串</returns>
+    public static string BuildSubSessionRoster(IReadOnlyList<ChatSessionMeta> subSessions, int max = 10)
+    {
+        if (subSessions.Count == 0) return string.Empty;
+
+        StringBuilder roster = new();
+        roster.AppendLine();
+        roster.AppendLine("Earlier delegations in this session (pass the id to "
+                          + $"`{SubAgentTool.ToolContinueName}` to resume one instead of dispatching a fresh "
+                          + "sub-agent, which would lose everything it already worked out):");
+        foreach (ChatSessionMeta meta in subSessions.Take(max))
+        {
+            // 还在跑的那些要单独标出来——续跑一个没跑完的与续跑一个已经交回结论的,是两件事
+            string state = meta.BackgroundReportPending ? " [still running]" : string.Empty;
+            roster.AppendLine($"- {meta.SessionId} - {Summarize(meta)}{state}");
+        }
+
+        return roster.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// 一次委派在清单里的那一行摘要。
+    ///
+    /// 取 <see cref="ChatSessionMeta.Description"/>（派活时的<b>任务原文</b>）而不是
+    /// <see cref="ChatSessionMeta.Title"/>：后者是界面用的，首行截到 40 字，
+    /// 实测经常看不出这次委派到底干什么——而模型要判断的正是「该不该续这一个」。
+    /// 多行压成一行：清单一项占一行，换行会把它冲散。
+    /// </summary>
+    private static string Summarize(ChatSessionMeta meta)
+    {
+        string task = string.IsNullOrWhiteSpace(meta.Description) ? meta.Title : meta.Description;
+        task = string.Join(' ', task.Split('\n', '\r', '\t')
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0));
+        return task.Length <= SubSessionSummaryChars ? task : task[..SubSessionSummaryChars] + "…";
+    }
+
     public static ChatMessage CreateNote(string note)
     {
         return new ChatMessage(ChatRole.System, $"[{Title}]\n{note}")

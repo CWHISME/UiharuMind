@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
@@ -81,7 +82,7 @@ public class ConversationItemActionsDeletionTests
         public Task<EConfirmChoice> ConfirmWithCancelAsync(string message, string? title = null,
             System.Threading.CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);
         public void ShowNotification(string message, string? title = null,
-            MessageSeverity severity = MessageSeverity.Information) { }
+            MessageSeverity severity = MessageSeverity.Information, TimeSpan? duration = null) { }
     }
 
     private static ChatSession TransientSession()

@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Shared.Services;
 using UiharuMind.Features.Conversation.Pages;
 
@@ -102,6 +103,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionMetaUpdated += OnSessionMetaUpdated;
         SessionManager.Instance.OnSessionDraftChanged += OnSessionDraftChanged;
         SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
+        BackgroundSubAgentDispatcher.PendingWorkChanged += OnRunStateChanged;
     }
 
     //================= 同步 =================
@@ -240,6 +242,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionMetaUpdated -= OnSessionMetaUpdated;
         SessionManager.Instance.OnSessionDraftChanged -= OnSessionDraftChanged;
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
+        BackgroundSubAgentDispatcher.PendingWorkChanged -= OnRunStateChanged;
         foreach (SessionListItem item in Sessions) Detach(item);
     }
 

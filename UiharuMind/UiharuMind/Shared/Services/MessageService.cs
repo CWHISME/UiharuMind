@@ -94,11 +94,12 @@ public sealed class MessageService : IMessageService, IDisposable
     public void ShowNotification(
         string message,
         string? title = null,
-        MessageSeverity severity = MessageSeverity.Information)
+        MessageSeverity severity = MessageSeverity.Information,
+        TimeSpan? duration = null)
     {
         if (_disposed || string.IsNullOrWhiteSpace(message)) return;
         Dispatcher.UIThread.Post(() => EnqueueNotification(
-            new NotificationRequest(title ?? GetDefaultTitle(severity), message, severity)));
+            new NotificationRequest(title ?? GetDefaultTitle(severity), message, severity, duration)));
     }
 
     private Task<MessageBoxResult> EnqueueDialogAsync(
@@ -230,7 +231,7 @@ public sealed class MessageService : IMessageService, IDisposable
             request.Severity,
             CloseNotification);
         _notifications.Add(notification);
-        notification.Start(GetNotificationDuration(request.Severity));
+        notification.Start(request.Duration ?? GetNotificationDuration(request.Severity));
         _notificationWindow!.ShowOrReposition();
     }
 
@@ -355,10 +356,12 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
+    /// <param name="Duration">停留时长；为空按 <see cref="MessageSeverity"/> 取默认</param>
     private sealed record NotificationRequest(
         string Title,
         string Message,
-        MessageSeverity Severity);
+        MessageSeverity Severity,
+        TimeSpan? Duration = null);
 
     private sealed class DialogRequest
     {

@@ -34,6 +34,7 @@ public sealed class LiveTurnStream
     private readonly List<AIContent> _pending = new(); //本轮已产出、尚未落盘的那一段
     private ITurnSink? _primary; //本轮的驱动落点(没有观察者时它就是全部)
     private bool _turnRunning;
+    private Scope? _currentScope; //当前这一轮的作用域。重叠时靠它认领,免得先结束的那一轮拆掉后开的
 
     /// <summary>
     /// 本轮的内容流结束了（正常跑完、失败、被停止，都算）。
@@ -90,14 +91,26 @@ public sealed class LiveTurnStream
     /// <returns>本轮作用域，其 <see cref="Scope.Sink"/> 即驱动者该用的落点</returns>
     public Scope BeginTurn(ITurnSink? primary)
     {
+        Scope scope = new(this);
         lock (_gate)
         {
+            if (_turnRunning)
+            {
+                // 同一个会话上两轮重叠了。这是设计内允许的(SessionRunRegistry 的注释明说
+                // 「界面那一轮与无头那一轮会在执行者的闸门上排队」),但本类只有一份 _primary
+                // 与一份待补发缓冲——新的一轮只能接管。真正要挡住的是**旧作用域释放时
+                // 把新的一轮拆掉**,那由 _currentScope 认领(见 Scope.Dispose)。
+                // 留一条日志:两轮重叠时插话气泡与提示条会错位,查起来没有别的线索
+                Log.Warning("Live turn overlapped on this session; the newer turn takes over the stream.");
+            }
+
+            _currentScope = scope;
             _primary = primary;
             _pending.Clear();
             _turnRunning = true;
         }
 
-        return new Scope(this);
+        return scope;
     }
 
     /// <summary>
@@ -210,6 +223,12 @@ public sealed class LiveTurnStream
             lock (_owner._gate)
             {
                 if (!_owner._turnRunning) return; //重复释放不再广播
+                // 两轮重叠时,先结束的那一轮**不能**把后开的那一轮拆掉:拆了之后
+                // 后者产出的内容(含插话的 UserMessageContent)会落进一个已经清空的落点,
+                // 表现就是气泡错位、输入框顶上那条「等待插话」再也撤不掉
+                if (!ReferenceEquals(_owner._currentScope, this)) return;
+
+                _owner._currentScope = null;
                 _owner._turnRunning = false;
                 _owner._primary = null;
                 _owner._pending.Clear();

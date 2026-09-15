@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Characters;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
@@ -192,8 +193,17 @@ public partial class SessionListItem : ObservableObject
     public void RefreshRunState()
     {
         ESessionRunState state = SessionManager.Instance.Running.StateOf(SessionId);
-        IsAwaitingApproval = state == ESessionRunState.AwaitingApproval;
-        IsRunning = state == ESessionRunState.Running;
+        // 名下的后台子代理卡在审批上时,父会话这一行也要挂出来:子会话不进左栏,
+        // 用户在左栏唯一能看见的就是这一行
+        IsAwaitingApproval = state == ESessionRunState.AwaitingApproval
+                             || BackgroundSubAgentDispatcher.HasApprovalWaiting(SessionId);
+        // 后台子代理跑在**自己的**会话标识上,只看本会话的运行态会把「名下还有活在跑」
+        // 显示成空闲——而委派默认后台化之后那才是常态(见 CONTEXT.md「未了结的工作」)。
+        //
+        // 与 IsAwaitingApproval **刻意不互斥**:名下有三个委派在跑、其中一个在等你批,
+        // 这是两件正交的事,都要说。叠加由布局负责(橙点压在转圈之上,见 SessionListView.axaml)
+        IsRunning = state == ESessionRunState.Running
+                    || BackgroundSubAgentDispatcher.HasPendingWork(SessionId);
         DeleteCommand.NotifyCanExecuteChanged();
         ClearChatHistoryCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(BusyTip));
@@ -207,9 +217,13 @@ public partial class SessionListItem : ObservableObject
         : LocalizationManager.Instance.GetString("SessionBusyCannotModify");
 
     /// <summary>
-    /// 删除与清空历史是否可用。跑的过程中不行：它们会跟正在追写历史的那一轮抢文件
+    /// 删除与清空历史是否可用。跑的过程中不行：它们会跟正在追写历史的那一轮抢文件。
+    ///
+    /// <b>名下有后台子代理没交回时同样不行</b>：删父会话是级联删子会话的，
+    /// 而那一个可能正跑着；报告交回时还要往这份历史里追写一条。
     /// </summary>
-    public bool CanMutateFiles => !SessionManager.Instance.Running.IsBusy(SessionId);
+    public bool CanMutateFiles => !SessionManager.Instance.Running.IsBusy(SessionId)
+                                  && !BackgroundSubAgentDispatcher.HasPendingWork(SessionId);
 
     //================= 条目级操作 =================
 

@@ -294,7 +294,6 @@ internal static class SubAgentAssembly
             Roster = roster,
             IsAttendedSource = profile.IsAttendedSource,
             SubSessionStarted = profile.SubSessionStarted,
-            ApprovalSource = profile.SubAgentApprovalSource,
         };
     }
 

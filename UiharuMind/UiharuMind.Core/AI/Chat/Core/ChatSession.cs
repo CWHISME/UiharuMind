@@ -85,6 +85,15 @@ public class ChatSession
     /// </summary>
     public string SubAgentName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 这个子会话是<b>后台派出、报告还没交回</b>。仅子会话有意义。
+    ///
+    /// 必须落盘：进程被杀时它就是「父会话里那条『已派出』永远等不到下文」的唯一线索，
+    /// 启动时据此扫描收口（往父会话落一条「因退出而中止」）。进程内它还是唤醒排队的依据。
+    /// 见 [ADR 0025]。
+    /// </summary>
+    public bool BackgroundReportPending { get; set; }
+
     /// <summary>会话累计输入 token（响应 usage 不随消息持久化，累计值记在本体上）</summary>
     public long TotalInputTokens { get; set; }
 
@@ -420,6 +429,7 @@ public class ChatSession
             ParentSessionId = ParentSessionId,
             SubAgentType = SubAgentType,
             SubAgentName = SubAgentName,
+            BackgroundReportPending = BackgroundReportPending,
         };
     }
 

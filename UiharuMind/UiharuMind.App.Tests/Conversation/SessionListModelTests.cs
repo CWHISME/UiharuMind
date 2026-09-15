@@ -1,3 +1,4 @@
+using System;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Services;
@@ -484,7 +485,7 @@ public class SessionListModelTests
             CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);
 
         public void ShowNotification(string message, string? title = null,
-            MessageSeverity severity = MessageSeverity.Information)
+            MessageSeverity severity = MessageSeverity.Information, TimeSpan? duration = null)
         {
         }
     }

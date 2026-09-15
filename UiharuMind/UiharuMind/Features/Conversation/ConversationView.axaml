@@ -267,6 +267,22 @@
                                Text="{loc:Loc ChatImageUnreadableWarning}"
                                IsVisible="{Binding IsImageUnreadableWarningVisible}" />
                 </StackPanel>
+                <!-- 有子代理在等审批。**位置固定**是它存在的全部理由:通知会飘走、
+                     工具卡跑几十轮就滚没了,而审批到期会按拒绝收口、那次委派白跑。
+                     点一下直达第一个在等的子会话;没有在等的就整条消失 -->
+                <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="2,0,2,4"
+                        Command="{Binding OpenApprovalWaitingCommand}"
+                        IsVisible="{Binding HasApprovalWaiting}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Classes="status-dot" Tag="Warning" />
+                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SemiOrange5}"
+                                   Text="{loc:Loc SubAgentApprovalWaiting}" />
+                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SemiOrange5}"
+                                   Text="{Binding ApprovalWaitingCount}" />
+                    </StackPanel>
+                </Button>
                 <!-- 待发的插话:已入注入队列、模型还没消费。它们不进时间轴(位置要等消费那一刻才定),
                      不列出来的话看着像没发出去 -->
                 <ItemsControl ItemsSource="{Binding PendingInterjections}"
@@ -466,13 +482,10 @@
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="6"
                                     VerticalAlignment="Center">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
-                            <!-- 只有别处驱动那一轮才有文案:自己跑着的时候正文正在往外冒,
-                                 再挂一行字是废话。窄窗口下截断,不许把按钮挤出去 -->
-                            <TextBlock Classes="muted" VerticalAlignment="Center" MaxWidth="140"
-                                       TextTrimming="CharacterEllipsis"
-                                       Text="{Binding RunStateLabel}"
-                                       ToolTip.Tip="{Binding RunStateLabel}"
-                                       IsVisible="{Binding RunStateLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            <!-- 这里曾经有一句「别处正在运行」。删了:唤醒轮之后它变成了常态
+                                 (主 agent 那一轮由后台驱动,而用户正看着的就是这个会话),
+                                 于是一句本意为"它在别的窗口跑"的话变成了对着本窗口说的废话。
+                                 IsExternallyDriven 仍然保留——停止按钮与「打字走插话还是走发送」靠它 -->
                             <ThemedIconButton IconName="stop"
                                               CurrentColor="Red"
                                               Command="{Binding StopSendingCommand}"

@@ -556,13 +556,35 @@ public class ConversationTranscriptTests
     public void TakeRoundApprovals_EmptiesRoundButKeepsPending()
     {
         var (transcript, _) = Create();
-        transcript.Apply(new ToolApprovalRequestContent("r", new FunctionCallContent("c", "run_shell", null)));
+        ToolApprovalRequestContent request = new("r", new FunctionCallContent("c", "run_shell", null));
+        transcript.Apply(request);
 
-        IReadOnlyList<ApprovalRequestItem> round = transcript.TakeRoundApprovals();
+        IReadOnlyList<ApprovalRequestItem> round = transcript.TakeRoundApprovals([request]);
 
         Assert.Single(round);
         Assert.Single(transcript.PendingApprovals);
-        Assert.Empty(transcript.TakeRoundApprovals()); //第二次取为空
+        Assert.Empty(transcript.TakeRoundApprovals([request])); //第二次取为空
+    }
+
+    /// <summary>
+    /// 只领自己那一批：同一会话上可能同时有两轮在跑（用户那一轮与后台委派回来时起的唤醒轮
+    /// 共用这一个转录器）。无脑抽干会把别人那一轮的卡片领走，让那一轮的工具调用
+    /// 永远没有结果地留在历史里——实机踩到过，所以钉住
+    /// </summary>
+    [Fact]
+    public void TakeRoundApprovals_LeavesOtherTurnsRequestsAlone()
+    {
+        var (transcript, _) = Create();
+        ToolApprovalRequestContent mine = new("r1", new FunctionCallContent("c1", "run_shell", null));
+        ToolApprovalRequestContent theirs = new("r2", new FunctionCallContent("c2", "write_file", null));
+        transcript.Apply(mine);
+        transcript.Apply(theirs);
+
+        IReadOnlyList<ApprovalRequestItem> round = transcript.TakeRoundApprovals([mine]);
+
+        Assert.Same(mine, Assert.Single(round).Request);
+        //别人那一批还在,轮得到它自己来取
+        Assert.Same(theirs, Assert.Single(transcript.TakeRoundApprovals([theirs])).Request);
     }
 
     [Fact]

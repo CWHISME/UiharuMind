@@ -28,6 +28,7 @@ using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
@@ -272,6 +273,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool IsGenerating => _isPreparing || _driver.IsRunning || IsExternallyDriven;
 
     /// <summary>
+    /// 本会话名下还有<b>未了结的工作</b>：自己这一轮，或者名下还没交回报告的后台子代理。
+    ///
+    /// ⚠️ 它<b>不是</b> <see cref="IsGenerating"/>，两者不可合并（见 CONTEXT.md「未了结的工作」）。
+    /// 这一个只驱动指示器；<see cref="IsGenerating"/> 还管着停止按钮与「打字走插话还是走发送」，
+    /// 而后台子代理跑着时主 agent 那一轮<b>已经结束、没有轮次可插</b>——拿它去点亮忙碌，
+    /// 用户打的字会进注入队列，一直等到几分钟后的唤醒轮才被消费。
+    /// </summary>
+    public bool HasPendingWork => IsGenerating
+                                  || BackgroundSubAgentDispatcher.HasPendingWork(CurrentMeta?.SessionId);
+
+    /// <summary>
     /// 已投入注入队列、模型还没消费的插话。它们不在时间轴上——位置要等消费那一刻才定——
     /// 所以在输入区上方列出来，免得看着像没发出去。
     /// </summary>
@@ -296,7 +308,46 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         !_driver.IsRunning && SessionManager.Instance.Running.IsBusy(CurrentMeta?.SessionId);
 
     /// <summary>运行态指示点的配色键（status-dot 样式按 Tag 选色）</summary>
-    public string RunStatusKey => IsGenerating ? "Ready" : "Idle";
+    /// <summary>
+    /// 状态点配色键。三档而不是两档：本会话闲着、但名下还有后台子代理没交回报告，
+    /// 既不是「在跑」也不是「空」——用户此刻要知道的正是这一档（见 CONTEXT.md「未了结的工作」）
+    /// </summary>
+    public string RunStatusKey => IsGenerating ? "Ready" : HasBackgroundWorkOnly ? "Progress" : "Idle";
+
+    /// <summary>本会话这一轮没在跑，但名下还有后台子代理没交回报告</summary>
+    public bool HasBackgroundWorkOnly => !IsGenerating && HasPendingWork;
+
+    /// <summary>
+    /// 名下有几个后台子代理卡在审批上等人点选。
+    ///
+    /// 这是<b>报警</b>，所以它的载体是输入区上方那条<b>位置固定</b>的横幅：滚多少轮都在、
+    /// 点一下直达、没有在等的就整条消失。从前挂在工具卡上，而那张卡跑几十轮就滚没了
+    /// ——通知又只停留一会儿。见 ADR 0025。
+    /// </summary>
+    public int ApprovalWaitingCount =>
+        BackgroundSubAgentDispatcher.ApprovalWaiting(CurrentMeta?.SessionId).Count;
+
+    /// <summary>有没有子代理在等审批（横幅据此显隐）</summary>
+    public bool HasApprovalWaiting => ApprovalWaitingCount > 0;
+
+    /// <summary>
+    /// 打开第一个在等审批的子会话。
+    ///
+    /// 只开第一个而不是列出全部：等审批是有时限的（到期按拒绝收口），
+    /// 用户要的是「马上处理掉一个」，处理完横幅自己会指向下一个。
+    /// </summary>
+    [RelayCommand]
+    private void OpenApprovalWaiting()
+    {
+        IReadOnlyList<string> waiting = BackgroundSubAgentDispatcher.ApprovalWaiting(CurrentMeta?.SessionId);
+        if (waiting.Count > 0) SubSessionWindowOpener.Open(waiting[0]);
+    }
+
+    private void NotifyApprovalWaitingChanged()
+    {
+        OnPropertyChanged(nameof(ApprovalWaitingCount));
+        OnPropertyChanged(nameof(HasApprovalWaiting));
+    }
 
     /// <summary>
     /// 本会话此刻卡在什么具名的事情上。两个来源合并成一处：整理交接文档在驱动那一层，
@@ -320,13 +371,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _ => string.Empty,
     };
 
-    /// <summary>
-    /// 转圈旁边那行字。<b>只在别处驱动时有</b>：子会话窗口里一段时间不动看着就像卡死了，
-    /// 得明说「它在跑，只是不归这个窗口驱动」。自己驱动时不写——正文正在往外冒，
-    /// 再挂一行字是废话，还占掉本就紧张的那一行。
-    /// </summary>
-    public string RunStateLabel =>
-        IsExternallyDriven ? LocalizationManager.Instance.GetString("AgentRunningExternally") : string.Empty;
 
     /// <summary>
     /// 发送按钮的文案。跑着的时候它是<b>插话</b>：消息进注入队列，agent 下一次机会消费。
@@ -374,8 +418,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 子会话才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
-        _liveObserverSink = new LiveObserverSink(_transcript, () => CurrentSession?.IsSubSession == true);
+        _liveObserverSink = new LiveObserverSink(_transcript, AllowObservedApproval);
         _driver.StateChanged += OnDriverStateChanged;
+        BackgroundSubAgentDispatcher.PendingWorkChanged += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
 
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
@@ -595,11 +640,22 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 不必另铺一条通知链路。
     /// </summary>
     /// <param name="subSessionId">子会话标识</param>
+    /// <summary>
+    /// 名下某个子会话的状态变了。
+    ///
+    /// 「等待审批」从前挂在父会话流里那张工具卡上，已删——审批是<b>报警</b>，
+    /// 而一张跑了几十轮就滚没的卡找不到人（见 ADR 0025）。这里只刷卡片的
+    /// 「已派出 / 结果待回」，那一档说的是这张卡此刻是不是在说实话，不是报警。
+    /// </summary>
+    /// <param name="subSessionId">子会话标识（本方法只用它判归属，刷的是整批卡）</param>
     private void RefreshSubSessionApprovalWait(string subSessionId)
     {
-        bool waiting = SessionManager.Instance.Running.StateOf(subSessionId)
-                       == ESessionRunState.AwaitingApproval;
-        Dispatcher.UIThread.Post(() => _transcript.NoteSubSessionApprovalWait(subSessionId, waiting));
+        if (subSessionId.Length == 0) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _transcript.RefreshSubSessionPending();
+            NotifyApprovalWaitingChanged();
+        });
     }
 
     /// <summary>
@@ -707,11 +763,27 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         });
     }
 
+    /// <summary>
+    /// 观察别人驱动的那一轮时，审批卡放不放行。
+    ///
+    /// 两种情形要放：子会话窗口（嵌套审批，见 ADR 0021），以及本会话的<b>唤醒轮</b>
+    /// ——那一轮由后台驱动，回应口就登记在本壳上（见 <see cref="WakeApprovalHosts"/>）。
+    /// 其余普通会话的观察窗照旧丢弃：那张卡画出来也按不动，还会一直挂在待决清单上。
+    /// </summary>
+    private bool AllowObservedApproval()
+    {
+        ChatSession? session = CurrentSession;
+        if (session == null) return false;
+        return session.IsSubSession || WakeApprovalHosts.HasHost(session.SessionId);
+    }
+
     /// <summary>挂上「别处改了这个会话的历史」的两个信号。重复挂接先摘再挂，不攒订阅</summary>
     private void AttachSessionSignals(ChatSession session)
     {
         DetachSessionSignals();
         _signalSession = session;
+        // 后台子代理跑完起的那一轮,审批只有本壳接得住(见 WakeApprovalHosts)
+        WakeApprovalHosts.Register(session.SessionId, ResolveApprovalsAsync);
         session.HistoryAppended += OnSessionHistoryAppended;
         session.HistoryMessageReplaced += OnSessionHistoryReplaced;
         // 挂上这个会话的实时内容流。自己驱动时按身份去重,不会渲染两遍;
@@ -724,6 +796,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private void DetachSessionSignals()
     {
         if (_signalSession is not { } previous) return;
+        WakeApprovalHosts.Unregister(previous.SessionId, ResolveApprovalsAsync);
         previous.HistoryAppended -= OnSessionHistoryAppended;
         previous.HistoryMessageReplaced -= OnSessionHistoryReplaced;
         previous.LiveTurn.TurnEnded -= OnObservedTurnEnded;
@@ -738,13 +811,29 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         NotifyBusyChanged();
     }
 
+    /// <summary>名下的后台委派多了或少了一个。<b>可能来自后台线程</b>，marshal 之后再通知绑定</summary>
+    private void OnPendingWorkChanged(string sessionId)
+    {
+        if (sessionId != CurrentMeta?.SessionId) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(HasPendingWork));
+            OnPropertyChanged(nameof(HasBackgroundWorkOnly));
+            OnPropertyChanged(nameof(RunStatusKey));
+            NotifyApprovalWaitingChanged();
+            // 流里那几张委派卡也要跟着改档:工具调用早返回了,光看结果它们全是「成功」
+            _transcript.RefreshSubSessionPending();
+        });
+    }
+
     private void NotifyRunStateChanged()
     {
         OnPropertyChanged(nameof(IsGenerating));
         OnPropertyChanged(nameof(RunStatusKey));
         OnPropertyChanged(nameof(CanRegenerate));
-        OnPropertyChanged(nameof(RunStateLabel));
         OnPropertyChanged(nameof(SendButtonText)); //跑着的时候它显示「插话」
+        OnPropertyChanged(nameof(HasPendingWork)); //自己这一轮也算「未了结的工作」
+        OnPropertyChanged(nameof(HasBackgroundWorkOnly));
     }
 
     /// 忙碌态可能从后台线程上抛(预连在装配线程上),而绑定要求属性变更在 UI 线程上发生
@@ -802,6 +891,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.SubSessionAttached -= RefreshSubSessionApprovalWait;
         SubSessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
         _driver.StateChanged -= OnDriverStateChanged;
+        BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
         DetachSessionSignals();
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
@@ -1130,15 +1220,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>
     /// 审批回应：等用户对本轮每个请求做出决定，回应即下一轮的输入。
     ///
-    /// 不按 CallId 反查——请求与界面卡片由同一批 <see cref="ConversationTranscript.Apply"/>
-    /// 产生，而运行侧一定在内容流耗尽之后才调这里，所以转录器本轮收集的那批就是顺序一致的同一批。
+    /// <b>按请求对象相认</b>，不是把转录器攒着的整批抽干：同一个会话上可能同时有两轮在跑
+    /// （用户那一轮与后台委派回来时起的<b>唤醒轮</b>共用这一个转录器），抽干会领走别人那一轮的卡片，
+    /// 让那一轮的工具调用永远没有结果地留在历史里。
     /// </summary>
-    /// <param name="requests">本轮新增的审批请求（顺序与转录器收集的一致，故不另用）</param>
+    /// <param name="requests">本轮新增的审批请求</param>
     /// <returns>回应消息</returns>
     private async Task<IReadOnlyList<ChatMessage>> ResolveApprovalsAsync(
         IReadOnlyList<ToolApprovalRequestContent> requests)
     {
-        IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals();
+        IReadOnlyList<ApprovalRequestItem> turnApprovals = _transcript.TakeRoundApprovals(requests);
         List<ChatMessage> responses = new(turnApprovals.Count);
         foreach (ApprovalRequestItem approval in turnApprovals)
         {
@@ -1256,13 +1347,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 装配阶段也登记成「在跑」:重建 agent 要拉 MCP 工具、可能好几秒,
             // 这期间不能让删除/清空去动它的文件,而那一轮随后照样会往里写。
             // 新会话此刻还没有标识,BeginRun(null) 按设计是空操作
-            using (SessionManager.Instance.Running.BeginRun(CurrentMeta?.SessionId))
-            {
-                session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
-                Tray.FlushOwnedFiles();
-            }
+            // 这一份**一直持有到本轮结束**,不在装配结束时放掉。从前是装配一段、运行一段两个作用域,
+            // 注释写着「两段之间没有空窗」——单线程看确实没有,但登记处的锁在两段之间放开了,
+            // 别的线程(后台委派回来时起的唤醒轮)正好能在这里挤进来抢到会话,两轮就重叠了。
+            // 登记是引用计数的,与 TurnDriver 自己那一次叠加无害
+            using IDisposable running = SessionManager.Instance.Running.BeginRun(CurrentMeta?.SessionId);
+            session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
+            Tray.FlushOwnedFiles();
 
-            // 交接给运行侧:它在返回之前就同步登记好了运行态,两段之间没有空窗
             await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
         }
         catch (OperationCanceledException)

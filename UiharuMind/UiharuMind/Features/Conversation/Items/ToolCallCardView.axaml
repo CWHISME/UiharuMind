@@ -75,13 +75,22 @@
                                    TextTrimming="CharacterEllipsis" />
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                                     VerticalAlignment="Center">
-                            <!-- 派出去的子代理在等用户去子会话点审批:跑圈照转,另挂这一句免得干等 -->
+                            <!-- 这里曾经挂着「等待审批」。删了:审批是**报警**,而报警必须找得到人,
+                                 一张跑了几十轮就滚没的卡做不到这件事。它现在归通知 + 右栏「子代理」面板
+                                 (常驻、带琥珀点) + 左栏那一行。见 ADR 0025 -->
+                            <!-- 已派出 / 结果待回:工具调用早就返回了(后台化,见 ADR 0025),
+                                 但这次委派还没交回报告。少了这一档,卡片在派出后一秒就显示成功 -->
                             <TextBlock FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SemiOrange5}"
-                                       Text="{loc:Loc SessionStatusAwaitingApproval}"
-                                       IsVisible="{Binding IsWaitingApproval}" />
+                                       Foreground="{DynamicResource SemiBlue5}"
+                                       Text="{loc:Loc ToolCallAwaitingReport}"
+                                       IsVisible="{Binding IsAwaitingReport}" />
                             <Border Classes="spin" Classes.running="{Binding IsRunning}"
                                     Width="12" Height="12" IsVisible="{Binding IsRunning}">
+                                <TextBlock Text="◠" FontSize="11"
+                                           Foreground="{DynamicResource SemiBlue5}" />
+                            </Border>
+                            <Border Classes="spin" Classes.running="{Binding IsAwaitingReport}"
+                                    Width="12" Height="12" IsVisible="{Binding IsAwaitingReport}">
                                 <TextBlock Text="◠" FontSize="11"
                                            Foreground="{DynamicResource SemiBlue5}" />
                             </Border>
@@ -89,6 +98,7 @@
                                 <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">
                                         <Binding Path="!IsRunning" />
+                                        <Binding Path="!IsAwaitingReport" />
                                         <Binding Path="IsSuccess" />
                                     </MultiBinding>
                                 </Border.IsVisible>

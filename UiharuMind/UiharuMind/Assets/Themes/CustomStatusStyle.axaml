@@ -28,6 +28,11 @@
     <Style Selector="Border.status-dot[Tag=Progress]">
         <Setter Property="Background" Value="{DynamicResource MessageStatusInfoBrush}" />
     </Style>
+    <!-- 需要注意但没出错：跑太久的后台子代理走这一档。与"不认识的 Tag"同色，
+         但写明是为了让它成为一个**选出来的**状态，而不是靠兜底碰巧对 -->
+    <Style Selector="Border.status-dot[Tag=Warning]">
+        <Setter Property="Background" Value="{DynamicResource MessageStatusWarningBrush}" />
+    </Style>
     <!-- 未启用/未配置：既不是正常也不是出错，不该抢注意力 -->
     <Style Selector="Border.status-dot[Tag=Idle]">
         <Setter Property="Background" Value="{DynamicResource SemiGrey4}" />

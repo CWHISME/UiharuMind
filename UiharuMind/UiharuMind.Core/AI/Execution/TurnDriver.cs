@@ -50,6 +50,15 @@ public sealed class TurnDriver : IDisposable
     private ETurnBusy _busy;
     private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
+    /// <summary>
+    /// 上一轮是不是被<b>取消</b>收的尾（用户点停止、外部 <see cref="CancelSession"/>、墙钟超时）。
+    ///
+    /// 调用方自己那个令牌回答不了这件事：<see cref="CancelSession"/> 取消的是本实例内部
+    /// 那个链接源，外层令牌一动不动，于是一轮被停掉的子代理在派活者看来是「正常跑完」——
+    /// 报告里不说明它被中止，主 agent 会把没干完的活当成干完了，然后接着往下派（实机踩到）。
+    /// </summary>
+    public bool WasCancelled { get; private set; }
+
     /// <summary>本轮是否正在跑</summary>
     public bool IsRunning
     {
@@ -100,7 +109,14 @@ public sealed class TurnDriver : IDisposable
     /// </summary>
     /// <param name="session">本轮的会话</param>
     /// <param name="runner">该会话的执行者（必须是已 <c>AttachAsync</c> 到 <paramref name="session"/> 的那一个）</param>
-    /// <param name="userMessage">用户消息（已装配好附件与技能正文）</param>
+    /// <param name="userMessage">
+    /// 用户消息（已装配好附件与技能正文）。
+    ///
+    /// <b>可以为 null</b>：那是一轮<b>唤醒轮</b>——后台子代理跑完、后续报告已经落进本会话历史，
+    /// 由它驱动模型去处理那份结论。此时没有用户消息可言，<b>不伪造一条</b>：历史里
+    /// 「用户说过什么」是要较真的（插话都专门做了 <c>UserMessageContent.IsInterjection</c> 去区分）。
+    /// 模型这一轮看到的输入就是已经在历史里的那条报告。见 ADR 0025。
+    /// </param>
     /// <param name="resolver">审批回应的取得方式；传 null 表示不进入审批轮次</param>
     /// <param name="externalCancellation">
     /// 外层的取消令牌，与本轮自己的取消源<b>串起来</b>。
@@ -109,15 +125,28 @@ public sealed class TurnDriver : IDisposable
     /// 取消的是派活者那一轮的令牌。不串的话子代理照跑不误，表现是"主会话的停止按钮没效果，
     /// 得去子会话窗口再点一次"。定时任务的无头轮次同理。
     /// </param>
-    public async Task RunAsync(ChatSession session, ICharacterRunner runner, ChatMessage userMessage,
-        ApprovalResolver? resolver = null, CancellationToken externalCancellation = default)
+    /// <param name="attended">
+    /// 这一轮<b>有没有人能回应审批</b>。为空时回落到「有没有渲染落点」。
+    ///
+    /// 必须能单独指定，不能一律从 <c>sink</c> 推：<b>唤醒轮</b>刻意无头驱动（sink 为 null），
+    /// 但它的审批由派活者自己的窗口接（<c>WakeApprovalHosts</c>）——按 sink 推就会把
+    /// <b>共享的</b>执行者标成「没人看着」，于是这一轮里派出的子代理连审批通道都不建，
+    /// 第一次要审批就当场封口结束（实机踩到）。反过来，定时任务的无头轮次给的是
+    /// 「一律拒绝」那份 resolver，它非空但背后没有人，所以也不能按 resolver 推。
+    /// </param>
+    public async Task RunAsync(ChatSession session, ICharacterRunner runner, ChatMessage? userMessage,
+        ApprovalResolver? resolver = null, CancellationToken externalCancellation = default,
+        bool? attended = null)
     {
         // 输入消息按定义就是我们的:重新生成会把跑过一轮的原消息重新当输入送进来,
         // 而它此刻带着框架就地盖的 _attribution,不摘掉的话持久化会把它当注入消息滤掉
-        ChatMessageAnnotations.ClearAttribution(userMessage);
+        if (userMessage != null) ChatMessageAnnotations.ClearAttribution(userMessage);
 
         IsRunning = true;
+        WasCancelled = false;
         _activeSession = session;
+        // 「这一轮有没有用户参与」的唯一诚实判据就是有没有用户消息——唤醒轮的自激封顶据此清零
+        if (userMessage != null) Tools.BackgroundSubAgentDispatcher.NoteUserTurn(session.SessionId);
         _usage.BeginTurn();
         _ratioLogged = false;
         _notify?.Invoke(new TurnNotice(ETurnNotice.Started)); //本轮实际使用的模型此刻可解析
@@ -133,7 +162,7 @@ public sealed class TurnDriver : IDisposable
         // 把本轮的审批通道交给执行者:子代理会在一次工具调用内部跑自己的轮次,
         // 它产出的审批请求要冒到同一个回应口(见 ADR 0021)
         // 没有渲染落点就是没人看着(定时任务走的正是这一条)
-        runner.SetTurnContext(resolver, _sink != null);
+        runner.SetTurnContext(resolver, attended ?? _sink != null);
         //本轮没等到结果的工具调用该按什么口径收:默认「用户停止」,撞失败时改成失败口径
         string interruptionNote = ToolCallCancellation.ResultText;
         // 思考统计只盖本轮新增的那一段:起点在轮首记下,计时器与内容流同寿,成功与失败两条路共用。
@@ -146,7 +175,9 @@ public sealed class TurnDriver : IDisposable
         LiveTurnStream.Scope? liveScope = null;
         try
         {
-            List<ChatMessage>? nextMessages = new() { userMessage };
+            // 唤醒轮没有输入消息:模型这一轮读的是已经落在历史里的那条后续报告
+            List<ChatMessage>? nextMessages = userMessage == null ? new() : new() { userMessage };
+            bool firstRound = true; //唤醒轮首轮输入为空,不能被 Count > 0 挡在循环外
 
             // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
             // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下
@@ -160,7 +191,7 @@ public sealed class TurnDriver : IDisposable
             // 本轮的输入是这条流的第一项:观察别人这一轮的窗口(子会话窗口)据此在正确位置
             // 画出提问,而不是等落盘后补在已经流出来的回复后面。驱动者自己那一格发送时已经
             // 画过同一个实例,由它按引用去重
-            _turnSink.Apply(new UserMessageContent(userMessage));
+            if (userMessage != null) _turnSink.Apply(new UserMessageContent(userMessage));
 
             // MCP 连接的租约:这一轮期间该工作区的连接不会被空闲回收。
             // 子进程是进程级共享资源,而「有没有一轮正在跑」是它是否在被占用的唯一诚实答案——
@@ -174,8 +205,9 @@ public sealed class TurnDriver : IDisposable
             // 而落盘发生在一轮跑完之后(见 ChatSession.TurnStartedAt)
             session.TurnStartedAt = DateTimeOffset.Now;
 
-            while (nextMessages is { Count: > 0 })
+            while (firstRound || nextMessages is { Count: > 0 })
             {
+                firstRound = false;
                 List<ToolApprovalRequestContent> roundRequests = new();
                 try
                 {
@@ -196,6 +228,7 @@ public sealed class TurnDriver : IDisposable
                         Log.Warning($"Turn interrupted by unexpected cancellation: {e.GetType().Name}: {e.Message}");
                     }
 
+                    WasCancelled = true;
                     SettleInterruptedTurn(session, interruptionNote);
                     break;
                 }
@@ -230,6 +263,7 @@ public sealed class TurnDriver : IDisposable
                     // 于是这一轮看起来是正常结束——但那次调用已经落盘、结果永远不会来。
                     // 不补上就留孤儿 tool_call(严格服务端直接 400)。停完还能接着续,
                     // 所以按「用户停止」口径补,与取消分支同款
+                    WasCancelled = true;
                     SettleInterruptedTurn(session, interruptionNote);
                     break;
                 }
@@ -518,7 +552,11 @@ public sealed class TurnDriver : IDisposable
                 return;
             }
 
-            ChatMessage message = HistoryHandoff.CreateNote(note);
+            // 委派清单确定性追加在模型那段散文之后:编号只出现在回执与报告里,而那些正是
+            // 压缩要吃掉的东西。少了它,压缩之后 ContinueSubAgent 就够不着了(见 BuildSubSessionRoster)
+            string roster = HistoryHandoff.BuildSubSessionRoster(
+                SessionManager.Instance.GetSubSessions(session.SessionId));
+            ChatMessage message = HistoryHandoff.CreateNote(roster.Length > 0 ? $"{note}\n{roster}" : note);
             int before = session.History.Count;
             session.History.Add(message);
             session.SaveAppended(before);

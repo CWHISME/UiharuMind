@@ -675,6 +675,42 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string SubAgentApprovalWaiting {
+            get {
+                return ResourceManager.GetString("SubAgentApprovalWaiting", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentApprovalWaitingTip {
+            get {
+                return ResourceManager.GetString("SubAgentApprovalWaitingTip", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentLongRunning {
+            get {
+                return ResourceManager.GetString("SubAgentLongRunning", resourceCulture);
+            }
+        }
+        
+        public static string AgentStatusBackgroundWork {
+            get {
+                return ResourceManager.GetString("AgentStatusBackgroundWork", resourceCulture);
+            }
+        }
+        
+        public static string ToolCallAwaitingReport {
+            get {
+                return ResourceManager.GetString("ToolCallAwaitingReport", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentCopyIdTip {
+            get {
+                return ResourceManager.GetString("SubAgentCopyIdTip", resourceCulture);
+            }
+        }
+        
         public static string SubAgentHandBack {
             get {
                 return ResourceManager.GetString("SubAgentHandBack", resourceCulture);

@@ -24,6 +24,9 @@ using UiharuMind.Features.Models;
 using UiharuMind.Features.Memory;
 using UiharuMind.Features.Clipboard;
 using UiharuMind.Core.Core;
+using UiharuMind.Features.Conversation;
+using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Resources.Lang;
 using UiharuMind.Core.Core.Process;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core;
@@ -98,6 +101,9 @@ public partial class App : Application, ILogger, IDisposable
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("localization");
         ApplicationThemeManager.InitializeFromConfig();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("theme");
+        WireBackgroundSubAgents();
+        // 上次退出时还在跑的后台委派:父会话里那条「已派出」永远等不到下文,在这里补上一条中止说明
+        UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.SettleOrphansOnStartup();
         UiharuCoreManager.Instance.Init();
 
         // Process.GetCurrentProcess().Exited += OnExit;
@@ -171,6 +177,9 @@ public partial class App : Application, ILogger, IDisposable
             {
                 var trayIcon = trayIcons[0];
                 trayIcon.Clicked += (x, y) => DummyWindow.LaunchMainWindow();
+                // 菜单栏图标是用户切走之后唯一还看得见的东西,而审批等待是有时限的
+                _trayStatus = new TrayStatusIndicator(trayIcon,
+                    new Uri("avares://UiharuMind/Assets/Icon.png"));
             }
         }
     }
@@ -225,8 +234,50 @@ public partial class App : Application, ILogger, IDisposable
         Log.Flush();
     }
 
+    /// <summary>
+    /// 把后台子代理的两个注入口接到界面上。
+    ///
+    /// <b>都是静态口</b>：Core 里没有一条能从界面穿到工具的现成管线，而这两件事本来就是进程级的
+    /// （<c>IMessageService</c> 是单例）。见 ADR 0025。
+    /// </summary>
+    private static void WireBackgroundSubAgents()
+    {
+        // 唤醒轮跑的是主 agent 那一轮,它要动东西时该弹给正看着它的人。
+        // 取不到宿主(没开着那个会话)就按无头口径拒绝,与定时任务同形
+        UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.WakeApprovalSource =
+            WakeApprovalHosts.Resolve;
+        UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.Notifier = (notice, _) =>
+        {
+            if (Services?.GetService<IMessageService>() is not { } messageService) return;
+
+            // 「有审批在等你」是**承重**的:5 分钟没人点就按拒绝收口,那次委派基本白跑。
+            // 用 Warning 是为了多留 3 秒(见 MessageService 的两档时长)
+            Dispatcher.UIThread.Post(() =>
+            {
+                switch (notice)
+                {
+                    case ESubAgentNotice.ApprovalWaiting:
+                        // 审批是「要你动手」那一档:读完还得去点,默认 5 秒读都读不完。
+                        // 真正的常驻入口是输入区上方那条横幅与右栏面板,这条只负责「把你叫过来」
+                        messageService.ShowNotification(Lang.SubAgentApprovalWaitingTip,
+                            Lang.SubAgentApprovalWaiting, MessageSeverity.Warning,
+                            TimeSpan.FromSeconds(20));
+                        break;
+                    case ESubAgentNotice.LongRunning:
+                        messageService.ShowNotification(Lang.SubAgentLongRunning, null,
+                            MessageSeverity.Warning);
+                        break;
+                }
+            });
+        };
+    }
+
+    //菜单栏图标的后台状态角标。静态:托盘图标是应用级的一份,装配它的那一步也是静态的
+    private static TrayStatusIndicator? _trayStatus;
+
     public void Dispose()
     {
+        _trayStatus?.Dispose();
         Clipboard.Dispose();
         // 先给还在跑的那些轮次补上取消结果,再放执行者:反过来的话补写会撞上正在被释放的执行者。
         // 登记在运行侧,因此界面上的对话与无头的定时任务一并收尾

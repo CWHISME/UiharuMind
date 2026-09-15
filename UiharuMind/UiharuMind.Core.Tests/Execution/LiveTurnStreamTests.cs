@@ -197,4 +197,55 @@ public class LiveTurnStreamTests
 
         Assert.Empty(latecomer.Texts);
     }
+
+    /// <summary>
+    /// 两轮重叠时，<b>先结束的那一轮不能把后开的那一轮拆掉</b>。
+    ///
+    /// 同一会话上两轮并存是设计内允许的（界面那一轮与无头那一轮在执行者的闸门上排队）。
+    /// 从前 Scope.Dispose 无条件清空落点，于是旧作用域一释放，新那一轮产出的内容就落进空处——
+    /// 表现是插话气泡错位、输入框顶上那条「等待插话」再也撤不掉。实机踩到过，所以钉住。
+    /// </summary>
+    [Fact]
+    public void OverlappingTurns_OlderScopeDisposalDoesNotTearDownTheNewerTurn()
+    {
+        LiveTurnStream stream = new();
+        RecordingSink older = new();
+        RecordingSink newer = new();
+
+        LiveTurnStream.Scope oldScope = stream.BeginTurn(older);
+        LiveTurnStream.Scope newScope = stream.BeginTurn(newer);
+
+        oldScope.Dispose(); //先开的先结束
+
+        newScope.Sink.Apply(new TextContent("still mine"));
+        Assert.Equal(["still mine"], newer.Texts);
+    }
+
+    /// <summary>当前这一轮自己释放时照常收尾，否则下一轮永远开不起来</summary>
+    [Fact]
+    public void CurrentScopeDisposal_EndsTheTurn()
+    {
+        LiveTurnStream stream = new();
+        int ended = 0;
+        stream.TurnEnded += () => ended++;
+
+        stream.BeginTurn(new RecordingSink()).Dispose();
+
+        Assert.Equal(1, ended);
+    }
+
+    /// <summary>被顶掉的那一轮释放时不该再广播一次「轮次结束」——它结束的不是当前这一轮</summary>
+    [Fact]
+    public void SupersededScopeDisposal_DoesNotAnnounceTurnEnd()
+    {
+        LiveTurnStream stream = new();
+        LiveTurnStream.Scope oldScope = stream.BeginTurn(new RecordingSink());
+        stream.BeginTurn(new RecordingSink());
+
+        int ended = 0;
+        stream.TurnEnded += () => ended++;
+        oldScope.Dispose();
+
+        Assert.Equal(0, ended);
+    }
 }
