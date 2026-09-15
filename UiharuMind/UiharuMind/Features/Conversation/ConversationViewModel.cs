@@ -304,6 +304,26 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsSubSession => CurrentSession?.IsSubSession == true;
 
+    /// <summary>
+    /// 会话编号的短写（前 8 位）。<c>ContinueSubAgent</c>、日志与 <c>Agent/Outputs</c> 的目录
+    /// 后缀认的都是它，出了问题要贴出来的也是它——原先只能去右栏面板或日志里翻。
+    /// 与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知。
+    /// </summary>
+    public string SessionIdShort =>
+        CurrentMeta?.SessionId is { Length: > ShortSessionIdLength } id ? id[..ShortSessionIdLength] : SessionIdFull;
+
+    /// <summary>会话编号全串（悬停时显示，也是复制走的那一份）</summary>
+    public string SessionIdFull => CurrentMeta?.SessionId ?? string.Empty;
+
+    private const int ShortSessionIdLength = 8; //与 Agent/Outputs 的目录后缀同宽
+
+    /// <summary>复制会话编号：显示的是短写，进剪贴板的是全串</summary>
+    [RelayCommand]
+    private void CopySessionId()
+    {
+        if (SessionIdFull.Length > 0) App.Clipboard.CopyToClipboard(SessionIdFull, true);
+    }
+
     public bool IsExternallyDriven =>
         !_driver.IsRunning && SessionManager.Instance.Running.IsBusy(CurrentMeta?.SessionId);
 
@@ -1574,6 +1594,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel?.Detach();
             MemoryPanel = new ConversationMemoryViewData(body);
             OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
+            OnPropertyChanged(nameof(SessionIdShort)); //编号同理:装载之前 CurrentMeta 还是空的
+            OnPropertyChanged(nameof(SessionIdFull));
             // 运行态同理,而且更要紧:装载之前 CurrentMeta 还是空的,绑定算出来的是"没在跑"。
             // 而外驱那一轮多半在窗口打开<b>之前</b>就开跑了,登记处的变更信号早发完了——
             // 不在这里补一次,子会话窗口会一直是闲着的样子:没有转圈、没有停止按钮,

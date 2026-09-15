@@ -108,6 +108,18 @@ public static class UIManager
         }, DispatcherPriority.Render);
     }
 
+    /// <summary>
+    /// 取某一类<b>已创建</b>的窗口，含已关闭待复用的缓存窗口。按什么条件挑由调用方决定
+    /// （<see cref="ShowWindow{T}"/> 只认类型，认不出"同一个会话的那扇窗"这种业务身份）。
+    /// </summary>
+    /// <typeparam name="T">窗口类型</typeparam>
+    /// <returns>该类型的窗口列表；一个都没创建过时为空</returns>
+    public static IReadOnlyList<UiharuWindowBase> GetWindows<T>()
+        where T : UiharuWindowBase
+    {
+        return _multiWindows.TryGetValue(typeof(T), out var windows) ? windows : [];
+    }
+
     public static T? GetWindow<T>()
         where T : UiharuWindowBase
     {
