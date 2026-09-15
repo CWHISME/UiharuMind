@@ -87,4 +87,37 @@ public class PermissionModeApprovalTests
 
         Assert.True(await ApprovedAsync(EAgentPermissionMode.FullAuto, read));
     }
+
+    /// <summary>
+    /// 会话自己的产出房间视为界内：测试脚本与中间文件有地方去，就不必为它们弹审批。
+    /// 只认这一间——兄弟会话的房间仍是界外，无豁免时(缺省参数)老行为不变
+    /// </summary>
+    /// <param name="mode">需要审批写工具的两档；只读档连房间也不放行</param>
+    [Theory]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task OwnOutputRoom_IsTreatedAsInside(EAgentPermissionMode mode)
+    {
+        const string room = "/tmp/uiharu-data/Agent/Workspaces/ws/12345678";
+
+        Task<bool> ApprovedInRoomAsync(FunctionCallContent call) =>
+            ApprovalRuleProbe.IsApprovedAsync(
+                ApprovalModeMapper.BuildRules(mode, Root, approvedWriteRoot: room), call);
+
+        Assert.True(await ApprovedInRoomAsync(Edit($"{room}/test.py")));
+        Assert.True(await ApprovedInRoomAsync(Edit($"{room}/sub/dir/out.png")));
+        Assert.False(await ApprovedInRoomAsync(Edit("/tmp/uiharu-data/Agent/Workspaces/ws/87654321/x.py"))); //兄弟房间仍问
+        Assert.False(await ApprovedInRoomAsync(Edit("/etc/hosts"))); //房间之外仍问
+    }
+
+    /// <summary>只读档连自己的房间也不放行：那一档什么写工具都不批</summary>
+    [Fact]
+    public async Task ReadOnly_StillDeniesWritesIntoOwnRoom()
+    {
+        const string room = "/tmp/uiharu-data/Agent/Workspaces/ws/12345678";
+
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(
+            ApprovalModeMapper.BuildRules(EAgentPermissionMode.ReadOnly, Root, approvedWriteRoot: room),
+            Edit($"{room}/test.py")));
+    }
 }

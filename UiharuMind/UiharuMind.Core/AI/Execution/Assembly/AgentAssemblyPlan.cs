@@ -85,6 +85,14 @@ internal sealed class AgentAssemblyPlan
     public string PythonOutputDirectory { get; init; } = string.Empty;
 
     /// <summary>
+    /// 草稿目录（会话自己的产出房间绝对路径，构造时建好）。与
+    /// <see cref="PythonOutputDirectory"/> 不同，它<b>不随 Python 环境起落</b>：
+    /// 没有 shell、Python 未就绪时房间照样是测试脚本与中间文件的去处。
+    /// 无会话时为空串。
+    /// </summary>
+    public string OutputRoomDirectory { get; init; } = string.Empty;
+
+    /// <summary>
     /// 给 shell 追加的环境变量。目前只有一件事：把受管 Python 环境<b>前置</b>进 `PATH`
     /// 并设上 `VIRTUAL_ENV`——也就是标准的 venv 激活。
     ///
@@ -169,8 +177,13 @@ internal sealed class AgentAssemblyPlan
             // 跨会话共用目录时同名文件会静默盖掉别的会话的图。没有会话(能力预览)时退回根,那条路不跑轮次
             PythonOutputDirectory = config.EnableShellExecution && PythonEnvironment.IsReady
                 ? EnsureDirectory(profile.OutputFolderName.Length > 0
-                    ? Path.Combine(AgentOutputLayout.RootPath, profile.OutputFolderName)
+                    ? AgentOutputLayout.GetRoomAbsolutePath(profile.OutputFolderName)
                     : AgentOutputLayout.RootPath)
+                : string.Empty,
+            // 草稿目录不随 Python 起落:文件工具独占时测试脚本照样有地方去。
+            // 建好它(shell 重定向不像 Write 那样按需建父目录)
+            OutputRoomDirectory = profile.OutputFolderName.Length > 0
+                ? EnsureDirectory(AgentOutputLayout.GetRoomAbsolutePath(profile.OutputFolderName))
                 : string.Empty,
             // 读宿主 PATH 属于"读外部世界",只能在这里做——AgentAssembler 是不碰单例的纯函数
             ShellEnvironment = config.EnableShellExecution && PythonEnvironment.IsReady

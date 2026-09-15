@@ -88,6 +88,41 @@ public static class AgentToolPrompts
     }
 
     /// <summary>
+    /// 草稿目录段：会话自己的产出房间。不是 Python 专用的——测试脚本（含 py 文件）、
+    /// 不该进项目的中间文件都放这里，不要散进项目里。
+    ///
+    /// `Write`/`Edit` 那一句只在写工具在场时出现：提示语指名的工具必须真的在同一份
+    /// 工具集里（有不变量测试按这条钉着），shell 独占时没有这两个工具。
+    /// 路径用双引号而目录名不用反引号：反引号专表工具名。
+    /// </summary>
+    /// <param name="roomDirectory">房间绝对路径</param>
+    /// <param name="fileAccessMounted">写工具(`Write`/`Edit`)是否已装配</param>
+    /// <returns>提示词段落正文</returns>
+    public static string BuildOutputRoom(string roomDirectory, bool fileAccessMounted)
+    {
+        StringBuilder sb = new();
+        sb.AppendLine(
+            $"你的草稿目录是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
+            "以及不该进项目的中间文件，都放这里，不要散进项目里。");
+        if (fileAccessMounted)
+        {
+            sb.AppendLine("用 `Write`/`Edit` 写这里不需要审批。");
+        }
+
+        // 要给用户看的文件是这段的另一半:对话正文按 markdown 渲染,本地文件图片
+        // 走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
+        // (Windows 上 C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改)。
+        // 引用就用裸图:渲染库给图片设了 HRef,点得开,不必再包一层链接
+        string uriPrefix = ToFileUriPrefix(roomDirectory);
+        sb.Append(
+            "- 要给用户看的文件（图表、导出的数据），同样放这里。正文里照这个格式引用它：" +
+            $"`![说明]({uriPrefix}文件名)`。只报一句文件名、或者路径写到别处，" +
+            "对话里就什么都不会出现。");
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// 文件工具纪律段默认正文。
     ///
     /// 三组内容，缺一组都会有实机症状：
@@ -200,10 +235,9 @@ public static class AgentToolPrompts
     /// 早先那版把绝对路径写进这里，于是每次调用都要模型自己给一个含空格的长路径加引号
     /// ——忘一次就是一条断命令加一轮白烧。
     /// </summary>
-    /// <param name="outputDirectory">产出目录绝对路径</param>
     /// <param name="fileAccessMounted">文件工具是否已装配（决定教哪种写代码的方式）</param>
     /// <returns>整段正文</returns>
-    public static string BuildPython(string outputDirectory, bool fileAccessMounted)
+    public static string BuildPython(bool fileAccessMounted)
     {
         StringBuilder sb = new();
 
@@ -230,16 +264,6 @@ public static class AgentToolPrompts
             sb.AppendLine(
                 "- 命令行里塞多行代码容易被引号和转义搞坏。写不下就分成几个短的 `-c` 调用。");
         }
-
-        // 产出这两句是"用户能不能看到"的唯一通路:对话正文按 markdown 渲染,
-        // 本地文件图片走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
-        string uriPrefix = ToFileUriPrefix(outputDirectory);
-        sb.AppendLine(
-            $"- 图表、导出的数据这类**要给用户看**的产出，写到这个目录：{outputDirectory}");
-        sb.Append(
-            $"- 写完在回复正文里照这个格式引用它：`[![说明]({uriPrefix}文件名)]({uriPrefix}文件名)`。" +
-            "外层那道方括号不是多余的——少了它图片显示得出来但点不开。" +
-            "路径写别处、或者只报一句文件名，对话里就什么都不会出现。");
 
         return sb.ToString();
     }

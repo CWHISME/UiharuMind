@@ -205,7 +205,10 @@ public sealed record AgentAssemblyFacts
             Shell = isAgent && config.EnableShellExecution,
             //只在挂了 shell 时入账:没 shell 就没人跑得动它,纪律段本来也不发
             PythonEnvReady = isAgent && config.EnableShellExecution && pythonEnvReady,
-            OutputFolderName = isAgent && config.EnableShellExecution ? outputFolderName : string.Empty,
+            //房间提示不随 Python 起落:文件工具独占时草稿段照发,所以入账口径是两者任一
+            OutputFolderName = isAgent && (config.EnableShellExecution || config.EnableFileAccess)
+                ? outputFolderName
+                : string.Empty,
             WebSearch = isAgent && config.EnableWebSearch,
             FileMemory = isAgent && config.EnableFileMemory,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,

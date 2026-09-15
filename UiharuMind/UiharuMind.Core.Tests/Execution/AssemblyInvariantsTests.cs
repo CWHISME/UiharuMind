@@ -394,18 +394,95 @@ public class HarnessInstructionsCompositionTests
     /// 产出的 <c>file://</c> 前缀由我们算好写进提示词，<b>不让模型自己拼 URI</b>——
     /// Windows 上 <c>C:\a\b</c> 要变成 <c>file:///C:/a/b</c>，反斜杠与盘符两处都得改，
     /// 拼错的表现是对话里一张图都不出现，而且完全看不出为什么。
+    /// 前缀住在通用草稿段（file/shell 独占的 agent 也要引用房间里的文件），
+    /// 引用用裸图：渲染库给图片设了 HRef，点得开，不必再包一层链接。
     /// </summary>
     [Fact]
-    public void PythonDiscipline_GivesFileUriPrefix()
+    public void OutputRoom_GivesFileUriPrefix_AndBareImageFormat()
+    {
+        const string room = "/tmp/uiharu-room-test/ws/12345678";
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", outputRoom: room)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
+        Assert.Contains(new Uri(room + Path.DirectorySeparatorChar).AbsoluteUri, instructions);
+        Assert.Contains("![说明](", instructions);
+        Assert.DoesNotContain("[![", instructions);
+    }
+
+    /// <summary>
+    /// 草稿目录是通用段，不随 Python 起落：文件工具独占时测试脚本照样有地方去。
+    /// 房间只在真有地方可写时出现，且 `Write`/`Edit` 那句只在写工具在场时出现——
+    /// shell 独占时没有这两个工具，指名它们违反不变量。
+    /// </summary>
+    [Fact]
+    public void OutputRoom_AppearsWithWriteTools_WhenRoomIsKnown()
+    {
+        const string room = "/tmp/uiharu-room-test/ws/12345678";
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", outputRoom: room)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
+        Assert.Contains(room, instructions);
+        Assert.Contains($"`{FileToolNames.Write}`", instructions);
+        Assert.True(
+            instructions.IndexOf(AgentPromptHeadings.OutputRoom("##"), StringComparison.Ordinal) >
+            instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"), StringComparison.Ordinal),
+            "草稿目录紧跟工作目录：同是路径事实");
+    }
+
+    /// <summary>shell 独占时草稿段照发，但不许出现 `Write`/`Edit`（那两个不存在）</summary>
+    [Fact]
+    public void OutputRoom_OmitsToolNames_WhenOnlyShellMounted()
+    {
+        AgentToolConfig shellOnly = new() { EnableFileAccess = false, EnableSubAgent = false };
+        const string room = "/tmp/uiharu-room-test/ws/12345678";
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", shellOnly, outputRoom: room)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
+        Assert.Contains(room, instructions);
+        Assert.DoesNotContain($"`{FileToolNames.Write}`", instructions);
+        Assert.DoesNotContain($"`{FileToolNames.Edit}`", instructions);
+    }
+
+    /// <summary>无房间（无会话）时草稿段不出现：指一个不存在的目录比不说更糟</summary>
+    [Fact]
+    public void OutputRoom_IsAbsent_WhenNoRoom()
+    {
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test")
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.DoesNotContain(AgentPromptHeadings.OutputRoom("##"), instructions);
+    }
+
+    /// <summary>
+    /// Python 段只讲环境与跑法，不再复述房间与引用格式（那是通用草稿段的事）——
+    /// 同一个路径与同一套格式每轮印两遍是纯粹的固定开销。
+    /// 去重的本质：file URI 前缀整段只出现一次；旧复述句消失。
+    /// 无房间时（无会话的能力预览，不跑轮次）连前缀也没有——那条路本来也执行不了
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PythonDiscipline_DoesNotRepeatTheRoom(bool roomKnown)
     {
         AgentToolConfig config = new() { EnableShellExecution = true, EnableFileAccess = true };
+        const string room = "/tmp/uiharu-room-test/ws/12345678";
+        string roomUri = new Uri(room + Path.DirectorySeparatorChar).AbsoluteUri;
 
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", config,
-            pythonInterpreter: "/tmp/uiharu-python-test/bin/python");
-        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", config,
+            pythonInterpreter: "/tmp/uiharu-python-test/bin/python",
+            outputRoom: roomKnown ? room : string.Empty)
+            .ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains(new Uri(PythonOutputDirectory + Path.DirectorySeparatorChar).AbsoluteUri,
-            instructions);
+        Assert.Contains(AgentPromptHeadings.Python, instructions);
+        Assert.Contains("pip install", instructions);
+        Assert.DoesNotContain("写到这个目录", instructions);
+        Assert.Equal(roomKnown ? 1 : 0, instructions.Split(roomUri).Length - 1);
     }
 
     /// <summary>
@@ -517,15 +594,16 @@ public class HarnessInstructionsCompositionTests
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null,
-        string pythonInterpreter = "")
+        string pythonInterpreter = "", string outputRoom = "")
     {
         return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp,
-            pythonInterpreter);
+            pythonInterpreter, outputRoom);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
-        string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "")
+        string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "",
+        string outputRoom = "")
     {
         CharacterData character = new()
         {
@@ -551,6 +629,7 @@ public class HarnessInstructionsCompositionTests
             Mcp = mcp ?? McpToolSet.Empty,
             PythonInterpreterPath = pythonInterpreter,
             PythonOutputDirectory = pythonInterpreter.Length > 0 ? PythonOutputDirectory : string.Empty,
+            OutputRoomDirectory = outputRoom,
         };
 
         // shell 路径固定给一个假值:本套测试只校验拼接与顺序,真解析出来的 shell 因机而异
@@ -868,6 +947,61 @@ public class SubAgentBoundaryTests
             .BuildSubAgentOptions(NewInput())!.ChatOptions!.Instructions!;
 
         Assert.Contains(TestWorkingDirectory, instructions);
+    }
+
+    /// <summary>
+    /// 子代理也认得草稿目录（派活者那一间）：需要审批的操作本就问到用户那里，
+    /// 测试脚本有地方去，就不必为它们多弹一次。身上有写能力才说——
+    /// 探索档无写工具又无 shell，说了也只是指一个写不进去的目录
+    /// </summary>
+    [Fact]
+    public void SubAgentInstructions_StateTheOutputRoom_WhenItCanWrite()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+                NewInput(mode: EAgentPermissionMode.FullAuto) with { OutputFolderName = "ws-seg/12345678" })!
+            .ChatOptions!.Instructions!;
+
+        Assert.Contains(AgentPromptHeadings.OutputRoom("#"), instructions);
+        Assert.Contains("12345678", instructions);
+        Assert.Contains($"`{FileToolNames.Write}`", instructions);
+    }
+
+    /// <summary>子代理的 Python 段同样不复述房间与引用格式</summary>
+    [Fact]
+    public void SubAgentPythonDiscipline_DoesNotRepeatTheRoom()
+    {
+        SubAgentAssembly.SubAgentAssemblyInput input = NewInput(mode: EAgentPermissionMode.FullAuto) with
+        {
+            ShellTool = StubShellTool(),
+            PythonOutputDirectory = "/tmp/uiharu-room-test/ws/12345678",
+            OutputFolderName = "ws-seg/12345678",
+        };
+
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(input)!
+            .ChatOptions!.Instructions!;
+
+        // 子代理的 Python 段本就没有独立标题(与主代理不同),只断正文；
+        // 房间 id8 恰出现两次：正文一次，派生出的 file URI 里一次——旧复述句消失
+        Assert.Contains("pip install", instructions);
+        Assert.Equal(2, instructions.Split("12345678").Length - 1);
+        Assert.DoesNotContain("写到这个目录", instructions);
+    }
+
+    private static AITool StubShellTool() => AIFunctionFactory.Create((string command) => command,
+        new AIFunctionFactoryOptions { Name = CharacterRunnerFactory.ShellToolName });
+
+    /// <summary>探索档不认草稿目录：只读的它本来也写不进去</summary>
+    [Fact]
+    public void SubAgentInstructions_OmitOutputRoom_ForExplorer()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+                NewInput(mode: EAgentPermissionMode.FullAuto) with
+                {
+                    SubAgentProfile = SubAgentProfile.Explorer, OutputFolderName = "ws-seg/12345678",
+                })!
+            .ChatOptions!.Instructions!;
+
+        Assert.DoesNotContain(AgentPromptHeadings.OutputRoom("#"), instructions);
     }
 
     /// <summary>

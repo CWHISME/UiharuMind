@@ -94,6 +94,9 @@ internal static class SubAgentAssembly
 
         /// <summary>受管 Python 环境的产出目录(空串=环境未就绪)。子代理继承派活者会话的产出目录,产出直接落那里</summary>
         public string PythonOutputDirectory { get; init; } = string.Empty;
+
+        /// <summary>产出房间目录名(派活者会话那一间)。审批把这一间视为界内,与 Python 环境是否就绪无关</summary>
+        public string OutputFolderName { get; init; } = string.Empty;
     }
 
     /// <summary>
@@ -184,6 +187,7 @@ internal static class SubAgentAssembly
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SubAgentProfile = subProfile,
             PythonOutputDirectory = plan.PythonOutputDirectory,
+            OutputFolderName = profile.OutputFolderName,
         };
 
         HarnessAgentOptions? options = BuildSubAgentOptions(input);
@@ -370,13 +374,17 @@ internal static class SubAgentAssembly
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
             AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
-                input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource),
+                input.WorkingDirectory, input.PreAuthorizedShellPatterns, input.SessionShellApprovalSource,
+                // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
+                AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName)),
         };
         options.ChatOptions = new ChatOptions
         {
             Instructions = BuildSubAgentInstructions(config, hasVision, hasShell,
                 input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
-                input.WorkingDirectory, input.WorkspaceInstructions, input.McpInstructions,
+                input.WorkingDirectory,
+                AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName),
+                input.WorkspaceInstructions, input.McpInstructions,
                 input.Persona, input.SubAgentProfile),
             Tools = tools,
         };
@@ -401,12 +409,14 @@ internal static class SubAgentAssembly
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
     /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
+    /// <param name="outputRoomDirectory">草稿目录(派活者会话的房间)绝对路径；空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <param name="mcpInstructions">MCP server 自述（与主代理同一份）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool hasShell,
         string shellBinary, bool canMutate, string pythonOutputDirectory,
-        string workingDirectory, string workspaceInstructions, string mcpInstructions,
+        string workingDirectory, string outputRoomDirectory,
+        string workspaceInstructions, string mcpInstructions,
         string persona = "", SubAgentProfile? subProfile = null)
     {
         subProfile ??= SubAgentProfile.General;
@@ -458,7 +468,7 @@ internal static class SubAgentAssembly
         // 子代理的产出与主代理落在同一目录,报告里给绝对路径主代理可直接引用
         if (hasShell && pythonOutputDirectory.Length > 0)
         {
-            sb.AppendLine(AgentToolPrompts.BuildPython(pythonOutputDirectory, config.EnableFileAccess));
+            sb.AppendLine(AgentToolPrompts.BuildPython(config.EnableFileAccess));
         }
 
         // 审批通道存在(ADR 0021):子代理现在跑自己的轮次,需要审批的操作会问到用户那里。
@@ -479,6 +489,17 @@ internal static class SubAgentAssembly
             sb.AppendLine();
             sb.AppendLine();
             sb.Append(AgentInstructionsComposer.WorkingDirectorySection(workingDirectory, "#"));
+        }
+
+        // 草稿目录与主代理同一段正文。只在真有地方可写时出现:探索档无写工具又无 shell,
+        // 说了也只是指一个写不进去的目录;`Write`/`Edit` 那句另由写工具是否在场决定
+        if (outputRoomDirectory.Length > 0 && (hasShell || (config.EnableFileAccess && canMutate)))
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine(AgentPromptHeadings.OutputRoom("#"));
+            sb.Append(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory,
+                config.EnableFileAccess && canMutate));
         }
 
         // 挂了 MCP 工具就得给对应的自述:只给签名不给用法,子代理照样不会用

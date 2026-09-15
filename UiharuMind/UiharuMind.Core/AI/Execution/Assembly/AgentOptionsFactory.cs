@@ -117,7 +117,7 @@ internal static class AgentOptionsFactory
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
-            shellBinary, plan.PythonInterpreterPath, plan.PythonOutputDirectory, out promptSegments);
+            shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);
@@ -136,7 +136,9 @@ internal static class AgentOptionsFactory
         {
             AutoApprovalRules = ApprovalModeMapper.BuildRules(plan.Profile.PermissionMode,
                 plan.WorkingDirectory, plan.Profile.PreAuthorizedShellPatterns,
-                plan.Profile.SessionShellApprovalSource),
+                plan.Profile.SessionShellApprovalSource,
+                // 会话自己的产出房间视为界内:测试脚本与中间文件有地方去,就不必为它们弹审批
+                AgentOutputLayout.GetRoomAbsolutePath(plan.Profile.OutputFolderName)),
         };
         options.ChatOptions = chatOptions;
         return options;

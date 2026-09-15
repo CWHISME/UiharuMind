@@ -40,7 +40,7 @@ internal static class AgentInstructionsComposer
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
     /// <param name="pythonInterpreter">受管 Python 环境的解释器路径。<b>只作闸门</b>——
     /// 空串则整段不写；非空时正文里也不印它，环境已由 PATH 前置激活</param>
-    /// <param name="pythonOutputDirectory">产出目录绝对路径(给用户看的图表落在这儿)</param>
+    /// <param name="outputRoomDirectory">草稿目录绝对路径(会话自己的产出房间)；空串则不写该段</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
     /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
@@ -49,13 +49,14 @@ internal static class AgentInstructionsComposer
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
-        string pythonOutputDirectory, out IReadOnlyList<AgentPromptSegment> segments)
+        string outputRoomDirectory, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
-            pythonInterpreter, pythonOutputDirectory), EPromptSection.ToolDisciplines, registry);
+            pythonInterpreter, outputRoomDirectory),
+            EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
             AppendSection(sb, McpSection(mcpInstructions), EPromptSection.Mcp, registry);
@@ -130,10 +131,11 @@ internal static class AgentInstructionsComposer
     /// </summary>
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
+    /// <param name="outputRoomDirectory">草稿目录绝对路径；空串则不写该段</param>
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
         string workingDirectory, string shellBinary, string pythonInterpreter,
-        string pythonOutputDirectory)
+        string outputRoomDirectory)
     {
         StringBuilder sb = new();
 
@@ -141,6 +143,18 @@ internal static class AgentInstructionsComposer
         if (workingDirectory.Length > 0)
         {
             sb.AppendLine(WorkingDirectorySection(workingDirectory, "##"));
+        }
+
+        // 草稿目录紧跟工作目录:同是"路径事实",且文件纪律段的"不要散进项目里"以它为前提。
+        // 只在真有地方可写时出现(文件工具或 shell 任一在场);`Write`/`Edit` 那句另由
+        // 写工具是否在场决定——shell 独占时没有这两个工具,指名它们违反不变量
+        if (outputRoomDirectory.Length > 0 &&
+            (config.EnableFileAccess || config.EnableShellExecution))
+        {
+            sb.AppendLine();
+            sb.AppendLine(AgentPromptHeadings.OutputRoom("##"));
+            sb.AppendLine(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory,
+                config.EnableFileAccess));
         }
 
         // 各段正文可在设置页覆盖(空 = 用 AgentToolPrompts 默认),段落标题固定由此处统一挂
@@ -167,8 +181,7 @@ internal static class AgentInstructionsComposer
             {
                 sb.AppendLine();
                 sb.AppendLine(AgentPromptHeadings.Python);
-                sb.AppendLine(AgentToolPrompts.BuildPython(pythonOutputDirectory,
-                    config.EnableFileAccess));
+                sb.AppendLine(AgentToolPrompts.BuildPython(config.EnableFileAccess));
             }
         }
 

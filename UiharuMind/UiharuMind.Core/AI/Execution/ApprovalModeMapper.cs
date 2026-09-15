@@ -37,10 +37,12 @@ public enum EAgentPermissionMode
 /// <b>档位语义只有这一处定义</b>——主代理与子代理都从这里取规则,否则"完全自动"在两边
 /// 会渐渐变成两个意思(有不变量测试钉住)。
 ///
-/// 一条贯穿三档的硬规则:<b>工作区外的写入永不自动放行</b>。用户点一次现成的"本会话允许"
-/// 之后框架自己会把该工具整会话放行,所以这里不需要任何额外状态。它是有意做成"减法"而非
-/// "加一条否决规则"的——框架的 AutoApprovalRules 是<b>或</b>语义,任一条返回 true 即放行,
-/// 加否决规则拦不住 <c>AllToolsAutoApprovalRule</c>,只能把那条全放行规则本身换掉。
+/// 一条贯穿三档的硬规则:<b>工作区外的写入永不自动放行</b>，唯一的例外是会话自己的产出房间
+/// （<c>approvedWriteRoot</c>，程序管辖、有界、随会话删除——与"磁盘任何地方"不是一回事）。
+/// 用户点一次现成的"本会话允许"之后框架自己会把该工具整会话放行,所以这里不需要任何额外状态。
+/// 它是有意做成"减法"而非"加一条否决规则"的——框架的 AutoApprovalRules 是<b>或</b>语义,
+/// 任一条返回 true 即放行,加否决规则拦不住 <c>AllToolsAutoApprovalRule</c>,
+/// 只能把那条全放行规则本身换掉。
 /// </summary>
 public static class ApprovalModeMapper
 {
@@ -56,13 +58,19 @@ public static class ApprovalModeMapper
     /// <param name="preAuthorizedShellPatterns">预授权的 shell 命令 glob 模式(定时任务用),可空</param>
     /// <param name="sessionShellApprovalSource">会话级放行的 shell 命令模式来源
     /// (审批卡片"记住同类命令"写入,规则每次执行时现取现用,变化无需重建装配),可空</param>
+    /// <param name="approvedWriteRoot">会话自己的产出房间绝对路径,落在里面的写入视为界内;
+    /// 空串表示无豁免(老行为)。只认这一间,不认整棵产出树</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
-        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null)
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
+        string approvedWriteRoot = "")
     {
         string root = string.IsNullOrWhiteSpace(workspaceRoot) ? string.Empty : Path.GetFullPath(workspaceRoot);
+        string room = string.IsNullOrWhiteSpace(approvedWriteRoot)
+            ? string.Empty
+            : Path.GetFullPath(approvedWriteRoot);
 
         List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules = new()
         {
@@ -78,7 +86,7 @@ public static class ApprovalModeMapper
                 // 全放行,但越界写入除外——定时任务是代码写死的档位,用户没机会为它选,
                 // 而无人值守下越界写入没人拦就真的没人拦了
                 rules.Add(context =>
-                    new ValueTask<bool>(!IsOutOfWorkspaceWrite(context.FunctionCallContent, root)));
+                    new ValueTask<bool>(!IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
                 break;
 
             case EAgentPermissionMode.AutoEdit:
@@ -87,7 +95,7 @@ public static class ApprovalModeMapper
                 // 无头执行一律拒绝审批,净效果是定时任务所有文件写入都被拒
                 rules.Add(context => new ValueTask<bool>(
                     IsMutatingFileTool(context.FunctionCallContent) &&
-                    !IsOutOfWorkspaceWrite(context.FunctionCallContent, root)));
+                    !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
                 break;
         }
 
@@ -177,7 +185,9 @@ public static class ApprovalModeMapper
     /// 接受这个缺口,因为能这么干的模型同样能直接用 shell,而真正的边界是"用户点了那一下"——
     /// 每次审批都去 realpath 一趟只是把成本花在挡不住的地方。
     /// </summary>
-    private static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, string workspaceRoot)
+    /// <param name="approvedWriteRoot">会话自己的产出房间(已规范化);落在里面的写入视为界内</param>
+    private static bool IsOutOfWorkspaceWrite(FunctionCallContent functionCall, string workspaceRoot,
+        string approvedWriteRoot)
     {
         if (!IsMutatingFileTool(functionCall)) return false;
         if (workspaceRoot.Length == 0) return true;
@@ -197,9 +207,17 @@ public static class ApprovalModeMapper
             return true; //路径非法(含非法字符/过长)一样交给用户看一眼
         }
 
-        string root = workspaceRoot.TrimEnd(Path.DirectorySeparatorChar);
-        return !full.Equals(root, PathComparison) &&
-               !full.StartsWith(root + Path.DirectorySeparatorChar, PathComparison);
+        if (IsUnder(full, workspaceRoot)) return false;
+        return !IsUnder(full, approvedWriteRoot);
+    }
+
+    /// <summary>目标是否落在某根目录之下(含恰好就是它)。空根目录永远返回 false</summary>
+    private static bool IsUnder(string full, string root)
+    {
+        if (root.Length == 0) return false;
+        string trimmed = root.TrimEnd(Path.DirectorySeparatorChar);
+        return full.Equals(trimmed, PathComparison) ||
+               full.StartsWith(trimmed + Path.DirectorySeparatorChar, PathComparison);
     }
 
     private static bool GlobMatch(string pattern, string input)

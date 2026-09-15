@@ -27,6 +27,9 @@ public static class AgentPromptHeadings
     /// <summary>工作目录段的标题正文（不含级别前缀，见 <see cref="WorkingDirectory"/>）</summary>
     public const string WorkingDirectoryName = "工作目录";
 
+    /// <summary>草稿目录段的标题正文（不含级别前缀，见 <see cref="OutputRoom"/>）</summary>
+    public const string OutputRoomName = "草稿目录";
+
     /// <summary>文件操作纪律段</summary>
     public const string FileOperations = "## 文件操作";
 
@@ -64,4 +67,11 @@ public static class AgentPromptHeadings
     /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
     /// <returns>整行标题</returns>
     public static string WorkingDirectory(string headingPrefix) => $"{headingPrefix} {WorkingDirectoryName}";
+
+    /// <summary>
+    /// 草稿目录段的标题。级别随装配形态而变，与 <see cref="WorkingDirectory"/> 同一道理
+    /// </summary>
+    /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
+    /// <returns>整行标题</returns>
+    public static string OutputRoom(string headingPrefix) => $"{headingPrefix} {OutputRoomName}";
 }

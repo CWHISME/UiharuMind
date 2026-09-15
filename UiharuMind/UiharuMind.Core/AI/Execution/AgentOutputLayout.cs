@@ -55,6 +55,15 @@ public static class AgentOutputLayout
     }
 
     /// <summary>
+    /// 会话房间的绝对路径。审批把"自己那一间"视为界内（免审批），注意只认这一间、
+    /// 不认整棵 <see cref="RootPath"/>——跨会话覆盖仍要问
+    /// </summary>
+    /// <param name="folderName">房间目录名（<see cref="GetFolderName"/> 的产物）；空串表示无会话</param>
+    /// <returns>房间绝对路径；无会话时为空串（= 无豁免）</returns>
+    public static string GetRoomAbsolutePath(string folderName) =>
+        string.IsNullOrWhiteSpace(folderName) ? string.Empty : Path.Combine(RootPath, folderName);
+
+    /// <summary>
     /// 删除某个会话的全部产出（会话被删除时调用）：新布局里删整间房间、顺手收掉空的工作区家目录；
     /// 旧布局（<c>Outputs/{标题}_{id8}</c>，ADR 0026 起不迁移）按 id 后缀通配清残留。
     /// </summary>
