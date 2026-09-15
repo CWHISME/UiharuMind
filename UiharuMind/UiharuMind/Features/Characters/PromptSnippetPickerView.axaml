@@ -14,7 +14,7 @@
         <!-- 存为片段:写在提示词框里的东西直接攒成常用开头,同名即覆盖 -->
         <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,8,0,0">
             <TextBox FontSize="12" Text="{Binding NewSnippetName}"
-                     Watermark="{loc:Loc SnippetNameWatermark}" />
+                     PlaceholderText="{loc:Loc SnippetNameWatermark}" />
             <Button Grid.Column="1" FontSize="12"
                     Content="{loc:Loc SnippetSaveCurrent}"
                     Command="{Binding SaveCurrentAsSnippetCommand}" />

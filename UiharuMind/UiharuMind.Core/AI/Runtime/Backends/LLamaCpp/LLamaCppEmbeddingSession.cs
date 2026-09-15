@@ -13,7 +13,6 @@ using CliWrap.EventStream;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.Core.SimpleLog;
-using UiharuMind.Core.AI.Runtime.Backends;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 

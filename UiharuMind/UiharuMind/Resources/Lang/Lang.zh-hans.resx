@@ -578,9 +578,6 @@
     <data name="AgentMcpEnabled" xml:space="preserve">
         <value>托管此 server</value>
     </data>
-    <data name="AgentMcpEnabled" xml:space="preserve">
-        <value>启用</value>
-    </data>
     <data name="AgentMcpTest" xml:space="preserve">
         <value>测试连接</value>
     </data>
@@ -2146,9 +2143,6 @@
     </data>
     <data name="MemoryTextSaveHint" xml:space="preserve">
         <value>保存后，记忆索引会被标记为需要更新。</value>
-    </data>
-    <data name="MemoryNameInvalid" xml:space="preserve">
-        <value>名称中包含无法用于本地记忆文件的字符。</value>
     </data>
     <data name="MemoryIndexEmbeddingInputTooLarge" xml:space="preserve">
         <value>某段内容在自动拆分后仍超过嵌入模型限制，请缩短该来源后重试。</value>

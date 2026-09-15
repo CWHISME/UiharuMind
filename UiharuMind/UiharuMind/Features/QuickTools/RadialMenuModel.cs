@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
 

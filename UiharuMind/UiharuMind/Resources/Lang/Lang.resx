@@ -588,9 +588,6 @@
     <data name="AgentMcpEnabled" xml:space="preserve">
         <value>Host this server</value>
     </data>
-    <data name="AgentMcpEnabled" xml:space="preserve">
-        <value>Enabled</value>
-    </data>
     <data name="AgentMcpTest" xml:space="preserve">
         <value>Test connection</value>
     </data>
@@ -2153,9 +2150,6 @@
     </data>
     <data name="MemoryTextSaveHint" xml:space="preserve">
         <value>Saving marks the memory index as needing an update.</value>
-    </data>
-    <data name="MemoryNameInvalid" xml:space="preserve">
-        <value>The name contains characters that cannot be used in a local memory file.</value>
     </data>
     <data name="MemoryIndexEmbeddingInputTooLarge" xml:space="preserve">
         <value>A passage is still too large for the embedding model after automatic splitting. Shorten that source and try again.</value>

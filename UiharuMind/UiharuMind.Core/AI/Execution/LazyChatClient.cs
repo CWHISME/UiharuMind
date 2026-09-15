@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -153,8 +154,8 @@ public class LazyChatClient : IChatClient
                     yield break;
                 }
 
-                // 能走到这里,update 必已赋值(failure 分支已退出);断言使其可空性收窄
-                update = update!;
+                // 能走到这里,update 必已赋值(failure 分支已退出);显式断言收窄可空性
+                if (update is null) throw new UnreachableException();
 
                 if (textParser == null)
                 {

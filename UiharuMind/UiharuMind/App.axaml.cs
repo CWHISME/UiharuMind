@@ -19,7 +19,6 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Features.Models;
 using UiharuMind.Features.Memory;
 using UiharuMind.Features.Clipboard;

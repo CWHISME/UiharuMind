@@ -69,25 +69,25 @@
                     <!-- 传输相关的字段按传输类型显隐:另一种传输的字段留在那里只是噪声 -->
                     <StackPanel Spacing="2" IsVisible="{Binding IsStdio}">
                         <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpCommand}" />
-                        <TextBox Text="{Binding SelectedServer.Command}" Watermark="npx" />
+                        <TextBox Text="{Binding SelectedServer.Command}" PlaceholderText="npx" />
 
                         <!-- 逐行一个参数:含空格的路径不必再靠分隔符猜边界 -->
                         <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpArguments}" />
                         <TextBox Text="{Binding ArgsText}" AcceptsReturn="True" MinHeight="60"
-                                 Watermark="-y&#x0a;@modelcontextprotocol/server-filesystem&#x0a;/My Documents" />
+                                 PlaceholderText="-y&#x0a;@modelcontextprotocol/server-filesystem&#x0a;/My Documents" />
 
                         <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpEnv}" />
                         <TextBox Text="{Binding EnvText}" AcceptsReturn="True" MinHeight="48"
-                                 Watermark="API_KEY=xxxx" />
+                                 PlaceholderText="API_KEY=xxxx" />
                     </StackPanel>
 
                     <StackPanel Spacing="2" IsVisible="{Binding IsHttp}">
                         <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpUrl}" />
-                        <TextBox Text="{Binding SelectedServer.Url}" Watermark="http://localhost:3001/mcp" />
+                        <TextBox Text="{Binding SelectedServer.Url}" PlaceholderText="http://localhost:3001/mcp" />
 
                         <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpHeaders}" />
                         <TextBox Text="{Binding HeadersText}" AcceptsReturn="True" MinHeight="48"
-                                 Watermark="Authorization=Bearer xxxx" />
+                                 PlaceholderText="Authorization=Bearer xxxx" />
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">

@@ -8,7 +8,6 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Embedding;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs;
-using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.AI.Runtime.Backends;
 

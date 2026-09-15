@@ -13,7 +13,7 @@
     <DockPanel Width="300" MaxHeight="380">
         <TextBox DockPanel.Dock="Top" Margin="0,0,0,6" FontSize="12"
                  Text="{Binding SearchText}"
-                 Watermark="{loc:Loc CharacterPickerSearch}" />
+                 PlaceholderText="{loc:Loc CharacterPickerSearch}" />
         <TextBlock DockPanel.Dock="Top" Classes="muted" FontSize="12" Margin="4,6"
                    Text="{loc:Loc CharacterPickerEmpty}"
                    IsVisible="{Binding IsEmpty}" />

@@ -43,7 +43,7 @@
              低频的那些(筛选/导入/显示内部角色)收进溢出菜单,高频的搜索与新建留在面上 -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,0,0,8">
             <TextBox Text="{Binding SearchKeyword}"
-                     Watermark="{loc:Loc CharacterSearchPlaceholder}"
+                     PlaceholderText="{loc:Loc CharacterSearchPlaceholder}"
                      VerticalAlignment="Center" />
 
             <ThemedIconButton Grid.Column="1" Classes="icon" IconName="file-plus-corner"
