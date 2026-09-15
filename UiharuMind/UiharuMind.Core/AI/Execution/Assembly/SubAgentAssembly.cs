@@ -91,6 +91,9 @@ internal static class SubAgentAssembly
 
         /// <summary>子代理策略(类型、模型源、提示词侧重点);未传时用通用子代理</summary>
         public SubAgentProfile SubAgentProfile { get; init; } = SubAgentProfile.General;
+
+        /// <summary>受管 Python 环境的产出目录(空串=环境未就绪)。子代理继承派活者会话的产出目录,产出直接落那里</summary>
+        public string PythonOutputDirectory { get; init; } = string.Empty;
     }
 
     /// <summary>
@@ -180,6 +183,7 @@ internal static class SubAgentAssembly
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SubAgentProfile = subProfile,
+            PythonOutputDirectory = plan.PythonOutputDirectory,
         };
 
         HarnessAgentOptions? options = BuildSubAgentOptions(input);
@@ -287,6 +291,7 @@ internal static class SubAgentAssembly
         return new SubAgentTool.LaunchContext
         {
             ParentSessionId = profile.SessionId,
+            ParentOutputFolderName = profile.OutputFolderName,
             WorkspacePath = profile.WorkspacePath,
             PermissionModeIndex = (int)profile.PermissionMode,
             PreAuthorizedShellPatterns = profile.PreAuthorizedShellPatterns,
@@ -370,7 +375,7 @@ internal static class SubAgentAssembly
         options.ChatOptions = new ChatOptions
         {
             Instructions = BuildSubAgentInstructions(config, hasVision, hasShell,
-                input.ShellBinary ?? string.Empty, canMutate,
+                input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
                 input.WorkingDirectory, input.WorkspaceInstructions, input.McpInstructions,
                 input.Persona, input.SubAgentProfile),
             Tools = tools,
@@ -400,7 +405,7 @@ internal static class SubAgentAssembly
     /// <param name="mcpInstructions">MCP server 自述（与主代理同一份）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool hasShell,
-        string shellBinary, bool canMutate,
+        string shellBinary, bool canMutate, string pythonOutputDirectory,
         string workingDirectory, string workspaceInstructions, string mcpInstructions,
         string persona = "", SubAgentProfile? subProfile = null)
     {
@@ -449,7 +454,17 @@ internal static class SubAgentAssembly
             sb.AppendLine(AgentToolPrompts.BuildShell(config.EnableFileAccess, shellBinary));
         }
 
-        sb.AppendLine("- 你没法问人要说明，也不会有人替你批准任何操作。就拿任务里给的东西干。");
+        // 同一把 Shell 也跑 python。产出目录沿用派活者会话的(派活时固化在子会话上),
+        // 子代理的产出与主代理落在同一目录,报告里给绝对路径主代理可直接引用
+        if (hasShell && pythonOutputDirectory.Length > 0)
+        {
+            sb.AppendLine(AgentToolPrompts.BuildPython(pythonOutputDirectory, config.EnableFileAccess));
+        }
+
+        // 审批通道存在(ADR 0021):子代理现在跑自己的轮次,需要审批的操作会问到用户那里。
+        // 不再写"不会有人替你批准"——那半句已不成立,留着会让子代理误以为权限问题必须绕开
+        sb.AppendLine("- 你没法问人要说明，任务里没给的信息就拿不到，别自己猜着补。" +
+                      "需要审批的操作会问到用户那里，正常请求即可。");
         sb.AppendLine("- 回一份聚焦的报告：先给结论，再给依据（路径、链接、原文）。");
         sb.AppendLine("- 所有工具调用结束后，你必须产出一段文本作为最终报告，" +
                        "不得以工具调用作为最后一个动作结束。");

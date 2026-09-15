@@ -114,6 +114,9 @@ public static class SubAgentTool
         /// <summary>继承的 shell 预授权模式</summary>
         public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
 
+        /// <summary>派活者会话的产出目录名(相对 AgentOutputLayout.RootPath);子代理的产出落这里</summary>
+        public string? ParentOutputFolderName { get; init; }
+
         /// <summary>本工具装配成哪一档子代理</summary>
         public required SubAgentProfile Profile { get; init; }
 
@@ -214,6 +217,7 @@ public static class SubAgentTool
             PermissionModeIndex = context.PermissionModeIndex,
             PreAuthorizedShellPatterns = context.PreAuthorizedShellPatterns,
             ParentSessionId = context.ParentSessionId,
+            ParentOutputFolderName = context.ParentOutputFolderName,
             SubAgentType = context.Profile.Type,
             SubAgentName = choice?.Name ?? string.Empty,
             SessionModelName = ResolveSubAgentModelName(context.Profile),

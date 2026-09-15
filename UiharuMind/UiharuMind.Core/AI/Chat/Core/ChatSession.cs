@@ -69,6 +69,14 @@ public class ChatSession
     /// </summary>
     public string? ParentSessionId { get; set; }
 
+    /// <summary>
+    /// 派活者（主代理）的产出目录名（相对 <c>AgentOutputLayout.RootPath</c>）。
+    /// 子代理的产出直接落进派活者会话的目录,不单开目录——同名覆盖风险接受:需要隔离的是
+    /// 多个主会话之间的污染(见 AgentOutputLayout),同一会话内的主代理与子代理共用一个。
+    /// 仅子会话有意义;旧存档没有这个值,回退子会话自己的目录。
+    /// </summary>
+    public string? ParentOutputFolderName { get; set; }
+
     /// <summary>会话是不是子会话</summary>
     [JsonIgnore]
     public bool IsSubSession => !string.IsNullOrEmpty(ParentSessionId);

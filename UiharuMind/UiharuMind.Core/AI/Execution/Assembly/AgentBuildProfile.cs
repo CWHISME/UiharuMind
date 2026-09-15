@@ -141,7 +141,12 @@ public class AgentBuildProfile
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
-            OutputFolderName = AgentOutputLayout.GetFolderName(session.Title, session.SessionId),
+            // 子会话的产出目录跟随派活者:派活时把主代理的目录名固化在子会话上,
+            // 于是子代理的产出直接落主代理会话的目录(见 ChatSession.ParentOutputFolderName)。
+            // 旧存档没有这个值,回退子会话自己的目录
+            OutputFolderName = session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
+                ? session.ParentOutputFolderName
+                : AgentOutputLayout.GetFolderName(session.Title, session.SessionId),
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,

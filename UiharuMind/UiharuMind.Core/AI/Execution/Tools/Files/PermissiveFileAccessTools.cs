@@ -48,9 +48,8 @@ internal sealed class PermissiveFileAccessTools
     /// 于是读一个中文文件实际能放进 8~12 万 token,是标称值的三四倍。本仓注释通篇中文、
     /// docs 更是纯中文,一次 Read 就能吃掉大半个上下文。按字节算则中英文都落在 1.5 万 token 上下。
     ///
-    /// 64KB→1MB:远程大模型(DeepSeek 1M 上下文)读 3000 行文件需分 3 次,分段读撑爆本地小模型
-    /// 上下文后引发截断重填、模型失忆、提前停手。1MB 能覆盖绝大多数源文件一次读完,
-    /// 同时给本地小模型留一个安全天花板。传 limit=-1 可绕过此限制读全文。
+    /// 与 Grep 的地图阈值同口径(32KB≈8K token):默认读是一个安全窗口,远程大模型忘传 limit 也不会
+    /// 一次灌进几十万 token。想要全文就走 <c>limit=-1</c> 的显式通道,Description 里已经写清。
     /// </summary>
     internal const int MaxReadTotalBytes = 32 * 1024;
 
@@ -372,7 +371,7 @@ internal sealed class PermissiveFileAccessTools
     [Description("""
                  Read a file's raw content.
                  - Lines are separated by newlines. The first line of your mental model is line 1.
-                 - By default at most 2000 lines or 1MB are returned per call, whichever comes first;
+                 - By default at most 2000 lines or 32KB are returned per call, whichever comes first;
                    a trailing notice tells you the offset to continue from.
                  - Pass limit=-1 to read the entire file in one call, bypassing the byte cap.
                    Use this when you need to understand the whole file for refactoring.
@@ -382,7 +381,7 @@ internal sealed class PermissiveFileAccessTools
     internal Task<string> Read(
         [Description("File path, absolute or relative to the working directory.")] string filePath,
         [Description("1-based starting line.")] int offset = 1,
-        [Description("Max lines to return. Pass -1 to read the entire file (bypasses the 1MB byte cap). " +
+        [Description("Max lines to return. Pass -1 to read the entire file (bypasses the 32KB byte cap). " +
                      "When omitted, defaults to 2000 lines.")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
