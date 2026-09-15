@@ -26,10 +26,16 @@ namespace UiharuMind.Features.Conversation.Items;
 /// </summary>
 public static class ConversationItemFactory
 {
-    /// <summary>气泡上那一行时间的格式,只此一处定义</summary>
+    /// <summary>气泡上那一行时间的格式,只此一处定义;当天只给时分,隔天补上日期</summary>
     /// <param name="at">时刻</param>
     /// <returns>显示文本</returns>
-    public static string TimestampText(DateTimeOffset at) => at.LocalDateTime.ToString("HH:mm");
+    public static string TimestampText(DateTimeOffset at)
+    {
+        DateTime local = at.LocalDateTime;
+        return local.Date == DateTime.Now.Date
+            ? local.ToString("HH:mm")
+            : local.ToString("yyyy/MM/dd HH:mm");
+    }
 
     /// <summary>条目与标题用的显示文本:点名调用取用户敲的那一行,其余取消息正文</summary>
     /// <param name="message">消息</param>
