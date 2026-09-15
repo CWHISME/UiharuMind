@@ -20,6 +20,10 @@
     </UserControl.Resources>
 
     <UserControl.Styles>
+        <!-- 子代理状态行:只有「等审批」那一档是报警(有时限、到期白跑),配色与其余两档分开 -->
+        <Style Selector="Button.text-row.alert TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SemiOrange5}" />
+        </Style>
         <Style Selector="Border.tool-row">
             <Setter Property="Background" Value="{DynamicResource SemiGrey1}" />
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
@@ -280,22 +284,32 @@
                                Text="{loc:Loc ChatImageUnreadableWarning}"
                                IsVisible="{Binding IsImageUnreadableWarningVisible}" />
                 </StackPanel>
-                <!-- 有子代理在等审批。**位置固定**是它存在的全部理由:通知会飘走、
-                     工具卡跑几十轮就滚没了,而审批到期会按拒绝收口、那次委派白跑。
-                     点一下直达第一个在等的子会话;没有在等的就整条消失 -->
-                <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="2,0,2,4"
-                        Command="{Binding OpenApprovalWaitingCommand}"
-                        IsVisible="{Binding HasApprovalWaiting}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Border Classes="status-dot" Tag="Warning" />
-                        <TextBlock FontSize="11" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource SemiOrange5}"
-                                   Text="{loc:Loc SubAgentApprovalWaiting}" />
-                        <TextBlock FontSize="11" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource SemiOrange5}"
-                                   Text="{Binding ApprovalWaitingCount}" />
-                    </StackPanel>
-                </Button>
+                <!-- 名下子代理的处境:等审批 / 在跑 / 跑完了压着等交回,各占一行。
+                     **位置固定**是这三行共同的存在理由:通知会飘走、工具卡跑几十轮就滚没了,
+                     而审批到期会按拒绝收口、那次委派白跑,报告压着时看着就像回执丢了。
+                     点一行直达该档的第一个子会话;那一档空了整行消失 -->
+                <ItemsControl ItemsSource="{Binding SubAgentStatuses}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="conv:SubAgentStatusViewData">
+                            <Button Classes="text-row" Classes.alert="{Binding IsAlert}"
+                                    HorizontalAlignment="Stretch" Margin="2,0,2,4"
+                                    Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).OpenSubAgentStatusCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <u:LoadingIcon IsLoading="True" Width="12" Height="12"
+                                                   VerticalAlignment="Center"
+                                                   IsVisible="{Binding IsSpinning}" />
+                                    <Border Classes="status-dot" Tag="{Binding DotTag}"
+                                            IsVisible="{Binding !IsSpinning}" />
+                                    <TextBlock FontSize="11" VerticalAlignment="Center"
+                                               Text="{Binding Text}" />
+                                    <TextBlock FontSize="11" VerticalAlignment="Center"
+                                               Text="{Binding Count}" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <!-- 待发的插话:已入注入队列、模型还没消费。它们不进时间轴(位置要等消费那一刻才定),
                      不列出来的话看着像没发出去 -->
                 <ItemsControl ItemsSource="{Binding PendingInterjections}"

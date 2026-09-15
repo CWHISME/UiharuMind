@@ -3145,6 +3145,12 @@
     <data name="ClipboardTooltipMore" xml:space="preserve">
         <value>…（共 {0} 字）</value>
     </data>
+    <data name="SubAgentRunningBanner" xml:space="preserve">
+        <value>有后台子代理还在跑</value>
+    </data>
+    <data name="SubAgentHandoffQueuedBanner" xml:space="preserve">
+        <value>子代理已跑完，等主代理空闲后交回结论</value>
+    </data>
     <data name="SubAgentApprovalWaiting" xml:space="preserve">
         <value>有后台子代理在等你批准</value>
     </data>

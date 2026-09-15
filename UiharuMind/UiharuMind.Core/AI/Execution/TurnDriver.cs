@@ -173,6 +173,10 @@ public sealed class TurnDriver : IDisposable
         // 岔口的释放必须晚到 finally 里:收尾的 CloseSegment/StopRunningToolCalls 与失败路径的
         // 落库都要经过它,拆早了自己的落点都收不到那几下
         LiveTurnStream.Scope? liveScope = null;
+        // 登记处的那一份运行态必须<b>晚于</b> IsRunning 归零才撤(见 finally):两者反过来的话,
+        // 中间那一瞬「登记处说闲着、本实例说在跑」——正等着交回报告的后台子代理会恰好在这一瞬
+        // 写进历史,而界面把自己这一轮进行中的落盘当成重复渲染丢掉,那条报告就此不上屏
+        IDisposable? runScope = null;
         try
         {
             // 唤醒轮没有输入消息:模型这一轮读的是已经落在历史里的那条后续报告
@@ -181,7 +185,7 @@ public sealed class TurnDriver : IDisposable
 
             // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
             // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下
-            using IDisposable runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
+            runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
 
             // 本轮的内容流从这里分岔:自己的落点之外,打开着这个会话的窗口也挂在上面。
             // 子代理那一轮的落点只攒报告(见 SubAgentTool.SubAgentTurnSink),
@@ -301,6 +305,7 @@ public sealed class TurnDriver : IDisposable
             _runCancellation = null;
             _activeSession = null;
             _notify?.Invoke(new TurnNotice(ETurnNotice.Ended));
+            runScope?.Dispose(); //收尾的最后一步,见上面声明处
         }
 
         // 压缩放在轮次之间,不放在请求路径上:写交接文档本身要发一次请求,

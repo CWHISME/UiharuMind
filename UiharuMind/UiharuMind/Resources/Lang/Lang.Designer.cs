@@ -675,6 +675,18 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string SubAgentRunningBanner {
+            get {
+                return ResourceManager.GetString("SubAgentRunningBanner", resourceCulture);
+            }
+        }
+        
+        public static string SubAgentHandoffQueuedBanner {
+            get {
+                return ResourceManager.GetString("SubAgentHandoffQueuedBanner", resourceCulture);
+            }
+        }
+        
         public static string SubAgentApprovalWaiting {
             get {
                 return ResourceManager.GetString("SubAgentApprovalWaiting", resourceCulture);

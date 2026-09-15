@@ -222,12 +222,18 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
     /// <summary>
     /// 立即把缓冲同步到 <see cref="ConversationItemBase.Message"/>(段落收尾时调用)。
     /// 节拍器允许最后一次追加晚到一拍，收尾处必须显式冲刷，否则最后几个字会短暂缺失。
+    ///
+    /// <b>缓冲为空即不是流式条目</b>，此时什么都不做：旁白、后续报告这些是直接赋
+    /// <see cref="ConversationItemBase.Message"/> 造出来的，一个字都没进过缓冲，
+    /// 照冲不误就是把正文抹成空——表现为气泡当场变空白(后续报告原地替换时踩到过)。
+    /// 流式条目在这里恒为非空:它的正文本来就只有缓冲这一个来源。
     /// </summary>
     public void Flush()
     {
         string text;
         // 取快照再赋值:赋值会引发绑定与布局,不该攥着锁做
         lock (_bufferGate) text = _buffer.ToString();
+        if (text.Length == 0) return;
         Message = text;
     }
 

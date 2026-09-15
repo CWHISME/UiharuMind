@@ -351,6 +351,28 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool HasApprovalWaiting => ApprovalWaitingCount > 0;
 
     /// <summary>
+    /// 输入区上方的<b>子代理状态</b>：等审批、在跑、跑完了压着等交回，各占一行。
+    ///
+    /// 三档同源同规则（见 <see cref="SubAgentStatusViewData"/>），所以合成一个列表由
+    /// 界面照样画，而不是三段各写各的显隐。位置固定是它们共同的存在理由：
+    /// 通知会飘走、工具卡跑几十轮就滚没了，而这条随时在。
+    /// </summary>
+    public ObservableCollection<SubAgentStatusViewData> SubAgentStatuses { get; } = new();
+
+    /// <summary>
+    /// 点开这一行对应的第一个子会话。
+    ///
+    /// 只开第一个而不是列出全部：用户要的是「马上看一眼/处理掉一个」，
+    /// 处理完这一行自己会指向下一个。
+    /// </summary>
+    /// <param name="status">被点的那一行</param>
+    [RelayCommand]
+    private void OpenSubAgentStatus(SubAgentStatusViewData? status)
+    {
+        if (status is { Count: > 0 }) SubSessionWindowOpener.Open(status.SubSessionIds[0]);
+    }
+
+    /// <summary>
     /// 打开第一个在等审批的子会话。
     ///
     /// 只开第一个而不是列出全部：等审批是有时限的（到期按拒绝收口），
@@ -363,10 +385,32 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (waiting.Count > 0) SubSessionWindowOpener.Open(waiting[0]);
     }
 
+    /// <summary>名下子代理的处境变了：横幅与那几个计数一起刷。只在 UI 线程上调</summary>
     private void NotifyApprovalWaitingChanged()
     {
         OnPropertyChanged(nameof(ApprovalWaitingCount));
         OnPropertyChanged(nameof(HasApprovalWaiting));
+        RefreshSubAgentStatuses();
+    }
+
+    /// <summary>
+    /// 重建状态行。整份重建而不是逐行增删：至多三行，而「哪一档有几个」是现取的快照，
+    /// 比对着改反而要把同一份判据再写一遍
+    /// </summary>
+    /// <param name="force">内容没变也重建（换语言时文案要重算）</param>
+    private void RefreshSubAgentStatuses(bool force = false)
+    {
+        List<SubAgentStatusViewData> fresh = SubAgentStatusViewData.Collect(CurrentMeta?.SessionId);
+        if (fresh.Count == 0 && SubAgentStatuses.Count == 0) return;
+        //一字未变就别动集合:每次运行态抖动都重建一遍会让那几行跟着闪
+        if (!force && fresh.Count == SubAgentStatuses.Count &&
+            !fresh.Where((x, i) => !x.Equals(SubAgentStatuses[i])).Any())
+        {
+            return;
+        }
+
+        SubAgentStatuses.Clear();
+        foreach (SubAgentStatusViewData status in fresh) SubAgentStatuses.Add(status);
     }
 
     /// <summary>
@@ -472,6 +516,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 手动而不是自动：用户开这个窗口未必是为了帮派活者干活，手动那一下就是表态。
     /// 交回之后<b>不起新轮</b>——让派活者在用户没要求时自己动起来，
     /// 「这一轮的用户消息是什么」就没法回答了（见 ADR 0022 的轮次归属）。
+    /// 唤醒轮只属于后台委派跑完那条路（见 <c>BackgroundSubAgentDispatcher</c> 与 ADR 0025）。
     /// </summary>
     [RelayCommand]
     private void HandBackToParent()
@@ -515,14 +560,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 以及别处往我的历史里写了东西（子会话把后续报告交回派活者）。
     ///
     /// 粒度是每次服务调用，不是逐 token——逐 token 走的是实时内容流
-    /// （<c>ChatSession.LiveTurn</c>），本方法据此分两档处理。
+    /// （<c>ChatSession.LiveTurn</c>），本方法据此分三档处理。
     /// </summary>
     /// <param name="fromIndex">新增段的起始下标</param>
     private void OnSessionHistoryAppended(int fromIndex)
     {
-        // 自己正在跑的那一轮由实时流渲染,这里再补一遍就是每条显示两次
-        if (_driver.IsRunning) return;
-
+        // 自己正在跑的那一轮由实时流渲染,整段再补一遍就是每条显示两次
+        bool ownTurn = _driver.IsRunning;
         // 别人驱动的那一轮也在往我这里流内容,同理:流已经渲染过的不能再渲染一遍
         bool streaming = CurrentSession?.LiveTurn.IsTurnRunning == true;
 
@@ -532,11 +576,33 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             IReadOnlyList<ChatMessage> history = session.History;
             if (fromIndex < 0 || fromIndex >= history.Count) return;
 
-            if (streaming) AppendAlongsideStream(history, fromIndex);
+            if (ownTurn) AppendHandedBackReports(history, fromIndex);
+            else if (streaming) AppendAlongsideStream(history, fromIndex);
             else AppendWholeSlice(history, fromIndex);
 
-            RefreshTokenUsageText();
+            if (!ownTurn) RefreshTokenUsageText(); //本轮的用量由 UsageObserved 逐块刷,这里重复一次只会抖
         });
+    }
+
+    /// <summary>
+    /// 自己那一轮正跑着的时候落的盘：本轮的东西全由实时流渲染过了，这里<b>只补后续报告</b>。
+    ///
+    /// 它是唯一可能在本轮进行中从别处插进来的一类——子会话交回报告要等派活者空闲
+    /// （见 <c>SubAgentReportHandoff</c>），而「登记处已空闲」与「本实例的 IsRunning 归零」
+    /// 之间有一瞬的错位。整段丢掉的话那条报告就要等重开会话才看得见，用户看到的是「交回丢了」。
+    /// 其余几类（检索卡、旁白、交接文档）本轮自有渲染路径，补在这里会画成两条。
+    /// </summary>
+    private void AppendHandedBackReports(IReadOnlyList<ChatMessage> history, int fromIndex)
+    {
+        for (int i = fromIndex; i < history.Count; i++)
+        {
+            if (ConversationMessageOrigin.KindOf(history[i]) != EHistoryItemKind.SubAgentReport) continue;
+
+            foreach (ConversationItemBase item in BuildHistoryItems(history, i, i + 1, liveTail: true))
+            {
+                Items.Add(item);
+            }
+        }
     }
 
     /// <summary>
@@ -891,6 +957,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(PermissionTooltip));
         OnPropertyChanged(nameof(SenderTooltip));
         RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
+        RefreshSubAgentStatuses(force: true); //同上:那几行的文案也是取一次存一次
     }
 
     /// <summary>
@@ -1602,6 +1669,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 用户打的字还会走"发下一轮"而不是"插话"
             NotifyRunStateChanged();
             NotifyBusyChanged();
+            //名下子代理的处境同理:它们多半在装载之前就成立了,登记处的信号早发完了
+            NotifyApprovalWaitingChanged();
 
             // 切回会话时恢复输入框草稿
             InputText = body.ComposerDraft;

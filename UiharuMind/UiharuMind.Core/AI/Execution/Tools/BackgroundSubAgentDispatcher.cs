@@ -56,6 +56,11 @@ public static class BackgroundSubAgentDispatcher
     private static readonly ConcurrentDictionary<string, byte> _pendingSubSessions = new();
     private static readonly ConcurrentDictionary<string, int> _wakeStreakByParent = new();
 
+    // 父会话 → 报告已就绪、正等它空闲好交回的子会话标识。它是 _pendingByParent 的<b>子集</b>,
+    // 单独记是因为界面要把「还在跑」与「跑完了压着」分成两行说——用户看到的
+    // 「子代理跑完了、回执没了」正是后一档(派活者正在跑时写它的历史会与落盘交错,只能等)
+    private static readonly ConcurrentDictionary<string, HashSet<string>> _handoffQueuedByParent = new();
+
     /// <summary>某个会话「未了结的工作」变化。注意它<b>不是</b> IsGenerating，见 CONTEXT.md</summary>
     public static event Action<string>? PendingWorkChanged;
 
@@ -127,6 +132,39 @@ public static class BackgroundSubAgentDispatcher
         return waiting;
     }
 
+    /// <summary>
+    /// 名下<b>正在跑</b>的后台子代理，按标识列出：派出去了、既没卡在审批上、也还没排队等交回。
+    ///
+    /// 与 <see cref="ApprovalWaiting"/>、<see cref="HandoffQueued"/> 三者互斥且同源，
+    /// 界面据此把一件事的三种处境分行显示——从前只有「等审批」那一行看得见，
+    /// 子代理闷头跑着的时候输入区上方什么都没有，看着就像没派出去。
+    /// </summary>
+    /// <param name="sessionId">父会话标识</param>
+    /// <returns>子会话标识；没有则空</returns>
+    public static IReadOnlyList<string> RunningSubSessions(string? sessionId)
+    {
+        HashSet<string> queued = QueuedSnapshot(sessionId);
+        List<string> running = [];
+        foreach (string subSessionId in Snapshot(sessionId))
+        {
+            if (queued.Contains(subSessionId)) continue;
+            if (SessionManager.Instance.Running.StateOf(subSessionId) == ESessionRunState.AwaitingApproval) continue;
+            running.Add(subSessionId);
+        }
+
+        return running;
+    }
+
+    /// <summary>
+    /// 名下<b>结论已就绪、正等派活者空闲</b>的子会话，按标识列出。
+    ///
+    /// 这一档必须看得见：派活者跑一轮长的，报告就压一轮那么久，而界面上一个字都没有——
+    /// 用户看到的是「子代理跑完了，回执没了」（实机反馈）。
+    /// </summary>
+    /// <param name="sessionId">父会话标识</param>
+    /// <returns>子会话标识；没有则空</returns>
+    public static IReadOnlyList<string> HandoffQueued(string? sessionId) => QueuedSnapshot(sessionId).ToArray();
+
     /// <summary>进程内有没有<b>任何</b>后台委派还没交回（菜单栏图标那一档是全局的，不按会话分）</summary>
     public static bool AnyPending() => !_pendingSubSessions.IsEmpty;
 
@@ -150,6 +188,54 @@ public static class BackgroundSubAgentDispatcher
         if (string.IsNullOrEmpty(sessionId)) return [];
         if (!_pendingByParent.TryGetValue(sessionId, out HashSet<string>? ids)) return [];
         lock (ids) return ids.ToArray();
+    }
+
+    /// <summary>取这个父会话名下正排队等交回的子会话标识快照</summary>
+    private static HashSet<string> QueuedSnapshot(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return [];
+        if (!_handoffQueuedByParent.TryGetValue(sessionId, out HashSet<string>? ids)) return [];
+        lock (ids) return new HashSet<string>(ids);
+    }
+
+    /// <summary>记下「这一份在排队」。已经排着返回 false——调用方据此不要再起第二个重试循环</summary>
+    private static bool MarkHandoffQueued(string parentId, string subSessionId)
+    {
+        HashSet<string> queued = _handoffQueuedByParent.GetOrAdd(parentId, _ => new HashSet<string>());
+        lock (queued)
+        {
+            if (!queued.Add(subSessionId)) return false;
+        }
+
+        PendingWorkChanged?.Invoke(parentId);
+        return true;
+    }
+
+    /// <summary>这一份不再排队（交回了、或者交不成了）</summary>
+    private static void ClearHandoffQueued(string parentId, string subSessionId)
+    {
+        if (!_handoffQueuedByParent.TryGetValue(parentId, out HashSet<string>? queued)) return;
+        bool removed;
+        lock (queued) removed = queued.Remove(subSessionId);
+        if (removed) PendingWorkChanged?.Invoke(parentId);
+    }
+
+    /// <summary>
+    /// 反复交回直到派活者闲下来接住。<b>不设上限</b>：报告是已经产出的结论，
+    /// 除了「派活者一直在跑」没有别的理由交不成，而那件事总会结束。
+    /// 排队期间在界面上是明说的（见 <see cref="HandoffQueued"/>）。
+    /// </summary>
+    /// <param name="parentId">派活者标识</param>
+    /// <param name="subSessionId">子会话标识</param>
+    /// <param name="submit">交回一次，返回结果</param>
+    private static async Task SubmitWhenParentIdleAsync(string parentId, string subSessionId,
+        Func<EHandoffOutcome> submit)
+    {
+        while (submit() == EHandoffOutcome.ParentBusy)
+        {
+            MarkHandoffQueued(parentId, subSessionId);
+            await Task.Delay(WakeRetryInterval).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -285,10 +371,8 @@ public static class BackgroundSubAgentDispatcher
         {
             // 父会话正在跑时写它的历史会与落盘交错,等到它闲下来。这也顺带实现了「合并」:
             // 排队期间跑完的其他委派各自 Submit 一条,最后只起一轮把它们一起交给模型
-            while (SubmitBlockedByBusyParent(subSession, report))
-            {
-                await Task.Delay(WakeRetryInterval).ConfigureAwait(false);
-            }
+            await SubmitWhenParentIdleAsync(parentId, subSession.SessionId,
+                () => SubmitReport(subSession, report)).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -298,6 +382,7 @@ public static class BackgroundSubAgentDispatcher
         {
             subSession.BackgroundReportPending = false;
             subSession.SaveMeta();
+            ClearHandoffQueued(parentId, subSession.SessionId);
             if (_pendingByParent.TryGetValue(parentId, out HashSet<string>? pending))
             {
                 lock (pending) pending.Remove(subSession.SessionId);
@@ -312,17 +397,17 @@ public static class BackgroundSubAgentDispatcher
     }
 
     /// <summary>
-    /// 交回一次；父会话正忙返回 true（该等）。其余结果都是终局，再试也一样。
+    /// 交回一次后台委派的报告。
     ///
     /// 交的是委派<b>自己攒出来的那份报告</b>，不是从子会话历史里现捞的最后一段正文——
     /// 那份带着「用户中止了」「超时了」「有几个调用没跑成」的注记，现捞会把它们全丢掉。
     /// 一跑起来就被停掉、什么都没产出的那种，靠 <c>interruption</c> 兜住：
     /// 「它没干成」本身就是派活者必须知道的事，静默等于让那条「已派出」永远没有下文。
     /// </summary>
-    private static bool SubmitBlockedByBusyParent(ChatSession subSession, string report) =>
+    private static EHandoffOutcome SubmitReport(ChatSession subSession, string report) =>
         SubAgentReportHandoff.Submit(subSession,
             string.IsNullOrWhiteSpace(report) ? "没有产出任何结论就结束了" : null,
-            report) == EHandoffOutcome.ParentBusy;
+            report);
 
     private static async Task WakeParentAsync(string parentId)
     {
