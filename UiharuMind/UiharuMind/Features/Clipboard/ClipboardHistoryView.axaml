@@ -86,6 +86,7 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid Height="80" RowDefinitions="Auto,*,Auto" Background="Transparent"
+                              ToolTip.ShowDelay="500"
                               PointerReleased="InputElement_OnPointerReleased" PointerEntered="Item_OnPointerEntered">
                             <Grid.ContextMenu>
                                 <ContextMenu>
@@ -96,18 +97,22 @@
                             </Grid.ContextMenu>
                             <Image MaxHeight="80" Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=80}" Stretch="Uniform" StretchDirection="Both" IsVisible="{Binding IsImage}" />
                             <TextBlock Grid.Row="1" Text="{Binding Preview}" IsVisible="{Binding !IsImage}"
-                                       TextTrimming="CharacterEllipsis" />
+                                       TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
                             <TextBlock Grid.Row="2" Text="{Binding Date}" FontSize="9" HorizontalAlignment="Right" />
                             <controls:ThemedSvgIcon Grid.Row="2" IconName="star" IsVisible="{Binding IsFavorite}" 
                                                      Height="12" Width="12" HorizontalAlignment="Left" />
                             <!-- 图片:内联控件的绑定要悬停才求值(实测未悬停时转换器零调用),故这里不必延迟,
                                  只需限住解码高度:整屏截图的悬停预览没必要按原分辨率解。
                                  文本:正文不在内存里,由 Item_OnPointerEntered 防抖后按主键现取,
-                                 取回来的也只是前若干字——全文塞进 tooltip 是个布局炸弹 -->
+                                 取回来的也只是前若干字——全文塞进 tooltip 是个布局炸弹。
+                                 宽高都要封顶:无约束的 TextBlock/Image 在异步内容到达时会把 tooltip 撑开,
+                                 表现为悬停窗突然拉伸;ShowDelay 盖住防抖+读盘也是为此 -->
                             <ToolTip.Tip>
-                                <Panel>
-                                    <Image Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=400}" IsVisible="{Binding IsImage}"></Image>
-                                    <TextBlock Text="{Binding TooltipText}" IsVisible="{Binding !IsImage}" />
+                                <Panel MaxWidth="420">
+                                    <Image Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=400}"
+                                           IsVisible="{Binding IsImage}" MaxWidth="400" MaxHeight="300" Stretch="Uniform" />
+                                    <TextBlock Text="{Binding TooltipText}" IsVisible="{Binding !IsImage}"
+                                               MaxWidth="400" MaxLines="20" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
                                 </Panel>
                             </ToolTip.Tip>
                         </Grid>

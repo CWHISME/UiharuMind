@@ -46,15 +46,40 @@ public class ClipboardHistoryStoreTests : IDisposable
 
     /// <summary>正文不截断，列表只带预览</summary>
     [Fact]
-    public void AddText_KeepsFullTextButPreviewsFirstLine()
+    public void AddText_KeepsFullTextButPreviewsFirstThreeLines()
     {
         using ClipboardHistoryStore store = new(DatabasePath);
         string text = "首行\n" + new string('x', 10_000);
 
         ClipboardHistoryEntry entry = store.AddText(text);
 
-        Assert.Equal("首行…", entry.Preview);
+        Assert.Equal("首行\n" + new string('x', 397) + "…", entry.Preview);
         Assert.Equal(text, store.GetText(entry.Id));
+    }
+
+    /// <summary>
+    /// 三行内、400 字内的短文本原样返回，不加省略号——
+    /// 首行短的多行条目不再只剩十几个字
+    /// </summary>
+    /// <param name="text">正文</param>
+    /// <param name="expected">期望的预览</param>
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("单行短文本", "单行短文本")]
+    [InlineData("abc\n", "abc")]
+    [InlineData("SLG2-16436\n【附加功能】新增迁城特效", "SLG2-16436\n【附加功能】新增迁城特效")]
+    [InlineData("1\n2\n3\n4\n5", "1\n2\n3…")]
+    [InlineData("a\r\nb\r\nc\r\nd", "a\nb\nc…")]
+    public void BuildPreview_ShortTextIsReturnedAsIs(string text, string expected)
+    {
+        Assert.Equal(expected, ClipboardHistoryStore.BuildPreview(text));
+    }
+
+    /// <summary>单行超长按 400 字截断</summary>
+    [Fact]
+    public void BuildPreview_SingleLongLineIsTruncatedAt400()
+    {
+        Assert.Equal(new string('y', 400) + "…", ClipboardHistoryStore.BuildPreview(new string('y', 500)));
     }
 
     /// <summary>

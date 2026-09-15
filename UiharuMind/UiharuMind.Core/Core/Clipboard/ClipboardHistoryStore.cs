@@ -23,8 +23,15 @@ namespace UiharuMind.Core.Core.Clipboard;
 /// </summary>
 public sealed class ClipboardHistoryStore : IDisposable
 {
-    /// <summary>预览的最大字符数，与日志那边同理：它是要常驻内存的那部分</summary>
+    /// <summary>预览的最大字符数：它是<b>常驻内存</b>的那部分，与总长度无关</summary>
     public const int PreviewLength = 400;
+
+    /// <summary>
+    /// 预览取前几行。刻意与 <c>LogFormat.Preview</c> 不同口径：日志列表行是单行，
+    /// 剪贴板列表行有 80px 高、能放下三行——首行常常只是个编号/标题，
+    /// 只取首行的话多行条目永远只能看到十几个字
+    /// </summary>
+    public const int PreviewMaxLines = 3;
 
     private readonly SqliteConnection _connection;
     private readonly object _locker = new();
@@ -296,16 +303,25 @@ public sealed class ClipboardHistoryStore : IDisposable
     }
 
     /// <summary>
-    /// 取首行预览，与日志那边同一个口径：后面还有内容时补省略号
+    /// 取前三行预览：行数超了、字符数超了，后面还有内容时补省略号。
+    /// 三行内、400 字内的短文本原样返回，不加省略号
     /// </summary>
     /// <param name="text">正文</param>
-    /// <returns>不含换行、长度受限的预览</returns>
+    /// <returns>至多三行、长度受限的预览</returns>
     public static string BuildPreview(string text)
     {
-        int end = text.IndexOfAny(['\r', '\n']);
-        ReadOnlySpan<char> firstLine = end < 0 ? text : text.AsSpan(0, end);
-        if (firstLine.Length <= PreviewLength) return end < 0 ? firstLine.ToString() : firstLine.ToString() + '…';
-        return string.Concat(firstLine[..PreviewLength], "…");
+        string[] lines = text.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        bool hasMoreLines = lines.Length > PreviewMaxLines;
+        string head = string.Join('\n', lines.Take(PreviewMaxLines));
+        bool truncated = false;
+        if (head.Length > PreviewLength)
+        {
+            head = head[..PreviewLength];
+            truncated = true;
+        }
+
+        string preview = head.TrimEnd('\n'); //纯粹拖尾的空行不算内容，不配省略号
+        return hasMoreLines || truncated ? preview + '…' : preview;
     }
 
     private static string BuildWhere(ClipboardHistoryFilter filter, bool hasCursor)
