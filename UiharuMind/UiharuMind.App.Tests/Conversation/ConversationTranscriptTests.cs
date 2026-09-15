@@ -636,6 +636,67 @@ public class ConversationTranscriptTests
     }
 
     /// <summary>
+    /// 收口过的卡再收到结果要被覆盖，而不是停在「历史里没有这次调用的结果」。
+    /// </summary>
+    [Fact]
+    public void ResultAppliedAfterFinalizeReplay_OverwritesTheUnfinishedNote()
+    {
+        var (transcript, items) = Create();
+        transcript.Apply(new FunctionCallContent("a", "Write", null));
+        transcript.FinalizeReplay("历史里没有这次调用的结果");
+        Assert.Equal("历史里没有这次调用的结果", items.OfType<ToolCallItem>().Single().ResultText);
+
+        transcript.Apply(new FunctionResultContent("a", ToolCallCancellation.ApprovalUnansweredResultText));
+
+        ToolCallItem call = items.OfType<ToolCallItem>().Single();
+        Assert.Single(items.OfType<ToolCallItem>()); //回写不造新卡
+        Assert.False(call.IsRunning);
+        Assert.False(call.IsSuccess); //[cancelled] 显示成失败
+        Assert.Equal(ToolCallCancellation.ApprovalUnansweredResultText, call.ResultText);
+    }
+
+    /// <summary>
+    /// 开窗分批回放把调用与结果切在两批里：批内看不到结果，收尾不能把这张卡收口成
+    /// 「历史里没有这次调用的结果」——盘上有结果却这么显示就是谎报。实机撞到过
+    /// （子会话 6b09cf4c：首屏是 12–16，补窗是 7–11，第 11 条的 Write 结果落在第 12 条）。
+    /// </summary>
+    [Fact]
+    public void ResultInTheNextWindow_IsWrittenBackBeforeFinalize()
+    {
+        var (transcript, items) = Create();
+        List<ChatMessage> history =
+        [
+            new(ChatRole.Assistant, [new FunctionCallContent("a", "Write", null)]),
+            new(ChatRole.Tool, [new FunctionResultContent("a", "Nobody answered this approval")]),
+        ];
+
+        // 本批只有第 0 条(调用),结果在批外
+        transcript.Apply(history[0].Contents[0]);
+        transcript.ApplyLaterResults(history, 1);
+        transcript.FinalizeReplay("历史里没有这次调用的结果");
+
+        ToolCallItem call = Assert.Single(items.OfType<ToolCallItem>());
+        Assert.False(call.IsRunning);
+        Assert.Equal("Nobody answered this approval", call.ResultText);
+    }
+
+    /// <summary>
+    /// 批外真的没有结果时，收尾照旧收口——回写不能顺手把「没有结果」也抹掉。
+    /// </summary>
+    [Fact]
+    public void NoResultAnywhere_StillClosesAsUnfinished()
+    {
+        var (transcript, items) = Create();
+        List<ChatMessage> history = [new(ChatRole.Assistant, [new FunctionCallContent("a", "Write", null)])];
+
+        transcript.Apply(history[0].Contents[0]);
+        transcript.ApplyLaterResults(history, 1);
+        transcript.FinalizeReplay("历史里没有这次调用的结果");
+
+        Assert.Equal("历史里没有这次调用的结果", items.OfType<ToolCallItem>().Single().ResultText);
+    }
+
+    /// <summary>
     /// 取消补写的工具结果要显示成失败。判据只能取正文——<c>FunctionResultContent.Exception</c>
     /// 带 <c>[JsonIgnore]</c>，存进会话文件再读回来就没了，卡片会重新变成绿色。
     /// </summary>

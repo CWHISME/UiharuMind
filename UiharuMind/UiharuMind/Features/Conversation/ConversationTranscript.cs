@@ -158,18 +158,7 @@ public sealed class ConversationTranscript : ITurnSink
                 break;
 
             case FunctionResultContent result:
-                if (FindCall(result.CallId) is { } item)
-                {
-                    item.IsRunning = false;
-                    // 取消补写的结果要显示成失败:它没跑完,绿点会是假消息。
-                    // 判据只能取正文——Exception 带 [JsonIgnore],存盘再读回来就没了
-                    item.IsSuccess = result.Exception == null && !ToolCallCancellation.IsCancelled(result);
-                    item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
-                    // 回放历史时 SubSessionStartedContent 早已随当时那一轮消失,
-                    // 入口只能从落了盘的结果文本里认回来
-                    if (!item.HasSubSession) item.SubSessionId = ToolCallItem.ParseSubSessionId(item.ResultText);
-                }
-
+                ApplyResultToExisting(result);
                 break;
 
             // 一次委派开始了:把子会话标识挂到对应卡片上,用户此刻就能点开看。
@@ -259,6 +248,45 @@ public sealed class ConversationTranscript : ITurnSink
     {
         return _target.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == callId)
                ?? _renderedBefore?.OfType<ToolCallItem>().LastOrDefault(x => x.CallId == callId);
+    }
+
+    /// <summary>
+    /// 把<b>本批之后</b>的历史里的工具结果回写到本批已渲染的卡片上。
+    ///
+    /// 为什么需要它：长会话按窗口分批回放（见 <c>HistoryWindow</c>），而一次调用与它的结果
+    /// 是两条消息，开窗完全可能把它们切在两批里。批内看不到那条结果，收尾就会把这张卡
+    /// 收口成「历史里没有这次调用的结果」——盘上明明有结果，界面却在谎报，而且滚一次
+    /// 「加载更早」就复现一次。实机撞到过：子会话 Write 卡的结果落在下一批里。
+    /// </summary>
+    /// <param name="messages">完整历史</param>
+    /// <param name="from">本批的结束下标（不含），从这里往后找结果</param>
+    public void ApplyLaterResults(IReadOnlyList<ChatMessage> messages, int from)
+    {
+        for (int i = Math.Max(0, from); i < messages.Count; i++)
+        {
+            foreach (AIContent content in messages[i].Contents)
+            {
+                if (content is FunctionResultContent result) ApplyResultToExisting(result);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 把一条工具结果回写到已渲染的卡片（找不到则静默）。与 <see cref="Apply"/> 里的
+    /// <c>FunctionResultContent</c> 分支共用同一份逻辑。
+    /// </summary>
+    private void ApplyResultToExisting(FunctionResultContent result)
+    {
+        if (FindCall(result.CallId) is not { } item) return;
+
+        item.IsRunning = false;
+        // 取消补写的结果要显示成失败:它没跑完,绿点会是假消息。
+        // 判据只能取正文——Exception 带 [JsonIgnore],存盘再读回来就没了
+        item.IsSuccess = result.Exception == null && !ToolCallCancellation.IsCancelled(result);
+        item.ResultText = result.Result?.ToString() ?? result.Exception?.Message ?? string.Empty;
+        // 回放历史时 SubSessionStartedContent 早已随当时那一轮消失,
+        // 入口只能从落了盘的结果文本里认回来
+        if (!item.HasSubSession) item.SubSessionId = ToolCallItem.ParseSubSessionId(item.ResultText);
     }
 
     /// <summary>

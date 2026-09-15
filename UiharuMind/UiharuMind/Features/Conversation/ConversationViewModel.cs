@@ -1825,6 +1825,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             }
         }
 
+        // 调用与它的结果是两条消息,开窗分批完全可能把它们切在两批里:不越过批边界找一次,
+        // 批尾那次调用就会被下面的收尾误判成「历史里没有这次调用的结果」(liveTail 那一批
+        // to 就是历史末尾,这里是空操作)
+        replay.ApplyLaterResults(messages, to);
+
         if (liveTail) replay.CloseSegment();
         else replay.FinalizeReplay(LocalizationManager.Instance.GetString("AgentToolCallUnfinished"));
 
