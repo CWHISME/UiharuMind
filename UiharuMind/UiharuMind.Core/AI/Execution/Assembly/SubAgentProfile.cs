@@ -81,13 +81,14 @@ public sealed record SubAgentProfile
         // 从前两边各说各的(一边"要改东西时用我",一边"要读很多东西时用我"),而大量任务
         // 两头都沾,模型就倒向描述覆盖面更宽的探索档。判据里还要有"拿不准就用这个",
         // 否则中间地带仍然无主。
+        // 子代理自动携带与主代理同一份工作区规矩(AGENTS.md/CLAUDE.md,注入语义见
+        // AgentToolPrompts.SubAgentDefault 与 WorkspaceInstructionsLoader),描述里不重复,
+        // 免得同一句在每个工具描述里各付一遍上下文。
         Description =
             "Delegate a task to a general-purpose sub-agent and get back a focused report. " +
             "Use it whenever the task may need to CHANGE anything - editing files, running commands, " +
             "using MCP tools - or when you are not sure whether it will. This is the default choice; " +
-            "only prefer " + SubAgentTool.ToolExplorerName + " when the task is purely about finding things out. " +
-            "It has the same tools and permission mode as you, and anything needing approval " +
-            "is asked of the user as usual. It runs to completion before this returns.",
+            "only prefer " + SubAgentTool.ToolExplorerName + " when the task is purely about finding things out.",
     };
 
     /// <summary>探索子代理策略</summary>
@@ -100,7 +101,6 @@ public sealed record SubAgentProfile
             "Use it only when the task is purely about finding things out - surveying many files, " +
             "searching code, researching a topic on the web - so the raw material never enters your own context. " +
             "It CANNOT edit files, run commands or use MCP tools: if the task might need any of those, " +
-            "use " + SubAgentTool.ToolGeneralName + " instead. " +
-            "It may run on a cheaper model. It runs to completion before this returns.",
+            "use " + SubAgentTool.ToolGeneralName + " instead.",
     };
 }
