@@ -110,6 +110,10 @@ internal static class InputBackendFactory
 internal sealed class NullInputHookBackend : IInputHookBackend
 {
     public bool IsRunning => false;
+
+    // 这些事件是 IInputHookBackend 接口要求的实现，但空后端从不触发它们（无全局监听），
+    // 删掉会破坏接口契约，故局部抑制“事件从未使用”
+#pragma warning disable CS0067
     public event Action? HookEnabled;
     public event Action? HookDisabled;
     public event Func<KeyEventInfo, bool>? KeyPressed;
@@ -119,6 +123,7 @@ internal sealed class NullInputHookBackend : IInputHookBackend
     public event Action<MouseEventData>? MouseMoved;
     public event Action<MouseEventData>? MouseDragged;
     public event Action<MouseWheelEventData>? MouseWheel;
+#pragma warning restore CS0067
 
     public Task RunAsync() => Task.CompletedTask;
     public EModifierKeys GetPressedModifiers() => EModifierKeys.None;

@@ -189,7 +189,7 @@ public partial class CharacterListViewData : ObservableObject
         }
 
         var characterInfo = new CharacterInfoViewData(obj);
-        int index = Math.Max(0, Characters.IndexOf(SelectedCharacter));
+        int index = Math.Max(0, Characters.IndexOf(SelectedCharacter!));
         Characters.Insert(index, characterInfo);
         _characterChacheList.Insert(index, characterInfo);
         RefreshSelectedCharacter();

@@ -149,14 +149,14 @@ public class ScheduledTaskPermissionTests
     /// 「当场」是可断言的：返回的 Task 立刻就是完成态；交互式实现返回的是一个等用户点的未完成 Task。
     /// </summary>
     [Fact]
-    public void UnattendedApproval_IsDeniedWithoutWaiting()
+    public async Task UnattendedApproval_IsDeniedWithoutWaiting()
     {
         ApprovalResolver resolver = InProcessSchedulerBackend.DenyUnauthorizedApprovals(NewTask());
 
         Task<IReadOnlyList<ChatMessage>> pending = resolver([ShellRequest(), EditRequest()]);
 
         Assert.True(pending.IsCompleted, "无人值守的审批必须当场有结论,不能挂着等用户");
-        IReadOnlyList<ChatMessage> responses = pending.Result;
+        IReadOnlyList<ChatMessage> responses = await pending;
         Assert.Equal(2, responses.Count); //每一条请求都要有配对回应,漏一条历史就对不上
         foreach (ChatMessage message in responses)
         {

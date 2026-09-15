@@ -10,10 +10,10 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 public class BaseRemoteModelConfig : ConfigBase, ILlmModel
 {
     [SettingConfigIgnoreDisplay] public string? ConfigType { get; set; }
-    public virtual string ModelName { get; set; }
-    public virtual string ModelPath { get; set; }
-    public virtual string ModelDescription { get; set; }
-    public virtual string ModelId { get; set; }
+    public virtual string ModelName { get; set; } = string.Empty;
+    public virtual string ModelPath { get; set; } = string.Empty;
+    public virtual string ModelDescription { get; set; } = string.Empty;
+    public virtual string ModelId { get; set; } = string.Empty;
     public virtual bool IsVision { get; set; }
 
     /// <summary>

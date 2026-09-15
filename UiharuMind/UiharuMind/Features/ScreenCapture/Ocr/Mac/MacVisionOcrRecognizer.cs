@@ -29,7 +29,7 @@ public sealed class MacVisionOcrRecognizer : IOcrTextRecognizer
         string tempPath = Path.Combine(Path.GetTempPath(), $"uiharu-ocr-{Guid.NewGuid():N}.png");
         try
         {
-            image.Save(tempPath);
+            image.Save(tempPath, PngBitmapEncoderOptions.Default);
         }
         catch (Exception e)
         {

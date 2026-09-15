@@ -135,6 +135,6 @@ public class FilesService //: IStorageFolder
         var path = await App.FilesService.SaveFileAsync(owner,
             defaultName ?? $"Uiharu_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         if (path == null) return;
-        bitmap.Save(path.LocalPath);
+        bitmap.Save(path.LocalPath, PngBitmapEncoderOptions.Default);
     }
 }

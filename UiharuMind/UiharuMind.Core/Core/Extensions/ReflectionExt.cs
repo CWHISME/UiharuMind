@@ -13,7 +13,7 @@ namespace UiharuMind.Core.Core.Extensions
         /// <param name="flags"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static T GetFieldValue<T>(this object targetObject, string fieldName,
+        public static T? GetFieldValue<T>(this object targetObject, string fieldName,
             BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
         {
             if (targetObject == null)
@@ -33,7 +33,7 @@ namespace UiharuMind.Core.Core.Extensions
                 return default(T);
             }
 
-            return (T)field.GetValue(targetObject);
+            return (T)field.GetValue(targetObject)!;
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace UiharuMind.Core.Core.Extensions
         /// <param name="bindingFlags"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        public static T GetPropertyValue<T>(this object targetObject, string propertyName,
+        public static T? GetPropertyValue<T>(this object targetObject, string propertyName,
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
         {
             if (targetObject == null)
@@ -97,7 +97,7 @@ namespace UiharuMind.Core.Core.Extensions
                 return default(T);
             }
 
-            return (T)property.GetValue(targetObject);
+            return (T)property.GetValue(targetObject)!;
         }
 
         /// <summary>
@@ -140,16 +140,16 @@ namespace UiharuMind.Core.Core.Extensions
         /// <param name="propertyName"></param>
         /// <param name="bindingFlags"></param>
         /// <returns></returns>
-        public static PropertyInfo GetPropertyIncludingBaseClasses(this Type type, string propertyName,
+        public static PropertyInfo? GetPropertyIncludingBaseClasses(this Type type, string propertyName,
             BindingFlags bindingFlags)
         {
-            PropertyInfo property = null;
+            PropertyInfo? property = null;
 
             // 遍历当前类型及其所有基类
             while (type != null && property == null)
             {
                 property = type.GetProperty(propertyName, bindingFlags);
-                type = type.BaseType;
+                type = type.BaseType!;
             }
 
             return property;
@@ -162,7 +162,7 @@ namespace UiharuMind.Core.Core.Extensions
         /// <param name="fieldName"></param>
         /// <param name="bindingFlags"></param>
         /// <returns></returns>
-        public static FieldInfo GetFieldIncludingBaseClasses(this Type type, string fieldName,
+        public static FieldInfo? GetFieldIncludingBaseClasses(this Type type, string fieldName,
             BindingFlags bindingFlags)
         {
             FieldInfo? field = null;
@@ -171,7 +171,7 @@ namespace UiharuMind.Core.Core.Extensions
             while (type != null && field == null)
             {
                 field = type.GetField(fieldName, bindingFlags);
-                type = type.BaseType;
+                type = type.BaseType!;
             }
 
             return field;

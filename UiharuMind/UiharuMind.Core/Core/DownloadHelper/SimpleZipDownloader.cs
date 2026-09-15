@@ -52,7 +52,7 @@ public class SimpleZipDownloader
     private async Task DownloadFileAsync(string url, string downloadPath)
     {
         long existingFileSize = 0;
-        string eTag = null;
+        string? eTag = null;
 
         // 检查是否有已存在的部分文件，并读取其大小和 ETag
         if (File.Exists(downloadPath))

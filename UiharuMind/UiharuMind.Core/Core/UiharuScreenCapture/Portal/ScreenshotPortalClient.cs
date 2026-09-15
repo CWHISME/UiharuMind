@@ -61,7 +61,7 @@ internal sealed class ScreenshotPortalClient
     /// </summary>
     private static async Task<DBusConnection> CreateConnectionAsync()
     {
-        var connection = new DBusConnection(DBusAddress.Session);
+        var connection = new DBusConnection(DBusAddress.Session!);
         await connection.ConnectAsync().ConfigureAwait(false);
         return connection;
     }
@@ -105,7 +105,7 @@ internal sealed class ScreenshotPortalClient
             using var connection = await CreateConnectionAsync().ConfigureAwait(false);
 
             string token = $"uiharu_{Guid.NewGuid():N}";
-            string requestPath = BuildRequestPath(connection.UniqueName, token);
+            string requestPath = BuildRequestPath(connection.UniqueName!, token);
 
             var completion = new TaskCompletionSource<(uint Response, string? Uri)>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -116,14 +116,16 @@ internal sealed class ScreenshotPortalClient
                 RequestInterface,
                 "Response",
                 ReadResponse,
-                (exception, value) =>
+                notification =>
                 {
-                    if (exception != null) completion.TrySetException(exception);
-                    else completion.TrySetResult(value);
+                    // 新重载的回调把异常与值收敛进 Notification<T>：异常优先，
+                    // 无异常但带值才是匹配到的 Response 信号（完成通知不带值，保持不设置即可）
+                    if (notification.Exception != null) completion.TrySetException(notification.Exception);
+                    else if (notification.HasValue) completion.TrySetResult(notification.Value);
                 },
-                null,
+                ObserverFlags.None,
                 false,
-                ObserverFlags.None).ConfigureAwait(false);
+                null).ConfigureAwait(false);
 
             await CallScreenshotAsync(connection, parentWindowHandle, token, interactive).ConfigureAwait(false);
 

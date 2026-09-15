@@ -86,7 +86,7 @@ public static class ConversationImageDownscaler
 
             // 先铺白:JPEG 没有 alpha 通道,带透明区域的截图不铺底会变成黑块
             surface.Canvas.Clear(SKColors.White);
-            surface.Canvas.DrawBitmap(source, new SKRect(0, 0, size.Width, size.Height));
+            surface.Canvas.DrawBitmap(source, new SKRect(0, 0, size.Width, size.Height), SKSamplingOptions.Default, null);
 
             using SKImage image = surface.Snapshot();
             (byte[] bytes, string type)? encoded = Encode(image);

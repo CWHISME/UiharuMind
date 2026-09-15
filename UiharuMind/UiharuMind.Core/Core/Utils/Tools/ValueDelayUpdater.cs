@@ -75,7 +75,7 @@ public class ValueDelayUpdater<T, TScheduler> where TScheduler : IScheduler, new
             await Task.Delay(_delay).ConfigureAwait(false);
 
             // 使用调度器执行操作
-            await _scheduler.Schedule(() => _action(_latestValue)).ConfigureAwait(false);
+            await _scheduler.Schedule(() => _action(_latestValue!)).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

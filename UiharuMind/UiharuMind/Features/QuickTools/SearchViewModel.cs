@@ -17,7 +17,7 @@ public partial class SearchViewModel : ViewModelBase
     private const int MaxResults = 200;
     private const int MaxHistoryItems = 10;
 
-    private readonly SearchService _searchService;
+    private readonly SearchService _searchService = null!; // 由带参构造函数（DI）赋值
     private CancellationTokenSource? _searchCts;
     private DispatcherTimer? _debounceTimer;
     private bool _isInitialized;

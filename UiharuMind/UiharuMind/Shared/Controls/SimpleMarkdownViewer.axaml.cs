@@ -280,7 +280,7 @@ public partial class SimpleMarkdownViewer : UserControl
     /// </summary>
     private void OnLinkClick(object? sender, LinkClickedEventArgs e)
     {
-        Uri uri = e.HRef;
+        Uri uri = e.HRef!;
         try
         {
             if (!uri.IsFile)

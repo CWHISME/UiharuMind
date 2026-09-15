@@ -112,7 +112,7 @@ public static class UiUtils
     public static byte[] BitmapToBytes(this Bitmap bitmap)
     {
         using var memoryStream = new MemoryStream();
-        bitmap.Save(memoryStream);
+        bitmap.Save(memoryStream, PngBitmapEncoderOptions.Default);
         memoryStream.Position = 0;
         return memoryStream.ToArray();
     }
@@ -159,7 +159,7 @@ public static class UiUtils
         }
 
         using var memoryStream = new MemoryStream();
-        image.Save(memoryStream);
+        image.Save(memoryStream, PngBitmapEncoderOptions.Default);
         memoryStream.Position = 0;
         return Convert.ToBase64String(memoryStream.ToArray());
     }

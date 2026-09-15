@@ -122,7 +122,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         try
         {
             // 收起本应用菜单：菜单标题会拦截点击，空菜单栏区域才能落到遮罩上
-            MacAppMenuService.SuppressAppMenuForCapture();
+            if (OperatingSystem.IsMacOS()) MacAppMenuService.SuppressAppMenuForCapture();
         }
         catch (Exception e)
         {
@@ -157,7 +157,7 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnPreClose()
     {
         _currentScreen = null;
-        MacAppMenuService.RestoreAppMenuAfterCapture();
+        if (OperatingSystem.IsMacOS()) MacAppMenuService.RestoreAppMenuAfterCapture();
         _geometry.Stop();
         _hookDriver?.Dispose();
         _hookDriver = null;

@@ -52,9 +52,10 @@ namespace UiharuMind.Features.QuickTools
 
     public class MenuItemModel
     {
-        public string Icon { get; set; }
-        public string Text { get; set; }
-        public Action Action { get; set; }
+        // 三个属性全部在对象初始化器里赋值（见 InitializeMenuItems），非空但默认置 null
+        public string Icon { get; set; } = null!;
+        public string Text { get; set; } = null!;
+        public Action Action { get; set; } = null!;
 
         public ICommand ActionCommand => new RelayCommand(() => Action?.Invoke());
     }

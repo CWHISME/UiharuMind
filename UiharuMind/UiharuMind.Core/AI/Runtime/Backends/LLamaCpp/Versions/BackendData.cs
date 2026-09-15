@@ -13,7 +13,7 @@ namespace UiharuMind.Core.AI.Runtime.Backends;
 
 public class BackendData : IBackendType
 {
-    public string Name { get; }
+    public string Name { get; } = string.Empty;
     public bool IsAvailable { get; }
 
 

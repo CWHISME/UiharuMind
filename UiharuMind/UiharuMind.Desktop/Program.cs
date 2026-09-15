@@ -36,6 +36,13 @@ class Program
         return ApplicationRestartService.TryRestartAsAdministrator(args);
     }
 
+    // Avalonia configuration, don't remove; also used by visual designer.
+    public static AppBuilder BuildAvaloniaApp()
+        => ConfigureWindowingBackend(AppBuilder.Configure<App>())
+            .WithInterFont()
+            .LogToTrace()
+            .With(new MacOSPlatformOptions() { ShowInDock = false });
+
     /// <summary>
     /// 选择窗口后端。当前全平台统一走系统默认检测。
     /// </summary>

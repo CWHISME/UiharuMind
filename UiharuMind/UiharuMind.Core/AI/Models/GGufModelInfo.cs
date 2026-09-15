@@ -16,18 +16,18 @@ namespace UiharuMind.Core.AI.Models;
 
 public class GGufModelInfo : ILlmModel
 {
-    public string ModelName { get; set; }
+    public string ModelName { get; set; } = string.Empty;
 
     //质量降级的：GENERATION QUALITY WILL BE DEGRADED! CONSIDER REGENERATING THE MODEL
     public bool IsDegraded { get; set; }
 
-    [JsonIgnore] public string ModelPath { get; set; }
+    [JsonIgnore] public string ModelPath { get; set; } = string.Empty;
 
     //投影路径
     [JsonIgnore] public string? ModelProjPath { get; set; }
     public bool IsVision => !string.IsNullOrEmpty(ModelProjPath);
-    public string ModelDescription { get; }
-    public string ModelId { get; }
+    public string ModelDescription { get; } = string.Empty;
+    public string ModelId { get; } = string.Empty;
     public int Port { get; set; }
     public bool IsFavorite { get; set; }
     public string Architecture { get; set; } = "";

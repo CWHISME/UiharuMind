@@ -254,7 +254,7 @@ public class ClipboardService : IDisposable
         string? dir = Path.GetDirectoryName(fullPath);
         if (dir == null) return;
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-        if (!File.Exists(fullPath)) bitmap.Save(fullPath);
+        if (!File.Exists(fullPath)) bitmap.Save(fullPath, PngBitmapEncoderOptions.Default);
         History.AddImage(fullPath);
         Dispatcher.UIThread.Post(() =>
         {
