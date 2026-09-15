@@ -5,6 +5,7 @@
              xmlns:viewData="clr-namespace:UiharuMind.Features.LogViewer"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:u="https://irihi.tech/ursa"
              xmlns:log="clr-namespace:UiharuMind.Core.Core.SimpleLog;assembly=UiharuMind.Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Features.LogViewer.LogView"
@@ -41,7 +42,8 @@
         <!-- log items: 最新的在最顶上 -->
         <ListBox Grid.Row="1" Name="LogList" ItemsSource="{Binding Items}"
                  SelectedItem="{Binding SelectedEntry}"
-                 SelectionMode="Single" Background="Transparent">
+                 SelectionMode="Single" Background="Transparent"
+                 u:ScrollTo.Direction="Top">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
