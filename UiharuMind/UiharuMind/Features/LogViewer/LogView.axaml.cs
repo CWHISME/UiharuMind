@@ -9,6 +9,7 @@
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
@@ -47,13 +48,20 @@ public partial class LogView : UserControl
     {
         // 必须限定在列表内起手。否则拖 GridSplitter 时也会走进来,
         // 下面那句放掉捕获会连 GridSplitter 自己的捕获一起抢掉,拉伸当场失效
-        _isDragging = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && IsInsideList(e.Source);
+        // 同样要排除滚动条:ScrollBar 自己会捕获指针,一抢它的捕获,滑块就拖不动了
+        _isDragging = e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+                      && IsInsideList(e.Source)
+                      && !IsOnScrollBar(e.Source);
         _captureReleased = false;
     }
 
     private bool IsInsideList(object? source) =>
         source is Visual visual && (ReferenceEquals(visual, LogList) ||
                                     visual.FindAncestorOfType<ListBox>() == LogList);
+
+    // 命中滚动条自身或它的任何部件(Thumb/Track/RepeatButton)都算滚动条,让给 ScrollBar 自己处理
+    private bool IsOnScrollBar(object? source) =>
+        source is Visual visual && visual.FindAncestorOfType<ScrollBar>(includeSelf: true) != null;
 
     private void OnPointerMovedTunnel(object? sender, PointerEventArgs e)
     {

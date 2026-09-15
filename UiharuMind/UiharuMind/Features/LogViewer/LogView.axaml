@@ -49,9 +49,13 @@
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="log:LogIndexEntry">
-                    <TextBlock Text="{Binding Preview}" MaxLines="1" TextTrimming="CharacterEllipsis"
-                               Background="Transparent"
-                               Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" Background="Transparent">
+                        <TextBlock Text="{Binding Time, StringFormat='[{0:yyyy-MM-dd HH:mm:ss}]'}"
+                                   VerticalAlignment="Center" Foreground="Gray" />
+                        <TextBlock Text="{Binding Preview}" MaxLines="1" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" Background="Transparent"
+                                   Foreground="{Binding LogType, Converter={StaticResource LogLevelToColorConverter}}" />
+                    </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
