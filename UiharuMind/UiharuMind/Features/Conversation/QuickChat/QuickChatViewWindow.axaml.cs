@@ -33,6 +33,8 @@ public partial class QuickChatViewWindow : QuickWindowBase
     /// 这个窗口进不了应用切换器——与 <see cref="ShowInTaskbar"/> 是同一件事的两面
     /// </summary>
     public override bool ContributesToMacRegularMode => true;
+    
+    public override bool IsAuxiliaryWindow => true;
 
     /// <summary>本窗口此刻装载的会话；已关闭（视图模型已弃用）时为 null</summary>
     public string? SessionId { get; private set; }
