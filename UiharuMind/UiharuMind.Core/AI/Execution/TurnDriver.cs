@@ -55,7 +55,7 @@ public sealed class TurnDriver : IDisposable
     ///
     /// 调用方自己那个令牌回答不了这件事：<see cref="CancelSession"/> 取消的是本实例内部
     /// 那个链接源，外层令牌一动不动，于是一轮被停掉的子代理在派活者看来是「正常跑完」——
-    /// 报告里不说明它被中止，主 agent 会把没干完的活当成干完了，然后接着往下派（实机踩到）。
+    /// 报告里不说明它被中止，主代理会把没干完的活当成干完了，然后接着往下派（实机踩到）。
     /// </summary>
     public bool WasCancelled { get; private set; }
 

@@ -307,7 +307,7 @@ public class HarnessInstructionsCompositionTests
     /// 少了这条，它们会在文件工具缺席时照样发出去，指挥模型去调不存在的工具——
     /// 而这种失败在实机上极难归因（表现只是一次工具调用失败）。
     ///
-    /// 主 agent 的通用版（按真实工具集校验反引号）做不了：装配一份真工具集要一个 chat client，
+    /// 主代理的通用版（按真实工具集校验反引号）做不了：装配一份真工具集要一个 chat client，
     /// 本套测试的助手只拼提示词。子代理那侧有通用版，见
     /// <c>SubAgentInstructions_OnlyNameToolsThatExist</c>。
     /// </summary>
@@ -439,7 +439,7 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 主 agent 也必须被告知工作目录的绝对路径。同一个坑：路径只被拿去构造工具，
+    /// 主代理也必须被告知工作目录的绝对路径。同一个坑：路径只被拿去构造工具，
     /// 从没进过提示词，模型只能自己编。
     /// </summary>
     [Fact]
@@ -582,7 +582,7 @@ public class HarnessInstructionsCompositionTests
 /// 子代理现在跑<b>它自己的</b> <c>TurnDriver</c>（一次委派就是一个子会话），
 /// 审批请求冒到派活者这一轮的回应口，所以「非完全自动档必须只读」那条硬裁剪已经解除：
 /// 挂什么由能力配置定，能不能动手由 <see cref="ApprovalModeMapper"/> 定，
-/// 与主 agent 完全同一口径（见 ADR 0021）。
+/// 与主代理完全同一口径（见 ADR 0021）。
 ///
 /// 仍然钉死的两条：<b>探索档恒定只读</b>（产品决定——调研不该顺手改东西），
 /// 以及<b>工具集绝不含子代理工具自身</b>（无限递归）。
@@ -634,7 +634,7 @@ public class SubAgentBoundaryTests
 
     /// <summary>
     /// 通用档在<b>每一个</b>权限档下都挂写工具——能不能真的动手交给
-    /// <see cref="ApprovalModeMapper"/>，与主 agent 同一口径。
+    /// <see cref="ApprovalModeMapper"/>，与主代理同一口径。
     /// 这条从前是反的（非完全自动档削成只读），改动理由见 ADR 0021。
     /// </summary>
     [Theory]
@@ -650,7 +650,7 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 审批规则必须与主 agent 同源：档位语义只能有一处定义（<see cref="ApprovalModeMapper"/>），
+    /// 审批规则必须与主代理同源：档位语义只能有一处定义（<see cref="ApprovalModeMapper"/>），
     /// 否则「完全自动」在主代理与子代理身上会渐渐变成两个意思。
     /// </summary>
     [Fact]
@@ -759,7 +759,7 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理与主 agent 同一口径：工作循环归它自己那份指令，harness 段为空。
+    /// 子代理与主代理同一口径：工作循环归它自己那份指令，harness 段为空。
     /// 框架默认那段的身份句会和子代理指令开头的「# 角色」抢身份(见 ADR 0004)。
     /// </summary>
     [Fact]
@@ -806,7 +806,7 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 点名的子智能体，人格排在那套"你是子代理"的边界与体例之前(与主 agent 同一口径,见 ADR 0005)。
+    /// 点名的子智能体，人格排在那套"你是子代理"的边界与体例之前(与主代理同一口径,见 ADR 0005)。
     /// </summary>
     [Fact]
     public void NamedSubAgent_PutsItsPersonaFirst()
@@ -871,7 +871,7 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理必须拿到与主 agent 同一份工作区规矩：它干的正是探查工作区的活，
+    /// 子代理必须拿到与主代理同一份工作区规矩：它干的正是探查工作区的活，
     /// 却会是全场唯一不知道工作区规矩的人。本仓 AGENTS.md 头一条就是
     /// 「有四层同名目录，用绝对路径别数相对层数」——不知道这条的子代理会直接踩进去。
     /// </summary>
@@ -889,7 +889,7 @@ public class SubAgentBoundaryTests
     /// <summary>
     /// 报告只取<b>最后一次工具调用之后</b>的正文。框架默认工作循环要求 agent
     /// 在工具调用之间解释进展，于是全程正文里绝大部分是「我接下来去看 X」的旁白；
-    /// 全拼起来交给主 agent 等于把子代理的思考过程塞回主上下文——正是委派要避免的那件事。
+    /// 全拼起来交给主代理等于把子代理的思考过程塞回主上下文——正是委派要避免的那件事。
     /// </summary>
     [Fact]
     public void Report_TakesOnlyTheTextAfterTheLastToolCall()
@@ -921,7 +921,7 @@ public class SubAgentBoundaryTests
 
     /// <summary>
     /// 收尾总结缺失时（轮次到顶/超时）退回全程旁白，但必须明确标注那不是结论——
-    /// 不标注的话主 agent 会把子代理的中间猜测当成它的判断。
+    /// 不标注的话主代理会把子代理的中间猜测当成它的判断。
     /// </summary>
     [Fact]
     public void Report_FallsBackToCommentary_AndSaysSo()

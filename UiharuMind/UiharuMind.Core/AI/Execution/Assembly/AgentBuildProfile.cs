@@ -44,10 +44,10 @@ public class AgentBuildProfile
 
     /// <summary>
     /// 子会话身份。非 null 表示这次装配的是一个<b>子代理</b>，
-    /// 装配走 <c>SubAgentAssembly</c> 而不是主 agent 那条路。
+    /// 装配走 <c>SubAgentAssembly</c> 而不是主代理那条路。
     ///
     /// 必须由会话字段推出、不能由调用方临时决定：重开一个子会话续跑时没人再传参数，
-    /// 而按主 agent 那条路重建出来的 agent 能力更大——正是不变量禁止的那件事。
+    /// 而按主代理那条路重建出来的 agent 能力更大——正是不变量禁止的那件事。
     /// </summary>
     public SubAgentIdentity? SubAgent { get; init; }
 

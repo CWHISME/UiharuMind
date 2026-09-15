@@ -152,7 +152,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>当前会话元数据(未开始首轮前为空)</summary>
     public ChatSessionMeta? CurrentMeta { get; private set; }
 
-    /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主 agent,聊天页由页面壳指定</summary>
+    /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主代理,聊天页由页面壳指定</summary>
     public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.WorkspaceAgent);
 
     /// <summary>
@@ -277,7 +277,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     ///
     /// ⚠️ 它<b>不是</b> <see cref="IsGenerating"/>，两者不可合并（见 CONTEXT.md「未了结的工作」）。
     /// 这一个只驱动指示器；<see cref="IsGenerating"/> 还管着停止按钮与「打字走插话还是走发送」，
-    /// 而后台子代理跑着时主 agent 那一轮<b>已经结束、没有轮次可插</b>——拿它去点亮忙碌，
+    /// 而后台子代理跑着时主代理那一轮<b>已经结束、没有轮次可插</b>——拿它去点亮忙碌，
     /// 用户打的字会进注入队列，一直等到几分钟后的唤醒轮才被消费。
     /// </summary>
     public bool HasPendingWork => IsGenerating
@@ -491,7 +491,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         HandoffNotice = Loc.Text(key);
     }
 
-    /// <summary>「交回主 agent」的结果提示（交回是一次性动作，没有别的反馈渠道）</summary>
+    /// <summary>「交回主代理」的结果提示（交回是一次性动作，没有别的反馈渠道）</summary>
     [ObservableProperty] private string _handoffNotice = string.Empty;
 
     private void OnSessionRunStateChanged(string sessionId)

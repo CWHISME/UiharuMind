@@ -26,7 +26,7 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// 子代理那一摊：输入契约、工具创建、框架选项与提示词。
 ///
 /// 独立成文件是因为它是<b>一个完整的小装配</b>——自己的能力交集规则、自己的权限边界、
-/// 自己的提示词体例，与主 agent 的装配只共享工作目录与工作区规矩这两样输入。
+/// 自己的提示词体例，与主代理的装配只共享工作目录与工作区规矩这两样输入。
 /// 混在工厂里时，这 200 行是「工厂到底有多大」里最难辨认的一块。
 /// </summary>
 internal static class SubAgentAssembly
@@ -59,10 +59,10 @@ internal static class SubAgentAssembly
         /// <summary>识图工具是否可挂(开关开且当前模型不自带视觉)</summary>
         public bool VisionToolAvailable { get; init; } = true;
 
-        /// <summary>继承自主 agent 的权限档,决定可变更工具挂不挂</summary>
+        /// <summary>继承自主代理的权限档,决定可变更工具挂不挂</summary>
         public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.ReadOnly;
 
-        /// <summary>工作区说明文件内容(与主 agent 同一份 AGENTS.md),拼在提示词最尾</summary>
+        /// <summary>工作区说明文件内容(与主代理同一份 AGENTS.md),拼在提示词最尾</summary>
         public string WorkspaceInstructions { get; init; } = string.Empty;
 
         /// <summary>
@@ -77,16 +77,16 @@ internal static class SubAgentAssembly
         /// <summary>MCP 工具集(完全自动档才挂;它们可能改东西,较低档位下会卡在无人回应的审批上)</summary>
         public IReadOnlyList<AITool>? McpTools { get; init; }
 
-        /// <summary>MCP server 自述(与主 agent 同一份),随工具一起给</summary>
+        /// <summary>MCP server 自述(与主代理同一份),随工具一起给</summary>
         public string McpInstructions { get; init; } = string.Empty;
 
-        /// <summary>无人值守 shell 预授权模式(与主 agent 同源)</summary>
+        /// <summary>无人值守 shell 预授权模式(与主代理同源)</summary>
         public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
 
-        /// <summary>会话级 shell 放行模式来源(与主 agent 同源)</summary>
+        /// <summary>会话级 shell 放行模式来源(与主代理同源)</summary>
         public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
 
-        /// <summary>历史压缩策略(与主 agent 同一份);为 null 则不压缩</summary>
+        /// <summary>历史压缩策略(与主代理同一份);为 null 则不压缩</summary>
         public CompactionStrategy? Compaction { get; init; }
 
         /// <summary>子代理策略(类型、模型源、提示词侧重点);未传时用通用子代理</summary>
@@ -96,7 +96,7 @@ internal static class SubAgentAssembly
     /// <summary>
     /// 按一份<b>子会话</b>的装配计划直接造出子代理句柄。
     ///
-    /// 与 <see cref="TryCreateTool"/> 的分工：那边是「主 agent 要一把委派工具」，
+    /// 与 <see cref="TryCreateTool"/> 的分工：那边是「主代理要一把委派工具」，
     /// 派活时在闭包里现装；这边是「一个子会话要跑自己的轮次」，走的是
     /// <c>AgentAssembler.Assemble</c> 的正规路径。两条路必须产出同一形状的 agent——
     /// 否则重开一个子会话续跑时，装配出来的能力会与它当初被派出去时不一致。
@@ -111,7 +111,7 @@ internal static class SubAgentAssembly
     {
         SubSessionAssembly assembled = BuildSubSessionAssembly(plan);
         // 模型走会话覆写(派活时已把解析结果钉在子会话上,见 SubAgentTool.ResolveSubAgentModelName)——
-        // 与主 agent 同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
+        // 与主代理同一条解析链,于是界面显示的模型与实际问话的那个<b>由构造保证一致</b>
         return AgentAssembler.BuildHandle(new LazyChatClient(plan.Profile.SessionModelSource),
             assembled.Options, assembled.Shell);
     }
@@ -194,7 +194,7 @@ internal static class SubAgentAssembly
 
         // 历史落到子会话自己的文件里。<b>没有这一句子会话就等于没跑过</b>——
         // 框架不写、ChatSession.History 恒空、窗口一片空白、HistoryAppended 永不触发。
-        // 主 agent 那条路在 AgentOptionsFactory.BuildAgentOptions 里设同一个东西;
+        // 主代理那条路在 AgentOptionsFactory.BuildAgentOptions 里设同一个东西;
         // 从前子代理是一次性的纯工具循环,不需要它,于是 CreateSubAgentBaseOptions 里没有
         options.ChatHistoryProvider = new SessionChatHistoryProvider();
 
@@ -205,8 +205,8 @@ internal static class SubAgentAssembly
     /// 创建子代理工具。每次调用重新装配:装配本身是纯内存组装代价可忽略,
     /// 而 shell 执行器是有生命周期的资源,必须一次调用一个、用完即弃。
     /// </summary>
-    /// <param name="plan">主 agent 的装配计划（工作目录、工作区规矩、权限档与名单由此继承）</param>
-    /// <param name="client">模型客户端(与主 agent 同一惰性客户端)</param>
+    /// <param name="plan">主代理的装配计划（工作目录、工作区规矩、权限档与名单由此继承）</param>
+    /// <param name="client">模型客户端(与主代理同一惰性客户端)</param>
     /// <param name="subProfile">子代理策略;未传时用通用子代理(兼容现有调用方)</param>
     /// <returns>工具;无任何能力可用时为 null</returns>
     public static AITool? TryCreateTool(AgentAssemblyPlan plan, IChatClient client,
@@ -216,7 +216,7 @@ internal static class SubAgentAssembly
         AgentBuildProfile profile = plan.Profile;
         AgentToolConfig config = plan.Config;
         string workingDirectory = plan.WorkingDirectory;
-        // 探索型始终只读,覆盖主 agent 的权限档;通用型继承主 agent 的权限档
+        // 探索型始终只读,覆盖主代理的权限档;通用型继承主代理的权限档
         EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
             ? EAgentPermissionMode.ReadOnly
             : profile.PermissionMode;
@@ -302,7 +302,7 @@ internal static class SubAgentAssembly
     /// 工具集<b>不含子代理工具自身</b>(无限递归);不含主代理特有的那批
     /// (技能/定时任务/记忆检索——子代理拿的是一份任务书,不需要再自己装载指令或排定时任务);
     /// <b>探索档恒定只读</b>(产品决定:调研不该顺手改东西)。其余档位挂什么由能力配置定、
-    /// 能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主 agent 同一口径,
+    /// 能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
     /// 因为子代理现在跑自己的 <c>TurnDriver</c>,审批请求冒到派活者这一轮的回应口(ADR 0021)。
     /// </summary>
     /// <param name="input">装配输入</param>
@@ -312,7 +312,7 @@ internal static class SubAgentAssembly
         AgentToolConfig config = input.Config;
         // 子代理现在有审批通道了(它跑自己的 TurnDriver,请求冒到派活者这一轮的回应口),
         // 于是「非完全自动档必须只读」那条硬裁剪解除——挂什么由能力配置定,
-        // 能不能动手由 ApprovalModeMapper 定,与主 agent 完全同一口径(见 ADR 0021)。
+        // 能不能动手由 ApprovalModeMapper 定,与主代理完全同一口径(见 ADR 0021)。
         //
         // 唯一仍然恒定只读的是<b>探索档</b>:那是产品决定而不是技术限制
         // (调研就该只读,免得一次"看一眼"顺手改了东西)。
@@ -360,7 +360,7 @@ internal static class SubAgentAssembly
         // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
         // 子代理能改东西之后这条更承重
         options.MaximumIterationsPerRequest = SubAgentTool.MaxIterations;
-        // 审批中间件照挂,规则与主 agent 同源——档位语义只有一处定义(ApprovalModeMapper)。
+        // 审批中间件照挂,规则与主代理同源——档位语义只有一处定义(ApprovalModeMapper)。
         // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
@@ -380,7 +380,7 @@ internal static class SubAgentAssembly
 
     /// <summary>
     /// 子代理的系统提示:身份 + 权限边界 + 报告体例(按实际装配的工具集裁剪)
-    /// + 与主 agent 同一份工作区规矩。
+    /// + 与主代理同一份工作区规矩。
     ///
     /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
     /// 本仓 AGENTS.md 头一条就是"有四层同名目录,用绝对路径别数相对层数",
@@ -397,7 +397,7 @@ internal static class SubAgentAssembly
     /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
-    /// <param name="mcpInstructions">MCP server 自述（与主 agent 同一份）</param>
+    /// <param name="mcpInstructions">MCP server 自述（与主代理同一份）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasVision, bool hasShell,
         string shellBinary, bool canMutate,
@@ -406,7 +406,7 @@ internal static class SubAgentAssembly
     {
         subProfile ??= SubAgentProfile.General;
         StringBuilder sb = new();
-        // 点名的子智能体先说自己是谁(与主 agent 同一口径:人格在最前,见 ADR 0005),
+        // 点名的子智能体先说自己是谁(与主代理同一口径:人格在最前,见 ADR 0005),
         // 随后才是"你是被派活的子代理"这套边界与体例
         if (persona.Length > 0)
         {
@@ -442,7 +442,7 @@ internal static class SubAgentAssembly
         // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
         sb.AppendLine(canMutate
             ? "- 你可以改东西，但只改任务要求的那些，别的一概不动。"
-            : "- 你是只读的：写不了文件，也没有 shell。把该改什么报上来，由主 agent 去改。");
+            : "- 你是只读的：写不了文件，也没有 shell。把该改什么报上来，由主代理去改。");
         // 完全自动档的子代理拿的是同一个 Shell,不该是全场唯一不知道怎么用它的人
         if (hasShell)
         {
@@ -456,7 +456,7 @@ internal static class SubAgentAssembly
         sb.AppendLine();
         sb.Append(AgentToolPrompts.AgentWorkLoop);
 
-        // 与主 agent 同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
+        // 与主代理同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
         // 没有任何线索能反推出根目录在哪。段落正文经 AgentInstructionsComposer 共用,
         // 这里只是没有 # 工具 那层外壳,故标题用一级
         if (workingDirectory.Length > 0)

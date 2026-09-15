@@ -150,7 +150,7 @@ public sealed class SubSessionDisplayItem
     /// <summary>
     /// 复制这次委派的编号。
     ///
-    /// 存在的理由：`ContinueSubAgent` 认的是编号，而用户想点名让主 agent 续跑某一次委派时，
+    /// 存在的理由：`ContinueSubAgent` 认的是编号，而用户想点名让主代理续跑某一次委派时，
     /// 编号在界面上本来只出现在工具卡的结果里——那张卡跑几十轮就滚没了。
     /// </summary>
     public RelayCommand CopyId { get; }

@@ -242,7 +242,7 @@ public partial class App : Application, ILogger, IDisposable
     /// </summary>
     private static void WireBackgroundSubAgents()
     {
-        // 唤醒轮跑的是主 agent 那一轮,它要动东西时该弹给正看着它的人。
+        // 唤醒轮跑的是主代理那一轮,它要动东西时该弹给正看着它的人。
         // 取不到宿主(没开着那个会话)就按无头口径拒绝,与定时任务同形
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.WakeApprovalSource =
             WakeApprovalHosts.Resolve;

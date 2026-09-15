@@ -18,7 +18,7 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 public enum ESubAgentType
 {
     /// <summary>
-    /// 通用子代理：权限继承主 agent（FullAuto 下可改文件），用主 agent 的模型。
+    /// 通用子代理：权限继承主代理（FullAuto 下可改文件），用主代理的模型。
     /// 适合需要实际修改操作的任务。
     /// </summary>
     General,
@@ -39,15 +39,15 @@ public sealed record SubAgentProfile
     public required ESubAgentType Type { get; init; }
 
     /// <summary>
-    /// 工具名。主 agent 看到这个名字就知道用途，不需要读参数说明。
+    /// 工具名。主代理看到这个名字就知道用途，不需要读参数说明。
     /// </summary>
     public required string ToolName { get; init; }
 
-    /// <summary>工具描述（发给主 agent 的说明书）</summary>
+    /// <summary>工具描述（发给主代理的说明书）</summary>
     public required string Description { get; init; }
 
     /// <summary>
-    /// 是否强制只读。探索型始终只读；通用型继承主 agent 的权限档。
+    /// 是否强制只读。探索型始终只读；通用型继承主代理的权限档。
     /// </summary>
     public bool ForceReadOnly => Type == ESubAgentType.Explorer;
 
@@ -59,10 +59,10 @@ public sealed record SubAgentProfile
         : "你是通用子代理，可以执行实际修改操作。";
 
     /// <summary>
-    /// 各类型子代理用各自配置的模型,未配置时回退到主 agent 模型。
+    /// 各类型子代理用各自配置的模型,未配置时回退到主代理模型。
     /// </summary>
     /// <param name="config">全局 agent 设置</param>
-    /// <returns>模型名；空串表示用主 agent 模型</returns>
+    /// <returns>模型名；空串表示用主代理模型</returns>
     public string ResolveModelName(AgentSettingConfig config)
     {
         return Type switch

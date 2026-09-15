@@ -47,7 +47,7 @@ internal static class AgentAssembler
         CharacterData character = plan.Character;
 
         // 子会话走子代理那条装配：它的能力是「自己的 ∩ 派活者的」并受只读裁剪，
-        // 与主 agent 那条路产出的形状不同。判据取会话上持久化的身份而非调用方参数——
+        // 与主代理那条路产出的形状不同。判据取会话上持久化的身份而非调用方参数——
         // 重开一个子会话续跑时没人再传参数，走错路就是把不变量违掉（见 ADR 0021）
         if (profile.SubAgent != null) return SubAgentAssembly.BuildFromPlan(plan);
 
@@ -148,8 +148,8 @@ internal static class AgentAssembler
             Add(EAgentCapability.VisionTool, VisionTool.Create(plan.WorkingDirectory));
         }
 
-        // 子代理:工具集与权限档都从主 agent 派生,全部能力都关掉时不挂载
-        // 通用子代理:可改文件(FullAuto 下),用主 agent 模型
+        // 子代理:工具集与权限档都从主代理派生,全部能力都关掉时不挂载
+        // 通用子代理:可改文件(FullAuto 下),用主代理模型
         if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client, SubAgentProfile.General) is { } subAgentTool)
         {
             Add(EAgentCapability.SubAgent, subAgentTool);

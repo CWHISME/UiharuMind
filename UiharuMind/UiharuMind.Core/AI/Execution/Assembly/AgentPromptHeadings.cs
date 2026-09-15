@@ -45,10 +45,10 @@ public static class AgentPromptHeadings
     /// <summary>子代理委派纪律段</summary>
     public const string Delegation = "## 委派";
 
-    /// <summary>MCP server 自述段（主 agent 与子代理共用）</summary>
+    /// <summary>MCP server 自述段（主代理与子代理共用）</summary>
     public const string Mcp = "# MCP 服务器";
 
-    /// <summary>工作区规矩段（主 agent 与子代理共用）</summary>
+    /// <summary>工作区规矩段（主代理与子代理共用）</summary>
     public const string Workspace = "# 工作区规矩（来自项目的 AGENTS.md）";
 
     /// <summary>子代理的身份段</summary>
@@ -58,7 +58,7 @@ public static class AgentPromptHeadings
     public const string SubAgentMethod = "# 做法";
 
     /// <summary>
-    /// 工作目录段的标题。级别<b>随装配形态而变</b>：主 agent 里它是「# 工具」的分项，
+    /// 工作目录段的标题。级别<b>随装配形态而变</b>：主代理里它是「# 工具」的分项，
     /// 子代理里没有那层外壳，它自己就是顶级段。
     /// </summary>
     /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>

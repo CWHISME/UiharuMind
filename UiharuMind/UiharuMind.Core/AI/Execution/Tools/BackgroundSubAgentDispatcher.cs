@@ -62,7 +62,7 @@ public static class BackgroundSubAgentDispatcher
     /// <summary>
     /// 唤醒轮的审批回应通道从哪儿取（按会话标识）。
     ///
-    /// 由界面注入：唤醒轮跑的是<b>主 agent</b> 那一轮，它要动东西时该弹给正看着它的人。
+    /// 由界面注入：唤醒轮跑的是<b>主代理</b> 那一轮，它要动东西时该弹给正看着它的人。
     /// 取不到就按无头口径拒绝——与 <c>InProcessSchedulerBackend.DenyUnauthorizedApprovals</c> 同形。
     /// </summary>
     public static Func<string, ApprovalResolver?>? WakeApprovalSource { get; set; }

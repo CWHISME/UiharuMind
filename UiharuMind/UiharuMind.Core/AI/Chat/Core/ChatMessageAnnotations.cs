@@ -84,7 +84,7 @@ public static class ChatMessageAnnotations
 
     /// <summary>
     /// 后续报告标记，值为产出它的那个子会话标识。带此键的消息<b>要落盘、要供给模型</b>——
-    /// 它是用户在子会话里点「交回主 agent」送进来的结论，形状同 <see cref="Narration"/>：
+    /// 它是用户在子会话里点「交回主代理」送进来的结论，形状同 <see cref="Narration"/>：
     /// 一条货真价实的消息，只是渲染成一张独立卡片。
     ///
     /// 之所以不走注入队列（<c>ICharacterRunner.TryInjectAsync</c>）：那条通道不落盘，

@@ -17,7 +17,7 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class AgentInstructionsComposer
 {
-    // 标题一律取自 AgentPromptHeadings：工作区规矩段与 MCP 自述段主 agent 与子代理逐字共用
+    // 标题一律取自 AgentPromptHeadings：工作区规矩段与 MCP 自述段主代理与子代理逐字共用
     // ——子代理干的正是探查工作区的活、拿的是同一份 MCP 工具，不该是全场唯一不知道规矩的人。
 
     /// <summary>
@@ -71,7 +71,7 @@ internal static class AgentInstructionsComposer
     }
 
     /// <summary>
-    /// MCP server 自述段（主 agent 与子代理逐字共用）
+    /// MCP server 自述段（主代理与子代理逐字共用）
     /// </summary>
     /// <param name="mcpInstructions">已按 server 分节的自述正文</param>
     /// <returns>整段文本</returns>
@@ -82,7 +82,7 @@ internal static class AgentInstructionsComposer
 
     /// <summary>
     /// 工作目录段。<b>两种装配形态共用这一段正文</b>，只有标题级别不同：
-    /// 主 agent 里它是 <c># 工具</c> 的一个分项（工作目录正是给那些工具用的根），
+    /// 主代理里它是 <c># 工具</c> 的一个分项（工作目录正是给那些工具用的根），
     /// 子代理里没有那个外层，它自己就是一个顶级段。
     /// </summary>
     /// <param name="workingDirectory">工作目录绝对路径</param>
@@ -94,7 +94,7 @@ internal static class AgentInstructionsComposer
     }
 
     /// <summary>
-    /// 工作区规矩段（主 agent 与子代理逐字共用）
+    /// 工作区规矩段（主代理与子代理逐字共用）
     /// </summary>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <returns>整段文本</returns>

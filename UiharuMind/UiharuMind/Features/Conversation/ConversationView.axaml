@@ -496,7 +496,7 @@
                                     VerticalAlignment="Center">
                             <u:LoadingIcon IsLoading="{Binding IsGenerating}" />
                             <!-- 这里曾经有一句「别处正在运行」。删了:唤醒轮之后它变成了常态
-                                 (主 agent 那一轮由后台驱动,而用户正看着的就是这个会话),
+                                 (主代理那一轮由后台驱动,而用户正看着的就是这个会话),
                                  于是一句本意为"它在别的窗口跑"的话变成了对着本窗口说的废话。
                                  IsExternallyDriven 仍然保留——停止按钮与「打字走插话还是走发送」靠它 -->
                             <ThemedIconButton IconName="stop"

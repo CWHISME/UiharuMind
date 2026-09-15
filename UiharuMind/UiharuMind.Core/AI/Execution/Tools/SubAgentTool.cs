@@ -22,7 +22,7 @@ using UiharuMind.Core.Core.SimpleLog;
 namespace UiharuMind.Core.AI.Execution.Tools;
 
 /// <summary>
-/// 子代理工具:主 agent 把大范围的探查/调研任务委派出去,结论以报告回到工具返回值,
+/// 子代理工具:主代理把大范围的探查/调研任务委派出去,结论以报告回到工具返回值,
 /// 过程不吃主上下文。
 ///
 /// <b>一次委派 = 一个真会话</b>(子会话):建 <see cref="ChatSession"/>、进索引、正常落盘,
@@ -283,7 +283,7 @@ public static class SubAgentTool
         bool timedOut = false;
         bool stopped = false; //被用户/外部停掉。派活者的令牌回答不了,只有 TurnDriver 知道
         int unansweredClosed = 0; //审批未决封掉的孤儿调用数(正常结束路径用,见下)
-        // 委派期间主 agent 那一头是同步阻塞的,日志里不留痕就只剩一段无法解释的沉默——
+        // 委派期间主代理那一头是同步阻塞的,日志里不留痕就只剩一段无法解释的沉默——
         // 用户看着像卡死(实际是子代理在跑)。起止各一条,带上子会话标识便于对到那个窗口
         long startedAt = Environment.TickCount64;
         Log.Debug($"Sub-agent turn started: session={session.SessionId} title=\"{session.Title}\"");
@@ -318,7 +318,7 @@ public static class SubAgentTool
             // 提示层硬约束挡住大多数,这里兜漏网的——追加一轮"请总结"让模型补上报告
             // 被停掉时**不追加这一轮**:那是一条自动发给子代理的「请总结」,
             // 用户刚按下停止,紧接着又让它跑一轮,既违背那一下的意思,也会把报告变成一份
-            // 看起来完整的总结,主 agent 更难看出这次委派没干完。
+            // 看起来完整的总结,主代理更难看出这次委派没干完。
             // 守卫不能只看 timeoutSource:CancelSession 取消的是 driver 内部那个令牌,
             // 这一个一动不动(见 TurnDriver.WasCancelled)
             if (turnSink.Report.NeedsSummary && !stopped && !timeoutSource.Token.IsCancellationRequested)
@@ -340,7 +340,7 @@ public static class SubAgentTool
         {
             // 撞在 TurnDriver 之外的取消(挂接阶段等)。分清是哪一种:只有本次委派自己的
             // 墙钟超时才算超时,否则是外部停止——两者在报告里的措辞完全不同,
-            // 混成「超时」会让主 agent 以为是意外而不是用户的决定
+            // 混成「超时」会让主代理以为是意外而不是用户的决定
             timedOut = timeoutSource.IsCancellationRequested;
             stopped = !timedOut;
         }
@@ -355,7 +355,7 @@ public static class SubAgentTool
             stopped || cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
         if (unansweredClosed > 0)
         {
-            // 有调用因审批未决根本没跑成,必须点名——否则主 agent 会把没干的活当成干完了
+            // 有调用因审批未决根本没跑成,必须点名——否则主代理会把没干的活当成干完了
             report += $"\n(note: {unansweredClosed} tool call(s) in the sub-session never ran - "
                       + "their approvals were not answered before the turn ended. "
                       + "Do not assume that work was done.)";
@@ -403,7 +403,7 @@ public static class SubAgentTool
     }
 
     /// <summary>
-    /// 子代理这一轮的渲染落点。它只攒交给主 agent 的报告，<b>自己不认识界面</b>——
+    /// 子代理这一轮的渲染落点。它只攒交给主代理的报告，<b>自己不认识界面</b>——
     /// 打开着的子会话窗口看到的实时内容，来自 <c>TurnDriver</c> 在
     /// <c>ChatSession.LiveTurn</c> 上开的那个分岔口（同一条流的另一个订阅者），
     /// 与本类无关。
@@ -415,7 +415,7 @@ public static class SubAgentTool
         /// <summary>报告累加器</summary>
         public ReportAccumulator Report { get; } = new();
 
-        /// <summary>本轮是否出现过用户插话(报告里要交代,否则主 agent 会把它当成自己的委派结果)</summary>
+        /// <summary>本轮是否出现过用户插话(报告里要交代,否则主代理会把它当成自己的委派结果)</summary>
         public bool SawUserInterjection { get; private set; }
 
         public void Apply(AIContent content)
@@ -446,7 +446,7 @@ public static class SubAgentTool
     /// 报告 = <b>最后一次工具调用之后</b>的正文,而非全程正文拼接。
     /// 框架默认工作循环明确要求 agent "explain what you learned and what you are going to do next
     /// between tool calls",于是全程正文里绝大部分是"我接下来去看 X"这类旁白。
-    /// 把它们拼起来交给主 agent 有两个坏处:等于把子代理的思考过程塞回主上下文
+    /// 把它们拼起来交给主代理有两个坏处:等于把子代理的思考过程塞回主上下文
     /// (正是委派要避免的那件事);旁白里的中间猜测常与最终结论相反,读起来自相矛盾。
     ///
     /// 抽成独立类型是为了能不起模型地单测——这段取舍不写测试就会在下次重构里被"顺手简化"掉。
@@ -470,7 +470,7 @@ public static class SubAgentTool
                     _report.Clear();
                     _hadToolCall = true;
                     break;
-                // 只取正文:思考段属过程,永不进主 agent 的上下文
+                // 只取正文:思考段属过程,永不进主代理的上下文
                 case TextContent { Text.Length: > 0 } text:
                     _report.Append(text.Text);
                     _allText.Append(text.Text);
@@ -485,14 +485,14 @@ public static class SubAgentTool
         public bool NeedsSummary => _hadToolCall && _report.Length == 0 && _allText.Length > 0;
 
         /// <summary>
-        /// 生成交给主 agent 的报告
+        /// 生成交给主代理的报告
         /// </summary>
         /// <param name="timedOut">本次运行是否因超时被掐断</param>
         /// <returns>报告文本</returns>
         public string Build(bool timedOut) => Build(timedOut, Timeout, string.Empty, false, false);
 
         /// <summary>
-        /// 生成交给主 agent 的报告
+        /// 生成交给主代理的报告
         /// </summary>
         /// <param name="timedOut">是否因超时被掐断</param>
         /// <param name="limit">本次适用的墙钟上限(交互与无人值守分档)</param>
@@ -511,7 +511,7 @@ public static class SubAgentTool
             else if (_allText.Length > 0)
             {
                 // 收尾总结缺失(轮次到顶/超时/被截断):给出全程旁白,但要说清它不是结论,
-                // 否则主 agent 会把中间猜测当成子代理的判断
+                // 否则主代理会把中间猜测当成子代理的判断
                 result.AppendLine("(No final report - the sub-agent stopped before summarizing. "
                                   + "Below is its running commentary, not a conclusion.)");
                 result.Append(_allText.ToString().Trim());
@@ -526,7 +526,7 @@ public static class SubAgentTool
             }
 
             // 被用户中止与超时是两回事:后者是意外,前者是**用户的决定**。
-            // 只说「还能接着跑」不够——实机见过主 agent 读完就自己重新派了一个,
+            // 只说「还能接着跑」不够——实机见过主代理读完就自己重新派了一个,
             // 等于把用户刚按下的停止撤销掉
             if (stoppedByUser)
             {
@@ -538,7 +538,7 @@ public static class SubAgentTool
                               + "The sub-session is intact if they ask you to resume it.)");
             }
 
-            // 用户插话改变了这次委派的性质,主 agent 该知道自己拿到的不全是它自己要的东西
+            // 用户插话改变了这次委派的性质,主代理该知道自己拿到的不全是它自己要的东西
             if (userInterjected)
             {
                 result.AppendLine();

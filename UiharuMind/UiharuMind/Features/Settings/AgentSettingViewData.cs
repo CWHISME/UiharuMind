@@ -41,12 +41,12 @@ public partial class AgentSettingViewData : ViewModelBase
     public ObservableCollection<ModelRunningData> AvailableModels { get; } = new();
 
     /// <summary>
-    /// 当前选中的通用子代理模型。null = 回退到主 agent 模型。
+    /// 当前选中的通用子代理模型。null = 回退到主代理模型。
     /// </summary>
     [ObservableProperty] private ModelRunningData? _generalSubAgentModel;
 
     /// <summary>
-    /// 当前选中的探索型子代理模型。null = 回退到主 agent 模型。
+    /// 当前选中的探索型子代理模型。null = 回退到主代理模型。
     /// </summary>
     [ObservableProperty] private ModelRunningData? _explorerSubAgentModel;
 

@@ -3161,6 +3161,6 @@
         <value>后台跑着</value>
     </data>
     <data name="SubAgentCopyIdTip" xml:space="preserve">
-        <value>复制这次委派的编号，可用来让主 agent 点名续跑它</value>
+        <value>复制这次委派的编号，可用来让主代理点名续跑它</value>
     </data>
 </root>

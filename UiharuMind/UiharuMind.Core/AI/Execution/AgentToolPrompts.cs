@@ -138,7 +138,7 @@ public static class AgentToolPrompts
     /// shell 可以被关掉，而那一段在 shell 关掉时照样发出去，
     /// 于是会给模型指一个不存在的工具——违反「关掉的工具绝不出现」。
     ///
-    /// 主 agent 与完全自动档的子代理共用这一段：子代理拿的是同一个 `Shell`。
+    /// 主代理与完全自动档的子代理共用这一段：子代理拿的是同一个 `Shell`。
     /// </summary>
     /// <param name="fileAccessMounted">文件工具是否已装配</param>
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径；空串则不写那一句</param>

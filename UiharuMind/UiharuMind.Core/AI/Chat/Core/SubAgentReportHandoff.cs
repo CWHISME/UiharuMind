@@ -58,8 +58,8 @@ public static class SubAgentReportHandoff
     /// <param name="conclusion">
     /// 要交回的结论正文。<b>后台委派必须给这一份</b>：委派跑完时攒出来的报告带着
     /// 「用户中止了」「超时了」「有几个调用因审批未决没跑成」这些注记，而从子会话历史里
-    /// 现捞「最后一段助手正文」把它们全丢了——主 agent 于是把没干完的活当成干完了。
-    /// 为空时才回落到现捞（用户手动点「交回主 agent」走的就是那条）。
+    /// 现捞「最后一段助手正文」把它们全丢了——主代理于是把没干完的活当成干完了。
+    /// 为空时才回落到现捞（用户手动点「交回主代理」走的就是那条）。
     /// </param>
     /// <returns>交回结果</returns>
     public static EHandoffOutcome Submit(ChatSession subSession, string? interruption = null,
