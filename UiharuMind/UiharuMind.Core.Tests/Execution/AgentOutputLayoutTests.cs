@@ -3,83 +3,154 @@ using UiharuMind.Core.AI.Execution;
 namespace UiharuMind.Core.Tests.Agent;
 
 /// <summary>
-/// 钉死 agent 产出的目录布局。承重之处是<b>不同会话不许共用一个目录</b>：
-/// 产出以绝对路径写进对话历史，共用时两个会话各画一张同名图，后者会静默盖掉前者，
+/// 钉死 agent 产物的目录布局。承重之处是<b>不同会话不许共用一个房间</b>：
+/// 产物以绝对路径写进对话历史，共用时两个会话各画一张同名图，后者会静默盖掉前者，
 /// 而旧对话回头看一切正常、只是图是错的——这类缺陷在实机上几乎不可能被发现。
+/// 布局本身见 ADR 0026：一个工作区一个家，家里按会话分房间。
 /// </summary>
 public class AgentOutputLayoutTests
 {
     private const string SessionA = "3f2a1b0c9d8e7f6a5b4c3d2e1f009988";
     private const string SessionB = "aabbccdd11223344556677889900aabb";
 
-    [Fact]
-    public void GetFolderName_SeparatesSessionsWithTheSameTitle()
-    {
-        string a = AgentOutputLayout.GetFolderName("数据分析", SessionA);
-        string b = AgentOutputLayout.GetFolderName("数据分析", SessionB);
+    private const string Workspace1 = "/Users/me/projects/client";
+    private const string Workspace2 = "/Users/me/projects/server";
 
+    [Fact]
+    public void GetFolderName_SeparatesSessionsIntoRoomsUnderSameWorkspace()
+    {
+        string a = AgentOutputLayout.GetFolderName(Workspace1, SessionA);
+        string b = AgentOutputLayout.GetFolderName(Workspace1, SessionB);
+
+        // 同一个工作区共用一个家,房间按会话分——跨会话同名图不互盖的根基
+        Assert.Equal(Path.GetDirectoryName(a), Path.GetDirectoryName(b));
         Assert.NotEqual(a, b);
-        Assert.StartsWith("数据分析_", a); //标题要留在目录名里,用户得能认出来
+        Assert.Contains("client_", a); //家目录名要带目录名,用户得能认出来
+        // 实现里是以字面 '/' 拼接(与 FileMemoryLayout 同惯例),这里断言也写字面 '/',
+        // 使得 Windows 上 dotnet test 也能过(Path.DirectorySeparatorChar 在那边是 '\\')
+        Assert.EndsWith("/3f2a1b0c", a);
     }
 
     [Fact]
-    public void GetFolderName_FallsBackToIdWhenTitleHasNothingUsable()
+    public void GetFolderName_DifferentWorkspacesGetDifferentHomes()
     {
-        // 标题只有标点/空白时不能产出一个以下划线开头的怪目录名
-        Assert.Equal("3f2a1b0c", AgentOutputLayout.GetFolderName("··· ---", SessionA));
+        string a = AgentOutputLayout.GetFolderName(Workspace1, SessionA);
+        string c = AgentOutputLayout.GetFolderName(Workspace2, SessionA);
+
+        Assert.NotEqual(Path.GetDirectoryName(a), Path.GetDirectoryName(c));
+    }
+
+    [Fact]
+    public void GetFolderName_NoWorkspace_GoesToNoWorkspaceBucket()
+    {
+        // 同 GetFolderName_SeparatesSessionsIntoRoomsUnderSameWorkspace:字面 '/' 是实现的拼接字符
+        string expected = $"{AgentOutputLayout.NoWorkspaceFolder}/3f2a1b0c";
+        Assert.Equal(expected, AgentOutputLayout.GetFolderName(null, SessionA));
+        Assert.Equal(expected, AgentOutputLayout.GetFolderName("", SessionA));
+        Assert.Equal(expected, AgentOutputLayout.GetFolderName("   ", SessionA));
     }
 
     [Fact]
     public void GetFolderName_IsEmptyWithoutSession()
     {
-        // 能力预览走的是 FromDraft,此时没有会话。空串让装配退回父目录而不是造一个 "_" 目录
-        Assert.Equal(string.Empty, AgentOutputLayout.GetFolderName("标题", string.Empty));
+        // 能力预览走的是 FromDraft,此时没有会话。空串让装配退回根而不是造怪目录
+        Assert.Equal(string.Empty, AgentOutputLayout.GetFolderName(Workspace1, string.Empty));
     }
 
     [Fact]
-    public void DeleteAll_RemovesEveryFolderOfThatSessionIncludingRenamedOnes()
+    public void DeleteAll_RemovesRoomAndPrunesEmptyHome_KeepsOtherSessions()
     {
-        string root = Path.Combine(Path.GetTempPath(), "uiharu-outputs-test-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        try
-        {
-            // 改名不搬目录,所以同一个会话可能留下多个目录——清理必须按 id 后缀通配全收
-            string oldName = Path.Combine(root, AgentOutputLayout.GetFolderName("旧标题", SessionA));
-            string newName = Path.Combine(root, AgentOutputLayout.GetFolderName("新标题", SessionA));
-            string other = Path.Combine(root, AgentOutputLayout.GetFolderName("别人的会话", SessionB));
-            foreach (string dir in new[] { oldName, newName, other })
-            {
-                Directory.CreateDirectory(dir);
-                File.WriteAllText(Path.Combine(dir, "chart.png"), "x");
-            }
+        using TempRoot tmp = new();
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "homeA", "3f2a1b0c"));
+        File.WriteAllText(Path.Combine(tmp.Workspaces, "homeA", "3f2a1b0c", "chart.png"), "x");
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "homeB", "aabbccdd"));
+        File.WriteAllText(Path.Combine(tmp.Workspaces, "homeB", "aabbccdd", "data.csv"), "x");
 
-            DeleteAllIn(root, SessionA);
+        AgentOutputLayout.DeleteAll(tmp.Workspaces, tmp.Legacy, SessionA);
 
-            Assert.False(Directory.Exists(oldName));
-            Assert.False(Directory.Exists(newName));
-            Assert.True(Directory.Exists(other)); //别的会话的产出不能被牵连
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        // SessionA 的房间没了,且它独占的家整个被收掉
+        Assert.False(Directory.Exists(Path.Combine(tmp.Workspaces, "homeA")));
+        // SessionB 的房间与家都不被牵连
+        Assert.True(Directory.Exists(Path.Combine(tmp.Workspaces, "homeB", "aabbccdd")));
     }
 
-    /// <summary>
-    /// <see cref="AgentOutputLayout.DeleteAll"/> 的父目录是 <c>AppPaths</c> 写死的，
-    /// 单测不能往用户真实数据目录里造文件，故在此复刻同一条通配规则。
-    /// 规则本身极短，复刻的风险小于让测试去动真实磁盘布局。
-    /// </summary>
-    private static void DeleteAllIn(string root, string sessionId)
+    [Fact]
+    public void DeleteAll_KeepsHomeWhenItStillHostsOtherSessions()
     {
-        string suffix = AgentOutputLayout.GetFolderName(string.Empty, sessionId);
-        foreach (string path in Directory.EnumerateDirectories(root))
+        using TempRoot tmp = new();
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "home", "3f2a1b0c"));
+        File.WriteAllText(Path.Combine(tmp.Workspaces, "home", "3f2a1b0c", "chart.png"), "x");
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "home", "aabbccdd"));
+        File.WriteAllText(Path.Combine(tmp.Workspaces, "home", "aabbccdd", "data.csv"), "x");
+
+        AgentOutputLayout.DeleteAll(tmp.Workspaces, tmp.Legacy, SessionA);
+
+        Assert.False(Directory.Exists(Path.Combine(tmp.Workspaces, "home", "3f2a1b0c")));
+        // 同一家的别的会话房间还在,家也不能被删
+        Assert.True(Directory.Exists(Path.Combine(tmp.Workspaces, "home", "aabbccdd")));
+    }
+
+    [Fact]
+    public void DeleteAll_AlsoCleansLegacyLayoutRemnants()
+    {
+        using TempRoot tmp = new();
+        // 旧布局的残留:改过名留下的多个目录,按 id 后缀通配清掉
+        Directory.CreateDirectory(Path.Combine(tmp.Legacy, "旧标题_3f2a1b0c"));
+        File.WriteAllText(Path.Combine(tmp.Legacy, "旧标题_3f2a1b0c", "chart.png"), "x");
+        Directory.CreateDirectory(Path.Combine(tmp.Legacy, "别人的会话_aabbccdd"));
+        File.WriteAllText(Path.Combine(tmp.Legacy, "别人的会话_aabbccdd", "chart.png"), "x");
+
+        AgentOutputLayout.DeleteAll(tmp.Workspaces, tmp.Legacy, SessionA);
+
+        Assert.False(Directory.Exists(Path.Combine(tmp.Legacy, "旧标题_3f2a1b0c")));
+        Assert.True(Directory.Exists(Path.Combine(tmp.Legacy, "别人的会话_aabbccdd"))); //别的会话不被牵连
+    }
+
+    [Fact]
+    public void SweepEmptyDirectories_RemovesOnlyEmptyRoomsAndHomes()
+    {
+        using TempRoot tmp = new();
+        // 空房间、有内容的房间、空的家、空的 NoWorkspace 桶、空的旧布局目录、有内容的旧布局目录
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "home", "3f2a1b0c"));
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "home", "aabbccdd"));
+        File.WriteAllText(Path.Combine(tmp.Workspaces, "home", "aabbccdd", "chart.png"), "x");
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, "emptyHome"));
+        Directory.CreateDirectory(Path.Combine(tmp.Workspaces, AgentOutputLayout.NoWorkspaceFolder));
+        Directory.CreateDirectory(Path.Combine(tmp.Legacy, "空的旧目录"));
+        Directory.CreateDirectory(Path.Combine(tmp.Legacy, "有内容的旧目录"));
+        File.WriteAllText(Path.Combine(tmp.Legacy, "有内容的旧目录", "chart.png"), "x");
+
+        AgentOutputLayout.SweepEmptyDirectories(tmp.Workspaces, tmp.Legacy);
+
+        // 空房间被删,有内容的房间留着;家因空房间被删而变空的也被收掉
+        Assert.False(Directory.Exists(Path.Combine(tmp.Workspaces, "home", "3f2a1b0c")));
+        Assert.True(Directory.Exists(Path.Combine(tmp.Workspaces, "home", "aabbccdd")));
+        Assert.True(Directory.Exists(Path.Combine(tmp.Workspaces, "home")));
+        Assert.False(Directory.Exists(Path.Combine(tmp.Workspaces, "emptyHome")));
+        Assert.False(Directory.Exists(Path.Combine(tmp.Workspaces, AgentOutputLayout.NoWorkspaceFolder)));
+        Assert.False(Directory.Exists(Path.Combine(tmp.Legacy, "空的旧目录")));
+        Assert.True(Directory.Exists(Path.Combine(tmp.Legacy, "有内容的旧目录")));
+    }
+
+    /// <summary>临时根：新布局与旧布局两个根都装进同一个临时目录，用后即焚</summary>
+    private sealed class TempRoot : IDisposable
+    {
+        public string Workspaces { get; }
+        public string Legacy { get; }
+
+        private readonly string _root;
+
+        public TempRoot()
         {
-            string name = Path.GetFileName(path);
-            if (name == suffix || name.EndsWith($"_{suffix}", StringComparison.Ordinal))
-            {
-                Directory.Delete(path, recursive: true);
-            }
+            _root = Path.Combine(Path.GetTempPath(), "uiharu-outputs-test-" + Guid.NewGuid().ToString("N"));
+            Workspaces = Path.Combine(_root, "Workspaces");
+            Legacy = Path.Combine(_root, "Legacy");
+            Directory.CreateDirectory(_root);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
         }
     }
 }

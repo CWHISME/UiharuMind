@@ -8,7 +8,9 @@
  ****************************************************************************/
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -74,6 +76,35 @@ public partial class SessionListItem : ObservableObject
     public string CharacterName => _characterName ??=
         CharacterManager.Instance.GetCharacterData(_meta.CharacterId).CharacterName;
 
+    /// <summary>工作区完整路径（agent 页区分项目用；聊天页恒为空）</summary>
+    public string WorkspaceFullPath => _meta.WorkspacePath ?? string.Empty;
+
+    /// <summary>本会话有没有绑工作区</summary>
+    public bool HasWorkspace => !string.IsNullOrWhiteSpace(WorkspaceFullPath);
+
+    /// <summary>
+    /// 工作区显示名：只取目录名（<c>client</c> 而不是整条路径）；
+    /// 未绑定时显示本地化的「未绑定目录」占位
+    /// </summary>
+    public string WorkspaceName
+    {
+        get
+        {
+            if (!HasWorkspace) return Lang.AgentWorkspaceNone;
+            string trimmed = WorkspaceFullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return Path.GetFileName(trimmed);
+        }
+    }
+
+    /// <summary>
+    /// 工作区的项目色（类似 Rider 的项目名配色）：路径哈希 → 色相，亮度按深浅主题取。
+    /// 主题切换后由 <see cref="RefreshWorkspaceColor"/> 重取
+    /// </summary>
+    public SolidColorBrush WorkspaceColor => WorkspaceTint.For(WorkspaceFullPath);
+
+    /// <summary>主题切换后重取项目色（<c>SessionListModel</c> 在 <c>ActualThemeVariantChanged</c> 上调用）</summary>
+    public void RefreshWorkspaceColor() => OnPropertyChanged(nameof(WorkspaceColor));
+
     /// <summary>
     /// 描述是否值得单独占一行。
     ///
@@ -88,9 +119,12 @@ public partial class SessionListItem : ObservableObject
     public bool HasDistinctDescription =>
         Description.Length > 0 && !string.Equals(Description, Name, StringComparison.Ordinal);
 
+    //================= 悬停提示 =================
+
     /// <summary>
     /// 悬停提示：条目里被截断的那几行的全文。标题与描述在列表里都是单行截断的，
-    /// 侧栏又窄，长标题看不到尾——描述值得单独占一行时（对话页）一并给出
+    /// 侧栏又窄，长标题看不到尾——描述值得单独占一行时（对话页）一并给出。
+    /// 曾把工作区完整路径与角色名也塞进来,堆成一团反而看不清,已还原(ADR 0026 相关那轮)
     /// </summary>
     public string FullTextTip => HasDistinctDescription ? $"{Name}\n{Description}" : Name;
 
@@ -166,6 +200,7 @@ public partial class SessionListItem : ObservableObject
     {
         //换过角色的会话要重取头像与角色名,它们是按角色标识惰性解析的
         bool characterChanged = !string.Equals(_meta.CharacterId, meta.CharacterId, StringComparison.Ordinal);
+        bool workspaceChanged = !string.Equals(_meta.WorkspacePath, meta.WorkspacePath, StringComparison.Ordinal);
         _meta = meta;
         if (characterChanged)
         {
@@ -175,6 +210,14 @@ public partial class SessionListItem : ObservableObject
             _iconResolved = false;
             OnPropertyChanged(nameof(Icon));
             OnPropertyChanged(nameof(CharacterName));
+        }
+
+        if (workspaceChanged)
+        {
+            // 工作区是显示字段,不是本体字段;条目复用时属性要显式通知("未绑定目录" ↔ 目录名)
+            OnPropertyChanged(nameof(WorkspaceName));
+            OnPropertyChanged(nameof(WorkspaceColor));
+            OnPropertyChanged(nameof(HasWorkspace));
         }
 
         Name = meta.Title;

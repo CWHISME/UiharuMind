@@ -46,6 +46,9 @@ public class UiharuCoreManager : Singleton<UiharuCoreManager>, IInitialize
     /// </summary>
     public void Init()
     {
+        // 启动清扫:任何会话装配之前,收掉 agent 产物树里的空目录(ADR 0026)。
+        // 只删空目录,不碰任何有内容的数据——这是对 ADR 0019「不自动清理」的补丁
+        AI.Execution.AgentOutputLayout.SweepEmptyDirectories();
         // 会话索引(角色对话与 agent 对话共用)、Harness 宿主(含调度器)、MCP 配置
         _ = AI.Chat.SessionManager.Instance;
         _ = AI.Execution.CharacterRunnerFactory.Instance;

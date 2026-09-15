@@ -312,6 +312,7 @@ public class SessionListModelTests
         model.Removed += removed.Add;
 
         await DeleteAsync(itemA);
+        metas.RemoveAt(0); //删除后同步清单源:并行测试触发全局通知再 Sync 时不会把已删会话加回来
 
         Assert.Equal(["b"], Ids(model));
         Assert.Equal([itemA], removed);
@@ -321,13 +322,21 @@ public class SessionListModelTests
     public async Task DeletingTwice_RemovesOnce()
     {
         //摘除后条目已解绑,而摘除本身也对不在列表里的标识免疫——
-        //两条路径(条目命令与全局通知)都可能先到,后到的那次必须是空操作
-        SessionListModel model = Create(() => [Meta(Guid.NewGuid().ToString("N"))]);
+        //两条路径(条目命令与全局通知)都可能先到,后到的那次必须是空操作。
+        //
+        // 清单源必须闭包同一份 list:`() => [Meta(guid)]` 每次求值生成新 id,
+        // App.Tests 类间并行时,别的类触发全局 OnSessionAdded 会让本 model 重跑 Sync,
+        // 新 id 的会话就被加进列表——就是这条测试反复 flaky 的根因
+        string id = Guid.NewGuid().ToString("N");
+        List<ChatSessionMeta> metas = [Meta(id)];
+        SessionListModel model = Create(() => metas);
         SessionListItem itemA = model.Sessions[0];
         int removed = 0;
         model.Removed += _ => removed++;
 
         await DeleteAsync(itemA);
+        metas.RemoveAll(m => m.SessionId == id);
+        model.Sync(); //对账收敛:删除与清单同步之间若有并行 Sync 复活过记录,这里清掉
         await DeleteAsync(itemA);
 
         Assert.Empty(model.Sessions);

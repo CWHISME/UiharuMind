@@ -118,8 +118,9 @@ public class AgentBuildProfile
     /// 本会话的产出目录名（相对 <c>AgentOutputLayout.RootPath</c>）；无会话时为空串。
     ///
     /// 只带名字不带完整路径，是因为<b>建目录是副作用</b>，只允许发生在
-    /// <c>AgentAssemblyPlan.Resolve</c> 里。名字随会话标题变，因此它也进装配快照
-    /// ——提示词里逐字写着这个路径，改了标题不重建就等于告诉模型一个已经不用的目录。
+    /// <c>AgentAssemblyPlan.Resolve</c> 里。名字随<b>工作区</b>变（改名不再影响，
+    /// 房间名只认 id8，见 ADR 0026），因此它也进装配快照——提示词里逐字写着这个路径，
+    /// 换了工作区不重建就等于告诉模型一个已经不用的目录。
     /// </summary>
     public string OutputFolderName { get; init; } = string.Empty;
 
@@ -146,7 +147,7 @@ public class AgentBuildProfile
             // 旧存档没有这个值,回退子会话自己的目录
             OutputFolderName = session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
                 ? session.ParentOutputFolderName
-                : AgentOutputLayout.GetFolderName(session.Title, session.SessionId),
+                : AgentOutputLayout.GetFolderName(session.WorkspacePath, session.SessionId),
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,

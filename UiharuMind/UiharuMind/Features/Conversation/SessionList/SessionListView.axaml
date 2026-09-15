@@ -124,18 +124,19 @@
                                        TextTrimming="CharacterEllipsis"
                                        MaxLines="1"
                                        FontSize="11" />
-                            <!-- 末行:时间 + 角色名。两页末行都以时间开头、统一吸收字体 descender,
-                                 负边距量级一致。角色名只在 agent 页显示(对话页隐藏头像),
-                                 所以 agent 页回到两行:标题 + 时间+角色名。
+                            <!-- 末行:agent 页(不显头像)是「工作区名(项目色) + 时间」,聊天页(显头像)只有时间。
+                                 工作区名打头让同角色不同项目一眼分开;角色名已从末行移除
+                                 (同工作区多个会话角色不同是常态,身份靠标题与右侧栏呈现)。
                                  负边距只抵消末行基线以下的一小截空白:先试 -1,不够/过头再调 -->
                             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,0,0,-5">
                                 <TextBlock Classes="muted"
-                                           Text="{Binding TimeString}" />
-                                <TextBlock Classes="muted"
-                                           Text="{Binding CharacterName}"
+                                           Text="{Binding WorkspaceName}"
+                                           Foreground="{Binding WorkspaceColor}"
                                            IsVisible="{Binding !$parent[sessions:SessionListView].ShowAvatar}"
                                            TextTrimming="CharacterEllipsis"
                                            MaxWidth="110" />
+                                <TextBlock Classes="muted"
+                                           Text="{Binding TimeString}" />
                             </StackPanel>
                         </Grid>
                     </Grid>

@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Avalonia;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
@@ -98,6 +99,8 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
         Sync();
 
+        // 主题切换后逐条刷新项目色:条目是复用的不是重建的(见 Sync 注释),绑定值不会自己重算
+        if (Application.Current is { } app) app.ActualThemeVariantChanged += OnThemeVariantChanged;
         SessionManager.Instance.OnSessionAdded += OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved += OnSessionRemoved;
         SessionManager.Instance.OnSessionMetaUpdated += OnSessionMetaUpdated;
@@ -237,6 +240,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        if (Application.Current is { } app) app.ActualThemeVariantChanged -= OnThemeVariantChanged;
         SessionManager.Instance.OnSessionAdded -= OnSessionAdded;
         SessionManager.Instance.OnSessionRemoved -= OnSessionRemoved;
         SessionManager.Instance.OnSessionMetaUpdated -= OnSessionMetaUpdated;
@@ -321,6 +325,15 @@ public partial class SessionListModel : ObservableObject, IDisposable
     private void OnRunStateChanged(string sessionId) =>
         // 可能来自后台线程(无头执行),而条目是界面绑定的
         _post(() => Find(sessionId)?.RefreshRunState());
+
+    /// <summary>
+    /// 主题切换后重取每个条目的项目色。条目复用意味着 Brush 不会自动重算,
+    /// 这里逐条刷一次 <c>WorkspaceColor</c>（聊天页没绑工作区,刷了也只是灰→灰）
+    /// </summary>
+    private void OnThemeVariantChanged(object? sender, EventArgs e)
+    {
+        foreach (SessionListItem item in Sessions) item.RefreshWorkspaceColor();
+    }
 
     /// <summary>
     /// 某会话的草稿状态变了。只更新那一条的小标记,不做全量重排——

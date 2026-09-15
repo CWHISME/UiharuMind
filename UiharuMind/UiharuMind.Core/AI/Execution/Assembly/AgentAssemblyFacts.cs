@@ -75,8 +75,9 @@ public sealed record AgentAssemblyFacts
     public bool PythonEnvReady { get; init; }
 
     /// <summary>
-    /// 产出目录名。提示词里逐字写着这个路径，改会话标题就会换目录，
-    /// 不入账则模型继续往旧目录写，而用户在新目录里什么都看不到。
+    /// 产出目录名。提示词里逐字写着这个路径，改<b>工作区</b>就会换目录
+    /// （房间名只认 id8，改标题不再换，见 ADR 0026），不入账则模型继续往旧目录写，
+    /// 而用户在新目录里什么都看不到。
     /// </summary>
     public string OutputFolderName { get; init; } = string.Empty;
 

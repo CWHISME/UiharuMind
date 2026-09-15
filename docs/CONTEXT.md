@@ -351,19 +351,39 @@
 ⚠️ 因此**不要说「代码执行工具」「代码解释器」「Python 沙箱」**。前两个指向一个不存在的工具；
 第三个是谎——它爆炸半径与 shell 同级，只是不联网。
 
-### agent 产出（Agent Outputs）
+### 工作区（Workspace）
 
-agent **想让用户看到**的文件（跑 Python 画的图、导出的数据），落在
-`AppPaths.Data.AgentOutputs` 下**按会话分的子目录**里，目录名是 `{会话标题}_{会话id前8位}`
-（`AgentOutputLayout`）。模型在回复正文里用 `![说明](file:///…)` 引用，
-markdown 渲染器据此把图显示出来，随历史持久化。
+会话绑定的**工作目录**（`ChatSession.WorkspacePath`），一个路径字符串，**不是一个独立实体**。
+agent 的工具与 shell 默认以它为根；未绑时退化到 `Cache/Scratch`。
+
+⚠️ 不要说「项目」——这里没有第二个实体，叫「项目」会让人以为存在一个 `Projects` 数据目录。
+（Claude Code 的 `projects` 只是我们借用的**组织惯例**：中央数据目录按工作目录分桶，见
+[ADR 0026](adr/0026-agent产物按工作区组织，落地Data-Agent-Workspaces.md)。）
+
+### 工作区段（Workspace Segment）
+
+**工作区在目录名里的化身**：`{目录名}_{全路径哈希}`，由 `FileMemoryLayout.GetWorkspaceSegment`
+生成。文件记忆的「按角色 × 工作区」档与 agent 产物的**工作区家目录**共用同一套命名，
+谁都能凭目录名把东西认回它所属的工作区。
+
+### agent 产物（Agent Artifacts）
+
+agent **在会话里写下的一切文件**——跑 Python 画的图、导出的数据、临时脚本、从别处下载的东西——
+都落在 `AppPaths.Data.AgentWorkspaces`（`Data/Agent/Workspaces/`）下**按工作区 × 会话**组织：
+绑了工作区的会话进 `<工作区家目录>/<会话id8>/`，没绑的进 `NoWorkspace/<会话id8>/`；
+能力预览（无会话）退化到 `Workspaces/` 根，不单独建目录。房间名只取会话 id 前 8 位，**不带标题**。
+模型在回复正文里用 `![说明](file:///…)` 引用，markdown 渲染器据此把图显示出来，随历史持久化。
 
 ⚠️ 不要与**对话附件**（`AppPaths.Data.AgentAttachments`）混淆：那边是**用户**发进来的。
 
 ⚠️ 归 `Data` 而非 `Cache`：对话正文以链接引用它们，清掉就等于历史里留下一堆坏图。
+临时脚本与下载物也先住房间，真出现大件才单独指 `Cache`。
 
-⚠️ **改名不搬目录**——路径已经写进历史，一搬就是一片打不开的图。所以同一个会话改名后可能有
-多个产出目录，清理按 id 后缀通配。这一点与 [FileMemory](#filememory文件记忆) 刻意相反。
+⚠️ **一个工作区一个家，家里按会话分房间**——刻意的：产出路径写进历史，共用同一目录时
+同名文件会静默盖掉别的会话的图。子会话沿用派活者的房间，不另建。
+
+⚠️ 房间名只认 id8：**改标题既不搬目录也不换目录**；删除会话时整间删除。
+旧布局 `Data/Agent/Outputs/{标题}_{id8}` **不迁移**（历史链接指着），空目录由清扫收掉。
 
 ⚠️ 引用格式是 `[![说明](file:///…)](file:///…)`，**外层那道链接不是多余的**——裸图片在
 markdown 渲染器里没有 `HRef`，显示得出来但点不开。点击由 `SimpleMarkdownViewer.OnLinkClick`

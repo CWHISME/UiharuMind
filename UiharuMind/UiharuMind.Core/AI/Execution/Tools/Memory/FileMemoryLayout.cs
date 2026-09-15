@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System.Text;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
@@ -31,7 +30,6 @@ namespace UiharuMind.Core.AI.Execution.Tools.Memory;
 public static class FileMemoryLayout
 {
     private const int MaxNameLength = 32; //目录名里角色名部分的长度上限
-    private const int WorkspaceHashLength = 8; //工作区键里哈希部分的十六进制位数
 
     /// <summary>
     /// 框架索引里最多列多少条（<c>FileMemoryProvider.MaxIndexEntries</c>）。
@@ -122,30 +120,12 @@ public static class FileMemoryLayout
     }
 
     /// <summary>
-    /// 工作区路径 → 目录名一段：<c>目录名_短哈希</c>。
-    ///
-    /// 两半都不可省。光用目录名会撞（两个项目都叫 <c>client</c>，撞了就是记忆互相污染）；
-    /// 光用哈希用户在文件管理器里认不出是哪个项目——与 ADR 0002「目录名里带角色名」同一个取舍。
-    ///
-    /// 哈希取 SHA256 而非 <c>string.GetHashCode</c>：后者每进程随机化，
-    /// 重启一次就换一个目录，记忆当场"丢"。
+    /// 工作区路径 → 目录名一段：<c>目录名_短哈希</c>。实现已提为共享的
+    /// <see cref="WorkspaceSegment"/>（ADR 0026，文件记忆与 agent 产物同构），此处转发。
     /// </summary>
     /// <param name="workspacePath">工作区路径</param>
     /// <returns>目录名一段</returns>
-    public static string GetWorkspaceSegment(string workspacePath)
-    {
-        // 先归一再算:同一个工作区经不同写法(相对路径、大小写、尾斜杠)进来必须落到同一段,
-        // 否则同一个项目会分裂成几份记忆
-        string full = Path.GetFullPath(workspacePath)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        string canonical = OperatingSystem.IsLinux() ? full : full.ToLowerInvariant();
-
-        byte[] hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
-        string suffix = Convert.ToHexString(hash)[..WorkspaceHashLength].ToLowerInvariant();
-
-        string name = Sanitize(Path.GetFileName(full), MaxNameLength);
-        return name.Length == 0 ? suffix : $"{name}_{suffix}";
-    }
+    public static string GetWorkspaceSegment(string workspacePath) => WorkspaceSegment.From(workspacePath);
 
     /// <summary>
     /// 数这个角色（在本次范围下）已经记了多少条记忆，供界面提示用。

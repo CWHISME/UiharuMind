@@ -105,12 +105,21 @@ public static class AppPaths
         public static readonly string AgentAttachments = Path.Combine(AgentRoot, "Attachments");
 
         /// <summary>
-        /// agent 想让用户看到的产出(跑 Python 画的图、导出的数据)。
+        /// agent 产物（图、数据、临时脚本、下载物）的根目录：<b>一个工作区一个家</b>，
+        /// 家里按会话分房间（ADR 0026）。
         ///
         /// <b>归 Data 而非 Cache</b>:对话正文里以 <c>file://</c> 链接引用它们,
         /// 清掉就等于历史里留下一堆坏图。它们也不可重建——重跑一次是另一次推理。
         ///
         /// ⚠️ 与 <see cref="AgentAttachments"/> 分工:那边是<b>用户</b>发进来的,这边是 agent 产出的。
+        /// </summary>
+        public static readonly string AgentWorkspaces = Path.Combine(AgentRoot, "Workspaces");
+
+        /// <summary>
+        /// [已废弃] 旧布局的 agent 产出目录(<c>Data/Agent/Outputs</c>，ADR 0026 起新产物进
+        /// <see cref="AgentWorkspaces"/>)。<b>不迁移</b>:历史 <c>file://</c> 链接还指着这里。
+        /// 仅剩两条路径在使用:删除会话时的残留清理与启动时的空目录清扫
+        /// （见 <see cref="AI.Execution.AgentOutputLayout"/>）。
         /// </summary>
         public static readonly string AgentOutputs = Path.Combine(AgentRoot, "Outputs");
 

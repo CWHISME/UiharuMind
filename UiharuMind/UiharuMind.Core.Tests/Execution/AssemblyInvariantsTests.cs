@@ -979,7 +979,6 @@ public class AssemblySnapshotTests
     [InlineData("permission")]
     [InlineData("preauth")]
     [InlineData("params")]
-    [InlineData("title")]
     public void FactsFromAProfile_ReactToEverySessionFieldTheyDependOn(string dimension)
     {
         AgentAssemblyFacts baseline = AgentAssemblyFacts.Capture(
@@ -993,11 +992,24 @@ public class AssemblySnapshotTests
             case "preauth": changed.PreAuthorizedShellPatterns = ["git status*"]; break;
             //会话参数经模板渲染进系统提示,故要用一个真的引用了它的模板
             case "params": changed.CustomParams["tone"] = "curt"; break;
-            //标题进产出目录名,提示词里逐字写着那个路径,改了不重建模型就往旧目录写
-            case "title": changed.Title = "另一个标题"; break;
         }
 
         Assert.NotEqual(baseline, AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(changed)));
+    }
+
+    /// <summary>
+    /// ADR 0026:产出房间名只认 id8,改标题既不搬目录也不换目录,不该触发重建。
+    /// 旧布局「标题进目录名」会在这里 <b>应当相等</b>——那条用例已随新布局删除。
+    /// </summary>
+    [Fact]
+    public void FactsFromAProfile_AreStable_WhenOnlyTitleChanges()
+    {
+        ChatSession changed = NewSession();
+        changed.Title = "另一个标题";
+
+        Assert.Equal(
+            AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(NewSession())),
+            AgentAssemblyFacts.Capture(AgentBuildProfile.FromSession(changed)));
     }
 
     [Fact]
@@ -1018,7 +1030,7 @@ public class AssemblySnapshotTests
             IsTransient = true,
             WorkspacePath = "/ws",
             PermissionModeIndex = 1,
-            // 会话 id 写死:它进快照(产出目录名按会话分,见 AgentOutputLayout),
+            // 会话 id 写死:它进快照(产出房间名按会话分,见 AgentOutputLayout),
             // 每次新建都换一个的话,「改了某个字段就该重建」那几条会因为 id 不同而<b>假绿</b>
             SessionId = "0123456789abcdef0123456789abcdef",
         };

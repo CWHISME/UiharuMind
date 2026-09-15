@@ -165,8 +165,8 @@ internal sealed class AgentAssemblyPlan
             PythonInterpreterPath = config.EnableShellExecution && PythonEnvironment.IsReady
                 ? PythonEnvironment.InterpreterPath
                 : string.Empty,
-            // 按会话分目录:产出以绝对路径写进历史,共用一个目录时同名文件会静默盖掉
-            // 别的会话的图(见 AgentOutputLayout)。没有会话(能力预览)时退回父目录,那条路不跑轮次
+            // 一个工作区一个家、家里按会话分房间(见 AgentOutputLayout):产出以绝对路径写进历史,
+            // 跨会话共用目录时同名文件会静默盖掉别的会话的图。没有会话(能力预览)时退回根,那条路不跑轮次
             PythonOutputDirectory = config.EnableShellExecution && PythonEnvironment.IsReady
                 ? EnsureDirectory(profile.OutputFolderName.Length > 0
                     ? Path.Combine(AgentOutputLayout.RootPath, profile.OutputFolderName)

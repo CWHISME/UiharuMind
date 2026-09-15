@@ -88,7 +88,7 @@
                                    Text="{Binding SessionModelLabel}"
                                    TextTrimming="CharacterEllipsis" MaxLines="1"
                                    IsVisible="{Binding SessionModelLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                        <!-- 会话编号:ContinueSubAgent、日志与 Agent/Outputs 目录认的都是它。
+                        <!-- 会话编号:ContinueSubAgent、日志与 Agent/Workspaces 房间目录认的都是它。
                              显示短写省地方,点一下复制的是全串(悬停可见) -->
                         <Button Grid.Column="1" Classes="text-row"
                                 Command="{Binding CopySessionIdCommand}"
