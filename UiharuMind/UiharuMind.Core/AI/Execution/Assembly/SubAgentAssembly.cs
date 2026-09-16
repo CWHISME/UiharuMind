@@ -49,7 +49,7 @@ internal static class SubAgentAssembly
         public string Persona { get; init; } = string.Empty;
 
         /// <summary>
-        /// 子智能体名(框架侧 agent 名);空串则用通用的 "SubAgent"
+        /// 子智能体名(框架侧 agent 名);空串则用通用的 "RunAgent"
         /// </summary>
         public string Name { get; init; } = string.Empty;
 
@@ -196,7 +196,7 @@ internal static class SubAgentAssembly
             // 一个能力都没有:仍要给出一个可运行的 agent(否则这个子会话打不开),
             // 但它只剩纯对话——能力被裁到零本身就是派活者那边的配置结果
             options = AgentOptionsFactory.CreateSubAgentBaseOptions(plan.Compaction);
-            options.Name = identity.AgentName.Length > 0 ? identity.AgentName : "SubAgent";
+            options.Name = identity.AgentName.Length > 0 ? identity.AgentName : "RunAgent";
             options.ChatOptions = new ChatOptions { Instructions = persona };
         }
 
@@ -363,9 +363,9 @@ internal static class SubAgentAssembly
         // 子代理反而比谁都需要工具结果折叠(ADR 0006)
         HarnessAgentOptions options =
             AgentOptionsFactory.CreateSubAgentBaseOptions(input.Compaction);
-        options.Name = input.Name.Length > 0 ? input.Name : "SubAgent";
-        options.Description = "Sub-agent: surveys workspace files and/or the web, inspects images, " +
-                              "and returns a focused report.";
+        options.Name = input.Name.Length > 0 ? input.Name : "RunAgent";
+        options.Description = "Runagent: works a delegated task across the workspace and/or the web, " +
+                              "then returns a focused report.";
         // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
         // 子代理能改东西之后这条更承重
         options.MaximumIterationsPerRequest = SubAgentTool.MaxIterations;
@@ -392,7 +392,7 @@ internal static class SubAgentAssembly
     }
 
     /// <summary>
-    /// 子代理的系统提示:身份 + 权限边界 + 报告体例(按实际装配的工具集裁剪)
+    /// runagent 的系统提示:身份 + 权限边界 + 报告体例(按实际装配的工具集裁剪)
     /// + 与主代理同一份工作区规矩。
     ///
     /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
@@ -430,7 +430,7 @@ internal static class SubAgentAssembly
         }
 
         sb.AppendLine(AgentPromptHeadings.SubAgentRole);
-        sb.AppendLine("你是 UiharuMind 的子代理，主代理派给你一件任务。你独立干完，然后回报。");
+        sb.AppendLine("你是 UiharuMind 的一个 runagent。独立完成派给你的任务，然后回报结论。");
         sb.AppendLine(subProfile.RoleHint);
         // 护栏句:本段整段中文,而子代理连一句用户原话都看不到,更容易被提示词的语言带跑
         sb.AppendLine(AgentToolPrompts.LanguageNeutrality);
@@ -457,7 +457,7 @@ internal static class SubAgentAssembly
         // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
         sb.AppendLine(canMutate
             ? "- 你可以改东西，但只改任务要求的那些，别的一概不动。"
-            : "- 你是只读的：写不了文件，也没有 shell。把该改什么报上来，由主代理去改。");
+            : "- 你是只读的：写不了文件、没有 shell，只做调研。该改什么写进报告。");
         // 完全自动档的子代理拿的是同一个 Shell,不该是全场唯一不知道怎么用它的人
         if (hasShell)
         {
@@ -498,8 +498,7 @@ internal static class SubAgentAssembly
             sb.AppendLine();
             sb.AppendLine();
             sb.AppendLine(AgentPromptHeadings.OutputRoom("#"));
-            sb.Append(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory,
-                config.EnableFileAccess && canMutate));
+            sb.Append(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory));
         }
 
         // 挂了 MCP 工具就得给对应的自述:只给签名不给用法,子代理照样不会用

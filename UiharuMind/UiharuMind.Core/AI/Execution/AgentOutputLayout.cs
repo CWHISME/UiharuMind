@@ -44,8 +44,6 @@ public static class AgentOutputLayout
     /// <returns>目录名；无会话时为空串（能力预览退回根）</returns>
     public static string GetFolderName(string? workspacePath, string sessionId)
     {
-        // id 截到 8 位:会话 id 是 guid("N"),前 8 位撞车的概率在个人应用的量级上可以忽略。
-        // FileMemoryLayout 那边不截是因为角色 id 是枚举名,Assistant/AssistantExpert 共前缀,一截就撞
         string id = Sanitize(sessionId, IdLength);
         if (id.Length == 0) return string.Empty;
 

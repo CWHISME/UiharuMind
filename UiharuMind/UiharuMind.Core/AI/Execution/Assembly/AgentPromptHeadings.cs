@@ -30,6 +30,9 @@ public static class AgentPromptHeadings
     /// <summary>草稿目录段的标题正文（不含级别前缀，见 <see cref="OutputRoom"/>）</summary>
     public const string OutputRoomName = "草稿目录";
 
+    /// <summary>记忆目录段的标题正文（不含级别前缀，见 <see cref="Memory"/>）</summary>
+    public const string MemoryName = "记忆";
+
     /// <summary>文件操作纪律段</summary>
     public const string FileOperations = "## 文件操作";
 
@@ -45,7 +48,7 @@ public static class AgentPromptHeadings
     /// <summary>受管 Python 环境纪律段。它挂在命令行之下的同级位置——Python 由 shell 跑</summary>
     public const string Python = "## Python";
 
-    /// <summary>子代理委派纪律段</summary>
+    /// <summary>委派纪律段</summary>
     public const string Delegation = "## 委派";
 
     /// <summary>MCP server 自述段（主代理与子代理共用）</summary>
@@ -54,10 +57,10 @@ public static class AgentPromptHeadings
     /// <summary>工作区规矩段（主代理与子代理共用）</summary>
     public const string Workspace = "# 工作区规矩（来自项目的 AGENTS.md）";
 
-    /// <summary>子代理的身份段</summary>
+    /// <summary>runagent 的身份段</summary>
     public const string SubAgentRole = "# 角色";
 
-    /// <summary>子代理的做法段</summary>
+    /// <summary>runagent 的做法段</summary>
     public const string SubAgentMethod = "# 做法";
 
     /// <summary>
@@ -74,4 +77,11 @@ public static class AgentPromptHeadings
     /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
     /// <returns>整行标题</returns>
     public static string OutputRoom(string headingPrefix) => $"{headingPrefix} {OutputRoomName}";
+
+    /// <summary>
+    /// 记忆目录段的标题。级别随装配形态而变，与 <see cref="WorkingDirectory"/> 同一道理
+    /// </summary>
+    /// <param name="headingPrefix">级别前缀（<c>"#"</c> 或 <c>"##"</c>）</param>
+    /// <returns>整行标题</returns>
+    public static string Memory(string headingPrefix) => $"{headingPrefix} {MemoryName}";
 }

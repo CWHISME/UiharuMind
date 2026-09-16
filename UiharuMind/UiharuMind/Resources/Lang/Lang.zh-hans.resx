@@ -428,10 +428,7 @@
     <data name="AgentSettingCapWebSearch" xml:space="preserve">
         <value>网络搜索</value>
     </data>
-    <data name="AgentSettingCapFileMemory" xml:space="preserve">
-        <value>文件记忆（Agent 自己的笔记）</value>
-    </data>
-    <data name="AgentSettingCapScheduledTasks" xml:space="preserve">
+<data name="AgentSettingCapScheduledTasks" xml:space="preserve">
         <value>定时任务</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
@@ -492,28 +489,10 @@
         <value>让不识图的模型把图片问题转交给视觉模型（ViewImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
-        <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记是"文件记忆"，两回事。</value>
+        <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记（工作区记忆）是另一回事。</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
         <value>把探查委派给子代理（RunSubAgent），只有报告回到主对话，原始材料不进主上下文。子代理继承本会话的权限档：完全自动档下它也拿到写文件与 shell，其余档位下只拿只读工具——它无头运行，没法停下来等审批。它的过程从工具卡片上开一个只读窗口查看，不随会话存档。</value>
-    </data>
-    <data name="AgentGateDescFileMemory" xml:space="preserve">
-        <value>Agent 自己记的笔记（file_memory_* 工具），按角色分目录存放，同一角色的所有会话共享。角色改名时笔记目录跟着一起改名。与会话挂载的知识库是两回事。</value>
-    </data>
-    <data name="AgentSettingCapFileMemoryPerWorkspace" xml:space="preserve">
-        <value>文件记忆按项目分开</value>
-    </data>
-    <data name="AgentGateDescFileMemoryPerWorkspace" xml:space="preserve">
-        <value>这个角色的笔记按绑定的工作区分别存放，而不是所有项目共用一份。已有笔记不会动：按项目分的目录挂在角色目录下面。没有绑定工作区的会话回落到共用的那一份。</value>
-    </data>
-    <data name="AgentFileMemoryCountNote" xml:space="preserve">
-        <value>已记 {0} 条</value>
-    </data>
-    <data name="AgentFileMemoryOverLimitNote" xml:space="preserve">
-        <value>已记 {0} 条 — 超过 {1} 条，更早的记忆不再被索引</value>
-    </data>
-    <data name="AgentFileMemoryPerWorkspaceNote" xml:space="preserve">
-        <value>按项目分别计数</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>创建定时任务（ScheduleTask），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>
@@ -1088,29 +1067,29 @@
         <value>模型管理</value>
     </data>
     <data name="MemoryTitle" xml:space="preserve">
-        <value>记忆库：</value>
+        <value>知识库：</value>
     </data>
     <data name="NoMemory" xml:space="preserve">
-        <value>未设定</value>
+        <value>暂无知识库</value>
     </data>
     <data name="MemoryTips" xml:space="preserve">
-        <value>开启对话后，优先使用角色记忆库。若后续手动切换记忆库，则仅影响指定对话场景。
-注：记忆库本身是共享的，另外请避免同一个记忆库中存放过多无关信息。</value>
+        <value>开启对话后，优先使用角色知识库。若后续手动切换知识库，则仅影响指定对话场景。
+注：知识库本身是共享的，另外请避免同一个知识库中存放过多无关信息。</value>
     </data>
     <data name="MemoryIndexUpdate" xml:space="preserve">
-        <value>更新记忆索引</value>
+        <value>更新知识库索引</value>
     </data>
     <data name="MemoryIndexUpdating" xml:space="preserve">
-        <value>正在更新记忆索引，请稍候...</value>
+        <value>正在更新知识库索引，请稍候...</value>
     </data>
     <data name="MemoryIndexNeedUpdate" xml:space="preserve">
-        <value>记忆来源已变更，索引尚未更新。更新前，聊天仍会使用旧索引。</value>
+        <value>知识库来源已变更，索引尚未更新。更新前，聊天仍会使用旧索引。</value>
     </data>
     <data name="MemoryIndexReady" xml:space="preserve">
-        <value>记忆索引已同步。</value>
+        <value>知识库索引已同步。</value>
     </data>
     <data name="MemoryIndexNotBuilt" xml:space="preserve">
-        <value>记忆索引尚未建立。请先更新索引，当前记忆内容才可被检索。</value>
+        <value>知识库索引尚未建立。请先更新索引，当前知识库内容才可被检索。</value>
     </data>
     <data name="MemoryIndexLastIndexed" xml:space="preserve">
         <value>上次更新：</value>
@@ -1119,10 +1098,10 @@
         <value>上次错误：</value>
     </data>
     <data name="MemoryIndexUpdateSuccess" xml:space="preserve">
-        <value>记忆索引已更新。</value>
+        <value>知识库索引已更新。</value>
     </data>
     <data name="MemoryIndexUpdateFailed" xml:space="preserve">
-        <value>记忆索引更新失败。</value>
+        <value>知识库索引更新失败。</value>
     </data>
     <data name="MemoryIndexEmbeddingServerUnavailable" xml:space="preserve">
         <value>嵌入服务器不可用，请检查本地嵌入模型和 llama.cpp server 配置。</value>
@@ -1131,13 +1110,13 @@
         <value>嵌入服务器启动超时，请检查嵌入模型是否存在，或稍后重试。</value>
     </data>
     <data name="MemoryIndexMemoryNameMissing" xml:space="preserve">
-        <value>记忆库名称为空。</value>
+        <value>知识库名称为空。</value>
     </data>
     <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
-        <value>记忆索引数据库不可用。</value>
+        <value>知识库索引数据库不可用。</value>
     </data>
     <data name="MemoryWorkspaceTitle" xml:space="preserve">
-        <value>记忆库工作台</value>
+        <value>知识库工作台</value>
     </data>
     <data name="MemoryManualTextTab" xml:space="preserve">
         <value>手动文本</value>
@@ -1164,7 +1143,7 @@
         <value>添加文件</value>
     </data>
     <data name="MemoryTextEditorTitle" xml:space="preserve">
-        <value>编辑记忆文本</value>
+        <value>编辑知识库文本</value>
     </data>
     <data name="MemoryTextEditorHint" xml:space="preserve">
         <value>请填写清晰标题，并让每个条目尽量只描述一个主题。</value>
@@ -1236,7 +1215,7 @@
         <value>无法读取该文件。</value>
     </data>
     <data name="MemorySourceUnsupported" xml:space="preserve">
-        <value>暂不支持此类记忆来源。</value>
+        <value>暂不支持此类知识库来源。</value>
     </data>
     <data name="MemorySourceValidationFailed" xml:space="preserve">
         <value>部分来源未通过校验，旧索引已保留。</value>
@@ -1260,10 +1239,10 @@
         <value>选择</value>
     </data>
     <data name="NewMemory" xml:space="preserve">
-        <value>创建新记忆库</value>
+        <value>创建新知识库</value>
     </data>
     <data name="MemorySelect" xml:space="preserve">
-        <value>当前选择记忆：</value>
+        <value>当前选择知识库：</value>
     </data>
     <data name="CommonDeleteConfirmTips" xml:space="preserve">
         <value>是否确认删除？</value>
@@ -1278,10 +1257,10 @@
         <value>添加目录</value>
     </data>
     <data name="ChatSessionMemoryFileUploadTips" xml:space="preserve">
-        <value>当前对话不存在记忆库，是否创建新的记忆库并提交文件？</value>
+        <value>当前对话不存在知识库，是否创建新的知识库并提交文件？</value>
     </data>
     <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
-        <value>记忆库文件：</value>
+        <value>知识库文件：</value>
     </data>
     <data name="DebugSetting" xml:space="preserve">
         <value>调试设置</value>
@@ -1296,7 +1275,7 @@
         <value>视觉</value>
     </data>
     <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
-        <value>记忆库链接：</value>
+        <value>知识库链接：</value>
     </data>
     <data name="ScreenCaptureDockWindow_BtnOcr" xml:space="preserve">
         <value>通过 OCR 识别图片文字</value>
@@ -1989,19 +1968,19 @@
         <value>当前没有启用的模型，请先启用模型再开始对话。</value>
     </data>
     <data name="MemoryIndexDimensionMismatch" xml:space="preserve">
-        <value>当前嵌入模型的向量维度与已有索引不一致，请重新构建记忆索引。</value>
+        <value>当前嵌入模型的向量维度与已有索引不一致，请重新构建知识库索引。</value>
     </data>
     <data name="MemoryLibraryTitle" xml:space="preserve">
-        <value>角色记忆库</value>
+        <value>角色知识库</value>
     </data>
     <data name="MemoryLibraryHint" xml:space="preserve">
         <value>为角色选择需要长期记住的背景、关系与世界设定。</value>
     </data>
     <data name="MemoryCreateAction" xml:space="preserve">
-        <value>新建记忆</value>
+        <value>新建知识库</value>
     </data>
     <data name="MemorySearchPlaceholder" xml:space="preserve">
-        <value>搜索记忆库</value>
+        <value>搜索知识库</value>
     </data>
     <data name="MemoryAttachedBadge" xml:space="preserve">
         <value>已挂载</value>
@@ -2013,7 +1992,7 @@
         <value>上次索引</value>
     </data>
     <data name="MemoryRoleUsageTitle" xml:space="preserve">
-        <value>角色会如何使用这份记忆</value>
+        <value>角色会如何使用这份知识库</value>
     </data>
     <data name="MemoryRoleUsageHint" xml:space="preserve">
         <value>对话时会检索相关片段，并作为角色不可见的上下文提供给模型。</value>
@@ -2022,13 +2001,13 @@
         <value>挂载到角色</value>
     </data>
     <data name="MemoryLibraryEmptyTitle" xml:space="preserve">
-        <value>尚未选择记忆库</value>
+        <value>尚未选择知识库</value>
     </data>
     <data name="MemoryLibraryEmptyHint" xml:space="preserve">
-        <value>从左侧选择一份记忆，或为当前角色新建记忆库。</value>
+        <value>从左侧选择一份知识库，或为当前角色新建知识库。</value>
     </data>
     <data name="MemoryDeleteConfirm" xml:space="preserve">
-        <value>确定删除这份记忆库吗？它的来源与本地索引将不再可用。</value>
+        <value>确定删除这份知识库吗？它的来源与本地索引将不再可用。</value>
     </data>
     <data name="MemoryRenameAction" xml:space="preserve">
         <value>重命名</value>
@@ -2037,7 +2016,7 @@
         <value>名称不能为空，也不能含有 \ / : * ? " &lt; &gt; | 这类字符。</value>
     </data>
     <data name="MemoryRenamedToUniqueName" xml:space="preserve">
-        <value>已存在同名记忆库，改用「{0}」。</value>
+        <value>已存在同名知识库，改用「{0}」。</value>
     </data>
     <data name="MemoryRenameFailed" xml:space="preserve">
         <value>重命名失败，名称已还原：{0}</value>
@@ -2052,13 +2031,13 @@
         <value>索引需要处理</value>
     </data>
     <data name="MemoryCreateTitle" xml:space="preserve">
-        <value>创建角色记忆</value>
+        <value>创建角色知识库</value>
     </data>
     <data name="MemoryCreateHint" xml:space="preserve">
-        <value>为记忆库建立清晰身份，方便在相容角色之间复用。</value>
+        <value>为知识库建立清晰身份，方便在相容角色之间复用。</value>
     </data>
     <data name="MemoryNameLabel" xml:space="preserve">
-        <value>记忆库名称</value>
+        <value>知识库名称</value>
     </data>
     <data name="MemoryNamePlaceholder" xml:space="preserve">
         <value>例如：御坂美琴 · 学园都市时期</value>
@@ -2070,7 +2049,7 @@
         <value>用途说明</value>
     </data>
     <data name="MemoryDescriptionPlaceholder" xml:space="preserve">
-        <value>说明这份记忆覆盖的角色、关系、世界观或剧情阶段。</value>
+        <value>说明这份知识库覆盖的角色、关系、世界观或剧情阶段。</value>
     </data>
     <data name="MemoryIndexOverviewTitle" xml:space="preserve">
         <value>索引状态</value>
@@ -2136,13 +2115,13 @@
         <value>地点、时间线、规则、共同经历与尚未解决的事件。</value>
     </data>
     <data name="MemoryTextIndexHint" xml:space="preserve">
-        <value>保存后请返回记忆工作台更新索引。</value>
+        <value>保存后请返回知识库工作台更新索引。</value>
     </data>
     <data name="MemoryTextCharacterCount" xml:space="preserve">
         <value>{0} 个字符</value>
     </data>
     <data name="MemoryTextSaveHint" xml:space="preserve">
-        <value>保存后，记忆索引会被标记为需要更新。</value>
+        <value>保存后，知识库索引会被标记为需要更新。</value>
     </data>
     <data name="MemoryIndexEmbeddingInputTooLarge" xml:space="preserve">
         <value>某段内容在自动拆分后仍超过嵌入模型限制，请缩短该来源后重试。</value>
@@ -2157,7 +2136,7 @@
         <value>正在准备索引...</value>
     </data>
     <data name="MemoryDescriptionSectionTitle" xml:space="preserve">
-        <value>记忆定位</value>
+        <value>知识库定位</value>
     </data>
     <data name="MemoryEditDescriptionAction" xml:space="preserve">
         <value>编辑描述</value>
@@ -2178,10 +2157,10 @@
         <value>保存描述</value>
     </data>
     <data name="MemoryDescriptionSaved" xml:space="preserve">
-        <value>记忆库描述已保存。</value>
+        <value>知识库描述已保存。</value>
     </data>
     <data name="MemoryIndexStorageFailed" xml:space="preserve">
-        <value>本地记忆索引写入失败，请结束正在使用该记忆库的其它操作后重试。</value>
+        <value>本地知识库索引写入失败，请结束正在使用该知识库的其它操作后重试。</value>
     </data>
     <data name="MessageSuccessTitle" xml:space="preserve">
         <value>成功</value>
@@ -2211,7 +2190,7 @@
         <value>嵌入模型服务</value>
     </data>
     <data name="ServicesEmbeddingModelServiceDesc" xml:space="preserve">
-        <value>供记忆库索引与检索复用的常驻嵌入运行时。</value>
+        <value>供知识库索引与检索复用的常驻嵌入运行时。</value>
     </data>
     <data name="ServicesRuntimeBackendService" xml:space="preserve">
         <value>本地执行后端</value>
@@ -2379,7 +2358,7 @@
         <value>嵌入运行时</value>
     </data>
     <data name="ServicesEmbeddingRuntimeDetailsDesc" xml:space="preserve">
-        <value>展示供记忆库检索复用的常驻嵌入服务。</value>
+        <value>展示供知识库检索复用的常驻嵌入服务。</value>
     </data>
     <data name="ServicesEmbeddingSource" xml:space="preserve">
         <value>来源</value>

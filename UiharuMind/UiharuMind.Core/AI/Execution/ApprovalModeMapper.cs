@@ -60,17 +60,22 @@ public static class ApprovalModeMapper
     /// (审批卡片"记住同类命令"写入,规则每次执行时现取现用,变化无需重建装配),可空</param>
     /// <param name="approvedWriteRoot">会话自己的产出房间绝对路径,落在里面的写入视为界内;
     /// 空串表示无豁免(老行为)。只认这一间,不认整棵产出树</param>
+    /// <param name="memoryWriteRoot">记忆目录绝对路径(ADR 0028):落在里面的<b>写</b>入
+    /// 任何权限档自动放行;空串表示无豁免。范围只认 <c>Memory/</c> 这一格,删除不在此列(走 shell)</param>
     /// <returns>规则列表</returns>
     public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
         EAgentPermissionMode mode, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
-        string approvedWriteRoot = "")
+        string approvedWriteRoot = "", string memoryWriteRoot = "")
     {
         string root = string.IsNullOrWhiteSpace(workspaceRoot) ? string.Empty : Path.GetFullPath(workspaceRoot);
         string room = string.IsNullOrWhiteSpace(approvedWriteRoot)
             ? string.Empty
             : Path.GetFullPath(approvedWriteRoot);
+        string memory = string.IsNullOrWhiteSpace(memoryWriteRoot)
+            ? string.Empty
+            : Path.GetFullPath(memoryWriteRoot);
 
         List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> rules = new()
         {
@@ -97,6 +102,14 @@ public static class ApprovalModeMapper
                     IsMutatingFileTool(context.FunctionCallContent) &&
                     !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
                 break;
+        }
+
+        // 记忆目录:任何权限档可写(ADR 0028)——记忆是 agent 的工作台,只读/计划档也得能记笔记。
+        // 范围只认 Memory/ 这一格;删除不在这里,走 shell 由命令行审批纪律兜。
+        if (memory.Length > 0)
+        {
+            rules.Add(context =>
+                new ValueTask<bool>(IsUnderMemory(context.FunctionCallContent, root, memory)));
         }
 
         if (preAuthorizedShellPatterns is { Count: > 0 })
@@ -209,6 +222,32 @@ public static class ApprovalModeMapper
 
         if (IsUnder(full, workspaceRoot)) return false;
         return !IsUnder(full, approvedWriteRoot);
+    }
+
+    /// <summary>
+    /// 记忆目录内的写是否成立(ADR 0028):写工具 + 目标落在记忆目录之内。
+    /// 判据与 <see cref="IsOutOfWorkspaceWrite"/> 用同一份路径解析——相对路径按工作目录展开。
+    /// </summary>
+    private static bool IsUnderMemory(FunctionCallContent functionCall, string workspaceRoot, string memoryRoot)
+    {
+        if (workspaceRoot.Length == 0) return false;
+
+        string? path = ExtractFilePath(functionCall.Arguments);
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
+        string full;
+        try
+        {
+            full = Path.IsPathRooted(path)
+                ? Path.GetFullPath(path)
+                : Path.GetFullPath(Path.Combine(workspaceRoot, path));
+        }
+        catch (Exception)
+        {
+            return false; //路径非法:宁可当不在记忆里,让用户看一眼
+        }
+
+        return IsUnder(full, memoryRoot);
     }
 
     /// <summary>目标是否落在某根目录之下(含恰好就是它)。空根目录永远返回 false</summary>

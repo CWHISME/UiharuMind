@@ -117,7 +117,8 @@ internal static class AgentOptionsFactory
         AgentToolConfig config = plan.Config;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
-            shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, out promptSegments);
+            shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
+            out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);
@@ -127,7 +128,9 @@ internal static class AgentOptionsFactory
         // 与另两种形态不同:这几项按角色的能力配置逐项决定,故不走 DisableStatefulProviders
         options.DisableTodoProvider = !config.EnableTodoList;
         options.DisableAgentModeProvider = !config.EnableAgentMode;
-        options.FileMemoryStore = plan.FileMemoryStore;
+        // 框架文件记忆已整体移除(ADR 0028):agent 档也要显式禁用,框架才不会因任何
+        // 默认行为挂上 file_memory_* 工具与 ## File Based Memory 段
+        options.DisableFileMemory = true;
         // 1.16:框架文件工具只随 FileAccessStore 出现;shell 改为普通工具挂在 ChatOptions.Tools
         options.FileAccessStore = null;
         options.AgentSkillsSource = plan.SkillsSource;
@@ -138,7 +141,9 @@ internal static class AgentOptionsFactory
                 plan.WorkingDirectory, plan.Profile.PreAuthorizedShellPatterns,
                 plan.Profile.SessionShellApprovalSource,
                 // 会话自己的产出房间视为界内:测试脚本与中间文件有地方去,就不必为它们弹审批
-                AgentOutputLayout.GetRoomAbsolutePath(plan.Profile.OutputFolderName)),
+                AgentOutputLayout.GetRoomAbsolutePath(plan.Profile.OutputFolderName),
+                // 记忆目录:任何权限档可写(ADR 0028)。范围只认 Memory/ 这一格,与房间豁免互不重叠
+                plan.MemoryDirectory),
         };
         options.ChatOptions = chatOptions;
         return options;

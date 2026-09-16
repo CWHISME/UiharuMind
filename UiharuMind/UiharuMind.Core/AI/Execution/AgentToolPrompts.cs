@@ -91,24 +91,17 @@ public static class AgentToolPrompts
     /// 草稿目录段：会话自己的产出房间。不是 Python 专用的——测试脚本（含 py 文件）、
     /// 不该进项目的中间文件都放这里，不要散进项目里。
     ///
-    /// `Write`/`Edit` 那一句只在写工具在场时出现：提示语指名的工具必须真的在同一份
-    /// 工具集里（有不变量测试按这条钉着），shell 独占时没有这两个工具。
     /// 路径用双引号而目录名不用反引号：反引号专表工具名。
     /// </summary>
     /// <param name="roomDirectory">房间绝对路径</param>
-    /// <param name="fileAccessMounted">写工具(`Write`/`Edit`)是否已装配</param>
     /// <returns>提示词段落正文</returns>
-    public static string BuildOutputRoom(string roomDirectory, bool fileAccessMounted)
+    public static string BuildOutputRoom(string roomDirectory)
     {
         StringBuilder sb = new();
         sb.AppendLine(
             $"你的草稿目录是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
             "以及不该进项目的中间文件(例如临时 git clone 源码)，都放这里，不要散进项目里。");
-        if (fileAccessMounted)
-        {
-            sb.AppendLine("用 `Write`/`Edit` 写这里不需要审批。");
-        }
-
+        
         // 要给用户看的文件是这段的另一半:对话正文按 markdown 渲染,本地文件图片
         // 走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
         // (Windows 上 C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改)。
@@ -118,6 +111,33 @@ public static class AgentToolPrompts
             "- 要给用户看的文件（图表、导出的数据），同样放这里。正文里照这个格式引用它：" +
             $"`![说明]({uriPrefix}文件名)`。只报一句文件名、或者路径写到别处，" +
             "对话里就什么都不会出现。");
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// 记忆目录段（ADR 0028）：agent 在本工作区跨会话保留的笔记，落在工作区家目录的
+    /// <c>Memory/</c> 子目录，用普通文件工具读写——没有专门的记忆工具。
+    ///
+    /// 开场是否查看由模型自决：记忆是「需要时才看」的资源，不进工作循环当必做步骤。
+    /// 内容边界：只记对话里的沉淀，不镜像 repo——代码/文档/git 以文件为准，再抄一份就会两份漂移。
+    /// `Shell` 那句只在命令行工具在场时出现（提示语指名的工具必须真的在同一份工具集里）。
+    /// </summary>
+    /// <param name="memoryDirectory">记忆目录绝对路径</param>
+    /// <param name="shellMounted">命令行工具是否已装配</param>
+    /// <returns>提示词段落正文</returns>
+    public static string BuildMemory(string memoryDirectory, bool shellMounted)
+    {
+        StringBuilder sb = new();
+        sb.AppendLine(
+            $"你的记忆目录是 \"{memoryDirectory}\"。这是你在本工作区跨会话保留的笔记：" +
+            "按主题一个 .md 文件（例如 prefs.md、decisions.md），需要时先 `Glob` 再 `Read`，" +
+            "开场是否查看由你自己判断。只记对话里的沉淀（偏好、决策理由、踩坑、进行中的任务状态），" +
+            "不要重复 repo 里已有的内容——代码与文档以文件为准，再抄一份就会两份漂移。");
+        if (shellMounted)
+        {
+            sb.Append("删记忆文件走 Shell");
+        }
 
         return sb.ToString().TrimEnd();
     }
@@ -295,13 +315,8 @@ public static class AgentToolPrompts
         KnowledgeTool.ToolName + "`，给一个简短聚焦的查询——它是向量检索，关键词比整句话管用。\n" +
         "- 它返回若干段落，或者告诉你没有挂载知识库。没有挂载就直说，不要靠猜。";
 
-    // 这里刻意没有"文件记忆纪律段":框架的 FileMemoryProvider 自己就会注入一整段
-    // ## File Based Memory(先 ls/grep 查已有记忆、用描述性文件名、写入时附描述、
-    // 大块数据落盘以免被压缩截断),我们再写一段只会让同样的话在系统提示里出现两遍。
-    // 要改那段措辞只能自建 provider —— HarnessAgentOptions 不暴露 FileMemoryProviderOptions。
-
     /// <summary>
-    /// 子代理工具纪律段默认正文。
+    /// 委派（runagent）纪律段默认正文。
     ///
     /// ⚠️ 这里曾经写着「也不会有人替它批准任何操作」——那句<b>已经不成立</b>：
     /// 子代理现在跑自己的轮次，审批请求会问到用户那里（见 ADR 0021）。
@@ -318,34 +333,18 @@ public static class AgentToolPrompts
     /// 它紧挨着误读发生的那一刻。<b>两边都写整段就是固定开销与每次委派各付一遍钱。</b>
     /// </summary>
     public const string SubAgentDefault =
-        "- 一件事得先读一大堆材料才能做（要通览很多文件、要调研一个主题）时，把它派给子代理，" +
-        "不要自己全读一遍——你拿回来的是一份报告，那些原始材料不会进入当前上下文。\n" +
-        "派给哪一个只看一条：**这次委派要不要改变任何东西**（改文件、跑命令、用 MCP）。\n" +
-        "要改，或者你拿不准要不要改：用 `" + SubAgentTool.ToolGeneralName + "`。它工具与权限档与你相同，" +
-        "需要审批时照常问到用户那里。**这是默认选择。**\n" +
-        "纯粹是把情况弄清楚、确定不动任何东西：用 `" + SubAgentTool.ToolExplorerName +
-        "`，它只读、可能跑在更便宜的模型上。它改不了任何东西，派错了只会白跑一趟。\n" +
-        "**委派是后台执行的：工具当场返回的是一张回执，不是报告。**不要据此作答，也不要复述或编造它「发现」了什么。\n" +
-        "两种用法不要混：一次派活，任务书一次写全，回一句「派人去查了」等结论，结论回来再回答；" +
-        "多轮讨论（用户让你与子代理讨论），首轮任务书写明这是讨论、先做哪部分，报告回来后先给自己的看法或倾向，" +
-        "再用 `" + SubAgentTool.ToolContinueName + "` 把双方观点送回去，多轮到收敛才收尾。\n" +
-        "子代理缺信息时会交提问报告（以“需要你补充：”列出缺什么）：你能自己补的就自己补，" +
-        "用 `" + SubAgentTool.ToolContinueName + "` 送回去；只有要用户拍板、你又补不上的才转问用户，" +
-        "用户说过有疑问可以问他时再放宽。不要当结论收尾，也不要重派。\n" +
-        "子代理的系统提示已自动带着与主代理同一份工作区规矩（AGENTS.md/CLAUDE.md），" +
-        "任务书里不用再叫它读这些文件。\n" +
-        "在结论回来之前，可以继续做**不依赖这次委派**的事；依赖它的事一律等报告到了再动" +
-        "（先派人查清楚再改、同一处东西边查边改，都属于依赖）。\n" +
-        "回执里的 `sub-session` 是这次委派的编号。追问、纠偏、接着干、讨论都认准这个编号，" +
-        "不要重新派一个——它记得自己之前做过什么。\n" +
-        "报告里若说明用户中途插过话，那份结论可能包含你没下过的指示，据此判断还需不需要再确认。";
+        "- 要通读大量材料（一整个仓库、一个主题）时别自己全读：派一个 runagent 去，\n" +
+        "  它只把报告交回来，原始材料不进你的上下文。\n" +
+        "- 选哪一个只看一条：这一趟要不要改任何东西（文件、命令、MCP）。\n" +
+        "  要改或拿不准：用 `" + SubAgentTool.ToolGeneralName + "`（默认，权限与你相同，审批照常问你）。\n" +
+        "  确定只是查清楚：用 `" + SubAgentTool.ToolExplorerName + "`，只读，只有 5 个工具\n" +
+        "  （`Grep`/`Glob`/`Read`/`WebSearch`/`WebFetch`），还能跑在更便宜的模型上。\n" +
+        "- 委派是后台的：工具当场只回一张回执、不是报告。先回一句「已派人去查」，结论到了再作答；\n" +
+        "  等的时候做不依赖它的事，依赖它的等报告。\n" +
+        "- 一次派一个任务、任务书写全；追问纠偏走 `" + SubAgentTool.ToolContinueName + "`\n" +
+        "  （认回执里 `[sub-session: …]` 那个编号），不要重新派。它缺信息你能补就补回去，\n" +
+        "  只有要用户拍板才转问用户。\n" +
+        "- runagent 自动带着与你这同一份工作区规矩（AGENTS.md），任务书里不用再提；\n" +
+        "  报告说用户中途插过话时，结论里可能有你没给过的指示，据此判断还需不需要再确认。";
 
-    /// <summary>
-    /// 两种"记忆"都启用时的辨析句。只在两者都挂载时出现——
-    /// 模型这一侧同时看得见 <c>file_memory_*</c> 与 <c>KnowledgeSearch</c>，
-    /// 名字都像"搜记忆"，而选错的表现是检索不到却不报错。
-    /// </summary>
-    public static readonly string MemoryDisambiguation =
-        $"这是两个不同的库：`{FileMemoryProvider.GrepToolName}` 搜的是你自己写下的笔记，" +
-        $"`{KnowledgeTool.ToolName}` 搜的是用户挂上来的文档。绝不要拿一个代替另一个。";
 }

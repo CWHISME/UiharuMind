@@ -438,10 +438,7 @@
     <data name="AgentSettingCapWebSearch" xml:space="preserve">
         <value>Web search</value>
     </data>
-    <data name="AgentSettingCapFileMemory" xml:space="preserve">
-        <value>File memory (the agent's own notes)</value>
-    </data>
-    <data name="AgentSettingCapScheduledTasks" xml:space="preserve">
+<data name="AgentSettingCapScheduledTasks" xml:space="preserve">
         <value>Scheduled tasks</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
@@ -502,28 +499,10 @@
         <value>Lets a text-only model ask a vision model about image files (ViewImage). Only mounted when the current model cannot see images itself. The prompt below tells the agent when to use it.</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
-        <value>Search the knowledge base attached to the session (KnowledgeSearch). When disabled, or when the model cannot call tools, relevant passages are injected automatically each turn instead. This searches the user's documents — the agent's own notes are file memory, a separate thing.</value>
+        <value>Retrieve the knowledge base attached to this session (KnowledgeSearch). When disabled (or the model does not support tool calls), relevant snippets are injected automatically each turn. It searches the documents you provide; the agent's own notes (workspace memory) are a different thing.</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
         <value>Delegate an investigation to a sub-agent (RunSubAgent) and get back a report, so the raw material never enters the main context. The sub-agent inherits this session's permission mode: under Full auto it gets write and shell tools too, otherwise read-only ones only — it runs headless and cannot stop to ask for approval. Its activity opens in a read-only window from the tool card, and is not saved with the session.</value>
-    </data>
-    <data name="AgentGateDescFileMemory" xml:space="preserve">
-        <value>The agent's own notes (file_memory_* tools), stored per character and shared across that character's sessions. Renaming a character moves its notes folder along with it. Different from the knowledge base attached to a session.</value>
-    </data>
-    <data name="AgentSettingCapFileMemoryPerWorkspace" xml:space="preserve">
-        <value>Keep file memory per project</value>
-    </data>
-    <data name="AgentGateDescFileMemoryPerWorkspace" xml:space="preserve">
-        <value>Store this character's notes separately for each bound workspace, instead of one shared set across all projects. Existing notes stay where they are: the per-project folders sit underneath the character's folder. Sessions with no workspace bound fall back to the shared set.</value>
-    </data>
-    <data name="AgentFileMemoryCountNote" xml:space="preserve">
-        <value>{0} memories</value>
-    </data>
-    <data name="AgentFileMemoryOverLimitNote" xml:space="preserve">
-        <value>{0} memories — past {1}, older ones are no longer indexed</value>
-    </data>
-    <data name="AgentFileMemoryPerWorkspaceNote" xml:space="preserve">
-        <value>counted per project</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>Create scheduled tasks (ScheduleTask) that run headlessly at a later time with pre-authorized shell commands only.</value>
@@ -1096,28 +1075,28 @@
         <value>Model Viewer</value>
     </data>
     <data name="MemoryTitle" xml:space="preserve">
-        <value>Memory:</value>
+        <value>Knowledge base:</value>
     </data>
     <data name="NoMemory" xml:space="preserve">
-        <value>NoMemory</value>
+        <value>No knowledge base</value>
     </data>
     <data name="MemoryTips" xml:space="preserve">
         <value />
     </data>
     <data name="MemoryIndexUpdate" xml:space="preserve">
-        <value>Update memory index</value>
+        <value>Update knowledge index</value>
     </data>
     <data name="MemoryIndexUpdating" xml:space="preserve">
-        <value>Memory index is updating. Please wait...</value>
+        <value>Knowledge index is updating. Please wait...</value>
     </data>
     <data name="MemoryIndexNeedUpdate" xml:space="preserve">
-        <value>Memory sources changed. Update the index before the new content can be retrieved. Chats will keep using the previous index until then.</value>
+        <value>Knowledge sources changed. Update the index before the new content can be retrieved. Chats will keep using the previous index until then.</value>
     </data>
     <data name="MemoryIndexReady" xml:space="preserve">
-        <value>Memory index is up to date.</value>
+        <value>Knowledge index is up to date.</value>
     </data>
     <data name="MemoryIndexNotBuilt" xml:space="preserve">
-        <value>Memory index has not been built yet. Update the index before this memory can be retrieved.</value>
+        <value>Knowledge index has not been built yet. Update the index before this knowledge base can be retrieved.</value>
     </data>
     <data name="MemoryIndexLastIndexed" xml:space="preserve">
         <value>Last indexed: </value>
@@ -1126,10 +1105,10 @@
         <value>Last error: </value>
     </data>
     <data name="MemoryIndexUpdateSuccess" xml:space="preserve">
-        <value>Memory index updated.</value>
+        <value>Knowledge index updated.</value>
     </data>
     <data name="MemoryIndexUpdateFailed" xml:space="preserve">
-        <value>Memory index update failed.</value>
+        <value>Knowledge index update failed.</value>
     </data>
     <data name="MemoryIndexEmbeddingServerUnavailable" xml:space="preserve">
         <value>Embedding server is unavailable. Please check the local embedding model and llama.cpp server settings.</value>
@@ -1138,13 +1117,13 @@
         <value>Embedding server startup timed out. Please check that the embedding model exists, or try again later.</value>
     </data>
     <data name="MemoryIndexMemoryNameMissing" xml:space="preserve">
-        <value>Memory name is missing.</value>
+        <value>Knowledge base name is missing.</value>
     </data>
     <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
-        <value>Memory index database is unavailable.</value>
+        <value>Knowledge index database is unavailable.</value>
     </data>
     <data name="MemoryWorkspaceTitle" xml:space="preserve">
-        <value>Memory workspace</value>
+        <value>Knowledge workspace</value>
     </data>
     <data name="MemoryManualTextTab" xml:space="preserve">
         <value>Manual text</value>
@@ -1171,7 +1150,7 @@
         <value>Add file</value>
     </data>
     <data name="MemoryTextEditorTitle" xml:space="preserve">
-        <value>Edit memory text</value>
+        <value>Edit knowledge text</value>
     </data>
     <data name="MemoryTextEditorHint" xml:space="preserve">
         <value>Use a clear title and keep each entry focused on one topic for better retrieval quality.</value>
@@ -1243,7 +1222,7 @@
         <value>The file could not be read.</value>
     </data>
     <data name="MemorySourceUnsupported" xml:space="preserve">
-        <value>This memory source type is not supported.</value>
+        <value>This knowledge source type is not supported.</value>
     </data>
     <data name="MemorySourceValidationFailed" xml:space="preserve">
         <value>One or more sources could not be validated. The previous index was kept.</value>
@@ -1267,10 +1246,10 @@
         <value>Select</value>
     </data>
     <data name="NewMemory" xml:space="preserve">
-        <value>NewMemory</value>
+        <value>Create new knowledge base</value>
     </data>
     <data name="MemorySelect" xml:space="preserve">
-        <value>MemorySelect: </value>
+        <value>Knowledge base: </value>
     </data>
     <data name="CommonDeleteConfirmTips" xml:space="preserve">
         <value>Are you sure delete?</value>
@@ -1285,10 +1264,10 @@
         <value />
     </data>
     <data name="ChatSessionMemoryFileUploadTips" xml:space="preserve">
-        <value>Memory is empty! Do you want to create a new memory for this chat session?</value>
+        <value>No knowledge base yet! Do you want to create one and submit the file?</value>
     </data>
     <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
-        <value />
+        <value>Knowledge file: </value>
     </data>
     <data name="DebugSetting" xml:space="preserve">
         <value>Debug Setting</value>
@@ -1303,7 +1282,7 @@
         <value>Vision</value>
     </data>
     <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
-        <value />
+        <value>Knowledge link: </value>
     </data>
     <data name="ScreenCaptureDockWindow_BtnOcr" xml:space="preserve">
         <value>OCR</value>
@@ -1996,19 +1975,19 @@
         <value>No model is active. Enable a model before starting a conversation.</value>
     </data>
     <data name="MemoryIndexDimensionMismatch" xml:space="preserve">
-        <value>The embedding model dimension does not match the existing index. Rebuild the memory index.</value>
+        <value>The embedding model dimension does not match the existing index. Rebuild the knowledge index.</value>
     </data>
     <data name="MemoryLibraryTitle" xml:space="preserve">
-        <value>Character Memory Library</value>
+        <value>Character Knowledge Library</value>
     </data>
     <data name="MemoryLibraryHint" xml:space="preserve">
         <value>Choose the background, relationships, and world knowledge this character should remember.</value>
     </data>
     <data name="MemoryCreateAction" xml:space="preserve">
-        <value>Create memory</value>
+        <value>Create knowledge base</value>
     </data>
     <data name="MemorySearchPlaceholder" xml:space="preserve">
-        <value>Search memories</value>
+        <value>Search knowledge base</value>
     </data>
     <data name="MemoryAttachedBadge" xml:space="preserve">
         <value>Attached</value>
@@ -2020,7 +1999,7 @@
         <value>Last indexed</value>
     </data>
     <data name="MemoryRoleUsageTitle" xml:space="preserve">
-        <value>How this memory is used</value>
+        <value>How this knowledge base is used</value>
     </data>
     <data name="MemoryRoleUsageHint" xml:space="preserve">
         <value>Relevant passages are recalled during the conversation and supplied to the character as private context.</value>
@@ -2029,13 +2008,13 @@
         <value>Attach to character</value>
     </data>
     <data name="MemoryLibraryEmptyTitle" xml:space="preserve">
-        <value>No memory selected</value>
+        <value>No knowledge base selected</value>
     </data>
     <data name="MemoryLibraryEmptyHint" xml:space="preserve">
-        <value>Select a memory on the left, or create one for this character.</value>
+        <value>Select a knowledge base on the left, or create one for this character.</value>
     </data>
     <data name="MemoryDeleteConfirm" xml:space="preserve">
-        <value>Delete this memory library? Its sources and local index will no longer be available.</value>
+        <value>Delete this knowledge base? Its sources and local index will no longer be available.</value>
     </data>
     <data name="MemoryRenameAction" xml:space="preserve">
         <value>Rename</value>
@@ -2044,7 +2023,7 @@
         <value>The name cannot be empty or contain characters such as \ / : * ? " &lt; &gt; |.</value>
     </data>
     <data name="MemoryRenamedToUniqueName" xml:space="preserve">
-        <value>A memory library with that name already exists, using "{0}" instead.</value>
+        <value>A knowledge base with that name already exists, using "{0}" instead.</value>
     </data>
     <data name="MemoryRenameFailed" xml:space="preserve">
         <value>Rename failed, the name has been restored: {0}</value>
@@ -2059,13 +2038,13 @@
         <value>Index needs attention</value>
     </data>
     <data name="MemoryCreateTitle" xml:space="preserve">
-        <value>Create character memory</value>
+        <value>Create character knowledge base</value>
     </data>
     <data name="MemoryCreateHint" xml:space="preserve">
-        <value>Give this memory a clear identity so it can be reused across compatible characters.</value>
+        <value>Give this knowledge base a clear identity so it can be reused across compatible characters.</value>
     </data>
     <data name="MemoryNameLabel" xml:space="preserve">
-        <value>Memory name</value>
+        <value>Knowledge base name</value>
     </data>
     <data name="MemoryNamePlaceholder" xml:space="preserve">
         <value>For example: Misaka Mikoto · Academy City</value>
@@ -2143,13 +2122,13 @@
         <value>Locations, timelines, rules, shared history, and unresolved events.</value>
     </data>
     <data name="MemoryTextIndexHint" xml:space="preserve">
-        <value>After saving, return to the memory workspace and update the index.</value>
+        <value>After saving, return to the knowledge workspace and update the index.</value>
     </data>
     <data name="MemoryTextCharacterCount" xml:space="preserve">
         <value>{0} characters</value>
     </data>
     <data name="MemoryTextSaveHint" xml:space="preserve">
-        <value>Saving marks the memory index as needing an update.</value>
+        <value>Saving marks the knowledge index as needing an update.</value>
     </data>
     <data name="MemoryIndexEmbeddingInputTooLarge" xml:space="preserve">
         <value>A passage is still too large for the embedding model after automatic splitting. Shorten that source and try again.</value>
@@ -2164,7 +2143,7 @@
         <value>Preparing the index...</value>
     </data>
     <data name="MemoryDescriptionSectionTitle" xml:space="preserve">
-        <value>Memory purpose</value>
+        <value>Knowledge purpose</value>
     </data>
     <data name="MemoryEditDescriptionAction" xml:space="preserve">
         <value>Edit description</value>
@@ -2185,10 +2164,10 @@
         <value>Save description</value>
     </data>
     <data name="MemoryDescriptionSaved" xml:space="preserve">
-        <value>Memory description saved.</value>
+        <value>Knowledge description saved.</value>
     </data>
     <data name="MemoryIndexStorageFailed" xml:space="preserve">
-        <value>The local memory index could not be written. Close other operations using this memory and try again.</value>
+        <value>The local knowledge index could not be written. Close other operations using this knowledge base and try again.</value>
     </data>
     <data name="MessageSuccessTitle" xml:space="preserve">
         <value>Success</value>
@@ -2218,7 +2197,7 @@
         <value>Embedding model service</value>
     </data>
     <data name="ServicesEmbeddingModelServiceDesc" xml:space="preserve">
-        <value>Persistent embedding runtime used by memory indexing and retrieval.</value>
+        <value>Persistent embedding runtime used by knowledge indexing and retrieval.</value>
     </data>
     <data name="ServicesRuntimeBackendService" xml:space="preserve">
         <value>Local runtime</value>
@@ -2386,7 +2365,7 @@
         <value>Embedding runtime</value>
     </data>
     <data name="ServicesEmbeddingRuntimeDetailsDesc" xml:space="preserve">
-        <value>Shows the persistent embedding service used by memory search.</value>
+        <value>Shows the persistent embedding service reused for knowledge retrieval.</value>
     </data>
     <data name="ServicesEmbeddingSource" xml:space="preserve">
         <value>Source</value>

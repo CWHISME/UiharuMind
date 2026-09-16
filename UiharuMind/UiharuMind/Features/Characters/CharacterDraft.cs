@@ -104,7 +104,7 @@ public partial class CharacterDraft : ObservableObject
     /// 建它要读盘解析技能包。它直写<b>草稿</b>身上那份能力配置,因此同样受取消保护
     /// </summary>
     public AgentToolViewData AgentTools =>
-        _agentTools ??= new AgentToolViewData(_draft.Tools, CapabilitySnapshot, _draft);
+        _agentTools ??= new AgentToolViewData(_draft.Tools, CapabilitySnapshot);
 
     /// <summary>
     /// 当前会话实际挂上的能力快照，用来给能力面板标估算占用。

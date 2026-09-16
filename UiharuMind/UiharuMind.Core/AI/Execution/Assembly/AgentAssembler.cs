@@ -88,10 +88,8 @@ internal static class AgentAssembler
     }
 
     /// <summary>
-    /// 装配上下文 provider 链。<b>顺序是契约，不是排版</b>：框架把这一串追加在它自己那批之后
-    /// （<c>HarnessAgent.BuildContextProviders</c>），并按列表顺序串行执行、每个都收到累积后的
-    /// <c>AIContext</c>。因此 <see cref="InjectedContextRewriter"/> 必须是<b>最后一项</b>——
-    /// 它靠"排在后面"才看得见（并改得动）前面 provider 的产出。有不变量测试钉住。
+    /// 装配上下文 provider 链。目前只有一个知识库的被动注入提供者；
+    /// 框架记忆的注入块改写器已随框架文件记忆整体移除（ADR 0028）。
     /// </summary>
     /// <param name="plan">装配计划</param>
     /// <returns>provider 链，按执行顺序</returns>
@@ -103,11 +101,6 @@ internal static class AgentAssembler
             new MemoryContextProvider(hasKnowledgeTool:
                 character.Kind.IsAgent() && plan.Config.EnableKnowledgeSearchTool),
         ];
-
-        // 只在文件记忆开着时挂:它目前只治那一个 provider 的产出,关着时挂上去是一次空遍历。
-        // 非智能体档整个禁用了框架文件记忆(见 ADR 0003),那里也没有可改写的东西
-        if (character.Kind.IsAgent() && plan.Config.EnableFileMemory)
-            providers.Add(new InjectedContextRewriter());
 
         return providers;
     }

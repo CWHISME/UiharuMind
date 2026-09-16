@@ -411,44 +411,6 @@ public class HarnessInstructionsCompositionTests
         Assert.DoesNotContain("[![", instructions);
     }
 
-    /// <summary>
-    /// 草稿目录是通用段，不随 Python 起落：文件工具独占时测试脚本照样有地方去。
-    /// 房间只在真有地方可写时出现，且 `Write`/`Edit` 那句只在写工具在场时出现——
-    /// shell 独占时没有这两个工具，指名它们违反不变量。
-    /// </summary>
-    [Fact]
-    public void OutputRoom_AppearsWithWriteTools_WhenRoomIsKnown()
-    {
-        const string room = "/tmp/uiharu-room-test/ws/12345678";
-
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", outputRoom: room)
-            .ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
-        Assert.Contains(room, instructions);
-        Assert.Contains($"`{FileToolNames.Write}`", instructions);
-        Assert.True(
-            instructions.IndexOf(AgentPromptHeadings.OutputRoom("##"), StringComparison.Ordinal) >
-            instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"), StringComparison.Ordinal),
-            "草稿目录紧跟工作目录：同是路径事实");
-    }
-
-    /// <summary>shell 独占时草稿段照发，但不许出现 `Write`/`Edit`（那两个不存在）</summary>
-    [Fact]
-    public void OutputRoom_OmitsToolNames_WhenOnlyShellMounted()
-    {
-        AgentToolConfig shellOnly = new() { EnableFileAccess = false, EnableSubAgent = false };
-        const string room = "/tmp/uiharu-room-test/ws/12345678";
-
-        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", shellOnly, outputRoom: room)
-            .ChatOptions?.Instructions ?? string.Empty;
-
-        Assert.Contains(AgentPromptHeadings.OutputRoom("##"), instructions);
-        Assert.Contains(room, instructions);
-        Assert.DoesNotContain($"`{FileToolNames.Write}`", instructions);
-        Assert.DoesNotContain($"`{FileToolNames.Edit}`", instructions);
-    }
-
     /// <summary>无房间（无会话）时草稿段不出现：指一个不存在的目录比不说更糟</summary>
     [Fact]
     public void OutputRoom_IsAbsent_WhenNoRoom()
@@ -588,22 +550,60 @@ public class HarnessInstructionsCompositionTests
         Assert.All(segments.Where(x => x.Section != EPromptSection.Mcp), x => Assert.True(x.CountsTowardTotal));
     }
 
+    /// <summary>记忆目录段(ADR 0028)出现时给出绝对路径，并教模型先 Glob 再 Read</summary>
+    [Fact]
+    public void MemorySection_Appears_WithMemoryDirectory()
+    {
+        const string memory = "/tmp/uiharu-data/Agent/Workspaces/ws/Memory";
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", memoryDirectory: memory)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(AgentPromptHeadings.Memory("##"), instructions);
+        Assert.Contains(memory, instructions);
+        Assert.Contains("`Glob`", instructions);
+    }
+
+    /// <summary>无记忆目录(回退档或无工作区上下文)时记忆段不出现</summary>
+    [Fact]
+    public void MemorySection_IsAbsent_WithoutMemoryDirectory()
+    {
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test")
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.DoesNotContain(AgentPromptHeadings.Memory("##"), instructions);
+    }
+
+    /// <summary>记忆段只指名真实在场的能力：shell 关掉时不提"删记忆走 Shell"</summary>
+    [Fact]
+    public void MemorySection_OmitsShellHint_WhenShellIsMountedOff()
+    {
+        AgentToolConfig config = new() { EnableShellExecution = false };
+        const string memory = "/tmp/uiharu-data/Agent/Workspaces/ws/Memory";
+
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test", config, memoryDirectory: memory)
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(AgentPromptHeadings.Memory("##"), instructions);
+        Assert.DoesNotContain("删记忆文件走", instructions);
+    }
+
     /// <summary>产出目录:本套测试不碰真实 AppPaths,只要是个合法绝对路径就够</summary>
     private static readonly string PythonOutputDirectory =
         Path.Combine(Path.GetTempPath(), "uiharu-agent-outputs-test");
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null,
-        string pythonInterpreter = "", string outputRoom = "")
+        string pythonInterpreter = "", string outputRoom = "", string memoryDirectory = "")
     {
         return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp,
-            pythonInterpreter, outputRoom);
+            pythonInterpreter, outputRoom, memoryDirectory);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
         string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "",
-        string outputRoom = "")
+        string outputRoom = "", string memoryDirectory = "")
     {
         CharacterData character = new()
         {
@@ -630,6 +630,7 @@ public class HarnessInstructionsCompositionTests
             PythonInterpreterPath = pythonInterpreter,
             PythonOutputDirectory = pythonInterpreter.Length > 0 ? PythonOutputDirectory : string.Empty,
             OutputRoomDirectory = outputRoom,
+            MemoryDirectory = memoryDirectory,
         };
 
         // shell 路径固定给一个假值:本套测试只校验拼接与顺序,真解析出来的 shell 因机而异
@@ -963,7 +964,6 @@ public class SubAgentBoundaryTests
 
         Assert.Contains(AgentPromptHeadings.OutputRoom("#"), instructions);
         Assert.Contains("12345678", instructions);
-        Assert.Contains($"`{FileToolNames.Write}`", instructions);
     }
 
     /// <summary>子代理的 Python 段同样不复述房间与引用格式</summary>
@@ -1313,7 +1313,6 @@ public class AssemblySnapshotTests
             EnableFileAccess = false,
             EnableShellExecution = false,
             EnableWebSearch = false,
-            EnableFileMemory = false,
             EnableScheduledTasks = false,
             EnableVisionTool = false,
             EnableKnowledgeSearchTool = false,

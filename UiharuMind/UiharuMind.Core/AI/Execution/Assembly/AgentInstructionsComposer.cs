@@ -41,6 +41,7 @@ internal static class AgentInstructionsComposer
     /// <param name="pythonInterpreter">受管 Python 环境的解释器路径。<b>只作闸门</b>——
     /// 空串则整段不写；非空时正文里也不印它，环境已由 PATH 前置激活</param>
     /// <param name="outputRoomDirectory">草稿目录绝对路径(会话自己的产出房间)；空串则不写该段</param>
+    /// <param name="memoryDirectory">记忆目录绝对路径(ADR 0028)；空串则不写该段</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
     /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
@@ -49,13 +50,13 @@ internal static class AgentInstructionsComposer
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, out IReadOnlyList<AgentPromptSegment> segments)
+        string outputRoomDirectory, string memoryDirectory, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
-            pythonInterpreter, outputRoomDirectory),
+            pythonInterpreter, outputRoomDirectory, memoryDirectory),
             EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
@@ -135,7 +136,7 @@ internal static class AgentInstructionsComposer
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
         string workingDirectory, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory)
+        string outputRoomDirectory, string memoryDirectory)
     {
         StringBuilder sb = new();
 
@@ -153,8 +154,16 @@ internal static class AgentInstructionsComposer
         {
             sb.AppendLine();
             sb.AppendLine(AgentPromptHeadings.OutputRoom("##"));
-            sb.AppendLine(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory,
-                config.EnableFileAccess));
+            sb.AppendLine(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory));
+        }
+
+        // 记忆目录紧跟草稿目录:同是"路径事实"。只在回退档关闭(plan 已按新机制算好路径)
+        // 且有文件工具时出现——记忆靠 Read/Write/Edit/Glob 读写,没有专门的记忆工具(ADR 0028)
+        if (memoryDirectory.Length > 0 && config.EnableFileAccess)
+        {
+            sb.AppendLine();
+            sb.AppendLine(AgentPromptHeadings.Memory("##"));
+            sb.AppendLine(AgentToolPrompts.BuildMemory(memoryDirectory, config.EnableShellExecution));
         }
 
         // 各段正文可在设置页覆盖(空 = 用 AgentToolPrompts 默认),段落标题固定由此处统一挂
@@ -192,19 +201,12 @@ internal static class AgentInstructionsComposer
             sb.AppendLine(AgentToolPrompts.VisionToolDefault);
         }
 
-        // 文件记忆没有自己的纪律段:框架的 FileMemoryProvider 已经注入了一整段,见 AgentToolPrompts
+        // 记忆段在草稿目录段之后(见上面 BuildToolDisciplines);此处只管知识库
         if (config.EnableKnowledgeSearchTool)
         {
             sb.AppendLine();
             sb.AppendLine(AgentPromptHeadings.KnowledgeBase);
             sb.AppendLine(AgentToolPrompts.KnowledgeSearchDefault);
-        }
-
-        // 辨析句只在两者都挂载时才有意义,故不属于任何一段的正文(那两段各自可被用户覆盖)
-        if (config.EnableFileMemory && config.EnableKnowledgeSearchTool)
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentToolPrompts.MemoryDisambiguation);
         }
 
         if (config.EnableSubAgent)

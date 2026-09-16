@@ -9,7 +9,6 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
-using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
 
@@ -46,12 +45,7 @@ public sealed class AgentToolViewData
     /// 从角色库打开编辑页时没有会话，传 null——那时占用一律显示「—」，
     /// 因为「关掉能省多少」这个问题在没有运行期上下文时确实答不出（识图工具挂不挂取决于模型）。
     /// </param>
-    /// <param name="character">
-    /// 草稿本体，只用来数文件记忆的条数（目录名由角色名与 id 决定）。
-    /// 为 null 时不显示条数——从没有角色上下文的地方建面板时就是这样。
-    /// </param>
-    public AgentToolViewData(AgentToolConfig tools, AgentCapabilitySnapshot? snapshot = null,
-        CharacterData? character = null)
+    public AgentToolViewData(AgentToolConfig tools, AgentCapabilitySnapshot? snapshot = null)
     {
         string L(string key) => LocalizationManager.Instance.GetString(key);
 
@@ -77,14 +71,7 @@ public sealed class AgentToolViewData
         Toggles.Add(new AgentToolToggle(L("AgentSettingCapSubAgent"), L("AgentGateDescSubAgent"),
             () => tools.EnableSubAgent, v => tools.EnableSubAgent = v,
             Tokens(EAgentCapability.SubAgent)));
-        // 下面五档不挂工具(框架 provider 或记忆存储),没有工具定义可算,故不给占用
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapFileMemory"), L("AgentGateDescFileMemory"),
-            () => tools.EnableFileMemory, v => tools.EnableFileMemory = v,
-            note: BuildFileMemoryNote(tools, character, L)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapFileMemoryPerWorkspace"),
-            L("AgentGateDescFileMemoryPerWorkspace"),
-            () => tools.FileMemoryScope == EFileMemoryScope.Workspace,
-            v => tools.FileMemoryScope = v ? EFileMemoryScope.Workspace : EFileMemoryScope.Character));
+        // 下面三档不挂工具(框架 provider 或记忆存储),没有工具定义可算,故不给占用
         Toggles.Add(new AgentToolToggle(L("AgentSettingCapScheduledTasks"), L("AgentGateDescScheduledTasks"),
             () => tools.EnableScheduledTasks, v => tools.EnableScheduledTasks = v,
             Tokens(EAgentCapability.ScheduledTasks)));
@@ -102,37 +89,6 @@ public sealed class AgentToolViewData
         }
 
         _ = LoadSkillsAsync(tools);
-    }
-
-    /// <summary>
-    /// 文件记忆那一行的附注：已记多少条，以及越过框架索引上限后会发生什么。
-    ///
-    /// <b>一直显示条数，不只在超限时才提示</b>：只在超限时冒出来的警告会让人措手不及——
-    /// 前一天什么都没有，第二天突然说「更早的记忆不再被索引」，而那时靠后的记忆<b>已经看不见了</b>。
-    /// 一直显示，用户接近上限时自己就看得见。
-    ///
-    /// 现算而不进挂接路径：挂接每次切工作区/权限档都跑，而这个数字只在用户来看这个面板时才有意义。
-    /// </summary>
-    /// <param name="tools">能力配置</param>
-    /// <param name="character">角色；为 null 时不显示</param>
-    /// <param name="localize">取本地化文案</param>
-    /// <returns>附注文案；无从计算时为 null</returns>
-    private static string? BuildFileMemoryNote(AgentToolConfig tools, CharacterData? character,
-        Func<string, string> localize)
-    {
-        if (character == null) return null;
-
-        // 项目级下条数是按工作区分开的,而编辑页没有工作区上下文,给不出可比的数字。
-        // 硬给一个角色级目录的条数会是错的(那时笔记根本不写在那儿)
-        if (tools.FileMemoryScope == EFileMemoryScope.Workspace)
-            return localize("AgentFileMemoryPerWorkspaceNote");
-
-        int count = FileMemoryLayout.CountMemories(character);
-        return string.Format(
-            count >= FileMemoryLayout.IndexEntryLimit
-                ? localize("AgentFileMemoryOverLimitNote")
-                : localize("AgentFileMemoryCountNote"),
-            count, FileMemoryLayout.IndexEntryLimit);
     }
 
     private async Task LoadSkillsAsync(AgentToolConfig tools)

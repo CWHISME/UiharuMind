@@ -26,7 +26,7 @@ public class AgentOutputLayoutTests
         Assert.Equal(Path.GetDirectoryName(a), Path.GetDirectoryName(b));
         Assert.NotEqual(a, b);
         Assert.Contains("client_", a); //家目录名要带目录名,用户得能认出来
-        // 实现里是以字面 '/' 拼接(与 FileMemoryLayout 同惯例),这里断言也写字面 '/',
+        // 实现里是以字面 '/' 拼接,这里断言也写字面 '/',
         // 使得 Windows 上 dotnet test 也能过(Path.DirectorySeparatorChar 在那边是 '\\')
         Assert.EndsWith("/3f2a1b0c", a);
     }

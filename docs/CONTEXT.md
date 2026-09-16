@@ -129,7 +129,7 @@
 
 ⚠️ `Tool` 与 `Agent` 的分岔点是**要不要 harness，不是工具数量**。
 
-⚠️ **工具、MCP、技能、子智能体名单、文件记忆一律只对 `Agent` 档有意义**，下文不再逐条重复。
+⚠️ **工具、MCP、技能、子智能体名单、记忆一律只对 `Agent` 档有意义**，下文不再逐条重复。
 
 ⚠️ 不要再说「对话角色」——那个词曾同时指扮演与工具人两档。
 
@@ -378,7 +378,7 @@ agent 的工具与 shell 默认以它为根；未绑时退化到 `Cache/Scratch`
 ### 工作区段（Workspace Segment）
 
 **工作区在目录名里的化身**：`{目录名}_{全路径哈希}`，由 `FileMemoryLayout.GetWorkspaceSegment`
-生成。文件记忆的「按角色 × 工作区」档与 agent 产物的**工作区家目录**共用同一套命名，
+生成。记忆（Memory）与 agent 产物的**工作区家目录**共用同一套命名，
 谁都能凭目录名把东西认回它所属的工作区。
 
 ### agent 产物（Agent Artifacts）
@@ -514,24 +514,23 @@ agent **在会话里写下的一切文件**——跑 Python 画的图、导出�
 
 **用户提供**的可检索文档集合，挂到角色或会话上，靠嵌入做 RAG 检索。
 体现为 `MemoryData`（历史命名）、`MemoryManager`、`MemorySources`；工具是 `KnowledgeSearch`。
-用户可见说法目前仍是**记忆库**，认定说法是**知识库**。
+用户可见说法目前仍是**记忆库**，认定说法是**知识库**；拆掉文件记忆后这个词撞车更严重，
+文案统一改「知识库」列入 [ADR 0028](adr/0028-文件记忆退役，记忆改为工作区目录由模型自管.md) 收尾。
 
-⚠️ 不要与 FileMemory 混淆。知识库是别人给它看的材料。
+⚠️ 不要与**记忆（Memory）**混淆。知识库是别人给它看的材料。
 
-### FileMemory（文件记忆）
+### 记忆（Memory）
 
-**agent 自己写下**的笔记，默认一个角色一个目录、该角色所有会话共享。
-体现为框架的 `FileMemoryProvider` 与 `FileMemoryLayout`。
-按角色而非按会话分目录见 [ADR 0002](adr/0002-文件记忆按角色分目录.md)；
-角色卡上另有一档可改成**按角色 × 工作区**（目录嵌在角色目录下面），见
-[ADR 0020](adr/0020-框架注入块由后置provider改写，文件记忆可按项目隔离.md)。
+**agent 自己写下**的跨会话笔记。按主题一个 `.md` 文件，落在工作区家目录的 `Memory/` 子目录
+（`Data/Agent/Workspaces/{工作区名}_{哈希}/Memory/`），模型用普通文件工具
+（Read/Write/Edit/Glob/Grep/shell）读写、自管内容；不设应用侧索引或注入，开场是否查看由模型
+自行判断（系统提示只给路径与用法）。没绑工作区的会话落 `NoWorkspace/{会话id8}/Memory/`，
+随会话生灭。写记忆任何权限档放行，删除走 shell 需审批。体现为 `Memory/` 目录约定与系统提示
+记忆段（`AgentInstructionsComposer`）。见
+[ADR 0028](adr/0028-文件记忆退役，记忆改为工作区目录由模型自管.md)。
 
-⚠️ 框架每轮会注入一块**记忆索引**（`memories.md`），途经 `InjectedContextRewriter` 将其
-<b>整条过滤掉</b>——既不清单也不留指针。原因：记忆的存在与用法已由系统提示常驻（框架注入的
-`## File Based Memory` 段），索引只是快捷清单，而它注入的永远是可能过期的快照（`file_memory_ls`
-返回的是同一份、还新鲜）。见 ADR 0020。
-
-⚠️ 不要叫它 "AgentMemory"——去掉 `File` 后它和知识库在中文里几乎同名。
+⚠️ 不指**知识库**（Knowledge）。不要说「文件记忆」——框架 `FileMemoryProvider` 时代的词，
+已随 ADR 0028 移除，不再有回退档。
 
 ---
 

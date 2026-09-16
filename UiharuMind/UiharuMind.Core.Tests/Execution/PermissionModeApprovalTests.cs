@@ -120,4 +120,40 @@ public class PermissionModeApprovalTests
             ApprovalModeMapper.BuildRules(EAgentPermissionMode.ReadOnly, Root, approvedWriteRoot: room),
             Edit($"{room}/test.py")));
     }
+
+    /// <summary>
+    /// 记忆目录：<b>任何权限档可写</b>(ADR 0028)——记忆是 agent 的工作台，
+    /// 只读/计划档也得能记笔记。范围只认 Memory/ 这一格，兄弟工作区的记忆仍要审批。
+    /// </summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task MemoryWrite_IsApprovedInEveryMode(EAgentPermissionMode mode)
+    {
+        const string memory = "/tmp/uiharu-data/Agent/Workspaces/ws/Memory";
+
+        Task<bool> ApprovedAsync(FunctionCallContent call) =>
+            ApprovalRuleProbe.IsApprovedAsync(
+                ApprovalModeMapper.BuildRules(mode, Root, memoryWriteRoot: memory), call);
+
+        Assert.True(await ApprovedAsync(Edit($"{memory}/decisions.md")));
+        Assert.True(await ApprovedAsync(Edit($"{memory}/sub/notes.md")));
+        // 兄弟工作区的记忆仍问；工作区与房间之外(绝对越界)也仍问
+        Assert.False(await ApprovedAsync(Edit("/tmp/uiharu-data/Agent/Workspaces/ws2/Memory/x.md")));
+        Assert.False(await ApprovedAsync(Edit("/etc/hosts")));
+    }
+
+    /// <summary>删记忆走 shell：只读与自动编辑档仍需审批——记忆目录不在 shell 预授权里(ADR 0028)</summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.ReadOnly)]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    public async Task MemoryDeletion_ViaShell_StillNeedsApproval(EAgentPermissionMode mode)
+    {
+        const string memory = "/tmp/uiharu-data/Agent/Workspaces/ws/Memory";
+
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(
+            ApprovalModeMapper.BuildRules(mode, Root, memoryWriteRoot: memory),
+            Shell($"rm {memory}/decisions.md")));
+    }
 }

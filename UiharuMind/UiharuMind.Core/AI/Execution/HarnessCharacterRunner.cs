@@ -20,7 +20,6 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Mcp;
-using UiharuMind.Core.AI.Execution.Tools.Memory;
 
 namespace UiharuMind.Core.AI.Execution;
 
@@ -83,8 +82,6 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                 SessionChatHistoryProvider.Bind(_session, session.SessionId);
                 _boundSessionId = session.SessionId;
             }
-
-            ApplyFileMemoryFolder(session, _session);
         }
         finally
         {
@@ -179,37 +176,6 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         finally
         {
             _gate.Release();
-        }
-    }
-
-    /// <summary>
-    /// 把文件记忆的工作目录钉成"该角色的那一个"。
-    ///
-    /// 必须每次挂接都做,不能只在新建会话时做:框架的默认 initializer 只对新会话生效,
-    /// 而目录名进了会话状态包并随会话持久化——恢复回来的老会话里躺着的是旧值
-    /// (框架默认给的 <c>{timestamp}_{guid}</c>,或改名前的目录名)。
-    /// 覆写与 <see cref="FileMemoryLayout.Reconcile(CharacterData)"/> 的搬迁必须成对:
-    /// 只搬不覆写,老会话仍指向旧名字,框架会照旧名重建一个空目录。
-    /// </summary>
-    private static void ApplyFileMemoryFolder(ChatSession session, AgentSession agentSession)
-    {
-        // 角色扮演档整个禁用了框架文件记忆,没有这份状态可写
-        if (!session.CharacterData.Kind.IsAgent()) return;
-        if (!session.CharacterData.Tools.EnableFileMemory) return;
-
-        try
-        {
-            // 工作区随会话走,故范围解析也只能在这里做:装配侧那份 plan 不知道本次挂的是哪个会话
-            agentSession.StateBag.SetValue(FileMemoryLayout.StateKey,
-                new FileMemoryState
-                {
-                    WorkingFolder = FileMemoryLayout.Reconcile(session.CharacterData, session.WorkspacePath),
-                });
-        }
-        catch (Exception e)
-        {
-            // 写不进去最坏是这轮沿用框架默认目录,不该让挂接失败
-            Log.Warning($"Pin file memory folder failed: {e.Message}");
         }
     }
 

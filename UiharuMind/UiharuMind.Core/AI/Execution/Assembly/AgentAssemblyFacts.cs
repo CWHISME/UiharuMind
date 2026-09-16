@@ -84,9 +84,6 @@ public sealed record AgentAssemblyFacts
     /// <summary>网络搜索工具开关</summary>
     public bool WebSearch { get; init; }
 
-    /// <summary>文件记忆(框架 FileMemoryProvider)开关</summary>
-    public bool FileMemory { get; init; }
-
     /// <summary>定时任务工具开关</summary>
     public bool ScheduledTasks { get; init; }
 
@@ -210,7 +207,6 @@ public sealed record AgentAssemblyFacts
                 ? outputFolderName
                 : string.Empty,
             WebSearch = isAgent && config.EnableWebSearch,
-            FileMemory = isAgent && config.EnableFileMemory,
             ScheduledTasks = isAgent && config.EnableScheduledTasks,
             VisionTool = isAgent && config.EnableVisionTool,
             KnowledgeSearchTool = isAgent && config.EnableKnowledgeSearchTool,

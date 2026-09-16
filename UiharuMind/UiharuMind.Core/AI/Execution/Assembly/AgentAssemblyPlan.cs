@@ -18,7 +18,6 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Python;
 using UiharuMind.Core.AI.Execution.Skills;
-using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.Core;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -67,8 +66,11 @@ internal sealed class AgentAssemblyPlan
     /// <summary>技能来源（已按角色的禁用清单过滤）；非智能体档为 null</summary>
     public AgentSkillsSource? SkillsSource { get; init; }
 
-    /// <summary>文件记忆存储的父目录；能力关闭时为 null</summary>
-    public FileSystemAgentFileStore? FileMemoryStore { get; init; }
+    /// <summary>
+    /// 工作区记忆目录绝对路径（ADR 0028）：模型用普通文件工具写 <c>Memory/</c>。
+    /// 有文件工具时才有值；否则为空串。
+    /// </summary>
+    public string MemoryDirectory { get; init; } = string.Empty;
 
     /// <summary>
     /// 受管 Python 环境里那个解释器的绝对路径；环境未就绪或没挂 shell 时为空串。
@@ -197,11 +199,10 @@ internal sealed class AgentAssemblyPlan
                 : [],
             Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
-            // 目录名(角色名_id8)由挂接时的对账决定并写进会话状态,见 FileMemoryLayout;
-            // store 只认这个父目录
-            FileMemoryStore = config.EnableFileMemory
-                ? new FileSystemAgentFileStore(FileMemoryLayout.RootPath)
-                : null,
+            // 记忆改跟工作区走(ADR 0028):模型用普通文件工具自管,这里只算路径给提示词与审批用
+            MemoryDirectory = config.EnableFileAccess
+                ? MemoryLayout.GetMemoryDirectory(profile.WorkspacePath, profile.OutputFolderName)
+                : string.Empty,
         };
     }
 

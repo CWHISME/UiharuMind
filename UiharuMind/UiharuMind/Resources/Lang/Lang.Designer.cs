@@ -933,11 +933,6 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentSettingCapFileMemory {
-            get {
-                return ResourceManager.GetString("AgentSettingCapFileMemory", resourceCulture);
-            }
-        }
         
         public static string AgentSettingCapScheduledTasks {
             get {
@@ -1221,41 +1216,11 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string AgentGateDescFileMemory {
-            get {
-                return ResourceManager.GetString("AgentGateDescFileMemory", resourceCulture);
-            }
-        }
         
-        public static string AgentSettingCapFileMemoryPerWorkspace {
-            get {
-                return ResourceManager.GetString("AgentSettingCapFileMemoryPerWorkspace", resourceCulture);
-            }
-        }
         
-        public static string AgentGateDescFileMemoryPerWorkspace {
-            get {
-                return ResourceManager.GetString("AgentGateDescFileMemoryPerWorkspace", resourceCulture);
-            }
-        }
         
-        public static string AgentFileMemoryCountNote {
-            get {
-                return ResourceManager.GetString("AgentFileMemoryCountNote", resourceCulture);
-            }
-        }
         
-        public static string AgentFileMemoryOverLimitNote {
-            get {
-                return ResourceManager.GetString("AgentFileMemoryOverLimitNote", resourceCulture);
-            }
-        }
         
-        public static string AgentFileMemoryPerWorkspaceNote {
-            get {
-                return ResourceManager.GetString("AgentFileMemoryPerWorkspaceNote", resourceCulture);
-            }
-        }
         
         public static string AgentGateDescScheduledTasks {
             get {

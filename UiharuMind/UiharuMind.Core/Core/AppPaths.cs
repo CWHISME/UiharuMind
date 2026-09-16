@@ -129,9 +129,6 @@ public static class AppPaths
         /// <summary>定时任务</summary>
         public static readonly string ScheduledAgentTasks = Path.Combine(AgentRoot, "ScheduledAgentTasks.json");
 
-        /// <summary>agent 的文件记忆</summary>
-        public static readonly string AgentFileMemory = Path.Combine(AgentRoot, "FileMemory");
-
         /// <summary>对话附件</summary>
         public static readonly string AgentAttachments = Path.Combine(AgentRoot, "Attachments");
 
