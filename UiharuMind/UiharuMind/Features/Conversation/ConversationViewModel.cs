@@ -54,7 +54,7 @@ namespace UiharuMind.Features.Conversation;
 /// 由角色的 ECharacterKind 控制显隐，因此不需要为此分出子类；
 /// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
-public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IDisposable
+public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IConversationReconcileHost, IDisposable
 {
     /// <summary>发送身份:以用户身份发送并生成回复,或以角色身份直接写入一条回复</summary>
     public enum SendMode
@@ -253,6 +253,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ITurnSink _liveObserverSink; //实时流的落点:同一个转录器,外面包一层 UI 线程 marshal
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
     private readonly ConversationItemWindowTrimmer _trimmer; //运行期把涨上来的条目裁回上限
+    private readonly ConversationHistoryReconciler _reconciler; //落盘与界面对不上的兜底
     private readonly TurnUsageLedger _usage = new(); //token 账本
 
     /// <summary>上下文占用的悬停面板数据（进度条、压缩水位刻度与配色）</summary>
@@ -455,6 +456,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             () => CurrentRunner?.GetHistory() ?? [],
             // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
             () => !IsDisplayed || (IsStuckToBottomSource?.Invoke() ?? true));
+        _reconciler = new ConversationHistoryReconciler(Items, _historyWindow, this);
 
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读
@@ -624,14 +626,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (CurrentSession is not { } session) return;
+            if (CurrentSession is null) return;
             // 观察窗里没被认领的审批卡（复开的窗口、超时已拒的）到此不会再有人点，
             // 按拒绝收视觉。已认领已决出的不受影响（幂等）。
             _transcript.CancelPendingApprovals();
-            if (ConversationOrderCheck.FindDivergence(Items, session.History) is not { } divergence) return;
-
-            Log.Warning($"Conversation items diverged from history ({divergence}); replaying the window.");
-            ReplayWindow(session.History);
+            _reconciler.Reconcile("observed turn ended");
         });
     }
 
@@ -900,63 +899,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 尾部对账兜底：交回报告/唤醒回复已落盘、但实时通道（历史追加信号、内容流观察）都没把那几条
-    /// 画出来时，这里按历史重放补齐（实机见过：落盘与唤醒轮都在，后续报告与回复却要切会话才看得见）。
+    /// 尾部对账兜底：交回报告/唤醒回复已落盘、但实时通道都没画出来时补齐。
+    /// 只做 marshal，判定与执行归 <see cref="ConversationHistoryReconciler"/>。
     ///
-    /// 只在<b>没人跑</b>时做——有轮在跑时归流式与 <see cref="OnObservedTurnEnded"/> 的顺序检查管，
-    /// 此时重放会跟直播打架。触发点是「名下委派全部交回」（pending 归零）与「本会话转空闲」：
-    /// 两者都是“本该有新内容、也该安静了”的时刻（重放视为内部实现：尾部漏画走增量追加，
-    /// 只有顺序真对不上才走 <see cref="ReplayWindow"/> 全量重放）。
-    ///
-    /// 幂等：对得上时直接返回，零开销；不打扰用户正在读的窗口——全量重放会把翻出来的
-    /// 更早消息打回尾部、还白解一遍已渲染的位图，所以能增量就增量。
+    /// 守卫全部放到 UI 线程上判：两个调用点都可能来自后台线程，在后台读共享状态本身就是
+    /// 数据竞争，还容易读到旧值误判「空闲」。Post 一次的成本远低于赌一个线程安全。
     /// </summary>
     /// <param name="reason">触发来源，进日志，方便区分是哪条路兜住的</param>
     private void ReconcileHistoryTail(string reason)
     {
-        // 守卫全部放到 UI 线程上判：两个调用点都可能来自后台线程（OnPendingWorkChanged /
-        // OnSessionRunStateChanged 都标着「可能来自后台线程」），在后台读这些共享状态本身就是
-        // 数据竞争，还容易读到旧值误判「空闲」。Post 一次的成本远低于赌一个线程安全。
-        Dispatcher.UIThread.Post(() => ReconcileOnUi(reason));
-    }
-
-    private void ReconcileOnUi(string reason)
-    {
-        if (_driver.IsRunning) return;
-        if (IsSessionLoading) return;
-        if (CurrentSession is not { } session) return;
-        // 唤醒轮在 TryBeginRun（登记处先原子占位）与 LiveTurn.BeginTurn（IsTurnRunning 才置位）
-        // 之间有一瞬空窗：只查 IsTurnRunning 会把这一窗放行，重放就跟即将开始的直播打架。
-        // 登记处是“空闲”的唯一可靠定义，先查它（被拦下的对账由「session idle」在轮结束后再来一次）
-        if (SessionManager.Instance.Running.IsBusy(session.SessionId)) return;
-        if (session.LiveTurn.IsTurnRunning) return;
-
-        if (ConversationOrderCheck.FindDivergence(Items, session.History) is { } divergence)
-        {
-            Log.Warning($"Conversation items diverged from history ({divergence}); "
-                        + $"replaying the window ({reason}).");
-            ReplayWindow(session.History);
-            return;
-        }
-
-        // 顺序对得上、只是尾部漏画：增量补那几条。不 Clear 窗口、不重解已渲染的位图，
-        // 用户翻出来的更早消息原位不动
-        int missing = ConversationOrderCheck.FindMissingTail(Items, session.History);
-        if (missing == 0) return;
-        Log.Warning($"Conversation items diverged from history "
-                    + $"({missing} trailing message(s) not drawn); appending the tail ({reason}).");
-        List<ConversationItemBase> tail = BuildHistoryItems(session.History,
-            session.History.Count - missing, session.History.Count);
-        foreach (ConversationItemBase item in tail) Items.Add(item);
-    }
-
-    /// <summary>全量重放这一窗。旧条目的位图随条目走，直接 Clear 会泄漏：先摘绑定再释放</summary>
-    private void ReplayWindow(IReadOnlyList<ChatMessage> history)
-    {
-        ConversationItemBase[] discarded = Items.ToArray();
-        Items.Clear();
-        foreach (ConversationItemBase item in discarded) item.ReleaseImages();
-        ReplayMessages(history);
+        Dispatcher.UIThread.Post(() => _reconciler.Reconcile(reason));
     }
 
     /// <summary>名下的后台委派多了或少了一个。<b>可能来自后台线程</b>，marshal 之后再通知绑定</summary>
@@ -971,9 +923,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             NotifyApprovalWaitingChanged();
             // 流里那几张委派卡也要跟着改档:工具调用早返回了,光看结果它们全是「成功」
             _transcript.RefreshSubSessionPending();
+
+            // 全部交回了：该到的报告都已落盘，此刻还对不上就是实时通道漏了，对一次尾部。
+            // pending 判据必须在这里重读：事件来自后台线程，在外面读到的是旧值，
+            // 会把「还没交完」看成「交完了」提前对一次空账。
+            if (!BackgroundSubAgentDispatcher.HasPendingWork(sessionId)) _reconciler.Reconcile("background work settled");
         });
-        // 全部交回了：该到的报告都已落盘，此刻还对不上就是实时通道漏了，对一次尾部
-        if (!BackgroundSubAgentDispatcher.HasPendingWork(sessionId)) ReconcileHistoryTail("background work settled");
     }
 
     private void NotifyRunStateChanged()
@@ -2012,6 +1967,36 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <inheritdoc />
     void IConversationItemActionHost.NotifyItemsWired() => OnPropertyChanged(nameof(CanRegenerate));
+
+    //================= IConversationReconcileHost =================
+    // 显式实现:对账要的只是这几个窄依赖,不该把整个视图模型暴露给对账器
+
+    /// <inheritdoc />
+    bool IConversationReconcileHost.IsOwnTurnRunning => _driver.IsRunning;
+
+    /// <inheritdoc />
+    bool IConversationReconcileHost.IsSessionLoading => IsSessionLoading;
+
+    /// <inheritdoc />
+    ChatSession? IConversationReconcileHost.CurrentSession => CurrentSession;
+
+    /// <inheritdoc />
+    bool IConversationReconcileHost.HasEarlierMessages
+    {
+        get => HasEarlierMessages;
+        set => HasEarlierMessages = value;
+    }
+
+    /// <inheritdoc />
+    bool IConversationReconcileHost.IsSessionBusy(string sessionId) =>
+        SessionManager.Instance.Running.IsBusy(sessionId);
+
+    /// <inheritdoc />
+    List<ConversationItemBase> IConversationReconcileHost.BuildItems(IReadOnlyList<ChatMessage> history,
+        int from, int to) => BuildHistoryItems(history, from, to);
+
+    /// <inheritdoc />
+    void IConversationReconcileHost.RefreshTokenUsage() => RefreshTokenUsageText();
 
     private ChatSession? CurrentSession =>
         CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);

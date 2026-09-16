@@ -43,7 +43,8 @@ public static class BackgroundSubAgentDispatcher
 
     /// <summary>
     /// 连续<b>无用户参与</b>的唤醒轮上限。掐的是自激空转（唤醒轮里又派后台子代理 → 又被唤醒），
-    /// 不是总次数——用户说一句话即清零。形状同 <c>SubAgentTool.MaxDeniedApprovalRounds</c>
+    /// 不是总次数——用户说一句话即清零。形状同 <c>SubAgentTool.MaxDeniedApprovalRounds</c>。
+    /// 取 32 而不是 12：主、子代理多轮讨论时每一轮都是无用户参与的唤醒轮，12 轮不够一次讨论收敛。
     /// </summary>
     private const int MaxConsecutiveWakeTurns = 32;
 
@@ -228,7 +229,8 @@ public static class BackgroundSubAgentDispatcher
     /// <param name="parentId">派活者标识</param>
     /// <param name="subSessionId">子会话标识</param>
     /// <param name="submit">交回一次，返回结果</param>
-    private static async Task SubmitWhenParentIdleAsync(string parentId, string subSessionId,
+    /// <returns>最后一次交回的结果</returns>
+    private static async Task<EHandoffOutcome> SubmitWhenParentIdleAsync(string parentId, string subSessionId,
         Func<EHandoffOutcome> submit)
     {
         // 成功路径故意留一句日志:交回与唤醒都不再静默,否则"报告到了但界面没刷"这类问题
@@ -244,6 +246,7 @@ public static class BackgroundSubAgentDispatcher
 
         Log.Debug($"Handed back background sub-agent report: subSession={subSessionId} "
                   + $"outcome={outcome} waited={waits}x{WakeRetryInterval.TotalSeconds:0}s");
+        return outcome;
     }
 
     /// <summary>
@@ -375,11 +378,12 @@ public static class BackgroundSubAgentDispatcher
     /// </summary>
     private static async Task DeliverAsync(ChatSession subSession, string parentId, string report)
     {
+        EHandoffOutcome handoff = EHandoffOutcome.NothingToReport;
         try
         {
             // 父会话正在跑时写它的历史会与落盘交错,等到它闲下来。这也顺带实现了「合并」:
             // 排队期间跑完的其他委派各自 Submit 一条,最后只起一轮把它们一起交给模型
-            await SubmitWhenParentIdleAsync(parentId, subSession.SessionId,
+            handoff = await SubmitWhenParentIdleAsync(parentId, subSession.SessionId,
                 () => SubmitReport(subSession, report)).ConfigureAwait(false);
         }
         catch (Exception e)
@@ -401,7 +405,12 @@ public static class BackgroundSubAgentDispatcher
             PendingWorkChanged?.Invoke(parentId);
         }
 
-        await WakeParentAsync(parentId).ConfigureAwait(false);
+        // 没新内容落盘（交不成、没结论）就别唤醒：空转一轮读不到新报告，
+        // 还白烧一次无用户参与额度
+        if (handoff is EHandoffOutcome.Appended or EHandoffOutcome.Replaced)
+        {
+            await WakeParentAsync(parentId).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

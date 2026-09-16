@@ -52,15 +52,35 @@ public class ConversationOrderCheckTests
         Assert.Null(ConversationOrderCheck.FindDivergence(items, [first]));
     }
 
-    /// <summary>窗口之外（或已被删掉）的来源不参与判定：它本就不在这份历史里</summary>
+    /// <summary>
+    /// 来源已不在历史里就是分歧：跑着时被原地替换掉的旧报告正是这个形状。
+    /// 跳过它的话，替换不改变历史条数，尾部检查也会报 0——旧行永远修不好。
+    /// </summary>
     [Fact]
-    public void ASourceOutsideTheWindowIsIgnored()
+    public void ASourceMissingFromHistoryIsDivergence()
     {
-        ChatMessage inWindow = new(ChatRole.Assistant, "回答");
-        ChatMessage outside = new(ChatRole.User, "更早的问题");
-        List<ConversationItemBase> items = [Item(outside, true), Item(inWindow)];
+        ChatMessage question = new(ChatRole.User, "任务");
+        ChatMessage oldReport = new(ChatRole.User, "旧结论");
+        ChatMessage replaced = new(ChatRole.User, "新结论");
+        List<ConversationItemBase> items = [Item(question, true), Item(oldReport)];
 
-        Assert.Null(ConversationOrderCheck.FindDivergence(items, [inWindow]));
+        Assert.NotNull(ConversationOrderCheck.FindDivergence(items, [question, replaced]));
+    }
+
+    /// <summary>
+    /// 上一个用例的另一半：光看尾部会报 1（新结论确实没画），直接追加就会旧行、新行并存。
+    /// 所以对账必须先查分歧（全量重放把旧行换掉），再查尾部——顺序反了就是重复。
+    /// </summary>
+    [Fact]
+    public void AReplacedTailMustDivergeBeforeAppending()
+    {
+        ChatMessage question = new(ChatRole.User, "任务");
+        ChatMessage oldReport = new(ChatRole.User, "旧结论");
+        ChatMessage replaced = new(ChatRole.User, "新结论");
+        List<ConversationItemBase> items = [Item(question, true), Item(oldReport)];
+
+        Assert.Equal(1, ConversationOrderCheck.FindMissingTail(items, [question, replaced]));
+        Assert.NotNull(ConversationOrderCheck.FindDivergence(items, [question, replaced]));
     }
 
     /// <summary>同一条消息拆成多个条目（思考卡 + 正文）是常态，不是分歧</summary>

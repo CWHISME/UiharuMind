@@ -52,9 +52,14 @@ public static class ConversationOrderCheck
         return order;
     }
 
-    /// <summary>
-    /// 找出界面与历史的顺序分歧
-    /// </summary>
+/// <summary>
+/// 找出界面与历史的顺序分歧
+///
+/// 来源已不在历史里的条目也算分歧：它要么是跑着的时候被原地替换掉的旧报告
+/// （替换信号在有轮在跑时不处理，轮结束了就靠这道检查发现），
+/// 要么是历史被压缩或删除变短了——两种都该按当前历史重放，而不是接着往后追加。
+/// 尚未配对的气泡（来源是空）不参与判定，否则每轮直播都要误判一次。
+/// </summary>
     /// <param name="items">界面条目（按显示顺序）</param>
     /// <param name="history">当前历史</param>
     /// <returns>分歧说明（可直接进日志）；一致则为 null</returns>
@@ -67,8 +72,11 @@ public static class ConversationOrderCheck
         for (int i = 0; i < items.Count; i++)
         {
             if (items[i].SourceMessage is not { } source) continue;
-            // 找不到的是窗口之外或已被删掉的来源,不参与判定
-            if (!order.TryGetValue(source, out int index)) continue;
+            // 找不到的是跑着时被替换掉的旧来源，或压缩/删除之后的历史——都是分歧，不再跳过
+            if (!order.TryGetValue(source, out int index))
+            {
+                return $"item #{i} source no longer in history (replaced or removed)";
+            }
 
             if (index < previous)
             {
