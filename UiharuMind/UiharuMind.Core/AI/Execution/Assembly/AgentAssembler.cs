@@ -71,11 +71,7 @@ internal static class AgentAssembler
 
         // ShellEnvironment 只在受管 Python 环境就绪时非空,内容是一次 venv 激活(见 AgentAssemblyPlan)
         LocalShellExecutor? shellExecutor = plan.Config.EnableShellExecution
-            ? new LocalShellExecutor(new LocalShellExecutorOptions
-            {
-                WorkingDirectory = plan.WorkingDirectory,
-                Environment = plan.ShellEnvironment?.ToDictionary(x => x.Key, x => x.Value),
-            })
+            ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
             : null;
 
         List<AgentToolEntry> toolEntries = BuildTools(plan, client, shellExecutor);

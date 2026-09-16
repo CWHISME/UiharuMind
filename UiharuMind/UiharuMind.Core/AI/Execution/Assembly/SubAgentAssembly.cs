@@ -164,7 +164,7 @@ internal static class SubAgentAssembly
         string persona = named ? CharacterPromptBuilder.Build(plan.Character, profile.PromptArguments) : string.Empty;
 
         LocalShellExecutor? shellExecutor = canMutate && effectiveConfig.EnableShellExecution
-            ? new LocalShellExecutor(new LocalShellExecutorOptions { WorkingDirectory = plan.WorkingDirectory })
+            ? ShellExecutorFactory.Create(plan.WorkingDirectory, plan.ShellEnvironment)
             : null;
         AITool? shellTool = shellExecutor?.AsAIFunction(CharacterRunnerFactory.ShellToolName);
         IReadOnlyList<AITool>? mcpTools = canMutate ? plan.Mcp.Tools : null;
