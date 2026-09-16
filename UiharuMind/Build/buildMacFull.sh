@@ -21,7 +21,7 @@ copy_internal_asset() {
     echo "已带入 $target_name"
 }
 
-SUPPORT_DIR="$HOME/Library/Application Support/UiharuMind"
+SUPPORT_DIR="${UIHARU_HOME:-$HOME/.uiharu}"
 
 copy_internal_asset "$SUPPORT_DIR/EmbededModels" "InternalEmbededModels"
 copy_internal_asset "$SUPPORT_DIR/Runtime" "InternalRuntime"

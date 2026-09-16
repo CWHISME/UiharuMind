@@ -51,6 +51,7 @@ public partial class App : Application, ILogger, IDisposable
 
     public override void OnFrameworkInitializationCompleted()
     {
+        AppPaths.EnsureRoot();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

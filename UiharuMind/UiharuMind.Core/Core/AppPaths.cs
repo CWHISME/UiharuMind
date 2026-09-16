@@ -15,13 +15,44 @@ namespace UiharuMind.Core.Core;
 /// 只管目录与全局唯一的固定文件；带变量的文件名(<c>{sessionId}.meta</c>、角色的
 /// <c>{guid}.json</c>)属于各模块的命名方案,不进这里。
 /// </para>
-/// <para>分树依据、命名规则与历史包袱见 <c>docs/adr/0013</c>。</para>
+/// <para>分树依据、命名规则与历史包袱见 <c>docs/adr/0013</c>；根选址见 <c>docs/adr/0027</c>。</para>
 /// </summary>
 public static class AppPaths
 {
-    /// <summary>应用数据根目录</summary>
-    public static readonly string Root =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UiharuMind");
+    /// <summary>
+    /// 应用数据根目录：<c>~/.uiharu</c>，三平台统一。环境变量 <c>UIHARU_HOME</c> 可覆盖。
+    /// 旧址（各平台应用数据目录下的 <c>UiharuMind/</c>）不迁移不删除，见 ADR 0027。
+    /// </summary>
+    public static readonly string Root = ResolveRoot();
+
+    private static string ResolveRoot()
+    {
+        string? home = Environment.GetEnvironmentVariable("UIHARU_HOME");
+        if (!string.IsNullOrWhiteSpace(home)) return home;
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".uiharu");
+    }
+
+    /// <summary>
+    /// 建根目录。Windows 下点号前缀不隐藏，默认根补 Hidden 属性；
+    /// <c>UIHARU_HOME</c> 指向用户自选位置时只建目录、不动属性。
+    /// </summary>
+    public static void EnsureRoot()
+    {
+        try
+        {
+            if (!Directory.Exists(Root)) Directory.CreateDirectory(Root);
+            if (!OperatingSystem.IsWindows()) return;
+            if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("UIHARU_HOME"))) return;
+            FileAttributes attributes = File.GetAttributes(Root);
+            if ((attributes & FileAttributes.Hidden) == 0)
+                File.SetAttributes(Root, attributes | FileAttributes.Hidden);
+        }
+        catch
+        {
+            // 最佳努力：隐藏失败不影响启动
+        }
+    }
 
     /// <summary>日志</summary>
     public static readonly string Logs = Path.Combine(Root, "Logs");

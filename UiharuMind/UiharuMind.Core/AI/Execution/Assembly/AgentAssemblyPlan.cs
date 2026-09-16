@@ -96,9 +96,9 @@ internal sealed class AgentAssemblyPlan
     /// 给 shell 追加的环境变量。目前只有一件事：把受管 Python 环境<b>前置</b>进 `PATH`
     /// 并设上 `VIRTUAL_ENV`——也就是标准的 venv 激活。
     ///
-    /// 这么做是为了让模型写裸 `python` / `pip`：受管环境的路径含空格
-    /// （macOS 上是 `Application Support`），每次调用都要模型自己记得加引号，
-    /// 忘一次就是一条断命令加一轮白烧。
+    /// 这么做是为了让模型写裸 `python` / `pip`：旧根含空格
+    /// （macOS 上曾是 `Application Support`），每次调用都要模型自己记得加引号，
+    /// 忘一次就是一条断命令加一轮白烧。新根 `~/.uiharu` 无空格，这条仍保留。
     ///
     /// ⚠️ 代价：agent 的 shell 里<b>系统 Python 被遮蔽</b>。工作区自身是 Python 项目、
     /// 带自己的 venv 时，裸 `python` 会落到我们这个环境里。纪律段有一句对冲，
