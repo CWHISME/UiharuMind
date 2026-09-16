@@ -45,7 +45,7 @@ public static class BackgroundSubAgentDispatcher
     /// 连续<b>无用户参与</b>的唤醒轮上限。掐的是自激空转（唤醒轮里又派后台子代理 → 又被唤醒），
     /// 不是总次数——用户说一句话即清零。形状同 <c>SubAgentTool.MaxDeniedApprovalRounds</c>
     /// </summary>
-    private const int MaxConsecutiveWakeTurns = 12;
+    private const int MaxConsecutiveWakeTurns = 32;
 
     // 父会话 → 名下未交回的子会话标识。记 id 而不是计数,是因为界面要按父会话问
     // 「名下有没有一个卡在审批上」——那件事只有子会话标识答得出
@@ -231,11 +231,19 @@ public static class BackgroundSubAgentDispatcher
     private static async Task SubmitWhenParentIdleAsync(string parentId, string subSessionId,
         Func<EHandoffOutcome> submit)
     {
-        while (submit() == EHandoffOutcome.ParentBusy)
+        // 成功路径故意留一句日志:交回与唤醒都不再静默,否则"报告到了但界面没刷"这类问题
+        // 无从区分是调度没跑还是界面没跟上(实机见过)。
+        EHandoffOutcome outcome;
+        int waits = 0;
+        while ((outcome = submit()) == EHandoffOutcome.ParentBusy)
         {
+            waits++;
             MarkHandoffQueued(parentId, subSessionId);
             await Task.Delay(WakeRetryInterval).ConfigureAwait(false);
         }
+
+        Log.Debug($"Handed back background sub-agent report: subSession={subSessionId} "
+                  + $"outcome={outcome} waited={waits}x{WakeRetryInterval.TotalSeconds:0}s");
     }
 
     /// <summary>
@@ -413,7 +421,12 @@ public static class BackgroundSubAgentDispatcher
     {
         if (string.IsNullOrEmpty(parentId)) return;
         //还有别的后台委派没回来:等最后那一个来起这一轮,省得一份报告一轮
-        if (HasPendingWork(parentId)) return;
+        if (HasPendingWork(parentId))
+        {
+            Log.Debug($"Wake turn deferred: session={parentId} still has pending sub-sessions; "
+                      + "the last one to finish wakes the parent.");
+            return;
+        }
 
         int streak = _wakeStreakByParent.AddOrUpdate(parentId, 1, (_, n) => n + 1);
         if (streak > MaxConsecutiveWakeTurns)
@@ -431,11 +444,16 @@ public static class BackgroundSubAgentDispatcher
             if (parent == null) return;
 
             // 原子地占住这个会话:「查一下忙不忙,不忙就开跑」写成两步的话,查与开之间
-            // 用户正好发一条,两轮就并行起来了——它们共用会话本体、执行者与转录器。
+            // 用户正好发一条,两轮就重叠了——它们共用会话本体、执行者与转录器。
             // 抢不到就不唤醒:报告已经在历史里,模型下一轮自然读到(落盘与唤醒本就是两件事)
             using IDisposable? claim = SessionManager.Instance.Running.TryBeginRun(parentId);
-            if (claim == null) return;
+            if (claim == null)
+            {
+                Log.Debug($"Wake turn skipped: session={parentId} busy; report already in history.");
+                return;
+            }
 
+            Log.Debug($"Wake turn started: session={parentId} streak={streak}");
             await parent.Runner.AttachAsync(parent).ConfigureAwait(false);
             using TurnDriver driver = new(null, new TurnUsageLedger());
             // 无头驱动(sink 为 null),但**审批有人接**——就是派活者自己那个窗口。

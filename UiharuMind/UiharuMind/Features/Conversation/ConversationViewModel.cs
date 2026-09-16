@@ -548,6 +548,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             return;
         }
 
+        // 本会话转空闲了：唤醒轮之类别处驱动的轮次到此应该已经把内容留在了历史里，
+        // 还对不上就是实时通道漏了，对一次尾部（方法内部只在没人跑时动手）
+        if (!SessionManager.Instance.Running.IsBusy(sessionId)) ReconcileHistoryTail("session idle");
         Dispatcher.UIThread.Post(() =>
         {
             NotifyRunStateChanged();
@@ -628,8 +631,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (ConversationOrderCheck.FindDivergence(Items, session.History) is not { } divergence) return;
 
             Log.Warning($"Conversation items diverged from history ({divergence}); replaying the window.");
-            Items.Clear();
-            ReplayMessages(session.History);
+            ReplayWindow(session.History);
         });
     }
 
@@ -897,6 +899,66 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         NotifyBusyChanged();
     }
 
+    /// <summary>
+    /// 尾部对账兜底：交回报告/唤醒回复已落盘、但实时通道（历史追加信号、内容流观察）都没把那几条
+    /// 画出来时，这里按历史重放补齐（实机见过：落盘与唤醒轮都在，后续报告与回复却要切会话才看得见）。
+    ///
+    /// 只在<b>没人跑</b>时做——有轮在跑时归流式与 <see cref="OnObservedTurnEnded"/> 的顺序检查管，
+    /// 此时重放会跟直播打架。触发点是「名下委派全部交回」（pending 归零）与「本会话转空闲」：
+    /// 两者都是“本该有新内容、也该安静了”的时刻（重放视为内部实现：尾部漏画走增量追加，
+    /// 只有顺序真对不上才走 <see cref="ReplayWindow"/> 全量重放）。
+    ///
+    /// 幂等：对得上时直接返回，零开销；不打扰用户正在读的窗口——全量重放会把翻出来的
+    /// 更早消息打回尾部、还白解一遍已渲染的位图，所以能增量就增量。
+    /// </summary>
+    /// <param name="reason">触发来源，进日志，方便区分是哪条路兜住的</param>
+    private void ReconcileHistoryTail(string reason)
+    {
+        // 守卫全部放到 UI 线程上判：两个调用点都可能来自后台线程（OnPendingWorkChanged /
+        // OnSessionRunStateChanged 都标着「可能来自后台线程」），在后台读这些共享状态本身就是
+        // 数据竞争，还容易读到旧值误判「空闲」。Post 一次的成本远低于赌一个线程安全。
+        Dispatcher.UIThread.Post(() => ReconcileOnUi(reason));
+    }
+
+    private void ReconcileOnUi(string reason)
+    {
+        if (_driver.IsRunning) return;
+        if (IsSessionLoading) return;
+        if (CurrentSession is not { } session) return;
+        // 唤醒轮在 TryBeginRun（登记处先原子占位）与 LiveTurn.BeginTurn（IsTurnRunning 才置位）
+        // 之间有一瞬空窗：只查 IsTurnRunning 会把这一窗放行，重放就跟即将开始的直播打架。
+        // 登记处是“空闲”的唯一可靠定义，先查它（被拦下的对账由「session idle」在轮结束后再来一次）
+        if (SessionManager.Instance.Running.IsBusy(session.SessionId)) return;
+        if (session.LiveTurn.IsTurnRunning) return;
+
+        if (ConversationOrderCheck.FindDivergence(Items, session.History) is { } divergence)
+        {
+            Log.Warning($"Conversation items diverged from history ({divergence}); "
+                        + $"replaying the window ({reason}).");
+            ReplayWindow(session.History);
+            return;
+        }
+
+        // 顺序对得上、只是尾部漏画：增量补那几条。不 Clear 窗口、不重解已渲染的位图，
+        // 用户翻出来的更早消息原位不动
+        int missing = ConversationOrderCheck.FindMissingTail(Items, session.History);
+        if (missing == 0) return;
+        Log.Warning($"Conversation items diverged from history "
+                    + $"({missing} trailing message(s) not drawn); appending the tail ({reason}).");
+        List<ConversationItemBase> tail = BuildHistoryItems(session.History,
+            session.History.Count - missing, session.History.Count);
+        foreach (ConversationItemBase item in tail) Items.Add(item);
+    }
+
+    /// <summary>全量重放这一窗。旧条目的位图随条目走，直接 Clear 会泄漏：先摘绑定再释放</summary>
+    private void ReplayWindow(IReadOnlyList<ChatMessage> history)
+    {
+        ConversationItemBase[] discarded = Items.ToArray();
+        Items.Clear();
+        foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+        ReplayMessages(history);
+    }
+
     /// <summary>名下的后台委派多了或少了一个。<b>可能来自后台线程</b>，marshal 之后再通知绑定</summary>
     private void OnPendingWorkChanged(string sessionId)
     {
@@ -910,6 +972,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 流里那几张委派卡也要跟着改档:工具调用早返回了,光看结果它们全是「成功」
             _transcript.RefreshSubSessionPending();
         });
+        // 全部交回了：该到的报告都已落盘，此刻还对不上就是实时通道漏了，对一次尾部
+        if (!BackgroundSubAgentDispatcher.HasPendingWork(sessionId)) ReconcileHistoryTail("background work settled");
     }
 
     private void NotifyRunStateChanged()

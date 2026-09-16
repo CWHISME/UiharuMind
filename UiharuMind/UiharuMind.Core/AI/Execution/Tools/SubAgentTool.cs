@@ -185,7 +185,8 @@ public static class SubAgentTool
             ToolContinueName,
             "Continue an earlier sub-agent delegation: send it another message in the same "
             + "sub-session and get an updated report. Use it to follow up on a report, to correct "
-            + "course, or to resume one that stopped before finishing. "
+            + "course, to carry on a multi-round discussion the user asked for, "
+            + "or to resume one that stopped before finishing. "
             + "The sub-session keeps everything it did before.");
     }
 

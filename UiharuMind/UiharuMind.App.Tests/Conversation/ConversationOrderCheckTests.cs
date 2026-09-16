@@ -83,4 +83,39 @@ public class ConversationOrderCheckTests
 
         Assert.NotNull(ConversationOrderCheck.FindDivergence(items, [earlier, later]));
     }
+
+    /// <summary>尾部多出来的历史就是漏画：交回报告与唤醒回复落了盘、界面一条没加正是这个形状</summary>
+    [Fact]
+    public void TrailingHistoryWithoutItemsIsMissing()
+    {
+        ChatMessage question = new(ChatRole.User, "任务");
+        ChatMessage answer = new(ChatRole.Assistant, "派人去查了");
+        ChatMessage report = new(ChatRole.User, "后续结论");
+        ChatMessage reply = new(ChatRole.Assistant, "整理版");
+        List<ConversationItemBase> items = [Item(question, true), Item(answer)];
+
+        Assert.Equal(2, ConversationOrderCheck.FindMissingTail(items, [question, answer, report, reply]));
+    }
+
+    /// <summary>对得上时是 0；窗口之外的旧消息本来就不画，不算漏</summary>
+    [Fact]
+    public void DrawnTailIsNotMissing()
+    {
+        ChatMessage old = new(ChatRole.User, "窗口之外的旧消息");
+        ChatMessage question = new(ChatRole.User, "任务");
+        ChatMessage answer = new(ChatRole.Assistant, "回答");
+        List<ConversationItemBase> items = [Item(question, true), Item(answer)];
+
+        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [old, question, answer]));
+    }
+
+    /// <summary>还没配对的气泡（来源是空）不参与判定，否则每轮直播都要误判一次</summary>
+    [Fact]
+    public void UnpairedBubblesDoNotCountAsDrawn()
+    {
+        ChatMessage question = new(ChatRole.User, "任务");
+        List<ConversationItemBase> items = [Item(question, true), Item(null, true)];
+
+        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [question]));
+    }
 }
