@@ -44,6 +44,22 @@ public static class ConversationItemFactory
         NamedSkillAnnotations.InputOf(message) ?? message.Text;
 
     /// <summary>
+    /// 用户气泡的显示文本。以来源消息为准：点名调用取用户敲的那一行，其余取消息正文
+    /// （正文里包含附件转成的路径引用）。调用方传入的敲入文本只在来源没有正文时兜底——
+    /// 实时乐观气泡与历史回放共用这一条规则，同一条 <c>ChatMessage</c> 才不会
+    /// 「实时一张脸、重开另一张脸」（拖文件发送的附件引用曾只在重开会话时出现）。
+    /// </summary>
+    /// <param name="typedText">输入框原文；拖文件未打字时为空串</param>
+    /// <param name="source">来源消息；尚未构造时为 null</param>
+    /// <returns>显示文本</returns>
+    public static string UserMessageDisplayText(string typedText, ChatMessage? source)
+    {
+        if (source == null) return typedText;
+        if (NamedSkillAnnotations.InputOf(source) is { } typedLine) return typedLine;
+        return source.Text ?? typedText;
+    }
+
+    /// <summary>
     /// 用户气泡
     /// </summary>
     /// <param name="text">显示文本</param>
@@ -55,17 +71,17 @@ public static class ConversationItemFactory
     {
         TextConversationItem item = new(true)
         {
-            Message = text,
+            Message = UserMessageDisplayText(text, source),
             SenderName = LocalizationManager.Instance.GetString("AgentSenderUser"),
             SenderColor = Avalonia.Media.Brushes.LightGreen,
             Icon = IconUtils.DefaultUserIcon,
             Timestamp = TimestampText(source?.CreatedAt ?? DateTimeOffset.Now),
         };
 
-        // 点名调用:消息正文是注入的技能全文,气泡只显示用户敲的那一行,正文折叠备查
+        // 点名调用:显示文本已由 UserMessageDisplayText 定为用户敲的那一行,
+        // 消息正文是注入的技能全文,折叠起来备查
         if (source != null && NamedSkillAnnotations.InputOf(source) is { } typedLine)
         {
-            item.Message = typedLine;
             item.InjectedText = source.Text;
         }
 

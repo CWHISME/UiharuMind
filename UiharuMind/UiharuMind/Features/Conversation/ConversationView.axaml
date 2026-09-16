@@ -327,6 +327,7 @@
                                 <ThemedIconButton Classes="message-action"
                                                   IconName="trash-2"
                                                   VerticalAlignment="Center"
+                                                  Margin="0,0,0,2"
                                                   ToolTip.Tip="{loc:Loc InterjectionRemoveTip}"
                                                   Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveInterjectionCommand}"
                                                   CommandParameter="{Binding Message}" />
@@ -528,5 +529,19 @@
                 </Grid>
             </Grid>
         </Border>
+
+        <!-- 拖放高亮:文件拖进会话区时整块亮起,提示往哪儿放都行。盖在一切之上但 IsHitTestVisible=False,
+             不拦鼠标与拖放事件;可见性由 code-behind 按 DragOver/DragLeave/Drop 控制 -->
+        <Rectangle Name="DropOverlay"
+                   Grid.Row="0"
+                   Grid.RowSpan="3"
+                   Margin="5"
+                   RadiusX="12" RadiusY="12"
+                   Fill="#1F2F81F7"
+                   Stroke="#2F81F7"
+                   StrokeThickness="2"
+                   StrokeDashArray="8,4"
+                   IsHitTestVisible="False"
+                   IsVisible="False" />
     </Grid>
 </UserControl>

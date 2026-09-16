@@ -17,6 +17,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using System;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 using Avalonia.VisualTree;
 using UiharuMind.Shared.Controls;
@@ -90,9 +91,12 @@ public partial class ConversationView : UserControl
         if (StreamPerfProbe.IsEnabled) Viewer.LayoutUpdated += OnViewerLayoutUpdated;
         DataContextChanged += OnDataContextChanged;
         InputBox.PastingFromClipboard += OnPastingFromClipboard;
-        DragDrop.SetAllowDrop(ComposerBorder, true);
-        ComposerBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        ComposerBorder.AddHandler(DragDrop.DropEvent, OnDrop);
+        // 整块会话区域都接受文件拖放(不只是输入区):消息流、空白、头部都能放手,
+        // 统一进附件盘/输入框。非文件拖放(文本等)仍交给子控件自己处理,见 OnDragOver
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
+        AddHandler(DragDrop.DropEvent, OnDrop);
 
         // 点名补全:↑↓ 与 Esc 没有对应的 KeyBinding,走路由事件即可。
         // 回车与 Tab 则相反——它们绑在输入框的 KeyBindings 上,而 Avalonia 由
@@ -421,14 +425,28 @@ public partial class ConversationView : UserControl
 
     private void OnDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = e.DataTransfer.Formats.Any(f => f == DataFormat.File)
-            ? DragDropEffects.Copy
-            : DragDropEffects.None;
+        // 只在文件拖放时介入:文本/URI 等拖放交由子控件(如输入框)自己决定,
+        // 根控件把 effects 统一设成 None 会覆盖掉它们的处理。非文件拖放顺带收起残留在高亮
+        bool isFile = e.DataTransfer.Formats.Any(f => f == DataFormat.File);
+        DropOverlay.IsVisible = isFile;
+        if (!isFile) return;
+        e.DragEffects = DragDropEffects.Copy;
         e.Handled = true;
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        // DragLeave 是冒泡路由事件:指针在根内部跨过子控件边界也会冒泡上来,不能见着就收。
+        // 只有指针真的离开整个会话区(位置超出本控件 bounds)才收起蒙版,否则内部移动会反复闪烁
+        Point p = e.GetPosition(this);
+        if (p.X < 0 || p.Y < 0 || p.X > Bounds.Width || p.Y > Bounds.Height)
+            DropOverlay.IsVisible = false;
     }
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
+        DropOverlay.IsVisible = false;
+        if (!e.DataTransfer.Formats.Any(f => f == DataFormat.File)) return;
         if (DataContext is not ConversationViewModel vm) return;
 
         foreach (var item in e.DataTransfer.Items)
@@ -436,7 +454,19 @@ public partial class ConversationView : UserControl
             if (item.TryGetRaw(DataFormat.File) is IStorageItem storageItem)
             {
                 string? path = storageItem.TryGetLocalPath();
-                if (!string.IsNullOrEmpty(path)) vm.Tray.AddAttachmentPath(path);
+                if (string.IsNullOrEmpty(path)) continue;
+
+                // 目录:不进附件盘(附件盘只收文件,目录没有可预览/可读取的内容),
+                // 直接把路径文本附加到输入框,由用户自己决定何时发给谁
+                if (Directory.Exists(path))
+                {
+                    vm.InputText = string.IsNullOrWhiteSpace(vm.InputText)
+                        ? path
+                        : $"{vm.InputText}\n{path}";
+                    continue;
+                }
+
+                vm.Tray.AddAttachmentPath(path);
             }
         }
 

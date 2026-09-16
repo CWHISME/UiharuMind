@@ -86,6 +86,14 @@ public partial class AttachmentTrayViewData : ObservableObject
     public void AddAttachmentPath(string path)
     {
         if (string.IsNullOrEmpty(path)) return;
+
+        // 目录无法作为文件附件读取与预览:拖放路径已把它转成输入框文本,这里兜底挡掉其它入口
+        if (Directory.Exists(path))
+        {
+            Log.Warning($"Attachment path is a directory, ignored: {path}");
+            return;
+        }
+
         Attachments.Add(new ConversationAttachment
         {
             FilePath = path,
@@ -211,15 +219,39 @@ public partial class AttachmentTrayViewData : ObservableObject
             }
         }
 
-        if (isVision && (contents!.Count > 1 || fileReferences.Count == 0))
-        {
-            if (fileReferences.Count > 0)
-                contents.Add(new TextContent(string.Join('\n', fileReferences.Select(x => $"[Attached file: {x}]"))));
-            return new ChatMessage(ChatRole.User, contents);
-        }
+        // 文件引用与用户文本合成同一份文本:同一条 user 消息只保留一块 text。
+        // 曾拆成「用户正文 + [Attached file] 引用」两块 TextContent,部分 OpenAI 兼容网关会 400
+        return isVision
+            ? ComposeVisionMessage(contents!, text, fileReferences)
+            : new ChatMessage(ChatRole.User, JoinUserTextWithFileReferences(text, fileReferences));
+    }
 
+    /// <summary>
+    /// 视觉消息组装：图片内联为 DataContent，文件引用合并进第一条 TextContent，
+    /// 不让同一条 user 消息出现两份文本块。
+    /// </summary>
+    /// <param name="contents">已含文本与内联图片的内容集合</param>
+    /// <param name="text">用户输入</param>
+    /// <param name="fileReferences">附件路径引用</param>
+    /// <returns>用户消息</returns>
+    internal static ChatMessage ComposeVisionMessage(List<AIContent> contents, string text, List<string> fileReferences)
+    {
+        if (fileReferences.Count > 0)
+            contents[0] = new TextContent(JoinUserTextWithFileReferences(text, fileReferences));
+        return new ChatMessage(ChatRole.User, contents);
+    }
+
+    /// <summary>
+    /// 用户文本与附件路径引用合并为同一条文本；正文与引用区用 <c>***</c> 隔开。
+    /// 视觉/非视觉两条发送路径共用，保证同一批附件到哪儿都是同一种拼法。
+    /// </summary>
+    /// <param name="text">用户输入；未打字时为空串</param>
+    /// <param name="fileReferences">附件路径</param>
+    /// <returns>合并后的单一文本</returns>
+    internal static string JoinUserTextWithFileReferences(string text, IReadOnlyList<string> fileReferences)
+    {
         string reference = string.Join('\n', fileReferences.Select(x => $"[Attached file: {x}]"));
-        return new ChatMessage(ChatRole.User, $"{text}\n{reference}");
+        return string.IsNullOrEmpty(text) ? reference : $"{text}\n\n***\n{reference}";
     }
 
     /// <summary>
