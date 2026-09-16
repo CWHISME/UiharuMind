@@ -1035,6 +1035,30 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string TextFileMenuNew {
+            get {
+                return ResourceManager.GetString("TextFileMenuNew", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuOpen {
+            get {
+                return ResourceManager.GetString("TextFileMenuOpen", resourceCulture);
+            }
+        }
+        
+        public static string TextFileUntitled {
+            get {
+                return ResourceManager.GetString("TextFileUntitled", resourceCulture);
+            }
+        }
+        
+        public static string TextFileUnsupportedType {
+            get {
+                return ResourceManager.GetString("TextFileUnsupportedType", resourceCulture);
+            }
+        }
+        
         public static string TextFileMenuEdit {
             get {
                 return ResourceManager.GetString("TextFileMenuEdit", resourceCulture);

@@ -3181,6 +3181,18 @@
     <data name="TextFileMenuSaveAs" xml:space="preserve">
         <value>另存为</value>
     </data>
+    <data name="TextFileMenuNew" xml:space="preserve">
+        <value>新建</value>
+    </data>
+    <data name="TextFileMenuOpen" xml:space="preserve">
+        <value>打开</value>
+    </data>
+    <data name="TextFileUntitled" xml:space="preserve">
+        <value>未命名</value>
+    </data>
+    <data name="TextFileUnsupportedType" xml:space="preserve">
+        <value>文件类型不支持或文件过大，无法在此编辑</value>
+    </data>
     <data name="TextFileMenuEdit" xml:space="preserve">
         <value>编辑</value>
     </data>

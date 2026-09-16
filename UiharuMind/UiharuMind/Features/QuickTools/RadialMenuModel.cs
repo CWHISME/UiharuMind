@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Windows;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
 
@@ -41,6 +42,15 @@ namespace UiharuMind.Features.QuickTools
                 Icon = "house",
                 Text = "主页",
                 Action = () => App.DummyWindow.LaunchMainWindow()
+            });
+
+            _menuItems.Add(new MenuItemModel
+            {
+                Icon = "file-text",
+                Text = "文本文件",
+                // 直接开空文档（普通编辑器行为）：选文件/拖拽都在窗内做，
+                // 不在轮盘里弹文件框——之前 picker 的 owner 会落到正在收起的轮盘上所以打不开
+                Action = () => TextFileWindow.ShowEmpty()
             });
         }
 

@@ -10,17 +10,21 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Shared.Windows;
 
@@ -29,6 +33,7 @@ namespace UiharuMind.Shared.Windows;
 ///
 /// 与 <see cref="FullTextWindow"/>（长文只读查看）、<see cref="StringContentEditWindow"/>（会话内短文本编辑）
 /// 各归各位：这里是「打开磁盘上实体文件、能保存回原路径」的那一个。
+/// 无路径也能开（空文档、标题显示未命名），文件从「文件 / 打开」菜单或直接拖进来。
 ///
 /// 编辑态（<see cref="Controls.LongTextView"/> 的 IsEditable 档）与预览态
 /// （<see cref="Controls.SimpleMarkdownViewer"/>）叠在同一片区域，切模式只改可见性——
@@ -65,12 +70,28 @@ public partial class TextFileWindow : QuickWindowBase
         // 全局偏好：别的文本窗改了设置，这个还开着的窗口跟着变。
         // 缓存窗口与设置单例同生命周期，不主动退订（复用时还要继续联动）
         _setting.PropertyChanged += OnGlobalSettingChanged;
+
+        // 整窗接受文件拖放（对照 ConversationView）：DragOver 只在文件拖放时介入，
+        // 高亮蒙版盖顶但不拦事件，可见性由下面三个 handler 控制
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
+        AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
     public override void Awake()
     {
         base.Awake();
         CanResize = true;
+    }
+
+    /// <summary>
+    /// 打开一个空文档（普通文本编辑器行为）。多开不设上限。
+    /// 叫 ShowEmpty 而不用 Show：后者签名会撞上 <see cref="Avalonia.Controls.Window.Show"/>（实例方法）
+    /// </summary>
+    public static void ShowEmpty()
+    {
+        UIManager.ShowWindow<TextFileWindow>(w => _ = w.NewEmptyAsync(), isMulti: true);
     }
 
     /// <summary>
@@ -86,20 +107,35 @@ public partial class TextFileWindow : QuickWindowBase
     }
 
     /// <summary>
+    /// 切到空文档。落在有未保存改动的复用窗口上时先三态确认（保存 / 不保存 / 留下）
+    /// </summary>
+    public async Task NewEmptyAsync()
+    {
+        if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
+        SetEmptySource();
+    }
+
+    /// <summary>
+    /// 有未保存改动时三态确认，返回是否可以继续（打开新文件 / 新建空文档共用）
+    /// </summary>
+    /// <returns>无改动、或用户选择保存/放弃后返回 true；取消（或保存失败）返回 false</returns>
+    private async Task<bool> ConfirmDiscardUnsavedAsync(string message)
+    {
+        if (!_dirty) return true;
+        var choice = await MessageService.ConfirmWithCancelAsync(message, Loc.Text("TextFileCloseDirtyTitle"));
+        if (choice == EConfirmChoice.Cancel) return false;
+        if (choice == EConfirmChoice.Yes && !await TrySaveAsync()) return false;
+        _dirty = false; //No：放弃改动
+        RefreshDirtyState();
+        return true;
+    }
+
+    /// <summary>
     /// 异步装载文件。可复用窗口上如果有未保存的改动，先三态确认（保存 / 不保存 / 留下）
     /// </summary>
     public async Task LoadFileAsync(string filePath, int? lineNumber = null)
     {
-        if (_dirty)
-        {
-            var choice = await MessageService.ConfirmWithCancelAsync(
-                Loc.Text("TextFileOpenWhileDirtyConfirm"),
-                Loc.Text("TextFileCloseDirtyTitle"));
-            if (choice == EConfirmChoice.Cancel) return;
-            if (choice == EConfirmChoice.Yes && !await TrySaveAsync()) return;
-            _dirty = false; //No：放弃改动，继续打开新文件
-            RefreshDirtyState();
-        }
+        if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
 
         if (!File.Exists(filePath))
         {
@@ -151,6 +187,35 @@ public partial class TextFileWindow : QuickWindowBase
         UpdateStatusBar();
     }
 
+    /// <summary>
+    /// 切到空文档：路径置空、编码回到默认、无路径不高亮（扩展名未知），预览回到编辑态
+    /// </summary>
+    private void SetEmptySource()
+    {
+        _suppressDirty = true;
+        _filePath = null;
+        _encoding = Encoding.UTF8;
+        _hasBom = false;
+        _dirty = false;
+
+        TextView.Text = string.Empty;
+        MarkdownViewer.LinkBaseDirectory = null;
+        MarkdownViewer.MarkdownText = string.Empty;
+
+        ApplyGlobalSettings(); //SyntaxSourceName 会因 _filePath 为 null 而关掉高亮
+        SyncPreviewVisibility(false);
+
+        _pendingScrollHome = true;
+        _pendingScrollLine = null;
+        Dispatcher.UIThread.Post(ApplyInitialScroll, DispatcherPriority.ApplicationIdle);
+        _suppressDirty = false;
+
+        UpdateTitle();
+        RefreshDirtyState();
+        RefreshMenuStates();
+        UpdateStatusBar();
+    }
+
     private static bool IsMarkdownFile(string filePath)
     {
         string ext = Path.GetExtension(filePath);
@@ -160,7 +225,8 @@ public partial class TextFileWindow : QuickWindowBase
 
     private async Task<bool> TrySaveAsync()
     {
-        if (_filePath == null) return false;
+        // 空文档没有回写路径，保存即另存为（普通编辑器行为）
+        if (_filePath == null) return await SaveAsAsync();
 
         try
         {
@@ -180,10 +246,39 @@ public partial class TextFileWindow : QuickWindowBase
         }
     }
 
+    /// <summary>另存为：空文档也能调，存完路径落定、标题与高亮跟着新扩展名走</summary>
+    /// <returns>存成功返回 true；用户取消或失败返回 false</returns>
+    private async Task<bool> SaveAsAsync()
+    {
+        string defaultName = _filePath == null ? "untitled.txt" : Path.GetFileName(_filePath);
+        var uri = await App.FilesService.SaveFileAsync(this, defaultName);
+        if (uri == null) return false; //用户取消
+
+        try
+        {
+            await TextFileCodec.WriteTextAsync(uri.LocalPath, TextView.Text ?? string.Empty, _encoding, _hasBom, default);
+        }
+        catch (Exception ex)
+        {
+            MessageService.ShowNotification(
+                $"{Loc.Text("TextFileSaveFailed")} {ex.Message}", severity: MessageSeverity.Error);
+            return false;
+        }
+
+        _filePath = uri.LocalPath;
+        _dirty = false;
+        ApplyGlobalSettings(); //扩展名可能变了，高亮按新路径重算
+        RefreshDirtyState();
+        RefreshMenuStates();
+        UpdateStatusBar();
+        MessageService.ShowNotification(Loc.Text("TextFileSaved"), severity: MessageSeverity.Success);
+        return true;
+    }
+
     private void UpdateTitle()
     {
         string? fileName = _filePath == null ? null : Path.GetFileName(_filePath);
-        string title = (_dirty ? "* " : "") + (fileName ?? "TextFileWindow");
+        string title = (_dirty ? "* " : "") + (fileName ?? Loc.Text("TextFileUntitled"));
         Title = title;
         TitleTextBlock.Text = title;
     }
@@ -191,7 +286,8 @@ public partial class TextFileWindow : QuickWindowBase
     private void RefreshDirtyState()
     {
         UpdateTitle();
-        if (SaveMenuItem != null) SaveMenuItem.IsEnabled = _dirty && _filePath != null;
+        // 空文档的保存即另存为，所以只看 _dirty，不再要求 _filePath 非空
+        if (SaveMenuItem != null) SaveMenuItem.IsEnabled = _dirty;
     }
 
     private void RefreshMenuStates()
@@ -230,17 +326,22 @@ public partial class TextFileWindow : QuickWindowBase
         }
     }
 
-    /// <summary>底部状态栏：编码 / 行数 / 字符数 / 文件大小</summary>
+    /// <summary>底部状态栏：编码 / 行数 / 字符数 / 文件大小（空文档无路径时不显示大小）</summary>
     private void UpdateStatusBar()
     {
-        if (StatusTextBlock == null || _filePath == null) return;
+        if (StatusTextBlock == null) return;
 
-        long size = 0;
-        try { size = new FileInfo(_filePath).Length; } catch { }
         int lines = TextView.Editor.Document?.LineCount ?? 0;
         int chars = TextView.Text?.Length ?? 0;
-        StatusTextBlock.Text =
-            $"{FormatEncodingDisplay()} · {lines} {Loc.Text("TextFileStatusLines")} · {chars} {Loc.Text("TextFileStatusChars")} · {GameUtils.FormatBytes(size)}";
+        string text =
+            $"{FormatEncodingDisplay()} · {lines} {Loc.Text("TextFileStatusLines")} · {chars} {Loc.Text("TextFileStatusChars")}";
+        if (_filePath != null)
+        {
+            long size = 0;
+            try { size = new FileInfo(_filePath).Length; } catch { }
+            text += $" · {GameUtils.FormatBytes(size)}";
+        }
+        StatusTextBlock.Text = text;
     }
 
     /// <summary>编码名按惯例显示：utf-8 → UTF-8、gb18030 → GB18030，而不是原始小写 WebName</summary>
@@ -316,17 +417,72 @@ public partial class TextFileWindow : QuickWindowBase
     {
         // Ctrl+F / Cmd+F：编辑模式下编辑器自己的 SearchPanel 先处理（Handled 后到不了这里）；
         // 到这说明是预览态或编辑器没接住——切回编辑再开搜索。
-        // macOS 的搜索习惯是 Cmd+F（KeyModifiers.Meta），所以 Ctrl 和 Meta 都认
-        bool searchShortcut = e.Key == Key.F
-            && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0;
-        if (searchShortcut)
+        // macOS 的搜索/打开/保存习惯是 Cmd（KeyModifiers.Meta），所以 Ctrl 和 Meta 都认
+        var cmd = e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta);
+        if (e.Key == Key.F && cmd != 0)
         {
             OpenSearchFromAnywhere();
             e.Handled = true;
             return;
         }
+        if (e.Key == Key.O && cmd != 0)
+        {
+            _ = OpenFileAsync();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.S && cmd != 0)
+        {
+            _ = TrySaveAsync();
+            e.Handled = true;
+            return;
+        }
 
         base.OnKeyDown(e);
+    }
+
+    /// <summary>整窗拖放（对照 ConversationView）：只在文件拖放时介入并亮起蒙版</summary>
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        bool isFile = e.DataTransfer.Formats.Any(f => f == DataFormat.File);
+        DropOverlay.IsVisible = isFile;
+        if (!isFile) return;
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e)
+    {
+        // DragLeave 是冒泡路由事件：指针在窗内跨过子控件边界也会冒上来，
+        // 只有真的离开整个窗口才收起蒙版，否则内部移动会反复闪烁
+        Point p = e.GetPosition(this);
+        if (p.X < 0 || p.Y < 0 || p.X > Bounds.Width || p.Y > Bounds.Height)
+            DropOverlay.IsVisible = false;
+    }
+
+    private async void OnDrop(object? sender, DragEventArgs e)
+    {
+        DropOverlay.IsVisible = false;
+        if (!e.DataTransfer.Formats.Any(f => f == DataFormat.File)) return;
+
+        foreach (var item in e.DataTransfer.Items)
+        {
+            if (item.TryGetRaw(DataFormat.File) is not IStorageItem storageItem) continue;
+            string? path = storageItem.TryGetLocalPath();
+            if (string.IsNullOrEmpty(path)) continue;
+            if (!TextFileOpenPolicy.IsSupported(path))
+            {
+                MessageService.ShowNotification(
+                    Loc.Text("TextFileUnsupportedType"), severity: MessageSeverity.Error);
+                return;
+            }
+
+            // 一次只开一个：编辑窗一份只装一份文档
+            await LoadFileAsync(path);
+            return;
+        }
+
+        e.Handled = true;
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -400,28 +556,37 @@ public partial class TextFileWindow : QuickWindowBase
         Dispatcher.UIThread.Post(TextView.OpenSearch, DispatcherPriority.ApplicationIdle);
     }
 
-    private async void SaveAsMenuItem_Click(object? sender, RoutedEventArgs e)
+    private async void OpenMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (_filePath == null) return;
-        var uri = await App.FilesService.SaveFileAsync(this, Path.GetFileName(_filePath));
-        if (uri == null) return; //用户取消
+        await OpenFileAsync();
+    }
 
-        try
-        {
-            await TextFileCodec.WriteTextAsync(uri.LocalPath, TextView.Text ?? string.Empty, _encoding, _hasBom, default);
-        }
-        catch (Exception ex)
+    private async void NewMenuItem_Click(object? sender, RoutedEventArgs e)
+    {
+        await NewEmptyAsync();
+    }
+
+    /// <summary>文件 / 打开：选文件走准入判定（扩展名白名单 + 大小上限），过了才装载</summary>
+    private async Task OpenFileAsync()
+    {
+        string[] filters = TextFileOpenPolicy.SupportedExtensions.Select(e => $"*.{e}").ToArray();
+        var file = await App.FilesService.OpenFileAsync(this, null, filters);
+        string? path = file?.TryGetLocalPath();
+        if (string.IsNullOrEmpty(path)) return; //用户取消
+
+        if (!TextFileOpenPolicy.IsSupported(path))
         {
             MessageService.ShowNotification(
-                $"{Loc.Text("TextFileSaveFailed")} {ex.Message}", severity: MessageSeverity.Error);
+                Loc.Text("TextFileUnsupportedType"), severity: MessageSeverity.Error);
             return;
         }
 
-        _filePath = uri.LocalPath;
-        _dirty = false;
-        RefreshDirtyState();
-        RefreshMenuStates();
-        MessageService.ShowNotification(Loc.Text("TextFileSaved"), severity: MessageSeverity.Success);
+        await LoadFileAsync(path);
+    }
+
+    private async void SaveAsMenuItem_Click(object? sender, RoutedEventArgs e)
+    {
+        await SaveAsAsync();
     }
 
     private async void SaveMenuItem_Click(object? sender, RoutedEventArgs e)

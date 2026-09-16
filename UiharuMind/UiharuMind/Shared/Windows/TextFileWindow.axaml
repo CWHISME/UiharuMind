@@ -47,6 +47,11 @@
             </StackPanel>
             <Menu VerticalAlignment="Center">
                 <MenuItem Header="{loc:Loc TextFileMenuFile}">
+                    <MenuItem Name="NewMenuItem" Header="{loc:Loc TextFileMenuNew}"
+                              InputGesture="Ctrl+N" Click="NewMenuItem_Click" />
+                    <MenuItem Name="OpenMenuItem" Header="{loc:Loc TextFileMenuOpen}"
+                              InputGesture="Ctrl+O" Click="OpenMenuItem_Click" />
+                    <Separator />
                     <MenuItem Name="SaveMenuItem" Header="{loc:Loc TextFileMenuSave}"
                               InputGesture="Ctrl+S" IsEnabled="False" Click="SaveMenuItem_Click" />
                     <MenuItem Name="SaveAsMenuItem" Header="{loc:Loc TextFileMenuSaveAs}" Click="SaveAsMenuItem_Click" />
@@ -81,6 +86,13 @@
                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,2,0,0"
                        TextTrimming="CharacterEllipsis" />
         </Border>
+
+        <!-- 拖放高亮：文件拖进来时整窗亮起，盖在一切之上但不拦事件；
+             可见性由 code-behind 按 DragOver/DragLeave/Drop 控制（对照 ConversationView） -->
+        <Rectangle Name="DropOverlay" Grid.Row="0" Grid.RowSpan="4"
+                   Margin="2" RadiusX="8" RadiusY="8"
+                   Fill="#1F2F81F7" Stroke="#2F81F7" StrokeThickness="2" StrokeDashArray="8,4"
+                   IsHitTestVisible="False" IsVisible="False" />
     </Grid>
 
 </Window>

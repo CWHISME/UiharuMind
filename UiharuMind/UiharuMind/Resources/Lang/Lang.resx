@@ -3188,6 +3188,18 @@ Allow them?</value>
     <data name="TextFileMenuSaveAs" xml:space="preserve">
         <value>Save As...</value>
     </data>
+    <data name="TextFileMenuNew" xml:space="preserve">
+        <value>New</value>
+    </data>
+    <data name="TextFileMenuOpen" xml:space="preserve">
+        <value>Open...</value>
+    </data>
+    <data name="TextFileUntitled" xml:space="preserve">
+        <value>Untitled</value>
+    </data>
+    <data name="TextFileUnsupportedType" xml:space="preserve">
+        <value>File type not supported or file too large to edit here</value>
+    </data>
     <data name="TextFileMenuEdit" xml:space="preserve">
         <value>Edit</value>
     </data>
