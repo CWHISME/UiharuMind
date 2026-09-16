@@ -22,6 +22,13 @@ public partial class SearchViewModel : ViewModelBase
     private DispatcherTimer? _debounceTimer;
     private bool _isInitialized;
 
+    // 单 flight 串行:引擎(Glacier.Grep v1.0.0)没有取消接口,在途搜索停不下来,
+    // 自动搜索下每敲一个字符就会多起一个占满全核的扫描,几个叠在一起内存与 CPU 一起爆。
+    // 这里保证同一时间只有一个引擎搜索在跑,飞行中途的新请求只记一个"重跑"标志,
+    // 落地后用最新条件再跑一遍——旧结果永远不会反超盖掉新结果。
+    private bool _searchInFlight;
+    private bool _searchRerunRequested;
+
     [ObservableProperty] private string _searchQuery = string.Empty;
     [ObservableProperty] private bool _isContentMode;
     [ObservableProperty] private bool _isRegexMode;
@@ -85,6 +92,34 @@ public partial class SearchViewModel : ViewModelBase
     [RelayCommand]
     private async Task SearchAsync()
     {
+        // 飞行中有新请求:只标记重跑,不另起扫描(引擎停不下来,另起就是堆积)。
+        // 查询已清空的情况也走这条:本轮落地后重跑会走到下面的清空分支,最终状态是对的。
+        if (_searchInFlight)
+        {
+            _searchRerunRequested = true;
+            _searchCts?.Cancel(); // 能停的只有引擎返回后的映射循环,让它尽早退出
+            return;
+        }
+
+        _searchInFlight = true;
+        IsSearching = true;
+        try
+        {
+            do
+            {
+                _searchRerunRequested = false;
+                await RunSearchOnceAsync();
+            } while (_searchRerunRequested);
+        }
+        finally
+        {
+            _searchInFlight = false;
+            IsSearching = false;
+        }
+    }
+
+    private async Task RunSearchOnceAsync()
+    {
         if (string.IsNullOrWhiteSpace(SearchQuery))
         {
             Results.Clear();
@@ -95,8 +130,8 @@ public partial class SearchViewModel : ViewModelBase
 
         _searchCts?.Cancel();
         _searchCts = new CancellationTokenSource();
+        var searchCts = _searchCts; // 身份标记:落地时不是这一轮就丢掉,不让旧结果反超
 
-        IsSearching = true;
         HasNoResults = false;
         StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusSearching");
         Results.Clear();
@@ -108,7 +143,10 @@ public partial class SearchViewModel : ViewModelBase
                 IsContentMode,
                 IsRegexMode,
                 IsCaseSensitive,
-                _searchCts.Token);
+                searchCts.Token);
+
+            // 落地时已有更新的请求在排队:本轮结果已过期,直接丢掉,重跑会给出最新结果
+            if (_searchRerunRequested || !ReferenceEquals(_searchCts, searchCts)) return;
 
             // 失败要说出来。从前失败会伪装成一条搜索结果(目录不存在的提示串当文件名显示),
             // 或者被静默吞成"0 结果"——两种都让用户分不清"没搜到"和"没搜成"
@@ -134,11 +172,9 @@ public partial class SearchViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusCancelled");
-        }
-        finally
-        {
-            IsSearching = false;
+            // 被新一轮取代的取消不写状态,重跑会自己写"搜索中";只有顶层取消才算一次取消
+            if (!_searchRerunRequested)
+                StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusCancelled");
         }
     }
 

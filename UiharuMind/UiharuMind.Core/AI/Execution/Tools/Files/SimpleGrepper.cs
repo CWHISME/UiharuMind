@@ -71,8 +71,13 @@ public sealed class SimpleGrepper
     /// <param name="contextLines">命中行上下各带几行上下文</param>
     /// <param name="maxDepth">目录遍历最大深度（null 不限制）</param>
     /// <param name="fileGlobs">按<b>文件名</b>（不含路径）过滤，如 <c>*.cs</c>；null/空则不过滤</param>
-    /// <param name="path">搜索范围：目录（在其下递归搜）或单个文件（只搜它）；绝对路径直接用，相对路径拼工作区</param>
-    /// <param name="ct">取消令牌</param>
+    /// <param name="path">搜索范围：目录（在其下递归搜）或单文件（只搜它）；绝对路径直接用，相对路径拼工作区</param>
+    /// <param name="ct">
+    /// 取消令牌。<b>注意：Glacier.Grep v1.0.0 的 <c>SearchEngine</c> 没有取消接口，
+    /// 这个 token 只能中断引擎返回之后的转换循环，中断不了扫描本身</b>——调用方不要假设
+    /// "取消上一次搜索"真的停掉了上一次的 CPU/内存开销（见 SearchViewModel 的单 flight 串行，
+    /// 那才是防堆积的真正手段）。等引擎支持取消/限幅再把 token 透进去。
+    /// </param>
     /// <returns>命中列表与失败原因</returns>
     public async Task<GrepOutcome> SearchAsync(
         string query,

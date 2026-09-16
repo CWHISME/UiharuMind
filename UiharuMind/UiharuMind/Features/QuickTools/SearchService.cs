@@ -84,12 +84,15 @@ public class SearchService
             if (isContentMode)
             {
                 // 搜索根即搜索器的根,故不再另传 path:两者一致才能保证
-                // 回来的相对路径与界面拼接用的 CurrentDirectory 同一个基准
+                // 回来的相对路径与界面拼接用的 CurrentDirectory 同一个基准。
+                // contextLines 传 0:列表只渲染 Snippet 单行与行号,上下文行取了也显示不出来,
+                // 却要给每个命中多做 4 次字符串分配与两次全文件回扫(见 SearchEngine.GetContext*)。
+                // 模型那条路要上下文自己传(见 PermissiveFileAccessTools.Grep),这里不替它取。
                 GrepOutcome grep = await new SimpleGrepper(CurrentRoot).SearchAsync(
                     query,
                     isRegex,
                     caseSensitive,
-                    contextLines: 2,
+                    contextLines: 0,
                     maxDepth: null,
                     fileGlobs: null,
                     path: null,
@@ -113,12 +116,14 @@ public class SearchService
             if (glob.Failure != null) return new SearchOutcome([], glob.Failure, null);
 
             // 直接用结构化字段。从前这里靠剥 "[FILE] " 前缀取路径,
-            // 于是模型那侧一改渲染格式(比如追加文件大小)界面就静默坏掉
+            // 于是模型那侧一改渲染格式(比如追加文件大小)界面就静默坏掉。
+            // Snippet 只放文件大小:Path 行已经显示了相对路径,再把路径拼进 Snippet
+            // 就会同一条路径显示两遍(文件名模式下第二行与第三行重复)。
             return new SearchOutcome(glob.Entries.Select(entry => new SearchItem(
                 entry.Path,
                 Path.GetFileName(entry.Path),
                 0,
-                entry.IsDirectory ? entry.Path : $"{entry.Path}  ({GameUtils.FormatBytes(entry.SizeBytes)})",
+                entry.IsDirectory ? string.Empty : GameUtils.FormatBytes(entry.SizeBytes),
                 false
             )).ToList(), null, null);
         }

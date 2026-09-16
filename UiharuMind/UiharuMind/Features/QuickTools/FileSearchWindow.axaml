@@ -103,7 +103,8 @@
                                     <TextBlock Text="{Binding Path}" FontSize="11" Foreground="Gray"
                                                TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="{Binding Snippet}" FontSize="11" Foreground="Gray"
-                                               TextTrimming="CharacterEllipsis"/>
+                                               TextTrimming="CharacterEllipsis"
+                                               IsVisible="{Binding Snippet, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                 </StackPanel>
 
                                 <TextBlock Grid.Column="2"
