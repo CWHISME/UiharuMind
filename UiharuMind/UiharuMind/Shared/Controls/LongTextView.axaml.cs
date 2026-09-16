@@ -15,7 +15,9 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using System.IO;
+using AvaloniaEdit;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.Editing;
 using AvaloniaEdit.TextMate;
 using TextMateSharp.Grammars;
 using UiharuMind.Shared.Services;
@@ -36,6 +38,9 @@ public partial class LongTextView : UserControl
     private bool _scrollToTopPending; //在加载完成前请求过回顶，等 Loaded 补做
     private TextMate.Installation? _textMate; //装上才有高亮，不高亮时彻底卸掉
     private TextDocument? _highlightedDocument; //当前这份安装绑的是哪个文档，换文档要重装
+
+    /// <summary>文本被改动（含程序化设置）。可用于脏标记与菜单状态刷新</summary>
+    public event EventHandler? TextChanged;
 
     /// <summary>正文</summary>
     public static readonly StyledProperty<string?> TextProperty =
@@ -134,7 +139,12 @@ public partial class LongTextView : UserControl
         Editor.Options.AllowScrollBelowDocument = false;
         Editor.IsReadOnly = !IsEditable;
         Editor.WordWrap = WordWrap;
-        Editor.ShowLineNumbers = ShowLineNumbers;
+        // 行号边距不用上游 TextEditor.ShowLineNumbers 建:它 new 出来的 LineNumberMargin
+        // 首次 Measure 前 Render 会拿 EmSize=0 建 FormattedText,直接带崩应用(见 SafeLineNumberMargin)。
+        // 这里永置 false,边距由 EnsureLineNumberMargins 自建安全版,开关只切 IsVisible。
+        Editor.ShowLineNumbers = false;
+        EnsureLineNumberMargins();
+        ApplyLineNumbersVisibility();
         Editor.TextChanged += OnEditorTextChanged;
         // 跟底与滚轮的关系不能靠 PointerWheelChanged 冒泡:AvaloniaEdit 内部会把滚轮
         // 标记 handled,冒泡上不来。改挂 TextView.ScrollOffsetChanged——任何滚动来源
@@ -311,7 +321,7 @@ public partial class LongTextView : UserControl
         }
         else if (change.Property == ShowLineNumbersProperty)
         {
-            Editor.ShowLineNumbers = ShowLineNumbers;
+            ApplyLineNumbersVisibility();
         }
         else if (change.Property == SyntaxSourceNameProperty)
         {
@@ -390,6 +400,49 @@ public partial class LongTextView : UserControl
         return _sharedRegistryOptions;
     }
 
+    /// <summary>
+    /// 确保行号边距是自建的 <see cref="SafeLineNumberMargin"/> + 点线各一份,之后只切
+    /// <c>IsVisible</c>,永不经过上游 <see cref="TextEditor.ShowLineNumbers"/>
+    /// 的重建路径(新 margin 在首次 Measure 前 Render 会抛,见 <see cref="SafeLineNumberMargin"/>)。
+    /// 绑定复刻上游 TextEditor 的做法:行号前景与点线描边跟编辑器走,点线边距同理。
+    /// </summary>
+    private void EnsureLineNumberMargins()
+    {
+        var margins = Editor.TextArea?.LeftMargins;
+        if (margins == null) return;
+        for (int i = margins.Count - 1; i >= 0; i--)
+        {
+            if (margins[i] is LineNumberMargin && margins[i] is not SafeLineNumberMargin)
+            {
+                margins.RemoveAt(i);
+                if (i < margins.Count && DottedLineMargin.IsDottedLineMargin(margins[i]))
+                    margins.RemoveAt(i);
+            }
+        }
+        foreach (var margin in margins)
+            if (margin is SafeLineNumberMargin) return;
+        var numbers = new SafeLineNumberMargin();
+        var line = DottedLineMargin.Create();
+        margins.Insert(0, numbers);
+        margins.Insert(1, line);
+        numbers.Bind(TextBlock.ForegroundProperty, Editor[!TextEditor.LineNumbersForegroundProperty]);
+        line.Bind(Avalonia.Controls.Shapes.Shape.StrokeProperty, Editor[!TextEditor.LineNumbersForegroundProperty]);
+        line.Bind(Control.MarginProperty, Editor[!TextEditor.LineNumbersMarginProperty]);
+    }
+
+    /// <summary>行号开关只切自建边距的可见性,不重建(重建会踩上游 Render 先于 Measure 的坑)。</summary>
+    private void ApplyLineNumbersVisibility()
+    {
+        EnsureLineNumberMargins();
+        var margins = Editor.TextArea?.LeftMargins;
+        if (margins == null) return;
+        foreach (var margin in margins)
+        {
+            if (margin is SafeLineNumberMargin || DottedLineMargin.IsDottedLineMargin(margin))
+                margin.IsVisible = ShowLineNumbers;
+        }
+    }
+
     private void UninstallTextMate()
     {
         if (_textMate == null) return;
@@ -415,11 +468,45 @@ public partial class LongTextView : UserControl
 
     private void OnEditorTextChanged(object? sender, EventArgs e)
     {
+        // 先广播：宿主（脏标记、菜单状态）不依赖回写是否发生。
+        // 程序化换文档（ApplyText）也会走到这里，宿主用抑制标志自己挡
+        TextChanged?.Invoke(this, EventArgs.Empty);
+
         if (_isSyncingText || !IsEditable) return;
 
         _isSyncingText = true;
         SetCurrentValue(TextProperty, Editor.Document.Text);
         _isSyncingText = false;
+    }
+
+    /// <summary>撤销上一步编辑。可编辑档专用；只读档没有可撤销的操作</summary>
+    public void Undo() => Editor.Document?.UndoStack?.Undo();
+
+    /// <summary>重做被撤销的编辑。可编辑档专用</summary>
+    public void Redo() => Editor.Document?.UndoStack?.Redo();
+
+    /// <summary>当前文档撤销栈是否有可撤销项</summary>
+    public bool CanUndo => Editor.Document?.UndoStack?.CanUndo == true;
+
+    /// <summary>当前文档撤销栈是否有可重做项</summary>
+    public bool CanRedo => Editor.Document?.UndoStack?.CanRedo == true;
+
+    /// <summary>
+    /// 把视图滚到指定行并把光标放过去（内容搜索命中定位用）。
+    /// 行号越界按 1..LineCount 夹取。未 Loaded 时忽略（缓存窗口换源后会先回顶，
+    /// 定位请求总在 SetSource 之后发起，此时窗口通常已加载）
+    /// </summary>
+    /// <param name="lineNumber">1 起算的行号</param>
+    public void ScrollToLine(int lineNumber)
+    {
+        if (Editor.Document == null || !Editor.IsLoaded) return;
+        int line = Math.Clamp(lineNumber, 1, Editor.Document.LineCount);
+        ProgrammaticScroll(() =>
+        {
+            Editor.ScrollToLine(line);
+            Editor.CaretOffset = Editor.Document.GetOffset(new TextLocation(line, 1));
+            Editor.TextArea.Caret.BringCaretToView();
+        });
     }
 
     /// <summary>
@@ -437,10 +524,19 @@ public partial class LongTextView : UserControl
     /// 用的是 <see cref="AvaloniaEdit.TextEditor"/> 在 <c>OnApplyTemplate</c> 里<b>已经装好</b>的那一个。
     /// 千万别再调 <c>SearchPanel.Install</c>：它每调一次就新建一个面板<b>并注册一套按键绑定</b>，
     /// 结果是工具条按钮和 Ctrl+F 各开一个、两个面板叠在一起。
+    ///
+    /// 打开后必须 <c>Reactivate()</c> 聚焦搜索框：AvaloniaEdit 的 <c>RoutedCommand</c> 用静态
+    /// <see cref="AvaloniaEdit.RoutedCommand"/> 记住"当前焦点元素"，决定 <c>CanExecute</c> 从哪里
+    /// 向上冒泡找 <see cref="AvaloniaEdit.IRoutedCommandBindable"/>（SearchPanel 实现它，命令绑定
+    /// 挂在面板自己身上）。焦点留在编辑器时，冒泡向上永远不会经过下层的 SearchPanel，
+    /// 上一/下一/关闭按钮就全是 disabled——表现是"按钮点不了"。
     /// </summary>
     public void OpenSearch()
     {
-        Editor.SearchPanel?.Open();
+        var panel = Editor.SearchPanel;
+        if (panel == null) return;
+        panel.Open();
+        panel.Reactivate();
     }
 
     private void CopyButton_Click(object? sender, RoutedEventArgs e) => CopyAll();

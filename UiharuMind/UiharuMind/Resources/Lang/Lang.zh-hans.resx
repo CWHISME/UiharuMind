@@ -3163,4 +3163,67 @@
     <data name="SubAgentCopyIdTip" xml:space="preserve">
         <value>复制这次委派的编号，可用来让主代理点名续跑它</value>
     </data>
+    <data name="FileSearchCtxOpenEditor" xml:space="preserve">
+        <value>用编辑器打开</value>
+    </data>
+    <data name="TextFileMenuFile" xml:space="preserve">
+        <value>文件</value>
+    </data>
+    <data name="TextFileStatusLines" xml:space="preserve">
+        <value>行</value>
+    </data>
+    <data name="TextFileStatusChars" xml:space="preserve">
+        <value>字符</value>
+    </data>
+    <data name="TextFileMenuSave" xml:space="preserve">
+        <value>保存</value>
+    </data>
+    <data name="TextFileMenuSaveAs" xml:space="preserve">
+        <value>另存为</value>
+    </data>
+    <data name="TextFileMenuEdit" xml:space="preserve">
+        <value>编辑</value>
+    </data>
+    <data name="TextFileMenuUndo" xml:space="preserve">
+        <value>撤销</value>
+    </data>
+    <data name="TextFileMenuRedo" xml:space="preserve">
+        <value>重做</value>
+    </data>
+    <data name="TextFileMenuSearch" xml:space="preserve">
+        <value>查找 / 替换</value>
+    </data>
+    <data name="TextFileMenuView" xml:space="preserve">
+        <value>视图</value>
+    </data>
+    <data name="TextFileMenuPreview" xml:space="preserve">
+        <value>Markdown 预览</value>
+    </data>
+    <data name="TextFileMenuLineNumbers" xml:space="preserve">
+        <value>行号</value>
+    </data>
+    <data name="TextFileMenuSyntaxHighlight" xml:space="preserve">
+        <value>语法高亮</value>
+    </data>
+    <data name="TextFileCloseDirtyTitle" xml:space="preserve">
+        <value>未保存的更改</value>
+    </data>
+    <data name="TextFileCloseDirtyConfirm" xml:space="preserve">
+        <value>文件有未保存的更改，关闭前要保存吗？</value>
+    </data>
+    <data name="TextFileOpenWhileDirtyConfirm" xml:space="preserve">
+        <value>当前文件有未保存的更改，要先保存再打开新文件吗？</value>
+    </data>
+    <data name="TextFileOpenFailed" xml:space="preserve">
+        <value>打开文件失败</value>
+    </data>
+    <data name="TextFileSaveFailed" xml:space="preserve">
+        <value>保存文件失败</value>
+    </data>
+    <data name="TextFileSaved" xml:space="preserve">
+        <value>已保存</value>
+    </data>
+    <data name="TextFileFileMissing" xml:space="preserve">
+        <value>文件不存在</value>
+    </data>
 </root>

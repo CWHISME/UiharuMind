@@ -999,6 +999,132 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string FileSearchCtxOpenEditor {
+            get {
+                return ResourceManager.GetString("FileSearchCtxOpenEditor", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuFile {
+            get {
+                return ResourceManager.GetString("TextFileMenuFile", resourceCulture);
+            }
+        }
+        
+        public static string TextFileStatusLines {
+            get {
+                return ResourceManager.GetString("TextFileStatusLines", resourceCulture);
+            }
+        }
+        
+        public static string TextFileStatusChars {
+            get {
+                return ResourceManager.GetString("TextFileStatusChars", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuSave {
+            get {
+                return ResourceManager.GetString("TextFileMenuSave", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuSaveAs {
+            get {
+                return ResourceManager.GetString("TextFileMenuSaveAs", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuEdit {
+            get {
+                return ResourceManager.GetString("TextFileMenuEdit", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuUndo {
+            get {
+                return ResourceManager.GetString("TextFileMenuUndo", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuRedo {
+            get {
+                return ResourceManager.GetString("TextFileMenuRedo", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuSearch {
+            get {
+                return ResourceManager.GetString("TextFileMenuSearch", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuView {
+            get {
+                return ResourceManager.GetString("TextFileMenuView", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuPreview {
+            get {
+                return ResourceManager.GetString("TextFileMenuPreview", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuLineNumbers {
+            get {
+                return ResourceManager.GetString("TextFileMenuLineNumbers", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuSyntaxHighlight {
+            get {
+                return ResourceManager.GetString("TextFileMenuSyntaxHighlight", resourceCulture);
+            }
+        }
+        
+        public static string TextFileCloseDirtyTitle {
+            get {
+                return ResourceManager.GetString("TextFileCloseDirtyTitle", resourceCulture);
+            }
+        }
+        
+        public static string TextFileCloseDirtyConfirm {
+            get {
+                return ResourceManager.GetString("TextFileCloseDirtyConfirm", resourceCulture);
+            }
+        }
+        
+        public static string TextFileOpenWhileDirtyConfirm {
+            get {
+                return ResourceManager.GetString("TextFileOpenWhileDirtyConfirm", resourceCulture);
+            }
+        }
+        
+        public static string TextFileOpenFailed {
+            get {
+                return ResourceManager.GetString("TextFileOpenFailed", resourceCulture);
+            }
+        }
+        
+        public static string TextFileSaveFailed {
+            get {
+                return ResourceManager.GetString("TextFileSaveFailed", resourceCulture);
+            }
+        }
+        
+        public static string TextFileSaved {
+            get {
+                return ResourceManager.GetString("TextFileSaved", resourceCulture);
+            }
+        }
+        
+        public static string TextFileFileMissing {
+            get {
+                return ResourceManager.GetString("TextFileFileMissing", resourceCulture);
+            }
+        }
+        
         public static string ToolFullTextArguments {
             get {
                 return ResourceManager.GetString("ToolFullTextArguments", resourceCulture);

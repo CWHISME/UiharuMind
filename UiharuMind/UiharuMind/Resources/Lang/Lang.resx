@@ -3170,4 +3170,67 @@ Allow them?</value>
     <data name="SubAgentCopyIdTip" xml:space="preserve">
         <value>Copy this delegation id, so you can ask the agent to resume this exact sub-agent</value>
     </data>
+    <data name="FileSearchCtxOpenEditor" xml:space="preserve">
+        <value>Open in Editor</value>
+    </data>
+    <data name="TextFileMenuFile" xml:space="preserve">
+        <value>File</value>
+    </data>
+    <data name="TextFileStatusLines" xml:space="preserve">
+        <value>lines</value>
+    </data>
+    <data name="TextFileStatusChars" xml:space="preserve">
+        <value>chars</value>
+    </data>
+    <data name="TextFileMenuSave" xml:space="preserve">
+        <value>Save</value>
+    </data>
+    <data name="TextFileMenuSaveAs" xml:space="preserve">
+        <value>Save As...</value>
+    </data>
+    <data name="TextFileMenuEdit" xml:space="preserve">
+        <value>Edit</value>
+    </data>
+    <data name="TextFileMenuUndo" xml:space="preserve">
+        <value>Undo</value>
+    </data>
+    <data name="TextFileMenuRedo" xml:space="preserve">
+        <value>Redo</value>
+    </data>
+    <data name="TextFileMenuSearch" xml:space="preserve">
+        <value>Find / Replace</value>
+    </data>
+    <data name="TextFileMenuView" xml:space="preserve">
+        <value>View</value>
+    </data>
+    <data name="TextFileMenuPreview" xml:space="preserve">
+        <value>Markdown Preview</value>
+    </data>
+    <data name="TextFileMenuLineNumbers" xml:space="preserve">
+        <value>Line Numbers</value>
+    </data>
+    <data name="TextFileMenuSyntaxHighlight" xml:space="preserve">
+        <value>Syntax Highlighting</value>
+    </data>
+    <data name="TextFileCloseDirtyTitle" xml:space="preserve">
+        <value>Unsaved Changes</value>
+    </data>
+    <data name="TextFileCloseDirtyConfirm" xml:space="preserve">
+        <value>The file has unsaved changes. Save before closing?</value>
+    </data>
+    <data name="TextFileOpenWhileDirtyConfirm" xml:space="preserve">
+        <value>The current file has unsaved changes. Save before opening another file?</value>
+    </data>
+    <data name="TextFileOpenFailed" xml:space="preserve">
+        <value>Failed to open file</value>
+    </data>
+    <data name="TextFileSaveFailed" xml:space="preserve">
+        <value>Failed to save file</value>
+    </data>
+    <data name="TextFileSaved" xml:space="preserve">
+        <value>Saved</value>
+    </data>
+    <data name="TextFileFileMissing" xml:space="preserve">
+        <value>File not found</value>
+    </data>
 </root>

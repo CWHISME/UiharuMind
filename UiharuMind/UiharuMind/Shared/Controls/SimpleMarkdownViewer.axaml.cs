@@ -27,6 +27,8 @@ using TextMateSharp.Grammars;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
+using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -266,6 +268,13 @@ public partial class SimpleMarkdownViewer : UserControl
     }
 
     /// <summary>
+    /// 相对链接（<c>../xxx.md</c>、相对路径图片）的解析基目录。null 时相对链接不解析——
+    /// 聊天场景没有「文件所在目录」可言；文本文件窗打开 md 时给出文件目录，
+    /// 预览里的相对链接与图片因此能点开。
+    /// </summary>
+    public string? LinkBaseDirectory { get; set; }
+
+    /// <summary>
     /// 图片扩展名白名单。<b>按扩展名而非探测文件头</b>：点击要立刻有反应，
     /// 而读一遍文件头再决定开哪个窗口，在网络盘上就是一次可感知的卡顿
     /// </summary>
@@ -280,38 +289,75 @@ public partial class SimpleMarkdownViewer : UserControl
     /// </summary>
     private void OnLinkClick(object? sender, LinkClickedEventArgs e)
     {
-        Uri uri = e.HRef!;
+        Uri? href = e.HRef;
         try
         {
-            if (!uri.IsFile)
+            if (href == null) return;
+
+            if (href.IsAbsoluteUri)
             {
-                TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(uri);
+                if (!href.IsFile)
+                {
+                    TopLevel.GetTopLevel(this)?.Launcher.LaunchUriAsync(href);
+                    return;
+                }
+
+                OpenLocalFile(href.LocalPath);
                 return;
             }
 
-            string path = uri.LocalPath;
-            if (!File.Exists(path))
+            // 相对链接（如 ../maps/x.md#锚点）：聊天场景没有基目录，没有可解析的参照系，跳过；
+            // 文本文件窗给出文件目录后，基于它解析——相对 Uri 直接访问 IsFile 会抛
+            // "not supported for a relative URI"，所以先看 IsAbsoluteUri。
+            if (string.IsNullOrEmpty(LinkBaseDirectory))
             {
-                Log.Warning($"Link target not found: {path}");
+                Log.Warning($"Skip relative link without base directory: {href.OriginalString}");
                 return;
             }
 
-            if (ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
-            {
-                // 这张位图是我们现读的,交出去就不再碰——预览窗关闭时由它释放(见 UIManager 注释)
-                UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(path),
-                    horizontalAlignment: HorizontalAlignment.Center,
-                    verticalAlignment: VerticalAlignment.Center);
-                return;
-            }
+            // 锚点（#标题）不是路径的一部分，先剥掉再拼盘，否则 File.Exists 会把
+            // "x.md#锚点" 整个当文件名
+            string relative = href.OriginalString;
+            int hash = relative.IndexOf('#');
+            if (hash >= 0) relative = relative[..hash];
 
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            string full = Path.GetFullPath(Path.Combine(LinkBaseDirectory, relative));
+            OpenLocalFile(full);
         }
         catch (Exception ex)
         {
             //坏链接、缺文件、解码失败都不该把一次点击变成崩溃
-            Log.Warning($"Open link failed '{uri}': {ex.Message}");
+            Log.Warning($"Open link failed '{href?.OriginalString}': {ex.Message}");
         }
+    }
+
+    /// <summary>本地路径统一入口：文本文件进自家文本文件窗，图片走贴图窗，其余交系统打开</summary>
+    private void OpenLocalFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            Log.Warning($"Link target not found: {path}");
+            return;
+        }
+
+        if (ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+        {
+            // 这张位图是我们现读的,交出去就不再碰——预览窗关闭时由它释放(见 UIManager 注释)
+            UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(path),
+                horizontalAlignment: HorizontalAlignment.Center,
+                verticalAlignment: VerticalAlignment.Center);
+            return;
+        }
+
+        // 文本类文件用自家 TextFileWindow（md 默认预览、其余可编辑），
+        // 而不是交系统默认程序——我们自己的窗口看得懂 markdown
+        if (TextFileOpenPolicy.IsSupported(path))
+        {
+            TextFileWindow.Show(path);
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
 
     public void ForceSetText(string text)

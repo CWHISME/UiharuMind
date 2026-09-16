@@ -149,8 +149,22 @@ public partial class FileSearchWindow : UiharuWindowBase
     {
         var fullPath = Path.GetFullPath(Path.Combine(ViewModel.CurrentDirectory, item.Path));
 
-        tag ??= "OpenFile";
-        switch (tag)
+        string action = tag ?? "OpenDefault";
+        // 双击默认动作与右键「用编辑器打开」(OpenEditor) 同一条路：文本文件（白名单 + 大小限制）
+        // 进自家编辑窗，内容搜索命中时带着行号定位；否则退回系统打开。
+        // 右键「用系统打开」(OpenFile) 是纯系统打开，不走这里。
+        if (action is "OpenDefault" or "OpenEditor")
+        {
+            if (File.Exists(fullPath) && TextFileOpenPolicy.IsSupported(fullPath))
+            {
+                TextFileWindow.Show(fullPath, item.IsContentSearch ? item.LineNumber : null);
+                return;
+            }
+
+            action = "OpenFile";
+        }
+
+        switch (action)
         {
             case "OpenFile":
                 if (File.Exists(fullPath))

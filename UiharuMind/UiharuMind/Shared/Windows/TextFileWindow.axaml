@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="620"
+        Width="820"
+        Height="620"
+        x:Class="UiharuMind.Shared.Windows.TextFileWindow"
+        Title="TextFileWindow">
+
+    <!-- 形状沿用 FullTextWindow：自绘标题栏 + 拖动 + 关闭。下面多一条菜单栏 -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="10">
+        <Border Height="34" Background="Transparent" PointerPressed="InputElement_OnPointerPressed">
+            <DockPanel LastChildFill="False">
+                <TextBlock Name="TitleTextBlock" FontSize="15" FontWeight="SemiBold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right"
+                        HorizontalAlignment="Right" Click="CloseButton_Click" />
+            </DockPanel>
+        </Border>
+
+        <!-- 菜单栏：文件 / 编辑 / 视图。撤回与重做不挂快捷键，编辑框里 AvaloniaEdit
+             自己的 Ctrl+Z / Ctrl+Y 优先。工具按钮排放在这一行右侧、关闭按钮正下方
+             （复制 / 换行 / 搜索 / markdown 预览，与 FullTextWindow 同一套；
+             预览对任意文本文件可用，md/markdown 打开时默认就是预览态） -->
+        <DockPanel Grid.Row="1" Margin="0,2,0,4">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                        Margin="0,0,4,0" VerticalAlignment="Center">
+                <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="copy"
+                                  ToolTip.Tip="{loc:Loc LongTextCopyAll}"
+                                  Click="CopyButton_Click" />
+                <ThemedIconToggleButton Name="WordWrapButton" Width="24" Height="24" Focusable="False"
+                                        IconName="text-wrap"
+                                        ToolTip.Tip="{loc:Loc LongTextWordWrap}"
+                                        CheckedForeground="{DynamicResource SemiBlue5}"
+                                        Click="WordWrapButton_Click" />
+                <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="search"
+                                  ToolTip.Tip="{loc:Loc LongTextSearch}"
+                                  Click="SearchButton_Click" />
+                <ThemedIconToggleButton Name="PreviewButton" Width="24" Height="24" Focusable="False"
+                                        IconName="image"
+                                        ToolTip.Tip="{loc:Loc TextFileMenuPreview}"
+                                        CheckedForeground="{DynamicResource SemiBlue5}"
+                                        Click="PreviewButton_Click" />
+            </StackPanel>
+            <Menu VerticalAlignment="Center">
+                <MenuItem Header="{loc:Loc TextFileMenuFile}">
+                    <MenuItem Name="SaveMenuItem" Header="{loc:Loc TextFileMenuSave}"
+                              InputGesture="Ctrl+S" IsEnabled="False" Click="SaveMenuItem_Click" />
+                    <MenuItem Name="SaveAsMenuItem" Header="{loc:Loc TextFileMenuSaveAs}" Click="SaveAsMenuItem_Click" />
+                </MenuItem>
+                <MenuItem Header="{loc:Loc TextFileMenuEdit}">
+                    <MenuItem Name="UndoMenuItem" Header="{loc:Loc TextFileMenuUndo}" Click="UndoMenuItem_Click" />
+                    <MenuItem Name="RedoMenuItem" Header="{loc:Loc TextFileMenuRedo}" Click="RedoMenuItem_Click" />
+                </MenuItem>
+                <MenuItem Header="{loc:Loc TextFileMenuView}">
+                    <MenuItem Name="LineNumbersMenuItem" Header="{loc:Loc TextFileMenuLineNumbers}"
+                              ToggleType="CheckBox" IsChecked="True" Click="LineNumbersMenuItem_Click" />
+                    <MenuItem Name="SyntaxMenuItem" Header="{loc:Loc TextFileMenuSyntaxHighlight}"
+                              ToggleType="CheckBox" IsChecked="True" Click="SyntaxMenuItem_Click" />
+                </MenuItem>
+            </Menu>
+        </DockPanel>
+
+        <!-- 编辑态与预览态叠在同一片区域，切模式只改可见性：
+             编辑 Document 不销毁，撤销栈与滚动位置跨预览切换保留 -->
+        <Grid Grid.Row="2">
+            <LongTextView Name="TextView" IsEditable="True" IsToolbarVisible="False" ShowLineNumbers="True" />
+            <ScrollViewer Name="PreviewHost" IsVisible="False"
+                          Background="{DynamicResource CodeBlockContentBackgroundBrush}">
+                <controls:SimpleMarkdownViewer Name="MarkdownViewer" Margin="8" />
+            </ScrollViewer>
+        </Grid>
+
+        <!-- 底部状态栏：编码 / 行数 / 字符数 / 文件大小，文字右下角（仅文字往下微调，不撑高底栏） -->
+        <Border Grid.Row="3" Margin="0,0,0,0" Padding="6,6,0,-2"
+                Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="4">
+            <TextBlock Name="StatusTextBlock" FontSize="11" Foreground="Gray"
+                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,2,0,0"
+                       TextTrimming="CharacterEllipsis" />
+        </Border>
+    </Grid>
+
+</Window>

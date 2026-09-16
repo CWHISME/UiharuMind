@@ -103,7 +103,7 @@ public static class AgentToolPrompts
         StringBuilder sb = new();
         sb.AppendLine(
             $"你的草稿目录是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
-            "以及不该进项目的中间文件，都放这里，不要散进项目里。");
+            "以及不该进项目的中间文件(例如临时 git clone 源码)，都放这里，不要散进项目里。");
         if (fileAccessMounted)
         {
             sb.AppendLine("用 `Write`/`Edit` 写这里不需要审批。");

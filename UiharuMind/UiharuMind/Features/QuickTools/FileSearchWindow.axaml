@@ -89,6 +89,7 @@
                             <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent">
                                 <Grid.ContextMenu>
                                     <ContextMenu>
+                                        <MenuItem Header="{loc:Loc FileSearchCtxOpenEditor}" Tag="OpenEditor" Click="OnContextMenuItemClick"/>
                                         <MenuItem Header="{loc:Loc FileSearchCtxOpenFile}" Tag="OpenFile" Click="OnContextMenuItemClick"/>
                                         <MenuItem Header="{loc:Loc FileSearchCtxOpenDir}" Tag="OpenDir" Click="OnContextMenuItemClick"/>
                                     </ContextMenu>
