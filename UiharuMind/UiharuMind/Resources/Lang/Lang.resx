@@ -3245,4 +3245,13 @@ Allow them?</value>
     <data name="TextFileFileMissing" xml:space="preserve">
         <value>File not found</value>
     </data>
+    <data name="RadialMenuFileSearch" xml:space="preserve">
+        <value>File Search</value>
+    </data>
+    <data name="RadialMenuHome" xml:space="preserve">
+        <value>Home</value>
+    </data>
+    <data name="RadialMenuTextEditor" xml:space="preserve">
+        <value>Text Editor</value>
+    </data>
 </root>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Features.Conversation;
@@ -16,6 +17,7 @@ namespace UiharuMind.Features.QuickTools
         public RadialMenuModel()
         {
             _menuItems = new ObservableCollection<MenuItemModel>();
+            LocalizationManager.Instance.LanguageChanged += RefreshLocalizedTexts;
             InitializeMenuItems();
         }
 
@@ -23,35 +25,26 @@ namespace UiharuMind.Features.QuickTools
 
         private void InitializeMenuItems()
         {
-            _menuItems.Add(new MenuItemModel
-            {
-                Icon = "search",
-                Text = "文件搜索",
-                Action = () => UIManager.ShowWindow<FileSearchWindow>()
-            });
+            _menuItems.Clear();
+            AddMenuItem("search", "RadialMenuFileSearch", () => UIManager.ShowWindow<FileSearchWindow>());
+            AddMenuItem("message-circle-more", "Ask", () => QuickStartChatWindow.Show());
+            AddMenuItem("house", "RadialMenuHome", () => App.DummyWindow.LaunchMainWindow());
+            // 直接开空文档（普通编辑器行为）：选文件/拖拽都在窗内做，
+            // 不在轮盘里弹文件框——之前 picker 的 owner 会落到正在收起的轮盘上所以打不开
+            AddMenuItem("file-text", "RadialMenuTextEditor", TextFileWindow.ShowEmpty);
+        }
 
-            _menuItems.Add(new MenuItemModel
-            {
-                Icon = "message-circle-more",
-                Text = "询问",
-                Action = () => QuickStartChatWindow.Show()
-            });
+        private void AddMenuItem(string icon, string textKey, Action action)
+        {
+            var item = new MenuItemModel { Icon = icon, TextKey = textKey, Action = action };
+            item.RefreshText();
+            _menuItems.Add(item);
+        }
 
-            _menuItems.Add(new MenuItemModel
-            {
-                Icon = "house",
-                Text = "主页",
-                Action = () => App.DummyWindow.LaunchMainWindow()
-            });
-
-            _menuItems.Add(new MenuItemModel
-            {
-                Icon = "file-text",
-                Text = "文本文件",
-                // 直接开空文档（普通编辑器行为）：选文件/拖拽都在窗内做，
-                // 不在轮盘里弹文件框——之前 picker 的 owner 会落到正在收起的轮盘上所以打不开
-                Action = () => TextFileWindow.ShowEmpty()
-            });
+        /// <summary>语言切换后按当前语言重取轮盘文案</summary>
+        private void RefreshLocalizedTexts()
+        {
+            foreach (var item in _menuItems) item.RefreshText();
         }
 
         public void ExecuteAction(MenuItemModel menuItem)
@@ -60,13 +53,25 @@ namespace UiharuMind.Features.QuickTools
         }
     }
 
-    public class MenuItemModel
+    public class MenuItemModel : ViewModelBase
     {
-        // 三个属性全部在对象初始化器里赋值（见 InitializeMenuItems），非空但默认置 null
+        // Icon/TextKey/Action 全部在对象初始化器里赋值（见 InitializeMenuItems），非空但默认置 null
         public string Icon { get; set; } = null!;
-        public string Text { get; set; } = null!;
+        public string TextKey { get; set; } = null!;
         public Action Action { get; set; } = null!;
 
+        private string _text = null!;
+
+        /// <summary>轮盘扇区文案；语言切换时由 <see cref="RefreshText"/> 按当前语言重取</summary>
+        public string Text
+        {
+            get => _text;
+            private set => SetProperty(ref _text, value);
+        }
+
         public ICommand ActionCommand => new RelayCommand(() => Action?.Invoke());
+
+        /// <summary>按当前语言重取文案（构造与语言切换时调用）</summary>
+        public void RefreshText() => Text = Loc.Text(TextKey);
     }
 }

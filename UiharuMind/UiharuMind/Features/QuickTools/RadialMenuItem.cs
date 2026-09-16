@@ -74,17 +74,26 @@ namespace UiharuMind.Features.QuickTools
         protected override void OnPointerEntered(PointerEventArgs e)
         {
             base.OnPointerEntered(e);
-            IsHovered = true;
-            SliceFill = new SolidColorBrush(_hoverColor);
+            SetHovered(true);
             AnimateScaleTo(1.05);
         }
 
         protected override void OnPointerExited(PointerEventArgs e)
         {
             base.OnPointerExited(e);
-            IsHovered = false;
-            SliceFill = new SolidColorBrush(_normalColor);
+            SetHovered(false);
             AnimateScaleTo(1.0);
+        }
+
+        /// <summary>
+        /// 设置悬停态。指针进出走这里；轮盘重开前清空旧悬停态（窗口隐藏不触发 PointerExited）也用它
+        /// </summary>
+        /// <param name="hovered">是否悬停</param>
+        public void SetHovered(bool hovered)
+        {
+            if (IsHovered == hovered) return;
+            IsHovered = hovered;
+            SliceFill = new SolidColorBrush(hovered ? _hoverColor : _normalColor);
         }
 
         private void UpdateThemeColors()

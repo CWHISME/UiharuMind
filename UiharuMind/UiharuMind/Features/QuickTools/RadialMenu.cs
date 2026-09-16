@@ -53,6 +53,16 @@ namespace UiharuMind.Features.QuickTools
             return null;
         }
 
+        /// <summary>清空所有扇区的悬停态。窗口隐藏不会触发 PointerExited，重开前不清会沿用上一趟的悬停项</summary>
+        public void ResetHoverStates()
+        {
+            if (_container == null) return;
+            foreach (var child in _container.Children)
+            {
+                if (child is RadialMenuItem item) item.SetHovered(false);
+            }
+        }
+
         private void GenerateItems()
         {
             if (_container == null || ItemsSource == null) return;
