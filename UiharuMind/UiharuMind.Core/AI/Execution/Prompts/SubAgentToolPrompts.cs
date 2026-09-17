@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -36,11 +36,37 @@ public static class SubAgentToolPrompts
     /// <summary>派活工具 agent 参数说明（点名花名册子智能体）</summary>
     public const string AgentParam = "Which mounted agent to run. Omit it for the default agent.";
 
-    /// <summary>派活工具 role 参数说明（身份/职业）</summary>
+    /// <summary>
+    /// 派活工具 role 参数说明（身份/职业）。
+    ///
+    /// 从前末尾还有一句 "Ignored when `agent` names a mounted agent." ——<b>那是假的</b>：
+    /// <c>SubAgentTool.Launch</c> 无条件 <c>NormalizeRole</c> 并钉在子会话上，装配侧也无条件
+    /// 输出身份句。点名一个角色卡、再给它本次侧重，本就是有意义的组合，不该丢；
+    /// 该修的是那句话，不是那个行为。两者同时在场时谁压谁，由提示词明确表态
+    /// （见 <c>SubAgentPrompts.RoleOverPersona</c>）。
+    /// </summary>
     public const string RoleParam =
         "Optional short role for the agent (e.g. 'senior C# reviewer' or a name). " +
         "Used as the session title and injected into its identity. " +
-        "Ignored when `agent` names a mounted agent.";
+        "It sets what the agent attends to and how it judges trade-offs, not what it is capable of. " +
+        "Works together with `agent`: the named agent keeps its own persona, " +
+        "and this role is the emphasis for this run.";
+
+    /// <summary>
+    /// 派活工具 model 参数说明。
+    ///
+    /// <b>刻意不给模型清单</b>（既不拼进工具描述，也不另开一个 ListModels 工具，见 ADR 0031）：
+    /// 常规路由由设置页那两档默认解决，而"这一趟该换个模型"的判断依据
+    /// （哪个强、哪个便宜、哪个上下文长）本就不在一串名字里。名字由用户投喂——
+    /// 会话页模型下拉上有复制按钮。
+    ///
+    /// 名字错了不会炸：解析不到就回退默认，并在回执里说一声。
+    /// </summary>
+    public const string ModelParam =
+        "Optional exact model name to use for this run (as shown in the app's model list). " +
+        "Omit it to use the configured default. " +
+        "If the name is unknown or that model is not running, the run falls back to the default " +
+        "and the receipt says so.";
 
     /// <summary>花名册提示（追加在工具描述之后）</summary>
     public const string RosterHeading =

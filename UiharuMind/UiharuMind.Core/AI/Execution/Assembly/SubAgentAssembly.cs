@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
@@ -16,8 +15,8 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.Configs;
@@ -28,8 +27,11 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// 子代理那一摊：输入契约、工具创建、框架选项与提示词。
 ///
 /// 独立成文件是因为它是<b>一个完整的小装配</b>——自己的能力交集规则、自己的权限边界、
-/// 自己的提示词体例，与主代理的装配只共享工作目录与工作区规矩这两样输入。
-/// 混在工厂里时，这 200 行是「工厂到底有多大」里最难辨认的一块。
+/// 自己的身份与协作口径。混在工厂里时，这 200 行是「工厂到底有多大」里最难辨认的一块。
+///
+/// <b>工具纪律不在这里</b>：那一张段落清单两档共用（<see cref="ToolDisciplineSections"/>）。
+/// 从前这边手写一套、主代理那边手写另一套，差异不是设计而是漂移——
+/// 子代理拿着 Edit/Write 却从没收到修改纪律，工作目录在一边排最前、在这边排最后。
 /// </summary>
 internal static class SubAgentAssembly
 {
@@ -392,15 +394,18 @@ internal static class SubAgentAssembly
                 input.WorkingDirectory,
                 AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName),
                 input.WorkspaceInstructions, input.McpInstructions,
-                input.Persona, input.Role, input.SubAgentProfile),
+                input.Persona, input.Role),
             Tools = tools,
         };
         return options;
     }
 
     /// <summary>
-    /// 子代理的系统提示:身份 + 权限边界 + 报告体例(按实际装配的工具集裁剪)
-    /// + 与主代理同一份工作区规矩。
+    /// 子代理的系统提示。段序：身份 → 工具纪律 → 工作循环 → 协作口径 → MCP 自述 → 工作区规矩。
+    /// <b>与主代理同构</b>——中间那段工具纪律逐字取自同一张清单，只有开关不同。
+    ///
+    /// 「# 工作循环」<b>点名的子智能体要跳过</b>：新建智能体时它已被预填进角色卡
+    /// （ADR 0004），再追加一份就是同一份提示词里出现两次。有不变量测试钉住。
     ///
     /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
     /// 本仓 AGENTS.md 头一条就是"有四层同名目录,用绝对路径别数相对层数",
@@ -424,106 +429,65 @@ internal static class SubAgentAssembly
         string shellBinary, bool canMutate, string pythonOutputDirectory,
         string workingDirectory, string outputRoomDirectory,
         string workspaceInstructions, string mcpInstructions,
-        string persona = "", string role = "", SubAgentProfile? subProfile = null)
+        string persona = "", string role = "")
     {
-        subProfile ??= SubAgentProfile.General;
-        StringBuilder sb = new();
-        // 点名的子智能体先说自己是谁(与主代理同一口径:人格在最前,见 ADR 0005),
-        // 随后才是"你是被派活的子代理"这套边界与体例
-        if (persona.Length > 0)
-        {
-            sb.AppendLine(persona.TrimEnd());
-            sb.AppendLine();
-        }
+        bool named = persona.Length > 0;
 
-        sb.AppendLine(AgentPromptHeadings.SubAgentRole);
-        sb.AppendLine(SubAgentPrompts.Role);
-        sb.AppendLine(subProfile.RoleHint);
+        // 身份段。点名的子智能体先说自己是谁(与主代理同一口径:人格在最前,见 ADR 0005),
+        // 且<b>不再跟一句"你是 UiharuMind 的一个代理"</b>——那是跟人格抢身份
+        // 身份段内部用单换行:全是短句,空行撑开既费 token 又让它看着像五段独立的话
+        List<string> identity = [];
+        if (!named) identity.Add(SubAgentPrompts.Role);
         if (role.Length > 0)
         {
-            sb.AppendLine($"你这次的身份：{role}。");
-        }
-        // 护栏句:本段整段中文,而子代理连一句用户原话都看不到,更容易被提示词的语言带跑
-        sb.AppendLine(AgentToolPrompts.LanguageNeutrality);
-        sb.AppendLine(AgentToolPrompts.ConcurrentCalls);
-        sb.AppendLine();
-        sb.AppendLine(AgentPromptHeadings.SubAgentMethod);
-        if (config.EnableFileAccess)
-        {
-            sb.AppendLine(SubAgentPrompts.MethodFileAccess(FileToolNames.Glob, FileToolNames.Grep, FileToolNames.Read));
-        }
-
-        if (config.EnableWebSearch)
-        {
-            sb.AppendLine(SubAgentPrompts.MethodWebSearch(WebSearchTool.ToolName, WebFetchTool.ToolName));
-        }
-
-        if (hasVision)
-        {
-            sb.AppendLine(SubAgentPrompts.MethodVision(VisionTool.ToolName));
+            identity.Add(SubAgentPrompts.RoleAssignment(role));
+            // 角色卡的长度与具体度都碾压那一句 role,不表态的话 role 会被压过去
+            if (named) identity.Add(SubAgentPrompts.RoleOverPersona);
         }
 
         // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
-        sb.AppendLine(canMutate
-            ? SubAgentPrompts.BoundaryCanMutate
-            : SubAgentPrompts.BoundaryReadOnly);
-        // 完全自动档的子代理拿的是同一个 Shell,不该是全场唯一不知道怎么用它的人
-        if (hasShell)
-        {
-            sb.AppendLine(AgentToolPrompts.BuildShell(config.EnableFileAccess, shellBinary));
-        }
+        identity.Add(canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly);
+        // 护栏句:子代理整份提示词都是中文,而它连一句用户原话都看不到,更容易被提示词的语言带跑。
+        // 挂在身份段而不是工具段,是因为工具段可能整段不出现,而这两句必须在
+        identity.Add(AgentToolPrompts.LanguageNeutrality);
+        identity.Add(AgentToolPrompts.ConcurrentCalls);
 
-        // 同一把 Shell 也跑 python。产出目录沿用派活者会话的(派活时固化在子会话上),
-        // 子代理的产出与主代理落在同一目录,报告里给绝对路径主代理可直接引用
-        if (hasShell && pythonOutputDirectory.Length > 0)
-        {
-            sb.AppendLine(AgentToolPrompts.BuildPython(config.EnableFileAccess));
-        }
+        PromptSectionList list = new();
+        list.Raw(named, persona);
+        list.Section(true, AgentPromptHeadings.SubAgentRole, string.Join("\n", identity));
 
-        // 审批通道存在(ADR 0021):子代理现在跑自己的轮次,需要审批的操作会问到用户那里。
-        // 不再写"不会有人替你批准"——那半句已不成立,留着会让子代理误以为权限问题必须绕开
-        sb.AppendLine(SubAgentPrompts.MethodAskForMissing);
-        sb.AppendLine(SubAgentPrompts.MethodDiscussion);
-        sb.AppendLine(SubAgentPrompts.MethodFocusedReply);
-        sb.AppendLine(SubAgentPrompts.MethodEndWithText);
-        sb.AppendLine();
-        sb.Append(AgentToolPrompts.AgentWorkLoop);
-
-        // 与主代理同一份措辞:子代理更需要这段,它连一句用户原话都看不到,
-        // 没有任何线索能反推出根目录在哪。段落正文经 AgentInstructionsComposer 共用,
-        // 这里只是没有 # 工具 那层外壳,故标题用一级
-        if (workingDirectory.Length > 0)
+        // 工具纪律与主代理共用同一张清单(段序、出现条件都在那一处定义)
+        list.Raw(true, ToolDisciplineSections.Build(new ToolDisciplineSections.ToolDisciplineFacts
         {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(AgentInstructionsComposer.WorkingDirectorySection(workingDirectory, "#"));
-        }
+            FileRead = config.EnableFileAccess,
+            // 探索档拿的是 disableWriteTools 裁过的那份:有 Glob/Grep/Read,没有 Edit/Write
+            FileWrite = config.EnableFileAccess && canMutate,
+            Shell = hasShell,
+            Python = hasShell && pythonOutputDirectory.Length > 0,
+            WebAccess = config.EnableWebSearch,
+            Vision = hasVision,
+            // 子代理不挂知识库工具,也不能再派子代理(防无限递归)
+            KnowledgeBase = false,
+            Delegation = false,
+            WorkingDirectory = workingDirectory,
+            OutputRoom = outputRoomDirectory,
+            // 记忆是主代理专有的:子代理拿的是一份任务书,不需要自己装载跨会话笔记(ADR 0028)
+            Memory = string.Empty,
+            ShellBinary = shellBinary,
+            ForSubAgent = true,
+        }, includeGuards: false));
 
-        // 草稿目录与主代理同一段正文。只在真有地方可写时出现:探索档无写工具又无 shell,
-        // 说了也只是指一个写不进去的目录;`Write`/`Edit` 那句另由写工具是否在场决定
-        if (outputRoomDirectory.Length > 0 && (hasShell || (config.EnableFileAccess && canMutate)))
-        {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.OutputRoom("#"));
-            sb.Append(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory));
-        }
+        // 工作循环:点名的子智能体<b>跳过</b>——新建智能体时这一段已被预填进它的角色卡
+        // (HomePageData.NewCharacterAsync),再追加一份就是同一份提示词里出现两次
+        list.Raw(!named, AgentToolPrompts.AgentWorkLoop);
+        list.Section(true, AgentPromptHeadings.SubAgentCollaboration, SubAgentPrompts.Collaboration);
 
         // 挂了 MCP 工具就得给对应的自述:只给签名不给用法,子代理照样不会用
-        if (canMutate && mcpInstructions.Length > 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(AgentInstructionsComposer.McpSection(mcpInstructions));
-        }
+        list.Raw(canMutate && mcpInstructions.Length > 0,
+            AgentInstructionsComposer.McpSection(mcpInstructions));
+        list.Raw(workspaceInstructions.Length > 0,
+            AgentInstructionsComposer.WorkspaceSection(workspaceInstructions));
 
-        if (workspaceInstructions.Length > 0)
-        {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.Append(AgentInstructionsComposer.WorkspaceSection(workspaceInstructions));
-        }
-
-        return sb.ToString();
+        return list.ToString();
     }
 }

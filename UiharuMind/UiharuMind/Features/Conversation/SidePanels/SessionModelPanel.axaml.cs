@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -141,7 +141,12 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
     // 增量同步条目：只增删，不重建——选中项引用全程稳定
     private void SyncOptions()
     {
-        _defaultOption.DisplayName = Loc.Text("SessionModelDefault");
+        // 默认项报出它此刻实际指向谁。光写"默认（跟随全局）"看不出跟的是哪个,
+        // 而这正是用户要复制模型名时最先看的那一行
+        string? followed = ResolveEffectiveName(null);
+        _defaultOption.DisplayName = string.IsNullOrEmpty(followed)
+            ? Loc.Text("SessionModelDefault")
+            : string.Format(Loc.Text("SessionModelDefaultFormat"), followed);
         if (!Options.Contains(_defaultOption)) Options.Insert(0, _defaultOption);
 
         HashSet<string> seen = new(StringComparer.Ordinal);

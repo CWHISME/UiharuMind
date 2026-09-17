@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -87,11 +87,26 @@
                     <!-- 元信息行:模型占剩余宽度(长名字自己截断),编号钉在右端,
                          两者都短时中间留白,不会互相挤 -->
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <!-- 模型跟随会话,当前会话用的模型在此处可见 -->
-                        <TextBlock Classes="muted"
-                                   Text="{Binding SessionModelLabel}"
-                                   TextTrimming="CharacterEllipsis" MaxLines="1"
-                                   IsVisible="{Binding SessionModelLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <!-- 模型跟随会话。这里从前是一行只读文本,换模型要去右栏面板——
+                             于是子会话窗口(它只嵌 ConversationView,没有右栏)根本换不了。
+                             现在「显示当前模型」与「换模型」是同一个控件:点开是同一份
+                             SessionModelPanel,右栏那两份已撤掉,一个值不再有两处能改 -->
+                        <!-- HorizontalAlignment=Left 不能省:text-row 此前只用在 Auto 宽度的槽里
+                             (会话编号那个),放进 * 列才暴露出内容是居中的,模型名会缩进一块 -->
+                        <Button Classes="text-row" Padding="0"
+                                HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                IsVisible="{Binding SessionModelLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Classes="muted"
+                                       Text="{Binding SessionModelLabel}"
+                                       TextTrimming="CharacterEllipsis" MaxLines="1" />
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedLeft">
+                                    <Border Width="320" Padding="0" ClipToBounds="True">
+                                        <panels:SessionModelPanel DataContext="{Binding SessionModel}" />
+                                    </Border>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                         <!-- 会话编号:ContinueSubAgent、日志与 Agent/Workspaces 房间目录认的都是它。
                              显示短写省地方,点一下复制的是全串(悬停可见) -->
                         <Button Grid.Column="1" Classes="text-row"

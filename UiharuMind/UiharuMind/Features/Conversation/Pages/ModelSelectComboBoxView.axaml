@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -39,6 +39,14 @@
                             <TextBlock Text="{Binding ModelName}"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
+                            <!-- 复制模型名:派活时 model 参数要一字不差,而名字多是长串
+                                 (qwen2.5-coder-32b-instruct-q4_k_m 这种),手抄必错。
+                                 放在每一行而不是只放选中项:真正要复制的往往正是"当前没在用的那个" -->
+                            <ThemedIconButton Classes="message-action"
+                                              IconName="copy"
+                                              VerticalAlignment="Center"
+                                              Click="OnCopyModelNameClick"
+                                              ToolTips="{loc:Loc Copy}" />
                         </StackPanel>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>

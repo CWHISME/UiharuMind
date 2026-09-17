@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -190,13 +190,23 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>
     /// 当前会话对应的模型名:会话覆写名(找不到时回落全局但保留名字) → 全局当前模型 →
-    /// 将被自动解析的偏好模型(未选模型时发送会走同一解析函数,显示与实际使用一致)
+    /// 将被自动解析的偏好模型(未选模型时发送会走同一解析函数,显示与实际使用一致)。
+    ///
+    /// 没有会话覆写时缀一个「默认」:光报一个名字看不出它是<b>这个会话钉的</b>还是
+    /// <b>跟着全局走的</b>,而这两件事的后续行为完全不同——后者会随用户换全局模型而变。
     /// </summary>
-    public string SessionModelLabel =>
-        CurrentSession?.ChatModelRunningData?.ModelName
-        ?? LlmManager.Instance.CurrentRunningModel?.ModelName
-        ?? LlmManager.Instance.GetPreferredModelName(false)
-        ?? string.Empty;
+    public string SessionModelLabel
+    {
+        get
+        {
+            string name = CurrentSession?.ChatModelRunningData?.ModelName
+                          ?? LlmManager.Instance.CurrentRunningModel?.ModelName
+                          ?? LlmManager.Instance.GetPreferredModelName(false)
+                          ?? string.Empty;
+            if (name.Length == 0 || !string.IsNullOrEmpty(CurrentSession?.SessionModelName)) return name;
+            return string.Format(Loc.Text("SessionModelDefaultFormat"), name);
+        }
+    }
 
     //================= 工具行图标态(Tag 驱动颜色 + 悬停提示当前值) =================
     // 文案与状态键全在 ConversationModeLabels,这里只是绑定用的转发
@@ -318,11 +328,19 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private const int ShortSessionIdLength = 8; //与 Agent/Workspaces 的房间目录后缀同宽
 
-    /// <summary>复制会话编号：显示的是短写，进剪贴板的是全串</summary>
+    /// <summary>
+    /// 复制会话编号：显示的是短写，进剪贴板的是全串。
+    ///
+    /// 复制完要弹一条:短写与全串不一样长,不给反馈的话用户分不清"点中了没有"——
+    /// 界面上没有任何东西会变
+    /// </summary>
     [RelayCommand]
     private void CopySessionId()
     {
-        if (SessionIdFull.Length > 0) App.Clipboard.CopyToClipboard(SessionIdFull, true);
+        if (SessionIdFull.Length == 0) return;
+        App.Clipboard.CopyToClipboard(SessionIdFull, true);
+        App.Services.GetRequiredService<IMessageService>()
+            .ShowNotification(Loc.Text("CopiedToClipboardTips"), severity: MessageSeverity.Success);
     }
 
     public bool IsExternallyDriven =>

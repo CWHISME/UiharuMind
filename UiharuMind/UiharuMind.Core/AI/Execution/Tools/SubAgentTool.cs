@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -165,7 +165,9 @@ public static class SubAgentTool
                 [Description(SubAgentToolPrompts.AgentParam)]
                 string? agent = null,
                 [Description(SubAgentToolPrompts.RoleParam)]
-                string? role = null) => Launch(context, task, agent, role),
+                string? role = null,
+                [Description(SubAgentToolPrompts.ModelParam)]
+                string? model = null) => Launch(context, task, agent, role, model),
             context.Profile.ToolName,
             description);
     }
@@ -187,7 +189,8 @@ public static class SubAgentTool
             SubAgentToolPrompts.ContinueDescription);
     }
 
-    private static string Launch(LaunchContext context, string task, string? agent, string? role = null)
+    private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
+        string? model = null)
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: task must not be empty.";
 
@@ -203,6 +206,7 @@ public static class SubAgentTool
         }
 
         string? normalizedRole = NormalizeRole(role);
+        ModelChoice modelChoice = ResolveSubAgentModelName(context.Profile, model);
         ChatSession session = new()
         {
             // 匿名子代理用内置的身份角色,不沿用派活者的——否则子会话窗口会顶着派活者的
@@ -220,12 +224,12 @@ public static class SubAgentTool
             SubAgentType = context.Profile.Type,
             SubAgentName = choice?.Name ?? string.Empty,
             SubAgentRole = normalizedRole ?? string.Empty,
-            SessionModelName = ResolveSubAgentModelName(context.Profile),
+            SessionModelName = modelChoice.Name,
         };
         SessionManager.Instance.Add(session);
         NoteStarted(context, session.SessionId);
 
-        return DispatchToBackground(context, session, task);
+        return DispatchToBackground(context, session, task, modelChoice.Notice);
     }
 
     private static string Continue(LaunchContext context, string subSessionId, string message)
@@ -254,11 +258,12 @@ public static class SubAgentTool
     /// <b>派活者的审批回应口不再尝试</b>：那一轮已经结束，恒定接不住（见 ADR 0025）。
     /// 嵌套审批直接登记到子会话，等用户去那边点选。
     /// </summary>
-    private static string DispatchToBackground(LaunchContext context, ChatSession session, string message)
+    private static string DispatchToBackground(LaunchContext context, ChatSession session, string message,
+        string notice = "")
     {
         bool attended = context.IsAttended;
         return BackgroundSubAgentDispatcher.Dispatch(session,
-            token => RunTurnAsync(session, message, attended, token));
+            token => RunTurnAsync(session, message, attended, token), notice);
     }
 
     /// <summary>
@@ -382,17 +387,56 @@ public static class SubAgentTool
     /// 本地模型无法热切换，于是天然落进这一支。
     /// </summary>
     /// <param name="profile">子代理档</param>
-    /// <returns>模型名；跟随派活者时为 null</returns>
-    private static string? ResolveSubAgentModelName(SubAgentProfile profile)
+    /// <param name="requested">派活方这一趟点名的模型；空则用设置页配的那档默认</param>
+    /// <returns>钉在子会话上的模型名，以及要随回执交代的那句话</returns>
+    private static ModelChoice ResolveSubAgentModelName(SubAgentProfile profile, string? requested = null)
     {
-        string name = profile.ResolveModelName(AgentSettingConfig.Current);
-        if (string.IsNullOrWhiteSpace(name)) return null;
-        if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? configured)) return null;
+        string? asked = NormalizeModel(requested);
+        if (asked == null) return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
+            string.Empty);
 
-        ModelRunningData? candidate = configured;
+        // 点名的压过设置页那档默认:那两项的语义是"默认用哪个",而这一趟点名是"这一趟用哪个"
+        if (PinnableModelName(asked) is { } pinned) return new ModelChoice(pinned, string.Empty);
+
+        // 回退了就必须说。这是派活方唯一能知道"我指定的模型没生效"的渠道——
+        // 模型名解析从不抛异常(查不到就静默回落全局),不说的话它会一直以为跑的是它点的那个
+        string reason = LlmManager.Instance.CacheModelDictionary.ContainsKey(asked)
+            ? $"model '{asked}' is not running"
+            : $"there is no model named '{asked}'";
+        return new ModelChoice(PinnableModelName(profile.ResolveModelName(AgentSettingConfig.Current)),
+            $"Note: {reason}, so this run uses the default model instead.");
+    }
+
+    /// <summary>
+    /// 一个模型名能不能钉上去：查得到、跑得起来、客户端已就绪才算。
+    ///
+    /// <b>绝不把一个永远不会就绪的模型钉上去</b>，那会让惰性客户端死等，
+    /// 表现是 "Model is not running"。本地模型无法热切换（一次只能跑一个，端口写死，
+    /// 且 <c>EnsureModelStarted</c> 对本地模型直接 return 不自动加载），于是天然落进这一支。
+    /// </summary>
+    /// <param name="name">模型名；空白直接算不可钉</param>
+    /// <returns>可钉时返回规范化后的模型名，否则 null</returns>
+    private static string? PinnableModelName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (!LlmManager.Instance.CacheModelDictionary.TryGetValue(name, out ModelRunningData? found)) return null;
+
+        ModelRunningData? candidate = found;
         if (!LlmManager.Instance.TryCheckModelRunning(false, ref candidate)) return null;
         return candidate is { ChatClient: not null } ? candidate.ModelName : null;
     }
+
+    /// <summary>模型名按 <c>ModelName</c> 全局唯一 key 认，只去掉空白与换行；空白视为未指定</summary>
+    private static string? NormalizeModel(string? model)
+    {
+        string? trimmed = model?.Replace("\r", string.Empty).Replace("\n", string.Empty).Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    /// <summary>派活时的模型决定</summary>
+    /// <param name="Name">钉在子会话上的模型名；跟随派活者/全局时为 null</param>
+    /// <param name="Notice">要随回执交代给派活方的那句话；无需交代时为空串</param>
+    private readonly record struct ModelChoice(string? Name, string Notice);
 
     /// <summary>匿名子代理用哪张身份卡</summary>
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>

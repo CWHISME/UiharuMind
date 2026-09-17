@@ -152,6 +152,9 @@
     <data name="SessionModelDefault" xml:space="preserve">
         <value>默认（跟随全局）</value>
     </data>
+    <data name="SessionModelDefaultFormat" xml:space="preserve">
+        <value>{0}（默认）</value>
+    </data>
     <data name="SessionModelOverrideBadge" xml:space="preserve">
         <value>会话专属</value>
     </data>

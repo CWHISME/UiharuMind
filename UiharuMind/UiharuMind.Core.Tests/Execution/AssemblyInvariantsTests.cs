@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
@@ -293,6 +293,10 @@ public class HarnessInstructionsCompositionTests
             // 这一项从前漏在这里:它默认为 true,于是这份"什么都没挂"的配置其实挂着 shell。
             // 从前看不出来是因为 shell 没有纪律段——它是唯一挂了工具却零指示的能力
             EnableShellExecution = false,
+            // 同一个坑的第二次:联网也默认为 true,而它从前同样没有纪律段
+            // (主代理挂了 WebSearch/WebFetch 却零指示)。段落清单两档共用之后它有了,
+            // 于是这份"什么都没挂"的配置又变成挂着联网
+            EnableWebSearch = false,
         };
 
         HarnessAgentOptions options = BuildAgentOptions(string.Empty, nothing);
@@ -477,7 +481,7 @@ public class HarnessInstructionsCompositionTests
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
         Assert.Contains(workingDirectory, instructions);
-        Assert.Contains(AgentToolPrompts.FileAccessDefault, instructions); //纪律段没吃掉工作目录段
+        Assert.Contains(AgentToolPrompts.FileReadDefault, instructions); //纪律段没吃掉工作目录段
     }
 
     /// <summary>
@@ -967,11 +971,103 @@ public class SubAgentBoundaryTests
         string instructions = SubAgentAssembly.BuildSubAgentOptions(input)!
             .ChatOptions!.Instructions!;
 
-        // 子代理的 Python 段本就没有独立标题(与主代理不同),只断正文；
-        // 房间 id8 恰出现两次：正文一次，派生出的 file URI 里一次——旧复述句消失
+        // 房间 id8 恰出现一次：草稿目录段正文里那一次。
+        // 子代理那份草稿目录段不再给 markdown 图片语法(它的正文不进用户对话,
+        // 交出去的是报告,展示归派活方),于是派生的 file URI 那一次也没有了
         Assert.Contains("pip install", instructions);
-        Assert.Equal(2, instructions.Split("12345678").Length - 1);
+        Assert.Equal(1, instructions.Split("12345678").Length - 1);
         Assert.DoesNotContain("写到这个目录", instructions);
+    }
+
+    /// <summary>
+    /// 同一段提示词<b>不得出现两次</b>。
+    ///
+    /// 这条曾经不成立，而且是静默的：新建智能体时工作循环那一段会被预填进角色卡
+    /// （<c>HomePageData.NewCharacterAsync</c> → <c>CharacterData.Template</c>，ADR 0004），
+    /// 而子代理装配又在末尾无条件追加同一份常量——于是点名一个子智能体时，
+    /// 「# 工作循环」在同一份系统提示里逐字出现两遍，每轮都多付一遍钱。
+    ///
+    /// 只断「不得两次」而<b>不断「必须一次」</b>：用户可以把角色卡改得面目全非，
+    /// 那时跳过追加是对的，强断存在反而会把合法用法判成错误。
+    /// </summary>
+    [Fact]
+    public void NamedSubAgent_DoesNotRepeatTheWorkLoop()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with
+            {
+                Persona = "I am the research specialist\n\n" + AgentToolPrompts.AgentWorkLoop,
+                Name = "Researcher",
+            });
+
+        string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
+        Assert.Equal(1, instructions.Split(AgentToolPrompts.AgentWorkLoop).Length - 1);
+    }
+
+    /// <summary>
+    /// 子代理的段序必须与主代理<b>同构</b>：路径事实排在所有纪律之前。
+    ///
+    /// 这条曾经不成立，而两边的说法是直接矛盾的——主代理侧注释写着
+    /// 「工作目录排在最前，后面每一段纪律都以路径怎么写为前提」，
+    /// 子代理侧却把工作目录放在整段 shell 纪律<b>之后</b>。
+    /// 两处各手写一套 <c>StringBuilder</c> 编排时，没有任何东西拦得住这种漂移。
+    /// </summary>
+    [Fact]
+    public void SubAgentInstructions_PutPathFactsBeforeDisciplines()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+                NewInput(mode: EAgentPermissionMode.FullAuto) with { ShellTool = StubShellTool() })!
+            .ChatOptions!.Instructions!;
+
+        int workingDirectory = instructions.IndexOf(AgentPromptHeadings.WorkingDirectory("##"),
+            StringComparison.Ordinal);
+        Assert.True(workingDirectory >= 0, "子代理必须有工作目录段");
+
+        foreach (string section in new[] { AgentPromptHeadings.FileOperations, AgentPromptHeadings.Shell })
+        {
+            int at = instructions.IndexOf(section, StringComparison.Ordinal);
+            Assert.True(at > workingDirectory, $"{section} 跑到了工作目录段之前");
+        }
+    }
+
+    /// <summary>
+    /// 探索档<b>只读</b>，所以它的提示词里不许出现写工具。
+    ///
+    /// 这条曾经不成立，而且缺口是双向的：探索档连一句文件纪律都拿不到
+    /// （上下文卫生、contextLines、limit=-1 全都没有），而通用档虽有 `Edit`/`Write`
+    /// 却同样拿不到修改纪律——它收到的 shell 纪律里反倒指名了 `Edit`。
+    /// 读、写两半拆开之后，两档各拿该拿的那半。
+    /// </summary>
+    [Fact]
+    public void ExplorerSubAgent_GetsReadDisciplineButNotWriteDiscipline()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+                NewInput(mode: EAgentPermissionMode.FullAuto) with
+                {
+                    SubAgentProfile = SubAgentProfile.Explorer,
+                })!
+            .ChatOptions!.Instructions!;
+
+        Assert.Contains(AgentPromptHeadings.FileOperations, instructions); //读那一半必须在
+        Assert.DoesNotContain(AgentPromptHeadings.FileModifications, instructions);
+        Assert.DoesNotContain("`Edit`", instructions);
+        Assert.DoesNotContain("`Write`", instructions);
+    }
+
+    /// <summary>
+    /// 反过来的一半：能改东西的子代理<b>必须</b>拿到修改纪律。
+    ///
+    /// 没有这条，<see cref="SubAgentInstructions_OnlyNameToolsThatExist"/> 会空转——
+    /// 写侧段落整个缺席时，「指名的工具都存在」当然成立，而缺席正是从前的缺陷本身。
+    /// </summary>
+    [Fact]
+    public void MutatingSubAgent_GetsWriteDiscipline()
+    {
+        string instructions = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: EAgentPermissionMode.FullAuto))!.ChatOptions!.Instructions!;
+
+        Assert.Contains(AgentPromptHeadings.FileModifications, instructions);
+        Assert.Contains(AgentToolPrompts.FileWriteDefault, instructions);
     }
 
     private static AITool StubShellTool() => AIFunctionFactory.Create((string command) => command,

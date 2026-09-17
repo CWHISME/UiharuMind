@@ -139,92 +139,26 @@ internal static class AgentInstructionsComposer
         string workingDirectory, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory)
     {
-        StringBuilder sb = new();
-
-        // 工作目录排在最前:后面每一段纪律都以"路径怎么写"为前提
-        if (workingDirectory.Length > 0)
+        // 段序与条件都归 ToolDisciplineSections 那一张清单,主代理与子代理共用。
+        // 这里只负责把"装配结果"翻译成清单认识的事实
+        return ToolDisciplineSections.Build(new ToolDisciplineSections.ToolDisciplineFacts
         {
-            sb.AppendLine(WorkingDirectorySection(workingDirectory, "##"));
-        }
-
-        // 草稿目录紧跟工作目录:同是"路径事实",且文件纪律段的"不要散进项目里"以它为前提。
-        // 只在真有地方可写时出现(文件工具或 shell 任一在场);`Write`/`Edit` 那句另由
-        // 写工具是否在场决定——shell 独占时没有这两个工具,指名它们违反不变量
-        if (outputRoomDirectory.Length > 0 &&
-            (config.EnableFileAccess || config.EnableShellExecution))
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.OutputRoom("##"));
-            sb.AppendLine(AgentToolPrompts.BuildOutputRoom(outputRoomDirectory));
-        }
-
-        // 记忆目录紧跟草稿目录:同是"路径事实"。只在回退档关闭(plan 已按新机制算好路径)
-        // 且有文件工具时出现——记忆靠 Read/Write/Edit/Glob 读写,没有专门的记忆工具(ADR 0028)
-        if (memoryDirectory.Length > 0 && config.EnableFileAccess)
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.Memory("##"));
-            sb.AppendLine(AgentToolPrompts.BuildMemory(memoryDirectory, config.EnableShellExecution));
-        }
-
-        // 各段正文可在设置页覆盖(空 = 用 AgentToolPrompts 默认),段落标题固定由此处统一挂
-        if (config.EnableFileAccess)
-        {
-            sb.AppendLine();
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.FileOperations);
-            sb.AppendLine(AgentToolPrompts.FileAccessDefault);
-        }
-
-        // shell 有自己的一节:它曾是唯一挂了工具却零指示的能力,而缺口的表现是模型
-        // 拿 Write 重写全文去做一次 mv(见 AgentToolPrompts.ShellDefault)
-        if (config.EnableShellExecution)
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.Shell);
-            sb.AppendLine(AgentToolPrompts.BuildShell(config.EnableFileAccess, shellBinary));
-
-            // Python 是 shell 的一个分项,不是独立能力(ADR 0019),故嵌在这个 if 里。
+            // 主代理的文件工具恒含写工具:只读裁剪是子代理探索档专有的
+            FileRead = config.EnableFileAccess,
+            FileWrite = config.EnableFileAccess,
+            Shell = config.EnableShellExecution,
             // 判据取环境是否真的就绪而非某个开关——告诉模型一个不存在的解释器,
             // 它会照着调然后白烧一次调用(同 ADR 0017"判据取装配结果"那条)
-            if (pythonInterpreter.Length > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine(AgentPromptHeadings.Python);
-                sb.AppendLine(AgentToolPrompts.BuildPython(config.EnableFileAccess));
-            }
-        }
-
-        if (config.EnableVisionTool && visionToolMounted)
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.Images);
-            sb.AppendLine(AgentToolPrompts.VisionToolDefault);
-        }
-
-        // 记忆段在草稿目录段之后(见上面 BuildToolDisciplines);此处只管知识库
-        if (config.EnableKnowledgeSearchTool)
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.KnowledgeBase);
-            sb.AppendLine(AgentToolPrompts.KnowledgeSearchDefault);
-        }
-
-        if (config.EnableSubAgent)
-        {
-            sb.AppendLine();
-            sb.AppendLine(AgentPromptHeadings.Delegation);
-            sb.AppendLine(AgentToolPrompts.SubAgentDefault);
-        }
-
-        //一项都没有就整段不出现:光挂一个空的父标题是纯噪声
-        if (sb.Length == 0) return string.Empty;
-
-        // 护栏句紧跟父标题:本段整段中文,而它每轮都发、体量压过用户那几句话,
-        // 不钉一句"别照着这段的语言回复",小模型的输出语言就会被拽向中文。
-        // 挂在这里而不是工作循环段,是因为那段会落进用户存档、用户删得掉(见 AgentToolPrompts)
-        return $"{AgentPromptHeadings.Tools}\n\n{AgentToolPrompts.LanguageNeutrality}\n" +
-               $"{AgentToolPrompts.ConcurrentCalls}\n\n" + sb;
+            Python = pythonInterpreter.Length > 0,
+            WebAccess = config.EnableWebSearch,
+            Vision = config.EnableVisionTool && visionToolMounted,
+            KnowledgeBase = config.EnableKnowledgeSearchTool,
+            Delegation = config.EnableSubAgent,
+            WorkingDirectory = workingDirectory,
+            OutputRoom = outputRoomDirectory,
+            Memory = memoryDirectory,
+            ShellBinary = shellBinary,
+        });
     }
 
     /// <summary>

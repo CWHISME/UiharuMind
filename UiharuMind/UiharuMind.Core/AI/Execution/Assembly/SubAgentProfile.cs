@@ -53,12 +53,10 @@ public sealed record SubAgentProfile
     /// </summary>
     public bool ForceReadOnly => Type == ESubAgentType.Explorer;
 
-    /// <summary>
-    /// 提示词侧重点：探索型强调"调研后回报"，通用型强调"执行任务要求的改动"。
-    /// </summary>
-    public string RoleHint => Type == ESubAgentType.Explorer
-        ? SubAgentPrompts.RoleHintExplorer
-        : SubAgentPrompts.RoleHintGeneral;
+    // 从前这里还有一个 RoleHint（「你只读：通览文件、搜代码…」/「你可以执行实际修改操作…」），
+    // 与 SubAgentPrompts.BoundaryReadOnly / BoundaryCanMutate 近乎逐字同义，
+    // 一个挂在「# 角色」、一个挂在「# 做法」，同一份提示词里把同一件事说了两遍。
+    // 已删：档位差异体现在 ForceReadOnly 上，边界那一句由装配侧按 canMutate 选。
 
     /// <summary>
     /// 各类型子代理用各自配置的模型,未配置时回退到主代理模型。

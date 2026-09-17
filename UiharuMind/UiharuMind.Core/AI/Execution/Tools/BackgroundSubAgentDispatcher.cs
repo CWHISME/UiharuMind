@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -277,8 +277,14 @@ public static class BackgroundSubAgentDispatcher
     /// </summary>
     /// <param name="subSession">这次委派的子会话（已 <c>SessionManager.Add</c>）</param>
     /// <param name="run">跑这次委派并返回报告；传入的令牌与派活者那一轮<b>无关</b>（见下）</param>
+    /// <param name="notice">
+    /// 这一次要额外交代的事实，目前只有「点名的模型没生效、已回退」一种。
+    /// <b>只在真的发生时才传</b>：回执是每次委派都付的钱，没发生的事不该占位。
+    /// 它排在 <c>[sub-session: …]</c> 之前——那一行是跨模块契约，必须留在最后一行
+    /// </param>
     /// <returns>当场返回给模型的工具结果</returns>
-    public static string Dispatch(ChatSession subSession, Func<CancellationToken, Task<string>> run)
+    public static string Dispatch(ChatSession subSession, Func<CancellationToken, Task<string>> run,
+        string notice = "")
     {
         string parentId = subSession.ParentSessionId ?? string.Empty;
         subSession.BackgroundReportPending = true;
@@ -297,6 +303,7 @@ public static class BackgroundSubAgentDispatcher
         return "Dispatched to the background. "
                + "NO RESULT YET - it has not found or done anything at this point. "
                + "Its report arrives on its own; do not poll for it.\n"
+               + (notice.Length > 0 ? notice + "\n" : string.Empty)
                + $"[sub-session: {subSession.SessionId}]";
     }
 

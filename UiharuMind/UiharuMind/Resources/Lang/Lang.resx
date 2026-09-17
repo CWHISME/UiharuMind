@@ -159,6 +159,9 @@
     <data name="SessionModelDefault" xml:space="preserve">
         <value>Default (follow global)</value>
     </data>
+    <data name="SessionModelDefaultFormat" xml:space="preserve">
+        <value>{0} (default)</value>
+    </data>
     <data name="SessionModelOverrideBadge" xml:space="preserve">
         <value>Session</value>
     </data>

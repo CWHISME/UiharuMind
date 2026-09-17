@@ -33,14 +33,29 @@ public static class AgentPromptHeadings
     /// <summary>记忆目录段的标题正文（不含级别前缀，见 <see cref="Memory"/>）</summary>
     public const string MemoryName = "记忆";
 
-    /// <summary>文件操作纪律段</summary>
+    /// <summary>文件读取纪律段</summary>
     public const string FileOperations = "## 文件操作";
+
+    /// <summary>
+    /// 文件修改纪律段。与 <see cref="FileOperations"/> 分开，是因为只读装配（探索档子代理、
+    /// 关掉写工具的主代理）拿不到 `Edit`/`Write`，而读那几条对它同样成立——
+    /// 从前两者并成一段，结果只读侧要么整段丢失（子代理连上下文卫生都没有），
+    /// 要么整段发出去（指名了不存在的工具）。
+    /// </summary>
+    public const string FileModifications = "## 文件修改";
 
     /// <summary>识图纪律段</summary>
     public const string Images = "## 图像";
 
     /// <summary>知识库检索纪律段</summary>
     public const string KnowledgeBase = "## 知识库";
+
+    /// <summary>
+    /// 联网纪律段。<b>主代理从前没有这一段</b>：它按 <c>EnableWebSearch</c> 挂了
+    /// WebSearch/WebFetch 两个工具却零指示，而子代理侧反倒有一句。
+    /// 段落清单两档共用之后，这个不对称自然消掉了。
+    /// </summary>
+    public const string WebAccess = "## 联网";
 
     /// <summary>命令行纪律段</summary>
     public const string Shell = "## 命令行";
@@ -60,8 +75,11 @@ public static class AgentPromptHeadings
     /// <summary>子代理的身份段</summary>
     public const string SubAgentRole = "# 角色";
 
-    /// <summary>子代理的做法段</summary>
-    public const string SubAgentMethod = "# 做法";
+    /// <summary>
+    /// 子代理的协作段。取代从前的「# 做法」：那一段把工具纪律与协作口径混成一摊裸 bullet，
+    /// 工具那部分现已归入 <see cref="Tools"/> 之下的各分节，剩下的才是这一段。
+    /// </summary>
+    public const string SubAgentCollaboration = "# 协作";
 
     /// <summary>
     /// 工作目录段的标题。级别<b>随装配形态而变</b>：主代理里它是「# 工具」的分项，

@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -34,6 +34,39 @@ public class SubAgentReceiptMarkerTests
         string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
 
         Assert.Equal("abc123def456", ToolCallItem.ParseSubSessionId(receipt));
+    }
+
+    /// <summary>
+    /// 回退告知必须<b>排在标记行之前</b>。
+    ///
+    /// 这条看着像排版，其实是上面那条契约的另一半：<c>ParseSubSessionId</c> 认的是末行，
+    /// 告知句要是缀在标记之后，「查看过程」入口会连同这次委派一起消失——
+    /// 而这个缺陷只在「模型名写错了」那条支路上才触发，实机上极难复现。
+    /// </summary>
+    [Fact]
+    public void Receipt_PutsTheFallbackNoticeBeforeTheMarker()
+    {
+        ChatSession session = SubSession("abc123def456");
+
+        string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty),
+            "Note: there is no model named 'gpt-4o', so this run uses the default model instead.");
+
+        Assert.Contains("no model named 'gpt-4o'", receipt);
+        Assert.Equal("abc123def456", ToolCallItem.ParseSubSessionId(receipt)); //标记仍认得出
+        Assert.True(receipt.IndexOf("no model named", StringComparison.Ordinal) <
+                    receipt.IndexOf("[sub-session:", StringComparison.Ordinal),
+            "回退告知跑到了标记行之后");
+    }
+
+    /// <summary>没发生回退就一个字都不加：回执是每次委派都付的钱</summary>
+    [Fact]
+    public void Receipt_SaysNothingExtra_WhenTheModelResolved()
+    {
+        ChatSession session = SubSession("abc123def456");
+
+        string receipt = BackgroundSubAgentDispatcher.Dispatch(session, _ => Task.FromResult(string.Empty));
+
+        Assert.DoesNotContain("Note:", receipt);
     }
 
     [Fact]

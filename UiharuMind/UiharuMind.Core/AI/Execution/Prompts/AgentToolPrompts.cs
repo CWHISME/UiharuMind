@@ -10,6 +10,7 @@
 using System.Text;
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.AI.Execution.Prompts;
 
@@ -94,14 +95,27 @@ public static class AgentToolPrompts
     /// 路径用双引号而目录名不用反引号：反引号专表工具名。
     /// </summary>
     /// <param name="roomDirectory">房间绝对路径</param>
+    /// <param name="forSubAgent">
+    /// 是否给子代理用。子代理与派活者<b>共用同一间房</b>，但它的正文不进用户对话——
+    /// 交出去的是一份报告，展示归派活者。给它 markdown 图片语法只会让它写出一段
+    /// 没人渲染的引用，而派活者真正需要的是一个能直接转引的绝对路径
+    /// </param>
     /// <returns>提示词段落正文</returns>
-    public static string BuildOutputRoom(string roomDirectory)
+    public static string BuildOutputRoom(string roomDirectory, bool forSubAgent = false)
     {
         StringBuilder sb = new();
         sb.AppendLine(
             $"你的草稿目录是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
             "以及不该进项目的中间文件(例如临时 git clone 源码)，都放这里，不要散进项目里。");
-        
+
+        if (forSubAgent)
+        {
+            sb.Append(
+                "- 要给人看的文件（图表、导出的数据），同样放这里，" +
+                "并在结论里写出它的绝对路径——展示由派活方负责，你只管产出和报路径。");
+            return sb.ToString().TrimEnd();
+        }
+
         // 要给用户看的文件是这段的另一半:对话正文按 markdown 渲染,本地文件图片
         // 走 file:// 才加载得出来。前缀直接给出,不让模型自己拼 URI
         // (Windows 上 C:\a\b 要变成 file:///C:/a/b,反斜杠与盘符两处都得改)。
@@ -145,14 +159,15 @@ public static class AgentToolPrompts
     /// <summary>
     /// 文件工具纪律段默认正文。
     ///
-    /// 三组内容，缺一组都会有实机症状：
+    /// 两组内容，缺一组都会有实机症状：
     /// <list type="number">
     /// <item>找文件的顺序（Glob/Grep/Read）——不说模型就上来先问用户"文件在哪"。</item>
-    /// <item>写文件用哪个工具、oldString 怎么给——新语义要求唯一匹配，不说这几条，
-    /// 模型会一处改动发一次调用，或者贴一整个方法当 oldString。</item>
-    /// <item>上下文卫生，<b>含"也不要读太少"那句刹车</b>——只说省着读，模型会只读二十行就动手，
-    /// 匹配失败再重试，一轮下来烧的比老实读一段更多。</item>
+    /// <item>上下文卫生——不说模型会把整个文件、整棵目录树拉进来。</item>
     /// </list>
+    ///
+    /// 写那一半在 <see cref="FileWriteDefault"/>。<b>分开是因为只读装配也要读</b>：
+    /// 探索档子代理有 `Glob`/`Grep`/`Read` 却没有 `Edit`/`Write`，从前两半并成一段，
+    /// 它要么整段拿不到（连上下文卫生都没有），要么整段拿到（被指名一个不存在的工具）。
     ///
     /// 这里<b>不再重复一句"不知道在哪就先搜"</b>：工作目录段结尾原先有同义的一句，
     /// 两段又是紧挨着发出去的，对小模型那不是强调而是噪声。留具体的那一句（点名了 `Glob`）。
@@ -163,21 +178,36 @@ public static class AgentToolPrompts
     /// 参数名（edits / oldString / offset / limit / contextLines）刻意<b>不加反引号</b>：
     /// 反引号在提示词里专表工具名，有不变量测试按这条约定校验。
     /// </summary>
-    public const string FileAccessDefault =
-        "- 用 `Glob` 找文件，用 `Grep` 搜文本；要改一个文件，先 `Read` 它。\n" +
+    public const string FileReadDefault =
+        "- 用 `Glob` 找文件，用 `Grep` 搜文本。\n" +
         "- 位置不清楚就先跑一次 `Glob`，不要回头问用户。\n" +
+        "- 上下文是你最稀缺的资源。绝不要把一整个大文件、未经过滤的目录清单、" +
+        "或者一次宽泛搜索的结果整个拉进来。\n" +
+        "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
+        "命中行加上它的上下文，往往就是你需要的全部。否则用 offset 和 limit 只 `Read` 需要的那一段。\n" +
+        "- 需要完整理解整个文件时，用 `Read` 传 limit=-1 一次读完。";
+
+    /// <summary>
+    /// 文件<b>修改</b>纪律段默认正文。只在写工具真的在场时发（见 <see cref="AgentPromptHeadings.FileModifications"/>）。
+    ///
+    /// 「先 `Read` 再改」留在这一侧而不是读那一侧：它是 <c>Edit</c> 的前置条件，
+    /// 没有写工具时说它等于指一件做不了的事。
+    ///
+    /// 「也不要读太少」那句刹车同理挂在这里——它的理由整条都是 oldString 要精确匹配。
+    /// 只说省着读、不说这句，模型会只读二十行就动手，匹配失败再重试，一轮下来烧的比老实读一段更多。
+    ///
+    /// 参数名（edits / oldString）刻意<b>不加反引号</b>：反引号在提示词里专表工具名，
+    /// 有不变量测试按这条约定校验。
+    /// </summary>
+    public const string FileWriteDefault =
+        "- 要改一个文件，先 `Read` 它。\n" +
         "- 改动已有文件用 `Edit`。`Write` 只用来新建文件，或者整体替换掉一个文件。\n" +
         "- 对同一个文件的所有改动放进一次 `Edit` 调用里，作为 edits 的多个条目。\n" +
         "- 每个 oldString 匹配的是文件当前的内容，不是你在同一次调用里前面那些条目的结果。" +
         "在仍然唯一的前提下把它写得越短越好——不要为了把两处相隔很远的改动连起来，" +
         "就塞进一大段没有改动的行。\n" +
-        "- 上下文是你最稀缺的资源。绝不要把一整个大文件、未经过滤的目录清单、" +
-        "或者一次宽泛搜索的结果整个拉进来。\n" +
-        "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
-        "命中行加上它的上下文，往往就是你需要的全部。否则用 offset 和 limit 只 `Read` 需要的那一段。\n" +
         "- 但也不要读太少：oldString 必须与文件完全一致，`Edit` 才会成功，" +
-        "所以要动的那一段就老实读完。猜的代价比读的代价高。\n" +
-        "- 需要完整理解整个文件时，用 `Read` 传 limit=-1 一次读完。";
+        "所以要动的那一段就老实读完。猜的代价比读的代价高。";
 
     /// <summary>
     /// 命令行工具纪律段正文。按<b>文件工具是否也在场</b>拼：
@@ -304,10 +334,25 @@ public static class AgentToolPrompts
         }
     }
 
-    /// <summary>识图工具纪律段默认正文</summary>
+    /// <summary>
+    /// 识图工具纪律段默认正文。
+    ///
+    /// 附件格式<b>用双引号而不是反引号</b>：反引号在提示词里专表工具名，
+    /// 有不变量测试按这条约定校验（「指名的工具必须真的在同一份工具集里」）。
+    /// 这里从前写的是反引号——主代理那份校验不到（要真工具集才能比对），
+    /// 子代理从前用的是另一句，于是这条违规一直活着，直到两档共用同一段才被撞出来。
+    /// </summary>
     public const string VisionToolDefault =
-        "- 附件是以 `[Attached file: <path>]` 的形式送到的。要看清一张图画的是什么，" +
+        "- 附件是以 \"[Attached file: <path>]\" 的形式送到的。要看清一张图画的是什么，" +
         "就拿那个路径调用 `ViewImage`。绝不要靠文件名去猜。";
+
+    /// <summary>
+    /// 联网工具纪律段默认正文。措辞沿用子代理侧原有的那一句——它本来就只说了
+    /// 「先搜再取正文」这一件事，而那恰好是两个工具的正确配合方式。
+    /// </summary>
+    public static readonly string WebAccessDefault =
+        $"- 查网上的资料用 `{WebSearchTool.ToolName}`，" +
+        $"再对看着有戏的结果用 `{WebFetchTool.ToolName}` 取正文。";
 
     /// <summary>知识库检索工具纪律段默认正文</summary>
     public const string KnowledgeSearchDefault =
@@ -327,18 +372,30 @@ public static class AgentToolPrompts
     /// 派出与结论之间隔着好几分钟（实测中位数 3 分钟），那段时间里它说的每句话都是在没有
     /// 任何调查结果的情况下说的。
     ///
+    /// ⚠️ 探索档那一条曾写死「只有 5 个工具（`Grep`/`Glob`/`Read`/`WebSearch`/`WebFetch`）」——
+    /// <b>两处都不成立</b>：工具集随能力配置变（关掉网络搜索就只剩三个），
+    /// 而 `WebSearch`/`WebFetch` 在 <c>EnableWebSearch</c> 关闭时根本没装配，
+    /// 那句话于是会指名两个不存在的工具（「反引号指名的工具必须真实存在」这条不变量
+    /// 从前只校验子代理侧，没管主代理这一段）。现在只说性质，不数数。
+    ///
     /// ⚠️ <b>与工具结果那句话分工</b>：这里说<b>政策</b>（派不派、派哪一档、后台意味着什么、
     /// 依赖它的事要等），因为模型在<b>决定调用之前</b>读到的只有这一段；
     /// 「这一次尚无结果」那条护栏归工具结果（<c>BackgroundSubAgentDispatcher.Dispatch</c>），
     /// 它紧挨着误读发生的那一刻。<b>两边都写整段就是固定开销与每次委派各付一遍钱。</b>
     /// </summary>
     public const string SubAgentDefault =
-        "- 无论是要通读大量材料、执行某个可以独立拆分的深入研究、与用户讨论达不到目标、或者是当前任务陷入僵局，都可以考虑派一个代理，这样能够从另一个视角得到方案和启发。，\n" +
+        "- 要通读大量材料、要做一项能独立拆开的深入调查、讨论卡住了、当前任务陷入僵局——" +
+        "这些都可以派一个代理，从另一个视角拿回方案和启发。\n" +
         "- 代理是你正在协作的对象，不是用完即弃的一次性任务：同一任务可以来回多轮——\n" +
         "  你追问、纠偏、补信息，它汇报进展、反问澄清，每一轮都保留此前全部上下文。\n" +
         "- 选哪一档只看一条：这一趟要不要改任何东西（文件、命令、MCP）。\n" +
         "  要改或拿不准：用 `" + SubAgentTool.ToolGeneralName + "`（默认，权限与你相同）。\n" +
-        "  确定只是查清楚、做讨论，且后续绝对不会涉及文件修改：用 `" + SubAgentTool.ToolExplorerName + "`，只读，只有 5 个工具（`Grep`/`Glob`/`Read`/`WebSearch`/`WebFetch`）。\n" +
+        "  确定只是查清楚、做讨论，且后续绝对不会涉及文件修改：用 `" + SubAgentTool.ToolExplorerName +
+        "`，它恒定只读，拿到的是你这批工具里只读的那些。\n" +
+        "- 需要某个特定视角时（评审、对抗性检验、领域专家），用 role 给它一个身份；\n" +
+        "  这会换掉它的关注点与取舍标准，不是换掉它的能力。\n" +
+        "- 用户给了确切的模型名，就用 model 把这一趟钉到那个模型上；名字要一字不差。\n" +
+        "  不清楚有哪些模型就别猜，问用户——你看不到模型列表。\n" +
         "- 委派是后台的：工具当场只回一张回执、不是报告。后续结论到了再作答；\n" +
         "  等的时候可以做不依赖它的事，依赖它的等报告。\n" +
         "- 继续、追问、讨论：用 `" + SubAgentTool.ToolContinueName + "`（认回执里 `[sub-session: …]` 编号）\n" +
