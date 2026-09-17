@@ -146,12 +146,13 @@ public partial class FileSearchWindow : UiharuWindowBase
 
         string action = tag ?? "OpenDefault";
         // 双击默认动作与右键「用编辑器打开」(OpenEditor) 同一条路：分流收在 FileOpener
-        // （文本进编辑窗、图片走贴图窗、其余走系统），内容搜索命中时带着行号定位。
-        // 只有超大或不存在才落到下面的 OpenFile 系统链。
+        // （编辑上限内进编辑窗、超编辑但在查看上限内进只读窗、图片走贴图窗、其余走系统），
+        // 内容搜索命中时带着行号定位（只读窗不支持行号定位，命中行号仅编辑窗用）。
+        // 只有超查看上限或不存在才落到下面的 OpenFile 系统链。
         // 右键「用系统打开」(OpenFile) 是纯系统打开，不走这里。
         if (action is "OpenDefault" or "OpenEditor")
         {
-            if (File.Exists(fullPath) && TextFileOpenPolicy.IsWithinEditLimit(fullPath))
+            if (File.Exists(fullPath) && TextFileOpenPolicy.IsSupported(fullPath))
             {
                 await FileOpener.OpenAsync(fullPath, item.IsContentSearch ? item.LineNumber : null);
                 return;

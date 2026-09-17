@@ -3229,6 +3229,9 @@
     <data name="TextFileFileMissing" xml:space="preserve">
         <value>文件不存在</value>
     </data>
+    <data name="TextFileReadOnlySuffix" xml:space="preserve">
+        <value>（只读）</value>
+    </data>
     <data name="RadialMenuFileSearch" xml:space="preserve">
         <value>文件搜索</value>
     </data>

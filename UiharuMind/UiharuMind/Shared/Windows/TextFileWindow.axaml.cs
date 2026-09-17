@@ -95,6 +95,33 @@ public partial class TextFileWindow : QuickWindowBase
     }
 
     /// <summary>
+    /// 轮盘入口：无可见窗时只把缓存的隐藏窗抬上来、不调 <see cref="NewEmptyAsync"/> 清内容；
+    /// 有可见窗或无任何实例时走 <see cref="ShowEmpty"/>（新建空文档）。
+    /// 刻意不用 LRU：复用 <see cref="UIManager"/> 现有的"第一个隐藏窗"顺序，随机复用可接受，
+    /// 省一个静态关闭栈的维护成本。
+    /// </summary>
+    public static void ShowLastOrEmpty()
+    {
+        bool anyVisible = false;
+        bool hasHidden = false;
+        foreach (UiharuWindowBase win in UIManager.GetWindows<TextFileWindow>())
+        {
+            if (win.IsVisible) anyVisible = true;
+            else hasHidden = true;
+            if (anyVisible) break;
+        }
+
+        if (!anyVisible && hasHidden)
+        {
+            // action 传 null：只 RequestShow，不换源不清内容
+            UIManager.ShowWindow<TextFileWindow>(action: null, isMulti: false);
+            return;
+        }
+
+        ShowEmpty();
+    }
+
+    /// <summary>
     /// 打开一个文件进编辑窗（分流在 <see cref="FileOpener"/> 里做，文本才到这）。
     /// 窗还没开的调用方（文件搜索、markdown 链接）请直接调 <see cref="FileOpener"/>。
     /// </summary>

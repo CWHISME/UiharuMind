@@ -29,8 +29,9 @@ namespace UiharuMind.Shared.Services;
 /// 「打开一个文件」的公共入口：文件搜索双击、markdown 链接、文本窗的打开对话框与拖放
 /// 都走这里，不再各判一遍后缀、也不再各写一套图片/系统 fallback。
 ///
-/// 顺序是刻意的：存在 → 大小（超大直接系统，不读全文）→ 图片（按扩展名直达贴图窗，
-/// 读文件头再定在网络盘上是可感知的卡顿）→ 编码探测读文本。
+/// 顺序是刻意的：存在 → 图片（按扩展名直达贴图窗，大图走系统，
+/// 读文件头再定在网络盘上是可感知的卡顿）→ 大小两档（超编辑但在查看上限内进只读窗，
+/// 超查看直接系统，不读全文）→ 编码探测读文本。
 /// 读不出来的一律转系统打开——`EncodingUnknown` 的二进制（如 PNG）和 `NotPlainText`
 /// 在这里是同一档：界面都展示不了，系统默认程序接过去比报错有用。
 /// 只有真读失败（IO 错）才弹错。
@@ -79,15 +80,22 @@ public static class FileOpener
             return new RouteOutcome(null, false);
         }
 
-        if (!TextFileOpenPolicy.IsWithinEditLimit(filePath))
+        if (ImageFilePolicy.IsImage(filePath))
         {
-            await OpenWithSystemAsync(filePath);
+            if (!TextFileOpenPolicy.IsWithinEditLimit(filePath))
+            {
+                await OpenWithSystemAsync(filePath);
+                return new RouteOutcome(null, true);
+            }
+
+            OpenPreviewImage(filePath);
             return new RouteOutcome(null, true);
         }
 
-        if (ImageFilePolicy.IsImage(filePath))
+        bool overEditLimit = !TextFileOpenPolicy.IsWithinEditLimit(filePath);
+        if (overEditLimit && !TextFileOpenPolicy.IsWithinViewLimit(filePath))
         {
-            OpenPreviewImage(filePath);
+            await OpenWithSystemAsync(filePath);
             return new RouteOutcome(null, true);
         }
 
@@ -103,6 +111,15 @@ public static class FileOpener
             Messages.ShowNotification(
                 $"{Loc.Text("TextFileOpenFailed")} ({result.ErrorCode})", severity: MessageSeverity.Error);
             return new RouteOutcome(null, false);
+        }
+
+        if (overEditLimit)
+        {
+            // 超编辑上限但在查看上限内：只读查看，无回写路径。
+            // 高亮按扩展名自动判定（超 256KB 高亮服务自行退化），标题带只读后缀说明为何不可存
+            string title = Path.GetFileName(filePath) + Loc.Text("TextFileReadOnlySuffix");
+            FullTextWindow.Show(title, result.Text, filePath);
+            return new RouteOutcome(null, true);
         }
 
         return new RouteOutcome(result, false);
