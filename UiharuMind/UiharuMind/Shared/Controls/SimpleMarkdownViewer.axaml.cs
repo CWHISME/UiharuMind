@@ -11,14 +11,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Markdig;
 using Markdig.Syntax;
@@ -26,9 +23,6 @@ using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
-using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.Windows;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -274,12 +268,7 @@ public partial class SimpleMarkdownViewer : UserControl
     /// </summary>
     public string? LinkBaseDirectory { get; set; }
 
-    /// <summary>
-    /// 图片扩展名白名单。<b>按扩展名而非探测文件头</b>：点击要立刻有反应，
-    /// 而读一遍文件头再决定开哪个窗口，在网络盘上就是一次可感知的卡顿
-    /// </summary>
-    private static readonly string[] ImageExtensions =
-        [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"];
+
 
     /// <summary>
     /// 链接点击：本地图片走自家贴图窗口，其余交给系统。
@@ -331,33 +320,10 @@ public partial class SimpleMarkdownViewer : UserControl
         }
     }
 
-    /// <summary>本地路径统一入口：文本文件进自家文本文件窗，图片走贴图窗，其余交系统打开</summary>
+    /// <summary>本地路径统一入口：分流收在 <see cref="FileOpener"/>（文本进编辑窗、图片走贴图窗、其余系统）</summary>
     private void OpenLocalFile(string path)
     {
-        if (!File.Exists(path))
-        {
-            Log.Warning($"Link target not found: {path}");
-            return;
-        }
-
-        if (ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
-        {
-            // 这张位图是我们现读的,交出去就不再碰——预览窗关闭时由它释放(见 UIManager 注释)
-            UIManager.ShowPreviewImageWindowAtMousePosition(new Bitmap(path),
-                horizontalAlignment: HorizontalAlignment.Center,
-                verticalAlignment: VerticalAlignment.Center);
-            return;
-        }
-
-        // 文本类文件用自家 TextFileWindow（md 默认预览、其余可编辑），
-        // 而不是交系统默认程序——我们自己的窗口看得懂 markdown
-        if (TextFileOpenPolicy.IsSupported(path))
-        {
-            TextFileWindow.Show(path);
-            return;
-        }
-
-        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        FileOpener.Open(path);
     }
 
     public void ForceSetText(string text)

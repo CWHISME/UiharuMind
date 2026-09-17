@@ -780,7 +780,7 @@ public static class AgentContentFormatter
 
     
     private const int MaxSummaryValueChars = 60;                        //折叠标题栏是一行,摘要里任何一段都不该超过这个长度
-    private const int HeadChars = 36;                                   // 头 60%
+    private const int HeadChars = 26;                                   // 头
     private const int TailChars = MaxSummaryValueChars - 1 - HeadChars; // 尾，减去 "…"
     
     /// <summary>

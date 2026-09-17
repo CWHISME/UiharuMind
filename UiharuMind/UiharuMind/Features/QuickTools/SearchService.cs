@@ -29,12 +29,14 @@ public record SearchOutcome(List<SearchItem> Items, SearchFailure? Failure, stri
 public class SearchService
 {
     private readonly List<string> _searchHistory;
+    private readonly RecentPathList _recentHistory;
 
     public SearchService()
     {
         // 历史记录
         _searchHistory = SaveUtility.Load<List<string>>(AppPaths.Data.QuickSearchHistory) ??
                          new List<string>();
+        _recentHistory = new RecentPathList(_searchHistory, 10);
 
 
     }
@@ -51,16 +53,12 @@ public class SearchService
     public void AddHistory(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return;
-
-        _searchHistory.Remove(path);
-        _searchHistory.Insert(0, path);
-        if (_searchHistory.Count > 10) _searchHistory.RemoveAt(_searchHistory.Count - 1);
-        SaveHistory();
+        if (_recentHistory.Remember(path)) SaveHistory();
     }
 
     public void RemoveHistory(string path)
     {
-        if (_searchHistory.Remove(path)) SaveHistory();
+        if (_recentHistory.Forget(path)) SaveHistory();
     }
 
     /// <summary>

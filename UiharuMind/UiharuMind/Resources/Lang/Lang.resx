@@ -3173,6 +3173,15 @@ Allow them?</value>
     <data name="TextFileMenuOpen" xml:space="preserve">
         <value>Open...</value>
     </data>
+    <data name="TextFileMenuRecent" xml:space="preserve">
+        <value>Open Recent</value>
+    </data>
+    <data name="TextFileMenuRecentClear" xml:space="preserve">
+        <value>Clear Recent Files</value>
+    </data>
+    <data name="TextFileMenuRecentEmpty" xml:space="preserve">
+        <value>No recent files</value>
+    </data>
     <data name="TextFileUntitled" xml:space="preserve">
         <value>Untitled</value>
     </data>

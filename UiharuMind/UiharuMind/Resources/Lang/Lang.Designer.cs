@@ -1042,6 +1042,24 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string TextFileMenuRecent {
+            get {
+                return ResourceManager.GetString("TextFileMenuRecent", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuRecentClear {
+            get {
+                return ResourceManager.GetString("TextFileMenuRecentClear", resourceCulture);
+            }
+        }
+        
+        public static string TextFileMenuRecentEmpty {
+            get {
+                return ResourceManager.GetString("TextFileMenuRecentEmpty", resourceCulture);
+            }
+        }
+        
         public static string TextFileUntitled {
             get {
                 return ResourceManager.GetString("TextFileUntitled", resourceCulture);

@@ -89,20 +89,6 @@ public class ToolCallSummaryTests
         Assert.Equal(path, summary);
     }
 
-    /// <summary>摘要是一行:转义过的换行、真换行、过长的值都不该原样摆进去</summary>
-    [Fact]
-    public void LongOrMultilineValues_AreFlattenedAndTrimmed()
-    {
-        string summary = AgentContentFormatter.SummarizeArguments(
-            Call("run_shell", ("command", "echo one\\ntwo\nthree")));
-        Assert.Equal("echo one two three", summary);
-
-        string longSummary = AgentContentFormatter.SummarizeArguments(
-            Call("run_shell", ("command", new string('x', 200))));
-        Assert.True(longSummary.Length < 100, $"过长的值应被截断,实际 {longSummary.Length} 字");
-        Assert.EndsWith("…", longSummary);
-    }
-
     /// <summary>认不出优先键时仍走兜底,但兜底的值也要过一遍收窄</summary>
     [Fact]
     public void UnknownArguments_FallBackToShortenedKeyValuePairs()

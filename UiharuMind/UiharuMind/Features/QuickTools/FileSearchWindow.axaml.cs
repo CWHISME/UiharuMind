@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Avalonia.Controls;
@@ -7,12 +6,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
-using CliWrap;
-using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Shared.Utils;
 
@@ -150,14 +145,15 @@ public partial class FileSearchWindow : UiharuWindowBase
         var fullPath = Path.GetFullPath(Path.Combine(ViewModel.CurrentDirectory, item.Path));
 
         string action = tag ?? "OpenDefault";
-        // 双击默认动作与右键「用编辑器打开」(OpenEditor) 同一条路：文本文件（白名单 + 大小限制）
-        // 进自家编辑窗，内容搜索命中时带着行号定位；否则退回系统打开。
+        // 双击默认动作与右键「用编辑器打开」(OpenEditor) 同一条路：分流收在 FileOpener
+        // （文本进编辑窗、图片走贴图窗、其余走系统），内容搜索命中时带着行号定位。
+        // 只有超大或不存在才落到下面的 OpenFile 系统链。
         // 右键「用系统打开」(OpenFile) 是纯系统打开，不走这里。
         if (action is "OpenDefault" or "OpenEditor")
         {
-            if (File.Exists(fullPath) && TextFileOpenPolicy.IsSupported(fullPath))
+            if (File.Exists(fullPath) && TextFileOpenPolicy.IsWithinEditLimit(fullPath))
             {
-                TextFileWindow.Show(fullPath, item.IsContentSearch ? item.LineNumber : null);
+                await FileOpener.OpenAsync(fullPath, item.IsContentSearch ? item.LineNumber : null);
                 return;
             }
 
@@ -166,43 +162,16 @@ public partial class FileSearchWindow : UiharuWindowBase
 
         switch (action)
         {
+            // 系统打开与揭示目录的 mechanics 收在 FileOpener，这里只剩动作路由
             case "OpenFile":
                 if (File.Exists(fullPath))
-                {
-                    if (PlatformUtils.IsMacOS)
-                    {
-                        var result = await Cli.Wrap("open")
-                            .WithArguments($"\"{fullPath}\"")
-                            // 设置为 None，这样当 ExitCode != 0 时，CliWrap 不会抛出异常，
-                            .WithValidation(CommandResultValidation.None)
-                            .ExecuteAsync();
-                        if (result.ExitCode != 0) OpenTarget(item, "OpenDir");
-                        return;
-                    }
-
-                    Process.Start(new ProcessStartInfo(fullPath) { UseShellExecute = true });
-                }
+                    await FileOpener.OpenWithSystemAsync(fullPath);
                 else
                     OpenTarget(item, "OpenDir");
 
                 break;
             case "OpenDir":
-                var dir = Directory.Exists(fullPath) ? fullPath : Path.GetDirectoryName(fullPath);
-                if (Directory.Exists(dir))
-                {
-                    if (PlatformUtils.IsWindows)
-                    {
-                        Process.Start("explorer.exe", $"/select,\"{fullPath}\"");
-                    }
-                    else if (PlatformUtils.IsMacOS)
-                    {
-                        Process.Start("open", $"-R \"{fullPath}\"");
-                    }
-                    else App.FilesService.OpenFolder(dir);
-                }
-                else
-                    App.Services.GetRequiredService<IMessageService>().ShowNotification("Directory not found");
-
+                FileOpener.RevealInFolder(fullPath);
                 break;
         }
     }

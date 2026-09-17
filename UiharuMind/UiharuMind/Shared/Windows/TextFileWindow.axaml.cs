@@ -95,15 +95,32 @@ public partial class TextFileWindow : QuickWindowBase
     }
 
     /// <summary>
-    /// 打开一个文本文件进编辑窗
+    /// 打开一个文件进编辑窗（分流在 <see cref="FileOpener"/> 里做，文本才到这）。
+    /// 窗还没开的调用方（文件搜索、markdown 链接）请直接调 <see cref="FileOpener"/>。
     /// </summary>
     /// <param name="filePath">文件绝对路径</param>
     /// <param name="lineNumber">打开后要定位到的行号（内容搜索命中时传），其余情况为 null</param>
     public static void Show(string filePath, int? lineNumber = null)
     {
-        // 窗口可复用：每次 Show 都可能落在某个之前关掉的缓存实例上，装载统一放异步里做。
-        // 多开不设上限——多个文件并排对着看是 FileSearchWindow 场景的常见需求。
-        UIManager.ShowWindow<TextFileWindow>(w => _ = w.LoadFileAsync(filePath, lineNumber), isMulti: true);
+        FileOpener.Open(filePath, lineNumber);
+    }
+
+    /// <summary>
+    /// 已分流好的文本装载：只剩三态确认 + 换源，不再读盘。
+    /// 打开对话框/拖放走 <see cref="LoadFileAsync"/>（窗已在那，只管装）。
+    /// </summary>
+    public async Task LoadTextAsync(string filePath, string text, Encoding encoding, bool hasBom,
+        int? lineNumber = null)
+    {
+        if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
+
+        if (!File.Exists(filePath))
+        {
+            MessageService.ShowNotification(Loc.Text("TextFileFileMissing"), severity: MessageSeverity.Error);
+            return;
+        }
+
+        SetSource(filePath, text, encoding, hasBom, lineNumber);
     }
 
     /// <summary>
@@ -131,27 +148,20 @@ public partial class TextFileWindow : QuickWindowBase
     }
 
     /// <summary>
-    /// 异步装载文件。可复用窗口上如果有未保存的改动，先三态确认（保存 / 不保存 / 留下）
+    /// 异步装载文件（窗已开着的流程：打开对话框 / 拖放）。
+    /// 先分流再确认：非文本（图片/二进制/超大）与读失败根本不碰当前文档——
+    /// 旧流程先弹三态确认，拖张图片进来点个"否"就把未保存的修改丢了；
+    /// 空白窗也不会因为一次外部打开就把自己关掉。
+    /// 只有真读出了文本、要替换当前内容时，才三态确认。
     /// </summary>
     public async Task LoadFileAsync(string filePath, int? lineNumber = null)
     {
+        FileOpener.RouteOutcome outcome = await FileOpener.RouteAsync(filePath);
+        if (outcome.Text == null) return;
+
         if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
 
-        if (!File.Exists(filePath))
-        {
-            MessageService.ShowNotification(Loc.Text("TextFileFileMissing"), severity: MessageSeverity.Error);
-            return;
-        }
-
-        TextFileReadResult result = await TextFileCodec.ReadTextAsync(filePath, default);
-        if (!result.Success || result.Text == null || result.Encoding == null)
-        {
-            MessageService.ShowNotification(
-                $"{Loc.Text("TextFileOpenFailed")} ({result.ErrorCode})", severity: MessageSeverity.Error);
-            return;
-        }
-
-        SetSource(filePath, result.Text, result.Encoding, result.HasBom, lineNumber);
+        SetSource(filePath, outcome.Text.Text!, outcome.Text.Encoding!, outcome.Text.HasBom, lineNumber);
     }
 
     /// <summary>
@@ -181,6 +191,8 @@ public partial class TextFileWindow : QuickWindowBase
         Dispatcher.UIThread.Post(ApplyInitialScroll, DispatcherPriority.ApplicationIdle);
         _suppressDirty = false;
 
+        _setting.RememberFile(filePath); //装载成功才记：「最近打开」只收真打开过的
+
         UpdateTitle();
         RefreshDirtyState();
         RefreshMenuStates();
@@ -198,6 +210,7 @@ public partial class TextFileWindow : QuickWindowBase
         _hasBom = false;
         _dirty = false;
 
+        TextView.Text = string.Empty;
         TextView.Text = string.Empty;
         MarkdownViewer.LinkBaseDirectory = null;
         MarkdownViewer.MarkdownText = string.Empty;
@@ -267,6 +280,7 @@ public partial class TextFileWindow : QuickWindowBase
 
         _filePath = uri.LocalPath;
         _dirty = false;
+        _setting.RememberFile(_filePath); //落定新路径，记一笔
         ApplyGlobalSettings(); //扩展名可能变了，高亮按新路径重算
         RefreshDirtyState();
         RefreshMenuStates();
@@ -477,14 +491,8 @@ public partial class TextFileWindow : QuickWindowBase
             if (item.TryGetRaw(DataFormat.File) is not IStorageItem storageItem) continue;
             string? path = storageItem.TryGetLocalPath();
             if (string.IsNullOrEmpty(path)) continue;
-            if (!TextFileOpenPolicy.IsSupported(path))
-            {
-                MessageService.ShowNotification(
-                    Loc.Text("TextFileUnsupportedType"), severity: MessageSeverity.Error);
-                return;
-            }
 
-            // 一次只开一个：编辑窗一份只装一份文档
+            // 一次只开一个：编辑窗一份只装一份文档。二进制/超大由 LoadFileAsync 转交系统
             await LoadFileAsync(path);
             return;
         }
@@ -568,25 +576,53 @@ public partial class TextFileWindow : QuickWindowBase
         await OpenFileAsync();
     }
 
+    /// <summary>
+    /// 「文件」菜单每次展开时重建「最近打开」（顺手剔除已删除的文件）。
+    /// 入口挂在文件菜单上而不是最近子菜单上：空子菜单根本打不开，
+    /// SubmenuOpened 永不触发——上次挂错地方，菜单里永远只有光杆标题。
+    /// 动态条目不用 loc 绑定：语言切换后下次展开即按新语言重建
+    /// </summary>
+    private void FileMenuItem_SubmenuOpened(object? sender, RoutedEventArgs e)
+    {
+        _setting.PruneMissingFiles();
+        RecentMenuItem.Items.Clear();
+
+        if (_setting.RecentFiles.Count == 0)
+        {
+            RecentMenuItem.Items.Add(new MenuItem
+            {
+                Header = Loc.Text("TextFileMenuRecentEmpty"),
+                IsEnabled = false
+            });
+            return;
+        }
+
+        foreach (string path in _setting.RecentFiles)
+        {
+            var item = new MenuItem { Header = Path.GetFileName(path) };
+            ToolTip.SetTip(item, path);
+            string captured = path;
+            item.Click += async (_, _) => await LoadFileAsync(captured);
+            RecentMenuItem.Items.Add(item);
+        }
+
+        RecentMenuItem.Items.Add(new Separator());
+        var clear = new MenuItem { Header = Loc.Text("TextFileMenuRecentClear") };
+        clear.Click += (_, _) => _setting.ClearRecentFiles();
+        RecentMenuItem.Items.Add(clear);
+    }
+
     private async void NewMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         await NewEmptyAsync();
     }
 
-    /// <summary>文件 / 打开：选文件走准入判定（扩展名白名单 + 大小上限），过了才装载</summary>
+    /// <summary>文件 / 打开：不过滤后缀（任意文件可选），准入由 LoadFileAsync 统一判定</summary>
     private async Task OpenFileAsync()
     {
-        string[] filters = TextFileOpenPolicy.SupportedExtensions.Select(e => $"*.{e}").ToArray();
-        var file = await App.FilesService.OpenFileAsync(this, null, filters);
+        var file = await App.FilesService.OpenFileAsync(this, null, "*");
         string? path = file?.TryGetLocalPath();
         if (string.IsNullOrEmpty(path)) return; //用户取消
-
-        if (!TextFileOpenPolicy.IsSupported(path))
-        {
-            MessageService.ShowNotification(
-                Loc.Text("TextFileUnsupportedType"), severity: MessageSeverity.Error);
-            return;
-        }
 
         await LoadFileAsync(path);
     }

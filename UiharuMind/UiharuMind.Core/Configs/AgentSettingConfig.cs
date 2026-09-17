@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.Core.Utils;
+
 namespace UiharuMind.Core.Configs;
 
 /// <summary>
@@ -71,24 +73,18 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <summary><see cref="RecentWorkspaces"/> 的条数上限</summary>
     public const int RecentWorkspacesLimit = 10;
 
+    private RecentPathList? _recentWorkspaces;
+    private RecentPathList RecentHistory =>
+        _recentWorkspaces ??= new RecentPathList(RecentWorkspaces, RecentWorkspacesLimit);
+
     /// <summary>
-    /// 把一个工作目录记为最近使用:置顶、去重(按路径逐字比较)、裁掉超限的尾部,并立即落盘。
+    /// 把一个工作目录记为最近使用:置顶、去重、裁尾,并立即落盘。列表操作见 <see cref="RecentPathList"/>。
     /// </summary>
     /// <param name="path">工作目录;空或不存在则忽略</param>
     public void RememberWorkspace(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return;
-
-        string full = Path.GetFullPath(path);
-        RecentWorkspaces.RemoveAll(x => string.Equals(x, full, StringComparison.Ordinal));
-        RecentWorkspaces.Insert(0, full);
-        if (RecentWorkspaces.Count > RecentWorkspacesLimit)
-        {
-            RecentWorkspaces.RemoveRange(RecentWorkspacesLimit,
-                RecentWorkspaces.Count - RecentWorkspacesLimit);
-        }
-
-        Save();
+        if (RecentHistory.Remember(path)) Save();
     }
 
     /// <summary>
@@ -97,7 +93,6 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// <param name="path">工作目录</param>
     public void ForgetWorkspace(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return;
-        if (RecentWorkspaces.RemoveAll(x => string.Equals(x, path, StringComparison.Ordinal)) > 0) Save();
+        if (RecentHistory.Forget(path)) Save();
     }
 }

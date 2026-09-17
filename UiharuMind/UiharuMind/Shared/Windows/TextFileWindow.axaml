@@ -46,11 +46,13 @@
                                         Click="PreviewButton_Click" />
             </StackPanel>
             <Menu VerticalAlignment="Center">
-                <MenuItem Header="{loc:Loc TextFileMenuFile}">
+                <MenuItem Name="FileMenuItem" Header="{loc:Loc TextFileMenuFile}"
+                          SubmenuOpened="FileMenuItem_SubmenuOpened">
                     <MenuItem Name="NewMenuItem" Header="{loc:Loc TextFileMenuNew}"
                               InputGesture="Ctrl+N" Click="NewMenuItem_Click" />
                     <MenuItem Name="OpenMenuItem" Header="{loc:Loc TextFileMenuOpen}"
                               InputGesture="Ctrl+O" Click="OpenMenuItem_Click" />
+                    <MenuItem Name="RecentMenuItem" Header="{loc:Loc TextFileMenuRecent}" />
                     <Separator />
                     <MenuItem Name="SaveMenuItem" Header="{loc:Loc TextFileMenuSave}"
                               InputGesture="Ctrl+S" IsEnabled="False" Click="SaveMenuItem_Click" />
