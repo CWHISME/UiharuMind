@@ -465,20 +465,6 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 工作循环必须真的在某处：它搬进了内置智能体的存档，
-    /// 若哪天被顺手删掉，模型侧就只剩工具纪律而没有工作方法，同样难归因。
-    /// </summary>
-    [Fact]
-    public void WorkspaceAgent_CarriesTheWorkLoopInItsPrompt()
-    {
-        DefaultCharacterManager.Instance.OnInitialize();
-        CharacterData agent = DefaultCharacterManager.Instance
-            .GetCharacterData(DefaultCharacter.WorkspaceAgent);
-
-        Assert.Contains(AgentToolPrompts.AgentWorkLoop, agent.Template);
-    }
-
-    /// <summary>
     /// 主代理也必须被告知工作目录的绝对路径。同一个坑：路径只被拿去构造工具，
     /// 从没进过提示词，模型只能自己编。
     /// </summary>

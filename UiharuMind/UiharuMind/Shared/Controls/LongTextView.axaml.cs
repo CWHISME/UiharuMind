@@ -14,13 +14,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using System.IO;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
-using AvaloniaEdit.TextMate;
-using TextMateSharp.Grammars;
-using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Shared.Controls;
@@ -36,8 +32,7 @@ public partial class LongTextView : UserControl
 {
     private bool _isSyncingText; //防止属性与文档互相回灌
     private bool _scrollToTopPending; //在加载完成前请求过回顶，等 Loaded 补做
-    private TextMate.Installation? _textMate; //装上才有高亮，不高亮时彻底卸掉
-    private TextDocument? _highlightedDocument; //当前这份安装绑的是哪个文档，换文档要重装
+    private readonly TextMateSyntaxService _syntax; //语法高亮：解析/分帧 tokenize/查表上色全在它这一侧
 
     /// <summary>文本被改动（含程序化设置）。可用于脏标记与菜单状态刷新</summary>
     public event EventHandler? TextChanged;
@@ -67,14 +62,6 @@ public partial class LongTextView : UserControl
     /// <summary>语法高亮的语言来源（文件名或扩展名），默认无高亮</summary>
     public static readonly StyledProperty<string?> SyntaxSourceNameProperty =
         AvaloniaProperty.Register<LongTextView, string?>(nameof(SyntaxSourceName));
-
-    /// <summary>超过这个字符数一律不上高亮：全文窗的立身之本是"几十万字秒开"，不能为配色让路</summary>
-    private const int MaxHighlightChars = 256 * 1024;
-
-    // 语法表与主题按主题名全进程共用一份:构造 RegistryOptions 要加载主题与整套语法定义,
-    // 按控件实例建的话,多开几个全文窗就是重复加载几份
-    private static RegistryOptions? _sharedRegistryOptions;
-    private static ThemeName _sharedRegistryTheme;
 
     /// <summary>正文</summary>
     public string? Text
@@ -117,8 +104,8 @@ public partial class LongTextView : UserControl
 
     /// <summary>
     /// 语法高亮的语言来源：给一个<b>文件名或扩展名</b>（<c>Foo.cs</c> / <c>.cs</c> / <c>.json</c>），
-    /// 由 TextMate 按扩展名挑语法。为空、认不出、或正文超过
-    /// <see cref="MaxHighlightChars"/> 时一律不高亮。
+    /// 由 TextMate 按扩展名挑语法。为空、认不出、或正文超过大小闸门（见 <see cref="TextMateSyntaxService"/>）时
+    /// 一律不高亮。
     ///
     /// 用扩展名而不是语言名，是因为调用方手上现成的信息就是文件路径（工具调用的 <c>filePath</c> 参数），
     /// 按扩展名选是<b>确定的</b>，按内容猜语言会猜错。
@@ -134,6 +121,7 @@ public partial class LongTextView : UserControl
     public LongTextView()
     {
         InitializeComponent();
+        _syntax = new TextMateSyntaxService(Editor);
         // AvaloniaEdit 承袭代码编辑器的习惯,默认允许在文末之后再滚一整屏(方便把最后一行顶到屏幕中间)。
         // 这里读的是文档不是代码,那一整屏空白只会让人以为还有内容
         Editor.Options.AllowScrollBelowDocument = false;
@@ -307,7 +295,7 @@ public partial class LongTextView : UserControl
         if (change.Property == TextProperty)
         {
             ApplyText();
-            ApplySyntax(); //正文换了要重判大小闸门
+            _syntax.Apply(SyntaxSourceName, Text); //正文换了要重判大小闸门
         }
         else if (change.Property == IsEditableProperty)
         {
@@ -325,7 +313,7 @@ public partial class LongTextView : UserControl
         }
         else if (change.Property == SyntaxSourceNameProperty)
         {
-            ApplySyntax();
+            _syntax.Apply(SyntaxSourceName, Text);
         }
     }
 
@@ -333,71 +321,21 @@ public partial class LongTextView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         if (Application.Current != null) Application.Current.ActualThemeVariantChanged += OnThemeChanged;
-        ApplySyntax();
+        _syntax.Apply(SyntaxSourceName, Text);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
         if (Application.Current != null) Application.Current.ActualThemeVariantChanged -= OnThemeChanged;
+        // 缓存窗口隐藏时摘掉渲染管线里的 transformer 与文档监听，空窗不白挂成本
+        _syntax.Uninstall();
     }
 
     private void OnThemeChanged(object? sender, EventArgs e)
     {
-        // TextMate 的配色是安装时固化进去的,换主题只能整份重装
-        UninstallTextMate();
-        ApplySyntax();
-    }
-
-    /// <summary>
-    /// 按当前语言与主题重装 TextMate。装不上（没给扩展名、认不出、文本太大）就彻底卸掉，
-    /// 回到纯文本——宁可不高亮，也不让大文本卡住
-    /// </summary>
-    private void ApplySyntax()
-    {
-        string? scope = ResolveScope();
-        if (scope == null)
-        {
-            UninstallTextMate();
-            return;
-        }
-
-        // 安装是绑在当时那个 Document 上的,而 ApplyText 每次都换一份新文档(为清撤销栈与选区)。
-        // 沿用旧安装的话,分词器的行状态与当前文档对不上——表现为同一个关键字有的行上色、有的行不上
-        if (_textMate == null || !ReferenceEquals(_highlightedDocument, Editor.Document))
-        {
-            UninstallTextMate();
-            _textMate = Editor.InstallTextMate(GetRegistryOptions());
-            _highlightedDocument = Editor.Document;
-        }
-
-        _textMate.SetGrammar(scope);
-    }
-
-    private string? ResolveScope()
-    {
-        if (string.IsNullOrEmpty(SyntaxSourceName)) return null;
-        if ((Text?.Length ?? 0) > MaxHighlightChars) return null;
-
-        string extension = Path.GetExtension(SyntaxSourceName);
-        if (string.IsNullOrEmpty(extension)) return null;
-
-        RegistryOptions options = GetRegistryOptions();
-        Language? language = options.GetLanguageByExtension(extension);
-        return language == null ? null : options.GetScopeByLanguageId(language.Id);
-    }
-
-    //注册表同时决定了配色。主题名与 markdown 代码块用的是同一套,两处观感因此一致
-    private static RegistryOptions GetRegistryOptions()
-    {
-        ThemeName themeName = ApplicationThemeManager.IsDarkTheme() ? ThemeName.DarkPlus : ThemeName.LightPlus;
-        if (_sharedRegistryOptions == null || _sharedRegistryTheme != themeName)
-        {
-            _sharedRegistryOptions = new RegistryOptions(themeName);
-            _sharedRegistryTheme = themeName;
-        }
-
-        return _sharedRegistryOptions;
+        // 只换主题色：scopes 已缓存，不重 tokenize
+        _syntax.UpdateTheme();
     }
 
     /// <summary>
@@ -441,14 +379,6 @@ public partial class LongTextView : UserControl
             if (margin is SafeLineNumberMargin || DottedLineMargin.IsDottedLineMargin(margin))
                 margin.IsVisible = ShowLineNumbers;
         }
-    }
-
-    private void UninstallTextMate()
-    {
-        if (_textMate == null) return;
-        _textMate.Dispose();
-        _textMate = null;
-        _highlightedDocument = null;
     }
 
     private void ApplyText()
