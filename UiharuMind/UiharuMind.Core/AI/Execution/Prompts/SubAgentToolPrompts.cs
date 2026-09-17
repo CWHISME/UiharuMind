@@ -22,7 +22,7 @@ public static class SubAgentToolPrompts
     /// <summary>通用委派工具描述</summary>
     public const string RunAgentDescription =
         "Run an agent on a task and get a focused report. " +
-        "It can change files, run commands, use MCP tools — same permissions as you.";
+        "It can change files, run commands — same permissions as you.";
 
     /// <summary>只读探索工具描述</summary>
     public const string RunReadOnlyAgentDescription =
@@ -64,10 +64,8 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string ModelParam =
         "Optional exact model name to use for this run (as shown in the app's model list). " +
-        "Omit it to use the configured default. " +
-        "If the name is unknown or that model is not running, the run falls back to the default " +
-        "and the receipt says so.";
-
+        "Omit it to use the configured default. ";
+    
     /// <summary>花名册提示（追加在工具描述之后）</summary>
     public const string RosterHeading =
         "Named agents you can run (pass one as `agent`, or omit it for the default agent):";
