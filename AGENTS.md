@@ -17,18 +17,18 @@
 ## 仓库概览
 
 Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远程模型，含角色扮演对话、
-工作区 agent、截图 OCR、剪贴板历史、知识库检索等。产品功能见 [README.md](README.md)。
+工作区代理、截图 OCR、剪贴板历史、知识库检索等。产品功能见 [README.md](README.md)。
 
-解决方案 `UiharuMind/UiharuMind.sln` 下六个项目：
+解决方案下六个项目：
 
-| 项目 | 是什么 |
-|---|---|
-| `UiharuMind.Core` | 领域与基础设施。无 UI 依赖，是全仓的重心 |
-| `UiharuMind` | Avalonia UI 层（下称 **App 项目**） |
-| `UiharuMind.Desktop` | 桌面入口（实际运行的就是它） |
-| `UiharuMind.CLI` | 命令行入口 |
-| `UiharuMind.Core.Tests` | Core 的测试 |
-| `UiharuMind.App.Tests` | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
+| 项目                               | 是什么 |
+|------------------------------------|---|
+| `UiharuMind/UiharuMind`            | Avalonia UI 层（下称 **App 项目**） |
+| `UiharuMind/UiharuMind.Core`       | 领域与基础设施。无 UI 依赖，是全仓的重心 |
+| `UiharuMind/UiharuMind.Desktop`    | 桌面入口（实际运行的就是它） |
+| `UiharuMind/UiharuMind.CLI`        | 命令行入口 |
+| `UiharuMind/UiharuMind.Core.Tests` | Core 的测试 |
+| `UiharuMind/UiharuMind.App.Tests`  | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
 
 可复用：
 
@@ -36,12 +36,10 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 
 ## 构建与测试
 
-在解决方案目录 `UiharuMind/` 下执行：
-
 ```bash
-dotnet build UiharuMind.sln
-dotnet test  UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj
-dotnet test  UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
+dotnet build UiharuMind/UiharuMind.sln
+dotnet test  UiharuMind/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj
+dotnet test  UiharuMind/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
 ```
 
 axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
@@ -49,47 +47,8 @@ axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`）�
 
 ## 打包与发版
 
-版本号的**唯一来源**是 `UiharuMind/Directory.Build.props` 的 `<Version>`。`AppInfo.Version`
-从程序集读、`Info.plist` 由脚本填、CI 拿它校验 tag——都别再写第二份。
-
-发布参数（自包含、ReadyToRun、单文件）收在 `UiharuMind.Desktop.csproj` 里，按 RID 生效，
-脚本与 CI 只需给 `-r <RID>`。**不开 `PublishTrimmed`，也不上 NativeAOT**：全仓默认反射绑定
-（`AvaloniaUseCompiledBindingsByDefault=false`，90 个 axaml 只有 30 个有 `x:DataType`）加上
-反射 JSON，裁剪与 AOT 都会造成静默的运行时失败。前置条件是先把编译绑定与 JSON source-gen
-做完，那之前别碰。
-
-`UiharuMind/Build/` 下：
-
-| 脚本 | 产物 |
-|---|---|
-| `buildMac.sh` | `Output/UiharuMind-<版本>-osx-arm64.zip`（.app bundle，ad-hoc 签名） |
-| `buildMacFull.sh` | 同上加 `-full` 后缀，额外带入本机的 Runtime/模型（缺则跳过） |
-| `buildLinux.sh` | `Output/UiharuMind-<版本>-linux-x64.tar.gz` |
-| `buildWin.bat` | `Output/UiharuMind-<版本>-win-x64.zip` |
-
-共享部分在 `common.sh`（取版本、发布、签名、打包）。macOS 的 bundle 签名必须是**最后一步**，
-签完再往里拷东西密封就失效了。
-
-### macOS 签名必须用自签名证书，不能用 ad-hoc
-
-TCC（辅助功能 / 屏幕录制授权）把权限钉在 app 的**指定要求**上。ad-hoc 没有颁发者，
-系统退化成用 cdhash 当身份，而那个值每次编译都变——表现是「权限列表里条目还在，
-但权限已失效」。证书签名的指定要求是 `identifier "com.cwhisme.uiharumind" and
-certificate leaf = H"..."`，cdhash 照变但 DR 不变，授权跨版本保留。
-
-证书是自签名的，本地 `openssl` 生成、永久复用，不需要 Apple 账号（Gatekeeper 的
-「无法验证开发者」不受影响，那需要付费 Developer ID）。生成与启用见
-[Build/signing/README.md](UiharuMind/Build/signing/README.md)。**别重新生成**——换证书
-等于换身份，所有用户要再授权一次。
-
-证书不在 keychain 时：本机回退 ad-hoc 并打警告（fork 与新机器仍能构建），
-CI 上（`CI=true`）硬失败，避免发出身份不对的 Release。
-
-CI（`.github/workflows/`）：`ci.yml` 在 push/PR 上构建加测试；`release.yml` 由 `v*` tag 触发，
-先断言 tag 与 `<Version>` 一致，再在三平台上**调用上面这些脚本**（打包逻辑只有一份），
-产物加 `SHA256SUMS` 发成草稿 Release。
-
-Mac 包只有 ad-hoc 签名、未经公证，用户首次打开需手动放行——放行说明写在 Release notes 里。
+打包与发版的口径（版本号唯一来源、发布参数、构建脚本与 CI、macOS 签名）见
+[docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md](docs/adr/0029-打包与发版，macOS签名必须用自签名证书.md)。
 
 ## 代码规范
 
@@ -125,14 +84,6 @@ public class Student
     }
 }
 ```
-
-[规则2-3] `Bitmap` 归属分两档，按图的大小与频率定，**不许一见 Bitmap 就 Dispose**。
-
-- **大或高频**（截图、剪贴板历史、对话附件、缩放中间产物）：确定性释放。单一所有者；跨边界传递
-  显式移交，方法注释写明「接管」；UI 绑定替换时**先换新值再释放旧值**（反了就撞渲染）；
-  Dispose 后置 null；同一实例被多个字段引用时按引用去重，双重释放按 bug 修。
-- **小而长寿**（头像、图标等进程级缓存）：明确豁免，注释标「进程级缓存，不 Dispose」，
-  禁止顺手加释放——共用的默认图一旦被释放，全进程一起变空白。
 
 ### 注释规范
 
