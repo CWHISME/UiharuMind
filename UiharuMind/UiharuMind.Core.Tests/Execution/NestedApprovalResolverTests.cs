@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -122,5 +123,22 @@ public class NestedApprovalResolverTests
         Assert.False(registered);
         Assert.Equal(0, notices);
         Assert.Equal(1, autoNamed);
+    }
+
+    /// <summary>
+    /// 嵌套审批自动放行的守门：只有「有人守着 × 完全自动档」才放行——无人值守不放
+    /// （没人看着时静默改盘比停下更糟），低档位照旧问人（ADR 0010 的例外登记见 ADR 0032）。
+    /// 四个象限一次定死，防止以后哪条分支改语义时漏掉。
+    /// </summary>
+    [Theory]
+    [InlineData(true, (int)EAgentPermissionMode.FullAuto, true)]
+    [InlineData(false, (int)EAgentPermissionMode.FullAuto, false)]
+    [InlineData(true, (int)EAgentPermissionMode.AutoEdit, false)]
+    [InlineData(false, (int)EAgentPermissionMode.AutoEdit, false)]
+    [InlineData(true, (int)EAgentPermissionMode.ReadOnly, false)]
+    public void ShouldAutoApproveNestedApprovals_OnlyWhenAttendedFullAuto(
+        bool attended, int modeIndex, bool expected)
+    {
+        Assert.Equal(expected, SubAgentTool.ShouldAutoApproveNestedApprovals(attended, modeIndex));
     }
 }

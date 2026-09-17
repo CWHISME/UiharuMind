@@ -52,6 +52,15 @@ public static class ToolCallCancellation
         + " This tool call never ran: its approval request was not answered before the turn ended.";
 
     /// <summary>
+    /// 审批<b>明确被拒</b>（用户拒绝、超时按拒绝收口）时补写的结果正文。与
+    /// <see cref="ApprovalUnansweredResultText"/> 的差别在语义：那边是「等到轮次结束也没人答」，
+    /// 这边是「答案给出来了：不行」——都共用 <c>[cancelled]</c> 标记，卡片按失败显示，
+    /// 下次打开该会话也不会把这条当成功的结果读。
+    /// </summary>
+    public const string DeniedResultText = Marker
+        + " This tool call never ran: its approval was denied before execution.";
+
+    /// <summary>
     /// 判断一条工具结果是否为取消补写的
     /// </summary>
     /// <param name="result">工具结果</param>
@@ -129,5 +138,88 @@ public static class ToolCallCancellation
         }
 
         return calls.Where(x => !answered.Contains(x)).ToList();
+    }
+
+    /// <summary>
+    /// 审批回环拿到<b>明确拒绝</b>的决定后，把对应调用补上「被拒」结果并落盘。
+    ///
+    /// 为什么需要它：被拒的调用在 MFA 审批闸上不执行，永远不会有 <see cref="FunctionResultContent"/>，
+    /// 拒绝响应只是作为下一轮模型输入——历史里于是留下孤儿 tool_call（OpenAI/Anthropic 都要求配对，
+    /// 严格服务端直接 400，这个会话从此发不出话）。<see cref="CloseUnansweredAtTail"/> 只补末尾，
+    /// 夹在中间的孤儿（模型被拒后继续跑别的调用）只有这里收。会话重放时卡片也因此显示
+    /// 「被拒」而不是「历史里没有这次调用的结果」。
+    ///
+    /// 插入位置跟在该调用所在助手消息之后、同批已落盘结果之后——此刻下一轮尚未开始，
+    /// 那批结果之后就是安全插入点。
+    /// </summary>
+    /// <param name="session">当前会话</param>
+    /// <param name="requests">本轮审批请求</param>
+    /// <param name="decisions">审批决定，与 <paramref name="requests"/> 一一对应</param>
+    /// <returns>补写的条数</returns>
+    public static int CloseDeniedCalls(ChatSession session,
+        IReadOnlyList<ToolApprovalRequestContent> requests,
+        IReadOnlyList<ChatMessage> decisions)
+    {
+        int inserted = AppendDeniedCallResults(session.History, requests, decisions);
+        if (inserted > 0) session.Save();
+        return inserted;
+    }
+
+    /// <summary>纯历史操作，供 <see cref="CloseDeniedCalls"/> 调用与单测</summary>
+    internal static int AppendDeniedCallResults(List<ChatMessage> history,
+        IReadOnlyList<ToolApprovalRequestContent> requests,
+        IReadOnlyList<ChatMessage> decisions)
+    {
+        if (requests.Count == 0 || requests.Count != decisions.Count) return 0;
+
+        int inserted = 0;
+        for (int i = 0; i < requests.Count; i++)
+        {
+            // 只收「明确拒绝」：批准与「本会话总是允许」这类认不出的，要么真执行了（会有结果）、
+            // 要么不该由这里乱补（宁缺勿滥）
+            bool explicitlyDenied = decisions[i].Contents.Count > 0
+                && decisions[i].Contents.OfType<ToolApprovalResponseContent>()
+                    .All(x => !x.Approved);
+            if (!explicitlyDenied) continue;
+
+            if (requests[i].ToolCall is not FunctionCallContent call) continue;
+            string callId = call.CallId;
+            if (history.Any(m => m.Contents.OfType<FunctionResultContent>()
+                    .Any(r => r.CallId == callId))) continue;
+
+            int assistantIndex = -1;
+            for (int j = history.Count - 1; j >= 0; j--)
+            {
+                if (history[j].Contents.OfType<FunctionCallContent>().Any(c => c.CallId == callId))
+                {
+                    assistantIndex = j;
+                    break;
+                }
+            }
+
+            ChatMessage resultMessage = new(ChatRole.Tool,
+                [new FunctionResultContent(callId, DeniedResultText)])
+            {
+                CreatedAt = DateTimeOffset.Now,
+            };
+            if (assistantIndex < 0)
+            {
+                // 找不到（历史还没写到那一步的极端情况）：退化为追加到末尾，至少配对存在
+                history.Add(resultMessage);
+            }
+            else
+            {
+                // 该调用所在助手消息之后，跳过同批已落盘的结果，找到插入点
+                int insertAt = assistantIndex + 1;
+                while (insertAt < history.Count
+                       && history[insertAt].Contents.OfType<FunctionResultContent>().Any())
+                {
+                    insertAt++;
+                }
+                history.Insert(insertAt, resultMessage);
+            }
+            inserted++;
+        }
+        return inserted;
     }
 }

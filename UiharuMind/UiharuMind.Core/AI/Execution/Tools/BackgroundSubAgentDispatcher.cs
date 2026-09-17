@@ -73,6 +73,35 @@ public static class BackgroundSubAgentDispatcher
     // 常驻不删:删了就得在「删与等」之间再加一把锁,而子会话本来就只增不减,多一份小锁是同类欠账。
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _turnGates = new();
 
+    /// <summary>
+    /// 进入某个子会话的轮次闸门（与后台轮共用同一把锁，见 <see cref="_turnGates"/>）。
+    /// 主会话不过闸：它的后台轮另走 <c>TryBeginRun</c> 抢占。返回 <c>null</c> 表示不用串行。
+    /// 前台直发（用户在子会话窗口打字）与后台派出的轮次（Continue/唤醒）共用同一个执行者，
+    /// 两轮一旦重叠就是 runner 释放/重建竞态——必须同入一把闸。
+    /// </summary>
+    public static async Task<IDisposable?> EnterSubSessionTurnGateAsync(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return null;
+        if (SessionManager.Instance.GetMeta(sessionId)?.IsSubSession != true) return null;
+
+        SemaphoreSlim gate = _turnGates.GetOrAdd(sessionId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        return new TurnGateLease(gate);
+    }
+
+    private sealed class TurnGateLease : IDisposable
+    {
+        private readonly SemaphoreSlim _gate;
+        private int _released;
+
+        public TurnGateLease(SemaphoreSlim gate) => _gate = gate;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0) _gate.Release();
+        }
+    }
+
     /// <summary>某个会话「未了结的工作」变化。注意它<b>不是</b> IsGenerating，见 CONTEXT.md</summary>
     public static event Action<string>? PendingWorkChanged;
 

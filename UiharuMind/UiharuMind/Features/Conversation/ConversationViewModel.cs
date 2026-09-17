@@ -1475,6 +1475,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             session = await EnsureSessionAsync(titleSeed, _prepareCancellation.Token);
             Tray.FlushOwnedFiles();
 
+            // 子会话与后台轮共用同一把串行闸（后台那轮整轮持有：跑+交回）：用户在子会话窗口
+            // 直发必须等后台那一轮结束，否则两轮在 runner 释放/重建上重叠——后台轮 finally 释放
+            // 旧实例，此刻正在 Attach/Run 的这一轮会拿到没挂接的新 runner（实机「尚未挂接会话」）。
+            // 主会话不过闸（它的后台轮另走 TryBeginRun 抢占）。
+            using IDisposable? turnGate = await BackgroundSubAgentDispatcher
+                .EnterSubSessionTurnGateAsync(session.SessionId).ConfigureAwait(false);
+
             await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
         }
         catch (OperationCanceledException)

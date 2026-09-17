@@ -261,6 +261,12 @@ public sealed class TurnDriver : IDisposable
                     nextMessages = (await resolver(roundRequests)).ToList();
                 }
 
+                // 明确被拒的调用永远不会有工具结果（MFA 审批闸不执行函数，拒绝响应只是下一轮
+                // 模型输入）——不补上，历史就留孤儿 tool_call，严格服务端下一请求直接 400
+                // （实机：子代理越界写入审批无人答、轮次继续跑别的调用，孤儿夹在中间）。
+                // 顺带解决会话重放时「明明没跑、却显示没有结果」的观感。
+                ToolCallCancellation.CloseDeniedCalls(session, roundRequests, nextMessages);
+
                 if (cancellationToken.IsCancellationRequested)
                 {
                     // 审批等待期间被取消:resolver 拿到的不是取消异常而是「拒绝」回应,正常返回,

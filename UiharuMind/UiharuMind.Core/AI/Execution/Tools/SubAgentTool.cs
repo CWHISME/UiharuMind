@@ -107,6 +107,13 @@ public static class SubAgentTool
         + "This decision is disclosed to the user in the run report.";
 
     /// <summary>
+    /// 嵌套审批是否该自动放行：有人守着 + 完全自动档。无人值守不放（没人看着时静默改盘比停下更糟），
+    /// 低档位照旧问人（越界写入的例外登记见 ADR 0032）。
+    /// </summary>
+    internal static bool ShouldAutoApproveNestedApprovals(bool attended, int permissionModeIndex) =>
+        attended && permissionModeIndex == (int)EAgentPermissionMode.FullAuto;
+
+    /// <summary>
     /// 一次委派要用到的全部上下文。子会话的字段几乎全部从派活者继承——
     /// 工作目录、权限档、shell 预授权,以及"谁派的"。
     /// </summary>
@@ -354,7 +361,7 @@ public static class SubAgentTool
         // 5 分钟一到按拒绝收口、整轮白跑(实机:派到工作区外的活全灭)。有人看着时直接放行,
         // 无人值守仍拒绝(没人看着时静默改盘比停下来更糟)。放行要认账:理由送给模型、
         // 警告记进日志、路径点名进报告,三处缺一不可。
-        bool fullAuto = attended && session.PermissionModeIndex == (int)EAgentPermissionMode.FullAuto;
+        bool fullAuto = ShouldAutoApproveNestedApprovals(attended, session.PermissionModeIndex);
         List<string> autoApprovedCalls = new();
         ApprovalResolver? resolver = NestedApprovalResolver.Create(attended,
             session.SessionId, SubSessionApprovalRegistry.Instance, NestedApprovalTimeout,
@@ -369,13 +376,17 @@ public static class SubAgentTool
 
         try
         {
-            await session.Runner.AttachAsync(session, timeoutSource.Token).ConfigureAwait(false);
+            // 同一轮里多次读 session.Runner 会拿到不同实例：前一轮 finally 释放后属性置 null、
+            // 新一轮惰性重建——Attach 与 Run 各读一次就可能在中间换实例，拿到个没挂接的新 runner
+            // （实机「尚未挂接会话」）。整轮只捕获一次，Attach/Run/总结共用同一实例。
+            ICharacterRunner runner = session.Runner;
+            await runner.AttachAsync(session, timeoutSource.Token).ConfigureAwait(false);
 
             using TurnDriver driver = new(turnSink, new TurnUsageLedger());
             // 令牌串的是本次委派自己的超时源。停止走 TurnDriver.CancelSession(子会话标识),
             // 它取消的是 driver 内部那个链接源——所以「有没有被停」只能问 driver,
             // 问我们手里这个令牌永远得到"没有"(见 TurnDriver.WasCancelled)
-            await driver.RunAsync(session, session.Runner, new ChatMessage(ChatRole.User, message),
+            await driver.RunAsync(session, runner, new ChatMessage(ChatRole.User, message),
                 resolver, timeoutSource.Token).ConfigureAwait(false);
             stopped = driver.WasCancelled && !timeoutSource.IsCancellationRequested;
 
@@ -396,7 +407,7 @@ public static class SubAgentTool
             {
                 using TurnDriver summaryDriver = new(turnSink, new TurnUsageLedger());
                 //总结那一轮也可能被停,别把半截总结当成完整报告
-                await summaryDriver.RunAsync(session, session.Runner,
+                await summaryDriver.RunAsync(session, runner,
                         new ChatMessage(ChatRole.User, SubAgentPrompts.SummaryPrompt),
                         resolver, timeoutSource.Token)
                     .ConfigureAwait(false);
@@ -418,8 +429,13 @@ public static class SubAgentTool
         finally
         {
             // 执行者(含 shell executor)随这次委派释放,不挂到应用退出;
-            // 之后用户打开该子会话会重新惰性创建——按同一份持久化身份重建
-            await session.DisposeRunnerAsync().ConfigureAwait(false);
+            // 之后用户打开该子会话会重新惰性创建——按同一份持久化身份重建。
+            // 但此刻若还有别的轮次在跑(用户直接开的子会话窗口前台轮刚赶上),放了它
+            // 前台那一轮就拿到已释放实例——没有别的轮次才释放。
+            if (!SessionManager.Instance.Running.IsBusy(session.SessionId))
+            {
+                await session.DisposeRunnerAsync().ConfigureAwait(false);
+            }
         }
 
         string report = turnSink.Report.Build(timedOut, limit, session.SessionId,
