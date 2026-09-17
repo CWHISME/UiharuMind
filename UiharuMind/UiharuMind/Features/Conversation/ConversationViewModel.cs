@@ -85,6 +85,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 短会话本来就没有更早的消息，一进来就挂那一行是噪音。
     /// </summary>
     [ObservableProperty] private bool _hasLoadedEarlier;
+
     [ObservableProperty] private bool _isSessionLoading; //会话切换构建中(空状态覆盖层此间不显示,避免闪烁)
     [ObservableProperty] private string _tokenUsageText = string.Empty; //token 统计(输入估算/本轮/会话累计)
 
@@ -330,17 +331,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>
     /// 复制会话编号：显示的是短写，进剪贴板的是全串。
-    ///
-    /// 复制完要弹一条:短写与全串不一样长,不给反馈的话用户分不清"点中了没有"——
-    /// 界面上没有任何东西会变
     /// </summary>
     [RelayCommand]
     private void CopySessionId()
     {
         if (SessionIdFull.Length == 0) return;
-        App.Clipboard.CopyToClipboard(SessionIdFull, true);
-        App.Services.GetRequiredService<IMessageService>()
-            .ShowNotification(Loc.Text("CopiedToClipboardTips"), severity: MessageSeverity.Success);
+        App.Clipboard.CopyToClipboard(SessionIdFull, true, true);
     }
 
     public bool IsExternallyDriven =>
@@ -2157,7 +2153,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     //================= 条目构造 =================
 
     /// <summary>助手条目:名字与头像取自当前会话的角色</summary>
-
     private void ClearStreamState()
     {
         // 气泡里的图是本会话现解出来的大位图,随条目走;条目被整体丢掉时没人会去释放它们,

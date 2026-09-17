@@ -447,9 +447,8 @@ internal static class SubAgentAssembly
 
         // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
         identity.Add(canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly);
-        // 护栏句:子代理整份提示词都是中文,而它连一句用户原话都看不到,更容易被提示词的语言带跑。
         // 挂在身份段而不是工具段,是因为工具段可能整段不出现,而这两句必须在
-        identity.Add(AgentToolPrompts.LanguageNeutrality);
+        // identity.Add(AgentToolPrompts.LanguageNeutrality);
         identity.Add(AgentToolPrompts.ConcurrentCalls);
 
         PromptSectionList list = new();

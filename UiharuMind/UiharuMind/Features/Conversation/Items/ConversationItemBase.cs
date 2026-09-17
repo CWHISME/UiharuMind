@@ -121,7 +121,7 @@ public abstract partial class ConversationItemBase : ObservableObject
     [RelayCommand]
     private void Copy()
     {
-        App.Clipboard.CopyToClipboard(Message, true);
+        App.Clipboard.CopyToClipboard(Message, true, true);
     }
 
     [RelayCommand]

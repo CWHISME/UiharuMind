@@ -24,6 +24,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Clowd.Clipboard;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Configs;
@@ -31,6 +32,7 @@ using UiharuMind.Core.Core.Clipboard;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Features.Clipboard;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Clipboard;
 
@@ -89,14 +91,20 @@ public class ClipboardService : IDisposable
         Task.Run(CheckAndRecordImagesInClipboardHistory);
     }
 
-    public void CopyToClipboard(string text, bool ignoreSelfCopying = false)
+    public void CopyToClipboard(string text, bool ignoreSelfCopying = false, bool tips = false)
     {
+        if (string.IsNullOrEmpty(text)) return;
         // _target.Dispatcher.Invoke(() => { Clipboard.SetText(text); });
         if (ignoreSelfCopying) _isSelfCopying = true;
         try
         {
             Clipboard.SetTextAsync(text);
             OnClipboardStringChanged?.Invoke(text);
+            if (tips)
+            {
+                // 弹一条:剪贴板是不可见的,不给反馈用户只能再点一次确认
+                App.Services.GetRequiredService<IMessageService>().ShowNotification(Loc.Text("CopiedToClipboardTips"), severity: MessageSeverity.Success);
+            }
         }
         catch (Exception e)
         {
@@ -268,7 +276,7 @@ public class ClipboardService : IDisposable
     /// </summary>
     private void CheckAndRecordImagesInClipboardHistory()
     {
-        if(!Directory.Exists(AppPaths.Data.ClipboardImages)) return;
+        if (!Directory.Exists(AppPaths.Data.ClipboardImages)) return;
         var files = Directory.GetFiles(AppPaths.Data.ClipboardImages, "*.png");
         bool recorded = false;
         foreach (var file in files)

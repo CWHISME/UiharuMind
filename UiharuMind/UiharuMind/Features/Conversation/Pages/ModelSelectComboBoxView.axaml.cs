@@ -30,7 +30,7 @@ public partial class ModelSelectComboBoxView : UserControl
         InitializeComponent();
         DataContext = App.ModelService;
     }
-    
+
     /// <summary>
     /// 复制这一行的模型名。<b>复制 ModelName 而不是 ModelId</b>：前者是全局唯一 key
     /// （本地与远程同一命名空间，<c>LlmManager.CacheModelDictionary</c> 按它查），
@@ -45,10 +45,7 @@ public partial class ModelSelectComboBoxView : UserControl
         e.Handled = true;
         if ((sender as Control)?.DataContext is not ModelRunningData model) return;
         if (string.IsNullOrEmpty(model.ModelName)) return;
-        App.Clipboard.CopyToClipboard(model.ModelName, true);
-        // 弹一条:剪贴板是不可见的,不给反馈用户只能再点一次确认
-        App.Services.GetRequiredService<IMessageService>()
-            .ShowNotification(Loc.Text("CopiedToClipboardTips"), severity: MessageSeverity.Success);
+        App.Clipboard.CopyToClipboard(model.ModelName, true, true);
     }
 
     // private async void OnModelSelectionChanged(object? sender, SelectionChangedEventArgs e)

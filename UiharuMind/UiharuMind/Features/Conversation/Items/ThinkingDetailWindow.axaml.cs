@@ -103,7 +103,7 @@ public partial class ThinkingDetailWindow : QuickWindowBase
 
     private void CopyButton_Click(object? sender, RoutedEventArgs e)
     {
-        if (_source != null) App.Clipboard.CopyToClipboard(_source.CurrentText, true);
+        if (_source != null) App.Clipboard.CopyToClipboard(_source.CurrentText, true, true);
     }
 
     private void SearchButton_Click(object? sender, RoutedEventArgs e)

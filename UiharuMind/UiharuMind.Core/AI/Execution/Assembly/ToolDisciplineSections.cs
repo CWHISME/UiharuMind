@@ -123,7 +123,7 @@ internal static class ToolDisciplineSections
         if (list.IsEmpty) return string.Empty;
 
         string guards = includeGuards
-            ? $"\n{AgentToolPrompts.LanguageNeutrality}\n{AgentToolPrompts.ConcurrentCalls}\n"
+            ? $"\n{AgentToolPrompts.ConcurrentCalls}\n"
             : string.Empty;
         return $"{AgentPromptHeadings.Tools}\n{guards}\n{list}";
     }

@@ -26,24 +26,11 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 /// </summary>
 public static class AgentToolPrompts
 {
-    /// <summary>
-    /// 回复语言的护栏句。<b>由装配侧挂在工具纪律段最前</b>(见 <c>AgentInstructionsComposer</c>)。
-    ///
-    /// 存在的理由：本文件整段是中文，而它每轮都发出去、体量还压过用户那几句话，
-    /// 于是模型的输出语言会被它拽向中文——尤其是本地小模型。
-    /// <c>MemoryContextProvider</c> 早就为记忆块钉过同一句话，harness 段先前漏了。
-    ///
-    /// 刻意<b>不放在工作循环段</b>：那段会落进用户存档、用户删得掉，
-    /// 而这是系统级不变量，不该寄生在一段随时会消失的文本里。
-    /// 挂在工具纪律段则与漂移源同生共死：有中文纪律段才有它，没有就不白花 token。
-    /// </summary>
-    public const string LanguageNeutrality =
-        "本段的语言不代表你该用什么语言回复。用对话本身所用的语言回复。";
-
+    
     /// <summary>
     /// 并行调用的护栏句。装配侧开了 <c>AllowConcurrentInvocation</c>,同一回复内的多个调用不再按序执行,
     /// 先写后读、先改后编译、同文件多处改这类隐含顺序的组合会乱。不在代码层按工具分档串行,
-    /// 唯一防线是让模型自己拆轮——所以与 <see cref="LanguageNeutrality"/> 一样挂在工具纪律段最前。
+    /// 唯一防线是让模型自己拆轮——所以挂在工具纪律段最前。
     /// </summary>
     public const string ConcurrentCalls =
         "同一条回复里的多个工具调用会同时执行。彼此有先后依赖时(先写后读、先改后编译、同一文件多处修改)分成多轮，每轮只发不互相依赖的调用。";
@@ -394,8 +381,6 @@ public static class AgentToolPrompts
         "`，它恒定只读，拿到的是你这批工具里只读的那些。\n" +
         "- 需要某个特定视角时（评审、对抗性检验、领域专家），用 role 给它一个身份；\n" +
         "  这会换掉它的关注点与取舍标准，不是换掉它的能力。\n" +
-        "- 用户给了确切的模型名，就用 model 把这一趟钉到那个模型上；名字要一字不差。\n" +
-        "  不清楚有哪些模型就别猜，问用户——你看不到模型列表。\n" +
         "- 委派是后台的：工具当场只回一张回执、不是报告。后续结论到了再作答；\n" +
         "  等的时候可以做不依赖它的事，依赖它的等报告。\n" +
         "- 继续、追问、讨论：用 `" + SubAgentTool.ToolContinueName + "`（认回执里 `[sub-session: …]` 编号）\n" +

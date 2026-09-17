@@ -269,7 +269,6 @@ public partial class LongTextView : UserControl
     }
 
 
-
     protected override void OnLoaded(RoutedEventArgs e)
     {
         base.OnLoaded(e);
@@ -357,8 +356,10 @@ public partial class LongTextView : UserControl
                     margins.RemoveAt(i);
             }
         }
+
         foreach (var margin in margins)
-            if (margin is SafeLineNumberMargin) return;
+            if (margin is SafeLineNumberMargin)
+                return;
         var numbers = new SafeLineNumberMargin();
         var line = DottedLineMargin.Create();
         margins.Insert(0, numbers);
@@ -445,7 +446,7 @@ public partial class LongTextView : UserControl
     /// </summary>
     public void CopyAll()
     {
-        App.Clipboard.CopyToClipboard(Text ?? string.Empty, true);
+        App.Clipboard.CopyToClipboard(Text ?? string.Empty, true, true);
     }
 
     /// <summary>

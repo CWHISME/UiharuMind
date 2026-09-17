@@ -97,7 +97,7 @@ public sealed class SubSessionDisplayItem
     {
         _meta = meta;
         Open = new RelayCommand(() => SubSessionWindowOpener.Open(_meta.SessionId));
-        CopyId = new RelayCommand(() => App.Clipboard.CopyToClipboard(_meta.SessionId, true));
+        CopyId = new RelayCommand(() => App.Clipboard.CopyToClipboard(_meta.SessionId, true, true));
     }
 
     /// <summary>任务摘要（子会话标题）</summary>
