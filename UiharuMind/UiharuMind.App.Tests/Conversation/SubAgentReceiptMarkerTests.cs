@@ -79,4 +79,26 @@ public class SubAgentReceiptMarkerTests
 
         Assert.Contains("NO RESULT YET", receipt);
     }
+
+    /// <summary>
+    /// 实时插话的回执与「已派出」是两种语义：插话不另起一轮、没有独立报告，
+    /// 效果并入当前轮——不写清的话主代理会空等第二份报告。但标记行仍是最后一行，
+    /// 卡片的「查看过程」入口靠它。
+    /// </summary>
+    [Fact]
+    public void InjectedReceipt_CarriesAParseableSubSessionMarker()
+    {
+        string receipt = SubAgentTool.BuildInjectedReceipt("abc123def456");
+
+        Assert.Equal("abc123def456", ToolCallItem.ParseSubSessionId(receipt));
+    }
+
+    [Fact]
+    public void InjectedReceipt_SaysNoSeparateReport()
+    {
+        string receipt = SubAgentTool.BuildInjectedReceipt("abc123");
+
+        Assert.Contains("no separate report", receipt);
+        Assert.DoesNotContain("Dispatched", receipt);
+    }
 }

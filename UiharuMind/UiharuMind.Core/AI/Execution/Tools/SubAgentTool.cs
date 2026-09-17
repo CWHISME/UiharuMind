@@ -99,6 +99,14 @@ public static class SubAgentTool
     public static readonly TimeSpan NestedApprovalTimeout = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// 完全自动档下嵌套审批自动放行的理由(送给模型,也进日志)。措辞三件事:谁决定的、
+    /// 凭什么、用户去哪看——放行即落子,不说清等于偷偷改盘。
+    /// </summary>
+    private const string FullAutoApprovalReason =
+        "Auto-approved without asking: the delegating session runs in FullAuto mode. "
+        + "This decision is disclosed to the user in the run report.";
+
+    /// <summary>
     /// 一次委派要用到的全部上下文。子会话的字段几乎全部从派活者继承——
     /// 工作目录、权限档、shell 预授权,以及"谁派的"。
     /// </summary>
@@ -173,6 +181,13 @@ public static class SubAgentTool
     }
 
     /// <summary>
+    /// 派活方插话的前缀。子代理提示词明确区分「用户在窗口说话」与「派活方追问」，
+    /// 插话以 user 身份进流时必须自报家门，否则子代理会把它当成用户的话。
+    /// 落盘带前缀：它本来就是派活方说的，原样留痕才是实话。
+    /// </summary>
+    private const string ParentInterjectionPrefix = "【派活方】";
+
+    /// <summary>
     /// 创建续跑/追问工具。两档共用一个:它认的是子会话标识,与当初派的是哪一档无关
     /// （那一档已经落在子会话上了，重建时照它装配）。
     /// </summary>
@@ -184,7 +199,7 @@ public static class SubAgentTool
             ([Description(SubAgentToolPrompts.ContinueSubSessionParam)]
                 string subSession,
                 [Description(SubAgentToolPrompts.ContinueMessageParam)]
-                string message) => Continue(context, subSession, message),
+                string message) => ContinueAsync(context, subSession, message),
             ToolContinueName,
             SubAgentToolPrompts.ContinueDescription);
     }
@@ -232,7 +247,7 @@ public static class SubAgentTool
         return DispatchToBackground(context, session, task, modelChoice.Notice);
     }
 
-    private static string Continue(LaunchContext context, string subSessionId, string message)
+    private static async Task<string> ContinueAsync(LaunchContext context, string subSessionId, string message)
     {
         if (string.IsNullOrWhiteSpace(subSessionId)) return "Error: subSession must not be empty.";
         if (string.IsNullOrWhiteSpace(message)) return "Error: message must not be empty.";
@@ -246,8 +261,43 @@ public static class SubAgentTool
         }
 
         NoteStarted(context, session.SessionId);
+
+        // 跑着就实时插话:新起一轮要等执行者闸门放行(它整轮持有),纠偏得等整轮跑完。
+        // 插话走注入队列,在下一次模型请求前消费,效果并入当前轮的报告,不另交报告。
+        if (SessionManager.Instance.Running.IsBusy(session.SessionId))
+        {
+            ChatMessage injection = session.CreateMessage(ChatRole.User, ParentInterjectionPrefix + message);
+            ChatMessageAnnotations.MarkParentInterjection(injection);
+            bool injected = false;
+            try
+            {
+                injected = await session.Runner.TryInjectAsync(new[] { injection }).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                // 入队失败就当没成功:回落到排队续跑,消息不丢
+                Log.Warning($"Parent interjection failed, falling back to queued turn: "
+                            + $"session={session.SessionId}: {e.Message}");
+            }
+
+            if (injected) return BuildInjectedReceipt(session.SessionId);
+        }
+
         return DispatchToBackground(context, session, message);
     }
+
+    /// <summary>
+    /// 实时插话的回执(纯函数,可单测)。标记行必须是最后一行——回放历史时卡片靠
+    /// <c>ToolCallItem.ParseSubSessionId</c> 的正则认出「这是一次委派」并挂出「查看过程」入口。
+    /// </summary>
+    /// <param name="subSessionId">子会话标识</param>
+    /// <returns>当场返回给模型的工具结果</returns>
+    public static string BuildInjectedReceipt(string subSessionId) =>
+        "Injected into the running session — it reads this on its next model request "
+        + "within the current run. No new turn was started and no separate report arrives "
+        + "for this message; its effect is folded into the current run's upcoming report. "
+        + "Do not poll for it.\n"
+        + $"[sub-session: {subSessionId}]";
 
     /// <summary>
     /// 把这次委派转入后台并当场给出工具结果。
@@ -299,11 +349,23 @@ public static class SubAgentTool
         // 嵌套审批的回应口:先问派活者那一轮,接不住时登记到子会话等用户去那边点选(见 NestedApprovalResolver)
         // 派活者那一轮已经结束(工具当场返回了),它的回应口恒定接不住,不再尝试——直接登记到子会话。
         // 于是那条「有审批在等你」的提示是**承重**的:5 分钟没人点就按拒绝收口(见 ADR 0025)
+        //
+        // 完全自动档是个例外:卡只能弹在子会话窗口,盯着主会话的用户看不见,问了也白问——
+        // 5 分钟一到按拒绝收口、整轮白跑(实机:派到工作区外的活全灭)。有人看着时直接放行,
+        // 无人值守仍拒绝(没人看着时静默改盘比停下来更糟)。放行要认账:理由送给模型、
+        // 警告记进日志、路径点名进报告,三处缺一不可。
+        bool fullAuto = attended && session.PermissionModeIndex == (int)EAgentPermissionMode.FullAuto;
+        List<string> autoApprovedCalls = new();
         ApprovalResolver? resolver = NestedApprovalResolver.Create(attended,
             session.SessionId, SubSessionApprovalRegistry.Instance, NestedApprovalTimeout,
             MaxDeniedApprovalRounds, timeoutSource.Token,
             () => BackgroundSubAgentDispatcher.Notifier?.Invoke(
-                ESubAgentNotice.ApprovalWaiting, session.SessionId));
+                ESubAgentNotice.ApprovalWaiting, session.SessionId),
+            autoApprove: fullAuto ? _ => FullAutoApprovalReason : null,
+            onAutoApproved: call =>
+            {
+                lock (autoApprovedCalls) autoApprovedCalls.Add(NestedApprovalResolver.Describe(call));
+            });
 
         try
         {
@@ -362,12 +424,30 @@ public static class SubAgentTool
 
         string report = turnSink.Report.Build(timedOut, limit, session.SessionId,
             stopped || cancellationToken.IsCancellationRequested, turnSink.SawUserInterjection);
+        // 派活方中途插过话:报告里可能答了原任务之外的东西,主代理该知道这份结论不全是它要的。
+        // 与用户插话分开交代——两者来源不同,混成一句会让主代理误判是谁改了方向。
+        if (turnSink.SawParentInterjection)
+        {
+            report += "\n(note: the delegating agent sent additional instructions "
+                      + "during this run, so this report may reflect directions beyond the original task.)";
+        }
         if (unansweredClosed > 0)
         {
             // 有调用因审批未决根本没跑成,必须点名——否则主代理会把没干的活当成干完了
             report += $"\n(note: {unansweredClosed} tool call(s) in the run never ran - "
                       + "their approvals were not answered before the turn ended. "
                       + "Do not assume that work was done.)";
+        }
+        if (autoApprovedCalls.Count > 0)
+        {
+            // 完全自动档下放行的那些:放行即落子,主代理(和用户)必须知道动了界外的哪几处。
+            // 只点名前几个——一轮写几十个文件时全列出来等于把报告撑成清单。
+            string[] shown;
+            lock (autoApprovedCalls) shown = autoApprovedCalls.Distinct().Take(5).ToArray();
+            string more = autoApprovedCalls.Count > shown.Length ? ", …" : string.Empty;
+            report += $"\n(note: {autoApprovedCalls.Count} action(s) that normally need approval "
+                      + "were auto-approved because the delegating session runs in FullAuto mode: "
+                      + string.Join("; ", shown) + more + ".)";
         }
         string outcome = timedOut ? "timed out" : stopped || cancellationToken.IsCancellationRequested ? "stopped" : "done";
         Log.Debug($"Sub-agent turn {outcome}: session={session.SessionId} "
@@ -480,11 +560,18 @@ public static class SubAgentTool
         /// <summary>本轮是否出现过用户插话(报告里要交代,否则主代理会把它当成自己的委派结果)</summary>
         public bool SawUserInterjection { get; private set; }
 
+        /// <summary>本轮是否出现过派活方插话(同上,但来源不同,报告里分开交代)</summary>
+        public bool SawParentInterjection { get; private set; }
+
         public void Apply(AIContent content)
         {
             Report.Add(content);
             if (content is TextContent { Text.Length: > 0 } text) _streaming.Append(text.Text);
-            if (content is UserMessageContent { IsInterjection: true }) SawUserInterjection = true;
+            if (content is UserMessageContent { IsInterjection: true, Message: { } incoming })
+            {
+                if (ChatMessageAnnotations.IsParentInterjection(incoming)) SawParentInterjection = true;
+                else SawUserInterjection = true;
+            }
         }
 
         public void CloseSegment() => _streaming.Clear();

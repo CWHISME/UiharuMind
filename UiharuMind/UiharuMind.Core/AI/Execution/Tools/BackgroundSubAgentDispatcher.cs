@@ -63,6 +63,16 @@ public static class BackgroundSubAgentDispatcher
     // 「子代理跑完了、回执没了」正是后一档(派活者正在跑时写它的历史会与落盘交错,只能等)
     private static readonly ConcurrentDictionary<string, HashSet<string>> _handoffQueuedByParent = new();
 
+    // 子会话 → 本会话同一时刻只跑一轮的串行闸。一次委派 = 真会话 + 自己的 TurnDriver,
+    // 但执行者是会话本体的惰性单例——两轮一旦重叠,后一轮 Attach 完、前一轮 finally
+    // 就把 runner 释放掉,读到的就是个没挂接的新 runner,当场炸「尚未挂接会话」
+    // (实机:同一子会话同秒结束两轮,一轮正常、一轮空报告)。
+    // 旧 Continue 在跑着时也起新轮,堆叠是常态;而执行者内部那把锁是单 runner 实例的,
+    // 释放重建就换了一把,拦不住跨轮重叠——只能在这里按子会话串行,跑 + 交回原子地走完,
+    // 后到的轮次在闸门外等(不烧资源),交回落盘之后才开跑,报告时序也不倒置。
+    // 常驻不删:删了就得在「删与等」之间再加一把锁,而子会话本来就只增不减,多一份小锁是同类欠账。
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _turnGates = new();
+
     /// <summary>某个会话「未了结的工作」变化。注意它<b>不是</b> IsGenerating，见 CONTEXT.md</summary>
     public static event Action<string>? PendingWorkChanged;
 
@@ -346,23 +356,34 @@ public static class BackgroundSubAgentDispatcher
         using CancellationTokenSource longRun = new();
         _ = NoteLongRunAsync(subSession.SessionId, longRun.Token);
 
-        string report = string.Empty;
+        // 同一子会话一次只跑一轮(含交回):堆叠的 Continue 在这里排队,而不是各跑各的执行者。
+        // 派活者不被阻塞——Dispatch 当场就返回了,等的是 detached 的后台任务。
+        SemaphoreSlim gate = _turnGates.GetOrAdd(subSession.SessionId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            report = await run(cancellation.Token).ConfigureAwait(false);
-        }
-        catch (Exception e)
-        {
-            // 跑挂了也要走交回:子会话历史里已经留下了它做过什么,那就是此刻能给的全部结论。
-            // 静默吞掉的话父会话里那条「已派出」永远没有下文
-            Log.Warning($"Background sub-agent failed: session={subSession.SessionId}: {e.Message}");
+            string report = string.Empty;
+            try
+            {
+                report = await run(cancellation.Token).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                // 跑挂了也要走交回:子会话历史里已经留下了它做过什么,那就是此刻能给的全部结论。
+                // 静默吞掉的话父会话里那条「已派出」永远没有下文
+                Log.Warning($"Background sub-agent failed: session={subSession.SessionId}: {e.Message}");
+            }
+            finally
+            {
+                longRun.Cancel();
+            }
+
+            await DeliverAsync(subSession, parentId, report).ConfigureAwait(false);
         }
         finally
         {
-            longRun.Cancel();
+            gate.Release();
         }
-
-        await DeliverAsync(subSession, parentId, report).ConfigureAwait(false);
     }
 
     private static async Task NoteLongRunAsync(string subSessionId, CancellationToken cancellationToken)

@@ -81,5 +81,6 @@ public static class SubAgentToolPrompts
     /// <summary>追问/续跑工具描述</summary>
     public const string ContinueDescription =
         "Send another message to an agent you already ran (same session — " +
-        "it keeps everything done so far) and get an updated report.";
+        "it keeps everything done so far) and get an updated report. " +
+        "If it is still running, the message is delivered live into the current run.";
 }

@@ -48,10 +48,19 @@ internal static class NestedApprovalResolver
     /// <paramref name="timeout"/> 到期就按拒绝收口、报告里点名没干成——
     /// 这条提示弹不出来，那次委派基本等于白跑。
     /// </param>
+    /// <param name="autoApprove">
+    /// 自动放行判据：返回非空理由即当场批准、不登记。给完全自动档用——派活者那一轮早已结束，
+    /// 卡只能弹在子会话窗口，盯着主会话的用户看不见，5 分钟一到按拒绝收口、整轮白跑。
+    /// 无人值守不传它（没人看着时静默改盘比停下来更糟）；越界写入在父会话仍要问，
+    /// 这里放行是「问了也白问」的让步，每一次都要记日志并在报告里点名。
+    /// </param>
+    /// <param name="onAutoApproved">每次自动放行时调一次（报告点名用）</param>
     /// <returns>审批通道；<paramref name="attended"/> 为 false 时返回 null</returns>
     public static ApprovalResolver? Create(bool attended, string sessionId,
         SubSessionApprovalRegistry registry, TimeSpan timeout, int maxDeniedRounds,
-        CancellationToken cancellationToken, Action? onWaiting = null)
+        CancellationToken cancellationToken, Action? onWaiting = null,
+        Func<ToolApprovalRequestContent, string?>? autoApprove = null,
+        Action<ToolApprovalRequestContent>? onAutoApproved = null)
     {
         if (!attended) return null;
 
@@ -67,14 +76,40 @@ internal static class NestedApprovalResolver
                 return [];
             }
 
-            Log.Debug($"Sub-agent turn '{sessionId}' waiting on {requests.Count} nested approval(s).");
-            onWaiting?.Invoke();
-            IReadOnlyList<ChatMessage> decisions = await registry
-                .WaitForDecisionsAsync(sessionId, requests, timeout, cancellationToken)
-                .ConfigureAwait(false);
+            // 自动放行的不占登记处：回应与请求一一对应，顺序与进来时一致
+            ChatMessage?[] slots = new ChatMessage[requests.Count];
+            List<ToolApprovalRequestContent> waiting = new();
+            List<int> waitingIndexes = new();
+            for (int i = 0; i < requests.Count; i++)
+            {
+                string? reason = autoApprove?.Invoke(requests[i]);
+                if (reason == null)
+                {
+                    waiting.Add(requests[i]);
+                    waitingIndexes.Add(i);
+                    continue;
+                }
 
-            deniedRounds = AllDenied(decisions) ? deniedRounds + 1 : 0;
-            return decisions;
+                Log.Warning($"Sub-agent turn '{sessionId}' auto-approved "
+                            + $"'{Describe(requests[i])}': {reason}");
+                slots[i] = new ChatMessage(ChatRole.User,
+                    [ToolApprovalResponseFactory.Create(requests[i], EApprovalDecision.Once, reason)]);
+                onAutoApproved?.Invoke(requests[i]);
+            }
+
+            if (waiting.Count > 0)
+            {
+                Log.Debug($"Sub-agent turn '{sessionId}' waiting on {waiting.Count} nested approval(s).");
+                onWaiting?.Invoke();
+                IReadOnlyList<ChatMessage> decisions = await registry
+                    .WaitForDecisionsAsync(sessionId, waiting, timeout, cancellationToken)
+                    .ConfigureAwait(false);
+
+                for (int k = 0; k < waiting.Count; k++) slots[waitingIndexes[k]] = decisions[k];
+                deniedRounds = AllDenied(decisions) ? deniedRounds + 1 : 0;
+            }
+
+            return slots.Select(x => x!).ToList();
         };
     }
 
@@ -86,4 +121,12 @@ internal static class NestedApprovalResolver
     private static bool AllDenied(IReadOnlyList<ChatMessage> decisions) =>
         decisions.Count > 0 && decisions.SelectMany(x => x.Contents)
             .All(x => x is ToolApprovalResponseContent { Approved: false });
+
+    /// <summary>日志里一句话说清这次调用是谁、动哪儿（报告点名同口径）</summary>
+    internal static string Describe(ToolApprovalRequestContent request)
+    {
+        if (request.ToolCall is not FunctionCallContent call) return "unknown call";
+        string? path = ApprovalModeMapper.ExtractFilePath(call.Arguments);
+        return path == null ? call.Name : $"{call.Name} {path}";
+    }
 }

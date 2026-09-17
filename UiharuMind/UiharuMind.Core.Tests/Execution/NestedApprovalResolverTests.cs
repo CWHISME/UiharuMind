@@ -96,4 +96,31 @@ public class NestedApprovalResolverTests
         Assert.Single(await resolver([Request("d")]));
         Assert.Empty(await resolver([Request("e")])); //再连续两轮被拒才到顶
     }
+
+    /// <summary>
+    /// 完全自动档:卡弹在子会话窗口,盯着主会话的用户看不见——等超时再拒等于整轮白跑。
+    /// 自动放行不登记、不等人、不弹提示,但决定理由照给(送模型)、点名照调(进报告)。
+    /// </summary>
+    [Fact]
+    public async Task FullAuto_ApprovesWithoutWaitingForAClick()
+    {
+        SubSessionApprovalRegistry registry = new();
+        bool registered = false;
+        registry.PendingAdded += _ => registered = true;
+        int notices = 0;
+        int autoNamed = 0;
+        ApprovalResolver? resolver = NestedApprovalResolver.Create(attended: true, SessionId, registry,
+            TimeSpan.FromSeconds(5), 2, CancellationToken.None, onWaiting: () => notices++,
+            autoApprove: _ => "FullAuto", onAutoApproved: _ => autoNamed++);
+        Assert.NotNull(resolver);
+
+        IReadOnlyList<ChatMessage> responses = await resolver([Request("a")]);
+
+        ToolApprovalResponseContent approval = Assert.IsType<ToolApprovalResponseContent>(
+            Assert.Single(Assert.Single(responses).Contents));
+        Assert.True(approval.Approved);
+        Assert.False(registered);
+        Assert.Equal(0, notices);
+        Assert.Equal(1, autoNamed);
+    }
 }

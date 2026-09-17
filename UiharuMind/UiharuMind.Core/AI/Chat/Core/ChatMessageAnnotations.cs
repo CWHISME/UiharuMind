@@ -93,6 +93,16 @@ public static class ChatMessageAnnotations
     public const string SubAgentReport = "_subAgentReport";
 
     /// <summary>
+    /// 派活方插话标记。带此键的 user 消息是<b>派活方（主代理）</b>在子代理运行中经
+    /// <c>ContinueAgent</c> 实时插的话，不是用户在子会话窗口说的话——子代理提示词明确区分这两者。
+    ///
+    /// 它不落在上面任何一轴：消息<b>要落盘、要供给模型</b>（它是子会话历史的一部分），
+    /// 只是来源需要被认出来——报告归因据此把「用户插话」与「派活方插话」分开交代。
+    /// 因此它绝不能复用 <see cref="Attribution"/>（那个键的含义是「不落盘」）。
+    /// </summary>
+    public const string ParentInterjection = "_parentInterjection";
+
+    /// <summary>
     /// 思考耗时标记：值为毫秒数。带此键的消息<b>要落盘、不供给模型判断</b>——
     /// 它是呈现轴：回放时思考卡片据此冻结显示真实耗时，而不是按重建时刻现算一个 0.1s。
     ///
@@ -146,6 +156,24 @@ public static class ChatMessageAnnotations
     {
         if (message.AdditionalProperties?.TryGetValue(SubAgentReport, out object? raw) != true) return string.Empty;
         return raw?.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// 判断是否为派活方插话
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>带 <see cref="ParentInterjection"/> 标记时返回 True</returns>
+    public static bool IsParentInterjection(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(ParentInterjection) == true;
+
+    /// <summary>
+    /// 给一条派活方插话盖上来源标记。就地写：调用方持有的是之后进注入队列的同一引用。
+    /// </summary>
+    /// <param name="message">派活方插话</param>
+    public static void MarkParentInterjection(ChatMessage message)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[ParentInterjection] = true;
     }
 
     /// <summary>

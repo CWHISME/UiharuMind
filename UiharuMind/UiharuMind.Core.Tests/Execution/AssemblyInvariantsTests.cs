@@ -164,6 +164,24 @@ public class HistoryAttributionTests
     }
 
     /// <summary>
+    /// 派活方插话的来源标记不能进 <c>Attribution</c> 那条过滤：它是子会话历史的一部分，
+    /// 要落盘、要供给模型（只是来源需要被认出来）。复用溯源键的话，
+    /// 这条纠偏在消费它的那次调用结束时根本落不了盘，等于白插。
+    /// </summary>
+    [Fact]
+    public void ParentInterjection_IsOwnedByUs()
+    {
+        ChatMessage injection = new(ChatRole.User, "【派活方】先别管性能，把正确性修对");
+        Assert.False(ChatMessageAnnotations.IsParentInterjection(injection));
+
+        ChatMessageAnnotations.MarkParentInterjection(injection);
+
+        Assert.True(ChatMessageAnnotations.IsParentInterjection(injection));
+        Assert.True(SessionChatHistoryProvider.IsOwnedByUs(injection));
+        Assert.False(ChatMessageAnnotations.IsParentInterjection(new ChatMessage(ChatRole.User, "hello")));
+    }
+
+    /// <summary>
     /// 框架产出的消息不带 CreatedAt，落历史时必须补上——<c>ChatSession.LastTime</c> 读的正是它。
     /// 不补的话缺失会被当成"现在"，会话列表那一行时间每次刷新都跳成刚刚
     /// </summary>
