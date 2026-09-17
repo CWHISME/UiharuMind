@@ -18,8 +18,10 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils.Tools;
+using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 
@@ -40,6 +42,14 @@ public abstract partial class ConversationItemBase : ObservableObject
     [ObservableProperty] private IBrush _senderColor = Brushes.Gray;
     [ObservableProperty] private string _message = string.Empty;
     [ObservableProperty] private bool _isDone = true;
+
+    /// <summary>正文被重新赋值时调用（含流式逐拍赋值）；子类需要从 <see cref="Message"/> 派生展示视图时重写</summary>
+    partial void OnMessageChanged(string value) => OnMessageUpdated();
+
+    /// <summary>正文变化钩子。重算成本按子类自担：高频的流式赋值里应当先判断自己是否真的依赖正文</summary>
+    protected virtual void OnMessageUpdated()
+    {
+    }
 
     // 四个回调决定四个按钮显不显示,而气泡是先上屏、一轮结束后才由 WireItemActions 接上它们的。
     // 因此必须是可观察的:普通属性赋值不抛通知,悬停菜单一旦在接线之前实例化过,
@@ -175,6 +185,47 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
 
     /// <inheritdoc />
     public override bool IsNarration => _isNarration;
+
+    // 旁白类(开场白/子代理后续报告)的截断视图。只对旁白启用:它是静态的"扫一眼"内容,
+    // 与工具结果同一语义;用户/助手消息是流式的、正在被阅读,截断会破坏阅读体验。
+    // 开场白通常很短不会触发,长的是子代理报告——超长时显示头部 + 提示行 + 查看全文
+    private ToolResultView _view = ToolResultTruncation.Empty;
+
+    /// <summary>气泡真正渲染的正文:旁白超长时是截断后的头部,其余透传原文</summary>
+    public string DisplayMessage => IsNarration ? _view.DisplayText : Message;
+
+    /// <summary>正文是否被截断(仅旁白类可能为真;决定「查看全文」入口显隐)</summary>
+    public bool IsTruncated => IsNarration && _view.IsTruncated;
+
+    /// <summary>截断提示行文案(未截断时为空串,提示行不显示)</summary>
+    public string TruncationHint => IsTruncated ? ToolResultTruncation.FormatTruncationHint(_view) : string.Empty;
+
+    /// <summary>打开全文窗(卡片上的「查看全文」按钮)。全文一律去独立窗口,理由同工具卡——
+    /// 会话流没有虚拟化,几十万字内联进气泡会当场冻住界面</summary>
+    [RelayCommand]
+    private void ShowFullText()
+    {
+        // 与工具卡同一支笔:窗口标题就是「查看全文」,不另立资源
+        FullTextWindow.Show(Loc.Text("ToolViewFullText"), Message);
+    }
+
+    /// <inheritdoc />
+    protected override void OnMessageUpdated()
+    {
+        // 非旁白不截断:DisplayMessage 直接透传原文,不跑 Build。
+        // 但<b>绑定的是 DisplayMessage 而不是 Message</b>,Message 变化必须转告它,
+        // 否则流式气泡收不到更新、一直停在空白(切走切回整段重建才恢复)
+        if (!IsNarration)
+        {
+            OnPropertyChanged(nameof(DisplayMessage));
+            return;
+        }
+
+        _view = ToolResultTruncation.Build(Message);
+        OnPropertyChanged(nameof(DisplayMessage));
+        OnPropertyChanged(nameof(IsTruncated));
+        OnPropertyChanged(nameof(TruncationHint));
+    }
 
     /// <summary>
     /// 随消息一同显示的图片（多模态消息里的 DataContent），一条消息可以带多张。

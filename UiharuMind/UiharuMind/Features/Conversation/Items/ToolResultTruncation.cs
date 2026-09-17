@@ -8,6 +8,8 @@
  ****************************************************************************/
 
 using System;
+using UiharuMind.Core.Core.Utils;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Items;
 
@@ -64,6 +66,29 @@ public static class ToolResultTruncation
 
     /// <summary>空结果的视图（无正文、未截断）</summary>
     public static ToolResultView Empty { get; } = new() { DisplayText = string.Empty };
+
+    /// <summary>
+    /// 截断提示行的文案。<b>按行报还是按体积报，取决于行数有没有真的被砍。</b>
+    ///
+    /// 数据本身就压成一行时（minified JSON、MCP 结果的常态），"仅显示前 1 行，共 1 行"
+    /// 这种话零信息量还显得像 bug——那种情况下被砍掉的是<b>体积</b>而不是<b>行</b>。
+    ///
+    /// 工具卡与文本气泡（子代理报告/旁白）共用这一份，避免两处各写一遍后口径漂移。
+    /// </summary>
+    /// <param name="view">截断视图</param>
+    /// <returns>提示文案</returns>
+    public static string FormatTruncationHint(ToolResultView view)
+    {
+        if (view.TotalLines > view.KeptLines)
+        {
+            return string.Format(Loc.Text("ToolResultTruncatedFormat"), view.KeptLines,
+                view.TotalLines, GameUtils.FormatBytes(view.OmittedChars));
+        }
+
+        return string.Format(Loc.Text("ToolResultTruncatedSizeFormat"),
+            GameUtils.FormatBytes(view.DisplayText.Length),
+            GameUtils.FormatBytes(view.DisplayText.Length + view.OmittedChars));
+    }
 
     /// <summary>
     /// 按阈值构造结果的展示视图

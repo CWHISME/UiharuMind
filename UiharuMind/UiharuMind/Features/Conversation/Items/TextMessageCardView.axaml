@@ -44,13 +44,18 @@
             <Setter Property="Opacity" Value="1" />
             <Setter Property="IsHitTestVisible" Value="True" />
         </Style>
-        <!-- 旁白(开场白):居中、限宽、淡一档。它不是对话的一方,不该长成谁的气泡。
-             正文颜色靠 Foreground 继承下去(正文是 markdown 视图,不是单个 TextBlock) -->
+        <!-- 旁白(开场白/子代理报告):居中、淡一档。它不是对话的一方,不该长成谁的气泡。
+             正文颜色靠 Foreground 继承下去(正文是 markdown 视图,不是单个 TextBlock)。
+             宽度与工具卡同一口径(ItemsControl 宽 - 10),不再另设 720 上限 -->
         <Style Selector="Border.message-bubble.narration">
             <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
             <Setter Property="TextElement.Foreground" Value="{DynamicResource SemiGrey6}" />
-            <Setter Property="MaxWidth" Value="560" />
             <Setter Property="Padding" Value="14,10" />
+        </Style>
+        <!-- 旁白正文限高:240 是"扫一眼"的尺寸(约 8~10 行 markdown)。只对旁白类启用,
+             普通气泡不挂这个类,保持不限高、不出现内部滚动 -->
+        <Style Selector="ScrollViewer.narration-limit">
+            <Setter Property="MaxHeight" Value="240" />
         </Style>
     </UserControl.Styles>
 
@@ -112,21 +117,45 @@
                         Margin="0,5,0,0"
                         BorderBrush="{Binding SenderColor}"
                         HorizontalAlignment="{Binding Alignment}"
+                        MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+                        Converter={x:Static converters:AddConverter.Instance},
+                        ConverterParameter=-10}"
                         IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <!-- 纯文本档的口径:用户消息恒纯文本,其余只看用户的开关,<b>与是否生成完毕无关</b>。
-                         流式期间曾额外绑 !IsDone(输出完才转 markdown),那是笔糊涂账:
-                         增量本来就一直在喂 markdown 的 builder,延后的只是显示 -->
-                    <common:SimpleMarkdownViewer HorizontalAlignment="Left"
-                                                 MarkdownText="{Binding Message}">
-                        <common:SimpleMarkdownViewer.IsPlaintext>
-                            <MultiBinding
-                                Converter="{StaticResource MultiConditionBoolOrConverter}">
-                                <Binding Path="IsUser" />
-                                <Binding Path="DataContext.IsPlaintext"
-                                         RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
-                            </MultiBinding>
-                        </common:SimpleMarkdownViewer.IsPlaintext>
-                    </common:SimpleMarkdownViewer>
+                    <StackPanel Spacing="4">
+                        <!-- 绑 DisplayMessage 而不是 Message:外层 MaxHeight 只裁<b>视口</b>,
+                             不裁<b>文本布局</b>——超长旁白(子代理报告)整篇 markdown 每次布局
+                             都要重新断行重新量,而会话流没有虚拟化。卡片<b>只</b>拿得到头部
+                             那一小段,全文一律去 FullTextWindow(与工具卡同一套做法,
+                             见 ToolResultTruncation) -->
+                        <ScrollViewer Classes.narration-limit="{Binding IsNarration}"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <!-- 纯文本档的口径:用户消息恒纯文本,其余只看用户的开关,<b>与是否生成完毕无关</b>。
+                                 流式期间曾额外绑 !IsDone(输出完才转 markdown),那是笔糊涂账:
+                                 增量本来就一直在喂 markdown 的 builder,延后的只是显示 -->
+                            <common:SimpleMarkdownViewer HorizontalAlignment="Left"
+                                                         MarkdownText="{Binding DisplayMessage}">
+                                <common:SimpleMarkdownViewer.IsPlaintext>
+                                    <MultiBinding
+                                        Converter="{StaticResource MultiConditionBoolOrConverter}">
+                                        <Binding Path="IsUser" />
+                                        <Binding Path="DataContext.IsPlaintext"
+                                                 RelativeSource="{RelativeSource AncestorType=conv:ConversationView}" />
+                                    </MultiBinding>
+                                </common:SimpleMarkdownViewer.IsPlaintext>
+                            </common:SimpleMarkdownViewer>
+                        </ScrollViewer>
+                        <!-- 截断提示行。只对旁白类(子代理报告)出现:普通气泡 IsTruncated 恒为 false -->
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsTruncated}">
+                            <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       Text="{Binding TruncationHint}" />
+                            <Button Grid.Column="1" Classes="SimpleSolidButton" Cursor="Hand"
+                                    FontSize="12" Padding="6,0" Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding ShowFullTextCommand}"
+                                    Content="{loc:Loc ToolViewFullText}" />
+                        </Grid>
+                    </StackPanel>
                 </Border>
 
                 <!-- 点名调用注入的技能正文:气泡显示的是 /技能名 那一行,正文折在这里备查 -->

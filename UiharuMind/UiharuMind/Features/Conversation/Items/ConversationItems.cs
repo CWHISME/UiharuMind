@@ -334,7 +334,7 @@ public partial class ToolCallItem : ConversationItemBase
     public bool IsResultTruncated => _resultView.IsTruncated;
 
     /// <summary>结果的截断提示行文案</summary>
-    public string ResultTruncationHint => FormatTruncationHint(_resultView);
+    public string ResultTruncationHint => ToolResultTruncation.FormatTruncationHint(_resultView);
 
     /// <summary>参数面板真正渲染的正文。参数原文此前<b>零截断</b>——一次 Write 带几百 KB 就直接进排版</summary>
     public string ArgumentsDisplayText => _argumentsView.DisplayText;
@@ -343,28 +343,7 @@ public partial class ToolCallItem : ConversationItemBase
     public bool IsArgumentsTruncated => _argumentsView.IsTruncated;
 
     /// <summary>参数的截断提示行文案（与结果共用一套文案，口径一致）</summary>
-    public string ArgumentsTruncationHint => FormatTruncationHint(_argumentsView);
-
-    /// <summary>
-    /// 截断提示行的文案。<b>按行报还是按体积报，取决于行数有没有真的被砍。</b>
-    ///
-    /// 数据本身就压成一行时（minified JSON、MCP 结果的常态），"仅显示前 1 行，共 1 行"
-    /// 这种话零信息量还显得像 bug——那种情况下被砍掉的是<b>体积</b>而不是<b>行</b>。
-    /// </summary>
-    /// <param name="view">截断视图</param>
-    /// <returns>提示文案</returns>
-    private static string FormatTruncationHint(ToolResultView view)
-    {
-        if (view.TotalLines > view.KeptLines)
-        {
-            return string.Format(Loc.Text("ToolResultTruncatedFormat"), view.KeptLines,
-                view.TotalLines, GameUtils.FormatBytes(view.OmittedChars));
-        }
-
-        return string.Format(Loc.Text("ToolResultTruncatedSizeFormat"),
-            GameUtils.FormatBytes(view.DisplayText.Length),
-            GameUtils.FormatBytes(view.DisplayText.Length + view.OmittedChars));
-    }
+    public string ArgumentsTruncationHint => ToolResultTruncation.FormatTruncationHint(_argumentsView);
 
     /// <summary>
     /// 结果正文里的 diff 行（目前只有 <c>Edit</c> 会有）。空集合表示按纯文本渲染结果。
