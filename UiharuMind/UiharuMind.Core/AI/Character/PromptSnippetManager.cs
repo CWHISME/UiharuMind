@@ -1,3 +1,4 @@
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;

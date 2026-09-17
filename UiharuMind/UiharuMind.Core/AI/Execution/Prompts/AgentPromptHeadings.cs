@@ -7,7 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-namespace UiharuMind.Core.AI.Execution.Assembly;
+namespace UiharuMind.Core.AI.Execution.Prompts;
 
 /// <summary>
 /// 系统提示里各段落的标题，<b>唯一出处</b>。
@@ -57,10 +57,10 @@ public static class AgentPromptHeadings
     /// <summary>工作区规矩段（主代理与子代理共用）</summary>
     public const string Workspace = "# 工作区规矩（来自项目的 AGENTS.md）";
 
-    /// <summary>runagent 的身份段</summary>
+    /// <summary>子代理的身份段</summary>
     public const string SubAgentRole = "# 角色";
 
-    /// <summary>runagent 的做法段</summary>
+    /// <summary>子代理的做法段</summary>
     public const string SubAgentMethod = "# 做法";
 
     /// <summary>

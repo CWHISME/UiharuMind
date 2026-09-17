@@ -14,7 +14,9 @@ using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Configs;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.Core.SimpleLog;
@@ -51,16 +53,16 @@ public static class SubAgentTool
     /// 这个直觉不必读描述就成立。从前叫 <c>RunGeneralSubAgent</c>,与 <c>RunExploreSubAgent</c>
     /// 一个是类别词、一个是动词,根本不在同一根轴上,模型无从比较,于是一边倒地选了后者。
     /// </summary>
-    public const string ToolGeneralName = "RunSubAgent";
+    public const string ToolGeneralName = "RunAgent";
 
     /// <summary>
-    /// 探索子代理的工具名。<b>限制写进名字里</b>:这正是要让模型看见的那一点——
+    /// 只读子代理的工具名。<b>限制写进名字里</b>:这正是要让模型看见的那一点——
     /// 它改不了任何东西,派错了只会白跑一趟。
     /// </summary>
-    public const string ToolExplorerName = "RunReadOnlySubAgent";
+    public const string ToolExplorerName = "RunReadOnlyAgent";
 
-    /// <summary>续跑/追问工具名。两档子代理共用一个——续跑与派哪一档无关,它认的是子会话</summary>
-    public const string ToolContinueName = "ContinueSubAgent";
+    /// <summary>追问/续跑工具名。两档子代理共用一个——它认的是那次运行的编号,与当初派的是哪一档无关</summary>
+    public const string ToolContinueName = "ContinueAgent";
 
     /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,
@@ -148,8 +150,7 @@ public static class SubAgentTool
         {
             StringBuilder sb = new(description);
             sb.AppendLine();
-            sb.AppendLine("Available sub-agents (pass one of these names as `agent`, "
-                          + "or omit it for a general-purpose one):");
+            sb.AppendLine(SubAgentToolPrompts.RosterHeading);
             foreach (SubAgentChoice choice in context.Roster)
             {
                 sb.AppendLine($"- {choice.Name}: {choice.Description}");
@@ -159,11 +160,12 @@ public static class SubAgentTool
         }
 
         return AIFunctionFactory.Create(
-            ([Description("The task for the sub-agent: what to find out, over what scope, "
-                                + "and what the report should contain.")]
+            ([Description(SubAgentToolPrompts.TaskParam)]
                 string task,
-                [Description("Which sub-agent to delegate to. Omit for a general-purpose one.")]
-                string? agent = null) => Launch(context, task, agent),
+                [Description(SubAgentToolPrompts.AgentParam)]
+                string? agent = null,
+                [Description(SubAgentToolPrompts.RoleParam)]
+                string? role = null) => Launch(context, task, agent, role),
             context.Profile.ToolName,
             description);
     }
@@ -177,20 +179,15 @@ public static class SubAgentTool
     public static AITool CreateContinueTool(LaunchContext context)
     {
         return AIFunctionFactory.Create(
-            ([Description("The sub-session id returned by a previous delegation.")]
+            ([Description(SubAgentToolPrompts.ContinueSubSessionParam)]
                 string subSession,
-                [Description("What to ask the sub-agent next: a follow-up question, "
-                             + "a correction, or simply an instruction to continue.")]
+                [Description(SubAgentToolPrompts.ContinueMessageParam)]
                 string message) => Continue(context, subSession, message),
             ToolContinueName,
-            "Continue an earlier sub-agent delegation: send it another message in the same "
-            + "sub-session and get an updated report. Use it to follow up on a report, to correct "
-            + "course, to carry on a multi-round discussion the user asked for, "
-            + "or to resume one that stopped before finishing. "
-            + "The sub-session keeps everything it did before.");
+            SubAgentToolPrompts.ContinueDescription);
     }
 
-    private static string Launch(LaunchContext context, string task, string? agent)
+    private static string Launch(LaunchContext context, string task, string? agent, string? role = null)
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: task must not be empty.";
 
@@ -199,12 +196,13 @@ public static class SubAgentTool
             : context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent, StringComparison.OrdinalIgnoreCase));
         if (agent != null && choice == null)
         {
-            return $"Error: no sub-agent named '{agent}'. "
+            return $"Error: no agent named '{agent}'. "
                    + (context.Roster.Count == 0
-                       ? "No named sub-agents are mounted; omit `agent` for a general-purpose one."
+                       ? "No named agents are mounted; omit `agent` for the default agent."
                        : $"Available: {string.Join(", ", context.Roster.Select(x => x.Name))}.");
         }
 
+        string? normalizedRole = NormalizeRole(role);
         ChatSession session = new()
         {
             // 匿名子代理用内置的身份角色,不沿用派活者的——否则子会话窗口会顶着派活者的
@@ -212,7 +210,7 @@ public static class SubAgentTool
             // 顶同一个名字用户分不清这次委派能不能改东西。
             // 能力仍然直接取派活者那一份(不经交集,见 SubAgentAssembly.BuildFromPlan)
             CharacterId = choice?.CharacterId ?? AnonymousCharacterOf(context.Profile.Type).ToString(),
-            Title = BuildTitle(task),
+            Title = BuildTitle(task, normalizedRole),
             Description = task,
             WorkspacePath = context.WorkspacePath,
             PermissionModeIndex = context.PermissionModeIndex,
@@ -221,6 +219,7 @@ public static class SubAgentTool
             ParentOutputFolderName = context.ParentOutputFolderName,
             SubAgentType = context.Profile.Type,
             SubAgentName = choice?.Name ?? string.Empty,
+            SubAgentRole = normalizedRole ?? string.Empty,
             SessionModelName = ResolveSubAgentModelName(context.Profile),
         };
         SessionManager.Instance.Add(session);
@@ -235,11 +234,11 @@ public static class SubAgentTool
         if (string.IsNullOrWhiteSpace(message)) return "Error: message must not be empty.";
 
         ChatSession? session = SessionManager.Instance.Load(subSessionId);
-        if (session == null) return $"Error: no sub-session '{subSessionId}'.";
+        if (session == null) return $"Error: no such run '{subSessionId}'.";
         // 只允许续自己派出去的那些:子会话是按派活者归属的,跨会话续跑等于绕过能力交集
         if (!string.Equals(session.ParentSessionId, context.ParentSessionId, StringComparison.Ordinal))
         {
-            return $"Error: sub-session '{subSessionId}' was not delegated by this session.";
+            return $"Error: run '{subSessionId}' was not started by this session.";
         }
 
         NoteStarted(context, session.SessionId);
@@ -331,7 +330,7 @@ public static class SubAgentTool
                 using TurnDriver summaryDriver = new(turnSink, new TurnUsageLedger());
                 //总结那一轮也可能被停,别把半截总结当成完整报告
                 await summaryDriver.RunAsync(session, session.Runner,
-                        new ChatMessage(ChatRole.User, "请用一段话总结你的发现和结论，作为最终报告。"),
+                        new ChatMessage(ChatRole.User, SubAgentPrompts.SummaryPrompt),
                         resolver, timeoutSource.Token)
                     .ConfigureAwait(false);
                 stopped |= summaryDriver.WasCancelled && !timeoutSource.IsCancellationRequested;
@@ -361,7 +360,7 @@ public static class SubAgentTool
         if (unansweredClosed > 0)
         {
             // 有调用因审批未决根本没跑成,必须点名——否则主代理会把没干的活当成干完了
-            report += $"\n(note: {unansweredClosed} tool call(s) in the sub-session never ran - "
+            report += $"\n(note: {unansweredClosed} tool call(s) in the run never ran - "
                       + "their approvals were not answered before the turn ended. "
                       + "Do not assume that work was done.)";
         }
@@ -399,12 +398,26 @@ public static class SubAgentTool
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
         type == ESubAgentType.Explorer ? DefaultCharacter.ExploreSubAgent : DefaultCharacter.GeneralSubAgent;
 
-    /// <summary>子会话标题:任务首行截断。改名不影响任何引用,标题纯显示</summary>
-    private static string BuildTitle(string task)
+    /// <summary>子会话标题:有 role 用 role,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
+    private static string BuildTitle(string task, string? role = null)
     {
-        string line = task.Trim().Split('\n', 2)[0].Trim();
+        string source = string.IsNullOrWhiteSpace(role) ? task.Trim().Split('\n', 2)[0].Trim() : role;
         const int max = 40;
-        return line.Length <= max ? line : line[..max] + "…";
+        return source.Length <= max ? source : source[..max] + "…";
+    }
+
+    /// <summary>role 清洗:trim、剥掉换行与反引号(防注入工具名)、截 40 字。返回 null 表示未设定</summary>
+    private static string? NormalizeRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role)) return null;
+        StringBuilder sb = new(role.Length);
+        foreach (char c in role.Trim())
+        {
+            if (c is '\r' or '\n' or '`') continue;
+            sb.Append(c);
+        }
+        string result = sb.ToString().Trim();
+        return result.Length > 40 ? result[..40] : result;
     }
 
     /// <summary>
@@ -517,17 +530,17 @@ public static class SubAgentTool
             {
                 // 收尾总结缺失(轮次到顶/超时/被截断):给出全程旁白,但要说清它不是结论,
                 // 否则主代理会把中间猜测当成子代理的判断
-                result.AppendLine("(No final report - the sub-agent stopped before summarizing. "
+                result.AppendLine("(No final report - the agent stopped before summarizing. "
                                   + "Below is its running commentary, not a conclusion.)");
                 result.Append(_allText.ToString().Trim());
             }
 
-            if (result.Length == 0) result.Append("(sub-agent returned no report)");
+            if (result.Length == 0) result.Append("(agent returned no report)");
 
             if (timedOut)
             {
                 result.AppendLine();
-                result.Append($"(sub-agent stopped: exceeded its {limit.TotalMinutes:0} minute time limit)");
+                result.Append($"(agent stopped: exceeded its {limit.TotalMinutes:0} minute time limit)");
             }
 
             // 被用户中止与超时是两回事:后者是意外,前者是**用户的决定**。
@@ -536,18 +549,18 @@ public static class SubAgentTool
             if (stoppedByUser)
             {
                 result.AppendLine();
-                result.Append("(sub-agent stopped: the USER deliberately interrupted it. "
+                result.Append("(agent stopped: the USER deliberately interrupted it. "
                               + "This was their decision, not a failure. Do NOT re-dispatch this task, "
                               + "and do NOT work around it by doing the work yourself. "
                               + "Report that it was stopped and ask what they want to do next. "
-                              + "The sub-session is intact if they ask you to resume it.)");
+                              + "The run is intact if they ask you to resume it.)");
             }
 
             // 用户插话改变了这次委派的性质,主代理该知道自己拿到的不全是它自己要的东西
             if (userInterjected)
             {
                 result.AppendLine();
-                result.Append("(note: the user sent additional instructions to the sub-agent "
+                result.Append("(note: the user sent additional instructions to the agent "
                               + "during this delegation, so this report may reflect directions you did not give.)");
             }
 

@@ -30,7 +30,7 @@ public class AgentToolConfig
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
-    /// <summary>启用 runagent 工具(RunAgent,把探查委派出去,过程不吃调用方上下文)</summary>
+    /// <summary>启用子代理工具(RunAgent,把探查委派出去,过程不吃调用方上下文)</summary>
     public bool EnableSubAgent { get; set; } = true;
 
     /// <summary>启用任务清单(框架 TodoProvider;关闭时对话侧栏的任务清单同步隐藏)</summary>

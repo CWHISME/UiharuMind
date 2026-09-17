@@ -11,7 +11,7 @@ using System.Text;
 using Microsoft.Agents.AI;
 using UiharuMind.Core.AI.Execution.Tools;
 
-namespace UiharuMind.Core.AI.Execution;
+namespace UiharuMind.Core.AI.Execution.Prompts;
 
 /// <summary>
 /// 工具纪律段的正文。段落标题由装配侧统一加，这里只管正文。
@@ -316,7 +316,7 @@ public static class AgentToolPrompts
         "- 它返回若干段落，或者告诉你没有挂载知识库。没有挂载就直说，不要靠猜。";
 
     /// <summary>
-    /// 委派（runagent）纪律段默认正文。
+    /// 委派（子代理）纪律段默认正文。
     ///
     /// ⚠️ 这里曾经写着「也不会有人替它批准任何操作」——那句<b>已经不成立</b>：
     /// 子代理现在跑自己的轮次，审批请求会问到用户那里（见 ADR 0021）。
@@ -333,18 +333,20 @@ public static class AgentToolPrompts
     /// 它紧挨着误读发生的那一刻。<b>两边都写整段就是固定开销与每次委派各付一遍钱。</b>
     /// </summary>
     public const string SubAgentDefault =
-        "- 要通读大量材料（一整个仓库、一个主题）时别自己全读：派一个 runagent 去，\n" +
+        "- 要通读大量材料（一整个仓库、一个主题）时别自己全读：派一个代理去，\n" +
         "  它只把报告交回来，原始材料不进你的上下文。\n" +
-        "- 选哪一个只看一条：这一趟要不要改任何东西（文件、命令、MCP）。\n" +
+        "- 代理是你正在协作的对象，不是用完即弃的一次性任务：同一任务可以来回多轮——\n" +
+        "  你追问、纠偏、补信息，它汇报进展、反问澄清（缺信息就以「需要你补充：」结束本轮），\n" +
+        "  每一轮都保留此前全部上下文。\n" +
+        "- 选哪一档只看一条：这一趟要不要改任何东西（文件、命令、MCP）。\n" +
         "  要改或拿不准：用 `" + SubAgentTool.ToolGeneralName + "`（默认，权限与你相同，审批照常问你）。\n" +
         "  确定只是查清楚：用 `" + SubAgentTool.ToolExplorerName + "`，只读，只有 5 个工具\n" +
         "  （`Grep`/`Glob`/`Read`/`WebSearch`/`WebFetch`），还能跑在更便宜的模型上。\n" +
         "- 委派是后台的：工具当场只回一张回执、不是报告。先回一句「已派人去查」，结论到了再作答；\n" +
         "  等的时候做不依赖它的事，依赖它的等报告。\n" +
-        "- 一次派一个任务、任务书写全；追问纠偏走 `" + SubAgentTool.ToolContinueName + "`\n" +
-        "  （认回执里 `[sub-session: …]` 那个编号），不要重新派。它缺信息你能补就补回去，\n" +
-        "  只有要用户拍板才转问用户。\n" +
-        "- runagent 自动带着与你这同一份工作区规矩（AGENTS.md），任务书里不用再提；\n" +
-        "  报告说用户中途插过话时，结论里可能有你没给过的指示，据此判断还需不需要再确认。";
+        "- 继续、追问、讨论：用 `" + SubAgentTool.ToolContinueName + "`（认回执里 `[sub-session: …]` 编号）\n" +
+        "  回到同一个代理接着谈，不要重新派——重派会丢掉它已经做过的一切。\n" +
+        "  它能补的信息你自己补回去，只有要用户拍板才转问用户。\n" +
+        "- 报告说用户中途插过话时，结论里可能有你没给过的指示，据此判断还需不需要再确认。";
 
 }

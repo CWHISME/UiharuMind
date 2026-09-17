@@ -137,7 +137,7 @@ public class AgentBuildProfile
             SessionId = session.SessionId,
             WorkspacePath = session.WorkspacePath,
             SubAgent = session.IsSubSession
-                ? new SubAgentIdentity(session.ParentSessionId!, session.SubAgentType, session.SubAgentName)
+                ? new SubAgentIdentity(session.ParentSessionId!, session.SubAgentType, session.SubAgentName, session.SubAgentRole)
                 : null,
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
@@ -181,10 +181,11 @@ public class AgentBuildProfile
 }
 
 /// <summary>
-/// 子会话的身份：它由谁派活、装配成哪一种子代理、点名了哪个子智能体。
-/// 三项全部来自会话本体的持久化字段，重开即可原样重建。
+/// 子会话的身份：它由谁派活、装配成哪一种子代理、点名了哪个子智能体、给了什么身份。
+/// 全部来自会话本体的持久化字段，重开即可原样重建。
 /// </summary>
 /// <param name="ParentSessionId">派活给它的那个会话</param>
 /// <param name="Type">子代理档（通用 / 探索）</param>
 /// <param name="AgentName">被点名的子智能体名；空串为通用匿名子代理</param>
-public sealed record SubAgentIdentity(string ParentSessionId, ESubAgentType Type, string AgentName);
+/// <param name="Role">派活时给的一句话身份/职业；空串为未设定</param>
+public sealed record SubAgentIdentity(string ParentSessionId, ESubAgentType Type, string AgentName, string Role = "");

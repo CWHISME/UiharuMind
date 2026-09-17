@@ -94,6 +94,12 @@ public class ChatSession
     public string SubAgentName { get; set; } = string.Empty;
 
     /// <summary>
+    /// 派活时给的一句话身份/职业（可选）；空串表示未设定。随会话落盘：
+    /// 重开子会话续跑时注入「# 角色」段，也直接用作会话标题。仅子会话有意义。
+    /// </summary>
+    public string SubAgentRole { get; set; } = string.Empty;
+
+    /// <summary>
     /// 这个子会话是<b>后台派出、报告还没交回</b>。仅子会话有意义。
     ///
     /// 必须落盘：进程被杀时它就是「父会话里那条『已派出』永远等不到下文」的唯一线索，

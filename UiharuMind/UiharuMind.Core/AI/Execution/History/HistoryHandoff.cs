@@ -113,7 +113,7 @@ public static class HistoryHandoff
     /// <summary>
     /// 这个会话派出过的委派清单，<b>确定性追加</b>在交接文档正文之后。
     ///
-    /// 存在的理由很窄：<c>ContinueSubAgent</c> 要子会话编号才能用，而编号只出现在回执与报告里
+    /// 存在的理由很窄：<c>ContinueAgent</c> 要子会话编号才能用，而编号只出现在回执与报告里
     /// ——那些正是压缩要吃掉的东西。不补这一段，压缩之后「续跑上一次委派」这个能力就<b>够不着了</b>，
     /// 模型只能重新派一个，把子代理攒下的上下文全丢掉。
     ///
@@ -129,9 +129,9 @@ public static class HistoryHandoff
 
         StringBuilder roster = new();
         roster.AppendLine();
-        roster.AppendLine("Earlier delegations in this session (pass the id to "
-                          + $"`{SubAgentTool.ToolContinueName}` to resume one instead of dispatching a fresh "
-                          + "sub-agent, which would lose everything it already worked out):");
+        roster.AppendLine("Earlier agent runs in this session (pass the "
+                          + $"`[sub-session: …]` id to `{SubAgentTool.ToolContinueName}` to continue one "
+                          + "instead of dispatching a fresh agent, which would lose everything it already worked out):");
         foreach (ChatSessionMeta meta in subSessions.Take(max))
         {
             // 还在跑的那些要单独标出来——续跑一个没跑完的与续跑一个已经交回结论的,是两件事

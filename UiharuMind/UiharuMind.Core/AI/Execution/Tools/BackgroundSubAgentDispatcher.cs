@@ -10,6 +10,7 @@
 using System.Collections.Concurrent;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Assembly;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Core.SimpleLog;
 
 namespace UiharuMind.Core.AI.Execution.Tools;

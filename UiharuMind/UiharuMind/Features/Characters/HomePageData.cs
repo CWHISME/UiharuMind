@@ -20,6 +20,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.Prompts;
 
 namespace UiharuMind.Features.Characters;
 

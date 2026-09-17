@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Prompts;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Configs;
 
@@ -55,8 +57,8 @@ public sealed record SubAgentProfile
     /// 提示词侧重点：探索型强调"调研后回报"，通用型强调"执行任务要求的改动"。
     /// </summary>
     public string RoleHint => Type == ESubAgentType.Explorer
-        ? "你是探索子代理，专门做初级调研：通览文件、搜代码、研究主题。"
-        : "你是通用子代理，可以执行实际修改操作。";
+        ? SubAgentPrompts.RoleHintExplorer
+        : SubAgentPrompts.RoleHintGeneral;
 
     /// <summary>
     /// 各类型子代理用各自配置的模型,未配置时回退到主代理模型。
@@ -77,18 +79,9 @@ public sealed record SubAgentProfile
     {
         Type = ESubAgentType.General,
         ToolName = SubAgentTool.ToolGeneralName,
-        // 两段描述共用一条<b>互斥判据</b>:这次委派要不要改变任何东西。
-        // 从前两边各说各的(一边"要改东西时用我",一边"要读很多东西时用我"),而大量任务
-        // 两头都沾,模型就倒向描述覆盖面更宽的探索档。判据里还要有"拿不准就用这个",
-        // 否则中间地带仍然无主。
-        // 子代理自动携带与主代理同一份工作区规矩(AGENTS.md/CLAUDE.md,注入语义见
-        // AgentToolPrompts.SubAgentDefault 与 WorkspaceInstructionsLoader),描述里不重复,
-        // 免得同一句在每个工具描述里各付一遍上下文。
-        Description =
-            "Delegate a task to a general-purpose sub-agent and get back a focused report. " +
-            "Use it whenever the task may need to CHANGE anything - editing files, running commands, " +
-            "using MCP tools - or when you are not sure whether it will. This is the default choice; " +
-            "only prefer " + SubAgentTool.ToolExplorerName + " when the task is purely about finding things out.",
+        // 选哪一档的判据归系统提示(AgentToolPrompts.SubAgentDefault),描述里不再重复——
+        // 这里只留「是什么 + 副作用」:它能改东西、权限与主代理相同。
+        Description = SubAgentToolPrompts.RunAgentDescription,
     };
 
     /// <summary>探索子代理策略</summary>
@@ -96,11 +89,7 @@ public sealed record SubAgentProfile
     {
         Type = ESubAgentType.Explorer,
         ToolName = SubAgentTool.ToolExplorerName,
-        Description =
-            "Delegate a READ-ONLY investigation to a lightweight sub-agent and get back a focused report. " +
-            "Use it only when the task is purely about finding things out - surveying many files, " +
-            "searching code, researching a topic on the web - so the raw material never enters your own context. " +
-            "It CANNOT edit files, run commands or use MCP tools: if the task might need any of those, " +
-            "use " + SubAgentTool.ToolGeneralName + " instead.",
+        // 判据归系统提示;这里只留「是什么 + 限制」:只读、改不了任何东西。
+        Description = SubAgentToolPrompts.RunReadOnlyAgentDescription,
     };
 }

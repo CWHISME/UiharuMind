@@ -3,6 +3,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Compaction;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;

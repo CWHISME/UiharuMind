@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Prompts;
+
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>

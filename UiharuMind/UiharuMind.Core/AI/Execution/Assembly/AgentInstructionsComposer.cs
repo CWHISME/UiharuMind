@@ -9,6 +9,7 @@
 
 using System.Text;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Prompts;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
 

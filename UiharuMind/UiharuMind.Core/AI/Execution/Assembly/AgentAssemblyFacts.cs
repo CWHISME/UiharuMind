@@ -10,6 +10,7 @@
 using System.Text.Json;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Python;
