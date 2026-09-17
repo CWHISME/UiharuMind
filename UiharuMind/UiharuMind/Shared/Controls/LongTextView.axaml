@@ -39,6 +39,7 @@
              替换行永远出不来，点了会弹回去——真正有害的部分库自己挡住了。
              剩下那个惰性小箭头不值得用 /template/ 伸进第三方模板去抓 #Expander：
              那是私有部件名，改名即静默失效，不报错也没测试兜底 -->
+
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*">
@@ -64,19 +65,18 @@
                               Click="SearchButton_Click" />
         </StackPanel>
 
-        <Border Grid.Row="1"
-                Background="{DynamicResource CodeBlockContentBackgroundBrush}"
+        <!-- 细线框 + 透明底：框给编辑区定界，底与窗口同色（不要以前那块灰底）。
+             内边距 8：文字贴边是上次被吐槽「怪」的主因 -->
+        <Border Grid.Row="1" Background="Transparent"
                 BorderBrush="{DynamicResource CodeBlockBorderBrush}"
-                BorderThickness="1" CornerRadius="4">
-            <!-- 背景给实色而不是 Transparent:AvaloniaEdit 自绘文本,透明底是重绘残影
-                 (文字叠影)的常见诱因,而这里的底色本来就该跟外框一致 -->
+                BorderThickness="1" CornerRadius="6">
             <edit:TextEditor Name="Editor"
-                             Background="{DynamicResource CodeBlockContentBackgroundBrush}"
+                             Background="Transparent"
                              Foreground="{DynamicResource UiForegroundBrush}"
                              LineNumbersForeground="{DynamicResource SemiGrey5}"
                              FontFamily="{DynamicResource CodeFontFamily}"
                              FontSize="13"
-                             Padding="4"
+                             Padding="8"
                              HorizontalScrollBarVisibility="Auto"
                              VerticalScrollBarVisibility="Auto" />
         </Border>

@@ -851,11 +851,11 @@ public static class AgentContentFormatter
     }
 
     /// <summary>
-    /// 路径按<b>保尾</b>收窄:文件名比根目录前缀有信息量得多。
+    /// 路径只做<b>语义</b>收窄:工作区内转相对路径,之外保持绝对(越界可见)。
     ///
-    /// 摘要那一列是 <c>TextTrimming=CharacterEllipsis</c>,从头保留的后果是——模型给了绝对路径时
-    /// 满屏都是工作目录前缀,文件名和后面的"(N edits)"全被裁在可视范围之外。
-    /// 能算成工作区相对路径时优先用它:那串前缀对用户是已知信息。
+    /// 长度不管:摘要列是 <c>TextTrimming=PathSegmentEllipsis</c>,窄列下排版引擎
+    /// 按目录段折叠中间、文件名永远可见,比内容层按固定 60 字保尾更贴合实际宽度。
+    /// 其余两个消费者(审批卡换行、转录喂卡片)对长串也都是优雅溢出。
     /// </summary>
     private static string ShortenPath(string? path, string? workspaceRoot)
     {
@@ -873,15 +873,11 @@ public static class AgentContentFormatter
             }
             catch (ArgumentException)
             {
-                // 路径含非法字符,按原样收窄
+                // 路径含非法字符,按原样返回
             }
         }
 
-        if (display.Length <= MaxSummaryValueChars) return display;
-
-        string tail = display[^MaxSummaryValueChars..];
-        int cut = tail.IndexOf('/'); //从目录分隔处断开,不在文件名中间切
-        return "…" + (cut >= 0 && cut < 20 ? tail[cut..] : tail);
+        return display;
     }
 
     private static string Shorten(string? text)
@@ -890,6 +886,9 @@ public static class AgentContentFormatter
 
         // 转义过的换行留在一行摘要里只是噪音
         string flat = text.Replace("\\n", " ").Replace('\n', ' ').Replace('\r', ' ').Trim();
-        return flat.Length <= MaxSummaryValueChars ? flat : flat[..MaxSummaryValueChars] + "…";
+        //显示前面
+        // return flat.Length <= MaxSummaryValueChars ? flat : flat[..MaxSummaryValueChars] + "…";
+        //显示后面
+        return flat.Length <= MaxSummaryValueChars ? flat : "…" + flat[^MaxSummaryValueChars..];
     }
 }

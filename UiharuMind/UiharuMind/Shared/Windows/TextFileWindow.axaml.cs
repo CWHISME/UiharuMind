@@ -281,6 +281,7 @@ public partial class TextFileWindow : QuickWindowBase
         string title = (_dirty ? "* " : "") + (fileName ?? Loc.Text("TextFileUntitled"));
         Title = title;
         TitleTextBlock.Text = title;
+        ToolTip.SetTip(TitleTextBlock, _filePath ?? title); //悬停看全路径
     }
 
     private void RefreshDirtyState()
@@ -326,10 +327,16 @@ public partial class TextFileWindow : QuickWindowBase
         }
     }
 
-    /// <summary>底部状态栏：编码 / 行数 / 字符数 / 文件大小（空文档无路径时不显示大小）</summary>
+    /// <summary>底部状态栏：左路径、右编码 / 行数 / 字符数 / 文件大小（空文档无路径时不显示大小）</summary>
     private void UpdateStatusBar()
     {
         if (StatusTextBlock == null) return;
+
+        if (PathTextBlock != null)
+        {
+            PathTextBlock.Text = _filePath ?? Loc.Text("TextFileUntitled");
+            ToolTip.SetTip(PathTextBlock, _filePath ?? Loc.Text("TextFileUntitled"));
+        }
 
         int lines = TextView.Editor.Document?.LineCount ?? 0;
         int chars = TextView.Text?.Length ?? 0;

@@ -25,8 +25,8 @@
              自己的 Ctrl+Z / Ctrl+Y 优先。工具按钮排放在这一行右侧、关闭按钮正下方
              （复制 / 换行 / 搜索 / markdown 预览，与 FullTextWindow 同一套；
              预览对任意文本文件可用，md/markdown 打开时默认就是预览态） -->
-        <DockPanel Grid.Row="1" Margin="0,2,0,4">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+        <DockPanel Grid.Row="1" Margin="0,2,0,6">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4"
                         Margin="0,0,4,0" VerticalAlignment="Center">
                 <ThemedIconButton Width="24" Height="24" Focusable="False" IconName="copy"
                                   ToolTip.Tip="{loc:Loc LongTextCopyAll}"
@@ -72,20 +72,24 @@
         <!-- 编辑态与预览态叠在同一片区域，切模式只改可见性：
              编辑 Document 不销毁，撤销栈与滚动位置跨预览切换保留 -->
         <Grid Grid.Row="2">
-            <LongTextView Name="TextView" IsEditable="True" IsToolbarVisible="False" ShowLineNumbers="True" />
-            <ScrollViewer Name="PreviewHost" IsVisible="False"
-                          Background="{DynamicResource CodeBlockContentBackgroundBrush}">
+            <LongTextView Name="TextView" IsEditable="True" IsToolbarVisible="False"
+                          ShowLineNumbers="True" />
+            <ScrollViewer Name="PreviewHost" IsVisible="False" Background="Transparent"
+                          BorderBrush="{DynamicResource CodeBlockBorderBrush}"
+                          BorderThickness="1" CornerRadius="6">
                 <controls:SimpleMarkdownViewer Name="MarkdownViewer" Margin="8" />
             </ScrollViewer>
         </Grid>
 
-        <!-- 底部状态栏：编码 / 行数 / 字符数 / 文件大小，文字右下角（仅文字往下微调，不撑高底栏） -->
-        <Border Grid.Row="3" Margin="0,0,0,0" Padding="6,6,0,-2"
-                Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="4">
-            <TextBlock Name="StatusTextBlock" FontSize="11" Foreground="Gray"
-                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,2,0,0"
-                       TextTrimming="CharacterEllipsis" />
-        </Border>
+        <!-- 底部状态栏：左路径、右编码 / 行数 / 字符数 / 文件大小。
+             编辑区自带细框定界，这里不再另画分隔线，字色走主题灰 -->
+        <Grid Grid.Row="3" Margin="0,6,0,-5" ColumnDefinitions="*,Auto">
+            <TextBlock Name="PathTextBlock" FontSize="12" Foreground="{DynamicResource SemiGrey5}"
+                       VerticalAlignment="Center" TextTrimming="PathSegmentEllipsis" />
+            <TextBlock Name="StatusTextBlock" Grid.Column="1" FontSize="12"
+                       Foreground="{DynamicResource SemiGrey5}"
+                       VerticalAlignment="Center" Margin="12,0,0,0" />
+        </Grid>
 
         <!-- 拖放高亮：文件拖进来时整窗亮起，盖在一切之上但不拦事件；
              可见性由 code-behind 按 DragOver/DragLeave/Drop 控制（对照 ConversationView） -->

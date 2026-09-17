@@ -28,7 +28,7 @@ namespace UiharuMind.Features.QuickTools
             _menuItems.Clear();
             AddMenuItem("search", "RadialMenuFileSearch", () => UIManager.ShowWindow<FileSearchWindow>());
             AddMenuItem("message-circle-more", "Ask", () => QuickStartChatWindow.Show());
-            AddMenuItem("house", "RadialMenuHome", () => App.DummyWindow.LaunchMainWindow());
+            // AddMenuItem("house", "RadialMenuHome", () => App.DummyWindow.LaunchMainWindow());
             // 直接开空文档（普通编辑器行为）：选文件/拖拽都在窗内做，
             // 不在轮盘里弹文件框——之前 picker 的 owner 会落到正在收起的轮盘上所以打不开
             AddMenuItem("file-text", "RadialMenuTextEditor", TextFileWindow.ShowEmpty);

@@ -76,18 +76,17 @@ public class ToolCallSummaryTests
         Assert.Equal("/etc/hosts", summary);
     }
 
-    /// <summary>路径过长时保<b>尾</b>：文件名比根目录前缀有信息量得多</summary>
+    /// <summary>路径过长时内容层不再保尾：摘要列是 PathSegmentEllipsis，
+    /// 窄列下排版引擎按目录段折叠，文件名永远可见；串本身保持完整</summary>
     [Fact]
-    public void OverlongPath_KeepsTheTail()
+    public void OverlongPath_IsKeptWhole()
     {
         string path = "/Users/someone/Documents/UnityProjects/Works/SLG2/Client/UnityClient/Assets/MapTest.cs";
 
         string summary = AgentContentFormatter.SummarizeArguments(
             Call(FileToolNames.Read, ("filePath", path)));
 
-        Assert.StartsWith("…", summary);
-        Assert.EndsWith("Assets/MapTest.cs", summary);
-        Assert.DoesNotContain("/Users/someone", summary);
+        Assert.Equal(path, summary);
     }
 
     /// <summary>摘要是一行:转义过的换行、真换行、过长的值都不该原样摆进去</summary>

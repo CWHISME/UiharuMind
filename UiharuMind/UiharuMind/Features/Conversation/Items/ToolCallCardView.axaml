@@ -69,10 +69,11 @@
                              展开变白那个 bug 由上面的 :checked 样式在源头解决 -->
                         <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
                                    VerticalAlignment="Center" Text="{Binding ToolName}" />
+                        <!-- 摘要经常是路径：中间折叠比尾部截断好，文件名和“(N edits)”留在可见区 -->
                         <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"
                                    VerticalAlignment="Center"
                                    Text="{Binding ArgumentSummary}"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="PathSegmentEllipsis" />
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                                     VerticalAlignment="Center">
                             <!-- 这里曾经挂着「等待审批」。删了:审批是**报警**,而报警必须找得到人,
