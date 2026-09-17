@@ -778,9 +778,11 @@ public static class AgentContentFormatter
         return "🔧";
     }
 
-    /// <summary>折叠标题栏是一行,摘要里任何一段都不该超过这个长度</summary>
-    private const int MaxSummaryValueChars = 60;
-
+    
+    private const int MaxSummaryValueChars = 60;                        //折叠标题栏是一行,摘要里任何一段都不该超过这个长度
+    private const int HeadChars = 36;                                   // 头 60%
+    private const int TailChars = MaxSummaryValueChars - 1 - HeadChars; // 尾，减去 "…"
+    
     /// <summary>
     /// 摘要优先认的参数键。<c>filePath</c> 曾经不在里面,而文件工具的路径参数正是它——
     /// 于是 Read/Write/Edit 全都落到兜底分支,把参数原样摊开当摘要。
@@ -879,16 +881,17 @@ public static class AgentContentFormatter
 
         return display;
     }
-
+    
     private static string Shorten(string? text)
     {
         if (string.IsNullOrEmpty(text)) return string.Empty;
 
-        // 转义过的换行留在一行摘要里只是噪音
         string flat = text.Replace("\\n", " ").Replace('\n', ' ').Replace('\r', ' ').Trim();
-        //显示前面
-        // return flat.Length <= MaxSummaryValueChars ? flat : flat[..MaxSummaryValueChars] + "…";
-        //显示后面
-        return flat.Length <= MaxSummaryValueChars ? flat : "…" + flat[^MaxSummaryValueChars..];
+        return flat.Length <= MaxSummaryValueChars
+            ? flat
+            : string.Concat(
+                flat.AsSpan(0, HeadChars),
+                "…",
+                flat.AsSpan(flat.Length - TailChars).TrimStart());
     }
 }
