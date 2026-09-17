@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
  * Copyright (c) 2024 CWHISME
  *
  * UiharuMind v0.0.1
@@ -68,20 +68,17 @@ internal static class ToolDisciplineSections
     }
 
     /// <summary>
-    /// 按清单拼出 <c># 工具</c> 整段（含父标题与两句护栏）。
+    /// 按清单拼出 <c># 工具</c> 整段（含父标题与并行调用那句护栏）。
     ///
-    /// 护栏句紧跟父标题：整段是中文、每轮都发、体量压过用户那几句话，
-    /// 不钉一句"别照着这段的语言回复"，小模型的输出语言就会被拽向中文。
-    /// 挂在这里而不是工作循环段，是因为那段会落进用户存档、用户删得掉。
+    /// 护栏句紧跟父标题，<b>两档一视同仁</b>。从前子代理那份挂在「# 角色」里，
+    /// 理由是当时还有一句语言护栏——语言漂移的来源是整份中文提示词，所以哪怕工具段
+    /// 整个缺席它也得在，于是两句一起被挪去了一个"一定存在"的地方。
+    /// 语言护栏移除后那个理由就没了：并行调用这条<b>没有工具时根本没有意义</b>，
+    /// 留在身份段里只是让「你是谁」后面突然接一条工具调用语义。
     /// </summary>
     /// <param name="facts">这次装配的事实</param>
-    /// <param name="includeGuards">
-    /// 是否把两句护栏挂在父标题之后。<b>主代理传 true</b>：它的中文体量几乎全在这一段，
-    /// 护栏与漂移源同生共死，没有纪律段就不白花 token。<b>子代理传 false</b>：
-    /// 它整份提示词都是中文（身份段、协作段都算），护栏得挂在更靠前、且一定存在的地方
-    /// </param>
     /// <returns><c># 工具</c> 整段；一项纪律都没有时为空串（光挂一个空父标题是纯噪声）</returns>
-    internal static string Build(ToolDisciplineFacts facts, bool includeGuards = true)
+    internal static string Build(ToolDisciplineFacts facts)
     {
         PromptSectionList list = new();
 
@@ -122,9 +119,6 @@ internal static class ToolDisciplineSections
 
         if (list.IsEmpty) return string.Empty;
 
-        string guards = includeGuards
-            ? $"\n{AgentToolPrompts.ConcurrentCalls}\n"
-            : string.Empty;
-        return $"{AgentPromptHeadings.Tools}\n{guards}\n{list}";
+        return $"{AgentPromptHeadings.Tools}\n\n{AgentToolPrompts.ConcurrentCalls}\n\n{list}";
     }
 }

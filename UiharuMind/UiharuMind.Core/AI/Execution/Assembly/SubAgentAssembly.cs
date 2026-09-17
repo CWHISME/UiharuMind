@@ -447,9 +447,9 @@ internal static class SubAgentAssembly
 
         // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
         identity.Add(canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly);
-        // 挂在身份段而不是工具段,是因为工具段可能整段不出现,而这两句必须在
-        // identity.Add(AgentToolPrompts.LanguageNeutrality);
-        identity.Add(AgentToolPrompts.ConcurrentCalls);
+        // 并行调用那句护栏归 # 工具 段(与主代理同一处),不放这里:
+        // 它讲的是工具调用语义,没有工具时毫无意义,挂在身份段等于"你是谁"后面
+        // 突然接一条并发规则
 
         PromptSectionList list = new();
         list.Raw(named, persona);
@@ -474,7 +474,7 @@ internal static class SubAgentAssembly
             Memory = string.Empty,
             ShellBinary = shellBinary,
             ForSubAgent = true,
-        }, includeGuards: false));
+        }));
 
         // 工作循环:点名的子智能体<b>跳过</b>——新建智能体时这一段已被预填进它的角色卡
         // (HomePageData.NewCharacterAsync),再追加一份就是同一份提示词里出现两次
