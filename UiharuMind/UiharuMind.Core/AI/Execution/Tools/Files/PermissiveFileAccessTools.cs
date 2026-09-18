@@ -80,6 +80,8 @@ internal sealed class PermissiveFileAccessTools
     /// <c>/a.cs</c> 与 <c>/A.cs</c> 是同一文件，不能各自拿一把锁。
     /// 已知边界：不做符号链接 realpath 归一，<c>/real/c.cs</c> 与 <c>/link→real/c.cs</c>
     /// 会拿到不同条纹——与 ApprovalModeMapper 的"不解析符号链接"口径一致，可接受。
+    /// 注：Write/Edit 在进入锁前已解析<b>文件本体</b>的 symlink（ResolveWriteTarget），
+    /// 所以"文件本身是链接"的场景已覆盖；未覆盖的只剩<b>父目录是链接</b>的别名（见该方法注释）。
     /// </summary>
     private const int FileLockStripes = 64;
     private static readonly SemaphoreSlim[] _fileLocks = BuildFileLocks();
@@ -535,6 +537,8 @@ internal sealed class PermissiveFileAccessTools
     // 同目录是前提:跨文件系统 rename 会退化成 copy+delete,失去原子性。
     // 注意"原子"指替换动作本身:只保证读方不看到半截,不保证断电后数据在盘(无 fsync)。
     // 读方(Read/Grep/预览)故意不进锁——原子写让它们永远看到完整文件,不需要锁。
+    // 固有代价:rename 替换目录项会<b>断开硬链接关系</b>(其它链接仍指向旧 inode、
+    // 永远读到旧内容,不报错)——vim 式原子写的通病,非本仓回归,知道即可。
     private static async Task SaveAsync(string full, TextFileEnvelope envelope, string content, CancellationToken ct)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
@@ -599,7 +603,14 @@ internal sealed class PermissiveFileAccessTools
     /// 写目标解析：跟随符号链接到真实路径。锁与原子写都对着<b>解析后的</b>路径做，
     /// 否则两个回归同时发生：<c>File.Move</c> 是 rename 覆盖链接<b>本体</b>（不写目标，
     /// 静默把链接换成普通文件），且 <c>/real</c> 与 <c>/link→real</c> 在锁表里拿不同条纹、
-    /// 互斥失效。解析失败（例如文件不存在）回退原路径。
+    /// 互斥失效。
+    /// 解析失败（例如文件不存在）回退原路径。
+    ///
+    /// <b>已知边界</b>：只解析末段组件——父目录是 symlink（<c>/work/linkdir/target.txt</c>，
+    /// <c>linkdir → realdir</c>）时返回的仍是 <c>/work/linkdir/target.txt</c>，与
+    /// <c>/work/realdir/target.txt</c> 在锁表里是两条不同条纹（同一 inode），并发别名编辑
+    /// 仍可能 lost-update。与 <c>ApprovalModeMapper</c>"不解析符号链接"口径一致，接受此边界；
+    /// 全路径 realpath 会引入 TOCTOU 与锁 key 一致性问题，对代理场景不划算。
     /// </summary>
     private static string ResolveWriteTarget(string full)
     {

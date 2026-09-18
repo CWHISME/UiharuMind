@@ -466,7 +466,8 @@ public class FileEditPlannerTests
         Assert.Contains("old2", rendered); //头几行内容要给到
         Assert.Contains("new2", rendered);
         Assert.DoesNotContain("c7", rendered); //超出预算的行不给
-        Assert.Contains("+5 more diff lines across 1 hunk(s); use Read offset=… to inspect", rendered);
+        Assert.Contains("+5 more diff lines across 1 hunk(s); ", rendered);
+        Assert.Contains("coordinates are in the @@ headers above, use Read to inspect", rendered);
     }
 
     [Fact]

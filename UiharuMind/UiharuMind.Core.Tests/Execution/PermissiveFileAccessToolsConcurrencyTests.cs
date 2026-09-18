@@ -144,10 +144,13 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     /// <summary>
     /// 原子写是 rename 覆盖链接<b>本体</b>,不跟随目标——编辑 symlink 路径必须先把目标
     /// 解析成真实路径再落盘,否则链接被替换成普通文件、目标纹丝不动。
+    /// Windows 上创建符号链接需管理员/Developer Mode,CI 常无此权限,跳过。
     /// </summary>
     [Fact]
     public async Task Edit_OnSymlink_UpdatesTheTarget_NotTheLink()
     {
+        if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return; //Windows 创建符号链接需提权
+
         string target = Path.Combine(_dir, "real.txt");
         string link = Path.Combine(_dir, "link.txt");
         await File.WriteAllTextAsync(target, "original\n");
@@ -165,10 +168,13 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     /// <summary>
     /// 同一个真实文件经 /real 与 /link 两条路径并发编辑,必须拿到同一把锁(symlink 解析后的
     /// 真实路径做 key),否则互斥失效、各自覆盖。
+    /// Windows 上创建符号链接需管理员/Developer Mode,CI 常无此权限,跳过。
     /// </summary>
     [Fact]
     public async Task ConcurrentEdits_SameFile_OneViaSymlink_ShareTheLock()
     {
+        if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return; //Windows 创建符号链接需提权
+
         string target = Path.Combine(_dir, "shared-real.cs");
         string link = Path.Combine(_dir, "shared-link.cs");
         await File.WriteAllTextAsync(target, "one\ntwo\nthree\n");
@@ -185,6 +191,8 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     /// <summary>
     /// 原子替换新建 inode,必须把原文件的可执行位搬到 temp 再换,否则 755 脚本被编辑后
     /// 变 644、执行位静默丢失。非 Unix 平台跳过。
+    /// 断言整个 mode 而不只是 UserExecute——若实现只复制了执行位、丢了 group/other 位,
+    /// 测试也必须红。
     /// </summary>
     [Fact]
     public async Task Edit_PreservesExecutableBit()
@@ -200,8 +208,28 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         string result = await _tools.Edit(path, [new FileEdit { OldString = "echo hi", NewString = "echo bye" }]);
 
         Assert.DoesNotContain("[Edit failed]", result);
-        UnixFileMode mode = File.GetUnixFileMode(path);
-        Assert.True((mode & UnixFileMode.UserExecute) != 0, "编辑后应保留可执行位");
+        UnixFileMode expected = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+            | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
+            | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
+        Assert.Equal(expected, File.GetUnixFileMode(path));
         Assert.Equal("echo bye\n", await File.ReadAllTextAsync(path));
+    }
+
+    /// <summary>Write 工具同样走 SaveAsync,exec bit 也必须保留(不只 Edit 有这坑)</summary>
+    [Fact]
+    public async Task Write_PreservesExecutableBit()
+    {
+        if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
+
+        string path = Path.Combine(_dir, "run.sh");
+        await File.WriteAllTextAsync(path, "old\n");
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); //0700
+
+        string result = await _tools.Write(path, "new\n", overwrite: true);
+
+        Assert.DoesNotContain("Error", result);
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+            File.GetUnixFileMode(path));
+        Assert.Equal("new\n", await File.ReadAllTextAsync(path));
     }
 }

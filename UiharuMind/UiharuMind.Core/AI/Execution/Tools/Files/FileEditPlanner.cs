@@ -246,9 +246,9 @@ public static class FileEditPlanner
             }
             else if (shown < maxLines)
             {
-                // 块放不下但还有预算:保留 hunk 头,再尽量给内容(从头开始,块内连续)——
-                // 绝不能只给头不给内容,否则大块编辑(>80 行)时模型一行改动都看不到,
-                // 自纠能力归零。剩余内容计入折叠提示并引导用 Read 精确定位。
+                // 块放不下但还有预算:保留 hunk 头,再尽量给内容(从头开始,块内连续)。
+                // 预算只剩 1 行时允许头-only(宁可空壳头提示"这里还有一块",也比整块消失好);
+                // 除此之外尽力给内容,否则大块编辑(>80 行)时模型一行改动都看不到、自纠能力归零。
                 sb.AppendLine(diff[i].Text);
                 shown++;
 
@@ -264,8 +264,8 @@ public static class FileEditPlanner
             }
             else
             {
-                // 预算已耗尽:这块整体放弃(连头都放不下)
-                omitted += contentLen;
+                // 预算已耗尽:这块整体放弃,连块头也算被省略的一行(否则折叠计数少算)
+                omitted += contentLen + 1;
                 omittedHunks++;
             }
 
@@ -275,7 +275,8 @@ public static class FileEditPlanner
         if (omitted > 0)
         {
             sb.Append(omittedHunks > 0
-                ? $"…(+{omitted} more diff lines across {omittedHunks} hunk(s); use Read offset=… to inspect)"
+                ? $"…(+{omitted} more diff lines across {omittedHunks} hunk(s); "
+                  + "remaining hunks' coordinates are in the @@ headers above, use Read to inspect)"
                 : $"…(+{omitted} more diff lines)");
         }
 
