@@ -170,16 +170,26 @@ public static class ToolCallCancellation
         IReadOnlyList<ToolApprovalRequestContent> requests,
         IReadOnlyList<ChatMessage> decisions)
     {
-        if (requests.Count == 0 || requests.Count != decisions.Count) return 0;
+        if (requests.Count == 0) return 0;
+        if (requests.Count != decisions.Count)
+        {
+            // 按位置配对的前提不成立（认不到的请求会少一条）。宁可整体不动也别按错位去补：
+            // 但那批调用会留下孤儿 tool_call，日志点名便于后续按 CallId 关联时回溯
+            Log.Warning($"CloseDeniedCalls: {requests.Count} request(s) vs {decisions.Count} decision(s); " +
+                        "denied-result patching skipped for this round.");
+            return 0;
+        }
 
         int inserted = 0;
         for (int i = 0; i < requests.Count; i++)
         {
-            // 只收「明确拒绝」：批准与「本会话总是允许」这类认不出的，要么真执行了（会有结果）、
-            // 要么不该由这里乱补（宁缺勿滥）
-            bool explicitlyDenied = decisions[i].Contents.Count > 0
-                && decisions[i].Contents.OfType<ToolApprovalResponseContent>()
-                    .All(x => !x.Approved);
+            // 只收「明确拒绝」：批准与「本会话总是允许」（AlwaysApprove 包装）都不能判成拒绝——
+            // 前者真执行了（会有结果）；后者是框架 wrapper、会被 OfType 滤掉，空序列 All(...) 判真，
+            // 会把已批准即将执行的调用误写成 denied（实机踩过）。
+            List<ToolApprovalResponseContent> responses = decisions[i].Contents
+                .OfType<ToolApprovalResponseContent>()
+                .ToList();
+            bool explicitlyDenied = responses.Count > 0 && responses.All(x => !x.Approved);
             if (!explicitlyDenied) continue;
 
             if (requests[i].ToolCall is not FunctionCallContent call) continue;

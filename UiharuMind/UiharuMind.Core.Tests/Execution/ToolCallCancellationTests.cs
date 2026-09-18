@@ -152,6 +152,9 @@ public class ToolCallCancellationTests
     private static ChatMessage Approve(ToolApprovalRequestContent request) =>
         new(ChatRole.User, [ToolApprovalResponseFactory.Create(request, EApprovalDecision.Once, "ok")]);
 
+    private static ChatMessage ApproveSession(ToolApprovalRequestContent request) =>
+        new(ChatRole.User, [ToolApprovalResponseFactory.Create(request, EApprovalDecision.AlwaysInSession, "always")]);
+
     [Fact]
     public void DeniedCall_GetsResultRightAfterItsBatch()
     {
@@ -175,6 +178,21 @@ public class ToolCallCancellationTests
 
         int inserted = ToolCallCancellation.AppendDeniedCallResults(
             history, [Approval("a")], [Approve(Approval("a"))]);
+
+        Assert.Equal(0, inserted);
+        Assert.Equal(2, history.Count);
+    }
+
+    [Fact]
+    public void AlwaysApproveDecision_IsNotTreatedAsDenied()
+    {
+        // 回归：用户点「本会话总是允许」时回应是框架的 AlwaysApprove 包装（不是
+        // ToolApprovalResponseContent）。旧实现 .OfType(...).All(...) 空序列判真，会把已批准
+        // （且即将执行）的调用误写成 denied——实机踩到，钉住
+        List<ChatMessage> history = [new(ChatRole.User, "开工"), Call("a")];
+
+        int inserted = ToolCallCancellation.AppendDeniedCallResults(
+            history, [Approval("a")], [ApproveSession(Approval("a"))]);
 
         Assert.Equal(0, inserted);
         Assert.Equal(2, history.Count);
