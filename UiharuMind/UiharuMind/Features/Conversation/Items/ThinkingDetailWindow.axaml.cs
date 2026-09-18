@@ -9,6 +9,7 @@
 
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
@@ -62,7 +63,7 @@ public partial class ThinkingDetailWindow : QuickWindowBase
         Unsubscribe();
         _source = item;
 
-        TitleTextBlock.Text = Loc.Text("AgentThinking");
+        TitleTextBlock.Text = Loc.Text(LangKey.AgentThinking);
         // 订阅与取全量在同一锁内完成:不会因为推理线程在两步之间追加而丢段
         TextView.Text = item.SubscribeContent(OnContentChanged);
         // 思考中打开默认跟底:读者看的是它"正在想什么",最新内容在尾部。

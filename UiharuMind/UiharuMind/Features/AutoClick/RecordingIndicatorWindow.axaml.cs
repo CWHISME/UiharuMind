@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
@@ -27,7 +28,7 @@ public partial class RecordingIndicatorWindow : UiharuWindowBase
         Height = 82;
         CanResize = false;
         ShowInTaskbar = false;
-        StopShortcutText.Text = string.Format(LocalizationManager.Instance.GetString("AutoClickStopShortcutTips"),
+        StopShortcutText.Text = string.Format(Loc.Text(LangKey.AutoClickStopShortcutTips),
             ConfigManager.Instance.Setting.QuickAutoClickShortcut);
     }
 
@@ -67,7 +68,7 @@ public partial class RecordingIndicatorWindow : UiharuWindowBase
         {
             _isCountUpdateQueued = false;
             ActionCountText.Text = string.Format(
-                LocalizationManager.Instance.GetString("AutoClickRecordedCountFormat"),
+                Loc.Text(LangKey.AutoClickRecordedCountFormat),
                 _pendingActionCount);
         });
     }

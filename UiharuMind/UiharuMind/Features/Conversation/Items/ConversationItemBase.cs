@@ -18,6 +18,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils.Tools;
@@ -206,7 +207,7 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
     private void ShowFullText()
     {
         // 与工具卡同一支笔:窗口标题就是「查看全文」,不另立资源
-        FullTextWindow.Show(Loc.Text("ToolViewFullText"), Message);
+        FullTextWindow.Show(Loc.Text(LangKey.ToolViewFullText), Message);
     }
 
     /// <inheritdoc />

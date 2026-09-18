@@ -20,6 +20,7 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Characters;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -257,7 +258,7 @@ public partial class SessionListItem : ObservableObject
     /// </summary>
     public string? BusyTip => CanMutateFiles
         ? null
-        : LocalizationManager.Instance.GetString("SessionBusyCannotModify");
+        : Loc.Text(LangKey.SessionBusyCannotModify);
 
     /// <summary>
     /// 删除与清空历史是否可用。跑的过程中不行：它们会跟正在追写历史的那一轮抢文件。

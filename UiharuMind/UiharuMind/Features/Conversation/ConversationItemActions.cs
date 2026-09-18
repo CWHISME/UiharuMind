@@ -14,6 +14,7 @@ using System.Linq;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.History;
@@ -209,8 +210,8 @@ public sealed class ConversationItemActions
         // (一条含思考+正文的消息 = 两个条目,一次工具往返两条历史 = 一张卡),报历史条数用户数不上
         IMessageService messageService = _messageService ?? App.Services.GetRequiredService<IMessageService>();
         string confirmText = targets.Count > 1
-            ? string.Format(Loc.Text("MessageDeleteTurnConfirmFormat"), targets.Count)
-            : Loc.Text("MessageDeleteConfirm");
+            ? string.Format(Loc.Text(LangKey.MessageDeleteTurnConfirmFormat), targets.Count)
+            : Loc.Text(LangKey.MessageDeleteConfirm);
         if (!await messageService.ConfirmAsync(confirmText)) return;
 
         // 删除集合在弹窗之前就算好了,但它装的是消息与条目的<b>实例</b>而不是下标——
@@ -247,7 +248,7 @@ public sealed class ConversationItemActions
 
         ChatSession branch = SessionManager.Instance.DeepCopy(session);
         branch.SessionId = Guid.NewGuid().ToString("N");
-        branch.Title = $"{session.Title} {LocalizationManager.Instance.GetString("ChatBranchSuffix")}";
+        branch.Title = $"{session.Title} {Loc.Text(LangKey.ChatBranchSuffix)}";
         branch.CreatedAt = DateTimeOffset.Now;
         // 附件文件仍归原会话所有:两边都登记会导致删除任一方时打断另一方
         branch.OwnedAttachmentFiles.Clear();

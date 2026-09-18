@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -34,7 +35,7 @@ public partial class SearchViewModel : ViewModelBase
     [ObservableProperty] private bool _isRegexMode;
     [ObservableProperty] private bool _isCaseSensitive;
     [ObservableProperty] private bool _isSearching;
-    [ObservableProperty] private string _statusMessage = LocalizationManager.Instance.GetString("FileSearchStatusReady");
+    [ObservableProperty] private string _statusMessage = Loc.Text(LangKey.FileSearchStatusReady);
     [ObservableProperty] private string _currentDirectory = string.Empty;
     [ObservableProperty] private bool _autoSearch = true;
     [ObservableProperty] private bool _hasNoResults = true;
@@ -124,7 +125,7 @@ public partial class SearchViewModel : ViewModelBase
         {
             Results.Clear();
             HasNoResults = true;
-            StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusNeedInput");
+            StatusMessage = Loc.Text(LangKey.FileSearchStatusNeedInput);
             return;
         }
 
@@ -133,7 +134,7 @@ public partial class SearchViewModel : ViewModelBase
         var searchCts = _searchCts; // 身份标记:落地时不是这一轮就丢掉,不让旧结果反超
 
         HasNoResults = false;
-        StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusSearching");
+        StatusMessage = Loc.Text(LangKey.FileSearchStatusSearching);
         Results.Clear();
 
         try
@@ -167,14 +168,14 @@ public partial class SearchViewModel : ViewModelBase
             var count = outcome.Items.Count;
             HasNoResults = count == 0;
             StatusMessage = count > MaxResults
-                ? string.Format(LocalizationManager.Instance.GetString("FileSearchStatusResultFormat"), count) + $" (top {MaxResults})"
-                : string.Format(LocalizationManager.Instance.GetString("FileSearchStatusResultFormat"), count);
+                ? string.Format(Loc.Text(LangKey.FileSearchStatusResultFormat), count) + $" (top {MaxResults})"
+                : string.Format(Loc.Text(LangKey.FileSearchStatusResultFormat), count);
         }
         catch (OperationCanceledException)
         {
             // 被新一轮取代的取消不写状态,重跑会自己写"搜索中";只有顶层取消才算一次取消
             if (!_searchRerunRequested)
-                StatusMessage = LocalizationManager.Instance.GetString("FileSearchStatusCancelled");
+                StatusMessage = Loc.Text(LangKey.FileSearchStatusCancelled);
         }
     }
 
@@ -188,7 +189,7 @@ public partial class SearchViewModel : ViewModelBase
     {
         if (outcome.ErrorDetail != null)
         {
-            return string.Format(LocalizationManager.Instance.GetString("FileSearchStatusFailed"),
+            return string.Format(Loc.Text(LangKey.FileSearchStatusFailed),
                 outcome.ErrorDetail);
         }
 
@@ -197,14 +198,14 @@ public partial class SearchViewModel : ViewModelBase
         return outcome.Failure.Kind switch
         {
             ESearchFailureKind.PathNotFound => string.Format(
-                LocalizationManager.Instance.GetString("FileSearchStatusDirectoryNotFound"),
+                Loc.Text(LangKey.FileSearchStatusDirectoryNotFound),
                 outcome.Failure.ResolvedDirectory),
             ESearchFailureKind.InvalidGlobPattern => string.Format(
-                LocalizationManager.Instance.GetString("FileSearchStatusInvalidPattern"),
+                Loc.Text(LangKey.FileSearchStatusInvalidPattern),
                 outcome.Failure.Detail),
             // 界面侧的 glob 会自动包成 **/*query*,所以"没有通配符"这一种在这里不会发生;
             // 真落到这里就按通用失败报，总比静默好
-            _ => string.Format(LocalizationManager.Instance.GetString("FileSearchStatusFailed"),
+            _ => string.Format(Loc.Text(LangKey.FileSearchStatusFailed),
                 outcome.Failure.Detail),
         };
     }

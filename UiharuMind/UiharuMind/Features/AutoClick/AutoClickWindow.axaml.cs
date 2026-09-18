@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
@@ -142,7 +143,7 @@ public partial class AutoClickWindow : UiharuWindowBase
     {
         if (!_viewModel.HasUnsavedChanges) return true;
         return await _messageService.ConfirmAsync(
-            LocalizationManager.Instance.GetString("AutoClickDiscardUnsavedConfirm"));
+            Loc.Text(LangKey.AutoClickDiscardUnsavedConfirm));
     }
 
     private async void RenameSessionMenuItem_Click(object? sender, RoutedEventArgs e)
@@ -179,7 +180,7 @@ public partial class AutoClickWindow : UiharuWindowBase
             return;
         }
 
-        var message = string.Format(LocalizationManager.Instance.GetString("AutoClickDeleteSessionConfirm"),
+        var message = string.Format(Loc.Text(LangKey.AutoClickDeleteSessionConfirm),
             session.Name, session.StepCount);
         if (await _messageService.ConfirmAsync(message))
         {

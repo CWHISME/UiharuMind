@@ -1,6 +1,7 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
@@ -26,7 +27,7 @@ public partial class PlaybackIndicatorWindow : UiharuWindowBase
         Height = 82;
         CanResize = false;
         ShowInTaskbar = false;
-        StopShortcutText.Text = string.Format(LocalizationManager.Instance.GetString("AutoClickStopShortcutTips"),
+        StopShortcutText.Text = string.Format(Loc.Text(LangKey.AutoClickStopShortcutTips),
             ConfigManager.Instance.Setting.QuickAutoClickShortcut);
     }
 
@@ -57,8 +58,8 @@ public partial class PlaybackIndicatorWindow : UiharuWindowBase
         {
             _isProgressUpdateQueued = false;
             RoundText.Text = _totalRounds > 0
-                ? string.Format(LocalizationManager.Instance.GetString("AutoClickPlaybackRoundFormat"), _currentRound, _totalRounds)
-                : string.Format(LocalizationManager.Instance.GetString("AutoClickPlaybackInfiniteRoundFormat"), _currentRound);
+                ? string.Format(Loc.Text(LangKey.AutoClickPlaybackRoundFormat), _currentRound, _totalRounds)
+                : string.Format(Loc.Text(LangKey.AutoClickPlaybackInfiniteRoundFormat), _currentRound);
         });
     }
 

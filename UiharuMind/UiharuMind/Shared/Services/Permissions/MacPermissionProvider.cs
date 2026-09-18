@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using System.Threading.Tasks;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Shared.Services.Permissions;
 
@@ -21,20 +22,20 @@ public sealed class MacPermissionProvider : IPlatformPermissionProvider
     {
         _accessibility = new PermissionItem
         {
-            Name = LocalizationManager.Instance.GetString("PermissionAccessibility"),
-            Description = LocalizationManager.Instance.GetString("PermissionAccessibilityDesc"),
+            Name = Loc.Text(LangKey.PermissionAccessibility),
+            Description = Loc.Text(LangKey.PermissionAccessibilityDesc),
             IconName = "settings",
-            ActionLabel = LocalizationManager.Instance.GetString("PermissionOpenSettings"),
+            ActionLabel = Loc.Text(LangKey.PermissionOpenSettings),
             ActionCommand = new RelayCommand(MacPermissionService.OpenAccessibilitySettings),
-            Hint = LocalizationManager.Instance.GetString("PermissionAccessibilityStaleHint")
+            Hint = Loc.Text(LangKey.PermissionAccessibilityStaleHint)
         };
 
         _screenRecording = new PermissionItem
         {
-            Name = LocalizationManager.Instance.GetString("PermissionScreenRecording"),
-            Description = LocalizationManager.Instance.GetString("PermissionScreenRecordingDesc"),
+            Name = Loc.Text(LangKey.PermissionScreenRecording),
+            Description = Loc.Text(LangKey.PermissionScreenRecordingDesc),
             IconName = "image",
-            ActionLabel = LocalizationManager.Instance.GetString("PermissionOpenSettings"),
+            ActionLabel = Loc.Text(LangKey.PermissionOpenSettings),
             ActionCommand = new RelayCommand(MacPermissionService.OpenScreenRecordingSettings)
         };
 

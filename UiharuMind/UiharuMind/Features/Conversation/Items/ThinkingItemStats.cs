@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Items;
@@ -61,10 +62,10 @@ public partial class ThinkingItem
         if (elapsed.TotalSeconds >= 1 && charCount > 0)
         {
             long speed = (long)Math.Round(charCount / elapsed.TotalSeconds);
-            speedSuffix = string.Format(Loc.Text("AgentThinkingSpeedFormat"), speed.ToString("N0"));
+            speedSuffix = string.Format(Loc.Text(LangKey.AgentThinkingSpeedFormat), speed.ToString("N0"));
         }
 
-        return string.Format(Loc.Text("AgentThinkingStatsFormat"),
+        return string.Format(Loc.Text(LangKey.AgentThinkingStatsFormat),
             FormatDuration(elapsed), count, speedSuffix);
     }
 
@@ -90,7 +91,7 @@ public partial class ThinkingItem
     /// <param name="chars">全文长度</param>
     public void FreezeCharsOnly(long chars)
     {
-        StatsText = string.Format(Loc.Text("AgentThinkingCharsFormat"), chars.ToString("N0"));
+        StatsText = string.Format(Loc.Text(LangKey.AgentThinkingCharsFormat), chars.ToString("N0"));
         _closedChars = chars;
         _isClosed = true;
         _isStatsFrozen = true;

@@ -23,6 +23,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models;
@@ -138,7 +139,7 @@ public partial class ModelService : ObservableObject
         if (!risk.RequiresConfirmation) return true;
 
         string message = string.Format(
-            Loc.Text("ModelRuntimeLoadRiskConfirmFormat"),
+            Loc.Text(LangKey.ModelRuntimeLoadRiskConfirmFormat),
             modelName,
             FormatRiskLevel(risk.Level),
             FormatBytes(risk.EstimatedTotalBytes),
@@ -146,20 +147,20 @@ public partial class ModelService : ObservableObject
 
         if (risk.Warnings.Count > 0)
             message += Environment.NewLine + string.Join(Environment.NewLine, risk.Warnings.Select(x => $"- {x}"));
-        message += Environment.NewLine + Loc.Text("ModelRuntimeLoadRiskNativeCrashHint");
+        message += Environment.NewLine + Loc.Text(LangKey.ModelRuntimeLoadRiskNativeCrashHint);
 
         IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
-        return await messageService.ConfirmAsync(message, Loc.Text("ModelRuntimeLoadRiskConfirmTitle"));
+        return await messageService.ConfirmAsync(message, Loc.Text(LangKey.ModelRuntimeLoadRiskConfirmTitle));
     }
 
     private static string FormatRiskLevel(RuntimeLoadRiskLevel level)
     {
         return level switch
         {
-            RuntimeLoadRiskLevel.Danger => Loc.Text("ModelRuntimeRiskDanger"),
-            RuntimeLoadRiskLevel.Warning => Loc.Text("ModelRuntimeRiskWarning"),
-            RuntimeLoadRiskLevel.Unknown => Loc.Text("ModelRuntimeRiskUnknown"),
-            _ => Loc.Text("ModelRuntimeRiskLow")
+            RuntimeLoadRiskLevel.Danger => Loc.Text(LangKey.ModelRuntimeRiskDanger),
+            RuntimeLoadRiskLevel.Warning => Loc.Text(LangKey.ModelRuntimeRiskWarning),
+            RuntimeLoadRiskLevel.Unknown => Loc.Text(LangKey.ModelRuntimeRiskUnknown),
+            _ => Loc.Text(LangKey.ModelRuntimeRiskLow)
         };
     }
 

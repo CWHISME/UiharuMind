@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
 using Ursa.Controls;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
@@ -326,7 +327,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private static string GetDefaultTitle(MessageSeverity severity) => severity switch
     {
-        MessageSeverity.Success => Loc.Text("MessageSuccessTitle"),
+        MessageSeverity.Success => Loc.Text(LangKey.MessageSuccessTitle),
         MessageSeverity.Warning => Lang.MessageWarningTitle,
         MessageSeverity.Error => Lang.MessageErrorTitle,
         _ => Lang.MessageInfoTitle
@@ -437,8 +438,7 @@ public partial class ApplicationNotification : ObservableObject, IDisposable
             _ => "i"
         };
         _close = close;
-        CloseText = Lang.ResourceManager.GetString(
-            "NotificationClose", LocalizationManager.Instance.CurrentCulture) ?? "Close";
+        CloseText = Loc.Text(LangKey.NotificationClose) ?? "Close";
     }
 
     public void Start(TimeSpan duration)

@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Memory;
@@ -135,7 +136,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
     {
         if (SelectedItem == null) return;
         MemoryLibraryItemViewData removing = SelectedItem;
-        if (!await _messageService.ConfirmAsync(Loc.Text("MemoryDeleteConfirm"))) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.MemoryDeleteConfirm))) return;
 
         // 索引文件的清理归 MemoryManager.Delete 收口,这里不再各自记得多调一步
         MemoryManager.Instance.Delete(removing.Memory);
@@ -163,7 +164,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
             requested.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
             // 库文件名跟名称走,非法字符会被替换成 _,两个不同名称就可能撞上同一个库文件
-            await _messageService.ShowWarningAsync(Loc.Text("MemoryNameInvalid"));
+            await _messageService.ShowWarningAsync(Loc.Text(LangKey.MemoryNameInvalid));
             return;
         }
 
@@ -175,12 +176,12 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
             if (!string.Equals(finalName, requested, StringComparison.Ordinal))
             {
                 _messageService.ShowNotification(
-                    string.Format(Loc.Text("MemoryRenamedToUniqueName"), finalName));
+                    string.Format(Loc.Text(LangKey.MemoryRenamedToUniqueName), finalName));
             }
         }
         catch (Exception e)
         {
-            await _messageService.ShowWarningAsync(string.Format(Loc.Text("MemoryRenameFailed"), e.Message));
+            await _messageService.ShowWarningAsync(string.Format(Loc.Text(LangKey.MemoryRenameFailed), e.Message));
         }
         finally
         {
@@ -304,9 +305,9 @@ public partial class MemoryLibraryItemViewData : ObservableObject, IDisposable
     {
         Name = Memory.Name;
         Description = string.IsNullOrWhiteSpace(Memory.Description)
-            ? Loc.Text("MemoryDescriptionFallback")
+            ? Loc.Text(LangKey.MemoryDescriptionFallback)
             : Memory.Description;
-        SourceSummary = string.Format(Loc.Text("MemoryLibrarySourceSummary"),
+        SourceSummary = string.Format(Loc.Text(LangKey.MemoryLibrarySourceSummary),
             Memory.TextSources.Count, Memory.FilePaths.Count);
         MemoryIndexStatusView status = MemoryIndexUiText.ResolveStatusView(
             MemoryIndexState.From(Memory, IsUpdating));

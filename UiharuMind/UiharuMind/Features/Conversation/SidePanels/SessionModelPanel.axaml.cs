@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
@@ -145,8 +146,8 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
         // 而这正是用户要复制模型名时最先看的那一行
         string? followed = ResolveEffectiveName(null);
         _defaultOption.DisplayName = string.IsNullOrEmpty(followed)
-            ? Loc.Text("SessionModelDefault")
-            : string.Format(Loc.Text("SessionModelDefaultFormat"), followed);
+            ? Loc.Text(LangKey.SessionModelDefault)
+            : string.Format(Loc.Text(LangKey.SessionModelDefaultFormat), followed);
         if (!Options.Contains(_defaultOption)) Options.Insert(0, _defaultOption);
 
         HashSet<string> seen = new(StringComparer.Ordinal);
@@ -216,7 +217,7 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
             if (kind == SessionModelSelectionKind.Missing)
             {
                 _missingOption.ModelName = pinned;
-                _missingOption.DisplayName = $"{pinned}（{Loc.Text("SessionModelUnavailableSuffix")}）";
+                _missingOption.DisplayName = $"{pinned}（{Loc.Text(LangKey.SessionModelUnavailableSuffix)}）";
                 if (!Options.Contains(_missingOption)) Options.Add(_missingOption);
             }
             else if (Options.Contains(_missingOption))
@@ -227,7 +228,7 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
             HasOverride = pinned != null;
             EffectiveHint = string.IsNullOrEmpty(ResolveEffectiveName(pinned))
                 ? string.Empty
-                : string.Format(Loc.Text("SessionModelEffectiveFormat"), ResolveEffectiveName(pinned));
+                : string.Format(Loc.Text(LangKey.SessionModelEffectiveFormat), ResolveEffectiveName(pinned));
             if (!ReferenceEquals(SelectedOption, target)) SelectedOption = target;
         }
         finally

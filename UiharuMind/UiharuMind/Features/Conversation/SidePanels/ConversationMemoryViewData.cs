@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Memory;
@@ -110,7 +111,7 @@ public partial class ConversationMemoryViewData : ObservableObject
             return Lang.MemoryIndexEmbeddingServerUnavailable;
 
         if (error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase))
-            return Loc.Text("MemoryIndexEmbeddingRequestFailed");
+            return Loc.Text(LangKey.MemoryIndexEmbeddingRequestFailed);
 
         return error switch
         {
@@ -120,9 +121,9 @@ public partial class ConversationMemoryViewData : ObservableObject
             "Memory name not set" => Lang.MemoryIndexMemoryNameMissing,
             "Memory vector store unavailable" => Lang.MemoryIndexVectorStoreUnavailable,
             "Memory index update failed" => Lang.MemoryIndexUpdateFailed,
-            "Memory source validation failed" => Loc.Text("MemorySourceValidationFailed"),
-            "Memory vector dimension mismatch" => Loc.Text("MemoryIndexDimensionMismatch"),
-            "Embedding input is too large" => Loc.Text("MemoryIndexEmbeddingInputTooLarge"),
+            "Memory source validation failed" => Loc.Text(LangKey.MemorySourceValidationFailed),
+            "Memory vector dimension mismatch" => Loc.Text(LangKey.MemoryIndexDimensionMismatch),
+            "Embedding input is too large" => Loc.Text(LangKey.MemoryIndexEmbeddingInputTooLarge),
             _ => error
         };
     }

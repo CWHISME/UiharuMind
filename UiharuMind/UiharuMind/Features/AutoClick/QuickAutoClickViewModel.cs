@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SharpHook.Data;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AutoClick;
@@ -72,11 +73,11 @@ public partial class AutoClickStepViewModel : ObservableObject
 
     public bool IsLoop => Kind == AutoClickStepKind.Loop;
     public bool HasChildren => Children.Count > 0;
-    public string DelayText => string.Format(LocalizationManager.Instance.GetString("AutoClickDelayFormat"), Delay);
+    public string DelayText => string.Format(Loc.Text(LangKey.AutoClickDelayFormat), Delay);
 
     public string DurationText => Duration.HasValue
-        ? string.Format(LocalizationManager.Instance.GetString("AutoClickDurationFormat"), Duration.Value)
-        : LocalizationManager.Instance.GetString("AutoClickNoDuration");
+        ? string.Format(Loc.Text(LangKey.AutoClickDurationFormat), Duration.Value)
+        : Loc.Text(LangKey.AutoClickNoDuration);
 
     partial void OnKindChanged(AutoClickStepKind value)
     {
@@ -264,7 +265,7 @@ public partial class AutoClickStepViewModel : ObservableObject
 
     private string GetKeyName()
     {
-        return KeyCode?.ToString().Replace("Vc", "") ?? LocalizationManager.Instance.GetString("AutoClickNoKey");
+        return KeyCode?.ToString().Replace("Vc", "") ?? Loc.Text(LangKey.AutoClickNoKey);
     }
 
     private string GetMouseButtonName()
@@ -377,12 +378,12 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     public bool HasNoSteps => StepCount == 0;
     public bool HasSteps => StepCount > 0;
     public bool HasUnsavedChanges => IsDirty;
-    public string CurrentSessionName => CurrentSession?.Name ?? LocalizationManager.Instance.GetString("AutoClickUntitledSession");
+    public string CurrentSessionName => CurrentSession?.Name ?? Loc.Text(LangKey.AutoClickUntitledSession);
     public string CurrentSessionDisplayName => IsDirty ? $"{CurrentSessionName} *" : CurrentSessionName;
     public string UnsavedMarker => IsDirty ? "*" : string.Empty;
-    public string WindowTitle => string.Format(LocalizationManager.Instance.GetString("AutoClickWindowTitleFormat"), CurrentSessionDisplayName);
-    public string StepCountText => string.Format(LocalizationManager.Instance.GetString("AutoClickStepCountFormat"), StepCount);
-    public string RecordedActionsText => string.Format(LocalizationManager.Instance.GetString("AutoClickRecordedCountFormat"), RecordedActionsCount);
+    public string WindowTitle => string.Format(Loc.Text(LangKey.AutoClickWindowTitleFormat), CurrentSessionDisplayName);
+    public string StepCountText => string.Format(Loc.Text(LangKey.AutoClickStepCountFormat), StepCount);
+    public string RecordedActionsText => string.Format(Loc.Text(LangKey.AutoClickRecordedCountFormat), RecordedActionsCount);
     public bool HasSelectedStep => SelectedStep != null;
     public bool SelectedStepIsLoop => SelectedStep?.IsLoop == true;
     public bool SelectedStepIsMouse => SelectedStep?.Kind is AutoClickStepKind.MouseClick or AutoClickStepKind.MouseDown or AutoClickStepKind.MouseUp or AutoClickStepKind.MouseMove;
@@ -430,7 +431,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     public async Task<bool> TryConfirmDiscardAsync(Func<string, Task<bool>> confirm)
     {
         if (!HasUnsavedChanges) return true;
-        return await confirm(LocalizationManager.Instance.GetString("AutoClickDiscardUnsavedConfirm"));
+        return await confirm(Loc.Text(LangKey.AutoClickDiscardUnsavedConfirm));
     }
 
     public void LoadSession(AutoClickSession? session)

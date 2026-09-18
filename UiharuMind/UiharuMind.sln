@@ -21,10 +21,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Localization", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Localization.Generator.Tests", "UiharuMind.Localization.Generator.Tests\UiharuMind.Localization.Generator.Tests.csproj", "{F0BBE1F8-D628-43C2-AEE7-023586933047}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "UiharuMind.Localization", "UiharuMind.Localization", "{144D2A1C-6027-D4B6-63F1-EF405948771D}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generator", "Generator", "{FC0D4B77-1A37-01B9-4A24-43ECB05E9814}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -148,7 +144,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{FC0D4B77-1A37-01B9-4A24-43ECB05E9814} = {144D2A1C-6027-D4B6-63F1-EF405948771D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2A21A22D-107D-4F9A-971D-139EBBA23F84}

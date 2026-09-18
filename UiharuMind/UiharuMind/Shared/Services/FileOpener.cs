@@ -19,6 +19,7 @@ using CliWrap.Buffered;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
@@ -76,7 +77,7 @@ public static class FileOpener
     {
         if (!File.Exists(filePath))
         {
-            Messages.ShowNotification(Loc.Text("TextFileFileMissing"), severity: MessageSeverity.Error);
+            Messages.ShowNotification(Loc.Text(LangKey.TextFileFileMissing), severity: MessageSeverity.Error);
             return new RouteOutcome(null, false);
         }
 
@@ -109,7 +110,7 @@ public static class FileOpener
             }
 
             Messages.ShowNotification(
-                $"{Loc.Text("TextFileOpenFailed")} ({result.ErrorCode})", severity: MessageSeverity.Error);
+                $"{Loc.Text(LangKey.TextFileOpenFailed)} ({result.ErrorCode})", severity: MessageSeverity.Error);
             return new RouteOutcome(null, false);
         }
 
@@ -117,7 +118,7 @@ public static class FileOpener
         {
             // 超编辑上限但在查看上限内：只读查看，无回写路径。
             // 高亮按扩展名自动判定（超 256KB 高亮服务自行退化），标题带只读后缀说明为何不可存
-            string title = Path.GetFileName(filePath) + Loc.Text("TextFileReadOnlySuffix");
+            string title = Path.GetFileName(filePath) + Loc.Text(LangKey.TextFileReadOnlySuffix);
             FullTextWindow.Show(title, result.Text, filePath);
             return new RouteOutcome(null, true);
         }
@@ -165,7 +166,7 @@ public static class FileOpener
         catch (Exception e)
         {
             Messages.ShowNotification(
-                $"{Loc.Text("TextFileOpenFailed")} ({e.Message})", severity: MessageSeverity.Error);
+                $"{Loc.Text(LangKey.TextFileOpenFailed)} ({e.Message})", severity: MessageSeverity.Error);
         }
     }
 

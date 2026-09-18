@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Core.Input.Linux;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Shared.Services.Permissions;
 
@@ -43,28 +44,28 @@ public sealed class LinuxPermissionProvider : IPlatformPermissionProvider
     {
         _inputDevices = new PermissionItem
         {
-            Name = LocalizationManager.Instance.GetString("PermissionLinuxInputDevices"),
-            Description = LocalizationManager.Instance.GetString("PermissionLinuxInputDevicesDesc"),
+            Name = Loc.Text(LangKey.PermissionLinuxInputDevices),
+            Description = Loc.Text(LangKey.PermissionLinuxInputDevicesDesc),
             IconName = "settings",
-            ActionLabel = LocalizationManager.Instance.GetString("PermissionCopyCommand"),
+            ActionLabel = Loc.Text(LangKey.PermissionCopyCommand),
             ActionCommand = new RelayCommand(() => copyCommand(InputGroupCommand))
         };
 
         _uinput = new PermissionItem
         {
-            Name = LocalizationManager.Instance.GetString("PermissionLinuxUinput"),
-            Description = LocalizationManager.Instance.GetString("PermissionLinuxUinputDesc"),
+            Name = Loc.Text(LangKey.PermissionLinuxUinput),
+            Description = Loc.Text(LangKey.PermissionLinuxUinputDesc),
             IconName = "settings",
-            ActionLabel = LocalizationManager.Instance.GetString("PermissionCopyCommand"),
+            ActionLabel = Loc.Text(LangKey.PermissionCopyCommand),
             ActionCommand = new RelayCommand(() => copyCommand(UinputSetupCommand))
         };
 
         _portal = new PermissionItem
         {
-            Name = LocalizationManager.Instance.GetString("PermissionLinuxPortal"),
-            Description = LocalizationManager.Instance.GetString("PermissionLinuxPortalDesc"),
+            Name = Loc.Text(LangKey.PermissionLinuxPortal),
+            Description = Loc.Text(LangKey.PermissionLinuxPortalDesc),
             IconName = "image",
-            ActionLabel = LocalizationManager.Instance.GetString("PermissionCopyCommand"),
+            ActionLabel = Loc.Text(LangKey.PermissionCopyCommand),
             ActionCommand = new RelayCommand(() => copyCommand(PortalInstallCommand))
         };
 

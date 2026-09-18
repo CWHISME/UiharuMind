@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.History;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
@@ -159,7 +160,7 @@ public partial class ContextUsageViewData : ObservableObject
         double truncation = ledger.FixedOverhead + quota * HistoryCompaction.TruncationThreshold;
         // 水位按输入预算(总长减预留)算,而进度条整条是总长——所以给绝对 token 数而不是百分比,
         // 两者的比例对不上。按量级排成一条递进的链,读起来就是"接下来会依次发生什么"
-        ThresholdText = string.Format(LocalizationManager.Instance.GetString("ContextCompactionHint"),
+        ThresholdText = string.Format(Loc.Text(LangKey.ContextCompactionHint),
             TurnUsageLedger.FormatExact((long)eviction),
             TurnUsageLedger.FormatExact((long)handoff),
             TurnUsageLedger.FormatExact((long)truncation));

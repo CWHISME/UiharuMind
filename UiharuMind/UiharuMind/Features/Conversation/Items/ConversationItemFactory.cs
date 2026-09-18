@@ -11,6 +11,7 @@ using Microsoft.Extensions.AI;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
@@ -72,7 +73,7 @@ public static class ConversationItemFactory
         TextConversationItem item = new(true)
         {
             Message = UserMessageDisplayText(text, source),
-            SenderName = LocalizationManager.Instance.GetString("AgentSenderUser"),
+            SenderName = Loc.Text(LangKey.AgentSenderUser),
             SenderColor = Avalonia.Media.Brushes.LightGreen,
             Icon = IconUtils.DefaultUserIcon,
             Timestamp = TimestampText(source?.CreatedAt ?? DateTimeOffset.Now),

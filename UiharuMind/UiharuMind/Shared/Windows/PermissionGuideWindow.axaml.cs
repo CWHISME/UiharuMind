@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Services.Permissions;
 using UiharuMind.Shared.Windows;
@@ -62,7 +63,7 @@ public partial class PermissionGuideWindow : UiharuWindowBase
             var content = (SkipButton.Content as StackPanel)?.Children
                 .OfType<TextBlock>().FirstOrDefault();
             if (content != null)
-                content.Text = LocalizationManager.Instance.GetString("PermissionRestart");
+                content.Text = Loc.Text(LangKey.PermissionRestart);
         });
     }
 
@@ -81,8 +82,8 @@ public partial class PermissionGuideWindow : UiharuWindowBase
     private async Task ShowSkipConfirm()
     {
         var messageService = App.Services.GetRequiredService<IMessageService>();
-        string confirmMessage = LocalizationManager.Instance.GetString("PermissionSkipConfirm");
-        string confirmTitle = LocalizationManager.Instance.GetString("PermissionSkipConfirmTitle");
+        string confirmMessage = Loc.Text(LangKey.PermissionSkipConfirm);
+        string confirmTitle = Loc.Text(LangKey.PermissionSkipConfirmTitle);
 
         bool confirmed = await messageService.ConfirmAsync(confirmMessage, confirmTitle);
         if (confirmed)
@@ -95,8 +96,8 @@ public partial class PermissionGuideWindow : UiharuWindowBase
     private static async Task ShowRestartConfirm()
     {
         var messageService = App.Services.GetRequiredService<IMessageService>();
-        string confirmMessage = LocalizationManager.Instance.GetString("PermissionRestartConfirm");
-        string confirmTitle = LocalizationManager.Instance.GetString("PermissionRestart");
+        string confirmMessage = Loc.Text(LangKey.PermissionRestartConfirm);
+        string confirmTitle = Loc.Text(LangKey.PermissionRestart);
 
         bool confirmed = await messageService.ConfirmAsync(confirmMessage, confirmTitle);
         if (confirmed)

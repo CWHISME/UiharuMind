@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Memory;
 
@@ -37,7 +38,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     {
         _memory = memory;
         _messageService = messageService;
-        ActionText = Loc.Text("MemoryIndexUpdate");
+        ActionText = Loc.Text(LangKey.MemoryIndexUpdate);
     }
 
     public void ChangeMemory(MemoryData memory)
@@ -66,9 +67,9 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
         HasFailure = false;
         FailureText = "";
         ProgressValue = 0;
-        ProgressStageText = Loc.Text("MemoryIndexPreparingShort");
+        ProgressStageText = Loc.Text(LangKey.MemoryIndexPreparingShort);
         ProgressDetailText = "";
-        ActionText = Loc.Text("MemoryIndexStop");
+        ActionText = Loc.Text(LangKey.MemoryIndexStop);
 
         var progress = new Progress<MemoryIndexProgress>(ApplyProgress);
         _updateTask = RunUpdateAsync(progress, _cancellation.Token);
@@ -100,11 +101,11 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
             if (result.Succeeded)
             {
                 _messageService.ShowNotification(
-                    Loc.Text("MemoryIndexUpdateSuccess"), severity: MessageSeverity.Success);
+                    Loc.Text(LangKey.MemoryIndexUpdateSuccess), severity: MessageSeverity.Success);
             }
             else if (result.Cancelled)
             {
-                _messageService.ShowNotification(Loc.Text("MemoryIndexCancelledOldIndexKept"));
+                _messageService.ShowNotification(Loc.Text(LangKey.MemoryIndexCancelledOldIndexKept));
             }
             else
             {
@@ -118,7 +119,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
         finally
         {
             IsUpdating = false;
-            ActionText = Loc.Text("MemoryIndexUpdate");
+            ActionText = Loc.Text(LangKey.MemoryIndexUpdate);
             _cancellation?.Dispose();
             _cancellation = null;
             _updateTask = null;
@@ -130,7 +131,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     {
         ProgressValue = progress.Percentage * 100;
         ProgressStageText = Loc.Text("MemoryIndexStage" + progress.Stage);
-        ProgressDetailText = string.Format(Loc.Text("MemoryIndexProgressFormat"),
+        ProgressDetailText = string.Format(Loc.Text(LangKey.MemoryIndexProgressFormat),
             progress.ProcessedSources, progress.TotalSources,
             progress.CurrentChunk, progress.TotalChunks,
             progress.CurrentSource,
@@ -141,7 +142,7 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     private static string BuildFailureText(MemoryIndexUpdateResult result)
     {
         StringBuilder builder = new();
-        builder.AppendLine(Loc.Text("MemoryIndexUpdateFailed"));
+        builder.AppendLine(Loc.Text(LangKey.MemoryIndexUpdateFailed));
         foreach (MemoryIndexSourceFailure failure in result.Failures)
         {
             builder.Append(failure.SourceName)

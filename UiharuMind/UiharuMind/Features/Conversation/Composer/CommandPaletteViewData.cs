@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Skills;
@@ -145,7 +146,7 @@ public partial class CommandPaletteViewData : ObservableObject
         new()
         {
             Name = CompactCommand[1..], //列表里存的是不带斜杠的名字
-            Description = LocalizationManager.Instance.GetString("CompactCommandDescription"),
+            Description = Loc.Text(LangKey.CompactCommandDescription),
         },
     ];
 

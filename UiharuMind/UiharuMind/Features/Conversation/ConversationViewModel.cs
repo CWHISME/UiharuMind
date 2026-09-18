@@ -22,6 +22,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
@@ -205,7 +206,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                           ?? LlmManager.Instance.GetPreferredModelName(false)
                           ?? string.Empty;
             if (name.Length == 0 || !string.IsNullOrEmpty(CurrentSession?.SessionModelName)) return name;
-            return string.Format(Loc.Text("SessionModelDefaultFormat"), name);
+            return string.Format(Loc.Text(LangKey.SessionModelDefaultFormat), name);
         }
     }
 
@@ -445,8 +446,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public string BusyLabel => Busy switch
     {
-        ETurnBusy.ConnectingMcp => LocalizationManager.Instance.GetString("AgentMcpConnecting"),
-        ETurnBusy.Compacting => LocalizationManager.Instance.GetString("HandoffWriting"),
+        ETurnBusy.ConnectingMcp => Loc.Text(LangKey.AgentMcpConnecting),
+        ETurnBusy.Compacting => Loc.Text(LangKey.HandoffWriting),
         _ => string.Empty,
     };
 
@@ -1202,7 +1203,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
             if (!await messageService.ConfirmAsync(BuildMcpApprovalMessage(workspacePath, pending),
-                    LocalizationManager.Instance.GetString("AgentMcpApprovalTitle")))
+                    Loc.Text(LangKey.AgentMcpApprovalTitle)))
             {
                 // 拒绝不落任何记录:下次再进这个工作区会再问一次。
                 // 记一条"拒绝过"看着更省事,但那会让"我当时点错了"没有回头路,
@@ -1269,7 +1270,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 静默吞掉就是"点了没反应"
             InputText = text;
             App.Services.GetRequiredService<IMessageService>().ShowNotification(
-                LocalizationManager.Instance.GetString("AgentInterjectUnavailable"), severity: MessageSeverity.Warning);
+                Loc.Text(LangKey.AgentInterjectUnavailable), severity: MessageSeverity.Warning);
             return;
         }
 
@@ -1427,12 +1428,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 break;
 
             case ETurnNotice.HandoffFailed:
-                Items.Add(new ErrorItem { Message = LocalizationManager.Instance.GetString("HandoffFailed") });
+                Items.Add(new ErrorItem { Message = Loc.Text(LangKey.HandoffFailed) });
                 break;
 
             case ETurnNotice.HandoffNothingToCompact:
                 Items.Add(new ErrorItem
-                    { Message = LocalizationManager.Instance.GetString("HandoffNothingToCompact") });
+                    { Message = Loc.Text(LangKey.HandoffNothingToCompact) });
                 break;
         }
     }
@@ -1962,7 +1963,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         replay.ApplyLaterResults(messages, to);
 
         if (liveTail) replay.CloseSegment();
-        else replay.FinalizeReplay(LocalizationManager.Instance.GetString("AgentToolCallUnfinished"));
+        else replay.FinalizeReplay(Loc.Text(LangKey.AgentToolCallUnfinished));
 
         return buffer;
     }

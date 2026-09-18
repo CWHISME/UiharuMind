@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Memory;
 
@@ -39,8 +40,7 @@ public partial class MemoryTextSourceEditWindowModel : ObservableObject
 
     public bool CanSave => !string.IsNullOrWhiteSpace(Title) && !string.IsNullOrWhiteSpace(Content);
     public string ContentLengthText => string.Format(
-        Lang.ResourceManager.GetString("MemoryTextCharacterCount",
-            LocalizationManager.Instance.CurrentCulture) ?? "{0}",
+        Loc.Text(LangKey.MemoryTextCharacterCount) ?? "{0}",
         Content.Length);
 
     public MemoryTextSourceEditWindowModel()

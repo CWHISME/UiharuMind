@@ -9,6 +9,7 @@
 
 using System;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.Items;
@@ -81,11 +82,11 @@ public static class ToolResultTruncation
     {
         if (view.TotalLines > view.KeptLines)
         {
-            return string.Format(Loc.Text("ToolResultTruncatedFormat"), view.KeptLines,
+            return string.Format(Loc.Text(LangKey.ToolResultTruncatedFormat), view.KeptLines,
                 view.TotalLines, GameUtils.FormatBytes(view.OmittedChars));
         }
 
-        return string.Format(Loc.Text("ToolResultTruncatedSizeFormat"),
+        return string.Format(Loc.Text(LangKey.ToolResultTruncatedSizeFormat),
             GameUtils.FormatBytes(view.DisplayText.Length),
             GameUtils.FormatBytes(view.DisplayText.Length + view.OmittedChars));
     }

@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.Clipboard;
@@ -76,7 +77,7 @@ public partial class ClipboardItem : ObservableObject
         string text = await Task.Run(() => App.Clipboard.History.GetText(Id) ?? string.Empty);
         TooltipText = text.Length > TooltipLength
             ? text[..TooltipLength] + string.Format(
-                LocalizationManager.Instance.GetString("ClipboardTooltipMore"), text.Length.ToString("N0"))
+                Loc.Text(LangKey.ClipboardTooltipMore), text.Length.ToString("N0"))
             : text;
     }
 

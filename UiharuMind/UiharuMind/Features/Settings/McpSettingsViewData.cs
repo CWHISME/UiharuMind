@@ -17,6 +17,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Features.Conversation.SidePanels;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -149,7 +150,7 @@ public partial class McpSettingsViewData : ViewModelBase
     {
         if (!TryCommitEdits()) return;
 
-        StatusText = LocalizationManager.Instance.GetString("AgentMcpStateConnecting");
+        StatusText = Loc.Text(LangKey.AgentMcpStateConnecting);
         ErrorText = string.Empty;
         await McpManager.Instance.TestServerAsync(SelectedServer!.Name);
         RefreshStatus();

@@ -1,5 +1,6 @@
 using System;
 using UiharuMind.Core.AI.Memory;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Memory;
@@ -131,7 +132,7 @@ internal static class MemoryIndexUiText
     public static string GetLastIndexedText(DateTime? lastIndexedAt)
     {
         return lastIndexedAt == null
-            ? Loc.Text("MemoryIndexNeverUpdated")
+            ? Loc.Text(LangKey.MemoryIndexNeverUpdated)
             : lastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm");
     }
 

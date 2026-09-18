@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Execution;
 
@@ -31,7 +32,7 @@ public static class ConversationModeLabels
     /// <param name="mode">当前模式</param>
     /// <returns>本地化文案</returns>
     public static string ModeTooltip(EAgentMode mode) =>
-        $"{ModeLabel(mode)}\n{LocalizationManager.Instance.GetString("ClickToSwitch")}";
+        $"{ModeLabel(mode)}\n{Loc.Text(LangKey.ClickToSwitch)}";
 
     /// <summary>
     /// 权限档状态键(ReadOnly/AutoEdit/FullAuto)。
@@ -74,5 +75,5 @@ public static class ConversationModeLabels
     /// <param name="isUser">是否以用户身份发送</param>
     /// <returns>本地化文案</returns>
     public static string SenderTooltip(bool isUser) =>
-        $"{(isUser ? "User" : "Assistant")}\n{LocalizationManager.Instance.GetString("SendUserDesc")}";
+        $"{(isUser ? "User" : "Assistant")}\n{Loc.Text(LangKey.SendUserDesc)}";
 }

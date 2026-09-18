@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Memory;
@@ -110,7 +111,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     public bool HasFiles => Files.Count > 0;
     public string MemoryName => _memoryData.Name;
     public string MemoryDescriptionDisplay => string.IsNullOrWhiteSpace(MemoryDescription)
-        ? Loc.Text("MemoryDescriptionFallback")
+        ? Loc.Text(LangKey.MemoryDescriptionFallback)
         : MemoryDescription;
     public bool CanSaveDescription =>
         !string.Equals(MemoryDescription.Trim(), _memoryData.Description, StringComparison.Ordinal);
@@ -195,7 +196,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         OnPropertyChanged(nameof(MemoryDescriptionDisplay));
         OnPropertyChanged(nameof(CanSaveDescription));
         _messageService.ShowNotification(
-            Loc.Text("MemoryDescriptionSaved"), severity: MessageSeverity.Success);
+            Loc.Text(LangKey.MemoryDescriptionSaved), severity: MessageSeverity.Success);
     }
 
     [RelayCommand]
@@ -221,7 +222,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     [RelayCommand]
     private async Task DeleteText(MemoryTextSource source)
     {
-        if (!await _messageService.ConfirmAsync(Loc.Text("CommonDeleteConfirmTips"))) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.CommonDeleteConfirmTips))) return;
         TextSources.Remove(source);
         _memoryData.TextSources.Remove(source);
         _memoryData.MarkIndexDirty();
@@ -240,7 +241,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
 
         IReadOnlyList<IStorageFile> files = await App.FilesService.SelectFileAsync(
             UIManager.GetFocusWindow(), null,
-            Loc.Text("MemorySelectTextFilesTitle"), Loc.Text("MemoryTextFileFilter"), "*");
+            Loc.Text(LangKey.MemorySelectTextFilesTitle), Loc.Text(LangKey.MemoryTextFileFilter), "*");
         if (files.Count == 0) return;
 
         _importCancellation = new CancellationTokenSource();
@@ -248,7 +249,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         HasFailure = false;
         FailureText = "";
         ImportProgressValue = 0;
-        ImportProgressStageText = Loc.Text("MemoryImportValidating");
+        ImportProgressStageText = Loc.Text(LangKey.MemoryImportValidating);
         ImportProgressDetailText = "";
         RefreshStatus();
 
@@ -269,8 +270,8 @@ public partial class MemoryEditorWindowModel : ObservableObject
                 string? path = files[index].TryGetLocalPath();
                 if (string.IsNullOrWhiteSpace(path) || _memoryData.FilePaths.Contains(path)) continue;
 
-                ImportProgressStageText = Loc.Text("MemoryImportValidating");
-                ImportProgressDetailText = string.Format(Loc.Text("MemoryImportProgressFormat"),
+                ImportProgressStageText = Loc.Text(LangKey.MemoryImportValidating);
+                ImportProgressDetailText = string.Format(Loc.Text(LangKey.MemoryImportProgressFormat),
                     index + 1, files.Count, Path.GetFileName(path),
                     accepted.Count, errors.Count);
                 ImportProgressValue = (index + 1d) / files.Count * 100;
@@ -302,12 +303,12 @@ public partial class MemoryEditorWindowModel : ObservableObject
             else
             {
                 _messageService.ShowNotification(string.Format(
-                    Loc.Text("MemoryImportCompleted"), accepted.Count), severity: MessageSeverity.Success);
+                    Loc.Text(LangKey.MemoryImportCompleted), accepted.Count), severity: MessageSeverity.Success);
             }
         }
         catch (OperationCanceledException)
         {
-            _messageService.ShowNotification(Loc.Text("MemoryImportCancelled"));
+            _messageService.ShowNotification(Loc.Text(LangKey.MemoryImportCancelled));
         }
         finally
         {
@@ -327,7 +328,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
     [RelayCommand]
     private async Task DeleteFile(MemoryFileSourceViewData file)
     {
-        if (!await _messageService.ConfirmAsync(Loc.Text("CommonDeleteConfirmTips"))) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.CommonDeleteConfirmTips))) return;
         Files.Remove(file);
         _memoryData.FilePaths.Remove(file.Path);
         _memoryData.MarkIndexDirty();
@@ -419,9 +420,9 @@ public partial class MemoryEditorWindowModel : ObservableObject
         IndexStatusKey = status.StatusKey;
         LastIndexedText = status.LastIndexedText;
 
-        SourceCountText = string.Format(Loc.Text("MemorySourceCountFormat"),
+        SourceCountText = string.Format(Loc.Text(LangKey.MemorySourceCountFormat),
             _memoryData.TextSources.Count, _memoryData.FilePaths.Count);
-        AddFileActionText = IsFileImporting ? Loc.Text("MemoryImportStop") : Loc.Text("MemoryAddTextFile");
+        AddFileActionText = IsFileImporting ? Loc.Text(LangKey.MemoryImportStop) : Loc.Text(LangKey.MemoryAddTextFile);
 
         if (!IndexUpdater.IsUpdating && !string.IsNullOrWhiteSpace(_memoryData.LastIndexError) && !HasFailure)
         {

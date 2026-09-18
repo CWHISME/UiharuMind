@@ -22,6 +22,7 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -139,11 +140,11 @@ public partial class TextFileWindow : QuickWindowBase
     public async Task LoadTextAsync(string filePath, string text, Encoding encoding, bool hasBom,
         int? lineNumber = null)
     {
-        if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
+        if (!await ConfirmDiscardUnsavedAsync(Loc.Text(LangKey.TextFileOpenWhileDirtyConfirm))) return;
 
         if (!File.Exists(filePath))
         {
-            MessageService.ShowNotification(Loc.Text("TextFileFileMissing"), severity: MessageSeverity.Error);
+            MessageService.ShowNotification(Loc.Text(LangKey.TextFileFileMissing), severity: MessageSeverity.Error);
             return;
         }
 
@@ -155,7 +156,7 @@ public partial class TextFileWindow : QuickWindowBase
     /// </summary>
     public async Task NewEmptyAsync()
     {
-        if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
+        if (!await ConfirmDiscardUnsavedAsync(Loc.Text(LangKey.TextFileOpenWhileDirtyConfirm))) return;
         SetEmptySource();
     }
 
@@ -166,7 +167,7 @@ public partial class TextFileWindow : QuickWindowBase
     private async Task<bool> ConfirmDiscardUnsavedAsync(string message)
     {
         if (!_dirty) return true;
-        var choice = await MessageService.ConfirmWithCancelAsync(message, Loc.Text("TextFileCloseDirtyTitle"));
+        var choice = await MessageService.ConfirmWithCancelAsync(message, Loc.Text(LangKey.TextFileCloseDirtyTitle));
         if (choice == EConfirmChoice.Cancel) return false;
         if (choice == EConfirmChoice.Yes && !await TrySaveAsync()) return false;
         _dirty = false; //No：放弃改动
@@ -186,7 +187,7 @@ public partial class TextFileWindow : QuickWindowBase
         FileOpener.RouteOutcome outcome = await FileOpener.RouteAsync(filePath);
         if (outcome.Text == null) return;
 
-        if (!await ConfirmDiscardUnsavedAsync(Loc.Text("TextFileOpenWhileDirtyConfirm"))) return;
+        if (!await ConfirmDiscardUnsavedAsync(Loc.Text(LangKey.TextFileOpenWhileDirtyConfirm))) return;
 
         SetSource(filePath, outcome.Text.Text!, outcome.Text.Encoding!, outcome.Text.HasBom, lineNumber);
     }
@@ -275,13 +276,13 @@ public partial class TextFileWindow : QuickWindowBase
             _dirty = false;
             RefreshDirtyState();
             RefreshMenuStates();
-            MessageService.ShowNotification(Loc.Text("TextFileSaved"), severity: MessageSeverity.Success);
+            MessageService.ShowNotification(Loc.Text(LangKey.TextFileSaved), severity: MessageSeverity.Success);
             return true;
         }
         catch (Exception e)
         {
             MessageService.ShowNotification(
-                $"{Loc.Text("TextFileSaveFailed")} {e.Message}", severity: MessageSeverity.Error);
+                $"{Loc.Text(LangKey.TextFileSaveFailed)} {e.Message}", severity: MessageSeverity.Error);
             return false;
         }
     }
@@ -301,7 +302,7 @@ public partial class TextFileWindow : QuickWindowBase
         catch (Exception ex)
         {
             MessageService.ShowNotification(
-                $"{Loc.Text("TextFileSaveFailed")} {ex.Message}", severity: MessageSeverity.Error);
+                $"{Loc.Text(LangKey.TextFileSaveFailed)} {ex.Message}", severity: MessageSeverity.Error);
             return false;
         }
 
@@ -312,14 +313,14 @@ public partial class TextFileWindow : QuickWindowBase
         RefreshDirtyState();
         RefreshMenuStates();
         UpdateStatusBar();
-        MessageService.ShowNotification(Loc.Text("TextFileSaved"), severity: MessageSeverity.Success);
+        MessageService.ShowNotification(Loc.Text(LangKey.TextFileSaved), severity: MessageSeverity.Success);
         return true;
     }
 
     private void UpdateTitle()
     {
         string? fileName = _filePath == null ? null : Path.GetFileName(_filePath);
-        string title = (_dirty ? "* " : "") + (fileName ?? Loc.Text("TextFileUntitled"));
+        string title = (_dirty ? "* " : "") + (fileName ?? Loc.Text(LangKey.TextFileUntitled));
         Title = title;
         TitleTextBlock.Text = title;
         ToolTip.SetTip(TitleTextBlock, _filePath ?? title); //悬停看全路径
@@ -375,14 +376,14 @@ public partial class TextFileWindow : QuickWindowBase
 
         if (PathTextBlock != null)
         {
-            PathTextBlock.Text = _filePath ?? Loc.Text("TextFileUntitled");
-            ToolTip.SetTip(PathTextBlock, _filePath ?? Loc.Text("TextFileUntitled"));
+            PathTextBlock.Text = _filePath ?? Loc.Text(LangKey.TextFileUntitled);
+            ToolTip.SetTip(PathTextBlock, _filePath ?? Loc.Text(LangKey.TextFileUntitled));
         }
 
         int lines = TextView.Editor.Document?.LineCount ?? 0;
         int chars = TextView.Text?.Length ?? 0;
         string text =
-            $"{FormatEncodingDisplay()} · {lines} {Loc.Text("TextFileStatusLines")} · {chars} {Loc.Text("TextFileStatusChars")}";
+            $"{FormatEncodingDisplay()} · {lines} {Loc.Text(LangKey.TextFileStatusLines)} · {chars} {Loc.Text(LangKey.TextFileStatusChars)}";
         if (_filePath != null)
         {
             long size = 0;
@@ -546,8 +547,8 @@ public partial class TextFileWindow : QuickWindowBase
         try
         {
             var choice = await MessageService.ConfirmWithCancelAsync(
-                Loc.Text("TextFileCloseDirtyConfirm"),
-                Loc.Text("TextFileCloseDirtyTitle"));
+                Loc.Text(LangKey.TextFileCloseDirtyConfirm),
+                Loc.Text(LangKey.TextFileCloseDirtyTitle));
             if (choice == EConfirmChoice.Cancel) return;
             if (choice == EConfirmChoice.Yes)
             {
@@ -618,7 +619,7 @@ public partial class TextFileWindow : QuickWindowBase
         {
             RecentMenuItem.Items.Add(new MenuItem
             {
-                Header = Loc.Text("TextFileMenuRecentEmpty"),
+                Header = Loc.Text(LangKey.TextFileMenuRecentEmpty),
                 IsEnabled = false
             });
             return;
@@ -634,7 +635,7 @@ public partial class TextFileWindow : QuickWindowBase
         }
 
         RecentMenuItem.Items.Add(new Separator());
-        var clear = new MenuItem { Header = Loc.Text("TextFileMenuRecentClear") };
+        var clear = new MenuItem { Header = Loc.Text(LangKey.TextFileMenuRecentClear) };
         clear.Click += (_, _) => _setting.ClearRecentFiles();
         RecentMenuItem.Items.Add(clear);
     }

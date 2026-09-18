@@ -21,6 +21,7 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
@@ -111,7 +112,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <b>初值就得是有效文案</b>：智能体页的会话是懒建的，首轮发送前没有执行器、刷新一次都不会跑，
     /// 初值留空串的话页签标题在那之前是一片空白
     /// </summary>
-    [ObservableProperty] private string _tabHeader = LocalizationManager.Instance.GetString("AgentCapabilityTitle");
+    [ObservableProperty] private string _tabHeader = Loc.Text(LangKey.AgentCapabilityTitle);
 
     /// 明细里的分节标题也带计数,与页签标题同理
     [ObservableProperty] private string _toolsHeader = string.Empty;
@@ -392,7 +393,7 @@ public sealed record PromptSegmentItem(string Label, int EstimatedTokens, string
     /// <summary>不计入合计时的说明；否则为 null</summary>
     public string? Tip => CountsTowardTotal
         ? null
-        : LocalizationManager.Instance.GetString("AgentCapabilityPromptNotCounted");
+        : Loc.Text(LangKey.AgentCapabilityPromptNotCounted);
 }
 
 /// <summary>
@@ -498,9 +499,9 @@ public sealed class McpPlannedServerItem
         IsShadowed = server.IsShadowed;
         ForecastTokens = server.WillBeMounted ? server.EstimatedTokens ?? 0 : 0;
         OriginText = server.IsWorkspaceScoped
-            ? string.Format(LocalizationManager.Instance.GetString("AgentCapabilityMcpFromProject"),
+            ? string.Format(Loc.Text(LangKey.AgentCapabilityMcpFromProject),
                 Path.GetFileName(server.WorkspacePath!.TrimEnd(Path.DirectorySeparatorChar)))
-            : LocalizationManager.Instance.GetString("AgentCapabilityMcpFromGlobal");
+            : Loc.Text(LangKey.AgentCapabilityMcpFromGlobal);
         StatusText = DescribeStatus(server);
     }
 

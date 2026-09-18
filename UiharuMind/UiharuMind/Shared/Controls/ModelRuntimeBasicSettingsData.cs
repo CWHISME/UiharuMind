@@ -9,6 +9,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Features.Models;
@@ -254,17 +255,17 @@ public partial class ModelRuntimeBasicSettingsData : ObservableObject
     {
         return level switch
         {
-            RuntimeLoadRiskLevel.Danger => Loc.Text("ModelRuntimeRiskDanger"),
-            RuntimeLoadRiskLevel.Warning => Loc.Text("ModelRuntimeRiskWarning"),
-            RuntimeLoadRiskLevel.Unknown => Loc.Text("ModelRuntimeRiskUnknown"),
-            _ => Loc.Text("ModelRuntimeRiskLow")
+            RuntimeLoadRiskLevel.Danger => Loc.Text(LangKey.ModelRuntimeRiskDanger),
+            RuntimeLoadRiskLevel.Warning => Loc.Text(LangKey.ModelRuntimeRiskWarning),
+            RuntimeLoadRiskLevel.Unknown => Loc.Text(LangKey.ModelRuntimeRiskUnknown),
+            _ => Loc.Text(LangKey.ModelRuntimeRiskLow)
         };
     }
 
     private static string BuildRiskDetail(RuntimeLoadRisk risk)
     {
         string detail = string.Format(
-            Loc.Text("ModelRuntimeRiskDetailFormat"),
+            Loc.Text(LangKey.ModelRuntimeRiskDetailFormat),
             risk.EstimatedTotalBytes > 0 ? GameUtils.FormatBytes(risk.EstimatedTotalBytes) : "-",
             risk.EstimatedKvCacheBytes > 0 ? GameUtils.FormatBytes(risk.EstimatedKvCacheBytes) : "-",
             string.IsNullOrWhiteSpace(risk.Reason) ? "-" : risk.Reason);

@@ -25,6 +25,7 @@ using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Shared.Windows;
@@ -187,7 +188,7 @@ public partial class ThinkingItem : ConversationItemBase, IStreamFlushTarget
     private string BuildTruncatedPreview(int len)
     {
         return _buffer.ToString(0, StreamingPreviewChars) +
-               "\n" + string.Format(Loc.Text("AgentThinkingTruncatedFormat"), len.ToString("N0"));
+               "\n" + string.Format(Loc.Text(LangKey.AgentThinkingTruncatedFormat), len.ToString("N0"));
     }
 
     /// <summary>
@@ -381,7 +382,7 @@ public partial class ToolCallItem : ConversationItemBase
     private void ShowFullResult()
     {
         // Read 之类工具的结果就是某个文件的正文,按它的扩展名高亮;其余工具拿不到路径,纯文本
-        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextResult")}", ResultText, FilePath);
+        FullTextWindow.Show($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText, FilePath);
     }
 
     /// <summary>把参数原文交给全文窗</summary>
@@ -391,7 +392,7 @@ public partial class ToolCallItem : ConversationItemBase
         // 与结果同一个口径:语言只由"这次调用涉及哪个文件"决定,不按工具名也不按参数名分支——
         // Write 的正文在参数里(content),Read 的正文在结果里,新工具放哪都不用改这里。
         // 开头那几行"filePath: …"在任何语法下都只是普通标识符,不上色但也不会乱
-        FullTextWindow.Show($"{ToolName} · {Loc.Text("ToolFullTextArguments")}", ArgumentsJson, FilePath);
+        FullTextWindow.Show($"{ToolName} · {Loc.Text(LangKey.ToolFullTextArguments)}", ArgumentsJson, FilePath);
     }
 
     /// <summary>

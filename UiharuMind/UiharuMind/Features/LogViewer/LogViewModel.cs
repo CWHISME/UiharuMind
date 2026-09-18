@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Collections;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
@@ -34,7 +35,7 @@ public partial class LogViewModel : ViewModelBase
     private const int TrimBatch = 5_000;
 
     /// <summary>正文已被滚动淘汰时的占位文本</summary>
-    private static string DeadBodyHint => LocalizationManager.Instance.GetString("LogBodyEvicted");
+    private static string DeadBodyHint => Loc.Text(LangKey.LogBodyEvicted);
 
     /// <summary>倒序视图，绑给列表</summary>
     public ReversedObservableList<LogIndexEntry> Items { get; } = new();
