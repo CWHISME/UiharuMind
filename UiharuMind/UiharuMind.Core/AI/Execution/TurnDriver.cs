@@ -261,22 +261,24 @@ public sealed class TurnDriver : IDisposable
                     nextMessages = (await resolver(roundRequests)).ToList();
                 }
 
-                // 明确被拒的调用永远不会有工具结果（MFA 审批闸不执行函数，拒绝响应只是下一轮
-                // 模型输入）——不补上，历史就留孤儿 tool_call，严格服务端下一请求直接 400
-                // （实机：子代理越界写入审批无人答、轮次继续跑别的调用，孤儿夹在中间）。
-                // 顺带解决会话重放时「明明没跑、却显示没有结果」的观感。
-                ToolCallCancellation.CloseDeniedCalls(session, roundRequests, nextMessages);
-
                 if (cancellationToken.IsCancellationRequested)
                 {
                     // 审批等待期间被取消:resolver 拿到的不是取消异常而是「拒绝」回应,正常返回,
                     // 于是这一轮看起来是正常结束——但那次调用已经落盘、结果永远不会来。
                     // 不补上就留孤儿 tool_call(严格服务端直接 400)。停完还能接着续,
-                    // 所以按「用户停止」口径补,与取消分支同款
+                    // 所以按「用户停止」口径补,与取消分支同款。注意:<b>不先走</b>
+                    // CloseDeniedCalls——取消的语义是「用户停止」,被拒调用的补写也归
+                    // SettleInterruptedTurn 的 ResultText,否则会错成「审批被拒」口径。
                     WasCancelled = true;
                     SettleInterruptedTurn(session, interruptionNote);
                     break;
                 }
+
+                // 明确被拒的调用永远不会有工具结果（MFA 审批闸不执行函数，拒绝响应只是下一轮
+                // 模型输入）——不补上，历史就留孤儿 tool_call，严格服务端下一请求直接 400
+                // （实机：子代理越界写入审批无人答、轮次继续跑别的调用，孤儿夹在中间）。
+                // 顺带解决会话重放时「明明没跑、却显示没有结果」的观感。
+                ToolCallCancellation.CloseDeniedCalls(session, roundRequests, nextMessages);
             }
 
             await runner.SaveStateAsync();

@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Collections.Concurrent;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -62,43 +63,51 @@ public static class SubAgentReportHandoff
     /// 为空时才回落到现捞（用户手动点「交回主代理」走的就是那条）。
     /// </param>
     /// <returns>交回结果</returns>
+    /// <summary>同一父会话的多份报告可能由多个子代理并行交回（合并窗口的主场景）：对父历史
+    /// <c>List&lt;ChatMessage&gt;</c> 的并发 Add/SaveAppended 会互相交错。按父会话串行提交。</summary>
+    private static readonly ConcurrentDictionary<string, object> _parentSubmitLocks = new();
+
     public static EHandoffOutcome Submit(ChatSession subSession, string? interruption = null,
         string? conclusion = null)
     {
         if (!subSession.IsSubSession) return EHandoffOutcome.NotASubSession;
+        string parentSessionId = subSession.ParentSessionId!;
 
-        ChatSession? parent = SessionManager.Instance.Load(subSession.ParentSessionId!);
-        if (parent == null) return EHandoffOutcome.ParentMissing;
-        // 派活者正在跑时不写:那一轮的历史由框架逐次服务调用追加,此刻插一条进去会与它交错
-        if (SessionManager.Instance.Running.IsBusy(parent.SessionId)) return EHandoffOutcome.ParentBusy;
-
-        conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
-        if (conclusion.Length == 0 && interruption == null) return EHandoffOutcome.NothingToReport;
-
-        (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId);
-
-        ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace,
-            interruption);
-        if (replaceInPlace)
+        lock (_parentSubmitLocks.GetOrAdd(parentSessionId, _ => new object()))
         {
-            ChatMessage superseded = parent.History[existing];
-            // 结论没变就什么都不做:交回是幂等的。照写不误的话派活者的历史文件要整份重写一遍,
-            // 界面还得为一条一字未改的消息重建条目——用户看到的就是"点一次闪一次"
-            if (string.Equals(superseded.Text, message.Text, StringComparison.Ordinal))
+            ChatSession? parent = SessionManager.Instance.Load(parentSessionId);
+            if (parent == null) return EHandoffOutcome.ParentMissing;
+            // 派活者正在跑时不写:那一轮的历史由框架逐次服务调用追加,此刻插一条进去会与它交错
+            if (SessionManager.Instance.Running.IsBusy(parent.SessionId)) return EHandoffOutcome.ParentBusy;
+
+            conclusion = string.IsNullOrWhiteSpace(conclusion) ? LastAssistantText(subSession) : conclusion.Trim();
+            if (conclusion.Length == 0 && interruption == null) return EHandoffOutcome.NothingToReport;
+
+            (int existing, bool replaceInPlace) = ResolveSlot(parent.History, subSession.SessionId);
+
+            ChatMessage message = BuildMessage(subSession, conclusion, supersedes: existing >= 0 && !replaceInPlace,
+                interruption);
+            if (replaceInPlace)
+            {
+                ChatMessage superseded = parent.History[existing];
+                // 结论没变就什么都不做:交回是幂等的。照写不误的话派活者的历史文件要整份重写一遍,
+                // 界面还得为一条一字未改的消息重建条目——用户看到的就是"点一次闪一次"
+                if (string.Equals(superseded.Text, message.Text, StringComparison.Ordinal))
+                    return EHandoffOutcome.Replaced;
+
+                parent.History[existing] = message;
+                parent.Save(); //改的是中间那条,只能整份重写
+                // 派活者的界面壳(如果开着)得知道:这一份不是它写的,不发信号它会一直显示旧的。
+                // 带上被换掉的那一条,界面据此只重建那一处——整份重放会让满屏 markdown 闪一下
+                parent.NotifyHistoryMessageReplaced(existing, superseded);
                 return EHandoffOutcome.Replaced;
+            }
 
-            parent.History[existing] = message;
-            parent.Save(); //改的是中间那条,只能整份重写
-            // 派活者的界面壳(如果开着)得知道:这一份不是它写的,不发信号它会一直显示旧的。
-            // 带上被换掉的那一条,界面据此只重建那一处——整份重放会让满屏 markdown 闪一下
-            parent.NotifyHistoryMessageReplaced(existing, superseded);
-            return EHandoffOutcome.Replaced;
+            int from = parent.History.Count;
+            parent.History.Add(message);
+            parent.SaveAppended(from);
+            return EHandoffOutcome.Appended;
         }
-
-        int from = parent.History.Count;
-        parent.History.Add(message);
-        parent.SaveAppended(from);
-        return EHandoffOutcome.Appended;
     }
 
     /// <summary>子会话里最后一段助手正文，即它此刻的结论</summary>
