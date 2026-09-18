@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Prompts;
@@ -32,9 +33,11 @@ public static class SubAgentToolPrompts
 
     /// <summary>只读探索工具描述</summary>
     public const string RunReadOnlyAgentDescription =
-        "Run a read-only agent for fact-finding: survey files, search code, research the web. " +
-        "It has only read-only tools and cannot change anything. " +
-        "Follow-up on such a run also goes through `" + SubAgentTool.ToolContinueName + "`, not a fresh run.";
+        "Run a read-only agent for fact-finding within the workspace: "
+        + "it gets exactly three tools, `" + FileToolNames.Glob + "`, `" + FileToolNames.Grep
+        + "` and `" + FileToolNames.Read + "`, and cannot change anything. "
+        + "Follow-up on such a run also goes through `" + SubAgentTool.ToolContinueName
+        + "`, not a fresh run.";
 
     /// <summary>派活工具 task 参数说明</summary>
     public const string TaskParam =
@@ -75,11 +78,11 @@ public static class SubAgentToolPrompts
     
     /// <summary>花名册提示（追加在工具描述之后）</summary>
     public const string RosterHeading =
-        "Named agents you can run (pass one as `agent`, or omit it for the default agent):";
+        "Named agents you can run (pass one as agent, or omit it for the default agent):";
 
     /// <summary>追问/续跑工具的 subSession 参数说明</summary>
     public const string ContinueSubSessionParam =
-        "A run id: the `[sub-session: …]` marker from a previous receipt.";
+        "A run id: the [sub-session: …] marker from a previous receipt.";
 
     /// <summary>追问/续跑工具的 message 参数说明</summary>
     public const string ContinueMessageParam =

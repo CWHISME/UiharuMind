@@ -92,8 +92,10 @@ public static class AgentToolPrompts
     {
         StringBuilder sb = new();
         sb.AppendLine(
-            $"你的草稿目录是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
-            "以及不该进项目的中间文件(例如临时 git clone 源码)，都放这里，不要散进项目里。");
+            $"你的草稿目录（免审批写入区）是 \"{roomDirectory}\"。测试、验证用的临时脚本（含 py 文件），" +
+            "以及不该进项目的中间文件(例如临时 git clone 源码)，都放这里，不要散进项目里。\n" +
+            "此路径必须逐字使用，不要改写或自造：写错位置（例如其它会话的产出房间）会被视为" +
+            "跨会话写入而触发审批，无人确认时会一直等待。");
 
         if (forSubAgent)
         {
@@ -110,7 +112,7 @@ public static class AgentToolPrompts
         string uriPrefix = ToFileUriPrefix(roomDirectory);
         sb.Append(
             "- 要给用户看的文件（图表、导出的数据），同样放这里。正文里照这个格式引用它：" +
-            $"`![说明]({uriPrefix}文件名)`。只报一句文件名、或者路径写到别处，" +
+            $"![说明]({uriPrefix}文件名)。只报一句文件名、或者路径写到别处，" +
             "对话里就什么都不会出现。");
 
         return sb.ToString().TrimEnd();
@@ -137,7 +139,7 @@ public static class AgentToolPrompts
             "不要重复 repo 里已有的内容——代码与文档以文件为准，再抄一份就会两份漂移。");
         if (shellMounted)
         {
-            sb.Append("删记忆文件走 Shell");
+            sb.Append("删记忆文件走 `Shell`");
         }
 
         return sb.ToString().TrimEnd();
@@ -206,7 +208,7 @@ public static class AgentToolPrompts
     /// 那次事后它自称是"思维惯性、不是提示词问题"，但模型对自己为何选了某个工具没有特权视角，
     /// 那是事后合理化：缺口在清单上，是我们没写。
     ///
-    /// 「文件系统操作用 `Shell`」这句刻意<b>不写进 <see cref="FileAccessDefault"/></b>：
+    /// 「文件系统操作用 `Shell`」这句刻意<b>不写进文件纪律段</b>（<see cref="FileReadDefault"/> / <see cref="FileWriteDefault"/>）：
     /// shell 可以被关掉，而那一段在 shell 关掉时照样发出去，
     /// 于是会给模型指一个不存在的工具——违反「关掉的工具绝不出现」。
     ///
@@ -234,9 +236,9 @@ public static class AgentToolPrompts
             // 会违反"指名的工具必须真的在同一份工具集里"。脚本替换要预检(先 Grep 确认范围)、
             // 要收尾验证(再 Grep 0 残留);审批上它过的是 shell 命令级审批,不是 Read/Edit 的内容级
             sb.AppendLine(
-                "- 但文件内容的读与改默认仍走文件工具：读取用 `Read`（大文件会被输出限幅截断），" +
+                "- 但文件内容的读与改默认仍走文件工具：读取用 `Read`，" +
                 "单点改动用 `Edit`（每次改动可见、可审计）。例外是贯穿多个文件的同一种批量机械改动，" +
-                "那种情况优先用 `Shell` 或 `python` 脚本一次做完：先 `Grep` 确认命中范围，改完再 `Grep` 验证");
+                "那种情况优先用 `Shell` 或 python 脚本一次做完：先 `Grep` 确认命中范围，改完再 `Grep` 验证");
         }
 
         // 工具名写在这条无条件的里:前两条会被文件工具缺席时整块跳过,
@@ -279,27 +281,27 @@ public static class AgentToolPrompts
         StringBuilder sb = new();
 
         sb.AppendLine(
-            "- 你的 shell 里 `python` 与 `pip` 已经指向一个专供你使用的虚拟环境，不是系统 Python。" +
-            "直接写 `python`、`pip`，不要去找解释器的绝对路径。");
-        sb.AppendLine("- 缺第三方包就自己装：`pip install <包名>`。装进的是这个环境，不影响系统。");
+            "- 你的 shell 里 python 与 pip 已经指向一个专供你使用的虚拟环境，不是系统 Python。" +
+            "直接写 python、pip，不要去找解释器的绝对路径。");
+        sb.AppendLine("- 缺第三方包就自己装：pip install <包名>。装进的是这个环境，不影响系统。");
 
         // 遮蔽的对冲句。PATH 是静默生效的,这一句拦不住每一次,但至少给了正确写法
         sb.AppendLine(
-            "- 例外：工作区自己带虚拟环境时（`.venv`、`venv` 这类目录），" +
-            "跑那个项目的代码要用它自己的解释器路径，别用裸 `python`——你手上这个环境没有它的依赖。");
+            "- 例外：工作区自己带虚拟环境时（.venv、venv 这类目录），" +
+            "跑那个项目的代码要用它自己的解释器路径，别用裸 python——你手上这个环境没有它的依赖。");
 
         // 多行代码怎么送进去是按平台分岔的:heredoc 只在 POSIX shell 成立,
         // cmd 与 PowerShell 下根本没有。所以有文件工具时一律走"写成文件再跑",那是四种 shell 都成立的
         if (fileAccessMounted)
         {
             sb.AppendLine(
-                "- 超过一行的代码，先用 `Write` 写成一个 `.py` 文件，再用 `Shell` 跑它。" +
+                "- 超过一行的代码，先用 `Write` 写成一个 .py 文件，再用 `Shell` 跑它。" +
                 "不要把多行代码塞进命令行——引号和转义会被 shell 改写，出错了还看不出是哪一步坏的。");
         }
         else
         {
             sb.AppendLine(
-                "- 命令行里塞多行代码容易被引号和转义搞坏。写不下就分成几个短的 `-c` 调用。");
+                "- 命令行里塞多行代码容易被引号和转义搞坏。写不下就分成几个短的 -c 调用。");
         }
 
         return sb.ToString();
@@ -381,9 +383,9 @@ public static class AgentToolPrompts
         "`，它恒定只读，拿到的是你这批工具里只读的那些。\n" +
         "- 需要某个特定视角时（评审、对抗性检验、领域专家），用 role 给它一个身份；\n" +
         "  这会换掉它的关注点与取舍标准，不是换掉它的能力。\n" +
-        "- 委派是后台的：工具当场只回一张回执、不是报告。后续结论到了再作答；\n" +
+        "- 委派是后台的：工具当场只回一张回执、不是报告。报告到达时你会被唤醒，由你处理那份结论；\n" +
         "  等的时候可以做不依赖它的事，依赖它的等报告。\n" +
-        "- 继续、追问、讨论：用 `" + SubAgentTool.ToolContinueName + "`（认回执里 `[sub-session: …]` 编号）\n" +
+        "- 继续、追问、讨论：用 `" + SubAgentTool.ToolContinueName + "`（认回执里 [sub-session: …] 编号）\n" +
         "  回到同一个代理接着谈，不要重新派——重派会丢掉它已经做过的一切。\n" +
         "  它能补的信息你自己补回去，只有要用户拍板才转问用户。\n" +
         "- 报告说用户中途插过话时，结论里可能有你没给过的指示，据此判断还需不需要再确认。";

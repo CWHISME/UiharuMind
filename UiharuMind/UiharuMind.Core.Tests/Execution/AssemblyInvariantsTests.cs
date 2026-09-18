@@ -647,6 +647,38 @@ public class HarnessInstructionsCompositionTests
             "/bin/bash", out segments);
     }
 
+    /// <summary>
+    /// 主代理指令里凡反引号包裹的内容必须是已知工具名。
+    /// 子代理侧能按真实装配的工具集反向校验(见
+    /// <c>SubAgentBoundaryTests.SubAgentInstructions_OnlyNameToolsThatExist</c>);
+    /// 主代理侧装配真工具集要 chat client,所以退而求其次用「全量已知工具名」做反向校验——
+    /// 不在集合里的反引号内容(python、[sub-session: …] 这类历史违例)直接失败。
+    /// 集合刻意不写字面量:全部取各 Tool 的 ToolName 常量,新增工具时漏加会在这里暴露。
+    /// </summary>
+    [Fact]
+    public void MainAgentInstructions_BacktickNamesMustBeKnownTools()
+    {
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test")
+            .ChatOptions?.Instructions ?? string.Empty;
+
+        HashSet<string> known = new(StringComparer.Ordinal)
+        {
+            FileToolNames.Read, FileToolNames.Write, FileToolNames.Edit, FileToolNames.Glob,
+            FileToolNames.Grep, CharacterRunnerFactory.ShellToolName,
+            WebSearchTool.ToolName, WebFetchTool.ToolName, VisionTool.ToolName, KnowledgeTool.ToolName,
+            SchedulerTools.ToolName,
+            SubAgentTool.ToolGeneralName, SubAgentTool.ToolExplorerName, SubAgentTool.ToolContinueName,
+        };
+
+        MatchCollection mentioned = Regex.Matches(instructions, "`([^`]+)`");
+        Assert.NotEmpty(mentioned); //反引号写法本身也要在,否则这条不变量会空转
+        foreach (Match match in mentioned)
+        {
+            Assert.True(known.Contains(match.Groups[1].Value),
+                $"主代理指令里反引号内容 `{match.Groups[1].Value}` 不是已知工具名");
+        }
+    }
+
     private sealed class StubHistoryProvider : ChatHistoryProvider
     {
         public override IReadOnlyList<string> StateKeys => [];
@@ -713,8 +745,12 @@ public class SubAgentBoundaryTests
         List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
             NewInput(mode: mode) with { SubAgentProfile = SubAgentProfile.Explorer }));
 
+        // 探索档的技能面钉死:Glob/Grep/Read 三件套之外,不挂联网、不挂写工具
         Assert.Contains(FileToolNames.Read, names);
-        Assert.Contains(WebSearchTool.ToolName, names);
+        Assert.Contains(FileToolNames.Glob, names);
+        Assert.Contains(FileToolNames.Grep, names);
+        Assert.DoesNotContain(WebSearchTool.ToolName, names);
+        Assert.DoesNotContain(WebFetchTool.ToolName, names);
         // 名单取自工具侧的那一份,不在测试里重抄一遍:漏抄一个新增的写工具,
         // 这条不变量就会在不报错的情况下失效
         string[] mutating = [..FileToolNames.Mutating, CharacterRunnerFactory.ShellToolName];
@@ -926,7 +962,16 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.FullAuto)]
     public void SubAgentInstructions_OnlyNameToolsThatExist(EAgentPermissionMode mode)
     {
-        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode));
+        // 输入拼到能拼的最满:命令行/Python/房间段都进被校验的指令。
+        // 从前 ShellTool/PythonOutputDirectory 不设,这几段根本不出现,
+        // 于是它们的反引号违例(如裸 `python`)绕过了这条不变量
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: mode) with
+            {
+                ShellTool = StubShellTool(),
+                PythonOutputDirectory = "/tmp/uiharu-room-test/ws/12345678",
+                OutputFolderName = "ws-seg/12345678",
+            });
 
         Assert.NotNull(options);
         ChatOptions chatOptions = options!.ChatOptions!;
@@ -1070,6 +1115,7 @@ public class SubAgentBoundaryTests
         Assert.DoesNotContain(AgentPromptHeadings.FileModifications, instructions);
         Assert.DoesNotContain("`Edit`", instructions);
         Assert.DoesNotContain("`Write`", instructions);
+        Assert.DoesNotContain(AgentPromptHeadings.WebAccess, instructions); //不挂联网,联网纪律段不得出现
     }
 
     /// <summary>
