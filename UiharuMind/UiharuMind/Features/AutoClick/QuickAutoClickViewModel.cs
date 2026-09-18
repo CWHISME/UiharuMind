@@ -227,38 +227,36 @@ public partial class AutoClickStepViewModel : ObservableObject
 
     private string BuildTitle()
     {
-        var loc = LocalizationManager.Instance;
         return Kind switch
         {
-            AutoClickStepKind.MouseClick => string.Format(loc.GetString("AutoClickStepMouseClickTitle"), GetMouseButtonName()),
-            AutoClickStepKind.MouseDown => string.Format(loc.GetString("AutoClickStepMouseDownTitle"), GetMouseButtonName()),
-            AutoClickStepKind.MouseUp => string.Format(loc.GetString("AutoClickStepMouseUpTitle"), GetMouseButtonName()),
-            AutoClickStepKind.MouseMove => string.Format(loc.GetString("AutoClickStepMouseMoveTitle"), X, Y),
-            AutoClickStepKind.MouseWheel => string.Format(loc.GetString("AutoClickStepMouseWheelTitle"), GetWheelDirectionName()),
-            AutoClickStepKind.KeyClick => string.Format(loc.GetString("AutoClickStepKeyClickTitle"), GetKeyName()),
-            AutoClickStepKind.KeyDown => string.Format(loc.GetString("AutoClickStepKeyDownTitle"), GetKeyName()),
-            AutoClickStepKind.KeyUp => string.Format(loc.GetString("AutoClickStepKeyUpTitle"), GetKeyName()),
-            AutoClickStepKind.Text => string.Format(loc.GetString("AutoClickStepTextTitle"), string.IsNullOrEmpty(Text) ? loc.GetString("AutoClickEmptyText") : Text),
-            AutoClickStepKind.Delay => string.Format(loc.GetString("AutoClickStepDelayTitle"), Delay),
-            AutoClickStepKind.Loop => string.Format(loc.GetString("AutoClickStepLoopTitle"), LoopCount),
+            AutoClickStepKind.MouseClick => Loc.Text(LangKey.AutoClickStepMouseClickTitle, GetMouseButtonName()),
+            AutoClickStepKind.MouseDown => Loc.Text(LangKey.AutoClickStepMouseDownTitle, GetMouseButtonName()),
+            AutoClickStepKind.MouseUp => Loc.Text(LangKey.AutoClickStepMouseUpTitle, GetMouseButtonName()),
+            AutoClickStepKind.MouseMove => Loc.Text(LangKey.AutoClickStepMouseMoveTitle, X, Y),
+            AutoClickStepKind.MouseWheel => Loc.Text(LangKey.AutoClickStepMouseWheelTitle, GetWheelDirectionName()),
+            AutoClickStepKind.KeyClick => Loc.Text(LangKey.AutoClickStepKeyClickTitle, GetKeyName()),
+            AutoClickStepKind.KeyDown => Loc.Text(LangKey.AutoClickStepKeyDownTitle, GetKeyName()),
+            AutoClickStepKind.KeyUp => Loc.Text(LangKey.AutoClickStepKeyUpTitle, GetKeyName()),
+            AutoClickStepKind.Text => Loc.Text(LangKey.AutoClickStepTextTitle, string.IsNullOrEmpty(Text) ? Loc.Text(LangKey.AutoClickEmptyText) : Text),
+            AutoClickStepKind.Delay => Loc.Text(LangKey.AutoClickStepDelayTitle, Delay),
+            AutoClickStepKind.Loop => Loc.Text(LangKey.AutoClickStepLoopTitle, LoopCount),
             _ => Kind.ToString()
         };
     }
 
     private string BuildSummary()
     {
-        var loc = LocalizationManager.Instance;
         return Kind switch
         {
             AutoClickStepKind.MouseClick or AutoClickStepKind.MouseDown or AutoClickStepKind.MouseUp =>
-                string.Format(loc.GetString("AutoClickStepMouseSummary"), X, Y, Duration ?? 0),
-            AutoClickStepKind.MouseMove => string.Format(loc.GetString("AutoClickStepPositionSummary"), X, Y),
-            AutoClickStepKind.MouseWheel => string.Format(loc.GetString("AutoClickStepWheelSummary"), WheelDelta ?? 0),
+                Loc.Text(LangKey.AutoClickStepMouseSummary, X, Y, Duration ?? 0),
+            AutoClickStepKind.MouseMove => Loc.Text(LangKey.AutoClickStepPositionSummary, X, Y),
+            AutoClickStepKind.MouseWheel => Loc.Text(LangKey.AutoClickStepWheelSummary, WheelDelta ?? 0),
             AutoClickStepKind.KeyClick or AutoClickStepKind.KeyDown or AutoClickStepKind.KeyUp =>
-                string.Format(loc.GetString("AutoClickStepKeySummary"), GetKeyName(), Duration ?? 0),
+                Loc.Text(LangKey.AutoClickStepKeySummary, GetKeyName(), Duration ?? 0),
             AutoClickStepKind.Text => Text ?? string.Empty,
-            AutoClickStepKind.Delay => string.Format(loc.GetString("AutoClickDelayFormat"), Delay),
-            AutoClickStepKind.Loop => string.Format(loc.GetString("AutoClickStepLoopSummary"), Children.Count),
+            AutoClickStepKind.Delay => Loc.Text(LangKey.AutoClickDelayFormat, Delay),
+            AutoClickStepKind.Loop => Loc.Text(LangKey.AutoClickStepLoopSummary, Children.Count),
             _ => string.Empty
         };
     }
@@ -270,20 +268,18 @@ public partial class AutoClickStepViewModel : ObservableObject
 
     private string GetMouseButtonName()
     {
-        var loc = LocalizationManager.Instance;
         return MouseButton switch
         {
-            SharpHook.Data.MouseButton.Button1 => loc.GetString("AutoClickMouseLeft"),
-            SharpHook.Data.MouseButton.Button2 => loc.GetString("AutoClickMouseRight"),
-            SharpHook.Data.MouseButton.Button3 => loc.GetString("AutoClickMouseMiddle"),
-            _ => loc.GetString("AutoClickMouseButton")
+            SharpHook.Data.MouseButton.Button1 => Loc.Text(LangKey.AutoClickMouseLeft),
+            SharpHook.Data.MouseButton.Button2 => Loc.Text(LangKey.AutoClickMouseRight),
+            SharpHook.Data.MouseButton.Button3 => Loc.Text(LangKey.AutoClickMouseMiddle),
+            _ => Loc.Text(LangKey.AutoClickMouseButton)
         };
     }
 
     private string GetWheelDirectionName()
     {
-        var loc = LocalizationManager.Instance;
-        return WheelDelta >= 0 ? loc.GetString("AutoClickWheelUp") : loc.GetString("AutoClickWheelDown");
+        return WheelDelta >= 0 ? Loc.Text(LangKey.AutoClickWheelUp) : Loc.Text(LangKey.AutoClickWheelDown);
     }
 
     private static string GetKindKey(AutoClickStepKind kind)
@@ -369,9 +365,9 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
     public IReadOnlyList<MouseButtonOption> MouseButtonOptions { get; } =
     [
-        new(SharpHook.Data.MouseButton.Button1, "AutoClickMouseLeft"),
-        new(SharpHook.Data.MouseButton.Button2, "AutoClickMouseRight"),
-        new(SharpHook.Data.MouseButton.Button3, "AutoClickMouseMiddle")
+        new(SharpHook.Data.MouseButton.Button1, LangKey.AutoClickMouseLeft),
+        new(SharpHook.Data.MouseButton.Button2, LangKey.AutoClickMouseRight),
+        new(SharpHook.Data.MouseButton.Button3, LangKey.AutoClickMouseMiddle)
     ];
 
     public int StepCount => CountSteps(Steps);
@@ -1680,13 +1676,13 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
 public partial class MouseButtonOption : ObservableObject
 {
-    private readonly string _displayNameKey;
+    private readonly LangKey _displayNameKey;
 
-    public MouseButtonOption(MouseButton value, string displayNameKey)
+    public MouseButtonOption(MouseButton value, LangKey displayNameKey)
     {
         Value = value;
         _displayNameKey = displayNameKey;
-        DisplayName = LocalizationManager.Instance.GetString(displayNameKey);
+        DisplayName = Loc.Text(displayNameKey);
     }
 
     public MouseButton Value { get; }
@@ -1695,6 +1691,6 @@ public partial class MouseButtonOption : ObservableObject
 
     public void RefreshLocalized()
     {
-        DisplayName = LocalizationManager.Instance.GetString(_displayNameKey);
+        DisplayName = Loc.Text(_displayNameKey);
     }
 }
