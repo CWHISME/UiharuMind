@@ -26,4 +26,17 @@ UiharuMind.Localization/          ← 宿主：多语言运行时逻辑（Locali
 ## 约定
 
 - 生成枚举的根命名空间默认 `UiharuMind.Generated`，可用 MSBuild 属性 `LangKeysRootNamespace` 覆盖。
+- 每个枚举成员上方会生成一行 XML 文档注释 `/// <summary>{默认文案}</summary>`，方便 IDE 悬停预览：
+  文案取默认文化 resx 的 `<value>`，写入前会 Trim → 把换行/制表等控制字符折叠成单个空格 → XML 转义
+  （`&` → `&amp;`、`<` → `&lt;`、`>` → `&gt;`）；文案为空/空白时不输出注释行。
+- 注释文案的语言可用 MSBuild 属性 `LangKeysCommentCulture` 指定，例如：
+
+  ```xml
+  <PropertyGroup>
+    <LangKeysCommentCulture>zh-hans</LangKeysCommentCulture>
+  </PropertyGroup>
+  ```
+
+  生成器会改用 `Lang.zh-hans.resx` 的 `<value>` 写注释；对应文化文件缺失、或个别 key 在该文化缺译文时，
+  回退默认文化文案。不设该属性则始终用默认文化（`Lang.resx`）文案。
 - 管道格式无关：新增 JSON/XML 存储只需在 `Parsing/` 加一个 Parser。

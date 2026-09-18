@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using UiharuMind.Localization.Generator;
 
@@ -107,6 +108,41 @@ public class GeneratorDiagnosticsTests
         Assert.Contains("    DeadKey,", generated);
     }
 
+    [Fact]
+    public void Generate_CommentCultureSet_UsesSatelliteCultureValueInDocComment()
+    {
+        var generator = new LangKeySourceGenerator().AsSourceGenerator();
+        var driver = CSharpGeneratorDriver.Create(
+            new[] { generator },
+            additionalTexts: new[]
+            {
+                new InMemoryAdditionalText(
+                    "Lang.resx",
+                    """<root><data name="UsedKey"><value>Used</value></data><data name="DeadKey"><value>Dead</value></data></root>"""),
+                new InMemoryAdditionalText(
+                    "Lang.zh-hans.resx",
+                    """<root><data name="UsedKey"><value>已用</value></data><data name="DeadKey"><value>死键</value></data></root>"""),
+                new InMemoryAdditionalText(
+                    "View.axaml",
+                    """<Window xmlns="https://github.com/avaloniaui"><TextBlock Text="{loc:Loc UsedKey}" /></Window>"""),
+            },
+            optionsProvider: new TestAnalyzerConfigOptionsProvider());
+
+        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("") });
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out _);
+
+        var generated = output.SyntaxTrees
+            .Select(static tree => tree.ToString())
+            .FirstOrDefault(static text => text.Contains("public enum LangKey"));
+
+        Assert.NotNull(generated);
+        // 注释文案取 zh-hans 卫星文件，而不是默认文化的英文文案
+        Assert.Contains("    /// <summary>已用</summary>", generated);
+        Assert.Contains("    /// <summary>死键</summary>", generated);
+        Assert.DoesNotContain("    /// <summary>Used</summary>", generated);
+        Assert.DoesNotContain("    /// <summary>Dead</summary>", generated);
+    }
+
     private static ImmutableArray<Diagnostic> Run(string axamlPath, string axamlContent)
     {
         var generator = new LangKeySourceGenerator().AsSourceGenerator();
@@ -121,6 +157,26 @@ public class GeneratorDiagnosticsTests
         var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("") });
         driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
         return diagnostics;
+    }
+
+    private sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
+    {
+        private readonly AnalyzerConfigOptions _options = new TestAnalyzerConfigOptions();
+
+        public override AnalyzerConfigOptions GlobalOptions => _options;
+
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => _options;
+
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => _options;
+    }
+
+    private sealed class TestAnalyzerConfigOptions : AnalyzerConfigOptions
+    {
+        private static readonly ImmutableDictionary<string, string> Values =
+            ImmutableDictionary.Create<string, string>(StringComparer.OrdinalIgnoreCase)
+                .Add("build_property:LangKeysCommentCulture", "zh-hans");
+
+        public override bool TryGetValue(string key, out string value) => Values.TryGetValue(key, out value!);
     }
 
     private sealed class InMemoryAdditionalText : AdditionalText

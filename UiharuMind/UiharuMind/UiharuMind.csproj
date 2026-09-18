@@ -3,6 +3,8 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
+		<!-- 生成器为 LangKey 枚举成员生成 XML 文档注释时使用的文案语言（Lang.zh-hans.resx）；不设则用 Lang.resx 默认文案 -->
+		<LangKeysCommentCulture>zh-hans</LangKeysCommentCulture>
 	</PropertyGroup>
 	
 	<ItemGroup>

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using UiharuMind.Localization.Generator.Model;
 
 namespace UiharuMind.Localization.Generator.Emit;
@@ -37,6 +38,13 @@ internal static class LangKeyEmitter
 
         foreach (var kv in keys)
         {
+            if (!string.IsNullOrWhiteSpace(kv.Value))
+            {
+                builder.Append("    /// <summary>");
+                builder.Append(EscapeForDocComment(kv.Value));
+                builder.AppendLine("</summary>");
+            }
+
             builder.Append("    ");
             builder.Append(kv.Key);
             builder.AppendLine(",");
@@ -44,5 +52,26 @@ internal static class LangKeyEmitter
 
         builder.AppendLine("}");
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// 把默认文案转成可安全放进 <c>///</c> 行注释的文本：
+    /// Trim → 控制字符（含换行/制表）替换为空格 → 连续空白折叠为单个空格 → XML 转义。
+    /// 必须保证结果不含原始换行/控制字符，否则行注释被截断、后续文案变成代码直接编译失败。
+    /// </summary>
+    private static string EscapeForDocComment(string value)
+    {
+        var trimmed = value.Trim();
+        var builder = new StringBuilder(trimmed.Length);
+        foreach (var c in trimmed)
+        {
+            builder.Append(char.IsControl(c) ? ' ' : c);
+        }
+
+        var collapsed = Regex.Replace(builder.ToString(), @"\s+", " ").Trim();
+        return collapsed
+            .Replace("&", "&amp;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
     }
 }

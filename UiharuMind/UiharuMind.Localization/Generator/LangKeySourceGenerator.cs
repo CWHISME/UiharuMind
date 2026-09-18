@@ -27,6 +27,7 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
     private const string DefaultRootNamespace = "UiharuMind.Generated";
     private const string ClassName = "LangKey";
     private const string RootNamespaceProperty = "build_property:LangKeysRootNamespace";
+    private const string CommentCultureProperty = "build_property:LangKeysCommentCulture";
     private const string GeneratedFileMarker = "LangKey.g.cs";
 
     // XAML: {前缀:Loc Key}（loc:Loc / markup:Loc 等任意前缀）
@@ -64,6 +65,18 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
             return DefaultRootNamespace;
         });
 
+        // 注释文案语言（项目级 MSBuild 属性 build_property:LangKeysCommentCulture；缺省 null → 用默认文化文案）
+        var commentCulture = context.AnalyzerConfigOptionsProvider.Select(static (options, _) =>
+        {
+            if (options.GlobalOptions.TryGetValue(CommentCultureProperty, out var configured)
+                && !string.IsNullOrWhiteSpace(configured))
+            {
+                return configured.Trim();
+            }
+
+            return null;
+        });
+
         // 1) 解析每个 resx 附加文件 → ParseResult
         var parsedResx = context.AdditionalTextsProvider
             .Where(static file => file.Path.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
@@ -87,8 +100,10 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
             .Combine(parsedResx)
             .Combine(axamlTexts)
             .Combine(context.CompilationProvider)
+            .Combine(commentCulture)
             .Select(static (t, _) => new InputModel(
-                t.Left.Left.Left,
+                t.Left.Left.Left.Left,
+                t.Left.Left.Left.Right,
                 t.Left.Left.Right,
                 t.Left.Right,
                 t.Right));
@@ -177,17 +192,48 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
             return;
         }
 
-        // 1) 枚举输出
+        // 1) 枚举输出（注释文案语言由 MSBuild 属性 LangKeysCommentCulture 指定，缺省用默认文化文案）
+        var commentCulture = model.CommentCulture;
+        var commentSet = files
+            .Select(static parsed => parsed.Resource)
+            .FirstOrDefault(set => set is { CultureName: not null }
+                && commentCulture is not null
+                && set.CultureName.Equals(commentCulture, StringComparison.OrdinalIgnoreCase));
+        var emittedKeys = ApplyCommentCulture(validKeys, commentSet);
         context.AddSource(
             $"{ClassName}.g.cs",
             SourceText.From(LangKeyEmitter.Emit(
                 rootNamespace,
                 ClassName,
                 defaultSet.SourcePath,
-                validKeys), Encoding.UTF8));
+                emittedKeys), Encoding.UTF8));
 
         // 2) XAML key 校验（LK2001）与死 key 报告（LK2002）
         ReportUsageDiagnostics(context, defaultKeys, axamlTexts, compilation);
+    }
+
+    /// <summary>
+    /// 把默认文化 key 列表的文案值替换成注释指定文化的文案（供生成 XML 文档注释用），
+    /// 缺 key 时回退默认文案；未指定文化或找不到对应文件时原样返回。
+    /// </summary>
+    private static List<ResourceKeyValue> ApplyCommentCulture(
+        List<ResourceKeyValue> defaultKeys,
+        CultureResourceSet? commentSet)
+    {
+        if (commentSet is null)
+        {
+            return defaultKeys;
+        }
+
+        var values = commentSet.Keys.ToDictionary(
+            static kv => kv.Key,
+            static kv => kv.Value,
+            StringComparer.Ordinal);
+        return defaultKeys
+            .Select(kv => values.TryGetValue(kv.Key, out var commentValue)
+                ? new ResourceKeyValue(kv.Key, commentValue)
+                : kv)
+            .ToList();
     }
 
     private static void ReportUsageDiagnostics(
@@ -283,12 +329,14 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
             string rootNamespace,
             ImmutableArray<ResxResourceParser.ParseResult> files,
             ImmutableArray<(string Path, string Text)> axamlTexts,
-            Compilation compilation)
+            Compilation compilation,
+            string? commentCulture)
         {
             RootNamespace = rootNamespace;
             Files = files;
             AxamlTexts = axamlTexts;
             Compilation = compilation;
+            CommentCulture = commentCulture;
         }
 
         internal string RootNamespace { get; }
@@ -298,5 +346,7 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
         internal ImmutableArray<(string Path, string Text)> AxamlTexts { get; }
 
         internal Compilation Compilation { get; }
+
+        internal string? CommentCulture { get; }
     }
 }
