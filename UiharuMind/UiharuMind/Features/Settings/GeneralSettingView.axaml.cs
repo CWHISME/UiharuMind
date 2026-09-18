@@ -176,8 +176,19 @@ public partial class GeneralSettingViewModel : ViewModelBase
         ThemeOptions.Clear();
         foreach (var themeMode in ApplicationThemeManager.SupportedThemeModes)
         {
-            ThemeOptions.Add(new ThemeOption(themeMode, $"ThemeMode{themeMode}"));
+            ThemeOptions.Add(new ThemeOption(themeMode, ThemeModeKey(themeMode)));
         }
+
+        static LangKey ThemeModeKey(string themeMode) => themeMode switch
+        {
+            ApplicationThemeManager.LightThemeMode => LangKey.ThemeModeLight,
+            ApplicationThemeManager.DarkThemeMode => LangKey.ThemeModeDark,
+            ApplicationThemeManager.AquaticThemeMode => LangKey.ThemeModeAquatic,
+            ApplicationThemeManager.DesertThemeMode => LangKey.ThemeModeDesert,
+            ApplicationThemeManager.DuskThemeMode => LangKey.ThemeModeDusk,
+            ApplicationThemeManager.NightSkyThemeMode => LangKey.ThemeModeNightSky,
+            _ => LangKey.ThemeModeDefault,
+        };
 
         foreach (var themeOption in ThemeOptions)
         {
@@ -315,11 +326,11 @@ public class LanguageOption
 public class ThemeOption
 {
     public string ThemeMode { get; }
-    public string DisplayName => LocalizationManager.Instance.GetString(_displayNameKey);
+    public string DisplayName => Loc.Text(_displayNameKey);
 
-    private readonly string _displayNameKey;
+    private readonly LangKey _displayNameKey;
 
-    public ThemeOption(string themeMode, string displayNameKey)
+    public ThemeOption(string themeMode, LangKey displayNameKey)
     {
         ThemeMode = themeMode;
         _displayNameKey = displayNameKey;

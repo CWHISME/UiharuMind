@@ -2956,4 +2956,32 @@
     <data name="ToggleTextWrap" xml:space="preserve">
         <value>切换文本换行</value>
     </data>
+
+    <data name="ThemeModeAquatic" xml:space="preserve">
+        <value>水色</value>
+    </data>
+
+    <data name="ThemeModeDark" xml:space="preserve">
+        <value>深色</value>
+    </data>
+
+    <data name="ThemeModeDefault" xml:space="preserve">
+        <value>跟随系统</value>
+    </data>
+
+    <data name="ThemeModeDesert" xml:space="preserve">
+        <value>沙漠</value>
+    </data>
+
+    <data name="ThemeModeDusk" xml:space="preserve">
+        <value>黄昏</value>
+    </data>
+
+    <data name="ThemeModeLight" xml:space="preserve">
+        <value>浅色</value>
+    </data>
+
+    <data name="ThemeModeNightSky" xml:space="preserve">
+        <value>夜空</value>
+    </data>
 </root>

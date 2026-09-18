@@ -2963,4 +2963,32 @@ Allow them?</value>
     <data name="ToggleTextWrap" xml:space="preserve">
         <value>Toggle text wrap</value>
     </data>
+
+    <data name="ThemeModeAquatic" xml:space="preserve">
+        <value>Aquatic</value>
+    </data>
+
+    <data name="ThemeModeDark" xml:space="preserve">
+        <value>Dark</value>
+    </data>
+
+    <data name="ThemeModeDefault" xml:space="preserve">
+        <value>System</value>
+    </data>
+
+    <data name="ThemeModeDesert" xml:space="preserve">
+        <value>Desert</value>
+    </data>
+
+    <data name="ThemeModeDusk" xml:space="preserve">
+        <value>Dusk</value>
+    </data>
+
+    <data name="ThemeModeLight" xml:space="preserve">
+        <value>Light</value>
+    </data>
+
+    <data name="ThemeModeNightSky" xml:space="preserve">
+        <value>Night Sky</value>
+    </data>
 </root>
