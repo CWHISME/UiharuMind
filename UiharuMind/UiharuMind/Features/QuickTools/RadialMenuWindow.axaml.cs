@@ -37,6 +37,8 @@ namespace UiharuMind.Features.QuickTools
         protected override void OnPostShow()
         {
             base.OnPostShow();
+            // 轮盘也要能压到贴图与菜单栏上面去：只抬层级，不换 Space 归属（同贴图预览窗）
+            OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.RadialMenu);
             this.SetWindowToMousePosition(HorizontalAlignment.Center, VerticalAlignment.Center);
         }
 

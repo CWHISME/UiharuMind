@@ -34,6 +34,9 @@ public enum EOverlayWindowLevel : long
     /// <summary>复制后弹出的浮动快捷工具：转瞬即逝且要用户马上看到，必须压在贴图与工具条之上</summary>
     FloatingTool = 27,
 
+    /// <summary>快捷轮盘：盖在贴图系之上，比截屏遮罩低；也要能越过菜单栏。轮盘项带 ToolTip，必须留在弹出层(101)之下</summary>
+    RadialMenu = 28,
+
     /// <summary>全屏截图选区遮罩：必须盖住一切，且自身不弹任何菜单，可以用到 NSScreenSaverWindowLevel</summary>
     FullscreenOverlay = 1000,
 }

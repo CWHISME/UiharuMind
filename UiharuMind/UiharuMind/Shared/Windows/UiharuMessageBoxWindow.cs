@@ -1,5 +1,6 @@
 using System;
 using Avalonia.Controls;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using Ursa.Controls;
 using UiharuMind.Core.Core.Extensions;
@@ -20,6 +21,12 @@ public class UiharuMessageBoxWindow : MessageBoxWindow
     {
         base.OnOpened(e);
         this.SetScreenCenterPosition();
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        MacWindowFocusGuard.SuppressKeyHandoff(this);
+        base.OnClosing(e);
     }
 
     protected override void OnClosed(EventArgs e)
