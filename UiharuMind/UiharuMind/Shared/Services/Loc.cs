@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Generated;
+
 namespace UiharuMind.Shared.Services;
 
 /// <summary>
@@ -29,4 +31,11 @@ public static class Loc
     /// <param name="key">资源键</param>
     /// <returns>文案；键不存在时原样返回该键</returns>
     public static string Text(string key) => LocalizationManager.Instance.GetString(key);
+
+    /// <summary>
+    /// 取当前语言下的文案（强类型入口，成员名即资源键）
+    /// </summary>
+    /// <param name="key">资源键（枚举成员）</param>
+    /// <returns>文案；键不存在时原样返回该键</returns>
+    public static string Text(LangKey key) => LocalizationManager.Instance.GetString(key);
 }

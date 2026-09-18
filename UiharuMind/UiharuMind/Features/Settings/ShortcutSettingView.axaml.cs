@@ -9,6 +9,7 @@ using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Input;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Features.Settings;
 
@@ -78,11 +79,11 @@ public partial class ShortcutSettingViewModel : ViewModelBase
     {
         var shortcuts = new[]
         {
-            new ShortcutEditItem("ShortcutCaptureScreen", CaptureScreenShortcut),
-            new ShortcutEditItem("ShortcutQuickStartChat", QuickStartChatShortcut),
-            new ShortcutEditItem("ShortcutClipboardHistory", ClipboardHistoryShortcut),
-            new ShortcutEditItem("ShortcutQuickTranslation", QuickTranslationShortcut),
-            new ShortcutEditItem("ShortcutQuickAutoClick", QuickAutoClickShortcut),
+            new ShortcutEditItem(LangKey.ShortcutCaptureScreen, CaptureScreenShortcut),
+            new ShortcutEditItem(LangKey.ShortcutQuickStartChat, QuickStartChatShortcut),
+            new ShortcutEditItem(LangKey.ShortcutClipboardHistory, ClipboardHistoryShortcut),
+            new ShortcutEditItem(LangKey.ShortcutQuickTranslation, QuickTranslationShortcut),
+            new ShortcutEditItem(LangKey.ShortcutQuickAutoClick, QuickAutoClickShortcut),
         };
 
         var normalized = new Dictionary<string, string>();
@@ -97,11 +98,11 @@ public partial class ShortcutSettingViewModel : ViewModelBase
             var display = ShortcutGestureParser.ToDisplayString(mainKey, modifiers);
             if (normalized.ContainsKey(display))
             {
-                StatusText = LocalizationManager.Instance.GetString("ShortcutConflictTips");
+                StatusText = Loc.Text(LangKey.ShortcutConflictTips);
                 return;
             }
 
-            normalized[display] = shortcut.TitleKey;
+            normalized[display] = shortcut.TitleKey.ToString();
         }
 
         var setting = ConfigManager.Instance.Setting;
@@ -114,7 +115,7 @@ public partial class ShortcutSettingViewModel : ViewModelBase
 
         LoadFromConfig();
         App.DummyWindow.ReloadShortcuts();
-        StatusText = LocalizationManager.Instance.GetString("ShortcutSavedTips");
+        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     [RelayCommand]
@@ -144,5 +145,5 @@ public partial class ShortcutSettingViewModel : ViewModelBase
         StatusText = string.Empty;
     }
 
-    private readonly record struct ShortcutEditItem(string TitleKey, string Value);
+    private readonly record struct ShortcutEditItem(LangKey TitleKey, string Value);
 }

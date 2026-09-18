@@ -15,6 +15,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Features.Settings;
 
@@ -84,9 +85,9 @@ public partial class GeneralSettingViewModel : ViewModelBase
         _applicationUpdateService = applicationUpdateService;
         ApplicationUpdateDownloadListViewModel = new DownloadListViewData(messageService)
         {
-            DownloadedActionText = Loc.Text("ApplicationUpdateInstall"),
+            DownloadedActionText = Loc.Text(LangKey.ApplicationUpdateInstall),
             DownloadedActionHandler = InstallApplicationUpdateAsync,
-            DeleteConfirmMessageProvider = () => Loc.Text("ConfirmDeleteApplicationUpdate")
+            DeleteConfirmMessageProvider = () => Loc.Text(LangKey.ConfirmDeleteApplicationUpdate)
         };
         foreach (var cultureInfo in LanguageUtils.SupportedLanguages)
         {
@@ -125,7 +126,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
         if (_writeBack.IsLoading) return;
         ConfigManager.Instance.Setting.EnableFullscreenGameInputSupport = value;
         if (await _messageService.ConfirmAsync(
-                LocalizationManager.Instance.GetString("FullscreenGameInputRestartConfirm")))
+                Loc.Text(LangKey.FullscreenGameInputRestartConfirm)))
         {
             ApplicationRestartService.Restart();
         }
@@ -211,27 +212,27 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
         if (IsCheckingForAppUpdate)
         {
-            AppUpdateStatusText = LocalizationManager.Instance.GetString("CheckingForUpdates");
+            AppUpdateStatusText = Loc.Text(LangKey.CheckingForUpdates);
             return;
         }
 
         if (HasAppUpdate && _applicationUpdateService.LatestPackage != null)
         {
             AppUpdateStatusText = string.Format(
-                LocalizationManager.Instance.GetString("ApplicationUpdateAvailableFormat"),
+                Loc.Text(LangKey.ApplicationUpdateAvailableFormat),
                 _applicationUpdateService.LatestPackage.Name);
             return;
         }
 
         if (HasAppUpdateError)
         {
-            AppUpdateStatusText = LocalizationManager.Instance.GetString("ApplicationUpdateCheckFailed");
+            AppUpdateStatusText = Loc.Text(LangKey.ApplicationUpdateCheckFailed);
             return;
         }
 
         AppUpdateStatusText = _applicationUpdateService.HasChecked
-            ? LocalizationManager.Instance.GetString("ApplicationUpdateAlreadyLatest")
-            : LocalizationManager.Instance.GetString("ApplicationUpdateAutoCheckPending");
+            ? Loc.Text(LangKey.ApplicationUpdateAlreadyLatest)
+            : Loc.Text(LangKey.ApplicationUpdateAutoCheckPending);
     }
 
     private void SetApplicationUpdateAsset(ManagedVersionPackage? asset)
@@ -252,11 +253,11 @@ public partial class GeneralSettingViewModel : ViewModelBase
 
         if (!File.Exists(item.DownloadFilePath))
         {
-            await _messageService.ShowWarningAsync(Loc.Text("ApplicationUpdateInstallFileMissing"));
+            await _messageService.ShowWarningAsync(Loc.Text(LangKey.ApplicationUpdateInstallFileMissing));
             return;
         }
 
-        if (!await _messageService.ConfirmAsync(Loc.Text("ApplicationUpdateInstallConfirm")))
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.ApplicationUpdateInstallConfirm)))
         {
             return;
         }
@@ -265,7 +266,7 @@ public partial class GeneralSettingViewModel : ViewModelBase
         {
             if (item.Target is not ManagedVersionPackage asset)
             {
-                await _messageService.ShowWarningAsync(Loc.Text("ApplicationUpdateInstallFileMissing"));
+                await _messageService.ShowWarningAsync(Loc.Text(LangKey.ApplicationUpdateInstallFileMissing));
                 return;
             }
 
@@ -275,13 +276,13 @@ public partial class GeneralSettingViewModel : ViewModelBase
             UpdateApplicationUpdateDownloadedActionText(asset);
             App.FilesService.OpenFolder(asset.InstallDirectory);
             _messageService.ShowNotification(
-                Loc.Text("ApplicationUpdateInstallPackageDeleted"),
+                Loc.Text(LangKey.ApplicationUpdateInstallPackageDeleted),
                 severity: MessageSeverity.Success);
         }
         catch (Exception e)
         {
             Log.Error(e);
-            await _messageService.ShowWarningAsync(e.Message, Loc.Text("ApplicationUpdateInstallFailed"));
+            await _messageService.ShowWarningAsync(e.Message, Loc.Text(LangKey.ApplicationUpdateInstallFailed));
         }
     }
 
@@ -289,8 +290,8 @@ public partial class GeneralSettingViewModel : ViewModelBase
     {
         ApplicationUpdateDownloadListViewModel.DownloadedActionText =
             asset is { IsInstalled: true }
-                ? Loc.Text("OpenDirectory")
-                : Loc.Text("ApplicationUpdateInstall");
+                ? Loc.Text(LangKey.OpenDirectory)
+                : Loc.Text(LangKey.ApplicationUpdateInstall);
     }
 
     private static bool IsApplicationUpdateInstalled(DownloadableItemData item)

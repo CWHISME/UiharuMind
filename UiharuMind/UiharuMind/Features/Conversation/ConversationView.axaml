@@ -492,7 +492,7 @@
                                 </Flyout>
                             </ThemedIconButton.Flyout>
                             <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc Settings}" />
+                                <TextBlock Text="{loc:Loc SettingsWindowTitle}" />
                             </ToolTip.Tip>
                         </ThemedIconButton>
                         <!-- 宿主注入 -->

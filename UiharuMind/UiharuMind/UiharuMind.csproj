@@ -49,6 +49,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <!-- 强类型 key 生成器: 读取下面的 resx/axaml 作为 AdditionalFiles, 编译期产出 UiharuMind.Generated.LangKey -->
+	  <ProjectReference Include="..\UiharuMind.Localization\Generator\UiharuMind.Localization.Generator.csproj"
+	                    OutputItemType="Analyzer"
+	                    ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <AdditionalFiles Include="Resources\Lang\*.resx" />
+	  <!-- XAML 消费点扫描：{loc:Loc X} 的拼写校验（LK2001）与死 key 报告（LK2002） -->
+	  <AdditionalFiles Include="**\*.axaml" Exclude="bin\**;obj\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 	  <EmbeddedResource Update="Assets\Lang\zh-CN.resx">
 	    <Generator>ResXFileCodeGenerator</Generator>
 	    <LastGenOutput>zh-CN.Designer.cs</LastGenOutput>

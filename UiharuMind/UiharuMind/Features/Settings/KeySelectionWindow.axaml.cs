@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using SharpHook.Data;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.Input;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Features.Settings;
 
@@ -24,8 +25,8 @@ public partial class KeySelectionWindow : Window
     {
         _allowModifiers = allowModifiers;
         InitializeComponent();
-        InstructionText.Text = LocalizationManager.Instance.GetString(
-            allowModifiers ? "KeySelectionShortcutInstruction" : "KeySelectionSingleInstruction");
+        InstructionText.Text = Loc.Text(
+            allowModifiers ? LangKey.KeySelectionShortcutInstruction : LangKey.KeySelectionSingleInstruction);
     }
 
     public static Task<KeySelectionResult?> ShowShortcutDialog(Window owner)
@@ -43,7 +44,7 @@ public partial class KeySelectionWindow : Window
         base.OnOpened(e);
         _shortcutSuspendScope = InputManager.Instance.SuspendRegisteredShortcuts();
         InputManager.Instance.EventOnKeyDown += OnKeyDown;
-        KeyDisplayText.Text = LocalizationManager.Instance.GetString("KeySelectionWaiting");
+        KeyDisplayText.Text = Loc.Text(LangKey.KeySelectionWaiting);
         Focus();
     }
 

@@ -7,6 +7,7 @@ using Avalonia.Styling;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
+using UiharuMind.Generated;
 
 namespace UiharuMind.Shared.Services;
 
@@ -59,6 +60,12 @@ public class LocalizationManager : INotifyPropertyChanged
     public string GetString(string key)
     {
         return Lang.ResourceManager.GetString(key, CurrentCulture) ?? key;
+    }
+
+    /// <summary>强类型入口：key 由枚举成员编译期约束，运行时按成员名回查。</summary>
+    public string GetString(LangKey key)
+    {
+        return GetString(key.ToString());
     }
 
     private static void ApplyThemeLocale(string locale)

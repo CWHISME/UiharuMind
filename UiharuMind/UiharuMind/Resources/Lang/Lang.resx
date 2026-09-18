@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 
 <root>
     <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
@@ -69,9 +69,6 @@
     <data name="ThinkingModeTips" xml:space="preserve">
         <value>Thinking effort for this session. Default follows the model config; other levels are sent with each request (backends that don't support it will ignore it).</value>
     </data>
-    <data name="TokenUsageTips" xml:space="preserve">
-        <value>Tokens: ≈input estimate · ↑in ↓out (last turn) · Σ session total</value>
-    </data>
     <data name="CompactCommandDescription" xml:space="preserve">
         <value>Compact the conversation into a handoff document</value>
     </data>
@@ -89,9 +86,6 @@
     </data>
     <data name="InterjectionRemoveTip" xml:space="preserve">
         <value>Withdraw this interjection before the model reads it</value>
-    </data>
-    <data name="AgentRunningExternally" xml:space="preserve">
-        <value>Running elsewhere…</value>
     </data>
     <data name="HandoffWriting" xml:space="preserve">
         <value>Writing context handoff…</value>
@@ -174,21 +168,6 @@
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>Info</value>
     </data>
-    <data name="MessageErrorTitle" xml:space="preserve">
-        <value>Error</value>
-    </data>
-    <data name="MenuAgentKey" xml:space="preserve">
-        <value>Agent</value>
-    </data>
-    <data name="MenuModelKey" xml:space="preserve">
-        <value>Model</value>
-    </data>
-    <data name="MenuChatKey" xml:space="preserve">
-        <value>Chat</value>
-    </data>
-    <data name="MenuCharacterKey" xml:space="preserve">
-        <value>Character</value>
-    </data>
     <data name="AgentNewSession" xml:space="preserve">
         <value>New Session</value>
     </data>
@@ -225,23 +204,11 @@
     <data name="AgentDeny" xml:space="preserve">
         <value>Deny</value>
     </data>
-    <data name="AgentPlanTitle" xml:space="preserve">
-        <value>Proposed plan</value>
-    </data>
-    <data name="AgentPlanApprove" xml:space="preserve">
-        <value>Approve &amp; execute</value>
-    </data>
-    <data name="AgentSubAgent" xml:space="preserve">
-        <value>Sub agent:</value>
-    </data>
     <data name="AgentWorkspaceNone" xml:space="preserve">
         <value>No workspace</value>
     </data>
     <data name="AgentWorkspaceLabel" xml:space="preserve">
         <value>Workspace</value>
-    </data>
-    <data name="AgentStatusLabel" xml:space="preserve">
-        <value>Status</value>
     </data>
     <data name="AgentStatusRunning" xml:space="preserve">
         <value>Running…</value>
@@ -272,9 +239,6 @@
     </data>
     <data name="AgentModeExecute" xml:space="preserve">
         <value>Build</value>
-    </data>
-    <data name="AgentModeSwitchHint" xml:space="preserve">
-        <value>Switch between Plan / Build mode (Tab)</value>
     </data>
     <data name="AgentSessions" xml:space="preserve">
         <value>Agent Sessions</value>
@@ -318,12 +282,6 @@
     <data name="AgentSenderUser" xml:space="preserve">
         <value>You</value>
     </data>
-    <data name="AgentSend" xml:space="preserve">
-        <value>Send</value>
-    </data>
-    <data name="AgentStop" xml:space="preserve">
-        <value>Stop</value>
-    </data>
     <data name="AgentToolCallUnfinished" xml:space="preserve">
         <value>No result was recorded for this call.</value>
     </data>
@@ -332,12 +290,6 @@
     </data>
     <data name="AgentSubAgentEmpty" xml:space="preserve">
         <value>This session has not delegated anything yet</value>
-    </data>
-    <data name="AgentSubAgentRunning" xml:space="preserve">
-        <value>Running</value>
-    </data>
-    <data name="SubAgentHandBack" xml:space="preserve">
-        <value>Hand back to main agent</value>
     </data>
     <data name="SubAgentHandBackTip" xml:space="preserve">
         <value>Send this sub-agent's latest conclusion back to the session that delegated it. It will read it on its next turn.</value>
@@ -455,9 +407,6 @@
     </data>
     <data name="SubAgentViewActivity" xml:space="preserve">
         <value>View activity</value>
-    </data>
-    <data name="SubAgentActivityTitle" xml:space="preserve">
-        <value>Sub-agent activity</value>
     </data>
     <data name="ToolResultTruncatedFormat" xml:space="preserve">
         <value>Showing the first {0} of {1} lines · {2} not rendered</value>
@@ -603,20 +552,8 @@
     <data name="AgentSkillsNotLoaded" xml:space="preserve">
         <value>not loaded</value>
     </data>
-    <data name="AgentSkillsDuplicateHint" xml:space="preserve">
-        <value>Not loaded: another skill with the same name was found first, at {0}. Remove one of the two.</value>
-    </data>
-    <data name="AgentSkillsDuplicate" xml:space="preserve">
-        <value>duplicate name</value>
-    </data>
-    <data name="AgentSkillsLocalGroup" xml:space="preserve">
-        <value>Local skills</value>
-    </data>
     <data name="AgentSkillsEmpty" xml:space="preserve">
         <value>No skills found. Drop a skill package into the folder above, or create one — nesting is fine, any depth is scanned.</value>
-    </data>
-    <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
-        <value>Rejected by the SKILL.md spec check — the skill name must match its directory name. See the log for the exact reason.</value>
     </data>
     <data name="SkillInvocationInjected" xml:space="preserve">
         <value>Skill instructions injected</value>
@@ -627,27 +564,8 @@
     <data name="AgentEmptyTitle" xml:space="preserve">
         <value>What should the agent do?</value>
     </data>
-    <data name="MenuTranslateKey" xml:space="preserve">
-        <value>Translate</value>
-    </data>
-    <data name="MenuLogKey" xml:space="preserve">
-        <value>Log</value>
-    </data>
     <data name="MenuSettingKey" xml:space="preserve">
         <value>Setting</value>
-    </data>
-    <data name="MenuAboutKey" xml:space="preserve">
-        <value>About</value>
-    </data>
-    <data name="SettingDebug" xml:space="preserve">
-        <value>Debug</value>
-    </data>
-    <data name="SettingLogDetail" xml:space="preserve">
-        <value>Set verbosity level to infinity (i.e. log all messages, useful for debugging)
-</value>
-    </data>
-    <data name="SettingLogEnable" xml:space="preserve">
-        <value>Enable log messages</value>
     </data>
     <data name="OpenDirectory" xml:space="preserve">
         <value>Open Directory</value>
@@ -661,12 +579,6 @@
     <data name="Delete" xml:space="preserve">
         <value>Delete</value>
     </data>
-    <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
-        <value>Are you sure?</value>
-    </data>
-    <data name="Decompressing" xml:space="preserve">
-        <value>Decompressing</value>
-    </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
         <value>Runtime Engine Setting</value>
     </data>
@@ -675,12 +587,6 @@
     </data>
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>Checking for updates...</value>
-    </data>
-    <data name="LLamaCppSetting" xml:space="preserve">
-        <value>LLamaCpp Setting</value>
-    </data>
-    <data name="ModelRuntimeEngine" xml:space="preserve">
-        <value>Runtime engine</value>
     </data>
     <data name="ModelRuntimeLLamaSharpBackend" xml:space="preserve">
         <value>LLamaSharp backend</value>
@@ -748,9 +654,6 @@
     <data name="ModelRuntimeBeta" xml:space="preserve">
         <value>Beta</value>
     </data>
-    <data name="ModelRuntimeGpuMemory" xml:space="preserve">
-        <value>GPU</value>
-    </data>
     <data name="ModelRuntimeTotalMemory" xml:space="preserve">
         <value>Total</value>
     </data>
@@ -759,9 +662,6 @@
     </data>
     <data name="ModelRuntimeShowAdvancedSettings" xml:space="preserve">
         <value>Show advanced settings</value>
-    </data>
-    <data name="InAnswer" xml:space="preserve">
-        <value>In Answer...</value>
     </data>
     <data name="Plaintext" xml:space="preserve">
         <value>Plaintext</value>
@@ -775,20 +675,11 @@
     <data name="CopiedToClipboardTips" xml:space="preserve">
         <value>Copied to clipboard!</value>
     </data>
-    <data name="ClipboardHistoryCount" xml:space="preserve">
-        <value>Count: {0}</value>
-    </data>
     <data name="DeleteAll" xml:space="preserve">
         <value>Clear All</value>
     </data>
-    <data name="DeleteAllClipboardHistoryTips" xml:space="preserve">
-        <value>Are you sure?</value>
-    </data>
     <data name="QuickChatQuateTitle" xml:space="preserve">
         <value>Quate：</value>
-    </data>
-    <data name="DefaultQuickChatTitle" xml:space="preserve">
-        <value>Answer</value>
     </data>
     <data name="CreateRemoteModel" xml:space="preserve">
         <value>Create Remote Model：</value>
@@ -802,14 +693,8 @@
     <data name="CreateBtn" xml:space="preserve">
         <value>Create</value>
     </data>
-    <data name="SureBtn" xml:space="preserve">
-        <value>Sure</value>
-    </data>
     <data name="ApiKey" xml:space="preserve">
         <value>ApiKey</value>
-    </data>
-    <data name="CustomConfig" xml:space="preserve">
-        <value>CustomConfig</value>
     </data>
     <data name="NotInputModelNameTips" xml:space="preserve">
         <value>Please Input Model Name!</value>
@@ -838,23 +723,11 @@
     <data name="EditContentTitle" xml:space="preserve">
         <value>Edit</value>
     </data>
-    <data name="EditSessionTitleTitle" xml:space="preserve">
-        <value>Edit session title</value>
-    </data>
-    <data name="EditMessageTitle" xml:space="preserve">
-        <value>Edit message</value>
-    </data>
-    <data name="RenameTitle" xml:space="preserve">
-        <value>Rename</value>
-    </data>
     <data name="CancelBtn" xml:space="preserve">
         <value>Cancel</value>
     </data>
     <data name="SaveBtn" xml:space="preserve">
         <value>Save</value>
-    </data>
-    <data name="DeleteTips" xml:space="preserve">
-        <value>Are you sure?</value>
     </data>
     <data name="MessageDeleteConfirm" xml:space="preserve">
         <value>Delete this message?</value>
@@ -862,17 +735,11 @@
     <data name="MessageDeleteTurnConfirmFormat" xml:space="preserve">
         <value>Delete this message and its related content ({0} items in total)? This cannot be undone.</value>
     </data>
-    <data name="ClearTips" xml:space="preserve">
-        <value>Are you sure?</value>
-    </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>SystemPrompt</value>
     </data>
     <data name="CharacterFuncType" xml:space="preserve">
         <value>Character kind</value>
-    </data>
-    <data name="AddDuplicateCharacterTips" xml:space="preserve">
-        <value>Duplicate Character,Edit?</value>
     </data>
     <data name="OptionalPromptParams" xml:space="preserve">
         <value>Optional Prompt Params</value>
@@ -882,15 +749,6 @@
 {{$user}}：replace by username
 {{$char}}：replace by character name</value>
     </data>
-    <data name="MessageWarningTitle" xml:space="preserve">
-        <value>Warning</value>
-    </data>
-    <data name="Tool" xml:space="preserve">
-        <value>Tool</value>
-    </data>
-    <data name="CharacterCard" xml:space="preserve">
-        <value>Character Card</value>
-    </data>
     <data name="Translation" xml:space="preserve">
         <value>Translation</value>
     </data>
@@ -899,15 +757,6 @@
     </data>
     <data name="Explain" xml:space="preserve">
         <value>Explain</value>
-    </data>
-    <data name="CharacterDeleteTips" xml:space="preserve">
-        <value />
-    </data>
-    <data name="CharacterCopyTips" xml:space="preserve">
-        <value />
-    </data>
-    <data name="DeleteCharacterTips" xml:space="preserve">
-        <value>Are you sure?</value>
     </data>
     <data name="Copy" xml:space="preserve">
         <value>Copy</value>
@@ -920,9 +769,6 @@
     </data>
     <data name="CharacterUser" xml:space="preserve">
         <value>Character User</value>
-    </data>
-    <data name="AutoDetect" xml:space="preserve">
-        <value>Auto Detect</value>
     </data>
     <data name="ParamsLang" xml:space="preserve">
         <value>Params Lang($lang)</value>
@@ -969,14 +815,8 @@
     <data name="ExtraRequestTextBoxTips" xml:space="preserve">
         <value>Additional Requirement for Translation</value>
     </data>
-    <data name="Think" xml:space="preserve">
-        <value>Think</value>
-    </data>
     <data name="Filter" xml:space="preserve">
         <value>Filter</value>
-    </data>
-    <data name="All" xml:space="preserve">
-        <value>All</value>
     </data>
     <data name="Character" xml:space="preserve">
         <value>Character</value>
@@ -987,12 +827,6 @@
     <data name="TrayMenuHelp" xml:space="preserve">
         <value>Help</value>
     </data>
-    <data name="ScreenCapturePosition" xml:space="preserve">
-        <value>Position</value>
-    </data>
-    <data name="ScreenCaptureResolution" xml:space="preserve">
-        <value>Resolution</value>
-    </data>
     <data name="TrayMenuOpenSaveDir" xml:space="preserve">
         <value>Open Data Directory</value>
     </data>
@@ -1001,9 +835,6 @@
     </data>
     <data name="Thanks" xml:space="preserve">
         <value>Thanks</value>
-    </data>
-    <data name="CharacterEmptyNameTips" xml:space="preserve">
-        <value>Character Name is Null!</value>
     </data>
     <data name="ImportFromFileBtn" xml:space="preserve">
         <value>Import From File</value>
@@ -1017,53 +848,11 @@
     <data name="ImportCharacterSupportUrl" xml:space="preserve">
         <value>Supprt Url</value>
     </data>
-    <data name="LocalModelParamsSetting" xml:space="preserve">
-        <value>Local Models Setting</value>
-    </data>
-    <data name="AddCharacterSuccessTips" xml:space="preserve">
-        <value>Add Character Successfully!</value>
-    </data>
     <data name="ImportCharacterTips" xml:space="preserve">
         <value>Support  chara_card</value>
     </data>
-    <data name="GPULayerTips" xml:space="preserve">
-        <value>number of layers to store in VRAM</value>
-    </data>
-    <data name="ContextSizeTips" xml:space="preserve">
-        <value>size of the prompt context (default: 0, 0 = loaded from model)</value>
-    </data>
-    <data name="FlashAttnTips" xml:space="preserve">
-        <value>enable Flash Attention</value>
-    </data>
-    <data name="LocalModelParamsSettingTips" xml:space="preserve">
-        <value>The settings for the local model only apply to models running on this device and do not impact models accessed remotely through API calls.</value>
-    </data>
-    <data name="CharacterCompareToolTips" xml:space="preserve">
-        <value />
-    </data>
-    <data name="ShowHideCharactor" xml:space="preserve">
-        <value>Display All</value>
-    </data>
-    <data name="HideThnkingText" xml:space="preserve">
-        <value>Hide Thnking</value>
-    </data>
-    <data name="HideThnkingTextTips" xml:space="preserve">
-        <value>Do not display AI thingking</value>
-    </data>
     <data name="Favorite" xml:space="preserve">
         <value>Favorite</value>
-    </data>
-    <data name="FavoriteRemoteModelSetTips" xml:space="preserve">
-        <value>Set favorite remote model {0} successfully.</value>
-    </data>
-    <data name="FavoriteRemoteModelDelTips" xml:space="preserve">
-        <value>Remove favorite remote model {0} successfully.</value>
-    </data>
-    <data name="ModelPageEmbeddedModelName" xml:space="preserve">
-        <value>Embedded Model: </value>
-    </data>
-    <data name="ModelPageEmbeddedTips" xml:space="preserve">
-        <value />
     </data>
     <data name="ShowInExplorer" xml:space="preserve">
         <value>Show in Explorer</value>
@@ -1076,15 +865,6 @@
     </data>
     <data name="ModelPageTitle" xml:space="preserve">
         <value>Model Viewer</value>
-    </data>
-    <data name="MemoryTitle" xml:space="preserve">
-        <value>Knowledge base:</value>
-    </data>
-    <data name="NoMemory" xml:space="preserve">
-        <value>No knowledge base</value>
-    </data>
-    <data name="MemoryTips" xml:space="preserve">
-        <value />
     </data>
     <data name="MemoryIndexUpdate" xml:space="preserve">
         <value>Update knowledge index</value>
@@ -1104,9 +884,6 @@
     <data name="MemoryIndexLastIndexed" xml:space="preserve">
         <value>Last indexed: </value>
     </data>
-    <data name="MemoryIndexLastError" xml:space="preserve">
-        <value>Last error: </value>
-    </data>
     <data name="MemoryIndexUpdateSuccess" xml:space="preserve">
         <value>Knowledge index updated.</value>
     </data>
@@ -1122,9 +899,6 @@
     <data name="MemoryIndexMemoryNameMissing" xml:space="preserve">
         <value>Knowledge base name is missing.</value>
     </data>
-    <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
-        <value>Knowledge index database is unavailable.</value>
-    </data>
     <data name="MemoryWorkspaceTitle" xml:space="preserve">
         <value>Knowledge workspace</value>
     </data>
@@ -1133,9 +907,6 @@
     </data>
     <data name="MemoryManualTextTitle" xml:space="preserve">
         <value>Curated knowledge</value>
-    </data>
-    <data name="MemoryManualTextHint" xml:space="preserve">
-        <value>Add focused notes, facts, or instructions that should be available during retrieval.</value>
     </data>
     <data name="MemoryAddManualText" xml:space="preserve">
         <value>Add text</value>
@@ -1146,17 +917,11 @@
     <data name="MemoryTextFilesTitle" xml:space="preserve">
         <value>Local text files</value>
     </data>
-    <data name="MemoryTextFilesHint" xml:space="preserve">
-        <value>Files are validated by content and encoding before they are added. Binary documents are not supported.</value>
-    </data>
     <data name="MemoryAddTextFile" xml:space="preserve">
         <value>Add file</value>
     </data>
     <data name="MemoryTextEditorTitle" xml:space="preserve">
         <value>Edit knowledge text</value>
-    </data>
-    <data name="MemoryTextEditorHint" xml:space="preserve">
-        <value>Use a clear title and keep each entry focused on one topic for better retrieval quality.</value>
     </data>
     <data name="MemoryTextTitleLabel" xml:space="preserve">
         <value>Title</value>
@@ -1209,24 +974,6 @@
     <data name="MemoryTextFileFilter" xml:space="preserve">
         <value>Plain text files</value>
     </data>
-    <data name="MemorySourceEmpty" xml:space="preserve">
-        <value>The text entry is empty.</value>
-    </data>
-    <data name="MemorySourceFileMissing" xml:space="preserve">
-        <value>The file no longer exists.</value>
-    </data>
-    <data name="MemorySourceEncodingUnknown" xml:space="preserve">
-        <value>The file encoding could not be detected reliably.</value>
-    </data>
-    <data name="MemorySourceNotPlainText" xml:space="preserve">
-        <value>The selected file is not a valid plain text file.</value>
-    </data>
-    <data name="MemorySourceReadFailed" xml:space="preserve">
-        <value>The file could not be read.</value>
-    </data>
-    <data name="MemorySourceUnsupported" xml:space="preserve">
-        <value>This knowledge source type is not supported.</value>
-    </data>
     <data name="MemorySourceValidationFailed" xml:space="preserve">
         <value>One or more sources could not be validated. The previous index was kept.</value>
     </data>
@@ -1245,47 +992,14 @@
     <data name="MemoryImportCancelled" xml:space="preserve">
         <value>File import was stopped. No partial batch was added.</value>
     </data>
-    <data name="Select" xml:space="preserve">
-        <value>Select</value>
-    </data>
-    <data name="NewMemory" xml:space="preserve">
-        <value>Create new knowledge base</value>
-    </data>
-    <data name="MemorySelect" xml:space="preserve">
-        <value>Knowledge base: </value>
-    </data>
     <data name="CommonDeleteConfirmTips" xml:space="preserve">
         <value>Are you sure delete?</value>
-    </data>
-    <data name="MemoryEditorWindowUrlTips" xml:space="preserve">
-        <value />
-    </data>
-    <data name="MemoryEditorWindowDirectoryTips" xml:space="preserve">
-        <value />
-    </data>
-    <data name="MemoryEditorWindowFileTips" xml:space="preserve">
-        <value />
-    </data>
-    <data name="ChatSessionMemoryFileUploadTips" xml:space="preserve">
-        <value>No knowledge base yet! Do you want to create one and submit the file?</value>
-    </data>
-    <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
-        <value>Knowledge file: </value>
-    </data>
-    <data name="DebugSetting" xml:space="preserve">
-        <value>Debug Setting</value>
-    </data>
-    <data name="SettingLogLevelTitle" xml:space="preserve">
-        <value>Log Level: </value>
     </data>
     <data name="ModelStateRemote" xml:space="preserve">
         <value>API</value>
     </data>
     <data name="ModelStateVision" xml:space="preserve">
         <value>Vision</value>
-    </data>
-    <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
-        <value>Knowledge link: </value>
     </data>
     <data name="ScreenCaptureDockWindow_BtnOcr" xml:space="preserve">
         <value>OCR</value>
@@ -1307,24 +1021,6 @@
     </data>
     <data name="PreviewOcr_Recognizing" xml:space="preserve">
         <value>Recognizing…</value>
-    </data>
-    <data name="PreviewOcr_NoText" xml:space="preserve">
-        <value>No text in image</value>
-    </data>
-    <data name="PreviewOcr_SelectAll" xml:space="preserve">
-        <value>Select All</value>
-    </data>
-    <data name="PreviewOcr_Copied" xml:space="preserve">
-        <value>Copied</value>
-    </data>
-    <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
-        <value>System OCR</value>
-    </data>
-    <data name="SyntacticAnalysis" xml:space="preserve">
-        <value>Syntactic Analysis</value>
-    </data>
-    <data name="TrayMenuUpdate" xml:space="preserve">
-        <value>Update</value>
     </data>
     <data name="QuickTranslationWindow_Character" xml:space="preserve">
         <value>Character</value>
@@ -1395,9 +1091,6 @@
     <data name="ApplicationUpdateInstallPackageDeleted" xml:space="preserve">
         <value>The update package was extracted and the downloaded archive was deleted.</value>
     </data>
-    <data name="ApplicationUpdateExtractFailed" xml:space="preserve">
-        <value>Failed to extract the update package.</value>
-    </data>
     <data name="UserInterfaceSetting" xml:space="preserve">
         <value>User Interface</value>
     </data>
@@ -1410,32 +1103,8 @@
     <data name="ThemeSettingDesc" xml:space="preserve">
         <value>Choose the application color theme.</value>
     </data>
-    <data name="ThemeModeDefault" xml:space="preserve">
-        <value>System</value>
-    </data>
-    <data name="ThemeModeLight" xml:space="preserve">
-        <value>Light</value>
-    </data>
-    <data name="ThemeModeDark" xml:space="preserve">
-        <value>Dark</value>
-    </data>
-    <data name="ThemeModeAquatic" xml:space="preserve">
-        <value>Aquatic</value>
-    </data>
-    <data name="ThemeModeDesert" xml:space="preserve">
-        <value>Desert</value>
-    </data>
-    <data name="ThemeModeDusk" xml:space="preserve">
-        <value>Dusk</value>
-    </data>
-    <data name="ThemeModeNightSky" xml:space="preserve">
-        <value>Night Sky</value>
-    </data>
     <data name="GeneralSettings" xml:space="preserve">
         <value>General Settings</value>
-    </data>
-    <data name="SettingLogLevelDesc" xml:space="preserve">
-        <value>Control how much runtime log output is recorded.</value>
     </data>
     <data name="FullscreenGameInputSupport" xml:space="preserve">
         <value>Fullscreen game input support</value>
@@ -1445,9 +1114,6 @@
     </data>
     <data name="FullscreenGameInputRestartConfirm" xml:space="preserve">
         <value>This setting takes effect after restart. Restart UiharuMind now?</value>
-    </data>
-    <data name="SaveDirectory" xml:space="preserve">
-        <value>Save Directory</value>
     </data>
     <data name="AboutIntroductionText" xml:space="preserve">
         <value>UiharuMind is a cross-platform open-source app for running local GGUF large language models and calling online models. It supports Windows and macOS, and provides chat, knowledge-base conversations, screenshots, AI translation, AI OCR, clipboard history, and other quick tools.</value>
@@ -1539,14 +1205,8 @@
     <data name="AutoClickStartRecording" xml:space="preserve">
         <value>Record</value>
     </data>
-    <data name="AutoClickStopRecording" xml:space="preserve">
-        <value>Stop Recording</value>
-    </data>
     <data name="AutoClickPlay" xml:space="preserve">
         <value>Play</value>
-    </data>
-    <data name="AutoClickStop" xml:space="preserve">
-        <value>Stop</value>
     </data>
     <data name="AutoClickSessions" xml:space="preserve">
         <value>Sessions</value>
@@ -1884,9 +1544,6 @@
     <data name="KeySelectionWaiting" xml:space="preserve">
         <value>Waiting...</value>
     </data>
-    <data name="ChatWorkspace" xml:space="preserve">
-        <value>Chat Workspace</value>
-    </data>
     <data name="ChatWorkspaceEmpty" xml:space="preserve">
         <value>Select or create a chat session</value>
     </data>
@@ -1904,9 +1561,6 @@
     </data>
     <data name="ChatDetails" xml:space="preserve">
         <value>Details</value>
-    </data>
-    <data name="NewChat" xml:space="preserve">
-        <value>New Chat</value>
     </data>
     <data name="RetryMessage" xml:space="preserve">
         <value>Retry from here</value>
@@ -1926,20 +1580,8 @@
     <data name="CharacterEditorHint" xml:space="preserve">
         <value>Edit identity, prompts, mounted tools, and generation parameters.</value>
     </data>
-    <data name="CharacterEditorSections" xml:space="preserve">
-        <value>Sections</value>
-    </data>
     <data name="EditorBasicInfo" xml:space="preserve">
         <value>Basic Info</value>
-    </data>
-    <data name="EditorPrompt" xml:space="preserve">
-        <value>Prompt Template</value>
-    </data>
-    <data name="EditorPreview" xml:space="preserve">
-        <value>Live Preview</value>
-    </data>
-    <data name="EditorPreviewHint" xml:space="preserve">
-        <value>Updates as fields change.</value>
     </data>
     <data name="CharacterName" xml:space="preserve">
         <value>Character name</value>
@@ -1964,18 +1606,6 @@
     </data>
     <data name="UserCardEditorHint" xml:space="preserve">
         <value>Adjust your displayed identity and user prompt template.</value>
-    </data>
-    <data name="ChatSelectSessionWarning" xml:space="preserve">
-        <value>Please select a chat session first.</value>
-    </data>
-    <data name="ChatInputRequiredWarning" xml:space="preserve">
-        <value>Enter a message before sending.</value>
-    </data>
-    <data name="ChatGenerationInProgressWarning" xml:space="preserve">
-        <value>A response is already being generated.</value>
-    </data>
-    <data name="ChatModelRequiredWarning" xml:space="preserve">
-        <value>No model is active. Enable a model before starting a conversation.</value>
     </data>
     <data name="MemoryIndexDimensionMismatch" xml:space="preserve">
         <value>The embedding model dimension does not match the existing index. Rebuild the knowledge index.</value>
@@ -2148,9 +1778,6 @@
     <data name="MemoryDescriptionSectionTitle" xml:space="preserve">
         <value>Knowledge purpose</value>
     </data>
-    <data name="MemoryEditDescriptionAction" xml:space="preserve">
-        <value>Edit description</value>
-    </data>
     <data name="MemoryIndexCancelHint" xml:space="preserve">
         <value>Click Stop update to cancel. The previous index remains available.</value>
     </data>
@@ -2187,20 +1814,11 @@
     <data name="ServicesPageSubtitle" xml:space="preserve">
         <value>Monitor chat, embedding, local runtime and remote API services from one place.</value>
     </data>
-    <data name="ServicesRefresh" xml:space="preserve">
-        <value>Refresh</value>
-    </data>
     <data name="ServicesChatModelService" xml:space="preserve">
         <value>Chat model service</value>
     </data>
-    <data name="ServicesChatModelServiceDesc" xml:space="preserve">
-        <value>Current model used by conversations and character replies.</value>
-    </data>
     <data name="ServicesEmbeddingModelService" xml:space="preserve">
         <value>Embedding model service</value>
-    </data>
-    <data name="ServicesEmbeddingModelServiceDesc" xml:space="preserve">
-        <value>Persistent embedding runtime used by knowledge indexing and retrieval.</value>
     </data>
     <data name="ServicesRuntimeBackendService" xml:space="preserve">
         <value>Local runtime</value>
@@ -2220,12 +1838,6 @@
     <data name="ServicesStatusError" xml:space="preserve">
         <value>Error</value>
     </data>
-    <data name="ServicesStart" xml:space="preserve">
-        <value>Start</value>
-    </data>
-    <data name="ServicesStop" xml:space="preserve">
-        <value>Stop</value>
-    </data>
     <data name="ServicesRestart" xml:space="preserve">
         <value>Restart</value>
     </data>
@@ -2237,9 +1849,6 @@
     </data>
     <data name="ServicesOpenFolder" xml:space="preserve">
         <value>Open folder</value>
-    </data>
-    <data name="ServicesSelect" xml:space="preserve">
-        <value>Select</value>
     </data>
     <data name="ServicesSelectFolder" xml:space="preserve">
         <value>Select folder</value>
@@ -2262,9 +1871,6 @@
     <data name="ServicesLastStarted" xml:space="preserve">
         <value>Last started</value>
     </data>
-    <data name="ServicesLastError" xml:space="preserve">
-        <value>Last error</value>
-    </data>
     <data name="ServicesNoModelRunning" xml:space="preserve">
         <value>No model is running</value>
     </data>
@@ -2282,21 +1888,6 @@
     </data>
     <data name="ServicesRemoteModelCountFormat" xml:space="preserve">
         <value>{0} remote models</value>
-    </data>
-    <data name="ServicesFavoriteRemoteModel" xml:space="preserve">
-        <value>Favorite remote model</value>
-    </data>
-    <data name="ServicesRuntimeVersion" xml:space="preserve">
-        <value>Runtime version</value>
-    </data>
-    <data name="ServicesRuntimePath" xml:space="preserve">
-        <value>Runtime path</value>
-    </data>
-    <data name="ServicesRemoteModels" xml:space="preserve">
-        <value>Remote models</value>
-    </data>
-    <data name="ServicesRemoteApiHint" xml:space="preserve">
-        <value>Remote model creation and editing remains on the Model page; this page only shows runtime status.</value>
     </data>
     <data name="ServicesNoRuntimeSelected" xml:space="preserve">
         <value>No runtime selected</value>
@@ -2322,9 +1913,6 @@
     <data name="ServicesRemoteApiKey" xml:space="preserve">
         <value>Remote embedding API key</value>
     </data>
-    <data name="ServicesEmbeddingModelPathWatermark" xml:space="preserve">
-        <value>Embedding GGUF model path</value>
-    </data>
     <data name="ServicesEmbeddingSettingsSaved" xml:space="preserve">
         <value>Embedding service settings saved.</value>
     </data>
@@ -2349,14 +1937,8 @@
     <data name="ServicesGpuLayersDesc" xml:space="preserve">
         <value>Number of model layers offloaded to GPU. Use 0 for CPU-only embedding.</value>
     </data>
-    <data name="ServicesRuntimeHint" xml:space="preserve">
-        <value>Runtime packages are installed and selected in Settings. This page only shows the active local backend.</value>
-    </data>
     <data name="ServicesStatusNeedsConfig" xml:space="preserve">
         <value>Needs setup</value>
-    </data>
-    <data name="ServicesRunningDetails" xml:space="preserve">
-        <value>Runtime details</value>
     </data>
     <data name="ServicesChatRuntimeDetails" xml:space="preserve">
         <value>Chat runtime</value>
@@ -2390,18 +1972,6 @@
     </data>
     <data name="ServicesEmbeddingSourceLocalDesc" xml:space="preserve">
         <value>Choose one GGUF embedding model from the external embedding folder and the built-in folder. If no model is selected, the first available model is used.</value>
-    </data>
-    <data name="ServicesEmbeddingSourceManagedLocal" xml:space="preserve">
-        <value>App models</value>
-    </data>
-    <data name="ServicesEmbeddingSourceManagedLocalDesc" xml:space="preserve">
-        <value>Choose a GGUF embedding model discovered from the app data folder or the built-in model folder.</value>
-    </data>
-    <data name="ServicesEmbeddingSourceCustomLocal" xml:space="preserve">
-        <value>Custom local file</value>
-    </data>
-    <data name="ServicesEmbeddingSourceCustomLocalDesc" xml:space="preserve">
-        <value>Use a specific local GGUF embedding model file.</value>
     </data>
     <data name="ServicesEmbeddingSourceRemoteApi" xml:space="preserve">
         <value>Remote API</value>
@@ -2475,12 +2045,6 @@
     <data name="ServicesDeviceMemory" xml:space="preserve">
         <value>Device memory</value>
     </data>
-    <data name="ServicesDeviceTotalMemory" xml:space="preserve">
-        <value>Total memory</value>
-    </data>
-    <data name="ServicesDeviceAvailableMemory" xml:space="preserve">
-        <value>Available memory</value>
-    </data>
     <data name="ServicesDeviceCpu" xml:space="preserve">
         <value>CPU</value>
     </data>
@@ -2489,9 +2053,6 @@
     </data>
     <data name="ServicesDeviceGpuMemory" xml:space="preserve">
         <value>GPU memory</value>
-    </data>
-    <data name="ServicesRuntimeRiskDetailFormat" xml:space="preserve">
-        <value>Estimated total: {0}&#x0a;KV cache: {1}&#x0a;Reason: {2}</value>
     </data>
     <data name="PermissionGuideTitle" xml:space="preserve">
         <value>Permissions Required</value>
@@ -2526,9 +2087,6 @@
     <data name="PermissionSkip" xml:space="preserve">
         <value>Skip for Now</value>
     </data>
-    <data name="PermissionRecheck" xml:space="preserve">
-        <value>Recheck</value>
-    </data>
     <data name="PermissionSkipConfirm" xml:space="preserve">
         <value>Skipping permissions may cause some features to not work properly. Are you sure you want to skip?</value>
     </data>
@@ -2543,15 +2101,6 @@
     </data>
     <data name="PermissionRestartConfirm" xml:space="preserve">
         <value>Permission is granted. The app needs to restart for it to take effect. Restart now?</value>
-    </data>
-    <data name="OpenLink" xml:space="preserve">
-        <value>Open link</value>
-    </data>
-    <data name="CopyLink" xml:space="preserve">
-        <value>Copy link</value>
-    </data>
-    <data name="ToggleTextWrap" xml:space="preserve">
-        <value>Toggle text wrap</value>
     </data>
     <data name="FileSearchTitle" xml:space="preserve">
         <value>File Search</value>
@@ -2730,9 +2279,6 @@
     <data name="RemoteModelMaxTokensLabel" xml:space="preserve">
         <value>Max Output Tokens</value>
     </data>
-    <data name="RemoteModelMaxTokensPlaceholder" xml:space="preserve">
-        <value>Optional, e.g. 16384</value>
-    </data>
     <data name="RemoteModelMaxTokensHint" xml:space="preserve">
         <value>Maximum output budget in tokens; leave empty to use the default budget for the selected thinking mode.</value>
     </data>
@@ -2759,9 +2305,6 @@
     </data>
     <data name="CharacterKindTool" xml:space="preserve">
         <value>Tool character</value>
-    </data>
-    <data name="CharacterKindUserCard" xml:space="preserve">
-        <value>User card</value>
     </data>
     <data name="CharacterInjectUserCard" xml:space="preserve">
         <value>Inject user card</value>
@@ -3029,14 +2572,8 @@ Allow them?</value>
     <data name="CharacterWorkspaceEmpty" xml:space="preserve">
         <value>No character selected. Pick one on the left, or create a new one.</value>
     </data>
-    <data name="CharacterEditorDirtyTips" xml:space="preserve">
-        <value>This character has unsaved changes. Save them?</value>
-    </data>
     <data name="ResetBtn" xml:space="preserve">
         <value>Reset</value>
-    </data>
-    <data name="CharacterEditorDiscardTips" xml:space="preserve">
-        <value>Discard the unsaved changes to this character?</value>
     </data>
     <data name="PermissionLinuxInputDevices" xml:space="preserve">
         <value>Input Devices</value>
@@ -3058,9 +2595,6 @@ Allow them?</value>
     </data>
     <data name="PermissionCopyCommand" xml:space="preserve">
         <value>Copy Command</value>
-    </data>
-    <data name="PermissionCommandCopied" xml:space="preserve">
-        <value>Command copied. Run it in a terminal, then log out and back in.</value>
     </data>
   <data name="AgentSettingPython" xml:space="preserve">
     <value>Managed Python environment</value>
@@ -3137,12 +2671,6 @@ Allow them?</value>
     <data name="SubAgentApprovalWaiting" xml:space="preserve">
         <value>A background sub-agent needs your approval</value>
     </data>
-    <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
-        <value>Open the sub-agent panel to decide. It is denied automatically if nobody answers.</value>
-    </data>
-    <data name="SubAgentLongRunning" xml:space="preserve">
-        <value>A sub-agent has been running for a long time</value>
-    </data>
     <data name="AgentStatusBackgroundWork" xml:space="preserve">
         <value>Sub-agents still working</value>
     </data>
@@ -3188,9 +2716,6 @@ Allow them?</value>
     <data name="TextFileUntitled" xml:space="preserve">
         <value>Untitled</value>
     </data>
-    <data name="TextFileUnsupportedType" xml:space="preserve">
-        <value>File type not supported or file too large to edit here</value>
-    </data>
     <data name="TextFileMenuEdit" xml:space="preserve">
         <value>Edit</value>
     </data>
@@ -3199,9 +2724,6 @@ Allow them?</value>
     </data>
     <data name="TextFileMenuRedo" xml:space="preserve">
         <value>Redo</value>
-    </data>
-    <data name="TextFileMenuSearch" xml:space="preserve">
-        <value>Find / Replace</value>
     </data>
     <data name="TextFileMenuView" xml:space="preserve">
         <value>View</value>

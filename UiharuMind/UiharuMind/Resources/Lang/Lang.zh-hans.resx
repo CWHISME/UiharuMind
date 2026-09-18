@@ -1,4 +1,4 @@
-﻿<root>
+<root>
     <resheader name="resmimetype">
         <value>text/microsoft-resx</value>
     </resheader>
@@ -62,9 +62,6 @@
     <data name="ThinkingModeTips" xml:space="preserve">
         <value>本会话的思考力度。默认跟随模型配置;其余档位随每次请求下发(不支持的后端会忽略)。</value>
     </data>
-    <data name="TokenUsageTips" xml:space="preserve">
-        <value>Token 统计:≈输入估算 · ↑输入 ↓输出(本轮) · Σ会话累计</value>
-    </data>
     <data name="CompactCommandDescription" xml:space="preserve">
         <value>把当前对话压缩成一份交接文档</value>
     </data>
@@ -82,9 +79,6 @@
     </data>
     <data name="InterjectionRemoveTip" xml:space="preserve">
         <value>撤回这条插话（模型还没读到）</value>
-    </data>
-    <data name="AgentRunningExternally" xml:space="preserve">
-        <value>别处正在运行…</value>
     </data>
     <data name="HandoffWriting" xml:space="preserve">
         <value>正在整理交接文档…</value>
@@ -167,18 +161,6 @@
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>提示</value>
     </data>
-    <data name="MessageErrorTitle" xml:space="preserve">
-        <value>错误</value>
-    </data>
-    <data name="MenuAgentKey" xml:space="preserve">
-        <value>智能体</value>
-    </data>
-    <data name="MenuChatKey" xml:space="preserve">
-        <value>聊天</value>
-    </data>
-    <data name="MenuCharacterKey" xml:space="preserve">
-        <value>角色</value>
-    </data>
     <data name="AgentNewSession" xml:space="preserve">
         <value>新会话</value>
     </data>
@@ -215,23 +197,11 @@
     <data name="AgentDeny" xml:space="preserve">
         <value>拒绝</value>
     </data>
-    <data name="AgentPlanTitle" xml:space="preserve">
-        <value>执行计划</value>
-    </data>
-    <data name="AgentPlanApprove" xml:space="preserve">
-        <value>批准并执行</value>
-    </data>
-    <data name="AgentSubAgent" xml:space="preserve">
-        <value>子代理:</value>
-    </data>
     <data name="AgentWorkspaceNone" xml:space="preserve">
         <value>未绑定目录</value>
     </data>
     <data name="AgentWorkspaceLabel" xml:space="preserve">
         <value>工作目录</value>
-    </data>
-    <data name="AgentStatusLabel" xml:space="preserve">
-        <value>状态</value>
     </data>
     <data name="AgentStatusRunning" xml:space="preserve">
         <value>运行中…</value>
@@ -262,9 +232,6 @@
     </data>
     <data name="AgentModeExecute" xml:space="preserve">
         <value>执行</value>
-    </data>
-    <data name="AgentModeSwitchHint" xml:space="preserve">
-        <value>切换 计划 / 执行 模式(Tab)</value>
     </data>
     <data name="AgentSessions" xml:space="preserve">
         <value>Agent 会话</value>
@@ -308,12 +275,6 @@
     <data name="AgentSenderUser" xml:space="preserve">
         <value>你</value>
     </data>
-    <data name="AgentSend" xml:space="preserve">
-        <value>发送</value>
-    </data>
-    <data name="AgentStop" xml:space="preserve">
-        <value>停止</value>
-    </data>
     <data name="AgentToolCallUnfinished" xml:space="preserve">
         <value>历史里没有这次调用的结果</value>
     </data>
@@ -322,12 +283,6 @@
     </data>
     <data name="AgentSubAgentEmpty" xml:space="preserve">
         <value>本会话还没派过子代理</value>
-    </data>
-    <data name="AgentSubAgentRunning" xml:space="preserve">
-        <value>进行中</value>
-    </data>
-    <data name="SubAgentHandBack" xml:space="preserve">
-        <value>交回主代理</value>
     </data>
     <data name="SubAgentHandBackTip" xml:space="preserve">
         <value>把这个子代理最新的结论交回派它出来的那个会话，它下一轮会读到。</value>
@@ -445,9 +400,6 @@
     </data>
     <data name="SubAgentViewActivity" xml:space="preserve">
         <value>查看过程</value>
-    </data>
-    <data name="SubAgentActivityTitle" xml:space="preserve">
-        <value>子代理过程</value>
     </data>
     <data name="ToolResultTruncatedFormat" xml:space="preserve">
         <value>仅显示前 {0} 行，共 {1} 行 · 其余 {2} 未渲染</value>
@@ -593,20 +545,8 @@
     <data name="AgentSkillsNotLoaded" xml:space="preserve">
         <value>未加载</value>
     </data>
-    <data name="AgentSkillsDuplicateHint" xml:space="preserve">
-        <value>未加载：同名技能已被先扫到的那个占用，在 {0}。两个里删掉一个。</value>
-    </data>
-    <data name="AgentSkillsDuplicate" xml:space="preserve">
-        <value>重名</value>
-    </data>
-    <data name="AgentSkillsLocalGroup" xml:space="preserve">
-        <value>本地技能</value>
-    </data>
     <data name="AgentSkillsEmpty" xml:space="preserve">
         <value>没扫到技能。把技能包放进上面的目录，或新建一个——可以带包裹目录，任意层级都会扫到。</value>
-    </data>
-    <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
-        <value>不符合 SKILL.md 规范校验被拒——技能名必须与目录名一致。具体原因见日志。</value>
     </data>
     <data name="SkillInvocationInjected" xml:space="preserve">
         <value>已注入技能正文</value>
@@ -617,29 +557,8 @@
     <data name="AgentEmptyTitle" xml:space="preserve">
         <value>让 Agent 做点什么?</value>
     </data>
-    <data name="MenuLogKey" xml:space="preserve">
-        <value>日志</value>
-    </data>
-    <data name="MenuModelKey" xml:space="preserve">
-        <value>模型</value>
-    </data>
     <data name="MenuSettingKey" xml:space="preserve">
         <value>设置</value>
-    </data>
-    <data name="MenuTranslateKey" xml:space="preserve">
-        <value>翻译</value>
-    </data>
-    <data name="MenuAboutKey" xml:space="preserve">
-        <value>关于</value>
-    </data>
-    <data name="SettingDebug" xml:space="preserve">
-        <value>调试</value>
-    </data>
-    <data name="SettingLogDetail" xml:space="preserve">
-        <value>记录所有服务日志</value>
-    </data>
-    <data name="SettingLogEnable" xml:space="preserve">
-        <value>记录服务日志</value>
     </data>
     <data name="OpenDirectory" xml:space="preserve">
         <value>打开目录</value>
@@ -653,12 +572,6 @@
     <data name="Delete" xml:space="preserve">
         <value>删除</value>
     </data>
-    <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
-        <value>是否确认删除这个版本的运行程序？</value>
-    </data>
-    <data name="Decompressing" xml:space="preserve">
-        <value>[解压中...]</value>
-    </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
         <value>本地执行后端设置</value>
     </data>
@@ -667,12 +580,6 @@
     </data>
     <data name="CheckingForUpdates" xml:space="preserve">
         <value>正在检查更新...</value>
-    </data>
-    <data name="LLamaCppSetting" xml:space="preserve">
-        <value>LLamaCpp 设置</value>
-    </data>
-    <data name="ModelRuntimeEngine" xml:space="preserve">
-        <value>运行引擎</value>
     </data>
     <data name="ModelRuntimeLLamaSharpBackend" xml:space="preserve">
         <value>LLamaSharp 后端</value>
@@ -740,9 +647,6 @@
     <data name="ModelRuntimeBeta" xml:space="preserve">
         <value>Beta</value>
     </data>
-    <data name="ModelRuntimeGpuMemory" xml:space="preserve">
-        <value>GPU</value>
-    </data>
     <data name="ModelRuntimeTotalMemory" xml:space="preserve">
         <value>总计</value>
     </data>
@@ -751,9 +655,6 @@
     </data>
     <data name="ModelRuntimeShowAdvancedSettings" xml:space="preserve">
         <value>显示高级设置</value>
-    </data>
-    <data name="InAnswer" xml:space="preserve">
-        <value>计算中...</value>
     </data>
     <data name="Plaintext" xml:space="preserve">
         <value>显示原文</value>
@@ -767,20 +668,11 @@
     <data name="CopiedToClipboardTips" xml:space="preserve">
         <value>已复制！</value>
     </data>
-    <data name="ClipboardHistoryCount" xml:space="preserve">
-        <value>数量：{0}</value>
-    </data>
     <data name="DeleteAll" xml:space="preserve">
         <value>删除所有</value>
     </data>
-    <data name="DeleteAllClipboardHistoryTips" xml:space="preserve">
-        <value>是否确认删除所有历史记录？该操作不可逆。</value>
-    </data>
     <data name="QuickChatQuateTitle" xml:space="preserve">
         <value>引用：</value>
-    </data>
-    <data name="DefaultQuickChatTitle" xml:space="preserve">
-        <value>询问</value>
     </data>
     <data name="CreateRemoteModel" xml:space="preserve">
         <value>添加远程模型：</value>
@@ -794,14 +686,8 @@
     <data name="CreateBtn" xml:space="preserve">
         <value>创建</value>
     </data>
-    <data name="SureBtn" xml:space="preserve">
-        <value>确定</value>
-    </data>
     <data name="ApiKey" xml:space="preserve">
         <value>密钥</value>
-    </data>
-    <data name="CustomConfig" xml:space="preserve">
-        <value>自定义配置</value>
     </data>
     <data name="NotInputModelNameTips" xml:space="preserve">
         <value>请输入模型名称！</value>
@@ -830,23 +716,11 @@
     <data name="EditContentTitle" xml:space="preserve">
         <value>编辑</value>
     </data>
-    <data name="EditSessionTitleTitle" xml:space="preserve">
-        <value>编辑会话标题</value>
-    </data>
-    <data name="EditMessageTitle" xml:space="preserve">
-        <value>编辑消息</value>
-    </data>
-    <data name="RenameTitle" xml:space="preserve">
-        <value>重命名</value>
-    </data>
     <data name="CancelBtn" xml:space="preserve">
         <value>取消</value>
     </data>
     <data name="SaveBtn" xml:space="preserve">
         <value>保存</value>
-    </data>
-    <data name="DeleteTips" xml:space="preserve">
-        <value>确认删除？</value>
     </data>
     <data name="MessageDeleteConfirm" xml:space="preserve">
         <value>删除这条消息？</value>
@@ -854,17 +728,11 @@
     <data name="MessageDeleteTurnConfirmFormat" xml:space="preserve">
         <value>删除这条消息及其关联内容（共 {0} 个条目）？该操作不可撤销。</value>
     </data>
-    <data name="ClearTips" xml:space="preserve">
-        <value>确认清除？</value>
-    </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>系统提示</value>
     </data>
     <data name="CharacterFuncType" xml:space="preserve">
         <value>角色档位</value>
-    </data>
-    <data name="AddDuplicateCharacterTips" xml:space="preserve">
-        <value>似乎存在重复名字的角色，是否重新编辑？</value>
     </data>
     <data name="OptionalPromptParams" xml:space="preserve">
         <value>可选参数</value>
@@ -874,15 +742,6 @@
 {{$user}}：将会替换为用户名。
 {{$char}}：将会替换为当前角色名。</value>
     </data>
-    <data name="MessageWarningTitle" xml:space="preserve">
-        <value>注意</value>
-    </data>
-    <data name="Tool" xml:space="preserve">
-        <value>工具</value>
-    </data>
-    <data name="CharacterCard" xml:space="preserve">
-        <value>角色卡</value>
-    </data>
     <data name="Translation" xml:space="preserve">
         <value>翻译</value>
     </data>
@@ -891,15 +750,6 @@
     </data>
     <data name="Explain" xml:space="preserve">
         <value>解释</value>
-    </data>
-    <data name="DeleteCharacterTips" xml:space="preserve">
-        <value>是否确认删除角色{0}?该操作不可逆！</value>
-    </data>
-    <data name="CharacterDeleteTips" xml:space="preserve">
-        <value>是否确认删除角色{0}?该操作不可逆！</value>
-    </data>
-    <data name="CharacterCopyTips" xml:space="preserve">
-        <value>是否确认复制角色{0}?</value>
     </data>
     <data name="Copy" xml:space="preserve">
         <value>复制</value>
@@ -912,9 +762,6 @@
     </data>
     <data name="CharacterUser" xml:space="preserve">
         <value>用户角色</value>
-    </data>
-    <data name="AutoDetect" xml:space="preserve">
-        <value>自动检测</value>
     </data>
     <data name="ParamsLang" xml:space="preserve">
         <value>语言参数($lang)</value>
@@ -961,14 +808,8 @@
     <data name="ExtraRequestTextBoxTips" xml:space="preserve">
         <value>描述你对这次翻译的额外需求，例如：要求符合编程字段命名</value>
     </data>
-    <data name="Think" xml:space="preserve">
-        <value>思考</value>
-    </data>
     <data name="Filter" xml:space="preserve">
         <value>筛选</value>
-    </data>
-    <data name="All" xml:space="preserve">
-        <value>全部</value>
     </data>
     <data name="Character" xml:space="preserve">
         <value>角色</value>
@@ -979,12 +820,6 @@
     <data name="TrayMenuHelp" xml:space="preserve">
         <value>帮助</value>
     </data>
-    <data name="ScreenCapturePosition" xml:space="preserve">
-        <value>坐标</value>
-    </data>
-    <data name="ScreenCaptureResolution" xml:space="preserve">
-        <value>分辨率</value>
-    </data>
     <data name="TrayMenuOpenSaveDir" xml:space="preserve">
         <value>打开数据目录</value>
     </data>
@@ -993,9 +828,6 @@
     </data>
     <data name="Thanks" xml:space="preserve">
         <value>感谢</value>
-    </data>
-    <data name="CharacterEmptyNameTips" xml:space="preserve">
-        <value>角色名为空！</value>
     </data>
     <data name="ImportFromFileBtn" xml:space="preserve">
         <value>从文件导入</value>
@@ -1009,53 +841,11 @@
     <data name="ImportCharacterSupportUrl" xml:space="preserve">
         <value>支持的来源</value>
     </data>
-    <data name="LocalModelParamsSetting" xml:space="preserve">
-        <value>本地模型设置</value>
-    </data>
-    <data name="AddCharacterSuccessTips" xml:space="preserve">
-        <value>角色添加成功！</value>
-    </data>
     <data name="ImportCharacterTips" xml:space="preserve">
         <value>支持从本地文件导入角色，请选择你要导入的文件(格式为 chara_card v3及以下版本类型的 Json 文件)，请注意：目前导入 chara_card 类型角色目前只是一个简单步骤，会丢失一部分信息！</value>
     </data>
-    <data name="GPULayerTips" xml:space="preserve">
-        <value>需要卸载至 GPU 的层数，GPU 运行的层数越多，运行越快。但是请注意不要爆显存了，那同样会导致运行变得很慢。</value>
-    </data>
-    <data name="ContextSizeTips" xml:space="preserve">
-        <value>加载模型时的最大上下文大小，默认为 0 时将从模型读取最大支持大小。请注意：上下文越大，要求的 RAM 越多。</value>
-    </data>
-    <data name="FlashAttnTips" xml:space="preserve">
-        <value>是否启用 Flash Attention</value>
-    </data>
-    <data name="LocalModelParamsSettingTips" xml:space="preserve">
-        <value>本地模型设置仅影响本地运行模型，对远程模型(API 调用)无效。</value>
-    </data>
-    <data name="CharacterCompareToolTips" xml:space="preserve">
-        <value>Tool 为最基础的对话角色，与常规带系统提示的Agent表现一致。而角色则在此基础上附加了更多功能和额外信息。</value>
-    </data>
-    <data name="ShowHideCharactor" xml:space="preserve">
-        <value>显示隐藏</value>
-    </data>
-    <data name="HideThnkingText" xml:space="preserve">
-        <value>隐藏思考</value>
-    </data>
-    <data name="HideThnkingTextTips" xml:space="preserve">
-        <value>不显示 AI 的思考过程，适用于会自我思考的模型。相当于主动去掉 Think 标签内容。</value>
-    </data>
     <data name="Favorite" xml:space="preserve">
         <value>收藏</value>
-    </data>
-    <data name="FavoriteRemoteModelSetTips" xml:space="preserve">
-        <value>成功将 {0} 设置收藏！</value>
-    </data>
-    <data name="FavoriteRemoteModelDelTips" xml:space="preserve">
-        <value>已经将 {0} 移除收藏！</value>
-    </data>
-    <data name="ModelPageEmbeddedModelName" xml:space="preserve">
-        <value>文本嵌入模型：</value>
-    </data>
-    <data name="ModelPageEmbeddedTips" xml:space="preserve">
-        <value>将获取指定目录中的 GGUF 模型作为文本嵌入模型。如需更换，请将对应模型放入目录。</value>
     </data>
     <data name="ShowInExplorer" xml:space="preserve">
         <value>打开目录</value>
@@ -1068,16 +858,6 @@
     </data>
     <data name="ModelPageTitle" xml:space="preserve">
         <value>模型管理</value>
-    </data>
-    <data name="MemoryTitle" xml:space="preserve">
-        <value>知识库：</value>
-    </data>
-    <data name="NoMemory" xml:space="preserve">
-        <value>暂无知识库</value>
-    </data>
-    <data name="MemoryTips" xml:space="preserve">
-        <value>开启对话后，优先使用角色知识库。若后续手动切换知识库，则仅影响指定对话场景。
-注：知识库本身是共享的，另外请避免同一个知识库中存放过多无关信息。</value>
     </data>
     <data name="MemoryIndexUpdate" xml:space="preserve">
         <value>更新知识库索引</value>
@@ -1097,9 +877,6 @@
     <data name="MemoryIndexLastIndexed" xml:space="preserve">
         <value>上次更新：</value>
     </data>
-    <data name="MemoryIndexLastError" xml:space="preserve">
-        <value>上次错误：</value>
-    </data>
     <data name="MemoryIndexUpdateSuccess" xml:space="preserve">
         <value>知识库索引已更新。</value>
     </data>
@@ -1115,9 +892,6 @@
     <data name="MemoryIndexMemoryNameMissing" xml:space="preserve">
         <value>知识库名称为空。</value>
     </data>
-    <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
-        <value>知识库索引数据库不可用。</value>
-    </data>
     <data name="MemoryWorkspaceTitle" xml:space="preserve">
         <value>知识库工作台</value>
     </data>
@@ -1126,9 +900,6 @@
     </data>
     <data name="MemoryManualTextTitle" xml:space="preserve">
         <value>结构化知识条目</value>
-    </data>
-    <data name="MemoryManualTextHint" xml:space="preserve">
-        <value>添加需要在检索时使用的笔记、事实或规则。每个条目聚焦一个主题可获得更好的检索效果。</value>
     </data>
     <data name="MemoryAddManualText" xml:space="preserve">
         <value>添加文本</value>
@@ -1139,17 +910,11 @@
     <data name="MemoryTextFilesTitle" xml:space="preserve">
         <value>本地文本文件</value>
     </data>
-    <data name="MemoryTextFilesHint" xml:space="preserve">
-        <value>文件会在加入前检测内容和编码。当前仅支持纯文本，不支持 PDF、Word、图片等二进制文档。</value>
-    </data>
     <data name="MemoryAddTextFile" xml:space="preserve">
         <value>添加文件</value>
     </data>
     <data name="MemoryTextEditorTitle" xml:space="preserve">
         <value>编辑知识库文本</value>
-    </data>
-    <data name="MemoryTextEditorHint" xml:space="preserve">
-        <value>请填写清晰标题，并让每个条目尽量只描述一个主题。</value>
     </data>
     <data name="MemoryTextTitleLabel" xml:space="preserve">
         <value>标题</value>
@@ -1202,24 +967,6 @@
     <data name="MemoryTextFileFilter" xml:space="preserve">
         <value>纯文本文件</value>
     </data>
-    <data name="MemorySourceEmpty" xml:space="preserve">
-        <value>文本条目内容为空。</value>
-    </data>
-    <data name="MemorySourceFileMissing" xml:space="preserve">
-        <value>文件已不存在。</value>
-    </data>
-    <data name="MemorySourceEncodingUnknown" xml:space="preserve">
-        <value>无法可靠识别文件编码。</value>
-    </data>
-    <data name="MemorySourceNotPlainText" xml:space="preserve">
-        <value>所选文件不是有效的纯文本文件。</value>
-    </data>
-    <data name="MemorySourceReadFailed" xml:space="preserve">
-        <value>无法读取该文件。</value>
-    </data>
-    <data name="MemorySourceUnsupported" xml:space="preserve">
-        <value>暂不支持此类知识库来源。</value>
-    </data>
     <data name="MemorySourceValidationFailed" xml:space="preserve">
         <value>部分来源未通过校验，旧索引已保留。</value>
     </data>
@@ -1238,47 +985,14 @@
     <data name="MemoryImportCancelled" xml:space="preserve">
         <value>已停止文件导入，本批次不会提交部分结果。</value>
     </data>
-    <data name="Select" xml:space="preserve">
-        <value>选择</value>
-    </data>
-    <data name="NewMemory" xml:space="preserve">
-        <value>创建新知识库</value>
-    </data>
-    <data name="MemorySelect" xml:space="preserve">
-        <value>当前选择知识库：</value>
-    </data>
     <data name="CommonDeleteConfirmTips" xml:space="preserve">
         <value>是否确认删除？</value>
-    </data>
-    <data name="MemoryEditorWindowUrlTips" xml:space="preserve">
-        <value>请用换行符分割不同的链接。</value>
-    </data>
-    <data name="MemoryEditorWindowFileTips" xml:space="preserve">
-        <value>添加文件</value>
-    </data>
-    <data name="MemoryEditorWindowDirectoryTips" xml:space="preserve">
-        <value>添加目录</value>
-    </data>
-    <data name="ChatSessionMemoryFileUploadTips" xml:space="preserve">
-        <value>当前对话不存在知识库，是否创建新的知识库并提交文件？</value>
-    </data>
-    <data name="ChatSessionMemoryFileUploadInfo" xml:space="preserve">
-        <value>知识库文件：</value>
-    </data>
-    <data name="DebugSetting" xml:space="preserve">
-        <value>调试设置</value>
-    </data>
-    <data name="SettingLogLevelTitle" xml:space="preserve">
-        <value>日志等级：</value>
     </data>
     <data name="ModelStateRemote" xml:space="preserve">
         <value>远程</value>
     </data>
     <data name="ModelStateVision" xml:space="preserve">
         <value>视觉</value>
-    </data>
-    <data name="ChatSessionMemoryUrlUploadInfo" xml:space="preserve">
-        <value>知识库链接：</value>
     </data>
     <data name="ScreenCaptureDockWindow_BtnOcr" xml:space="preserve">
         <value>通过 OCR 识别图片文字</value>
@@ -1298,26 +1012,8 @@
     <data name="PreviewOcr_Recognizing" xml:space="preserve">
         <value>识别中…</value>
     </data>
-    <data name="PreviewOcr_NoText" xml:space="preserve">
-        <value>图中没有文字</value>
-    </data>
-    <data name="PreviewOcr_SelectAll" xml:space="preserve">
-        <value>全选</value>
-    </data>
-    <data name="PreviewOcr_Copied" xml:space="preserve">
-        <value>已复制</value>
-    </data>
     <data name="ScreenCaptureDockWindow_BtnCopy" xml:space="preserve">
         <value>复制</value>
-    </data>
-    <data name="ScreenCaptureDockWindow_BtnOldOcr" xml:space="preserve">
-        <value>调用 Mac 系统自带的图片查看器以复制文字</value>
-    </data>
-    <data name="SyntacticAnalysis" xml:space="preserve">
-        <value>语法分析</value>
-    </data>
-    <data name="TrayMenuUpdate" xml:space="preserve">
-        <value>更新</value>
     </data>
     <data name="QuickTranslationWindow_Character" xml:space="preserve">
         <value>角色</value>
@@ -1388,9 +1084,6 @@
     <data name="ApplicationUpdateInstallPackageDeleted" xml:space="preserve">
         <value>更新包已解压，并已删除下载的压缩包。</value>
     </data>
-    <data name="ApplicationUpdateExtractFailed" xml:space="preserve">
-        <value>更新包解压失败。</value>
-    </data>
     <data name="UserInterfaceSetting" xml:space="preserve">
         <value>用户界面</value>
     </data>
@@ -1403,32 +1096,8 @@
     <data name="ThemeSettingDesc" xml:space="preserve">
         <value>选择应用界面的颜色主题。</value>
     </data>
-    <data name="ThemeModeDefault" xml:space="preserve">
-        <value>跟随系统</value>
-    </data>
-    <data name="ThemeModeLight" xml:space="preserve">
-        <value>浅色</value>
-    </data>
-    <data name="ThemeModeDark" xml:space="preserve">
-        <value>深色</value>
-    </data>
-    <data name="ThemeModeAquatic" xml:space="preserve">
-        <value>水色</value>
-    </data>
-    <data name="ThemeModeDesert" xml:space="preserve">
-        <value>沙漠</value>
-    </data>
-    <data name="ThemeModeDusk" xml:space="preserve">
-        <value>黄昏</value>
-    </data>
-    <data name="ThemeModeNightSky" xml:space="preserve">
-        <value>夜空</value>
-    </data>
     <data name="GeneralSettings" xml:space="preserve">
         <value>通用设置</value>
-    </data>
-    <data name="SettingLogLevelDesc" xml:space="preserve">
-        <value>控制运行日志记录的详细程度。</value>
     </data>
     <data name="FullscreenGameInputSupport" xml:space="preserve">
         <value>支持全屏游戏按键监听/模拟</value>
@@ -1438,9 +1107,6 @@
     </data>
     <data name="FullscreenGameInputRestartConfirm" xml:space="preserve">
         <value>该设置需要重启后生效。是否立即重启 UiharuMind？</value>
-    </data>
-    <data name="SaveDirectory" xml:space="preserve">
-        <value>保存目录</value>
     </data>
     <data name="AboutIntroductionText" xml:space="preserve">
         <value>UiharuMind 是一个支持运行本地(GGUF)大语言模型(同时也支持在线模型的调用)的跨平台开源项目。支持 Window、MacOS，提供聊天、知识库对话、截图、翻译(AI)、OCR识别(AI)、剪切板历史等等快捷功能使用。</value>
@@ -1532,14 +1198,8 @@
     <data name="AutoClickStartRecording" xml:space="preserve">
         <value>录制</value>
     </data>
-    <data name="AutoClickStopRecording" xml:space="preserve">
-        <value>停止录制</value>
-    </data>
     <data name="AutoClickPlay" xml:space="preserve">
         <value>播放</value>
-    </data>
-    <data name="AutoClickStop" xml:space="preserve">
-        <value>停止</value>
     </data>
     <data name="AutoClickSessions" xml:space="preserve">
         <value>会话库</value>
@@ -1877,9 +1537,6 @@
     <data name="KeySelectionWaiting" xml:space="preserve">
         <value>等待按键...</value>
     </data>
-    <data name="ChatWorkspace" xml:space="preserve">
-        <value>聊天工作台</value>
-    </data>
     <data name="ChatWorkspaceEmpty" xml:space="preserve">
         <value>请选择或创建会话</value>
     </data>
@@ -1897,9 +1554,6 @@
     </data>
     <data name="ChatDetails" xml:space="preserve">
         <value>详情</value>
-    </data>
-    <data name="NewChat" xml:space="preserve">
-        <value>新建会话</value>
     </data>
     <data name="RetryMessage" xml:space="preserve">
         <value>从此处重试</value>
@@ -1919,20 +1573,8 @@
     <data name="CharacterEditorHint" xml:space="preserve">
         <value>编辑身份、提示词、挂载工具与生成参数。</value>
     </data>
-    <data name="CharacterEditorSections" xml:space="preserve">
-        <value>分组</value>
-    </data>
     <data name="EditorBasicInfo" xml:space="preserve">
         <value>基础信息</value>
-    </data>
-    <data name="EditorPrompt" xml:space="preserve">
-        <value>提示词模板</value>
-    </data>
-    <data name="EditorPreview" xml:space="preserve">
-        <value>实时预览</value>
-    </data>
-    <data name="EditorPreviewHint" xml:space="preserve">
-        <value>会随字段修改同步更新。</value>
     </data>
     <data name="CharacterName" xml:space="preserve">
         <value>角色名称</value>
@@ -1957,18 +1599,6 @@
     </data>
     <data name="UserCardEditorHint" xml:space="preserve">
         <value>调整你的显示身份与用户提示词模板。</value>
-    </data>
-    <data name="ChatSelectSessionWarning" xml:space="preserve">
-        <value>请先选择一个会话。</value>
-    </data>
-    <data name="ChatInputRequiredWarning" xml:space="preserve">
-        <value>请输入内容后再发送。</value>
-    </data>
-    <data name="ChatGenerationInProgressWarning" xml:space="preserve">
-        <value>当前正在生成回复，请稍候。</value>
-    </data>
-    <data name="ChatModelRequiredWarning" xml:space="preserve">
-        <value>当前没有启用的模型，请先启用模型再开始对话。</value>
     </data>
     <data name="MemoryIndexDimensionMismatch" xml:space="preserve">
         <value>当前嵌入模型的向量维度与已有索引不一致，请重新构建知识库索引。</value>
@@ -2141,9 +1771,6 @@
     <data name="MemoryDescriptionSectionTitle" xml:space="preserve">
         <value>知识库定位</value>
     </data>
-    <data name="MemoryEditDescriptionAction" xml:space="preserve">
-        <value>编辑描述</value>
-    </data>
     <data name="MemoryIndexCancelHint" xml:space="preserve">
         <value>点击“停止更新”即可取消，上一版索引仍可继续使用。</value>
     </data>
@@ -2180,20 +1807,11 @@
     <data name="ServicesPageSubtitle" xml:space="preserve">
         <value>集中查看对话、嵌入、本地执行后端和远程 API 的运行状态。</value>
     </data>
-    <data name="ServicesRefresh" xml:space="preserve">
-        <value>刷新</value>
-    </data>
     <data name="ServicesChatModelService" xml:space="preserve">
         <value>对话模型服务</value>
     </data>
-    <data name="ServicesChatModelServiceDesc" xml:space="preserve">
-        <value>当前对话与角色回复使用的模型。</value>
-    </data>
     <data name="ServicesEmbeddingModelService" xml:space="preserve">
         <value>嵌入模型服务</value>
-    </data>
-    <data name="ServicesEmbeddingModelServiceDesc" xml:space="preserve">
-        <value>供知识库索引与检索复用的常驻嵌入运行时。</value>
     </data>
     <data name="ServicesRuntimeBackendService" xml:space="preserve">
         <value>本地执行后端</value>
@@ -2213,12 +1831,6 @@
     <data name="ServicesStatusError" xml:space="preserve">
         <value>异常</value>
     </data>
-    <data name="ServicesStart" xml:space="preserve">
-        <value>启动</value>
-    </data>
-    <data name="ServicesStop" xml:space="preserve">
-        <value>停止</value>
-    </data>
     <data name="ServicesRestart" xml:space="preserve">
         <value>重启</value>
     </data>
@@ -2230,9 +1842,6 @@
     </data>
     <data name="ServicesOpenFolder" xml:space="preserve">
         <value>打开目录</value>
-    </data>
-    <data name="ServicesSelect" xml:space="preserve">
-        <value>选择</value>
     </data>
     <data name="ServicesSelectFolder" xml:space="preserve">
         <value>选择目录</value>
@@ -2255,9 +1864,6 @@
     <data name="ServicesLastStarted" xml:space="preserve">
         <value>上次启动</value>
     </data>
-    <data name="ServicesLastError" xml:space="preserve">
-        <value>最近错误</value>
-    </data>
     <data name="ServicesNoModelRunning" xml:space="preserve">
         <value>当前没有运行中的模型</value>
     </data>
@@ -2275,21 +1881,6 @@
     </data>
     <data name="ServicesRemoteModelCountFormat" xml:space="preserve">
         <value>{0} 个远程模型</value>
-    </data>
-    <data name="ServicesFavoriteRemoteModel" xml:space="preserve">
-        <value>默认远程模型</value>
-    </data>
-    <data name="ServicesRuntimeVersion" xml:space="preserve">
-        <value>运行时版本</value>
-    </data>
-    <data name="ServicesRuntimePath" xml:space="preserve">
-        <value>运行时路径</value>
-    </data>
-    <data name="ServicesRemoteModels" xml:space="preserve">
-        <value>远程模型</value>
-    </data>
-    <data name="ServicesRemoteApiHint" xml:space="preserve">
-        <value>远程模型的新增和编辑仍在“模型”页完成，本页只展示运行状态。</value>
     </data>
     <data name="ServicesNoRuntimeSelected" xml:space="preserve">
         <value>尚未选择运行时</value>
@@ -2315,9 +1906,6 @@
     <data name="ServicesRemoteApiKey" xml:space="preserve">
         <value>远程嵌入 API Key</value>
     </data>
-    <data name="ServicesEmbeddingModelPathWatermark" xml:space="preserve">
-        <value>嵌入 GGUF 模型路径</value>
-    </data>
     <data name="ServicesEmbeddingSettingsSaved" xml:space="preserve">
         <value>嵌入服务设置已保存。</value>
     </data>
@@ -2342,14 +1930,8 @@
     <data name="ServicesGpuLayersDesc" xml:space="preserve">
         <value>卸载到 GPU 的模型层数。设置为 0 表示纯 CPU 嵌入。</value>
     </data>
-    <data name="ServicesRuntimeHint" xml:space="preserve">
-        <value>运行时下载、安装和选择仍在设置中完成。本页只展示当前启用的本地执行后端。</value>
-    </data>
     <data name="ServicesStatusNeedsConfig" xml:space="preserve">
         <value>需要配置</value>
-    </data>
-    <data name="ServicesRunningDetails" xml:space="preserve">
-        <value>运行详情</value>
     </data>
     <data name="ServicesChatRuntimeDetails" xml:space="preserve">
         <value>对话运行时</value>
@@ -2383,18 +1965,6 @@
     </data>
     <data name="ServicesEmbeddingSourceLocalDesc" xml:space="preserve">
         <value>从外部嵌入模型目录和内置目录中选择一个 GGUF 模型。未选择时会使用第一个可用模型。</value>
-    </data>
-    <data name="ServicesEmbeddingSourceManagedLocal" xml:space="preserve">
-        <value>应用内模型</value>
-    </data>
-    <data name="ServicesEmbeddingSourceManagedLocalDesc" xml:space="preserve">
-        <value>从应用数据目录或内置目录中选择一个 GGUF 嵌入模型。</value>
-    </data>
-    <data name="ServicesEmbeddingSourceCustomLocal" xml:space="preserve">
-        <value>自定义本地文件</value>
-    </data>
-    <data name="ServicesEmbeddingSourceCustomLocalDesc" xml:space="preserve">
-        <value>使用指定的本地 GGUF 嵌入模型文件。</value>
     </data>
     <data name="ServicesEmbeddingSourceRemoteApi" xml:space="preserve">
         <value>远程 API</value>
@@ -2468,12 +2038,6 @@
     <data name="ServicesDeviceMemory" xml:space="preserve">
         <value>设备内存</value>
     </data>
-    <data name="ServicesDeviceTotalMemory" xml:space="preserve">
-        <value>总内存</value>
-    </data>
-    <data name="ServicesDeviceAvailableMemory" xml:space="preserve">
-        <value>可用内存</value>
-    </data>
     <data name="ServicesDeviceCpu" xml:space="preserve">
         <value>CPU</value>
     </data>
@@ -2482,9 +2046,6 @@
     </data>
     <data name="ServicesDeviceGpuMemory" xml:space="preserve">
         <value>GPU 内存</value>
-    </data>
-    <data name="ServicesRuntimeRiskDetailFormat" xml:space="preserve">
-        <value>估算总占用：{0}&#x0a;KV 缓存：{1}&#x0a;原因：{2}</value>
     </data>
     <data name="PermissionGuideTitle" xml:space="preserve">
         <value>需要权限</value>
@@ -2519,9 +2080,6 @@
     <data name="PermissionSkip" xml:space="preserve">
         <value>跳过</value>
     </data>
-    <data name="PermissionRecheck" xml:space="preserve">
-        <value>重新检查</value>
-    </data>
     <data name="PermissionSkipConfirm" xml:space="preserve">
         <value>跳过权限设置可能导致部分功能无法正常使用。确定要跳过吗？</value>
     </data>
@@ -2536,15 +2094,6 @@
     </data>
     <data name="PermissionRestartConfirm" xml:space="preserve">
         <value>权限已授权，需要重启应用才能生效。是否立即重启？</value>
-    </data>
-    <data name="OpenLink" xml:space="preserve">
-        <value>打开链接</value>
-    </data>
-    <data name="CopyLink" xml:space="preserve">
-        <value>复制链接</value>
-    </data>
-    <data name="ToggleTextWrap" xml:space="preserve">
-        <value>切换文本换行</value>
     </data>
     <data name="FileSearchTitle" xml:space="preserve">
         <value>文件搜索工具</value>
@@ -2723,9 +2272,6 @@
     <data name="RemoteModelMaxTokensLabel" xml:space="preserve">
         <value>最大输出 Tokens</value>
     </data>
-    <data name="RemoteModelMaxTokensPlaceholder" xml:space="preserve">
-        <value>可选，例如 16384</value>
-    </data>
     <data name="RemoteModelMaxTokensHint" xml:space="preserve">
         <value>最大输出预算(token 数)，留空则按所选思考档位取默认预算。</value>
     </data>
@@ -2752,9 +2298,6 @@
     </data>
     <data name="CharacterKindTool" xml:space="preserve">
         <value>工具人</value>
-    </data>
-    <data name="CharacterKindUserCard" xml:space="preserve">
-        <value>用户卡</value>
     </data>
     <data name="CharacterInjectUserCard" xml:space="preserve">
         <value>注入用户卡</value>
@@ -3022,14 +2565,8 @@
     <data name="CharacterWorkspaceEmpty" xml:space="preserve">
         <value>还没有选中角色。在左边挑一个，或者新建一个。</value>
     </data>
-    <data name="CharacterEditorDirtyTips" xml:space="preserve">
-        <value>这个角色改了还没保存，要保存吗？</value>
-    </data>
     <data name="ResetBtn" xml:space="preserve">
         <value>重置</value>
-    </data>
-    <data name="CharacterEditorDiscardTips" xml:space="preserve">
-        <value>放弃这个角色未保存的改动？</value>
     </data>
     <data name="PermissionLinuxInputDevices" xml:space="preserve">
         <value>输入设备读取</value>
@@ -3051,9 +2588,6 @@
     </data>
     <data name="PermissionCopyCommand" xml:space="preserve">
         <value>复制命令</value>
-    </data>
-    <data name="PermissionCommandCopied" xml:space="preserve">
-        <value>命令已复制，请在终端执行后重新登录。</value>
     </data>
   <data name="AgentSettingPython" xml:space="preserve">
     <value>受管 Python 环境</value>
@@ -3130,12 +2664,6 @@
     <data name="SubAgentApprovalWaiting" xml:space="preserve">
         <value>有后台子代理在等你批准</value>
     </data>
-    <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
-        <value>到右栏「子代理」面板处理。无人应答会按拒绝收口。</value>
-    </data>
-    <data name="SubAgentLongRunning" xml:space="preserve">
-        <value>有子代理已经跑了很久</value>
-    </data>
     <data name="AgentStatusBackgroundWork" xml:space="preserve">
         <value>子代理还在干活</value>
     </data>
@@ -3181,9 +2709,6 @@
     <data name="TextFileUntitled" xml:space="preserve">
         <value>未命名</value>
     </data>
-    <data name="TextFileUnsupportedType" xml:space="preserve">
-        <value>文件类型不支持或文件过大，无法在此编辑</value>
-    </data>
     <data name="TextFileMenuEdit" xml:space="preserve">
         <value>编辑</value>
     </data>
@@ -3192,9 +2717,6 @@
     </data>
     <data name="TextFileMenuRedo" xml:space="preserve">
         <value>重做</value>
-    </data>
-    <data name="TextFileMenuSearch" xml:space="preserve">
-        <value>查找 / 替换</value>
     </data>
     <data name="TextFileMenuView" xml:space="preserve">
         <value>视图</value>
