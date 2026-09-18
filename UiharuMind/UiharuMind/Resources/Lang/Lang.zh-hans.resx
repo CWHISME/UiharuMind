@@ -44,24 +44,6 @@
     <data name="AgentPermissionFullAutoDesc" xml:space="preserve">
         <value>全自动:所有操作自动执行,不再询问</value>
     </data>
-    <data name="ThinkingModeDefaultDesc" xml:space="preserve">
-        <value>跟随模型配置,不额外干预</value>
-    </data>
-    <data name="ThinkingModeNoneDesc" xml:space="preserve">
-        <value>显式关闭思考</value>
-    </data>
-    <data name="ThinkingModeMediumDesc" xml:space="preserve">
-        <value>中等推理力度</value>
-    </data>
-    <data name="ThinkingModeHighDesc" xml:space="preserve">
-        <value>高推理力度</value>
-    </data>
-    <data name="ThinkingModeMaxDesc" xml:space="preserve">
-        <value>最大推理力度(不支持的后端会忽略)</value>
-    </data>
-    <data name="ThinkingModeTips" xml:space="preserve">
-        <value>本会话的思考力度。默认跟随模型配置;其余档位随每次请求下发(不支持的后端会忽略)。</value>
-    </data>
     <data name="CompactCommandDescription" xml:space="preserve">
         <value>把当前对话压缩成一份交接文档</value>
     </data>
@@ -793,9 +775,6 @@
     <data name="RegenerateBtn" xml:space="preserve">
         <value>重新回答</value>
     </data>
-    <data name="Image" xml:space="preserve">
-        <value>图片</value>
-    </data>
     <data name="TrayMenuTranslateHistory" xml:space="preserve">
         <value>翻译</value>
     </data>
@@ -810,9 +789,6 @@
     </data>
     <data name="Filter" xml:space="preserve">
         <value>筛选</value>
-    </data>
-    <data name="Character" xml:space="preserve">
-        <value>角色</value>
     </data>
     <data name="Rename" xml:space="preserve">
         <value>重命名</value>
@@ -2756,9 +2732,6 @@
     </data>
     <data name="RadialMenuFileSearch" xml:space="preserve">
         <value>文件搜索</value>
-    </data>
-    <data name="RadialMenuHome" xml:space="preserve">
-        <value>主页</value>
     </data>
     <data name="RadialMenuTextEditor" xml:space="preserve">
         <value>文本编辑器</value>

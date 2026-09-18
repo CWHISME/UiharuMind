@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Tools;
+
 namespace UiharuMind.Core.AI.Execution.Prompts;
 
 /// <summary>
@@ -22,12 +24,17 @@ public static class SubAgentToolPrompts
     /// <summary>通用委派工具描述</summary>
     public const string RunAgentDescription =
         "Run an agent on a task and get a focused report. " +
-        "It can change files, run commands — same permissions as you.";
+        "It can change files, run commands — same permissions as you. " +
+        "For follow-up work on a task you already delegated, prefer `" +
+        SubAgentTool.ToolContinueName +
+        "` (same sub-session) over spawning a new run: a new run loses " +
+        "everything the previous one has already done.";
 
     /// <summary>只读探索工具描述</summary>
     public const string RunReadOnlyAgentDescription =
         "Run a read-only agent for fact-finding: survey files, search code, research the web. " +
-        "It has only read-only tools and cannot change anything.";
+        "It has only read-only tools and cannot change anything. " +
+        "Follow-up on such a run also goes through `" + SubAgentTool.ToolContinueName + "`, not a fresh run.";
 
     /// <summary>派活工具 task 参数说明</summary>
     public const string TaskParam =
@@ -82,5 +89,7 @@ public static class SubAgentToolPrompts
     public const string ContinueDescription =
         "Send another message to an agent you already ran (same session — " +
         "it keeps everything done so far) and get an updated report. " +
-        "If it is still running, the message is delivered live into the current run.";
+        "If it is still running, the message is delivered live into the current run. " +
+        "Prefer this over a fresh `" + SubAgentTool.ToolGeneralName +
+        "` whenever the new work extends a previous delegation.";
 }

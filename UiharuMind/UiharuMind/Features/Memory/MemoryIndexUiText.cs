@@ -102,13 +102,13 @@ internal static class MemoryIndexUiText
     /// </summary>
     /// <param name="status">档位</param>
     /// <returns>资源键</returns>
-    public static string GetStatusTextKey(EMemoryIndexStatus status) => status switch
+    public static LangKey GetStatusTextKey(EMemoryIndexStatus status) => status switch
     {
-        EMemoryIndexStatus.Updating => "MemoryIndexUpdating",
-        EMemoryIndexStatus.Error => "MemoryIndexHasError",
-        EMemoryIndexStatus.NeverBuilt => "MemoryIndexNotBuiltShort",
-        EMemoryIndexStatus.Dirty => "MemoryIndexPendingShort",
-        _ => "MemoryIndexReady"
+        EMemoryIndexStatus.Updating => LangKey.MemoryIndexUpdating,
+        EMemoryIndexStatus.Error => LangKey.MemoryIndexHasError,
+        EMemoryIndexStatus.NeverBuilt => LangKey.MemoryIndexNotBuiltShort,
+        EMemoryIndexStatus.Dirty => LangKey.MemoryIndexPendingShort,
+        _ => LangKey.MemoryIndexReady
     };
 
     /// <summary>
@@ -116,12 +116,12 @@ internal static class MemoryIndexUiText
     /// </summary>
     /// <param name="status">档位</param>
     /// <returns>资源键</returns>
-    public static string GetStatusDetailTextKey(EMemoryIndexStatus status) => status switch
+    public static LangKey GetStatusDetailTextKey(EMemoryIndexStatus status) => status switch
     {
-        EMemoryIndexStatus.Updating => "MemoryIndexUpdatingDetail",
-        EMemoryIndexStatus.NeverBuilt => "MemoryIndexNotBuilt",
-        EMemoryIndexStatus.Dirty => "MemoryIndexNeedUpdate",
-        _ => "MemoryIndexReadyDetail"
+        EMemoryIndexStatus.Updating => LangKey.MemoryIndexUpdatingDetail,
+        EMemoryIndexStatus.NeverBuilt => LangKey.MemoryIndexNotBuilt,
+        EMemoryIndexStatus.Dirty => LangKey.MemoryIndexNeedUpdate,
+        _ => LangKey.MemoryIndexReadyDetail
     };
 
     /// <summary>
@@ -137,14 +137,30 @@ internal static class MemoryIndexUiText
     }
 
     /// <summary>
+    /// 来源错误码 → 本地化键。Core 只发枚举，文案键的归属在这里收口
+    /// </summary>
+    /// <param name="errorCode">来源错误码；null 兜底为读取失败</param>
+    /// <returns>本地化键</returns>
+    public static LangKey GetSourceErrorKey(EMemorySourceError? errorCode) =>
+        (errorCode ?? EMemorySourceError.ReadFailed) switch
+        {
+            EMemorySourceError.Unsupported => LangKey.MemorySourceUnsupported,
+            EMemorySourceError.Empty => LangKey.MemorySourceEmpty,
+            EMemorySourceError.FileMissing => LangKey.MemorySourceFileMissing,
+            EMemorySourceError.EncodingUnknown => LangKey.MemorySourceEncodingUnknown,
+            EMemorySourceError.NotPlainText => LangKey.MemorySourceNotPlainText,
+            _ => LangKey.MemorySourceReadFailed,
+        };
+
+    /// <summary>
     /// 来源读取失败的文案
     /// </summary>
-    /// <param name="errorCode">来源错误码（就是资源键）</param>
+    /// <param name="errorCode">来源错误码（枚举）</param>
     /// <param name="detail">附加细节，可为空</param>
     /// <returns>可展示的文案</returns>
-    public static string GetSourceErrorText(string errorCode, string detail)
+    public static string GetSourceErrorText(EMemorySourceError? errorCode, string detail)
     {
-        string text = Loc.Text(errorCode);
+        string text = Loc.Text(GetSourceErrorKey(errorCode));
         return string.IsNullOrWhiteSpace(detail) ? text : $"{text} ({detail})";
     }
 
@@ -185,7 +201,7 @@ internal static class MemoryIndexUiText
         if (error.Contains("vector store failed", StringComparison.OrdinalIgnoreCase) ||
             error.Contains("readonly database", StringComparison.OrdinalIgnoreCase))
         {
-            return "MemoryIndexStorageFailed";
+            return LangKey.MemoryIndexStorageFailed.ToString();
         }
 
         return error switch

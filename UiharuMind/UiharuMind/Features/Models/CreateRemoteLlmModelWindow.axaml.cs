@@ -501,7 +501,15 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         public ThinkingModeOptionItem(EThinkingMode mode)
         {
             Mode = mode;
-            Display = LocalizationManager.Instance.GetString($"ThinkingMode{mode}");
+            Display = Loc.Text(mode switch
+            {
+                EThinkingMode.None => LangKey.ThinkingModeNone,
+                EThinkingMode.Light => LangKey.ThinkingModeLight,
+                EThinkingMode.Medium => LangKey.ThinkingModeMedium,
+                EThinkingMode.High => LangKey.ThinkingModeHigh,
+                EThinkingMode.Max => LangKey.ThinkingModeMax,
+                _ => LangKey.ThinkingModeDefault,
+            });
         }
 
         /// <summary>

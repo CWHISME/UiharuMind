@@ -13,7 +13,6 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
@@ -431,7 +430,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
         }
     }
 
-    private static string GetSourceErrorText(string errorCode, string detail)
+    private static string GetSourceErrorText(EMemorySourceError? errorCode, string detail)
     {
         return MemoryIndexUiText.GetSourceErrorText(errorCode, detail);
     }
@@ -467,8 +466,7 @@ public sealed class MemoryFileSourceViewData
             IsValid = result.Success,
             ErrorText = result.Success
                 ? ""
-                : Lang.ResourceManager.GetString(result.ErrorCode,
-                    LocalizationManager.Instance.CurrentCulture) ?? result.ErrorCode
+                : Loc.Text(MemoryIndexUiText.GetSourceErrorKey(result.ErrorCode))
         };
     }
 }

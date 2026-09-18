@@ -170,7 +170,7 @@ internal sealed class MemoryIndexBuilder
             if (!readResult.Success || readResult.Document == null)
             {
                 failures.Add(new MemoryIndexSourceFailure(
-                    source.DisplayName, readResult.ErrorCode, readResult.ErrorDetail));
+                    source.DisplayName, readResult.ErrorCode ?? EMemorySourceError.ReadFailed, readResult.ErrorDetail));
             }
             else
             {

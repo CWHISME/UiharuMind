@@ -48,10 +48,24 @@ public sealed record MemorySourceDocument(
     string Text,
     string? EncodingName = null);
 
+/// <summary>
+/// 来源读取失败的错误码。只表达「哪一类失败」，不做本地化；
+/// 文案由 App 侧按此枚举映射到 LangKey 后再取（见 MemoryIndexUiText.GetSourceErrorKey）。
+/// </summary>
+public enum EMemorySourceError
+{
+    Unsupported,
+    Empty,
+    FileMissing,
+    EncodingUnknown,
+    NotPlainText,
+    ReadFailed,
+}
+
 public sealed record MemorySourceReadResult(
     bool Success,
     MemorySourceDocument? Document = null,
-    string ErrorCode = "",
+    EMemorySourceError? ErrorCode = null,
     string ErrorDetail = "");
 
 public interface IMemorySourceReader
@@ -93,7 +107,7 @@ internal static class MemorySourceReaders
     {
         IMemorySourceReader? reader = Find(source);
         return reader == null
-            ? Task.FromResult(new MemorySourceReadResult(false, ErrorCode: "MemorySourceUnsupported"))
+            ? Task.FromResult(new MemorySourceReadResult(false, ErrorCode: EMemorySourceError.Unsupported))
             : reader.ReadAsync(source, cancellationToken);
     }
 }
@@ -107,7 +121,7 @@ public sealed class ManualTextSourceReader : IMemorySourceReader
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(source.Content))
-            return Task.FromResult(new MemorySourceReadResult(false, ErrorCode: "MemorySourceEmpty"));
+            return Task.FromResult(new MemorySourceReadResult(false, ErrorCode: EMemorySourceError.Empty));
 
         return Task.FromResult(new MemorySourceReadResult(true,
             new MemorySourceDocument(source.Id, source.DisplayName, nameof(MemorySourceKind.ManualText), source.Content)));
@@ -123,7 +137,7 @@ public sealed class PlainTextFileSourceReader : IMemorySourceReader
     {
         string? filePath = source.FilePath;
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-            return new MemorySourceReadResult(false, ErrorCode: "MemorySourceFileMissing", ErrorDetail: filePath ?? "");
+            return new MemorySourceReadResult(false, ErrorCode: EMemorySourceError.FileMissing, ErrorDetail: filePath ?? "");
 
         try
         {
@@ -135,13 +149,13 @@ public sealed class PlainTextFileSourceReader : IMemorySourceReader
                 return result.ErrorCode switch
                 {
                     "FileMissing" => new MemorySourceReadResult(false,
-                        ErrorCode: "MemorySourceFileMissing", ErrorDetail: filePath),
+                        ErrorCode: EMemorySourceError.FileMissing, ErrorDetail: filePath),
                     "EncodingUnknown" => new MemorySourceReadResult(false,
-                        ErrorCode: "MemorySourceEncodingUnknown"),
+                        ErrorCode: EMemorySourceError.EncodingUnknown),
                     "NotPlainText" => new MemorySourceReadResult(false,
-                        ErrorCode: "MemorySourceNotPlainText"),
+                        ErrorCode: EMemorySourceError.NotPlainText),
                     _ => new MemorySourceReadResult(false,
-                        ErrorCode: "MemorySourceReadFailed", ErrorDetail: result.ErrorDetail)
+                        ErrorCode: EMemorySourceError.ReadFailed, ErrorDetail: result.ErrorDetail)
                 };
             }
 
@@ -155,7 +169,7 @@ public sealed class PlainTextFileSourceReader : IMemorySourceReader
         }
         catch (Exception e)
         {
-            return new MemorySourceReadResult(false, ErrorCode: "MemorySourceReadFailed", ErrorDetail: e.Message);
+            return new MemorySourceReadResult(false, ErrorCode: EMemorySourceError.ReadFailed, ErrorDetail: e.Message);
         }
     }
 }
@@ -187,7 +201,7 @@ public enum MemoryIndexUpdateStatus
     Failed
 }
 
-public sealed record MemoryIndexSourceFailure(string SourceName, string ErrorCode, string ErrorDetail);
+public sealed record MemoryIndexSourceFailure(string SourceName, EMemorySourceError ErrorCode, string ErrorDetail);
 
 public sealed record MemoryIndexUpdateResult(
     MemoryIndexUpdateStatus Status,

@@ -123,8 +123,8 @@ public class MemoryIndexStatusTests
 
         foreach (EMemoryIndexStatus status in Enum.GetValues<EMemoryIndexStatus>())
         {
-            AssertHasCopy(MemoryIndexUiText.GetStatusTextKey(status), culture);
-            AssertHasCopy(MemoryIndexUiText.GetStatusDetailTextKey(status), culture);
+            AssertHasCopy(MemoryIndexUiText.GetStatusTextKey(status).ToString(), culture);
+            AssertHasCopy(MemoryIndexUiText.GetStatusDetailTextKey(status).ToString(), culture);
         }
     }
 

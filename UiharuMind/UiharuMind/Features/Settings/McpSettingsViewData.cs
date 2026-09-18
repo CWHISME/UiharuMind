@@ -206,7 +206,14 @@ public partial class McpSettingsViewData : ViewModelBase
         }
 
         McpServerStatus status = McpManager.Instance.GetServerStatus(SelectedServer.Name);
-        string stateText = LocalizationManager.Instance.GetString($"AgentMcpState{status.State}");
+        string stateText = Loc.Text(status.State switch
+        {
+            EMcpConnectionState.Connecting => LangKey.AgentMcpStateConnecting,
+            EMcpConnectionState.Connected => LangKey.AgentMcpStateConnected,
+            EMcpConnectionState.PendingApproval => LangKey.AgentMcpStatePendingApproval,
+            EMcpConnectionState.Failed => LangKey.AgentMcpStateFailed,
+            _ => LangKey.AgentMcpStateDisconnected,
+        });
         StatusText = status.ToolCount > 0 ? $"{stateText} · {status.ToolCount} tools" : stateText;
         // 失败原因原样摆出来:"为什么没工具"必须能当场看见,而不是只躺在日志里
         ErrorText = status.Error ?? string.Empty;

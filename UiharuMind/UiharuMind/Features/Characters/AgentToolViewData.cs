@@ -9,6 +9,7 @@ using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Generated;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Services;
 
@@ -47,37 +48,35 @@ public sealed class AgentToolViewData
     /// </param>
     public AgentToolViewData(AgentToolConfig tools, AgentCapabilitySnapshot? snapshot = null)
     {
-        string L(string key) => LocalizationManager.Instance.GetString(key);
-
         // 有快照才给数;没有就是 null,界面显示「—」。归属由装配现场登记,不靠名字反推
         int? Tokens(EAgentCapability capability) =>
             snapshot?.TokensByCapability.TryGetValue(capability, out int value) == true ? value : null;
 
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapFileAccess"), L("AgentGateDescFileAccess"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapFileAccess), Loc.Text(LangKey.AgentGateDescFileAccess),
             () => tools.EnableFileAccess, v => tools.EnableFileAccess = v,
             Tokens(EAgentCapability.FileAccess)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapShellExecution"), L("AgentGateDescShell"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapShellExecution), Loc.Text(LangKey.AgentGateDescShell),
             () => tools.EnableShellExecution, v => tools.EnableShellExecution = v,
             Tokens(EAgentCapability.Shell)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapWebSearch"), L("AgentGateDescWebSearch"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapWebSearch), Loc.Text(LangKey.AgentGateDescWebSearch),
             () => tools.EnableWebSearch, v => tools.EnableWebSearch = v,
             Tokens(EAgentCapability.WebSearch)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapVisionTool"), L("AgentGateDescVisionTool"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapVisionTool), Loc.Text(LangKey.AgentGateDescVisionTool),
             () => tools.EnableVisionTool, v => tools.EnableVisionTool = v,
             Tokens(EAgentCapability.VisionTool)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapKnowledgeSearchTool"), L("AgentGateDescKnowledgeSearch"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapKnowledgeSearchTool), Loc.Text(LangKey.AgentGateDescKnowledgeSearch),
             () => tools.EnableKnowledgeSearchTool, v => tools.EnableKnowledgeSearchTool = v,
             Tokens(EAgentCapability.KnowledgeSearch)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapSubAgent"), L("AgentGateDescSubAgent"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapSubAgent), Loc.Text(LangKey.AgentGateDescSubAgent),
             () => tools.EnableSubAgent, v => tools.EnableSubAgent = v,
             Tokens(EAgentCapability.SubAgent)));
         // 下面三档不挂工具(框架 provider 或记忆存储),没有工具定义可算,故不给占用
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapScheduledTasks"), L("AgentGateDescScheduledTasks"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapScheduledTasks), Loc.Text(LangKey.AgentGateDescScheduledTasks),
             () => tools.EnableScheduledTasks, v => tools.EnableScheduledTasks = v,
             Tokens(EAgentCapability.ScheduledTasks)));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapTodoList"), L("AgentGateDescTodoList"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapTodoList), Loc.Text(LangKey.AgentGateDescTodoList),
             () => tools.EnableTodoList, v => tools.EnableTodoList = v));
-        Toggles.Add(new AgentToolToggle(L("AgentSettingCapAgentMode"), L("AgentGateDescAgentMode"),
+        Toggles.Add(new AgentToolToggle(Loc.Text(LangKey.AgentSettingCapAgentMode), Loc.Text(LangKey.AgentGateDescAgentMode),
             () => tools.EnableAgentMode, v => tools.EnableAgentMode = v));
 
         // MCP server 名单是内存里的配置,同步取即可(工具数与占用取常驻缓存,不等网络)

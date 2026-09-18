@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
@@ -88,8 +89,8 @@ public class MenuItemViewData : ObservableObject
         get
         {
             if (!IsBusy && !IsAwaitingApproval) return MenuHeader ?? string.Empty;
-            string status = LocalizationManager.Instance.GetString(
-                IsAwaitingApproval ? "SessionStatusAwaitingApproval" : "AgentStatusRunning");
+            string status = Loc.Text(
+                IsAwaitingApproval ? LangKey.SessionStatusAwaitingApproval : LangKey.AgentStatusRunning);
             return $"{MenuHeader}\n{status}";
         }
     }

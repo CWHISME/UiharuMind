@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.Configs;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 
@@ -82,8 +83,8 @@ public partial class WebSearchSettingsViewData : ObservableObject
     }
 
     /// <summary>测试按钮上的字，测试期间换成进行时</summary>
-    public string ProbeAllButtonText => LocalizationManager.Instance.GetString(
-        IsProbingAll ? "AgentSettingSearchProbing" : "AgentSettingSearchProbe");
+    public string ProbeAllButtonText => Loc.Text(
+        IsProbingAll ? LangKey.AgentSettingSearchProbing : LangKey.AgentSettingSearchProbe);
 
     partial void OnIsProbingAllChanged(bool value)
     {
@@ -220,7 +221,12 @@ public partial class WebSearchProviderItem : ObservableObject
             _ => "Warning" //熔断中:样式表里没有这个 Tag,落到默认的琥珀色
         };
 
-        string text = LocalizationManager.Instance.GetString($"AgentSettingSearchState{status.State}");
+        string text = Loc.Text(status.State switch
+        {
+            EWebProviderState.NotConfigured => LangKey.AgentSettingSearchStateNotConfigured,
+            EWebProviderState.Cooling => LangKey.AgentSettingSearchStateCooling,
+            _ => LangKey.AgentSettingSearchStateReady,
+        });
         StateText = status.State == EWebProviderState.Cooling
             ? $"{text} · {status.Cooldown.TotalSeconds:F0}s"
             : text;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
@@ -26,14 +27,14 @@ namespace UiharuMind.Features.QuickTools
         private void InitializeMenuItems()
         {
             _menuItems.Clear();
-            AddMenuItem("search", "RadialMenuFileSearch", () => UIManager.ShowWindow<FileSearchWindow>());
-            AddMenuItem("message-circle-more", "Ask", () => QuickStartChatWindow.Show());
+            AddMenuItem("search", LangKey.RadialMenuFileSearch, () => UIManager.ShowWindow<FileSearchWindow>());
+            AddMenuItem("message-circle-more", LangKey.Ask, () => QuickStartChatWindow.Show());
             // AddMenuItem("house", "RadialMenuHome", () => App.DummyWindow.LaunchMainWindow());
             // 无可见窗时恢复缓存的隐藏窗（不清内容），有可见窗或无实例时才开空文档
-            AddMenuItem("file-text", "RadialMenuTextEditor", TextFileWindow.ShowLastOrEmpty);
+            AddMenuItem("file-text", LangKey.RadialMenuTextEditor, TextFileWindow.ShowLastOrEmpty);
         }
 
-        private void AddMenuItem(string icon, string textKey, Action action)
+        private void AddMenuItem(string icon, LangKey textKey, Action action)
         {
             var item = new MenuItemModel { Icon = icon, TextKey = textKey, Action = action };
             item.RefreshText();
@@ -56,7 +57,7 @@ namespace UiharuMind.Features.QuickTools
     {
         // Icon/TextKey/Action 全部在对象初始化器里赋值（见 InitializeMenuItems），非空但默认置 null
         public string Icon { get; set; } = null!;
-        public string TextKey { get; set; } = null!;
+        public LangKey TextKey { get; set; }
         public Action Action { get; set; } = null!;
 
         private string _text = null!;

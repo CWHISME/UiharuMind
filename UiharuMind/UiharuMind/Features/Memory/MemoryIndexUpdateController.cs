@@ -130,7 +130,15 @@ public partial class MemoryIndexUpdateController : ObservableObject, IDisposable
     private void ApplyProgress(MemoryIndexProgress progress)
     {
         ProgressValue = progress.Percentage * 100;
-        ProgressStageText = Loc.Text("MemoryIndexStage" + progress.Stage);
+        ProgressStageText = Loc.Text(progress.Stage switch
+        {
+            MemoryIndexStage.ReadingSources => LangKey.MemoryIndexStageReadingSources,
+            MemoryIndexStage.SplittingText => LangKey.MemoryIndexStageSplittingText,
+            MemoryIndexStage.GeneratingEmbeddings => LangKey.MemoryIndexStageGeneratingEmbeddings,
+            MemoryIndexStage.WritingDatabase => LangKey.MemoryIndexStageWritingDatabase,
+            MemoryIndexStage.Completed => LangKey.MemoryIndexStageCompleted,
+            _ => LangKey.MemoryIndexStagePreparing,
+        });
         ProgressDetailText = string.Format(Loc.Text(LangKey.MemoryIndexProgressFormat),
             progress.ProcessedSources, progress.TotalSources,
             progress.CurrentChunk, progress.TotalChunks,

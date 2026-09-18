@@ -457,7 +457,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 那时按钮不能藏——藏了用户就只剩快捷键这一条路，而这正是"中途发不出消息"的由来。
     /// </summary>
     public string SendButtonText =>
-        LocalizationManager.Instance.GetString(IsGenerating ? "AgentInterject" : "Send");
+        Loc.Text(IsGenerating ? LangKey.AgentInterject : LangKey.Send);
 
     public ConversationViewModel()
     {
@@ -516,7 +516,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 本类现在是每会话一个实例、随会话切换来去,挂了不卸就是一路泄漏
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
-        InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
+        InputPlaceholder = Loc.Text(_inputPlaceholderKey);
     }
 
     /// <summary>
@@ -541,14 +541,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentSession is not { } session) return;
 
         EHandoffOutcome outcome = SubAgentReportHandoff.Submit(session);
-        string key = outcome switch
+        LangKey key = outcome switch
         {
-            EHandoffOutcome.Appended => "SubAgentHandoffDone",
-            EHandoffOutcome.Replaced => "SubAgentHandoffReplaced",
-            EHandoffOutcome.ParentBusy => "SubAgentHandoffParentBusy",
-            EHandoffOutcome.ParentMissing => "SubAgentHandoffParentMissing",
-            EHandoffOutcome.NothingToReport => "SubAgentHandoffNothing",
-            _ => "SubAgentHandoffNothing",
+            EHandoffOutcome.Appended => LangKey.SubAgentHandoffDone,
+            EHandoffOutcome.Replaced => LangKey.SubAgentHandoffReplaced,
+            EHandoffOutcome.ParentBusy => LangKey.SubAgentHandoffParentBusy,
+            EHandoffOutcome.ParentMissing => LangKey.SubAgentHandoffParentMissing,
+            EHandoffOutcome.NothingToReport => LangKey.SubAgentHandoffNothing,
+            _ => LangKey.SubAgentHandoffNothing,
         };
         HandoffNotice = Loc.Text(key);
     }
@@ -985,7 +985,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private void OnLanguageChanged()
     {
-        InputPlaceholder = LocalizationManager.Instance.GetString(_inputPlaceholderKey);
+        InputPlaceholder = Loc.Text(_inputPlaceholderKey);
         OnPropertyChanged(nameof(ModeLabel));
         OnPropertyChanged(nameof(ModeTooltip));
         OnPropertyChanged(nameof(PermissionTooltip));
@@ -1024,16 +1024,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         MemoryPanel?.Detach();
     }
 
-    private string _inputPlaceholderKey = "AgentInputWatermark";
+    private LangKey _inputPlaceholderKey = LangKey.AgentInputWatermark;
 
     /// <summary>输入框占位文案的本地化键,页面壳按场景覆盖(agent 页描述任务,聊天页输入消息)</summary>
-    public string InputPlaceholderKey
+    public LangKey InputPlaceholderKey
     {
         get => _inputPlaceholderKey;
         set
         {
             _inputPlaceholderKey = value;
-            InputPlaceholder = LocalizationManager.Instance.GetString(value);
+            InputPlaceholder = Loc.Text(value);
         }
     }
 

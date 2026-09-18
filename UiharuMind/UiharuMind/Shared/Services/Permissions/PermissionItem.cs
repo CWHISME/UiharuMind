@@ -1,5 +1,6 @@
 ﻿using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
+using UiharuMind.Generated;
 using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Shared.Services.Permissions;
@@ -48,8 +49,7 @@ public sealed class PermissionItem : ObservableObject
     }
 
     /// <summary>状态文案</summary>
-    public string StatusText => LocalizationManager.Instance.GetString(
-        IsGranted ? "PermissionGranted" : "PermissionNotGranted");
+    public string StatusText => Loc.Text(IsGranted ? LangKey.PermissionGranted : LangKey.PermissionNotGranted);
 
     /// <summary>修复按钮是否可见：仅在缺权限且确有修复入口时出现</summary>
     public bool IsActionVisible => !IsGranted && ActionCommand != null;

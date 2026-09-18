@@ -11,6 +11,7 @@
 
 using System.ComponentModel;
 using Avalonia.Controls;
+using UiharuMind.Generated;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation.SessionList;
@@ -56,7 +57,7 @@ public partial class ChatPageData : ConversationPageDataBase
         {
             // 无会话时首轮发送以默认角色开聊(与列表为空时自动建会话的角色一致)
             NewSessionCharacterId = nameof(DefaultCharacter.Empty),
-            InputPlaceholderKey = "ChatInputTips",
+            InputPlaceholderKey = LangKey.ChatInputTips,
         };
     }
 

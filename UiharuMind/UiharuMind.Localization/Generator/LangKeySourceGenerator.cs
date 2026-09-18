@@ -82,28 +82,26 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
             .Select(static (file, token) => (Path: file.Path, Text: file.GetText(token)?.ToString() ?? string.Empty))
             .Collect();
 
-        // 3) 全部输入合成一个输出单元（含 Compilation 以便扫 C# 用法）
+        // 5) 全部输入合成一个输出单元（含 Compilation 以便扫 C# 用法）
         var model = rootNamespace
             .Combine(parsedResx)
             .Combine(axamlTexts)
-            .Combine(context.CompilationProvider);
+            .Combine(context.CompilationProvider)
+            .Select(static (t, _) => new InputModel(
+                t.Left.Left.Left,
+                t.Left.Left.Right,
+                t.Left.Right,
+                t.Right));
 
-        context.RegisterSourceOutput(model, static (spc, tuple) =>
-            Emit(
-                spc,
-                tuple.Left.Left.Left,
-                tuple.Left.Left.Right,
-                tuple.Left.Right,
-                tuple.Right));
+        context.RegisterSourceOutput(model, static (spc, m) => Emit(spc, m));
     }
 
-    private static void Emit(
-        SourceProductionContext context,
-        string rootNamespace,
-        ImmutableArray<ResxResourceParser.ParseResult> files,
-        ImmutableArray<(string Path, string Text)> axamlTexts,
-        Compilation compilation)
+    private static void Emit(SourceProductionContext context, InputModel model)
     {
+        var rootNamespace = model.RootNamespace;
+        var files = model.Files;
+        var axamlTexts = model.AxamlTexts;
+        var compilation = model.Compilation;
         // 解析错误（LK1001）
         foreach (var parsed in files)
         {
@@ -277,5 +275,28 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
         var span = new TextSpan(index, 1);
         var linePos = new LinePosition(line, 0);
         return Location.Create(path, span, new LinePositionSpan(linePos, linePos));
+    }
+
+    private sealed class InputModel
+    {
+        internal InputModel(
+            string rootNamespace,
+            ImmutableArray<ResxResourceParser.ParseResult> files,
+            ImmutableArray<(string Path, string Text)> axamlTexts,
+            Compilation compilation)
+        {
+            RootNamespace = rootNamespace;
+            Files = files;
+            AxamlTexts = axamlTexts;
+            Compilation = compilation;
+        }
+
+        internal string RootNamespace { get; }
+
+        internal ImmutableArray<ResxResourceParser.ParseResult> Files { get; }
+
+        internal ImmutableArray<(string Path, string Text)> AxamlTexts { get; }
+
+        internal Compilation Compilation { get; }
     }
 }

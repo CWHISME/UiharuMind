@@ -9,6 +9,7 @@
 
 using System.Collections.Generic;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation;
@@ -44,9 +45,9 @@ public sealed record SubAgentStatusViewData(ESubAgentStatusKind Kind, IReadOnlyL
     /// <summary>行文案</summary>
     public string Text => Loc.Text(Kind switch
     {
-        ESubAgentStatusKind.ApprovalWaiting => "SubAgentApprovalWaiting",
-        ESubAgentStatusKind.Running => "SubAgentRunningBanner",
-        _ => "SubAgentHandoffQueuedBanner",
+        ESubAgentStatusKind.ApprovalWaiting => LangKey.SubAgentApprovalWaiting,
+        ESubAgentStatusKind.Running => LangKey.SubAgentRunningBanner,
+        _ => LangKey.SubAgentHandoffQueuedBanner,
     });
 
     /// <summary>

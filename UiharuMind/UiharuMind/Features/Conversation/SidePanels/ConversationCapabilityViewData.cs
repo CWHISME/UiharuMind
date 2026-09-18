@@ -271,8 +271,6 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <param name="contextLength">当前模型的上下文上限；0 表示未知</param>
     private void RefreshSummary(AgentCapabilitySnapshot snapshot, int contextLength)
     {
-        string L(string key) => LocalizationManager.Instance.GetString(key);
-
         HasTools = Tools.Count > 0;
         HasSkills = Skills.Count > 0;
 
@@ -299,22 +297,22 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         }
 
         Stats.Clear();
-        AddStat(L("AgentCapabilityCharacterPrompt"), characterTokens);
-        AddStat(L("AgentCapabilityWorkspaceRule"), workspaceTokens);
-        AddStat(L("AgentCapabilityTools"), toolTokens);
-        AddStat(L("AgentCapabilitySkills"), skillTokens, L("AgentCapabilitySkillResidentTip"));
+        AddStat(Loc.Text(LangKey.AgentCapabilityCharacterPrompt), characterTokens);
+        AddStat(Loc.Text(LangKey.AgentCapabilityWorkspaceRule), workspaceTokens);
+        AddStat(Loc.Text(LangKey.AgentCapabilityTools), toolTokens);
+        AddStat(Loc.Text(LangKey.AgentCapabilitySkills), skillTokens, Loc.Text(LangKey.AgentCapabilitySkillResidentTip));
         // 估算的那一档要标出来:同一行数字,一个是实测一个是上次的账,不标就没法解释为什么会变
-        AddStat(mcpIsForecast ? L("AgentCapabilityMcpForecast") : "MCP", mcpTokens,
-            mcpIsForecast ? L("AgentCapabilityMcpForecastTip") : null);
+        AddStat(mcpIsForecast ? Loc.Text(LangKey.AgentCapabilityMcpForecast) : "MCP", mcpTokens,
+            mcpIsForecast ? Loc.Text(LangKey.AgentCapabilityMcpForecastTip) : null);
         HasStats = Stats.Count > 0;
 
         EstimatedTokens = characterTokens + workspaceTokens + toolTokens + skillTokens + mcpTokens;
 
         TabHeader = IsEmpty
-            ? L("AgentCapabilityTitle")
-            : $"{L("AgentCapabilityTitle")} {Tools.Count + Skills.Count + McpServers.Sum(x => x.Tools.Count)}";
-        ToolsHeader = $"{L("AgentCapabilityTools")} {Tools.Count}";
-        SkillsHeader = $"{L("AgentCapabilitySkills")} {Skills.Count}";
+            ? Loc.Text(LangKey.AgentCapabilityTitle)
+            : $"{Loc.Text(LangKey.AgentCapabilityTitle)} {Tools.Count + Skills.Count + McpServers.Sum(x => x.Tools.Count)}";
+        ToolsHeader = $"{Loc.Text(LangKey.AgentCapabilityTools)} {Tools.Count}";
+        SkillsHeader = $"{Loc.Text(LangKey.AgentCapabilitySkills)} {Skills.Count}";
         HasPromptSegments = PromptSegments.Count > 0;
 
         TotalText = contextLength > 0
@@ -353,12 +351,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// 段别的显示名。段别是 Core 的枚举，文案是 UI 的事，映射只此一处
     private static string SectionLabel(EPromptSection section)
     {
-        return LocalizationManager.Instance.GetString(section switch
+        return Loc.Text(section switch
         {
-            EPromptSection.Character => "AgentCapabilityCharacterPrompt",
-            EPromptSection.ToolDisciplines => "AgentCapabilityToolRules",
-            EPromptSection.Mcp => "AgentCapabilityPromptMcp",
-            _ => "AgentCapabilityWorkspaceRule",
+            EPromptSection.Character => LangKey.AgentCapabilityCharacterPrompt,
+            EPromptSection.ToolDisciplines => LangKey.AgentCapabilityToolRules,
+            EPromptSection.Mcp => LangKey.AgentCapabilityPromptMcp,
+            _ => LangKey.AgentCapabilityWorkspaceRule,
         });
     }
 

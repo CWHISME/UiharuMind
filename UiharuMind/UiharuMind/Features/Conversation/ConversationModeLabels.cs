@@ -25,8 +25,8 @@ public static class ConversationModeLabels
     /// <summary>模式显示标签</summary>
     /// <param name="mode">当前模式</param>
     /// <returns>本地化文案</returns>
-    public static string ModeLabel(EAgentMode mode) => LocalizationManager.Instance.GetString(
-        mode == EAgentMode.Plan ? "AgentPlanMode" : "AgentModeExecute");
+    public static string ModeLabel(EAgentMode mode) => Loc.Text(
+        mode == EAgentMode.Plan ? LangKey.AgentPlanMode : LangKey.AgentModeExecute);
 
     /// <summary>模式悬停提示</summary>
     /// <param name="mode">当前模式</param>

@@ -51,24 +51,6 @@
     <data name="AgentPermissionFullAutoDesc" xml:space="preserve">
         <value>Full auto: everything runs without prompts</value>
     </data>
-    <data name="ThinkingModeDefaultDesc" xml:space="preserve">
-        <value>Follow the model config, no override</value>
-    </data>
-    <data name="ThinkingModeNoneDesc" xml:space="preserve">
-        <value>Explicitly disable thinking</value>
-    </data>
-    <data name="ThinkingModeMediumDesc" xml:space="preserve">
-        <value>Medium reasoning effort</value>
-    </data>
-    <data name="ThinkingModeHighDesc" xml:space="preserve">
-        <value>High reasoning effort</value>
-    </data>
-    <data name="ThinkingModeMaxDesc" xml:space="preserve">
-        <value>Max reasoning effort (ignored if unsupported)</value>
-    </data>
-    <data name="ThinkingModeTips" xml:space="preserve">
-        <value>Thinking effort for this session. Default follows the model config; other levels are sent with each request (backends that don't support it will ignore it).</value>
-    </data>
     <data name="CompactCommandDescription" xml:space="preserve">
         <value>Compact the conversation into a handoff document</value>
     </data>
@@ -800,9 +782,6 @@
     <data name="RegenerateBtn" xml:space="preserve">
         <value>Regenerate</value>
     </data>
-    <data name="Image" xml:space="preserve">
-        <value>Image</value>
-    </data>
     <data name="TrayMenuTranslateHistory" xml:space="preserve">
         <value>Translation</value>
     </data>
@@ -817,9 +796,6 @@
     </data>
     <data name="Filter" xml:space="preserve">
         <value>Filter</value>
-    </data>
-    <data name="Character" xml:space="preserve">
-        <value>Character</value>
     </data>
     <data name="Rename" xml:space="preserve">
         <value>Rename</value>
@@ -2763,9 +2739,6 @@ Allow them?</value>
     </data>
     <data name="RadialMenuFileSearch" xml:space="preserve">
         <value>File Search</value>
-    </data>
-    <data name="RadialMenuHome" xml:space="preserve">
-        <value>Home</value>
     </data>
     <data name="RadialMenuTextEditor" xml:space="preserve">
         <value>Text Editor</value>

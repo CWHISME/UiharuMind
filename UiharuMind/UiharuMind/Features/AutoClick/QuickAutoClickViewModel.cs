@@ -290,17 +290,17 @@ public partial class AutoClickStepViewModel : ObservableObject
     {
         return kind switch
         {
-            AutoClickStepKind.MouseClick => "AutoClickKindMouseClick",
-            AutoClickStepKind.MouseDown => "AutoClickKindMouseDown",
-            AutoClickStepKind.MouseUp => "AutoClickKindMouseUp",
-            AutoClickStepKind.MouseMove => "AutoClickKindMouseMove",
-            AutoClickStepKind.MouseWheel => "AutoClickKindMouseWheel",
-            AutoClickStepKind.KeyClick => "AutoClickKindKeyClick",
-            AutoClickStepKind.KeyDown => "AutoClickKindKeyDown",
-            AutoClickStepKind.KeyUp => "AutoClickKindKeyUp",
-            AutoClickStepKind.Text => "AutoClickKindText",
-            AutoClickStepKind.Delay => "AutoClickKindDelay",
-            AutoClickStepKind.Loop => "AutoClickKindLoop",
+            AutoClickStepKind.MouseClick => nameof(LangKey.AutoClickKindMouseClick),
+            AutoClickStepKind.MouseDown => nameof(LangKey.AutoClickKindMouseDown),
+            AutoClickStepKind.MouseUp => nameof(LangKey.AutoClickKindMouseUp),
+            AutoClickStepKind.MouseMove => nameof(LangKey.AutoClickKindMouseMove),
+            AutoClickStepKind.MouseWheel => nameof(LangKey.AutoClickKindMouseWheel),
+            AutoClickStepKind.KeyClick => nameof(LangKey.AutoClickKindKeyClick),
+            AutoClickStepKind.KeyDown => nameof(LangKey.AutoClickKindKeyDown),
+            AutoClickStepKind.KeyUp => nameof(LangKey.AutoClickKindKeyUp),
+            AutoClickStepKind.Text => nameof(LangKey.AutoClickKindText),
+            AutoClickStepKind.Delay => nameof(LangKey.AutoClickKindDelay),
+            AutoClickStepKind.Loop => nameof(LangKey.AutoClickKindLoop),
             _ => kind.ToString()
         };
     }
@@ -343,7 +343,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private bool _hasRecordedMouseMovementDuringPress;
     private bool _isLoadingSession;
     private bool _isInternalUpdate;
-    private string _statusKey = "AutoClickStatusReady";
+    private LangKey _statusKey = LangKey.AutoClickStatusReady;
     private object[] _statusArgs = [];
     private readonly List<AutoClickSession> _allSessions = new();
     private (short x, short y)? _lastPlaybackMousePosition;
@@ -397,7 +397,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
     public QuickAutoClickViewModel()
     {
-        StatusText = LocalizationManager.Instance.GetString(_statusKey);
+        StatusText = Loc.Text(_statusKey);
         Steps.CollectionChanged += OnRootStepsCollectionChanged;
         AutoClickManager.Instance.OnItemAdded += OnSessionAdded;
         AutoClickManager.Instance.OnItemRemoved += OnSessionRemoved;
@@ -463,7 +463,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         SelectedStep = VisibleSteps.FirstOrDefault();
         IsDirty = false;
         _isLoadingSession = false;
-        SetStatus("AutoClickStatusLoaded", session.Name, StepCount);
+        SetStatus(LangKey.AutoClickStatusLoaded, session.Name, StepCount);
         NotifySessionProperties();
     }
 
@@ -472,7 +472,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     {
         if (CurrentSession == null)
         {
-            CurrentSession = AutoClickManager.Instance.CreateNewSession(CreateDefaultSessionName("AutoClickDefaultSessionName"));
+            CurrentSession = AutoClickManager.Instance.CreateNewSession(CreateDefaultSessionName(LangKey.AutoClickDefaultSessionName));
         }
 
         CurrentSession.RepeatCount = Math.Max(0, RepeatCount);
@@ -485,7 +485,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         AutoClickManager.Instance.Save(CurrentSession);
         RefreshSessionListItem(CurrentSession);
         IsDirty = false;
-        SetStatus("AutoClickStatusSaved", CurrentSession.Name);
+        SetStatus(LangKey.AutoClickStatusSaved, CurrentSession.Name);
         NotifySessionProperties();
     }
 
@@ -496,7 +496,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         if (IsRecording) StopRecording();
 
         _isInternalUpdate = true;
-        CurrentSession = AutoClickManager.Instance.CreateNewSession(CreateDefaultSessionName("AutoClickDefaultSessionName"));
+        CurrentSession = AutoClickManager.Instance.CreateNewSession(CreateDefaultSessionName(LangKey.AutoClickDefaultSessionName));
         RepeatCount = 1;
         PlaybackSpeed = 1.0;
         DefaultDelay = 100;
@@ -511,7 +511,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         SelectedStep = null;
         _isInternalUpdate = false;
         IsDirty = false;
-        SetStatus("AutoClickStatusCreated", CurrentSession.Name);
+        SetStatus(LangKey.AutoClickStatusCreated, CurrentSession.Name);
         NotifyStepProperties();
         NotifySessionProperties();
     }
@@ -534,7 +534,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             NotifySessionProperties();
         }
 
-        SetStatus("AutoClickStatusDeleted", session.Name);
+        SetStatus(LangKey.AutoClickStatusDeleted, session.Name);
     }
 
     private static int GetSessionMouseMovementFrameRate(AutoClickSession session)
@@ -580,7 +580,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         };
         AutoClickManager.Instance.Add(copy);
         LoadSession(copy);
-        SetStatus("AutoClickStatusDuplicated", copy.Name);
+        SetStatus(LangKey.AutoClickStatusDuplicated, copy.Name);
     }
 
     public void RenameSession(AutoClickSession session, string newName)
@@ -590,7 +590,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         session.UpdatedAt = DateTime.Now;
         RefreshSessionListItem(session);
         NotifySessionProperties();
-        SetStatus("AutoClickStatusRenamed", finalName);
+        SetStatus(LangKey.AutoClickStatusRenamed, finalName);
     }
 
     [RelayCommand]
@@ -616,7 +616,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
             Delay = Math.Max(0, DefaultDelay),
             Duration = 50
         });
-        SetStatus("AutoClickStatusStepAdded");
+        SetStatus(LangKey.AutoClickStatusStepAdded);
     }
 
     [RelayCommand]
@@ -629,7 +629,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         RemoveFromParent(step);
         if (SelectedStep == step) SelectedStep = VisibleSteps.FirstOrDefault();
         MarkDirty();
-        SetStatus("AutoClickStatusStepRemoved");
+        SetStatus(LangKey.AutoClickStatusStepRemoved);
     }
 
     [RelayCommand]
@@ -640,7 +640,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         InsertSiblingAfter(SelectedStep, copy);
         SelectedStep = copy;
         MarkDirty();
-        SetStatus("AutoClickStatusStepDuplicated");
+        SetStatus(LangKey.AutoClickStatusStepDuplicated);
     }
 
     [RelayCommand]
@@ -664,7 +664,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         ReplaceVisibleSteps([]);
         SelectedStep = null;
         MarkDirty();
-        SetStatus("AutoClickStatusCleared");
+        SetStatus(LangKey.AutoClickStatusCleared);
     }
 
     [RelayCommand]
@@ -698,7 +698,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         InputManager.Instance.EventOnMouseMoved += OnRecordMouseMoved;
         InputManager.Instance.EventOnMouseWheel += OnRecordMouseWheel;
 
-        SetStatus("AutoClickStatusRecording");
+        SetStatus(LangKey.AutoClickStatusRecording);
     }
 
     [RelayCommand]
@@ -719,7 +719,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         _shortcutSuspendScope = null;
         RemoveStopHotkeySteps();
         if (RecordedActionsCount > 0) MarkDirty();
-        SetStatus("AutoClickStatusRecorded", RecordedActionsCount);
+        SetStatus(LangKey.AutoClickStatusRecorded, RecordedActionsCount);
         _onStopRecording?.Invoke();
     }
 
@@ -732,7 +732,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         _playbackCts = new CancellationTokenSource();
         _isPlaybackMousePressed = false;
         _lastPlaybackMousePosition = null;
-        SetStatus("AutoClickStatusPlaying");
+        SetStatus(LangKey.AutoClickStatusPlaying);
 
         try
         {
@@ -758,16 +758,16 @@ public partial class QuickAutoClickViewModel : ViewModelBase
                 }
             }
             await Task.Delay(1000, _playbackCts.Token);
-            SetStatus("AutoClickStatusPlaybackFinished");
+            SetStatus(LangKey.AutoClickStatusPlaybackFinished);
         }
         catch (OperationCanceledException)
         {
-            SetStatus("AutoClickStatusPlaybackStopped");
+            SetStatus(LangKey.AutoClickStatusPlaybackStopped);
         }
         catch (Exception e)
         {
             Log.Error(e);
-            SetStatus("AutoClickStatusPlaybackFailed");
+            SetStatus(LangKey.AutoClickStatusPlaybackFailed);
         }
         finally
         {
@@ -919,7 +919,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
         SelectedStep = step;
         MarkDirty();
-        SetStatus("AutoClickStatusStepAdded");
+        SetStatus(LangKey.AutoClickStatusStepAdded);
     }
 
     private void InsertSiblingAfter(AutoClickStepViewModel anchor, AutoClickStepViewModel step)
@@ -1021,7 +1021,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
 
     private void RefreshLocalized()
     {
-        StatusText = string.Format(LocalizationManager.Instance.GetString(_statusKey), _statusArgs);
+        StatusText = Loc.Text(_statusKey, _statusArgs);
         foreach (var step in VisibleSteps)
         {
             step.RefreshLocalized();
@@ -1036,11 +1036,11 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         NotifyStepProperties();
     }
 
-    private void SetStatus(string key, params object[] args)
+    private void SetStatus(LangKey key, params object[] args)
     {
         _statusKey = key;
         _statusArgs = args;
-        StatusText = string.Format(LocalizationManager.Instance.GetString(key), args);
+        StatusText = Loc.Text(key, args);
     }
 
     private void RefreshSessionListItem(AutoClickSession session)
@@ -1672,9 +1672,9 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         };
     }
 
-    private string CreateDefaultSessionName(string key)
+    private string CreateDefaultSessionName(LangKey key)
     {
-        return $"{LocalizationManager.Instance.GetString(key)}_{DateTime.Now:yyyyMMdd_HHmmss}";
+        return $"{Loc.Text(key)}_{DateTime.Now:yyyyMMdd_HHmmss}";
     }
 }
 

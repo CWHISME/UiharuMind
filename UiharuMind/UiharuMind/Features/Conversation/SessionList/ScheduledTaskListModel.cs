@@ -15,6 +15,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Features.Conversation.Pages;
 
@@ -145,7 +146,15 @@ public partial class ScheduledTaskDisplayItem : ObservableObject
         TaskId = task.TaskId;
         DisplayName = task.DisplayName;
         FireAtText = task.FireAt.ToString("MM-dd HH:mm");
-        StatusText = LocalizationManager.Instance.GetString($"AgentTaskStatus{task.Status}");
+        StatusText = Loc.Text(task.Status switch
+        {
+            EScheduledTaskStatus.Running => LangKey.AgentTaskStatusRunning,
+            EScheduledTaskStatus.Completed => LangKey.AgentTaskStatusCompleted,
+            EScheduledTaskStatus.Failed => LangKey.AgentTaskStatusFailed,
+            EScheduledTaskStatus.Cancelled => LangKey.AgentTaskStatusCancelled,
+            EScheduledTaskStatus.Missed => LangKey.AgentTaskStatusMissed,
+            _ => LangKey.AgentTaskStatusPending,
+        });
         ResultSessionId = task.ResultSessionId;
         CanCancel = task.Status is EScheduledTaskStatus.Pending or EScheduledTaskStatus.Missed;
         CanRunNow = task.Status is EScheduledTaskStatus.Pending
