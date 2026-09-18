@@ -79,10 +79,35 @@ public class WebSearchProviderTests
         Assert.Single(FirecrawlSearchProvider.Parse(json, maxCount: 5));
     }
 
+    /// <summary>
+    /// Firecrawl 的业务错误（HTTP 200 + <c>success:false</c>）必须抛异常而不是返回空
+    /// ——空结果会被兜底链当成"正常搜到 0 条"，错误原文静默丢掉，模型拿到假成功。
+    /// </summary>
+    [Fact]
+    public void Firecrawl_BusinessError_ThrowsInsteadOfSilentEmpty()
+    {
+        const string json = """{"success":false,"error":"rate limited"}""";
+
+        var ex = Assert.Throws<HttpRequestException>(() => FirecrawlSearchProvider.EnsureSuccess(json));
+        Assert.Contains("rate limited", ex.Message);
+    }
+
+    [Fact]
+    public void Firecrawl_NoBusinessError_DoesNotThrow()
+    {
+        // 无 success 字段或 success 为 true 都不算业务错误
+        FirecrawlSearchProvider.EnsureSuccess("""{"data":{"web":[]}}""");
+        FirecrawlSearchProvider.EnsureSuccess("""{"success":true,"data":[]}""");
+    }
+
+    /// <summary>
+    /// 解析器本身：不带 error 的畸形响应（缺 data）仍返回空——那只是"这个查询没有数据"，
+    /// 不构成服务故障。业务错误由 <see cref="FirecrawlSearchProvider.EnsureSuccess"/> 提前拦截。
+    /// </summary>
     [Fact]
     public void Firecrawl_MissingData_ReturnsEmpty()
     {
-        Assert.Empty(FirecrawlSearchProvider.Parse("""{"success":false,"error":"rate limited"}""", maxCount: 5));
+        Assert.Empty(FirecrawlSearchProvider.Parse("""{"foo":"bar"}""", maxCount: 5));
     }
 
     /// <summary>
