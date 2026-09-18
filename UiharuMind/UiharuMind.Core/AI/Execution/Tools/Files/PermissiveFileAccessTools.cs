@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Text;
 using Microsoft.Agents.AI;
@@ -65,6 +66,33 @@ internal sealed class PermissiveFileAccessTools
     internal const int MaxGrepMapFiles = 50;
 
     internal const int MaxEditDiffLines = 80; //Edit 回给模型的 diff 行数上限
+
+    /// <summary>
+    /// 落盘的"读→计划→写"关键区不原子：<c>AllowConcurrentInvocation=true</c> 时同一轮
+    /// 消息里两个工具调用并发执行，两个 Edit/Write 打同一文件就会 lost-update（后写覆盖前写），
+    /// 而且是静默丢改动、连报错都没有。锁表是进程级静态的：主代理与子代理在同一个进程中
+    /// 各自持有本类的实例，静态表让它们自然互斥；同文件不再同时读-改-写。
+    ///
+    /// 用<b>定长 striped 锁数组</b>而不是 <c>ConcurrentDictionary</c>：条目固定、内存有界、
+    /// 永不回收（字典会随接触过的文件数无界增长，review 点名）。按路径 hash 取模,碰撞的
+    /// 代价只是不同文件偶发伪串行——写路径毫秒级，无所谓。
+    /// key 用 OrdinalIgnoreCase——macOS/Windows 默认文件系统大小写不敏感，
+    /// <c>/a.cs</c> 与 <c>/A.cs</c> 是同一文件，不能各自拿一把锁。
+    /// 已知边界：不做符号链接 realpath 归一，<c>/real/c.cs</c> 与 <c>/link→real/c.cs</c>
+    /// 会拿到不同条纹——与 ApprovalModeMapper 的"不解析符号链接"口径一致，可接受。
+    /// </summary>
+    private const int FileLockStripes = 64;
+    private static readonly SemaphoreSlim[] _fileLocks = BuildFileLocks();
+
+    private static SemaphoreSlim[] BuildFileLocks()
+    {
+        SemaphoreSlim[] locks = new SemaphoreSlim[FileLockStripes];
+        for (int i = 0; i < locks.Length; i++) locks[i] = new SemaphoreSlim(1, 1);
+        return locks;
+    }
+
+    private static SemaphoreSlim LockFor(string path)
+        => _fileLocks[(uint)StringComparer.OrdinalIgnoreCase.GetHashCode(path) % _fileLocks.Length];
 
     private readonly string _workspaceRoot;
     private readonly SimpleGlobber _glob;
@@ -434,7 +462,7 @@ internal sealed class PermissiveFileAccessTools
     }
 
     [Description("Create a new file, or replace an existing one wholesale. Use 'Edit' for partial changes.")]
-    private async Task<string> Write(
+    internal async Task<string> Write(
         [Description("File path, absolute or relative to the working directory.")]
         string filePath,
         [Description("Full file content.")] string content,
@@ -442,19 +470,29 @@ internal sealed class PermissiveFileAccessTools
         bool overwrite = false,
         CancellationToken ct = default)
     {
-        string full = ResolvePath(filePath);
-        bool exists = File.Exists(full);
-        if (exists && !overwrite)
-            return "File exists. Set overwrite=true to replace it, or use 'Edit' to change part of it.";
+        // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
+        string full = ResolveWriteTarget(ResolvePath(filePath));
+        SemaphoreSlim fileLock = LockFor(full);
+        await fileLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            bool exists = File.Exists(full);
+            if (exists && !overwrite)
+                return "File exists. Set overwrite=true to replace it, or use 'Edit' to change part of it.";
 
-        // 覆盖已有文件时沿用它的 BOM 与行尾风格;新建文件则是无 BOM + 模型给的 \n。
-        // 不这么做的话,让模型重写一个 CRLF 文件会顺手把整份文件的行尾改掉
-        TextFileEnvelope envelope = exists
-            ? TextFileEnvelope.FromBytes(await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false))
-            : TextFileEnvelope.FromText(string.Empty);
+            // 覆盖已有文件时沿用它的 BOM 与行尾风格;新建文件则是无 BOM + 模型给的 \n。
+            // 不这么做的话,让模型重写一个 CRLF 文件会顺手把整份文件的行尾改掉
+            TextFileEnvelope envelope = exists
+                ? TextFileEnvelope.FromBytes(await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false))
+                : TextFileEnvelope.FromText(string.Empty);
 
-        await SaveAsync(full, envelope, envelope.ConvertNewLines(content), ct).ConfigureAwait(false);
-        return $"Saved '{filePath}' ({content.Split('\n').Length} lines).";
+            await SaveAsync(full, envelope, envelope.ConvertNewLines(content), ct).ConfigureAwait(false);
+            return $"Saved '{filePath}' ({content.Split('\n').Length} lines).";
+        }
+        finally
+        {
+            fileLock.Release();
+        }
     }
 
     [Description("""
@@ -465,28 +503,87 @@ internal sealed class PermissiveFileAccessTools
                  - Entries must not overlap. Merge nearby changes into one entry instead.
                  - Nothing is written unless every entry applies; the error tells you what to fix.
                  """)]
-    private async Task<string> Edit(
+    internal async Task<string> Edit(
         [Description("File path, absolute or relative to the working directory.")]
         string filePath,
         [Description("The replacements to make, all matched against the current file content.")]
         List<FileEdit> edits,
         CancellationToken ct = default)
     {
-        string full = ResolvePath(filePath);
-        FileEditPlan plan = await FileEditPlanner.PlanFileAsync(full, filePath, edits, ct).ConfigureAwait(false);
-        if (!plan.Succeeded) return $"[Edit failed] {plan.Error}";
+        // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
+        string full = ResolveWriteTarget(ResolvePath(filePath));
+        SemaphoreSlim fileLock = LockFor(full);
+        await fileLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            FileEditPlan plan = await FileEditPlanner.PlanFileAsync(full, filePath, edits, ct).ConfigureAwait(false);
+            if (!plan.Succeeded) return $"[Edit failed] {plan.Error}";
 
-        await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
+            await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
-        string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines);
-        return $"Applied {edits.Count} edit(s) to '{filePath}'.\n{diff}";
+            string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines);
+            return $"Applied {edits.Count} edit(s) to '{filePath}'.\n{diff}";
+        }
+        finally
+        {
+            fileLock.Release();
+        }
     }
 
-    //统一落盘:BOM 与行尾按信封原样还原
-    private static Task SaveAsync(string full, TextFileEnvelope envelope, string content, CancellationToken ct)
+    //统一落盘:BOM 与行尾按信封原样还原。先写同目录临时文件再原子替换——
+    // 读方永远看到旧或新完整内容(不会读到写一半的文件),进程中途崩溃也不留残缺目标文件;
+    // 同目录是前提:跨文件系统 rename 会退化成 copy+delete,失去原子性。
+    // 注意"原子"指替换动作本身:只保证读方不看到半截,不保证断电后数据在盘(无 fsync)。
+    // 读方(Read/Grep/预览)故意不进锁——原子写让它们永远看到完整文件,不需要锁。
+    private static async Task SaveAsync(string full, TextFileEnvelope envelope, string content, CancellationToken ct)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-        return File.WriteAllBytesAsync(full, envelope.ToBytes(content), ct);
+        string temp = Path.Combine(Path.GetDirectoryName(full)!,
+            $".{Path.GetFileName(full)}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await File.WriteAllBytesAsync(temp, envelope.ToBytes(content), ct).ConfigureAwait(false);
+
+            // 原子替换会新建 inode,原文件的权限/可执行位必须搬到 temp 再换,
+            // 否则编辑一个 755 的脚本后它变成 644(执行位静默丢失)。非 Unix 平台或
+            // 权限复制失败都不阻断写入。
+            if (File.Exists(full))
+            {
+                try
+                {
+                    if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
+                    {
+                        File.SetUnixFileMode(temp, File.GetUnixFileMode(full));
+                    }
+                }
+                catch
+                {
+                    // 权限读取失败:保留默认权限继续写
+                }
+            }
+
+            try
+            {
+                File.Move(temp, full, overwrite: true);
+            }
+            catch (IOException) when (File.Exists(full))
+            {
+                // Windows:目标被其它进程打开(未开 FILE_SHARE_DELETE)时 Move 抛 IOException。
+                // 回退直接写目标——失去原子性但保住可用性,模型拿到的仍是成功结果而不是裸异常。
+                await File.WriteAllBytesAsync(full, envelope.ToBytes(content), ct).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temp)) File.Delete(temp);
+            }
+            catch
+            {
+                // 临时文件清理失败不影响主路径(目标已由 Move 决定)
+            }
+        }
     }
 
     // ---- 路径解析 ----
@@ -496,5 +593,24 @@ internal sealed class PermissiveFileAccessTools
         return Path.IsPathRooted(path)
             ? Path.GetFullPath(path)
             : Path.GetFullPath(Path.Combine(_workspaceRoot, path));
+    }
+
+    /// <summary>
+    /// 写目标解析：跟随符号链接到真实路径。锁与原子写都对着<b>解析后的</b>路径做，
+    /// 否则两个回归同时发生：<c>File.Move</c> 是 rename 覆盖链接<b>本体</b>（不写目标，
+    /// 静默把链接换成普通文件），且 <c>/real</c> 与 <c>/link→real</c> 在锁表里拿不同条纹、
+    /// 互斥失效。解析失败（例如文件不存在）回退原路径。
+    /// </summary>
+    private static string ResolveWriteTarget(string full)
+    {
+        try
+        {
+            FileSystemInfo? target = File.ResolveLinkTarget(full, returnFinalTarget: true);
+            return target?.FullName ?? full;
+        }
+        catch
+        {
+            return full; // 解析失败（文件不存在等）回退原路径
+        }
     }
 }

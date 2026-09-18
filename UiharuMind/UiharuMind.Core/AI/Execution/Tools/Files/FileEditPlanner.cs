@@ -76,11 +76,15 @@ public sealed class FileEditPlan
 /// <item>保守 fuzzy：按<b>整行窗口</b>比对，逐行 <c>TrimEnd</c> 后相等即算命中。
 /// 它同时吸收了「行尾多余空白」与「CRLF/LF 不一致」两类差异——后者是结构上被吸收的，
 /// 因为切行时 <c>\r\n</c> 与 <c>\n</c> 都是终止符，不参与比较。</item>
+/// <item>受控全角归一：仍不中时，把 <c>，。：；（）！？</c> 与全角空格映射成半角再比一次。
+/// 模型常把中文注释里的全角标点抄成半角（或反之），这层吸收能救回这类失败。</item>
 /// </list>
 ///
-/// 刻意<b>不做</b> NFKC / 全角标点 / 智能引号归一（pi 的 edit-diff.ts 做了）：NFKC 会把
-/// <c>（）：，</c> 映射成 ASCII 半角，而本仓注释通篇是带全角标点的中文——一次 fuzzy 命中
-/// 就会把注释悄悄改写。见 ADR 0007。
+/// 归一的<b>边界</b>：只映射上面这份白名单标点——不碰智能引号、破折号、省略号，
+/// 那些没有无语义冲突的半角对应（"→\" 会把注释里的引号与代码字符串混为一谈）。
+/// 归一只用于<b>判定命中</b>，落盘仍按 newString；命中区外的字节永远不动，
+/// 因此被归一救回的匹配不会把整段注释悄悄改写。不做 NFKC 全文归一（pi 的 edit-diff.ts 做了）：
+/// NFKC 会把更多字符映射掉，且全角空格归一会让行首缩进比较变宽。见 ADR 0007。
 ///
 /// 命中区间之外的字节永远不动，因此混用换行的文件也不会被统一。
 /// </summary>
@@ -160,9 +164,14 @@ public static class FileEditPlanner
                         BuildNotFoundMessage(i, oldString, label, text, lines));
 
                 case ELocateResult.NotUnique:
-                    return FileEditPlan.Failed(
-                        $"edits[{i}].oldString occurs {located.Count} times in '{label}'. "
-                        + "Add surrounding lines to it so that it matches exactly one place.");
+                    // 归一歧义:多个命中里至少一个仅靠全角归一才匹配上——模型不知道"这两处"其实
+                    // 只在标点上有差异,会误以为真有俩一模一样的块。必须点破,否则它加上下文永远加不对。
+                    return FileEditPlan.Failed(located.NormalizedAmbiguity
+                        ? $"edits[{i}].oldString occurs {located.Count} times in '{label}' — "
+                          + "some matches differ only in full-width punctuation. Read the file and "
+                          + "add surrounding context that pins the exact one."
+                        : $"edits[{i}].oldString occurs {located.Count} times in '{label}'. "
+                          + "Add surrounding lines to it so that it matches exactly one place.");
             }
 
             matches.Add(new Match(i, located.Start, located.End,
@@ -200,10 +209,87 @@ public static class FileEditPlanner
 
         int width = diff.Max(x => x.LineNumber).ToString().Length;
         StringBuilder sb = new();
-        int shown = Math.Min(diff.Count, maxLines);
-        for (int i = 0; i < shown; i++)
+        int shown = 0; //已输出行数(预算消耗)
+        int omitted = 0; //被截掉的内容行数
+        int omittedHunks = 0; //内容没显示完整的块数(预算耗尽连头都放不下的也算)
+        int i = 0;
+
+        while (i < diff.Count)
         {
-            LineDiffEntry entry = diff[i];
+            if (diff[i].Kind != ELineDiffKind.Hunk)
+            {
+                // 无块头的纯行(非本工具产物,例如测试直接构造的 diff):逐行截断
+                if (shown < maxLines)
+                {
+                    AppendLine(diff[i]);
+                    shown++;
+                }
+                else omitted++;
+
+                i++;
+                continue;
+            }
+
+            // 找到一个块的完整跨度:从本 hunk 头到下一个 hunk 头(不含)
+            int end = i + 1;
+            while (end < diff.Count && diff[end].Kind != ELineDiffKind.Hunk) end++;
+            int contentLen = end - i - 1; //块内内容行数(不含头)
+
+            if (shown + 1 + contentLen <= maxLines)
+            {
+                // 整块放得下:整体输出,块头与内容不分离
+                for (int k = i; k < end; k++)
+                {
+                    AppendLine(diff[k]);
+                    shown++;
+                }
+            }
+            else if (shown < maxLines)
+            {
+                // 块放不下但还有预算:保留 hunk 头,再尽量给内容(从头开始,块内连续)——
+                // 绝不能只给头不给内容,否则大块编辑(>80 行)时模型一行改动都看不到,
+                // 自纠能力归零。剩余内容计入折叠提示并引导用 Read 精确定位。
+                sb.AppendLine(diff[i].Text);
+                shown++;
+
+                int canShow = Math.Min(contentLen, maxLines - shown);
+                for (int k = 1; k <= canShow; k++)
+                {
+                    AppendLine(diff[i + k]);
+                    shown++;
+                }
+
+                omitted += contentLen - canShow;
+                if (omitted > 0) omittedHunks++;
+            }
+            else
+            {
+                // 预算已耗尽:这块整体放弃(连头都放不下)
+                omitted += contentLen;
+                omittedHunks++;
+            }
+
+            i = end;
+        }
+
+        if (omitted > 0)
+        {
+            sb.Append(omittedHunks > 0
+                ? $"…(+{omitted} more diff lines across {omittedHunks} hunk(s); use Read offset=… to inspect)"
+                : $"…(+{omitted} more diff lines)");
+        }
+
+        return sb.ToString().TrimEnd('\n', '\r');
+
+        void AppendLine(LineDiffEntry entry)
+        {
+            if (entry.Kind == ELineDiffKind.Hunk)
+            {
+                // 块头自带坐标，不套前缀/行号列，兼做块间分隔线
+                sb.AppendLine(entry.Text);
+                return;
+            }
+
             char prefix = entry.Kind switch
             {
                 ELineDiffKind.Added => '+',
@@ -213,9 +299,6 @@ public static class FileEditPlanner
             sb.Append(prefix).Append(entry.LineNumber.ToString().PadLeft(width)).Append(' ')
                 .AppendLine(entry.Text);
         }
-
-        if (diff.Count > shown) sb.Append($"…(+{diff.Count - shown} more diff lines)");
-        return sb.ToString().TrimEnd('\n', '\r');
     }
 
     // ---- 定位 ----
@@ -426,14 +509,21 @@ public static class FileEditPlanner
 
         int count = 0;
         int firstLine = -1;
+        bool sawNormalizedOnly = false; //至少一个命中窗口仅靠全角归一才匹配上
         for (int i = 0; i + keyCount <= lines.Count; i++)
         {
             bool hit = true;
+            bool exact = true;
             for (int j = 0; j < keyCount; j++)
             {
                 Line line = lines[i + j];
-                if (text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd()
-                    .SequenceEqual(pieces[j].AsSpan().TrimEnd())) continue;
+                ReadOnlySpan<char> fileLine = text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd();
+                ReadOnlySpan<char> anchor = pieces[j].AsSpan().TrimEnd();
+                if (fileLine.SequenceEqual(anchor)) continue;
+
+                exact = false;
+                // 受控全角归一兜底：白名单标点映射后再比一次（只影响判定，不落盘）
+                if (FullWidthNormalizedEquals(fileLine, anchor)) continue;
 
                 hit = false;
                 break;
@@ -442,15 +532,59 @@ public static class FileEditPlanner
             if (!hit) continue;
             if (firstLine < 0) firstLine = i;
             count++;
+            if (!exact) sawNormalizedOnly = true;
         }
 
         if (count == 0) return new Location(ELocateResult.NotFound, -1, -1, 0);
-        if (count > 1) return new Location(ELocateResult.NotUnique, -1, -1, count);
+        if (count > 1) return new Location(ELocateResult.NotUnique, -1, -1, count, sawNormalizedOnly);
 
         Line last = lines[firstLine + keyCount - 1];
         return new Location(ELocateResult.Found, lines[firstLine].Start,
             consumesTerminator ? last.End : last.ContentEnd, 1);
     }
+
+    /// <summary>
+    /// 受控全角归一：把白名单全角标点映射成半角后再比较（只影响判定，不落盘）。
+    /// 快速路径：两边都没有白名单字符就直接返回 false（不等），避免无谓扫描。
+    /// 映射是<b>逐个字符</b>的——不在白名单里的字符原样保留，因此长度不变。
+    /// </summary>
+    private static bool FullWidthNormalizedEquals(ReadOnlySpan<char> a, ReadOnlySpan<char> b)
+    {
+        if (a.Length != b.Length) return false;
+        if (!ContainsFullWidthPunctuation(a) && !ContainsFullWidthPunctuation(b)) return false;
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (MapFullWidth(a[i]) != MapFullWidth(b[i])) return false;
+        }
+
+        return true;
+    }
+
+    private static bool ContainsFullWidthPunctuation(ReadOnlySpan<char> s)
+    {
+        foreach (char c in s)
+        {
+            if (c is '，' or '。' or '：' or '；' or '（' or '）' or '！' or '？' or '\u3000') return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>白名单映射：只把无语义冲突的全角标点归成半角，其余原样保留（含长度不变）</summary>
+    private static char MapFullWidth(char c) => c switch
+    {
+        '，' => ',',
+        '。' => '.',
+        '：' => ':',
+        '；' => ';',
+        '（' => '(',
+        '）' => ')',
+        '！' => '!',
+        '？' => '?',
+        '　' => ' ',
+        _ => c,
+    };
 
     // ---- 应用与 diff ----
 
@@ -511,6 +645,25 @@ public static class FileEditPlanner
 
             if (cursor < regionEnd) sb.Append(text, cursor, regionEnd - cursor);
 
+            // 变更区（含块内上下文）行数：旧侧 = Removed + Context，新侧 = Added + Context。
+            // 整块内旧新行数差恰好是 delta 的来源，这里直接算出来填 hunk 头，不再猜。
+            List<LineDiffEntry> computed = LineDiff.Compute(
+                TrimOneTrailingNewLine(text[regionStart..regionEnd]),
+                TrimOneTrailingNewLine(sb.ToString()));
+            int oldBlockLines = computed.Count(e => e.Kind is ELineDiffKind.Removed or ELineDiffKind.Context);
+            int newBlockLines = computed.Count(e => e.Kind is ELineDiffKind.Added or ELineDiffKind.Context);
+
+            // hunk 头：声明旧/新两套坐标（+ 有 delta 偏移），兼作块与块之间的分隔线。
+            // 上下文行数前置/后置分别算，块头覆盖「前置上下文 + 变更区 + 后置上下文」整段。
+            int preContextLines = startLine - Math.Max(0, startLine - ContextLines);
+            int postContextLines = Math.Max(0,
+                Math.Min(lines.Count, endLine + 1 + ContextLines) - (endLine + 1));
+            int hunkOldStart = Math.Max(0, startLine - ContextLines) + 1;
+            int hunkNewStart = hunkOldStart + delta;
+            entries.Add(new LineDiffEntry(ELineDiffKind.Hunk,
+                BuildHunkHeader(hunkOldStart, preContextLines + oldBlockLines + postContextLines,
+                    hunkNewStart, preContextLines + newBlockLines + postContextLines)));
+
             // 前置上下文
             for (int c = Math.Max(0, startLine - ContextLines); c < startLine; c++)
             {
@@ -519,9 +672,7 @@ public static class FileEditPlanner
 
             int oldNo = startLine + 1;
             int newNo = oldNo + delta;
-            foreach (LineDiffEntry entry in LineDiff.Compute(
-                         TrimOneTrailingNewLine(text[regionStart..regionEnd]),
-                         TrimOneTrailingNewLine(sb.ToString())))
+            foreach (LineDiffEntry entry in computed)
             {
                 switch (entry.Kind)
                 {
@@ -550,6 +701,22 @@ public static class FileEditPlanner
         }
 
         return entries;
+    }
+
+    /// <summary>
+    /// 拼 unified diff 风格的块头。计数为 1 时省略（<c>-4</c> 而不是 <c>-4,1</c>），
+    /// 与 git diff 的输出习惯一致，模型见到的是它熟悉的形状。
+    /// 计数为 0（整块删光）时起始归 0（<c>+0,0</c>），也是 git 惯例。
+    /// </summary>
+    private static string BuildHunkHeader(int oldStart, int oldCount, int newStart, int newCount)
+    {
+        static string Range(int start, int count) => count switch
+        {
+            0 => "0,0",
+            1 => $"{start}",
+            _ => $"{start},{count}",
+        };
+        return $"@@ -{Range(oldStart, oldCount)} +{Range(newStart, newCount)} @@";
     }
 
     private static string TrimOneTrailingNewLine(string text)
@@ -610,7 +777,8 @@ public static class FileEditPlanner
     /// <param name="End">含行终止符的结束处</param>
     private readonly record struct Line(int Start, int ContentEnd, int End);
 
-    private readonly record struct Location(ELocateResult Kind, int Start, int End, int Count);
+    private readonly record struct Location(ELocateResult Kind, int Start, int End, int Count,
+        bool NormalizedAmbiguity = false);
 
     private readonly record struct Match(int Index, int Start, int End, string NewText);
 }

@@ -646,16 +646,17 @@ public sealed class DiffLineView
         string? filePath = GetString(args, "filePath");
         if (string.IsNullOrEmpty(filePath)) return [];
         if (args?.TryGetValue("edits", out object? value) != true) return [];
-        if (value is not JsonElement { ValueKind: JsonValueKind.Array } array) return [];
 
-        List<FileEdit> edits = [];
-        foreach (JsonElement edit in array.EnumerateArray())
+        // 与执行端同一份宽容解析(见 ToolJson.LenientFileEditListConverter):
+        // 模型把 edits 发成 JSON 字符串 / 单对象 / underscore 时,执行能成功,预览也必须认得,
+        // 否则出现"卡片空白、落盘成功"的盲盒——违背"预览=执行"不变量。
+        List<FileEdit>? edits = value switch
         {
-            string? oldString = GetJsonString(edit, "oldString") ?? GetJsonString(edit, "old_string");
-            string? newString = GetJsonString(edit, "newString") ?? GetJsonString(edit, "new_string");
-            if (oldString == null || newString == null) return [];
-            edits.Add(new FileEdit { OldString = oldString, NewString = newString });
-        }
+            JsonElement element => JsonSerializer.Deserialize<List<FileEdit>>(element.GetRawText(), ToolJson.Lenient),
+            string raw => JsonSerializer.Deserialize<List<FileEdit>>(raw, ToolJson.Lenient),
+            _ => null,
+        };
+        if (edits is not { Count: > 0 }) return [];
 
         string full = Path.IsPathRooted(filePath)
             ? filePath
@@ -671,12 +672,12 @@ public sealed class DiffLineView
         List<DiffLineView> lines = WithHeader(args);
         foreach (LineDiffEntry entry in plan.Diff)
         {
-            string text = $"{entry.LineNumber,5} {entry.Text}";
             lines.Add(entry.Kind switch
             {
-                ELineDiffKind.Added => Added(text),
-                ELineDiffKind.Removed => Removed(text),
-                _ => Context(text),
+                ELineDiffKind.Added => Added($"{entry.LineNumber,5} {entry.Text}"),
+                ELineDiffKind.Removed => Removed($"{entry.LineNumber,5} {entry.Text}"),
+                ELineDiffKind.Hunk => Context(entry.Text), //块头自带 @@ 标记，不套行号列
+                _ => Context($"{entry.LineNumber,5} {entry.Text}"),
             });
         }
 

@@ -22,6 +22,13 @@ public enum ELineDiffKind
 
     /// <summary>删除行</summary>
     Removed,
+
+    /// <summary>
+    /// 变更块头（unified diff 风格的 <c>@@ -旧起,旧数 +新起,新数 @@</c>）。
+    /// 声明该块的旧/新两套行号坐标，兼作块与块之间的分隔线。
+    /// 文本在 <see cref="LineDiffEntry.Text"/>，行号留 0，由知道位置的调用方（<c>FileEditPlanner</c>）填充。
+    /// </summary>
+    Hunk,
 }
 
 /// <summary>

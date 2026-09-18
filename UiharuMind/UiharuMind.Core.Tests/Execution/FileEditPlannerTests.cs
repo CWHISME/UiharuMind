@@ -211,6 +211,79 @@ public class FileEditPlannerTests
         Assert.Equal("void G()\n{\n}\n", NewTextOf(plan));
     }
 
+    /// <summary>模型把中文注释里的全角标点抄成半角（或反之）是常见错误，白名单归一要救回这类失败</summary>
+    [Fact]
+    public void FullWidthOldString_MatchesHalfWidthFileLine()
+    {
+        // 文件是半角注释，模型把 oldString 写成全角
+        FileEditPlan plan = Plan("// 注意:这里会阻塞\nvoid Send()\n{\n}\n",
+            ("// 注意：这里会阻塞\nvoid Send()\n{\n", "void Send()\n{\n    Log();\n"));
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.Equal("void Send()\n{\n    Log();\n}\n", NewTextOf(plan));
+    }
+
+    [Fact]
+    public void HalfWidthOldString_MatchesFullWidthFileLine()
+    {
+        // 文件是全角注释，模型把 oldString 写成半角（更常见：模型从记忆里抄，中文注释偏好全角）
+        FileEditPlan plan = Plan("// 注意：这里会阻塞\nvoid Send()\n{\n}\n",
+            ("// 注意:这里会阻塞\nvoid Send()\n{\n", "void Send()\n{\n    Log();\n"));
+
+        Assert.True(plan.Succeeded, plan.Error);
+        Assert.Equal("void Send()\n{\n    Log();\n}\n", NewTextOf(plan));
+    }
+
+    /// <summary>
+    /// 白名单边界：智能引号/破折号没有无语义冲突的半角对应，不归一。
+    /// “→" 会把注释里的引号与代码字符串混为一谈，那一步不能存在。
+    /// </summary>
+    [Fact]
+    public void QuotationMarks_AreNotNormalized()
+    {
+        FileEditPlan plan = Plan("// \"quoted\"\nx\n", ("// “quoted”\nx\n", "y\n"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("was not found", plan.Error);
+    }
+
+    [Fact]
+    public void EmDash_IsNotNormalized()
+    {
+        FileEditPlan plan = Plan("// a -- b\nx\n", ("// a — b\nx\n", "y\n"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("was not found", plan.Error);
+    }
+
+    /// <summary>
+    /// 文件同时存在全角与半角变体行时,归一会让两个窗口都命中——必须点破"差异只在标点",
+    /// 否则模型以为真有俩一模一样的块、去加上下文永远加不对。
+    /// 构造:文件里两处都是全角冒号,模型 oldString 抄成半角 → 精确 0 命中、归一两处命中。
+    /// </summary>
+    [Fact]
+    public void FullWidthAmbiguity_NotUnique_NamesPunctuationAsTheDifference()
+    {
+        FileEditPlan plan = Plan(
+            "// 注意：会阻塞\nvoid Send()\n{\n}\n// 注意：会阻塞\nvoid Send()\n{\n}\n",
+            ("// 注意:会阻塞\nvoid Send()\n{\n", "x\n"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("occurs 2 times", plan.Error);
+        Assert.Contains("differ only in full-width punctuation", plan.Error);
+    }
+
+    /// <summary>普通的多处命中（无全角参与）保持原话术，不误导模型</summary>
+    [Fact]
+    public void PlainAmbiguity_NotUnique_KeepsOriginalMessage()
+    {
+        FileEditPlan plan = Plan("same\nsame\n", ("same", "x"));
+
+        Assert.False(plan.Succeeded);
+        Assert.Contains("occurs 2 times", plan.Error);
+        Assert.DoesNotContain("full-width", plan.Error);
+    }
+
     /// <summary>模型一律按 \n 写，文件却可能是 CRLF。切行时两种终止符都不参与比较，差异结构性地被吸收</summary>
     [Fact]
     public void LfOldString_MatchesCrlfFile()
@@ -279,6 +352,44 @@ public class FileEditPlannerTests
         Assert.Equal(2, plan.Diff.Count(x => x.Kind == ELineDiffKind.Context && x.LineNumber > 4)); //后置上下文
     }
 
+    /// <summary>
+    /// 块头必须声明旧/新两套坐标，否则模型把 + 行（新坐标）和 - 行（旧坐标）当同一个坐标系，
+    /// 拿行号去文件里找就找错地方。这是之前实机踩过的问题，这里钉死。
+    /// </summary>
+    [Fact]
+    public void Diff_EmitsHunkHeader_DeclaringBothCoordinates()
+    {
+        // 单块：改 "old"（旧起行 4，旧 5 行）→ "new"（新起行 4，新 5 行）
+        FileEditPlan plan = Plan("l1\nl2\nl3\nold\nl5\nl6\n", ("old", "new"));
+
+        Assert.True(plan.Succeeded, plan.Error);
+        LineDiffEntry hunk = Assert.Single(plan.Diff, x => x.Kind == ELineDiffKind.Hunk);
+        Assert.Equal("@@ -2,5 +2,5 @@", hunk.Text);
+
+        // 渲染时 hunk 行整体输出，不带 + - 前缀或行号列
+        string rendered = FileEditPlanner.RenderDiff(plan.Diff, 100);
+        Assert.Contains("@@ -2,5 +2,5 @@", rendered);
+        Assert.DoesNotContain("+ 2 2", rendered);
+    }
+
+    /// <summary>
+    /// 多块时第二块的新起行必须带上前面块的行数偏移（delta），
+    /// 否则模型以为第二块改动落在旧文件的同一位置，行号错位。
+    /// </summary>
+    [Fact]
+    public void Diff_TwoHunks_SecondHeaderShiftsNewLineByDelta()
+    {
+        // 第一块把 1 行 "old1" 换成 2 行（新起同旧起 2，新 6 行）；
+        // 第二块在下面：旧起 7，但新文件里它已被前一块推后 1 行 → 新起 8。
+        FileEditPlan plan = Plan("l1\nl2\nl3\nold1\nl5\nl6\nl7\nl8\nold2\nl10\n",
+            ("old1", "new1\nnew1b"), ("old2", "x"));
+
+        Assert.True(plan.Succeeded, plan.Error);
+        string[] hunkTexts = plan.Diff.Where(x => x.Kind == ELineDiffKind.Hunk)
+            .Select(x => x.Text).ToArray();
+        Assert.Equal(["@@ -2,5 +2,6 @@", "@@ -7,4 +8,4 @@"], hunkTexts);
+    }
+
     /// <summary>两处改动挨得近时并成一块：中间的 b/c 各出现一次，而不是被两块的上下文各带一遍</summary>
     [Fact]
     public void Diff_MergesNearbyHunks()
@@ -288,6 +399,86 @@ public class FileEditPlannerTests
         Assert.True(plan.Succeeded, plan.Error);
         Assert.Equal([2, 3],
             plan.Diff.Where(x => x.Kind == ELineDiffKind.Context).Select(x => x.LineNumber).ToArray());
+    }
+
+    /// <summary>
+    /// 截断预算不够时,后一块<b>保留 hunk 头但内容放弃</b>——模型至少知道"这里还有一块"
+    /// 及其坐标,不会拿到"有身无头"或"有头无身"。折叠提示带块数与 Read 指引。
+    /// </summary>
+    /// <summary>整文件被一个块删光时,新侧是 0 行,git 惯例是 <c>+0,0</c> 而不是 <c>+1,0</c></summary>
+    [Fact]
+    public void Diff_EntireFileDeleted_UsesZeroZeroForNewSide()
+    {
+        FileEditPlan plan = Plan("l1\nl2\nold\nl4\n", ("l1\nl2\nold\nl4\n", ""));
+
+        Assert.True(plan.Succeeded, plan.Error);
+        LineDiffEntry hunk = Assert.Single(plan.Diff, x => x.Kind == ELineDiffKind.Hunk);
+        Assert.EndsWith(" +0,0 @@", hunk.Text);
+    }
+
+    [Fact]
+    public void RenderDiff_Truncation_KeepsHunkHeadersWhole()
+    {
+        List<LineDiffEntry> diff =
+        [
+            new(ELineDiffKind.Hunk, "@@ -1,5 +1,5 @@"),
+            new(ELineDiffKind.Context, "c1", 1),
+            new(ELineDiffKind.Removed, "old", 2),
+            new(ELineDiffKind.Added, "new", 2),
+            new(ELineDiffKind.Hunk, "@@ -10,3 +10,3 @@"),
+            new(ELineDiffKind.Context, "c2", 10),
+            new(ELineDiffKind.Removed, "old2", 11),
+            new(ELineDiffKind.Added, "new2", 11),
+        ];
+
+        // 预算 5:第一块 4 行放下,第二块 4 行放不下 → 保留头、内容放弃
+        string rendered = FileEditPlanner.RenderDiff(diff, 5);
+        Assert.Contains("@@ -1,5 +1,5 @@", rendered);
+        Assert.Contains("@@ -10,3 +10,3 @@", rendered); //第二块头保留,说明"这里还有一块"
+        Assert.DoesNotContain("old2", rendered); //第二块内容放弃,不出现半截
+        Assert.Contains("+3 more diff lines across 1 hunk(s)", rendered); //内容 3 行 + 块数
+    }
+
+    /// <summary>
+    /// 单块超大（内容行数超过预算）时,不能只给头不给内容——否则模型对大编辑完全无感、
+    /// 自纠能力归零。必须从头给尽可能多的内容行,并提示剩余行数与 Read 定位。
+    /// </summary>
+    [Fact]
+    public void RenderDiff_Truncation_LargeSingleHunk_ShowsHeadContent()
+    {
+        List<LineDiffEntry> diff =
+        [
+            new(ELineDiffKind.Hunk, "@@ -1,10 +1,10 @@"),
+            new(ELineDiffKind.Context, "c1", 1),
+            new(ELineDiffKind.Removed, "old2", 2),
+            new(ELineDiffKind.Added, "new2", 2),
+            new(ELineDiffKind.Context, "c3", 3),
+            new(ELineDiffKind.Context, "c4", 4),
+            new(ELineDiffKind.Context, "c5", 5),
+            new(ELineDiffKind.Context, "c6", 6),
+            new(ELineDiffKind.Context, "c7", 7),
+            new(ELineDiffKind.Context, "c8", 8),
+        ];
+
+        // 预算 5:头 + 4 行内容,剩余 5 行折叠(提示带 Read 指引)
+        string rendered = FileEditPlanner.RenderDiff(diff, 5);
+        Assert.Contains("@@ -1,10 +1,10 @@", rendered);
+        Assert.Contains("old2", rendered); //头几行内容要给到
+        Assert.Contains("new2", rendered);
+        Assert.DoesNotContain("c7", rendered); //超出预算的行不给
+        Assert.Contains("+5 more diff lines across 1 hunk(s); use Read offset=… to inspect", rendered);
+    }
+
+    [Fact]
+    public void RenderDiff_Truncation_WithoutHunks_FallsBackToLineTruncation()
+    {
+        // 无 hunk 头(非本工具产物):保持旧的逐行截断行为
+        List<LineDiffEntry> diff = Enumerable.Range(1, 6)
+            .Select(i => new LineDiffEntry(ELineDiffKind.Added, $"line{i}", i)).ToList();
+
+        string rendered = FileEditPlanner.RenderDiff(diff, 3);
+        Assert.Equal(4, rendered.Split('\n').Length); //3 行 + 折叠提示
+        Assert.Contains("+3 more diff lines", rendered);
     }
 
     [Fact]
