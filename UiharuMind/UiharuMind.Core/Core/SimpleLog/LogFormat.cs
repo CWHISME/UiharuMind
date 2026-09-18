@@ -32,13 +32,13 @@ public static class LogFormat
     public const long MainMaxBytes = 8L * 1024 * 1024;
 
     /// <summary>主流保留代数，含当前代</summary>
-    public const int MainGenerations = 3;
+    public const int MainGenerations = 10;
 
     /// <summary>外置正文单文件上限</summary>
     public const long BodiesMaxBytes = 64L * 1024 * 1024;
 
     /// <summary>外置正文保留代数，含当前代</summary>
-    public const int BodiesGenerations = 2;
+    public const int BodiesGenerations = 10;
 
     /// <summary>启动时清理多少天前的日志文件</summary>
     public const int RetentionDays = 7;
