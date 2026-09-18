@@ -91,7 +91,7 @@ public partial class SessionListItem : ObservableObject
     {
         get
         {
-            if (!HasWorkspace) return Lang.AgentWorkspaceNone;
+            if (!HasWorkspace) return Loc.Text(LangKey.AgentWorkspaceNone);
             string trimmed = WorkspaceFullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             return Path.GetFileName(trimmed);
         }
@@ -274,7 +274,7 @@ public partial class SessionListItem : ObservableObject
     [RelayCommand(CanExecute = nameof(CanMutateFiles))]
     public async Task ClearChatHistory()
     {
-        if (!await _messageService.ConfirmAsync(Lang.ClearTips)) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.ClearTips))) return;
         // 时间不在这里手写:Clear 会落盘,列表随 OnSessionMetaUpdated 对帐并刷新这一行
         Session.Clear();
         Mutated?.Invoke(this);
@@ -289,7 +289,7 @@ public partial class SessionListItem : ObservableObject
     [RelayCommand]
     public async Task Rename()
     {
-        string? result = await UIManager.ShowStringEditWindow(_meta.Title, title: Lang.EditSessionTitleTitle);
+        string? result = await UIManager.ShowStringEditWindow(_meta.Title, title: Loc.Text(LangKey.EditSessionTitleTitle));
         if (string.IsNullOrWhiteSpace(result) || result == _meta.Title) return;
 
         // 标题是纯显示字段:改名不动文件、不删不加。
@@ -310,7 +310,7 @@ public partial class SessionListItem : ObservableObject
     [RelayCommand(CanExecute = nameof(CanMutateFiles))]
     public async Task Delete()
     {
-        if (!await _messageService.ConfirmAsync(Lang.DeleteTips)) return;
+        if (!await _messageService.ConfirmAsync(Loc.Text(LangKey.DeleteTips))) return;
         // 按标识删除,不加载本体
         SessionManager.Instance.Delete(_meta.SessionId);
         Deleted?.Invoke(this);

@@ -18,6 +18,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
@@ -30,7 +31,7 @@ namespace UiharuMind.Features.Settings;
 public partial class DownloadListViewData : ObservableObject
 {
     protected readonly IMessageService MessageService;
-    private string _downloadedActionText = Lang.OpenDirectory;
+    private string _downloadedActionText = Loc.Text(LangKey.OpenDirectory);
 
     public DownloadListViewData() : this(App.Services.GetRequiredService<IMessageService>())
     {
@@ -251,7 +252,7 @@ public partial class DownloadListViewData : ObservableObject
 
     protected string GetDeleteConfirmMessage()
     {
-        return DeleteConfirmMessageProvider?.Invoke() ?? Lang.ConfirmDeleteRuntimeEngine;
+        return DeleteConfirmMessageProvider?.Invoke() ?? Loc.Text(LangKey.ConfirmDeleteRuntimeEngine);
     }
 
     protected void NotifyDownloadFileChanged()

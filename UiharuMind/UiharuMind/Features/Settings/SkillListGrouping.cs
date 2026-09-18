@@ -13,6 +13,8 @@ using System.Linq;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Settings;
 
@@ -36,7 +38,7 @@ public static class SkillGrouping
             .Select(entry => (entry, path: Split(entry.RelativePath)))
             .GroupBy(x => PackageOf(x.path), StringComparer.Ordinal)
             .Select(package => new SkillGroupItem(
-                package.Key.Length > 0 ? package.Key : Lang.AgentSkillsLocalGroup,
+                package.Key.Length > 0 ? package.Key : Loc.Text(LangKey.AgentSkillsLocalGroup),
                 package.Key.Length == 0,
                 package
                     .GroupBy(x => CategoryOf(x.path), StringComparer.Ordinal)
@@ -150,8 +152,8 @@ public class SkillDisplayItem
         LoadFailureHint = entry.LoadState switch
         {
             ESkillLoadState.DuplicateName =>
-                string.Format(Lang.AgentSkillsDuplicateHint, entry.DuplicateOfPath),
-            ESkillLoadState.Invalid => Lang.AgentSkillsNotLoadedHint,
+                Loc.Text(LangKey.AgentSkillsDuplicateHint, entry.DuplicateOfPath),
+            ESkillLoadState.Invalid => Loc.Text(LangKey.AgentSkillsNotLoadedHint),
             _ => string.Empty,
         };
     }

@@ -29,9 +29,14 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
     private const string RootNamespaceProperty = "build_property:LangKeysRootNamespace";
     private const string GeneratedFileMarker = "LangKey.g.cs";
 
-    // XAML: {loc:Loc Key} / {loc:Loc Key, SettingProperty=X}
+    // XAML: {前缀:Loc Key}（loc:Loc / markup:Loc 等任意前缀）
     private static readonly Regex AxamlKeyPattern = new(
-        @"\{loc:Loc\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:,|\})",
+        @"\{[A-Za-z_][A-Za-z0-9_]*:Loc\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:,|\})",
+        RegexOptions.CultureInvariant);
+
+    // C# Designer 属性引用（过渡期 Lang.X；ResourceManager/Culture 是运行时内部成员，排除）
+    private static readonly Regex DesignerPropertyPattern = new(
+        @"\bLang\.(?!ResourceManager\b|Culture\b)([A-Z][A-Za-z0-9_]*)\b",
         RegexOptions.CultureInvariant);
 
     // C# 强类型引用: LangKey.Member
@@ -227,6 +232,11 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
 
             var text = tree.GetText().ToString();
             foreach (Match match in EnumUsagePattern.Matches(text))
+            {
+                usedKeys.Add(match.Groups[1].Value);
+            }
+
+            foreach (Match match in DesignerPropertyPattern.Matches(text))
             {
                 usedKeys.Add(match.Groups[1].Value);
             }

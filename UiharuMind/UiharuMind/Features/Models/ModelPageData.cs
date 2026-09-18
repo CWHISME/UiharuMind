@@ -20,6 +20,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -139,8 +140,8 @@ public partial class ModelPageData : PageDataBase
         ModelSettingConfig.Current.Save();
 
         _messageService.ShowNotification(isRemove
-            ? string.Format(Lang.FavoriteRemoteModelDelTips, name)
-            : string.Format(Lang.FavoriteRemoteModelSetTips, name));
+            ? Loc.Text(LangKey.FavoriteRemoteModelDelTips, name)
+            : Loc.Text(LangKey.FavoriteRemoteModelSetTips, name));
     }
 
     partial void OnModelPathChanged(string? value)

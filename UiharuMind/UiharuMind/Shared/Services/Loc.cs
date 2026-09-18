@@ -33,9 +33,34 @@ public static class Loc
     public static string Text(string key) => LocalizationManager.Instance.GetString(key);
 
     /// <summary>
+    /// 取当前语言下的文案并格式化（格式串支持占位符）
+    /// </summary>
+    /// <param name="key">资源键</param>
+    /// <param name="args">格式化参数</param>
+    /// <returns>文案；键不存在时原样返回该键</returns>
+    public static string Text(string key, params object[] args)
+    {
+        var format = LocalizationManager.Instance.GetString(key);
+        if (args.Length == 0 || !format.Contains('{'))
+        {
+            return format;
+        }
+
+        return string.Format(format, args);
+    }
+
+    /// <summary>
     /// 取当前语言下的文案（强类型入口，成员名即资源键）
     /// </summary>
     /// <param name="key">资源键（枚举成员）</param>
     /// <returns>文案；键不存在时原样返回该键</returns>
     public static string Text(LangKey key) => LocalizationManager.Instance.GetString(key);
+
+    /// <summary>
+    /// 取当前语言下的文案并格式化（强类型入口，成员名即资源键）
+    /// </summary>
+    /// <param name="key">资源键（枚举成员）</param>
+    /// <param name="args">格式化参数</param>
+    /// <returns>文案；键不存在时原样返回该键</returns>
+    public static string Text(LangKey key, params object[] args) => Text(key.ToString(), args);
 }

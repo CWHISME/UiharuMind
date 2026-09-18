@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -109,7 +110,7 @@ public partial class CharacterInfoViewData : ObservableObject
     public async Task DeleteCharacter()
     {
         if (await _messageService.ConfirmAsync(
-                string.Format(Lang.CharacterDeleteTips, _characterData.CharacterName)))
+                Loc.Text(LangKey.CharacterDeleteTips, _characterData.CharacterName)))
             _characterData.Delete();
     }
 
@@ -117,7 +118,7 @@ public partial class CharacterInfoViewData : ObservableObject
     public async Task CopyCharacter()
     {
         if (await _messageService.ConfirmAsync(
-                string.Format(Lang.CharacterCopyTips, _characterData.CharacterName)))
+                Loc.Text(LangKey.CharacterCopyTips, _characterData.CharacterName)))
             _characterData.Copy();
     }
 }

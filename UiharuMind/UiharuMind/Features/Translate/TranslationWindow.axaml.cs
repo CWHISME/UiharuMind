@@ -12,6 +12,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.UIHolder;
 using UiharuMind.Shared.Windows;
@@ -54,7 +56,7 @@ public partial class TranslationWindow : UiharuWindowBase
         IsFinished = true;
 
         var cultures = CultureInfo.GetCultures(CultureTypes.NeutralCultures);
-        _languages.Add(Lang.AutoDetect);
+        _languages.Add(Loc.Text(LangKey.AutoDetect));
         foreach (var culture in cultures)
         {
             if (string.IsNullOrEmpty(culture.Name)) continue;

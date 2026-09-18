@@ -149,7 +149,7 @@ public partial class AutoClickWindow : UiharuWindowBase
     private async void RenameSessionMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         if (((Control)e.Source!).DataContext is not AutoClickSession session) return;
-        var result = await UIManager.ShowStringEditWindow(session.Name, this, Lang.RenameTitle);
+        var result = await UIManager.ShowStringEditWindow(session.Name, this, Loc.Text(LangKey.RenameTitle));
         if (!string.IsNullOrWhiteSpace(result))
         {
             _viewModel.RenameSession(session, result);

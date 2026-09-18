@@ -15,6 +15,8 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.Clipboard;
 
@@ -231,10 +233,10 @@ public partial class ClipboardHistoryViewModel : ViewModelBase
         if (IsSearchActive || IsImageFilterActive || IsFavoriteFilterActive)
         {
             string loaded = _hasMore ? $"{Items.Count}+" : Items.Count.ToString();
-            Title = string.Format(Lang.ClipboardHistoryCount, $"{loaded}/{total}");
+            Title = Loc.Text(LangKey.ClipboardHistoryCount, $"{loaded}/{total}");
             return;
         }
 
-        Title = string.Format(Lang.ClipboardHistoryCount, total);
+        Title = Loc.Text(LangKey.ClipboardHistoryCount, total);
     }
 }

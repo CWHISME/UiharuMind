@@ -7,6 +7,8 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Rendering;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.ScreenCapture.Ocr;
 
@@ -66,8 +68,8 @@ public sealed class OcrTextSelectionLayer : Panel, ICustomHitTest
         _flyout = new MenuFlyout { ItemsSource = new[] { _copyItem, selectAllItem } };
         _flyout.Opening += (_, _) =>
         {
-            _copyItem.Header = Lang.Copy;
-            selectAllItem.Header = Lang.PreviewOcr_SelectAll;
+            _copyItem.Header = Loc.Text(LangKey.Copy);
+            selectAllItem.Header = Loc.Text(LangKey.PreviewOcr_SelectAll);
             _copyItem.IsEnabled = SelectedText.Length > 0;
         };
         // 菜单挂在层上：行块不参与命中，右键事件的 Source 就是本层，Control 会就地抛 ContextRequested

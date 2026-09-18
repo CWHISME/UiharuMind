@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
@@ -234,12 +235,12 @@ public partial class CharacterDraft : ObservableObject
         {
             if (!CharacterManager.Instance.TryAddNewCharacterData(_draft))
             {
-                _ = _messageService.ShowErrorAsync(Lang.AddDuplicateCharacterTips);
+                _ = _messageService.ShowErrorAsync(Loc.Text(LangKey.AddDuplicateCharacterTips));
                 return false;
             }
 
             _origin = _draft; //已入库,此后再提交走「盖回活实例」那条路
-            _messageService.ShowNotification(Lang.AddCharacterSuccessTips, severity: MessageSeverity.Success);
+            _messageService.ShowNotification(Loc.Text(LangKey.AddCharacterSuccessTips), severity: MessageSeverity.Success);
         }
         else
         {
@@ -261,7 +262,7 @@ public partial class CharacterDraft : ObservableObject
     {
         if (string.IsNullOrEmpty(_draft.CharacterName))
         {
-            _ = _messageService.ShowErrorAsync(Lang.CharacterEmptyNameTips);
+            _ = _messageService.ShowErrorAsync(Loc.Text(LangKey.CharacterEmptyNameTips));
             return false;
         }
 

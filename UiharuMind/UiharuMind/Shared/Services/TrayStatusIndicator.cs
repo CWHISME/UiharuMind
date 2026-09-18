@@ -21,6 +21,8 @@ using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Shared.Services;
 
@@ -136,8 +138,8 @@ public sealed class TrayStatusIndicator : IDisposable
         if (icon != null) _trayIcon.Icon = icon;
         _trayIcon.ToolTipText = status switch
         {
-            ETrayStatus.AwaitingApproval => Lang.SubAgentApprovalWaiting,
-            ETrayStatus.Running => Lang.AgentStatusRunning,
+            ETrayStatus.AwaitingApproval => Loc.Text(LangKey.SubAgentApprovalWaiting),
+            ETrayStatus.Running => Loc.Text(LangKey.AgentStatusRunning),
             _ => AppInfo.Name,
         };
     }

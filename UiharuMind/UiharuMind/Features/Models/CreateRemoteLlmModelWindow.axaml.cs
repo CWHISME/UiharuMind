@@ -12,6 +12,7 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.Configs.RemoteAI;
 using UiharuMind.Core.Core.Extensions;
 using UiharuMind.Core.RemoteOpenAI;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Models;
@@ -258,7 +259,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
 
         Providers.Add(new ProviderItem
         {
-            Name = Lang.CustomConfig,
+            Name = Loc.Text(LangKey.CustomConfig),
             DefaultEndpoint = "",
             ConfigType = typeof(RemoteModelConfig),
         });

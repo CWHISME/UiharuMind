@@ -28,6 +28,17 @@ public class GeneratorDiagnosticsTests
     }
 
     [Fact]
+    public void Generate_UnknownKeyWithOtherPrefix_ReportsLk2001()
+    {
+        // markup:Loc 是仓库另一处用到的同款标记扩展前缀，同样要拦截
+        var diagnostics = Run(
+            "View.axaml",
+            """<Window xmlns="https://github.com/avaloniaui"><TextBlock Text="{markup:Loc NoSuchKey}" /></Window>""");
+
+        Assert.Contains(diagnostics, d => d.Id == "LK2001" && d.Severity == DiagnosticSeverity.Error);
+    }
+
+    [Fact]
     public void Generate_UnusedKey_ReportsLk2002()
     {
         var diagnostics = Run(

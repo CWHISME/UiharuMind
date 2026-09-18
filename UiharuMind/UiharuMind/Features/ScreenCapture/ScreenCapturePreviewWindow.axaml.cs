@@ -21,6 +21,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
@@ -418,7 +419,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     private void BeginRecognize()
     {
         if (ImageSource == null || !OcrSupported) return;
-        ShowOcrTip(Lang.PreviewOcr_Recognizing, autoHide: false);
+        ShowOcrTip(Loc.Text(LangKey.PreviewOcr_Recognizing), autoHide: false);
         _ = RunOcrAsync(_ocrGeneration, ImageSource);
     }
 
@@ -432,7 +433,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             OcrLoadingBar.IsVisible = false;
             if (lines.Count == 0)
             {
-                ShowOcrTip(Lang.PreviewOcr_NoText, autoHide: true);
+                ShowOcrTip(Loc.Text(LangKey.PreviewOcr_NoText), autoHide: true);
                 return;
             }
 
@@ -473,7 +474,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
 
         string preview = text.Length > 42 ? text[..42] + "…" : text.Replace("\n", " ");
         App.Services.GetRequiredService<IMessageService>()
-            .ShowNotification($"{Lang.PreviewOcr_Copied}：{preview}", severity: MessageSeverity.Success);
+            .ShowNotification($"{Loc.Text(LangKey.PreviewOcr_Copied)}：{preview}", severity: MessageSeverity.Success);
     }
 
     protected override void OnClosed(EventArgs e)

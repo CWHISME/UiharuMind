@@ -2770,4 +2770,224 @@ Allow them?</value>
     <data name="RadialMenuTextEditor" xml:space="preserve">
         <value>Text Editor</value>
     </data>
+
+    <data name="AddCharacterSuccessTips" xml:space="preserve">
+        <value>Add Character Successfully!</value>
+    </data>
+
+    <data name="AddDuplicateCharacterTips" xml:space="preserve">
+        <value>Duplicate Character,Edit?</value>
+    </data>
+
+    <data name="AgentSkillsDuplicateHint" xml:space="preserve">
+        <value>Not loaded: another skill with the same name was found first, at {0}. Remove one of the two.</value>
+    </data>
+
+    <data name="AgentSkillsLocalGroup" xml:space="preserve">
+        <value>Local skills</value>
+    </data>
+
+    <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
+        <value>Rejected by the SKILL.md spec check — the skill name must match its directory name. See the log for the exact reason.</value>
+    </data>
+
+    <data name="All" xml:space="preserve">
+        <value>All</value>
+    </data>
+
+    <data name="AutoDetect" xml:space="preserve">
+        <value>Auto Detect</value>
+    </data>
+
+    <data name="CharacterCopyTips" xml:space="preserve">
+        <value />
+    </data>
+
+    <data name="CharacterDeleteTips" xml:space="preserve">
+        <value />
+    </data>
+
+    <data name="CharacterEditorDirtyTips" xml:space="preserve">
+        <value>This character has unsaved changes. Save them?</value>
+    </data>
+
+    <data name="CharacterEditorDiscardTips" xml:space="preserve">
+        <value>Discard the unsaved changes to this character?</value>
+    </data>
+
+    <data name="CharacterEmptyNameTips" xml:space="preserve">
+        <value>Character Name is Null!</value>
+    </data>
+
+    <data name="CharacterKindUserCard" xml:space="preserve">
+        <value>User card</value>
+    </data>
+
+    <data name="ClearTips" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+
+    <data name="ClipboardHistoryCount" xml:space="preserve">
+        <value>Count: {0}</value>
+    </data>
+
+    <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+
+    <data name="CopyLink" xml:space="preserve">
+        <value>Copy link</value>
+    </data>
+
+    <data name="CustomConfig" xml:space="preserve">
+        <value>CustomConfig</value>
+    </data>
+
+    <data name="Decompressing" xml:space="preserve">
+        <value>Decompressing</value>
+    </data>
+
+    <data name="DefaultQuickChatTitle" xml:space="preserve">
+        <value>Answer</value>
+    </data>
+
+    <data name="DeleteAllClipboardHistoryTips" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+
+    <data name="DeleteTips" xml:space="preserve">
+        <value>Are you sure?</value>
+    </data>
+
+    <data name="EditMessageTitle" xml:space="preserve">
+        <value>Edit message</value>
+    </data>
+
+    <data name="EditSessionTitleTitle" xml:space="preserve">
+        <value>Edit session title</value>
+    </data>
+
+    <data name="FavoriteRemoteModelDelTips" xml:space="preserve">
+        <value>Remove favorite remote model {0} successfully.</value>
+    </data>
+
+    <data name="FavoriteRemoteModelSetTips" xml:space="preserve">
+        <value>Set favorite remote model {0} successfully.</value>
+    </data>
+
+    <data name="MemoryIndexLastError" xml:space="preserve">
+        <value>Last error: </value>
+    </data>
+
+    <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
+        <value>Knowledge index database is unavailable.</value>
+    </data>
+
+    <data name="MemorySourceEmpty" xml:space="preserve">
+        <value>The text entry is empty.</value>
+    </data>
+
+    <data name="MemorySourceEncodingUnknown" xml:space="preserve">
+        <value>The file encoding could not be detected reliably.</value>
+    </data>
+
+    <data name="MemorySourceFileMissing" xml:space="preserve">
+        <value>The file no longer exists.</value>
+    </data>
+
+    <data name="MemorySourceNotPlainText" xml:space="preserve">
+        <value>The selected file is not a valid plain text file.</value>
+    </data>
+
+    <data name="MemorySourceReadFailed" xml:space="preserve">
+        <value>The file could not be read.</value>
+    </data>
+
+    <data name="MemorySourceUnsupported" xml:space="preserve">
+        <value>This knowledge source type is not supported.</value>
+    </data>
+
+    <data name="MemoryTitle" xml:space="preserve">
+        <value>Knowledge base:</value>
+    </data>
+
+    <data name="MenuAgentKey" xml:space="preserve">
+        <value>Agent</value>
+    </data>
+
+    <data name="MenuCharacterKey" xml:space="preserve">
+        <value>Character</value>
+    </data>
+
+    <data name="MenuChatKey" xml:space="preserve">
+        <value>Chat</value>
+    </data>
+
+    <data name="MenuLogKey" xml:space="preserve">
+        <value>Log</value>
+    </data>
+
+    <data name="MenuModelKey" xml:space="preserve">
+        <value>Model</value>
+    </data>
+
+    <data name="MessageErrorTitle" xml:space="preserve">
+        <value>Error</value>
+    </data>
+
+    <data name="MessageWarningTitle" xml:space="preserve">
+        <value>Warning</value>
+    </data>
+
+    <data name="NoMemory" xml:space="preserve">
+        <value>No knowledge base</value>
+    </data>
+
+    <data name="OpenLink" xml:space="preserve">
+        <value>Open link</value>
+    </data>
+
+    <data name="PreviewOcr_Copied" xml:space="preserve">
+        <value>Copied</value>
+    </data>
+
+    <data name="PreviewOcr_NoText" xml:space="preserve">
+        <value>No text in image</value>
+    </data>
+
+    <data name="PreviewOcr_SelectAll" xml:space="preserve">
+        <value>Select All</value>
+    </data>
+
+    <data name="RenameTitle" xml:space="preserve">
+        <value>Rename</value>
+    </data>
+
+    <data name="ScreenCapturePosition" xml:space="preserve">
+        <value>Position</value>
+    </data>
+
+    <data name="ScreenCaptureResolution" xml:space="preserve">
+        <value>Resolution</value>
+    </data>
+
+    <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
+        <value>Open the sub-agent panel to decide. It is denied automatically if nobody answers.</value>
+    </data>
+
+    <data name="SubAgentLongRunning" xml:space="preserve">
+        <value>A sub-agent has been running for a long time</value>
+    </data>
+
+    <data name="SyntacticAnalysis" xml:space="preserve">
+        <value>Syntactic Analysis</value>
+    </data>
+
+    <data name="Think" xml:space="preserve">
+        <value>Think</value>
+    </data>
+
+    <data name="ToggleTextWrap" xml:space="preserve">
+        <value>Toggle text wrap</value>
+    </data>
 </root>

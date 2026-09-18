@@ -5,6 +5,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Conversation.SessionList;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Conversation.SidePanels;
 
@@ -20,14 +22,14 @@ public partial class TranslationPanel : UserControl
 public partial class TranslationViewData : ObservableObject
 {
     [ObservableProperty] private List<string> _languages = new List<string>();
-    [ObservableProperty] private string _selectedLanguage = Lang.AutoDetect;
+    [ObservableProperty] private string _selectedLanguage = Loc.Text(LangKey.AutoDetect);
 
     private SessionListItem? _session;
 
     public TranslationViewData()
     {
         var cultures = CultureInfo.GetCultures(CultureTypes.NeutralCultures);
-        _languages.Add(Lang.AutoDetect);
+        _languages.Add(Loc.Text(LangKey.AutoDetect));
         foreach (var culture in cultures)
         {
             if (string.IsNullOrEmpty(culture.Name)) continue;
@@ -49,7 +51,7 @@ public partial class TranslationViewData : ObservableObject
 
         if (lastLanguage == null)
         {
-            SelectedLanguage = Lang.AutoDetect;
+            SelectedLanguage = Loc.Text(LangKey.AutoDetect);
             return;
         }
 
@@ -62,7 +64,7 @@ public partial class TranslationViewData : ObservableObject
     {
         if (_session == null) return; //回填期之外不会走到这里,防的是没会话时被绑定触发
 
-        if (value == Lang.AutoDetect)
+        if (value == Loc.Text(LangKey.AutoDetect))
         {
             _session.Session.CustomParams.Remove(CharacterData.ParamsNameLanguage);
             return;

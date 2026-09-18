@@ -17,6 +17,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
@@ -60,7 +61,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
         RemoteDwnloadListViewModel = new DownloadListViewData(messageService)
         {
             DownloadCompletedHandler = OnRuntimeEngineDownloadCompleted,
-            DeleteConfirmMessageProvider = () => Lang.ConfirmDeleteRuntimeEngine
+            DeleteConfirmMessageProvider = () => Loc.Text(LangKey.ConfirmDeleteRuntimeEngine)
         };
         _ = InitializeAvailableVersions();
         RemoteDwnloadListViewModel.OnDownloadFileChange += () => _ = InitializeAvailableVersions();
@@ -142,7 +143,7 @@ public partial class RuntimeEngineSettingData : ObservableObject
         // runtime engine 发布包可能是 zip/tar 等格式，统一交给 SharpCompress 工具处理。
         var version = (VersionInfo)item.Target;
         item.IsDownloading = true;
-        item.DownloadInfo = Lang.Decompressing + item.DownloadInfo;
+        item.DownloadInfo = Loc.Text(LangKey.Decompressing) + item.DownloadInfo;
         await SimpleArchiveHelper.ExtractArchiveAsync(item.DownloadFilePath, version.InstallDirectory, true);
         item.IsDownloading = false;
         item.InitFileSize();

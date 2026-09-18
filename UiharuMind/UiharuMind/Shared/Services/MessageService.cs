@@ -44,7 +44,7 @@ public sealed class MessageService : IMessageService, IDisposable
         string? title = null,
         CancellationToken cancellationToken = default)
     {
-        await EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+        await EnqueueDialogAsync(message, title ?? Loc.Text(LangKey.MessageInfoTitle),
             MessageBoxIcon.Information, MessageBoxButton.OK, cancellationToken);
     }
 
@@ -53,7 +53,7 @@ public sealed class MessageService : IMessageService, IDisposable
         string? title = null,
         CancellationToken cancellationToken = default)
     {
-        await EnqueueDialogAsync(message, title ?? Lang.MessageWarningTitle,
+        await EnqueueDialogAsync(message, title ?? Loc.Text(LangKey.MessageWarningTitle),
             MessageBoxIcon.Warning, MessageBoxButton.OK, cancellationToken);
     }
 
@@ -62,7 +62,7 @@ public sealed class MessageService : IMessageService, IDisposable
         string? title = null,
         CancellationToken cancellationToken = default)
     {
-        await EnqueueDialogAsync(message, title ?? Lang.MessageErrorTitle,
+        await EnqueueDialogAsync(message, title ?? Loc.Text(LangKey.MessageErrorTitle),
             MessageBoxIcon.Error, MessageBoxButton.OK, cancellationToken);
     }
 
@@ -71,7 +71,7 @@ public sealed class MessageService : IMessageService, IDisposable
         string? title = null,
         CancellationToken cancellationToken = default)
     {
-        MessageBoxResult result = await EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+        MessageBoxResult result = await EnqueueDialogAsync(message, title ?? Loc.Text(LangKey.MessageInfoTitle),
             MessageBoxIcon.Question, MessageBoxButton.YesNo, cancellationToken);
         return result == MessageBoxResult.Yes;
     }
@@ -81,7 +81,7 @@ public sealed class MessageService : IMessageService, IDisposable
         string? title = null,
         CancellationToken cancellationToken = default)
     {
-        MessageBoxResult result = await EnqueueDialogAsync(message, title ?? Lang.MessageInfoTitle,
+        MessageBoxResult result = await EnqueueDialogAsync(message, title ?? Loc.Text(LangKey.MessageInfoTitle),
             MessageBoxIcon.Question, MessageBoxButton.YesNoCancel, cancellationToken);
         return result switch
         {
@@ -328,9 +328,9 @@ public sealed class MessageService : IMessageService, IDisposable
     private static string GetDefaultTitle(MessageSeverity severity) => severity switch
     {
         MessageSeverity.Success => Loc.Text(LangKey.MessageSuccessTitle),
-        MessageSeverity.Warning => Lang.MessageWarningTitle,
-        MessageSeverity.Error => Lang.MessageErrorTitle,
-        _ => Lang.MessageInfoTitle
+        MessageSeverity.Warning => Loc.Text(LangKey.MessageWarningTitle),
+        MessageSeverity.Error => Loc.Text(LangKey.MessageErrorTitle),
+        _ => Loc.Text(LangKey.MessageInfoTitle)
     };
 
     private static TimeSpan GetNotificationDuration(MessageSeverity severity) =>

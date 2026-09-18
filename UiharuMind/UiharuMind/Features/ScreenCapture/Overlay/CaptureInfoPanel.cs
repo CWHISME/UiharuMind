@@ -4,6 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Platform;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.ScreenCapture.Overlay;
@@ -97,9 +99,9 @@ internal sealed class CaptureInfoPanel
                 (int)(screen.Bounds.Width * boundsToPixels));
             int y = Math.Clamp((int)Math.Round(pointer.Y * boundsToPixels), 0,
                 (int)(screen.Bounds.Height * boundsToPixels));
-            _positionText.Text = $"{Lang.ScreenCapturePosition}:({x},{y})";
+            _positionText.Text = $"{Loc.Text(LangKey.ScreenCapturePosition)}:({x},{y})";
             _resolutionText.Text =
-                $"{Lang.ScreenCaptureResolution}:({(int)Math.Ceiling(widthPixels)}x{(int)Math.Ceiling(heightPixels)})";
+                $"{Loc.Text(LangKey.ScreenCaptureResolution)}:({(int)Math.Ceiling(widthPixels)}x{(int)Math.Ceiling(heightPixels)})";
             FollowPointer(screen, pointer, windowOrigin);
         }
         catch (Exception e)

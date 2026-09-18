@@ -19,6 +19,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.Core.SimpleLog;
@@ -99,7 +100,7 @@ public partial class ClipboardHistoryView : UserControl
 
     private async void MenuItemDeleteAll_Click(object? sender, RoutedEventArgs e)
     {
-        if (await _messageService.ConfirmAsync(Lang.DeleteAllClipboardHistoryTips))
+        if (await _messageService.ConfirmAsync(Loc.Text(LangKey.DeleteAllClipboardHistoryTips)))
         {
             App.ViewModel.GetViewModel<ClipboardHistoryViewModel>().DeleteAll();
         }

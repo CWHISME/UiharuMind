@@ -17,6 +17,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
@@ -58,7 +59,7 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     private void OnMainButtonClock(object? sender, RoutedEventArgs e)
     {
         AssistantExplainPromptAction skill = new AssistantExplainPromptAction();
-        QuickChatResultWindow.Show(Lang.Explain, _answerString, skill);
+        QuickChatResultWindow.Show(Loc.Text(LangKey.Explain), _answerString, skill);
         PlayAnimation(false, SafeClose);
     }
 
@@ -81,15 +82,15 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     private void InitFunctionMenu()
     {
         FunctionMenu.Children.Clear();
-        AddFunctionMenu(nameof(Lang.Translation),
+        AddFunctionMenu(nameof(LangKey.Translation),
             () =>
             {
                 TranslationPromptAction skill = new TranslationPromptAction();
-                QuickChatResultWindow.Show(Lang.Translation, _answerString, skill);
+                QuickChatResultWindow.Show(Loc.Text(LangKey.Translation), _answerString, skill);
             });
-        AddFunctionMenu(nameof(Lang.SyntacticAnalysis), () => { QuickChatResultWindow.Show(Lang.SyntacticAnalysis, _answerString, new AssistantSyntacticAnalysisPromptAction()); });
-        AddFunctionMenu(nameof(Lang.Think), () => { QuickChatResultWindow.Show(Lang.Think, _answerString, new ChainOfThoughtPromptAction()); });
-        AddFunctionMenu(nameof(Lang.Ask), () => { QuickStartChatWindow.Show(_answerString); });
+        AddFunctionMenu(nameof(LangKey.SyntacticAnalysis), () => { QuickChatResultWindow.Show(Loc.Text(LangKey.SyntacticAnalysis), _answerString, new AssistantSyntacticAnalysisPromptAction()); });
+        AddFunctionMenu(nameof(LangKey.Think), () => { QuickChatResultWindow.Show(Loc.Text(LangKey.Think), _answerString, new ChainOfThoughtPromptAction()); });
+        AddFunctionMenu(nameof(LangKey.Ask), () => { QuickStartChatWindow.Show(_answerString); });
     }
 
     private void AddFunctionMenu(string textKey, Action action, int xMargin = 5)

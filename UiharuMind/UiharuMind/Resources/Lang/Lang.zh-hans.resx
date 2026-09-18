@@ -2763,4 +2763,224 @@
     <data name="RadialMenuTextEditor" xml:space="preserve">
         <value>文本编辑器</value>
     </data>
+
+    <data name="AddCharacterSuccessTips" xml:space="preserve">
+        <value>角色添加成功！</value>
+    </data>
+
+    <data name="AddDuplicateCharacterTips" xml:space="preserve">
+        <value>似乎存在重复名字的角色，是否重新编辑？</value>
+    </data>
+
+    <data name="AgentSkillsDuplicateHint" xml:space="preserve">
+        <value>未加载：同名技能已被先扫到的那个占用，在 {0}。两个里删掉一个。</value>
+    </data>
+
+    <data name="AgentSkillsLocalGroup" xml:space="preserve">
+        <value>本地技能</value>
+    </data>
+
+    <data name="AgentSkillsNotLoadedHint" xml:space="preserve">
+        <value>不符合 SKILL.md 规范校验被拒——技能名必须与目录名一致。具体原因见日志。</value>
+    </data>
+
+    <data name="All" xml:space="preserve">
+        <value>全部</value>
+    </data>
+
+    <data name="AutoDetect" xml:space="preserve">
+        <value>自动检测</value>
+    </data>
+
+    <data name="CharacterCopyTips" xml:space="preserve">
+        <value>是否确认复制角色{0}?</value>
+    </data>
+
+    <data name="CharacterDeleteTips" xml:space="preserve">
+        <value>是否确认删除角色{0}?该操作不可逆！</value>
+    </data>
+
+    <data name="CharacterEditorDirtyTips" xml:space="preserve">
+        <value>这个角色改了还没保存，要保存吗？</value>
+    </data>
+
+    <data name="CharacterEditorDiscardTips" xml:space="preserve">
+        <value>放弃这个角色未保存的改动？</value>
+    </data>
+
+    <data name="CharacterEmptyNameTips" xml:space="preserve">
+        <value>角色名为空！</value>
+    </data>
+
+    <data name="CharacterKindUserCard" xml:space="preserve">
+        <value>用户卡</value>
+    </data>
+
+    <data name="ClearTips" xml:space="preserve">
+        <value>确认清除？</value>
+    </data>
+
+    <data name="ClipboardHistoryCount" xml:space="preserve">
+        <value>数量：{0}</value>
+    </data>
+
+    <data name="ConfirmDeleteRuntimeEngine" xml:space="preserve">
+        <value>是否确认删除这个版本的运行程序？</value>
+    </data>
+
+    <data name="CopyLink" xml:space="preserve">
+        <value>复制链接</value>
+    </data>
+
+    <data name="CustomConfig" xml:space="preserve">
+        <value>自定义配置</value>
+    </data>
+
+    <data name="Decompressing" xml:space="preserve">
+        <value>[解压中...]</value>
+    </data>
+
+    <data name="DefaultQuickChatTitle" xml:space="preserve">
+        <value>询问</value>
+    </data>
+
+    <data name="DeleteAllClipboardHistoryTips" xml:space="preserve">
+        <value>是否确认删除所有历史记录？该操作不可逆。</value>
+    </data>
+
+    <data name="DeleteTips" xml:space="preserve">
+        <value>确认删除？</value>
+    </data>
+
+    <data name="EditMessageTitle" xml:space="preserve">
+        <value>编辑消息</value>
+    </data>
+
+    <data name="EditSessionTitleTitle" xml:space="preserve">
+        <value>编辑会话标题</value>
+    </data>
+
+    <data name="FavoriteRemoteModelDelTips" xml:space="preserve">
+        <value>已经将 {0} 移除收藏！</value>
+    </data>
+
+    <data name="FavoriteRemoteModelSetTips" xml:space="preserve">
+        <value>成功将 {0} 设置收藏！</value>
+    </data>
+
+    <data name="MemoryIndexLastError" xml:space="preserve">
+        <value>上次错误：</value>
+    </data>
+
+    <data name="MemoryIndexVectorStoreUnavailable" xml:space="preserve">
+        <value>知识库索引数据库不可用。</value>
+    </data>
+
+    <data name="MemorySourceEmpty" xml:space="preserve">
+        <value>文本条目内容为空。</value>
+    </data>
+
+    <data name="MemorySourceEncodingUnknown" xml:space="preserve">
+        <value>无法可靠识别文件编码。</value>
+    </data>
+
+    <data name="MemorySourceFileMissing" xml:space="preserve">
+        <value>文件已不存在。</value>
+    </data>
+
+    <data name="MemorySourceNotPlainText" xml:space="preserve">
+        <value>所选文件不是有效的纯文本文件。</value>
+    </data>
+
+    <data name="MemorySourceReadFailed" xml:space="preserve">
+        <value>无法读取该文件。</value>
+    </data>
+
+    <data name="MemorySourceUnsupported" xml:space="preserve">
+        <value>暂不支持此类知识库来源。</value>
+    </data>
+
+    <data name="MemoryTitle" xml:space="preserve">
+        <value>知识库：</value>
+    </data>
+
+    <data name="MenuAgentKey" xml:space="preserve">
+        <value>智能体</value>
+    </data>
+
+    <data name="MenuCharacterKey" xml:space="preserve">
+        <value>角色</value>
+    </data>
+
+    <data name="MenuChatKey" xml:space="preserve">
+        <value>聊天</value>
+    </data>
+
+    <data name="MenuLogKey" xml:space="preserve">
+        <value>日志</value>
+    </data>
+
+    <data name="MenuModelKey" xml:space="preserve">
+        <value>模型</value>
+    </data>
+
+    <data name="MessageErrorTitle" xml:space="preserve">
+        <value>错误</value>
+    </data>
+
+    <data name="MessageWarningTitle" xml:space="preserve">
+        <value>注意</value>
+    </data>
+
+    <data name="NoMemory" xml:space="preserve">
+        <value>暂无知识库</value>
+    </data>
+
+    <data name="OpenLink" xml:space="preserve">
+        <value>打开链接</value>
+    </data>
+
+    <data name="PreviewOcr_Copied" xml:space="preserve">
+        <value>已复制</value>
+    </data>
+
+    <data name="PreviewOcr_NoText" xml:space="preserve">
+        <value>图中没有文字</value>
+    </data>
+
+    <data name="PreviewOcr_SelectAll" xml:space="preserve">
+        <value>全选</value>
+    </data>
+
+    <data name="RenameTitle" xml:space="preserve">
+        <value>重命名</value>
+    </data>
+
+    <data name="ScreenCapturePosition" xml:space="preserve">
+        <value>坐标</value>
+    </data>
+
+    <data name="ScreenCaptureResolution" xml:space="preserve">
+        <value>分辨率</value>
+    </data>
+
+    <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
+        <value>到右栏「子代理」面板处理。无人应答会按拒绝收口。</value>
+    </data>
+
+    <data name="SubAgentLongRunning" xml:space="preserve">
+        <value>有子代理已经跑了很久</value>
+    </data>
+
+    <data name="SyntacticAnalysis" xml:space="preserve">
+        <value>语法分析</value>
+    </data>
+
+    <data name="Think" xml:space="preserve">
+        <value>思考</value>
+    </data>
+
+    <data name="ToggleTextWrap" xml:space="preserve">
+        <value>切换文本换行</value>
+    </data>
 </root>

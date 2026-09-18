@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
@@ -116,7 +117,7 @@ public partial class HomePageData : PageDataBase
     private async Task CancelEditor()
     {
         if (Editor == null) return;
-        if (Editor.IsDirty && !await _messageService.ConfirmAsync(Lang.CharacterEditorDiscardTips)) return;
+        if (Editor.IsDirty && !await _messageService.ConfirmAsync(Loc.Text(LangKey.CharacterEditorDiscardTips))) return;
 
         LeaveNewCharacter();
         Editor = CreateEditorFor(CharacterListViewData.SelectedCharacter);
@@ -157,7 +158,7 @@ public partial class HomePageData : PageDataBase
         CharacterInfoViewData? previous = PreviousSelectionOf(selected);
         if (Editor is { IsDirty: true })
         {
-            EConfirmChoice choice = await _messageService.ConfirmWithCancelAsync(Lang.CharacterEditorDirtyTips);
+            EConfirmChoice choice = await _messageService.ConfirmWithCancelAsync(Loc.Text(LangKey.CharacterEditorDirtyTips));
             if (choice == EConfirmChoice.Cancel)
             {
                 RevertSelection(previous);
@@ -186,7 +187,7 @@ public partial class HomePageData : PageDataBase
     {
         if (Editor is { IsDirty: true })
         {
-            EConfirmChoice choice = await _messageService.ConfirmWithCancelAsync(Lang.CharacterEditorDirtyTips);
+            EConfirmChoice choice = await _messageService.ConfirmWithCancelAsync(Loc.Text(LangKey.CharacterEditorDirtyTips));
             if (choice == EConfirmChoice.Cancel) return false;
             if (choice == EConfirmChoice.Yes && !Editor.TryCommit()) return false;
         }

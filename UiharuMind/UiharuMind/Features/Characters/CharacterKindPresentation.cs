@@ -1,6 +1,8 @@
 using Avalonia.Media;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 
 namespace UiharuMind.Features.Characters;
 
@@ -23,10 +25,10 @@ public static class CharacterKindPresentation
     /// <returns>本地化名称</returns>
     public static string NameOf(ECharacterKind kind) => kind switch
     {
-        ECharacterKind.Roleplay => Lang.CharacterKindRoleplay,
-        ECharacterKind.Tool => Lang.CharacterKindTool,
-        ECharacterKind.Agent => Lang.CharacterKindAgent,
-        _ => Lang.CharacterKindUserCard,
+        ECharacterKind.Roleplay => Loc.Text(LangKey.CharacterKindRoleplay),
+        ECharacterKind.Tool => Loc.Text(LangKey.CharacterKindTool),
+        ECharacterKind.Agent => Loc.Text(LangKey.CharacterKindAgent),
+        _ => Loc.Text(LangKey.CharacterKindUserCard),
     };
 
     /// <summary>

@@ -23,6 +23,8 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Shared.UIHolder;
@@ -114,7 +116,7 @@ public partial class QuickChatResultWindow : QuickWindowBase
 
     public void SetRequestInfo(string? title, string content, PromptActionBase agentSkill)
     {
-        TitleTextBlock.Text = title ?? Lang.DefaultQuickChatTitle;
+        TitleTextBlock.Text = title ?? Loc.Text(LangKey.DefaultQuickChatTitle);
         SetContent("");
         _askContent = content;
         _agentSkill = agentSkill;

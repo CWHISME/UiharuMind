@@ -75,7 +75,7 @@ public partial class ConversationMemoryViewData : ObservableObject
     {
         var memory = MemoryData;
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine(Lang.MemoryTitle + (memory?.Name ?? Lang.NoMemory));
+        sb.AppendLine(Loc.Text(LangKey.MemoryTitle) + (memory?.Name ?? Loc.Text(LangKey.NoMemory)));
 
         if (memory == null)
         {
@@ -86,10 +86,10 @@ public partial class ConversationMemoryViewData : ObservableObject
 
         sb.AppendLine(GetMemoryIndexStateText(memory));
         if (memory.LastIndexedAt != null)
-            sb.AppendLine(Lang.MemoryIndexLastIndexed +
+            sb.AppendLine(Loc.Text(LangKey.MemoryIndexLastIndexed) +
                           memory.LastIndexedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm"));
         if (!string.IsNullOrEmpty(memory.LastIndexError))
-            sb.AppendLine(Lang.MemoryIndexLastError + GetMemoryIndexErrorText(memory.LastIndexError));
+            sb.AppendLine(Loc.Text(LangKey.MemoryIndexLastError) + GetMemoryIndexErrorText(memory.LastIndexError));
 
         MemoryTooltip = sb.ToString();
         MemoryStatusKey = !string.IsNullOrEmpty(memory.LastIndexError) ? "Error" :
@@ -98,9 +98,9 @@ public partial class ConversationMemoryViewData : ObservableObject
 
     private static string GetMemoryIndexStateText(MemoryData memory)
     {
-        if (memory.IndexDirty) return Lang.MemoryIndexNeedUpdate;
-        if (memory.LastIndexedAt == null) return Lang.MemoryIndexNotBuilt;
-        return Lang.MemoryIndexReady;
+        if (memory.IndexDirty) return Loc.Text(LangKey.MemoryIndexNeedUpdate);
+        if (memory.LastIndexedAt == null) return Loc.Text(LangKey.MemoryIndexNotBuilt);
+        return Loc.Text(LangKey.MemoryIndexReady);
     }
 
     private static string GetMemoryIndexErrorText(string error)
@@ -108,19 +108,19 @@ public partial class ConversationMemoryViewData : ObservableObject
         if (error.StartsWith("Embedding model startup failed", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Failed to load LLamaSharp embedding model", StringComparison.OrdinalIgnoreCase) ||
             error.StartsWith("Remote embedding backend is not implemented", StringComparison.OrdinalIgnoreCase))
-            return Lang.MemoryIndexEmbeddingServerUnavailable;
+            return Loc.Text(LangKey.MemoryIndexEmbeddingServerUnavailable);
 
         if (error.StartsWith("LLamaSharp embedding request failed", StringComparison.OrdinalIgnoreCase))
             return Loc.Text(LangKey.MemoryIndexEmbeddingRequestFailed);
 
         return error switch
         {
-            "Embedding server is unavailable." => Lang.MemoryIndexEmbeddingServerUnavailable,
-            "Embedding model is unavailable." => Lang.MemoryIndexEmbeddingServerUnavailable,
-            "Embedding server startup timed out." => Lang.MemoryIndexEmbeddingServerTimeout,
-            "Memory name not set" => Lang.MemoryIndexMemoryNameMissing,
-            "Memory vector store unavailable" => Lang.MemoryIndexVectorStoreUnavailable,
-            "Memory index update failed" => Lang.MemoryIndexUpdateFailed,
+            "Embedding server is unavailable." => Loc.Text(LangKey.MemoryIndexEmbeddingServerUnavailable),
+            "Embedding model is unavailable." => Loc.Text(LangKey.MemoryIndexEmbeddingServerUnavailable),
+            "Embedding server startup timed out." => Loc.Text(LangKey.MemoryIndexEmbeddingServerTimeout),
+            "Memory name not set" => Loc.Text(LangKey.MemoryIndexMemoryNameMissing),
+            "Memory vector store unavailable" => Loc.Text(LangKey.MemoryIndexVectorStoreUnavailable),
+            "Memory index update failed" => Loc.Text(LangKey.MemoryIndexUpdateFailed),
             "Memory source validation failed" => Loc.Text(LangKey.MemorySourceValidationFailed),
             "Memory vector dimension mismatch" => Loc.Text(LangKey.MemoryIndexDimensionMismatch),
             "Embedding input is too large" => Loc.Text(LangKey.MemoryIndexEmbeddingInputTooLarge),

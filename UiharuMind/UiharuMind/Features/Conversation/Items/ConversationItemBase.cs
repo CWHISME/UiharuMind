@@ -139,7 +139,7 @@ public abstract partial class ConversationItemBase : ObservableObject
     private async Task Edit()
     {
         if (EditedCallback == null) return;
-        string? result = await UIManager.ShowStringEditWindow(Message, title: Lang.EditMessageTitle);
+        string? result = await UIManager.ShowStringEditWindow(Message, title: Loc.Text(LangKey.EditMessageTitle));
         if (result == null) return;
         Message = result;
         EditedCallback.Invoke(this);

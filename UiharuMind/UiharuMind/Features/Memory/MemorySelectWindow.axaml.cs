@@ -156,7 +156,7 @@ public partial class MemorySelectWindowModel : ObservableObject, IDisposable
         if (!CanRenameMemory || SelectedItem == null) return;
 
         MemoryLibraryItemViewData item = SelectedItem;
-        string? input = await UIManager.ShowStringEditWindow(item.Memory.Name, title: Lang.RenameTitle);
+        string? input = await UIManager.ShowStringEditWindow(item.Memory.Name, title: Loc.Text(LangKey.RenameTitle));
         if (input == null) return;
 
         string requested = input.Trim();

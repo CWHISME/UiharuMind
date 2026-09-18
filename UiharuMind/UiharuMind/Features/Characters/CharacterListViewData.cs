@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
@@ -29,7 +31,7 @@ public partial class CharacterListViewData : ObservableObject
     /// </summary>
     public string[] FilterTags =
     [
-        Lang.All,
+        Loc.Text(LangKey.All),
         ..CharacterKindPresentation.CreatableKinds.Select(CharacterKindPresentation.NameOf),
     ];
 

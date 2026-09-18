@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Shared.Data;
@@ -28,14 +29,14 @@ public class MenuViewData
     {
         MenuItems = new ObservableCollection<MenuItemViewData>
         {
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuAgentKey), MenuIconName = "house", Key = MenuPages.MenuAgentKey },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuChatKey), MenuIconName = "message-circle-more", Key = MenuPages.MenuChatKey },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuCharacterKey), MenuIconName = "users-round", Key = MenuPages.MenuCharacterKey },
-        // new() { MenuHeader = Lang.MenuTranslateKey, MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuAgentKey), MenuIconName = "house", Key = MenuPages.MenuAgentKey },
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuChatKey), MenuIconName = "message-circle-more", Key = MenuPages.MenuChatKey },
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuCharacterKey), MenuIconName = "users-round", Key = MenuPages.MenuCharacterKey },
+        // new() { MenuHeader = Loc.Text(LangKey.MenuTranslateKey), MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuModelKey), MenuIconName = "folder-cog", Key = MenuPages.MenuModelKey },
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuModelKey), MenuIconName = "folder-cog", Key = MenuPages.MenuModelKey },
             new() { MenuHeaderResourceKey = "MenuServicesKey", MenuIconName = "cog", Key = MenuPages.MenuServicesKey },
-            new() { MenuHeaderResourceKey = nameof(Lang.MenuLogKey), MenuIconName = "book-search", Key = MenuPages.MenuLogKey },
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuLogKey), MenuIconName = "book-search", Key = MenuPages.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
         };
 

@@ -17,6 +17,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Features.Models;
@@ -259,12 +260,12 @@ public partial class App : Application, ILogger, IDisposable
                     case ESubAgentNotice.ApprovalWaiting:
                         // 审批是「要你动手」那一档:读完还得去点,默认 5 秒读都读不完。
                         // 真正的常驻入口是输入区上方那条横幅与右栏面板,这条只负责「把你叫过来」
-                        messageService.ShowNotification(Lang.SubAgentApprovalWaitingTip,
-                            Lang.SubAgentApprovalWaiting, MessageSeverity.Warning,
+                        messageService.ShowNotification(Loc.Text(LangKey.SubAgentApprovalWaitingTip),
+                            Loc.Text(LangKey.SubAgentApprovalWaiting), MessageSeverity.Warning,
                             TimeSpan.FromSeconds(20));
                         break;
                     case ESubAgentNotice.LongRunning:
-                        messageService.ShowNotification(Lang.SubAgentLongRunning, null,
+                        messageService.ShowNotification(Loc.Text(LangKey.SubAgentLongRunning), null,
                             MessageSeverity.Warning);
                         break;
                 }

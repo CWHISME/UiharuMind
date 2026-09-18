@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
@@ -88,7 +89,7 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         if (!IsValid()) return;
         CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.AssistantExplain, GetImageBytes());
-        QuickChatResultWindow.Show(Lang.Explain, "", skill);
+        QuickChatResultWindow.Show(Loc.Text(LangKey.Explain), "", skill);
     }
 
     private void OnVisionAiBtnClick(object? sender, RoutedEventArgs e)
