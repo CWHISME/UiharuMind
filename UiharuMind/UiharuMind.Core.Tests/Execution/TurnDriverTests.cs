@@ -2,8 +2,11 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution;
+using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Models;
 
 namespace UiharuMind.Core.Tests.Execution;
 
@@ -527,6 +530,155 @@ public class TurnDriverTests
         Assert.Single(session.History);
     }
 
+    [Fact]
+    public async Task Handoff_Forced_Succeeds_ReportsStartedBeforeWritten_AndPassesExtraInstructions()
+    {
+        //手动压缩要能在会话流里先给出进行中提示(HandoffStarted),再以写完成收尾;
+        //命令后跟的文字要随写文档的请求交给模型
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        CapturingChatClient client = new("交接正文");
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.CompactAsync(session, new StubRunner(), "别忘了临时结论");
+
+        int started = notices.FindIndex(x => x.Kind == ETurnNotice.HandoffStarted);
+        int written = notices.FindIndex(x => x.Kind == ETurnNotice.HandoffWritten);
+        Assert.True(started >= 0 && written > started,
+            $"expected HandoffStarted before HandoffWritten; got {string.Join(",", notices.Select(x => x.Kind))}");
+        Assert.Equal(6, session.History.Count); //5 条历史 + 交接文档
+        Assert.Equal("交接正文", HistoryHandoff.NoteBody(session.History[^1].Text));
+        Assert.Contains("别忘了临时结论", client.Seen[^1].Text);
+    }
+
+    [Fact]
+    public async Task Handoff_Auto_Succeeds_WhenWatermarkCrossed_AndReportsStarted()
+    {
+        //自动压缩(水位触发)走同一份 WriteHandoffAsync,同样发 HandoffStarted/HandoffWritten——
+        //占位卡逻辑覆盖它,别让自动路径悄悄退化成"无提示直接出卡"的旧行为
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 10; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        CapturingChatClient client = new("交接正文");
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        StubRunner runner = new(Round(Usage(100_000, 20))); //占用过水位(128k 预算的 0.8)
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.RunAsync(session, runner, Prompt());
+
+        int started = notices.FindIndex(x => x.Kind == ETurnNotice.HandoffStarted);
+        int written = notices.FindIndex(x => x.Kind == ETurnNotice.HandoffWritten);
+        Assert.True(started >= 0 && written > started,
+            $"expected HandoffStarted before HandoffWritten; got {string.Join(",", notices.Select(x => x.Kind))}");
+        Assert.Equal(11, session.History.Count); //10 条历史 + 交接文档
+    }
+
+    [Fact]
+    public async Task Handoff_Forced_FailureReportsFailedAfterStarted()
+    {
+        //client 返回空产出 → WriteAsync 返回 null → HandoffFailed;占位卡要靠它收掉
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        CapturingChatClient client = new(" \n "); //空产出
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.CompactAsync(session, new StubRunner());
+
+        Assert.Equal(
+            [ETurnNotice.HandoffStarted, ETurnNotice.HandoffFailed],
+            notices.Select(x => x.Kind));
+        Assert.Equal(5, session.History.Count); //失败不写文档
+    }
+
+    [Fact]
+    public async Task Handoff_WhileInProgress_MarksSessionCompacting()
+    {
+        //压缩不是轮次、不进运行登记处,但会话列表的"在跑"指示要显示它(TurnDriver.IsCompacting)
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        GatedChatClient client = new("交接正文");
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(client, runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        // async 方法同步执行到第一个 await(写文档的请求),压缩态此刻已登记
+        Task compact = driver.CompactAsync(session, new StubRunner());
+        Assert.True(TurnDriver.IsCompacting(session.SessionId));
+
+        client.Release();
+        await compact;
+
+        Assert.False(TurnDriver.IsCompacting(session.SessionId)); //收尾必须熄灭,不能永久停在"在跑"
+        Assert.Contains(ETurnNotice.HandoffWritten, notices.Select(x => x.Kind));
+    }
+
+    [Fact]
+    public async Task Handoff_Forced_OceReportsFailedAndDoesNotEscape()
+    {
+        //客户端内部超时可能把 OCE 包装着抛出来。压缩用的是 CancellationToken.None,
+        //它不是用户取消——rethrow 会让手动路径的命令管线(SendCoreAsync 无 catch)拿到未处理异常
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+
+        ModelRunningData running = new(new GGufModelInfo { ModelName = "m1" });
+        running.CompleteLoading(new OceChatClient(), runtimeContextSize: 65536);
+        session.ChatModelRunningData = running;
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.CompactAsync(session, new StubRunner()); //不抛异常
+
+        Assert.Equal(
+            [ETurnNotice.HandoffStarted, ETurnNotice.HandoffFailed],
+            notices.Select(x => x.Kind));
+        Assert.Equal(5, session.History.Count); //失败不写文档
+    }
+
+    [Fact]
+    public async Task Handoff_Forced_NoClientReportsFailed()
+    {
+        //会话没有可用的模型客户端时,手动压缩不能静默无操作:占位卡没插、也没失败提示,
+        //用户只会看到"点了没反应"
+        List<TurnNotice> notices = new();
+        ChatSession session = NewSession();
+        for (int i = 0; i < 5; i++) session.History.Add(Prompt($"第 {i} 条"));
+        //刻意不装 ChatModelRunningData
+
+        TurnUsageLedger ledger = new() { ContextLength = 128_000 };
+        TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
+
+        await driver.CompactAsync(session, new StubRunner());
+
+        Assert.Equal([ETurnNotice.HandoffFailed], notices.Select(x => x.Kind));
+        Assert.Equal(5, session.History.Count);
+    }
+
     //================= 替身 =================
 
     private sealed class FakeSink : ITurnSink
@@ -622,5 +774,70 @@ public class TurnDriverTests
         public Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages) => Task.CompletedTask;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    /// <summary>捕获它收到的全部消息,回一条固定回复(交接文档那一发用)</summary>
+    private sealed class CapturingChatClient(string reply) : IChatClient
+    {
+        public List<ChatMessage> Seen { get; } = [];
+
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            Seen.AddRange(messages);
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, reply)));
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>请求挂起直到 <see cref="Release"/>:用来把压缩钉在"进行中"状态</summary>
+    private sealed class GatedChatClient(string reply) : IChatClient
+    {
+        private readonly TaskCompletionSource _gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _gate.TrySetResult();
+
+        public async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            await _gate.Task;
+            return new ChatResponse(new ChatMessage(ChatRole.Assistant, reply));
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>客户端内部超时包装的 OCE:压缩不该把它冒到命令管线</summary>
+    private sealed class OceChatClient : IChatClient
+    {
+        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default) => throw new OperationCanceledException();
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose()
+        {
+        }
     }
 }

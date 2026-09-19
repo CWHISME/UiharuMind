@@ -31,6 +31,32 @@ public partial class CommandPaletteViewData : ObservableObject
     /// <summary>手动压缩命令</summary>
     public const string CompactCommand = "/compact";
 
+    /// <summary>
+    /// 解析压缩命令的输入。整行匹配 <see cref="CompactCommand"/>（忽略大小写与首尾空白）；
+    /// 命令后跟的文字作为用户附加的额外指示取出——它会随写交接文档的请求一起交给模型。
+    /// </summary>
+    /// <param name="text">用户敲的整行</param>
+    /// <param name="extraInstructions">命令后跟的文字；没有时为 null</param>
+    /// <returns>是不是压缩命令（即使带了参数也算）</returns>
+    public static bool TryParseCompact(string text, out string? extraInstructions)
+    {
+        extraInstructions = null;
+        string trimmed = text.Trim();
+        if (trimmed.Length < CompactCommand.Length
+            || !trimmed.StartsWith(CompactCommand, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (trimmed.Length == CompactCommand.Length) return true;
+        // 命令后紧跟非空白(如 /compactX)不算压缩命令,防止吞掉想聊这个单词的普通消息
+        if (!char.IsWhiteSpace(trimmed[CompactCommand.Length])) return false;
+
+        string rest = trimmed[CompactCommand.Length..].Trim();
+        extraInstructions = rest.Length == 0 ? null : rest;
+        return true;
+    }
+
     private readonly Action<string> _setInputText;
     private readonly Func<CharacterData> _character;
 
@@ -139,6 +165,8 @@ public partial class CommandPaletteViewData : ObservableObject
     /// <summary>
     /// 内置命令。借技能条目的形状进同一个补全列表——它们对用户是同一件事（敲 <c>/</c> 弹出来的东西），
     /// 为一条命令另开一套列表控件与键盘导航不值当。
+    /// 内置命令排在同名技能前面：<c>SendCoreAsync</c> 先试命令再试技能点名，
+    /// 因此同名技能会被内置命令遮蔽，不会同时出现两条路。
     /// </summary>
     //每次现取而不是缓存成静态字段:描述要跟着语言切换走,而静态初始化只跑一次
     private static IReadOnlyList<SkillCatalogEntry> BuiltInCommands =>

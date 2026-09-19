@@ -215,15 +215,17 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     }
 
     /// <summary>
-    /// 回收缓存。留下的理由只有两个：正在展示，或还在跑（含卡在审批上——
-    /// 那种情形 IsGenerating 仍为真，运行循环还等在审批的回应上）
+    /// 回收缓存。留下的理由有三个：正在展示、还在跑（含卡在审批上——
+    /// 那种情形 IsGenerating 仍为真，运行循环还等在审批的回应上）、
+    /// 或正在整理交接文档（压缩不是轮次，IsGenerating 为假，但占位卡与
+    /// BusyLabel 都还挂在 VM 上，回收了切回来就什么都没了）
     /// </summary>
     private void PruneConversations()
     {
         for (int i = _conversations.Count - 1; i >= 0; i--)
         {
             ConversationViewModel conversation = _conversations[i];
-            if (conversation == Conversation || conversation.IsGenerating) continue;
+            if (conversation == Conversation || conversation.IsGenerating || conversation.IsCompacting) continue;
             Discard(conversation);
         }
     }

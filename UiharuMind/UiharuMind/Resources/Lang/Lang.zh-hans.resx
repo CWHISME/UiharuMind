@@ -59,6 +59,12 @@
     <data name="AgentInterjectUnavailable" xml:space="preserve">
         <value>现在插不进去：执行者还在启动中，稍后再试。</value>
     </data>
+    <data name="CompactWhileRunning" xml:space="preserve">
+        <value>现在不能压缩：还有一轮在跑，等它结束再试。</value>
+    </data>
+    <data name="CompactAlreadyInProgress" xml:space="preserve">
+        <value>正在整理交接文档，等它完成再试。</value>
+    </data>
     <data name="InterjectionRemoveTip" xml:space="preserve">
         <value>撤回这条插话（模型还没读到）</value>
     </data>

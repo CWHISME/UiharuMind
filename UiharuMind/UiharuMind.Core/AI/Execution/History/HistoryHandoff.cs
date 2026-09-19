@@ -136,7 +136,9 @@ public static class HistoryHandoff
         {
             // 还在跑的那些要单独标出来——续跑一个没跑完的与续跑一个已经交回结论的,是两件事
             string state = meta.BackgroundReportPending ? " [still running]" : string.Empty;
-            roster.AppendLine($"- {meta.SessionId} - {Summarize(meta)}{state}");
+            // 被点名的子代理带上角色名,模型才知道这一单是谁干的;匿名子代理没有名字,不加前缀
+            string who = string.IsNullOrWhiteSpace(meta.SubAgentName) ? string.Empty : $"{meta.SubAgentName}: ";
+            roster.AppendLine($"- {meta.SessionId} - {who}{Summarize(meta)}{state}");
         }
 
         return roster.ToString().TrimEnd();
@@ -231,17 +233,32 @@ public static class HistoryHandoff
     /// <param name="history">要交接的历史（通常是当前供给给模型的那一份）</param>
     /// <param name="agentOptions">本会话装配好的对话选项，见 <see cref="ICharacterRunner.ChatOptions"/></param>
     /// <param name="contextLength">当前模型的上下文上限，用于算出文档自己的篇幅上限</param>
+    /// <param name="extraInstructions">
+    /// 用户额外交代（<c>/compact</c> 命令后跟的文字）。原样附在写文档的指令末尾，
+    /// 提示模型在文档里照顾到它；为空时不附加，指令与从前逐字一致。
+    /// </param>
     /// <param name="cancellationToken">取消标记</param>
     /// <returns>文档正文；失败或产出为空时返回 null</returns>
     public static async Task<string?> WriteAsync(IChatClient client, IReadOnlyList<ChatMessage> history,
-        ChatOptions? agentOptions, int contextLength, CancellationToken cancellationToken = default)
+        ChatOptions? agentOptions, int contextLength, string? extraInstructions = null,
+        CancellationToken cancellationToken = default)
     {
         if (history.Count == 0) return null;
 
         int charLimit = NoteCharLimitFor(contextLength);
+        string instruction = string.Format(Instruction, charLimit);
+        if (!string.IsNullOrWhiteSpace(extraInstructions))
+        {
+            // 附在最后一条 user 指令消息里而不是另起一条:消息结构与从前完全一样,
+            // 服务端的前缀缓存不因这段追加而失效
+            instruction += "\n\nAdditional instructions from the user - give these priority "
+                           + "over the general list above where they conflict:\n"
+                           + extraInstructions.Trim();
+        }
+
         List<ChatMessage> messages = new(history.Count + 1);
         messages.AddRange(history);
-        messages.Add(new ChatMessage(ChatRole.User, string.Format(Instruction, charLimit)));
+        messages.Add(new ChatMessage(ChatRole.User, instruction));
 
         // 选项**整份照搬**常规轮次的那一份(系统提示词 + 工具定义 + 采样参数):
         // 请求体的前缀是「system + 工具定义 + 消息」,少任何一段前缀就从那里岔开,

@@ -66,6 +66,12 @@
     <data name="AgentInterjectUnavailable" xml:space="preserve">
         <value>Cannot interject right now; the agent is still starting up. Try again in a moment.</value>
     </data>
+    <data name="CompactWhileRunning" xml:space="preserve">
+        <value>Cannot compact right now: a turn is still running. Wait for it to finish.</value>
+    </data>
+    <data name="CompactAlreadyInProgress" xml:space="preserve">
+        <value>Already writing the context handoff. Wait for it to finish.</value>
+    </data>
     <data name="InterjectionRemoveTip" xml:space="preserve">
         <value>Withdraw this interjection before the model reads it</value>
     </data>

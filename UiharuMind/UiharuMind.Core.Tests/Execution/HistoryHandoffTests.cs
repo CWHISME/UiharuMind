@@ -230,6 +230,29 @@ public class HistoryHandoffTests
         Assert.Null(client.SeenOptions?.Tools); //没给选项时不凭空造工具
     }
 
+    [Fact]
+    public async Task WriteAsync_CarriesUserExtraInstructionsIntoTheInstructionMessage()
+    {
+        // /compact 后跟的文字要随写文档的请求交给模型,让它在交接文档里照顾到
+        StubChatClient client = new("交接正文");
+
+        await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "别忘了记录临时结论");
+
+        Assert.Equal(2, client.Seen.Count); //仍是一条历史一条指令,结构不变
+        Assert.Contains("别忘了记录临时结论", client.Seen[^1].Text);
+    }
+
+    [Fact]
+    public async Task WriteAsync_IgnoresWhitespaceOnlyExtraInstructions()
+    {
+        //纯空白不当成额外指示:指令与从前逐字一致,不污染模型
+        StubChatClient client = new("交接正文");
+
+        await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "   ");
+
+        Assert.DoesNotContain("Additional instructions", client.Seen[^1].Text);
+    }
+
     private sealed class StubChatClient(string reply) : IChatClient
     {
         public List<ChatMessage> Seen { get; } = [];

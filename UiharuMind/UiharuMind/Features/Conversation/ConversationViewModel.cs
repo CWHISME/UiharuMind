@@ -285,6 +285,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsGenerating => _isPreparing || _driver.IsRunning || IsExternallyDriven;
 
+    /// <summary>此刻是否正在整理交接文档（压缩不是轮次，<c>IsGenerating</c> 不涵盖它）</summary>
+    public bool IsCompacting => _driver.Busy == ETurnBusy.Compacting;
+
     /// <summary>
     /// 本会话名下还有<b>未了结的工作</b>：自己这一轮，或者名下还没交回报告的后台子代理。
     ///
@@ -654,6 +657,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         foreach (ConversationItemBase item in BuildHistoryItems(history, fromIndex, history.Count, liveTail: true))
         {
+            // 交接文档可能在落盘渲染入队之前已被别的路径画过(HandoffWritten 兜底、对账追加),
+            // 按来源引用去重——否则同一条 note 会出两张卡
+            if (item is HandoffItem && Items.Any(x => ReferenceEquals(x.SourceMessage, item.SourceMessage))) continue;
             Items.Add(item);
         }
     }
@@ -673,6 +679,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             foreach (ConversationItemBase item in BuildHistoryItems(history, i, i + 1, liveTail: true))
             {
+                // 同上:通知/兜底可能先画过交接文档,posted 的渲染不能再来一张
+                if (item is HandoffItem && Items.Any(x => ReferenceEquals(x.SourceMessage, item.SourceMessage))) continue;
                 Items.Add(item);
             }
         }
@@ -1241,15 +1249,37 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private async Task SendCoreAsync(string text)
     {
-        // 手动压缩:任务的自然边界由你比水位更清楚,在边界上压缩,交接文档质量高得多
-        if (string.Equals(text.Trim(), CommandPaletteViewData.CompactCommand,
-                StringComparison.OrdinalIgnoreCase))
+        // 手动压缩:任务的自然边界由你比水位更清楚,在边界上压缩,交接文档质量高得多。
+        // 命令后跟的文字作为额外指示随写文档的请求一起交给模型(见 TryParseCompact)
+        if (CommandPaletteViewData.TryParseCompact(text, out string? compactExtra))
         {
-            if (!IsGenerating && CurrentSession is { } current)
+            if (IsGenerating)
             {
-                await _driver.CompactAsync(current, current.Runner);
+                // 运行中命令没处安放:把字还给输入框并明说,静默吞掉就是"点了没反应"
+                InputText = text;
+                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                    Loc.Text(LangKey.CompactWhileRunning), severity: MessageSeverity.Warning);
+                return;
             }
 
+            if (CurrentSession is not { } current)
+            {
+                // 空会话(新建未发首轮):没有可压缩的内容,明说而不是静默吞掉
+                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                    Loc.Text(LangKey.HandoffNothingToCompact), severity: MessageSeverity.Information);
+                return;
+            }
+
+            // 用全局事实而非本地 Busy:同会话可能被另一窗口/外驱压缩,本地 driver 看不到
+            if (TurnDriver.IsCompacting(current.SessionId))
+            {
+                // 正在整理时再敲一次:防重复写两份交接文档、出两张卡
+                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                    Loc.Text(LangKey.CompactAlreadyInProgress), severity: MessageSeverity.Information);
+                return;
+            }
+
+            await _driver.CompactAsync(current, current.Runner, compactExtra);
             return;
         }
 
@@ -1424,17 +1454,70 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 break;
 
             case ETurnNotice.HandoffWritten:
-                Items.Add(new HandoffItem { Message = notice.Payload ?? string.Empty });
+                RemoveHandoffWritingItem();
+                // 卡片默认由落盘/回放路径渲染(BuildHistoryItems 的 HandoffNote 分支),这里只收掉占位;
+                // 通知自己再 Add 一张会与落盘渲染各画一遍,同一条交接文档就出两张卡。
+                // 只在自己那一轮正跑时补画:落盘路径走 AppendHandedBackReports 不画交接文档,
+                // 只有通知这一条路。外部驱动者的轮(streaming)由 AppendAlongsideStream 画、
+                // 无轮时由 AppendWholeSlice 画,都不该在这里再补——判据多取半条反而会双画
+                // (Ensure 同步 Add 后,posted 的落盘渲染没有去重)
+                if (_driver.IsRunning)
+                {
+                    EnsureHandoffCardRendered();
+                }
                 break;
 
             case ETurnNotice.HandoffFailed:
+                RemoveHandoffWritingItem();
                 Items.Add(new ErrorItem { Message = Loc.Text(LangKey.HandoffFailed) });
                 break;
 
             case ETurnNotice.HandoffNothingToCompact:
+                RemoveHandoffWritingItem();
                 Items.Add(new ErrorItem
                     { Message = Loc.Text(LangKey.HandoffNothingToCompact) });
                 break;
+
+            case ETurnNotice.HandoffStarted:
+                InsertHandoffWritingItem();
+                break;
+        }
+    }
+
+    /// <summary>正在整理交接文档的会话内占位卡(整理是多一次模型请求,会话流里不能毫无动静)</summary>
+    private HandoffWritingItem? _handoffWritingItem;
+
+    private void InsertHandoffWritingItem()
+    {
+        if (_handoffWritingItem != null) return; //事件是串行的,同一次整理不会重复挂
+        var item = new HandoffWritingItem { Message = Loc.Text(LangKey.HandoffWriting) };
+        _handoffWritingItem = item;
+        Items.Add(item);
+        ScrollToEnd = true;
+    }
+
+    private void RemoveHandoffWritingItem()
+    {
+        if (_handoffWritingItem is not { } item) return;
+        _handoffWritingItem = null;
+        if (Items.Remove(item)) ScrollToEnd = true;
+    }
+
+    /// <summary>
+    /// 并发场景的交接卡兜底:压缩期间用户发了新消息,落盘路径不画交接文档,
+    /// 只有这里补画。与 BuildHistoryItems 的 HandoffNote 分支同源,不另写一份渲染逻辑。
+    /// </summary>
+    private void EnsureHandoffCardRendered()
+    {
+        if (CurrentSession is not { } session) return;
+        int index = HistoryHandoff.SupplyStartIndex(session.History);
+        if (index < 0 || index >= session.History.Count) return;
+        ChatMessage note = session.History[index];
+        if (!HistoryHandoff.IsNote(note)) return; //没有交接文档时的兜底:SupplyStartIndex 无 note 返回 0
+        if (Items.Any(x => ReferenceEquals(x.SourceMessage, note))) return; //已经画过就不再画
+        foreach (ConversationItemBase item in BuildHistoryItems(session.History, index, index + 1, liveTail: true))
+        {
+            Items.Add(item);
         }
     }
 
@@ -1726,6 +1809,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             // 外驱时执行者未必绑好,历史一律从会话本体读(两者本就是同一份)
             ReplayMessages(externallyDriven ? body.History : body.Runner.GetHistory());
+
+            // 切走时占位卡被清掉了;若压缩还在跑,切回来得重新挂上,否则会话流里毫无动静
+            if (_driver.Busy == ETurnBusy.Compacting) InsertHandoffWritingItem();
 
             // 就在这里收尾,不能拖到下面两个 await 之后:视图靠这一步同步贴到底,
             // 而 await 会让出线程——中间那一帧会把列表按 offset 0(会话顶部)画出来,
@@ -2168,6 +2254,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         ConversationItemBase[] discarded = Items.ToArray();
         Items.Clear();
         foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+        // 整理中的占位卡随清空一起消失;若压缩还在跑,切回时由 LoadSessionAsync 重新挂上
+        _handoffWritingItem = null;
 
         Todos.Clear();
         HasTodos = false;

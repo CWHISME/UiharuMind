@@ -85,6 +85,9 @@ public enum ETurnNotice
     /// <summary>交接文档已写入，<c>Payload</c> 为文档正文</summary>
     HandoffWritten,
 
+    /// <summary>开始整理交接文档（多一次模型请求，界面据此在会话流里挂进行中提示）</summary>
+    HandoffStarted,
+
     /// <summary>交接文档写失败</summary>
     HandoffFailed,
 

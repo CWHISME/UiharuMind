@@ -200,19 +200,50 @@
                         <items:ThinkingCardView />
                     </DataTemplate>
 
-                    <!-- 交接文档:模型从这条往前看不见了,默认折叠 -->
+                    <!-- 交接文档:模型从这条往前看不见了,默认折叠。
+                         结构与思考条/工具卡同一套几何:ToggleButton(NoneStyle) 做头部,
+                         文字 VerticalAlignment=Center 居中,无按压反馈——Expander 的表头内边距
+                         来自 Semi 的 ControlTheme,改不动也对不准(见 ThinkingCardView) -->
                     <DataTemplate DataType="{x:Type items:HandoffItem}">
-                        <Border Background="{DynamicResource SemiGrey1}"
-                                BorderBrush="{DynamicResource SemiGrey3}" BorderThickness="1"
-                                CornerRadius="8" Padding="4,0" Margin="0,6,0,6">
-                            <Expander IsExpanded="{Binding IsExpanded}" Background="Transparent"
-                                      BorderThickness="0" HorizontalAlignment="Stretch">
-                                <Expander.Header>
-                                    <TextBlock Classes="muted" Text="{loc:Loc HandoffHeader}" />
-                                </Expander.Header>
-                                <SelectableTextBlock Classes="muted" Text="{Binding Message}"
-                                                     TextWrapping="Wrap" Margin="0,0,0,8" />
-                            </Expander>
+                        <Border Classes="tool-card"
+                                MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
+                                Converter={x:Static AddConverter.Instance},
+                                ConverterParameter=-10}">
+                            <StackPanel Spacing="6">
+                                <ToggleButton Classes="NoneStyle" Cursor="Hand" MaxHeight="32"
+                                              Background="Transparent" Padding="0"
+                                              BorderThickness="0" IsChecked="{Binding IsExpanded}"
+                                              HorizontalAlignment="Stretch"
+                                              HorizontalContentAlignment="Stretch">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Classes="muted title-tweak"
+                                                   Text="{loc:Loc HandoffHeader}"
+                                                   VerticalAlignment="Center" />
+                                        <ThemedSvgIcon Grid.Column="1" Width="14" Height="14"
+                                                       IconName="chevron-down"
+                                                       VerticalAlignment="Center" Margin="8,0,0,0">
+                                            <ThemedSvgIcon.RenderTransform>
+                                                <RotateTransform Angle="{Binding IsExpanded,
+                                                Converter={x:Static BoolToDoubleConverter.Instance},
+                                                ConverterParameter='180:0'}" />
+                                            </ThemedSvgIcon.RenderTransform>
+                                        </ThemedSvgIcon>
+                                    </Grid>
+                                </ToggleButton>
+                                <SelectableTextBlock Classes="muted" IsVisible="{Binding IsExpanded}"
+                                                     Text="{Binding Message}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+
+                    <!-- 正在整理交接文档:完成由交接文档卡替换,失败由错误条目替换 -->
+                    <DataTemplate DataType="{x:Type items:HandoffWritingItem}">
+                        <Border Background="{DynamicResource SemiGrey1}" BorderBrush="{DynamicResource SemiGrey3}"
+                                BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,4,0,4">
+                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                <u:LoadingIcon IsLoading="True" />
+                                <TextBlock Classes="muted" Text="{Binding Message}" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Border>
                     </DataTemplate>
 

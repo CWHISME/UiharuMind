@@ -216,15 +216,18 @@ public static class SubAgentTool
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: task must not be empty.";
 
-        SubAgentChoice? choice = agent == null
-            ? null
-            : context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent, StringComparison.OrdinalIgnoreCase));
-        if (agent != null && choice == null)
+        // 空 agent 走默认;点了名才进花名册挑选,挑不到才报错
+        SubAgentChoice? choice = null;
+        if (!string.IsNullOrWhiteSpace(agent))
         {
-            return $"Error: no agent named '{agent}'. "
-                   + (context.Roster.Count == 0
-                       ? "No named agents are mounted; omit `agent` for the default agent."
-                       : $"Available: {string.Join(", ", context.Roster.Select(x => x.Name))}.");
+            choice = context.Roster.FirstOrDefault(x => string.Equals(x.Name, agent, StringComparison.OrdinalIgnoreCase));
+            if (choice == null)
+            {
+                return $"Error: no agent named '{agent}'. "
+                       + (context.Roster.Count == 0
+                           ? "No named agents are mounted; omit `agent` for the default agent."
+                           : $"Available: {string.Join(", ", context.Roster.Select(x => x.Name))}.");
+            }
         }
 
         string? normalizedRole = NormalizeRole(role);

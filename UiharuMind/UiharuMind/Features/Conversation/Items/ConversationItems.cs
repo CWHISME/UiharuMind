@@ -517,6 +517,14 @@ public partial class ErrorItem : ConversationItemBase
 }
 
 /// <summary>
+/// 正在整理交接文档的会话内占位。不配对任何历史消息（<c>SourceMessage</c> 为空），
+/// 因此不会参与对账判定；整理完成由 <c>HandoffItem</c>（或错误条目）替换它。
+/// </summary>
+public partial class HandoffWritingItem : ConversationItemBase
+{
+}
+
+/// <summary>
 /// 交接文档条目。压缩是会丢信息的操作，悄悄发生比丢信息本身更糟——
 /// 显示出来，既能让人知道「模型从这里往前看不见了」，也能当场发现文档写砸了。
 /// 默认折叠：它通常很长，展开是查证用的，不该挤占正常对话。

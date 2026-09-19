@@ -40,4 +40,15 @@
         <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
         <Setter Property="FontSize" Value="12" />
     </Style>
+
+    <!-- 折叠条标题行的文本垂直微调。字形视觉中心天然偏上(ascent>descent),
+         VerticalAlignment=Center 只居中行盒、管不了盒内文本——用 RenderTransform 平移
+         做纯视觉修正(不参与布局,数值可按字体微调) -->
+    <Style Selector="TextBlock.title-tweak">
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TranslateTransform Y="2" />
+            </Setter.Value>
+        </Setter>
+    </Style>
 </Styles>

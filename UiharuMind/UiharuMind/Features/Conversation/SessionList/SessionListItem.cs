@@ -17,6 +17,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Characters;
 using UiharuMind.Resources.Lang;
@@ -246,8 +247,11 @@ public partial class SessionListItem : ObservableObject
         //
         // 与 IsAwaitingApproval **刻意不互斥**:名下有三个委派在跑、其中一个在等你批,
         // 这是两件正交的事,都要说。叠加由布局负责(橙点压在转圈之上,见 SessionListView.axaml)
+        // 正在整理交接文档也算"在跑":它不是轮次、不进登记处(见 TurnDriver.IsCompacting),
+        // 但列表转圈是用户判断"这个会话还有没有动静"的直观依据
         IsRunning = state == ESessionRunState.Running
-                    || BackgroundSubAgentDispatcher.HasPendingWork(SessionId);
+                    || BackgroundSubAgentDispatcher.HasPendingWork(SessionId)
+                    || TurnDriver.IsCompacting(SessionId);
         DeleteCommand.NotifyCanExecuteChanged();
         ClearChatHistoryCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(BusyTip));
@@ -265,9 +269,12 @@ public partial class SessionListItem : ObservableObject
     ///
     /// <b>名下有后台子代理没交回时同样不行</b>：删父会话是级联删子会话的，
     /// 而那一个可能正跑着；报告交回时还要往这份历史里追写一条。
+    /// 正在整理交接文档也不行：删除会 Dispose 承载它的 VM，而压缩的收尾
+    /// 还会往会话里写交接文档——写到已删除的会话上就是幽灵文件。
     /// </summary>
     public bool CanMutateFiles => !SessionManager.Instance.Running.IsBusy(SessionId)
-                                  && !BackgroundSubAgentDispatcher.HasPendingWork(SessionId);
+                                  && !BackgroundSubAgentDispatcher.HasPendingWork(SessionId)
+                                  && !TurnDriver.IsCompacting(SessionId);
 
     //================= 条目级操作 =================
 

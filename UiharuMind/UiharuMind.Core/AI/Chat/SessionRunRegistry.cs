@@ -46,6 +46,18 @@ public sealed class SessionRunRegistry
     public event Action<string>? StateChanged;
 
     /// <summary>
+    /// 不改变任何登记状态，只广播一次状态变化。
+    /// 压缩这类<b>具名忙碌态</b>不进登记处（它不是轮次，见 <c>TurnDriver.WriteHandoffAsync</c>），
+    /// 但会话列表等取用方要跟着它刷新——借这条通道发出通知
+    /// </summary>
+    /// <param name="sessionId">会话标识；为空是空操作</param>
+    public void NotifyStateChanged(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return;
+        StateChanged?.Invoke(sessionId);
+    }
+
+    /// <summary>
     /// 取会话的运行态
     /// </summary>
     /// <param name="sessionId">会话标识</param>

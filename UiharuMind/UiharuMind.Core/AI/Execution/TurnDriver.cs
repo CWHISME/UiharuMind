@@ -47,7 +47,8 @@ public sealed class TurnDriver : IDisposable
     private CancellationTokenSource? _runCancellation;
     private ChatSession? _activeSession; //本轮的会话,退出收尾要靠它
     private bool _isRunning;
-    private ETurnBusy _busy;
+    private volatile ETurnBusy _busy;
+    private volatile string? _compactingSessionId; //正在整理交接文档的会话,列表侧据此显示运行中
     private bool _ratioLogged; //占用比值每轮至多记一条,见 LogUsageRatio
 
     /// <summary>
@@ -326,8 +327,29 @@ public sealed class TurnDriver : IDisposable
     /// </summary>
     /// <param name="session">会话</param>
     /// <param name="runner">该会话的执行者</param>
-    public Task CompactAsync(ChatSession session, ICharacterRunner runner) =>
-        WriteHandoffAsync(session, runner, force: true);
+    /// <param name="extraInstructions">用户随命令附带的额外指示；为空表示没有</param>
+    public Task CompactAsync(ChatSession session, ICharacterRunner runner, string? extraInstructions = null) =>
+        WriteHandoffAsync(session, runner, force: true, extraInstructions);
+
+    /// <summary>
+    /// 某会话此刻是否正在整理交接文档。压缩不是轮次、不进运行登记处，
+    /// 但会话列表的"在跑"指示要显示它——单独挂一个查询
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>正在压缩返回 true</returns>
+    public static bool IsCompacting(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return false;
+
+        TurnDriver[] drivers;
+        lock (_liveDrivers) drivers = _liveDrivers.ToArray();
+        foreach (TurnDriver driver in drivers)
+        {
+            if (driver._compactingSessionId == sessionId) return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// 请求停止本轮。只取消，补写取消结果由运行循环自己在取消分支里做；
@@ -522,7 +544,9 @@ public sealed class TurnDriver : IDisposable
     /// <param name="session">会话</param>
     /// <param name="runner">该会话的执行者</param>
     /// <param name="force">手动触发（<c>/compact</c>），跳过水位判定</param>
-    private async Task WriteHandoffAsync(ChatSession session, ICharacterRunner runner, bool force)
+    /// <param name="extraInstructions">用户随命令附带的额外指示；为空表示没有</param>
+    private async Task WriteHandoffAsync(ChatSession session, ICharacterRunner runner, bool force,
+        string? extraInstructions = null)
     {
         // 本轮没拿到任何响应(撞限流、被停止)时不自动压缩:那一发交接请求多半也发不出去,
         // 白白再走一遍五次退避
@@ -550,15 +574,23 @@ public sealed class TurnDriver : IDisposable
 
         // ChatModelRunningData 取不到会话自己那份时已经回落到当前运行模型,这里不必再兜一层
         IChatClient? client = session.ChatModelRunningData?.ChatClient;
-        if (client == null) return;
+        if (client == null)
+        {
+            // 手动触发时不能静默无操作:占位卡没插入、也没失败提示,用户只会看到"点了没反应"
+            if (force) _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
+            return;
+        }
 
         Busy = ETurnBusy.Compacting;
+        _compactingSessionId = session.SessionId;
+        SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //会话列表据此转圈
+        _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffStarted));
         try
         {
             List<ChatMessage> supplied = session.History.Skip(start).ToList();
             // 选项取本会话装配好的那一份(系统提示词 + 工具定义 + 采样参数),与常规轮次逐字一致
             string? note = await HistoryHandoff.WriteAsync(client, supplied, runner.ChatOptions,
-                _usage.ContextLength, CancellationToken.None);
+                _usage.ContextLength, extraInstructions, CancellationToken.None);
             if (note == null)
             {
                 _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
@@ -577,9 +609,19 @@ public sealed class TurnDriver : IDisposable
             _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffWritten, HistoryHandoff.NoteBody(message.Text)));
             _notify?.Invoke(new TurnNotice(ETurnNotice.ScrollToEnd));
         }
+        catch (OperationCanceledException)
+        {
+            // 客户端超时可能把取消包装成 OCE 逃出来。普通异常已被 WriteAsync 吞掉并转成
+            // HandoffFailed,OCE 是原样上抛的——不在这里补发,占位卡会永远留在会话流里。
+            // 压缩用的是 CancellationToken.None,这个 OCE 不是用户取消,没有向上传达的必要;
+            // rethrow 会冒到手动路径的命令管线(SendCoreAsync 没有 catch)变成未处理异常
+            _notify?.Invoke(new TurnNotice(ETurnNotice.HandoffFailed));
+        }
         finally
         {
             Busy = ETurnBusy.None;
+            _compactingSessionId = null;
+            SessionManager.Instance.Running.NotifyStateChanged(session.SessionId); //转圈熄灭
         }
     }
 }

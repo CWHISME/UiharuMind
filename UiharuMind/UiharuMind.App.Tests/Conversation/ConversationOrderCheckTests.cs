@@ -138,4 +138,22 @@ public class ConversationOrderCheckTests
 
         Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [question]));
     }
+
+    /// <summary>
+    /// 交接文档落在历史中段、却漏画时，两条判据都发现不了：尾部已画到最后一条、
+    /// 已画条目的来源顺序也单调。这是压缩期间并发新轮场景下的已知盲区——
+    /// 兜底在 HandoffWritten 通知里（ConversationViewModel），对账救不回。
+    /// 钉成已知行为，免得将来有人拿对账去兜它。
+    /// </summary>
+    [Fact]
+    public void AMiddleNoteMissingIsInvisibleToReconciliation()
+    {
+        ChatMessage first = new(ChatRole.User, "任务");
+        ChatMessage note = new(ChatRole.System, "[Context handoff]\n交接正文");
+        ChatMessage later = new(ChatRole.User, "后续");
+        List<ConversationItemBase> items = [Item(first, true), Item(later, true)]; //note 漏画
+
+        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [first, note, later]));
+        Assert.Null(ConversationOrderCheck.FindDivergence(items, [first, note, later]));
+    }
 }
