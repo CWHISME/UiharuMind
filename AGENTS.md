@@ -42,8 +42,51 @@ dotnet test  UiharuMind/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj
 dotnet test  UiharuMind/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
 ```
 
+测试框架是 xunit v3（`xunit.v3` 4.x），跑在 Microsoft.Testing.Platform（MTP）上，由仓库根的
+`global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，所以
+`dotnet msbuild <csproj> -t:Test`（等价于直接运行产物 exe）同样可用。
+
+⚠️ `dotnet test` 能用的前提是两个测试项目都带
+`<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>`。.NET 10 SDK 起
+`dotnet test` 不再走 VSTest，缺这个属性它会直接报错——早前那次「运行了零个测试 / exit 5」
+就是这一处没打开，不是 SDK 的毛病（SDK 10.0.301 实测两个项目 948 / 405 全跑通）。
+过滤语法与 VSTest 不同（`--filter-class` / `--filter-method` / `--filter-trait`…，见
+<https://xunit.net/docs/getting-started/v3/microsoft-testing-platform>）。
+
+> `ClassicDiagnostics.Avalonia` 是 vendored 的独立解决方案，其 NUnit 测试项目不在
+> `UiharuMind.sln` 中，也不走本仓的 MTP 流程。
+
 axaml 的命名空间与 `x:Class` 错误在编译期就会炸（`AVLN2000`），所以对结构性改动，
 「解决方案编译通过」是很强的信号。
+
+### 无头界面测试
+
+`UiharuMind.App.Tests/Headless/` 下的测试跑的是**真实控件与真实模板**，只是不要窗口
+（Avalonia.Headless）。会话流没有虚拟化，「留多少条目 = 排多久版」这类事只有在这里量得到。
+
+写法是 `HeadlessUi.Run(() => { ... })` 而不是官方的 `[AvaloniaFact]`（`Avalonia.Headless.XUnit`）。
+**不是偏好问题，是官方包现在还用不了**：它最新的 12.1.2 对着
+`xunit.v3.extensibility.core 3.2.2` 编译，撞上本仓的 4.0.1 会在<b>发现阶段</b>抛
+`MissingMethodException`（`TestIntrospectionHelper.GetTestCaseDetails` 签名变了，实测三个
+无头测试全红）。等它跟上 4.x 就能把这层去掉，测试体一行都不用改。
+新增无头测试类记得挂 `[Collection(HeadlessCollection.Name)]`，否则并行跑会随机撞线程亲和性。
+
+### 开发脚本（驱动真实应用）
+
+有些问题只在「真的用了一阵」之后才显形（长会话切换、内存驻留），无头测试走不完那条路。
+这时用开发脚本：
+
+```bash
+UIHARU_HOME=/tmp/uiharu-scratch \
+  UiharuMind.Desktop --dev-script scenario.jsonl --dev-report report.json
+```
+
+脚本一行一步（`page.jump` / `session.open` / `ui.snapshot` / `diag.memory` / `wait` / `quit`），
+报告里每步带耗时与结果。实现见 `Features/DevAutomation/`。两条口径：
+**不带 `--dev-script` 就一行都不跑**；每一步只许走公开的视图模型面，
+不为自动化单开特权入口——否则测出来的就不是用户那条路。
+
+⚠️ 拿真实档案跑之前先 `UIHARU_HOME` 指到副本上，脚本会真的改那份数据。
 
 ## 打包与发版
 

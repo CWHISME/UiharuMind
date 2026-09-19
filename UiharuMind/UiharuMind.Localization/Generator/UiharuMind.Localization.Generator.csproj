@@ -13,7 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+    <!-- ⚠️ 这个版本<b>不能跟着「升级所有包」走</b>:源生成器必须编到不高于宿主编译器的 Roslyn 上,
+         高了就被整个拒绝加载(CS9057),症状是 UiharuMind.Generated / LangKey 全线找不到,
+         看起来像本体项目坏了。当前 SDK 10.0.401 带的是 Roslyn 5.9,所以这里最多跟到 5.9 -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

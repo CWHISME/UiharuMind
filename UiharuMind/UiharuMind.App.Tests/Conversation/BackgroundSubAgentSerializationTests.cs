@@ -48,7 +48,8 @@ public class BackgroundSubAgentSerializationTests
         });
 
         // 第一轮确实拿住闸门之后再派第二轮，否则谁先起是调度运气
-        for (int i = 0; i < 200 && !Snapshot().Contains("first-enter"); i++) await Task.Delay(25);
+        for (int i = 0; i < 200 && !Snapshot().Contains("first-enter"); i++)
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         Assert.Contains("first-enter", Snapshot());
 
         BackgroundSubAgentDispatcher.Dispatch(session, _ =>
@@ -57,12 +58,12 @@ public class BackgroundSubAgentSerializationTests
             return Task.FromResult("second");
         });
 
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
         Assert.DoesNotContain("second-enter", Snapshot()); //还压在闸门外，没开跑
 
         firstRelease.SetResult();
         for (int i = 0; i < 200 && BackgroundSubAgentDispatcher.IsAwaitingReport(session.SessionId); i++)
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
 
         Assert.Equal(["first-enter", "first-exit", "second-enter"], Snapshot());
     }

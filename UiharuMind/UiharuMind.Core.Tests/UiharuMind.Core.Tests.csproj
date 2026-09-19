@@ -5,19 +5,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <!-- .NET 10 SDK 起 dotnet test 不再走 VSTest,要显式认新运行器,否则 dotnet test 直接报错 -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <!-- MAAI001: Microsoft.Agents.AI Harness 面为 Experimental API -->
     <NoWarn>$(NoWarn);MAAI001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="10.0.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
     <!-- Core 对框架包是 PrivateAssets,装配不变量测试要直接看框架类型,版本须与 Core 一致 -->
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.20.0" />
-    <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.20.0" />
-    <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.20.0-preview.260831.1" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.22.0" />
+    <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.22.0" />
+    <PackageReference Include="Microsoft.Agents.AI.Tools.Shell" Version="1.22.0-preview.260918.1" />
   </ItemGroup>
 
   <ItemGroup>

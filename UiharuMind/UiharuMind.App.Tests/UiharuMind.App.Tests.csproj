@@ -5,15 +5,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <!-- .NET 10 SDK 起 dotnet test 不再走 VSTest,要显式认新运行器,否则 dotnet test 直接报错 -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <!-- MAAI001: Microsoft.Agents.AI Harness 面为 Experimental API -->
-    <NoWarn>$(NoWarn);MAAI001</NoWarn>
+    <!-- CS0435: xunit v3 自动生成的入口文件用 global::UiharuMind.App.Tests.* 全限定名,与主程序集内的 App 类型同名 -->
+    <NoWarn>$(NoWarn);MAAI001;CS0435</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="10.0.1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageReference Include="Avalonia.Headless" Version="12.1.2" />
+    <PackageReference Include="xunit.v3" Version="4.0.1" />
   </ItemGroup>
 
   <ItemGroup>
