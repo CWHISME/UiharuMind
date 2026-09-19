@@ -25,6 +25,11 @@ internal sealed class FallbackPageReader
     private readonly IPageReader[] _chain =
     {
         new FirecrawlPageReader(),
+        // Firecrawl 失败后、直连之前优先试同源 /llms.txt：llmstxt.org 的提案本就要求
+        // agent 先读 llms.txt 再 follow 链接——它对 SPA 空壳页是唯一不用渲染 JS 的指路，
+        // 对文档站则直接给出 .md 版本链接，质量高于直连抽 DOM。站点没有 llms.txt 时
+        // 404 很快，随即落到链尾的直连读取器，不损失什么。
+        new LlmstxtPageReader(),
         new DirectPageReader()
     };
 

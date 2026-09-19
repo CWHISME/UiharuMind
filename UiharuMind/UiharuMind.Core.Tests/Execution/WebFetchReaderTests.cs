@@ -85,6 +85,25 @@ public class WebFetchReaderTests
         Assert.True(((IPageReader)new DirectPageReader()).CanRead("http://192.168.1.1/"));
     }
 
+    /// <summary>llms.txt 读取器只受理能拼出同源地址的 http/https</summary>
+    [Theory]
+    [InlineData("https://youtrack.jetbrains.com/issue/RIDER-71303", "https://youtrack.jetbrains.com/llms.txt")]
+    [InlineData("http://example.com/a?b=1", "http://example.com/llms.txt")]
+    public void Llmstxt_BuildsSameOriginUrl(string url, string expected)
+    {
+        Assert.Equal(expected, LlmstxtPageReader.BuildLlmstxtUrl(url));
+    }
+
+    [Theory]
+    [InlineData("ftp://example.com/a")]
+    [InlineData("not a url")]
+    [InlineData("")]
+    public void Llmstxt_UnsupportedUrl_IsNotHandled(string url)
+    {
+        Assert.Null(LlmstxtPageReader.BuildLlmstxtUrl(url));
+        Assert.False(((IPageReader)new LlmstxtPageReader()).CanRead(url));
+    }
+
     /// <summary>
     /// 截断流读满上限即 EOF 而非抛异常:大 HTML 页面整体报废会让
     /// WebFetchTool 的 64KB 头尾骨架机制够不着;截断可用与纯文本分支同口径。

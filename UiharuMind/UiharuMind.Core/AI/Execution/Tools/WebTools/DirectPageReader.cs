@@ -28,6 +28,10 @@ internal sealed partial class DirectPageReader : IPageReader
     /// </summary>
     private const long ResponseSizeCap = 4 * 1024 * 1024;
 
+    /// <summary>HTML 抽出的正文低于此值视作空壳页（SPA 静态壳/导航页），触发 llms.txt 与 ai-instructions 自救。
+    /// 与 <see cref="FallbackPageReader"/> 的 MinContentLength 同口径，避免"Direct 判定成功、上层判空壳"的两套标准。</summary>
+    private const int MinShellBodyChars = 150;
+
     private static readonly string[] NoiseTags =
         ["script", "style", "noscript", "iframe", "svg", "nav", "footer", "aside", "header"];
 
@@ -95,7 +99,23 @@ internal sealed partial class DirectPageReader : IPageReader
         using IDocument doc = await context.OpenAsync(v => v.Content(stream), ct).ConfigureAwait(false);
 
         StripNoise(doc);
-        return PageReadResult.Ok(Extract(doc));
+        string text = Extract(doc);
+        if (text.Length >= MinShellBodyChars) return PageReadResult.Ok(text);
+
+        // 空壳页（SPA 静态 HTML 常为零正文）：失败原因里带上页面自带的 ai-instructions 提示
+        // （不少 SPA 用它指路 REST API / llms.txt），由兜底链汇总后交给模型。链尾的 LlmstxtPageReader
+        // 会再试同源 /llms.txt，这里是它能拿到的最具体线索。
+        string? instructions = ExtractAiInstructions(doc);
+        return instructions != null
+            ? PageReadResult.Fail($"no readable text; site instruction for AI clients: {instructions}")
+            : PageReadResult.Fail("no readable text");
+    }
+
+    /// <summary>页面自带的 AI 客户端指引（<c>meta[name=ai-instructions]</c>），不少 SPA 用它指路 REST API</summary>
+    private static string? ExtractAiInstructions(IDocument doc)
+    {
+        IElement? meta = doc.QuerySelector("meta[name='ai-instructions']");
+        return meta?.GetAttribute("content");
     }
 
     /// <summary>
