@@ -34,6 +34,9 @@ namespace UiharuMind.Core.AI.Chat;
 // 需要遍历历史请直接用 History。
 public class ChatSession
 {
+    private List<ChatMessage>? _history = []; //null = 已卸载,下次访问按 _historyReload 取回;卸载条件见 SessionManager 驻留策略(ADR 0036)
+    private Func<List<ChatMessage>>? _historyReload; //卸载后把历史取回来的入口;只有落盘过的会话给得出
+
     /// <summary>存档格式版本(4 起:头文件 .meta.json + 历史 .history.jsonl 分离)</summary>
     public int FormatVersion { get; set; } = 4;
 
@@ -140,9 +143,41 @@ public class ChatSession
     /// <summary>最后更新时间</summary>
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
 
-    /// <summary>对话历史。不随会话头序列化——单独以 JSONL 追加式持久化</summary>
+    /// <summary>
+    /// 对话历史。不随会话头序列化——单独以 JSONL 追加式持久化。
+    ///
+    /// <b>可能是卸载态</b>：本体缓存有上限（见 <c>SessionManager</c> 的驻留策略），
+    /// 冷会话的历史会被卸掉，读到这里时按需重载。因此
+    /// <b>不要把它取出来存成字段再跨 await 用</b>——中途卸载会让你手上那份成为孤儿，
+    /// 往里写的东西没人落盘。要么现取现用，要么先 <c>Pin</c> 住。
+    /// </summary>
     [JsonIgnore]
-    public List<ChatMessage> History { get; set; } = [];
+    public List<ChatMessage> History
+    {
+        get => _history ??= _historyReload?.Invoke() ?? [];
+        set => _history = value;
+    }
+
+    /// <summary>
+    /// 交代「卸载之后怎么把历史取回来」。只有落盘过的会话给得出——
+    /// 临时会话只存在于内存，卸了就真没了，因此永远不给。
+    /// </summary>
+    /// <param name="reload">重载入口</param>
+    internal void SetHistoryReload(Func<List<ChatMessage>> reload) => _historyReload = reload;
+
+    /// <summary>
+    /// 把历史从内存里卸掉（下次访问按需重载）。会话本体<b>不换实例</b>，
+    /// 于是所有持有它的人都不受影响；受影响的只有持有 <see cref="ChatMessage"/>
+    /// <b>实例</b>的界面条目，重载之后它们认不回来——而那正是「冷会话」的定义。
+    /// </summary>
+    /// <returns>真的卸掉了返回 true</returns>
+    internal bool UnloadHistory()
+    {
+        if (_historyReload == null || _history == null) return false;
+
+        _history = null;
+        return true;
+    }
 
     /// <summary>
     /// 本轮开始时刻。每轮由 <c>TurnDriver</c> 盖章，<c>SessionChatHistoryProvider</c>

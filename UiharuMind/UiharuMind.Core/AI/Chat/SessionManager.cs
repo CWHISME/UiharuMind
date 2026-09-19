@@ -7,11 +7,13 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.ToolCall;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
@@ -74,7 +76,21 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private readonly Dictionary<string, ChatSessionMeta> _metas = new();
 
     // 已加载的本体(含临时会话)。临时会话只存在于此,不落盘也不进 _metas。
+    // 本体一旦加载就<b>不换实例也不摘掉</b>——持有它的人认的是这一个实例。
+    // 按会话长度增长的只有历史,那一份由驻留策略管(见 SessionResidencyPolicy)
     private readonly Dictionary<string, ChatSession> _loaded = new();
+
+    private readonly ConcurrentDictionary<string, DateTime> _resident = new(); //历史仍在内存的会话及其最后访问时刻;不共用 _locker,卸载重载回调可能撞进任何持锁代码
+    private readonly ConcurrentDictionary<string, int> _pins = new(); //被钉住的会话(界面壳挂着、条目还指着消息实例),钉住期间不卸历史
+
+    /// <summary>已加载的会话本体数（含历史已卸载的那些）。诊断用</summary>
+    public int LoadedSessionCount
+    {
+        get { lock (_locker) return _loaded.Count; }
+    }
+
+    /// <summary>历史仍留在内存里的会话数。诊断用，与驻留上限对照着看</summary>
+    public int ResidentHistoryCount => _resident.Count;
 
     public void OnInitialize()
     {
@@ -183,10 +199,29 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public ChatSession? Load(string sessionId)
     {
         if (string.IsNullOrEmpty(sessionId)) return null;
-        // 读盘也在锁内:两个线程同时首次加载同一会话,否则会各持一份本体,历史被写坏
+
+        ChatSession? loaded = ResolveLoaded(sessionId);
+        // 命中也走一遍:超出上限的那几个未必赶得上下一次未命中,而没超限时这一趟几乎不花钱。
+        // 排在锁外:卸载要写盘、要放执行者
+        UnloadColdHistories();
+        return loaded;
+    }
+
+    /// <summary>
+    /// 取本体，缓存没有就读盘。<b>整段在锁内</b>：两个线程同时首次加载同一会话，
+    /// 否则会各持一份本体，历史被写坏。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>会话；文件缺失或损坏为 null</returns>
+    private ChatSession? ResolveLoaded(string sessionId)
+    {
         lock (_locker)
         {
-            if (_loaded.TryGetValue(sessionId, out ChatSession? cached)) return cached;
+            if (_loaded.TryGetValue(sessionId, out ChatSession? cached))
+            {
+                Touch(sessionId);
+                return cached;
+            }
 
             ChatSession? session =
                 SaveUtility.Load<ChatSession>(GetMetaPath(sessionId), SessionJsonOptions.Default);
@@ -197,6 +232,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
             }
 
             session.SessionId = sessionId;
+            TrackHistory(session);
             session.History = LoadHistory(sessionId);
             // 进程级中断(崩溃/强杀)时当场补的代码跑不到,孤儿 tool_call 留在盘上——
             // 严格的服务端下一条请求直接 400,这个会话从此发不出话。读取时修:下次打开就有代码可跑了。
@@ -205,6 +241,116 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
             ToolCallCancellation.CloseUnansweredAtTail(session);
             _loaded[sessionId] = session;
             return session;
+        }
+    }
+
+    /// <summary>
+    /// 钉住一个会话：钉住期间它的历史不会被卸掉。
+    ///
+    /// 谁该钉：<b>持有历史里那些 <see cref="ChatMessage"/> 实例的人</b>。界面壳是典型——
+    /// 每个气泡都指着历史里的某一条，历史一换实例，编辑/删除/分叉/重试全部静默失效。
+    /// 短促的读写不必钉，驻留策略的冷却时间已经把那条竞态排除了
+    /// （见 <see cref="SessionResidencyPolicy.MinIdleBeforeUnload"/>）。
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>解钉句柄；标识为空时是个空操作句柄</returns>
+    public IDisposable Pin(string? sessionId) => new PinScope(this, sessionId);
+
+    /// <summary>记一次访问。卸载只挑最冷的那几个，这里就是「冷」的判据</summary>
+    private void Touch(string sessionId) => _resident[sessionId] = DateTime.UtcNow;
+
+    /// <summary>
+    /// 交代这个会话的历史怎么卸、怎么取回来。<b>只给落盘过的会话</b>——
+    /// 临时会话只存在于内存，卸了就真没了。
+    /// </summary>
+    private void TrackHistory(ChatSession session)
+    {
+        string sessionId = session.SessionId;
+        session.SetHistoryReload(() =>
+        {
+            Touch(sessionId);
+            return LoadHistory(sessionId);
+        });
+        Touch(sessionId);
+    }
+
+    /// <summary>
+    /// 把超出驻留上限的冷会话历史卸掉，连同它们的执行者一起放掉。
+    ///
+    /// 卸之前先把历史落一次盘：内存里那份才是权威，而「有没有人改过它还没保存」
+    /// 在这里判不出来。多写一次几毫秒，换的是「卸载永远不会丢东西」。
+    /// </summary>
+    private void UnloadColdHistories()
+    {
+        IReadOnlyList<string> doomed =
+            SessionResidencyPolicy.SelectForUnload(_resident, CanUnloadHistory, DateTime.UtcNow);
+
+        foreach (string sessionId in doomed)
+        {
+            ChatSession? session;
+            lock (_locker) _loaded.TryGetValue(sessionId, out session);
+            if (session == null)
+            {
+                _resident.TryRemove(sessionId, out _);
+                continue;
+            }
+
+            int count = session.History.Count;
+            // 空历史一律不写:会话文件读坏时 LoadHistory 也会给出空列表,
+            // 这时候回写等于拿一次读取失败把盘上那份真历史抹了
+            if (count > 0)
+            {
+                SaveUtility.SaveText(GetHistoryPath(sessionId), HistoryJsonl.SerializeLines(session.History));
+            }
+
+            if (!session.UnloadHistory()) continue;
+
+            _resident.TryRemove(sessionId, out _);
+            // 执行者一起放掉:装配快照、框架会话状态与 MCP 租约都挂在它身上,
+            // 留着一个冷会话的执行者没有意义,下次用到时惰性重建
+            DisposeRunner(session);
+            Log.Debug($"Unloaded history of cold session '{sessionId}' ({count} messages).");
+        }
+    }
+
+    /// <summary>这个会话此刻卸得动吗</summary>
+    private bool CanUnloadHistory(string sessionId)
+    {
+        if (_pins.ContainsKey(sessionId)) return false;
+
+        ChatSession? session;
+        lock (_locker) _loaded.TryGetValue(sessionId, out session);
+        if (session == null || session.IsTransient) return false;
+
+        // 在跑(含卡在审批上)、名下还有没交回的后台子代理:历史随时会被写,卸了就是在它脚下抽地板
+        if (Running.IsBusy(sessionId)) return false;
+        if (BackgroundSubAgentDispatcher.HasPendingWork(sessionId)) return false;
+        return !session.BackgroundReportPending;
+    }
+
+    /// <summary>解钉句柄。重入计数：同一个会话可以被多个壳同时钉住</summary>
+    private sealed class PinScope : IDisposable
+    {
+        private readonly SessionManager _owner;
+        private readonly string? _sessionId;
+        private bool _released;
+
+        public PinScope(SessionManager owner, string? sessionId)
+        {
+            _owner = owner;
+            _sessionId = sessionId;
+            if (!string.IsNullOrEmpty(sessionId))
+            {
+                owner._pins.AddOrUpdate(sessionId, 1, (_, count) => count + 1);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_released || string.IsNullOrEmpty(_sessionId)) return;
+            _released = true;
+            _owner._pins.AddOrUpdate(_sessionId, 0, (_, count) => count - 1);
+            _owner._pins.TryRemove(new KeyValuePair<string, int>(_sessionId, 0));
         }
     }
 
@@ -269,6 +415,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     {
         session.IsTransient = false;
         lock (_locker) _loaded[session.SessionId] = session;
+        TrackHistory(session); //这一刻起它就是落盘会话,冷下来之后照样让位
         Save(session);
         OnSessionAdded?.Invoke(session);
     }
@@ -417,6 +564,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         lock (_locker)
         {
             _loaded.Remove(sessionId);
+            _resident.TryRemove(sessionId, out _);
             if (_metas.Remove(sessionId)) SaveIndex();
         }
 
@@ -447,6 +595,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         {
             if (!_loaded.Remove(sessionId, out session)) return;
         }
+
+        _resident.TryRemove(sessionId, out _);
 
         DisposeRunner(session);
     }

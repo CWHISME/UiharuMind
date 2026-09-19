@@ -29,6 +29,20 @@
 
 ---
 
+### 历史驻留（History Residency）
+
+「这个会话的历史此刻在不在内存里」。会话**本体**一经加载就常驻、不换实例；
+按会话长度增长的只有历史，它有上限（`SessionResidencyPolicy`），冷会话让位、下次访问重载。
+体现为 `ChatSession.UnloadHistory`、`SessionManager.Pin`。
+
+⚠️ 不要与**压缩**（把历史压进交接文档、改变供给给模型的那一份）混淆：
+驻留只动内存，盘上那份与模型看到的那份都不受影响。
+
+⚠️ 持有历史里 `ChatMessage` **实例**的人必须 `Pin`。见
+[ADR 0036](adr/0036-会话历史按上限驻留，本体实例永不换.md)。
+
+---
+
 ### 子会话（SubSession）
 
 一次子代理运行的**历史本体**，就是一个真的会话，靠 `ParentSessionId` 指回派活的那个。
