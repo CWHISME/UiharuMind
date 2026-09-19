@@ -7,37 +7,42 @@
     </Design.PreviewWith>
 
     <!-- Add Styles Here -->
-    <Style Selector="TextBlock">
+    <!-- 类型选择器一律用 :is() 而不用裸类型名:裸类型按 StyleKey 精确匹配,
+         子类(如 DiffTextBlock、MarkdownTextBlock)命中不了,字体又会飘一次。
+         :is() 按继承匹配,新控件自动吃到 -->
+    <Style Selector=":is(TextBlock)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
-    <Style Selector="TextBox">
+    <Style Selector=":is(TextBox)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
-    <Style Selector="SelectableTextBlock">
+    <Style Selector=":is(SelectableTextBlock)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
-    <Style Selector="CheckBox">
+    <Style Selector=":is(CheckBox)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
-    <Style Selector="Button">
+    <Style Selector=":is(Button)">
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
     
     <!-- 淡淡的灰色字体 -->
-    <Style Selector="TextBlock.muted">
+    <Style Selector=":is(TextBlock).muted">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
     </Style>
-    <Style Selector="TextBlock.mono">
-        <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
+    <!-- 代码/路径等宽语义:字体与正文统一走 MainFont(单点,换字体只改 MainFont),
+         mono 只保留"小字号"的语义,以后想换回等宽只改这一处 -->
+    <Style Selector=":is(TextBlock).mono">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
         <Setter Property="FontSize" Value="12" />
     </Style>
-    <Style Selector="SelectableTextBlock.muted">
+    <Style Selector=":is(SelectableTextBlock).muted">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
     </Style>
-    <Style Selector="SelectableTextBlock.mono">
-        <Setter Property="FontFamily" Value="Consolas,Menlo,Monaco,monospace" />
+    <Style Selector=":is(SelectableTextBlock).mono">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
         <Setter Property="FontSize" Value="12" />
     </Style>
 

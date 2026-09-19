@@ -13,8 +13,6 @@
     <Application.Resources>
         <ResourceDictionary>
             <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
-            <FontFamily x:Key="JetBrainsMonoFont">avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
-            <FontFamily x:Key="CodeFontFamily">Maple Mono, Cascadia Mono, Consolas, Menlo, monospace,avares://UiharuMind/Assets/Fonts#JetBrains Mono</FontFamily>
 
             <!-- AvaloniaEdit 的 Fluent 主题(下面 Application.Styles 里挂着)引用九个 Fluent 键,
                  其中 ToolTipBackground / ToolTipForeground / ToolTipBorderBrush 由 Semi 提供,
@@ -23,7 +21,8 @@
                  Assets/ThemeColors.axaml。少任何一个,搜索面板一开就抛 KeyNotFoundException。
                  刻意不引 <FluentTheme /> 补齐:那会与 SemiTheme 打架。见 ADR 0012 -->
             <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
-            <FontFamily x:Key="ContentControlThemeFontFamily">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans</FontFamily>
+            <!-- 与 MainFont 同值：换字体只改 MainFont。此键删不得（AvaloniaEdit 主题按 key 查找），故用别名 -->
+            <StaticResource ResourceKey="MainFont" x:Key="ContentControlThemeFontFamily" />
             <Thickness x:Key="ToolTipBorderThemeThickness">1</Thickness>
 
             <ResourceDictionary.MergedDictionaries>

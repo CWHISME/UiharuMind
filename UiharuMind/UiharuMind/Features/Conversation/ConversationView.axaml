@@ -114,7 +114,7 @@
                                 Command="{Binding CopySessionIdCommand}"
                                 ToolTip.Tip="{Binding SessionIdFull}"
                                 IsVisible="{Binding SessionIdShort, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                            <TextBlock Classes="muted" FontSize="11" FontFamily="{DynamicResource CodeFontFamily}"
+                            <TextBlock Classes="muted mono" FontSize="11"
                                        Text="{Binding SessionIdShort}" />
                         </Button>
                     </Grid>

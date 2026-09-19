@@ -43,9 +43,9 @@ public sealed class DiffTextBlock : DecoratedTextBlock
 
     public DiffTextBlock()
     {
-        // 对齐旧 diffline 的观感：等宽继承自 mono 类；字号与旧样式一致，内边距沿用旧样式的 4,0。
-        // LineHeight 手动给定：单块行高默认贴身（lineGap 小），背景铺满后视觉偏挤；
-        // 调大到 1.4x 行距，背景块随 TextLine.Height 一起变高，行与行自然拉开。
+        // 对齐旧 diffline 的观感：字体继承自 mono 类（已统一 MainFont）；diff 行维持 12（紧凑列表，库代码块的 14 不适用这里），
+        // 内边距沿用旧样式的 4,0。LineHeight 手动给定：单块行高默认贴身（lineGap 小），
+        // 背景铺满后视觉偏挤；调大到 1.4x 行距，背景块随 TextLine.Height 一起变高，行与行自然拉开。
         // IBeam 光标不由这里给：StyleKey 已指回 SelectableTextBlock，主题的 ControlTheme
         // 按 IsEnabled 给 IBeam；构造里 new Cursor 要平台服务，还会把本类挡在单元测试外
         FontSize = 12;

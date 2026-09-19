@@ -153,10 +153,9 @@
                                                                Text="{Binding StatusText}"
                                                                Foreground="{DynamicResource SemiOrange5}"
                                                                IsVisible="{Binding NeedsApproval}" />
-                                                    <!-- 命令原文是安全信息,不折叠不省略 -->
-                                                    <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap"
-                                                               FontFamily="{DynamicResource CodeFontFamily}"
-                                                               Text="{Binding CommandLine}" />
+                                                     <!-- 命令原文是安全信息,不折叠不省略 -->
+                                                     <TextBlock Classes="muted mono" FontSize="10" TextWrapping="Wrap"
+                                                                Text="{Binding CommandLine}" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

@@ -70,11 +70,12 @@
         <Border Grid.Row="1" Background="Transparent"
                 BorderBrush="{DynamicResource CodeBlockBorderBrush}"
                 BorderThickness="1" CornerRadius="6">
+            <!-- TextEditor 不吃文本样式，FontFamily 直接绑 MainFont：删了会回落到编辑器默认字体 -->
             <edit:TextEditor Name="Editor"
                              Background="Transparent"
                              Foreground="{DynamicResource UiForegroundBrush}"
                              LineNumbersForeground="{DynamicResource SemiGrey5}"
-                             FontFamily="{DynamicResource CodeFontFamily}"
+                             FontFamily="{DynamicResource MainFont}"
                              FontSize="13"
                              Padding="8"
                              HorizontalScrollBarVisibility="Auto"

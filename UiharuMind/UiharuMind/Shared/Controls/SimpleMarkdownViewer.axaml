@@ -42,8 +42,7 @@
                                               HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
                                               VerticalScrollBarVisibility="Auto">
                                     <avalonia2:MarkdownTextBlock x:Name="PART_CodeTextBlock" Margin="4"
-                                                                 FontFamily="{StaticResource CodeFontFamily}"
-                                                                 TextWrapping="{TemplateBinding TextWrapping}"/>
+                                                                  TextWrapping="{TemplateBinding TextWrapping}"/>
                                 </ScrollViewer>
                             </Border>
                         </StackPanel>
