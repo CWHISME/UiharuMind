@@ -77,6 +77,16 @@ public sealed class ConversationTranscript : ITurnSink
     /// </summary>
     public event Action<string>? SubSessionAttached;
 
+    /// <summary>
+    /// 一次服务调用的内容到此为止（历史此刻已落盘）。
+    ///
+    /// 存在的理由只有一个：<b>一轮可以很长</b>。落盘通知（<c>ETurnNotice.Persisted</c>）
+    /// 一整轮才来一次，而一轮 agent 回复能跑几十次工具调用、堆出几百个条目——
+    /// 只在轮末回填与裁剪，等于这一整轮里条目上限根本不存在。消息边界是轮内唯一
+    /// 「历史与界面都自洽」的时刻，回填与裁剪要插手就只能插在这里。
+    /// </summary>
+    public event Action? MessageBoundaryReached;
+
     /// <param name="target">条目落点：实时流直写界面集合，回放写入构建缓冲</param>
     /// <param name="createAssistantItem">助手气泡工厂（名字与头像取自当前会话角色）</param>
     /// <param name="createUserItem">
@@ -175,6 +185,7 @@ public sealed class ConversationTranscript : ITurnSink
             // 一次服务调用到此为止:之后的正文属于下一条助手消息,不能续进当前气泡
             case MessageBoundaryContent boundary:
                 ThinkingBoundary.Dispatch(boundary, _thinkParser, AppendText, AppendThinking, CloseSegment);
+                MessageBoundaryReached?.Invoke();
                 break;
 
             case UserMessageContent consumed:

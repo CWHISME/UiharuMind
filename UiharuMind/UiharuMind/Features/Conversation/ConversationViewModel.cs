@@ -266,6 +266,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private ChatSession? _signalSession; //已挂上历史变更信号的会话
+    private IDisposable? _sessionPin; //挂着期间钉住它的历史,不许被驻留策略卸掉
     private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
     private readonly ITurnSink _liveObserverSink; //实时流的落点:同一个转录器,外面包一层 UI 线程 marshal
     private readonly HistoryWindow _historyWindow = new(); //历史渲染窗口
@@ -502,6 +503,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.UserMessageRendered += OnUserMessageRendered;
         _transcript.ApprovalRequestCreated += OnApprovalRequestCreated;
         _transcript.SubSessionAttached += RefreshSubSessionApprovalWait;
+        _transcript.MessageBoundaryReached += OnMessageBoundaryReached;
         // 登记与画卡在两个线程上各走各的,谁先都有可能——登记侧也喊一声,让已经画出来的卡回头认领
         SubSessionApprovalRegistry.Instance.PendingAdded += OnNestedApprovalsPending;
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
@@ -897,6 +899,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         DetachSessionSignals();
         _signalSession = session;
+        // 钉住它的历史:每个气泡都指着历史里的某一条消息实例,历史被卸掉重载之后
+        // 那些引用全部认不回来,编辑/删除/分叉/重试会静默失效(见 SessionResidencyPolicy)
+        _sessionPin = SessionManager.Instance.Pin(session.SessionId);
         // 后台子代理跑完起的那一轮,审批只有本壳接得住(见 WakeApprovalHosts)
         WakeApprovalHosts.Register(session.SessionId, ResolveApprovalsAsync);
         session.HistoryAppended += OnSessionHistoryAppended;
@@ -917,6 +922,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         previous.LiveTurn.TurnEnded -= OnObservedTurnEnded;
         _liveObservation?.Dispose();
         _liveObservation = null;
+        _sessionPin?.Dispose();
+        _sessionPin = null;
         _signalSession = null;
     }
 
@@ -1023,6 +1030,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
         _transcript.ApprovalRequestCreated -= OnApprovalRequestCreated;
         _transcript.SubSessionAttached -= RefreshSubSessionApprovalWait;
+        _transcript.MessageBoundaryReached -= OnMessageBoundaryReached;
         SubSessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
         _driver.StateChanged -= OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
@@ -1394,6 +1402,30 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         _transcript.ResolveApprovals(turnApprovals);
         return responses;
+    }
+
+    /// <summary>
+    /// 轮内的一次消息边界：<b>不在界面上的实例</b>在此把条目压回后台上限。
+    ///
+    /// 为什么非得在这里插一手：落盘通知一整轮才来一次，而一轮 agent 回复可以跑几十次
+    /// 服务调用、堆出几百个条目。只在轮末裁，等于「切走的会话按一屏留」这条口径
+    /// 在长轮次里整轮失效——切回去照样是几百条一次性重新实体化，
+    /// 用户看到的就是「明明做过截断，切回运行中的会话还是很长」。
+    ///
+    /// 前台也裁，只是按宽得多的运行期上限（80），而且<b>只在跟底时</b>——
+    /// 那道闸在裁剪器里（<c>canTrimSource</c>），用户一上滚就自动关掉，正在读的内容不会被抽走。
+    /// 前台这一半本来出于「流式中途裁会打乱跟底与 Offset」的顾虑没做，实测把它按回去了：
+    /// 一轮长下来光会话流的控件对象图就能涨 86MB（一张卡上百个控件，列表还没有虚拟化），
+    /// 而那个峰值正是 GC 提交量下不来的源头。消息边界是轮内最安稳的时机：流段刚收尾，
+    /// 来源消息也刚落盘，锚点与滚动位置都是确定的。
+    ///
+    /// 回填必须走在裁剪前面——锚点就是回填出来的那些来源消息。
+    /// </summary>
+    private void OnMessageBoundaryReached()
+    {
+        _itemActions.WireStreamed(CurrentRunner?.GetHistory() ?? []);
+        bool trimmed = IsDisplayed ? _trimmer.TrimIfNeeded() : _trimmer.TrimToBackgroundBudget();
+        if (trimmed) HasEarlierMessages = _historyWindow.HasEarlier;
     }
 
     /// <summary>

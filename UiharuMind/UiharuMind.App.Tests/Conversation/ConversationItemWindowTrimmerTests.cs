@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
@@ -152,11 +153,11 @@ public class ConversationItemWindowTrimmerTests
     }
 
     /// <summary>
-    /// 一轮很长（agent 会话里几十条工具卡是常态）时也要裁得动。
+    /// 一轮很长（agent 会话里几十条工具卡是常态）时也要裁到上限。
     ///
-    /// 锚点搜索一旦往尾部找就会死在这里：要保留的那一段全是助手正文与工具卡，
-    /// 里面没有用户消息，于是<b>一条都裁不掉</b>——上限越紧越必然失败。
-    /// 这是「切出去切回来进度条一点没变」那个 bug 的判据。
+    /// 两种死法都在这一条里：锚点往尾部找会死在「保留的那一段里没有用户消息」；
+    /// 只认用户锚点会死在「退到本轮开头 = 整轮留下」——裁是裁了，条目数一点没降，
+    /// 这就是「切出去切回来，运行中的会话依旧几百条」的由来。超过硬顶就得从消息起点切。
     /// </summary>
     [Fact]
     public void LongTurnWithNoUserMessageNearTheTail_StillTrims()
@@ -181,10 +182,110 @@ public class ConversationItemWindowTrimmerTests
         // 上限 10:切点落在第二轮尾部,那一段里没有任何用户消息
         Assert.True(fixture.NewTrimmer(80, 10).TrimToBackgroundBudget());
 
-        // 退到第二轮的用户消息(下标 31),第一轮整轮裁掉
-        Assert.Equal(31, fixture.Items.Count);
-        Assert.Equal(31, fixture.Window.Start);
-        Assert.Same(fixture.History[31], fixture.Items[0].SourceMessage);
+        // 用户锚点(下标 31)会留下 31 条、超过上限 10 的两倍,于是改按消息起点切
+        Assert.Equal(10, fixture.Items.Count);
+        Assert.Equal(52, fixture.Window.Start);
+        Assert.Same(fixture.History[52], fixture.Items[0].SourceMessage);
+    }
+
+    /// <summary>
+    /// 一轮不长时仍旧只在用户消息处切：从中间切开是长轮次的下策，不该变成默认口径。
+    /// </summary>
+    [Fact]
+    public void ShortTurns_StillCutAtTheUserAnchor()
+    {
+        Fixture fixture = new();
+        // 每轮 = 一条用户消息 + 3 条助手侧条目,上限 10 时用户锚点保下来的远没到硬顶
+        for (int turn = 0; turn < 8; turn++)
+        {
+            ChatMessage user = new(ChatRole.User, $"ask{turn}");
+            fixture.History.Add(user);
+            fixture.Items.Add(new ProbeItem(fixture.Items) { SourceMessage = user });
+            for (int i = 0; i < 3; i++)
+            {
+                ChatMessage assistant = new(ChatRole.Assistant, $"step{turn}-{i}");
+                fixture.History.Add(assistant);
+                fixture.Items.Add(new ProbeItem(fixture.Items) { SourceMessage = assistant });
+            }
+        }
+
+        fixture.Window.Reset(fixture.History.Count);
+
+        Assert.True(fixture.NewTrimmer(80, 10).TrimToBackgroundBudget());
+
+        // 切点 22 往头部退到第六轮的用户消息(下标 20),那一轮因此完整
+        Assert.Equal(12, fixture.Items.Count);
+        Assert.Equal(ChatRole.User, fixture.Items[0].SourceMessage!.Role);
+    }
+
+    /// <summary>
+    /// 从一轮中间切时不许把<b>同一条消息</b>摊出来的那几个条目切成两半：
+    /// 窗口起点会指向一条已经渲染出一半的消息，「加载更早」再把它整条取回来就是重复渲染。
+    /// </summary>
+    [Fact]
+    public void MidTurnCut_NeverSplitsOneMessagesItems()
+    {
+        Fixture fixture = new();
+        ChatMessage user = new(ChatRole.User, "ask");
+        fixture.History.Add(user);
+        fixture.Items.Add(new ProbeItem(fixture.Items) { SourceMessage = user });
+
+        // 每条助手消息摊成 4 个条目(思考段 + 正文 + 两张工具卡),共用同一个来源
+        for (int i = 0; i < 20; i++)
+        {
+            ChatMessage assistant = new(ChatRole.Assistant, $"step{i}");
+            fixture.History.Add(assistant);
+            for (int part = 0; part < 4; part++)
+            {
+                fixture.Items.Add(new ProbeItem(fixture.Items) { SourceMessage = assistant });
+            }
+        }
+
+        fixture.Window.Reset(fixture.History.Count);
+
+        Assert.True(fixture.NewTrimmer(80, 10).TrimToBackgroundBudget());
+
+        // 留下的第一条必须是它那条消息的第一个条目:数一数同源条目还剩几个
+        ChatMessage first = fixture.Items[0].SourceMessage!;
+        Assert.Equal(4, fixture.Items.Count(x => ReferenceEquals(x.SourceMessage, first)));
+        Assert.Same(first, fixture.History[fixture.Window.Start]);
+    }
+
+    /// <summary>
+    /// 待决审批卡永远不会被摘走：卡片没了，回应口还挂在运行循环上，那一轮就永远等不到回应。
+    /// 用户锚点那条路顺带保住了它，从消息起点切的那条路必须自己认这条边界。
+    /// </summary>
+    [Fact]
+    public void PendingApprovalCard_IsNeverTrimmedAway()
+    {
+        Fixture fixture = new();
+        ChatMessage user = new(ChatRole.User, "ask");
+        fixture.History.Add(user);
+        fixture.Items.Add(new ProbeItem(fixture.Items) { SourceMessage = user });
+
+        ApprovalRequestItem approval = new(new ToolApprovalRequestContent(
+            "call-1", new FunctionCallContent("call-1", "Write", new Dictionary<string, object?>())));
+        int approvalIndex = -1;
+
+        for (int i = 0; i < 40; i++)
+        {
+            if (i == 5)
+            {
+                approvalIndex = fixture.Items.Count;
+                fixture.Items.Add(approval);
+            }
+
+            ChatMessage assistant = new(ChatRole.Assistant, $"step{i}");
+            fixture.History.Add(assistant);
+            fixture.Items.Add(new ProbeItem(fixture.Items) { SourceMessage = assistant });
+        }
+
+        fixture.Window.Reset(fixture.History.Count);
+        Assert.True(approvalIndex > 0);
+
+        // 上限 10:理想切点远在审批卡之后,但切点必须收回到卡片之前
+        Assert.True(fixture.NewTrimmer(80, 10).TrimToBackgroundBudget());
+        Assert.Contains(approval, fixture.Items);
     }
 
     /// <summary>

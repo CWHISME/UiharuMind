@@ -30,13 +30,18 @@ namespace UiharuMind.Features.Conversation;
 /// 判据由外部给（见构造参数 <c>canTrimSource</c>）：<b>不在界面上的实例没有视口，因此照裁</b>——
 /// 后台还在跑的会话恰恰是最需要裁的那个。代价是裁剪<b>不保证及时</b>，
 /// 长时间挂在上面读旧消息的会话会临时超过上限。</item>
-/// <item><b>边界对齐到用户消息。</b>按条目数硬切会把一次助手回复和它的工具卡切成两半，
-/// 从用户消息处切，一轮不会被切开。这条顺带保住了<b>正在跑的那一轮</b>：切点落进本轮时，
-/// 本轮的用户消息在切点之前，切点之后再没有用户消息，于是找不到锚点、直接不裁——
-/// 流式条目与待决审批卡因此永远不会被摘走（摘走审批卡等于让那一轮永远等不到回应）。</item>
+/// <item><b>边界优先对齐到用户消息，长轮次退到消息起点。</b>按条目数硬切会把一次助手回复
+/// 和它的工具卡切成两半，所以首选从用户消息处切，一轮不会被切开。但 agent 的一轮能长到几百条，
+/// 整轮之内一条用户消息都没有——只认用户消息就等于整轮不裁，上限形同虚设。因此超过硬顶
+/// （<see cref="MidTurnAnchorFactor"/>）时改按<b>消息起点</b>切，代价是这一轮被切开。
+/// 从中间切就得自己认那两条本来由「用户锚点」顺带保住的边界：待决审批卡不许摘走
+/// （摘走等于让那一轮永远等不到回应，见 <see cref="LimitByPendingApproval"/>），
+/// 还没回填来源消息的流式条目天然不会被选中（它们给不出锚点）。</item>
 /// <item><b>锚点必须在历史里找得到。</b>找不到就不裁——裁错窗口起点比不裁坏得多，
 /// 那会让「加载更早」取回错的一段。</item>
 /// </list>
+///
+/// 长轮次为什么可以从中间切，见 ADR 0037（长轮次允许从中间裁，硬顶优先于不切开一轮）。
 ///
 /// 与 <see cref="ConversationItemActions"/> 是同一层的兄弟：都只吃 <c>Items</c> 加一两个
 /// 窄依赖，由 <see cref="ConversationViewModel"/> 组合进来，彼此不知道对方存在。
@@ -65,6 +70,19 @@ public sealed class ConversationItemWindowTrimmer
     /// 所以这个数不该去对齐 <see cref="HistoryWindow"/> 那两个消息数。
     /// </summary>
     public const int DefaultBackgroundMaxItems = 10;
+
+    /// <summary>
+    /// 一轮长到什么程度才允许从它中间切开（相对上限的倍数）。
+    ///
+    /// 首选锚点是用户消息，而 agent 的一轮可以长到几百个条目——整轮之内一条用户消息都没有，
+    /// 于是往头部找到的永远是本轮开头那一条，「保留量」等于整整一轮，上限形同虚设。
+    /// 这正是「切回后台跑着的会话，条目依旧几百条」的由来：它不是没裁，是裁了也等于没裁。
+    ///
+    /// 所以留一道硬顶：用户锚点保下来的条目超过上限这么多倍时，改按消息起点切。
+    /// 取 2 而不是 1 是为了让正常长度的一轮永远走首选那条路——一轮不被切开仍是默认口径，
+    /// 从中间切只发生在「这一轮本身就比上限大一个量级」的时候。
+    /// </summary>
+    private const int MidTurnAnchorFactor = 2;
 
     private readonly IList<ConversationItemBase> _items;
     private readonly HistoryWindow _window;
@@ -98,9 +116,12 @@ public sealed class ConversationItemWindowTrimmer
     /// <summary>
     /// 需要且允许时裁一次。
     ///
-    /// <b>只该在一轮结束、来源消息已回填之后调用</b>（见
-    /// <see cref="ConversationItemActions.WireStreamed"/>）：流式中途裁会改变滚动区高度，
-    /// 把跟底与 Offset 一起打乱；而来源消息没回填时找不到锚点，等于白跑一趟。
+    /// 常规时机是一轮结束、来源消息已回填之后（见
+    /// <see cref="ConversationItemActions.WireStreamed"/>）；从 ADR 0038 起，
+    /// 轮内消息边界也是一处合法时机（<see cref="ConversationViewModel.OnMessageBoundaryReached"/>），
+    /// 那刻流段刚收尾、来源消息也刚落盘，锚点与滚动位置都是确定的。
+    /// 唯一下不得手的地方是<b>流式中途</b>：会改变滚动区高度，把跟底与 Offset 一起打乱；
+    /// 来源消息没回填时也找不到锚点，等于白跑一趟。
     /// </summary>
     /// <returns>真的裁掉了条目返回 true（调用方据此刷新「有更早消息」状态）</returns>
     public bool TrimIfNeeded() => TrimTo(_maxItems);
@@ -121,28 +142,57 @@ public sealed class ConversationItemWindowTrimmer
         if (_items.Count <= maxItems) return false;
         if (!_canTrimSource()) return false;
 
-        int anchor = FindAnchorIndex(_items.Count - maxItems);
-        if (anchor <= 0) return false; //没有可用锚点,或锚点就是第一条(没东西可裁)
+        int from = LimitByPendingApproval(_items.Count - maxItems);
+        IReadOnlyList<ChatMessage> history = _historySource();
 
-        ChatMessage? source = _items[anchor].SourceMessage;
-        if (source == null) return false;
-
-        int historyIndex = IndexOfSame(_historySource(), source);
-        if (historyIndex < 0) return false;
-
-        // 摘出集合再释放:还挂在界面上的位图一释放,下一帧渲染就撞上去(见 ReleaseImages 的注释)。
-        // 与 ConversationItemActions 里重跑截断历史那一处同一套顺序
-        List<ConversationItemBase> discarded = new(anchor);
-        for (int i = anchor - 1; i >= 0; i--)
+        // 锚点可能在历史里找不到(用户删过消息),备选依次试,而不是一试不中就整轮不裁
+        foreach (int anchor in AnchorCandidates(from, maxItems))
         {
-            discarded.Add(_items[i]);
-            _items.RemoveAt(i);
+            if (anchor <= 0) continue; //没有可用锚点,或锚点就是第一条(没东西可裁)
+            if (_items[anchor].SourceMessage is not { } source) continue;
+
+            int historyIndex = IndexOfSame(history, source);
+            if (historyIndex < 0) continue;
+
+            // 摘出集合再释放:还挂在界面上的位图一释放,下一帧渲染就撞上去(见 ReleaseImages 的注释)。
+            // 与 ConversationItemActions 里重跑截断历史那一处同一套顺序
+            List<ConversationItemBase> discarded = new(anchor);
+            for (int i = anchor - 1; i >= 0; i--)
+            {
+                discarded.Add(_items[i]);
+                _items.RemoveAt(i);
+            }
+
+            foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+
+            _window.SetStart(historyIndex);
+            return true;
         }
 
-        foreach (ConversationItemBase item in discarded) item.ReleaseImages();
+        return false;
+    }
 
-        _window.SetStart(historyIndex);
-        return true;
+    /// <summary>
+    /// 本次可用的锚点，按<b>优先级</b>给出。
+    ///
+    /// 首选永远是用户消息（一轮不会被切开）；只有当它保下来的条目仍然超过硬顶
+    /// （见 <see cref="MidTurnAnchorFactor"/>）时，才把消息起点排到它前面——
+    /// 那种情形下「不切开一轮」已经无从谈起，一轮本身就比上限大一个量级。
+    /// </summary>
+    /// <param name="from">理想切点</param>
+    /// <param name="maxItems">本次的条目上限</param>
+    /// <returns>锚点下标，按优先级排列</returns>
+    private IEnumerable<int> AnchorCandidates(int from, int maxItems)
+    {
+        int userAnchor = FindUserAnchorIndex(from);
+        if (userAnchor > 0 && _items.Count - userAnchor <= maxItems * MidTurnAnchorFactor)
+        {
+            yield return userAnchor;
+            yield break;
+        }
+
+        yield return FindMessageStartIndex(from);
+        yield return userAnchor;
     }
 
     /// <summary>
@@ -154,12 +204,10 @@ public sealed class ConversationItemWindowTrimmer
     ///
     /// 往头部找则只要历史里有过用户消息就一定找得到，代价是<b>多留几条</b>（保留量 ≥ 上限）。
     /// 那个代价是好的：少留才会把用户还想看的一轮切开，而多留至多是这次少省一点。
-    /// 顺带还保住了正在跑的那一轮——切点落进本轮时，往头部找到的正是本轮的用户消息，
-    /// 于是整轮（含流式条目与待决审批卡）都在锚点之后，一条都不会被摘走。
     /// </summary>
     /// <param name="from">理想切点（此处之前的条目是超出上限的那些）</param>
     /// <returns>锚点条目下标；没有可用锚点时为 -1</returns>
-    private int FindAnchorIndex(int from)
+    private int FindUserAnchorIndex(int from)
     {
         for (int i = Math.Min(from, _items.Count - 1); i > 0; i--)
         {
@@ -167,6 +215,47 @@ public sealed class ConversationItemWindowTrimmer
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// 从理想切点往头部找最近的一个<b>消息起点</b>——它的来源消息与前一条条目的不是同一条。
+    ///
+    /// 这是一轮内部唯一安全的切点：一条助手消息可以摊成思考段 + 正文 + 若干工具卡，
+    /// 它们共享同一个来源消息，从中间切开会让窗口起点指向一条<b>已经渲染出一半</b>的消息，
+    /// 「加载更早」把它整条取回来时就会重复。按来源消息换人处切，切出来的两段各自完整。
+    /// </summary>
+    /// <param name="from">理想切点</param>
+    /// <returns>锚点条目下标；没有可用锚点时为 -1</returns>
+    private int FindMessageStartIndex(int from)
+    {
+        for (int i = Math.Min(from, _items.Count - 1); i > 0; i--)
+        {
+            if (_items[i].SourceMessage is not { } source) continue;
+            if (!ReferenceEquals(_items[i - 1].SourceMessage, source)) return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// 把切点收到第一张<b>待决</b>审批卡之前。
+    ///
+    /// 摘走待决审批卡等于让那一轮永远等不到回应：卡片没了，回应口
+    /// （<c>ApprovalRequestItem.Response</c>）却还挂在运行循环上，用户按不到、轮次也不结束。
+    /// 用户锚点那条路顺带保住了它（审批总在本轮之内），消息起点那条路不会——
+    /// 它敢从一轮中间切，就必须自己认这条边界。
+    /// </summary>
+    /// <param name="from">理想切点</param>
+    /// <returns>收紧后的切点</returns>
+    private int LimitByPendingApproval(int from)
+    {
+        int limit = Math.Min(from, _items.Count - 1);
+        for (int i = 0; i <= limit; i++)
+        {
+            if (_items[i] is ApprovalRequestItem { IsResolved: false }) return i;
+        }
+
+        return from;
     }
 
     /// <summary>
