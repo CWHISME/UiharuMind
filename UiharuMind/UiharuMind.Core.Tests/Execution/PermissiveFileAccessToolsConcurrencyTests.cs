@@ -14,7 +14,8 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
 
     public PermissiveFileAccessToolsConcurrencyTests()
     {
-        _tools = new PermissiveFileAccessTools(_dir);
+        // 备份注入临时目录:Write 的自动备份不污染真实全局缓存
+        _tools = new PermissiveFileAccessTools(_dir, new FileBackupStore(Path.Combine(_dir, "backups")));
     }
 
     public void Dispose()
@@ -225,7 +226,7 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         await File.WriteAllTextAsync(path, "old\n");
         File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); //0700
 
-        string result = await _tools.Write(path, "new\n", overwrite: true);
+        string result = await _tools.Write(path, "new\n");
 
         Assert.DoesNotContain("Error", result);
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,

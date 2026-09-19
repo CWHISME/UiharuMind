@@ -34,7 +34,8 @@ namespace UiharuMind.Core.AI.Execution.Files;
 /// Glob 采用 Meziantou.Framework.Globbing 实现递归路径枚举;Grep 采用 Glacier.Grep 高性能检索引擎
 /// (它自带 .gitignore/.ignore/.rgignore 的层级排除,对齐 ripgrep 行为)。
 /// 编辑语义(唯一匹配/重叠检测/保守 fuzzy/落盘保真)全在 <see cref="FileEditPlanner"/>,
-/// 本类只负责路径解析、限幅与落盘。写工具各包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
+/// 本类只负责路径解析、限幅与落盘;Write 覆盖前经 <see cref="IFileBackupStore"/> 自动备份。
+/// 写工具各包一层 ApprovalRequiredAIFunction,沿用 MFA 的审批管线。
 /// </summary>
 internal sealed class PermissiveFileAccessTools
 {
@@ -103,12 +104,14 @@ internal sealed class PermissiveFileAccessTools
     private readonly string _workspaceRoot;
     private readonly SimpleGlobber _glob;
     private readonly SimpleGrepper _grepper;
+    private readonly IFileBackupStore _backupStore; //组合持有:Write 覆盖前备份用,可注入
 
-    public PermissiveFileAccessTools(string workspaceRoot)
+    public PermissiveFileAccessTools(string workspaceRoot, IFileBackupStore? backupStore = null)
     {
         _workspaceRoot = Path.GetFullPath(workspaceRoot);
         _glob = new SimpleGlobber(workspaceRoot);
         _grepper = new SimpleGrepper(workspaceRoot);
+        _backupStore = backupStore ?? new FileBackupStore();
         Directory.CreateDirectory(_workspaceRoot);
     }
 
@@ -472,8 +475,6 @@ internal sealed class PermissiveFileAccessTools
         [Description("File path, absolute or relative to the working directory.")]
         string filePath,
         [Description("Full file content.")] string content,
-        [Description("Must be true to overwrite an existing file.")]
-        bool overwrite = false,
         CancellationToken ct = default)
     {
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)
@@ -482,18 +483,24 @@ internal sealed class PermissiveFileAccessTools
         await fileLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            bool exists = File.Exists(full);
-            if (exists && !overwrite)
-                return "File exists. Set overwrite=true to replace it, or use 'Edit' to change part of it.";
+            byte[]? originalBytes = null; //已有文件才有,顺手读来做备份与信封
+            if (File.Exists(full)) originalBytes = await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false);
 
             // 覆盖已有文件时沿用它的 BOM 与行尾风格;新建文件则是无 BOM + 模型给的 \n。
             // 不这么做的话,让模型重写一个 CRLF 文件会顺手把整份文件的行尾改掉
-            TextFileEnvelope envelope = exists
-                ? TextFileEnvelope.FromBytes(await File.ReadAllBytesAsync(full, ct).ConfigureAwait(false))
-                : TextFileEnvelope.FromText(string.Empty);
+            TextFileEnvelope envelope = originalBytes is null
+                ? TextFileEnvelope.FromText(string.Empty)
+                : TextFileEnvelope.FromBytes(originalBytes);
+
+            string? backupPath = null; //新建文件无备份
+            if (originalBytes is not null)
+                backupPath = await _backupStore.BackupAsync(full, originalBytes, ct).ConfigureAwait(false);
 
             await SaveAsync(full, envelope, envelope.ConvertNewLines(content), ct).ConfigureAwait(false);
-            return $"Saved '{filePath}' ({content.Split('\n').Length} lines).";
+            int lines = content.Split('\n').Length;
+            return backupPath is null
+                ? $"Saved '{filePath}' ({lines} lines)."
+                : $"Saved '{filePath}' ({lines} lines). Previous version backed up to '{backupPath}'.";
         }
         finally
         {
