@@ -605,29 +605,39 @@ public sealed class DiffLineView
         if (string.IsNullOrEmpty(resultText) || !resultText.StartsWith("Applied ", StringComparison.Ordinal))
             return [];
 
+        List<DiffLineView> lines = ParseDiffText(resultText);
+        return lines.Count == 0 ? [] : Cap(lines);
+    }
+
+    /// <summary>
+    /// 把一段 diff 正文解析成染色行。不含任何带前缀的 diff 行时返回空（调用方按纯文本渲染）。
+    /// 块头（@@）、折叠行（…）、截断提示等不匹配 <see cref="DiffLinePattern"/> 的行按灰色 context 原样保留。
+    /// </summary>
+    private static List<DiffLineView> ParseDiffText(string text)
+    {
         List<DiffLineView> lines = [];
         bool sawDiffLine = false;
-        foreach (string raw in resultText.Split('\n'))
+        foreach (string raw in text.Split('\n'))
         {
             string line = raw.TrimEnd('\r');
             Match match = DiffLinePattern.Match(line);
             if (!match.Success)
             {
-                lines.Add(Context(line)); //"Applied N edit(s) to ..." 与折叠提示原样留着
+                lines.Add(Context(line)); //块头/折叠行/截断提示原样留着(灰色)
                 continue;
             }
 
             sawDiffLine = true;
-            string text = $"{match.Groups[2].Value} {match.Groups[3].Value}";
+            string content = $"{match.Groups[2].Value} {match.Groups[3].Value}";
             lines.Add(match.Groups[1].Value switch
             {
-                "+" => Added(text),
-                "-" => Removed(text),
-                _ => Context(text),
+                "+" => Added(content),
+                "-" => Removed(content),
+                _ => Context(content),
             });
         }
 
-        return sawDiffLine ? Cap(lines) : [];
+        return sawDiffLine ? lines : [];
     }
 
     private static List<DiffLineView> BuildWriteDiff(IDictionary<string, object?>? args)
@@ -678,17 +688,11 @@ public sealed class DiffLineView
         if (!plan.Succeeded) return [];
 
         List<DiffLineView> lines = WithHeader(args);
-        foreach (LineDiffEntry entry in plan.Diff)
-        {
-            lines.Add(entry.Kind switch
-            {
-                ELineDiffKind.Added => Added($"{entry.LineNumber,5} {entry.Text}"),
-                ELineDiffKind.Removed => Removed($"{entry.LineNumber,5} {entry.Text}"),
-                ELineDiffKind.Hunk => Context(entry.Text), //块头自带 @@ 标记，不套行号列
-                _ => Context($"{entry.LineNumber,5} {entry.Text}"),
-            });
-        }
-
+        // 与模型看到的是同一份：RenderDiff 的输出（折叠/均分预算/单行截断都在那一侧）。
+        // 从前这边自己遍历 plan.Diff 渲染、上限 300，卡片比模型看得多——两处上限漂移，
+        // 现在统一由 RenderDiff 决定，卡片与模型同文同源（模型侧改了格式，UI 不用另写一套）。
+        lines.AddRange(ParseDiffText(FileEditPlanner.RenderDiff(plan.Diff,
+            FileEditPlanner.DefaultMaxDiffLines, FileEditPlanner.DefaultMaxDiffLineChars)));
         return lines;
     }
 

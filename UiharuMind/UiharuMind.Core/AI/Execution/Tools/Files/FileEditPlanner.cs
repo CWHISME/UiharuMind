@@ -90,8 +90,23 @@ public sealed class FileEditPlan
 /// </summary>
 public static class FileEditPlanner
 {
-    /// <summary>diff 每个变更块上下各带几行上下文</summary>
-    private const int ContextLines = 2;
+    /// <summary>diff 每个变更块上下各带几行上下文（也是渲染层保留的定位锚行数，见 <see cref="AnchorLines"/>）</summary>
+    private const int ContextLines = 1;
+
+    /// <summary>渲染层每个 hunk 头尾各保留的定位锚行数，与数据层 <see cref="ContextLines"/> 保持一致，防止两层漂移</summary>
+    private const int AnchorLines = ContextLines;
+
+    /// <summary>Edit 回给模型的 diff 行数上限（模型侧与审批卡片共用同一个数，见 <c>DiffLineView.BuildEditDiff</c>）</summary>
+    public const int DefaultMaxDiffLines = 80;
+
+    /// <summary>diff 单行长度上限，超出截断：minified JSON 之类一行可达几十 KB，行数上限拦不住它</summary>
+    public const int DefaultMaxDiffLineChars = 240;
+
+    /// <summary>无 hunk 头的纯 context（非本工具产物）超过该值才折叠；hunk 内不按它判，见 <see cref="CollapseContextRuns"/></summary>
+    private const int CollapseContextThreshold = 4;
+
+    /// <summary>hunk 内容超预算时头尾各保留的行数（尾部常是改动真正的落点）</summary>
+    private const int SkeletonEdgeLines = 6;
 
     /// <summary>NotFound 候选提示最多评多少行的块:再大就放弃(避免评分随块行数变慢)</summary>
     private const int MaxHintBlockLines = 40;
@@ -198,30 +213,46 @@ public static class FileEditPlanner
     }
 
     /// <summary>
-    /// 把 diff 渲染成给模型看的文本（`+`/`-`/空格 前缀 + 右对齐行号）
+    /// 把 diff 渲染成给模型看的文本（`+`/`-`/空格 前缀 + 右对齐行号）。
+    ///
+    /// 两层压缩都只发生在渲染层，plan.Diff 保持完整数据：
+    /// <list type="number">
+    /// <item>连续的大段 context 行折叠成一行摘要。这些行来自 oldString/newString 里相同的行——
+    /// 模型自己刚在参数里发过，原样返回纯属双倍浪费，还会挤掉真正的红绿行。</item>
+    /// <item>预算按 hunk 均分，超预算的 hunk 给头尾骨架（头部 + 折叠行 + 尾部）。
+    /// 尾部常常是改动真正的落点，只给头模型自纠能力打折。</item>
+    /// </list>
     /// </summary>
     /// <param name="diff">diff 行</param>
     /// <param name="maxLines">最多渲染多少行，超出只给条数</param>
+    /// <param name="maxLineChars">单行长度上限，超出截断加 <c>…[truncated]</c></param>
     /// <returns>diff 文本</returns>
-    public static string RenderDiff(IReadOnlyList<LineDiffEntry> diff, int maxLines)
+    public static string RenderDiff(IReadOnlyList<LineDiffEntry> diff, int maxLines,
+        int maxLineChars = DefaultMaxDiffLineChars)
     {
         if (diff.Count == 0) return string.Empty;
 
-        int width = diff.Max(x => x.LineNumber).ToString().Length;
+        List<LineDiffEntry> items = CollapseContextRuns(diff);
+        int width = items.Max(x => x.LineNumber).ToString().Length;
         StringBuilder sb = new();
         int shown = 0; //已输出行数(预算消耗)
         int omitted = 0; //被截掉的内容行数
         int omittedHunks = 0; //内容没显示完整的块数(预算耗尽连头都放不下的也算)
         int i = 0;
 
-        while (i < diff.Count)
+        // hunk 间均分预算：每块配额 = 剩余预算 / 剩余块数。小块用不完的配额顺延给后面的块，
+        // 既防第一个大块吃光后面全饿死，也不浪费。
+        int remainingBudget = maxLines;
+        int remainingHunks = items.Count(x => x.Kind == ELineDiffKind.Hunk);
+
+        while (i < items.Count)
         {
-            if (diff[i].Kind != ELineDiffKind.Hunk)
+            if (items[i].Kind != ELineDiffKind.Hunk)
             {
                 // 无块头的纯行(非本工具产物,例如测试直接构造的 diff):逐行截断
                 if (shown < maxLines)
                 {
-                    AppendLine(diff[i]);
+                    AppendLine(items[i], width, maxLineChars);
                     shown++;
                 }
                 else omitted++;
@@ -232,43 +263,114 @@ public static class FileEditPlanner
 
             // 找到一个块的完整跨度:从本 hunk 头到下一个 hunk 头(不含)
             int end = i + 1;
-            while (end < diff.Count && diff[end].Kind != ELineDiffKind.Hunk) end++;
-            int contentLen = end - i - 1; //块内内容行数(不含头)
+            while (end < items.Count && items[end].Kind != ELineDiffKind.Hunk) end++;
+            int contentLen = end - i - 1; //块内内容行数(不含头,折叠后)
+            int budget = remainingHunks > 0 ? remainingBudget / remainingHunks : remainingBudget;
+            int contentBudget = Math.Max(0, budget - 1); //hunk 头占 1 行
+            int blockShown = 0;
 
-            if (shown + 1 + contentLen <= maxLines)
+            if (contentLen <= contentBudget)
             {
                 // 整块放得下:整体输出,块头与内容不分离
-                for (int k = i; k < end; k++)
+                AppendLine(items[i], width, maxLineChars);
+                blockShown++;
+                for (int k = i + 1; k < end; k++)
                 {
-                    AppendLine(diff[k]);
-                    shown++;
+                    AppendLine(items[k], width, maxLineChars);
+                    blockShown++;
                 }
             }
-            else if (shown < maxLines)
+            else if (contentBudget > 0)
             {
-                // 块放不下但还有预算:保留 hunk 头,再尽量给内容(从头开始,块内连续)。
-                // 预算只剩 1 行时允许头-only(宁可空壳头提示"这里还有一块",也比整块消失好);
-                // 除此之外尽力给内容,否则大块编辑(>80 行)时模型一行改动都看不到、自纠能力归零。
-                sb.AppendLine(diff[i].Text);
-                shown++;
+                // 内容超预算:保留 hunk 头,内容行按优先级挑选——红绿行与折叠行必保
+                // (模型要看的就是改了什么),context 锚定行只补剩余预算。
+                // 必保行本身就超预算时才对必保行做头尾骨架(尾部常是改动真正的落点),context 全部让位。
+                AppendLine(items[i], width, maxLineChars);
+                blockShown++;
 
-                int canShow = Math.Min(contentLen, maxLines - shown);
-                for (int k = 1; k <= canShow; k++)
+                List<LineDiffEntry> content = new(contentLen);
+                int mustKeep = 0;
+                for (int k = i + 1; k < end; k++)
                 {
-                    AppendLine(diff[i + k]);
-                    shown++;
+                    content.Add(items[k]);
+                    if (IsChangeLine(items[k])) mustKeep++;
                 }
 
-                omitted += contentLen - canShow;
-                if (omitted > 0) omittedHunks++;
+                int blockOmitted = 0;
+                if (mustKeep <= contentBudget)
+                {
+                    int ctxBudget = contentBudget - mustKeep;
+                    int ctxGiven = 0;
+                    foreach (LineDiffEntry entry in content)
+                    {
+                        if (IsChangeLine(entry))
+                        {
+                            AppendLine(entry, width, maxLineChars);
+                            blockShown++;
+                        }
+                        else if (ctxGiven < ctxBudget)
+                        {
+                            AppendLine(entry, width, maxLineChars);
+                            blockShown++;
+                            ctxGiven++;
+                        }
+                        else
+                        {
+                            blockOmitted++;
+                        }
+                    }
+                }
+                else
+                {
+                    // 必保行本身就超预算:对必保行做头尾骨架,context 全让位
+                    List<LineDiffEntry> mustKeepLines = content.Where(IsChangeLine).ToList();
+                    int head = Math.Min(SkeletonEdgeLines, contentBudget / 2);
+                    int tail = Math.Min(SkeletonEdgeLines, contentBudget - head);
+                    int canHead = Math.Min(head, mustKeepLines.Count);
+                    int canTail = Math.Min(tail, mustKeepLines.Count - canHead);
+                    int middle = mustKeepLines.Count - canHead - canTail;
+
+                    for (int k = 0; k < canHead; k++)
+                    {
+                        AppendLine(mustKeepLines[k], width, maxLineChars);
+                        blockShown++;
+                    }
+                    if (middle > 0)
+                    {
+                        sb.AppendLine($"…(+{middle} more lines)…");
+                        blockShown++; //折叠行也占预算,否则多个骨架块会让总行数悄悄超出上限
+                    }
+                    blockOmitted = middle + content.Count - mustKeepLines.Count;
+                    for (int k = mustKeepLines.Count - canTail; k < mustKeepLines.Count; k++)
+                    {
+                        AppendLine(mustKeepLines[k], width, maxLineChars);
+                        blockShown++;
+                    }
+                }
+
+                omitted += blockOmitted;
+                if (blockOmitted > 0) omittedHunks++;
             }
             else
             {
-                // 预算已耗尽:这块整体放弃,连块头也算被省略的一行(否则折叠计数少算)
-                omitted += contentLen + 1;
-                omittedHunks++;
+                // 预算只剩 hunk 头(或已耗尽):块头照给,内容整体放弃
+                if (shown < maxLines)
+                {
+                    AppendLine(items[i], width, maxLineChars);
+                    blockShown++;
+                    omitted += contentLen;
+                    omittedHunks++;
+                }
+                else
+                {
+                    omitted += contentLen + 1;
+                    omittedHunks++;
+                }
             }
 
+            shown += blockShown;
+            remainingBudget = Math.Max(0, remainingBudget - blockShown);
+            remainingHunks--;
             i = end;
         }
 
@@ -282,11 +384,15 @@ public static class FileEditPlanner
 
         return sb.ToString().TrimEnd('\n', '\r');
 
-        void AppendLine(LineDiffEntry entry)
+        // 红绿行与折叠行:预算不足时最先保住的一档(模型要看的就是改了什么)
+        static bool IsChangeLine(LineDiffEntry entry)
+            => entry.Kind is ELineDiffKind.Added or ELineDiffKind.Removed or ELineDiffKind.Collapsed;
+
+        void AppendLine(LineDiffEntry entry, int lineWidth, int lineChars)
         {
-            if (entry.Kind == ELineDiffKind.Hunk)
+            if (entry.Kind is ELineDiffKind.Hunk or ELineDiffKind.Collapsed)
             {
-                // 块头自带坐标，不套前缀/行号列，兼做块间分隔线
+                // 块头与折叠行自带坐标，不套前缀/行号列，兼做块间分隔线
                 sb.AppendLine(entry.Text);
                 return;
             }
@@ -297,10 +403,94 @@ public static class FileEditPlanner
                 ELineDiffKind.Removed => '-',
                 _ => ' ',
             };
-            sb.Append(prefix).Append(entry.LineNumber.ToString().PadLeft(width)).Append(' ')
-                .AppendLine(entry.Text);
+            sb.Append(prefix).Append(entry.LineNumber.ToString().PadLeft(lineWidth)).Append(' ')
+                .AppendLine(ClampDiffLine(entry.Text, lineChars));
         }
     }
+
+    /// <summary>
+    /// 按 hunk 折叠 context 行：每个 hunk 只保留头尾各 <see cref="AnchorLines"/> 行定位锚，中间的 context
+    /// （oldString/newString 里相同的行）不管多短都折叠成一行摘要。头尾锚是模型核对「改动落在哪里」的参照，
+    /// 中间的行模型自己刚在参数里发过，原样返回纯属双倍浪费。只有 1 行可折时不折（省不了行数还丢原文）。
+    /// 无 hunk 头的 context（非本工具产物，如测试直接构造）超过 <see cref="CollapseContextThreshold"/> 才折叠。
+    /// </summary>
+    private static List<LineDiffEntry> CollapseContextRuns(IReadOnlyList<LineDiffEntry> diff)
+    {
+        List<LineDiffEntry> items = new(diff.Count);
+        bool hasHunk = diff.Any(x => x.Kind == ELineDiffKind.Hunk);
+        int i = 0;
+        while (i < diff.Count)
+        {
+            if (diff[i].Kind != ELineDiffKind.Context)
+            {
+                items.Add(diff[i]);
+                i++;
+                continue;
+            }
+
+            int runStart = i;
+            while (i < diff.Count && diff[i].Kind == ELineDiffKind.Context) i++;
+            int len = i - runStart;
+
+            if (!hasHunk)
+            {
+                // 无 hunk 头的纯 context(非本工具产物,如测试直接构造):沿用旧的 > 阈值折叠
+                if (len <= CollapseContextThreshold)
+                {
+                    for (int k = runStart; k < i; k++) items.Add(diff[k]);
+                }
+                else
+                {
+                    items.Add(BuildCollapsed(diff, runStart, i));
+                }
+
+                continue;
+            }
+
+            // hunk 内:只保留头尾定位锚,中间不管多短都折叠
+            bool firstInHunk = runStart > 0 && diff[runStart - 1].Kind == ELineDiffKind.Hunk;
+            bool lastInHunk = i < diff.Count
+                ? diff[i].Kind == ELineDiffKind.Hunk
+                : hasHunk; //到 diff 末尾:属于最后一个 hunk 的尾部
+
+            if (!firstInHunk && !lastInHunk)
+            {
+                // 块中部:整段折叠(1 行不值得折)
+                if (len >= 2) items.Add(BuildCollapsed(diff, runStart, i));
+                else items.Add(diff[runStart]);
+                continue;
+            }
+
+            int head = firstInHunk ? Math.Min(AnchorLines, len) : 0;
+            int tail = lastInHunk ? Math.Min(AnchorLines, len - head) : 0;
+            int middle = len - head - tail;
+            if (middle < 2)
+            {
+                // 只剩 1 行可折:不值得(省不了行数还丢原文),整体保留
+                for (int k = runStart; k < i; k++) items.Add(diff[k]);
+                continue;
+            }
+
+            for (int k = runStart; k < runStart + head; k++) items.Add(diff[k]);
+            items.Add(BuildCollapsed(diff, runStart + head, i - tail));
+            for (int k = i - tail; k < i; k++) items.Add(diff[k]);
+        }
+
+        return items;
+    }
+
+    /// <summary>折叠行：文本自带行号范围，行号列留 0（不参与宽度计算）</summary>
+    private static LineDiffEntry BuildCollapsed(IReadOnlyList<LineDiffEntry> diff, int start, int end)
+    {
+        int firstLine = diff[start].LineNumber;
+        int lastLine = diff[end - 1].LineNumber;
+        return new LineDiffEntry(ELineDiffKind.Collapsed,
+            $"…({end - start} unchanged lines @ {firstLine}-{lastLine})…");
+    }
+
+    /// <summary>diff 单行截断(与 Read/Grep 的 TruncateLine 同款口吻):minified JSON 一行可达几十 KB,行数上限拦不住它</summary>
+    private static string ClampDiffLine(string text, int maxChars)
+        => text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
 
     // ---- 定位 ----
 

@@ -348,8 +348,8 @@ public class FileEditPlannerTests
         LineDiffEntry added = Assert.Single(plan.Diff, x => x.Kind == ELineDiffKind.Added);
         Assert.Equal(4, removed.LineNumber);
         Assert.Equal(4, added.LineNumber);
-        Assert.Equal(2, plan.Diff.Count(x => x.Kind == ELineDiffKind.Context && x.LineNumber < 4)); //前置上下文
-        Assert.Equal(2, plan.Diff.Count(x => x.Kind == ELineDiffKind.Context && x.LineNumber > 4)); //后置上下文
+        Assert.Equal(1, plan.Diff.Count(x => x.Kind == ELineDiffKind.Context && x.LineNumber < 4)); //前置上下文
+        Assert.Equal(1, plan.Diff.Count(x => x.Kind == ELineDiffKind.Context && x.LineNumber > 4)); //后置上下文
     }
 
     /// <summary>
@@ -359,16 +359,16 @@ public class FileEditPlannerTests
     [Fact]
     public void Diff_EmitsHunkHeader_DeclaringBothCoordinates()
     {
-        // 单块：改 "old"（旧起行 4，旧 5 行）→ "new"（新起行 4，新 5 行）
+        // 单块：改 "old"（旧起行 3，旧 3 行）→ "new"（新起行 3，新 3 行）；上下文每侧 1 行
         FileEditPlan plan = Plan("l1\nl2\nl3\nold\nl5\nl6\n", ("old", "new"));
 
         Assert.True(plan.Succeeded, plan.Error);
         LineDiffEntry hunk = Assert.Single(plan.Diff, x => x.Kind == ELineDiffKind.Hunk);
-        Assert.Equal("@@ -2,5 +2,5 @@", hunk.Text);
+        Assert.Equal("@@ -3,3 +3,3 @@", hunk.Text);
 
         // 渲染时 hunk 行整体输出，不带 + - 前缀或行号列
         string rendered = FileEditPlanner.RenderDiff(plan.Diff, 100);
-        Assert.Contains("@@ -2,5 +2,5 @@", rendered);
+        Assert.Contains("@@ -3,3 +3,3 @@", rendered);
         Assert.DoesNotContain("+ 2 2", rendered);
     }
 
@@ -379,25 +379,25 @@ public class FileEditPlannerTests
     [Fact]
     public void Diff_TwoHunks_SecondHeaderShiftsNewLineByDelta()
     {
-        // 第一块把 1 行 "old1" 换成 2 行（新起同旧起 2，新 6 行）；
-        // 第二块在下面：旧起 7，但新文件里它已被前一块推后 1 行 → 新起 8。
+        // 第一块把 1 行 "old1" 换成 2 行（新起同旧起 3，新 4 行）；
+        // 第二块在下面：旧起 8，但新文件里它已被前一块推后 1 行 → 新起 9。
         FileEditPlan plan = Plan("l1\nl2\nl3\nold1\nl5\nl6\nl7\nl8\nold2\nl10\n",
             ("old1", "new1\nnew1b"), ("old2", "x"));
 
         Assert.True(plan.Succeeded, plan.Error);
         string[] hunkTexts = plan.Diff.Where(x => x.Kind == ELineDiffKind.Hunk)
             .Select(x => x.Text).ToArray();
-        Assert.Equal(["@@ -2,5 +2,6 @@", "@@ -7,4 +8,4 @@"], hunkTexts);
+        Assert.Equal(["@@ -3,3 +3,4 @@", "@@ -8,3 +9,3 @@"], hunkTexts);
     }
 
-    /// <summary>两处改动挨得近时并成一块：中间的 b/c 各出现一次，而不是被两块的上下文各带一遍</summary>
+    /// <summary>两处改动挨得近（间隔 ≤ ContextLines×2=2）时并成一块：中间的 b 各出现一次，而不是被两块的上下文各带一遍</summary>
     [Fact]
     public void Diff_MergesNearbyHunks()
     {
-        FileEditPlan plan = Plan("a\nb\nc\nd\n", ("a", "A"), ("d", "D"));
+        FileEditPlan plan = Plan("a\nb\nc\nd\n", ("a", "A"), ("c", "C"));
 
         Assert.True(plan.Succeeded, plan.Error);
-        Assert.Equal([2, 3],
+        Assert.Equal([2, 4], //b 是块内上下文, d 是块尾上下文, 各一次不重复
             plan.Diff.Where(x => x.Kind == ELineDiffKind.Context).Select(x => x.LineNumber).ToArray());
     }
 
@@ -416,8 +416,12 @@ public class FileEditPlannerTests
         Assert.EndsWith(" +0,0 @@", hunk.Text);
     }
 
+    /// <summary>
+    /// 预算 5、两个 hunk：预算按 hunk 均分（第一块 2 行、第二块 3 行），各自给头尾骨架，
+    /// 两个块的内容都有可见部分——不会出现「第一块吃光、第二块只剩空壳头」。
+    /// </summary>
     [Fact]
-    public void RenderDiff_Truncation_KeepsHunkHeadersWhole()
+    public void RenderDiff_Truncation_SplitsBudgetAcrossHunks_NeitherStarves()
     {
         List<LineDiffEntry> diff =
         [
@@ -431,20 +435,26 @@ public class FileEditPlannerTests
             new(ELineDiffKind.Added, "new2", 11),
         ];
 
-        // 预算 5:第一块 4 行放下,第二块 4 行放不下 → 保留头、内容放弃
+        // 预算 5:两块均分(2/2);必保行(红绿)超预算时给头尾骨架,折叠行也占预算
         string rendered = FileEditPlanner.RenderDiff(diff, 5);
         Assert.Contains("@@ -1,5 +1,5 @@", rendered);
-        Assert.Contains("@@ -10,3 +10,3 @@", rendered); //第二块头保留,说明"这里还有一块"
-        Assert.DoesNotContain("old2", rendered); //第二块内容放弃,不出现半截
-        Assert.Contains("+3 more diff lines across 1 hunk(s)", rendered); //内容 3 行 + 块数
+        Assert.Contains("@@ -10,3 +10,3 @@", rendered);
+        Assert.Contains("+ 2 new", rendered); //块 1 尾部红绿行可见
+        Assert.Contains("+11 new2", rendered); //块 2 尾部红绿行可见
+        Assert.DoesNotContain("- 2 old", rendered); //块 1 中部折叠
+        Assert.DoesNotContain("-11 old2", rendered); //块 2 中部折叠
+        Assert.DoesNotContain(" 1 c1", rendered); //context 全让位
+        Assert.DoesNotContain(" 10 c2", rendered);
+        Assert.Contains("+4 more diff lines across 2 hunk(s)", rendered); //两块都贡献了省略计数
     }
 
     /// <summary>
-    /// 单块超大（内容行数超过预算）时,不能只给头不给内容——否则模型对大编辑完全无感、
-    /// 自纠能力归零。必须从头给尽可能多的内容行,并提示剩余行数与 Read 定位。
+    /// 大块编辑里未变化的行被折叠后，真正的红绿行往往就放得进预算了——
+    /// 折叠把「预算挤爆」的元凶从源头移除，而不是截断后补一句提示。
+    /// c3-c8 六行未变化：尾部锚 c7/c8 保留，中部 c3-c6 折叠成一行摘要，old2/new2 全部可见。
     /// </summary>
     [Fact]
-    public void RenderDiff_Truncation_LargeSingleHunk_ShowsHeadContent()
+    public void RenderDiff_LargeHunk_UnchangedRunCollapsesAndChangesStayVisible()
     {
         List<LineDiffEntry> diff =
         [
@@ -460,14 +470,41 @@ public class FileEditPlannerTests
             new(ELineDiffKind.Context, "c8", 8),
         ];
 
-        // 预算 5:头 + 4 行内容,剩余 5 行折叠(提示带 Read 指引)
+        // 预算 5:红绿行与折叠行优先,context 只补剩余预算(1 行)
         string rendered = FileEditPlanner.RenderDiff(diff, 5);
         Assert.Contains("@@ -1,10 +1,10 @@", rendered);
-        Assert.Contains("old2", rendered); //头几行内容要给到
+        Assert.Contains("old2", rendered); //红绿行优先保留
         Assert.Contains("new2", rendered);
-        Assert.DoesNotContain("c7", rendered); //超出预算的行不给
-        Assert.Contains("+5 more diff lines across 1 hunk(s); ", rendered);
-        Assert.Contains("coordinates are in the @@ headers above, use Read to inspect", rendered);
+        Assert.Contains("…(5 unchanged lines @ 3-7)…", rendered); //尾部锚只保 1 行(c8),中部折叠
+        Assert.Contains(" 1 c1", rendered); //剩余预算补 1 行 context 锚
+        Assert.DoesNotContain("c8", rendered); //context 锚超出预算被省略
+        Assert.DoesNotContain("c5", rendered); //中部行只在折叠摘要里
+        Assert.Contains("+1 more diff lines", rendered); //省略 1 行 context
+    }
+
+    /// <summary>
+    /// 真正改动的行本身（红绿行）超过预算时,折叠救不了,这时给头尾骨架:
+    /// 头部 + 折叠行 + 尾部。尾部常常是改动真正的落点,只给头模型自纠能力打折。
+    /// </summary>
+    [Fact]
+    public void RenderDiff_SingleHunk_HeadTailSkeleton_WhenChangesExceedBudget()
+    {
+        List<LineDiffEntry> diff =
+        [
+            new(ELineDiffKind.Hunk, "@@ -1,20 +1,20 @@"),
+            .. Enumerable.Range(1, 20).Select(i => new LineDiffEntry(ELineDiffKind.Added, $"line{i}", i)),
+        ];
+
+        // 预算 5:头 1 行 + 头尾各 2 行内容,中间 16 行折叠
+        string rendered = FileEditPlanner.RenderDiff(diff, 5);
+        Assert.Contains("@@ -1,20 +1,20 @@", rendered);
+        Assert.Contains("line1", rendered); //头部可见
+        Assert.Contains("line2", rendered);
+        Assert.DoesNotContain("line10", rendered); //中部折叠
+        Assert.Contains("line19", rendered); //尾部可见
+        Assert.Contains("line20", rendered);
+        Assert.Contains("…(+16 more lines)…", rendered); //hunk 内折叠行
+        Assert.Contains("+16 more diff lines across 1 hunk(s)", rendered); //全局摘要
     }
 
     [Fact]
@@ -493,6 +530,94 @@ public class FileEditPlannerTests
         Assert.Equal(5, rendered.Split('\n').Length); //4 行 + 折叠提示
         Assert.Contains("+6 more diff lines", rendered);
         Assert.StartsWith("+ 1 line1", rendered); //行号按最宽的那个右对齐
+    }
+
+    /// <summary>无 hunk 头的纯 context(非本工具产物)沿用旧的 &gt; 阈值折叠:4 行不折,5 行折</summary>
+    [Fact]
+    public void RenderDiff_NoHunk_ContextFallsBackToThresholdCollapse()
+    {
+        List<LineDiffEntry> diff4 = Enumerable.Range(1, 4)
+            .Select(i => new LineDiffEntry(ELineDiffKind.Context, $"c{i}", i)).ToList();
+        string rendered4 = FileEditPlanner.RenderDiff(diff4, 80);
+        Assert.DoesNotContain("unchanged lines", rendered4);
+
+        List<LineDiffEntry> diff5 = Enumerable.Range(1, 5)
+            .Select(i => new LineDiffEntry(ELineDiffKind.Context, $"c{i}", i)).ToList();
+        string rendered5 = FileEditPlanner.RenderDiff(diff5, 80);
+        Assert.Contains("…(5 unchanged lines @ 1-5)…", rendered5);
+    }
+
+    /// <summary>
+    /// 用户实机场景：改 [a,b,c] 为 [x,b,c]（只改 1 行），修改下方是「内部相同 b,c + 尾部锚」。
+    /// 规则：每个 hunk 头尾只保留 1 行锚定（ContextLines=1），内部不管多短都折叠成一行摘要。
+    /// </summary>
+    [Fact]
+    public void RenderDiff_HunkKeepsOnlyAnchors_AndCollapsesInBetween()
+    {
+        List<LineDiffEntry> diff =
+        [
+            new(ELineDiffKind.Hunk, "@@ -1,7 +1,7 @@"),
+            new(ELineDiffKind.Context, "l1", 1),
+            new(ELineDiffKind.Removed, "a", 3),
+            new(ELineDiffKind.Added, "x", 3),
+            new(ELineDiffKind.Context, "b", 4),
+            new(ELineDiffKind.Context, "c", 5),
+            new(ELineDiffKind.Context, "l6", 6),
+            new(ELineDiffKind.Context, "l7", 7),
+        ];
+
+        string rendered = FileEditPlanner.RenderDiff(diff, 80);
+
+        Assert.Contains(" 1 l1", rendered); //头部锚 1 行保留
+        Assert.Contains("-3 a", rendered); //红绿行原样
+        Assert.Contains("+3 x", rendered);
+        Assert.Contains("…(3 unchanged lines @ 4-6)…", rendered); //内部相同行折叠,带行号范围
+        Assert.Contains(" 7 l7", rendered); //尾部锚 1 行保留
+        Assert.DoesNotContain(" 4 b", rendered); //内部行不再逐行出现
+        Assert.DoesNotContain(" 5 c", rendered);
+        Assert.DoesNotContain(" 6 l6", rendered);
+    }
+
+    /// <summary>「只剩 1 行可折时不折」:游程长度 2(1 锚 + 1 内部)时折不掉 1 行,整体保留(省不了行数还丢原文)</summary>
+    [Fact]
+    public void RenderDiff_SingleCollapsibleLine_IsKeptWhole()
+    {
+        List<LineDiffEntry> diff =
+        [
+            new(ELineDiffKind.Hunk, "@@ -1,4 +1,4 @@"),
+            new(ELineDiffKind.Context, "c1", 1),
+            new(ELineDiffKind.Context, "c2", 2),
+            new(ELineDiffKind.Removed, "old", 3),
+            new(ELineDiffKind.Added, "new", 3),
+        ];
+
+        string rendered = FileEditPlanner.RenderDiff(diff, 80);
+
+        Assert.Contains(" 1 c1", rendered);
+        Assert.Contains(" 2 c2", rendered); //1 行可折时不折,整体保留
+        Assert.DoesNotContain("unchanged lines", rendered);
+    }
+
+    /// <summary>
+    /// 单行截断:minified JSON 之类一行可达几十 KB,行数上限拦不住——必须按字符截。
+    /// 截断加 …[truncated] 与 Read/Grep 同款口吻,行号列不受影响。
+    /// </summary>
+    [Fact]
+    public void RenderDiff_OverlongLine_IsTruncatedPerLine()
+    {
+        string longText = new string('x', 300);
+        List<LineDiffEntry> diff =
+        [
+            new(ELineDiffKind.Hunk, "@@ -1,1 +1,1 @@"),
+            new(ELineDiffKind.Removed, longText, 1),
+            new(ELineDiffKind.Added, "short", 1),
+        ];
+
+        string rendered = FileEditPlanner.RenderDiff(diff, 80);
+
+        Assert.Contains("-1 " + new string('x', 240) + " …[truncated]", rendered); //行号列宽 1,无填充
+        Assert.Contains("+1 short", rendered);
+        Assert.DoesNotContain(new string('x', 241), rendered); //超 240 的部分不进上下文
     }
 
     // ---- 落盘保真 ----

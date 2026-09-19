@@ -65,7 +65,11 @@ internal sealed class PermissiveFileAccessTools
     /// <summary>地图模式最多列出的文件数(按命中数降序取 Top N;命中极度分散本身就是"搜宽了"的信号)</summary>
     internal const int MaxGrepMapFiles = 50;
 
-    internal const int MaxEditDiffLines = 80; //Edit 回给模型的 diff 行数上限
+    /// <summary>Edit 回给模型的 diff 行数上限（与审批卡片共用，见 <c>FileEditPlanner.DefaultMaxDiffLines</c>）</summary>
+    internal const int MaxEditDiffLines = FileEditPlanner.DefaultMaxDiffLines;
+
+    /// <summary>Edit diff 单行长度上限（minified JSON 一行可达几十 KB，行数上限拦不住）</summary>
+    internal const int MaxEditDiffLineChars = FileEditPlanner.DefaultMaxDiffLineChars;
 
     /// <summary>
     /// 落盘的"读→计划→写"关键区不原子：<c>AllowConcurrentInvocation=true</c> 时同一轮
@@ -523,7 +527,7 @@ internal sealed class PermissiveFileAccessTools
 
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
-            string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines);
+            string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
             return $"Applied {edits.Count} edit(s) to '{filePath}'.\n{diff}";
         }
         finally

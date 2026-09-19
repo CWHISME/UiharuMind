@@ -152,4 +152,55 @@ public class ApprovalDiffTests : IDisposable
         Assert.All(lines.Where(x => x.Prefix != " "), x => Assert.True(x.IsAdded));
         Assert.Contains(lines, x => x.IsAdded && x.Text == "x");
     }
+
+    /// <summary>
+    /// 审批卡片与模型看到的是同一份 diff：BuildEditDiff 不再自己遍历 plan.Diff（上限 300），
+    /// 而是复用 RenderDiff 的输出（折叠/均分预算/单行截断都在那一侧）。大 diff 时卡片不再比模型看得多。
+    /// </summary>
+    [Fact]
+    public void ApprovalCard_AndModelResult_ShareTheSameRenderedDiff()
+    {
+        string path = Path.Combine(_dir, "Big.cs");
+        // oldString 50 行里只改 1 行 → 50 行未变化被折叠成一行摘要
+        string oldString = string.Join('\n', Enumerable.Range(1, 50).Select(i => $"ctx{i}").Append("old"));
+        string newString = string.Join('\n', Enumerable.Range(1, 50).Select(i => $"ctx{i}").Append("new"));
+        File.WriteAllText(path, oldString + "\ntail\n");
+
+        var approval = DiffLineView.BuildForToolCall(EditCall(path, (oldString, newString)));
+
+        FileEditPlan plan = FileEditPlanner.Plan(File.ReadAllText(path), "Big.cs",
+            [new FileEdit { OldString = oldString, NewString = newString }]);
+        Assert.True(plan.Succeeded, plan.Error);
+        string modelText = FileEditPlanner.RenderDiff(plan.Diff, FileEditPlanner.DefaultMaxDiffLines);
+        var modelView = DiffLineView.ParseToolResult($"Applied 1 edit(s) to 'Big.cs'.\n{modelText}");
+
+        Assert.Equal(approval.Count, modelView.Count); //两边各有一个头行(Applied / @ path),数量相等
+        for (int i = 1; i < modelView.Count; i++) //跳过各自头行,从 diff 行开始逐行对比
+        {
+            Assert.Equal(modelView[i].Prefix, approval[i].Prefix);
+            Assert.Equal(modelView[i].Text, approval[i].Text);
+        }
+
+        Assert.Contains(approval, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("unchanged lines"));
+        Assert.True(approval.Count <= FileEditPlanner.DefaultMaxDiffLines + 1, "卡片不再比模型看得多");
+    }
+
+    /// <summary>折叠行(…(N unchanged lines @ a-b)…)不匹配 diff 行正则,结果卡片上按灰色 context 展示</summary>
+    [Fact]
+    public void CollapsedSummary_ShowsAsPlainContext_OnResultCard()
+    {
+        string result = "Applied 1 edit(s) to 'B.cs'.\n"
+                        + "@@ -1,60 +1,60 @@\n"
+                        + "…(50 unchanged lines @ 1-50)…\n"
+                        + "- 51 old\n"
+                        + "+ 51 new\n"
+                        + " 52 tail";
+
+        var lines = DiffLineView.ParseToolResult(result);
+
+        Assert.Contains(lines, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("unchanged lines"));
+        Assert.Contains(lines, x => x.IsRemoved && x.Text.Contains("old"));
+        Assert.Contains(lines, x => x.IsAdded && x.Text.Contains("new"));
+        Assert.Contains(lines, x => x.Text.Contains("@@ -1,60")); //hunk 头同样按灰色保留
+    }
 }
