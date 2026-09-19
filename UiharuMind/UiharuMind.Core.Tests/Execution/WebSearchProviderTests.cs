@@ -88,7 +88,7 @@ public class WebSearchProviderTests
     {
         const string json = """{"success":false,"error":"rate limited"}""";
 
-        var ex = Assert.Throws<HttpRequestException>(() => FirecrawlSearchProvider.EnsureSuccess(json));
+        var ex = Assert.Throws<HttpRequestException>(() => FirecrawlClient.EnsureSuccess(json));
         Assert.Contains("rate limited", ex.Message);
     }
 
@@ -96,13 +96,13 @@ public class WebSearchProviderTests
     public void Firecrawl_NoBusinessError_DoesNotThrow()
     {
         // 无 success 字段或 success 为 true 都不算业务错误
-        FirecrawlSearchProvider.EnsureSuccess("""{"data":{"web":[]}}""");
-        FirecrawlSearchProvider.EnsureSuccess("""{"success":true,"data":[]}""");
+        FirecrawlClient.EnsureSuccess("""{"data":{"web":[]}}""");
+        FirecrawlClient.EnsureSuccess("""{"success":true,"data":[]}""");
     }
 
     /// <summary>
     /// 解析器本身：不带 error 的畸形响应（缺 data）仍返回空——那只是"这个查询没有数据"，
-    /// 不构成服务故障。业务错误由 <see cref="FirecrawlSearchProvider.EnsureSuccess"/> 提前拦截。
+    /// 不构成服务故障。业务错误由 <see cref="FirecrawlClient.EnsureSuccess"/> 提前拦截。
     /// </summary>
     [Fact]
     public void Firecrawl_MissingData_ReturnsEmpty()

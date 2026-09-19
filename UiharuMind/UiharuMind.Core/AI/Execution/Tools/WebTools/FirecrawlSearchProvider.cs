@@ -25,34 +25,8 @@ internal sealed class FirecrawlSearchProvider : ISearchProvider
         string json = await FirecrawlClient
             .PostAsync("search", new { query, limit = maxCount }, ct)
             .ConfigureAwait(false);
-        EnsureSuccess(json);
+        FirecrawlClient.EnsureSuccess(json);
         return Parse(json, maxCount);
-    }
-
-    /// <summary>
-    /// Firecrawl 业务级错误检测：HTTP 200 但 payload 里 <c>success:false</c> 或带 <c>error</c>
-    /// （限额耗尽、服务异常都走这条路）。
-    ///
-    /// 不在这里把它转成异常的话，<see cref="Parse"/> 会因找不到 <c>data</c> 返回<b>空列表</b>，
-    /// 兜底链把空结果当"正常搜到 0 条"，错误原文被静默吞掉，模型拿到的是假成功——
-    /// 这是最危险的一类失败（基于空结果做错误决策且毫无察觉）。
-    /// 抛 <see cref="HttpRequestException"/> 是为了让 <see cref="WebServiceCircuit.IsServiceLevelFailure"/>
-    /// 把它当服务级故障（限额耗尽/5xx）记入熔断，后续引擎才会上位。
-    /// </summary>
-    internal static void EnsureSuccess(string json)
-    {
-        using JsonDocument doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("success", out JsonElement success)
-            || success.ValueKind != JsonValueKind.False)
-        {
-            return;
-        }
-
-        string? error = doc.RootElement.TryGetProperty("error", out JsonElement err) &&
-                        err.ValueKind == JsonValueKind.String
-            ? err.GetString()
-            : "unknown error";
-        throw new HttpRequestException($"Firecrawl business error: {error}");
     }
 
     /// <summary>

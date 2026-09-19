@@ -21,7 +21,28 @@ public class WebFetchReaderTests
     public void Firecrawl_EmptyOrMissingData_Fails()
     {
         Assert.Null(FirecrawlPageReader.Parse("""{"data":{"markdown":""}}""").Content);
-        Assert.NotNull(FirecrawlPageReader.Parse("""{"success":false}""").Error);
+        Assert.NotNull(FirecrawlPageReader.Parse("""{"foo":"bar"}""").Error);
+    }
+
+    /// <summary>
+    /// 读页与搜索共用 <see cref="FirecrawlClient"/> 出口,业务错误必须同样抛出来进熔断换源——
+    /// 不能像从前那样被 <see cref="FirecrawlPageReader.Parse"/> 吞成"no data"再落回直连链,
+    /// 错误原文丢了、Firecrawl 也不被熔断。
+    /// </summary>
+    [Fact]
+    public void Firecrawl_BusinessError_ThrowsInsteadOfSilentFallback()
+    {
+        var ex = Assert.Throws<HttpRequestException>(
+            () => FirecrawlClient.EnsureSuccess("""{"success":false,"error":"rate limited"}"""));
+        Assert.Contains("rate limited", ex.Message);
+    }
+
+    /// <summary>无 success 字段或 success 为 true 都不算业务错误</summary>
+    [Fact]
+    public void Firecrawl_NoBusinessError_DoesNotThrow()
+    {
+        FirecrawlClient.EnsureSuccess("""{"data":{"markdown":"# Title"}}""");
+        FirecrawlClient.EnsureSuccess("""{"success":true,"data":{"web":[]}}""");
     }
 
     /// <summary>
@@ -62,6 +83,24 @@ public class WebFetchReaderTests
     public void DirectReader_AcceptsPrivateHosts()
     {
         Assert.True(((IPageReader)new DirectPageReader()).CanRead("http://192.168.1.1/"));
+    }
+
+    /// <summary>
+    /// 截断流读满上限即 EOF 而非抛异常:大 HTML 页面整体报废会让
+    /// WebFetchTool 的 64KB 头尾骨架机制够不着;截断可用与纯文本分支同口径。
+    /// </summary>
+    [Fact]
+    public void BoundedStream_StopsAtCap_ReturnsEof()
+    {
+        using MemoryStream inner = new(Enumerable.Repeat((byte)0x41, 100).ToArray()); //100 字节
+        DirectPageReader.BoundedStream stream = new(inner, cap: 40);
+
+        byte[] buffer = new byte[100];
+        int first = stream.Read(buffer, 0, buffer.Length);
+        int second = stream.Read(buffer, 0, buffer.Length);
+
+        Assert.Equal(40, first); //只暴露前 cap 字节
+        Assert.Equal(0, second); //读满即 EOF,不抛异常
     }
 
     /// <summary>

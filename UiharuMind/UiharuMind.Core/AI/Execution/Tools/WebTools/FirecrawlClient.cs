@@ -46,4 +46,32 @@ internal static class FirecrawlClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Firecrawl 业务级错误检测：HTTP 200 但 payload 里 <c>success:false</c> 或带 <c>error</c>
+    /// （限额耗尽、服务异常都走这条路）。
+    ///
+    /// 不在这里把它转成异常的话，解析方会因找不到 <c>data</c> 返回空结果/失败原因，
+    /// 错误原文被静默吞掉，模型拿到的是假成功——这是最危险的一类失败
+    /// （基于空结果做错误决策且毫无察觉）。
+    /// 抛 <see cref="HttpRequestException"/> 是为了让 <see cref="WebServiceCircuit.IsServiceLevelFailure"/>
+    /// 把它当服务级故障（限额耗尽/5xx）记入熔断，后续引擎/读取器才会上位。
+    /// 搜索与读页共用这一个出口，故这里统一处理，两处行为保持一致。
+    /// </summary>
+    /// <param name="json">响应 JSON</param>
+    public static void EnsureSuccess(string json)
+    {
+        using JsonDocument doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("success", out JsonElement success)
+            || success.ValueKind != JsonValueKind.False)
+        {
+            return;
+        }
+
+        string? error = doc.RootElement.TryGetProperty("error", out JsonElement err) &&
+                        err.ValueKind == JsonValueKind.String
+            ? err.GetString()
+            : "unknown error";
+        throw new HttpRequestException($"Firecrawl business error: {error}");
+    }
 }

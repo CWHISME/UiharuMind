@@ -48,6 +48,7 @@ internal sealed class FirecrawlPageReader : IPageReader
                 maxAge = CacheMaxAgeMs
             },
             ct).ConfigureAwait(false);
+        FirecrawlClient.EnsureSuccess(json); //业务错误(限额耗尽/服务异常)抛出来进熔断,而不是吞成"no data"落回直连链
         return Parse(json);
     }
 

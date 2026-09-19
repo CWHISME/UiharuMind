@@ -21,7 +21,12 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 /// </summary>
 internal sealed partial class DirectPageReader : IPageReader
 {
-    private const long ResponseSizeCap = 512_000;
+    /// <summary>
+    /// 原始正文读入上限。GitHub 这类页面渲染出的 HTML 常有几 MB,
+    /// 512KB 太小会让正常页面整体失败;超限不报废,按流结束截断返回已读部分,
+    /// 交给 WebFetchTool 层统一做 64KB 头尾骨架(见 <see cref="WebFetchTruncation"/>)。
+    /// </summary>
+    private const long ResponseSizeCap = 4 * 1024 * 1024;
 
     private static readonly string[] NoiseTags =
         ["script", "style", "noscript", "iframe", "svg", "nav", "footer", "aside", "header"];
@@ -84,20 +89,13 @@ internal sealed partial class DirectPageReader : IPageReader
 
     private static async Task<PageReadResult> ReadMarkupAsync(Stream body, CancellationToken ct)
     {
-        try
-        {
-            BoundedStream stream = new(body, ResponseSizeCap);
-            // 每次请求创建新的 Context，确保线程安全（多 agent 同时调的话）
-            using IBrowsingContext context = BrowsingContext.New(Configuration.Default);
-            using IDocument doc = await context.OpenAsync(v => v.Content(stream), ct).ConfigureAwait(false);
+        BoundedStream stream = new(body, ResponseSizeCap);
+        // 每次请求创建新的 Context，确保线程安全（多 agent 同时调的话）
+        using IBrowsingContext context = BrowsingContext.New(Configuration.Default);
+        using IDocument doc = await context.OpenAsync(v => v.Content(stream), ct).ConfigureAwait(false);
 
-            StripNoise(doc);
-            return PageReadResult.Ok(Extract(doc));
-        }
-        catch (BoundedStream.LimitExceeded)
-        {
-            return PageReadResult.Fail("response too large");
-        }
+        StripNoise(doc);
+        return PageReadResult.Ok(Extract(doc));
     }
 
     /// <summary>
@@ -145,10 +143,13 @@ internal sealed partial class DirectPageReader : IPageReader
     }
 
     // ── 截断流 ────────────────────────────────────────────────
-    private sealed class BoundedStream(Stream inner, long cap) : Stream
+    /// <summary>
+    /// 只向下游暴露前 <paramref name="cap"/> 字节的流,读满即 EOF——
+    /// 超限按"流结束"处理而非抛异常,与纯文本分支"截断可用"同口径,
+    /// 否则大 HTML 页面直接整体失败,WebFetchTool 的骨架机制也够不着。
+    /// </summary>
+    internal sealed class BoundedStream(Stream inner, long cap) : Stream
     {
-        public sealed class LimitExceeded : Exception;
-
         private long _read;
 
         public override bool CanRead => true;
@@ -159,17 +160,19 @@ internal sealed partial class DirectPageReader : IPageReader
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            int n = inner.Read(buffer, offset, count);
+            if (_read >= cap) return 0;
+            int allowed = (int)Math.Min(count, cap - _read);
+            int n = inner.Read(buffer, offset, allowed);
             _read += n;
-            if (_read > cap) throw new LimitExceeded();
             return n;
         }
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
         {
-            int n = await inner.ReadAsync(buffer, ct);
+            if (_read >= cap) return 0;
+            int allowed = (int)Math.Min(buffer.Length, cap - _read);
+            int n = await inner.ReadAsync(buffer[..allowed], ct);
             _read += n;
-            if (_read > cap) throw new LimitExceeded();
             return n;
         }
 
