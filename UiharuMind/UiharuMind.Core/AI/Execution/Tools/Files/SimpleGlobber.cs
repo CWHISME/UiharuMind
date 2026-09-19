@@ -138,6 +138,10 @@ public sealed class SimpleGlobber
                 WorkingDirectory = _rootDirectory,
                 Pattern = pattern,
                 Detail = detail,
+                // PathNotFound 顺带回最近存活祖先，其余失败种类没有这个事实
+                NearestExistingDirectory = kind == ESearchFailureKind.PathNotFound
+                    ? SearchRoot.NearestExistingAncestorWithin(_rootDirectory, resolved) ?? string.Empty
+                    : string.Empty,
             },
         };
     }

@@ -130,10 +130,16 @@ internal static class SearchFailureRenderer
             return $"The working directory \"{failure.WorkingDirectory}\" does not exist.";
         }
 
+        // 有最近存活祖先就点一句：让模型从"整个路径都不对"收敛到"断在某一段"，不猜候选。
+        // 不再回显工作目录：它在系统提示里已写明（BuildWorkingDirectory），resolved 又已隐含拼接基准。
+        string ancestor = string.IsNullOrEmpty(failure.NearestExistingDirectory)
+            ? string.Empty
+            : $" The nearest existing ancestor is \"{failure.NearestExistingDirectory}\".";
+
         return $"Path not found. You passed path \"{failure.RequestedDirectory}\", "
-               + $"which resolves to \"{failure.ResolvedDirectory}\". "
-               + $"The working directory is \"{failure.WorkingDirectory}\". "
-               + "Pass a directory (search under it), a single file (search only that file), "
+               + $"which resolves to \"{failure.ResolvedDirectory}\"."
+               + ancestor
+               + " Pass a directory (search under it), a single file (search only that file), "
                + "or omit path to search the whole working directory.";
     }
 }

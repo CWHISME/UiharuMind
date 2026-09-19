@@ -107,6 +107,8 @@ public sealed class SimpleGrepper
                     ResolvedDirectory = target,
                     WorkingDirectory = _rootDirectory,
                     Pattern = query,
+                    NearestExistingDirectory =
+                        SearchRoot.NearestExistingAncestorWithin(_rootDirectory, target) ?? string.Empty,
                 },
             };
         }

@@ -61,6 +61,14 @@ public sealed class SearchFailure
 
     /// <summary>引擎给出的原始说明（异常消息等）；没有则为空串</summary>
     public string Detail { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 最近的、尚存在于工作区内的祖先目录（PathNotFound 时有用）。
+    /// 只回这一个值让模型一次定位断档——<c>X 存在、X/Y 不存在</c> 比整条路径不算更能收敛。
+    /// 不列内容、不外探工作区边界；没有可回（工作区外或根不存在）则为空串。
+    /// 见 <see cref="SearchRoot.NearestExistingAncestorWithin"/>。
+    /// </summary>
+    public string NearestExistingDirectory { get; init; } = string.Empty;
 }
 
 /// <summary>

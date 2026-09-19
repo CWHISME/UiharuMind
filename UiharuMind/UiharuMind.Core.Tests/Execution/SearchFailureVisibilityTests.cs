@@ -302,4 +302,48 @@ public class SearchFailureVisibilityTests : IDisposable
         Assert.Equal("sub/spec.md", entry.Path);
     }
 
+    /// <summary>
+    /// 断档发生在<b>中段目录</b>时，报出最近存在的祖先目录，而不是把整条路径当错。
+    /// 这是让模型从「整个路径都不对」收敛到「第三级错」的关键一句。
+    /// </summary>
+    [Fact]
+    public async Task Grep_PathNotFound_ReportsNearestExistingAncestor()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub"));
+        // sub 存在；sub/absent 是断掉的中间目录
+        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: "sub/absent/deep.cs");
+
+        Assert.NotNull(outcome.Failure);
+        Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
+        Assert.Equal(Path.Combine(_dir, "sub"), outcome.Failure.NearestExistingDirectory);
+    }
+
+    /// <summary>Glob 同款：只报最近存活祖先，不列它的内容</summary>
+    [Fact]
+    public async Task Glob_PathNotFound_ReportsNearestExistingAncestor()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "sub"));
+        GlobOutcome outcome = await _globber.SearchAsync("**/*", path: "sub/gone/here");
+
+        Assert.NotNull(outcome.Failure);
+        Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
+        Assert.Equal(Path.Combine(_dir, "sub"), outcome.Failure.NearestExistingDirectory);
+    }
+
+    /// <summary>
+    /// 目标落在<b>工作区之外</b>时禁止外探祖先目录：什么都不报，保持原有文案。
+    /// 边界不 clamp 的话，这条 PathNotFound 路径会变成任意目录枚举的口子。
+    /// </summary>
+    [Fact]
+    public async Task PathNotFound_OutsideWorkspace_DoesNotProbeAncestors()
+    {
+        string outside = Path.Combine(Path.GetTempPath(), "uiharu-no-such", "deep.cs");
+
+        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: outside);
+
+        Assert.NotNull(outcome.Failure);
+        Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
+        Assert.Equal(string.Empty, outcome.Failure.NearestExistingDirectory);
+    }
+
 }
