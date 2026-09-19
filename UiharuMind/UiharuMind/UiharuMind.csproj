@@ -33,13 +33,12 @@
 		<PackageReference Include="TextMateSharp.Grammars" Version="2.0.3" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-		<PackageReference Include="LiveMarkdown.Avalonia" Version="2.4.0" />
+		<PackageReference Include="LiveMarkdown.Avalonia" Version="2.4.1" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
 		<!--主题包-->
 		<PackageReference Include="Irihi.Ursa" Version="2.2.0" />
 
 		<PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.2.0" />
-		<PackageReference Include="ProDiagnostics" Version="12.1.0.4" />
 		<PackageReference Include="Semi.Avalonia" Version="12.1.0.1" />
 		<PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.1.0.1" />
 		<PackageReference Include="SharpHook" Version="8.0.0" />
@@ -47,6 +46,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\ClassicDiagnostics.Avalonia\src\ClassicDiagnostics.Avalonia.csproj" />
 	  <ProjectReference Include="..\UiharuMind.Core\UiharuMind.Core.csproj" />
 	</ItemGroup>
 

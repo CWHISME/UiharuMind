@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using ClassicDiagnostics.Avalonia;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;

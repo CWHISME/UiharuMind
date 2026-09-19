@@ -1,0 +1,3 @@
+[submodule "UiharuMind/ClassicDiagnostics.Avalonia"]
+	path = UiharuMind/ClassicDiagnostics.Avalonia
+	url = https://github.com/CWHISME/ClassicDiagnostics.Avalonia.git
