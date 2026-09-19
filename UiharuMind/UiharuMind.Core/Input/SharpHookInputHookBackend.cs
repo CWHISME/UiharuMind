@@ -76,8 +76,7 @@ public class SharpHookInputHookBackend : IInputHookBackend
 
         return new KeyEventInfo(
             args.Data.KeyCode,
-            GetPressedModifiers(),
-            (mask & EventMask.SimulatedEvent) != 0);
+            GetPressedModifiers());
     }
 
     /// 鼠标事件同样带修饰键位，白拿的纠正机会：用户松开修饰键后随手动一下鼠标，残留即被抹平

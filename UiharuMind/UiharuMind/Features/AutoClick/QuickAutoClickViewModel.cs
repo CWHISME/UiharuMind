@@ -329,6 +329,7 @@ public partial class QuickAutoClickViewModel : ViewModelBase
     private readonly Dictionary<KeyCode, DateTime> _keyPressTimes = new();
     private readonly Stopwatch _recordStopwatch = new();
     private IDisposable? _shortcutSuspendScope;
+    private IDisposable? _playbackSuspendScope;
     private (short x, short y) _lastMousePosition;
     private (short x, short y) _mousePressPosition;
     private DateTime _lastMouseMoveTime;
@@ -730,6 +731,11 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         _lastPlaybackMousePosition = null;
         SetStatus(LangKey.AutoClickStatusPlaying);
 
+        // 回放注入的按键会经全局钩子回到本应用，若不挂起快捷键，录到过 Alt+Shift+Z 这类组合的
+        // 回放会在播放时把自己再触发一遍（截图窗/快捷窗弹出干扰回放）。录制时挂起是同一招。
+        // 停止回放不受影响：IsStopShortcutPressed 走 MatchesPressedModifiers 读系统真值，不经此挂起。
+        _playbackSuspendScope = InputManager.Instance.SuspendRegisteredShortcuts();
+
         try
         {
             if (_onPreparePlayback != null)
@@ -767,6 +773,8 @@ public partial class QuickAutoClickViewModel : ViewModelBase
         }
         finally
         {
+            _playbackSuspendScope?.Dispose();
+            _playbackSuspendScope = null;
             foreach (var step in VisibleSteps) step.IsExecuting = false;
             _isPlaybackMousePressed = false;
             _lastPlaybackMousePosition = null;

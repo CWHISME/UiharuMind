@@ -87,8 +87,8 @@ public class KeyPressTrackerTests
     }
 
     private static KeyEventInfo Press(KeyCode keyCode, EModifierKeys modifiers = EModifierKeys.None) =>
-        new(keyCode, modifiers, IsSimulated: false);
+        new(keyCode, modifiers);
 
     private static KeyEventInfo Release(KeyCode keyCode, EModifierKeys modifiers = EModifierKeys.None) =>
-        new(keyCode, modifiers, IsSimulated: false);
+        new(keyCode, modifiers);
 }

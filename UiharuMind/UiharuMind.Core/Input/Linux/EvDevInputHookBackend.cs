@@ -196,7 +196,7 @@ internal sealed class EvDevInputHookBackend : IInputHookBackend
         }
 
         // 位集取自内核状态而非事件累加，故与 SharpHook 后端一样不可能出现修饰键残留
-        var info = new KeyEventInfo(keyCode, modifiers, IsSimulated: false);
+        var info = new KeyEventInfo(keyCode, modifiers);
         if (isDown)
         {
             // 返回值是「是否吞掉此键」。evdev 旁路监听无法吞键，调用结果只作日志用途之外的语义被丢弃

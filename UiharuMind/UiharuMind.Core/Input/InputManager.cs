@@ -214,13 +214,6 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private bool OnKeyPressed(KeyEventInfo info)
     {
-        // 自己注入的按键不参与状态与快捷键，否则「模拟一次快捷键」会把自己再触发一遍
-        if (info.IsSimulated)
-        {
-            EventOnKeyDown?.Invoke(info.KeyCode);
-            return false;
-        }
-
         // 操作系统的键盘连发会反复发 KeyPressed，只有首次按下才算一次输入
         if (!_keyPressTracker.TryBeginPress(info)) return false;
 
@@ -230,7 +223,7 @@ public class InputManager : Singleton<InputManager>, IInitialize
 
     private void OnKeyReleased(KeyEventInfo info)
     {
-        if (!info.IsSimulated) _keyPressTracker.EndPress(info);
+        _keyPressTracker.EndPress(info);
         EventOnKeyUp?.Invoke(info.KeyCode);
     }
 
