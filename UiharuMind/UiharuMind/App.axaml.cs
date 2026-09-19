@@ -130,10 +130,18 @@ public partial class App : Application, ILogger, IDisposable
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("tray");
         _ = Services.GetRequiredService<ApplicationUpdateService>().CheckForUpdatesAsync();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("update-check-kickoff");
+        // 空闲内存回收:长轮次过后 GC 会占着一大片用过的空地不还,见 IdleMemoryReclaimer
+        _memoryReclaimer = UiharuMind.Features.Diagnostics.IdleMemoryReclaimer.Start();
+
+        // 开发脚本(--dev-script):没带这个参数时一行都不跑,见 DevScriptRunner
+        UiharuMind.Features.DevAutomation.DevScriptRunner.RunIfRequested(
+            (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Args);
         Log.Debug("UiharuMind started.");
     }
 
     // public new static App Current => (App)Application.Current!;
+    private UiharuMind.Features.Diagnostics.IdleMemoryReclaimer? _memoryReclaimer;
+
     public static DummyWindow DummyWindow { get; private set; } = null!;
     public static ClipboardService Clipboard { get; private set; } = null!;
     public static FilesService FilesService { get; private set; } = null!;
@@ -279,6 +287,7 @@ public partial class App : Application, ILogger, IDisposable
 
     public void Dispose()
     {
+        _memoryReclaimer?.Dispose();
         _trayStatus?.Dispose();
         Clipboard.Dispose();
         // 先给还在跑的那些轮次补上取消结果,再放执行者:反过来的话补写会撞上正在被释放的执行者。
