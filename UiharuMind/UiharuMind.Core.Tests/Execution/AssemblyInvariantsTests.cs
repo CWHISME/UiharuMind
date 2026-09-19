@@ -931,7 +931,8 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 点名的子智能体，人格排在那套"你是子代理"的边界与体例之前(与主代理同一口径,见 ADR 0005)。
+    /// 点名的子智能体：人格是身份本身（角色卡已说"我是谁"）。无 role 时 # 角色 段没有
+    /// 可说的身份信息、整段省略（与主代理同一口径，见 ADR 0005）。
     /// </summary>
     [Fact]
     public void NamedSubAgent_PutsItsPersonaFirst()
@@ -942,9 +943,29 @@ public class SubAgentBoundaryTests
         Assert.NotNull(options);
         string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
         Assert.Equal("Researcher", options.Name);
-        Assert.True(instructions.IndexOf("I am the research specialist", StringComparison.Ordinal) <
-                    instructions.IndexOf(AgentPromptHeadings.SubAgentRole, StringComparison.Ordinal),
-            "子智能体的人格必须排在子代理身份段之前");
+        Assert.StartsWith("I am the research specialist", instructions, StringComparison.Ordinal);
+        Assert.DoesNotContain(AgentPromptHeadings.SubAgentRole, instructions);
+    }
+
+    /// <summary>给了 role 时，role 收进 # 角色 段且排在人格之后——"role 放角色段"这个设计被钉住</summary>
+    [Fact]
+    public void NamedSubAgent_RoleGoesIntoTheRoleSection()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with
+            {
+                Persona = "I am the research specialist",
+                Name = "Researcher",
+                Role = "senior C# reviewer",
+            });
+
+        Assert.NotNull(options);
+        string instructions = options!.ChatOptions?.Instructions ?? string.Empty;
+        int persona = instructions.IndexOf("I am the research specialist", StringComparison.Ordinal);
+        int roleSection = instructions.IndexOf(AgentPromptHeadings.SubAgentRole, StringComparison.Ordinal);
+        Assert.True(persona >= 0, "人格必须在场");
+        Assert.True(roleSection > persona, "role 段必须排在人格之后");
+        Assert.Contains("senior C# reviewer", instructions);
     }
 
     /// <summary>

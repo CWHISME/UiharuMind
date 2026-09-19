@@ -449,8 +449,9 @@ internal static class SubAgentAssembly
             if (named) identity.Add(SubAgentPrompts.RoleOverPersona);
         }
 
-        // 边界写清楚能省掉无效轮次:不然模型会反复去试没挂载的工具、吃失败、再换路
-        identity.Add(canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly);
+        // 边界句置空(见 SubAgentPrompts 注释):能力由工具集决定,规则由任务书指明。非空才入列。
+        string? boundary = canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly;
+        if (boundary.Length > 0) identity.Add(boundary);
         // 并行调用那句护栏归 # 工具 段(与主代理同一处),不放这里:
         // 它讲的是工具调用语义,没有工具时毫无意义,挂在身份段等于"你是谁"后面
         // 突然接一条并发规则

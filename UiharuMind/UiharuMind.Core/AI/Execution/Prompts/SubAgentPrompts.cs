@@ -51,13 +51,13 @@ public static class SubAgentPrompts
     /// 不表态的话，一张写得强势的角色卡（长度与具体度都碾压那一句 role）会直接压过它，
     /// 于是"点名一个代理 + 给它本次侧重"这个组合又变成半死的。
     /// </summary>
-    public const string RoleOverPersona = "这一趟按这个侧重来，其余仍按你自己的方式。";
+    public const string RoleOverPersona = "本次按这个身份侧重来，其余仍按你自己的方式。";
 
-    /// <summary>可变更档的边界。从前与「档位提示」近乎逐字重复，那一份已删</summary>
+    /// <summary>可变更档的边界。能力由工具集决定、规则由任务书指明，这里不重复（与「档位提示」同源，那一份已删）</summary>
     public const string BoundaryCanMutate =
         "";
 
-    /// <summary>只读档的边界</summary>
+    /// <summary>只读档的边界。同上</summary>
     public const string BoundaryReadOnly =
         "";
 
