@@ -47,7 +47,7 @@
     <Style Selector="TextBlock.title-tweak">
         <Setter Property="RenderTransform">
             <Setter.Value>
-                <TranslateTransform Y="2" />
+                <TranslateTransform Y="1" />
             </Setter.Value>
         </Setter>
     </Style>
