@@ -100,7 +100,7 @@ public class TurnDriverTests
         TurnDriver driver = new(sink, new TurnUsageLedger());
         ChatMessage prompt = Prompt();
 
-        await driver.RunAsync(NewSession(), runner, prompt);
+        await driver.RunAsync(NewSession(), runner, prompt, externalCancellation: TestContext.Current.CancellationToken);
 
         UserMessageContent first = Assert.IsType<UserMessageContent>(sink.Applied[0]);
         Assert.Same(prompt, first.Message);
@@ -114,7 +114,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(new TextContent("你"), new TextContent("好")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal(["你", "好"], sink.Applied.OfType<TextContent>().Select(x => x.Text));
     }
@@ -126,7 +126,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(new TextContent("嗯")));
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(), notices.Add);
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal(
         [
@@ -140,7 +140,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(new TextContent("嗯")));
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, runner.SaveStateCalls);
     }
@@ -153,7 +153,7 @@ public class TurnDriverTests
         StubRunner runner = new(Interrupted(new TextContent("跑到一半")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal([CancelNote], sink.StopNotes);
     }
@@ -166,7 +166,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(new TextContent("说完了")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal([CancelNote], sink.StopNotes);
     }
@@ -185,7 +185,7 @@ public class TurnDriverTests
         {
             Assert.Equal([request], requests);
             return Task.FromResult<IReadOnlyList<ChatMessage>>([response]);
-        });
+        }, externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, runner.ReceivedRounds.Count);
         Assert.Equal([response], runner.ReceivedRounds[1]);
@@ -199,7 +199,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(request), Round(new TextContent("不该跑到这里")));
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
-        await driver.RunAsync(NewSession(), runner, Prompt(), resolver: null);
+        await driver.RunAsync(NewSession(), runner, Prompt(), resolver: null, externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Single(runner.ReceivedRounds);
     }
@@ -213,7 +213,7 @@ public class TurnDriverTests
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
         await driver.RunAsync(NewSession(), runner, Prompt(),
-            _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]));
+            _ => Task.FromResult<IReadOnlyList<ChatMessage>>([]), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Single(runner.ReceivedRounds);
     }
@@ -261,7 +261,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(request), Round(new TextContent("不该跑到这里")));
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
-        await driver.RunAsync(session, runner, Prompt(), resolver: null);
+        await driver.RunAsync(session, runner, Prompt(), resolver: null, externalCancellation: TestContext.Current.CancellationToken);
 
         FunctionResultContent result = Assert.IsType<FunctionResultContent>(
             Assert.Single(session.History[2].Contents));
@@ -278,7 +278,7 @@ public class TurnDriverTests
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger());
 
         await driver.RunAsync(NewSession(), runner, Prompt(),
-            _ => Task.FromResult<IReadOnlyList<ChatMessage>>([new ChatMessage(ChatRole.User, "x")]));
+            _ => Task.FromResult<IReadOnlyList<ChatMessage>>([new ChatMessage(ChatRole.User, "x")]), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Single(runner.ReceivedRounds);
     }
@@ -297,7 +297,7 @@ public class TurnDriverTests
         StubRunner runner = new(Interrupted(new TextContent("半截回复")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         FunctionResultContent result = Assert.IsType<FunctionResultContent>(
             Assert.Single(session.History[2].Contents));
@@ -319,7 +319,7 @@ public class TurnDriverTests
         StubRunner runner = new(Interrupted());
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger()); //没有正文可取
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Single(session.History);
     }
@@ -332,7 +332,7 @@ public class TurnDriverTests
         StubRunner runner = new(Interrupted(new TextContent("半截")));
         TurnDriver driver = new(new FakeSink("半截"), new TurnUsageLedger(), notices.Add);
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         string? failure = notices.Where(x => x.Kind == ETurnNotice.Failed)
             .Select(x => x.Payload ?? "(无正文)")
@@ -347,7 +347,7 @@ public class TurnDriverTests
         StubRunner runner = new(Failing("连接断了"));
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(), notices.Add);
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         TurnNotice failed = Assert.Single(notices, x => x.Kind == ETurnNotice.Failed);
         Assert.Equal("连接断了", failed.Payload);
@@ -366,7 +366,7 @@ public class TurnDriverTests
         StubRunner runner = new(Failing("连接断了"));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         FunctionResultContent result = Assert.IsType<FunctionResultContent>(
             Assert.Single(session.History[2].Contents));
@@ -386,7 +386,7 @@ public class TurnDriverTests
         StubRunner runner = new(Failing("连接断了"));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal([ToolCallCancellation.FailureResultText], sink.StopNotes);
     }
@@ -406,7 +406,7 @@ public class TurnDriverTests
         TurnDriver driver = new(sink, new TurnUsageLedger());
         sink.OnApplied = _ => driver.SettleForShutdown(); //流到一半时进程要退出
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal(3, session.History.Count); //调用 + 取消结果 + 半截回复
         Assert.Equal(ChatRole.Tool, session.History[1].Role);
@@ -438,7 +438,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(new TextContent("嗯")));
         TurnDriver driver = new(sink, new TurnUsageLedger());
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.True(busyDuringRun);
         Assert.False(SessionManager.Instance.Running.IsBusy(session.SessionId));
@@ -453,7 +453,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(Usage(1200, 340)));
         TurnDriver driver = new(new FakeSink(), ledger);
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Equal(1200, ledger.TurnInput);
         Assert.Equal(1200, ledger.LastInput);
@@ -470,7 +470,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(Usage(10, 5)));
         TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
 
-        await driver.RunAsync(NewSession(), runner, Prompt());
+        await driver.RunAsync(NewSession(), runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.Contains(ETurnNotice.UsageObserved, notices.Select(x => x.Kind));
     }
@@ -489,7 +489,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(new TextContent("没有 usage")));
         TurnDriver driver = new(new FakeSink(), new TurnUsageLedger(), notices.Add);
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(ETurnNotice.HandoffWritten, notices.Select(x => x.Kind));
         Assert.DoesNotContain(ETurnNotice.HandoffFailed, notices.Select(x => x.Kind));
@@ -507,7 +507,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(Usage(500, 20))); //占用远在水位之下
         TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(ETurnNotice.HandoffWritten, notices.Select(x => x.Kind));
         Assert.Equal(10, session.History.Count);
@@ -576,7 +576,7 @@ public class TurnDriverTests
         StubRunner runner = new(Round(Usage(100_000, 20))); //占用过水位(128k 预算的 0.8)
         TurnDriver driver = new(new FakeSink(), ledger, notices.Add);
 
-        await driver.RunAsync(session, runner, Prompt());
+        await driver.RunAsync(session, runner, Prompt(), externalCancellation: TestContext.Current.CancellationToken);
 
         int started = notices.FindIndex(x => x.Kind == ETurnNotice.HandoffStarted);
         int written = notices.FindIndex(x => x.Kind == ETurnNotice.HandoffWritten);

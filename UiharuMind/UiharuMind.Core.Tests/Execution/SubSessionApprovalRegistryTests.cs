@@ -21,7 +21,7 @@ public class SubSessionApprovalRegistryTests
         SubSessionApprovalRegistry registry = new();
         ToolApprovalRequestContent request = Request("a");
         Task<IReadOnlyList<ChatMessage>> wait =
-            registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromSeconds(5));
+            registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         ChatMessage decision = new(ChatRole.User, "go ahead");
         Assert.True(registry.TryAdopt("sub-1", request, Task.FromResult(decision)));
@@ -37,7 +37,7 @@ public class SubSessionApprovalRegistryTests
         SubSessionApprovalRegistry registry = new();
         ToolApprovalRequestContent request = Request("a");
         Task<IReadOnlyList<ChatMessage>> wait =
-            registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromSeconds(5));
+            registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         TaskCompletionSource<ChatMessage> untouched = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Assert.True(registry.TryAdopt("sub-1", request, untouched.Task)); //没人点的那张卡
@@ -57,7 +57,7 @@ public class SubSessionApprovalRegistryTests
         SubSessionApprovalRegistry registry = new();
         ToolApprovalRequestContent request = Request("a");
         Task<IReadOnlyList<ChatMessage>> wait =
-            registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromSeconds(5));
+            registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.False(registry.TryAdopt("sub-2", request, Decision("x")));
         Assert.False(registry.TryAdopt("sub-1", Request("b"), Decision("x")));
@@ -75,7 +75,7 @@ public class SubSessionApprovalRegistryTests
             registry.TryAdopt(sessionId, request, Task.FromResult(decision));
 
         IReadOnlyList<ChatMessage> responses = await registry.WaitForDecisionsAsync(
-            "sub-1", [request], TimeSpan.FromSeconds(5));
+            "sub-1", [request], TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         Assert.Same(decision, responses[0]);
     }
@@ -85,7 +85,7 @@ public class SubSessionApprovalRegistryTests
     {
         SubSessionApprovalRegistry registry = new();
         IReadOnlyList<ChatMessage> responses = await registry.WaitForDecisionsAsync(
-            "sub-1", [Request("a")], TimeSpan.FromMilliseconds(50));
+            "sub-1", [Request("a")], TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
 
         // 具象回应类型是框架内部的，只断结构：一一对应、用户角色、单条内容
         ChatMessage only = Assert.Single(responses);
@@ -113,7 +113,7 @@ public class SubSessionApprovalRegistryTests
     {
         SubSessionApprovalRegistry registry = new();
         ToolApprovalRequestContent request = Request("a");
-        await registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromMilliseconds(50));
+        await registry.WaitForDecisionsAsync("sub-1", [request], TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
 
         Assert.False(registry.TryAdopt("sub-1", request, Decision("x")));
     }

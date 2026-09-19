@@ -38,21 +38,21 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     public async Task ConcurrentEdits_SameFile_BothChangesSurvive()
     {
         string path = Path.Combine(_dir, "target.cs");
-        await File.WriteAllTextAsync(path, "alpha\nbeta\ngamma\ndelta\n");
+        await File.WriteAllTextAsync(path, "alpha\nbeta\ngamma\ndelta\n", TestContext.Current.CancellationToken);
 
         Task<string> editA = _tools.Edit("target.cs",
         [
             new FileEdit { OldString = "alpha", NewString = "ALPHA" },
-        ]);
+        ], TestContext.Current.CancellationToken);
         Task<string> editB = _tools.Edit("target.cs",
         [
             new FileEdit { OldString = "delta", NewString = "DELTA" },
-        ]);
+        ], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
 
         Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
-        Assert.Equal("ALPHA\nbeta\ngamma\nDELTA\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("ALPHA\nbeta\ngamma\nDELTA\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -64,19 +64,19 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     {
         string pathA = Path.Combine(_dir, "a.txt");
         string pathB = Path.Combine(_dir, "b.txt");
-        await File.WriteAllTextAsync(pathA, "old\n");
-        await File.WriteAllTextAsync(pathB, "old\n");
+        await File.WriteAllTextAsync(pathA, "old\n", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(pathB, "old\n", TestContext.Current.CancellationToken);
 
-        Task<string> editA = _tools.Edit("a.txt", [new FileEdit { OldString = "old", NewString = "A" }]);
-        Task<string> editB = _tools.Edit("b.txt", [new FileEdit { OldString = "old", NewString = "B" }]);
+        Task<string> editA = _tools.Edit("a.txt", [new FileEdit { OldString = "old", NewString = "A" }], TestContext.Current.CancellationToken);
+        Task<string> editB = _tools.Edit("b.txt", [new FileEdit { OldString = "old", NewString = "B" }], TestContext.Current.CancellationToken);
 
         // 两文件并发应在锁内立刻完成；给个宽裕超时防死锁挂住整个测试套件
         Task all = Task.WhenAll(editA, editB);
-        Task completed = await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(5)));
+        Task completed = await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
         Assert.Same(all, completed); // 5 秒内都没跑完 → 锁粒度可能过粗，测试目的就是钉死它能并行
 
-        Assert.Equal("A\n", await File.ReadAllTextAsync(pathA));
-        Assert.Equal("B\n", await File.ReadAllTextAsync(pathB));
+        Assert.Equal("A\n", await File.ReadAllTextAsync(pathA, TestContext.Current.CancellationToken));
+        Assert.Equal("B\n", await File.ReadAllTextAsync(pathB, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -86,18 +86,18 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     public async Task Edit_Failure_ReleasesLockForTheNextCall()
     {
         string path = Path.Combine(_dir, "fail.txt");
-        await File.WriteAllTextAsync(path, "content\n");
+        await File.WriteAllTextAsync(path, "content\n", TestContext.Current.CancellationToken);
 
         // 第一次 edit 故意失败（oldString 找不到）——锁必须在 finally 里释放
         string failed = await _tools.Edit("fail.txt",
-            [new FileEdit { OldString = "does-not-exist", NewString = "x" }]);
+            [new FileEdit { OldString = "does-not-exist", NewString = "x" }], TestContext.Current.CancellationToken);
         Assert.Contains("[Edit failed]", failed);
 
         // 若失败路径没释放锁，这第二次会永久等待
         string ok = await _tools.Edit("fail.txt",
-            [new FileEdit { OldString = "content", NewString = "CONTENT" }]);
+            [new FileEdit { OldString = "content", NewString = "CONTENT" }], TestContext.Current.CancellationToken);
         Assert.DoesNotContain("[Edit failed]", ok);
-        Assert.Equal("CONTENT\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("CONTENT\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -108,16 +108,16 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
     public async Task ConcurrentEdits_AcrossInstances_ShareTheStaticLock()
     {
         string path = Path.Combine(_dir, "shared.cs");
-        await File.WriteAllTextAsync(path, "one\ntwo\nthree\n");
+        await File.WriteAllTextAsync(path, "one\ntwo\nthree\n", TestContext.Current.CancellationToken);
 
         // 两个实例、不同 workingDirectory 值，但编辑同一个绝对路径文件
         PermissiveFileAccessTools other = new(Path.Combine(_dir, "other"));
-        Task<string> editA = _tools.Edit(path, [new FileEdit { OldString = "one", NewString = "ONE" }]);
-        Task<string> editB = other.Edit(path, [new FileEdit { OldString = "three", NewString = "THREE" }]);
+        Task<string> editA = _tools.Edit(path, [new FileEdit { OldString = "one", NewString = "ONE" }], TestContext.Current.CancellationToken);
+        Task<string> editB = other.Edit(path, [new FileEdit { OldString = "three", NewString = "THREE" }], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
         Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
-        Assert.Equal("ONE\ntwo\nTHREE\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("ONE\ntwo\nTHREE\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -131,15 +131,15 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows()) return; //Linux 大小写敏感,不适用
 
         string path = Path.Combine(_dir, "case.txt");
-        await File.WriteAllTextAsync(path, "first\nsecond\n");
+        await File.WriteAllTextAsync(path, "first\nsecond\n", TestContext.Current.CancellationToken);
 
         string upperPath = Path.Combine(_dir, "CASE.TXT");
-        Task<string> editA = _tools.Edit(path, [new FileEdit { OldString = "first", NewString = "FIRST" }]);
-        Task<string> editB = _tools.Edit(upperPath, [new FileEdit { OldString = "second", NewString = "SECOND" }]);
+        Task<string> editA = _tools.Edit(path, [new FileEdit { OldString = "first", NewString = "FIRST" }], TestContext.Current.CancellationToken);
+        Task<string> editB = _tools.Edit(upperPath, [new FileEdit { OldString = "second", NewString = "SECOND" }], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
         Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
-        Assert.Equal("FIRST\nSECOND\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("FIRST\nSECOND\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -154,16 +154,16 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
 
         string target = Path.Combine(_dir, "real.txt");
         string link = Path.Combine(_dir, "link.txt");
-        await File.WriteAllTextAsync(target, "original\n");
+        await File.WriteAllTextAsync(target, "original\n", TestContext.Current.CancellationToken);
         File.CreateSymbolicLink(link, target);
 
-        string result = await _tools.Edit(link, [new FileEdit { OldString = "original", NewString = "edited" }]);
+        string result = await _tools.Edit(link, [new FileEdit { OldString = "original", NewString = "edited" }], TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("[Edit failed]", result);
         Assert.True(File.Exists(link) && new FileInfo(link).LinkTarget != null,
             "symlink 应保持为链接,不应被替换成普通文件");
-        Assert.Equal("edited\n", await File.ReadAllTextAsync(target));
-        Assert.Equal("edited\n", await File.ReadAllTextAsync(link));
+        Assert.Equal("edited\n", await File.ReadAllTextAsync(target, TestContext.Current.CancellationToken));
+        Assert.Equal("edited\n", await File.ReadAllTextAsync(link, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -178,15 +178,15 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
 
         string target = Path.Combine(_dir, "shared-real.cs");
         string link = Path.Combine(_dir, "shared-link.cs");
-        await File.WriteAllTextAsync(target, "one\ntwo\nthree\n");
+        await File.WriteAllTextAsync(target, "one\ntwo\nthree\n", TestContext.Current.CancellationToken);
         File.CreateSymbolicLink(link, target);
 
-        Task<string> editA = _tools.Edit(target, [new FileEdit { OldString = "one", NewString = "ONE" }]);
-        Task<string> editB = _tools.Edit(link, [new FileEdit { OldString = "three", NewString = "THREE" }]);
+        Task<string> editA = _tools.Edit(target, [new FileEdit { OldString = "one", NewString = "ONE" }], TestContext.Current.CancellationToken);
+        Task<string> editB = _tools.Edit(link, [new FileEdit { OldString = "three", NewString = "THREE" }], TestContext.Current.CancellationToken);
 
         string[] results = await Task.WhenAll(editA, editB);
         Assert.All(results, r => Assert.DoesNotContain("[Edit failed]", r));
-        Assert.Equal("ONE\ntwo\nTHREE\n", await File.ReadAllTextAsync(target));
+        Assert.Equal("ONE\ntwo\nTHREE\n", await File.ReadAllTextAsync(target, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -201,19 +201,19 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
 
         string path = Path.Combine(_dir, "script.sh");
-        await File.WriteAllTextAsync(path, "echo hi\n");
+        await File.WriteAllTextAsync(path, "echo hi\n", TestContext.Current.CancellationToken);
         File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
             | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
             | UnixFileMode.OtherRead | UnixFileMode.OtherExecute); //0755
 
-        string result = await _tools.Edit(path, [new FileEdit { OldString = "echo hi", NewString = "echo bye" }]);
+        string result = await _tools.Edit(path, [new FileEdit { OldString = "echo hi", NewString = "echo bye" }], TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("[Edit failed]", result);
         UnixFileMode expected = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
             | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
             | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
         Assert.Equal(expected, File.GetUnixFileMode(path));
-        Assert.Equal("echo bye\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("echo bye\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 
     /// <summary>Write 工具同样走 SaveAsync,exec bit 也必须保留(不只 Edit 有这坑)</summary>
@@ -223,14 +223,14 @@ public class PermissiveFileAccessToolsConcurrencyTests : IDisposable
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
 
         string path = Path.Combine(_dir, "run.sh");
-        await File.WriteAllTextAsync(path, "old\n");
+        await File.WriteAllTextAsync(path, "old\n", TestContext.Current.CancellationToken);
         File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); //0700
 
-        string result = await _tools.Write(path, "new\n");
+        string result = await _tools.Write(path, "new\n", TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("Error", result);
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
             File.GetUnixFileMode(path));
-        Assert.Equal("new\n", await File.ReadAllTextAsync(path));
+        Assert.Equal("new\n", await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
     }
 }

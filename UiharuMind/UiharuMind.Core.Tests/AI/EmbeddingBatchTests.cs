@@ -81,7 +81,7 @@ public class EmbeddingBatchTests
         IEmbeddingSession session = fake; //默认接口方法只能经接口调用
 
         IReadOnlyList<ReadOnlyMemory<float>> vectors =
-            await session.GenerateEmbeddingsAsync(["a", "b", "c"]);
+            await session.GenerateEmbeddingsAsync(["a", "b", "c"], TestContext.Current.CancellationToken);
 
         Assert.Equal(3, vectors.Count);
         Assert.Equal(1f, vectors[0].Span[0]);
@@ -97,7 +97,7 @@ public class EmbeddingBatchTests
         var fake = new SequentialFakeSession();
         IEmbeddingSession session = fake;
 
-        Assert.Empty(await session.GenerateEmbeddingsAsync([]));
+        Assert.Empty(await session.GenerateEmbeddingsAsync([], TestContext.Current.CancellationToken));
         Assert.Empty(fake.SeenTexts);
     }
 

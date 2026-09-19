@@ -32,7 +32,7 @@ public class GlobHardSkipTests : IDisposable
         WriteFile($"src/{excluded}/buried.txt");
         WriteFile("src/kept.txt");
 
-        GlobOutcome outcome = await new SimpleGlobber(_root).SearchAsync("**/*.txt");
+        GlobOutcome outcome = await new SimpleGlobber(_root).SearchAsync("**/*.txt", ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         Assert.Equal(["src/kept.txt"], outcome.Entries.Select(x => x.Path));

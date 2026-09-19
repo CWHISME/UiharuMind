@@ -66,7 +66,7 @@ public class OpenAiCompatibleResponseFixerTests
         await using var stream = new SseSanitizingStream(new MemoryStream(Encoding.UTF8.GetBytes(sse)));
         using var reader = new StreamReader(stream);
 
-        var text = await reader.ReadToEndAsync();
+        var text = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("data: {\"choices\":[{\"index\":0,\"finish_reason\":null}]}\n\ndata: [DONE]\n\n", text);
     }

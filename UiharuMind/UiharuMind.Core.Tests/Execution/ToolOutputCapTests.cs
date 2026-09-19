@@ -33,9 +33,9 @@ public class ToolOutputCapTests : IDisposable
     public async Task Read_WithoutLimit_IsCappedWithContinuationHint()
     {
         string path = Path.Combine(_dir, "big.txt");
-        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2500).Select(i => $"line{i}"));
+        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2500).Select(i => $"line{i}"), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path);
+        string result = await _tools.Read(path, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
         Assert.Equal(PermissiveFileAccessTools.DefaultReadLineLimit + 1, lines.Length); //窗口 + 截断提示行
@@ -47,9 +47,9 @@ public class ToolOutputCapTests : IDisposable
     public async Task Read_Offset_ContinuesFromWhereTruncationPointed()
     {
         string path = Path.Combine(_dir, "big2.txt");
-        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2500).Select(i => $"line{i}"));
+        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 2500).Select(i => $"line{i}"), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, offset: PermissiveFileAccessTools.DefaultReadLineLimit + 1);
+        string result = await _tools.Read(path, offset: PermissiveFileAccessTools.DefaultReadLineLimit + 1, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.StartsWith($"line{PermissiveFileAccessTools.DefaultReadLineLimit + 1}", result);
         Assert.DoesNotContain("[truncated", result); //剩余 500 行在窗口内,不应再截断
@@ -59,9 +59,9 @@ public class ToolOutputCapTests : IDisposable
     public async Task Read_OverlongLine_IsTruncatedInline()
     {
         string path = Path.Combine(_dir, "minified.js");
-        await File.WriteAllTextAsync(path, new string('x', 50_000));
+        await File.WriteAllTextAsync(path, new string('x', 50_000), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path);
+        string result = await _tools.Read(path, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("…[truncated]", result);
         Assert.True(result.Length < 3000, $"单行截断后总长应远小于原文,实际 {result.Length}");
@@ -77,9 +77,9 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "chinese.md");
         // 每行 100 个汉字 = 301 字节,4000 行约 1.2MB,传 limit=4000 绕过行数限制
         await File.WriteAllLinesAsync(path,
-            Enumerable.Range(1, 4000).Select(_ => new string('测', 100)));
+            Enumerable.Range(1, 4000).Select(_ => new string('测', 100)), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, limit: 4000);
+        string result = await _tools.Read(path, limit: 4000, cancellationToken: TestContext.Current.CancellationToken);
 
         string[] lines = result.Split('\n');
         Assert.Contains("continue with offset=", lines[^1]);
@@ -98,9 +98,9 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "full.txt");
         // 3000 行 × 约 500 字节/行 = 1.5MB,超过 1MB 字节上限
         await File.WriteAllLinesAsync(path,
-            Enumerable.Range(1, 3000).Select(i => new string('x', 480) + i));
+            Enumerable.Range(1, 3000).Select(i => new string('x', 480) + i), TestContext.Current.CancellationToken);
 
-        string result = await _tools.Read(path, limit: -1);
+        string result = await _tools.Read(path, limit: -1, cancellationToken: TestContext.Current.CancellationToken);
 
         // 全文读绕过字节上限,不应有截断提示
         Assert.DoesNotContain("[truncated", result);
@@ -116,9 +116,9 @@ public class ToolOutputCapTests : IDisposable
     public async Task Grep_Matches_AreCappedWithSentinel()
     {
         string path = Path.Combine(_dir, "haystack.txt");
-        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 300).Select(i => $"needle {i}"));
+        await File.WriteAllLinesAsync(path, Enumerable.Range(1, 300).Select(i => $"needle {i}"), TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("needle");
+        GrepToolResult result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
         // 按文件分组:300 处命中来自同一文件 → 一组,但命中数仍封顶在 200
         GrepFileHits file = Assert.Single(result.Matches);
@@ -137,9 +137,9 @@ public class ToolOutputCapTests : IDisposable
     public async Task Grep_WithContextLines_ReturnsSurroundingLines()
     {
         string path = Path.Combine(_dir, "ctx.txt");
-        await File.WriteAllLinesAsync(path, ["l1", "l2", "target", "l4", "l5"]);
+        await File.WriteAllLinesAsync(path, ["l1", "l2", "target", "l4", "l5"], TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("target", contextLines: 1);
+        GrepToolResult result = await _tools.Grep("target", contextLines: 1, ct: TestContext.Current.CancellationToken);
 
         // 组内行保持 grep 味:命中行 "N:content",上下文行 "N-content"(对齐 ripgrep)
         GrepFileHits file = Assert.Single(result.Matches);
@@ -152,9 +152,9 @@ public class ToolOutputCapTests : IDisposable
     public async Task Grep_AggregatesPerFile_AndDeduplicatesOverlappingContext()
     {
         string path = Path.Combine(_dir, "dense.txt");
-        await File.WriteAllLinesAsync(path, ["hit", "hit", "hit"]);
+        await File.WriteAllLinesAsync(path, ["hit", "hit", "hit"], TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("hit", contextLines: 2);
+        GrepToolResult result = await _tools.Grep("hit", contextLines: 2, ct: TestContext.Current.CancellationToken);
 
         GrepFileHits file = Assert.Single(result.Matches);
         Assert.Equal("dense.txt", file.File);
@@ -181,9 +181,9 @@ public class ToolOutputCapTests : IDisposable
         string path = Path.Combine(_dir, "wide.txt");
         // 400 处命中 × ~290 字节 = 约 116KB;200 上限封顶后正文仍有约 58KB,远超 32KB 预算
         await File.WriteAllLinesAsync(path,
-            Enumerable.Range(1, 400).Select(i => "needle " + new string('x', 280) + i));
+            Enumerable.Range(1, 400).Select(i => "needle " + new string('x', 280) + i), TestContext.Current.CancellationToken);
 
-        GrepToolResult result = await _tools.Grep("needle");
+        GrepToolResult result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
         Assert.Empty(result.Matches); //正文整页换掉
         Assert.NotNull(result.Map);
@@ -205,10 +205,10 @@ public class ToolOutputCapTests : IDisposable
             string path = Path.Combine(_dir, $"f{f:D2}.txt");
             // 10 处命中/文件 × 约 260 字节 = 200 上限封顶后正文约 52KB,触发地图模式
             await File.WriteAllLinesAsync(path,
-                Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i));
+                Enumerable.Range(1, 10).Select(i => "needle " + new string('y', 250) + i), TestContext.Current.CancellationToken);
         }
 
-        GrepToolResult result = await _tools.Grep("needle");
+        GrepToolResult result = await _tools.Grep("needle", ct: TestContext.Current.CancellationToken);
 
         Assert.Empty(result.Matches);
         Assert.NotNull(result.Map);

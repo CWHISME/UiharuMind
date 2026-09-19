@@ -76,8 +76,8 @@ public class GeneratorDiagnosticsTests
                     """<Window xmlns="https://github.com/avaloniaui"><TextBlock Text="{loc:Loc UsedKey}" /></Window>"""),
             });
 
-        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("") });
-        driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
+        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("", cancellationToken: TestContext.Current.CancellationToken) });
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics, TestContext.Current.CancellationToken);
 
         Assert.Contains(diagnostics, d => d.Id == "LK1003");
     }
@@ -96,8 +96,8 @@ public class GeneratorDiagnosticsTests
                     """<Window xmlns="https://github.com/avaloniaui"><TextBlock Text="{loc:Loc UsedKey}" /></Window>"""),
             });
 
-        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("") });
-        driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out _);
+        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("", cancellationToken: TestContext.Current.CancellationToken) });
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out _, TestContext.Current.CancellationToken);
 
         var generated = output.SyntaxTrees
             .Select(static tree => tree.ToString())
@@ -128,8 +128,8 @@ public class GeneratorDiagnosticsTests
             },
             optionsProvider: new TestAnalyzerConfigOptionsProvider());
 
-        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("") });
-        driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out _);
+        var compilation = CSharpCompilation.Create("Test", new[] { CSharpSyntaxTree.ParseText("", cancellationToken: TestContext.Current.CancellationToken) });
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out _, TestContext.Current.CancellationToken);
 
         var generated = output.SyntaxTrees
             .Select(static tree => tree.ToString())

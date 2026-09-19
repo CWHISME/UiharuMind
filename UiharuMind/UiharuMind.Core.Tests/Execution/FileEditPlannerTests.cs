@@ -651,20 +651,20 @@ public class FileEditPlannerTests
         {
             string withBom = Path.Combine(dir, "bom.cs");
             string withoutBom = Path.Combine(dir, "plain.cs");
-            await File.WriteAllTextAsync(withBom, "old\n", new UTF8Encoding(true));
-            await File.WriteAllTextAsync(withoutBom, "old\n", new UTF8Encoding(false));
+            await File.WriteAllTextAsync(withBom, "old\n", new UTF8Encoding(true), TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(withoutBom, "old\n", new UTF8Encoding(false), TestContext.Current.CancellationToken);
 
             foreach (string path in new[] { withBom, withoutBom })
             {
                 FileEditPlan plan = await FileEditPlanner.PlanFileAsync(path, "f.cs",
-                    [new FileEdit { OldString = "old", NewString = "new" }]);
+                    [new FileEdit { OldString = "old", NewString = "new" }], TestContext.Current.CancellationToken);
                 Assert.True(plan.Succeeded, plan.Error);
-                await File.WriteAllBytesAsync(path, plan.Envelope.ToBytes(plan.NewText));
+                await File.WriteAllBytesAsync(path, plan.Envelope.ToBytes(plan.NewText), TestContext.Current.CancellationToken);
             }
 
-            Assert.Equal([0xEF, 0xBB, 0xBF], (await File.ReadAllBytesAsync(withBom))[..3]);
-            Assert.Equal("new\n", await File.ReadAllTextAsync(withBom));
-            Assert.Equal("new\n"u8.ToArray(), await File.ReadAllBytesAsync(withoutBom));
+            Assert.Equal([0xEF, 0xBB, 0xBF], (await File.ReadAllBytesAsync(withBom, TestContext.Current.CancellationToken))[..3]);
+            Assert.Equal("new\n", await File.ReadAllTextAsync(withBom, TestContext.Current.CancellationToken));
+            Assert.Equal("new\n"u8.ToArray(), await File.ReadAllBytesAsync(withoutBom, TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -677,7 +677,7 @@ public class FileEditPlannerTests
     {
         FileEditPlan plan = await FileEditPlanner.PlanFileAsync(
             Path.Combine(Path.GetTempPath(), $"nope-{Guid.NewGuid():N}.cs"), "src/Nope.cs",
-            [new FileEdit { OldString = "a", NewString = "b" }]);
+            [new FileEdit { OldString = "a", NewString = "b" }], TestContext.Current.CancellationToken);
 
         Assert.False(plan.Succeeded);
         Assert.Contains("'src/Nope.cs' not found", plan.Error);

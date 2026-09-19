@@ -73,6 +73,6 @@ public class SkillDirectoryScannerTests : IDisposable
     [Fact]
     public async Task Scan_ReturnsEmptyWhenRootMissing()
     {
-        Assert.Empty(await new SkillDirectoryScanner().ScanAsync(Path.Combine(_root, "nope")));
+        Assert.Empty(await new SkillDirectoryScanner().ScanAsync(Path.Combine(_root, "nope"), TestContext.Current.CancellationToken));
     }
 }

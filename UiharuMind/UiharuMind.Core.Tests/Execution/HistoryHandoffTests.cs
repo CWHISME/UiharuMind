@@ -195,7 +195,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new("正文");
 
-        await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000);
+        await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken);
 
         string instruction = client.Seen[^1].Text;
         Assert.Contains(HistoryHandoff.NoteCharLimitFor(128_000).ToString(), instruction);
@@ -206,7 +206,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new(" \n ");
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000));
+        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public class HistoryHandoffTests
     {
         ThrowingChatClient client = new();
 
-        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000));
+        Assert.Null(await HistoryHandoff.WriteAsync(client, [User("a")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public class HistoryHandoffTests
     {
         StubChatClient client = new("交接正文");
 
-        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000);
+        string? note = await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("交接正文", note);
         Assert.Equal(2, client.Seen.Count); //历史 + 指令
@@ -236,7 +236,7 @@ public class HistoryHandoffTests
         // /compact 后跟的文字要随写文档的请求交给模型,让它在交接文档里照顾到
         StubChatClient client = new("交接正文");
 
-        await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "别忘了记录临时结论");
+        await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "别忘了记录临时结论", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, client.Seen.Count); //仍是一条历史一条指令,结构不变
         Assert.Contains("别忘了记录临时结论", client.Seen[^1].Text);
@@ -248,7 +248,7 @@ public class HistoryHandoffTests
         //纯空白不当成额外指示:指令与从前逐字一致,不污染模型
         StubChatClient client = new("交接正文");
 
-        await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "   ");
+        await HistoryHandoff.WriteAsync(client, [User("聊天内容")], null, 128_000, "   ", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("Additional instructions", client.Seen[^1].Text);
     }

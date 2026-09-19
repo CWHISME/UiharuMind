@@ -27,16 +27,16 @@ public class TextFileCodecTests
         {
             // GetBytes 不输出 preamble，BOM 要手拼——这正是被测逻辑要防的坑
             byte[] original = [0xEF, 0xBB, 0xBF, .. Utf8WithBom.GetBytes("line one\nline two\n")];
-            await File.WriteAllBytesAsync(path, original);
+            await File.WriteAllBytesAsync(path, original, TestContext.Current.CancellationToken);
 
-            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, default);
+            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, TestContext.Current.CancellationToken);
 
             Assert.True(read.Success);
             Assert.True(read.HasBom);
             Assert.Equal("line one\nline two\n", read.Text);
 
-            await TextFileCodec.WriteTextAsync(path, "line one\nEDITED\n", read.Encoding!, read.HasBom, default);
-            byte[] written = await File.ReadAllBytesAsync(path);
+            await TextFileCodec.WriteTextAsync(path, "line one\nEDITED\n", read.Encoding!, read.HasBom, TestContext.Current.CancellationToken);
+            byte[] written = await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
 
             Assert.True(written.AsSpan().StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }));
             Assert.Equal("line one\nEDITED\n",
@@ -55,16 +55,16 @@ public class TextFileCodecTests
         string path = NewTempPath();
         try
         {
-            await File.WriteAllBytesAsync(path, Encoding.UTF8.GetBytes("hello"));
+            await File.WriteAllBytesAsync(path, Encoding.UTF8.GetBytes("hello"), TestContext.Current.CancellationToken);
 
-            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, default);
+            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, TestContext.Current.CancellationToken);
 
             Assert.True(read.Success);
             Assert.False(read.HasBom);
             Assert.Equal("hello", read.Text);
 
-            await TextFileCodec.WriteTextAsync(path, "hello world", read.Encoding!, read.HasBom, default);
-            byte[] written = await File.ReadAllBytesAsync(path);
+            await TextFileCodec.WriteTextAsync(path, "hello world", read.Encoding!, read.HasBom, TestContext.Current.CancellationToken);
+            byte[] written = await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
 
             Assert.Equal("hello world", Encoding.UTF8.GetString(written));
             Assert.False(written.AsSpan().StartsWith(new byte[] { 0xEF, 0xBB, 0xBF }));
@@ -85,16 +85,16 @@ public class TextFileCodecTests
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             Encoding gb = Encoding.GetEncoding(54936);
             string original = "第一行内容\n第二行内容\n";
-            await File.WriteAllBytesAsync(path, gb.GetBytes(original));
+            await File.WriteAllBytesAsync(path, gb.GetBytes(original), TestContext.Current.CancellationToken);
 
-            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, default);
+            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, TestContext.Current.CancellationToken);
 
             Assert.True(read.Success);
             Assert.Equal(original, read.Text);
 
             // 写回后读回来仍是同一份字节（编码 + 无 BOM 都不变）
-            await TextFileCodec.WriteTextAsync(path, original, read.Encoding!, read.HasBom, default);
-            Assert.Equal(gb.GetBytes(original), await File.ReadAllBytesAsync(path));
+            await TextFileCodec.WriteTextAsync(path, original, read.Encoding!, read.HasBom, TestContext.Current.CancellationToken);
+            Assert.Equal(gb.GetBytes(original), await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -110,9 +110,9 @@ public class TextFileCodecTests
         try
         {
             byte[] binary = { 0x00, 0x01, 0x02, 0xFF, 0xFE, 0x00, 0x10 };
-            await File.WriteAllBytesAsync(path, binary);
+            await File.WriteAllBytesAsync(path, binary, TestContext.Current.CancellationToken);
 
-            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, default);
+            TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, TestContext.Current.CancellationToken);
 
             Assert.False(read.Success);
             Assert.Equal("NotPlainText", read.ErrorCode);
@@ -129,7 +129,7 @@ public class TextFileCodecTests
     {
         string path = Path.Combine(Path.GetTempPath(), $"textfile-codec-{Guid.NewGuid():N}.never-exists");
 
-        TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, default);
+        TextFileReadResult read = await TextFileCodec.ReadTextAsync(path, TestContext.Current.CancellationToken);
 
         Assert.False(read.Success);
         Assert.Equal("FileMissing", read.ErrorCode);

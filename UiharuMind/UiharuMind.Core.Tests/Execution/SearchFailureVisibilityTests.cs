@@ -47,7 +47,7 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Grep_PathNotFound_IsAFailure_NotAnEmptyResult()
     {
-        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: "no-such-file");
+        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: "no-such-file", ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(outcome.Failure);
         Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
@@ -61,9 +61,9 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Grep_ZeroHits_IsNotAFailure()
     {
-        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "hello");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "hello", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("definitely-not-here");
+        GrepOutcome outcome = await _grepper.SearchAsync("definitely-not-here", ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         Assert.Empty(outcome.Matches);
@@ -80,10 +80,10 @@ public class SearchFailureVisibilityTests : IDisposable
     public async Task Grep_FileGlobsWithPathPrefix_IsStrippedAndHits()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub"));
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep.cs"), "needle");
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep.txt"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep.cs"), "needle", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep.txt"), "needle", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("needle", fileGlobs: ["**/*.cs"]);
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", fileGlobs: ["**/*.cs"], ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         GrepMatchResult match = Assert.Single(outcome.Matches);
@@ -96,10 +96,10 @@ public class SearchFailureVisibilityTests : IDisposable
     public async Task Grep_FileGlobsBareName_StillHits()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub"));
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "hit.cs"), "needle");
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "hit.txt"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "hit.cs"), "needle", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "hit.txt"), "needle", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("needle", fileGlobs: ["*.cs"]);
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", fileGlobs: ["*.cs"], ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         GrepMatchResult match = Assert.Single(outcome.Matches);
@@ -113,9 +113,9 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Grep_LeadingWildcard_IsNormalisedAndHits()
     {
-        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "class SimpleGlobber");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "class SimpleGlobber", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("*Globber", isRegex: true);
+        GrepOutcome outcome = await _grepper.SearchAsync("*Globber", isRegex: true, ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         Assert.NotEmpty(outcome.Matches);
@@ -130,9 +130,9 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Grep_InvalidRegex_FallsBackToLiteral_AndSaysSo()
     {
-        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "await SearchAsync(query);");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.txt"), "await SearchAsync(query);", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("SearchAsync(", isRegex: true);
+        GrepOutcome outcome = await _grepper.SearchAsync("SearchAsync(", isRegex: true, ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         Assert.NotEmpty(outcome.Matches);
@@ -162,9 +162,9 @@ public class SearchFailureVisibilityTests : IDisposable
     {
         string sub = Path.Combine(_dir, "sub", "deep");
         Directory.CreateDirectory(sub);
-        await File.WriteAllTextAsync(Path.Combine(sub, "hit.txt"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(sub, "hit.txt"), "needle", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "sub");
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "sub", ct: TestContext.Current.CancellationToken);
 
         GrepMatchResult match = Assert.Single(outcome.Matches);
         // 相对搜索根会是 "deep/hit.txt",那个路径喂给 Read 会解析到 <工作区>/deep/hit.txt
@@ -179,9 +179,9 @@ public class SearchFailureVisibilityTests : IDisposable
     {
         string sub = Path.Combine(_dir, "sub", "deep");
         Directory.CreateDirectory(sub);
-        await File.WriteAllTextAsync(Path.Combine(sub, "hit.cs"), "x");
+        await File.WriteAllTextAsync(Path.Combine(sub, "hit.cs"), "x", TestContext.Current.CancellationToken);
 
-        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", path: "sub");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", path: "sub", ct: TestContext.Current.CancellationToken);
 
         GlobEntry entry = Assert.Single(outcome.Entries);
         Assert.Equal("sub/deep/hit.cs", entry.Path);
@@ -193,7 +193,7 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Glob_PathNotFound_IsAFailure_NotAFakeEntry()
     {
-        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", path: "nope");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", path: "nope", ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(outcome.Failure);
         Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
@@ -210,10 +210,10 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Glob_Entries_CarryStructuredSize_NotRenderedText()
     {
-        await File.WriteAllTextAsync(Path.Combine(_dir, "a.cs"), new string('x', 4096));
+        await File.WriteAllTextAsync(Path.Combine(_dir, "a.cs"), new string('x', 4096), TestContext.Current.CancellationToken);
         Directory.CreateDirectory(Path.Combine(_dir, "d.cs"));
 
-        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.cs", ct: TestContext.Current.CancellationToken);
 
         GlobEntry file = Assert.Single(outcome.Entries, x => !x.IsDirectory);
         Assert.Equal("a.cs", file.Path); //路径里不带任何 [FILE] 前缀或大小后缀
@@ -236,12 +236,12 @@ public class SearchFailureVisibilityTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_dir, "cmake"));
         Directory.CreateDirectory(Path.Combine(_dir, "docs"));
-        await File.WriteAllTextAsync(Path.Combine(_dir, "README.md"), "x");
-        await File.WriteAllTextAsync(Path.Combine(_dir, "default.nix"), "x");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "README.md"), "x", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "default.nix"), "x", TestContext.Current.CancellationToken);
 
         PermissiveFileAccessTools tools = new(_dir);
         AIFunction glob = tools.Create().OfType<AIFunction>().Single(x => x.Name == FileToolNames.Glob);
-        object? raw = await glob.InvokeAsync(new AIFunctionArguments { ["pattern"] = "**/*" });
+        object? raw = await glob.InvokeAsync(new AIFunctionArguments { ["pattern"] = "**/*" }, TestContext.Current.CancellationToken);
 
         // InvokeAsync 回的是已序列化的 JsonElement(工具结果本来就是这样发给模型的),
         // 顺带证明了带 Notice 的包装类型走反射序列化没问题
@@ -259,7 +259,7 @@ public class SearchFailureVisibilityTests : IDisposable
     [Fact]
     public async Task Glob_PatternWithoutWildcard_IsAFailure()
     {
-        GlobOutcome outcome = await _globber.SearchAsync("Program.cs");
+        GlobOutcome outcome = await _globber.SearchAsync("Program.cs", ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(outcome.Failure);
         Assert.Equal(ESearchFailureKind.GlobHasNoWildcard, outcome.Failure.Kind);
@@ -274,12 +274,12 @@ public class SearchFailureVisibilityTests : IDisposable
     public async Task Grep_PathIsSingleFile_OnlyHitsThatFile()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub"));
-        await File.WriteAllTextAsync(Path.Combine(_dir, "top.md"), "needle");
-        await File.WriteAllTextAsync(Path.Combine(_dir, "top.txt"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "top.md"), "needle", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(_dir, "top.txt"), "needle", TestContext.Current.CancellationToken);
         // 同名文件会被父目录枚举出来,精确路径过滤必须把它挡掉
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "top.md"), "needle");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "top.md"), "needle", TestContext.Current.CancellationToken);
 
-        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "top.md");
+        GrepOutcome outcome = await _grepper.SearchAsync("needle", path: "top.md", ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         GrepMatchResult match = Assert.Single(outcome.Matches);
@@ -291,11 +291,11 @@ public class SearchFailureVisibilityTests : IDisposable
     public async Task Glob_PathIsSingleFile_OnlyThatFileWhenPatternMatches()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub", "deep"));
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "spec.md"), "x");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "spec.md"), "x", TestContext.Current.CancellationToken);
         // 同名文件会被父目录枚举出来,精确路径过滤必须把它挡掉
-        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep", "spec.md"), "x");
+        await File.WriteAllTextAsync(Path.Combine(_dir, "sub", "deep", "spec.md"), "x", TestContext.Current.CancellationToken);
 
-        GlobOutcome outcome = await _globber.SearchAsync("**/*.md", path: "sub/spec.md");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*.md", path: "sub/spec.md", ct: TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Failure);
         GlobEntry entry = Assert.Single(outcome.Entries);
@@ -311,7 +311,7 @@ public class SearchFailureVisibilityTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub"));
         // sub 存在；sub/absent 是断掉的中间目录
-        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: "sub/absent/deep.cs");
+        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: "sub/absent/deep.cs", ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(outcome.Failure);
         Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
@@ -323,7 +323,7 @@ public class SearchFailureVisibilityTests : IDisposable
     public async Task Glob_PathNotFound_ReportsNearestExistingAncestor()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "sub"));
-        GlobOutcome outcome = await _globber.SearchAsync("**/*", path: "sub/gone/here");
+        GlobOutcome outcome = await _globber.SearchAsync("**/*", path: "sub/gone/here", ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(outcome.Failure);
         Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);
@@ -339,7 +339,7 @@ public class SearchFailureVisibilityTests : IDisposable
     {
         string outside = Path.Combine(Path.GetTempPath(), "uiharu-no-such", "deep.cs");
 
-        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: outside);
+        GrepOutcome outcome = await _grepper.SearchAsync("anything", path: outside, ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(outcome.Failure);
         Assert.Equal(ESearchFailureKind.PathNotFound, outcome.Failure.Kind);

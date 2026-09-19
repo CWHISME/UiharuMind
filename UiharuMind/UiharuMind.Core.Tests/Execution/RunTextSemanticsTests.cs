@@ -25,7 +25,7 @@ public class RunTextSemanticsTests
         ]);
 
         List<string> chunks = [];
-        await foreach (string chunk in runner.RunTextAsync([]))
+        await foreach (string chunk in runner.RunTextAsync([], TestContext.Current.CancellationToken))
         {
             chunks.Add(chunk);
         }
