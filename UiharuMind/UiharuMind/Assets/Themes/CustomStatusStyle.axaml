@@ -68,23 +68,9 @@
     </Style>
 
     <!--
-        diff 行配色（等宽字体沿用全局的 mono 类）。
-
-        原先只定义在 ApprovalCardView 的作用域内，于是同一份 diff 在审批卡片上有增删配色、
-        在工具调用卡片上是一片纯文本。收在这里的是<b>颜色</b>——那正是会飘的东西；
-        每张卡片自己那几行 ItemsControl 标记不收，它们的滚动高度与外框各有需要。
+        diff 行的增删配色已迁进 DiffTextBlock（Features/Conversation/Items）：它按主题资源
+        SemiGreen/SemiRed 直接在 Run 上设背景/前景，并支持整块跨行复制。旧 TextBlock.diffline 样式已删除——
+        类型选择器严格匹配，留着也不会被新控件命中，只会误导后人。
     -->
-    <Style Selector="TextBlock.diffline">
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="Padding" Value="4,0" />
-    </Style>
-    <Style Selector="TextBlock.diffline.added">
-        <Setter Property="Background" Value="{DynamicResource SemiGreen0}" />
-        <Setter Property="Foreground" Value="{DynamicResource SemiGreen7}" />
-    </Style>
-    <Style Selector="TextBlock.diffline.removed">
-        <Setter Property="Background" Value="{DynamicResource SemiRed0}" />
-        <Setter Property="Foreground" Value="{DynamicResource SemiRed7}" />
-    </Style>
 
 </Styles>

@@ -107,7 +107,7 @@ public class ApprovalDiffTests : IDisposable
         // 与 Edit 工具返回给模型的正文逐字一致
         string result = $"Applied 1 edit(s) to 'D.cs'.\n{FileEditPlanner.RenderDiff(plan.Diff, 80)}";
 
-        var lines = DiffLineView.ParseToolResult(result);
+        var lines = DiffLineView.ParseToolResult(result, FileToolNames.Edit);
 
         Assert.Contains(lines, x => x.IsRemoved && x.Text.Contains("old"));
         Assert.Contains(lines, x => x.IsAdded && x.Text.Contains("new"));
@@ -120,16 +120,32 @@ public class ApprovalDiffTests : IDisposable
     [InlineData("")]
     [InlineData("File 'x.cs' not found.")]
     [InlineData("[Edit failed] edits[0].oldString was not found in 'x.cs'.")]
-    [InlineData("l1\nl2\nl3")] //Read 的输出:没有前缀行号，不该被认成 diff
+    [InlineData("l1\nl2\nl3")]
     public void NonEditResults_AreLeftAsPlainText(string resultText)
     {
-        Assert.Empty(DiffLineView.ParseToolResult(resultText));
+        // 非 Edit 工具的结果一律不解析（工具语义判断，不再靠 "Applied " 前缀）
+        Assert.Empty(DiffLineView.ParseToolResult(resultText, FileToolNames.Read));
+    }
+
+    [Fact]
+    public void NonEditTool_EvenWithDiffShapedText_IsNotParsed()
+    {
+        // 工具语义优先于文本表现：Read 的结果即使第一行碰巧像回执（旧前缀方案会误伤），也不解析
+        string diffShaped = "Applied 1 edit(s) to 'D.cs'.\n- 3 old\n+ 3 new";
+        Assert.Empty(DiffLineView.ParseToolResult(diffShaped, FileToolNames.Read));
+    }
+
+    [Fact]
+    public void EditTool_FailureMessage_IsNotParsedAsDiff()
+    {
+        // Edit 结果没有 diff 行（失败消息）时按纯文本渲染
+        Assert.Empty(DiffLineView.ParseToolResult("[Edit failed] edits[0].oldString was not found.", FileToolNames.Edit));
     }
 
     [Fact]
     public void ToolCallItem_PicksUpTheDiffWhenTheResultArrives()
     {
-        ToolCallItem item = new() { ToolName = "Edit" };
+        ToolCallItem item = new() { ToolName = FileToolNames.Edit };
         Assert.False(item.HasResultDiff);
 
         item.ResultText = "Applied 1 edit(s) to 'x.cs'.\n- 3 old\n+ 3 new";
@@ -172,7 +188,7 @@ public class ApprovalDiffTests : IDisposable
             [new FileEdit { OldString = oldString, NewString = newString }]);
         Assert.True(plan.Succeeded, plan.Error);
         string modelText = FileEditPlanner.RenderDiff(plan.Diff, FileEditPlanner.DefaultMaxDiffLines);
-        var modelView = DiffLineView.ParseToolResult($"Applied 1 edit(s) to 'Big.cs'.\n{modelText}");
+        var modelView = DiffLineView.ParseToolResult($"Applied 1 edit(s) to 'Big.cs'.\n{modelText}", FileToolNames.Edit);
 
         Assert.Equal(approval.Count, modelView.Count); //两边各有一个头行(Applied / @ path),数量相等
         for (int i = 1; i < modelView.Count; i++) //跳过各自头行,从 diff 行开始逐行对比
@@ -196,7 +212,7 @@ public class ApprovalDiffTests : IDisposable
                         + "+ 51 new\n"
                         + " 52 tail";
 
-        var lines = DiffLineView.ParseToolResult(result);
+        var lines = DiffLineView.ParseToolResult(result, FileToolNames.Edit);
 
         Assert.Contains(lines, x => !x.IsAdded && !x.IsRemoved && x.Text.Contains("unchanged lines"));
         Assert.Contains(lines, x => x.IsRemoved && x.Text.Contains("old"));

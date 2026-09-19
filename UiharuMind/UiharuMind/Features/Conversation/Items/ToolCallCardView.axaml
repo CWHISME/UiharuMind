@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:sh="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="120"
              x:Class="UiharuMind.Features.Conversation.Items.ToolCallCardView"
              x:DataType="items:ToolCallItem">
@@ -138,6 +139,8 @@
                          一次 Write 带几百 KB content 展开即入排版。与结果同一套阈值。
                          这里也要限高:2KB 铺开仍是一大片,而参数是最不值得占版面的那部分 -->
                     <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled">
+                        <!-- 参数区刻意不上色：值形态多样（路径/命令/整段代码），没有可靠语法可判，
+                             上色只会添乱——宁可整块 muted 灰字，见 ADR 0035 -->
                         <SelectableTextBlock Classes="mono muted" Text="{Binding ArgumentsDisplayText}"
                                              TextWrapping="Wrap" />
                     </ScrollViewer>
@@ -155,23 +158,13 @@
                     </Grid>
                 </StackPanel>
                 <!-- 编辑结果带 diff 时换成带增删配色的渲染:自动放行档位下这张卡片是唯一
-                     看得到改动的地方,一片灰字等于看不见改了什么。配色走全局 diffline 样式,
-                     与审批卡片同一支笔 -->
+                     看得到改动的地方,一片灰字等于看不见改了什么。配色由 DiffTextBlock 走主题资源,
+                     与审批卡片同一支笔;整块可选中/跨行复制,替代逐行 TextBlock -->
                 <Border Classes="result-panel" IsVisible="{Binding HasResultDiff}">
                     <ScrollViewer MaxHeight="280"
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding ResultDiffLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Classes="mono diffline"
-                                               Classes.added="{Binding IsAdded}"
-                                               Classes.removed="{Binding IsRemoved}">
-                                        <Run Text="{Binding Prefix}" /><Run Text="{Binding Text}" />
-                                    </TextBlock>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <items:DiffTextBlock Classes="mono" Lines="{Binding ResultDiffLines}" />
                     </ScrollViewer>
                 </Border>
                 <Border Classes="result-panel">
@@ -190,8 +183,10 @@
                         <!-- 180 而不是原来的 280:卡片是"扫一眼"的尺寸。
                              单行大 JSON 折起来正好能把 280px 填满一整块,那是难看的主因 -->
                         <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Disabled">
-                            <SelectableTextBlock Classes="mono" Text="{Binding ResultDisplayText}"
-                                                 TextWrapping="Wrap" />
+                            <!-- 回执类结果（Saved/Applied 前缀）不上色：同格式必须同观感，否则随扩展名忽有忽无
+                                 像 bug。文件正文（Read 之类）才按 FilePath 扩展名上色 -->
+                            <sh:SyntaxHighlightTextBlock Classes="mono" Text="{Binding ResultDisplayText}"
+                                                          SourceName="{Binding ResultHighlightSource}" TextWrapping="Wrap" />
                         </ScrollViewer>
                         <!-- 截断提示行。* 列靠卡片的 MaxWidth 才有宽度可分,见文件顶部那段注释 -->
                         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsResultTruncated}">

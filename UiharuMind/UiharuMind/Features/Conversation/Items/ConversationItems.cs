@@ -323,6 +323,28 @@ public partial class ToolCallItem : ConversationItemBase
     [ObservableProperty] private bool _isExpanded;
 
     /// <summary>
+    /// 结果区语法高亮的语言来源。<b>结果形态由工具语义决定，不靠文案前缀猜</b>：
+    /// 只有「结果=文件正文」的工具（目前 <see cref="FileToolNames.Read"/>，白名单式）才按 FilePath
+    /// 扩展名上色；回执类（Write）与非正文类一律纯文本。白名单方向安全——新工具忘了声明就纯文本，
+    /// 不会重现「同一回执随扩展名忽有忽无像 bug」。失败结果不是正文，也不上色；
+    /// Edit 走独立 diff 面板（<see cref="ResultDiffLines"/>），不参与本判定
+    /// </summary>
+    public string? ResultHighlightSource
+    {
+        get
+        {
+            string path = FilePath;
+            return IsFileContentTool(ToolName) && IsSuccess && !string.IsNullOrEmpty(path) ? path : null;
+        }
+    }
+
+    /// <summary>
+    /// 「结果=文件正文」的工具名白名单。加新正文型工具时在这里补一行；
+    /// 回执型工具（Write 等）天然不在此列，无需登记
+    /// </summary>
+    internal static bool IsFileContentTool(string toolName) => toolName == FileToolNames.Read;
+
+    /// <summary>
     /// 结果面板真正渲染的正文。<see cref="ResultText"/> 是原文，绑到控件上的<b>只有</b>这一小段。
     ///
     /// 曾经有过一个「就地展开全文」的开关，它是错的：会话流没有虚拟化，
@@ -358,7 +380,7 @@ public partial class ToolCallItem : ConversationItemBase
 
     partial void OnResultTextChanged(string value)
     {
-        ResultDiffLines = DiffLineView.ParseToolResult(value);
+        ResultDiffLines = DiffLineView.ParseToolResult(value, ToolName);
         // diff 那一支不用截断:Core 侧 PermissiveFileAccessTools.MaxEditDiffLines 已把它封死在 80 行,
         // 到不了阈值。截断只管纯文本那支
         _resultView = HasResultDiff ? ToolResultTruncation.Empty : ToolResultTruncation.Build(value);
@@ -367,6 +389,12 @@ public partial class ToolCallItem : ConversationItemBase
         OnPropertyChanged(nameof(ResultDisplayText));
         OnPropertyChanged(nameof(IsResultTruncated));
         OnPropertyChanged(nameof(ResultTruncationHint));
+        OnPropertyChanged(nameof(ResultHighlightSource));
+    }
+
+    partial void OnIsSuccessChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ResultHighlightSource));
     }
 
     partial void OnArgumentsJsonChanged(string value)
@@ -381,8 +409,9 @@ public partial class ToolCallItem : ConversationItemBase
     [RelayCommand]
     private void ShowFullResult()
     {
-        // Read 之类工具的结果就是某个文件的正文,按它的扩展名高亮;其余工具拿不到路径,纯文本
-        FullTextWindow.Show($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText, FilePath);
+        // 语言来源与卡片同口径：回执（Saved/Applied 前缀）不是文件正文，不上色；
+        // 其余才是文件正文，按 FilePath 扩展名高亮
+        FullTextWindow.Show($"{ToolName} · {Loc.Text(LangKey.ToolFullTextResult)}", ResultText, ResultHighlightSource);
     }
 
     /// <summary>把参数原文交给全文窗</summary>
@@ -597,12 +626,17 @@ public sealed class DiffLineView
     ///
     /// 为什么不干跑重算：这张卡片出现在<b>执行之后</b>，文件已经改了，
     /// 拿 oldString 再去匹配必然落空。
+    ///
+    /// 入口判据：<b>只有 Edit 工具的结果才尝试解析</b>——结果形态由工具语义决定，
+    /// 不靠 "Applied " 文案前缀猜（回执文案变了不影响识别，见 ADR 0035）。
+    /// 非 diff 文本由解析器的 sawDiffLine 闸门挡掉，失败消息之类自然为空。
     /// </summary>
     /// <param name="resultText">工具结果正文</param>
+    /// <param name="toolName">工具名；非 Edit 一律返回空</param>
     /// <returns>diff 行列表；非编辑结果为空</returns>
-    public static IReadOnlyList<DiffLineView> ParseToolResult(string? resultText)
+    public static IReadOnlyList<DiffLineView> ParseToolResult(string? resultText, string? toolName)
     {
-        if (string.IsNullOrEmpty(resultText) || !resultText.StartsWith("Applied ", StringComparison.Ordinal))
+        if (string.IsNullOrEmpty(resultText) || toolName != FileToolNames.Edit)
             return [];
 
         List<DiffLineView> lines = ParseDiffText(resultText);
@@ -711,9 +745,9 @@ public sealed class DiffLineView
         return lines;
     }
 
-    private static DiffLineView Added(string text) => new() { Prefix = "+", Text = text, IsAdded = true };
-    private static DiffLineView Removed(string text) => new() { Prefix = "-", Text = text, IsRemoved = true };
-    private static DiffLineView Context(string text) => new() { Prefix = " ", Text = text };
+    internal static DiffLineView Added(string text) => new() { Prefix = "+", Text = text, IsAdded = true };
+    internal static DiffLineView Removed(string text) => new() { Prefix = "-", Text = text, IsRemoved = true };
+    internal static DiffLineView Context(string text) => new() { Prefix = " ", Text = text };
 
     private static string? GetString(IDictionary<string, object?>? args, string name)
     {

@@ -38,17 +38,7 @@
                 <ScrollViewer MaxHeight="260"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding DiffLines}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Classes="mono diffline"
-                                           Classes.added="{Binding IsAdded}"
-                                           Classes.removed="{Binding IsRemoved}">
-                                    <Run Text="{Binding Prefix}" /><Run Text="{Binding Text}" />
-                                </TextBlock>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <items:DiffTextBlock Classes="mono" Lines="{Binding DiffLines}" />
                 </ScrollViewer>
             </Border>
             <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsResolved}">
