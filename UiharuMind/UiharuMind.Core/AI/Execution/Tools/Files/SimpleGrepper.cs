@@ -282,8 +282,8 @@ public sealed class SimpleGrepper
     /// </summary>
     private static List<GrepMatchLine> BuildLines(SearchResult match)
     {
-        List<string> before = match.ContextBefore ?? [];
-        List<string> after = match.ContextAfter ?? [];
+        IReadOnlyList<string> before = match.ContextBefore ?? [];
+        IReadOnlyList<string> after = match.ContextAfter ?? [];
         var lines = new List<GrepMatchLine>(before.Count + after.Count + 1);
 
         for (int i = 0; i < before.Count; i++)

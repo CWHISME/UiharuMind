@@ -20,21 +20,19 @@
 		<PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" />
 		<!-- 显式引用:Avalonia 自己在用它,但我们要的 JPEG 编码 Avalonia 的 Bitmap.Save 给不了
 		     (它只写 PNG,quality 参数不改格式),照片用 PNG 存下来是 JPEG 的 5~10 倍 -->
-		<PackageReference Include="SkiaSharp" Version="4.151.2" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
+		<PackageReference Include="SkiaSharp" Version="4.152.1" />
 		<!-- 长文本查看/编辑内核。要的是它内建的<b>按行虚拟化</b>:SelectableTextBlock 与 TextBox
 		     都没有文本虚拟化,几十万字的工具结果塞进去必然卡死。搜索/行号/跨行选中是白得的 -->
 		<PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
 		<!-- 语法高亮。不用 AvaloniaEdit.TextMate 官方集成:它在渲染每个可视行时同步 tokenize,
 		     拖选长行越过右边缘会触发上游 issue #606 的无限事件循环(12.0.0 未修)冻死 UI。
 		     这里自己用 TextMateSharp 分帧预 tokenize + 查表渲染,循环里只剩查表 -->
-		<PackageReference Include="TextMateSharp" Version="2.0.3" />
-		<PackageReference Include="TextMateSharp.Grammars" Version="2.0.3" />
+		<PackageReference Include="TextMateSharp" Version="2.0.4" />
+		<PackageReference Include="TextMateSharp.Grammars" Version="2.0.4" />
 		<PackageReference Include="Clowd.Clipboard.Gdi" Version="1.1.4" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-		<PackageReference Include="LiveMarkdown.Avalonia" Version="2.4.1" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+		<PackageReference Include="LiveMarkdown.Avalonia" Version="2.4.3" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
 		<!--主题包-->
 		<PackageReference Include="Irihi.Ursa" Version="2.2.0" />
 

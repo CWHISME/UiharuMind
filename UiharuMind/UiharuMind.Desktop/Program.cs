@@ -39,7 +39,6 @@ class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => ConfigureWindowingBackend(AppBuilder.Configure<App>())
-            .WithInterFont()
             .LogToTrace()
             .With(new MacOSPlatformOptions() { ShowInDock = false });
 
