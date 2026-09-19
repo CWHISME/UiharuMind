@@ -83,6 +83,7 @@
                 <StackPanel MinWidth="0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16"
                                TextTrimming="CharacterEllipsis" MaxLines="1"
+                               IsVisible="{Binding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                Foreground="{DynamicResource SemiGrey7}" />
                     <!-- 元信息行:模型占剩余宽度(长名字自己截断),编号钉在右端,
                          两者都短时中间留白,不会互相挤 -->

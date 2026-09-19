@@ -80,6 +80,13 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
         return draft;
     }
 
+    /// <summary>只看空态草稿的模型名，不清空（头部标签据此跟随）</summary>
+    /// <returns>草稿名；无预选为 null</returns>
+    public string? PeekDraft()
+    {
+        return _draftName;
+    }
+
     /// <summary>会话切换后按新元数据回填选中项</summary>
     public void Refresh()
     {
@@ -105,6 +112,7 @@ public partial class SessionModelViewData : ObservableObject, IDisposable
             if (string.Equals(_draftName ?? "", name ?? "", StringComparison.Ordinal)) return;
             _draftName = name;
             WarmupRemote(name);
+            _onChanged();
             SyncSelection();
             return;
         }

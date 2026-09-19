@@ -201,11 +201,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         get
         {
-            string name = CurrentSession?.ChatModelRunningData?.ModelName
+            // 空态尚无会话：面板的预选记在草稿里，头部据此跟随，不回落全局。
+            // 草稿只在空态有效（面板 SyncSelection 同口径），有会话时不读，避免旧草稿污染已落盘的会话
+            string? pinned = CurrentSession?.SessionModelName;
+            if (pinned == null && CurrentSession == null) pinned = SessionModel.PeekDraft();
+            string name = pinned
+                          ?? CurrentSession?.ChatModelRunningData?.ModelName
                           ?? LlmManager.Instance.CurrentRunningModel?.ModelName
                           ?? LlmManager.Instance.GetPreferredModelName(false)
                           ?? string.Empty;
-            if (name.Length == 0 || !string.IsNullOrEmpty(CurrentSession?.SessionModelName)) return name;
+            if (name.Length == 0 || !string.IsNullOrEmpty(pinned)) return name;
             return string.Format(Loc.Text(LangKey.SessionModelDefaultFormat), name);
         }
     }
