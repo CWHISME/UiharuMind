@@ -75,25 +75,36 @@ namespace UiharuMind.Features.QuickTools
         {
             base.OnPointerEntered(e);
             SetHovered(true);
-            AnimateScaleTo(1.05);
         }
 
         protected override void OnPointerExited(PointerEventArgs e)
         {
             base.OnPointerExited(e);
             SetHovered(false);
-            AnimateScaleTo(1.0);
         }
 
         /// <summary>
-        /// 设置悬停态。指针进出走这里；轮盘重开前清空旧悬停态（窗口隐藏不触发 PointerExited）也用它
+        /// 设置悬停态。指针进出走这里（带缩放动画）；轮盘重开前清空旧悬停态
+        /// （窗口隐藏不触发 PointerExited）走无动画分支，直接落位避免残留上一趟的放大态
         /// </summary>
         /// <param name="hovered">是否悬停</param>
-        public void SetHovered(bool hovered)
+        /// <param name="animate">是否播过渡动画</param>
+        public void SetHovered(bool hovered, bool animate = true)
         {
-            if (IsHovered == hovered) return;
             IsHovered = hovered;
             SliceFill = new SolidColorBrush(hovered ? _hoverColor : _normalColor);
+            if (animate)
+            {
+                AnimateScaleTo(hovered ? 1.05 : 1.0);
+                return;
+            }
+
+            _animationCts?.Cancel();
+            if (RenderTransform is ScaleTransform scale)
+            {
+                scale.ScaleX = 1.0;
+                scale.ScaleY = 1.0;
+            }
         }
 
         private void UpdateThemeColors()
@@ -125,7 +136,6 @@ namespace UiharuMind.Features.QuickTools
                     double t = elapsed / durationMs;
                     double eased = t * t * (3 - 2 * t);
                     double current = startScale + (targetScale - startScale) * eased;
-
                     scale.ScaleX = current;
                     scale.ScaleY = current;
 

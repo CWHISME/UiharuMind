@@ -189,7 +189,9 @@ public sealed class MessageService : IMessageService, IDisposable
         });
 
         Window? owner = _screens.GetActiveWindow();
-        if (owner is { IsVisible: true, WindowState: not WindowState.Minimized })
+        // 模态关闭后 Avalonia 会显式 owner.Activate()，守卫拦不住——后台有主界面时不走模态，
+        // 否则关掉提示窗会把后台的主界面拽到前台；前台模态不受影响，关闭照常回到 owner
+        if (owner is { IsVisible: true, WindowState: not WindowState.Minimized, IsActive: true })
         {
             _ = window.ShowDialog(owner);
         }

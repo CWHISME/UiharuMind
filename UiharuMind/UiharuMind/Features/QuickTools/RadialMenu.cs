@@ -59,7 +59,7 @@ namespace UiharuMind.Features.QuickTools
             if (_container == null) return;
             foreach (var child in _container.Children)
             {
-                if (child is RadialMenuItem item) item.SetHovered(false);
+                if (child is RadialMenuItem item) item.SetHovered(false, false);
             }
         }
 

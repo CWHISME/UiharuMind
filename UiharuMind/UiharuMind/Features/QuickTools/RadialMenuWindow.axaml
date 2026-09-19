@@ -5,7 +5,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" 
-        Width="300" Height="300"
+        Width="360" Height="360"
         x:Class="UiharuMind.Features.QuickTools.RadialMenuWindow"
         TransparencyLevelHint="Transparent"
         WindowDecorations="None"
@@ -62,8 +62,9 @@
     <!-- 窗口内容 -->
     <Panel>
         <!-- 中间放一个可选的小圆点，美化中心 -->
-        <Border Background="#E02D2D3D" 
-                Width="60" Height="60" 
+        <Border x:Name="CenterDot"
+                Background="#E02D2D3D"
+                Width="60" Height="60"
                 CornerRadius="30"
                 BorderBrush="#44FFFFFF"
                 BorderThickness="2" />
