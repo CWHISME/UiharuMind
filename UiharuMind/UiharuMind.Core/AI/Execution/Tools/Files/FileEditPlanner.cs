@@ -91,7 +91,7 @@ public sealed class FileEditPlan
 public static class FileEditPlanner
 {
     /// <summary>diff 每个变更块上下各带几行上下文（也是渲染层保留的定位锚行数，见 <see cref="AnchorLines"/>）</summary>
-    private const int ContextLines = 1;
+    private const int ContextLines = 3;
 
     /// <summary>渲染层每个 hunk 头尾各保留的定位锚行数，与数据层 <see cref="ContextLines"/> 保持一致，防止两层漂移</summary>
     private const int AnchorLines = ContextLines;
@@ -479,13 +479,14 @@ public static class FileEditPlanner
         return items;
     }
 
-    /// <summary>折叠行：文本自带行号范围，行号列留 0（不参与宽度计算）</summary>
+    /// <summary>折叠行：文本自带行号范围，行号列留 0（不参与宽度计算）。
+    /// 尾部明说「这些行就是模型自己发的 oldString 内容」——模型不需要重读文件来确认它们没变</summary>
     private static LineDiffEntry BuildCollapsed(IReadOnlyList<LineDiffEntry> diff, int start, int end)
     {
         int firstLine = diff[start].LineNumber;
         int lastLine = diff[end - 1].LineNumber;
         return new LineDiffEntry(ELineDiffKind.Collapsed,
-            $"…({end - start} unchanged lines @ {firstLine}-{lastLine})…");
+            $"…({end - start} unchanged lines @ {firstLine}-{lastLine}, as in your oldString)…");
     }
 
     /// <summary>diff 单行截断(与 Read/Grep 的 TruncateLine 同款口吻):minified JSON 一行可达几十 KB,行数上限拦不住它</summary>
@@ -502,12 +503,17 @@ public static class FileEditPlanner
     /// 块级才回得到"我们俩都以为的同一个地方"。
     /// 空白差异单列(内容同=代价 0),并在差异行上把 expected/found 与空白数差写出来——
     /// 空白和内容是两种修法,混在一起说模型就只能重读。
+    /// 首句不再喊「Read the file again」:那会跟候选的存在目的(一步修正)打架,改成指路到 Closest match,
+    /// 只留「没有候选或定位不明确才小范围 Read」的出口。逐行预览里连续 [ok] 行折叠成摘要——
+    /// 那些行模型自己刚发过,原样返回纯属双倍浪费,差异行才值得逐行看。
     /// </summary>
     private static string BuildNotFoundMessage(int index, string oldString, string label,
         string text, List<Line> lines)
     {
         string message = $"edits[{index}].oldString was not found in '{label}'. It must match the file exactly, "
-                         + "whitespace and line breaks included. Read the file again and copy the text from it.";
+                         + "whitespace and line breaks included. Follow the Closest match hint below to fix the oldString; "
+                         + "only when there is no candidate or the location is unclear, Read a small range around the hint "
+                         + "— don't re-read the whole file.";
 
         string[] anchors = oldString.Split('\n');
         // 镜像 LocateByLineWindow:尾随换行产生的空末段只表示"连换行一起换",不参与评分
@@ -572,15 +578,39 @@ public static class FileEditPlanner
 
         var sb = new StringBuilder();
         sb.Append($" Closest match: line {bestStart + 1} ({contentMatched}/{anchors.Length} lines content-matched)");
-        int shown = Math.Min(anchors.Length, MaxHintShownLines);
-        for (int i = 0; i < shown; i++)
+
+        // 连续 [ok](≥2 行)折叠成摘要行;[ws]/[diff] 逐行保留——差异行才是模型要改的地方
+        var hintLines = new List<string>();
+        int idx = 0;
+        while (idx < anchors.Length)
         {
-            sb.Append($"\n   {bestStart + i + 1} [{KindLabel(bestStates[i])}] "
-                      + Clamp(LineText(text, lines[bestStart + i]).TrimEnd()));
+            if (bestStates[idx] == ELineMatchState.Exact)
+            {
+                int runStart = idx;
+                while (idx < anchors.Length && bestStates[idx] == ELineMatchState.Exact) idx++;
+                int runLen = idx - runStart;
+                if (runLen >= 2)
+                {
+                    hintLines.Add($"{bestStart + runStart + 1}-{bestStart + idx} [ok] ({runLen} lines)");
+                    continue;
+                }
+
+                idx = runStart; // 单行 ok 不值得折,退回按单行输出
+            }
+
+            hintLines.Add($"{bestStart + idx + 1} [{KindLabel(bestStates[idx])}] "
+                          + Clamp(LineText(text, lines[bestStart + idx]).TrimEnd()));
+            idx++;
         }
-        if (anchors.Length > shown)
+
+        int shown = Math.Min(hintLines.Count, MaxHintShownLines);
+        for (int k = 0; k < shown; k++)
         {
-            sb.Append($"\n   …(+{anchors.Length - shown} more lines)");
+            sb.Append($"\n   {hintLines[k]}");
+        }
+        if (hintLines.Count > shown)
+        {
+            sb.Append($"\n   …(+{hintLines.Count - shown} more lines)");
         }
 
         if (firstFix >= 0)
