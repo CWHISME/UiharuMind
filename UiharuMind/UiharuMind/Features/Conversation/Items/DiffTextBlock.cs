@@ -48,6 +48,9 @@ public sealed class DiffTextBlock : DecoratedTextBlock
         // 背景铺满后视觉偏挤；调大到 1.4x 行距，背景块随 TextLine.Height 一起变高，行与行自然拉开。
         // IBeam 光标不由这里给：StyleKey 已指回 SelectableTextBlock，主题的 ControlTheme
         // 按 IsEnabled 给 IBeam；构造里 new Cursor 要平台服务，还会把本类挡在单元测试外
+        // Transparent 背景不画任何东西，但让整块（含空白区）可命中：Background 为 null 时
+        // 空白处没有绘制操作、点下去落到父容器，拖选必须从字形上起笔
+        Background = Brushes.Transparent;
         FontSize = 12;
         LineHeight = 17;
         Padding = new Thickness(4, 0);
@@ -167,10 +170,16 @@ public sealed class DiffTextBlock : DecoratedTextBlock
         return inlines;
     }
 
-    private static IBrush? TryGetBrush(string key)
+    /// <summary>
+    /// 按当前主题显式解析笔刷。<b>必须传显式 variant</b>：<c>TryFindResource(key, out)</c>
+    /// 传的是 <c>theme: null</c>，字典遇到 null 直接走 Default（浅色）分支，深色下永远拿到浅色值——
+    /// 重启也一样，不是切换刷新问题。<c>DynamicResource</c> 内部用的是 <c>ActualThemeVariant</c>
+    /// 显式查，所以旧样式是对的。从本控件出发查（而不用 <c>Application.Current</c>），
+    /// 口径与挂在这里的 <c>DynamicResource</c> 一致，窗口级主题覆盖也不会错
+    /// </summary>
+    private IBrush? TryGetBrush(string key)
     {
-        if (Application.Current == null) return null;
-        return Application.Current.TryFindResource(key, out object? value) && value is IBrush brush
+        return this.TryFindResource(key, ActualThemeVariant, out object? value) && value is IBrush brush
             ? brush
             : null;
     }
