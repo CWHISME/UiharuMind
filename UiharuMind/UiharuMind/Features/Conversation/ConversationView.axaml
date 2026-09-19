@@ -370,10 +370,9 @@
                                            MaxWidth="360" TextTrimming="CharacterEllipsis"
                                            Text="{Binding Text}" ToolTip.Tip="{Binding Text}" />
                                 <!-- 撤回这条插话:提示条与注入队列一起撤掉,见 RemoveInterjection -->
-                                <ThemedIconButton Classes="message-action"
+                                <ThemedIconButton Classes="message-action icon-tweak"
                                                   IconName="trash-2"
                                                   VerticalAlignment="Center"
-                                                  Margin="0,0,0,2"
                                                   ToolTip.Tip="{loc:Loc InterjectionRemoveTip}"
                                                   Command="{Binding $parent[ItemsControl].((conv:ConversationViewModel)DataContext).RemoveInterjectionCommand}"
                                                   CommandParameter="{Binding Message}" />

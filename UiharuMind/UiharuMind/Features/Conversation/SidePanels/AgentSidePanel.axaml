@@ -250,7 +250,7 @@
                                                             VerticalAlignment="Center"
                                                             Tag="{Binding StatusKey}" />
                                                     <StackPanel Grid.Column="1" Spacing="2">
-                                                        <TextBlock FontSize="12"
+                                                        <TextBlock FontSize="12" Classes="title-tweak"
                                                                    TextTrimming="CharacterEllipsis"
                                                                    Text="{Binding Title}" />
                                                         <TextBlock Classes="muted" FontSize="10"
@@ -259,11 +259,12 @@
                                                     </StackPanel>
                                                     <TextBlock Grid.Column="2" Classes="muted" FontSize="10"
                                                                VerticalAlignment="Center"
-                                                               Text="{Binding TimeString}" />
+                                                               Text="{Binding RunTimeText}"
+                                                               ToolTip.Tip="{Binding RunTimeTip}" />
                                                     <!-- 复制编号:ContinueSubAgent 认的是它,而它原先只出现在
                                                          工具卡的结果里,跑几十轮就滚没了 -->
                                                     <ThemedIconButton Grid.Column="3"
-                                                                      Classes="message-action"
+                                                                      Classes="message-action icon-tweak"
                                                                       IconName="copy"
                                                                       VerticalAlignment="Center"
                                                                       ToolTip.Tip="{loc:Loc SubAgentCopyIdTip}"

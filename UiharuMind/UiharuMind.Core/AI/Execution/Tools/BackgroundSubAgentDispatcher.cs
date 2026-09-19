@@ -406,6 +406,9 @@ public static class BackgroundSubAgentDispatcher
         string notice = "")
     {
         string parentId = subSession.ParentSessionId ?? string.Empty;
+        // 这一轮的起点：首派与续跑都走这里，右栏「子代理」面板据此显示「本次已运行 / 末轮耗时」。
+        // 排队续跑时它会把排队等待也算进本轮——可接受：排队通常很短，而字段必须随派发落盘才不丢
+        subSession.LastRunStartedAt = DateTimeOffset.Now;
         subSession.BackgroundReportPending = true;
         subSession.SaveMeta();
         AddPendingTurn(parentId, subSession.SessionId);

@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -30,8 +31,9 @@ namespace UiharuMind.Features.Conversation.SidePanels;
 public partial class SubAgentListViewData : ObservableObject, IDisposable
 {
     private readonly Func<string?> _parentSessionIdSource;
+    private readonly DispatcherTimer _tickTimer;
 
-    /// <summary>本会话派出去的子会话，按最后更新时间倒序</summary>
+    /// <summary>本会话派出去的子会话，运行中置顶、组内按本轮开始倒序</summary>
     public ObservableCollection<SubSessionDisplayItem> Items { get; } = new();
 
     /// <summary>
@@ -49,10 +51,25 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
         _parentSessionIdSource = parentSessionIdSource;
         SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged += OnRunStateChanged;
+
+        // 秒表只对「在跑」的条目有意义：只在有运行时才开，tick 只刷文本不重建集合。
+        // 数据本体在落盘的 LastRunStartedAt 上，timer 停了数字不跳而已，切回来重算即恢复
+        _tickTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1),
+        };
+        _tickTimer.Tick += (_, _) =>
+        {
+            foreach (SubSessionDisplayItem item in Items)
+            {
+                if (item.IsRunning) item.RefreshRunTime();
+            }
+        };
     }
 
     public void Dispose()
     {
+        _tickTimer.Stop();
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnRunStateChanged;
     }
@@ -65,7 +82,7 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
         Items.Clear();
         List<ChatSessionMeta> subs = SessionManager.Instance.GetSubSessions(_parentSessionIdSource());
         int running = 0;
-        foreach (ChatSessionMeta meta in subs)
+        foreach (ChatSessionMeta meta in OrderItems(subs))
         {
             SubSessionDisplayItem item = new(meta);
             if (item.IsRunning) running++;
@@ -76,6 +93,10 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Items));
         OnPropertyChanged(nameof(RunningCount));
         OnPropertyChanged(nameof(HasRunning));
+
+        // 计时器跟着「有没有在跑」走：没有就不空转
+        if (HasRunning) _tickTimer.Start();
+        else _tickTimer.Stop();
     }
 
     /// <summary>
@@ -83,12 +104,33 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
     /// 一次委派开始时会话刚进索引，所以这里是整体重读而不是只更新状态点
     /// </summary>
     private void OnRunStateChanged(string sessionId) => Dispatcher.UIThread.Post(Refresh);
+
+    /// <summary>
+    /// 排序：<b>运行中置顶，组内按本轮开始倒序（最新派发在最上）；已完成按结束时刻倒序。</b>
+    ///
+    /// 不用 UpdatedAt 当单一排序键：运行中每次落盘它都变，状态一变就重排，顺序来回跳看着就是无序的。
+    /// 抽成静态便于测试。
+    /// </summary>
+    public static List<ChatSessionMeta> OrderItems(IEnumerable<ChatSessionMeta> subs)
+    {
+        List<ChatSessionMeta> all = [.. subs];
+        List<ChatSessionMeta> running = all.Where(SubSessionDisplayItem.IsRunningMeta)
+            .OrderByDescending(x => x.LastRunStartedAt ?? x.CreatedAt).ToList();
+        List<ChatSessionMeta> done = all.Where(x => !SubSessionDisplayItem.IsRunningMeta(x))
+            .OrderByDescending(x => x.UpdatedAt).ToList();
+        running.AddRange(done);
+        return running;
+    }
 }
 
 /// <summary>
 /// 面板里的一项：一次委派。
+///
+/// 一个子会话可能被续跑多次（<c>ContinueAsync</c> 复用同一会话），所以「运行时间」指的是
+/// <b>最近一轮</b>：运行中显示「本次已运行」，跑完显示「末轮耗时」——而不是把中间所有空档
+/// 都算进去的墙钟跨度。旧数据（无 <c>LastRunStartedAt</c>）回退显示最后更新时间戳。
 /// </summary>
-public sealed class SubSessionDisplayItem
+public sealed partial class SubSessionDisplayItem : ObservableObject
 {
     private readonly ChatSessionMeta _meta;
 
@@ -109,23 +151,19 @@ public sealed class SubSessionDisplayItem
     /// <summary>有没有点名（匿名的那些不显示名字行）</summary>
     public bool HasAgentName => _meta.SubAgentName.Length > 0;
 
-    /// <summary>最后更新时间</summary>
-    public string TimeString => _meta.UpdatedAt.ToLocalTime().ToString("MM/dd HH:mm");
-
     /// <summary>
     /// 是否仍在跑（含卡在审批上）。<b>兼看后台标记</b>：报告还没交回就算没完，
     /// 哪怕那一瞬间执行者正好闲着（两次服务调用之间）
     /// </summary>
-    public bool IsRunning => SessionManager.Instance.Running.IsBusy(_meta.SessionId)
-                             || _meta.BackgroundReportPending;
+    public bool IsRunning => IsRunningMeta(_meta);
 
     /// <summary>
-    /// 跑得太久了。<c>SubAgentTool.Timeout</c>（24 小时）刻意没动，靠这一档把它顶到用户眼前
-    /// ——后台化之后「有人看着」这个前提削弱了，但改成「按有没有人看着定上限」会让同一次委派
-    /// 因为用户开没开窗口而结局不同（见 ADR 0025）
+    /// 跑得太久了。<c>SubAgentTool.Timeout</c>（24 小时）刻意没动，靠这一档把它顶到用户眼前。
+    /// 判据用<b>本轮起点</b>而不是创建时刻：续跑多次的会话创建很早，用创建时刻会把
+    /// 「本轮刚开」的续跑误标成跑了很久（见 ADR 0025 的同一背景）
     /// </summary>
     public bool IsLongRunning => IsRunning
-                                 && DateTimeOffset.Now - _meta.CreatedAt > BackgroundSubAgentDispatcher.LongRunNotice;
+                                 && DateTimeOffset.Now - RunStart > BackgroundSubAgentDispatcher.LongRunNotice;
 
     /// <summary>
     /// 卡在审批上等人点选。<b>与「在跑」分开一档</b>：它是唯一需要用户动手的状态，
@@ -154,4 +192,55 @@ public sealed class SubSessionDisplayItem
     /// 编号在界面上本来只出现在工具卡的结果里——那张卡跑几十轮就滚没了。
     /// </summary>
     public RelayCommand CopyId { get; }
+
+    /// <summary>本轮起点：新字段优先，旧数据回退创建时刻</summary>
+    private DateTimeOffset RunStart => _meta.LastRunStartedAt ?? _meta.CreatedAt;
+
+    /// <summary>
+    /// 时间列文本：在跑 = 「本次」秒表；跑完且有本轮起点 = 「末轮」耗时；
+    /// 旧数据（没有本轮起点） = 最后更新时间戳，不硬算墙钟跨度去骗人
+    /// </summary>
+    public string RunTimeText
+    {
+        get
+        {
+            if (IsRunning) return $"本次 {FormatDuration(DateTimeOffset.Now - RunStart)}";
+            if (_meta.LastRunStartedAt is { } started)
+            {
+                return $"末轮 {FormatDuration(_meta.UpdatedAt - started)}";
+            }
+            return _meta.UpdatedAt.ToLocalTime().ToString("MM/dd HH:mm");
+        }
+    }
+
+    /// <summary>时间列悬停提示：完整起止时刻。原「最后更新时间」挪到这里，信息不丢</summary>
+    public string RunTimeTip
+    {
+        get
+        {
+            string start = RunStart.ToLocalTime().ToString("MM/dd HH:mm:ss");
+            return IsRunning
+                ? $"开始 {start} · 进行中"
+                : $"开始 {start} · 结束 {_meta.UpdatedAt.ToLocalTime():MM/dd HH:mm:ss}";
+        }
+    }
+
+    /// <summary>秒表 tick 用：只刷这两条文本，集合与其余属性不动</summary>
+    public void RefreshRunTime()
+    {
+        OnPropertyChanged(nameof(RunTimeText));
+        OnPropertyChanged(nameof(RunTimeTip));
+    }
+
+    /// <summary>判断一次委派是否仍在跑。挂在条目上供列表排序共用，避免两份实现漂移</summary>
+    public static bool IsRunningMeta(ChatSessionMeta meta) =>
+        SessionManager.Instance.Running.IsBusy(meta.SessionId) || meta.BackgroundReportPending;
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes:00}:{duration.Seconds:00}";
+    }
 }

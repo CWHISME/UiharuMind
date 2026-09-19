@@ -51,4 +51,17 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- 图标与旁边文字并排时的垂直微调。与 title-tweak 同因:字形视觉中心天然偏上,
+         图标按自己的盒居中时也一样看着偏上——用 RenderTransform 上移 1px 对齐视觉中心。
+         纯视觉、不参与布局(不用负 Margin:它参与测量,会把所在行高带偏)。
+         用 :is 罩住 ThemedIconButton 及其子类(与 CustomButtonStyle 同一口径)。
+         需要就说一句挂 class: icon-tweak -->
+    <Style Selector=":is(ThemedIconButton).icon-tweak">
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TranslateTransform Y="-1" />
+            </Setter.Value>
+        </Setter>
+    </Style>
 </Styles>

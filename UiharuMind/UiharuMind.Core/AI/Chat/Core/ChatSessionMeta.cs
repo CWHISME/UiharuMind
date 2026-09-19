@@ -50,6 +50,15 @@ public class ChatSessionMeta
     /// <summary>最后更新时间（列表排序依据）</summary>
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
 
+    /// <summary>
+    /// 最近一次派发/续跑的开始时刻。每次 <c>BackgroundSubAgentDispatcher.Dispatch</c> 写入，
+    /// 可空表示旧数据（没有该字段的委派）。仅子会话有意义。
+    ///
+    /// 用途：右栏「子代理」面板据此显示「本次已运行 / 末轮耗时」，也是运行中置顶排序的键。
+    /// 必须落盘——面板可能切走，等切回来时它要能重算而不是靠 UI 计时器续命。
+    /// </summary>
+    public DateTimeOffset? LastRunStartedAt { get; set; }
+
     /// <summary>消息条数（列表展示，避免为此加载本体）</summary>
     public int MessageCount { get; set; }
 

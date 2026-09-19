@@ -108,6 +108,14 @@ public class ChatSession
     /// </summary>
     public bool BackgroundReportPending { get; set; }
 
+    /// <summary>
+    /// 最近一次派发/续跑的开始时刻（仅子会话有意义）。每次派发时由
+    /// <c>BackgroundSubAgentDispatcher.Dispatch</c> 写入并随会话落盘——
+    /// 右栏「子代理」面板的「本次已运行 / 末轮耗时」靠它重算，不依赖 UI 计时器。
+    /// 旧数据没有该字段，显示时回退到最后更新时间戳。
+    /// </summary>
+    public DateTimeOffset? LastRunStartedAt { get; set; }
+
     /// <summary>会话累计输入 token（响应 usage 不随消息持久化，累计值记在本体上）</summary>
     public long TotalInputTokens { get; set; }
 
@@ -444,6 +452,7 @@ public class ChatSession
             SubAgentType = SubAgentType,
             SubAgentName = SubAgentName,
             BackgroundReportPending = BackgroundReportPending,
+            LastRunStartedAt = LastRunStartedAt,
         };
     }
 
