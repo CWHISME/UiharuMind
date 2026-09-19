@@ -7,7 +7,6 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Prompts;
@@ -22,29 +21,33 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 /// </summary>
 public static class SubAgentToolPrompts
 {
-    /// <summary>通用委派工具描述</summary>
+    /// <summary>
+    /// 通用委派工具描述。<b>只讲能力边界</b>：延续判定唯一收在
+    /// <see cref="AgentToolPrompts.SubAgentDefault"/>，这里只留一句指向，不重复整段政策。
+    /// </summary>
     public const string RunAgentDescription =
-        "Run an agent on a task and get a focused report. " +
+        "Run an agent on a task. " +
         "It can change files, run commands — same permissions as you. " +
-        "For follow-up work on a task you already delegated, prefer `" +
-        SubAgentTool.ToolContinueName +
-        "` (same sub-session) over spawning a new run: a new run loses " +
-        "everything the previous one has already done.";
+        "For follow-up, use `" + SubAgentTool.ToolContinueName + "`.";
 
-    /// <summary>只读探索工具描述</summary>
+    /// <summary>
+    /// 只读探索工具描述。<b>只说性质不数数</b>：工具集随能力配置变，
+    /// 写死数量迟早与装配事实矛盾（曾写死三个，文件访问关掉时一个都没有）。
+    /// </summary>
     public const string RunReadOnlyAgentDescription =
         "Run a read-only agent for fact-finding within the workspace: "
-        + "it gets exactly three tools, `" + FileToolNames.Glob + "`, `" + FileToolNames.Grep
-        + "` and `" + FileToolNames.Read + "`, and cannot change anything. "
-        + "Follow-up on such a run also goes through `" + SubAgentTool.ToolContinueName
-        + "`, not a fresh run.";
+        + "it can only read, never change anything. "
+        + "For follow-up, use `" + SubAgentTool.ToolContinueName + "`.";
 
-    /// <summary>派活工具 task 参数说明</summary>
+    /// <summary>
+    /// 派活工具 task 参数说明。补一句「写具体」：压缩后 <c>HistoryHandoff.BuildSubSessionRoster</c>
+    /// 靠任务原文认出这次派活，写成一句话的含糊任务等于续跑时认不出。
+    /// </summary>
     public const string TaskParam =
-        "What the agent should do: what to find out, over what scope, and what the final report should contain.";
+        "What the agent should do.";
 
     /// <summary>派活工具 agent 参数说明（点名花名册子智能体）</summary>
-    public const string AgentParam = "Which mounted agent to run. Omit it for the default agent.";
+    public const string AgentParam = "Optional which mounted agent to run.";
 
     /// <summary>
     /// 派活工具 role 参数说明（身份/职业）。
@@ -56,9 +59,9 @@ public static class SubAgentToolPrompts
     /// （见 <c>SubAgentPrompts.RoleOverPersona</c>）。
     /// </summary>
     public const string RoleParam =
-        "Optional short role for the agent (e.g. 'senior C# reviewer' or a name). " +
+        "Optional short role for the agent (e.g. 'senior C# reviewer', 'devil's advocate', or a name). " +
         "Used as the session title and injected into its identity. " +
-        "It sets what the agent attends to and how it judges trade-offs, not what it is capable of. " +
+        "It sets what the agent attends to and how it judges trade-offs. " +
         "Works together with `agent`: the named agent keeps its own persona, " +
         "and this role is the emphasis for this run.";
 
@@ -73,8 +76,7 @@ public static class SubAgentToolPrompts
     /// 名字错了不会炸：解析不到就回退默认，并在回执里说一声。
     /// </summary>
     public const string ModelParam =
-        "Optional exact model name to use for this run (as shown in the app's model list). " +
-        "Omit it to use the configured default. ";
+        "Optional exact model name to use for this run. ";
     
     /// <summary>花名册提示（追加在工具描述之后）</summary>
     public const string RosterHeading =
@@ -88,11 +90,14 @@ public static class SubAgentToolPrompts
     public const string ContinueMessageParam =
         "What to tell the agent next: a follow-up question, a correction, or to keep going.";
 
-    /// <summary>追问/续跑工具描述</summary>
+    /// <summary>
+    /// 追问/续跑工具描述。<b>只讲机制</b>：「报告回来不等于任务结束」的延续判定唯一收在
+    /// <see cref="AgentToolPrompts.SubAgentDefault"/>，这里不再用英文复述同一件事——
+    /// 两边各说一遍，改的时候只会漂移。
+    /// </summary>
     public const string ContinueDescription =
-        "Send another message to an agent you already ran (same session — " +
-        "it keeps everything done so far) and get an updated report. " +
+        "Send another message to an agent you already ran (same session — it keeps everything done so far). " +
         "If it is still running, the message is delivered live into the current run. " +
         "Prefer this over a fresh `" + SubAgentTool.ToolGeneralName +
-        "` whenever the new work extends a previous delegation.";
+        "` whenever the new work continues a previous delegation.";
 }

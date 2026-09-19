@@ -177,10 +177,10 @@ public static class SubAgentTool
         return AIFunctionFactory.Create(
             ([Description(SubAgentToolPrompts.TaskParam)]
                 string task,
-                [Description(SubAgentToolPrompts.AgentParam)]
-                string? agent = null,
                 [Description(SubAgentToolPrompts.RoleParam)]
                 string? role = null,
+                [Description(SubAgentToolPrompts.AgentParam)]
+                string? agent = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
                 string? model = null) => Launch(context, task, agent, role, model),
             context.Profile.ToolName,
@@ -190,7 +190,7 @@ public static class SubAgentTool
     /// <summary>
     /// 派活方插话的前缀。子代理提示词明确区分「用户在窗口说话」与「派活方追问」，
     /// 插话以 user 身份进流时必须自报家门，否则子代理会把它当成用户的话。
-    /// 落盘带前缀：它本来就是派活方说的，原样留痕才是实话。
+    /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是派活方说的，原样留痕才是实话。
     /// </summary>
     private const string ParentInterjectionPrefix = "【派活方】";
 
@@ -293,7 +293,11 @@ public static class SubAgentTool
             if (injected) return BuildInjectedReceipt(session.SessionId);
         }
 
-        return DispatchToBackground(context, session, message);
+        // 没在跑(或注入失败回落到排队续跑):新起一轮。同样自报家门——子代理按【派活方】前缀
+        // 区分派活方与用户,续跑轮不带上它,子代理会把它当成用户的话。
+        // 只加前缀、不加 MarkParentInterjection:排队续跑的消息就是本轮任务本身,不是 mid-run 插话,
+        // 带注记会让报告被错误挂上「additional instructions」跑题提示(见 RunTurnAsync)。
+        return DispatchToBackground(context, session, ParentInterjectionPrefix + message);
     }
 
     /// <summary>
