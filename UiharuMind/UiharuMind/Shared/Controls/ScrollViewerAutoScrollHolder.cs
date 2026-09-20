@@ -15,7 +15,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 
-namespace UiharuMind.Shared.UIHolder;
+namespace UiharuMind.Shared.Controls;
 
 /// <summary>
 /// 自动跟底的 ScrollViewer 容器（用户上滚后让开，回到底部再接管）。

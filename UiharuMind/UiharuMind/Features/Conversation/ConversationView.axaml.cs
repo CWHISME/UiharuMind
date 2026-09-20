@@ -24,7 +24,6 @@ using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Diagnostics;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.UIHolder;
 
 namespace UiharuMind.Features.Conversation;
 

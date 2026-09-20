@@ -16,7 +16,7 @@ using Avalonia.Data;
 using Avalonia.Threading;
 using UiharuMind.Core.Core.SimpleLog;
 
-namespace UiharuMind.Shared.UIHolder;
+namespace UiharuMind.Shared.Controls;
 
 /// <summary>
 /// 用于绑定 Model 层控制 ScrollViewer 自动滚动到底部的属性，发送聊天使用，发送后自动滚动到底部

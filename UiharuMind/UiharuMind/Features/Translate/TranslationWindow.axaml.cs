@@ -15,7 +15,7 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.UIHolder;
+using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;

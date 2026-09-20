@@ -27,7 +27,7 @@ using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Utils.Tools;
-using UiharuMind.Shared.UIHolder;
+using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI;

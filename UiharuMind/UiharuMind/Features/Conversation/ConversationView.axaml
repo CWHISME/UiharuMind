@@ -7,7 +7,6 @@
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
-             xmlns:uiHolder="clr-namespace:UiharuMind.Shared.UIHolder"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:skills="clr-namespace:UiharuMind.Core.AI.Execution.Skills;assembly=UiharuMind.Core"
@@ -161,7 +160,7 @@
                           BringIntoViewOnFocusChange="False"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
-                          uiHolder:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
+                          controls:ScrollViewExtensions.ScrollToEnd="{Binding ScrollToEnd}">
                 <StackPanel Margin="10">
                     <!-- 顶部状态行(不是按钮):更早的消息由滚到顶自动续,见 OnViewerScrollChanged。
                          原先这里是一个「加载更早」按钮——要用户自己去点才回得去,是长会话里最难用的一处。
