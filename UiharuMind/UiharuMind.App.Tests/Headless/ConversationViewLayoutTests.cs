@@ -2,10 +2,12 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.AI;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
+using UiharuMind.Shared.Controls;
 
 namespace UiharuMind.App.Tests.Headless;
 
@@ -64,6 +66,49 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
         window.Show();
         window.UpdateLayout();
         return (window, view);
+    }
+
+    /// <summary>
+    /// 造一批够长的 markdown 回复。<b>带代码块</b>：真实回复里代码块才是最重的那块视觉树
+    /// （边框 + 语言标签 + 两个按钮 + 滚动容器），只堆段落量不出卸载的收益——
+    /// markdown 的段落是 Inline，根本不是可视对象。
+    /// </summary>
+    /// <param name="count">条目数</param>
+    /// <returns>条目列表</returns>
+    private static List<ConversationItemBase> MarkdownItems(int count)
+    {
+        List<ConversationItemBase> items = new(count);
+        for (int i = 0; i < count; i++)
+        {
+            string body = $"## 第 {i} 步\n\n" +
+                          string.Join("\n\n", Enumerable.Range(0, 4)
+                              .Select(x => $"这是第 {i} 条消息的第 {x} 段正文，写长一点好让气泡有真实高度。")) +
+                          $"\n\n```csharp\nvar x{i} = Compute({i});\nConsole.WriteLine(x{i});\n```\n";
+
+            TextConversationItem item = new(false) { SenderName = "助手", Message = body };
+            item.SourceMessage = new ChatMessage(ChatRole.Assistant, body);
+            items.Add(item);
+        }
+
+        return items;
+    }
+
+    /// <summary>会话流那个滚动容器</summary>
+    private static ScrollViewer Viewer(Visual root) =>
+        root.GetVisualDescendants().OfType<ScrollViewer>().First(x => x.Name == "Viewer");
+
+    /// <summary>所有气泡正文控件</summary>
+    private static List<SimpleMarkdownViewer> Bubbles(Visual root) =>
+        MessageList(root).GetVisualDescendants().OfType<SimpleMarkdownViewer>().ToList();
+
+    /// <summary>把排队与后台任务跑完，再排一次版</summary>
+    private static void Settle(Window window)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            Dispatcher.UIThread.RunJobs(DispatcherPriority.Background);
+            window.UpdateLayout();
+        }
     }
 
     /// <summary>取会话流那个列表控件（视图里还有别的 ItemsControl，按名字认）</summary>
@@ -125,6 +170,53 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
 
         Assert.Equal(ConversationItemWindowTrimmer.DefaultBackgroundMaxItems, trimmed);
         Assert.True(trimmedExtent < longExtent);
+        window.Close();
+    });
+
+    /// <summary>
+    /// 滚远的气泡卸载成<b>等高</b>占位：正文那棵树垮下去，而滚动区高度一分不动。
+    ///
+    /// 「等高」是这条路子与真·虚拟化的全部区别，也是唯一的验收口径——Extent 一旦变了，
+    /// 跟底、滚到顶续窗、前插补偿三条路径就全部跟着错位，那正是当初放弃虚拟化面板的原因
+    /// （见 ADR 0041）。所以这里<b>先断言 Extent 不变</b>，再谈省了多少。
+    /// </summary>
+    [Fact]
+    public void ScrollingFarAway_UnloadsBubbles_WithoutMovingTheExtent() => HeadlessUi.Run(() =>
+    {
+        ConversationViewModel vm = new() { IsPlaintext = false };
+        foreach (ConversationItemBase item in MarkdownItems(60)) vm.Items.Add(item);
+
+        (Window window, ConversationView view) = ShowView(vm);
+        ScrollViewer viewer = Viewer(view);
+
+        // 全部转出来 = 用户「从头翻到尾」之后的状态,内存最高的那一刻。
+        // 只排版、不跑后台队列:清扫是排在 Background 上的,跑了就量不到卸载前的样子
+        foreach (SimpleMarkdownViewer bubble in Bubbles(view)) bubble.RealizeNow();
+        window.UpdateLayout();
+
+        double extentBefore = viewer.Extent.Height;
+        int listBefore = MessageList(view).GetVisualDescendants().Count();
+        int bodyBefore = Bubbles(view).Sum(x => x.GetVisualDescendants().Count());
+
+        // 放清扫过去跑:此刻视口在顶部,底下那些都落在缓冲区之外
+        Settle(window);
+
+        double extentAfter = viewer.Extent.Height;
+        int listAfter = MessageList(view).GetVisualDescendants().Count();
+        int bodyAfter = Bubbles(view).Sum(x => x.GetVisualDescendants().Count());
+
+        output.WriteLine($"全部实化:正文 {bodyBefore} / 整表 {listBefore} 个可视对象,滚动区 {extentBefore:F0}px");
+        output.WriteLine($"清扫之后:正文 {bodyAfter} / 整表 {listAfter} 个可视对象,滚动区 {extentAfter:F0}px");
+
+        // 滚动区分毫不动:这条错了,上面三条滚动路径就全错
+        Assert.Equal(extentBefore, extentAfter, 1);
+
+        // 正文那一半垮下去了
+        Assert.True(bodyAfter * 3 < bodyBefore, $"正文视觉树没有显著变小:{bodyBefore} -> {bodyAfter}");
+
+        // 剩下的是卡片外壳(头像/时间戳/气泡边框/操作行),本机制够不着——要继续省就得把同一套手法
+        // 往外套一层。这条断言把「还剩多少」钉住,省得日后误以为卸载已经把列表清空了
+        Assert.True(listAfter > listBefore / 2, $"整表少得太多,外壳是不是被一起拆了:{listBefore} -> {listAfter}");
         window.Close();
     });
 }
