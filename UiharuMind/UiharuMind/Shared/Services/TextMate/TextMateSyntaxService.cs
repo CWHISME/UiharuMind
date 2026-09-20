@@ -25,8 +25,9 @@ namespace UiharuMind.Shared.Services.TextMate;
 ///
 /// 职责分三层，各管一段：
 /// <list type="number">
-/// <item><b>本类</b>：语言解析（扩展名 → scope）、<see cref="Registry"/> /
-/// <see cref="IGrammar"/> / <see cref="Theme"/> 生命周期、文档变更监听；</item>
+/// <item><b>本类</b>：语言解析（扩展名 → scope）、<see cref="IGrammar"/> 与
+/// <see cref="Theme"/> 的挂载时机、文档变更监听；语法表本身共用
+/// <see cref="TextMateRegistryPool"/> 的那一份；</item>
 /// <item><see cref="TextMatePreTokenizer"/>：分帧预 tokenize + 增量失效；</item>
 /// <item><see cref="TextMateColorMapTransformer"/>：渲染时只查表上色。</item>
 /// </list>
@@ -44,16 +45,10 @@ public sealed class TextMateSyntaxService : IDisposable
     private readonly TextMateColorMapTransformer _transformer;
     private TextMatePreTokenizer? _tokenizer;
     private TextDocument? _highlightedDocument;
-    private Registry? _registry;
-    private RegistryOptions? _registryOptions;
     private IGrammar? _grammar;
     private string? _sourceName;
     private bool _installed;
-
-    // 语法表与主题按主题名全进程共用一份:构造 RegistryOptions 要加载主题与整套语法定义,
-    // 按控件实例建的话,多开几个全文窗就是重复加载几份
-    private static RegistryOptions? _sharedRegistryOptions;
-    private static ThemeName _sharedRegistryTheme;
+    private ThemeName _appliedTheme; //本实例的着色是按哪个主题挂的,与共享注册表的当前主题比对
 
     public TextMateSyntaxService(TextEditor editor)
     {
@@ -81,21 +76,23 @@ public sealed class TextMateSyntaxService : IDisposable
         }
 
         // 同一文档换语法（罕见）：只换 grammar 与主题，重 tokenize
-        _grammar = _registry!.LoadGrammar(scope);
-        _tokenizer!.Start(_editor.Document, _grammar, _registry.GetTheme());
+        Registry registry = TextMateRegistryPool.Registry;
+        _grammar = registry.LoadGrammar(scope);
+        _appliedTheme = TextMateRegistryPool.CurrentTheme;
+        _tokenizer!.Start(_editor.Document, _grammar, registry.GetTheme());
     }
 
     /// <summary>应用主题切换：保留已 tokenize 的 scopes，只重匹配颜色并重绘</summary>
     public void UpdateTheme()
     {
-        if (_grammar == null || _registry == null) return;
+        if (_grammar == null) return;
 
-        RegistryOptions options = GetRegistryOptions();
-        if (ReferenceEquals(options, _registryOptions)) return;
+        ThemeName theme = TextMateRegistryPool.CurrentTheme;
+        if (theme == _appliedTheme) return;
 
-        _registryOptions = options;
-        _registry.SetTheme(options.LoadTheme(GetCurrentThemeName()));
-        _tokenizer?.SetTheme(_registry.GetTheme());
+        _appliedTheme = theme;
+        // 取 Registry 这一下就已经把新主题挂到共享注册表上了，这里只负责把自己的着色重挂
+        _tokenizer?.SetTheme(TextMateRegistryPool.Registry.GetTheme());
     }
 
     /// <summary>从编辑器渲染管线摘掉并释放。窗口隐藏（缓存复用）时调用，避免空窗白挂成本</summary>
@@ -132,8 +129,6 @@ public sealed class TextMateSyntaxService : IDisposable
             _highlightedDocument = null;
         }
         _grammar = null;
-        _registry = null;
-        _registryOptions = null;
     }
 
     public void Dispose()
@@ -154,9 +149,9 @@ public sealed class TextMateSyntaxService : IDisposable
     {
         Uninstall(); // 摘旧装新：换文档时 transformer/订阅都要重挂
 
-        _registryOptions = GetRegistryOptions();
-        _registry = new Registry(_registryOptions);
-        _grammar = _registry.LoadGrammar(scope);
+        Registry registry = TextMateRegistryPool.Registry;
+        _grammar = registry.LoadGrammar(scope);
+        _appliedTheme = TextMateRegistryPool.CurrentTheme;
         _highlightedDocument = _editor.Document;
 
         var transformers = _editor.TextArea?.TextView?.LineTransformers;
@@ -167,7 +162,7 @@ public sealed class TextMateSyntaxService : IDisposable
         _editor.Document.Changed += OnDocumentChanged;
 
         _tokenizer = new TextMatePreTokenizer(_editor.TextArea!.TextView, _transformer);
-        _tokenizer.Start(_editor.Document, _grammar, _registry.GetTheme());
+        _tokenizer.Start(_editor.Document, _grammar, registry.GetTheme());
     }
 
     private string? ResolveScope(string? sourceName, string? text)
@@ -178,26 +173,8 @@ public sealed class TextMateSyntaxService : IDisposable
         string extension = Path.GetExtension(sourceName);
         if (string.IsNullOrEmpty(extension)) return null;
 
-        RegistryOptions options = GetRegistryOptions();
+        RegistryOptions options = TextMateRegistryPool.Options;
         Language? language = options.GetLanguageByExtension(extension);
         return language == null ? null : options.GetScopeByLanguageId(language.Id);
-    }
-
-    // 注册表同时决定了配色。主题名与 markdown 代码块用的是同一套,两处观感因此一致
-    private static RegistryOptions GetRegistryOptions()
-    {
-        ThemeName themeName = GetCurrentThemeName();
-        if (_sharedRegistryOptions == null || _sharedRegistryTheme != themeName)
-        {
-            _sharedRegistryOptions = new RegistryOptions(themeName);
-            _sharedRegistryTheme = themeName;
-        }
-
-        return _sharedRegistryOptions;
-    }
-
-    private static ThemeName GetCurrentThemeName()
-    {
-        return ApplicationThemeManager.IsDarkTheme() ? ThemeName.DarkPlus : ThemeName.LightPlus;
     }
 }
