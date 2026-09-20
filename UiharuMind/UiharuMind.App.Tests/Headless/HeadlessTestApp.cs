@@ -26,7 +26,7 @@ public sealed class HeadlessTestApp : Application
     {
         Resources["ControlContentThemeFontSize"] = 13d;
         Resources["ToolTipBorderThemeThickness"] = new Thickness(1);
-        FontFamily mainFont = new("avares://UiharuMind/Assets/Fonts#HarmonyOS Sans");
+        FontFamily mainFont = new("avares://UiharuMind/Assets/Fonts#HarmonyOS Sans SC");
         Resources["MainFont"] = mainFont;
         Resources["ContentControlThemeFontFamily"] = mainFont;
         Resources.MergedDictionaries.Add(
@@ -42,6 +42,8 @@ public sealed class HeadlessTestApp : Application
         Styles.Add(new Ursa.Themes.Semi.UrsaSemiTheme());
         Styles.Add(Include("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"));
         Styles.Add(Include("avares://LiveMarkdown.Avalonia/Styles.axaml"));
+        // 顺序与 App.axaml 一致:必须在 LiveMarkdown 之后才盖得住它硬写的字体
+        Styles.Add(Include("avares://UiharuMind/Assets/Themes/CustomMarkdownStyle.axaml"));
     }
 
     private static StyleInclude Include(string uri) =>
@@ -53,5 +55,12 @@ public sealed class HeadlessTestApp : Application
     /// </summary>
     /// <returns>应用构建器</returns>
     public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<HeadlessTestApp>().UseHeadless(new AvaloniaHeadlessPlatformOptions());
+        AppBuilder.Configure<HeadlessTestApp>()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+
+    // ⚠️ 这里用的是无头的<b>默认绘制</b>(UseHeadlessDrawing = true),它带的字体管理器是假的:
+    // 系统字体一律解析成 BareMinimum,字形度量也不真实。所以<b>任何关于字体解析、字重匹配、
+    // 合成粗体的结论都不能在这一层下</b>——那些只有真实进程里才算数(用 --dev-script 的
+    // diag.font)。换成 .UseHarfBuzz().UseSkia().UseHeadless(UseHeadlessDrawing = false)
+    // 可以拿到真 Skia，但 CaptureRenderedFrame 在本仓这套会话下取不到帧，试过，没走通。
 }

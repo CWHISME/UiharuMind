@@ -1,0 +1,39 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:md="clr-namespace:LiveMarkdown.Avalonia;assembly=LiveMarkdown.Avalonia">
+
+    <!-- 把 markdown 渲染拉回 MainFont。这不只是「字体统一」，它同时修掉两个可见缺陷：
+         LiveMarkdown 的 Styles.axaml 给它那几个控件硬写了 Arial, 'Segoe UI', sans-serif
+         （代码块是 Consolas, 'Courier New', monospace），两组都不含中文字形。
+
+         1. 字号不齐:汉字只能掉进 sans-serif 让系统<b>逐字</b>回退，不同汉字可能落到不同字体、
+            度量不一,同一行里看起来就是有的大有的小。
+         2. 加粗时灵时不灵:Avalonia 的字符回退路径把合成粗体<b>写死关掉了</b>
+            (Skia FontManagerImpl.TryMatchCharacter 里 new SkiaTypeface(skTypeface,
+            FontSimulations.None),而族内匹配那条路是会算 (int)weight >= 600 的)。
+            于是 **粗体** 里的英文在 Arial 族内拿得到粗,中文走回退拿不到——同一个 **XXX**
+            一半粗一半不粗。
+
+         用一个本身含中文字形的族,两种字符都走族内匹配,上面两条一起消失。
+
+         ⚠️ 本文件必须挂在 App.axaml 里 LiveMarkdown 的 StyleInclude <b>之后</b>:
+         Avalonia 的样式按挂载顺序决优先级,不按选择器特异性,挂前面一行都不生效。
+
+         等宽的语义与 CustomFontStyle 的 mono 一致:字体统一走 MainFont(单点,换字体只改一处),
+         等宽只保留语义、不另换字体 -->
+    <Style Selector="md|MarkdownTextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
+    </Style>
+    <Style Selector="md|CodeBlock">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
+    </Style>
+    <Style Selector="md|CodeInline">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
+    </Style>
+    <Style Selector="TextBlock.ListBlockNumber">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
+    </Style>
+    <Style Selector="TextBlock.ListBlockBullet">
+        <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
+    </Style>
+</Styles>

@@ -11,6 +11,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Features.Conversation.SessionList;
@@ -36,6 +40,7 @@ internal static class DevCommandRegistry
         new SessionListCommand(),
         new OpenSessionCommand(),
         new MemoryStatsCommand(),
+        new FontDiagnosticsCommand(),
     ];
 
     /// <summary>取当前显示的那一页（不是会话页时为 null）</summary>
@@ -176,5 +181,65 @@ internal sealed class MemoryStatsCommand : IDevCommand
             residentHistories = SessionManager.Instance.ResidentHistoryCount,
             gen2Collections = GC.CollectionCount(2),
         };
+    }
+}
+
+/// <summary>
+/// 字体诊断：给一段样本文字，报出每一段字形<b>实际</b>解析到的字体、字重与是否合成。
+///
+/// 为什么必须在真实进程里问：无头测试默认用的是假的字体管理器
+/// （<c>UseHeadlessDrawing = true</c>，系统字体一律解析成 <c>BareMinimum</c>），
+/// 在那一层得出的「族名对不对、加粗有没有生效」全都不作数。
+///
+/// 参数：<c>text</c>（样本，默认中英混排）、<c>family</c>（字体族，默认 <c>MainFont</c>）。
+/// 中英混排是关键——中文走不走字符回退，正是「同一个 **XXX** 一半粗一半不粗」的分水岭。
+/// </summary>
+internal sealed class FontDiagnosticsCommand : IDevCommand
+{
+    public string Name => "diag.font";
+
+    public object? Execute(JsonElement args)
+    {
+        string text = Arg(args, "text") ?? "修了什么 Bold 123";
+        string? familyArg = Arg(args, "family");
+        FontFamily family = familyArg != null
+            ? new FontFamily(familyArg)
+            : Application.Current?.FindResource("MainFont") as FontFamily ?? FontFamily.Default;
+
+        return new
+        {
+            family = family.ToString(),
+            normal = Describe(text, family, FontWeight.Normal),
+            bold = Describe(text, family, FontWeight.Bold),
+        };
+    }
+
+    private static string? Arg(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out JsonElement value)
+            ? value.GetString()
+            : null;
+
+    private static object Describe(string text, FontFamily family, FontWeight weight)
+    {
+        TextBlock block = new() { Text = text, FontFamily = family, FontWeight = weight, FontSize = 20 };
+        block.Measure(new Size(2000, 2000));
+
+        List<object> runs = [];
+        foreach (TextLine line in block.TextLayout.TextLines)
+        {
+            foreach (TextRun run in line.TextRuns)
+            {
+                if (run is not ShapedTextRun shaped) continue;
+                runs.Add(new
+                {
+                    text = shaped.Text.Span.ToString(),
+                    typeface = shaped.GlyphRun.GlyphTypeface.FamilyName,
+                    weight = (int)shaped.GlyphRun.GlyphTypeface.Weight,
+                    simulations = shaped.GlyphRun.GlyphTypeface.FontSimulations.ToString(),
+                });
+            }
+        }
+
+        return new { width = Math.Round(block.DesiredSize.Width, 1), runs };
     }
 }
