@@ -6,6 +6,7 @@ using Avalonia.Controls.Documents;
 using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Services.TextMate;
 
 namespace UiharuMind.Shared.Controls;
 

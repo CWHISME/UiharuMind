@@ -16,7 +16,7 @@ using AvaloniaEdit.Rendering;
 using TextMateSharp.Grammars;
 using TextMateSharp.Themes;
 
-namespace UiharuMind.Shared.Controls;
+namespace UiharuMind.Shared.Services.TextMate;
 
 /// <summary>
 /// 预 tokenize 调度器：把 TextMate 语法高亮的成本从渲染管线里挪出来。

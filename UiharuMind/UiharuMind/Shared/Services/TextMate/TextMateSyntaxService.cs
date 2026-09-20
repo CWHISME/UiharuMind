@@ -17,7 +17,7 @@ using TextMateSharp.Themes;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 
-namespace UiharuMind.Shared.Controls;
+namespace UiharuMind.Shared.Services.TextMate;
 
 /// <summary>
 /// LongTextView 的语法高亮协调器：把「高亮」从控件里整个抽出来，控件只负责调用

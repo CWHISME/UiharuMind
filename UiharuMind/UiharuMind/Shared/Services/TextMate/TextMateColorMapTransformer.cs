@@ -16,7 +16,7 @@ using AvaloniaEdit.Rendering;
 using TextMateSharp.Themes;
 using FontStyle = TextMateSharp.Themes.FontStyle;
 
-namespace UiharuMind.Shared.Controls;
+namespace UiharuMind.Shared.Services.TextMate;
 
 /// <summary>
 /// 查表型语法高亮 transformer：颜色由 <see cref="TextMatePreTokenizer"/> 预计算好后塞进来，

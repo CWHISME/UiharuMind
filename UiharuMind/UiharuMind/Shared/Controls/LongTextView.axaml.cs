@@ -18,6 +18,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Shared.Services.TextMate;
 
 namespace UiharuMind.Shared.Controls;
 
