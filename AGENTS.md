@@ -38,20 +38,26 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 
 ```bash
 dotnet build UiharuMind/UiharuMind.sln
-dotnet test  UiharuMind/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj
-dotnet test  UiharuMind/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj
+dotnet msbuild UiharuMind/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test
+dotnet msbuild UiharuMind/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test
 ```
 
 测试框架是 xunit v3（`xunit.v3` 4.x），跑在 Microsoft.Testing.Platform（MTP）上，由仓库根的
-`global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，所以
-`dotnet msbuild <csproj> -t:Test`（等价于直接运行产物 exe）同样可用。
+`global.json`（`test.runner`）选择加入。MTP 测试项目本身是可执行文件，
+`dotnet msbuild <csproj> -t:Test` 等价于直接运行产物 exe（`<csproj 同名目录>/bin/Debug/net10.0/<项目名>`）。
+**跑测试用这个或直接跑产物 exe，别用 `dotnet test`。**
 
-⚠️ `dotnet test` 能用的前提是两个测试项目都带
-`<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>`。.NET 10 SDK 起
-`dotnet test` 不再走 VSTest，缺这个属性它会直接报错——早前那次「运行了零个测试 / exit 5」
-就是这一处没打开，不是 SDK 的毛病（SDK 10.0.301 实测两个项目 948 / 405 全跑通）。
+⚠️ `dotnet test` 在本仓**测不出结果**：项目早已带
+`<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>`（缺它 .NET 10 SDK 起
+`dotnet test` 会直接报错，那是另一个坑），但 SDK 10.0.401 实测 `dotnet test` 两个项目都是
+「运行了零个测试 / exit 5」——它压根没发现测试，0 通过不代表测试真过了。判成败一律看
+`dotnet msbuild -t:Test` 或产物 exe 的输出（10.0.301 上曾全跑通，说明这个行为随 SDK 版本变，
+不要再用 dotnet test）。
+
 过滤语法与 VSTest 不同（`--filter-class` / `--filter-method` / `--filter-trait`…，见
-<https://xunit.net/docs/getting-started/v3/microsoft-testing-platform>）。
+<https://xunit.net/docs/getting-started/v3/microsoft-testing-platform>），参数直接跟在产物
+exe 后面。`--filter-class` 要写**完整类型名**（如 `UiharuMind.Core.Tests.AI.RemoteModelInfoTests`），
+简写类名会静默得到「运行了零个测试」且退出码不是失败——务必核对输出的「总计」不是 0。
 
 > `ClassicDiagnostics.Avalonia` 是 vendored 的独立解决方案，其 NUnit 测试项目不在
 > `UiharuMind.sln` 中，也不走本仓的 MTP 流程。
