@@ -11,8 +11,8 @@ using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using UiharuMind.Core.AI.Memory;
-using UiharuMind.Shared.Shell;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Memory;
 
 /// <summary>

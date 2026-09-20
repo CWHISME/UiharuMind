@@ -17,7 +17,6 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Features.LogViewer;
 using UiharuMind.Features.About;
@@ -31,6 +30,7 @@ using UiharuMind.Shared.Data;
 using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Shared.Diagnostics;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Shell;
 
 public partial class MainViewModel : ViewModelBase //, IRecipient<string>

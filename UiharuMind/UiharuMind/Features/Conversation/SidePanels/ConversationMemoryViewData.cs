@@ -15,12 +15,12 @@ using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Memory;
 using UiharuMind.Features.Conversation.SessionList;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.SidePanels;
 
 /// <summary>

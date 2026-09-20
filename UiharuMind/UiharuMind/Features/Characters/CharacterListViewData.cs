@@ -9,10 +9,10 @@ using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Characters;
 
 /// <summary>

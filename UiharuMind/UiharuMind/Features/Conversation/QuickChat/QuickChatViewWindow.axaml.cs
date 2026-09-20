@@ -3,10 +3,9 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
-using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Chat;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.QuickChat;
 
 /// <summary>
@@ -27,6 +26,9 @@ public partial class QuickChatViewWindow : QuickWindowBase
 {
     private const double DefaultWidth = 500; //会话里有工具卡片与代码块,窄了每张都折行
     private const double DefaultHeight = 666;
+
+    private static readonly IApplicationActivationPolicy _activationPolicy =
+        ApplicationActivationPolicyFactory.Create();
 
     /// <summary>
     /// 文档型窗口要参与 macOS 的常规模式，否则应用停在附属态，
@@ -55,7 +57,7 @@ public partial class QuickChatViewWindow : QuickWindowBase
                 opened.WindowState = WindowState.Normal; //可能被最小化了
                 opened.RequestFocus();
                 // 与 UIManager 开窗那条路同一口径:文档型窗口取焦点要连整应用一起激活
-                MacApplicationActivationService.ActivateIgnoringOtherApps();
+                _activationPolicy.ActivateIgnoringOtherApps();
                 //不重新 SetSession:那会弃掉正看着的视图模型再整段重载,滚动位置与展开状态全丢
                 return;
             }

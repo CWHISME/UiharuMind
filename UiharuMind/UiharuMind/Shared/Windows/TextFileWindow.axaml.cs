@@ -24,9 +24,9 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Windows;
 
 /// <summary>

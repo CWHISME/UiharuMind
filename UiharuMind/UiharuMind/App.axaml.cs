@@ -36,6 +36,7 @@ using UiharuMind.Features.QuickTools;
 using UiharuMind.Features.Settings;
 using UiharuMind.Shared.Utils;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind;
 
 public partial class App : Application, ILogger, IDisposable

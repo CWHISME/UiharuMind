@@ -20,13 +20,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using System;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.Core.SimpleLog;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.Composer;
 
 /// <summary>

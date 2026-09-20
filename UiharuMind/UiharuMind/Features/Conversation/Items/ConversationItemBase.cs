@@ -20,12 +20,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>

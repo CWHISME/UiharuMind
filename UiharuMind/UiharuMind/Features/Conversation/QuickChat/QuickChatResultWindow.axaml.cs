@@ -29,7 +29,6 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Utils.Tools;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.AI.Core;
@@ -41,6 +40,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils.Tools;
 using UiharuMind.Core;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.QuickChat;
 
 public partial class QuickChatResultWindow : QuickWindowBase

@@ -4,8 +4,8 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.ScreenCapture;
 
 /// <summary>

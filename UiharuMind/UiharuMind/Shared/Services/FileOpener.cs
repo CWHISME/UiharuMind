@@ -20,10 +20,10 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Services;
 
 /// <summary>

@@ -9,6 +9,7 @@ using UiharuMind.Shared.Windows;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.QuickTools
 {
     public class RadialMenuModel : ViewModelBase

@@ -11,9 +11,9 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Windows;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>

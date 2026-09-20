@@ -8,12 +8,12 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.CharacterCards;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.Core.SimpleLog;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Characters;
 
 public partial class ImportCharacterWindow : Window

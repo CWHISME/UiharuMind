@@ -18,9 +18,9 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.SimpleLog;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Services;
 
 public class FilesService //: IStorageFolder

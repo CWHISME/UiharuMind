@@ -29,6 +29,7 @@ using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Models;
 
 public partial class ModelPageData : PageDataBase

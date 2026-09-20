@@ -9,8 +9,8 @@
 
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using UiharuMind.Shared.Shell;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Windows;
 
 /// <summary>

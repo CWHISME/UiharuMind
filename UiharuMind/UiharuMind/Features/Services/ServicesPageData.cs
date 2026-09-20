@@ -35,6 +35,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Services;
 
 public partial class ServicesPageData : PageDataBase

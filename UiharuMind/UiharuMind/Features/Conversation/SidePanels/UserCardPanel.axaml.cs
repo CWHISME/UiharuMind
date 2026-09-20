@@ -1,10 +1,10 @@
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.SidePanels;
 
 public partial class UserCardPanel : UserControl

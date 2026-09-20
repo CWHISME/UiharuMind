@@ -17,10 +17,10 @@ using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Windows.Focus;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Windows;
 
 public abstract class UiharuWindowBase : Window
@@ -86,6 +86,8 @@ public abstract class UiharuWindowBase : Window
                 return;
             }
 
+            UIManager.MarkWindowShown(this); //复用显示：占用的缓存名额放出来
+
             this.WindowState = WindowState.Normal;
             Dispatcher.UIThread.Post(() =>
             {
@@ -137,7 +139,7 @@ public abstract class UiharuWindowBase : Window
         OnPreCloseEvent?.Invoke();
         OnPreClose();
         _focusBehavior.PrepareClose(this);
-        if (IsCacheWindow)
+        if (IsCacheWindow && !UIManager.IsForceClosing(this) && UIManager.TryCacheWindow(this))
         {
             e.Cancel = true;
             // App.DummyWindow.Activate();

@@ -7,8 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
-using UiharuMind.Shared.Shell;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Characters;
 
 /// <summary>

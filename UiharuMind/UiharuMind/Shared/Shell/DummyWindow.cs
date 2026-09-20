@@ -21,7 +21,6 @@ using SharpHook.Data;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Services.Permissions;
 using UiharuMind.Shared.Utils;
-using UiharuMind.Shared.Shell;
 using Ursa.Controls;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Features.Translate;
@@ -37,6 +36,7 @@ using UiharuMind.Features.QuickTools;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Shared.Shell;
 
 public class DummyWindow : Window

@@ -15,9 +15,9 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Memory;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Memory;
 
 public partial class MemoryEditorWindow : Window

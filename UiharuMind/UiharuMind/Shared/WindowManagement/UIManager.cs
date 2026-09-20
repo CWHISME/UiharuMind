@@ -10,7 +10,6 @@
  ****************************************************************************/
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
@@ -18,22 +17,23 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture;
 
-namespace UiharuMind.Shared.Shell;
+namespace UiharuMind.Shared.WindowManagement;
 
+/// <summary>
+/// UI 门面：窗口打开/关闭/聚焦等编排入口。窗口存哪、缓存怎么留，
+/// 分别在 <see cref="WindowRegistry"/> 与 <see cref="WindowCache"/>。
+/// </summary>
 public static class UIManager
 {
-    // private static Dictionary<Type, UiharuWindowBase> _windows = new Dictionary<Type, UiharuWindowBase>();
+    private static readonly IApplicationActivationPolicy _activationPolicy =
+        ApplicationActivationPolicyFactory.Create();
 
-    // public static bool IsClosing => ClosingWindowSet.Count > 0; //{ get; set; } = false;
-    // public static HashSet<UiharuWindowBase> ClosingWindowSet { get; set; } = new HashSet<UiharuWindowBase>();
-
-    private static Dictionary<Type, List<UiharuWindowBase>> _multiWindows = new();
     private static Stack<Window> _windowStack = new Stack<Window>();
     private static HashSet<Type> _creatingWindows = new();
 
@@ -51,12 +51,7 @@ public static class UIManager
     {
         Dispatcher.UIThread.Invoke(() =>
         {
-            _multiWindows.TryGetValue(typeof(T), out var windowsList);
-            if (windowsList == null)
-            {
-                windowsList = new List<UiharuWindowBase>();
-                _multiWindows[typeof(T)] = windowsList;
-            }
+            var windowsList = WindowRegistry.GetOrCreateList(typeof(T));
 
             T? window = null;
             foreach (var win in windowsList)
@@ -104,7 +99,7 @@ public static class UIManager
             RefreshMacApplicationActivationPolicy();
             // 辅助窗口（快捷面板、浮窗）排除在外：整应用激活会把后台的主界面一起抬到前台
             if (isActivate && window is { ContributesToMacRegularMode: true, IsAuxiliaryWindow: false })
-                MacApplicationActivationService.ActivateIgnoringOtherApps();
+                _activationPolicy.ActivateIgnoringOtherApps();
         }, DispatcherPriority.Render);
     }
 
@@ -117,18 +112,13 @@ public static class UIManager
     public static IReadOnlyList<UiharuWindowBase> GetWindows<T>()
         where T : UiharuWindowBase
     {
-        return _multiWindows.TryGetValue(typeof(T), out var windows) ? windows : [];
+        return WindowRegistry.GetWindows(typeof(T));
     }
 
     public static T? GetWindow<T>()
         where T : UiharuWindowBase
     {
-        if (_multiWindows.TryGetValue(typeof(T), out var windows) && windows.Count > 0)
-        {
-            return (T)windows[0];
-        }
-
-        return null;
+        return WindowRegistry.FirstOrNull(typeof(T)) as T;
     }
 
     /// <summary>
@@ -142,13 +132,6 @@ public static class UIManager
         return App.DummyWindow;
     }
 
-    // public static MainWindow? GetMainWindow()
-    // {
-    //     var mainWindow = GetWindow<MainWindow>();
-    //     if (mainWindow?.IsVisible == true) return mainWindow;
-    //     return null;
-    // }
-
     /// <summary>
     /// 当前焦点窗口
     /// </summary>
@@ -157,13 +140,10 @@ public static class UIManager
     {
         if (_windowStack.Count > 0) return _windowStack.Peek();
         Window? selectedWindow = null;
-        foreach (var window in _multiWindows)
+        foreach (var win in WindowRegistry.All())
         {
-            foreach (var win in window.Value)
-            {
-                if (win.IsFocused) return win;
-                if (win.IsActive && win.IsVisible && win.WindowState != WindowState.Minimized) selectedWindow = win;
-            }
+            if (win.IsFocused) return win;
+            if (win.IsActive && win.IsVisible && win.WindowState != WindowState.Minimized) selectedWindow = win;
         }
 
         return selectedWindow ?? GetRootWindow();
@@ -177,34 +157,41 @@ public static class UIManager
 
     public static void CloseWindow(Type type)
     {
-        if (_multiWindows.TryGetValue(type, out var windows) && windows.Count > 0)
-        {
-            windows[0].Close();
-        }
+        WindowRegistry.FirstOrNull(type)?.Close();
     }
+
+    /// <summary>
+    /// 把窗口收进缓存（关闭时隐藏、待下次复用）。见 <see cref="WindowCache.TryCache"/>。
+    /// </summary>
+    public static bool TryCacheWindow(UiharuWindowBase win) => WindowCache.TryCache(win);
+
+    /// <summary>
+    /// 窗口重新显示时调用，把它从缓存集合里移出。见 <see cref="WindowCache.MarkShown"/>。
+    /// </summary>
+    public static void MarkWindowShown(UiharuWindowBase win) => WindowCache.MarkShown(win);
+
+    /// <summary>
+    /// 该窗口这次 Close 是否由 LRU 强制触发（必须真关）。见 <see cref="WindowCache.IsForceClosing"/>。
+    /// </summary>
+    public static bool IsForceClosing(UiharuWindowBase win) => WindowCache.IsForceClosing(win);
 
     public static void RemoveWindow(UiharuWindowBase win)
     {
-        if (_multiWindows.TryGetValue(win.GetType(), out var windows) && windows.Count > 0)
-        {
-            windows.Remove(win);
-        }
+        WindowCache.Drop(win);
+        WindowRegistry.Remove(win);
     }
 
     public static void RefreshMacApplicationActivationPolicy()
     {
-        MacApplicationActivationService.SetRegularMode(HasVisibleMacRegularModeWindow());
+        _activationPolicy.SetRegularMode(HasVisibleMacRegularModeWindow());
     }
 
     private static bool HasVisibleMacRegularModeWindow()
     {
-        foreach (var window in _multiWindows.Values)
+        foreach (var win in WindowRegistry.All())
         {
-            foreach (var win in window)
-            {
-                if (win.ContributesToMacRegularMode && win.IsVisible && win.WindowState != WindowState.Minimized)
-                    return true;
-            }
+            if (win.ContributesToMacRegularMode && win.IsVisible && win.WindowState != WindowState.Minimized)
+                return true;
         }
 
         return false;
@@ -289,7 +276,6 @@ public static class UIManager
         }
     }
 
-//===================open====================
     /// <summary>
     /// 弹出通用的文本编辑窗
     /// </summary>
@@ -307,8 +293,4 @@ public static class UIManager
         window.DataContext = new StringContentEditWindowViewModel(content, null);
         return await window.ShowDialog<string?>(owner ?? UIManager.GetFocusWindow());
     }
-
-    // feature 专属的窗口打开器住在各自 feature 里:
-    // 角色见 Features/Characters/CharacterWindows,知识库见 Features/Memory/MemoryWindows。
-    // 这里只留通用机制(窗口栈、焦点窗口、字符串编辑、图片预览)
 }

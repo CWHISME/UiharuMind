@@ -23,9 +23,9 @@ using UiharuMind.Features.Characters;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.SessionList;
 
 /// <summary>

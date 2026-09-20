@@ -27,6 +27,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
 using UiharuMind.Core;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.ScreenCapture;
 
 public static class ScreenCaptureManager

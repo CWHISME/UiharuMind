@@ -10,8 +10,8 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
-using UiharuMind.Shared.Shell;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.Items;
 
 /// <summary>

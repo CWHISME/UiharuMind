@@ -22,10 +22,10 @@ using UiharuMind.Features.ScreenCapture.Overlay;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.ScreenCapture;
 
 /// <summary>

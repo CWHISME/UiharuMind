@@ -14,9 +14,9 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.Core.Clipboard;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Clipboard;
 
 /// <summary>

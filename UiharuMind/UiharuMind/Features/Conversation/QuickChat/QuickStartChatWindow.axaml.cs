@@ -23,10 +23,10 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Core.Core.SimpleLog;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.Conversation.QuickChat;
 
 /// <summary>

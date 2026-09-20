@@ -21,11 +21,11 @@ using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AI.Character.PromptActions;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.QuickTools;
 
 /// <summary>

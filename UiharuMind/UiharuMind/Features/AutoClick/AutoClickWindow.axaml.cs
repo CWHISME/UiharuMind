@@ -8,11 +8,11 @@ using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
-using UiharuMind.Shared.Shell;
 using UiharuMind.Core.AutoClick;
 using UiharuMind.Features.Settings;
 using UiharuMind.Resources.Lang;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.AutoClick;
 
 public partial class AutoClickWindow : UiharuWindowBase

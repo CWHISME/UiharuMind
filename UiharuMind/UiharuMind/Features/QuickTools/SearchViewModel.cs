@@ -11,6 +11,7 @@ using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Shell;
 
+using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.QuickTools;
 
 public partial class SearchViewModel : ViewModelBase
