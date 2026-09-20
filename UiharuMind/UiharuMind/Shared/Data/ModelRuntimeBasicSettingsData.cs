@@ -19,7 +19,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Models;
 
-namespace UiharuMind.Shared.Controls;
+namespace UiharuMind.Shared.Data;
 
 public partial class ModelRuntimeBasicSettingsData : ObservableObject
 {

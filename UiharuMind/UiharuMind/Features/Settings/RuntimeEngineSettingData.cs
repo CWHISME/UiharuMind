@@ -23,6 +23,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.Core;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Core.AI.Runtime.Backends;
+using UiharuMind.Shared.Data;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Utils;
 

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using UiharuMind.Shared.Data;
 
 namespace UiharuMind.Shared.Controls;
 
