@@ -76,12 +76,44 @@ public static class SaveUtility
     /// <summary>
     /// 原子写盘:先写临时文件再替换。进程死在写一半时,
     /// 目标文件仍是完整的旧版本,而不是半截损坏的 JSON。
+    /// 临时文件每次调用唯一:同一文件的并发保存曾共用 <c>filePath + ".tmp"</c>,
+    /// 先替换的吃掉 tmp,后到的以 FileNotFound 炸掉并弹错误框。
+    /// 唯一 tmp + 瞬态重试后,并发只剩"谁后写谁赢",落盘的永远是完整快照。
     /// </summary>
     private static void WriteAtomic(string filePath, string content)
     {
-        string tempPath = filePath + ".tmp";
-        File.WriteAllText(tempPath, content);
-        File.Move(tempPath, filePath, true);
+        string tempPath = filePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            const int maxAttempts = 3;
+            for (int attempt = 1;; attempt++)
+            {
+                try
+                {
+                    File.WriteAllText(tempPath, content);
+                    File.Move(tempPath, filePath, true);
+                    return;
+                }
+                catch (IOException) when (attempt < maxAttempts)
+                {
+                    // 同一目标的并发替换等瞬态失败:退避重试。
+                    // 内存里的对象才是权威,下一次保存还会重写,这里只为吞掉这次抖动。
+                    // 注意 FileNotFoundException 也是 IOException,正好覆盖"目标被并发替换删掉"那一下。
+                    Thread.Sleep(TimeSpan.FromMilliseconds(20 * attempt));
+                }
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+            }
+            catch
+            {
+                // 残留 tmp 不影响下次保存,下次会用新的唯一文件名
+            }
+        }
     }
 
     /// <summary>
