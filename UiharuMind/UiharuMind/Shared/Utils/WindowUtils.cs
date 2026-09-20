@@ -28,7 +28,8 @@ public static class WindowUtils
 {
     public static void SetWindowToMousePosition(this Window window,
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
-        VerticalAlignment verticalAlignment = VerticalAlignment.Top, double width = 0, double height = 0, int offsetX = 0, int offsetY = 0)
+        VerticalAlignment verticalAlignment = VerticalAlignment.Top, double width = 0, double height = 0, int offsetX = 0, int offsetY = 0,
+        PixelPoint? anchor = null)
     {
         var fallbackSize = GetMeasuredWindowSize(window);
         if (width <= 0 || double.IsNaN(width) || double.IsInfinity(width)) width = fallbackSize.Width;
@@ -42,7 +43,8 @@ public static class WindowUtils
             return;
         }
 
-        var pos = App.ScreensService.MousePosition;
+        // anchor 非空时以它为准（截图预览传选框角），否则跟随当前鼠标
+        var pos = anchor ?? App.ScreensService.MousePosition;
         Dispatcher.UIThread.Invoke(() =>
         {
             var windowWidth = width;

@@ -2949,6 +2949,21 @@ Allow them?</value>
     <data name="ScreenCaptureResolution" xml:space="preserve">
         <value>Resolution</value>
     </data>
+    <data name="ScreenCaptureHintAdjustEnter" xml:space="preserve">
+        <value>Hold {0} and release to fine-tune the selection</value>
+    </data>
+    <data name="ScreenCaptureHintAdjustMode" xml:space="preserve">
+        <value>Drag inside to move · drag edge/corner to resize · Enter to capture · Esc to cancel</value>
+    </data>
+    <data name="ScreenCaptureMagnifierCopyHint" xml:space="preserve">
+        <value>Press {0}+C to copy the color</value>
+    </data>
+    <data name="ScreenCaptureMagnifierToggleHint" xml:space="preserve">
+        <value>Press Shift to switch RGB/HEX</value>
+    </data>
+    <data name="ScreenCaptureMagnifierCopied" xml:space="preserve">
+        <value>Copied</value>
+    </data>
 
     <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
         <value>Open the sub-agent panel to decide. It is denied automatically if nobody answers.</value>

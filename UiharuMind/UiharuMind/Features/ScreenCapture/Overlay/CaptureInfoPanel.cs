@@ -23,15 +23,17 @@ internal sealed class CaptureInfoPanel
     private readonly Control _selectionPage;
     private readonly TextBlock _positionText;
     private readonly TextBlock _resolutionText;
+    private readonly TextBlock _selectionHintText;
 
     public CaptureInfoPanel(Border panel, Control magnifierPage, Control selectionPage,
-        TextBlock positionText, TextBlock resolutionText)
+        TextBlock positionText, TextBlock resolutionText, TextBlock selectionHintText)
     {
         _panel = panel;
         _magnifierPage = magnifierPage;
         _selectionPage = selectionPage;
         _positionText = positionText;
         _resolutionText = resolutionText;
+        _selectionHintText = selectionHintText;
     }
 
     public void ShowMagnifierPage()
@@ -55,6 +57,12 @@ internal sealed class CaptureInfoPanel
     public void Hide()
     {
         _panel.IsVisible = false;
+    }
+
+    /// <summary>设置选区页的提示行文案</summary>
+    public void SetSelectionHint(string text)
+    {
+        _selectionHintText.Text = text;
     }
 
     /// <summary>还没开始框选时，尺寸一栏显示整块屏幕的物理分辨率</summary>

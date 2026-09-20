@@ -205,11 +205,12 @@ public static class UIManager
     /// <param name="endMousePos">结束截图的鼠标位置</param>
     /// <param name="size">显示尺寸（DIP），null 表示按图片自身推算</param>
     public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, PixelPoint startMousePos,
-        PixelPoint endMousePos, Size? size = null)
+        PixelPoint endMousePos, Size? size = null, PixelPoint? anchor = null)
     {
         ShowPreviewImageWindowAtMousePosition(image, size,
             endMousePos.X > startMousePos.X ? HorizontalAlignment.Left : HorizontalAlignment.Right,
-            endMousePos.Y > startMousePos.Y ? VerticalAlignment.Top : VerticalAlignment.Bottom);
+            endMousePos.Y > startMousePos.Y ? VerticalAlignment.Top : VerticalAlignment.Bottom,
+            anchor);
     }
 
     /// <summary>
@@ -240,7 +241,8 @@ public static class UIManager
     /// </summary>
     public static void ShowPreviewImageWindowAtMousePosition(Bitmap? image, Size? size = null,
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
-        VerticalAlignment verticalAlignment = VerticalAlignment.Top)
+        VerticalAlignment verticalAlignment = VerticalAlignment.Top,
+        PixelPoint? anchor = null)
     {
         if (image == null)
         {
@@ -255,7 +257,7 @@ public static class UIManager
         }
 
         ShowWindow<ScreenCapturePreviewWindow>(
-            (window) => { window.SetImage(image, size, null, horizontalAlignment, verticalAlignment); }, isMulti: true);
+            (window) => { window.SetImage(image, size, null, horizontalAlignment, verticalAlignment, anchor); }, isMulti: true);
     }
 
     public static async void ShowDialogStackWindow(this Window target, Window owner)

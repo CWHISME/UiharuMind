@@ -12,6 +12,7 @@ using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture.Frames;
 using UiharuMind.Shared.Utils;
+using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Features.ScreenCapture.Overlay;
 
@@ -42,7 +43,7 @@ internal sealed class CaptureMagnifier
     private Color? _lastSampleColor;
 
     public CaptureMagnifier(Image image, Path gridLines, Path cross, Shape swatch,
-        TextBlock positionText, TextBlock colorText, TextBlock copyHint)
+        TextBlock positionText, TextBlock colorText, TextBlock copyHint, TextBlock toggleHint)
     {
         _image = image;
         _gridLines = gridLines;
@@ -54,8 +55,10 @@ internal sealed class CaptureMagnifier
 
         _image.Source = _view;
         _swatch.Fill = _swatchBrush;
-        _copyHintText = UiharuCoreManager.Instance.IsMacOs ? "按 ⌘+C 复制颜色值" : "按 Ctrl+C 复制颜色值";
+        _copyHintText = string.Format(Lang.ScreenCaptureMagnifierCopyHint,
+            UiharuCoreManager.Instance.IsMacOs ? "⌘" : "Ctrl");
         _copyHint.Text = _copyHintText;
+        toggleHint.Text = Lang.ScreenCaptureMagnifierToggleHint;
         BuildOverlay();
     }
 
@@ -84,7 +87,8 @@ internal sealed class CaptureMagnifier
         if (!ReferenceEquals(_view.Source, display)) _view.Source = display;
         _view.SourceRect = rect;
 
-        _positionText.Text = $"坐标：{(int)Math.Round(pointer.X * toPixels)}, {(int)Math.Round(pointer.Y * toPixels)}";
+        _positionText.Text =
+            $"{Lang.ScreenCapturePosition}:({(int)Math.Round(pointer.X * toPixels)}, {(int)Math.Round(pointer.Y * toPixels)})";
 
         var color = frame.SampleColor(pointer);
         if (color == null) return;
@@ -109,7 +113,7 @@ internal sealed class CaptureMagnifier
         try
         {
             _ = clipboard.SetValueAsync(DataFormat.Text, text);
-            _copyHint.Text = "已复制";
+            _copyHint.Text = Lang.ScreenCaptureMagnifierCopied;
             DispatcherTimer.RunOnce(() => _copyHint.Text = _copyHintText, TimeSpan.FromMilliseconds(800));
         }
         catch (Exception e)

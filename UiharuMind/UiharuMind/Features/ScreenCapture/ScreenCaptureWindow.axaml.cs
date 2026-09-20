@@ -24,6 +24,9 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core;
+using SharpHook.Data;
+using UiharuMind.Core.Input;
+using UiharuMind.Resources.Lang;
 
 using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.ScreenCapture;
@@ -54,7 +57,11 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     //遮罩窗铺满整屏并独占指针,窗内事件坐标就是屏幕坐标真值。
     //不再向全局钩子要鼠标位置:纯 Wayland 下拿不到,而这里本来就不需要
     private PixelPoint _lastPointerPixel;
-    private PixelPoint _releasedPointerPixel;
+
+    // ---- 调整模式状态：框选完成，选框保留可微调（虚线+角柄），回车执行截图 ----
+    private bool _adjusting;
+    private SelectionResizeHandle _dragHandle;
+    private Point _dragLastPointer;
 
     // 显示前只备帧不落几何，OnPostShow 再落位（见 UpdateCaptureScreen）
     private bool _deferredGeometry;
@@ -66,6 +73,13 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // 遮罩铺满全屏且独占指针，后续移动窗口一定收得到，钩子再掺一脚只会两个来源互相顶
     private bool _selectionFromHook;
 
+    // 调整模式下按位置切光标；静态复用，避免指针热路径上每帧 new
+    private static readonly Cursor CursorMove = new(StandardCursorType.DragMove);
+    private static readonly Cursor CursorResizeDiagonalLeft = new(StandardCursorType.TopLeftCorner);
+    private static readonly Cursor CursorResizeDiagonalRight = new(StandardCursorType.TopRightCorner);
+    private static readonly Cursor CursorResizeVertical = new(StandardCursorType.SizeNorthSouth);
+    private static readonly Cursor CursorResizeHorizontal = new(StandardCursorType.SizeWestEast);
+
     public override bool IsCacheWindow => false;
     public override bool ContributesToMacRegularMode => false;
 
@@ -75,10 +89,12 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
         _geometry = new CaptureOverlayGeometry(this);
         _selection = new CaptureSelectionLayer(SelectionRectangle, DimTop, DimBottom, DimLeft, DimRight,
-            () => new Size(Width, Height));
+            SelectionHandleTopLeft, SelectionHandleTopRight, SelectionHandleBottomLeft, SelectionHandleBottomRight,
+            () => new Size(Width, Height), () => RenderScaling);
         _magnifier = new CaptureMagnifier(MagnifierImage, MagnifierGridLines, MagnifierCross, MagnifierSwatch,
-            MagnifierPositionText, MagnifierColorText, MagnifierHintCopy);
-        _infoPanel = new CaptureInfoPanel(InfoPanel, MagnifierPanel, SelectionInfoPanel, PositionText, ResolutionText);
+            MagnifierPositionText, MagnifierColorText, MagnifierHintCopy, MagnifierHintToggle);
+        _infoPanel = new CaptureInfoPanel(InfoPanel, MagnifierPanel, SelectionInfoPanel, PositionText, ResolutionText,
+            SelectionHintText);
 
         InitializeWindow();
 
@@ -171,6 +187,17 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        // 调整模式下回车执行截图；框选/悬停状态不响应
+        if (e.Key == Key.Enter && _adjusting)
+        {
+            DoAreaCapture();
+            e.Handled = true;
+            return;
+        }
+
+        // 框选途中按下 ⌘/Ctrl：亮起虚线+角柄预告「松手进调整模式」，松开即熄灭
+        if (_selection.IsSelecting) _selection.ShowAdjustPreview(HasAdjustModifierHeld());
+
         if (e.Key == Key.LeftShift || e.Key == Key.RightShift)
         {
             _magnifier.ToggleColorFormat();
@@ -190,7 +217,14 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnKeyUp(KeyEventArgs e)
     {
         base.OnKeyUp(e);
-        if (e.Key == Key.Escape) Close();
+        if (e.Key == Key.Escape)
+        {
+            Close();
+            return;
+        }
+
+        // 松开修饰键：预告熄灭（若此刻仍在框选）
+        if (_selection.IsSelecting) _selection.ShowAdjustPreview(HasAdjustModifierHeld());
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -209,6 +243,35 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         bool isControlLeft = pointerUpdateKind == PointerUpdateKind.RightButtonPressed && hasControl;
         bool isAltRightAsLeft = pointerUpdateKind == PointerUpdateKind.RightButtonPressed &&
                                 hasAlt && !hasControl && !hasMeta;
+        bool isRightCancel = pointerUpdateKind == PointerUpdateKind.RightButtonPressed &&
+                             !isAltRightAsLeft && !isControlLeft;
+
+        if (_adjusting)
+        {
+            // 调整模式：右键/Esc 取消整次截屏；框内按下=移动，边/角按下=缩放；框外按下=重新框选
+            if (isRightCancel)
+            {
+                SafeClose(0.15f);
+                return;
+            }
+            if (pointerUpdateKind != PointerUpdateKind.LeftButtonPressed && !isAltRightAsLeft && !isControlLeft)
+                return;
+
+            Point p = e.GetPosition(ScreenshotCanvas);
+            var handle = _selection.HitTest(p);
+            if (handle == SelectionResizeHandle.None)
+            {
+                BeginSelection(p);
+            }
+            else
+            {
+                _dragHandle = handle;
+                _dragLastPointer = p;
+                if (handle == SelectionResizeHandle.Move) Cursor = CursorMove;
+            }
+            return;
+        }
+
         if (pointerUpdateKind == PointerUpdateKind.LeftButtonPressed || isControlLeft || isAltRightAsLeft)
         {
             _selectionFromHook = false;
@@ -227,6 +290,26 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         _selectionFromHook = false;
         TrackPointer(e);
         _infoPanel.Reveal();
+
+        if (_adjusting)
+        {
+            if (_currentScreen == null) return;
+            Point p = e.GetPosition(ScreenshotCanvas);
+            if (_dragHandle != SelectionResizeHandle.None)
+            {
+                ApplyAdjustDrag(p);
+            }
+            else
+            {
+                // 悬停：按位置切光标，并按选区页持续报尺寸
+                Cursor = CursorForAdjustHover(_selection.HitTest(p));
+                _infoPanel.ShowSelectionPage();
+                _infoPanel.ShowSelectionSize(_currentScreen, RenderScaling, _lastPointerPixel, Position,
+                    _selection.Selection.Size);
+            }
+            return;
+        }
+
         if (!_selection.IsSelecting)
         {
             UpdateMagnifier();
@@ -235,6 +318,8 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
         if (_currentScreen == null) return;
 
+        // 框选途中按住修饰键：先亮虚线+角柄预告，松手才正式进调整模式
+        _selection.ShowAdjustPreview(HasAdjustModifier(e.KeyModifiers));
         UpdateCaptureScreen();
         UpdateSelection(e.GetPosition(ScreenshotCanvas));
     }
@@ -242,8 +327,15 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         TrackPointer(e);
-        _releasedPointerPixel = _lastPointerPixel;
-        if (_selection.IsSelecting) DoAreaCapture();
+        if (_adjusting)
+        {
+            // 调整模式的松手只结束手势，永远不截图（截图只认回车）
+            _dragHandle = SelectionResizeHandle.None;
+            Cursor = CursorForAdjustHover(_selection.HitTest(e.GetPosition(ScreenshotCanvas)));
+            return;
+        }
+
+        if (_selection.IsSelecting) OnSelectionReleased(HasAdjustModifier(e.KeyModifiers));
     }
 
     // 钩子补位事件：窗口事件坐标精确，到了会覆盖这里的值（同一次物理事件，幂等）
@@ -253,6 +345,25 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         _selectionFromHook = true;
         _lastPointerPixel = screenUnits;
         _infoPanel.Reveal();
+
+        // 调整模式下钩子的每一次按下都会在窗口之后补位进来：按框内不能当「框外重选」，
+        // 否则窗口刚起手的移动/缩放手势会被这次 BeginSelection 打断成新框选（实测 bug）
+        if (_adjusting)
+        {
+            var handle = _selection.HitTest(windowDip);
+            if (handle == SelectionResizeHandle.None)
+            {
+                BeginSelection(windowDip);
+            }
+            else
+            {
+                _dragHandle = handle;
+                _dragLastPointer = windowDip;
+                if (handle == SelectionResizeHandle.Move) Cursor = CursorMove;
+            }
+            return;
+        }
+
         BeginSelection(windowDip);
     }
 
@@ -267,15 +378,111 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     // 反过来窗口漏掉时（拖到别的屏上松手），只有这里能把这次框选收尾
     private void OnHookReleased(PixelPoint screenUnits)
     {
+        // 调整模式的手势拖出窗外松手（窗口收不到）：只结束手势，不截图
+        if (_adjusting)
+        {
+            _dragHandle = SelectionResizeHandle.None;
+            return;
+        }
         if (!_selection.IsSelecting) return;
-        _releasedPointerPixel = screenUnits;
-        DoAreaCapture();
+        OnSelectionReleased(HasAdjustModifierHeld());
     }
 
     private void OnHookRightPressed()
     {
         SafeClose(0.15f);
     }
+
+    #region 调整模式
+
+    /// <summary>框选结束的共同收尾：带修饰键松手进调整模式（有效框）或回到悬停（零尺寸点击）</summary>
+    private void OnSelectionReleased(bool adjustRequested)
+    {
+        if (adjustRequested)
+        {
+            if (_selection.Selection.Width > 0 && _selection.Selection.Height > 0)
+            {
+                EnterAdjustMode();
+            }
+            else
+            {
+                // 带修饰键的零尺寸点击当没发生过：清掉点出来的空框，回到悬停
+                _selection.Reset();
+                UpdateMagnifier();
+            }
+            return;
+        }
+
+        DoAreaCapture();
+    }
+
+    /// <summary>结束框选并进入调整模式：虚线+角柄，等待回车确认截图</summary>
+    private void EnterAdjustMode()
+    {
+        _selection.EnterAdjust();
+        _adjusting = true;
+        _dragHandle = SelectionResizeHandle.None;
+        _infoPanel.ShowSelectionPage();
+        _infoPanel.SetSelectionHint(AdjustModeHint);
+        if (_currentScreen != null)
+            _infoPanel.ShowSelectionSize(_currentScreen, RenderScaling, _lastPointerPixel, Position,
+                _selection.Selection.Size);
+    }
+
+    /// <summary>移动/缩放手势进行中：按当前指针更新选框，并持续报尺寸</summary>
+    private void ApplyAdjustDrag(Point p)
+    {
+        if (_dragHandle == SelectionResizeHandle.Move)
+        {
+            _selection.MoveBy(p - _dragLastPointer, new Size(Width, Height));
+            _dragLastPointer = p;
+        }
+        else
+        {
+            _selection.ResizeTo(_dragHandle, p, new Size(Width, Height));
+        }
+
+        if (_currentScreen != null)
+            _infoPanel.ShowSelectionSize(_currentScreen, RenderScaling, _lastPointerPixel, Position,
+                _selection.Selection.Size);
+    }
+
+    private static Cursor CursorForAdjustHover(SelectionResizeHandle handle)
+    {
+        return handle switch
+        {
+            SelectionResizeHandle.TopLeft or SelectionResizeHandle.BottomRight => CursorResizeDiagonalLeft,
+            SelectionResizeHandle.TopRight or SelectionResizeHandle.BottomLeft => CursorResizeDiagonalRight,
+            SelectionResizeHandle.Top or SelectionResizeHandle.Bottom => CursorResizeVertical,
+            SelectionResizeHandle.Left or SelectionResizeHandle.Right => CursorResizeHorizontal,
+            SelectionResizeHandle.Move => CursorMove,
+            _ => Cursor.Default,
+        };
+    }
+
+    /// <summary>平台对应的「进入调整模式」修饰键：macOS 是 ⌘，其余平台是 Ctrl</summary>
+    private static bool HasAdjustModifier(KeyModifiers modifiers)
+    {
+        return UiharuCoreManager.Instance.IsMacOs
+            ? modifiers.HasFlag(KeyModifiers.Meta)
+            : modifiers.HasFlag(KeyModifiers.Control);
+    }
+
+    /// <summary>钩子路径没有 KeyModifiers，走 InputManager 的修饰键真值（读操作系统，不受漏事件影响）</summary>
+    private bool HasAdjustModifierHeld()
+    {
+        return UiharuCoreManager.Instance.IsMacOs
+            ? InputManager.Instance.IsPressed(KeyCode.VcLeftMeta) || InputManager.Instance.IsPressed(KeyCode.VcRightMeta)
+            : InputManager.Instance.IsPressed(KeyCode.VcLeftControl) ||
+              InputManager.Instance.IsPressed(KeyCode.VcRightControl);
+    }
+
+    private static string DrawingHint =>
+        string.Format(Lang.ScreenCaptureHintAdjustEnter, UiharuCoreManager.Instance.IsMacOs ? "⌘" : "Ctrl");
+
+    private static string AdjustModeHint => Lang.ScreenCaptureHintAdjustMode;
+
+    #endregion
 
     /// 把窗内事件坐标换算成桌面绝对像素并留存。遮罩窗铺满目标屏且独占指针，
     /// 这就是本次截图期间唯一可靠的鼠标位置来源，纯 Wayland 下同样成立
@@ -295,8 +502,13 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
 
     private void BeginSelection(Point windowDip)
     {
+        // 不论从哪里来（调整模式重新框选 / 钩子补位），进入框选都要退出调整态
+        _adjusting = false;
+        _dragHandle = SelectionResizeHandle.None;
+        Cursor = Cursor.Default;
         _selection.Begin(windowDip);
         _infoPanel.ShowSelectionPage();
+        _infoPanel.SetSelectionHint(DrawingHint);
     }
 
     private void UpdateSelection(Point windowDip)
@@ -328,16 +540,19 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
             return;
         }
 
-        // 起点与终点都来自本窗的指针事件，换算到屏幕坐标后交给帧裁剪
+        // 起点与终点都从选框当前几何换算（窗内 DIP → 屏幕绝对像素）交给帧裁剪。
+        // 不能再用框选起点/松手点：调整模式下选框被平移或缩放过后，那两个原始值已不再代表选区。
+        // 先用与暗带同一函数把选框对齐到设备像素：洞的显示边界与裁剪边界同源，视觉与结果不再差 1px
         var scaling = _currentScreen.Scaling;
         var origin = _currentScreen.Bounds.Position;
-        var startPixelPoint = origin + (PixelVector)PixelPoint.FromPoint(_selection.StartPoint, scaling);
-        var endPixelPoint = _releasedPointerPixel;
+        var aligned = SelectionGeometry.AlignToDevicePixels(selection, scaling);
+        var startPixelPoint = origin + (PixelVector)PixelPoint.FromPoint(new Point(aligned.X, aligned.Y), scaling);
+        var endPixelPoint = origin + (PixelVector)PixelPoint.FromPoint(new Point(aligned.Right, aligned.Bottom), scaling);
         var region = new PixelRect(
             Math.Min(startPixelPoint.X, endPixelPoint.X),
             Math.Min(startPixelPoint.Y, endPixelPoint.Y),
-            (int)(selection.Width * scaling),
-            (int)(selection.Height * scaling));
+            Math.Max(0, endPixelPoint.X - startPixelPoint.X),
+            Math.Max(0, endPixelPoint.Y - startPixelPoint.Y));
 
         try
         {
@@ -351,8 +566,10 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
                 // 裁出来的是不带 DPI 的物理像素图，显示尺寸由抓图那一侧的屏幕换算给出：
                 // 让预览窗自己猜的话，它可能开在另一块缩放不同的屏上（mac 尤甚，Scaling 恒为 1）
                 var displaySize = image.PixelSize.ToSize(DisplayUnits.PixelsPerDip(scaling, RenderScaling));
-                //校正截图的上下左右不同方向拖动方式
-                UIManager.ShowPreviewImageWindowAtMousePosition(image, startPixelPoint, endPixelPoint, displaySize);
+                //预览窗贴「选框结束角」而不是当前鼠标：回车截图时鼠标可能已离开选框，
+                //若还按鼠标定位，图片会跳去别处；同时消除松手到弹窗之间移动鼠标带来的抖动
+                UIManager.ShowPreviewImageWindowAtMousePosition(image, startPixelPoint, endPixelPoint, displaySize,
+                    endPixelPoint);
             }
         }
         catch (Exception e)
@@ -512,8 +729,10 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
         _pendingFrame = null;
         _pendingScreen = null;
         _lastPointerPixel = default;
-        _releasedPointerPixel = default;
         _selectionFromHook = false;
+        _adjusting = false;
+        _dragHandle = SelectionResizeHandle.None;
+        Cursor = Cursor.Default;
         _currentScreen = null;
     }
 

@@ -13,13 +13,25 @@
             <!-- 全屏变暗：选区四周四条带子围出一个洞。
                  不用 CombinedGeometry 打洞——那样每帧都得新建几何，丢弃的 SKPath 被终结器释放时，
                  合成器的 render data 还引用着它，命中测试与渲染会撞上已释放的原生对象。
-                 四个矩形只改 Width/Height 与 Canvas 位置，不产生任何原生对象 -->
-            <Rectangle x:Name="DimTop" Fill="#66000000" IsHitTestVisible="False" />
-            <Rectangle x:Name="DimBottom" Fill="#66000000" IsHitTestVisible="False" />
-            <Rectangle x:Name="DimLeft" Fill="#66000000" IsHitTestVisible="False" />
-            <Rectangle x:Name="DimRight" Fill="#66000000" IsHitTestVisible="False" />
+                 四个矩形只改 Width/Height 与 Canvas 位置，不产生任何原生对象。
+                 带子边缘必须 Aliased：半透明矩形默认反锯齿，在非整数倍缩放的屏上，
+                 带子内边与洞的边界会被抹成 1px 毛边（框选顶部一条细线），对齐像素后消失 -->
+            <Rectangle x:Name="DimTop" Fill="#66000000" IsHitTestVisible="False" RenderOptions.EdgeMode="Aliased" />
+            <Rectangle x:Name="DimBottom" Fill="#66000000" IsHitTestVisible="False" RenderOptions.EdgeMode="Aliased" />
+            <Rectangle x:Name="DimLeft" Fill="#66000000" IsHitTestVisible="False" RenderOptions.EdgeMode="Aliased" />
+            <Rectangle x:Name="DimRight" Fill="#66000000" IsHitTestVisible="False" RenderOptions.EdgeMode="Aliased" />
             <Rectangle x:Name="SelectionRectangle" Fill="Transparent" StrokeThickness="2" Stroke="DeepSkyBlue"
-                       IsHitTestVisible="False" />
+                       IsHitTestVisible="False" RenderOptions.EdgeMode="Aliased" />
+
+            <!-- 调整模式角柄：纯视觉，命中测试由 SelectionGeometry 手动判，不需要可点 -->
+            <Rectangle x:Name="SelectionHandleTopLeft" Width="9" Height="9" Fill="White" Stroke="DeepSkyBlue"
+                       StrokeThickness="1" IsHitTestVisible="False" IsVisible="False" />
+            <Rectangle x:Name="SelectionHandleTopRight" Width="9" Height="9" Fill="White" Stroke="DeepSkyBlue"
+                       StrokeThickness="1" IsHitTestVisible="False" IsVisible="False" />
+            <Rectangle x:Name="SelectionHandleBottomLeft" Width="9" Height="9" Fill="White" Stroke="DeepSkyBlue"
+                       StrokeThickness="1" IsHitTestVisible="False" IsVisible="False" />
+            <Rectangle x:Name="SelectionHandleBottomRight" Width="9" Height="9" Fill="White" Stroke="DeepSkyBlue"
+                       StrokeThickness="1" IsHitTestVisible="False" IsVisible="False" />
         </Canvas>
 
         <!-- tips 必须在暗层之后，之前被 50% 黑盖在下面看不见 -->
@@ -39,19 +51,21 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Grid>
                     <StackPanel Margin="0,8,0,0">
-                        <TextBlock Name="MagnifierPositionText" Text="坐标：" Foreground="White" />
+                        <TextBlock Name="MagnifierPositionText" Text="" Foreground="White" />
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Rectangle Name="MagnifierSwatch" Width="14" Height="14" Fill="White" />
                             <TextBlock Name="MagnifierColorText" Text="" Foreground="White" />
                         </StackPanel>
-                        <TextBlock Name="MagnifierHintCopy" Text="按 ⌘+C 复制颜色值" Foreground="Gray" FontSize="11" />
-                        <TextBlock Name="MagnifierHintToggle" Text="按 Shift 切换 RGB/HEX" Foreground="Gray" FontSize="11" />
+                        <TextBlock Name="MagnifierHintCopy" Text="" Foreground="Gray" FontSize="11" />
+                        <TextBlock Name="MagnifierHintToggle" Text="" Foreground="Gray" FontSize="11" />
                     </StackPanel>
                 </StackPanel>
                 <!-- 拖选：位置/尺寸 -->
                 <StackPanel Name="SelectionInfoPanel" IsVisible="False">
                     <TextBlock Name="PositionText" Text="xxx" Foreground="White" />
                     <TextBlock Name="ResolutionText" Text="xxx" Foreground="White" />
+                    <TextBlock Name="SelectionHintText" Text="" Foreground="Gray" FontSize="11"
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </StackPanel>
         </Border>

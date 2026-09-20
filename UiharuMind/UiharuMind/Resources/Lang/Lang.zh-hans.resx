@@ -2942,6 +2942,21 @@
     <data name="ScreenCaptureResolution" xml:space="preserve">
         <value>分辨率</value>
     </data>
+    <data name="ScreenCaptureHintAdjustEnter" xml:space="preserve">
+        <value>按住 {0} 松手可微调选区</value>
+    </data>
+    <data name="ScreenCaptureHintAdjustMode" xml:space="preserve">
+        <value>拖动框内移动 · 拖边/角缩放 · 回车截图 · Esc 取消</value>
+    </data>
+    <data name="ScreenCaptureMagnifierCopyHint" xml:space="preserve">
+        <value>按 {0}+C 复制颜色值</value>
+    </data>
+    <data name="ScreenCaptureMagnifierToggleHint" xml:space="preserve">
+        <value>按 Shift 切换 RGB/HEX</value>
+    </data>
+    <data name="ScreenCaptureMagnifierCopied" xml:space="preserve">
+        <value>已复制</value>
+    </data>
 
     <data name="SubAgentApprovalWaitingTip" xml:space="preserve">
         <value>到右栏「子代理」面板处理。无人应答会按拒绝收口。</value>

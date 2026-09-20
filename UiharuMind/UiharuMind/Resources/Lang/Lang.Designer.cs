@@ -2206,6 +2206,36 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string ScreenCaptureHintAdjustEnter {
+            get {
+                return ResourceManager.GetString("ScreenCaptureHintAdjustEnter", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureHintAdjustMode {
+            get {
+                return ResourceManager.GetString("ScreenCaptureHintAdjustMode", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureMagnifierCopyHint {
+            get {
+                return ResourceManager.GetString("ScreenCaptureMagnifierCopyHint", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureMagnifierToggleHint {
+            get {
+                return ResourceManager.GetString("ScreenCaptureMagnifierToggleHint", resourceCulture);
+            }
+        }
+        
+        public static string ScreenCaptureMagnifierCopied {
+            get {
+                return ResourceManager.GetString("ScreenCaptureMagnifierCopied", resourceCulture);
+            }
+        }
+        
         public static string TrayMenuOpenSaveDir {
             get {
                 return ResourceManager.GetString("TrayMenuOpenSaveDir", resourceCulture);

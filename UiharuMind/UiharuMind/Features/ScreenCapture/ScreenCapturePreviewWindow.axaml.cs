@@ -143,7 +143,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     /// <param name="verticalAlignment">相对鼠标的垂直对齐</param>
     public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null,
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
-        VerticalAlignment verticalAlignment = VerticalAlignment.Top)
+        VerticalAlignment verticalAlignment = VerticalAlignment.Top,
+        PixelPoint? anchorMouse = null)
     {
         var scaling = App.ScreensService.Scaling;
         _originSize = size ?? DefaultDisplaySize(image);
@@ -164,7 +165,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         SetDisplaySize(_originSize);
         _currentScale = 1.0; // 换图后缩放归一，否则沿用旧 scale 下一次滚轮会跳变
 
-        if (pos == null) AlignImageToMouse(horizontalAlignment, verticalAlignment);
+        if (pos == null) AlignImageToMouse(horizontalAlignment, verticalAlignment, anchorMouse);
 
         // 见字段注释：Show 之前的尺寸可能被裁，落位推迟到 OnPostShow
         _pendingFramePosition = Position;
@@ -200,9 +201,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     // SetWindowToMousePosition 对齐的是窗口边，而图片被 ShadowMargin 内缩了一圈透明死区，
     // 直接用窗口尺寸定位，图片就会朝拖动起点那侧偏掉一个 margin（往右下拖是左上偏，反向拖反向偏）。
     // 办法是按图片尺寸算出图片该在的位置，再把窗口左上角往回退一个左上留白
-    private void AlignImageToMouse(HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment)
+    private void AlignImageToMouse(HorizontalAlignment horizontalAlignment, VerticalAlignment verticalAlignment,
+        PixelPoint? anchor = null)
     {
-        this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height);
+        this.SetWindowToMousePosition(horizontalAlignment, verticalAlignment, _originSize.Width, _originSize.Height,
+            anchor: anchor);
 
         double positionUnitsPerDip = DisplayUnits.PositionUnitsPerDip(App.ScreensService.Scaling, RenderScaling);
         Position -= new PixelVector(
