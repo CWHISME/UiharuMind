@@ -44,6 +44,12 @@ public sealed class IdleMemoryReclaimer : IDisposable
     private static readonly TimeSpan MinInterval = TimeSpan.FromMinutes(3); //两次回收之间的最小间隔
     private const long FragmentationThresholdBytes = 64L * 1024 * 1024; //碎片低于这个数就不值得付那次暂停
 
+    // 「已提交减去堆实际大小」超过这个数也算够本。光看碎片会漏掉一大类:FragmentedBytes 只数
+    // 活对象之间的空隙,数不到整块空着、却没还给系统的 region。实测一次 30 分钟的会话里活对象
+    // 只有 206MB,已提交却涨到 7.8GB(vmmap 里是一万七千块 256KB 的 VM_ALLOCATE),
+    // 而同期碎片一直没稳定过阈值——闸门只开在碎片上就成了撞运气
+    private const long UncommittedSlackThresholdBytes = 256L * 1024 * 1024;
+
     private readonly DispatcherTimer _timer;
     private DateTime _lastReclaimedAt = DateTime.MinValue;
 
@@ -63,7 +69,7 @@ public sealed class IdleMemoryReclaimer : IDisposable
 
     private void OnTick(object? sender, EventArgs e)
     {
-        if (!ShouldReclaim(out long fragmentedBytes)) return;
+        if (!ShouldReclaim(out long fragmentedBytes, out long slackBytes)) return;
 
         long committedBefore = GC.GetGCMemoryInfo().TotalCommittedBytes;
 
@@ -75,21 +81,25 @@ public sealed class IdleMemoryReclaimer : IDisposable
         _lastReclaimedAt = DateTime.UtcNow;
         long committedAfter = GC.GetGCMemoryInfo().TotalCommittedBytes;
         Log.Debug($"Idle memory reclaim: committed {ToMb(committedBefore)} -> {ToMb(committedAfter)} MB " +
-                  $"(fragmentation was {ToMb(fragmentedBytes)} MB).");
+                  $"(fragmentation {ToMb(fragmentedBytes)} MB, slack {ToMb(slackBytes)} MB).");
     }
 
-    /// <param name="fragmentedBytes">上次回收时的碎片量，仅在返回 true 时有意义</param>
+    /// <param name="fragmentedBytes">触发时的碎片量，仅在返回 true 时有意义</param>
+    /// <param name="slackBytes">触发时的「已提交未用」量，仅在返回 true 时有意义</param>
     /// <returns>此刻该不该回收</returns>
-    private bool ShouldReclaim(out long fragmentedBytes)
+    private bool ShouldReclaim(out long fragmentedBytes, out long slackBytes)
     {
         fragmentedBytes = 0;
+        slackBytes = 0;
         if (DateTime.UtcNow - _lastReclaimedAt < MinInterval) return false;
 
         // 任何会话在跑(含卡在审批上)都算忙:阻塞式压缩撞在流式中间就是一次可见卡顿
         if (SessionManager.Instance.Running.ActiveSessions().Count > 0) return false;
 
-        fragmentedBytes = GC.GetGCMemoryInfo().FragmentedBytes;
-        return fragmentedBytes >= FragmentationThresholdBytes;
+        GCMemoryInfo info = GC.GetGCMemoryInfo();
+        fragmentedBytes = info.FragmentedBytes;
+        slackBytes = Math.Max(0, info.TotalCommittedBytes - info.HeapSizeBytes);
+        return fragmentedBytes >= FragmentationThresholdBytes || slackBytes >= UncommittedSlackThresholdBytes;
     }
 
     private static long ToMb(long bytes) => bytes / 1048576;
