@@ -2152,6 +2152,9 @@
     <data name="RemoteModelSelectProviderHint" xml:space="preserve">
         <value>选择一个预设服务商，或使用自定义配置。</value>
     </data>
+    <data name="RemoteModelOpenWebsite" xml:space="preserve">
+        <value>查看官网</value>
+    </data>
     <data name="RemoteModelCreateTitle" xml:space="preserve">
         <value>创建远程模型</value>
     </data>

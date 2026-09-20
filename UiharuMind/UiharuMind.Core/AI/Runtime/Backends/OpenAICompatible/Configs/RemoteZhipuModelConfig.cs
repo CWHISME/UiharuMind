@@ -15,6 +15,8 @@ public class RemoteZhipuModelConfig : BaseRemoteModelConfig, IRemoteModelConfig
 
     public override string ModelPath { get; set; } = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
 
+    public override string WebsiteUrl { get; set; } = "https://open.bigmodel.cn";
+
     public override string ModelDescription { get; set; } = "";
 
     public override string ModelId { get; set; } = "glm-4-flash";

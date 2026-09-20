@@ -104,6 +104,25 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
+                        <TextBlock Text="{loc:Loc ApiKey}" FontWeight="SemiBold" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox Text="{Binding ApiKey}" PasswordChar="*"
+                                     PlaceholderText="{loc:Loc RemoteModelApiKeyPlaceholder}" />
+                            <Button Grid.Column="1" VerticalAlignment="Stretch" Padding="14,0"
+                                    Command="{Binding OpenProviderWebsiteCommand}"
+                                    IsVisible="{Binding CanOpenProviderWebsite}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="square-arrow-out-up-right" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOpenWebsite}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{loc:Loc RemoteModelApiKeyHint}" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Classes="error" Text="{loc:Loc NotInputModelApiKey}"
+                                   IsVisible="{Binding HasApiKeyError}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
                         <TextBlock Text="{loc:Loc RemoteModelNameLabel}" FontWeight="SemiBold" />
                         <TextBox Text="{Binding ModelName}"
                                  PlaceholderText="{loc:Loc RemoteModelNamePlaceholder}" />
@@ -163,15 +182,6 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="{loc:Loc RemoteModelThinkingModeHint}" Classes="muted" TextWrapping="Wrap" />
-                    </StackPanel>
-
-                    <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc ApiKey}" FontWeight="SemiBold" />
-                        <TextBox Text="{Binding ApiKey}" PasswordChar="*"
-                                 PlaceholderText="{loc:Loc RemoteModelApiKeyPlaceholder}" />
-                        <TextBlock Text="{loc:Loc RemoteModelApiKeyHint}" Classes="muted" TextWrapping="Wrap" />
-                        <TextBlock Classes="error" Text="{loc:Loc NotInputModelApiKey}"
-                                   IsVisible="{Binding HasApiKeyError}" />
                     </StackPanel>
 
                     <!-- 自定义配置:接口地址等全部平铺 -->

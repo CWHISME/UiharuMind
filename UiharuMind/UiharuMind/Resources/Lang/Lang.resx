@@ -2159,6 +2159,9 @@
     <data name="RemoteModelSelectProviderHint" xml:space="preserve">
         <value>Pick a preset provider, or use a custom configuration.</value>
     </data>
+    <data name="RemoteModelOpenWebsite" xml:space="preserve">
+        <value>Provider Website</value>
+    </data>
     <data name="RemoteModelCreateTitle" xml:space="preserve">
         <value>Create Remote Model</value>
     </data>

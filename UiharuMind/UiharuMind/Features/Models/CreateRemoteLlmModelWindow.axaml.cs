@@ -55,7 +55,9 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     private BaseRemoteModelConfig? _draftConfig; //创建/复制模式下待写入的新配置实例
     private bool _suppressProviderReset; //编辑模式初始化选中服务商时不重置表单
 
-    [ObservableProperty] private ProviderItem? _selectedProvider;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanOpenProviderWebsite))]
+    private ProviderItem? _selectedProvider;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanConfirm))]
@@ -236,6 +238,21 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     public bool CanConfirm => !HasNameError && !HasDuplicateNameError && !HasApiKeyError &&
                               !HasContextLengthError && !HasMaxTokensError;
 
+    /// <summary>
+    /// 当前服务商是否有可跳转的官网入口
+    /// </summary>
+    public bool CanOpenProviderWebsite => SelectedProvider?.WebsiteUrl is { Length: > 0 };
+
+    /// <summary>
+    /// 打开当前服务商的官网(开放平台),便于查看模型文档或申请 API Key
+    /// </summary>
+    [RelayCommand]
+    private void OpenProviderWebsite()
+    {
+        if (SelectedProvider?.WebsiteUrl is not { Length: > 0 } url) return;
+        _ = TopLevel.GetTopLevel(App.DummyWindow)?.Launcher.LaunchUriAsync(new Uri(url));
+    }
+
     public CreateRemoteLlmModelWindowViewModel() : this(null)
     {
     }
@@ -253,6 +270,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
             {
                 Name = type.GetDescription(),
                 DefaultEndpoint = defaultConfig?.ModelPath ?? "",
+                WebsiteUrl = defaultConfig?.WebsiteUrl ?? "",
                 ConfigType = type,
             });
         }
@@ -486,6 +504,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         /// 默认接口地址
         /// </summary>
         public required string DefaultEndpoint { get; init; }
+
+        /// <summary>
+        /// 服务商官网/开放平台地址,空表示无固定官网(如自定义配置)
+        /// </summary>
+        public string WebsiteUrl { get; init; } = string.Empty;
 
         /// <summary>
         /// 对应的配置类型

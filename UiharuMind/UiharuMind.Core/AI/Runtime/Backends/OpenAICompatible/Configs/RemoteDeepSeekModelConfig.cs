@@ -11,6 +11,8 @@ public class RemoteDeepSeekModelConfig : BaseRemoteModelConfig, IRemoteModelConf
 
     public override string ModelPath { get; set; } = "https://api.deepseek.com/chat/completions";
 
+    public override string WebsiteUrl { get; set; } = "https://platform.deepseek.com";
+
     public override string ModelDescription { get; set; } = "";
 
     public override string ModelId { get; set; } = "deepseek-v4-flash";

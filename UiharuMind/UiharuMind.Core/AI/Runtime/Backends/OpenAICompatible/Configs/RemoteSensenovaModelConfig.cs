@@ -11,6 +11,8 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
 
     public override string ModelPath { get; set; } = "https://token.sensenova.cn/v1/chat/completions";
 
+    public override string WebsiteUrl { get; set; } = "https://platform.sensenova.cn";
+
     public override string ModelDescription { get; set; } = "";
 
     public override string ModelId { get; set; } = "deepseek-v4-flash";

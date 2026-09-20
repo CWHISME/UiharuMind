@@ -81,4 +81,13 @@ public class RemoteModelInfoTests
         Assert.True(kimi.OmitSamplingParams);
         Assert.False(generic.OmitSamplingParams);
     }
+
+    [Fact]
+    public void WebsiteUrl_PresetProvidersHaveOne_CustomDoesNot()
+    {
+        Assert.Equal("https://platform.deepseek.com", new RemoteDeepSeekModelConfig().WebsiteUrl);
+        Assert.Equal("https://open.bigmodel.cn", new RemoteZhipuModelConfig().WebsiteUrl);
+        Assert.Equal("https://platform.sensenova.cn", new RemoteSensenovaModelConfig().WebsiteUrl);
+        Assert.Equal(string.Empty, new RemoteModelConfig().WebsiteUrl);
+    }
 }

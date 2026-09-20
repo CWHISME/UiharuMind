@@ -12,6 +12,13 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     [SettingConfigIgnoreDisplay] public string? ConfigType { get; set; }
     public virtual string ModelName { get; set; } = string.Empty;
     public virtual string ModelPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 服务商官网/开放平台地址,用于界面一键跳转;空表示无固定官网(如自定义配置)
+    /// </summary>
+    [JsonIgnore]
+    public virtual string WebsiteUrl { get; set; } = string.Empty;
+
     public virtual string ModelDescription { get; set; } = string.Empty;
     public virtual string ModelId { get; set; } = string.Empty;
     public virtual bool IsVision { get; set; }
