@@ -78,6 +78,7 @@ public partial class ConversationView : UserControl
     private const double EarlierLoadThreshold = 32.0;
 
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
+    private bool _isBubbleSweepScheduled; //已排了一次视口清扫,合并同一帧内的多次滚动通知
     private ConversationViewModel? _viewModel;
     private bool _isLoadingEarlier; //正在续一窗更早的消息(防抖)
 
@@ -290,6 +291,8 @@ public partial class ConversationView : UserControl
     /// </summary>
     private void OnViewerScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
+        ScheduleBubbleSweep();
+
         if (_isLoadingEarlier) return;
         // extent 增长是"内容变多要贴底",不是"用户滚到顶"。初始贴底时 AnchorToBottom 第一次
         // UpdateLayout 会让 extent 首度长高,此刻 Offset 还在顶部(0),若不当心会把这一窗续掉,
@@ -340,7 +343,57 @@ public partial class ConversationView : UserControl
         }
 
         ScrollToBottom();
+        ScheduleBubbleSweep(); //贴底之后上面那些在 settle 过程中转过的气泡已经滚远了
         global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/anchor:passes={passes},items={MessageList.ItemCount}", anchorBegin);
+    }
+
+    /// <summary>
+    /// 安排一次视口清扫。合并成一个后台任务：一次滚动会连发好几个 <c>ScrollChanged</c>，
+    /// 而清扫读的是几何，一帧读一次就够；放到 <c>Background</c> 也顺带避开了
+    /// 「在滚动回调里当场动布局」那类麻烦。
+    /// </summary>
+    private void ScheduleBubbleSweep()
+    {
+        if (_isBubbleSweepScheduled) return;
+        _isBubbleSweepScheduled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _isBubbleSweepScheduled = false;
+            SweepBubbleViewport();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// 滚远的气泡卸载成等高占位，视口内还没转的当场转。<see cref="RealizeVisibleBubbles"/>
+    /// 只管后半件事，这里补上前半件——没有它，一窗气泡滚过一遍就全部实化在那里不走了。
+    ///
+    /// <para>
+    /// <b>上下各留一整屏缓冲</b>：贴着视口边缘卸载，轻微滚动就会来回拆建，而重建是要钱的。
+    /// 留一屏之后再动手，正常滚动永远落在缓冲区内。
+    /// </para>
+    ///
+    /// <para>
+    /// 判据是<b>相对 <c>Viewer</c> 的几何</b>，不是气泡自己的视口通知：那份矩形被祖先裁剪过，
+    /// 气泡一滚出去它就是空的，从里面只看得出「看不见了」，看不出「离多远」。
+    /// 与 <see cref="RealizeVisibleBubbles"/> 同一套换算。
+    /// </para>
+    /// </summary>
+    private void SweepBubbleViewport()
+    {
+        double viewportHeight = Viewer.Viewport.Height;
+        if (viewportHeight <= 0) return;
+
+        foreach (SimpleMarkdownViewer bubble in MessageList.GetVisualDescendants().OfType<SimpleMarkdownViewer>())
+        {
+            Point? topLeft = bubble.TranslatePoint(default, Viewer);
+            if (topLeft == null) continue;
+
+            double top = topLeft.Value.Y;
+            double bottom = top + bubble.Bounds.Height;
+
+            if (bottom < -viewportHeight || top > viewportHeight * 2) bubble.UnloadForViewport();
+            else if (bottom >= 0 && top <= viewportHeight) bubble.RealizeNow();
+        }
     }
 
     /// <summary>
