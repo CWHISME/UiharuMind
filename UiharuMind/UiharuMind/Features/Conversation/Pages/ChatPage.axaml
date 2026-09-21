@@ -42,7 +42,7 @@
                 <controls:ThemedSvgIcon IconName="message-circle-more" Width="52" Height="52"
                                         HorizontalAlignment="Center" />
                 <TextBlock Text="{loc:Loc ChatWorkspaceEmpty}" FontSize="17"
-                           FontWeight="SemiBold" HorizontalAlignment="Center" />
+                           FontWeight="Medium" HorizontalAlignment="Center" />
             </StackPanel>
         </pages:ConversationPageShell.EmptyContent>
 

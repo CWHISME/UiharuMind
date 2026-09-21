@@ -42,7 +42,7 @@
             <Grid RowDefinitions="Auto,*,Auto">
                 <TextBlock Text="{loc:Loc SettingsWindowTitle}"
                            FontSize="14"
-                           FontWeight="SemiBold"
+                           FontWeight="Medium"
                            Margin="4,4,4,12" />
 
                 <StackPanel Grid.Row="1" Spacing="6">
@@ -106,7 +106,7 @@
 
                 <StackPanel Grid.Row="2" Margin="4,12,4,4">
                     <TextBlock Text="UiharuMind"
-                               FontWeight="SemiBold"
+                               FontWeight="Medium"
                                FontSize="13" />
                     <TextBlock Name="VersionText"
                                Foreground="{DynamicResource SemiGrey6}"
@@ -124,7 +124,7 @@
                                Margin="28,0,0,0"
                                VerticalAlignment="Center"
                                FontSize="16"
-                               FontWeight="SemiBold" />
+                               FontWeight="Medium" />
                 </DockPanel>
             </Border>
 

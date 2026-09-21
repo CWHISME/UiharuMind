@@ -106,7 +106,7 @@
                                          IsVisible="{Binding IsDraftVisible}" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding Name}"
-                                           FontWeight="SemiBold"
+                                           FontWeight="Medium"
                                            Foreground="{DynamicResource SemiGrey7}"
                                            TextWrapping="NoWrap"
                                            MaxLines="1"

@@ -24,7 +24,7 @@
         </Style>
         <Style Selector="TextBlock.PermissionName">
             <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
         </Style>
         <Style Selector="TextBlock.PermissionDesc">
             <Setter Property="FontSize" Value="12" />
@@ -62,7 +62,7 @@
                 <TextBlock Text="{loc:Loc PermissionGuideTitle}"
                            VerticalAlignment="Center"
                            FontSize="16"
-                           FontWeight="SemiBold" />
+                           FontWeight="Medium" />
             </DockPanel>
         </Border>
 

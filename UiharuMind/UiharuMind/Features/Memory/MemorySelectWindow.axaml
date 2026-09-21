@@ -20,7 +20,7 @@
     <Window.Styles>
         <Style Selector="TextBlock.page-title">
             <Setter Property="FontSize" Value="21" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="Button.icon-action">
@@ -97,7 +97,7 @@
                                     </Border>
                                     <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="5">
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding Name}" FontWeight="Medium"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1"
                                                        Text="{loc:Loc MemoryAttachedBadge}"
@@ -132,7 +132,7 @@
                                       IconName="database" />
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                            <TextBlock Text="{Binding SelectedItem.Name}" FontSize="22" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding SelectedItem.Name}" FontSize="22" FontWeight="Medium"
                                        Foreground="{DynamicResource SemiGrey7}" />
                             <StackPanel Orientation="Horizontal" Spacing="7">
                                 <Border Classes="status-dot" Tag="{Binding SelectedItem.StatusKey}"
@@ -166,7 +166,7 @@
                             BorderThickness="1">
                         <Grid RowDefinitions="Auto,Auto" RowSpacing="7">
                             <TextBlock Text="{loc:Loc MemoryDescriptionSectionTitle}"
-                                       FontWeight="SemiBold" />
+                                       FontWeight="Medium" />
                             <ScrollViewer Grid.Row="1"
                                           MaxHeight="76"
                                           VerticalScrollBarVisibility="Auto">
@@ -182,19 +182,19 @@
                     <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="8">
                         <Border Classes="detail-panel" Padding="12">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="{Binding SelectedItem.TextSourceCount}" FontSize="20" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding SelectedItem.TextSourceCount}" FontSize="20" FontWeight="Medium" />
                                 <TextBlock Text="{loc:Loc MemoryManualTextTab}" Classes="muted" />
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="1" Classes="detail-panel" Padding="12">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="{Binding SelectedItem.FileSourceCount}" FontSize="20" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding SelectedItem.FileSourceCount}" FontSize="20" FontWeight="Medium" />
                                 <TextBlock Text="{loc:Loc MemoryTextFilesTab}" Classes="muted" />
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="2" Classes="detail-panel" Padding="12">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="{Binding SelectedItem.LastIndexedText}" FontSize="13" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding SelectedItem.LastIndexedText}" FontSize="13" FontWeight="Medium"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{loc:Loc MemoryLastIndexedLabel}" Classes="muted" />
                             </StackPanel>
@@ -209,7 +209,7 @@
                             IsVisible="{Binding IndexUpdater.IsUpdating}">
                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding IndexUpdater.ProgressStageText}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding IndexUpdater.ProgressStageText}" FontWeight="Medium" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding IndexUpdater.ProgressValue, StringFormat={}{0:0}%}"
                                            Foreground="{DynamicResource MemoryStatusProgressBrush}" />
@@ -232,7 +232,7 @@
                                       IconName="database"
                                       VerticalAlignment="Top" />
                             <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="{loc:Loc MemoryRoleUsageTitle}" FontWeight="SemiBold"
+                            <TextBlock Text="{loc:Loc MemoryRoleUsageTitle}" FontWeight="Medium"
                                        Foreground="{DynamicResource SemiBlue5}" />
                             <TextBlock Text="{loc:Loc MemoryRoleUsageHint}" TextWrapping="Wrap"
                                        Foreground="{DynamicResource SemiGrey6}" />
@@ -267,7 +267,7 @@
                             MaxWidth="300">
                     <controls:ThemedSvgIcon Width="42" Height="42" IconName="book-search" />
                     <TextBlock Text="{loc:Loc MemoryLibraryEmptyTitle}"
-                               FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                               FontSize="17" FontWeight="Medium" HorizontalAlignment="Center" />
                     <TextBlock Text="{loc:Loc MemoryLibraryEmptyHint}"
                                TextWrapping="Wrap" TextAlignment="Center" Classes="muted" />
                 </StackPanel>

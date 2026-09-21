@@ -23,7 +23,7 @@
         </Style>
         <Style Selector="TextBlock.title">
             <Setter Property="FontSize" Value="18" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
     </Window.Styles>
@@ -46,7 +46,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <controls:ThemedSvgIcon Width="22" Height="22" IconName="import" />
                             <StackPanel>
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc ImportFileTitle}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc ImportFileTitle}" />
                                 <TextBlock Classes="muted" Text="{loc:Loc ImportFileHint}" TextWrapping="Wrap" />
                             </StackPanel>
                         </StackPanel>

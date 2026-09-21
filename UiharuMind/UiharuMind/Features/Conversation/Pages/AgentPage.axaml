@@ -35,7 +35,7 @@
                 <controls:ThemedSvgIcon IconName="bot" Width="52" Height="52"
                                         HorizontalAlignment="Center" />
                 <TextBlock Text="{loc:Loc AgentEmptyTitle}" FontSize="17"
-                           FontWeight="SemiBold" HorizontalAlignment="Center" />
+                           FontWeight="Medium" HorizontalAlignment="Center" />
                 <TextBlock Classes="muted" Text="{loc:Loc AgentEmptyHint}"
                            HorizontalAlignment="Center" />
             </StackPanel>

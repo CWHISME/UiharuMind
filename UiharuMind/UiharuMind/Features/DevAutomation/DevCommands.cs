@@ -206,11 +206,21 @@ internal sealed class FontDiagnosticsCommand : IDevCommand
             ? new FontFamily(familyArg)
             : Application.Current?.FindResource("MainFont") as FontFamily ?? FontFamily.Default;
 
+        // 临时验证用：支持按字重单测（normal/medium/semibold/bold）
+        FontWeight weight = (Arg(args, "weight") ?? "normal").ToLowerInvariant() switch
+        {
+            "medium" => FontWeight.Medium,
+            "semibold" => FontWeight.SemiBold,
+            "bold" => FontWeight.Bold,
+            "extrabold" => FontWeight.ExtraBold,
+            _ => FontWeight.Normal,
+        };
+
         return new
         {
             family = family.ToString(),
-            normal = Describe(text, family, FontWeight.Normal),
-            bold = Describe(text, family, FontWeight.Bold),
+            weight = weight.ToString(),
+            result = Describe(text, family, weight),
         };
     }
 
@@ -236,6 +246,7 @@ internal sealed class FontDiagnosticsCommand : IDevCommand
                     typeface = shaped.GlyphRun.GlyphTypeface.FamilyName,
                     weight = (int)shaped.GlyphRun.GlyphTypeface.Weight,
                     simulations = shaped.GlyphRun.GlyphTypeface.FontSimulations.ToString(),
+                    platformSimulations = shaped.GlyphRun.GlyphTypeface.PlatformTypeface.FontSimulations.ToString(),
                 });
             }
         }

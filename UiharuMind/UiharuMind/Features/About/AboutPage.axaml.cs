@@ -37,10 +37,6 @@ public partial class AboutPage : UserControl
             "https://github.com/AvaloniaUI/Avalonia",
             "Cross-platform UI framework for dotnet"));
 
-        LinksPanel.Children.Add(CreateLink("Avalonia.HtmlRenderer",
-            "https://github.com/AvaloniaUI/Avalonia.HtmlRenderer",
-            "Avalonia port of the HTMLRenderer project"));
-
         LinksPanel.Children.Add(CreateLink("CliWrap",
             "https://github.com/Tyrrrz/CliWrap",
             "Library for interacting with external command-line interfaces"));
@@ -81,16 +77,37 @@ public partial class AboutPage : UserControl
             "https://github.com/AngleSharp/AngleSharp",
             "AngleSharp is a .NET library that gives you the ability to parse angle bracket based hyper-texts like HTML, SVG, and MathML."));
 
-        LinksPanel.Children.Add(CreateLink("Markdown.ColorCode",
-            "https://github.com/wbaldoumas/markdown-colorcode",
-            "An extension for Markdig that adds syntax highlighting to code through the power of ColorCode."));
+        LinksPanel.Children.Add(CreateLink("AvaloniaEdit",
+            "https://github.com/AvaloniaUI/AvaloniaEdit",
+            "Text editor control with line virtualization for long text viewing and editing"));
 
-        LinksPanel.Children.Add(CreateLink("Markdig",
-            "https://github.com/xoofx/markdig",
-            "Markdig is a fast, powerful, CommonMark compliant, extensible Markdown processor for .NET."));
+        LinksPanel.Children.Add(CreateLink("LiveMarkdown.Avalonia",
+            "https://github.com/DearVa/LiveMarkdown.Avalonia",
+            "High performance markdown rendering control for Avalonia UI"));
 
-        LinksPanel.Children.Add(CreateLink("SillyTavern",
-            "https://github.com/SillyTavern/SillyTavern", "参考了其中一些做法，并使用了部分系统提示"));
+        LinksPanel.Children.Add(CreateLink("TextMateSharp",
+            "https://github.com/danipen/TextMateSharp",
+            "TextMate grammar based syntax highlighting"));
+
+        LinksPanel.Children.Add(CreateLink("Semi.Avalonia",
+            "https://github.com/irihitech/Semi.Avalonia",
+            "Semi theme for Avalonia UI"));
+
+        LinksPanel.Children.Add(CreateLink("SkiaSharp",
+            "https://github.com/mono/SkiaSharp",
+            "Cross-platform 2D graphics for .NET"));
+
+        LinksPanel.Children.Add(CreateLink("Svg.Controls.Skia.Avalonia",
+            "https://github.com/wieslawsoltes/Svg.Controls.Skia",
+            "SVG rendering for Avalonia via Skia"));
+
+        LinksPanel.Children.Add(CreateLink("CommunityToolkit.Mvvm",
+            "https://github.com/CommunityToolkit/dotnet",
+            "MVVM toolkit for .NET"));
+
+        LinksPanel.Children.Add(CreateLink("SharpCompress",
+            "https://github.com/adamhathcock/sharpcompress",
+            "Compression and archiving library for .NET"));
     }
 
     private Control CreateLink(string name, string uri, string description)

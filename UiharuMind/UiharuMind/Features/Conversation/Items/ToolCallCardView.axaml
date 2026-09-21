@@ -68,7 +68,7 @@
                                    VerticalAlignment="Center" Margin="0,0,8,0" />
                         <!-- 刻意不给 Foreground:让它继承 ToggleButton 的蓝色。
                              展开变白那个 bug 由上面的 :checked 样式在源头解决 -->
-                        <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="13"
+                        <TextBlock Grid.Column="1" FontWeight="Medium" FontSize="13"
                                    VerticalAlignment="Center" Text="{Binding ToolName}" Classes="title-tweak" />
                         <!-- 摘要经常是路径：中间折叠比尾部截断好，文件名和“(N edits)”留在可见区 -->
                         <TextBlock Grid.Column="2" Classes="mono muted" Margin="10,2,8,0"

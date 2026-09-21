@@ -58,7 +58,7 @@
         </Style>
         <Style Selector="TextBlock.capability-section">
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
         </Style>
     </UserControl.Styles>
@@ -295,7 +295,7 @@
                                             <Border Background="{DynamicResource SemiGrey1}"
                                                     CornerRadius="8" Padding="10,8" Margin="0,3">
                                                 <StackPanel Spacing="4">
-                                                    <TextBlock FontSize="12" FontWeight="SemiBold"
+                                                    <TextBlock FontSize="12" FontWeight="Medium"
                                                                Text="{Binding DisplayName}"
                                                                TextWrapping="Wrap" />
                                                     <StackPanel Orientation="Horizontal" Spacing="8">

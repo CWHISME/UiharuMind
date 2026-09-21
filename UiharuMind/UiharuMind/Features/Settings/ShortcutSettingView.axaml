@@ -17,7 +17,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="{loc:Loc GlobalShortcuts}"
                            FontSize="15"
-                           FontWeight="SemiBold" />
+                           FontWeight="Medium" />
                 <Border Classes="SettingsSection">
                     <StackPanel>
                         <Grid ColumnDefinitions="*,220" MinHeight="44">

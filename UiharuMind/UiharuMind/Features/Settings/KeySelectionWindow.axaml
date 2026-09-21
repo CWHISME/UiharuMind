@@ -30,7 +30,7 @@
                 <TextBlock Name="KeyDisplayText"
                            Text="{loc:Loc KeySelectionWaiting}"
                            FontSize="22"
-                           FontWeight="SemiBold"
+                           FontWeight="Medium"
                            TextAlignment="Center"
                            MinWidth="220"
                            Foreground="{DynamicResource SemiBlue5}" />

@@ -37,6 +37,7 @@ using UiharuMind.Features.Settings;
 using UiharuMind.Shared.Utils;
 
 using UiharuMind.Shared.WindowManagement;
+using UiharuMind.Shared.Fonts;
 namespace UiharuMind;
 
 public partial class App : Application, ILogger, IDisposable
@@ -54,6 +55,8 @@ public partial class App : Application, ILogger, IDisposable
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // 程序化加粗：Medium/SemiBold 请求映射到 Regular+假粗体，不新增字体文件（见 SimulatedMediumFontCollection）
+        SimulatedMediumFontCollection.Register();
         AppPaths.EnsureRoot();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("enter");
         Log.Debug("UiharuMind begins to start.");

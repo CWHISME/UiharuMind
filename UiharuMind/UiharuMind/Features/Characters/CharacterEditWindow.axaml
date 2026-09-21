@@ -16,7 +16,7 @@
     <Window.Styles>
         <Style Selector="TextBlock.title">
             <Setter Property="FontSize" Value="18" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
     </Window.Styles>
