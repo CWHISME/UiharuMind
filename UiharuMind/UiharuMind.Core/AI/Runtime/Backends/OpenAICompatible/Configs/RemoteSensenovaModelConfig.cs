@@ -20,11 +20,13 @@ public class RemoteSensenovaModelConfig : BaseRemoteModelConfig, IRemoteModelCon
     public override IReadOnlyDictionary<string, RemoteModelIdVariant> ModelIdVariants { get; } =
         new Dictionary<string, RemoteModelIdVariant>
         {
+            // 商汤平台转售的第三方模型,ID 与参数沿用平台口径
             ["deepseek-v4-flash"] = new(ContextLength: 1048576, MaxTokens: 327680, RequiresReasoningContentRoundtrip: true),
             ["deepseek-v4-pro"] = new(ContextLength: 1048576, MaxTokens: 327680, RequiresReasoningContentRoundtrip: true),
             ["glm-5.2"] = new(ContextLength: 1048576, MaxTokens: 128000),
             ["kimi-k3"] = new(ContextLength: 1048576, MaxTokens: 131072,IsVision:true, OmitSamplingParams: true,
                 RequiresReasoningContentRoundtrip: true),
+            // 商汤自研(平台最新为 6.8)
             ["sensenova-6.8-flash-lite"] = new(ContextLength: 262144, MaxTokens: 65535, IsVision: true),
         };
 

@@ -382,6 +382,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
             int maxTokens = 0;
             bool requiresReasoningContentRoundtrip = false;
             bool omitSamplingParams = false;
+            string alias = "";
             if (config.ModelIdVariants.TryGetValue(option, out var variant))
             {
                 isVision = variant.IsVision;
@@ -389,11 +390,13 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
                 maxTokens = variant.MaxTokens;
                 requiresReasoningContentRoundtrip = variant.RequiresReasoningContentRoundtrip;
                 omitSamplingParams = variant.OmitSamplingParams;
+                alias = variant.Alias;
             }
 
             ModelIdOptions.Add(new ModelIdOptionItem
             {
                 Id = option,
+                Alias = alias,
                 IsVision = isVision,
                 ContextLength = contextLength,
                 MaxTokens = maxTokens,
@@ -458,6 +461,16 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         /// 模型 ID
         /// </summary>
         public required string Id { get; init; }
+
+        /// <summary>
+        /// 显示别名;为空时下拉框回退显示 <see cref="Id"/>
+        /// </summary>
+        public string Alias { get; init; } = "";
+
+        /// <summary>
+        /// 下拉框显示的文本
+        /// </summary>
+        public string DisplayName => string.IsNullOrEmpty(Alias) ? Id : Alias;
 
         /// <summary>
         /// 是否支持视觉

@@ -54,14 +54,14 @@ public class ModelContextResolverTests
     [Fact]
     public void MissingVariantTable_StillFindsKnownModelIdsGlobally()
     {
-        Assert.Equal(128000, ModelContextResolver.ResolveRemote(0, "glm-4v-flash", null));
+        Assert.Equal(16384, ModelContextResolver.ResolveRemote(0, "glm-4v-flash", null));
         Assert.Equal(1048576, ModelContextResolver.ResolveRemote(0, "deepseek-v4-flash", null));
     }
 
     [Fact]
     public void GlobalLookupIsCaseInsensitive()
     {
-        Assert.Equal(128000, ModelContextResolver.ResolveRemote(0, "GLM-4V-Flash", null));
+        Assert.Equal(16384, ModelContextResolver.ResolveRemote(0, "GLM-4V-Flash", null));
     }
 
     [Fact]

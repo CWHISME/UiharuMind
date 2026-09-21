@@ -15,12 +15,16 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 是否不发送采样参数(temperature/top_p/presence_penalty/frequency_penalty)。
 /// 采样参数固定的模型(如 Kimi)会拒绝显式传值的请求,因此按 ModelId 逐条声明。
 /// </param>
+/// <param name="Alias">
+/// 显示别名,非空时创建窗口的下拉框优先展示它(如标注「免费」);空则回退显示 ModelId。
+/// </param>
 public record RemoteModelIdVariant(
     int ContextLength = 0,
     int MaxTokens = 0,
     bool IsVision = false,
     bool RequiresReasoningContentRoundtrip = false,
-    bool OmitSamplingParams = false)
+    bool OmitSamplingParams = false,
+    string Alias = "")
 {
     /// <summary>
     /// 空表,供未声明预设的配置使用
