@@ -19,7 +19,6 @@ using System;
 using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
-using Avalonia.VisualTree;
 using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Diagnostics;
 using UiharuMind.Shared.Shell;
@@ -78,7 +77,8 @@ public partial class ConversationView : UserControl
     private const double EarlierLoadThreshold = 32.0;
 
     private readonly ScrollViewerAutoScrollHolder _autoScrollHolder;
-    private bool _isBubbleSweepScheduled; //已排了一次视口清扫,合并同一帧内的多次滚动通知
+    private readonly ConversationCardViewport _cardViewport;
+    private bool _isCardSweepScheduled; //已排了一次视口清扫,合并同一帧内的多次滚动通知
     private ConversationViewModel? _viewModel;
     private bool _isLoadingEarlier; //正在续一窗更早的消息(防抖)
 
@@ -86,6 +86,7 @@ public partial class ConversationView : UserControl
     {
         InitializeComponent();
         _autoScrollHolder = new ScrollViewerAutoScrollHolder(Viewer);
+        _cardViewport = new ConversationCardViewport(Viewer, MessageList);
         Viewer.ScrollChanged += OnViewerScrollChanged;
         // 探针关着时连事件都不挂:布局回调是每次布局都会跑的路径,不该为一个默认关闭的诊断付钱
         if (StreamPerfProbe.IsEnabled) Viewer.LayoutUpdated += OnViewerLayoutUpdated;
@@ -291,7 +292,9 @@ public partial class ConversationView : UserControl
     /// </summary>
     private void OnViewerScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        ScheduleBubbleSweep();
+        // 只有视口真的挪过才值得清扫。流式期间每来一段正文都会抬高 extent 并发一次本事件,
+        // 而那不改变任何卡片与视口的距离——跟底那一路 offset 会跟着动,照样清扫
+        if (e.OffsetDelta.Y != 0 || e.ViewportDelta.Y != 0) ScheduleCardSweep();
 
         if (_isLoadingEarlier) return;
         // extent 增长是"内容变多要贴底",不是"用户滚到顶"。初始贴底时 AnchorToBottom 第一次
@@ -339,11 +342,11 @@ public partial class ConversationView : UserControl
             Viewer.UpdateLayout(); //拿到真实高度
             ScrollToBottom();
             Viewer.UpdateLayout(); //贴底后视口换了内容,让新的几何落地
-            if (!RealizeVisibleBubbles()) break;
+            if (!_cardViewport.RealizeVisible()) break;
         }
 
         ScrollToBottom();
-        ScheduleBubbleSweep(); //贴底之后上面那些在 settle 过程中转过的气泡已经滚远了
+        ScheduleCardSweep(); //贴底之后上面那些在 settle 过程中转过的卡片已经滚远了
         global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End($"conversation/anchor:passes={passes},items={MessageList.ItemCount}", anchorBegin);
     }
 
@@ -352,77 +355,15 @@ public partial class ConversationView : UserControl
     /// 而清扫读的是几何，一帧读一次就够；放到 <c>Background</c> 也顺带避开了
     /// 「在滚动回调里当场动布局」那类麻烦。
     /// </summary>
-    private void ScheduleBubbleSweep()
+    private void ScheduleCardSweep()
     {
-        if (_isBubbleSweepScheduled) return;
-        _isBubbleSweepScheduled = true;
+        if (_isCardSweepScheduled) return;
+        _isCardSweepScheduled = true;
         Dispatcher.UIThread.Post(() =>
         {
-            _isBubbleSweepScheduled = false;
-            SweepBubbleViewport();
+            _isCardSweepScheduled = false;
+            _cardViewport.Sweep();
         }, DispatcherPriority.Background);
-    }
-
-    /// <summary>
-    /// 滚远的气泡卸载成等高占位，视口内还没转的当场转。<see cref="RealizeVisibleBubbles"/>
-    /// 只管后半件事，这里补上前半件——没有它，一窗气泡滚过一遍就全部实化在那里不走了。
-    ///
-    /// <para>
-    /// <b>上下各留一整屏缓冲</b>：贴着视口边缘卸载，轻微滚动就会来回拆建，而重建是要钱的。
-    /// 留一屏之后再动手，正常滚动永远落在缓冲区内。
-    /// </para>
-    ///
-    /// <para>
-    /// 判据是<b>相对 <c>Viewer</c> 的几何</b>，不是气泡自己的视口通知：那份矩形被祖先裁剪过，
-    /// 气泡一滚出去它就是空的，从里面只看得出「看不见了」，看不出「离多远」。
-    /// 与 <see cref="RealizeVisibleBubbles"/> 同一套换算。
-    /// </para>
-    /// </summary>
-    private void SweepBubbleViewport()
-    {
-        double viewportHeight = Viewer.Viewport.Height;
-        if (viewportHeight <= 0) return;
-
-        foreach (SimpleMarkdownViewer bubble in MessageList.GetVisualDescendants().OfType<SimpleMarkdownViewer>())
-        {
-            Point? topLeft = bubble.TranslatePoint(default, Viewer);
-            if (topLeft == null) continue;
-
-            double top = topLeft.Value.Y;
-            double bottom = top + bubble.Bounds.Height;
-
-            if (bottom < -viewportHeight || top > viewportHeight * 2) bubble.UnloadForViewport();
-            else if (bottom >= 0 && top <= viewportHeight) bubble.RealizeNow();
-        }
-    }
-
-    /// <summary>
-    /// 把此刻落在视口内、还没转 markdown 的气泡当场转掉。
-    ///
-    /// 不走 <c>SimpleMarkdownViewer</c> 的排队机制：那个队列靠视口通知填充，而视口通知的
-    /// 处理器是在气泡 <c>OnLoaded</c> 时订阅的——列表刚建出来时气泡还没 <c>Loaded</c>，
-    /// 队列因此是空的，这一屏就会退回逐帧放行，表现为先显示原文再变 markdown。
-    /// 这里直接按几何判断，不依赖任何事件时序。
-    /// </summary>
-    /// <returns>真的转了至少一个返回 true</returns>
-    private bool RealizeVisibleBubbles()
-    {
-        double viewportHeight = Viewer.Viewport.Height;
-        if (viewportHeight <= 0) return false;
-
-        bool realizedAny = false;
-        foreach (SimpleMarkdownViewer bubble in MessageList.GetVisualDescendants().OfType<SimpleMarkdownViewer>())
-        {
-            // 换算到 Viewer 自身坐标系,这一步已经把滚动偏移算进去了
-            Point? topLeft = bubble.TranslatePoint(default, Viewer);
-            if (topLeft == null) continue;
-
-            double top = topLeft.Value.Y;
-            if (top + bubble.Bounds.Height < 0 || top > viewportHeight) continue;
-            if (bubble.RealizeNow()) realizedAny = true;
-        }
-
-        return realizedAny;
     }
 
     private void ScrollToBottom()

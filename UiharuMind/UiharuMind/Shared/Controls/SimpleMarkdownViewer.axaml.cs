@@ -63,23 +63,20 @@ public partial class SimpleMarkdownViewer : UserControl
     private bool _isRealized; //渲染器是否已接上内容
     private bool _isQueued; //已在 PendingRealize 里排队
     private bool _viewportSeen; //收到过视口通知(没有的话由兜底直接放行)
-    private bool _isViewportUnloaded; //已卸载成等高空占位(见 UnloadForViewport)
     private Rect _lastViewport; //最近一次视口矩形(自身坐标系);切档时据此判断"现在看得见吗"
 
     private ObservableStringBuilder _markdownBuilder = new ObservableStringBuilder();
 
-    /// 纯文本块此刻是否顶在前面:纯文本档，或 markdown 档但渲染器还没接上。
-    /// 卸载态两块都不显示,所以它也不算"顶在前面"——正文更新因此不会白喂一个看不见的文本块
-    private bool IsPlainTextShown => !_isViewportUnloaded && (_isPlaintextCache || !_isRealized);
+    /// 纯文本块此刻是否顶在前面:纯文本档，或 markdown 档但渲染器还没接上
+    private bool IsPlainTextShown => _isPlaintextCache || !_isRealized;
 
     /// 此刻是否落在视口里。收到过视口通知才作数——没通知时那份矩形是空的，
     /// 而"没通知"要走的是兜底那条路，不是判定成看不见
     private bool IsInViewport => _viewportSeen && _lastViewport.Intersects(new Rect(Bounds.Size));
 
     /// 出队时是否该直接丢掉：排队期间滚走了就不必再转，真滚回去时视口通知会重新排队。
-    /// 带上 Bounds 是因为没量到几何时视口矩形必然不相交，那时不该当成"看不见"。
-    /// 已卸载的一律丢：它离视口至少一屏，就地转出来下一次清扫还得再拆一遍
-    private bool ShouldSkipRealize => _isViewportUnloaded || (_viewportSeen && Bounds.Height > 0 && !IsInViewport);
+    /// 带上 Bounds 是因为没量到几何时视口矩形必然不相交，那时不该当成"看不见"
+    private bool ShouldSkipRealize => _viewportSeen && Bounds.Height > 0 && !IsInViewport;
 
     protected override void OnLoaded(RoutedEventArgs e)
     {
@@ -111,10 +108,6 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         _viewportSeen = true;
         _lastViewport = e.EffectiveViewport;
-
-        // 卸载态不认视口通知:两块子控件都收起来之后本控件宽度是 0,被祖先裁出来的那份矩形
-        // 恒为空,既不会再抛通知也判不出"看得见"。装回一律由宿主的几何清扫驱动,见 RealizeNow
-        if (_isViewportUnloaded) return;
 
         if (_isRealized || _isPlaintextCache) return;
         // 视口矩形与自身相交即视为看得见。纯文本块此刻已经把高度撑出来了,
@@ -161,8 +154,6 @@ public partial class SimpleMarkdownViewer : UserControl
     {
         if (_isRealized || _isPlaintextCache) return false;
         _isRealized = true;
-        _isViewportUnloaded = false;
-        ReleaseHeightPlaceholder(); //渲染器马上接上内容,占位高度让位给真实高度
         SeedDocumentUpdate();
         MarkdownTextRender.MarkdownBuilder = _markdownBuilder;
         ApplyDisplayMode();
@@ -170,17 +161,14 @@ public partial class SimpleMarkdownViewer : UserControl
     }
 
     /// <summary>
-    /// 进视口时的唯一入口：卸载过的装回内容，没转过的当场转，既不等视口通知也不排队。
-    /// <b>"看得见吗"由调用方判断</b>——列表刚建出来时气泡还没 <c>Loaded</c>，没订阅视口通知
-    /// 也就不会进 <see cref="PendingRealize"/>，走队列的话这一屏必然是先显示原文再变 markdown。
-    ///
-    /// <para><b>装回不能只走 <see cref="Realize"/></b>：纯文本档（用户消息恒是）在那里直接
-    /// return false，卸载态就再也解不开，表现为滚远过的那条消息只剩一段等高空白。</para>
+    /// 立刻转成 markdown，既不等视口通知也不排队。<b>"看得见吗"由调用方判断</b>——
+    /// 列表刚建出来时气泡还没 <c>Loaded</c>，没订阅视口通知也就不会进 <see cref="PendingRealize"/>，
+    /// 走队列的话这一屏必然是先显示原文再变 markdown
     /// </summary>
-    /// <returns>真的动了（装回或转了）返回 true</returns>
+    /// <returns>真的转了返回 true；已转过或处于纯文本档则返回 false</returns>
     public bool RealizeNow()
     {
-        return _isViewportUnloaded ? ReloadIntoViewport() : Realize();
+        return Realize();
     }
 
     /// <summary>
@@ -210,80 +198,10 @@ public partial class SimpleMarkdownViewer : UserControl
 
     private void ApplyDisplayMode()
     {
-        if (_isViewportUnloaded)
-        {
-            //占位态:两块都收起来,高度由 Height 顶着
-            PlainTextBlock.IsVisible = false;
-            MarkdownTextRender.IsVisible = false;
-            return;
-        }
-
         bool plain = IsPlainTextShown;
         PlainTextBlock.IsVisible = plain;
         MarkdownTextRender.IsVisible = !plain;
         if (plain) PlainTextBlock.Text = _markdownBuilder.ToString();
-    }
-
-    /// <summary>
-    /// 滚远之后把视觉树整个拆掉，只留一个<b>等高</b>的空占位。<see cref="RealizeNow"/> 的反向。
-    ///
-    /// <para>
-    /// 原先只有"进视口才建"、建完就一直留着：一窗 80 条全滚过一遍，80 份完整视觉树就全挂在
-    /// 那个非虚拟化列表上。实测一条消息摊开约 78 个可视对象，而一屏只看得见三五条。
-    /// </para>
-    ///
-    /// <para>
-    /// <b>高度原样顶住</b>是它与真·虚拟化的分界：虚拟化面板的 Extent 按已实化项估算，
-    /// 不定高气泡下会进度条跳变、滚动回跳、跟底互搏（列表不用虚拟化正是为此）。这里容器一个不少、
-    /// 每个都保着自己<b>量到过的</b>真实高度，Extent 分毫不动——跟底、续窗、前插补偿全不用改。
-    /// </para>
-    ///
-    /// <para><b>"离多远算远"由调用方判断</b>：视口矩形被祖先裁剪过，滚出去之后它就是空的，
-    /// 从中算不出距离。宿主那边有 ScrollViewer，几何在那里才是完整的。</para>
-    /// </summary>
-    /// <returns>真的卸载了返回 true；已是占位态或还没量到几何则返回 false</returns>
-    public bool UnloadForViewport()
-    {
-        if (_isViewportUnloaded) return false;
-
-        double height = Bounds.Height;
-        if (height <= 0) return false; //没量到几何,拆了就没法等高占位
-
-        _isViewportUnloaded = true;
-        Height = height;
-        // 纯文本块的文本布局不会因为 IsVisible=false 而释放(Avalonia 只在转为可见时才让控件
-        // 自己重排),留着就是白占一份已 shape 好的排版。装回时由 ApplyDisplayMode 重灌
-        PlainTextBlock.Text = null;
-
-        if (_isRealized)
-        {
-            // 先断增量源再清文档:反过来的话 producer 还会把正在累积的内容推回来
-            MarkdownTextRender.MarkdownBuilder = null;
-            MarkdownTextRender.DocumentUpdate = null; //库在这里走 documentNode.Clear(),视觉树整棵拆掉
-            _isRealized = false;
-        }
-
-        ApplyDisplayMode();
-        return true;
-    }
-
-    /// 滚回视口:markdown 档当场转(占位是空的,排队就是一块白板);纯文本档让占位让位即可。
-    /// 真的装回了返回 true
-    private bool ReloadIntoViewport()
-    {
-        if (!_isViewportUnloaded) return false;
-        _isViewportUnloaded = false;
-
-        if (Realize()) return true;
-
-        ReleaseHeightPlaceholder();
-        ApplyDisplayMode();
-        return true;
-    }
-
-    private void ReleaseHeightPlaceholder()
-    {
-        if (!double.IsNaN(Height)) ClearValue(HeightProperty);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
