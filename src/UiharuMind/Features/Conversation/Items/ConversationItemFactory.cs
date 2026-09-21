@@ -75,7 +75,9 @@ public static class ConversationItemFactory
             Message = UserMessageDisplayText(text, source),
             SenderName = Loc.Text(LangKey.AgentSenderUser),
             SenderColor = Avalonia.Media.Brushes.LightGreen,
-            Icon = IconUtils.DefaultUserIcon,
+            // 用户气泡头像走用户卡：卡上设了头像用它，没设回落默认头像（复用应用图标 Icon.png）。
+            // 将来「动态换头像」= 改用户卡 CharacterIcon + 刷已渲染条目，机制已在此。
+            Icon = IconUtils.GetCharacterBitmapOrDefault(CharacterManager.Instance.UserCharacterData),
             Timestamp = TimestampText(source?.CreatedAt ?? DateTimeOffset.Now),
         };
 

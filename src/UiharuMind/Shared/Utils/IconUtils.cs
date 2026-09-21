@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using UiharuMind.Core.AI.Character;
@@ -91,6 +93,26 @@ public class IconUtils
         }
     }
 
+    /// <summary>Assets 下资源的统一 URI（前缀只在这里拼）</summary>
+    public static Uri AssetUri(string fileName) => new("avares://UiharuMind/Assets/" + fileName);
+
+    /// <summary>加载 Assets 下的图片作为窗口图标（托盘用）。进程级不缓存：托盘图标小而长寿，由调用方持有</summary>
+    /// <param name="fileName">Assets 下的文件名，如 <c>TrayColorBase.png</c></param>
+    /// <returns>窗口图标；加载失败为 null</returns>
+    public static WindowIcon? LoadWindowIconFromAsset(string fileName)
+    {
+        try
+        {
+            using Stream stream = AssetLoader.Open(AssetUri(fileName));
+            return new WindowIcon(stream);
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Load window icon failed: {e.Message}");
+            return null;
+        }
+    }
+
     /// <summary>
     /// Assets 下的图片路径
     /// </summary>
@@ -98,7 +120,7 @@ public class IconUtils
     /// <returns></returns>
     public static Bitmap? LoadDefaultBitmap(string path)
     {
-        var uri = new Uri("avares://UiharuMind/Assets/" + path);
+        var uri = AssetUri(path);
         var stream = AssetLoader.Open(uri);
         try
         {
