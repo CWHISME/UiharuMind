@@ -75,7 +75,7 @@ public partial class MainView : UserControl
             global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.End("page/view-ctor", viewCtorBegin);
             // ContentControl 时代页面靠"内容即数据上下文"隐式继承,常驻宿主必须显式赋值
             if (!ReferenceEquals(active.DataContext, _viewModel.Content)) active.DataContext = _viewModel.Content;
-            if (!PageHost.Children.Contains(active)) PageHost.Children.Add(active);
+            AttachSharedView(PageHost, active);
         }
 
         foreach (Control child in PageHost.Children)
@@ -98,6 +98,20 @@ public partial class MainView : UserControl
 
         SchedulePrewarm();
         if (_viewModel != null) PageSwitchBench.Start(_viewModel);
+    }
+
+    /// <summary>
+    /// 把常驻页面视图挂到指定宿主。视图是单例、随 <c>MainViewModel</c> 常驻，
+    /// 而窗口不是：旧主窗口被缓存淘汰/超时真关后，视图还挂在那个已死的 <c>PageHost</c> 上。
+    /// 只查自己名下有没有就直接 <c>Add</c>，新窗口第一次挂载必炸
+    /// （<c>InvalidOperationException: already has a visual parent</c>，新旧宿主同名都是
+    /// <c>PageHost</c>，报错看起来像自己跟自己冲突）。先从旧宿主摘下再挂。
+    /// </summary>
+    internal static void AttachSharedView(Panel host, Control view)
+    {
+        if (host.Children.Contains(view)) return;
+        if (view.Parent is Panel oldHost && !ReferenceEquals(oldHost, host)) oldHost.Children.Remove(view);
+        host.Children.Add(view);
     }
 
     /// 第一页预热要等启动彻底安静下来才开始。实测启动后头两秒 UI 线程已经被占满
@@ -154,7 +168,7 @@ public partial class MainView : UserControl
         if (!ReferenceEquals(view.DataContext, viewControl)) view.DataContext = viewControl;
         view.Opacity = 0;
         view.IsVisible = true;
-        PageHost.Children.Add(view);
+        AttachSharedView(PageHost, view);
         view.UpdateLayout();
         view.IsVisible = false;
         view.Opacity = 1;
