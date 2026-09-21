@@ -145,7 +145,7 @@
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Id}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
                                         <u:Badge Header="{loc:Loc ModelStateVision}" Background="Gold"
                                                  IsVisible="{Binding IsVision}" />
                                     </StackPanel>
