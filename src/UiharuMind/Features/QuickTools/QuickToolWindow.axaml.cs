@@ -10,14 +10,19 @@
  ****************************************************************************/
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
+using UiharuMind.Shared.Controls;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
@@ -41,22 +46,40 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     public QuickToolWindow()
     {
         InitializeComponent();
-
-        UiAnimationUtils.PrepareRightToLeftTransitionTarget(MainMenu);
         LocalizationManager.Instance.LanguageChanged += InitFunctionMenu;
         InitFunctionMenu();
-        // SubMenuComboBox.SelectionChanged += OnSubMenuComboBoxSelectionChanged;
     }
 
     private string? _answerString;
 
+    private OpacityChannel? _popupOpacity;
+    private OpacityChannel PopupOpacity => _popupOpacity ??= new OpacityChannel(_ => ApplyWindowAlpha());
+
     public void SetAnswerString(string text)
     {
         _answerString = text;
-        // Log.Debug("Set answer string: " + text);
     }
 
-    private void OnMainButtonClock(object? sender, RoutedEventArgs e)
+    protected override void OnPostShow()
+    {
+        base.OnPostShow();
+        // 弹出动画：淡入 + 轻微上浮，把「出现了」讲明白（macOS 走原生 alpha，防闪一帧，见 OverlayWindowService）
+        if (Content is Control content)
+        {
+            UiAnimationUtils.PrepareVerticalRevealTarget(content, PopupOpacity);
+            UiAnimationUtils.PlayVerticalRevealAnimation(content, true, opacityChannel: PopupOpacity);
+        }
+    }
+
+    // 拿不到原生通道（非 macOS）就回退托管 Opacity——那条路慢一帧，弹出瞬间的闪帧也就能忍
+    private void ApplyWindowAlpha()
+    {
+        double alpha = PopupOpacity.Value;
+        if (OverlayWindowService.TrySetNativeWindowAlpha(this, alpha)) return;
+        if (Content is Control content) content.Opacity = alpha;
+    }
+
+    private void OnMainButtonClick(object? sender, RoutedEventArgs e)
     {
         AssistantExplainPromptAction skill = new AssistantExplainPromptAction();
         QuickChatResultWindow.Show(Loc.Text(LangKey.Explain), _answerString, skill);
@@ -70,34 +93,192 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
 
     private void OnMainButtonPointerEntered(object? sender, PointerEventArgs e)
     {
-        if (MainMenu.Opacity >= 1) return;
+        if (MainMenu.IsVisible && MainMenu.Opacity >= 0.99) return;
         PlayAnimation(true);
     }
 
     protected override void PlayAnimation(bool isShowed, Action? onCompleted = null)
     {
-        UiAnimationUtils.PlayRightToLeftTransitionAnimation(MainMenu, isShowed, onCompleted);
+        if (isShowed) ShowMenu(onCompleted);
+        else HideMenu(onCompleted);
+    }
+
+    private bool _menuIsShown;
+
+    // 收起时窗口要缩回的宽度（展开前记录，就是只有主按钮的宽度）
+    private double _collapsedWindowWidth;
+
+    /// <summary>
+    /// 展开菜单：先恢复布局（窗口向右扩、主按钮原地不动），再播滑入动画。
+    /// 已完全展开时直接跳过，不空转动画。
+    /// </summary>
+    private void ShowMenu(Action? onCompleted)
+    {
+        if (_menuIsShown)
+        {
+            onCompleted?.Invoke();
+            return;
+        }
+
+        _collapsedWindowWidth = Bounds.Width;
+        _menuIsShown = true;
+        PlayMenuSlide(true, onCompleted);
+        ClampWindowToScreenSoon();
+    }
+
+    /// <summary>
+    /// 收起菜单：动画播完才把菜单从布局中移除（窗口缩回只含主按钮）。
+    /// 已收起时直接跳过。收起播到一半又要展开时，前一个动画被取消、折叠不执行。
+    /// </summary>
+    private void HideMenu(Action? onCompleted)
+    {
+        if (!_menuIsShown)
+        {
+            onCompleted?.Invoke();
+            return;
+        }
+
+        _menuIsShown = false;
+        PlayMenuSlide(false, () =>
+        {
+            MainMenu.IsVisible = false;
+            onCompleted?.Invoke();
+        });
+    }
+
+    private const int MenuSlideMilliseconds = 150;
+    private const double MenuSlideHiddenOffset = -14;
+
+    private CancellationTokenSource? _menuSlideCts;
+
+    /// <summary>
+    /// 菜单显隐只做位移、不做淡出：Svg 图标的绘制绕过 Avalonia 合成层，父级 Opacity 只生效
+    /// 0/1，淡出会让「文字在淡、图标不变」分裂，索性整个菜单一起滑走（方案 Y）。
+    /// </summary>
+    private void PlayMenuSlide(bool isShowed, Action? onCompleted = null)
+    {
+        _menuSlideCts?.Cancel();
+        _menuSlideCts = new CancellationTokenSource();
+        _ = PlayMenuSlideCoreAsync(isShowed, onCompleted, _menuSlideCts.Token);
+    }
+
+    private async Task PlayMenuSlideCoreAsync(bool isShowed, Action? onCompleted,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (MainMenu.RenderTransform is not TranslateTransform transform)
+            {
+                transform = new TranslateTransform(isShowed ? MenuSlideHiddenOffset : 0, 0);
+                MainMenu.RenderTransform = transform;
+            }
+
+            // 展开恢复自适应（收起被打断时也要切回来，窗口才会重新展开）；收起切手动宽度，才能被动画
+            if (isShowed)
+            {
+                SizeToContent = SizeToContent.WidthAndHeight;
+            }
+            else
+            {
+                Width = Bounds.Width;
+                SizeToContent = SizeToContent.Height;
+            }
+
+            MainMenu.IsHitTestVisible = isShowed;
+            if (isShowed) MainMenu.IsVisible = true;
+
+            double startX = transform.X;
+            double targetX = isShowed ? 0 : MenuSlideHiddenOffset;
+
+            // 收起时背景（窗口宽度）跟着一起缩回，否则动画结束 Collapsed 那一下是硬切
+            double startWidth = Bounds.Width;
+            double targetWidth = isShowed ? startWidth : _collapsedWindowWidth;
+
+            var startTime = DateTime.UtcNow;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                double progress = Math.Clamp(elapsed / MenuSlideMilliseconds, 0, 1);
+                double eased = 1 - Math.Pow(1 - progress, 3);
+
+                transform.X = Lerp(startX, targetX, eased);
+                if (!isShowed) Width = Lerp(startWidth, targetWidth, eased);
+
+                if (progress >= 1) break;
+                await Task.Delay(16, ct);
+            }
+
+            transform.X = targetX;
+            if (!isShowed)
+            {
+                Width = targetWidth;
+                MainMenu.IsVisible = false;
+                SizeToContent = SizeToContent.WidthAndHeight;
+            }
+            onCompleted?.Invoke();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static double Lerp(double from, double to, double t)
+    {
+        return from + (to - from) * t;
+    }
+
+    // 展开让窗口变宽后，右缘可能超出屏幕：布局更新完把窗口钳回屏幕内（不动弹出位置，只做兜底）
+    private void ClampWindowToScreenSoon()
+    {
+        Dispatcher.UIThread.Post(ClampWindowToScreen, DispatcherPriority.Loaded);
+    }
+
+    private void ClampWindowToScreen()
+    {
+        if (Bounds.Width <= 0 || Bounds.Height <= 0) return;
+        // 无头/未初始化环境（App.ScreensService 未建）时跳过：钳制只是展开后的兜底，缺了不致命
+        var screen = App.ScreensService?.MouseScreen;
+        if (screen == null) return;
+        Position = UiUtils.EnsurePositionWithinScreen(screen, Position, Bounds.Size);
     }
 
     private void InitFunctionMenu()
     {
         FunctionMenu.Children.Clear();
-        AddFunctionMenu(nameof(LangKey.Translation),
+        AddFunctionMenu(nameof(LangKey.Translation), "text-wrap",
             () =>
             {
                 TranslationPromptAction skill = new TranslationPromptAction();
                 QuickChatResultWindow.Show(Loc.Text(LangKey.Translation), _answerString, skill);
             });
-        AddFunctionMenu(nameof(LangKey.SyntacticAnalysis), () => { QuickChatResultWindow.Show(Loc.Text(LangKey.SyntacticAnalysis), _answerString, new AssistantSyntacticAnalysisPromptAction()); });
-        AddFunctionMenu(nameof(LangKey.Think), () => { QuickChatResultWindow.Show(Loc.Text(LangKey.Think), _answerString, new ChainOfThoughtPromptAction()); });
-        AddFunctionMenu(nameof(LangKey.Ask), () => { QuickStartChatWindow.Show(_answerString); });
+        AddFunctionMenu(nameof(LangKey.SyntacticAnalysis), "scan-text",
+            () => QuickChatResultWindow.Show(Loc.Text(LangKey.SyntacticAnalysis), _answerString, new AssistantSyntacticAnalysisPromptAction()));
+        AddFunctionMenu(nameof(LangKey.Think), "brain",
+            () => QuickChatResultWindow.Show(Loc.Text(LangKey.Think), _answerString, new ChainOfThoughtPromptAction()));
+        AddFunctionMenu(nameof(LangKey.Ask), "message-circle-more",
+            () => QuickStartChatWindow.Show(_answerString));
     }
 
-    private void AddFunctionMenu(string textKey, Action action, int xMargin = 5)
+    private void AddFunctionMenu(string textKey, string iconName, Action action, int xMargin = 4)
     {
         var btn = new Button
         {
-            Content = LocalizationManager.Instance.GetString(textKey),
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5,
+                Children =
+                {
+                    new ThemedSvgIcon { IconName = iconName, Width = 15, Height = 15 },
+                    new TextBlock
+                    {
+                        Text = LocalizationManager.Instance.GetString(textKey),
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                },
+            },
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center,
             Command = new RelayCommand(() =>

@@ -4,41 +4,77 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:lang="clr-namespace:UiharuMind.Resources.Lang"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="70"
         x:Class="UiharuMind.Features.QuickTools.QuickToolWindow"
         Title="QuickToolWindow"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
-    <StackPanel Orientation="Horizontal" Background="Transparent" Height="50">
-        <ThemedIconButton Name="MainButton"
-                Click="OnMainButtonClock"
-                PointerEntered="OnMainButtonPointerEntered"
-                Background="Transparent"
-                Width="50"
-                Height="50"
-                MinWidth="50"
-                MinHeight="50"
-                Padding="0"
-                IconName="book-search" >
-            <ThemedIconButton.Styles>
-                <Style Selector="Button:pointerover /template/ ContentPresenter">
-                    <Setter Property="Background" Value="Transparent" />
-                </Style>
-                <Style Selector="Button:pressed /template/ ContentPresenter">
-                    <Setter Property="Background" Value="Transparent" />
-                </Style>
-            </ThemedIconButton.Styles>
-            <ToolTip.Tip>
-                <TextBlock Text="{loc:Loc Explain}" />
-            </ToolTip.Tip>
-        </ThemedIconButton>
+    <Window.Styles>
+        <!-- 主按钮：Ursa IconButton 模板的 hover/pressed 底色画在 Border#PART_Background 上，
+             圆角跟随按钮 CornerRadius（TemplateBinding）。ThemedIconButton 不是 Avalonia Button，
+             选择器必须用类型前缀，Button: 匹配不到 -->
+        <Style Selector="controls|ThemedIconButton#MainButton">
+            <Setter Property="CornerRadius" Value="21" />
+        </Style>
+        <Style Selector="controls|ThemedIconButton#MainButton:pointerover /template/ Border#PART_Background">
+            <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
+        <Style Selector="controls|ThemedIconButton#MainButton:pressed /template/ Border#PART_Background">
+            <Setter Property="Background" Value="#55FFFFFF" />
+        </Style>
 
-        <!-- 隐藏的菜单 -->
-        <Border Name="MainMenu" IsVisible="True" IsHitTestVisible="False" CornerRadius="5" Opacity="0">
-            <StackPanel Name="FunctionMenu" Orientation="Horizontal">
-            </StackPanel>
-        </Border>
+        <!-- 菜单按钮：卡片内的「图标 + 文字」按钮，hover 高亮 -->
+        <Style Selector="Border#MainMenu Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#E6FFFFFF" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border#MainMenu Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF" />
+            <Setter Property="CornerRadius" Value="5" />
+        </Style>
+        <Style Selector="Border#MainMenu Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#55FFFFFF" />
+            <Setter Property="CornerRadius" Value="5" />
+        </Style>
+    </Window.Styles>
 
-    </StackPanel>
+    <!-- 卡片式工具条：半透明深底 + 细描边 + 胶囊圆角（与 RadialMenu 同一质感） -->
+    <Border Name="Card"
+            Background="#E02D2D3D"
+            BorderBrush="#44FFFFFF"
+            BorderThickness="1"
+            CornerRadius="25"
+            Padding="4">
+        <StackPanel Orientation="Horizontal">
+            <ThemedIconButton Name="MainButton"
+                    Click="OnMainButtonClick"
+                    PointerEntered="OnMainButtonPointerEntered"
+                    Background="Transparent"
+                    Width="42"
+                    Height="42"
+                    MinWidth="42"
+                    MinHeight="42"
+                    Padding="0"
+                    IconName="book-search">
+                <ToolTip.Tip>
+                    <TextBlock Text="{loc:Loc Explain}" />
+                </ToolTip.Tip>
+            </ThemedIconButton>
+
+            <!-- 功能菜单：默认折叠、不占布局（悬停主按钮后向右展开） -->
+            <Border Name="MainMenu"
+                    IsVisible="False"
+                    IsHitTestVisible="False"
+                    CornerRadius="6"
+                    Margin="3,0,0,0">
+                <StackPanel Name="FunctionMenu" Orientation="Horizontal" />
+            </Border>
+        </StackPanel>
+    </Border>
 
 </Window>
