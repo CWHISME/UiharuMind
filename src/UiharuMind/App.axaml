@@ -65,7 +65,7 @@
 
     <TrayIcon.Icons>
         <TrayIcons>
-            <TrayIcon Icon="/Assets/Icon.png"
+            <TrayIcon Icon="/Assets/TrayFlowerIdle.png"
                       ToolTipText="This is a ToolTip 🌱">
                 <TrayIcon.Menu>
                     <NativeMenu>
