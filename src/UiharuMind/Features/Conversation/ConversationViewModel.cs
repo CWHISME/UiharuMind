@@ -1582,9 +1582,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _isPreparing = true;
         NotifyRunStateChanged();
         _prepareCancellation = new CancellationTokenSource();
+        ChatSession? session = null; //提到 try 外:装配被停时还要靠它把 userMessage 补回历史
         try
         {
-            ChatSession session;
             // 装配阶段也登记成「在跑」:重建 agent 要拉 MCP 工具、可能好几秒,
             // 这期间不能让删除/清空去动它的文件,而那一轮随后照样会往里写。
             // 新会话此刻还没有标识,BeginRun(null) 按设计是空操作
@@ -1607,7 +1607,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
         catch (OperationCanceledException)
         {
-            //装配阶段就被停掉:还没发出任何请求,没有要收尾的东西
+            // 装配阶段就被停掉:TurnDriver 还没接手,userMessage 从未交给框架,历史里自然也没有它。
+            // 发送方(发送/重试)已经把「这条消息必须在历史里」当成 RunAsync 的责任,责任悬空就丢消息
+            // (重试最典型:Retry 先删后跑,这里不补回,切走/重开会话那条输入就没了)
+            RestoreUserMessageOnAbort(session ?? CurrentSession, userMessage);
         }
         catch (Exception e)
         {
@@ -1620,6 +1623,32 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _prepareCancellation = null;
             NotifyRunStateChanged();
         }
+    }
+
+    /// <summary>
+    /// 装配阶段被取消时把 userMessage 补回历史,避免「发送/重试后立刻停止」丢消息。
+    /// 正常轮次的取消由 <see cref="TurnDriver"/> 的 <c>SettleInterruptedTurn</c> 收尾,
+    /// 这里只兜它接手之前的那段空窗——那时 userMessage 还没交给框架,没有人会写它。
+    /// </summary>
+    /// <param name="session">会话;新建会话装配半路取消时为 null(此时无处可写)</param>
+    /// <param name="userMessage">本轮输入</param>
+    internal static void RestoreUserMessageOnAbort(ChatSession? session, ChatMessage userMessage)
+    {
+        if (session == null)
+        {
+            Log.Warning("Turn aborted during session assembly; user message was not persisted.");
+            return;
+        }
+
+        // 与 TurnDriver 同口径:重试的原消息带着框架就地盖的 _attribution,
+        // 不摘掉持久化会把它当注入消息滤掉(见 RunAsync 开头的 ClearAttribution)
+        ChatMessageAnnotations.ClearAttribution(userMessage);
+        // 取消前若恰好已写回(罕见)就别重复追加:框架落的是同一个实例,按引用判重即可
+        if (session.History.Any(x => ReferenceEquals(x, userMessage))) return;
+
+        int before = session.History.Count;
+        session.History.Add(userMessage);
+        session.SaveAppended(before);
     }
 
     //================= agent / 会话装配 =================

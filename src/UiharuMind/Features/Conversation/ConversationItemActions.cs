@@ -87,8 +87,13 @@ public sealed class ConversationItemActions
         item.DeleteCallback = OnDeleted;
         // 旁白(开场白)不给分叉:它是历史的第一条,"从这里分出去"就是新建一个会话
         if (!ChatMessageAnnotations.IsNarration(source)) item.BranchCallback = OnBranch;
-        // 重试语义是"从这条用户输入起重新生成",因此只挂在用户消息上
-        if (source.Role == ChatRole.User) item.RetryCallback = Retry;
+        // 重试语义是"从这条输入起重新生成":用户消息以自己为锚,助手消息回落到它前面最近的用户输入;
+        // 旁白(开场白/子代理报告)没有对应的提问,不给重试
+        if (!ChatMessageAnnotations.IsNarration(source)
+            && (source.Role == ChatRole.User || source.Role == ChatRole.Assistant))
+        {
+            item.RetryCallback = Retry;
+        }
         return item;
     }
 
@@ -272,12 +277,28 @@ public sealed class ConversationItemActions
         int index = session.History.IndexOf(item.SourceMessage);
         if (index < 0) return;
 
+        // 助手消息重试 = 从它对应的提问重跑:锚点回落到它之前最近的用户消息
+        if (item.SourceMessage.Role == ChatRole.Assistant)
+        {
+            index = FindRetryAnchor(session.History, index);
+            if (index < 0) return;
+        }
+
         // 丢弃该条用户输入之后的全部历史,再以它为输入重跑一轮
         ChatMessage input = session.History[index];
         session.History.RemoveRange(index, session.History.Count - index);
         session.Save();
 
+        // 界面侧从<b>重试锚点消息的气泡</b>删起:用户消息重试即它自己,助手消息重试要前移到锚点气泡
         int itemIndex = _items.IndexOf(item);
+        if (itemIndex >= 0 && item.SourceMessage.Role == ChatRole.Assistant)
+        {
+            for (int i = itemIndex; i >= 0; i--)
+            {
+                if (ReferenceEquals(_items[i].SourceMessage, input)) { itemIndex = i; break; }
+            }
+        }
+
         if (itemIndex >= 0)
         {
             // 截断的这一段条目不再回来,连它们气泡里的图一起释放(先摘出集合再释放)
@@ -294,5 +315,24 @@ public sealed class ConversationItemActions
         _items.Add(Wire(ConversationItemFactory.CreateUser(
             ConversationItemFactory.DisplayTextOf(input), input), input));
         _host.Rerun(input);
+    }
+
+    /// <summary>
+    /// 从 <paramref name="fromIndex"/> 起往前找最近的用户消息,作为助手消息重试的锚点。
+    /// 跳过旁白(开场白):它不是提问,"从开场白重新生成"没有意义,还可能把开场白删了重跑。
+    /// </summary>
+    /// <param name="history">历史</param>
+    /// <param name="fromIndex">助手消息下标</param>
+    /// <returns>用户消息下标;找不到为 -1</returns>
+    private static int FindRetryAnchor(List<ChatMessage> history, int fromIndex)
+    {
+        for (int i = fromIndex; i >= 0; i--)
+        {
+            if (history[i].Role != ChatRole.User) continue;
+            if (ChatMessageAnnotations.IsNarration(history[i])) continue;
+            return i;
+        }
+
+        return -1;
     }
 }
