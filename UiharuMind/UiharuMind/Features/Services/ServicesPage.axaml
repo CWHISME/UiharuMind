@@ -55,7 +55,7 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="{loc:Loc ServicesPageTitle}"
                            FontSize="24"
-                           FontWeight="SemiBold" />
+                           FontWeight="Medium" />
                 <TextBlock Text="{loc:Loc ServicesPageSubtitle}"
                            Foreground="{DynamicResource SemiGrey6}" />
             </StackPanel>
@@ -69,7 +69,7 @@
                                       VerticalAlignment="Top"
                                       IsChecked="{Binding IsChatEnabled}"
                                       IsEnabled="{Binding ChatCanToggle}" />
-                        <TextBlock Grid.Row="1" Text="{Binding ChatStatusText}" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="1" Text="{Binding ChatStatusText}" FontSize="20" FontWeight="Medium" />
                         <TextBlock Grid.Row="2" Text="{Binding ChatRunningCount}" Classes="muted" />
                     </Grid>
                 </Border>
@@ -82,7 +82,7 @@
                                       VerticalAlignment="Top"
                                       IsChecked="{Binding IsEmbeddingEnabled}"
                                       IsEnabled="{Binding !IsEmbeddingBusy}" />
-                        <TextBlock Grid.Row="1" Text="{Binding EmbeddingStatusText}" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="1" Text="{Binding EmbeddingStatusText}" FontSize="20" FontWeight="Medium" />
                         <TextBlock Grid.Row="2"
                                    Text="{Binding EmbeddingConfiguredModelDisplay}"
                                    ToolTip.Tip="{Binding EmbeddingConfiguredModelPath}"
@@ -98,7 +98,7 @@
                                    Text="{Binding RuntimeVersionName}"
                                    ToolTip.Tip="{Binding RuntimeVersionName}"
                                    FontSize="16"
-                                   FontWeight="SemiBold"
+                                   FontWeight="Medium"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Row="2"
                                    Text="{Binding RuntimePath}"
@@ -111,7 +111,7 @@
                 <Border Classes="overview-card">
                     <Grid RowDefinitions="Auto,Auto,Auto">
                         <TextBlock Text="{loc:Loc ServicesRemoteApiService}" Classes="muted" />
-                        <TextBlock Grid.Row="1" Text="{Binding RemoteModelCount}" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="1" Text="{Binding RemoteModelCount}" FontSize="20" FontWeight="Medium" />
                         <TextBlock Grid.Row="2"
                                    Text="{Binding FavoriteModel}"
                                    Classes="muted"
@@ -125,7 +125,7 @@
                     <Border Classes="service-card">
                         <StackPanel Spacing="12">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="{loc:Loc ServicesChatRuntimeDetails}" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ServicesChatRuntimeDetails}" FontSize="17" FontWeight="Medium" />
                                 <TextBlock Text="{loc:Loc ServicesChatRuntimeDetailsDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
@@ -166,7 +166,7 @@
                     <Border Classes="service-card">
                         <StackPanel Spacing="12">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="{loc:Loc ServicesDeviceResourceTitle}" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ServicesDeviceResourceTitle}" FontSize="17" FontWeight="Medium" />
                                 <TextBlock Text="{loc:Loc ServicesDeviceResourceDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
@@ -203,7 +203,7 @@
                     <Border Classes="service-card">
                         <StackPanel Spacing="12">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="{loc:Loc ServicesEmbeddingRuntimeDetails}" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="{loc:Loc ServicesEmbeddingRuntimeDetails}" FontSize="17" FontWeight="Medium" />
                                 <TextBlock Text="{loc:Loc ServicesEmbeddingRuntimeDetailsDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
@@ -238,7 +238,7 @@
 
                     <Border Classes="service-card">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="{loc:Loc ServicesRecentIssue}" FontSize="17" FontWeight="SemiBold" />
+                            <TextBlock Text="{loc:Loc ServicesRecentIssue}" FontSize="17" FontWeight="Medium" />
                             <TextBlock Text="{Binding EmbeddingLastError}"
                                        Classes="muted"
                                        TextWrapping="Wrap" />
@@ -252,7 +252,7 @@
                         <StackPanel Spacing="16">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
                                 <StackPanel Spacing="4" VerticalAlignment="Top">
-                                    <TextBlock Text="{loc:Loc ServicesEmbeddingConfiguration}" FontSize="18" FontWeight="SemiBold" />
+                                    <TextBlock Text="{loc:Loc ServicesEmbeddingConfiguration}" FontSize="18" FontWeight="Medium" />
                                     <TextBlock Text="{loc:Loc ServicesEmbeddingSettingsDesc}"
                                                Classes="muted"
                                                TextWrapping="Wrap" />
@@ -310,7 +310,7 @@
                                                     <Grid ColumnDefinitions="*,Auto" Margin="4">
                                                         <TextBlock Text="{Binding Name}"
                                                                    ToolTip.Tip="{Binding Path}"
-                                                                   FontWeight="SemiBold"
+                                                                   FontWeight="Medium"
                                                                    TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="1"
                                                                    Text="{Binding SizeText}"
@@ -373,12 +373,12 @@
                                     Padding="12">
                                 <StackPanel Spacing="12">
                                     <StackPanel Spacing="3">
-                                        <TextBlock Text="{loc:Loc ServicesEmbeddingAdvanced}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{loc:Loc ServicesEmbeddingAdvanced}" FontWeight="Medium" />
                                         <TextBlock Text="{loc:Loc ServicesEmbeddingAdvancedDesc}" Classes="muted" TextWrapping="Wrap" />
                                     </StackPanel>
                                     <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="10">
                                         <StackPanel Spacing="2">
-                                            <TextBlock Text="{loc:Loc ServicesContextSize}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{loc:Loc ServicesContextSize}" FontWeight="Medium" />
                                             <TextBlock Text="{loc:Loc ServicesContextSizeDesc}" Classes="muted" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <TextBox Grid.Column="1"
@@ -387,7 +387,7 @@
                                                  Text="{Binding EmbeddingContextSize}" />
 
                                         <StackPanel Grid.Row="1" Spacing="2">
-                                            <TextBlock Text="{loc:Loc ServicesBatchSize}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{loc:Loc ServicesBatchSize}" FontWeight="Medium" />
                                             <TextBlock Text="{loc:Loc ServicesBatchSizeDesc}" Classes="muted" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <TextBox Grid.Row="1"
@@ -397,7 +397,7 @@
                                                  Text="{Binding EmbeddingBatchSize}" />
 
                                         <StackPanel Grid.Row="2" Spacing="2">
-                                            <TextBlock Text="{loc:Loc ServicesUBatchSize}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{loc:Loc ServicesUBatchSize}" FontWeight="Medium" />
                                             <TextBlock Text="{loc:Loc ServicesUBatchSizeDesc}" Classes="muted" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <TextBox Grid.Row="2"
@@ -407,7 +407,7 @@
                                                  Text="{Binding EmbeddingUBatchSize}" />
 
                                         <StackPanel Grid.Row="3" Spacing="2">
-                                            <TextBlock Text="{loc:Loc ServicesGpuLayers}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{loc:Loc ServicesGpuLayers}" FontWeight="Medium" />
                                             <TextBlock Text="{loc:Loc ServicesGpuLayersDesc}" Classes="muted" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <TextBox Grid.Row="3"

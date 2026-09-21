@@ -75,7 +75,7 @@
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                                         VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Editor.Name}"
-                                           FontSize="16" FontWeight="SemiBold"
+                                           FontSize="16" FontWeight="Medium"
                                            TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource SemiGrey7}" />
                                 <u:Badge Header="{Binding Editor.KindName}"

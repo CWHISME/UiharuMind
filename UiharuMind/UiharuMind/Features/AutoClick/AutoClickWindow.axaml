@@ -35,7 +35,7 @@
         </Style>
         <Style Selector="TextBlock.SectionTitle">
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
         </Style>
         <Style Selector="Button.ToolbarButton">
             <Setter Property="Padding" Value="10,7" />
@@ -112,7 +112,7 @@
                 <StackPanel Spacing="3">
                     <TextBlock Text="{Binding CurrentSessionDisplayName}"
                                FontSize="18"
-                               FontWeight="SemiBold"
+                               FontWeight="Medium"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding StatusText}"
                                FontSize="12"
@@ -199,7 +199,7 @@
                                     </Border.ContextMenu>
                                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
                                         <TextBlock Text="{Binding Name}"
-                                                   FontWeight="SemiBold"
+                                                   FontWeight="Medium"
                                                    TextTrimming="CharacterEllipsis"
                                                    ToolTip.Tip="{Binding Name}" />
                                         <TextBlock Grid.Row="1"
@@ -286,7 +286,7 @@
                              <controls:ThemedSvgIcon Width="42" Height="42" IconName="repeat" />
                             <TextBlock Text="{loc:Loc AutoClickEmptyTimelineTitle}"
                                        FontSize="15"
-                                       FontWeight="SemiBold"
+                                       FontWeight="Medium"
                                        HorizontalAlignment="Center" />
                             <TextBlock Text="{loc:Loc AutoClickEmptyTimelineDesc}"
                                        FontSize="12"
@@ -314,12 +314,12 @@
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"
                                                            FontSize="14"
-                                                           FontWeight="SemiBold" />
+                                                           FontWeight="Medium" />
                                             </Border>
                                             <StackPanel Grid.Column="1" Spacing="3" Margin="10,0,0,0">
                                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <TextBlock Text="{Binding Title}"
-                                                               FontWeight="SemiBold"
+                                                               FontWeight="Medium"
                                                                TextTrimming="CharacterEllipsis" />
                                                     <Border CornerRadius="4"
                                                             Padding="5,1"
@@ -373,7 +373,7 @@
 
                         <Border Classes="FieldSection">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickPlaybackSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickPlaybackSettings}" />
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
                                     <TextBlock Text="{loc:Loc AutoClickRepeatCount}" VerticalAlignment="Center" />
                                     <NumericUpDown Grid.Column="1" Width="110" Minimum="0" Maximum="999" Value="{Binding RepeatCount}" />
@@ -391,7 +391,7 @@
 
                         <Border Classes="FieldSection">
                             <StackPanel Spacing="8">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickAdvancedSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickAdvancedSettings}" />
                                 <CheckBox Content="{loc:Loc AutoClickRecordMouseMovement}"
                                           IsChecked="{Binding RecordMouseMovement, Mode=TwoWay}" />
                                 <CheckBox Content="{loc:Loc AutoClickRecordMouseMovementOnlyWhenPressed}"
@@ -415,7 +415,7 @@
 
                         <Border Classes="FieldSection" IsVisible="{Binding HasSelectedStep}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickStepSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickStepSettings}" />
                                 <CheckBox Content="{loc:Loc AutoClickEnabled}" IsChecked="{Binding SelectedStep.IsEnabled}" />
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
                                     <TextBlock Text="{loc:Loc AutoClickDelayMs}" VerticalAlignment="Center" />
@@ -428,7 +428,7 @@
 
                         <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsMouse}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickMouseSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickMouseSettings}" />
                                 <ComboBox ItemsSource="{Binding MouseButtonOptions}"
                                           SelectedValue="{Binding SelectedStep.MouseButton}"
                                           SelectedValueBinding="{Binding Value}"
@@ -450,7 +450,7 @@
 
                         <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsWheel}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickWheelSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickWheelSettings}" />
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{loc:Loc AutoClickWheelDelta}" VerticalAlignment="Center" />
                                     <NumericUpDown Grid.Column="1" Width="120" Minimum="-10000" Maximum="10000" Value="{Binding SelectedStep.WheelDelta}" />
@@ -460,7 +460,7 @@
 
                         <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsKeyboard}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickKeyboardSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickKeyboardSettings}" />
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{loc:Loc AutoClickKey}" VerticalAlignment="Center" />
                                     <Button Grid.Column="1" Click="ChangeSelectedKeyButton_Click">
@@ -472,14 +472,14 @@
 
                         <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsText}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickTextSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickTextSettings}" />
                                 <TextBox Text="{Binding SelectedStep.Text}" AcceptsReturn="True" MinHeight="90" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
 
                         <Border Classes="FieldSection" IsVisible="{Binding SelectedStepIsLoop}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontWeight="SemiBold" Text="{loc:Loc AutoClickLoopSettings}" />
+                                <TextBlock FontWeight="Medium" Text="{loc:Loc AutoClickLoopSettings}" />
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{loc:Loc AutoClickLoopCount}" VerticalAlignment="Center" />
                                     <NumericUpDown Grid.Column="1" Width="120" Minimum="1" Maximum="999" Value="{Binding SelectedStep.LoopCount}" />

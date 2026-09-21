@@ -19,12 +19,12 @@
     <Window.Styles>
         <Style Selector="TextBlock.page-title">
             <Setter Property="FontSize" Value="21" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="TextBlock.section-title">
             <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="Border.source-item">
@@ -115,7 +115,7 @@
                                 HorizontalAlignment="Stretch">
                             <TextBlock Text="{Binding IndexStatusText}"
                                        FontSize="12"
-                                       FontWeight="SemiBold"
+                                       FontWeight="Medium"
                                        TextWrapping="Wrap" />
                         </Border>
                         <TextBlock Text="{Binding IndexStatusDetailText}"
@@ -142,7 +142,7 @@
 
                     <StackPanel Grid.Row="3" Spacing="7">
                         <TextBlock Text="{loc:Loc MemoryDescriptionSectionTitle}"
-                                   FontWeight="SemiBold" />
+                                   FontWeight="Medium" />
                         <TextBox Text="{Binding MemoryDescription}"
                                  Height="82"
                                  MaxLength="240"
@@ -162,14 +162,14 @@
                     </StackPanel>
 
                     <StackPanel Grid.Row="4" Spacing="10">
-                        <TextBlock Text="{loc:Loc MemoryIndexRoleHintTitle}" FontWeight="SemiBold" />
+                        <TextBlock Text="{loc:Loc MemoryIndexRoleHintTitle}" FontWeight="Medium" />
                         <TextBlock Text="{loc:Loc MemoryIndexRoleHint}" Classes="muted" TextWrapping="Wrap" />
 
                         <Border Padding="10" CornerRadius="7"
                                 Background="{DynamicResource SemiBlue0}">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="{loc:Loc MemoryIndexSafeUpdateTitle}"
-                                           FontSize="12" FontWeight="SemiBold"
+                                           FontSize="12" FontWeight="Medium"
                                            Foreground="{DynamicResource SemiBlue5}" />
                                 <TextBlock Text="{loc:Loc MemoryIndexSafeUpdateHint}"
                                            Classes="muted" TextWrapping="Wrap" />
@@ -197,7 +197,7 @@
                         <!-- 进度取自视图模型：导入文件与更新索引各记自己的进度，这里只显示当前在跑的那一件 -->
                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding ProgressStageText}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ProgressStageText}" FontWeight="Medium" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding ProgressValue, StringFormat={}{0:0}%}"
                                            Foreground="{DynamicResource MemoryStatusProgressBrush}" />
@@ -258,7 +258,7 @@
                                                                       IconName="file-text" />
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Spacing="4">
-                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                                            <TextBlock Text="{Binding Title}" FontWeight="Medium"
                                                                        Foreground="{DynamicResource SemiGrey7}" />
                                                             <TextBlock Text="{Binding Content}" MaxHeight="44"
                                                                        TextTrimming="CharacterEllipsis"
@@ -291,7 +291,7 @@
                                                 Spacing="8">
                                         <controls:ThemedSvgIcon Width="38" Height="38" IconName="file-text" />
                                         <TextBlock Text="{loc:Loc MemoryManualTextEmptyTitle}"
-                                                   FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                                   FontWeight="Medium" HorizontalAlignment="Center" />
                                         <TextBlock Text="{loc:Loc MemoryManualTextEmptyHint}"
                                                    Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
                                     </StackPanel>
@@ -334,7 +334,7 @@
                                                                       IconName="file-plus-corner" />
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Spacing="3">
-                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                            <TextBlock Text="{Binding Name}" FontWeight="Medium"
                                                                        Foreground="{DynamicResource SemiGrey7}" />
                                                             <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis"
                                                                        Classes="muted" />
@@ -372,7 +372,7 @@
                                                 Spacing="8">
                                         <controls:ThemedSvgIcon Width="38" Height="38" IconName="file-plus-corner" />
                                         <TextBlock Text="{loc:Loc MemoryTextFilesEmptyTitle}"
-                                                   FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                                   FontWeight="Medium" HorizontalAlignment="Center" />
                                         <TextBlock Text="{loc:Loc MemoryTextFilesEmptyHint}"
                                                    Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
                                     </StackPanel>

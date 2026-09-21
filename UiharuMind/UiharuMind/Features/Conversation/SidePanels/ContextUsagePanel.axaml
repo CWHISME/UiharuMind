@@ -40,7 +40,7 @@
     <StackPanel Spacing="6">
     <!-- 模型名 + 上下文上限 -->
     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasData}">
-        <TextBlock Text="{Binding ModelName}" FontWeight="SemiBold"
+        <TextBlock Text="{Binding ModelName}" FontWeight="Medium"
                    TextTrimming="CharacterEllipsis" />
         <TextBlock Grid.Column="1" Classes="muted" Margin="8,0,0,0"
                    Text="{Binding LimitText}" />

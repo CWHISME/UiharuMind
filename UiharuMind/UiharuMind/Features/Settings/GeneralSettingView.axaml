@@ -19,7 +19,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="{loc:Loc ApplicationUpdate}"
                            FontSize="15"
-                           FontWeight="SemiBold" />
+                           FontWeight="Medium" />
                 <Border Classes="SettingsSection">
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto" MinHeight="38">
@@ -70,7 +70,7 @@
                                            />
                                 <StackPanel Grid.Column="1" Spacing="3">
                                     <TextBlock Text="{Binding AppUpdateStatusText}"
-                                               FontWeight="SemiBold"
+                                               FontWeight="Medium"
                                                TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding LatestVersionText, StringFormat={}{0}}"
                                                FontSize="12"
@@ -102,7 +102,7 @@
                                 Background="{DynamicResource SemiGrey1}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{loc:Loc ApplicationUpdateDownloadTitle}"
-                                           FontWeight="SemiBold" />
+                                           FontWeight="Medium" />
                                 <TextBlock Text="{loc:Loc ApplicationUpdateDownloadDesc}"
                                            FontSize="12"
                                            Foreground="{DynamicResource SemiGrey6}"
@@ -124,7 +124,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="{loc:Loc UserInterfaceSetting}"
                            FontSize="15"
-                           FontWeight="SemiBold" />
+                           FontWeight="Medium" />
                 <Border Classes="SettingsSection">
                     <StackPanel>
                         <Grid ColumnDefinitions="*,Auto" MinHeight="44">
@@ -173,7 +173,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="{loc:Loc GeneralSettings}"
                            FontSize="15"
-                           FontWeight="SemiBold" />
+                           FontWeight="Medium" />
                 <Border Classes="SettingsSection">
                     <StackPanel>
                         <!-- 日志等级那一项已搬到日志页顶部的下拉:改等级时人正看着日志,
