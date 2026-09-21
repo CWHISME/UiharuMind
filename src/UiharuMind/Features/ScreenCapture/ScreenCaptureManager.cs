@@ -46,11 +46,20 @@ public static class ScreenCaptureManager
             if (_dockWindow == null)
             {
                 _dockWindow = new ScreenCaptureDockWindow();
+                // 常驻单例但绕过 UIManager：基类 OnClosing 照样把它收进 WindowCache，
+                // 缓存淘汰/超时会真关掉它（注册表里没它，谁也不会替它挡）。
+                // 死后必须重建，否则下次 SyncDockWindow 就是对着已关的窗 Show()
+                _dockWindow.Closed += OnDockWindowClosed;
                 // Dispatcher.UIThread.InvokeAsync(() => { DockWindow.Show(); });
             }
 
             return _dockWindow;
         }
+    }
+
+    private static void OnDockWindowClosed(object? sender, EventArgs e)
+    {
+        if (ReferenceEquals(_dockWindow, sender)) _dockWindow = null;
     }
 
     public static async void CaptureScreen()
