@@ -91,7 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MACOS_CERTIFICATE:-}" ]; then
-            echo "缺少 MACOS_CERTIFICATE secret —— 见 UiharuMind/Build/signing/README.md" >&2
+            echo "缺少 MACOS_CERTIFICATE secret —— 见 src/Build/signing/README.md" >&2
             exit 1
           fi
 
@@ -115,7 +115,7 @@ jobs:
       # 打包逻辑（组 .app bundle、填 plist、签名、压包）只在这些脚本里有一份，
       # 本机和 CI 走的是同一条路
       - name: 构建并打包
-        working-directory: UiharuMind/Build
+        working-directory: src/Build
         shell: ${{ matrix.shell }}
         env:
           SIGN_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
@@ -125,7 +125,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: UiharuMind/Build/Output/${{ matrix.artifact }}
+          path: src/Build/Output/${{ matrix.artifact }}
           if-no-files-found: error
 
   release:
