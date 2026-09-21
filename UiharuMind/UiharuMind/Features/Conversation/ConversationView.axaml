@@ -80,7 +80,7 @@
                 BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <StackPanel MinWidth="0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Title}" FontWeight="Medium" FontSize="16"
+                    <TextBlock Text="{Binding Title}" FontSize="16"
                                TextTrimming="CharacterEllipsis" MaxLines="1"
                                IsVisible="{Binding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                Foreground="{DynamicResource SemiGrey7}" />
@@ -404,7 +404,7 @@
                             <DataTemplate x:DataType="skills:SkillCatalogEntry">
                                 <StackPanel Spacing="1" Margin="2">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock FontWeight="Medium"
+                                        <TextBlock
                                                    Text="{Binding Name, StringFormat='/{0}'}" />
                                         <TextBlock FontSize="11" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource SemiBlue5}"

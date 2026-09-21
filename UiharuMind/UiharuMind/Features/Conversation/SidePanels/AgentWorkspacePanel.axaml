@@ -104,7 +104,7 @@
                         <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
                                    TextTrimming="CharacterEllipsis"
                                    Text="{loc:Loc AgentCapabilityTotal}" />
-                        <TextBlock Grid.Column="1" FontSize="10" FontWeight="Medium"
+                        <TextBlock Grid.Column="1" FontSize="10"
                                    Text="{Binding Conversation.Capabilities.TotalText}" />
                         <TextBlock Grid.Column="2" FontSize="10" Text="▲"
                                    Foreground="{DynamicResource SemiOrange5}"
@@ -124,7 +124,7 @@
                     ToolTip.Tip="{Binding Conversation.Workspace.Path}"
                     IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                 <StackPanel>
-                    <TextBlock FontSize="12" FontWeight="Medium" TextTrimming="CharacterEllipsis"
+                    <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
                                Text="{Binding Conversation.Workspace.Name}" />
                     <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
                                Text="{Binding Conversation.Workspace.Parent}" />

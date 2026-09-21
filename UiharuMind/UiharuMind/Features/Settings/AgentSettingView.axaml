@@ -145,7 +145,7 @@
                                     <Expander Margin="0,2" IsExpanded="True" HorizontalAlignment="Stretch">
                                         <Expander.Header>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <TextBlock FontWeight="Medium" Text="{Binding Name}" />
+                                                <TextBlock Text="{Binding Name}" />
                                                 <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
                                                            Text="{Binding SkillCount}" />
                                             </StackPanel>
@@ -163,7 +163,7 @@
                                                                     <Border Classes="form-pane" Margin="0,3" Padding="12,8">
                                                                         <StackPanel Spacing="2">
                                                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                                <TextBlock FontWeight="Medium" Text="{Binding Name}" />
+                                                                                <TextBlock Text="{Binding Name}" />
                                                                                 <!-- 只读标记:模型自选由 SKILL.md 自己声明,用户不能覆盖 -->
                                                                                 <TextBlock FontSize="11" VerticalAlignment="Center"
                                                                                            Foreground="{DynamicResource SemiBlue5}"

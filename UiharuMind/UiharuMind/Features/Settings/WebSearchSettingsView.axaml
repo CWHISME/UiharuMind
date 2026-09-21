@@ -32,7 +32,7 @@
         <!-- 凭据。Firecrawl 不填也能用，另两个不填就等于没这一环 -->
         <Border Classes="form-pane">
             <StackPanel Spacing="6">
-                <TextBlock FontSize="13" FontWeight="Medium" Text="{loc:Loc AgentSettingWebSearchKeys}" />
+                <TextBlock FontSize="13" Text="{loc:Loc AgentSettingWebSearchKeys}" />
                 <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                            Text="{loc:Loc AgentSettingWebSearchKeysDesc}" />
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
@@ -55,7 +55,7 @@
             <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto,Auto">
                     <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                        <TextBlock FontSize="13" FontWeight="Medium" Text="{loc:Loc AgentSettingSearchHealth}" />
+                        <TextBlock FontSize="13" Text="{loc:Loc AgentSettingSearchHealth}" />
                         <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                                    Text="{loc:Loc AgentSettingSearchHealthDesc}" />
                     </StackPanel>

@@ -25,9 +25,7 @@
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="14" />
         </Style>
-        <Style Selector="TextBlock.card-title">
-            <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="FontSize" Value="15" />
+        <Style Selector="TextBlock.card-title">            <Setter Property="FontSize" Value="15" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="SelectableTextBlock">
@@ -311,7 +309,7 @@
                             <TextBlock Classes="card-title" Text="{loc:Loc ParameterSettings}" />
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="Medium" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" />
                                     <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
