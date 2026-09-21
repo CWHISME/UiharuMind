@@ -234,14 +234,14 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
     });
 
     /// <summary>
-    /// 滚远的气泡卸载成<b>等高</b>占位：正文那棵树垮下去，而滚动区高度一分不动。
+    /// 滚远的<b>整张卡片</b>收成<b>等高</b>占位：视觉树垮下去，而滚动区高度一分不动。
     ///
     /// 「等高」是这条路子与真·虚拟化的全部区别，也是唯一的验收口径——Extent 一旦变了，
     /// 跟底、滚到顶续窗、前插补偿三条路径就全部跟着错位，那正是当初放弃虚拟化面板的原因
     /// （见 ADR 0041）。所以这里<b>先断言 Extent 不变</b>，再谈省了多少。
     /// </summary>
     [Fact]
-    public void ScrollingFarAway_UnloadsBubbles_WithoutMovingTheExtent() => HeadlessUi.Run(() =>
+    public void ScrollingFarAway_UnloadsCards_WithoutMovingTheExtent() => HeadlessUi.Run(() =>
     {
         ConversationViewModel vm = new() { IsPlaintext = false };
         foreach (ConversationItemBase item in MarkdownItems(60)) vm.Items.Add(item);
@@ -271,12 +271,14 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
         // 滚动区分毫不动:这条错了,上面三条滚动路径就全错
         Assert.Equal(extentBefore, extentAfter, 1);
 
-        // 正文那一半垮下去了
-        Assert.True(bodyAfter * 3 < bodyBefore, $"正文视觉树没有显著变小:{bodyBefore} -> {bodyAfter}");
+        // 整张卡都收掉了,不只是正文——外壳(头像/时间戳/气泡边框/操作行)那一半也在里头。
+        // 门槛对着 ADR 0041 的实测数(整表 3663→363≈9.9%、正文 1860→155≈8.3%)留约两个百分点的余量:
+        // 整表 12.5%、正文 10%。比「没坏」更贴 ADR 的收益承诺,又不至于被字体度量差异弄红
+        Assert.True(listAfter * 8 < listBefore, $"视觉树没有显著变小:{listBefore} -> {listAfter}");
+        Assert.True(bodyAfter * 10 < bodyBefore, $"正文视觉树没有显著变小:{bodyBefore} -> {bodyAfter}");
 
-        // 剩下的是卡片外壳(头像/时间戳/气泡边框/操作行),本机制够不着——要继续省就得把同一套手法
-        // 往外套一层。这条断言把「还剩多少」钉住,省得日后误以为卸载已经把列表清空了
-        Assert.True(listAfter > listBefore / 2, $"整表少得太多,外壳是不是被一起拆了:{listBefore} -> {listAfter}");
+        // 容器一个不少:这是「不做面板虚拟化」的那一半,Extent 是真实测量值全靠它
+        Assert.Equal(vm.Items.Count, MessageList(view).GetRealizedContainers().Count());
         window.Close();
     });
 
