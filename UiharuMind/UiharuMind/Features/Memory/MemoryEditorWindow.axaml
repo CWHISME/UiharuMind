@@ -18,14 +18,10 @@
 
     <Window.Styles>
         <Style Selector="TextBlock.page-title">
-            <Setter Property="FontSize" Value="21" />
-            <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+            <Setter Property="FontSize" Value="21" />            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="TextBlock.section-title">
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+            <Setter Property="FontSize" Value="16" />            <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
         </Style>
         <Style Selector="Border.source-item">
             <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
@@ -115,7 +111,6 @@
                                 HorizontalAlignment="Stretch">
                             <TextBlock Text="{Binding IndexStatusText}"
                                        FontSize="12"
-                                       FontWeight="Medium"
                                        TextWrapping="Wrap" />
                         </Border>
                         <TextBlock Text="{Binding IndexStatusDetailText}"
@@ -141,8 +136,7 @@
                     <Border Grid.Row="2" Height="1" Background="{DynamicResource SemiGrey2}" />
 
                     <StackPanel Grid.Row="3" Spacing="7">
-                        <TextBlock Text="{loc:Loc MemoryDescriptionSectionTitle}"
-                                   FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc MemoryDescriptionSectionTitle}" />
                         <TextBox Text="{Binding MemoryDescription}"
                                  Height="82"
                                  MaxLength="240"
@@ -162,14 +156,14 @@
                     </StackPanel>
 
                     <StackPanel Grid.Row="4" Spacing="10">
-                        <TextBlock Text="{loc:Loc MemoryIndexRoleHintTitle}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc MemoryIndexRoleHintTitle}" />
                         <TextBlock Text="{loc:Loc MemoryIndexRoleHint}" Classes="muted" TextWrapping="Wrap" />
 
                         <Border Padding="10" CornerRadius="7"
                                 Background="{DynamicResource SemiBlue0}">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="{loc:Loc MemoryIndexSafeUpdateTitle}"
-                                           FontSize="12" FontWeight="Medium"
+                                           FontSize="12"
                                            Foreground="{DynamicResource SemiBlue5}" />
                                 <TextBlock Text="{loc:Loc MemoryIndexSafeUpdateHint}"
                                            Classes="muted" TextWrapping="Wrap" />
@@ -197,7 +191,7 @@
                         <!-- 进度取自视图模型：导入文件与更新索引各记自己的进度，这里只显示当前在跑的那一件 -->
                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding ProgressStageText}" FontWeight="Medium" />
+                                <TextBlock Text="{Binding ProgressStageText}" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding ProgressValue, StringFormat={}{0:0}%}"
                                            Foreground="{DynamicResource MemoryStatusProgressBrush}" />
@@ -258,7 +252,7 @@
                                                                       IconName="file-text" />
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Spacing="4">
-                                                            <TextBlock Text="{Binding Title}" FontWeight="Medium"
+                                                            <TextBlock Text="{Binding Title}"
                                                                        Foreground="{DynamicResource SemiGrey7}" />
                                                             <TextBlock Text="{Binding Content}" MaxHeight="44"
                                                                        TextTrimming="CharacterEllipsis"
@@ -290,8 +284,7 @@
                                                 MaxWidth="320"
                                                 Spacing="8">
                                         <controls:ThemedSvgIcon Width="38" Height="38" IconName="file-text" />
-                                        <TextBlock Text="{loc:Loc MemoryManualTextEmptyTitle}"
-                                                   FontWeight="Medium" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{loc:Loc MemoryManualTextEmptyTitle}" HorizontalAlignment="Center" />
                                         <TextBlock Text="{loc:Loc MemoryManualTextEmptyHint}"
                                                    Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
                                     </StackPanel>
@@ -334,7 +327,7 @@
                                                                       IconName="file-plus-corner" />
                                                         </Border>
                                                         <StackPanel Grid.Column="1" Spacing="3">
-                                                            <TextBlock Text="{Binding Name}" FontWeight="Medium"
+                                                            <TextBlock Text="{Binding Name}"
                                                                        Foreground="{DynamicResource SemiGrey7}" />
                                                             <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis"
                                                                        Classes="muted" />
@@ -371,8 +364,7 @@
                                                 MaxWidth="330"
                                                 Spacing="8">
                                         <controls:ThemedSvgIcon Width="38" Height="38" IconName="file-plus-corner" />
-                                        <TextBlock Text="{loc:Loc MemoryTextFilesEmptyTitle}"
-                                                   FontWeight="Medium" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{loc:Loc MemoryTextFilesEmptyTitle}" HorizontalAlignment="Center" />
                                         <TextBlock Text="{loc:Loc MemoryTextFilesEmptyHint}"
                                                    Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
                                     </StackPanel>

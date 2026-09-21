@@ -30,7 +30,7 @@
             <Border Classes="setting-card">
                 <StackPanel Spacing="12">
                     <StackPanel Spacing="3">
-                        <TextBlock Text="{loc:Loc ModelRuntimeSectionTitle}" FontSize="17" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ModelRuntimeSectionTitle}" FontSize="17" />
                         <TextBlock Text="{loc:Loc ModelRuntimeSectionDesc}" Classes="muted" TextWrapping="Wrap" />
                     </StackPanel>
                     <common1:ModelRuntimeBasicSettingsView DataContext="{Binding RuntimeSettings}" />
@@ -39,7 +39,7 @@
 
             <Border Classes="setting-card" IsVisible="{Binding IsLLamaSharpEngine}">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="{loc:Loc ModelRuntimeLLamaSharpTitle}" FontWeight="Medium" />
+                    <TextBlock Text="{loc:Loc ModelRuntimeLLamaSharpTitle}" />
                     <TextBlock Text="{loc:Loc ModelRuntimeLLamaSharpDesc}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
@@ -47,7 +47,7 @@
             <Border Classes="setting-card" IsVisible="{Binding IsLLamaCppEngine}">
                 <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="12">
                     <StackPanel Spacing="3">
-                        <TextBlock Text="{loc:Loc ModelRuntimeLLamaCppTitle}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ModelRuntimeLLamaCppTitle}" />
                         <TextBlock Text="{loc:Loc ModelRuntimeLLamaCppDesc}" Classes="muted" TextWrapping="Wrap" />
                     </StackPanel>
 

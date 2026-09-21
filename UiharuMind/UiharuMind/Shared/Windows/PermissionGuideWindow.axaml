@@ -23,9 +23,7 @@
             <Setter Property="Background" Value="{DynamicResource SemiGrey0}" />
         </Style>
         <Style Selector="TextBlock.PermissionName">
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="Medium" />
-        </Style>
+            <Setter Property="FontSize" Value="14" />        </Style>
         <Style Selector="TextBlock.PermissionDesc">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey6}" />
@@ -38,14 +36,10 @@
         </Style>
         <Style Selector="TextBlock.StatusGranted">
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="ForestGreen" />
-            <Setter Property="FontWeight" Value="Medium" />
-        </Style>
+            <Setter Property="Foreground" Value="ForestGreen" />        </Style>
         <Style Selector="TextBlock.StatusDenied">
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Foreground" Value="Crimson" />
-            <Setter Property="FontWeight" Value="Medium" />
-        </Style>
+            <Setter Property="Foreground" Value="Crimson" />        </Style>
         <Style Selector="Ellipse.StatusDotGranted">
             <Setter Property="Fill" Value="ForestGreen" />
         </Style>
@@ -61,8 +55,7 @@
             <DockPanel LastChildFill="True">
                 <TextBlock Text="{loc:Loc PermissionGuideTitle}"
                            VerticalAlignment="Center"
-                           FontSize="16"
-                           FontWeight="Medium" />
+                           FontSize="16" />
             </DockPanel>
         </Border>
 

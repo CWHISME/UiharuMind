@@ -108,7 +108,6 @@
                             <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                     <TextBlock Text="{Binding Name}"
-                                               FontWeight="Medium"
                                                TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource SemiGrey7}" />
                                     <u:Badge Grid.Column="1" Header="{Binding KindName}"

@@ -25,7 +25,7 @@
                     <controls:ThemedSvgIcon Width="24" Height="24" IconName="database" />
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                    <TextBlock Text="{loc:Loc MemoryCreateTitle}" FontSize="20" FontWeight="Medium" />
+                    <TextBlock Text="{loc:Loc MemoryCreateTitle}" FontSize="20" />
                     <TextBlock Text="{loc:Loc MemoryCreateHint}" Classes="muted" TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
@@ -33,7 +33,7 @@
 
         <StackPanel Grid.Row="1" Margin="18" Spacing="16">
             <StackPanel Spacing="6">
-                <TextBlock Text="{loc:Loc MemoryNameLabel}" FontWeight="Medium" />
+                <TextBlock Text="{loc:Loc MemoryNameLabel}" />
                 <TextBox Text="{Binding Name}"
                          PlaceholderText="{loc:Loc MemoryNamePlaceholder}" />
                 <TextBlock Text="{loc:Loc MemoryNameHint}" Classes="muted" />
@@ -43,7 +43,7 @@
                            IsVisible="{Binding HasNameError}" />
             </StackPanel>
             <StackPanel Spacing="6">
-                <TextBlock Text="{loc:Loc MemoryDescriptionLabel}" FontWeight="Medium" />
+                <TextBlock Text="{loc:Loc MemoryDescriptionLabel}" />
                 <TextBox Text="{Binding Description}"
                          MinHeight="110"
                          MaxLength="240"

@@ -30,7 +30,6 @@
                                 <Grid ColumnDefinitions="*,Auto"
                                       VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}"
-                                               FontWeight="Medium"
                                                TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1"

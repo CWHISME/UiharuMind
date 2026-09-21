@@ -19,7 +19,7 @@
             <u:Divider Content="{loc:Loc ParameterSettings}" />
             <Grid ColumnDefinitions="*,Auto" Margin="10,4,10,4">
                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="Medium" />
+                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" />
                     <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
                                TextWrapping="Wrap" />
                 </StackPanel>

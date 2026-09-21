@@ -17,7 +17,6 @@
                    Spacing="6">
             <TextBlock Text="{loc:Loc AutoClickPlaybackIndicatorTitle}"
                       FontSize="13"
-                      FontWeight="Medium"
                       Foreground="{DynamicResource SemiBlue5}"
                       HorizontalAlignment="Center" />
             <TextBlock Name="RoundText"

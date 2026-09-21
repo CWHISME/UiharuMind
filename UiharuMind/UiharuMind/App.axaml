@@ -12,7 +12,7 @@
 
     <Application.Resources>
         <ResourceDictionary>
-            <FontFamily x:Key="MainFont">fonts:UiharuMind/Assets/Fonts#HarmonyOS Sans SC</FontFamily>
+            <FontFamily x:Key="MainFont">avares://UiharuMind/Assets/Fonts#HarmonyOS Sans SC</FontFamily>
 
             <!-- AvaloniaEdit 的 Fluent 主题(下面 Application.Styles 里挂着)引用九个 Fluent 键,
                  其中 ToolTipBackground / ToolTipForeground / ToolTipBorderBrush 由 Semi 提供,

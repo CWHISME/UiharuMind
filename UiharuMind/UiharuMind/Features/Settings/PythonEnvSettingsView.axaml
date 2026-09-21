@@ -20,7 +20,7 @@
 
     <Border Classes="form-pane">
         <StackPanel Spacing="6">
-            <TextBlock FontSize="13" FontWeight="Medium" Text="{loc:Loc AgentSettingPython}" />
+            <TextBlock FontSize="13" Text="{loc:Loc AgentSettingPython}" />
             <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
                        Text="{loc:Loc AgentSettingPythonDesc}" />
 

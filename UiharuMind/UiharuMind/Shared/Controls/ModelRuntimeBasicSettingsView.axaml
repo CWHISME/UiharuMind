@@ -43,7 +43,6 @@
                     <StackPanel Spacing="2" VerticalAlignment="Center">
                         <TextBlock Text="{Binding CurrentModelName}"
                                    FontSize="15"
-                                   FontWeight="Medium"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding CurrentModelDetailText}"
                                    Classes="muted"
@@ -61,8 +60,7 @@
                     Classes="runtime-strip">
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc ModelRuntimeEstimatedMemoryUsage}"
-                                   FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ModelRuntimeEstimatedMemoryUsage}" />
                         <Border CornerRadius="4"
                                 Padding="4,1"
                                 Background="{DynamicResource SemiGrey2}">
@@ -71,22 +69,19 @@
                         </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc ModelRuntimeAvailableMemory}"
-                                   FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ModelRuntimeAvailableMemory}" />
                         <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
                             <TextBlock Text="{Binding AvailableMemoryText}" />
                         </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc ModelRuntimeTotalMemory}"
-                                   FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ModelRuntimeTotalMemory}" />
                         <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
                             <TextBlock Text="{Binding EstimatedTotalMemoryText}" />
                         </Border>
                     </StackPanel>
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                        <TextBlock Text="{loc:Loc ModelRuntimeRiskLevel}"
-                                   FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ModelRuntimeRiskLevel}" />
                         <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource SemiGrey0}">
                             <TextBlock Text="{Binding RuntimeRiskText}"
                                        ToolTip.Tip="{Binding RuntimeRiskDetailText}" />
@@ -104,8 +99,7 @@
                     <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{loc:Loc ModelRuntimeContextSize}"
-                                           FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeContextSize}" />
                                 <TextBlock Text="{loc:Loc ModelRuntimeContextSizeDesc}"
                                            Classes="muted"
                                            TextWrapping="Wrap" />
@@ -126,8 +120,7 @@
                     <Grid RowDefinitions="Auto,Auto" RowSpacing="7">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{loc:Loc ModelRuntimeGpuLayers}"
-                                           FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeGpuLayers}" />
                                 <TextBlock Text="{loc:Loc ModelRuntimeGpuLayersDesc}"
                                            Classes="muted"
                                            TextWrapping="Wrap" />
@@ -150,21 +143,21 @@
                           IsVisible="{Binding ShowAdvancedSettings}">
                         <Grid ColumnDefinitions="*,84" ColumnSpacing="10">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{loc:Loc ModelRuntimeBatchSize}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeBatchSize}" />
                                 <TextBlock Text="{loc:Loc ModelRuntimeBatchSizeDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding BatchSize}" />
                         </Grid>
                         <Grid Grid.Row="1" ColumnDefinitions="*,84" ColumnSpacing="10">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{loc:Loc ModelRuntimeUBatchSize}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeUBatchSize}" />
                                 <TextBlock Text="{loc:Loc ModelRuntimeUBatchSizeDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding UBatchSize}" />
                         </Grid>
                         <Grid Grid.Row="2" ColumnDefinitions="*,84" ColumnSpacing="10">
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{loc:Loc ModelRuntimeThreads}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc ModelRuntimeThreads}" />
                                 <TextBlock Text="{loc:Loc ModelRuntimeThreadsDesc}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <TextBox Grid.Column="1" Classes="runtime-number" Text="{Binding Threads}" />

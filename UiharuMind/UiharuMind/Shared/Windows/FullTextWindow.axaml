@@ -13,7 +13,7 @@
     <Grid RowDefinitions="Auto,*" Margin="10">
         <Border Height="34" Background="Transparent" PointerPressed="InputElement_OnPointerPressed">
             <DockPanel LastChildFill="False">
-                <TextBlock Name="TitleTextBlock" FontSize="15" FontWeight="Medium"
+                <TextBlock Name="TitleTextBlock" FontSize="15"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <Button Content="X" Classes="CircleButton" DockPanel.Dock="Right"
                         HorizontalAlignment="Right" Click="CloseButton_Click" />

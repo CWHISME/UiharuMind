@@ -41,8 +41,7 @@
             <StackPanel Spacing="12" HorizontalAlignment="Center" Margin="0,90,0,0">
                 <controls:ThemedSvgIcon IconName="message-circle-more" Width="52" Height="52"
                                         HorizontalAlignment="Center" />
-                <TextBlock Text="{loc:Loc ChatWorkspaceEmpty}" FontSize="17"
-                           FontWeight="Medium" HorizontalAlignment="Center" />
+                <TextBlock Text="{loc:Loc ChatWorkspaceEmpty}" FontSize="17" HorizontalAlignment="Center" />
             </StackPanel>
         </pages:ConversationPageShell.EmptyContent>
 

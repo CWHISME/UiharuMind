@@ -40,9 +40,9 @@
                     <controls:ThemedSvgIcon Width="24" Height="24" IconName="bot" />
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                    <TextBlock Text="{loc:Loc RemoteModelCreateTitle}" FontSize="20" FontWeight="Medium"
+                    <TextBlock Text="{loc:Loc RemoteModelCreateTitle}" FontSize="20"
                                IsVisible="{Binding !IsEditMode}" />
-                    <TextBlock Text="{loc:Loc RemoteModelEditTitle}" FontSize="20" FontWeight="Medium"
+                    <TextBlock Text="{loc:Loc RemoteModelEditTitle}" FontSize="20"
                                IsVisible="{Binding IsEditMode}" />
                     <TextBlock Text="{loc:Loc RemoteModelSelectProviderHint}" Classes="muted" TextWrapping="Wrap"
                                IsVisible="{Binding !IsEditMode}" />
@@ -57,7 +57,7 @@
 
             <Border BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,1,0">
                 <Grid RowDefinitions="Auto,*">
-                    <TextBlock Text="{loc:Loc RemoteModelSelectProviderTitle}" FontWeight="Medium"
+                    <TextBlock Text="{loc:Loc RemoteModelSelectProviderTitle}"
                                Margin="16,14,16,8" />
                     <ListBox Grid.Row="1" Background="Transparent"
                              ItemsSource="{Binding Providers}"
@@ -66,7 +66,7 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Spacing="2">
-                                    <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Medium" />
+                                    <TextBlock Text="{Binding Name}" FontSize="14" />
                                     <TextBlock Text="{Binding DefaultEndpoint}" Classes="muted"
                                                TextTrimming="CharacterEllipsis"
                                                IsVisible="{Binding DefaultEndpoint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -82,7 +82,7 @@
 
                     <!-- 当前服务商下的已有模型:一键复制 -->
                     <StackPanel Spacing="6" IsVisible="{Binding HasCopySources}">
-                        <TextBlock Text="{loc:Loc RemoteModelCopyFromExisting}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc RemoteModelCopyFromExisting}" />
                         <TextBlock Text="{loc:Loc RemoteModelCopyFromExistingHint}" Classes="muted"
                                    TextWrapping="Wrap" />
                         <ItemsControl ItemsSource="{Binding CopySources}">
@@ -104,7 +104,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc ApiKey}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc ApiKey}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <TextBox Text="{Binding ApiKey}" PasswordChar="*"
                                      PlaceholderText="{loc:Loc RemoteModelApiKeyPlaceholder}" />
@@ -123,7 +123,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc RemoteModelNameLabel}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc RemoteModelNameLabel}" />
                         <TextBox Text="{Binding ModelName}"
                                  PlaceholderText="{loc:Loc RemoteModelNamePlaceholder}" />
                         <TextBlock Text="{loc:Loc RemoteModelNameHint}" Classes="muted" TextWrapping="Wrap" />
@@ -134,7 +134,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc RemoteModelIdLabel}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc RemoteModelIdLabel}" />
                         <ComboBox IsEditable="True"
                                   ItemsSource="{Binding ModelIdOptions}"
                                   SelectedItem="{Binding SelectedModelIdOption}"
@@ -159,7 +159,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc RemoteModelContextLengthLabel}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc RemoteModelContextLengthLabel}" />
                         <ComboBox IsEditable="True"
                                   ItemsSource="{Binding ContextLengthOptions}"
                                   Text="{Binding ContextLengthText}"
@@ -171,7 +171,7 @@
                     </StackPanel>
 
                     <StackPanel Spacing="6">
-                        <TextBlock Text="{loc:Loc RemoteModelThinkingModeLabel}" FontWeight="Medium" />
+                        <TextBlock Text="{loc:Loc RemoteModelThinkingModeLabel}" />
                         <ComboBox ItemsSource="{Binding ThinkingModeOptions}"
                                   SelectedIndex="{Binding ThinkingModeIndex}"
                                   HorizontalAlignment="Stretch">
@@ -187,20 +187,20 @@
                     <!-- 自定义配置:接口地址等全部平铺 -->
                     <StackPanel Spacing="14" IsVisible="{Binding !IsPresetProvider}">
                         <StackPanel Spacing="6">
-                            <TextBlock Text="{loc:Loc RemoteModelPathLabel}" FontWeight="Medium" />
+                            <TextBlock Text="{loc:Loc RemoteModelPathLabel}" />
                             <TextBox Text="{Binding ModelPath}"
                                      PlaceholderText="{loc:Loc RemoteModelPathPlaceholder}" />
                             <TextBlock Text="{loc:Loc RemoteModelPathHint}" Classes="muted" TextWrapping="Wrap" />
                         </StackPanel>
                         <StackPanel Spacing="6">
-                            <TextBlock Text="{loc:Loc RemoteModelDescriptionLabel}" FontWeight="Medium" />
+                            <TextBlock Text="{loc:Loc RemoteModelDescriptionLabel}" />
                             <TextBox Text="{Binding ModelDescription}" MinHeight="80" AcceptsReturn="True"
                                      TextWrapping="Wrap" VerticalContentAlignment="Top" Padding="10"
                                      PlaceholderText="{loc:Loc RemoteModelDescriptionPlaceholder}" />
                         </StackPanel>
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc RemoteModelVisionLabel}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc RemoteModelVisionLabel}" />
                                 <TextBlock Text="{loc:Loc RemoteModelVisionHint}" Classes="muted"
                                            TextWrapping="Wrap" />
                             </StackPanel>
@@ -210,7 +210,7 @@
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Spacing="2" VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" />
                                 <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
                                            TextWrapping="Wrap" />
                             </StackPanel>
@@ -218,7 +218,7 @@
                                           IsChecked="{Binding OmitSamplingParams}" />
                         </Grid>
                         <StackPanel Spacing="2">
-                            <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripLabel}" FontWeight="Medium" />
+                            <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripLabel}" />
                             <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripHint}" Classes="muted"
                                        TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,6,0,0">
@@ -241,7 +241,7 @@
                         </StackPanel>
 
                         <StackPanel Spacing="6">
-                            <TextBlock Text="{loc:Loc RemoteModelMaxTokensLabel}" FontWeight="Medium" />
+                            <TextBlock Text="{loc:Loc RemoteModelMaxTokensLabel}" />
                             <TextBox Text="{Binding MaxTokensText}"
                                      PlaceholderText="{Binding MaxTokensPlaceholder}"
                                      HorizontalAlignment="Stretch" />
@@ -257,20 +257,20 @@
                               IsVisible="{Binding IsPresetProvider}">
                         <StackPanel Spacing="14" Margin="0,8,0,0">
                             <StackPanel Spacing="6">
-                                <TextBlock Text="{loc:Loc RemoteModelPathLabel}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc RemoteModelPathLabel}" />
                                 <TextBox Text="{Binding ModelPath}"
                                          PlaceholderText="{loc:Loc RemoteModelPathPlaceholder}" />
                                 <TextBlock Text="{loc:Loc RemoteModelPathHint}" Classes="muted" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Spacing="6">
-                                <TextBlock Text="{loc:Loc RemoteModelDescriptionLabel}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc RemoteModelDescriptionLabel}" />
                                 <TextBox Text="{Binding ModelDescription}" MinHeight="80" AcceptsReturn="True"
                                          TextWrapping="Wrap" VerticalContentAlignment="Top" Padding="10"
                                          PlaceholderText="{loc:Loc RemoteModelDescriptionPlaceholder}" />
                             </StackPanel>
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{loc:Loc RemoteModelVisionLabel}" FontWeight="Medium" />
+                                    <TextBlock Text="{loc:Loc RemoteModelVisionLabel}" />
                                     <TextBlock Text="{loc:Loc RemoteModelVisionHint}" Classes="muted"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
@@ -280,7 +280,7 @@
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" FontWeight="Medium" />
+                                    <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsLabel}" />
                                     <TextBlock Text="{loc:Loc RemoteModelOmitSamplingParamsHint}" Classes="muted"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
@@ -288,7 +288,7 @@
                                               IsChecked="{Binding OmitSamplingParams}" />
                             </Grid>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripLabel}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripLabel}" />
                                 <TextBlock Text="{loc:Loc RemoteModelReasoningRoundtripHint}" Classes="muted"
                                            TextWrapping="Wrap" />
                                 <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,6,0,0">
@@ -311,7 +311,7 @@
                             </StackPanel>
 
                             <StackPanel Spacing="6">
-                                <TextBlock Text="{loc:Loc RemoteModelMaxTokensLabel}" FontWeight="Medium" />
+                                <TextBlock Text="{loc:Loc RemoteModelMaxTokensLabel}" />
                                 <TextBox Text="{Binding MaxTokensText}"
                                          PlaceholderText="{Binding MaxTokensPlaceholder}"
                                          HorizontalAlignment="Stretch" />
