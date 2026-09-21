@@ -23,23 +23,23 @@ Avalonia 12 桌面应用，.NET 10。本地跑 GGUF 模型（llama.cpp）+ 远�
 
 | 项目                               | 是什么 |
 |------------------------------------|---|
-| `UiharuMind/UiharuMind`            | Avalonia UI 层（下称 **App 项目**） |
-| `UiharuMind/UiharuMind.Core`       | 领域与基础设施。无 UI 依赖，是全仓的重心 |
-| `UiharuMind/UiharuMind.Desktop`    | 桌面入口（实际运行的就是它） |
-| `UiharuMind/UiharuMind.CLI`        | 命令行入口 |
-| `UiharuMind/UiharuMind.Core.Tests` | Core 的测试 |
-| `UiharuMind/UiharuMind.App.Tests`  | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
+| `src/UiharuMind`                   | Avalonia UI 层（下称 **App 项目**） |
+| `src/UiharuMind.Core`              | 领域与基础设施。无 UI 依赖，是全仓的重心 |
+| `src/UiharuMind.Desktop`           | 桌面入口（实际运行的就是它） |
+| `src/UiharuMind.CLI`               | 命令行入口 |
+| `src/UiharuMind.Core.Tests`        | Core 的测试 |
+| `src/UiharuMind.App.Tests`         | App 项目的测试（只测不碰 UI 线程/渲染的纯逻辑） |
 
 可复用：
 
-各种样式：UiharuMind/Assets/Themes
+各种样式：src/UiharuMind/Assets/Themes
 
 ## 构建与测试
 
 ```bash
-dotnet build UiharuMind/UiharuMind.sln
-dotnet msbuild UiharuMind/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test
-dotnet msbuild UiharuMind/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test
+dotnet build src/UiharuMind.sln
+dotnet msbuild src/UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test
+dotnet msbuild src/UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test
 ```
 
 测试框架是 xunit v3（`xunit.v3` 4.x），跑在 Microsoft.Testing.Platform（MTP）上，由仓库根的

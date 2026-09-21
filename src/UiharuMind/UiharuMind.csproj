@@ -44,7 +44,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\ClassicDiagnostics.Avalonia\src\ClassicDiagnostics.Avalonia.csproj" />
+	  <ProjectReference Include="..\ThirdParty\ClassicDiagnostics.Avalonia\src\ClassicDiagnostics.Avalonia.csproj" />
 	  <ProjectReference Include="..\UiharuMind.Core\UiharuMind.Core.csproj" />
 	</ItemGroup>
 

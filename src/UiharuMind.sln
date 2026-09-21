@@ -21,7 +21,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Localization", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UiharuMind.Localization.Generator.Tests", "UiharuMind.Localization.Generator.Tests\UiharuMind.Localization.Generator.Tests.csproj", "{F0BBE1F8-D628-43C2-AEE7-023586933047}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassicDiagnostics.Avalonia", "ClassicDiagnostics.Avalonia\src\ClassicDiagnostics.Avalonia.csproj", "{6CD79DCE-E512-47FF-A502-C73C5496D47D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClassicDiagnostics.Avalonia", "ThirdParty\ClassicDiagnostics.Avalonia\src\ClassicDiagnostics.Avalonia.csproj", "{6CD79DCE-E512-47FF-A502-C73C5496D47D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
