@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -91,6 +93,64 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// 一问一答各 <paramref name="rounds"/> 条。用户气泡<b>恒为纯文本档</b>
+    /// （见 TextMessageCardView 的 IsPlaintext 绑定：IsUser 一项就足以把它按下去），
+    /// 只堆助手回复量不到那一档
+    /// </summary>
+    /// <param name="rounds">问答轮数</param>
+    /// <returns>条目列表</returns>
+    private static List<ConversationItemBase> DialogueItems(int rounds)
+    {
+        List<ConversationItemBase> answers = MarkdownItems(rounds);
+        List<ConversationItemBase> items = new(rounds * 2);
+        for (int i = 0; i < rounds; i++)
+        {
+            string ask = $"第 {i} 个问题：" + string.Concat(Enumerable.Repeat("写长一点好让气泡有真实高度。", 6));
+            ConversationItemBase user = ConversationItemFactory.CreateUser(ask);
+            user.SourceMessage = new ChatMessage(ChatRole.User, ask);
+            items.Add(user);
+            items.Add(answers[i]);
+        }
+
+        return items;
+    }
+
+    /// <summary>此刻落在视口里的气泡</summary>
+    private static List<SimpleMarkdownViewer> BubblesInViewport(Visual root)
+    {
+        ScrollViewer viewer = Viewer(root);
+        double viewportHeight = viewer.Viewport.Height;
+        List<SimpleMarkdownViewer> result = new();
+        foreach (SimpleMarkdownViewer bubble in Bubbles(root))
+        {
+            Point? topLeft = bubble.TranslatePoint(default, viewer);
+            if (topLeft == null) continue;
+
+            double top = topLeft.Value.Y;
+            if (top + bubble.Bounds.Height >= 0 && top <= viewportHeight) result.Add(bubble);
+        }
+
+        return result;
+    }
+
+    /// <summary>控件里此刻真看得见的文字。markdown 渲染出来的字在 Inlines 上，不在 Text 上</summary>
+    private static string VisibleText(Visual root)
+    {
+        StringBuilder text = new();
+        foreach (TextBlock block in root.GetVisualDescendants().OfType<TextBlock>())
+        {
+            if (!block.IsVisible) continue;
+
+            text.Append(block.Text);
+            if (block.Inlines == null) continue;
+            foreach (Inline inline in block.Inlines)
+                if (inline is Run run) text.Append(run.Text);
+        }
+
+        return text.ToString();
     }
 
     /// <summary>会话流那个滚动容器</summary>
@@ -217,6 +277,48 @@ public class ConversationViewLayoutTests(ITestOutputHelper output)
         // 剩下的是卡片外壳(头像/时间戳/气泡边框/操作行),本机制够不着——要继续省就得把同一套手法
         // 往外套一层。这条断言把「还剩多少」钉住,省得日后误以为卸载已经把列表清空了
         Assert.True(listAfter > listBefore / 2, $"整表少得太多,外壳是不是被一起拆了:{listBefore} -> {listAfter}");
+        window.Close();
+    });
+
+    /// <summary>
+    /// 滚远再滚回来，内容得装得回来——<b>纯文本档也一样</b>。
+    ///
+    /// 这是上面那条的另一半，当初漏了：卸载把两个子块都收起来，控件宽度因此塌成 0，
+    /// 被祖先裁出来的视口矩形恒为空，气泡自己那条「滚回来就装回」的通知<b>永远不会到</b>，
+    /// 于是装回全靠宿主清扫。而清扫走的 <c>RealizeNow</c> 若只认 markdown 一档，
+    /// 纯文本档（用户消息恒是）就再也解不开卸载态，表现为滚远过的那条只剩一段等高空白。
+    /// 只用 markdown 条目测看不出来，所以这里必须混排。
+    /// </summary>
+    [Fact]
+    public void ScrollingBack_ReloadsBubbles_PlaintextIncluded() => HeadlessUi.Run(() =>
+    {
+        ConversationViewModel vm = new() { IsPlaintext = false };
+        foreach (ConversationItemBase item in DialogueItems(30)) vm.Items.Add(item);
+
+        (Window window, ConversationView view) = ShowView(vm);
+        ScrollViewer viewer = Viewer(view);
+
+        // 先全部转出来:等高占位保的是「量到过的真实高度」,拿没转过的兜底高度当基准量不出这条保证
+        // ——那时的高度是纯文本兜底值,它变成 markdown 高度是实化本身带来的,与卸载无关
+        foreach (SimpleMarkdownViewer bubble in Bubbles(view)) bubble.RealizeNow();
+        window.UpdateLayout();
+        double extentBefore = viewer.Extent.Height;
+        Settle(window);
+
+        // 到底再回顶:这一趟下来每个气泡都离开过视口一屏以上,也就都被卸载过
+        viewer.Offset = new Vector(0, Math.Max(0, viewer.Extent.Height - viewer.Viewport.Height));
+        Settle(window);
+        viewer.Offset = new Vector(0, 0);
+        Settle(window);
+
+        List<SimpleMarkdownViewer> inViewport = BubblesInViewport(view);
+        List<SimpleMarkdownViewer> blank = inViewport.Where(x => VisibleText(x).Length == 0).ToList();
+
+        output.WriteLine($"回到顶部:视口内 {inViewport.Count} 个气泡,空白 {blank.Count} 个,滚动区 {viewer.Extent.Height:F0}px");
+
+        Assert.NotEmpty(inViewport);
+        Assert.Empty(blank);
+        Assert.Equal(extentBefore, viewer.Extent.Height, 1);
         window.Close();
     });
 }
