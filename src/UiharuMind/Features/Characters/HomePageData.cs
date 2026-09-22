@@ -104,15 +104,13 @@ public partial class HomePageData : PageDataBase
     /// <b>先定档再进表单</b>——三个档位的表单面孔差得太多，进去再翻旗标会让人对着
     /// 一堆当前档用不上的字段发愣。
     /// </summary>
-    /// <param name="kind">档位</param>
-    private async Task NewCharacterAsync(ECharacterKind kind)
+    private async Task NewCharacterAsync()
     {
         if (!await ConfirmLeaveEditorAsync()) return;
 
-        CharacterData seed = new() { IsAgent = kind.IsAgent() };
-        // 智能体预填工作循环那一节:它是弱模型最依赖的几条,而现在它归角色提示词管(ADR 0004),
-        // 不预填就等于新建出来的智能体默认少了这段。用户可以照常改写或删掉
-        if (seed.Kind.IsAgent()) seed.Template = AgentToolPrompts.AgentWorkLoop;
+        // 新建一律是普通角色(ADR 0043):不再先选档。要让它干活,进编辑页把「智能体」打开——
+        // 工作循环那一节由 CharacterDraft.IsAgent 的 setter 在那一刻预填。
+        CharacterData seed = new();
 
         // 这两步一起改选中项(撤掉上一个占位项、顶上新的),中间那几次跳动不该被当成用户在切角色
         DrivingSelection(() =>

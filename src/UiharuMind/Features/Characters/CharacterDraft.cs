@@ -11,6 +11,7 @@ using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.Configs;
@@ -39,36 +40,48 @@ public partial class CharacterDraft : ObservableObject
     private AgentToolViewData? _agentTools;
 
     /// <summary>
-    /// 角色档位。这是角色的唯一身份轴，界面的分类、徽章、表单面孔全从它来。
+    /// 角色档位的派生视图，只读。徽章与配色从它来（见 <see cref="KindName"/>）。
+    /// 要改身份请改 <see cref="IsAgent"/>——那才是轴本体。
     /// </summary>
-    public ECharacterKind Kind
+    public ECharacterKind Kind => _draft.Kind;
+
+    /// <summary>
+    /// 装不装 agent 那一套：工具、工作目录、权限档，以及代码注入的工作循环与工具纪律段。
+    ///
+    /// <b>这是角色身份的唯一轴</b>（ADR 0043）。新建角色一律是普通角色，
+    /// 要让它干活就在这里打开——「装配了工具就是 agent」在界面上就长这样，
+    /// 而不是建角色时先从一张档位清单里挑一个。
+    /// </summary>
+    public bool IsAgent
     {
-        get => _draft.Kind;
+        get => _draft.IsAgent;
         set
         {
-            if (_draft.Kind == value) return;
-            // 身份轴只有一根：开不开 harness。下拉里那两项映射到这一个 bool（ADR 0043）。
-            // 用户卡不可建，所以这里不碰 IsUserCard。
-            _draft.IsAgent = value.IsAgent();
+            if (_draft.IsAgent == value) return;
+            _draft.IsAgent = value;
+
+            // 工作循环是弱模型最依赖的几条，而它归角色提示词管（ADR 0004）——
+            // 不预填等于新出炉的智能体默认少了这段。只在提示词还空着时补，
+            // 免得覆盖用户已经写好的东西；用户照样可以改写或删掉。
+            if (value && string.IsNullOrWhiteSpace(_draft.Template))
+            {
+                _draft.Template = AgentToolPrompts.AgentWorkLoop;
+                OnPropertyChanged(nameof(Template));
+            }
+
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsRoleplay));
-            OnPropertyChanged(nameof(IsAgent));
+            OnPropertyChanged(nameof(Kind));
             OnPropertyChanged(nameof(KindName));
             OnPropertyChanged(nameof(KindColor));
         }
     }
 
-    /// <summary>可选档位(用户卡不可建，见 <see cref="CharacterKindPresentation.CreatableKinds"/>)</summary>
-    public ECharacterKind[] SelectableKinds => CharacterKindPresentation.CreatableKinds;
-
     /// <summary>
     /// 是否为<b>普通角色</b>（带开场白与用户卡开关的那一类）。
     /// 扮演与工具人已合并，所以判据是「不是 agent」而不是与某一档相等（ADR 0043）。
     /// </summary>
-    public bool IsRoleplay => !Kind.IsAgent();
-
-    /// <summary>是否为智能体档(装配工具与工作目录)</summary>
-    public bool IsAgent => Kind.IsAgent();
+    public bool IsRoleplay => !_draft.IsAgent;
 
     /// <summary>档位显示名(顶栏徽章)</summary>
     public string KindName => CharacterKindPresentation.NameOf(Kind);

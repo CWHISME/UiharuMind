@@ -80,7 +80,7 @@ public partial class CharacterListViewData : ObservableObject
     /// 「新建」的落点，由工作台填。命令留在本类只是因为按钮长在左栏头部；
     /// 真正要做的事（脏检查、开草稿、顶一条占位项）全是工作台那边的账。
     /// </summary>
-    public Func<ECharacterKind, Task>? NewCharacterRequested { get; set; }
+    public Func<Task>? NewCharacterRequested { get; set; }
 
     public CharacterListViewData()
     {
@@ -238,10 +238,11 @@ public partial class CharacterListViewData : ObservableObject
     }
 
     [RelayCommand]
-    private async Task NewCharacter(ECharacterKind? kind)
+    private async Task NewCharacter()
     {
+        // 新建不带档位参数(ADR 0043):建出来就是普通角色，要干活在编辑页打开「智能体」
         if (NewCharacterRequested == null) return;
-        await NewCharacterRequested(kind ?? ECharacterKind.Roleplay);
+        await NewCharacterRequested();
     }
 
     [RelayCommand]
