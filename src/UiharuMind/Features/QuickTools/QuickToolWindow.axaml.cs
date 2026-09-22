@@ -105,6 +105,9 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
 
     private bool _menuIsShown;
 
+    // 菜单项图标固定浅色：背景是固定深色胶囊，跟随主题会在浅色主题下变黑（与文字 #E6FFFFFF 同色）
+    private static readonly Color MenuIconColor = Color.Parse("#E6FFFFFF");
+
     // 收起时窗口要缩回的宽度（展开前记录，就是只有主按钮的宽度）
     private double _collapsedWindowWidth;
 
@@ -173,26 +176,19 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 MainMenu.RenderTransform = transform;
             }
 
-            // 展开恢复自适应（收起被打断时也要切回来，窗口才会重新展开）；收起切手动宽度，才能被动画
-            if (isShowed)
-            {
-                SizeToContent = SizeToContent.WidthAndHeight;
-            }
-            else
-            {
-                Width = Bounds.Width;
-                SizeToContent = SizeToContent.Height;
-            }
+            // 窗口宽度全程手动 + 高度自适应：SizeToContent 来回切换会让 macOS 在 resize 时
+            // 闪一帧拉伸/压扁（展开压扁、收起后抖动就是它）。开始先把当前宽度固化，之后只动画 Width。
+            Width = Bounds.Width;
+            SizeToContent = SizeToContent.Height;
 
             MainMenu.IsHitTestVisible = isShowed;
             if (isShowed) MainMenu.IsVisible = true;
 
+            // 展开目标 = 菜单恢复布局后的内容期望宽度；收起目标 = 展开前宽度
             double startX = transform.X;
             double targetX = isShowed ? 0 : MenuSlideHiddenOffset;
-
-            // 收起时背景（窗口宽度）跟着一起缩回，否则动画结束 Collapsed 那一下是硬切
             double startWidth = Bounds.Width;
-            double targetWidth = isShowed ? startWidth : _collapsedWindowWidth;
+            double targetWidth = isShowed ? MeasureExpandedWidth() : _collapsedWindowWidth;
 
             var startTime = DateTime.UtcNow;
             while (true)
@@ -204,24 +200,28 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 double eased = 1 - Math.Pow(1 - progress, 3);
 
                 transform.X = Lerp(startX, targetX, eased);
-                if (!isShowed) Width = Lerp(startWidth, targetWidth, eased);
+                Width = Lerp(startWidth, targetWidth, eased);
 
                 if (progress >= 1) break;
                 await Task.Delay(16, ct);
             }
 
             transform.X = targetX;
-            if (!isShowed)
-            {
-                Width = targetWidth;
-                MainMenu.IsVisible = false;
-                SizeToContent = SizeToContent.WidthAndHeight;
-            }
+            Width = targetWidth;
+            if (!isShowed) MainMenu.IsVisible = false;
+            // 保持 SizeToContent=Height：收起后宽度固定，不再切回 WidthAndHeight 触发布局重算（抖动来源）
             onCompleted?.Invoke();
         }
         catch (OperationCanceledException)
         {
         }
+    }
+
+    /// <summary>展开目标宽度：菜单恢复布局后，量卡片内容的期望宽度</summary>
+    private double MeasureExpandedWidth()
+    {
+        Card.Measure(Size.Infinity);
+        return Card.DesiredSize.Width;
     }
 
     private static double Lerp(double from, double to, double t)
@@ -271,7 +271,8 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 Spacing = 5,
                 Children =
                 {
-                    new ThemedSvgIcon { IconName = iconName, Width = 15, Height = 15 },
+                    // 图标固定浅色：背景是固定深色胶囊，图标跟随主题会在浅色主题下变黑、看不见
+                    new ThemedSvgIcon { IconName = iconName, Width = 15, Height = 15, CurrentColor = MenuIconColor },
                     new TextBlock
                     {
                         Text = LocalizationManager.Instance.GetString(textKey),

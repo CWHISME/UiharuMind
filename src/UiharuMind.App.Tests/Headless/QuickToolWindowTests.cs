@@ -58,7 +58,10 @@ public class QuickToolWindowTests
             Assert.True(window.MainMenu.IsHitTestVisible);
             Assert.Equal(0, collapsedMenuWidth);            // 折叠时菜单不占布局（幽灵区消失）
             Assert.True(window.MainMenu.DesiredSize.Width > 0);  // 展开后菜单恢复参与布局
-            Assert.True(window.DesiredSize.Width > collapsedWidth); // 窗口期望宽度向右扩
+            // 窗口宽度现在是手动动画（SizeToContent=Height），窗口 DesiredSize 不再反映内容；
+            // 用卡片内容期望宽度验证「向右扩」（这正是展开目标宽度的来源）
+            window.Card.Measure(Avalonia.Size.Infinity);
+            Assert.True(window.Card.DesiredSize.Width > collapsedWidth);
         });
     }
 

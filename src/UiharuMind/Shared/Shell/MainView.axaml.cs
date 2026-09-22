@@ -30,7 +30,7 @@ public partial class MainView : UserControl
     [
         MenuPages.MenuCharacterKey,
         MenuPages.MenuModelKey,
-        MenuPages.MenuServicesKey,
+        // MenuPages.MenuServicesKey,
         MenuPages.MenuLogKey,
     ];
 

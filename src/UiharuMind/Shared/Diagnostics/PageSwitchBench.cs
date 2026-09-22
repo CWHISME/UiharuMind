@@ -36,7 +36,7 @@ public static class PageSwitchBench
         MenuPages.MenuConversationKey,
         MenuPages.MenuCharacterKey,
         MenuPages.MenuModelKey,
-        MenuPages.MenuServicesKey,
+        // MenuPages.MenuServicesKey,
         MenuPages.MenuLogKey,
     ];
 
