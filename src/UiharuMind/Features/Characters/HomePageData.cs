@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,8 @@ public partial class HomePageData : PageDataBase
     private CharacterDraft? _editor;
 
     private bool _isDrivingSelection; //选中项是我们自己在改(回滚、撤占位项),不是用户在切角色
+    private bool _isEditorScheduled; //骨架先行:编辑表单推迟一拍物化,防抖/防重排
+    private bool _isActive; //页面是否处于激活态,避免切走后仍替不可见页面做物化
 
     /// <summary>右主区是否有东西可编辑</summary>
     public bool HasEditor => Editor != null;
@@ -60,18 +63,39 @@ public partial class HomePageData : PageDataBase
         _messageService = messageService;
         _characterListViewData = new CharacterListViewData();
         _characterListViewData.NewCharacterRequested = NewCharacterAsync;
-        _editor = CreateEditorFor(_characterListViewData.SelectedCharacter);
+        // 骨架先行:不在构造里建 Editor——否则首次切页的同步布局要连带物化整个编辑表单
+        // (实测 CharacterView 首次布局 ~115ms)。首帧只有左列表+空态,点亮推迟到 OnEnable 的下一拍
+        _editor = null;
     }
 
     public override void OnEnable()
     {
         base.OnEnable();
+        _isActive = true;
+        // 骨架先行:首帧先不物化编辑表单,下一拍(空闲调度)再点燃默认选中项,
+        // 首次切页的同步布局只付左列表+空态,编辑表单的物化挪出点击路径
+        if (Editor == null && !_isEditorScheduled)
+        {
+            _isEditorScheduled = true;
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    _isEditorScheduled = false;
+                    // 只在页面仍激活且用户还没自己点出草稿时补建;
+                    // 切走后不替不可见页面做物化,等下次 OnEnable 再排
+                    if (_isActive && Editor == null)
+                        Editor = CreateEditorFor(CharacterListViewData.SelectedCharacter);
+                },
+                DispatcherPriority.Background);
+        }
+
         CharacterListViewData.EventOnSelectedCharacterChanged += OnSelectedCharacterChanged;
     }
 
     public override void OnDisable()
     {
         base.OnDisable();
+        _isActive = false;
         CharacterListViewData.EventOnSelectedCharacterChanged -= OnSelectedCharacterChanged;
     }
 

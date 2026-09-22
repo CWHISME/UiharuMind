@@ -16,6 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,8 +42,24 @@ public partial class ModelPageData : PageDataBase
     [ObservableProperty] private string? _modelPath;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private int _count;
+    [ObservableProperty] private bool _isListDataReady;
+    private bool _isListSchedulePending; //防抖：同一拍里多次 OnEnable 只排一次点亮
 
     public ObservableCollection<ModelRunningData> ModelSources => App.ModelService.ModelSources;
+
+    /// <summary>
+    /// 切页首帧只出页面骨架，条目列表推迟一拍再挂载。
+    /// 原因：ListBox 在切页同步布局里会一次性物化全部条目（实测 16 条 ~80ms），
+    /// 直接绑 <see cref="ModelSources"/> 会把这笔账压进点击路径；
+    /// 先绑空集合让骨架 40ms 内出画，下一拍再换全集合并让引擎自然布局。
+    /// </summary>
+    public IEnumerable<ModelRunningData> CurrentItems =>
+        IsListDataReady ? ModelSources : Array.Empty<ModelRunningData>();
+
+    partial void OnIsListDataReadyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CurrentItems));
+    }
     
     public ModelPageData() : this(App.Services.GetRequiredService<IMessageService>())
     {
@@ -155,6 +172,20 @@ public partial class ModelPageData : PageDataBase
     public override void OnEnable()
     {
         base.OnEnable();
+        // 骨架先行：首帧先不亮列表，下一拍再挂全集合并让引擎出画——
+        // 否则 ListBox 一次性物化会卡在点击路径上（见 CurrentItems 注释）
+        if (!IsListDataReady && !_isListSchedulePending)
+        {
+            _isListSchedulePending = true;
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    _isListSchedulePending = false;
+                    IsListDataReady = true;
+                },
+                DispatcherPriority.Background);
+        }
+
         if (ModelPath == ModelSettingConfig.Current.LocalModelPath) return;
 
         _isSyncingModelPath = true;
