@@ -5,7 +5,6 @@
              xmlns:viewData="clr-namespace:UiharuMind.Features.LogViewer"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:u="https://irihi.tech/ursa"
              xmlns:log="clr-namespace:UiharuMind.Core.Core.SimpleLog;assembly=UiharuMind.Core"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="UiharuMind.Features.LogViewer.LogView"
@@ -43,7 +42,7 @@
         <ListBox Grid.Row="1" Name="LogList" ItemsSource="{Binding Items}"
                  SelectedItem="{Binding SelectedEntry}"
                  SelectionMode="Single" Background="Transparent"
-                 u:ScrollTo.Direction="Top">
+                 AutoScrollToSelectedItem="False">
             <ListBox.ItemsPanel>
                 <ItemsPanelTemplate>
                     <VirtualizingStackPanel />
@@ -61,6 +60,20 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
+        <!-- 回到顶部：页面内普通按钮，随页面可见性一起隐藏，不会像 Ursa 的 ScrollTo
+             (adorner 挂在窗口级层上)那样在切页后残留叠在其他页上。
+             图标复用项目自带的 chevron-down 并旋转 180° 朝上，与主题色自适应 -->
+        <Button Grid.Row="1" Name="ScrollToTopButton" Width="34" Height="34"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,12"
+                IsVisible="False" ToolTip.Tip="{loc:Loc LogScrollToTop}"
+                Click="OnScrollToTopClick">
+            <ThemedSvgIcon IconName="chevron-down" Width="18" Height="18">
+                <ThemedSvgIcon.RenderTransform>
+                    <RotateTransform Angle="180" />
+                </ThemedSvgIcon.RenderTransform>
+            </ThemedSvgIcon>
+        </Button>
 
         <!-- for resizing -->
         <GridSplitter Grid.Row="2" ResizeBehavior="PreviousAndNext" Height="5" HorizontalAlignment="Stretch" />

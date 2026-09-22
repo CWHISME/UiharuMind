@@ -2622,6 +2622,9 @@
     <data name="LogBodyEvicted" xml:space="preserve">
         <value>（该条正文已因日志滚动被清理）</value>
     </data>
+    <data name="LogScrollToTop" xml:space="preserve">
+        <value>回到顶部</value>
+    </data>
     <data name="ClipboardRetentionTitle" xml:space="preserve">
         <value>剪贴板历史自动清理（天）</value>
     </data>

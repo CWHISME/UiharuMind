@@ -7,6 +7,8 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Collections.Specialized;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -33,6 +35,9 @@ public partial class LogView : UserControl
 {
     private bool _isDragging;
     private bool _captureReleased; //本次拖动是否已经放掉 ListBoxItem 的指针捕获
+    private ScrollViewer? _listScroller;
+    private double _rowHeight; //已量到的单行高度,缓存后不再每次遍历视觉树
+    private bool _scrollKeepWired; //Items.CollectionChanged 是否已挂上
 
     public LogView()
     {
@@ -42,6 +47,83 @@ public partial class LogView : UserControl
         AddHandler(PointerPressedEvent, OnPointerPressedTunnel, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnPointerMovedTunnel, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPointerReleasedTunnel, RoutingStrategies.Tunnel);
+
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+    }
+
+    // 顶部插入的滚动保持：ReversedObservableList 发 Add(0) 后，VirtualizingStackPanel
+    // 保持像素偏移不动、把已实现容器整体下移一行——正在读的那条日志被新日志挤走。
+    // 这里在布局前把 offset 补偿上一行高度，让视口内容待在原处；顶部(offset==0)不需要，
+    // 那时用户看的就是最新几条，新日志到来本就该原样停在顶部。
+    private void OnLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is LogViewModel vm && !_scrollKeepWired)
+        {
+            vm.Items.CollectionChanged += OnItemsCollectionChanged;
+            _scrollKeepWired = true;
+        }
+        WireScroller();
+    }
+
+    private void OnUnloaded(object? sender, RoutedEventArgs e)
+    {
+        if (_scrollKeepWired && DataContext is LogViewModel vm)
+        {
+            vm.Items.CollectionChanged -= OnItemsCollectionChanged;
+            _scrollKeepWired = false;
+        }
+        UnwireScroller();
+    }
+
+    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // 只处理顶部插入；Reset(清空/筛选/超限裁剪)会整体重建,不在这一层兜
+        if (e.Action != NotifyCollectionChangedAction.Add || e.NewStartingIndex != 0) return;
+        ScrollViewer? scroller = _listScroller ??= FindListScroller();
+        if (scroller is null || scroller.Offset.Y <= 0) return;
+        double row = GetRowHeight();
+        if (row <= 0) return;
+        Vector offset = scroller.Offset;
+        scroller.Offset = new Vector(offset.X, offset.Y + row * (e.NewItems?.Count ?? 1));
+    }
+
+    private ScrollViewer? FindListScroller() =>
+        LogList.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+
+    private double GetRowHeight()
+    {
+        if (_rowHeight > 0) return _rowHeight;
+        foreach (ListBoxItem item in LogList.GetVisualDescendants().OfType<ListBoxItem>())
+        {
+            if (item.Bounds.Height > 0) return _rowHeight = item.Bounds.Height;
+        }
+        return 0;
+    }
+
+    private void WireScroller()
+    {
+        if (_listScroller != null) return;
+        _listScroller = FindListScroller();
+        if (_listScroller != null) _listScroller.ScrollChanged += OnListScrolled;
+    }
+
+    private void UnwireScroller()
+    {
+        if (_listScroller == null) return;
+        _listScroller.ScrollChanged -= OnListScrolled;
+        _listScroller = null;
+    }
+
+    private void OnListScrolled(object? sender, ScrollChangedEventArgs e) => UpdateScrollToTopVisibility();
+
+    // 回顶按钮只在滚动离开顶部时出现；回到顶部(含点按钮滚回去)立即藏掉
+    private void UpdateScrollToTopVisibility() =>
+        ScrollToTopButton.IsVisible = _listScroller is { } s && s.Offset.Y > 0;
+
+    private void OnScrollToTopClick(object? sender, RoutedEventArgs e)
+    {
+        if (_listScroller is { } scroller) scroller.Offset = new Vector(scroller.Offset.X, 0);
     }
 
     private void OnPointerPressedTunnel(object? sender, PointerPressedEventArgs e)
