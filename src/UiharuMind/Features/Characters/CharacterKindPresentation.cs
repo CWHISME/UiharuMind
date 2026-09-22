@@ -12,11 +12,29 @@ namespace UiharuMind.Features.Characters;
 /// </summary>
 public static class CharacterKindPresentation
 {
-    /// <summary>用户可建的档位(用户卡是单例，由专属编辑窗管，不在此列)</summary>
+    /// <summary>
+    /// 用户可建的档位——<b>两档</b>：普通角色 / 智能体（用户卡是单例，由专属编辑窗管，不在此列）。
+    ///
+    /// <b>为什么工具人不在这里了</b>（ADR 0043）：<c>Roleplay</c> 与 <c>Tool</c> 之间
+    /// <b>没有任何机械差异</b>——两档都不开 harness，走同一条 <c>BuildRoleplayOptions</c>。
+    /// 它们的区别（有没有人格与开场白、是不是一段纯提示词干一件事）是<b>这张卡上填了什么</b>，
+    /// 不是装配管线走哪条。用身份轴表达数据差异，代价是徽章、筛选、编辑表单三处各分叉一次。
+    ///
+    /// ⚠️ 存量的 <c>Tool</c> 档角色一律按<b>普通角色</b>呈现（见 <see cref="NameOf"/>）。
+    /// 存储层仍是四档枚举，一轴化连同迁移是 ADR 0043 的阶段 2。
+    /// </summary>
     public static readonly ECharacterKind[] CreatableKinds =
     [
-        ECharacterKind.Roleplay, ECharacterKind.Tool, ECharacterKind.Agent,
+        ECharacterKind.Roleplay, ECharacterKind.Agent,
     ];
+
+    /// <summary>
+    /// 这个档是不是<b>普通角色</b>（扮演与工具人已合并）。筛选与排序都走它，
+    /// 不要再拿 <c>Kind ==</c> 裸比较——那正是 ADR 0043 要消灭的写法。
+    /// </summary>
+    /// <param name="kind">角色档位</param>
+    /// <returns>普通角色返回 True</returns>
+    public static bool IsPlainCharacter(ECharacterKind kind) => kind.IsChat();
 
     /// <summary>
     /// 档位显示名
@@ -25,8 +43,8 @@ public static class CharacterKindPresentation
     /// <returns>本地化名称</returns>
     public static string NameOf(ECharacterKind kind) => kind switch
     {
-        ECharacterKind.Roleplay => Loc.Text(LangKey.CharacterKindRoleplay),
-        ECharacterKind.Tool => Loc.Text(LangKey.CharacterKindTool),
+        // 扮演与工具人合并为「角色」：两档在装配上本来就一模一样（ADR 0043）
+        ECharacterKind.Roleplay or ECharacterKind.Tool => Loc.Text(LangKey.CharacterKindRoleplay),
         ECharacterKind.Agent => Loc.Text(LangKey.CharacterKindAgent),
         _ => Loc.Text(LangKey.CharacterKindUserCard),
     };
@@ -38,8 +56,7 @@ public static class CharacterKindPresentation
     /// <returns>徽章画刷</returns>
     public static IImmutableSolidColorBrush ColorOf(ECharacterKind kind) => kind switch
     {
-        ECharacterKind.Roleplay => Brushes.LightGreen,
-        ECharacterKind.Tool => Brushes.Gold,
+        ECharacterKind.Roleplay or ECharacterKind.Tool => Brushes.LightGreen,
         ECharacterKind.Agent => Brushes.LightSkyBlue,
         _ => Brushes.LightGray,
     };

@@ -63,7 +63,7 @@ public class WorkspaceInstructionsTests : IDisposable
     [Fact]
     public void ChangedWorkspaceInstructions_ProduceDifferentSnapshot()
     {
-        CharacterData character = new() { CharacterId = "agent", Kind = ECharacterKind.Agent };
+        CharacterData character = new() { CharacterId = "agent", IsAgent = true };
 
         AgentAssemblyFacts before = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, 1, workspaceInstructions: "v1");

@@ -109,7 +109,7 @@ public partial class HomePageData : PageDataBase
     {
         if (!await ConfirmLeaveEditorAsync()) return;
 
-        CharacterData seed = new() { Kind = kind };
+        CharacterData seed = new() { IsAgent = kind.IsAgent() };
         // 智能体预填工作循环那一节:它是弱模型最依赖的几条,而现在它归角色提示词管(ADR 0004),
         // 不预填就等于新建出来的智能体默认少了这段。用户可以照常改写或删掉
         if (seed.Kind.IsAgent()) seed.Template = AgentToolPrompts.AgentWorkLoop;

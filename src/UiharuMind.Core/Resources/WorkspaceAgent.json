@@ -1,5 +1,6 @@
 {
-  "Kind": "Agent",
+  "IsAgent": true,
+  "IsUserCard": false,
   "Config": {
     "PromptConfig": {
       "name": "初春",

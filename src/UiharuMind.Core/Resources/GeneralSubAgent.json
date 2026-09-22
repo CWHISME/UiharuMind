@@ -1,5 +1,6 @@
 {
-  "Kind": "Agent",
+  "IsAgent": true,
+  "IsUserCard": false,
   "IsInternal": true,
   "Config": {
     "PromptConfig": {

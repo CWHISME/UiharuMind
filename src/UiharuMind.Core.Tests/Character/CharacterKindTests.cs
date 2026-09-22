@@ -34,10 +34,10 @@ public class CharacterKindTests
         {
             if (value is DefaultCharacter.Max) continue;
 
-            // 缺字段会静默落到默认档 Roleplay:智能体会变成读不了文件的聊天角色,
-            // 工具人会凭空长出开场白与用户卡开关。所以每张内置卡都必须自己写明档位
+            // 缺字段会静默落到 IsAgent=false:智能体会变成读不了文件的聊天角色。
+            // 所以每张内置卡都必须自己写明身份轴(ADR 0043 之前这个字段叫 "Kind")
             string json = EmbeddedResourcesUtils.Read(value + ".json");
-            Assert.Contains("\"Kind\"", json);
+            Assert.Contains("\"IsAgent\"", json);
         }
     }
 
@@ -45,8 +45,9 @@ public class CharacterKindTests
     [InlineData(DefaultCharacter.UiharuKazari, ECharacterKind.Roleplay)]
     [InlineData(DefaultCharacter.WorkspaceAgent, ECharacterKind.Agent)]
     [InlineData(DefaultCharacter.UserCard, ECharacterKind.UserCard)]
-    [InlineData(DefaultCharacter.Translator, ECharacterKind.Tool)]
-    [InlineData(DefaultCharacter.Assistant, ECharacterKind.Tool)]
+    // ADR 0043 合并之后 Kind 是派生投影,永远不会产出 Tool:存量工具人卡一律投影成普通角色
+    [InlineData(DefaultCharacter.Translator, ECharacterKind.Roleplay)]
+    [InlineData(DefaultCharacter.Assistant, ECharacterKind.Roleplay)]
     public void BuiltInCharacters_LandOnTheirIntendedKind(DefaultCharacter character, ECharacterKind expected)
     {
         Assert.Equal(expected, DefaultCharacterManager.Instance.GetCharacterData(character).Kind);
@@ -94,17 +95,28 @@ public class CharacterKindTests
         Assert.False(ECharacterKind.UserCard.IsAgent());
     }
 
+    /// <summary>
+    /// 身份轴的往返，以及<b>老存档的迁移</b>。
+    ///
+    /// 后半段是承重的：升级前的角色卡身上是 <c>"Kind": "Agent"</c>，没有
+    /// <c>CharacterData.LegacyKind</c> 那个只写不读的垫片，它们会全部落到
+    /// <c>IsAgent=false</c> —— <b>现存的智能体静默降级成普通角色</b>。
+    /// </summary>
     [Fact]
-    public void Kind_RoundTripsAsReadableString()
+    public void IdentityAxis_RoundTrips_AndLegacyKindStillMigrates()
     {
-        CharacterData original = new() { Kind = ECharacterKind.Agent };
-
+        CharacterData original = new() { IsAgent = true };
         string json = SaveUtility.SaveToString(original);
-        CharacterData restored = SaveUtility.LoadFromString<CharacterData>(json);
 
-        // 存成可读字符串而非数字：内置角色卡是手写的，数字枚举既不可读也易错
-        Assert.Contains("\"Agent\"", json);
-        Assert.Equal(ECharacterKind.Agent, restored.Kind);
+        Assert.Contains("\"IsAgent\"", json);
+        Assert.DoesNotContain("\"Kind\"", json); //枚举退出存储，只剩派生视图
+        Assert.True(SaveUtility.LoadFromString<CharacterData>(json).IsAgent);
+
+        // 老存档：四档枚举字符串仍要能读进来并落到正确的轴上
+        Assert.True(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"Agent\"}").IsAgent);
+        Assert.True(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"UserCard\"}").IsUserCard);
+        Assert.False(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"Tool\"}").IsAgent);
+        Assert.False(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"Roleplay\"}").IsAgent);
     }
 
     [Fact]

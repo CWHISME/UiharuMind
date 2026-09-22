@@ -26,7 +26,7 @@ public class CharacterPromptBuilderTests
     {
         CharacterData translator = Default(DefaultCharacter.Translator);
 
-        Assert.Equal(ECharacterKind.Tool, translator.Kind);
+        Assert.False(translator.IsAgent); //ADR 0043 之后它是普通角色，不再单列「工具人」档
         Assert.False(translator.InjectUserCard);
 
         string prompt = CharacterPromptBuilder.Build(translator);

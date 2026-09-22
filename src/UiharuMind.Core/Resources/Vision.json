@@ -1,5 +1,6 @@
 {
-  "Kind": "Tool",
+  "IsAgent": false,
+  "IsUserCard": false,
   "IsInternal": true,
   "RequiresVisionModel": true,
   "Config": {

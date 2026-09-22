@@ -102,10 +102,12 @@ public partial class CharacterListViewData : ObservableObject
             _characterChacheList.Add(item);
         }
 
-        // 同档内按存档时间倒序,档间按枚举顺序(扮演 → 工具人 → 智能体)
+        // 同档内按存档时间倒序,档间普通角色在前、智能体在后(ADR 0043 合并后只有两档,
+        // 不能再按枚举顺序排——那会把扮演与工具人分成两撮,而它们现在是同一撮)
         _characterChacheList.Sort((x, y) =>
         {
-            if (x.Kind != y.Kind) return x.Kind.CompareTo(y.Kind);
+            bool xa = x.Kind.IsAgent(), ya = y.Kind.IsAgent();
+            if (xa != ya) return xa ? 1 : -1;
             return y.FileDateTime.CompareTo(x.FileDateTime);
         });
 
@@ -135,9 +137,13 @@ public partial class CharacterListViewData : ObservableObject
     /// <returns>该显示返回 True</returns>
     private bool Matches(CharacterInfoViewData item)
     {
-        // 筛选直读档位:一个角色只有一个身份,不再从挂载列表派生
-        if (FilterTagIndex > 0 && item.Kind != CharacterKindPresentation.CreatableKinds[FilterTagIndex - 1])
-            return false;
+        // 筛选按两档判据而不是相等比较:「普通角色」要同时收下存量的扮演与工具人(ADR 0043)
+        if (FilterTagIndex > 0)
+        {
+            ECharacterKind wanted = CharacterKindPresentation.CreatableKinds[FilterTagIndex - 1];
+            bool matched = wanted.IsAgent() ? item.Kind.IsAgent() : CharacterKindPresentation.IsPlainCharacter(item.Kind);
+            if (!matched) return false;
+        }
         if (item.Data.IsInternal && !IsDisplayAllCharacters) return false;
 
         return string.IsNullOrWhiteSpace(SearchKeyword) ||

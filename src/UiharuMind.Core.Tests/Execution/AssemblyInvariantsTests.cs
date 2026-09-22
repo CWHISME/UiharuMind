@@ -30,7 +30,7 @@ public class PromptOnlyZeroInjectionTests
     [InlineData(ECharacterKind.Tool)]
     public void BuildPromptOnlyOptions_DisablesEveryFrameworkCapability(ECharacterKind kind)
     {
-        CharacterData character = new() { CharacterId = "rp", Kind = kind };
+        CharacterData character = new() { CharacterId = "rp", IsAgent = kind.IsAgent() };
         ChatOptions chatOptions = new();
 
         HarnessAgentOptions options = AgentOptionsFactory.BuildPromptOnlyOptions(
@@ -56,7 +56,7 @@ public class PromptOnlyZeroInjectionTests
     [Fact]
     public void BuildPromptOnlyOptions_CompactionIsOptInOnly()
     {
-        CharacterData character = new() { CharacterId = "rp", Kind = ECharacterKind.Roleplay };
+        CharacterData character = new() { CharacterId = "rp", IsAgent = false };
 
         HarnessAgentOptions without = AgentOptionsFactory.BuildPromptOnlyOptions(
             character, new StubHistoryProvider(), [], new ChatOptions());
@@ -616,7 +616,7 @@ public class HarnessInstructionsCompositionTests
     {
         CharacterData character = new()
         {
-            CharacterId = "agent", Kind = ECharacterKind.Agent, Tools = tools ?? new AgentToolConfig(),
+            CharacterId = "agent", IsAgent = true, Tools = tools ?? new AgentToolConfig(),
         };
         string skillsDir = Path.Combine(Path.GetTempPath(), "uiharu-skills-test");
         Directory.CreateDirectory(skillsDir);
@@ -818,7 +818,7 @@ public class SubAgentBoundaryTests
         CharacterData character = new()
         {
             CharacterId = nameof(DefaultCharacter.GeneralSubAgent),
-            Kind = ECharacterKind.Agent,
+            IsAgent = true,
             Tools = new AgentToolConfig { EnableShellExecution = false },
         };
         return new AgentAssemblyPlan
@@ -1344,7 +1344,7 @@ public class AssemblySnapshotTests
     {
         return new CharacterData
         {
-            CharacterId = "agent", Kind = ECharacterKind.Agent, Tools = tools ?? new AgentToolConfig(),
+            CharacterId = "agent", IsAgent = true, Tools = tools ?? new AgentToolConfig(),
         };
     }
 
@@ -1413,7 +1413,7 @@ public class AssemblySnapshotTests
     {
         return new CharacterData
         {
-            CharacterId = id, Kind = ECharacterKind.Agent, CharacterName = name, Description = description,
+            CharacterId = id, IsAgent = true, CharacterName = name, Description = description,
         };
     }
 
@@ -1487,8 +1487,8 @@ public class AssemblySnapshotTests
             EnableSubAgent = false,
         };
 
-        CharacterData a = new() { CharacterId = "rp", Kind = kind, Tools = configA };
-        CharacterData b = new() { CharacterId = "rp", Kind = kind, Tools = configB };
+        CharacterData a = new() { CharacterId = "rp", IsAgent = kind.IsAgent(), Tools = configA };
+        CharacterData b = new() { CharacterId = "rp", IsAgent = kind.IsAgent(), Tools = configB };
 
         AgentAssemblyFacts first = AgentAssemblyFacts.Capture(a, "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);
