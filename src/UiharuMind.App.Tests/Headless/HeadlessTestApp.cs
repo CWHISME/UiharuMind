@@ -51,16 +51,16 @@ public sealed class HeadlessTestApp : Application
 
     /// <summary>
     /// 无头测试会话的入口（<c>[AvaloniaFact]</c> 按 <c>AvaloniaTestApplication</c> 找到它）。
-    /// 渲染后端用 Avalonia 自带的无头实现，不碰 GPU 与窗口系统
+    /// 渲染后端用 Avalonia 自带的无头实现，不碰 GPU 与窗口系统。
+    ///
+    /// <b>2026-09 起开真 Skia</b>（<c>UseHeadlessDrawing = false</c>）：默认的假绘制不产生像素，
+    /// <c>CaptureRenderedFrame</c> 拿不到帧；换成 <c>UseSkia()</c> 后无头测试可以直接截图，
+    /// 字体解析也是真实的。代价是布局/性能记账类测试的度量从「确定但假的 BareMinimum」
+    /// 变成真实字体度量，全量跑过一轮适配过断言。
     /// </summary>
     /// <returns>应用构建器</returns>
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<HeadlessTestApp>()
-            .UseHeadless(new AvaloniaHeadlessPlatformOptions());
-
-    // ⚠️ 这里用的是无头的<b>默认绘制</b>(UseHeadlessDrawing = true),它带的字体管理器是假的:
-    // 系统字体一律解析成 BareMinimum,字形度量也不真实。所以<b>任何关于字体解析、字重匹配、
-    // 合成粗体的结论都不能在这一层下</b>——那些只有真实进程里才算数(用 --dev-script 的
-    // diag.font)。换成 .UseHarfBuzz().UseSkia().UseHeadless(UseHeadlessDrawing = false)
-    // 可以拿到真 Skia，但 CaptureRenderedFrame 在本仓这套会话下取不到帧，试过，没走通。
+            .UseSkia()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
