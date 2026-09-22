@@ -47,21 +47,10 @@
                      VerticalAlignment="Center" />
 
             <ThemedIconButton Grid.Column="1" Classes="icon" IconName="file-plus-corner"
-                              ToolTips="{loc:Loc CreateBtn}">
-                <!-- 新建先定档:三档的表单面孔差得太多,进去再翻旗标不好使 -->
-                <ThemedIconButton.Flyout>
-                    <MenuFlyout Placement="BottomEdgeAlignedRight">
-                        <MenuItem Header="{loc:Loc CharacterKindRoleplay}"
-                                  Command="{Binding NewCharacterCommand}"
-                                  CommandParameter="{x:Static character:ECharacterKind.Roleplay}" />
-                        <MenuItem Header="{loc:Loc CharacterKindTool}"
-                                  Command="{Binding NewCharacterCommand}"
-                                  CommandParameter="{x:Static character:ECharacterKind.Tool}" />
-                        <MenuItem Header="{loc:Loc CharacterKindAgent}"
-                                  Command="{Binding NewCharacterCommand}"
-                                  CommandParameter="{x:Static character:ECharacterKind.Agent}" />
-                    </MenuFlyout>
-                </ThemedIconButton.Flyout>
+                              ToolTips="{loc:Loc CreateBtn}"
+                              Command="{Binding NewCharacterCommand}">
+                <!-- 新建不再先定档(ADR 0043):建出来就是普通角色,
+                     要让它干活就在编辑页把「智能体」打开——装配了工具与工作目录才是 agent -->
             </ThemedIconButton>
 
             <ThemedIconButton Grid.Column="2" Classes="icon" IconName="ellipsis"
