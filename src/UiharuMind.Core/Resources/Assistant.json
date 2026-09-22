@@ -1,5 +1,6 @@
 {
-  "Kind": "Tool",
+  "IsAgent": false,
+  "IsUserCard": false,
   "Config": {
     "PromptConfig": {
       "name": "白猫",

@@ -17,7 +17,7 @@ public class CharacterDataCopyFromTests
     private static CharacterData FullyPopulated() => new()
     {
         CharacterId = "copy-from-source",
-        Kind = ECharacterKind.Agent,
+        IsAgent = true,
         MemoryName = "memory-a",
         IsDefaultCharacter = true,
         IsInternal = true,

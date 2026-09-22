@@ -38,8 +38,8 @@ public class VisionFallbackTests
     [Fact]
     public void CharacterOverload_FollowsKindAndTools()
     {
-        CharacterData roleplay = new() { Kind = ECharacterKind.Roleplay, Tools = new AgentToolConfig() };
-        CharacterData agent = new() { Kind = ECharacterKind.Agent, Tools = new AgentToolConfig { EnableVisionTool = true } };
+        CharacterData roleplay = new() { IsAgent = false, Tools = new AgentToolConfig() };
+        CharacterData agent = new() { IsAgent = true, Tools = new AgentToolConfig { EnableVisionTool = true } };
 
         Assert.False(VisionFallback.HasFallback(roleplay));
         Assert.True(VisionFallback.HasFallback(agent));
@@ -62,7 +62,7 @@ public class VisionFallbackTests
     public void RoleplayWithNonVisionModelAndImage_IsTheWarningCase()
     {
         // 这就是 S12-c 要警示的那一格:扮演档 + 非视觉模型 + 粘了图
-        CharacterData roleplay = new() { Kind = ECharacterKind.Roleplay, Tools = new AgentToolConfig() };
+        CharacterData roleplay = new() { IsAgent = false, Tools = new AgentToolConfig() };
 
         Assert.True(VisionFallback.WillDropImages(true, false, VisionFallback.HasFallback(roleplay)));
     }

@@ -172,9 +172,17 @@ public partial class TranslationWindow : UiharuWindowBase
             var defaultChar = _agentSkill.GetCharacterData();
             foreach (var item in CharacterManager.Instance.CharacterDataDictionary)
             {
-                // 只有工具人适合当一次性技能:扮演角色带着开场白与用户卡,智能体带着一整套工具,
-                // 都不该出现在翻译下拉里
-                if (item.Value.Kind != ECharacterKind.Tool || item.Value == defaultChar) continue;
+                // 只有「一次性提示词角色」适合当技能:陪聊角色带着开场白与用户卡,
+                // 智能体带着一整套工具,都不该出现在翻译下拉里。
+                //
+                // 判据从前是 Kind == Tool。ADR 0043 把扮演与工具人合并之后那一档没有了,
+                // 于是<b>把档位这个代理指标换成它本来在代理的那个属性</b>:
+                // 没有开场白、也不注入用户卡——那正是「一段纯提示词只干一件事」的实质定义,
+                // 不需要新字段。若改成 !IsAgent(),所有陪聊角色都会挤进这个下拉。
+                if (item.Value.IsAgent || item.Value.IsUserCard
+                    || !string.IsNullOrWhiteSpace(item.Value.FirstGreeting)
+                    || item.Value.InjectUserCard
+                    || item.Value == defaultChar) continue;
                 var customAgentSkill = new CustomPromptAction(item.Value);
                 _customAgentSkills.Add(customAgentSkill);
             }

@@ -1,5 +1,6 @@
 {
-  "Kind": "Roleplay",
+  "IsAgent": false,
+  "IsUserCard": false,
   "InjectUserCard": true,
   "Config": {
     "PromptConfig": {

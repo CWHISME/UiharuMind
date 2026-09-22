@@ -18,6 +18,11 @@ public static class CharacterKindRouting
     /// <returns>是 agent 档则为 true</returns>
     public static bool IsAgent(this ECharacterKind kind) => kind == ECharacterKind.Agent;
 
+    /// <summary>是否走 agent 装配。直读身份轴，不经枚举投影。</summary>
+    /// <param name="character">角色</param>
+    /// <returns>是 agent 则为 true</returns>
+    public static bool IsAgent(this CharacterData character) => character.IsAgent;
+
     /// <summary>
     /// 是否为聊天页的档位：只渲染提示词、不开 harness 的那两档（扮演与工具人）。
     /// </summary>
@@ -25,6 +30,11 @@ public static class CharacterKindRouting
     /// <returns>属于聊天页则为 true</returns>
     public static bool IsChat(this ECharacterKind kind) =>
         kind is ECharacterKind.Roleplay or ECharacterKind.Tool;
+
+    /// <summary>是否为普通角色（不开 harness、也不是用户卡）。直读身份轴。</summary>
+    /// <param name="character">角色</param>
+    /// <returns>普通角色则为 true</returns>
+    public static bool IsChat(this CharacterData character) => !character.IsAgent && !character.IsUserCard;
 
     /// <summary>
     /// 是否能开会话。用户卡是「我是谁」的单例，不能对话。

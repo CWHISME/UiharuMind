@@ -1,5 +1,6 @@
 {
-  "Kind": "UserCard",
+  "IsAgent": false,
+  "IsUserCard": true,
   "Config": {
     "PromptConfig": {
       "name": "UserCard",

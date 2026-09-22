@@ -22,9 +22,56 @@ public class CharacterData
     public string CharacterId { get; set; } = Guid.NewGuid().ToString("N");
 
     /// <summary>
-    /// 角色种类
+    /// 走不走 agent 装配：工具、工作目录、权限档与框架 harness。
+    ///
+    /// <b>这是角色身份的唯一存储轴</b>（ADR 0043）。从前是四档枚举 <c>ECharacterKind</c>，
+    /// 但那四档里只有一条真的机械分界线——<b>开不开 harness</b>。
+    /// 扮演与工具人之间没有任何装配差异（两档都走 <c>BuildRoleplayOptions</c>），
+    /// 它们的区别是<b>这张卡上填了什么</b>（有没有人格与开场白），不是走哪条管线。
     /// </summary>
-    public ECharacterKind Kind { get; set; } = ECharacterKind.Roleplay;
+    public bool IsAgent { get; set; }
+
+    /// <summary>
+    /// 是不是「我是谁」那张用户卡。单例、有专属编辑窗、不进角色库、不能对话。
+    ///
+    /// 它<b>不在</b> <see cref="IsAgent"/> 那条轴上——不对话的东西谈不上开不开 harness，
+    /// 所以单独一个标记而不是派生。方向是让它彻底退出角色体系（走自己的数据形态，
+    /// 届时也能支持多张用户卡），本轮不做。
+    /// </summary>
+    public bool IsUserCard { get; set; }
+
+    /// <summary>
+    /// 角色档位的<b>派生视图</b>，只读。留着是为了让既有的
+    /// <c>Kind.IsAgent()</c> / <c>Kind.IsChat()</c> / <c>Kind.CanStartSession()</c> 判定原样成立。
+    ///
+    /// ⚠️ <b>永远不会产出 <see cref="ECharacterKind.Tool"/></b>：扮演与工具人已经合并
+    /// （ADR 0043），存量的工具人卡一律投影成 <see cref="ECharacterKind.Roleplay"/>。
+    /// 这个投影本身是过渡件，ADR 0043 阶段 2 会连同枚举一起删掉。
+    /// </summary>
+    [JsonIgnore]
+    public ECharacterKind Kind => IsUserCard
+        ? ECharacterKind.UserCard
+        : IsAgent
+            ? ECharacterKind.Agent
+            : ECharacterKind.Roleplay;
+
+    /// <summary>
+    /// 老存档里的 <c>"Kind"</c> 字段——<b>只读进来，不写出去</b>。
+    ///
+    /// 它存在的唯一理由是迁移：升级前的角色卡身上是 <c>"Kind": "Agent"|"Roleplay"|"Tool"|"UserCard"</c>，
+    /// 没有这个 setter，反序列化会让它们全部落到 <see cref="IsAgent"/> 的默认值 false ——
+    /// <b>现存的智能体会静默降级成普通角色</b>。映射进新轴之后就不用任何人手动改卡。
+    /// 只有 setter，所以它不参与序列化：新卡写出去的只有 IsAgent / IsUserCard。
+    /// </summary>
+    [JsonPropertyName("Kind")]
+    public ECharacterKind LegacyKind
+    {
+        set
+        {
+            IsAgent = value == ECharacterKind.Agent;
+            IsUserCard = value == ECharacterKind.UserCard;
+        }
+    }
 
     /// <summary>
     /// 记忆库
@@ -213,7 +260,8 @@ public class CharacterData
         CharacterData snapshot = other.DeepCopy(); //深拷一份再搬，免得两个实例共享 Config/Tools 等子对象
         Config = snapshot.Config;
         CharacterId = snapshot.CharacterId;
-        Kind = snapshot.Kind;
+        IsAgent = snapshot.IsAgent;
+        IsUserCard = snapshot.IsUserCard;
         MemoryName = snapshot.MemoryName;
         IsDefaultCharacter = snapshot.IsDefaultCharacter;
         IsInternal = snapshot.IsInternal;

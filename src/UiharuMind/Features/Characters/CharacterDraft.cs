@@ -47,7 +47,9 @@ public partial class CharacterDraft : ObservableObject
         set
         {
             if (_draft.Kind == value) return;
-            _draft.Kind = value;
+            // 身份轴只有一根：开不开 harness。下拉里那两项映射到这一个 bool（ADR 0043）。
+            // 用户卡不可建，所以这里不碰 IsUserCard。
+            _draft.IsAgent = value.IsAgent();
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsRoleplay));
             OnPropertyChanged(nameof(IsAgent));
@@ -59,8 +61,11 @@ public partial class CharacterDraft : ObservableObject
     /// <summary>可选档位(用户卡不可建，见 <see cref="CharacterKindPresentation.CreatableKinds"/>)</summary>
     public ECharacterKind[] SelectableKinds => CharacterKindPresentation.CreatableKinds;
 
-    /// <summary>是否为角色扮演档(带开场白与用户卡的那一档)</summary>
-    public bool IsRoleplay => Kind == ECharacterKind.Roleplay;
+    /// <summary>
+    /// 是否为<b>普通角色</b>（带开场白与用户卡开关的那一类）。
+    /// 扮演与工具人已合并，所以判据是「不是 agent」而不是与某一档相等（ADR 0043）。
+    /// </summary>
+    public bool IsRoleplay => !Kind.IsAgent();
 
     /// <summary>是否为智能体档(装配工具与工作目录)</summary>
     public bool IsAgent => Kind.IsAgent();
