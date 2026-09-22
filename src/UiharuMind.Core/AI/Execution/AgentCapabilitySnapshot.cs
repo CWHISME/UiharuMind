@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 
@@ -67,6 +68,30 @@ public sealed class AgentCapabilitySnapshot
     /// <summary>按能力档汇总的估算占用（角色编辑页据此显示「关掉这一档能省多少」）</summary>
     public IReadOnlyDictionary<EAgentCapability, int> TokensByCapability { get; init; } =
         new Dictionary<EAgentCapability, int>();
+
+    /// <summary>
+    /// 纯提示词档（角色扮演/工具人）的固定开销快照：只有角色段，框架零注入。
+    /// 与 agent 档同一口径——这段提示词每轮完整重发，正是这个会话最重的固定开销；
+    /// 只是它没有工具/工作区那些档可报。空态与发送后都由它（或同构装配）给出
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <param name="promptArguments">角色的模板参数；null 用角色公共参数</param>
+    /// <returns>只有角色段的快照</returns>
+    public static AgentCapabilitySnapshot FromRoleplay(CharacterData character,
+        IReadOnlyDictionary<string, object?>? promptArguments = null)
+    {
+        string rolePrompt = CharacterPromptBuilder.Build(character, promptArguments);
+        return new AgentCapabilitySnapshot
+        {
+            PromptSegments =
+            [
+                new AgentPromptSegment(EPromptSection.Character, rolePrompt)
+                {
+                    EstimatedTokens = ToolTokenEstimator.EstimateText(rolePrompt),
+                },
+            ],
+        };
+    }
 
     /// <summary>
     /// 从一份已装配的工具集切出快照

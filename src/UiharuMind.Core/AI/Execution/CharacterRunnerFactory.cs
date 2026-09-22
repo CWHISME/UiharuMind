@@ -92,7 +92,12 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     public async Task<AgentCapabilitySnapshot> PreviewCapabilitiesAsync(AgentBuildProfile profile,
         CancellationToken cancellationToken = default)
     {
-        if (!profile.Character.Kind.IsAgent()) return AgentCapabilitySnapshot.Empty;
+        // 非智能体档（角色扮演/工具人）不装配任何能力,但角色提示词是真实的固定开销——
+        // 空态一样要能报出「这段会占多少」（agent 档也是这么报角色段的,只是档更多）
+        if (!profile.Character.Kind.IsAgent())
+        {
+            return AgentCapabilitySnapshot.FromRoleplay(profile.Character, profile.PromptArguments);
+        }
 
         // 名单与装配用的是同一份,理由同 HarnessCharacterRunner.EnsureHandleAsync
         await McpManager.Instance.WarmupAsync(profile.WorkspacePath,
