@@ -515,7 +515,7 @@ public class HarnessInstructionsCompositionTests
             .ChatOptions?.Instructions ?? string.Empty;
 
         Assert.DoesNotContain(AgentPromptHeadings.FileOperations, instructions);
-        Assert.DoesNotContain(AgentToolPrompts.SubAgentDefault, instructions);
+        Assert.DoesNotContain(AgentToolPrompts.BuildDelegation(string.Empty), instructions);
     }
 
     /// <summary>
@@ -667,7 +667,7 @@ public class HarnessInstructionsCompositionTests
             FileToolNames.Grep, CharacterRunnerFactory.ShellToolName,
             WebSearchTool.ToolName, WebFetchTool.ToolName, VisionTool.ToolName, KnowledgeTool.ToolName,
             SchedulerTools.ToolName,
-            SubAgentTool.ToolGeneralName, SubAgentTool.ToolExplorerName, SubAgentTool.ToolContinueName,
+            SubAgentTool.ToolName,
         };
 
         MatchCollection mentioned = Regex.Matches(instructions, "`([^`]+)`");
@@ -843,9 +843,9 @@ public class SubAgentBoundaryTests
     [InlineData(EAgentPermissionMode.FullAuto)]
     public void SubAgentTools_DoNotIncludeSubAgentItself(EAgentPermissionMode mode)
     {
-        Assert.DoesNotContain(SubAgentTool.ToolGeneralName,
-            ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode))));
-        Assert.DoesNotContain(SubAgentTool.ToolExplorerName,
+        // ADR 0044 归一之后只剩一把工具要查。不变量本身一个字没变：
+        // 子会话的工具集里绝不能有委派工具，否则可以无限套娃。
+        Assert.DoesNotContain(SubAgentTool.ToolName,
             ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(NewInput(mode: mode))));
     }
 

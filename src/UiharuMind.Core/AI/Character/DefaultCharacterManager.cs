@@ -124,9 +124,12 @@ public enum DefaultCharacter
     GeneralSubAgent,
 
     /// <summary>
-    /// 匿名<b>探索</b>子代理的身份载体。与 <see cref="GeneralSubAgent"/> 同一形态，
-    /// 分开一张只为了<b>身份不混</b>：探索档恒定只读、另配轻量模型，
-    /// 两种跑法在界面上顶着同一个名字，用户分不清这次委派到底能不能改东西。
+    /// 匿名<b>探索</b>子代理的身份载体。与 <see cref="GeneralSubAgent"/> 同一形态。
+    ///
+    /// ⚠️ <b>仅为重建存量</b>（ADR 0044 阶段 2「就地封存」）：
+    /// 委派工具归一之后<b>不再有任何新子会话落到这张卡上</b>。它留着只为一件事——
+    /// 老的探索子会话存档里钉着 <c>CharacterId = ExploreSubAgent</c>，
+    /// 删了这张卡，那些会话就打不开了。
     /// </summary>
     ExploreSubAgent,
 

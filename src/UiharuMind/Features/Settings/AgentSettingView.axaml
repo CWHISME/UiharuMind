@@ -69,21 +69,6 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <TextBlock Classes="field-label" Margin="0,16,0,2" Text="{loc:Loc AgentSettingExplorerSubAgentModel}" />
-                <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"
-                           Text="{loc:Loc AgentSettingExplorerSubAgentModelDesc}" />
-                <ComboBox ItemsSource="{Binding AvailableModels}"
-                          SelectedItem="{Binding ExplorerSubAgentModel}"
-                          PlaceholderText="{loc:Loc AgentSettingSubAgentFallbackHint}"
-                          MinWidth="300" HorizontalAlignment="Stretch">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
             </StackPanel>
         </TabItem>
 

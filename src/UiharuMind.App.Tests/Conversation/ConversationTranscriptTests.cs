@@ -831,7 +831,7 @@ public class ConversationTranscriptTests
     public void SubSessionStarted_AttachesIdToItsCard()
     {
         var (transcript, items) = Create();
-        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolGeneralName, null));
+        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolName, null));
         transcript.Apply(new FunctionCallContent("other", "run_shell", null));
         transcript.Apply(new SubSessionStartedContent("outer", "sub123"));
 
@@ -850,7 +850,7 @@ public class ConversationTranscriptTests
     public void SubSessionId_IsRecoveredFromPersistedResult()
     {
         var (transcript, items) = Create();
-        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolGeneralName, null));
+        transcript.Apply(new FunctionCallContent("outer", SubAgentTool.ToolName, null));
         transcript.Apply(new FunctionResultContent("outer", "结论是这样。\n[sub-session: abc987]"));
 
         ToolCallItem card = items.OfType<ToolCallItem>().Single();
