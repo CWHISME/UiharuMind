@@ -12,7 +12,6 @@
 using System;
 using System.ComponentModel;
 using Avalonia.Controls;
-using Avalonia.Threading;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Interfaces;
 using UiharuMind.Shared.Diagnostics;
@@ -22,24 +21,7 @@ namespace UiharuMind.Shared.Shell;
 
 public partial class MainView : UserControl
 {
-    /// <summary>
-    /// 空闲时预建的页面。<b>不含对话页</b>——它的 <c>PageData</c> 构造会经
-    /// <c>SwitchConversation</c> 触发会话加载，启动时预热等于顺带拉起 MCP 子进程
-    /// </summary>
-    private static readonly MenuPages[] PrewarmPages =
-    [
-        MenuPages.MenuCharacterKey,
-        MenuPages.MenuModelKey,
-        // MenuPages.MenuServicesKey,
-        MenuPages.MenuLogKey,
-    ];
-
-    /// <summary>第一页预热的起始延迟。给启动留出安静下来的时间</summary>
-    private static readonly TimeSpan PrewarmDelay = TimeSpan.FromSeconds(3);
-
     private MainViewModel? _viewModel;
-    private int _prewarmIndex;
-    private bool _isPrewarmScheduled;
 
     public MainView()
     {
@@ -96,7 +78,6 @@ public partial class MainView : UserControl
 
         if (active == null) return;
 
-        SchedulePrewarm();
         if (_viewModel != null) PageSwitchBench.Start(_viewModel);
     }
 
@@ -114,63 +95,4 @@ public partial class MainView : UserControl
         host.Children.Add(view);
     }
 
-    /// 第一页预热要等启动彻底安静下来才开始。实测启动后头两秒 UI 线程已经被占满
-    /// (最长一次掉帧 1.5 秒),那时候插进去建页面只会让"刚打开就卡"更严重;
-    /// 而首次访问那 58~209ms 每页每次运行只付一次,晚几秒付掉毫无损失。
-    /// 后续几页排在 SystemIdle 上——比 ApplicationIdle 更靠后,谁都排在它前面
-    private void SchedulePrewarm()
-    {
-        if (_isPrewarmScheduled || _prewarmIndex >= PrewarmPages.Length) return;
-        _isPrewarmScheduled = true;
-
-        if (_prewarmIndex == 0)
-        {
-            DispatcherTimer.RunOnce(PrewarmNext, PrewarmDelay, DispatcherPriority.SystemIdle);
-            return;
-        }
-
-        Dispatcher.UIThread.Post(PrewarmNext, DispatcherPriority.SystemIdle);
-    }
-
-    /// 一次只预建一页,建完再排下一轮:预热本身要跑整窗布局,连着做会把空闲期占死
-    private void PrewarmNext()
-    {
-        _isPrewarmScheduled = false;
-        if (_viewModel == null || _prewarmIndex >= PrewarmPages.Length) return;
-
-        MenuPages key = PrewarmPages[_prewarmIndex++];
-        try
-        {
-            PrewarmPage(_viewModel.GetPage(key));
-        }
-        catch (Exception e)
-        {
-            // 预热纯属提前付账,失败了让首次切页照常自己建
-            Log.Warning($"Prewarm page {key} failed: {e.Message}");
-        }
-
-        SchedulePrewarm();
-    }
-
-    /// <summary>
-    /// 提前把一页的视觉树建好。
-    ///
-    /// 模板展开与样式套用发生在<b>首次 measure</b>，而 <c>IsVisible=false</c> 的子树根本不布局——
-    /// 所以预热必须让它短暂可见：透明挂上、当场跑完布局、再收回去。整段落在同一个派发任务里，
-    /// 中间不会渲染出一帧。之后真正切过去只剩一次重排（实测 &lt;50ms）。
-    /// </summary>
-    /// <param name="viewControl">目标页</param>
-    private void PrewarmPage(IViewControl viewControl)
-    {
-        Control view = viewControl.View;
-        if (PageHost.Children.Contains(view)) return;
-
-        if (!ReferenceEquals(view.DataContext, viewControl)) view.DataContext = viewControl;
-        view.Opacity = 0;
-        view.IsVisible = true;
-        AttachSharedView(PageHost, view);
-        view.UpdateLayout();
-        view.IsVisible = false;
-        view.Opacity = 1;
-    }
 }
