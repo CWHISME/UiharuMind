@@ -115,10 +115,15 @@ internal static class AgentOptionsFactory
     {
         CharacterData character = plan.Character;
         AgentToolConfig config = plan.Config;
+        // 收件人名单拼进提示词而不是工具描述(ADR 0044 决策 4/5)——进 schema 会让
+        // 工具定义随成员增减而变,同一会话内前缀缓存全废。名单变了走的是重新装配那条路。
+        string delegationRoster = config.EnableSubAgent && plan.MountedAgents.Count > 0
+            ? string.Join('\n', plan.MountedAgents.Select(x => $"- {x.CharacterName}: {x.Description}"))
+            : string.Empty;
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
-            out promptSegments);
+            delegationRoster, out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);

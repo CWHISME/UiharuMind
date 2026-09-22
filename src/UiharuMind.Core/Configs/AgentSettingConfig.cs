@@ -58,8 +58,10 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 
     /// <summary>
     /// 探索型子代理使用的模型名(空 = 回退到主代理模型)。
-    /// 探索型子代理做的是初级调研(通览文件、搜代码),不需要高级模型;
-    /// 配一个轻量模型可省成本、加快响应。在设置页 agent 专用页签里选。
+    ///
+    /// ⚠️ <b>仅为重建存量</b>（ADR 0044 阶段 2「就地封存」）：新的委派一律走通用档，
+    /// 这个值只在续跑<b>老的</b>只读子会话时还被读到。设置页那个选择器已经删掉——
+    /// 一个对新委派不起作用的控件留着只会误导。字段本身不删：删了存量重建就取不到模型。
     /// </summary>
     public string ExplorerSubAgentModelName { get; set; } = string.Empty;
 

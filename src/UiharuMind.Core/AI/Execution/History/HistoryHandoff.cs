@@ -129,9 +129,9 @@ public static class HistoryHandoff
 
         StringBuilder roster = new();
         roster.AppendLine();
-        roster.AppendLine("Earlier agent runs in this session (pass the "
-                          + $"`[sub-session: …]` id to `{SubAgentTool.ToolContinueName}` to continue one "
-                          + "instead of dispatching a fresh agent, which would lose everything it already worked out):");
+        roster.AppendLine("People you already talked to in this session (pass the "
+                          + $"`[sub-session: …]` id as `to` in `{SubAgentTool.ToolName}` to pick one back up "
+                          + "instead of starting over with someone new, which would lose everything they already worked out):");
         foreach (ChatSessionMeta meta in subSessions.Take(max))
         {
             // 还在跑的那些要单独标出来——续跑一个没跑完的与续跑一个已经交回结论的,是两件事

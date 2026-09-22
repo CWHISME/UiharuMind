@@ -137,24 +137,12 @@ internal static class AgentAssembler
             Add(EAgentCapability.VisionTool, VisionTool.Create(plan.WorkingDirectory));
         }
 
-        // 子代理:工具集与权限档都从主代理派生,全部能力都关掉时不挂载
-        // 通用子代理:可改文件(FullAuto 下),用主代理模型
-        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client, SubAgentProfile.General) is { } subAgentTool)
+        // 委派:工具集与权限档都从主代理派生,全部能力都关掉时不挂载。
+        // ADR 0044 之前这里挂三把(通用派活 / 只读派活 / 续跑),现在只有一把 SendMessage——
+        // 新开与续跑由收件人参数自己分流,档位差异已退役。
+        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client) is { } sendMessageTool)
         {
-            Add(EAgentCapability.SubAgent, subAgentTool);
-        }
-        // 探索子代理:始终只读,可用轻量模型(在设置页 agent 专用页签里选)
-        if (config.EnableSubAgent && SubAgentAssembly.TryCreateTool(plan, client, SubAgentProfile.Explorer) is { } explorerTool)
-        {
-            Add(EAgentCapability.SubAgent, explorerTool);
-        }
-
-        // 续跑/追问:只在真的挂上了派活工具时才挂——没派过活就没有子会话可续。
-        // 判据取<b>装配结果</b>而不是配置意图,与纪律段同一口径
-        if (tools.Any(x => x.Capability == EAgentCapability.SubAgent)
-            && SubAgentAssembly.TryCreateContinueTool(plan) is { } continueTool)
-        {
-            Add(EAgentCapability.SubAgent, continueTool);
+            Add(EAgentCapability.SubAgent, sendMessageTool);
         }
 
         if (config.EnableKnowledgeSearchTool)

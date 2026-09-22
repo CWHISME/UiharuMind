@@ -40,13 +40,10 @@ public sealed record SubAgentProfile
     /// <summary>子代理类型</summary>
     public required ESubAgentType Type { get; init; }
 
-    /// <summary>
-    /// 工具名。主代理看到这个名字就知道用途，不需要读参数说明。
-    /// </summary>
-    public required string ToolName { get; init; }
-
-    /// <summary>工具描述（发给主代理的说明书）</summary>
-    public required string Description { get; init; }
+    // 从前这里还有 ToolName 与 Description 两个字段：两档各挂一把工具、各带一份说明书。
+    // ADR 0044 把三把工具归一为 SubAgentTool.ToolName 之后，档位不再决定工具名，
+    // 说明书也只剩一份（SubAgentToolPrompts.SendMessageDescription），两个字段随之退役。
+    // 本 record 现在只剩「重建一次已存档的委派时要什么」：类型、只读与否、用哪个模型。
 
     /// <summary>
     /// 是否强制只读。探索型始终只读；通用型继承主代理的权限档。
@@ -72,22 +69,14 @@ public sealed record SubAgentProfile
         };
     }
 
-    /// <summary>通用子代理策略</summary>
-    public static SubAgentProfile General { get; } = new()
-    {
-        Type = ESubAgentType.General,
-        ToolName = SubAgentTool.ToolGeneralName,
-        // 选哪一档的判据归系统提示(AgentToolPrompts.SubAgentDefault),描述里不再重复——
-        // 这里只留「是什么 + 副作用」:它能改东西、权限与主代理相同。
-        Description = SubAgentToolPrompts.RunAgentDescription,
-    };
+    /// <summary>通用策略：新派出去的一律是这一档</summary>
+    public static SubAgentProfile General { get; } = new() { Type = ESubAgentType.General };
 
-    /// <summary>探索子代理策略</summary>
-    public static SubAgentProfile Explorer { get; } = new()
-    {
-        Type = ESubAgentType.Explorer,
-        ToolName = SubAgentTool.ToolExplorerName,
-        // 判据归系统提示;这里只留「是什么 + 限制」:只读、改不了任何东西。
-        Description = SubAgentToolPrompts.RunReadOnlyAgentDescription,
-    };
+    /// <summary>
+    /// 只读策略。<b>不再有任何新委派落到这一档</b>（ADR 0044 退役了 RunReadOnlyAgent），
+    /// 保留它<b>只为重建存量</b>：老的探索子会话身上还钉着 <c>ESubAgentType.Explorer</c>，
+    /// 重建时必须照旧只读——拔掉这一档，那些已存档的只读子会话恢复后会变成可写。
+    /// 彻底清除是 ADR 0044 的阶段 2。
+    /// </summary>
+    public static SubAgentProfile Explorer { get; } = new() { Type = ESubAgentType.Explorer };
 }

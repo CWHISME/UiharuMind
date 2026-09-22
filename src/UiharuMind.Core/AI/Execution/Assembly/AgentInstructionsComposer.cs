@@ -51,13 +51,14 @@ internal static class AgentInstructionsComposer
     internal static string Compose(string? characterPrompt, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, string memoryDirectory, out IReadOnlyList<AgentPromptSegment> segments)
+        string outputRoomDirectory, string memoryDirectory, string delegationRoster,
+        out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
-            pythonInterpreter, outputRoomDirectory, memoryDirectory),
+            pythonInterpreter, outputRoomDirectory, memoryDirectory, delegationRoster),
             EPromptSection.ToolDisciplines, registry);
         if (mcpInstructions.Length > 0)
         {
@@ -137,7 +138,7 @@ internal static class AgentInstructionsComposer
     /// <returns>harness 层指令文本；无任何内容时为空串</returns>
     private static string BuildToolDisciplines(AgentToolConfig config, bool visionToolMounted,
         string workingDirectory, string shellBinary, string pythonInterpreter,
-        string outputRoomDirectory, string memoryDirectory)
+        string outputRoomDirectory, string memoryDirectory, string delegationRoster)
     {
         // 段序与条件都归 ToolDisciplineSections 那一张清单,主代理与子代理共用。
         // 这里只负责把"装配结果"翻译成清单认识的事实
@@ -154,6 +155,7 @@ internal static class AgentInstructionsComposer
             Vision = config.EnableVisionTool && visionToolMounted,
             KnowledgeBase = config.EnableKnowledgeSearchTool,
             Delegation = config.EnableSubAgent,
+            DelegationRoster = delegationRoster,
             WorkingDirectory = workingDirectory,
             OutputRoom = outputRoomDirectory,
             Memory = memoryDirectory,

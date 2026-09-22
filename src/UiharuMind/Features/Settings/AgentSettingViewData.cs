@@ -45,10 +45,10 @@ public partial class AgentSettingViewData : ViewModelBase
     /// </summary>
     [ObservableProperty] private ModelRunningData? _generalSubAgentModel;
 
-    /// <summary>
-    /// 当前选中的探索型子代理模型。null = 回退到主代理模型。
-    /// </summary>
-    [ObservableProperty] private ModelRunningData? _explorerSubAgentModel;
+    // 从前这里还有「探索型子代理模型」。ADR 0044 归一委派工具之后，新的委派一律走通用档，
+    // 这个选择器对新委派不再起任何作用，留着只会让人以为它还管用，故删。
+    // 配置字段 AgentSettingConfig.ExplorerSubAgentModelName 本身保留——
+    // 存量的只读子会话重建时仍照它取模型（就地封存，不迁移）。
 
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
@@ -120,14 +120,8 @@ public partial class AgentSettingViewData : ViewModelBase
         _writeBack.Save();
     }
 
-    partial void OnExplorerSubAgentModelChanged(ModelRunningData? value)
-    {
-        AgentSettingConfig.Current.ExplorerSubAgentModelName = value?.ModelName ?? string.Empty;
-        _writeBack.Save();
-    }
-
     /// <summary>
-    /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用与探索型子代理模型。
+    /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用子代理模型。
     /// </summary>
     private void LoadAvailableModels()
     {
@@ -139,11 +133,6 @@ public partial class AgentSettingViewData : ViewModelBase
         if (!string.IsNullOrWhiteSpace(config.GeneralSubAgentModelName))
         {
             GeneralSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.GeneralSubAgentModelName);
-        }
-
-        if (!string.IsNullOrWhiteSpace(config.ExplorerSubAgentModelName))
-        {
-            ExplorerSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.ExplorerSubAgentModelName);
         }
     }
 

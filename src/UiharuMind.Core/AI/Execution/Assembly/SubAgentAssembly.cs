@@ -272,21 +272,10 @@ internal static class SubAgentAssembly
         return SubAgentTool.Create(BuildLaunchContext(plan, subProfile, roster));
     }
 
-    /// <summary>
-    /// 创建续跑/追问工具。只在<b>至少挂上了一档派活工具</b>时才挂——
-    /// 没有派过活就没有子会话可续，白占一份工具定义（固定开销每轮重发）。
-    /// </summary>
-    /// <param name="plan">派活者的装配计划</param>
-    /// <returns>工具；不该挂时为 null</returns>
-    public static AITool? TryCreateContinueTool(AgentAssemblyPlan plan)
-    {
-        List<SubAgentChoice> roster = plan.MountedAgents
-            .Select(x => new SubAgentChoice(
-                AgentOptionsFactory.SanitizeAgentName(x.CharacterName, x.CharacterId),
-                x.Description, x.CharacterId))
-            .ToList();
-        return SubAgentTool.CreateContinueTool(BuildLaunchContext(plan, SubAgentProfile.General, roster));
-    }
+    // 从前这里有一把独立的续跑工具（ContinueAgent）。ADR 0044 之后它退役了：
+    // 新开与续跑是同一个动作——给某个人发消息，区别只在这个人是刚认识还是已经聊过，
+    // 由 SendMessage 的 to 参数自己分流（人名 → 新开；子会话标识 → 续上）。
+    // 少一把工具，就少一份每轮重发的固定开销。
 
     /// <summary>
     /// 组一份派活上下文。子会话的字段几乎全部从派活者继承，因此这里没有任何决策，

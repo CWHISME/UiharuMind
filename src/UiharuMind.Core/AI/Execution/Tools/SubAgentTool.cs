@@ -46,23 +46,22 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 public static class SubAgentTool
 {
     /// <summary>
-    /// 通用子代理的工具名。提示词里提到本工具时一律引用这个常量,写死字面量迟早对不上。
+    /// 委派工具名——<b>全系统唯一的通信原语</b>。提示词里提到本工具时一律引用这个常量,
+    /// 写死字面量迟早对不上。
     ///
-    /// <b>刻意没有限定词</b>:它与 <see cref="ToolExplorerName"/> 不是两个平等选项,
-    /// 而是「默认」与「特例」。无限定名天然读作"一般情况用它",带限定名读作"满足条件才用"——
-    /// 这个直觉不必读描述就成立。从前叫 <c>RunGeneralSubAgent</c>,与 <c>RunExploreSubAgent</c>
-    /// 一个是类别词、一个是动词,根本不在同一根轴上,模型无从比较,于是一边倒地选了后者。
+    /// <b>为什么是这个名字</b>(ADR 0044):从前是三把工具
+    /// <c>RunAgent</c> / <c>RunReadOnlyAgent</c> / <c>ContinueAgent</c>。
+    /// <c>RunAgent(agent, task)</c> 这个签名本身就在教模型
+    /// 「agent 是可运行的东西、task 是输入、产出是返回值」——<b>函数调用心智</b>。
+    /// 用了它,模型就把对方当工具人:派活 → 等结果 → 自己总结,
+    /// 对方没有机会反问、没有机会说「你这个需求我没听懂」。而「允许反问」恰恰是
+    /// 委派区别于 API 调用的地方。
+    ///
+    /// 归一之后,群聊、私聊、委派、插话是<b>同一个动作:给某个人发消息</b>,
+    /// 区别只在收件人在不在当前会话。续跑也不再是另一把工具——
+    /// 给一个已经聊过的人再发一条,本来就该是同一个动作。
     /// </summary>
-    public const string ToolGeneralName = "RunAgent";
-
-    /// <summary>
-    /// 只读子代理的工具名。<b>限制写进名字里</b>:这正是要让模型看见的那一点——
-    /// 它改不了任何东西,派错了只会白跑一趟。
-    /// </summary>
-    public const string ToolExplorerName = "RunReadOnlyAgent";
-
-    /// <summary>追问/续跑工具名。两档子代理共用一个——它认的是那次运行的编号,与当初派的是哪一档无关</summary>
-    public const string ToolContinueName = "ContinueAgent";
+    public const string ToolName = "SendMessage";
 
     /// <summary>
     /// 子代理的工具循环轮次上限(传给框架的 <c>MaximumIterationsPerRequest</c>,
@@ -157,34 +156,72 @@ public static class SubAgentTool
     /// <returns>工具实例</returns>
     public static AITool Create(LaunchContext context)
     {
-        // 刻意没有"自定义子代理提示词"这个参数。曾经有过,实测本地模型往里填的是与 task 重复的
-        // 泛泛套话,既没信息量又挤掉了固定段该起的作用。要给子代理换人格,
+        // 刻意没有"自定义子代理提示词"这个参数。曾经有过,实测本地模型往里填的是与 content 重复的
+        // 泛泛套话,既没信息量又挤掉了固定段该起的作用。要给对方换人格,
         // 请在角色上挂一个子智能体,而不是让模型现编。
-        string description = context.Profile.Description;
-        if (context.Roster.Count > 0)
-        {
-            StringBuilder sb = new(description);
-            sb.AppendLine();
-            sb.AppendLine(SubAgentToolPrompts.RosterHeading);
-            foreach (SubAgentChoice choice in context.Roster)
-            {
-                sb.AppendLine($"- {choice.Name}: {choice.Description}");
-            }
-
-            description = sb.ToString().TrimEnd();
-        }
-
+        //
+        // ⚠️ 收件人名单<b>不进这里</b>(ADR 0044 决策 4/5):名单一进工具描述,
+        // 成员增减就会改工具定义、失效前缀缓存。名单由装配侧拼进系统提示的委派一节
+        // (ToolDisciplineSections → AgentToolPrompts.BuildDelegation)。
         return AIFunctionFactory.Create(
-            ([Description(SubAgentToolPrompts.TaskParam)]
-                string task,
+            ([Description(SubAgentToolPrompts.ToParam)]
+                string? to,
+                [Description(SubAgentToolPrompts.ContentParam)]
+                string content,
                 [Description(SubAgentToolPrompts.RoleParam)]
                 string? role = null,
-                [Description(SubAgentToolPrompts.AgentParam)]
-                string? agent = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
-                string? model = null) => Launch(context, task, agent, role, model),
-            context.Profile.ToolName,
-            description);
+                string? model = null) => SendAsync(context, to, content, role, model),
+            ToolName,
+            SubAgentToolPrompts.SendMessageDescription);
+    }
+
+    /// <summary>
+    /// 唯一入口:把一条消息送到收件人手上。
+    ///
+    /// <c>to</c> 一个参数收两种收件人,因为对模型来说这本来就是同一个动作——
+    /// 区别只在这个人是刚认识还是已经聊过。查找顺序:
+    /// <list type="number">
+    /// <item>空 → 默认匿名代理,新开一次</item>
+    /// <item>名单里的人名(不区分大小写)→ 新开一次</item>
+    /// <item>一个真实存在的子会话标识 → 续上那一次</item>
+    /// <item>都不是 → 报错,并<b>同时</b>给出两条路的提示</item>
+    /// </list>
+    ///
+    /// <b>顺序不能倒</b>:人名优先于会话标识。名字是用户起的、会话标识是系统发的,
+    /// 万一撞上,用户起的那个才是模型想找的人。
+    /// </summary>
+    private static Task<string> SendAsync(LaunchContext context, string? to, string content,
+        string? role, string? model)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return Task.FromResult("Error: content must not be empty.");
+
+        string? target = string.IsNullOrWhiteSpace(to) ? null : to.Trim();
+        if (target == null) return Task.FromResult(Launch(context, content, null, role, model));
+
+        SubAgentChoice? named = context.Roster
+            .FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.OrdinalIgnoreCase));
+        if (named != null) return Task.FromResult(Launch(context, content, named.Name, role, model));
+
+        // 不是人名,那就看是不是一次聊过的委派。用真实加载探测而不是猜标识格式——
+        // 格式一改,猜法就烂,而 Load 本来就要调。
+        if (SessionManager.Instance.Load(target) != null) return ContinueAsync(context, target, content);
+
+        return Task.FromResult(UnknownRecipient(context, target));
+    }
+
+    /// <summary>
+    /// 收件人不认识时的回话。<b>两条路都给</b>:模型此刻不知道自己错在"名字拼错"
+    /// 还是"把会话标识当人名",只说一条它会在另一条上再错一次。
+    /// </summary>
+    private static string UnknownRecipient(LaunchContext context, string target)
+    {
+        string names = context.Roster.Count == 0
+            ? "No one is listed by name; leave `to` empty to reach the default helper."
+            : $"By name: {string.Join(", ", context.Roster.Select(x => x.Name))} "
+              + "(or leave `to` empty for the default helper).";
+        return $"Error: no one called '{target}'. {names} "
+               + "To continue an earlier conversation, pass its [sub-session: …] id from the receipt.";
     }
 
     /// <summary>
@@ -193,23 +230,6 @@ public static class SubAgentTool
     /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是派活方说的，原样留痕才是实话。
     /// </summary>
     private const string ParentInterjectionPrefix = "【派活方】";
-
-    /// <summary>
-    /// 创建续跑/追问工具。两档共用一个:它认的是子会话标识,与当初派的是哪一档无关
-    /// （那一档已经落在子会话上了，重建时照它装配）。
-    /// </summary>
-    /// <param name="context">派活上下文(取其中的过程上报口与审批通道)</param>
-    /// <returns>工具实例</returns>
-    public static AITool CreateContinueTool(LaunchContext context)
-    {
-        return AIFunctionFactory.Create(
-            ([Description(SubAgentToolPrompts.ContinueSubSessionParam)]
-                string subSession,
-                [Description(SubAgentToolPrompts.ContinueMessageParam)]
-                string message) => ContinueAsync(context, subSession, message),
-            ToolContinueName,
-            SubAgentToolPrompts.ContinueDescription);
-    }
 
     private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
         string? model = null)
@@ -542,6 +562,13 @@ public static class SubAgentTool
     private readonly record struct ModelChoice(string? Name, string Notice);
 
     /// <summary>匿名子代理用哪张身份卡</summary>
+    /// <summary>
+    /// 匿名委派用哪张身份卡。
+    ///
+    /// ⚠️ 实际上<b>只会走到 General 那一支</b>：ADR 0044 之后新的委派一律是通用档
+    /// （<c>SubAgentProfile.General</c>）。Explorer 那一支保留是为了对称与存量语义清晰，
+    /// 不是活路径。
+    /// </summary>
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
         type == ESubAgentType.Explorer ? DefaultCharacter.ExploreSubAgent : DefaultCharacter.GeneralSubAgent;
 
