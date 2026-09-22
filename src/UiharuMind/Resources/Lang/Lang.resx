@@ -2629,6 +2629,9 @@ Allow them?</value>
     <data name="LogBodyEvicted" xml:space="preserve">
         <value>(This entry's body was removed by log rotation)</value>
     </data>
+    <data name="LogScrollToTop" xml:space="preserve">
+        <value>Back to top</value>
+    </data>
     <data name="ClipboardRetentionTitle" xml:space="preserve">
         <value>Clipboard history auto-clean (days)</value>
     </data>

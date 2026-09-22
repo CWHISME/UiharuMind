@@ -33,7 +33,7 @@ public class MenuViewData
             new() { MenuHeaderResourceKey = nameof(LangKey.MenuCharacterKey), MenuIconName = "users-round", Key = MenuPages.MenuCharacterKey },
         // new() { MenuHeader = Loc.Text(LangKey.MenuTranslateKey), MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
-            new() { MenuHeaderResourceKey = nameof(LangKey.MenuModelKey), MenuIconName = "folder-cog", Key = MenuPages.MenuModelKey },
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuModelKey), MenuIconName = "folder-open", Key = MenuPages.MenuModelKey },
             // new() { MenuHeaderResourceKey = nameof(LangKey.MenuServicesKey), MenuIconName = "cog", Key = MenuPages.MenuServicesKey },
             new() { MenuHeaderResourceKey = nameof(LangKey.MenuLogKey), MenuIconName = "book-search", Key = MenuPages.MenuLogKey },
         // new() { MenuHeader = "绘图", MenuIconName = "Image", Key = MenuKeys.MenuKeyDraw },
