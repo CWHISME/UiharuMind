@@ -42,7 +42,7 @@
         <ListBox
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ScrollViewer.VerticalScrollBarVisibility="Auto"
-            ItemsSource="{Binding ModelSources}">
+            ItemsSource="{Binding CurrentItems}">
             <!-- 修改选中 style CornerRadius 使其与下面本身设置的匹配 -->
             <ListBox.Styles>
                 <Style Selector="ListBoxItem:pointerover/template/ContentPresenter">
