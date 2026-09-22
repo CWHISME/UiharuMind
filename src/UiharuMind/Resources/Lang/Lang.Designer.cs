@@ -627,6 +627,12 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string AgentWorkspaceReveal {
+            get {
+                return ResourceManager.GetString("AgentWorkspaceReveal", resourceCulture);
+            }
+        }
+        
         public static string AgentWorkspaceForget {
             get {
                 return ResourceManager.GetString("AgentWorkspaceForget", resourceCulture);
@@ -4051,12 +4057,6 @@ namespace UiharuMind.Resources.Lang {
         public static string ToggleSidePanelTip {
             get {
                 return ResourceManager.GetString("ToggleSidePanelTip", resourceCulture);
-            }
-        }
-        
-        public static string ChatDetails {
-            get {
-                return ResourceManager.GetString("ChatDetails", resourceCulture);
             }
         }
         

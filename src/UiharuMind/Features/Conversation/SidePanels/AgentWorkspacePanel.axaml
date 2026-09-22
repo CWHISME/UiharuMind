@@ -10,16 +10,16 @@
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="320"
              x:Class="UiharuMind.Features.Conversation.SidePanels.AgentWorkspacePanel"
-             x:DataType="pages:AgentPageData">
+             x:DataType="pages:ConversationPageData">
 
     <!-- 工作区卡片:运行态、换角色、固定开销统计、目录展示与切换。
          从 AgentPage 拆出来:右栏是"一个容器 + 若干面板",以后加一块就是加一个控件 -->
     <UserControl.Resources>
-        <!-- 一行统计:标签占满并省略,数值靠右到整栏边缘,与合计行对齐成一列。
-             右边留 20 = 合计行那个告警三角的列宽 14 + 列距 6。
+        <!-- 一行统计:标签占满并省略,数值靠右贴到整栏边缘;合计行的数值列走同一条右缘线,
+             与右上角的图标按钮在同一竖直线上(去掉定宽右留白后不再有悬空的一截)。
              数值列不能定宽:合计文案是「25.6k / 128k」这种带分母的,定宽会把分母截掉 -->
         <DataTemplate x:Key="CapabilityStatRow" x:DataType="panels:CapabilityStatItem">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,20,0"
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0"
                   ToolTip.Tip="{Binding Tip}">
                 <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
                            TextTrimming="CharacterEllipsis" Text="{Binding Label}" />
@@ -48,13 +48,14 @@
                 <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
                            IsVisible="{Binding !Conversation.HasPendingWork}" />
             </StackPanel>
-            <!-- 角色行:agent 页原先固定 WorkspaceAgent,这里给一个换角色的入口。
-                 换的是当前会话的角色,下一轮发送时装配自然重建。
-                 编辑按钮单独摘在外面:套在换角色那个按钮里会被它的 flyout 吃掉点击 -->
+            <!-- 角色行:点名字换角色（空态即预选，发送才建会话），铅笔进编辑。
+                 编辑按钮单独摘在外面:套在换角色那个按钮里会被它的 flyout 吃掉点击。
+                 名字显式给前景色：按钮主题的默认前景是强调色（截图里发蓝），
+                 这里要的是和列表标题同色的正文色 -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2" Margin="0,4,0,0">
                 <!-- 内容也要撑满:只撑按钮不撑内容的话,▾ 会紧贴在名字后面,
                      与右边那个编辑按钮之间空出一大段,整行读起来是断的 -->
-                <Button Grid.Column="0" Classes="picker-row" HorizontalAlignment="Stretch"
+                <Button Grid.Column="0" Classes="text-row" HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Stretch"
                         ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
@@ -64,6 +65,7 @@
                                    Stretch="UniformToFill" />
                         </Border>
                         <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SemiGrey7}"
                                    TextTrimming="CharacterEllipsis"
                                    Text="{Binding Conversation.ActiveCharacterName}" />
                         <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
@@ -76,11 +78,11 @@
                         </Flyout>
                     </Button.Flyout>
                 </Button>
-                <Button Grid.Column="1" Classes="picker-row" VerticalAlignment="Center"
-                        Command="{Binding Conversation.EditActiveCharacterCommand}"
-                        ToolTip.Tip="{loc:Loc AgentCharacterEdit}">
-                    <controls:ThemedSvgIcon Width="14" Height="14" IconName="pencil" />
-                </Button>
+                <ThemedIconButton Grid.Column="1" Width="24" Height="24"
+                                  VerticalAlignment="Center"
+                                  IconName="pencil"
+                                  Command="{Binding Conversation.EditActiveCharacterCommand}"
+                                  ToolTip.Tip="{loc:Loc AgentCharacterEdit}" />
             </Grid>
 
             <!-- 固定开销统计:竖排纯文字,五档 + 合计。整块点击=跳右栏「能力」页签看明细。
@@ -90,59 +92,86 @@
                  因此发出第一句话时这几个数不会跳(见 CharacterRunnerFactory.PreviewCapabilitiesAsync)。
                  仍绑 HasStats:非智能体档本就不装配任何东西,那时整块不出 -->
             <!-- 内容也要撑满:text-row 默认把内容靠左(它多数场合是一行短文本),
-                 只撑按钮不撑内容的话数值仍旧挤在标题后面,右半边空着 -->
+                 只撑按钮不撑内容的话数值仍旧挤在标题后面,右半边空着。
+                 左右各留 8 内收:统计块是"嵌进去的一段账",不与上下行的名字/目录名贴在同一竖线上 -->
             <Button Classes="text-row" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
+                    Padding="4,0,5,0"
                     IsVisible="{Binding Conversation.Capabilities.HasStats}"
                     Command="{Binding ShowCapabilitiesCommand}"
                     ToolTip.Tip="{loc:Loc AgentCapabilityTokenTip}">
                 <StackPanel Spacing="1">
                     <!-- 合计加重:它是这几个数里唯一要对着上下文上限看的。
-                         告警三角单占第三列(定宽 14),明细行则用同宽的右边距顶掉——
-                         让三角去挤数值列的话,合计会比下面每一行都往左缩一个三角的宽度 -->
-                    <Grid ColumnDefinitions="*,Auto,14" ColumnSpacing="6">
+                         告警三角夹在 label 与数值之间——数值列恒在最右、贴内容区右缘
+                         (整体随卡片 Padding 内收 8),与明细行的数值列同一条竖线;三角出现时不占数值列的位置 -->
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                         <TextBlock Grid.Column="0" Classes="muted" FontSize="10"
                                    TextTrimming="CharacterEllipsis"
                                    Text="{loc:Loc AgentCapabilityTotal}" />
-                        <TextBlock Grid.Column="1" FontSize="10"
-                                   Text="{Binding Conversation.Capabilities.TotalText}" />
-                        <TextBlock Grid.Column="2" FontSize="10" Text="▲"
+                        <TextBlock Grid.Column="1" FontSize="10" Text="▲"
                                    Foreground="{DynamicResource SemiOrange5}"
                                    IsVisible="{Binding Conversation.Capabilities.IsOverBudget}" />
+                        <TextBlock Grid.Column="2" FontSize="10"
+                                   Text="{Binding Conversation.Capabilities.TotalText}" />
                     </Grid>
                     <ItemsControl ItemsSource="{Binding Conversation.Capabilities.Stats}"
                                   ItemTemplate="{StaticResource CapabilityStatRow}" />
                 </StackPanel>
             </Button>
 
-            <TextBlock Classes="muted" Margin="0,4,0,0"
-                       Text="{loc:Loc AgentWorkspaceLabel}" />
-            <!-- 目录名单独一行,父路径省略号收在下面:工作区路径普遍很长,
-                 全路径铺开会把卡片撑高,而用户认的是最后那一节。整块点击=在文件管理器打开 -->
-            <Button Classes="picker-row" HorizontalAlignment="Stretch"
-                    Command="{Binding Conversation.Workspace.RevealCommand}"
-                    ToolTip.Tip="{Binding Conversation.Workspace.Path}"
-                    IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                <StackPanel>
-                    <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
-                               Text="{Binding Conversation.Workspace.Name}" />
-                    <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
-                               Text="{Binding Conversation.Workspace.Parent}" />
-                </StackPanel>
-            </Button>
-            <TextBlock FontSize="11" Classes="muted"
-                       Text="{loc:Loc AgentWorkspaceNone}"
-                       IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <!-- 主按钮开系统选择器,下拉给最近用过的目录:切工作区是高频操作,
-                     每次都翻一遍文件选择器太笨 -->
-                <SplitButton FontSize="11" Padding="8,3" CornerRadius="6"
-                             Command="{Binding Conversation.Workspace.SelectCommand}"
-                             Content="{loc:Loc AgentWorkspaceChange}">
-                    <SplitButton.Flyout>
+            <!-- 工作区段：只有智能体档有这概念，普通对话整段不出。
+                 布局与角色行同一路子：标题行只放标签 + 清除按钮，
+                 改目录的入口改到目录行本身（点目录名展开操作菜单），不再单放一个铅笔。
+                 一个入口同时管「更改… + 打开目录图标 / 最近列表」，
+                 高频的切目录走列表，不用每次都翻系统选择器 -->
+            <StackPanel Spacing="6" IsVisible="{Binding IsAgentType}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+                    <TextBlock Grid.Column="0" Classes="muted" VerticalAlignment="Center"
+                               Text="{loc:Loc AgentWorkspaceLabel}" />
+                    <ThemedIconButton Grid.Column="1" Width="24" Height="24"
+                                      VerticalAlignment="Center"
+                                      IconName="trash-2"
+                                      ToolTip.Tip="{loc:Loc AgentWorkspaceClear}"
+                                      Command="{Binding Conversation.Workspace.ClearCommand}"
+                                      IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </Grid>
+                <!-- 目录行：名字 + 父路径省略号收在下面——工作区路径普遍很长，
+                     全路径铺开会把卡片撑高，而用户认的是最后那一节。整块点击=展开上面的操作菜单，
+                     不再直达文件管理器（原一键 Reveal 收进菜单里，代价多半次点击）。
+                     未绑定时整行退成占位文案，仍是同一个入口：铅笔去掉后这里就是选目录的唯一念想。
+                     名字显式给前景色：与左侧列表的工作区名同色（项目色，见 SessionListItem），
+                     不跟标题行/按钮主题的默认色走 -->
+                <Button Classes="text-row" HorizontalAlignment="Stretch"
+                        ToolTip.Tip="{Binding Conversation.Workspace.Path}">
+                    <StackPanel>
+                        <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
+                                   Foreground="{Binding Conversation.Workspace.WorkspaceColor}"
+                                   Text="{Binding Conversation.Workspace.Name}"
+                                   IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <TextBlock FontSize="10" Classes="muted" TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Conversation.Workspace.Parent}"
+                                   IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        <TextBlock FontSize="11" Classes="muted"
+                                   Text="{loc:Loc AgentWorkspaceNone}"
+                                   IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                    </StackPanel>
+                    <Button.Flyout>
                         <Flyout Placement="BottomEdgeAlignedLeft"
-                                Opening="OnRecentWorkspacesOpening">
+                                Opening="OnWorkspaceFlyoutOpening">
                             <StackPanel MinWidth="200" MaxWidth="320" Spacing="2">
+                                <!-- 第一行：更换目录 + 在文件管理器中打开。两者都是高频操作，
+                                     并排一列省高度；打开图标只在已绑定目录时出现（没目录可开） -->
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+                                    <Button Grid.Column="0" Classes="picker-row" HorizontalAlignment="Stretch"
+                                            Command="{Binding Conversation.Workspace.SelectCommand}"
+                                            Content="{loc:Loc AgentWorkspaceChange}" />
+                                    <Button Grid.Column="1" Classes="picker-row" VerticalAlignment="Center"
+                                            ToolTip.Tip="{loc:Loc AgentWorkspaceReveal}"
+                                            Command="{Binding Conversation.Workspace.RevealCommand}"
+                                            IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <controls:ThemedSvgIcon Width="14" Height="14" IconName="folder-open" />
+                                    </Button>
+                                </Grid>
                                 <TextBlock Classes="muted" FontSize="11" Margin="6,2"
                                            Text="{loc:Loc AgentWorkspaceRecent}" />
                                 <TextBlock Classes="muted" FontSize="11" Margin="6,2"
@@ -177,12 +206,8 @@
                                 </ItemsControl>
                             </StackPanel>
                         </Flyout>
-                    </SplitButton.Flyout>
-                </SplitButton>
-                <Button FontSize="11" Padding="8,3" CornerRadius="6"
-                        Command="{Binding Conversation.Workspace.ClearCommand}"
-                        IsVisible="{Binding Conversation.Workspace.Path, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                        Content="{loc:Loc AgentWorkspaceClear}" />
+                    </Button.Flyout>
+                </Button>
             </StackPanel>
         </StackPanel>
     </Border>

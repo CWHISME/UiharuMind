@@ -16,6 +16,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Pages;
 using UiharuMind.Features.Conversation.SessionList;
 using UiharuMind.Shared.Shell;
@@ -74,17 +75,26 @@ internal sealed class JumpToPageCommand : IDevCommand
     public object? Execute(JsonElement args)
     {
         string page = DevCommandRegistry.RequireString(args, "page");
-        MenuPages target = page switch
+        // 对话页已合并：agent/chat 都进同一个页面，再经切换器拨到对应类型区
+        MenuPages? target = page switch
         {
-            "agent" => MenuPages.MenuAgentKey,
-            "chat" => MenuPages.MenuChatKey,
+            "agent" => MenuPages.MenuConversationKey,
+            "chat" => MenuPages.MenuConversationKey,
             "character" => MenuPages.MenuCharacterKey,
             "model" => MenuPages.MenuModelKey,
             "log" => MenuPages.MenuLogKey,
-            _ => throw new ArgumentException($"unknown page '{page}'"),
+            _ => null,
         };
+        if (target == null) throw new ArgumentException($"unknown page '{page}'");
 
-        App.ViewModel.JumpToPage(target);
+        App.ViewModel.JumpToPage(target.Value);
+        if (page is "agent" or "chat" && App.ViewModel.Content is ConversationPageData conversation)
+        {
+            conversation.CurrentType = page == "agent"
+                ? EConversationType.Agent
+                : EConversationType.Chat;
+        }
+
         return new { page };
     }
 }

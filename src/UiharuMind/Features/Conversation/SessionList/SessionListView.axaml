@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:sessions="clr-namespace:UiharuMind.Features.Conversation.SessionList"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:u="https://irihi.tech/ursa"
              mc:Ignorable="d" d:DesignWidth="260" d:DesignHeight="520"
@@ -11,7 +12,8 @@
 
     <!-- 会话列表。两页共用一份：条目类型本来就是同一个 SessionListItem,
          而两份模板此前是拷贝后各自演化(一边有头像与描述、一边有悬停删除),观感因此飘了。
-         唯一有意保留的差异是头像——工作区页要的是密度,见 ShowAvatar -->
+         唯一有意保留的差异是头像——工作区页要的是密度,见 ShowAvatar。
+         搜索行与批量动作条也在这一层：都是列表的事，与页面的类型切换器无关 -->
     <UserControl.Styles>
         <Style Selector="ListBox">
             <Setter Property="Background" Value="Transparent" />
@@ -40,112 +42,174 @@
         </Style>
     </UserControl.Styles>
 
-    <ListBox ItemsSource="{Binding Sessions}"
-             SelectedItem="{Binding SelectedSession}">
-        <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="sessions:SessionListItem">
-                <!-- 悬停给全文:标题与描述在这窄侧栏里都是单行截断的,看不到尾 -->
-                <Grid ColumnDefinitions="Auto,*,Auto" Background="Transparent"
-                      ToolTip.ShowDelay="600"
-                      ToolTip.Placement="Pointer">
-                    <!-- 明确给换行与上限宽度:标题本来就是因为放不下才截断的,
-                         提示里再拉成一条长横条等于没解决问题 -->
-                    <ToolTip.Tip>
-                        <TextBlock Text="{Binding FullTextTip}" TextWrapping="Wrap" MaxWidth="320" />
-                    </ToolTip.Tip>
-                    <Grid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
-                            <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
-                            <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
-                            <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
-                                      Command="{Binding ClearChatHistoryCommand}" />
-                            <MenuItem Header="{loc:Loc Delete}" ToolTip.Tip="{Binding BusyTip}"
-                                      Command="{Binding DeleteCommand}" />
-                        </ContextMenu>
-                    </Grid.ContextMenu>
+    <DockPanel>
+        <!-- 搜索行：没东西可筛时收起来（刚装好一个会话都没有时不占地方）。
+             放大镜叠在框内左侧，与知识库搜索框同式；批量入口是小图标按钮，
+             与标题行的图标按钮同密度，选中态沿用导航栏的 SemiBlue1 高亮 -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,0,8"
+              IsVisible="{Binding ShowSearchRow}">
+            <Grid>
+                <TextBox Text="{Binding SearchText}"
+                         Padding="31,6,8,6"
+                         FontSize="12"
+                         PlaceholderText="{loc:Loc SessionSearchPlaceholder}"
+                         VerticalAlignment="Center" />
+                <controls:ThemedSvgIcon Width="15" Height="15" Margin="9,0,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        IsHitTestVisible="False"
+                                        IconName="search" />
+            </Grid>
+            <controls:ThemedIconToggleButton Grid.Column="1"
+                                             IsChecked="{Binding IsBatchMode, Mode=OneWay}"
+                                             Command="{Binding ToggleBatchModeCommand}"
+                                             IconName="list-checks"
+                                             CheckedBackground="{DynamicResource SemiBlue1}"
+                                             ToolTips="{loc:Loc SessionBatchMode}" />
+        </Grid>
 
-                    <!-- 间距给在头像自己的 Margin 上而不是 ColumnSpacing:
-                         隐藏时它整体退出布局,列宽归零,不会留下一道空白缩进 -->
-                    <Ellipse Grid.Column="0" Width="38" Height="38" Margin="0,0,10,0"
-                             VerticalAlignment="Center"
-                             Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
-                             IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}">
-                        <Ellipse.Fill>
-                            <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
-                        </Ellipse.Fill>
-                    </Ellipse>
+        <!-- 批量动作条：只在批量模式出现。删的口径是"勾了的"（含被搜索滤掉的），
+             不是"看得见的"；计数同此，"3/12"这种纯数字格式不牵本地化。
+             退出走搜索行右边的图标（有按下态），这里不再另给 ✕ -->
+        <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="0,8,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SemiGrey2}"
+                IsVisible="{Binding IsBatchMode}">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+                <Button Grid.Column="0" Content="{loc:Loc SessionSelectAll}"
+                        FontSize="11" Padding="8,4"
+                        Command="{Binding ToggleSelectAllCommand}" />
+                <Button Grid.Column="1" Content="{loc:Loc Delete}"
+                        FontSize="11" Padding="8,4"
+                        Command="{Binding DeleteCheckedCommand}"
+                        IsEnabled="{Binding HasChecked}" />
+                <!-- 计数沉右端：右方空着也是空着，数字靠右正好填上 -->
+                <TextBlock Grid.Column="3" Classes="muted" FontSize="11"
+                           VerticalAlignment="Center">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="{}{0}/{1}">
+                            <Binding Path="CheckedCount" />
+                            <Binding Path="Sessions.Count" />
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
+            </Grid>
+        </Border>
 
-                    <!-- 指示器与「标题+描述」并列,而不是塞进标题那一行:
-                         塞进去的话标题会被指示器那一列推右、描述不动,两行左边就对不齐,
-                         而且缩进还随运行态变。间距同样给在自己的 Margin 上,隐藏时不留空位 -->
-                    <Grid Grid.Column="1" ColumnDefinitions="Auto,*" MinWidth="0" VerticalAlignment="Center">
-                        <!-- 在跑用转圈(动效最能说明"它在动"),待审批用橙点(那是要你去处理的)。
-                             两者**可以同时出现**且刻意叠在同一格:名下几个委派在跑、其中一个在等你批,
-                             是两件正交的事。橙点声明在转圈之后,所以画在它上面 -->
-                        <!-- 必须经 Viewbox 缩:LoadingIcon 模板里的弧线是固定尺寸的,
-                             直接给它 Width/Height 是裁剪而不是缩放,只会剩中间一块 -->
-                        <Viewbox Grid.Column="0" Width="13" Height="13" Margin="0,0,6,0"
+        <ListBox ItemsSource="{Binding Sessions}"
+                 SelectedItem="{Binding SelectedSession}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="sessions:SessionListItem">
+                    <!-- 悬停给全文:标题与描述在这窄侧栏里都是单行截断的,看不到尾 -->
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Background="Transparent"
+                          ToolTip.ShowDelay="600"
+                          ToolTip.Placement="Pointer">
+                        <!-- 明确给换行与上限宽度:标题本来就是因为放不下才截断的,
+                             提示里再拉成一条长横条等于没解决问题 -->
+                        <ToolTip.Tip>
+                            <TextBlock Text="{Binding FullTextTip}" TextWrapping="Wrap" MaxWidth="320" />
+                        </ToolTip.Tip>
+                        <Grid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="{loc:Loc EditCharacter}" Command="{Binding EditCharacterCommand}" />
+                                <MenuItem Header="{loc:Loc Rename}" Command="{Binding RenameCommand}" />
+                                <MenuItem Header="{loc:Loc Copy}" Command="{Binding CopyCommand}" />
+                                <MenuItem Header="{loc:Loc ClearChatHistory}" ToolTip.Tip="{Binding BusyTip}"
+                                          Command="{Binding ClearChatHistoryCommand}" />
+                                <MenuItem Header="{loc:Loc Delete}" ToolTip.Tip="{Binding BusyTip}"
+                                          Command="{Binding DeleteCommand}" />
+                            </ContextMenu>
+                        </Grid.ContextMenu>
+
+                        <!-- 批量勾选列：只在批量模式占位。点行依然是选中（看会话），
+                             勾选才管删哪几个——两套状态，见 SessionListItem.IsBatchChecked -->
+                        <CheckBox Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"
+                                  IsChecked="{Binding IsBatchChecked}"
+                                  IsVisible="{Binding $parent[ListBox].((sessions:SessionListModel)DataContext).IsBatchMode}" />
+
+                        <!-- 间距给在头像自己的 Margin 上而不是 ColumnSpacing:
+                             隐藏时它整体退出布局,列宽归零,不会留下一道空白缩进 -->
+                        <Ellipse Grid.Column="1" Width="38" Height="38" Margin="0,0,10,0"
                                  VerticalAlignment="Center"
-                                 IsVisible="{Binding IsRunning}">
-                            <u:LoadingIcon IsLoading="True" />
-                        </Viewbox>
-                        <!-- 压在转圈之上,所以比从前的 8 收一点:13 的圈里留得下 7,
-                             再大就把转圈整个盖住、动效白做了 -->
-                        <Ellipse Grid.Column="0" Width="7" Height="7" Margin="0,0,6,0"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                                 Fill="#FF9800"
-                                 IsVisible="{Binding IsAwaitingApproval}" />
+                                 Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
+                                 IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}">
+                            <Ellipse.Fill>
+                                <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
+                            </Ellipse.Fill>
+                        </Ellipse>
 
-                        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" MinWidth="0">
-                            <!-- 草稿标记:非当前会话且有未发送输入时在标题前亮一个小圆点 -->
-                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" MinWidth="0">
-                                <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
-                                         VerticalAlignment="Center"
-                                         Fill="#7AA2F7"
-                                         IsVisible="{Binding IsDraftVisible}" />
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding Name}"
-                                           Foreground="{DynamicResource SemiGrey7}"
-                                           TextWrapping="NoWrap"
-                                           MaxLines="1"
-                                           TextTrimming="CharacterEllipsis" />
-                            </Grid>
-                            <!-- 副行:时间 + 角色名 横排(都是短内容,不会挤),
-                                 描述单独一行——长描述不再跟角色名挤成一团。
-                                 角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
-                                 推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
-                            <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏 -->
-                            <TextBlock Grid.Row="1"
-                                       Classes="muted"
-                                       Text="{Binding Description}"
-                                       IsVisible="{Binding HasDistinctDescription}"
-                                       TextTrimming="CharacterEllipsis"
-                                       MaxLines="1"
-                                       FontSize="11" />
-                            <!-- 末行:agent 页(不显头像)是「工作区名(项目色) + 时间」,聊天页(显头像)只有时间。
-                                 工作区名打头让同角色不同项目一眼分开;角色名已从末行移除
-                                 (同工作区多个会话角色不同是常态,身份靠标题与右侧栏呈现)。
-                                 负边距只抵消末行基线以下的一小截空白:先试 -1,不够/过头再调 -->
-                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,0,0,-5">
-                                <TextBlock Classes="muted"
-                                           Text="{Binding WorkspaceName}"
-                                           Foreground="{Binding WorkspaceColor}"
-                                           IsVisible="{Binding !$parent[sessions:SessionListView].ShowAvatar}"
+                        <!-- 指示器与「标题+描述」并列,而不是塞进标题那一行:
+                             塞进去的话标题会被指示器那一列推右、描述不动,两行左边就对不齐,
+                             而且缩进还随运行态变。间距同样给在自己的 Margin 上,隐藏时不留空位 -->
+                        <Grid Grid.Column="2" ColumnDefinitions="Auto,*" MinWidth="0" VerticalAlignment="Center">
+                            <!-- 在跑用转圈(动效最能说明"它在动"),待审批用橙点(那是要你去处理的)。
+                                 两者**可以同时出现**且刻意叠在同一格:名下几个委派在跑、其中一个在等你批,
+                                 是两件正交的事。橙点声明在转圈之后,所以画在它上面 -->
+                            <!-- 必须经 Viewbox 缩:LoadingIcon 模板里的弧线是固定尺寸的,
+                                 直接给它 Width/Height 是裁剪而不是缩放,只会剩中间一块 -->
+                            <Viewbox Grid.Column="0" Width="13" Height="13" Margin="0,0,6,0"
+                                     VerticalAlignment="Center"
+                                     IsVisible="{Binding IsRunning}">
+                                <u:LoadingIcon IsLoading="True" />
+                            </Viewbox>
+                            <!-- 压在转圈之上,所以比从前的 8 收一点:13 的圈里留得下 7,
+                                 再大就把转圈整个盖住、动效白做了 -->
+                            <Ellipse Grid.Column="0" Width="7" Height="7" Margin="0,0,6,0"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Fill="#FF9800"
+                                     IsVisible="{Binding IsAwaitingApproval}" />
+
+                            <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto" MinWidth="0">
+                                <!-- 草稿标记:非当前会话且有未发送输入时在标题前亮一个小圆点 -->
+                                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" MinWidth="0">
+                                    <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,6,0"
+                                             VerticalAlignment="Center"
+                                             Fill="#7AA2F7"
+                                             IsVisible="{Binding IsDraftVisible}" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               Foreground="{DynamicResource SemiGrey7}"
+                                               TextWrapping="NoWrap"
+                                               MaxLines="1"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                                <!-- 副行:时间 + 角色名 横排(都是短内容,不会挤),
+                                     描述单独一行——长描述不再跟角色名挤成一团。
+                                     角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
+                                     推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
+                                <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏 -->
+                                <TextBlock Grid.Row="1"
+                                           Classes="muted"
+                                           Text="{Binding Description}"
+                                           IsVisible="{Binding HasDistinctDescription}"
                                            TextTrimming="CharacterEllipsis"
-                                           MaxWidth="110" />
-                                <TextBlock Classes="muted"
-                                           Text="{Binding TimeString}" />
-                            </StackPanel>
+                                           MaxLines="1"
+                                           FontSize="11" />
+                                <!-- 末行:agent 页(不显头像)是「工作区名(项目色) + 时间」,聊天页(显头像)只有时间。
+                                     工作区名打头让同角色不同项目一眼分开;角色名已从末行移除
+                                     (同工作区多个会话角色不同是常态,身份靠标题与右侧栏呈现)。
+                                     负边距只抵消末行基线以下的一小截空白:先试 -1,不够/过头再调 -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,0,0,-5">
+                                    <TextBlock Classes="muted"
+                                               Text="{Binding WorkspaceName}"
+                                               Foreground="{Binding WorkspaceColor}"
+                                               IsVisible="{Binding !$parent[sessions:SessionListView].ShowAvatar}"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="110" />
+                                    <TextBlock Classes="muted"
+                                               Text="{Binding TimeString}" />
+                                </StackPanel>
+                            </Grid>
                         </Grid>
-                    </Grid>
 
-                    <Button Grid.Column="2" Classes="session-delete" Padding="4"
-                            VerticalAlignment="Center" FontSize="10" Content="✕"
-                            ToolTip.Tip="{Binding BusyTip}"
-                            Command="{Binding DeleteCommand}" />
-                </Grid>
-            </DataTemplate>
-        </ListBox.ItemTemplate>
-    </ListBox>
+                        <!-- 批量模式下收起单删：避免"删一个"和"删一批"两个入口打架 -->
+                        <Button Grid.Column="3" Classes="session-delete" Padding="4"
+                                VerticalAlignment="Center" FontSize="10" Content="✕"
+                                ToolTip.Tip="{Binding BusyTip}"
+                                Command="{Binding DeleteCommand}"
+                                IsVisible="{Binding !$parent[ListBox].((sessions:SessionListModel)DataContext).IsBatchMode}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
 </UserControl>

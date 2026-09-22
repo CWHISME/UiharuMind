@@ -146,17 +146,6 @@
              容器不虚拟化,但容器里那张卡会:滚远一屏以外的由 ConversationCardViewport 收成等高占位,
              高度原样顶住所以 Extent 不动,见 ADR 0041 -->
         <Grid Grid.Row="1">
-            <!-- 空状态(宿主注入):切会话分帧会先渲染一帧空列表,加载中不算"空",否则空态图标闪烁 -->
-            <ContentPresenter Margin="10"
-                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=conv:ConversationView}}">
-                <ContentPresenter.IsVisible>
-                    <MultiBinding Converter="{x:Static BoolConverters.And}">
-                        <Binding Path="!Items.Count" />
-                        <Binding Path="!IsSessionLoading" />
-                    </MultiBinding>
-                </ContentPresenter.IsVisible>
-            </ContentPresenter>
-
             <ScrollViewer Name="Viewer"
                           Margin="0,0,3,0"
                           BringIntoViewOnFocusChange="False"
@@ -271,6 +260,19 @@
                     </ItemsControl>
                 </StackPanel>
             </ScrollViewer>
+
+            <!-- 空状态(宿主注入):切会话分帧会先渲染一帧空列表,加载中不算"空",否则空态图标闪烁。
+                 声明在消息流后面:同一格叠放时后声明的盖在上面,空态里第一颗可点的按钮
+                 (群聊)才不会被空 Viewer 吃掉点击。有内容时本节点隐藏,不影响消息交互 -->
+            <ContentPresenter Name="EmptyPresenter" Margin="10"
+                              Content="{Binding EmptyContent, RelativeSource={RelativeSource AncestorType=conv:ConversationView}}">
+                <ContentPresenter.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="!Items.Count" />
+                        <Binding Path="!IsSessionLoading" />
+                    </MultiBinding>
+                </ContentPresenter.IsVisible>
+            </ContentPresenter>
         </Grid>
 
         <!-- composer -->

@@ -155,6 +155,13 @@ public partial class SessionListItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsDraftVisible))]
     private bool _isCurrent;
 
+    /// <summary>
+    /// 批量模式勾选。与展示选中正交的两套状态：勾选不管"在看哪个"，选中不管"删哪几个"。
+    /// 退出批量模式时由 <c>SessionListModel</c> 统一清掉
+    /// </summary>
+    [ObservableProperty]
+    private bool _isBatchChecked;
+
     /// <summary>草稿标记是否可见：有草稿且不是当前会话</summary>
     public bool IsDraftVisible => HasDraft && !IsCurrent;
 

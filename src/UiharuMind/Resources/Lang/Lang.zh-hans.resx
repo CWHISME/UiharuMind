@@ -149,12 +149,6 @@
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>提示</value>
     </data>
-    <data name="AgentNewSession" xml:space="preserve">
-        <value>新会话</value>
-    </data>
-    <data name="AgentEmptyHint" xml:space="preserve">
-        <value>绑定工作目录并描述任务即可开始。</value>
-    </data>
     <data name="AgentThinking" xml:space="preserve">
         <value>思考过程</value>
     </data>
@@ -221,12 +215,6 @@
     <data name="AgentModeExecute" xml:space="preserve">
         <value>执行</value>
     </data>
-    <data name="AgentSessions" xml:space="preserve">
-        <value>Agent 会话</value>
-    </data>
-    <data name="AgentSessionsHint" xml:space="preserve">
-        <value>与 Agent 的任务对话</value>
-    </data>
     <data name="AgentWorkspaceChange" xml:space="preserve">
         <value>更改…</value>
     </data>
@@ -256,6 +244,9 @@
     </data>
     <data name="AgentWorkspaceRecentEmpty" xml:space="preserve">
         <value>还没有用过其它目录</value>
+    </data>
+    <data name="AgentWorkspaceReveal" xml:space="preserve">
+        <value>在文件管理器中打开</value>
     </data>
     <data name="AgentWorkspaceForget" xml:space="preserve">
         <value>从最近列表移除</value>
@@ -542,9 +533,6 @@
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>重新扫描</value>
     </data>
-    <data name="AgentEmptyTitle" xml:space="preserve">
-        <value>让 Agent 做点什么?</value>
-    </data>
     <data name="MenuSettingKey" xml:space="preserve">
         <value>设置</value>
     </data>
@@ -559,6 +547,21 @@
     </data>
     <data name="Delete" xml:space="preserve">
         <value>删除</value>
+    </data>
+    <data name="SessionSearchPlaceholder" xml:space="preserve">
+        <value>搜索会话…</value>
+    </data>
+    <data name="SessionBatchMode" xml:space="preserve">
+        <value>批量</value>
+    </data>
+    <data name="SessionSelectAll" xml:space="preserve">
+        <value>全选</value>
+    </data>
+    <data name="SessionBatchDeleteConfirmFormat" xml:space="preserve">
+        <value>确定删除选中的 {0} 个会话吗？正在运行的会被跳过。</value>
+    </data>
+    <data name="SessionBatchSkippedFormat" xml:space="preserve">
+        <value>已跳过 {0} 个正在运行的会话。</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
         <value>本地执行后端设置</value>
@@ -1519,23 +1522,11 @@
     <data name="KeySelectionWaiting" xml:space="preserve">
         <value>等待按键...</value>
     </data>
-    <data name="ChatWorkspaceEmpty" xml:space="preserve">
-        <value>请选择或创建会话</value>
-    </data>
-    <data name="ChatSessions" xml:space="preserve">
-        <value>会话</value>
-    </data>
-    <data name="ChatSessionsHint" xml:space="preserve">
-        <value>角色扮演与助手对话</value>
-    </data>
     <data name="ToggleSessionListTip" xml:space="preserve">
         <value>会话列表</value>
     </data>
     <data name="ToggleSidePanelTip" xml:space="preserve">
         <value>侧栏</value>
-    </data>
-    <data name="ChatDetails" xml:space="preserve">
-        <value>详情</value>
     </data>
     <data name="RetryMessage" xml:space="preserve">
         <value>从此处重试</value>
@@ -2886,16 +2877,47 @@
         <value>知识库：</value>
     </data>
 
-    <data name="MenuAgentKey" xml:space="preserve">
-        <value>智能体</value>
-    </data>
-
     <data name="MenuCharacterKey" xml:space="preserve">
         <value>角色</value>
     </data>
 
-    <data name="MenuChatKey" xml:space="preserve">
-        <value>聊天</value>
+    <data name="MenuConversationKey" xml:space="preserve">
+        <value>对话</value>
+    </data>
+
+    <data name="ConversationTypeChat" xml:space="preserve">
+        <value>普通对话</value>
+    </data>
+
+    <data name="ConversationTypeAgent" xml:space="preserve">
+        <value>智能体</value>
+    </data>
+
+    <data name="ConversationEmptyTitle" xml:space="preserve">
+        <value>开始一段新对话</value>
+    </data>
+    <data name="AgentEmptyTitle" xml:space="preserve">
+        <value>让 Agent 做点什么?</value>
+    </data>
+    <data name="AgentEmptyHint" xml:space="preserve">
+        <value>绑定工作目录并描述任务即可开始。</value>
+    </data>
+
+    <data name="ConversationEmptyHint" xml:space="preserve">
+        <value>在右侧选一个角色即可开始，或创建一个群聊</value>
+    </data>
+
+    <data name="CreateGroupChat" xml:space="preserve">
+        <value>创建群聊</value>
+    </data>
+
+    <data name="GroupChatComingSoon" xml:space="preserve">
+        <value>群聊功能即将上线</value>
+    </data>
+
+
+    <data name="ConversationTypeToggleTip" xml:space="preserve">
+        <value>在普通对话与智能体之间切换</value>
     </data>
 
     <data name="MenuLogKey" xml:space="preserve">

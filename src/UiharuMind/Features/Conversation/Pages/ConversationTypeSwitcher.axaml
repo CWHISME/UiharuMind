@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="56"
+             x:Class="UiharuMind.Features.Conversation.Pages.ConversationTypeSwitcher"
+             x:DataType="pages:ConversationPageData">
+
+    <!-- 左栏头部：当前类型标题 + 切换图标（点一下在两个类型间往返）+ 新建会话。
+         类型状态只活在 ConversationPageData.CurrentType。
+         切换图标是 Lucide 的 arrow-right-left（⇄，与仓内图标同源），
+         refresh-cw 有"刷新/重试"含义，用在这里会误导 -->
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="14,12,10,8">
+        <StackPanel MinWidth="0" VerticalAlignment="Center">
+            <TextBlock Classes="section-title" Text="{Binding TypeTitle}"
+                       TextTrimming="CharacterEllipsis" MaxLines="1" />
+        </StackPanel>
+        <controls:ThemedIconButton Grid.Column="1"
+                                   Command="{Binding ToggleTypeCommand}"
+                                   IconName="arrow-right-left"
+                                   ToolTips="{loc:Loc ConversationTypeToggleTip}" />
+        <controls:ThemedIconButton Grid.Column="2"
+                                   Command="{Binding NewSessionCommand}"
+                                   IconName="file-plus-corner"
+                                   ToolTips="{loc:Loc ChatNewSession}" />
+    </Grid>
+</UserControl>

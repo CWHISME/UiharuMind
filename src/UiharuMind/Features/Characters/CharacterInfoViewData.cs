@@ -12,6 +12,7 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
+using UiharuMind.Features.Conversation.Pages;
 
 namespace UiharuMind.Features.Characters;
 
@@ -101,9 +102,11 @@ public partial class CharacterInfoViewData : ObservableObject
     [RelayCommand]
     public void StartChat()
     {
-        SessionManager.Instance.StartNewSession(_characterData);
-        // agent 档角色去 agent 页:它要的工作目录、权限档与右侧栏面板只有那一页有
-        App.JumpToPage(IsAgent ? MenuPages.MenuAgentKey : MenuPages.MenuChatKey);
+        ChatSession session = SessionManager.Instance.StartNewSession(_characterData);
+        // 对话页已合并：agent 档与普通档同页，跳过去后直达对应类型并选中刚建的会话
+        App.JumpToPage(MenuPages.MenuConversationKey);
+        if (App.ViewModel is MainViewModel vm && vm.Content is ConversationPageData page)
+            page.RevealSession(session.SessionId, IsAgent ? EConversationType.Agent : EConversationType.Chat);
     }
 
     [RelayCommand]

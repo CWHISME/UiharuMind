@@ -27,13 +27,18 @@ public partial class ChatInfoModel : ViewModelBase
     /// <summary>是否有会话可展示（无会话时整栏内容为空）</summary>
     [ObservableProperty] private bool _hasSession;
 
+    private SessionListItem? _session; //当前对应的会话条目
+
     /// <summary>
-    /// 切换详情栏对应的会话（由聊天页面壳在会话选择变化时调用）
+    /// 切换详情栏对应的会话（由聊天页面壳在会话选择变化时调用）。
+    /// 同实例重复设置直接返回：后台会话的 SessionsChanged 噪声也会刷到这里，
+    /// 还能顺带 cover 首轮发送落定（懒建不经列表选中，旧路子收不到）
     /// </summary>
     /// <param name="session">会话视图数据，为空清空面板</param>
     public void SetSession(SessionListItem? session)
     {
-        HasSession = session != null;
+        if (ReferenceEquals(_session, session)) return;
+        _session = session;        HasSession = session != null;
         if (session == null)
         {
             UserCard.IsShown = false;

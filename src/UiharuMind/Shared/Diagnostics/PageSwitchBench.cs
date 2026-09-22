@@ -32,12 +32,12 @@ public static class PageSwitchBench
 
     private static readonly MenuPages[] Cycle =
     [
-        MenuPages.MenuChatKey,
+        // 对话页已合并：两类型同页，压测只跳一次
+        MenuPages.MenuConversationKey,
         MenuPages.MenuCharacterKey,
         MenuPages.MenuModelKey,
         MenuPages.MenuServicesKey,
         MenuPages.MenuLogKey,
-        MenuPages.MenuAgentKey,
     ];
 
     private static DispatcherTimer? _timer;

@@ -515,9 +515,12 @@ public class ChatSession
     ///
     /// 判据是显式标记而非「历史里的第一条」：位置是会变的（删条目、分叉、裁剪），
     /// 而「这句是开场白」是写下它的那一刻就定死的事实。
+    ///
+    /// <b>public</b>：懒建路径（<c>ConversationSessionBinder.CreateAsync</c>）也要补——
+    /// 否则选角色后首轮发送建出的会话没有开场白，模型第一轮会自我重介绍。
     /// </summary>
     /// <param name="characterData">开场白所属角色（参数替换要用它）</param>
-    private void AddNarration(CharacterData characterData)
+    public void AddNarration(CharacterData characterData)
     {
         ChatMessage data = CreateMessage(ChatRole.Assistant, characterData.TryRender(characterData.FirstGreeting));
         data.AdditionalProperties ??= new AdditionalPropertiesDictionary();
