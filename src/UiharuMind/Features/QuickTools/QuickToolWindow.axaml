@@ -14,7 +14,7 @@
              圆角跟随按钮 CornerRadius（TemplateBinding）。ThemedIconButton 不是 Avalonia Button，
              选择器必须用类型前缀，Button: 匹配不到 -->
         <Style Selector="controls|ThemedIconButton#MainButton">
-            <Setter Property="CornerRadius" Value="21" />
+            <Setter Property="CornerRadius" Value="18" />
         </Style>
         <Style Selector="controls|ThemedIconButton#MainButton:pointerover /template/ Border#PART_Background">
             <Setter Property="Background" Value="#33FFFFFF" />
@@ -29,8 +29,8 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="#E6FFFFFF" />
             <Setter Property="FontSize" Value="13" />
-            <Setter Property="Padding" Value="8,4" />
-            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="MinHeight" Value="22" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Border#MainMenu Button:pointerover /template/ ContentPresenter">
@@ -44,21 +44,23 @@
     </Window.Styles>
 
     <!-- 卡片式工具条：半透明深底 + 细描边 + 胶囊圆角（与 RadialMenu 同一质感） -->
+    <!-- 图标/文字固定浅色：背景不随主题变深色，图标若跟随主题会在浅色主题下变成黑色而看不见 -->
     <Border Name="Card"
             Background="#E02D2D3D"
             BorderBrush="#44FFFFFF"
             BorderThickness="1"
-            CornerRadius="25"
-            Padding="4">
+            CornerRadius="21"
+            Padding="3">
         <StackPanel Orientation="Horizontal">
             <ThemedIconButton Name="MainButton"
                     Click="OnMainButtonClick"
                     PointerEntered="OnMainButtonPointerEntered"
                     Background="Transparent"
-                    Width="42"
-                    Height="42"
-                    MinWidth="42"
-                    MinHeight="42"
+                    CurrentColor="#E6FFFFFF"
+                    Width="36"
+                    Height="36"
+                    MinWidth="36"
+                    MinHeight="36"
                     Padding="0"
                     IconName="book-search">
                 <ToolTip.Tip>
@@ -71,7 +73,8 @@
                     IsVisible="False"
                     IsHitTestVisible="False"
                     CornerRadius="6"
-                    Margin="3,0,0,0">
+                    Margin="3,0,0,0"
+                    Padding="0,0,6,0">
                 <StackPanel Name="FunctionMenu" Orientation="Horizontal" />
             </Border>
         </StackPanel>
