@@ -313,8 +313,15 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     public AgentCapabilitySnapshot GetCapabilities()
     {
-        AgentHandle? handle = _handle;
-        return handle?.Capabilities ?? AgentCapabilitySnapshot.Empty;
+        AgentCapabilitySnapshot snapshot = _handle?.Capabilities ?? AgentCapabilitySnapshot.Empty;
+        // 纯提示词档(角色扮演/工具人)的 handle 不登记任何提示词段(框架全关),
+        // 但角色段是真实的固定开销——与空态预览同口径补上,聊天过程中能力统计不跳成空的
+        if (_attachedSession?.CharacterData is { } character && !character.Kind.IsAgent())
+        {
+            return AgentCapabilitySnapshot.FromRoleplay(character);
+        }
+
+        return snapshot;
     }
 
     public TurnInputEstimate? InputEstimate => _handle?.InputEstimate;
