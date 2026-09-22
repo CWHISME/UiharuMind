@@ -11,7 +11,6 @@
 
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
-using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -29,8 +28,8 @@ public class MenuViewData
     {
         MenuItems = new ObservableCollection<MenuItemViewData>
         {
-            new() { MenuHeaderResourceKey = nameof(LangKey.MenuAgentKey), MenuIconName = "house", Key = MenuPages.MenuAgentKey },
-            new() { MenuHeaderResourceKey = nameof(LangKey.MenuChatKey), MenuIconName = "message-circle-more", Key = MenuPages.MenuChatKey },
+            // 对话页已合并：普通对话与智能体在同一页，左栏内切换类型
+            new() { MenuHeaderResourceKey = nameof(LangKey.MenuConversationKey), MenuIconName = "message-circle-more", Key = MenuPages.MenuConversationKey },
             new() { MenuHeaderResourceKey = nameof(LangKey.MenuCharacterKey), MenuIconName = "users-round", Key = MenuPages.MenuCharacterKey },
         // new() { MenuHeader = Loc.Text(LangKey.MenuTranslateKey), MenuIconName ="Translate", Key = MenuKeys.MenuTranslateKey },
         // new() { MenuHeader = "语音", MenuIconName = "Voice", Key = MenuKeys.MenuKeyAudio, Status = "Goods" },
@@ -50,36 +49,24 @@ public class MenuViewData
     }
 
     /// <summary>
-    /// 把「哪一页有会话在忙」聚合到对应的菜单项上：会话档位决定它归智能体页还是对话页
-    /// （<see cref="SessionManager.KindOf"/>），与两页各自的列表口径同一份判据。
+    /// 把「有会话在忙 / 有待审批」聚合到对话页菜单项上。合并后不再区分普通对话与智能体——
+    /// 角标只说「有东西在跑」，进去了由页内会话列表与右栏面板说清是哪一类
     /// </summary>
     private void RefreshRunState()
     {
-        bool agentBusy = false;
-        bool agentApproval = false;
-        bool chatBusy = false;
-        bool chatApproval = false;
+        bool busy = false;
+        bool awaitingApproval = false;
 
         foreach ((string sessionId, ESessionRunState state) in SessionManager.Instance.Running.ActiveSessions())
         {
             //还没进索引的会话(首轮发送前的临时态)没有档位可判,跳过
-            if (SessionManager.Instance.GetMeta(sessionId) is not { } meta) continue;
-            ECharacterKind kind = SessionManager.KindOf(meta);
+            if (SessionManager.Instance.GetMeta(sessionId) is null) continue;
             bool awaiting = state == ESessionRunState.AwaitingApproval;
-            if (kind.IsAgent())
-            {
-                agentBusy = true;
-                agentApproval |= awaiting;
-            }
-            else if (kind.IsChat())
-            {
-                chatBusy = true;
-                chatApproval |= awaiting;
-            }
+            busy = true;
+            if (awaiting) awaitingApproval = true;
         }
 
-        Apply(MenuPages.MenuAgentKey, agentBusy, agentApproval);
-        Apply(MenuPages.MenuChatKey, chatBusy, chatApproval);
+        Apply(MenuPages.MenuConversationKey, busy, awaitingApproval);
     }
 
     private void Apply(MenuPages page, bool isBusy, bool isAwaitingApproval)

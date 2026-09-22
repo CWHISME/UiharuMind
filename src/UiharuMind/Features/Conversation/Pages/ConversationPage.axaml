@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
+             xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
+             xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
+             x:Class="UiharuMind.Features.Conversation.Pages.ConversationPage"
+             x:DataType="pages:ConversationPageData">
+
+    <Design.DataContext>
+        <pages:ConversationPageData />
+    </Design.DataContext>
+
+    <UserControl.Resources>
+        <!-- 右栏统一模板:agent 与普通对话共用同一张版式。
+             上块:工作区卡(状态/角色/token 统计),两类所有形态常驻——agent 档含工作区段,
+             普通对话档工作区段按 IsAgentType 自然隐藏。中块:上下文占用,两类都有。
+             下块:agent→能力/子代理/定时任务页签;普通对话→会话详情。
+             形态差异全部由页面数据的开关表达,不再维护三份各自演化的模板 -->
+        <DataTemplate x:Key="UnifiedRightPane" x:DataType="pages:ConversationPageData">
+            <Grid RowDefinitions="Auto,Auto,*" Margin="12">
+                <panels:AgentWorkspacePanel Grid.Row="0" Margin="0,0,0,10" />
+                <Border Grid.Row="1" Margin="0,0,0,10"
+                        BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
+                        CornerRadius="8" Padding="8">
+                    <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
+                </Border>
+                <Grid Grid.Row="2">
+                    <panels:AgentSidePanel IsVisible="{Binding IsAgentType}" />
+                    <!-- ChatInfoView 构造时把自己的 DataContext 换成 ChatInfoModel 单例,
+                         直接绑在它上面的 IsVisible 会被带偏(ChatInfoModel 上没有页面属性,
+                         绑定静默失败→永远可见,agent 模式下就叠一起了)。显隐放外层容器,
+                         外层继承的是页面 DataContext -->
+                    <Border IsVisible="{Binding IsChatWithSession}">
+                        <panels:ChatInfoView />
+                    </Border>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <pages:RightPaneTemplateConverter x:Key="RightPaneTemplate"
+                                          Chat="{StaticResource UnifiedRightPane}"
+                                          Agent="{StaticResource UnifiedRightPane}"
+                                          NewSession="{StaticResource UnifiedRightPane}" />
+    </UserControl.Resources>
+
+    <!-- 五列骨架、顶栏、拖条与会话列表都在壳里；这里只给三处两类型不同的东西。
+         类型由左栏切换器决定，右栏跟在类型后面走，自身不持类型状态 -->
+    <pages:ConversationPageShell ShowSessionAvatar="{Binding IsChatType}">
+
+        <pages:ConversationPageShell.LeftPaneHeader>
+            <pages:ConversationTypeSwitcher />
+        </pages:ConversationPageShell.LeftPaneHeader>
+
+        <!-- 中间空态：内容寄在 ConversationView 的槽里，DataContext 是会话 VM 而不是本页——
+             这里只能用 VM 的绑定（IsAgentSession/ActiveCharacterName/静态文案），
+             页面绑定（类型、命令、页面资源）一律会失效：双栈曾因此同显、
+             converter 曾因此把 VM 原样 ToString 出来。群聊按钮已搬进右栏新建卡（页面树）。
+             IsAgentSession 单布尔源，空态下它与类型一一对应，不存在中间态 -->
+        <pages:ConversationPageShell.EmptyContent>
+            <!-- 显式声明 VM 作用域：这棵子树寄在 ConversationView 槽里，
+                 编译期绑定按页面类型检查会全错。
+                 垂直居中（底部留 40 给输入框做视觉配重）：顶着 90px 的上边距放，
+                 下面空一大片，看着就是歪的 -->
+            <StackPanel x:DataType="conv:ConversationViewModel"
+                        Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="0,0,0,40">
+                <StackPanel Spacing="12" HorizontalAlignment="Center"
+                            IsVisible="{Binding !IsAgentSession}">
+                    <controls:ThemedSvgIcon IconName="message-circle-more" Width="52" Height="52"
+                                            HorizontalAlignment="Center" />
+                    <TextBlock Text="{loc:Loc ConversationEmptyTitle}" FontSize="17" HorizontalAlignment="Center" />
+                    <TextBlock Classes="muted" Text="{loc:Loc ConversationEmptyHint}"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360" />
+                </StackPanel>
+                <StackPanel Spacing="12" HorizontalAlignment="Center"
+                            IsVisible="{Binding IsAgentSession}">
+                    <controls:ThemedSvgIcon IconName="bot" Width="52" Height="52"
+                                            HorizontalAlignment="Center" />
+                    <TextBlock Text="{loc:Loc AgentEmptyTitle}" FontSize="17" HorizontalAlignment="Center" />
+                    <TextBlock Classes="muted" Text="{loc:Loc AgentEmptyHint}"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360" />
+                </StackPanel>
+                <!-- 懒建预选反馈:中间空态的「将和谁开始」徽章已随右栏工作区卡的融合移除——
+                     角色名在卡上直接可见,不必再重复一遍 -->
+                
+                <!-- 群聊入口占位：两类都有。VM 的命令（槽里只能用 VM 的绑定，见上面注释） -->
+                <Button Command="{Binding CreateGroupChatCommand}" Content="{loc:Loc CreateGroupChat}"
+                        HorizontalAlignment="Center" Margin="0,10,0,0" />
+            </StackPanel>
+        </pages:ConversationPageShell.EmptyContent>
+
+        <!-- 右栏单子:Content 直接绑页面本体(DataContext 原样流进模板),模板按 RightPaneKind 切换,
+             同一时刻只渲染一个面板,结构上杜绝空态/非空态重叠(IsVisible 组合在实机上不可靠) -->
+        <pages:ConversationPageShell.RightPaneContent>
+            <ContentControl Content="{Binding}"
+                            ContentTemplate="{Binding RightPaneKind,
+                                                      Converter={StaticResource RightPaneTemplate}}" />
+        </pages:ConversationPageShell.RightPaneContent>
+
+    </pages:ConversationPageShell>
+</UserControl>

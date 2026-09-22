@@ -95,15 +95,19 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
 
     public PageDataBase GetPage(MenuPages message)
     {
+        // 对话页已合并：旧 agent/chat 键直接转发到统一入口，不在自己名下缓存——
+        // 否则同一个 ConversationPageData 实例会挂进三个键，将来改旧键映射容易踩"两键两实例"的坑
+        if (message is MenuPages.MenuAgentKey or MenuPages.MenuChatKey)
+            return GetPage(MenuPages.MenuConversationKey);
+
         _viewPageModels.TryGetValue(message, out var vmPage);
         if (vmPage == null)
         {
             long vmCtorBegin = global::UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Begin();
             vmPage = message switch
             {
-                MenuPages.MenuAgentKey => ActivatorUtilities.CreateInstance<AgentPageData>(_services),
+                MenuPages.MenuConversationKey => ActivatorUtilities.CreateInstance<ConversationPageData>(_services),
                 MenuPages.MenuCharacterKey => ActivatorUtilities.CreateInstance<HomePageData>(_services),
-                MenuPages.MenuChatKey => ActivatorUtilities.CreateInstance<ChatPageData>(_services),
                 MenuPages.MenuTranslateKey => ActivatorUtilities.CreateInstance<TranslatePageData>(_services),
                 MenuPages.MenuModelKey => ActivatorUtilities.CreateInstance<ModelPageData>(_services),
                 MenuPages.MenuServicesKey => ActivatorUtilities.CreateInstance<ServicesPageData>(_services),
@@ -144,17 +148,20 @@ public partial class MainViewModel : ViewModelBase //, IRecipient<string>
         }
 
         Content = GetPage(page);
+        // 对话页已合并成单入口：agent/chat 旧键与 MenuConversationKey 都点亮同一个菜单项
+        bool isConversation = page is MenuPages.MenuConversationKey or MenuPages.MenuAgentKey or MenuPages.MenuChatKey;
         foreach (var menu in Menus.MenuItems)
         {
-            menu.IsSelected = menu.Key == page;
+            menu.IsSelected = isConversation ? menu.Key == MenuPages.MenuConversationKey : menu.Key == page;
         }
     }
 }
 
 public enum MenuPages
 {
-    MenuAgentKey,
+    MenuConversationKey,
     MenuCharacterKey,
+    MenuAgentKey,
     MenuChatKey,
     MenuTranslateKey,
     MenuModelKey,

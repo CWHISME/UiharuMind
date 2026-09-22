@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using Avalonia;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -526,6 +527,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 本类现在是每会话一个实例、随会话切换来去,挂了不卸就是一路泄漏
         LlmManager.Instance.OnCurrentModelChanged += OnCurrentModelChanged;
         LocalizationManager.Instance.LanguageChanged += OnLanguageChanged;
+        // 工作目录卡上的项目色要跟随主题（与左侧列表条目同一套刷新手势，见 SessionListModel）
+        if (Application.Current is { } app) app.ActualThemeVariantChanged += OnWorkspaceThemeVariantChanged;
         InputPlaceholder = Loc.Text(_inputPlaceholderKey);
     }
 
@@ -1015,6 +1018,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
+    /// 主题切换后重取工作目录卡上的项目色。<c>WorkspaceColor</c> 是绑定值，
+    /// 不通知就不会重算，而 <see cref="WorkspaceTint.For"/> 是按当前主题取亮度的。
+    /// </summary>
+    private void OnWorkspaceThemeVariantChanged(object? sender, EventArgs e)
+    {
+        Workspace.RefreshWorkspaceColor();
+    }
+
+    /// <summary>
     /// 弃用本实例：反注销全局事件、弃用运行侧（它会取消正在跑的那一轮）。
     ///
     /// 只取消、不在这里补写取消结果——运行循环还活着，它自己会在取消分支里收尾。
@@ -1028,6 +1040,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         LlmManager.Instance.OnCurrentModelChanged -= OnCurrentModelChanged;
         SessionModel.Dispose();
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
+        if (Application.Current is { } app) app.ActualThemeVariantChanged -= OnWorkspaceThemeVariantChanged;
         _transcript.ApprovalRequestCreated -= OnApprovalRequestCreated;
         _transcript.SubSessionAttached -= RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached -= OnMessageBoundaryReached;
@@ -1173,6 +1186,21 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(ActiveCharacterIcon));
         NotifyCharacterKindChanged();
         SessionsChanged?.Invoke(); //会话列表里的角色头像/名字跟着变
+        // 换角色即换预演输入:空态没会话,能力面板的固定开销统计正是按角色算的,
+        // 不刷就停在旧角色的数字上。非空态以当前 runner 为准、下一轮发送自然重建,这里不强行重启
+        _ = RefreshCapabilitiesAsync();
+    }
+
+    /// <summary>
+    /// 创建群聊（P1 占位：方案落地后在这里建群会话、接配置弹窗）。
+    /// 落在 VM 而不是页面：中间空态寄在 ConversationView 的槽里，
+    /// DataContext 是 VM，页面命令在那里不可用
+    /// </summary>
+    [RelayCommand]
+    private async Task CreateGroupChatAsync()
+    {
+        IMessageService messages = App.Services.GetRequiredService<IMessageService>();
+        await messages.ShowInfoAsync(Loc.Text(LangKey.GroupChatComingSoon));
     }
 
     /// <summary>
@@ -2277,7 +2305,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 缓存下来就会留下过期的分母
             int contextLength = (CurrentSession?.ChatModelRunningData
                                  ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
-            await Capabilities.RefreshAsync(CurrentRunner, IsAgentSession ? SessionCharacter : null, contextLength,
+            // 所有档都报固定开销:agent 报五档,普通对话只报角色提示词段(见
+            // PreviewCapabilitiesAsync 对非智能体档的处理)。以前这里对普通对话传 null,
+            // 于是空态一片空白——而恰恰是发送前最该知道"这段对话固定占多少"
+            await Capabilities.RefreshAsync(CurrentRunner, SessionCharacter, contextLength,
                 Workspace.Path, PermissionModeIndex);
         }
         catch (Exception e)

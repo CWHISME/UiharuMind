@@ -28,16 +28,14 @@ namespace UiharuMind.Features.Conversation.Pages;
 public abstract partial class ConversationPageDataBase : PageDataBase
 {
     /// <summary>
-    /// 本页的会话列表。两页只差<b>作用域</b>与<b>新会话要不要自动选中</b>——
-    /// 后者正是急建与懒建的分野，所以由子类经构造参数说，事件接线也留在各子类
+    /// 本页的会话列表。初始类型由子类构造时给定，之后经左栏切换器切
     /// </summary>
     public SessionListModel SessionList { get; }
 
-    /// <param name="scope">会话列表作用域</param>
-    /// <param name="selectNewSessions">新会话是否自动选中（急建为 true，懒建为 false）</param>
-    protected ConversationPageDataBase(ESessionListScope scope, bool selectNewSessions)
+    /// <param name="type">会话列表初始类型</param>
+    protected ConversationPageDataBase(EConversationType type)
     {
-        SessionList = new SessionListModel(scope, selectNewSessions);
+        SessionList = new SessionListModel(type);
     }
 
     /// <summary>低于此宽度收起右栏</summary>
@@ -155,12 +153,17 @@ public abstract partial class ConversationPageDataBase : PageDataBase
     /// <b>切到当前正显示的那个是空操作</b>——包括"已经在空态时再点新建"。
     /// </summary>
     /// <param name="meta">会话元数据；null 为新会话空态</param>
-    protected void SwitchConversation(ChatSessionMeta? meta)
+    /// <param name="forceRecreate">
+    /// 强制重建空会话：类型切换时空态会话的创建配置（默认角色/占位/工作区继承）随类型变，
+    /// 而幂等早退会挡住重建——显式传 true 绕过（仅当当前为空态时有意义，旧空实例由
+    /// <see cref="PruneConversations"/> 回收）
+    /// </param>
+    protected void SwitchConversation(ChatSessionMeta? meta, bool forceRecreate = false)
     {
         // 要切去的就是当前正显示的那个:什么都不做。
         // 空态尤其要拦——meta 为 null 时下面的 FindConversation 无从匹配,于是"再点一次新建"
         // 会丢掉当前那个空实例、另建一个,整个视图的 DataContext 跟着换掉,右栏整块重建一次
-        if (Conversation != null && Conversation.CurrentMeta?.SessionId == meta?.SessionId) return;
+        if (!forceRecreate && Conversation != null && Conversation.CurrentMeta?.SessionId == meta?.SessionId) return;
 
         // 探针:这一段是切会话的**同步窗口**——点下去到交回消息循环之间 UI 线程被占的部分。
         // 切换之后几帧里发生的事(落位、裁剪、逐帧放行的 markdown)不在这个桶里,
@@ -225,10 +228,19 @@ public abstract partial class ConversationPageDataBase : PageDataBase
         for (int i = _conversations.Count - 1; i >= 0; i--)
         {
             ConversationViewModel conversation = _conversations[i];
-            if (conversation == Conversation || conversation.IsGenerating || conversation.IsCompacting) continue;
+            if (conversation == Conversation || conversation.IsGenerating || conversation.IsCompacting
+                || ShouldRetainConversation(conversation)) continue;
             Discard(conversation);
         }
     }
+
+    /// <summary>
+    /// 缓存回收时是否额外保留该实例。默认不保留；子类可把"切回来还要接着看"的实例留下来
+    /// （对话页按类型各留一个，切类型直接复用，不走冷重载）
+    /// </summary>
+    /// <param name="conversation">候选实例</param>
+    /// <returns>保留为 true</returns>
+    protected virtual bool ShouldRetainConversation(ConversationViewModel conversation) => false;
 
     private void Discard(ConversationViewModel conversation)
     {

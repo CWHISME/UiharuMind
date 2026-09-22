@@ -1,4 +1,5 @@
 using System;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Shared.Services;
@@ -17,11 +18,15 @@ namespace UiharuMind.App.Tests.Conversation;
 /// </summary>
 public class SessionListModelTests
 {
-    private static ChatSessionMeta Meta(string id, string title = "", int minutesAgo = 0)
+    private static ChatSessionMeta Meta(string id, string title = "", int minutesAgo = 0,
+        string? characterId = null)
     {
         return new ChatSessionMeta
         {
             SessionId = id,
+            // 默认 WorkspaceAgent（智能体档）：大部分测试用默认 Agent 类型，条目得能进显示集合。
+            // 要造普通对话条目时显式传 Empty（工具人档，IsChat）
+            CharacterId = characterId ?? nameof(DefaultCharacter.WorkspaceAgent),
             Title = title.Length > 0 ? title : id,
             Description = $"desc-{id}",
             UpdatedAt = DateTimeOffset.Now.AddMinutes(-minutesAgo),
@@ -30,9 +35,9 @@ public class SessionListModelTests
 
     /// <summary>同步执行的 post：测试里不该有跨线程调度</summary>
     private static SessionListModel Create(Func<List<ChatSessionMeta>> source,
-        bool selectNewSessions = false, ESessionListScope scope = ESessionListScope.Agent)
+        EConversationType type = EConversationType.Agent)
     {
-        return new SessionListModel(scope, selectNewSessions, source,
+        return new SessionListModel(type, source,
             action => action(), new StubMessageService());
     }
 
@@ -46,7 +51,7 @@ public class SessionListModelTests
     {
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b"), Meta("c")];
 
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
 
         Assert.Equal(["a", "b", "c"], Ids(model));
     }
@@ -57,7 +62,7 @@ public class SessionListModelTests
         //原先是 Clear + 重填,那会经 ListBox 双向绑定把选中抹成 null,
         //于是 agent 页得靠一个手写的抑制标志绕过去
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem itemB = model.Sessions[1];
         model.SelectWithoutNotifying(itemB);
 
@@ -72,7 +77,7 @@ public class SessionListModelTests
     {
         //SaveMeta 往索引里放的是一个新的 ChatSessionMeta 对象,抓着旧那份就会一直显示旧标题
         List<ChatSessionMeta> metas = [Meta("a", "旧标题")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem item = model.Sessions[0];
 
         metas[0] = Meta("a", "新标题");
@@ -88,7 +93,7 @@ public class SessionListModelTests
         //时间那一行取 meta 的 UpdatedAt。列表此前只在开页时对帐一次,
         //于是说过话之后时间停在打开那一刻——与"浮到顶部"是同一个缺失的通知
         List<ChatSessionMeta> metas = [Meta("a", minutesAgo: 0)];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem item = model.Sessions[0];
         string before = item.TimeString;
 
@@ -105,7 +110,7 @@ public class SessionListModelTests
     {
         //索引按最后更新时间倒序:刚说过话的会话要浮到顶部
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b"), Meta("c")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem itemC = model.Sessions[2];
 
         metas.Reverse();
@@ -125,7 +130,7 @@ public class SessionListModelTests
     public void Sync_KeepsSelection_WhenTheBindingWritesBackNullOnMove()
     {
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b"), Meta("c")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem itemC = model.Sessions[2];
         model.SelectWithoutNotifying(itemC);
 
@@ -145,7 +150,7 @@ public class SessionListModelTests
     {
         //真消失了才置空,且仍然不通知:接着选谁是各页自己的口径
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         model.SelectWithoutNotifying(model.Sessions[0]);
 
         int notified = 0;
@@ -162,7 +167,7 @@ public class SessionListModelTests
     public void Sync_DropsVanishedItems()
     {
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
 
         metas.RemoveAt(0);
         model.Sync();
@@ -174,7 +179,7 @@ public class SessionListModelTests
     public void Sync_HandlesAddRemoveAndReorderTogether()
     {
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b"), Meta("c")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem itemC = model.Sessions[2];
 
         metas.Clear();
@@ -191,7 +196,7 @@ public class SessionListModelTests
     public void SelectWithoutNotifying_DoesNotRaiseSelectionChanged()
     {
         //列表变了要让选中跟着对齐,那不是用户的选择,不该触发加载
-        SessionListModel model = Create(() => [Meta("a")]);
+        using SessionListModel model = Create(() => [Meta("a")]);
         int raised = 0;
         model.SelectionChanged += _ => raised++;
 
@@ -204,7 +209,7 @@ public class SessionListModelTests
     [Fact]
     public void Select_RaisesSelectionChanged()
     {
-        SessionListModel model = Create(() => [Meta("a")]);
+        using SessionListModel model = Create(() => [Meta("a")]);
         List<SessionListItem?> raised = new();
         model.SelectionChanged += raised.Add;
 
@@ -217,7 +222,7 @@ public class SessionListModelTests
     public void SelectFirstOrNone_PicksFirst_OrClears()
     {
         List<ChatSessionMeta> metas = [Meta("a"), Meta("b")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
 
         model.SelectFirstOrNone();
         Assert.Same(model.Sessions[0], model.SelectedSession);
@@ -228,13 +233,145 @@ public class SessionListModelTests
         Assert.Null(model.SelectedSession);
     }
 
+    //================= 类型切换（左栏切换器） =================
+
+    /// <summary>全量清单含两类会话：chat 用 Empty（工具人档），agent 用 WorkspaceAgent</summary>
+    private static (SessionListModel Model, List<ChatSessionMeta> Chat, List<ChatSessionMeta> Agent)
+        CreateTypeSwitchable()
+    {
+        List<ChatSessionMeta> chat = [Meta("chat1", characterId: nameof(DefaultCharacter.Empty)),
+                                      Meta("chat2", characterId: nameof(DefaultCharacter.Empty))];
+        List<ChatSessionMeta> agent = [Meta("agent1"), Meta("agent2")];
+        SessionListModel model = new(EConversationType.Agent,
+            () => chat.Concat(agent).ToList(),
+            action => action(), new StubMessageService());
+        return (model, chat, agent);
+    }
+
+    [Fact]
+    public void SwitchType_SelectsFirstOfTargetType_Silently()
+    {
+        //拨切换器 = 换清单 + 按口径选中，但不抛事件：装载由页面显式驱动，
+        //连续切换（角色页直达先换类型再指会话）才不会装载两次
+        using SessionListModel model = CreateTypeSwitchable().Model;
+        model.SelectWithoutNotifying(model.Sessions[0]);
+        int notified = 0;
+        model.SelectionChanged += _ => notified++;
+
+        model.SwitchType(EConversationType.Chat);
+
+        Assert.Equal(["chat1", "chat2"], Ids(model));
+        Assert.Equal("chat1", model.SelectedSession?.SessionId);
+        Assert.True(model.SelectedSession!.IsCurrent);
+        Assert.Equal(0, notified);
+    }
+
+    [Fact]
+    public void SwitchType_RestoresLastSelectedOfThatType()
+    {
+        //每类型记住上次看的：切回来接着看，而不是每次都从首条开始
+        using SessionListModel model = CreateTypeSwitchable().Model;
+        model.SelectWithoutNotifying(model.Sessions[1]); // agent2，非首条才能证明是记忆而非首条
+
+        model.SwitchType(EConversationType.Chat);
+        Assert.Equal("chat1", model.SelectedSession?.SessionId);
+
+        model.SwitchType(EConversationType.Agent);
+        Assert.Equal("agent2", model.SelectedSession?.SessionId);
+    }
+
+    [Fact]
+    public void SwitchType_FallsBackToFirst_WhenMemoryIsGone()
+    {
+        //记住的那条已经不在了 → 退首条，而不是空着
+        var created = CreateTypeSwitchable();
+        using SessionListModel model = created.Model;
+        List<ChatSessionMeta> agent = created.Agent;
+        model.SelectWithoutNotifying(model.Sessions[1]); // agent2
+        model.SwitchType(EConversationType.Chat);
+
+        agent.RemoveAt(1); // agent2 没了
+        model.Sync(); //全量对帐（生产路径由会话事件触发，这里手动补）
+        model.SwitchType(EConversationType.Agent);
+
+        Assert.Equal(["agent1"], Ids(model));
+        Assert.Equal("agent1", model.SelectedSession?.SessionId);
+    }
+
+    [Fact]
+    public void SwitchType_SelectsNothing_WhenTargetTypeIsEmpty()
+    {
+        //目标类型一条都没有 → 保持不选，页面走空态
+        List<ChatSessionMeta> metas = [Meta("a")]; //默认 agent 档
+        using SessionListModel model = Create(() => metas);
+
+        model.SwitchType(EConversationType.Chat);
+
+        Assert.Empty(model.Sessions);
+        Assert.Null(model.SelectedSession);
+    }
+
+    [Fact]
+    public async Task LastSelectedSessionIds_TracksPerType_AndForgetsRemoved()
+    {
+        //记忆供页面保留会话实例（切类型不重载）；记住的会话被删则记忆同步清掉，
+        //切回来直接退首条，不再误找一次
+        var created = CreateTypeSwitchable();
+        using SessionListModel model = created.Model;
+        List<ChatSessionMeta> agent = created.Agent;
+        SessionListItem agentItem = model.Sessions[0]; // agent1
+        model.SelectWithoutNotifying(agentItem);
+        model.SwitchType(EConversationType.Chat); //静默选中 chat1
+
+        Assert.Equal(["agent1", "chat1"], model.LastSelectedSessionIds.OrderBy(x => x).ToList());
+
+        // 先断源再删条目：中间若有并行测试的全局事件触发 Sync，也不会把已删会话加回来
+        agent.RemoveAt(0); //删掉 agent1
+        await DeleteAsync(agentItem);
+
+        Assert.Equal(["chat1"], model.LastSelectedSessionIds.ToList());
+        model.SwitchType(EConversationType.Agent);
+        Assert.Equal("agent2", model.SelectedSession?.SessionId);
+    }
+
+    [Fact]
+    public void SwitchType_SameType_IsNoOp()
+    {
+        using SessionListModel model = CreateTypeSwitchable().Model;
+        SessionListItem first = model.Sessions[0];
+        model.SelectWithoutNotifying(first);
+        int notified = 0;
+        model.SelectionChanged += _ => notified++;
+
+        model.SwitchType(EConversationType.Agent);
+
+        Assert.Same(first, model.SelectedSession);
+        Assert.Equal(0, notified);
+    }
+
+    [Fact]
+    public void SelectSession_PicksAndRaisesForABrandNewId()
+    {
+        //空态右栏点角色 / 角色页开聊：会话已入索引但列表还没收到刷新，这里补一次对帐并选中
+        List<ChatSessionMeta> metas = [Meta("a")];
+        using SessionListModel model = Create(() => metas);
+        metas.Add(Meta("b")); //还没经 OnSessionAdded 刷新
+        List<SessionListItem?> raised = new();
+        model.SelectionChanged += raised.Add;
+
+        model.SelectSession("b");
+
+        Assert.Equal("b", model.SelectedSession?.SessionId);
+        Assert.Equal([model.Find("b")], raised);
+    }
+
     //================= 运行态 =================
 
     [Fact]
     public void RunStateChange_RefreshesTheMatchingItem()
     {
         string id = Guid.NewGuid().ToString("N"); //不与机器上真实会话撞号
-        SessionListModel model = Create(() => [Meta(id)]);
+        using SessionListModel model = Create(() => [Meta(id)]);
         SessionListItem item = model.Sessions[0];
         Assert.False(item.IsRunning);
 
@@ -254,7 +391,7 @@ public class SessionListModelTests
     {
         //「等审批」要与「在跑」分开,否则界面无法提示用户回来处理
         string id = Guid.NewGuid().ToString("N");
-        SessionListModel model = Create(() => [Meta(id)]);
+        using SessionListModel model = Create(() => [Meta(id)]);
         SessionListItem item = model.Sessions[0];
 
         using (SessionManager.Instance.Running.BeginRun(id))
@@ -268,7 +405,7 @@ public class SessionListModelTests
     [Fact]
     public void RunStateChange_ForAnUnknownSession_IsIgnored()
     {
-        SessionListModel model = Create(() => [Meta("a")]);
+        using SessionListModel model = Create(() => [Meta("a")]);
 
         using (SessionManager.Instance.Running.BeginRun(Guid.NewGuid().ToString("N")))
         {
@@ -280,7 +417,7 @@ public class SessionListModelTests
     public void Dispose_StopsRespondingToRunState()
     {
         string id = Guid.NewGuid().ToString("N");
-        SessionListModel model = Create(() => [Meta(id)]);
+        using SessionListModel model = Create(() => [Meta(id)]);
         SessionListItem item = model.Sessions[0];
         model.Dispose();
 
@@ -290,8 +427,134 @@ public class SessionListModelTests
         }
     }
 
-    //================= 条目事件 =================
+    //================= 搜索 =================
 
+    [Fact]
+    public void Search_FiltersByTitleOrDescription_CaseInsensitive()
+    {
+        //标题与描述双字段、大小写不敏感：与角色选择器同口径
+        List<ChatSessionMeta> metas = [Meta("a", "Apple pie"), Meta("b", "plain noodles")];
+        using SessionListModel model = Create(() => metas);
+
+        model.SearchText = "APPLE";
+        Assert.Equal(["a"], Ids(model));
+
+        model.SearchText = "desc-b"; //描述是自动生成的 desc-{id}
+        Assert.Equal(["b"], Ids(model));
+
+        model.SearchText = "   ";
+        Assert.Equal(["a", "b"], Ids(model));
+    }
+
+    [Fact]
+    public void Search_KeepsSelectionEvenWhenFilteredOut()
+    {
+        //搜到空不丢选中：被滤掉的只是"当前不可见"，中间还在看它；
+        //清掉搜索词就原样回来，不用重新点
+        using SessionListModel model = Create(() => [Meta("a", "apple"), Meta("b", "banana")]);
+        SessionListItem itemA = model.Sessions[0];
+        model.SelectWithoutNotifying(itemA);
+
+        model.SearchText = "zzz-no-match";
+        Assert.Empty(model.Sessions);
+        Assert.Same(itemA, model.SelectedSession);
+
+        model.SearchText = string.Empty;
+        Assert.Equal(["a", "b"], Ids(model));
+        Assert.Same(itemA, model.SelectedSession);
+    }
+
+    //================= 批量 =================
+
+    [Fact]
+    public void ToggleBatchMode_ExitClearsChecks()
+    {
+        using SessionListModel model = Create(() => [Meta("a"), Meta("b")]);
+
+        model.ToggleBatchModeCommand.Execute(null);
+        Assert.True(model.IsBatchMode);
+
+        model.Sessions[0].IsBatchChecked = true;
+        Assert.Equal(1, model.CheckedCount);
+        Assert.True(model.HasChecked);
+
+        model.ToggleBatchModeCommand.Execute(null);
+        Assert.False(model.IsBatchMode);
+        Assert.Equal(0, model.CheckedCount);
+        Assert.False(model.HasChecked);
+        Assert.All(model.Sessions, x => Assert.False(x.IsBatchChecked));
+    }
+
+    [Fact]
+    public void SelectAllVisible_OnlyChecksFiltered()
+    {
+        //全选只管看得见的：搜出来的一条全选，不会把滤掉的顺手勾上
+        using SessionListModel model = Create(() => [Meta("a", "apple pie"), Meta("b", "banana bread")]);
+        model.SearchText = "apple";
+
+        model.ToggleSelectAllCommand.Execute(null);
+
+        Assert.True(model.Sessions[0].IsBatchChecked);
+        Assert.Equal(1, model.CheckedCount);
+    }
+
+    [Fact]
+    public void ToggleSelectAll_UnchecksWhenAllChecked()
+    {
+        //全勾了再点就是清空；键文案跟着在"全选/取消全选"间换
+        using SessionListModel model = Create(() => [Meta("a"), Meta("b")]);
+
+        model.ToggleSelectAllCommand.Execute(null);
+        Assert.Equal(2, model.CheckedCount);
+        Assert.True(model.AreAllVisibleChecked);
+
+        model.ToggleSelectAllCommand.Execute(null);
+        Assert.Equal(0, model.CheckedCount);
+        Assert.False(model.AreAllVisibleChecked);
+        Assert.All(model.Sessions, x => Assert.False(x.IsBatchChecked));
+    }
+
+    [Fact]
+    public void ItemCheckToggle_UpdatesCheckedCount()
+    {
+        //条目上直接点勾 → 计数与删除可用性跟着走（靠 Attach 时挂的 PropertyChanged）
+        using SessionListModel model = Create(() => [Meta("a"), Meta("b")]);
+        Assert.Equal(0, model.CheckedCount);
+
+        model.Sessions[0].IsBatchChecked = true;
+        Assert.Equal(1, model.CheckedCount);
+        Assert.True(model.HasChecked);
+
+        model.Sessions[0].IsBatchChecked = false;
+        Assert.Equal(0, model.CheckedCount);
+        Assert.False(model.HasChecked);
+    }
+
+    [Fact]
+    public async Task DeleteChecked_SingleConfirm_SkipsRunning()
+    {
+        //删一批只弹一次确认框；正在跑的跳过（单删是直接禁用的，这里不能卡死整批）
+        string busyId = Guid.NewGuid().ToString("N");
+        List<ChatSessionMeta> metas = [Meta(busyId, "busy one"), Meta("b", "bee"), Meta("c", "cee")];
+        StubMessageService messages = new();
+        using SessionListModel model = new(EConversationType.Agent, () => metas, action => action(), messages);
+        foreach (SessionListItem item in model.Sessions) item.IsBatchChecked = true;
+        int removed = 0;
+        model.Removed += _ => removed++;
+
+        metas.RemoveAll(x => x.SessionId != busyId); //先断源：并行测试的全局事件触发 Sync 也加不回来
+        using (SessionManager.Instance.Running.BeginRun(busyId))
+        {
+            await model.DeleteCheckedCommand.ExecuteAsync(null);
+        }
+
+        Assert.Equal([busyId], Ids(model));
+        Assert.Equal(2, removed);
+        Assert.Equal(1, messages.ConfirmCalls);
+        Assert.Equal(0, model.CheckedCount);
+    }
+
+    //================= 条目事件 =================
     /// <summary>
     /// 走条目自己的删除命令。合成的会话标识在磁盘上没有任何文件，
     /// 因此 <c>SessionManager.Delete</c> 走完既不写索引也不抛全局通知，
@@ -306,7 +569,7 @@ public class SessionListModelTests
     public async Task ItemDeleted_RemovesItAndRaisesRemoved()
     {
         List<ChatSessionMeta> metas = [Meta(Guid.NewGuid().ToString("N")), Meta("b")];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem itemA = model.Sessions[0];
         List<SessionListItem> removed = new();
         model.Removed += removed.Add;
@@ -329,7 +592,7 @@ public class SessionListModelTests
         // 新 id 的会话就被加进列表——就是这条测试反复 flaky 的根因
         string id = Guid.NewGuid().ToString("N");
         List<ChatSessionMeta> metas = [Meta(id)];
-        SessionListModel model = Create(() => metas);
+        using SessionListModel model = Create(() => metas);
         SessionListItem itemA = model.Sessions[0];
         int removed = 0;
         model.Removed += _ => removed++;
@@ -347,7 +610,7 @@ public class SessionListModelTests
     public async Task Delete_ClearsSelectionWithoutNotifying()
     {
         //删掉当前会话后「接着选谁」是各页自己的口径,module 只负责把选中放掉
-        SessionListModel model = Create(() => [Meta(Guid.NewGuid().ToString("N"))]);
+        using SessionListModel model = Create(() => [Meta(Guid.NewGuid().ToString("N"))]);
         SessionListItem itemA = model.Sessions[0];
         model.SelectWithoutNotifying(itemA);
         int selectionRaised = 0;
@@ -402,7 +665,7 @@ public class SessionListModelTests
     [Fact]
     public void Select_SetsIsCurrentOnTheChosenItemAndClearsOthers()
     {
-        SessionListModel model = Create(() => [Meta("a"), Meta("b")]);
+        using SessionListModel model = Create(() => [Meta("a"), Meta("b")]);
         SessionListItem a = model.Sessions[0];
         SessionListItem b = model.Sessions[1];
 
@@ -478,6 +741,8 @@ public class SessionListModelTests
 
     private sealed class StubMessageService : IMessageService
     {
+        public int ConfirmCalls;
+
         public Task ShowInfoAsync(string message, string? title = null, CancellationToken ct = default) =>
             Task.CompletedTask;
 
@@ -487,8 +752,11 @@ public class SessionListModelTests
         public Task ShowErrorAsync(string message, string? title = null, CancellationToken ct = default) =>
             Task.CompletedTask;
 
-        public Task<bool> ConfirmAsync(string message, string? title = null, CancellationToken ct = default) =>
-            Task.FromResult(true);
+        public Task<bool> ConfirmAsync(string message, string? title = null, CancellationToken ct = default)
+        {
+            ConfirmCalls++;
+            return Task.FromResult(true);
+        }
 
         public Task<EConfirmChoice> ConfirmWithCancelAsync(string message, string? title = null,
             CancellationToken ct = default) => Task.FromResult(EConfirmChoice.Yes);

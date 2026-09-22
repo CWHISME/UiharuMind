@@ -11,7 +11,7 @@
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="420"
              x:Class="UiharuMind.Features.Conversation.SidePanels.AgentSidePanel"
-             x:DataType="pages:AgentPageData">
+             x:DataType="pages:ConversationPageData">
 
     <!-- 能力 / Todo / 定时任务 页签 -->
     <UserControl.Resources>
@@ -320,17 +320,17 @@
                                                         </ComboBox>
                                                         <Button FontSize="10" Padding="6,2" CornerRadius="5"
                                                                 IsVisible="{Binding CanRunNow}"
-                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.RunTaskNowCommand}"
+                                                                Command="{Binding $parent[TabControl].((pages:ConversationPageData)DataContext).Scheduled.RunTaskNowCommand}"
                                                                 CommandParameter="{Binding}"
                                                                 Content="{loc:Loc AgentTaskRunNow}" />
                                                         <Button FontSize="10" Padding="6,2" CornerRadius="5"
                                                                 IsVisible="{Binding CanCancel}"
-                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.CancelTaskCommand}"
+                                                                Command="{Binding $parent[TabControl].((pages:ConversationPageData)DataContext).Scheduled.CancelTaskCommand}"
                                                                 CommandParameter="{Binding}"
                                                                 Content="{loc:Loc AgentTaskCancel}" />
                                                         <Button FontSize="10" Padding="6,2" CornerRadius="5"
                                                                 IsVisible="{Binding HasResultSession}"
-                                                                Command="{Binding $parent[TabControl].((pages:AgentPageData)DataContext).Scheduled.OpenTaskSessionCommand}"
+                                                                Command="{Binding $parent[TabControl].((pages:ConversationPageData)DataContext).Scheduled.OpenTaskSessionCommand}"
                                                                 CommandParameter="{Binding}"
                                                                 Content="{loc:Loc AgentTaskOpenSession}" />
                                                     </StackPanel>

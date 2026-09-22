@@ -156,12 +156,6 @@
     <data name="MessageInfoTitle" xml:space="preserve">
         <value>Info</value>
     </data>
-    <data name="AgentNewSession" xml:space="preserve">
-        <value>New Session</value>
-    </data>
-    <data name="AgentEmptyHint" xml:space="preserve">
-        <value>Bind a workspace and describe a task to get started.</value>
-    </data>
     <data name="AgentThinking" xml:space="preserve">
         <value>Thinking</value>
     </data>
@@ -228,12 +222,6 @@
     <data name="AgentModeExecute" xml:space="preserve">
         <value>Build</value>
     </data>
-    <data name="AgentSessions" xml:space="preserve">
-        <value>Agent Sessions</value>
-    </data>
-    <data name="AgentSessionsHint" xml:space="preserve">
-        <value>Task conversations with the agent</value>
-    </data>
     <data name="AgentWorkspaceChange" xml:space="preserve">
         <value>Change…</value>
     </data>
@@ -263,6 +251,9 @@
     </data>
     <data name="AgentWorkspaceRecentEmpty" xml:space="preserve">
         <value>No recent workspaces yet</value>
+    </data>
+    <data name="AgentWorkspaceReveal" xml:space="preserve">
+        <value>Show in File Manager</value>
     </data>
     <data name="AgentWorkspaceForget" xml:space="preserve">
         <value>Remove from recent</value>
@@ -549,9 +540,6 @@
     <data name="AgentSkillsReload" xml:space="preserve">
         <value>Rescan</value>
     </data>
-    <data name="AgentEmptyTitle" xml:space="preserve">
-        <value>What should the agent do?</value>
-    </data>
     <data name="MenuSettingKey" xml:space="preserve">
         <value>Setting</value>
     </data>
@@ -566,6 +554,21 @@
     </data>
     <data name="Delete" xml:space="preserve">
         <value>Delete</value>
+    </data>
+    <data name="SessionSearchPlaceholder" xml:space="preserve">
+        <value>Search sessions…</value>
+    </data>
+    <data name="SessionBatchMode" xml:space="preserve">
+        <value>Batch</value>
+    </data>
+    <data name="SessionSelectAll" xml:space="preserve">
+        <value>Select all</value>
+    </data>
+    <data name="SessionBatchDeleteConfirmFormat" xml:space="preserve">
+        <value>Delete the selected {0} sessions? Running ones will be skipped.</value>
+    </data>
+    <data name="SessionBatchSkippedFormat" xml:space="preserve">
+        <value>{0} running sessions were skipped.</value>
     </data>
     <data name="RuntimeEngineSetting" xml:space="preserve">
         <value>Runtime Engine Setting</value>
@@ -1526,23 +1529,11 @@
     <data name="KeySelectionWaiting" xml:space="preserve">
         <value>Waiting...</value>
     </data>
-    <data name="ChatWorkspaceEmpty" xml:space="preserve">
-        <value>Select or create a chat session</value>
-    </data>
-    <data name="ChatSessions" xml:space="preserve">
-        <value>Sessions</value>
-    </data>
-    <data name="ChatSessionsHint" xml:space="preserve">
-        <value>Roleplay and assistant conversations</value>
-    </data>
     <data name="ToggleSessionListTip" xml:space="preserve">
         <value>Session list</value>
     </data>
     <data name="ToggleSidePanelTip" xml:space="preserve">
         <value>Side panel</value>
-    </data>
-    <data name="ChatDetails" xml:space="preserve">
-        <value>Details</value>
     </data>
     <data name="RetryMessage" xml:space="preserve">
         <value>Retry from here</value>
@@ -2893,16 +2884,47 @@ Allow them?</value>
         <value>Knowledge base:</value>
     </data>
 
-    <data name="MenuAgentKey" xml:space="preserve">
-        <value>Agent</value>
-    </data>
-
     <data name="MenuCharacterKey" xml:space="preserve">
         <value>Character</value>
     </data>
 
-    <data name="MenuChatKey" xml:space="preserve">
+    <data name="MenuConversationKey" xml:space="preserve">
+        <value>Conversation</value>
+    </data>
+
+    <data name="ConversationTypeChat" xml:space="preserve">
         <value>Chat</value>
+    </data>
+
+    <data name="ConversationTypeAgent" xml:space="preserve">
+        <value>Agent</value>
+    </data>
+
+    <data name="ConversationEmptyTitle" xml:space="preserve">
+        <value>Start a new conversation</value>
+    </data>
+    <data name="AgentEmptyTitle" xml:space="preserve">
+        <value>What should the agent do?</value>
+    </data>
+    <data name="AgentEmptyHint" xml:space="preserve">
+        <value>Bind a workspace and describe a task to get started.</value>
+    </data>
+
+    <data name="ConversationEmptyHint" xml:space="preserve">
+        <value>Pick a character on the right to start chatting</value>
+    </data>
+
+    <data name="CreateGroupChat" xml:space="preserve">
+        <value>Create group chat</value>
+    </data>
+
+    <data name="GroupChatComingSoon" xml:space="preserve">
+        <value>Group chat is coming soon</value>
+    </data>
+
+
+    <data name="ConversationTypeToggleTip" xml:space="preserve">
+        <value>Switch between chat and agent</value>
     </data>
 
     <data name="MenuLogKey" xml:space="preserve">

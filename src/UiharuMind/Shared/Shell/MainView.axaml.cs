@@ -23,7 +23,7 @@ namespace UiharuMind.Shared.Shell;
 public partial class MainView : UserControl
 {
     /// <summary>
-    /// 空闲时预建的页面。<b>不含智能体页与对话页</b>——它们的 <c>PageData</c> 构造会经
+    /// 空闲时预建的页面。<b>不含对话页</b>——它的 <c>PageData</c> 构造会经
     /// <c>SwitchConversation</c> 触发会话加载，启动时预热等于顺带拉起 MCP 子进程
     /// </summary>
     private static readonly MenuPages[] PrewarmPages =
