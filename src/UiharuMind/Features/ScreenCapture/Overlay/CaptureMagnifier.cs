@@ -11,8 +11,9 @@ using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture.Frames;
+using UiharuMind.Generated;
+using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
-using UiharuMind.Resources.Lang;
 
 namespace UiharuMind.Features.ScreenCapture.Overlay;
 
@@ -55,10 +56,10 @@ internal sealed class CaptureMagnifier
 
         _image.Source = _view;
         _swatch.Fill = _swatchBrush;
-        _copyHintText = string.Format(Lang.ScreenCaptureMagnifierCopyHint,
+        _copyHintText = Loc.Text(LangKey.ScreenCaptureMagnifierCopyHint,
             UiharuCoreManager.Instance.IsMacOs ? "⌘" : "Ctrl");
         _copyHint.Text = _copyHintText;
-        toggleHint.Text = Lang.ScreenCaptureMagnifierToggleHint;
+        toggleHint.Text = Loc.Text(LangKey.ScreenCaptureMagnifierToggleHint);
         BuildOverlay();
     }
 
@@ -88,7 +89,7 @@ internal sealed class CaptureMagnifier
         _view.SourceRect = rect;
 
         _positionText.Text =
-            $"{Lang.ScreenCapturePosition}:({(int)Math.Round(pointer.X * toPixels)}, {(int)Math.Round(pointer.Y * toPixels)})";
+            $"{Loc.Text(LangKey.ScreenCapturePosition)}:({(int)Math.Round(pointer.X * toPixels)}, {(int)Math.Round(pointer.Y * toPixels)})";
 
         var color = frame.SampleColor(pointer);
         if (color == null) return;
@@ -113,7 +114,7 @@ internal sealed class CaptureMagnifier
         try
         {
             _ = clipboard.SetValueAsync(DataFormat.Text, text);
-            _copyHint.Text = Lang.ScreenCaptureMagnifierCopied;
+            _copyHint.Text = Loc.Text(LangKey.ScreenCaptureMagnifierCopied);
             DispatcherTimer.RunOnce(() => _copyHint.Text = _copyHintText, TimeSpan.FromMilliseconds(800));
         }
         catch (Exception e)
