@@ -24,9 +24,9 @@ public class SessionListModelTests
         return new ChatSessionMeta
         {
             SessionId = id,
-            // 默认 WorkspaceAgent（智能体档）：大部分测试用默认 Agent 类型，条目得能进显示集合。
-            // 要造普通对话条目时显式传 Empty（工具人档，IsChat）
-            CharacterId = characterId ?? nameof(DefaultCharacter.WorkspaceAgent),
+            // 默认 ChenXiAgent（智能体档）：大部分测试用默认 Agent 类型，条目得能进显示集合。
+            // 要造普通对话条目时显式传 None（哨兵，IsChat）
+            CharacterId = characterId ?? nameof(DefaultCharacter.ChenXiAgent),
             Title = title.Length > 0 ? title : id,
             Description = $"desc-{id}",
             UpdatedAt = DateTimeOffset.Now.AddMinutes(-minutesAgo),
@@ -235,12 +235,12 @@ public class SessionListModelTests
 
     //================= 类型切换（左栏切换器） =================
 
-    /// <summary>全量清单含两类会话：chat 用 Empty（工具人档），agent 用 WorkspaceAgent</summary>
+    /// <summary>全量清单含两类会话：chat 用 None（哨兵），agent 用 ChenXiAgent</summary>
     private static (SessionListModel Model, List<ChatSessionMeta> Chat, List<ChatSessionMeta> Agent)
         CreateTypeSwitchable()
     {
-        List<ChatSessionMeta> chat = [Meta("chat1", characterId: nameof(DefaultCharacter.Empty)),
-                                      Meta("chat2", characterId: nameof(DefaultCharacter.Empty))];
+        List<ChatSessionMeta> chat = [Meta("chat1", characterId: nameof(DefaultCharacter.None)),
+                                      Meta("chat2", characterId: nameof(DefaultCharacter.None))];
         List<ChatSessionMeta> agent = [Meta("agent1"), Meta("agent2")];
         SessionListModel model = new(EConversationType.Agent,
             () => chat.Concat(agent).ToList(),

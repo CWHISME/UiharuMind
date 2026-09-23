@@ -21,6 +21,7 @@ public class CharacterDataCopyFromTests
         MemoryName = "memory-a",
         IsDefaultCharacter = true,
         IsInternal = true,
+        IsShielded = true,
         InjectUserCard = true,
         RequiresVisionModel = true,
         CharacterIcon = "aWNvbg==",

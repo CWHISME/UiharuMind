@@ -30,7 +30,7 @@ public class ChatSessionMeta
     public string Description { get; set; } = string.Empty;
 
     /// <summary>所属角色标识</summary>
-    public string CharacterId { get; set; } = nameof(DefaultCharacter.Empty);
+    public string CharacterId { get; set; } = nameof(DefaultCharacter.None);
 
     /// <summary>记忆库名</summary>
     public string MemoryName { get; set; } = string.Empty;

@@ -144,6 +144,43 @@ public class GroupChatCoordinatorTests
         Assert.False(_coordinator.TryPostFromMember(loner.SessionId, "hi"));
     }
 
+    [Fact]
+    public async Task SpeakerChanged_TracksWhoIsSpeakingAcrossTheRound()
+    {
+        List<string> events = [];
+        _coordinator.SpeakerChanged += id => events.Add(id);
+        _runner.During[_alice.SessionId] = () =>
+        {
+            Assert.Equal(_alice.SessionId, _coordinator.CurrentSpeakerOf(_group.SessionId));
+            return Task.CompletedTask;
+        };
+        _runner.During[_bob.SessionId] = () =>
+        {
+            Assert.Equal(_bob.SessionId, _coordinator.CurrentSpeakerOf(_group.SessionId));
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.All(events, id => Assert.Equal(_group.SessionId, id));
+        Assert.True(events.Count >= 4, $"轮到/结束各应通报一次,实际 {events.Count}");
+        Assert.Null(_coordinator.CurrentSpeakerOf(_group.SessionId)); //一圈即停后清空
+    }
+
+    [Fact]
+    public async Task SpeakerChanged_DoesNotFireWhenNobodyHasNewLines()
+    {
+        await _coordinator.PostAsync(_group, "大家好"); //第一圈两人都开口
+        _runner.Silent = true; //此后成员不再产生群发言,log 不再增长
+        await _coordinator.RunRoundAsync(_group); //第二圈把各人游标推到 log 尾部
+        int fired = 0;
+        _coordinator.SpeakerChanged += _ => fired++;
+
+        await _coordinator.RunRoundAsync(_group); //第三圈全员没有新话,全部跳过
+
+        Assert.Equal(0, fired);
+    }
+
     [Theory]
     [InlineData("group", true)]
     [InlineData(" Group ", true)]
@@ -206,12 +243,16 @@ public class GroupChatCoordinatorTests
         public Dictionary<string, Func<Task>> During { get; } = new();
         public HashSet<string> Fail { get; } = [];
 
+        /// <summary>打开后本轮不再产生群发言（log 不再增长），用于构造「全员无新话」的静止场景</summary>
+        public bool Silent { get; set; }
+
         public async Task<bool> RunAsync(ChatSession member, ChatMessage input, CancellationToken cancellationToken)
         {
             Calls.Add((member, input.Text));
             member.History.Add(input);
             if (During.TryGetValue(member.SessionId, out Func<Task>? during)) await during();
             if (Fail.Contains(member.SessionId)) return false;
+            if (Silent) return true;
 
             int count = _spoken.GetValueOrDefault(member.SessionId) + 1;
             _spoken[member.SessionId] = count;

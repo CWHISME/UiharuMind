@@ -52,7 +52,7 @@ public class ChatSession
     /// <summary>
     /// 所属角色的标识（<see cref="CharacterData.CharacterId"/>）。角色改名不会断开该引用。
     /// </summary>
-    public string CharacterId { get; set; } = nameof(DefaultCharacter.Empty);
+    public string CharacterId { get; set; } = nameof(DefaultCharacter.None);
 
     /// <summary>记忆库名</summary>
     public string MemoryName { get; set; } = "";
@@ -488,10 +488,12 @@ public class ChatSession
         _characterData = characterData;
         CharacterId = characterData.CharacterId;
         Title = title;
-        Description = string.IsNullOrEmpty(characterData.FirstGreeting)
-            ? characterData.Description
-            : characterData.FirstGreeting;
-        if (!string.IsNullOrEmpty(characterData.FirstGreeting)) AddNarration(characterData);
+        // agent 不发开场白（ADR 0043 决策 2，见 0016）：开场白是普通角色的人格旁白，
+        // 智能体带着工具与工作循环，不需要自我介绍。副标题与历史同口径，否则列表副行
+        // 显示开场白、历史里却没有——同一份数据两处对不上
+        bool hasGreeting = !characterData.IsAgent && !string.IsNullOrEmpty(characterData.FirstGreeting);
+        Description = hasGreeting ? characterData.FirstGreeting : characterData.Description;
+        if (hasGreeting) AddNarration(characterData);
     }
 
     /// <summary>

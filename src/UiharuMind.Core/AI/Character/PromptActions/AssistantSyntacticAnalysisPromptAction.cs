@@ -2,7 +2,7 @@ namespace UiharuMind.Core.AI.Character.PromptActions;
 
 public class AssistantSyntacticAnalysisPromptAction : NormalPromptAction
 {
-    public AssistantSyntacticAnalysisPromptAction() : base(DefaultCharacter.AssistantSyntacticAnalysis)
+    public AssistantSyntacticAnalysisPromptAction() : base(DefaultCharacter.SyntacticAnalysisPrompt)
     {
     }
 }

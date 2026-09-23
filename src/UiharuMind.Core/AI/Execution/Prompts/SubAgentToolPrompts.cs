@@ -15,7 +15,7 @@ namespace UiharuMind.Core.AI.Execution.Prompts;
 /// 委派工具的「模型可见」说明书：工具描述与参数说明，唯一出处。
 ///
 /// 只收 <see cref="SubAgentTool.ToolName"/> 这一把工具；其他工具的描述仍跟随各自的 Tool 类。
-/// 什么时候该委派，判据在 <see cref="AgentToolPrompts.SubAgentDefault"/>，这里不重复；
+/// 什么时候该委派，判据在 <see cref="AgentToolPrompts.BuildDelegation(string)"/>，这里不重复；
 /// 描述只留「是什么 + 副作用/限制 + 参数怎么填」。
 ///
 /// <b>措辞是这层的本体</b>（ADR 0044）：从前三把工具叫 RunAgent / RunReadOnlyAgent /
@@ -28,7 +28,7 @@ public static class SubAgentToolPrompts
 {
     /// <summary>
     /// 委派工具描述。<b>只讲能力边界</b>：什么时候该发唯一收在
-    /// <see cref="AgentToolPrompts.SubAgentDefault"/>，这里不重复整段政策。
+    /// <see cref="AgentToolPrompts.BuildDelegation(string)"/>，这里不重复整段政策。
     ///
     /// <b>刻意不数工具</b>：对方的工具集随能力配置变，写死数量迟早与装配事实矛盾。
     /// <b>也刻意不提「只读」那一档</b>：档位差异已经退役，对方能做什么由权限档说了算。
@@ -49,7 +49,7 @@ public static class SubAgentToolPrompts
     /// </summary>
     public const string ToParam =
         "Who to send it to: a name from the people listed in your instructions, " +
-        "or the [sub-session: …] id from an earlier receipt to continue that conversation. " +
+        "or the id inside the [sub-session: …] line from an earlier receipt to continue that conversation. " +
         "Leave it empty to reach the default helper.";
 
     /// <summary>

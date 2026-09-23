@@ -21,6 +21,7 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Skills;
 using UiharuMind.Core.AI.Execution.Tools;
+using UiharuMind.Core.Configs;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 
@@ -107,6 +108,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     [ObservableProperty] private bool _hasTools;
     [ObservableProperty] private bool _hasSkills;
 
+    /// <summary>全局关闭技能模型可见性时的状态说明(ADR 0003 例外)</summary>
+    [ObservableProperty] private bool _hasSkillSectionNote;
+
+    /// <summary>技能分节的状态说明文案;开启时为空白</summary>
+    [ObservableProperty] private string _skillSectionNote = string.Empty;
+
     /// <summary>
     /// 页签标题(带计数)。不点开也能知道里面有没有东西,默认选谁因此无关紧要。
     /// <b>初值就得是有效文案</b>：智能体页的会话是懒建的，首轮发送前没有执行器、刷新一次都不会跑，
@@ -181,7 +188,9 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
                 workspacePath, character.Tools.DisabledMcpServers))
             : new List<McpPlannedServer>();
 
-        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && character.IsAgent
+        // 全局关闭模型可见性时不取:模型侧看不到技能,列表与统计一起归零
+        bool modelSkillsEnabled = AgentSettingConfig.Current.ModelSkillsEnabled;
+        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && character.IsAgent && modelSkillsEnabled
             ? await SkillCatalog.Instance.GetInvocableEntriesAsync(character.Tools.DisabledSkills)
             : [];
 
@@ -273,6 +282,10 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     {
         HasTools = Tools.Count > 0;
         HasSkills = Skills.Count > 0;
+        // 全局开关(ADR 0003 例外):关闭时技能分节不列条目,只给一行状态说明
+        bool skillsDisabled = !AgentSettingConfig.Current.ModelSkillsEnabled;
+        HasSkillSectionNote = skillsDisabled;
+        SkillSectionNote = skillsDisabled ? Loc.Text(LangKey.AgentCapabilitySkillsDisabled) : string.Empty;
 
         int characterTokens = snapshot.PromptTokensOf(EPromptSection.Character);
         int workspaceTokens = snapshot.PromptTokensOf(EPromptSection.Workspace);
@@ -300,7 +313,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         AddStat(Loc.Text(LangKey.AgentCapabilityCharacterPrompt), characterTokens);
         AddStat(Loc.Text(LangKey.AgentCapabilityWorkspaceRule), workspaceTokens);
         AddStat(Loc.Text(LangKey.AgentCapabilityTools), toolTokens);
-        AddStat(Loc.Text(LangKey.AgentCapabilitySkills), skillTokens, Loc.Text(LangKey.AgentCapabilitySkillResidentTip));
+        // 关闭态不报「技能 0」:那个数说的是"没有技能",而实际是"有但不给模型看",
+        // 真实信息由分节的状态说明行给
+        if (!skillsDisabled)
+        {
+            AddStat(Loc.Text(LangKey.AgentCapabilitySkills), skillTokens, Loc.Text(LangKey.AgentCapabilitySkillResidentTip));
+        }
         // 估算的那一档要标出来:同一行数字,一个是实测一个是上次的账,不标就没法解释为什么会变
         AddStat(mcpIsForecast ? Loc.Text(LangKey.AgentCapabilityMcpForecast) : "MCP", mcpTokens,
             mcpIsForecast ? Loc.Text(LangKey.AgentCapabilityMcpForecastTip) : null);
@@ -353,6 +371,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     {
         return Loc.Text(section switch
         {
+            EPromptSection.Base => LangKey.AgentCapabilityBasePrompt,
             EPromptSection.Character => LangKey.AgentCapabilityCharacterPrompt,
             EPromptSection.ToolDisciplines => LangKey.AgentCapabilityToolRules,
             EPromptSection.Mcp => LangKey.AgentCapabilityPromptMcp,

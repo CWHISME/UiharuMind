@@ -18,6 +18,7 @@ using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Python;
 using UiharuMind.Core.AI.Execution.Skills;
+using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -65,6 +66,14 @@ internal sealed class AgentAssemblyPlan
 
     /// <summary>技能来源（已按角色的禁用清单过滤）；普通角色为 null</summary>
     public AgentSkillsSource? SkillsSource { get; init; }
+
+    /// <summary>
+    /// 技能 provider 整体不挂（全局开关 <c>AgentSettingConfig.ModelSkillsEnabled</c> 关掉时）。
+    /// 不能靠把 <see cref="SkillsSource"/> 置 null 表达——框架对 null 会 fallback 到扫描进程
+    /// 工作目录当技能根(<c>HarnessAgent</c>)，行为错乱；必须走 <c>DisableAgentSkillsProvider</c>。
+    /// 点名调用不依赖这里，关上后照常可用。
+    /// </summary>
+    public bool DisableSkillsProvider { get; init; }
 
     /// <summary>
     /// 工作区记忆目录绝对路径（ADR 0028）：模型用普通文件工具写 <c>Memory/</c>。
@@ -197,6 +206,9 @@ internal sealed class AgentAssemblyPlan
                 : [],
             Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
+            // 全局开关在装配时固化:关掉后技能 provider(广告列表 + 三个工具)整体消失,
+            // 由 AgentAssemblyFacts 入账触发重建
+            DisableSkillsProvider = !AgentSettingConfig.Current.ModelSkillsEnabled,
             // 记忆改跟工作区走(ADR 0028):模型用普通文件工具自管,这里只算路径给提示词与审批用
             MemoryDirectory = config.EnableFileAccess
                 ? MemoryLayout.GetMemoryDirectory(profile.WorkspacePath, profile.OutputFolderName)

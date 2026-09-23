@@ -1,0 +1,17 @@
+{
+  "IsAgent": true,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "通用子代理",
+      "description": "由智能体派出去执行一次委派任务的通用子代理。"
+    },
+    "ExecutionSettings": {
+      "omit_sampling_params": true,
+      "temperature": 0.6,
+      "top_p": 0.8
+    }
+  },
+  "FirstGreeting": ""
+}

@@ -64,6 +64,7 @@ public partial class CharacterPickerViewData : ObservableObject
         Items.Clear();
         IEnumerable<CharacterData> candidates = CharacterManager.Instance.CharacterDataDictionary.Values
             .Where(x => !x.IsInternal)
+            .Where(CharacterVisibility.PassesShield)
             .Where(x => !_excludedIds.Contains(x.CharacterId))
             .Where(x => _filter == null || _filter(x));
 

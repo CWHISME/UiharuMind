@@ -45,7 +45,7 @@ public partial class GroupCreateWindowModel : ObservableObject
             : Loc.Text(LangKey.GroupCreateChatHint);
         // 候选与建群时的校验同源(GroupChatSessions.CanJoin):普通群里不会出现智能体
         Candidates = CharacterManager.Instance.CharacterDataDictionary.Values
-            .Where(x => !x.IsInternal && GroupChatSessions.CanJoin(x, isAgentGroup))
+            .Where(x => !x.IsInternal && CharacterVisibility.PassesShield(x) && GroupChatSessions.CanJoin(x, isAgentGroup))
             .OrderBy(x => x.IsAgent)
             .ThenBy(x => x.CharacterName, StringComparer.CurrentCulture)
             .Select(x => new GroupCandidate(x, OnCandidateToggled))

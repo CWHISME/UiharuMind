@@ -1,0 +1,15 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "白猫(引用)",
+      "description": "[快捷工具]：通过快捷工具的菜单 “询问” 选项打开的询问工具会调用该对象。"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6
+    }
+  }
+}

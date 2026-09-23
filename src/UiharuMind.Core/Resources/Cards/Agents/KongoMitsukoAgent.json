@@ -1,0 +1,17 @@
+{
+  "IsAgent": true,
+  "IsUserCard": false,
+  "IsShielded": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "婚后光子",
+      "description": "提方案者：方案我来定，拍板的人负责落地。"
+    },
+    "ExecutionSettings": {
+      "omit_sampling_params": false,
+      "temperature": 0.7,
+      "top_p": 0.8
+    }
+  },
+  "FirstGreeting": ""
+}

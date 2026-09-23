@@ -14,9 +14,10 @@ namespace UiharuMind.Core.Configs;
 /// <summary>
 /// Agent 工作区的<b>全局</b>标量配置：新会话默认值、最近工作目录、搜索 API 凭据。
 ///
-/// 刻意<b>不含</b>工具开关与技能禁用清单——那些是"这个智能体有什么能力"，长在角色身上
-/// (<see cref="UiharuMind.Core.AI.Character.AgentToolConfig"/>)，运行时只读那一份，
-/// 没有全局总闸(见 ADR 0003)。
+/// 工具开关与技能禁用清单长在角色身上(<see cref="UiharuMind.Core.AI.Character.AgentToolConfig"/>),
+/// 运行时只读那一份,没有全局总闸(见 ADR 0003)。<see cref="ModelSkillsEnabled"/> 是这条规则的
+/// <b>唯一例外</b>:它是"模型看不看得到技能"的运行时呈现偏好,不是"这个角色有什么能力"——
+/// 技能目录是全局事实,模型可见性是个人偏好,按角色下沉反而错。修订见 ADR 0003 附记。
 /// </summary>
 public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 {
@@ -28,6 +29,13 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
 
     /// <summary>新会话默认开启 plan 模式</summary>
     public bool DefaultPlanMode { get; set; }
+
+    /// <summary>
+    /// 是否把技能清单与 load_skill 工具集发给模型。关掉后模型侧完全看不到技能,
+    /// 只剩点名调用可达(正文直接注入)——给本地小窗口模型腾固定开销用的。
+    /// 「没有全局总闸」是 ADR 0003 的决策,本条是它的唯一例外,理由见类注释。
+    /// </summary>
+    public bool ModelSkillsEnabled { get; set; } = true;
 
     /// <summary>
     /// 最近用过的工作目录(最新在前)。切换工作区是高频操作，每次都重新翻文件选择器太笨。

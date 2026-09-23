@@ -91,6 +91,7 @@ public partial class CharacterListViewData : ObservableObject
         CharacterManager.Instance.OnCharacterAdded += OnCharacterAdded;
         CharacterManager.Instance.OnCharacterRemoved += OnCharacterRemoved;
         CharacterManager.Instance.OnCharacterUpdated += OnCharacterUpdated;
+        CharacterVisibility.ShowShieldedChanged += LoadCharacters;
     }
 
     private void LoadCharacters()
@@ -142,6 +143,7 @@ public partial class CharacterListViewData : ObservableObject
         if (FilterTagIndex == FilterChat && !item.Data.IsChat()) return false;
         if (FilterTagIndex == FilterAgent && !item.IsAgent) return false;
         if (item.Data.IsInternal && !IsDisplayAllCharacters) return false;
+        if (!CharacterVisibility.PassesShield(item.Data)) return false;
 
         return string.IsNullOrWhiteSpace(SearchKeyword) ||
                item.SearchText.Contains(SearchKeyword.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -254,5 +256,6 @@ public partial class CharacterListViewData : ObservableObject
         CharacterManager.Instance.OnCharacterAdded -= OnCharacterAdded;
         CharacterManager.Instance.OnCharacterRemoved -= OnCharacterRemoved;
         CharacterManager.Instance.OnCharacterUpdated -= OnCharacterUpdated;
+        CharacterVisibility.ShowShieldedChanged -= LoadCharacters;
     }
 }

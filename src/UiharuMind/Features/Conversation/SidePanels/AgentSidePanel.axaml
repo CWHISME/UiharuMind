@@ -177,6 +177,10 @@
                                                   ItemTemplate="{StaticResource CapabilityRow}" />
                                 </StackPanel>
 
+                                <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,2"
+                                           IsVisible="{Binding Conversation.Capabilities.HasSkillSectionNote}"
+                                           Text="{Binding Conversation.Capabilities.SkillSectionNote}" />
+
                                 <TextBlock Classes="muted" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"
                                            IsVisible="{Binding !Conversation.Capabilities.IsEmpty}"
                                            Text="{loc:Loc AgentCapabilityEditHint}" />

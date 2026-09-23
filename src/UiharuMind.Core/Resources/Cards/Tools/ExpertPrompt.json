@@ -1,0 +1,15 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "白猫(询问)",
+      "description": "[快捷询问工具]：Quick Ask(Alt+Shift+A) 打开的快捷询问工具会调用该对象。"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6
+    }
+  }
+}

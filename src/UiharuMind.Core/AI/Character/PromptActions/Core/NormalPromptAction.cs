@@ -31,6 +31,6 @@ public class NormalPromptAction : PromptActionConvertableBase
 
     public override CharacterData GetCharacterData()
     {
-        return _characterData; //DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.AssistantExpert);
+        return _characterData; //DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ExpertPrompt);
     }
 }

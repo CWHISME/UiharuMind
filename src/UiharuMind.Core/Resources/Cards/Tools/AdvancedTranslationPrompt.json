@@ -1,0 +1,16 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "翻译工具(高级)",
+      "description": "[翻译工具]：Translation(Alt+Shift+Q) 打开的专用翻译工具会调用该对象。"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.6,
+      "top_p": 0.6
+    }
+  },
+  "FirstGreeting": ""
+}

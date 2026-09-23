@@ -15,6 +15,9 @@ namespace UiharuMind.Core.AI.Execution;
 /// </summary>
 public enum EPromptSection
 {
+    /// <summary>基座层（所有 agent 角色共用、系统锁定，见 <c>Prompts.AgentBasePrompts</c>）</summary>
+    Base,
+
     /// <summary>角色段（人格 + 用户卡 + 对话模板）</summary>
     Character,
 

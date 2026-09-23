@@ -69,6 +69,12 @@ public partial class AgentSettingViewData : ViewModelBase
     /// <summary>按「包 → 分类」两级分好组的技能列表</summary>
     public ObservableCollection<SkillGroupItem> SkillGroups { get; } = new();
 
+    /// <summary>
+    /// 是否把技能清单发给模型。关闭后模型侧看不到技能(广告列表与 load_skill 三个工具
+    /// 都不挂),只剩点名调用可达——本地小窗口模型省固定开销用。全局开关,ADR 0003 例外。
+    /// </summary>
+    [ObservableProperty] private bool _modelSkillsEnabled;
+
     /// <summary>一个技能都没扫到</summary>
     [ObservableProperty] private bool _hasNoSkills;
 
@@ -88,6 +94,7 @@ public partial class AgentSettingViewData : ViewModelBase
             DefaultPermissionModeIndex = config.DefaultPermissionModeIndex;
             DefaultWorkspacePath = config.DefaultWorkspacePath;
             DefaultPlanMode = config.DefaultPlanMode;
+            ModelSkillsEnabled = config.ModelSkillsEnabled;
         }
 
         LoadAvailableModels();
@@ -110,6 +117,13 @@ public partial class AgentSettingViewData : ViewModelBase
     partial void OnDefaultPlanModeChanged(bool value)
     {
         AgentSettingConfig.Current.DefaultPlanMode = value;
+        _writeBack.Save();
+    }
+
+    //================= 技能:变更即存 =================
+    partial void OnModelSkillsEnabledChanged(bool value)
+    {
+        AgentSettingConfig.Current.ModelSkillsEnabled = value;
         _writeBack.Save();
     }
 

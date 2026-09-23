@@ -15,6 +15,6 @@ public class ImageVisionPromptAction : PromptActionVisionBase
     
     public override CharacterData GetCharacterData()
     {
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision);
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ImageVisionPrompt);
     }
 }

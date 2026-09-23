@@ -90,14 +90,14 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
         }
 
         //装载默认角色
-        foreach (var defCharacter in DefaultCharacterManager.Instance.Characters)
+        foreach (var (id, characterData) in DefaultCharacterManager.Instance.All)
         {
-            if (CharacterDataDictionary.ContainsKey(defCharacter.Value.CharacterId)) continue;
-            // 用户卡与 Empty 哨兵不进角色库:前者是"我是谁"的单例(有专属编辑窗),
+            if (CharacterDataDictionary.ContainsKey(id)) continue;
+            // 用户卡与 None 哨兵不进角色库:前者是"我是谁"的单例(有专属编辑窗),
             // 后者是"没有角色"的占位。两者都仍能经 GetCharacterData 按内置标识取到。
-            if (defCharacter.Value.IsUserCard) continue;
-            if (defCharacter.Key == DefaultCharacter.Empty) continue;
-            CharacterDataDictionary.Add(defCharacter.Value.CharacterId, defCharacter.Value);
+            if (characterData.IsUserCard) continue;
+            if (id == nameof(DefaultCharacter.None)) continue;
+            CharacterDataDictionary.Add(id, characterData);
         }
 
         // if (CharacterDataDictionary.Count == 0)
@@ -129,14 +129,22 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     {
         if (CharacterDataDictionary.TryGetValue(characterId, out var characterData)) return characterData;
 
-        // 始终隐藏的内置角色(Empty / UserCard)不进字典,只能从这里取。
+        // 旧名迁移:老会话存档里的 CharacterId(如 WorkspaceAgent)归一到现行名再查一次
+        string canonical = BuiltInCharacterId.Resolve(characterId);
+        if (!string.Equals(canonical, characterId, StringComparison.Ordinal) &&
+            CharacterDataDictionary.TryGetValue(canonical, out characterData))
+        {
+            return characterData;
+        }
+
+        // 始终隐藏的内置角色(None / UserCard)不进字典,只能从这里取。
         // 判据是 CharacterId 而非显示名,因此用户角色(GUID)不可能撞上内置角色。
-        if (Enum.TryParse(characterId, out DefaultCharacter defaultCharacter))
+        if (Enum.TryParse(canonical, out DefaultCharacter defaultCharacter))
         {
             return DefaultCharacterManager.Instance.GetCharacterData(defaultCharacter);
         }
 
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Empty);
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.None);
     }
 
     /// <summary>

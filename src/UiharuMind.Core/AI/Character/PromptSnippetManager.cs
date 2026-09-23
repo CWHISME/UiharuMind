@@ -30,7 +30,7 @@ public class PromptSnippet
 public class PromptSnippetManager : Singleton<PromptSnippetManager>, IInitialize
 {
     /// <summary>内置预设的嵌入资源名(首次运行播种用)</summary>
-    private const string SeedResourceName = "PromptSnippets.json";
+    private const string SeedResourceName = "Snippets.PromptSnippets.json";
 
     /// <summary>智能体工作循环那条内置片段的名字</summary>
     public const string WorkLoopSnippetName = "智能体工作循环";

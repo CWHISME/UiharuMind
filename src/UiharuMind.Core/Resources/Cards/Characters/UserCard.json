@@ -1,0 +1,10 @@
+{
+  "IsAgent": false,
+  "IsUserCard": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "UserCard",
+      "description": "黑猫"
+    }
+  }
+}

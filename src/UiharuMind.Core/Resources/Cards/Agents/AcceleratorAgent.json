@@ -1,0 +1,17 @@
+{
+  "IsAgent": true,
+  "IsUserCard": false,
+  "IsShielded": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "一方通行",
+      "description": "审核者（逻辑/可行性）：先说清楚哪里不成立。"
+    },
+    "ExecutionSettings": {
+      "omit_sampling_params": false,
+      "temperature": 0.4,
+      "top_p": 0.8
+    }
+  },
+  "FirstGreeting": ""
+}

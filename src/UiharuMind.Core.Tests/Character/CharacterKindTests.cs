@@ -17,40 +17,58 @@ public class CharacterKindTests
     }
 
     [Fact]
-    public void WorkspaceAgent_IsAgentKind()
+    public void UiharuKazariAgent_IsAgentKind()
     {
-        CharacterData agent = DefaultCharacterManager.Instance
-            .GetCharacterData(DefaultCharacter.WorkspaceAgent);
+        CharacterData agent = DefaultCharacterManager.Instance.All["UiharuKazariAgent"];
 
         Assert.True(agent.IsAgent);
-        Assert.Equal(nameof(DefaultCharacter.WorkspaceAgent), agent.CharacterId);
+        Assert.Equal("UiharuKazariAgent", agent.CharacterId);
         Assert.False(string.IsNullOrWhiteSpace(agent.Template));
     }
 
     [Fact]
-    public void EveryBuiltInCharacter_DeclaresItsKindExplicitly()
+    public void EveryBuiltInCard_DeclaresItsKindExplicitly()
     {
-        foreach (DefaultCharacter value in Enum.GetValues<DefaultCharacter>())
+        string assembly = typeof(DefaultCharacterManager).Assembly.GetName().Name!;
+        string resourcePrefix = $"{assembly}.Resources.";
+        foreach (string name in typeof(DefaultCharacterManager).Assembly.GetManifestResourceNames())
         {
-            if (value is DefaultCharacter.Max) continue;
+            if (!name.StartsWith(resourcePrefix + "Cards.", StringComparison.Ordinal) ||
+                !name.EndsWith(".json", StringComparison.Ordinal))
+                continue;
 
             // 缺字段会静默落到 IsAgent=false:智能体会变成读不了文件的聊天角色。
             // 所以每张内置卡都必须自己写明身份轴(ADR 0043 之前这个字段叫 "Kind")
-            string json = EmbeddedResourcesUtils.Read(value + ".json");
-            Assert.Contains("\"IsAgent\"", json);
+            string fileName = name.Substring(resourcePrefix.Length);
+            Assert.Contains("\"IsAgent\"", EmbeddedResourcesUtils.Read(fileName));
         }
     }
 
     [Theory]
-    [InlineData(DefaultCharacter.UiharuKazari, false, false)]
-    [InlineData(DefaultCharacter.WorkspaceAgent, true, false)]
+    [InlineData(DefaultCharacter.ChenXiAgent, true, false)]
     [InlineData(DefaultCharacter.UserCard, false, true)]
     // ADR 0043 合并之后存量的工具人卡一律是普通角色
-    [InlineData(DefaultCharacter.Translator, false, false)]
-    [InlineData(DefaultCharacter.Assistant, false, false)]
+    [InlineData(DefaultCharacter.TranslationPrompt, false, false)]
+    [InlineData(DefaultCharacter.AnonymousAgent, true, false)]
     public void BuiltInCharacters_LandOnTheirIntendedAxis(DefaultCharacter character, bool isAgent, bool isUserCard)
     {
         CharacterData data = DefaultCharacterManager.Instance.GetCharacterData(character);
+
+        Assert.Equal(isAgent, data.IsAgent);
+        Assert.Equal(isUserCard, data.IsUserCard);
+    }
+
+    /// <summary>内容卡(扫描装载、不在枚举里)也各自钉死身份轴</summary>
+    [Theory]
+    [InlineData("Assistant", false, false)]
+    [InlineData("UiharuKazariAgent", true, false)]
+    [InlineData("BaiLuAgent", true, false)]
+    [InlineData("KongoMitsukoAgent", true, false)]
+    [InlineData("AcceleratorAgent", true, false)]
+    [InlineData("ShokuhouMisakiAgent", true, false)]
+    public void ContentCards_LandOnTheirDeclaredAxis(string id, bool isAgent, bool isUserCard)
+    {
+        CharacterData data = DefaultCharacterManager.Instance.All[id];
 
         Assert.Equal(isAgent, data.IsAgent);
         Assert.Equal(isUserCard, data.IsUserCard);
@@ -60,10 +78,10 @@ public class CharacterKindTests
     public void SkillCharacters_AreInternal()
     {
         // 程序点名取用的技能角色不该出现在角色库默认视图与任何选择器候选里
-        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision).IsInternal);
-        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator).IsInternal);
-        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari).IsInternal);
-        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.WorkspaceAgent).IsInternal);
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ImageVisionPrompt).IsInternal);
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslationPrompt).IsInternal);
+        Assert.False(DefaultCharacterManager.Instance.All["UiharuKazariAgent"].IsInternal);
+        Assert.False(DefaultCharacterManager.Instance.All["Assistant"].IsInternal);
     }
 
     /// <summary>
@@ -116,13 +134,25 @@ public class CharacterKindTests
     }
 
     [Fact]
+    public void LegacyCharacterIds_ResolveToCanonicalNames()
+    {
+        // 改名迁移的旧名要能归一到现行名;内容卡(非旧名)原样返回
+        Assert.Equal(nameof(DefaultCharacter.None), BuiltInCharacterId.Resolve("Empty"));
+        Assert.Equal("UiharuKazariAgent", BuiltInCharacterId.Resolve("WorkspaceAgent"));
+        Assert.Equal(nameof(DefaultCharacter.TranslationPrompt), BuiltInCharacterId.Resolve("Translator"));
+        Assert.Equal(nameof(DefaultCharacter.AnonymousAgent), BuiltInCharacterId.Resolve("GeneralSubAgent"));
+        // 刻意不迁移:旧角色扮演卡退役,老会话落到哨兵
+        Assert.Equal("UiharuKazari", BuiltInCharacterId.Resolve("UiharuKazari"));
+    }
+
+    [Fact]
     public void VisionCharacters_RequireVisionModel()
     {
-        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Vision)
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ImageVisionPrompt)
             .RequiresVisionModel);
-        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.VisionOcr)
+        Assert.True(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ImageOcrPrompt)
             .RequiresVisionModel);
-        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.Translator)
+        Assert.False(DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslationPrompt)
             .RequiresVisionModel);
     }
 }

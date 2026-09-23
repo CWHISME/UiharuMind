@@ -87,13 +87,11 @@
                     <TextBox Grid.Row="2"
                              Name="ImportUrlInput"
                              Height="82"
-                             IsEnabled="False"
                              TextWrapping="Wrap"
                              AcceptsReturn="True"
                              PlaceholderText="{loc:Loc ImportUrlDisabledTitle}" />
                     <Button Grid.Row="3"
                             HorizontalAlignment="Right"
-                            IsEnabled="False"
                             Content="{loc:Loc ImportBtn}"
                             Click="OnImportFromUrlBtnClick" />
                 </Grid>

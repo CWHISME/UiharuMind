@@ -518,6 +518,12 @@
     <data name="AgentSkillsCreate" xml:space="preserve">
         <value>新建技能</value>
     </data>
+    <data name="AgentSkillsModelEnabled" xml:space="preserve">
+        <value>把技能清单发给模型</value>
+    </data>
+    <data name="AgentSkillsModelEnabledTip" xml:space="preserve">
+        <value>关闭后模型看不到任何技能（广告列表与 load_skill 等工具都不挂），只能点名调用。本地小窗口模型靠它省出这块固定开销。</value>
+    </data>
     <data name="AgentSkillsUserInvoked" xml:space="preserve">
         <value>主动技能</value>
     </data>
@@ -2395,6 +2401,9 @@
     <data name="AgentCapabilitySkills" xml:space="preserve">
         <value>技能</value>
     </data>
+    <data name="AgentCapabilitySkillsDisabled" xml:space="preserve">
+        <value>技能已关闭，仅点名调用</value>
+    </data>
     <data name="AgentCapabilityTokenTip" xml:space="preserve">
         <value>系统提示与工具定义每一轮都完整重发，用不用都占。这里是粗略估算。
 
@@ -2498,6 +2507,9 @@
     </data>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>角色提示</value>
+    </data>
+    <data name="AgentCapabilityBasePrompt" xml:space="preserve">
+        <value>基座</value>
     </data>
     <data name="AgentCapabilityWorkspaceRule" xml:space="preserve">
         <value>工作区</value>
@@ -2948,6 +2960,12 @@
     </data>
     <data name="GroupMembersHint" xml:space="preserve">
         <value>按发言顺序排列。点开是他自己的会话（只读），看得到他收到了什么、自己干了什么。</value>
+    </data>
+    <data name="GroupSpeakingNowFormat" xml:space="preserve">
+        <value>{0} 正在发言…</value>
+    </data>
+    <data name="GroupRoundRunning" xml:space="preserve">
+        <value>群聊进行中…</value>
     </data>
 
 

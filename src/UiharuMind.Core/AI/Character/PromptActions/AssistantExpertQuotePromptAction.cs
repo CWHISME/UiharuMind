@@ -9,7 +9,7 @@ public class AssistantExpertQuotePromptAction : NormalPromptAction
 {
     private string _quoteStr;
 
-    public AssistantExpertQuotePromptAction(string quoteStr) : base(DefaultCharacter.AssistantExpertQuote)
+    public AssistantExpertQuotePromptAction(string quoteStr) : base(DefaultCharacter.ExpertQuotePrompt)
     {
         // SetParams("quote", quoteStr);
         _quoteStr = quoteStr;
