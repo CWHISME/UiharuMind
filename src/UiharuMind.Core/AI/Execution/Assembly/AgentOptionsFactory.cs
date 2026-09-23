@@ -98,7 +98,7 @@ internal static class AgentOptionsFactory
 
     /// <summary>
     /// agent 档选项(纯函数,不碰单例)。<b>整段系统提示由本方法按固定顺序拼</b>：
-    /// 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩。
+    /// 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩 → 人格 coda(末尾回锚)。
     ///
     /// 因此 <c>HarnessInstructions</c> 一律为空串：框架对它只做一件事——拼在角色段<b>之前</b>，
     /// 而人格该排在最前(见 ADR 0005)。框架自带的搜索/文件访问关闭,由自装配工具替代。
@@ -123,7 +123,7 @@ internal static class AgentOptionsFactory
         chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
-            delegationRoster, out promptSegments);
+            delegationRoster, character.GetPersonaCoda(), out promptSegments);
 
         // 历史预算不再由我们裁剪,改由框架在环压缩按当前模型的上下文动态开窗(ADR 0006)
         HarnessAgentOptions options = CreateBaseOptions(plan.Compaction);

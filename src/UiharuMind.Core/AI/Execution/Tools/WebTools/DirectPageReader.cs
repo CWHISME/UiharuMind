@@ -17,7 +17,9 @@ namespace UiharuMind.Core.AI.Execution.Tools.WebTools;
 /// <summary>
 /// 自己下正文,不依赖任何第三方服务,所以放在链尾兜底。HTML 扒 DOM,纯文本类原样取回
 /// (raw.githubusercontent、JSON 接口、.md/.txt 都属这类,交给 DOM 解析器只会把内容毁掉)。
-/// 代价是 JS 渲染页与二进制内容(PDF 等)读不出东西——那是链首 Firecrawl 的活。
+/// 代价是 JS 渲染页读不出东西——那是链首 Firecrawl 的活。
+/// 非文本内容(zip/pdf/图片等)读不成正文,改成自动下载落盘返回路径(见 <see cref="WebFileDownloader"/>),
+/// 让模型拿到文件本身而不是一句"读不了"。
 /// </summary>
 internal sealed partial class DirectPageReader : IPageReader
 {
@@ -67,7 +69,8 @@ internal sealed partial class DirectPageReader : IPageReader
             return text.Length > 0 ? PageReadResult.Exact(text) : PageReadResult.Fail("empty response body");
         }
 
-        return PageReadResult.Fail($"unsupported content type: {(mediaType.Length > 0 ? mediaType : "unknown")}");
+        // 非文本内容就是文件:像超限全文落盘一样下载到本地、返回路径,模型拿不到正文但拿到了可用的文件
+        return await WebFileDownloader.DownloadAsync(url, resp, body, ct).ConfigureAwait(false);
     }
 
     /// <summary>是否按标记语言解析。类型缺失时也按 HTML 试——多数没声明的其实就是网页</summary>

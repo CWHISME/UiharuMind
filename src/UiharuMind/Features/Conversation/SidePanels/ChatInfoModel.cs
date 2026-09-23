@@ -50,12 +50,4 @@ public partial class ChatInfoModel : ViewModelBase
         Translation.SetSession(session);
         ChatParams.SetSession(session);
     }
-
-    /// <summary>
-    /// 通知一轮生成开始。只有对话参数面板关心它：把用户刚改过的参数落盘
-    /// </summary>
-    public void NotifyChatBegin()
-    {
-        ChatParams.NotifyChatBegin();
-    }
 }

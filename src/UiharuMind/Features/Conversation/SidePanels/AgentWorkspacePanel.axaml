@@ -48,42 +48,34 @@
                 <TextBlock FontSize="12" Text="{loc:Loc AgentStatusIdle}"
                            IsVisible="{Binding !Conversation.HasPendingWork}" />
             </StackPanel>
-            <!-- 角色行:点名字换角色（空态即预选，发送才建会话），铅笔进编辑。
-                 编辑按钮单独摘在外面:套在换角色那个按钮里会被它的 flyout 吃掉点击。
-                 名字显式给前景色：按钮主题的默认前景是强调色（截图里发蓝），
-                 这里要的是和列表标题同色的正文色 -->
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2" Margin="0,4,0,0">
-                <!-- 内容也要撑满:只撑按钮不撑内容的话,▾ 会紧贴在名字后面,
-                     与右边那个编辑按钮之间空出一大段,整行读起来是断的 -->
-                <Button Grid.Column="0" Classes="text-row" HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                        <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12"
-                                ClipToBounds="True">
-                            <Image Source="{Binding Conversation.ActiveCharacterIcon}"
-                                   Stretch="UniformToFill" />
-                        </Border>
-                        <TextBlock Grid.Column="1" FontSize="12" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource SemiGrey7}"
-                                   TextTrimming="CharacterEllipsis"
-                                   Text="{Binding Conversation.ActiveCharacterName}" />
-                        <TextBlock Grid.Column="2" FontSize="10" Classes="muted"
-                                   VerticalAlignment="Center" Text="▾" />
-                    </Grid>
-                    <Button.Flyout>
-                        <Flyout Placement="BottomEdgeAlignedLeft"
-                                Opening="OnCharacterPickerOpening">
-                            <chars:CharacterPickerView Name="CharacterPicker" />
-                        </Flyout>
-                    </Button.Flyout>
-                </Button>
-                <ThemedIconButton Grid.Column="1" Width="24" Height="24"
-                                  VerticalAlignment="Center"
-                                  IconName="pencil"
-                                  Command="{Binding Conversation.EditActiveCharacterCommand}"
-                                  ToolTip.Tip="{loc:Loc AgentCharacterEdit}" />
-            </Grid>
+            <!-- 角色行:竖排大头像在上、名字在下,整块一个换角色按钮,点哪都出角色选择(空态即预选,发送才建会话);
+                 名字单独一行居中,与头像同一条中心线;换角色提示走 ToolTip -->
+            <Button Classes="text-row" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                    HorizontalContentAlignment="Stretch"
+                    ToolTip.Tip="{loc:Loc AgentCharacterSwitch}">
+                <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
+                    <Border Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center"
+                            ClipToBounds="True">
+                        <Image Source="{Binding Conversation.ActiveCharacterIcon}"
+                               Stretch="UniformToFill" />
+                    </Border>
+                    <TextBlock FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"
+                               Foreground="{DynamicResource SemiGrey7}"
+                               TextTrimming="CharacterEllipsis" MaxWidth="170"
+                               Text="{Binding Conversation.ActiveCharacterName}" />
+                </StackPanel>
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft"
+                            Opening="OnCharacterPickerOpening">
+                        <chars:CharacterPickerView Name="CharacterPicker" />
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+            <!-- 编辑入口暂隐藏:对齐优先,恢复时把铅笔挪回名字行右侧 -->
+            <ThemedIconButton IsVisible="False" Width="24" Height="24"
+                              IconName="pencil"
+                              Command="{Binding Conversation.EditActiveCharacterCommand}"
+                              ToolTip.Tip="{loc:Loc AgentCharacterEdit}" />
 
             <!-- 固定开销统计:竖排纯文字,五档 + 合计。整块点击=跳右栏「能力」页签看明细。
                  与下面工作目录那块同一个路子——看着是文本,点起来是按钮。

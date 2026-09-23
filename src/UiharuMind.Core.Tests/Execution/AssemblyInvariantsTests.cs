@@ -272,21 +272,60 @@ public class HarnessInstructionsCompositionTests
 
     /// <summary>
     /// 基座层是 agent 系统提示的<b>固定第一段</b>（文档 §7 组装顺序：基座 → 人格 → 身份 → 场景 → 配置）。
-    /// 它不随角色卡与能力配置而消失——所有 agent 角色共用、系统锁定，只对 agent 档主代理注入
+    /// 它不随角色卡与能力配置而消失——所有 agent 角色共用、系统锁定，只对 agent 档主代理注入。
+    /// 断言只认结构（第一段 + 人格在后），不认基座正文措辞——措辞是提示词作者的家务事。
     /// </summary>
     [Fact]
     public void AgentInstructions_PutTheBaseBeforeThePersona()
     {
-        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", out var segments);
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        int baseAt = instructions.IndexOf(AgentPromptHeadings.Base, StringComparison.Ordinal);
+        AgentPromptSegment baseSeg = Assert.Single(segments, x => x.Section == EPromptSection.Base);
+        Assert.StartsWith(baseSeg.Text, instructions);
         int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
-        Assert.True(baseAt >= 0, "基座段必须在场");
-        Assert.True(persona > baseAt, "基座必须排在角色人格之前");
-        // 断正文不断条数:"三条"还是"两条"是作者的家务事,测试只认红线正文真的发给了模型
-        Assert.Contains("不许说话不实", instructions);
-        Assert.Contains("演过头了，就不是你了", instructions);
+        Assert.True(persona > baseSeg.Text.Length, "基座必须排在角色人格之前");
+    }
+
+    /// <summary>
+    /// 人格 coda：系统提示的最后一个声音，自动取卡片的名与描述拼成
+    /// <c>你是…</c>（<c>CharacterData.GetPersonaCoda</c>），不用填字段。
+    /// 排在工作区规矩之后——吃结尾权重，长工具循环里人格才不漂。
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_EndsWithPersonaCoda()
+    {
+        const string coda = "你是晨曦，活泼、有冲劲";
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test",
+            characterName: "晨曦", characterDescription: "活泼、有冲劲").ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.EndsWith(coda, instructions);
+    }
+
+    /// <summary>coda 登记在角色段名下：它就是人格的压缩，能力面板的「角色提示」档理应含它</summary>
+    [Fact]
+    public void PersonaCoda_RegisteredAsCharacterSegment()
+    {
+        const string coda = "你是晨曦，活泼、有冲劲";
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", out var segments,
+            characterName: "晨曦", characterDescription: "活泼、有冲劲");
+
+        Assert.Contains(segments,
+            x => x.Section == EPromptSection.Character && x.Text == coda);
+        Assert.EndsWith(coda, options.ChatOptions?.Instructions ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 无名卡不发 coda：没名字钉什么身份。描述是 coda 进提示词的唯一入口，
+    /// 它没出现即证明空段没入册。
+    /// </summary>
+    [Fact]
+    public void PersonaCoda_Absent_WithoutCharacterName()
+    {
+        string instructions = BuildAgentOptions("/tmp/uiharu-agent-test",
+            characterDescription: "活泼、有冲劲").ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.DoesNotContain("活泼、有冲劲", instructions);
     }
 
     /// <summary>
@@ -570,6 +609,31 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
+    /// 指针点名装配时实际解析到的文件名:工作区根下是 AGENTS.md 还是 CLAUDE.md,
+    /// 由 Loader 定,提示词不再写含糊的「(或 CLAUDE.md)」逼模型先 Glob 消歧。
+    /// 用 CLAUDE.md 一例最能证明点名结果不是写死的 AGENTS.md。
+    /// </summary>
+    [Fact]
+    public void WorkspacePointerSection_NamesTheResolvedFile()
+    {
+        string dir = Directory.CreateTempSubdirectory("uiharu-ws-pointer-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "CLAUDE.md"), "claude rules");
+
+            HarnessAgentOptions options = BuildAgentOptions(dir, workspaceInstructions: "claude rules");
+            string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+            Assert.Contains("工作目录下有一份 CLAUDE.md", instructions);
+            Assert.DoesNotContain("（或 CLAUDE.md）", instructions);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// 关掉的工具其纪律段必须一并消失：留着就是纯噪声，还会指挥模型去调不存在的工具。
     /// 能力配置来自角色，这条同时验证装配确实读的是角色那份。
     /// </summary>
@@ -672,20 +736,23 @@ public class HarnessInstructionsCompositionTests
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null,
         string pythonInterpreter = "", string outputRoom = "", string memoryDirectory = "",
-        bool disableSkillsProvider = false)
+        bool disableSkillsProvider = false, string characterName = "", string characterDescription = "")
     {
         return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp,
-            pythonInterpreter, outputRoom, memoryDirectory, disableSkillsProvider);
+            pythonInterpreter, outputRoom, memoryDirectory, disableSkillsProvider,
+            characterName, characterDescription);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
         string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "",
-        string outputRoom = "", string memoryDirectory = "", bool disableSkillsProvider = false)
+        string outputRoom = "", string memoryDirectory = "", bool disableSkillsProvider = false,
+        string characterName = "", string characterDescription = "")
     {
         CharacterData character = new()
         {
             CharacterId = "agent", IsAgent = true, Tools = tools ?? new AgentToolConfig(),
+            CharacterName = characterName, Description = characterDescription,
         };
         string skillsDir = Path.Combine(Path.GetTempPath(), "uiharu-skills-test");
         Directory.CreateDirectory(skillsDir);

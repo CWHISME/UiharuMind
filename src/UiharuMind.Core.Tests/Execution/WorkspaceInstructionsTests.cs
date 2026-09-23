@@ -50,6 +50,30 @@ public class WorkspaceInstructionsTests : IDisposable
     }
 
     [Fact]
+    public void ResolveFileName_PrefersAgentsMd_OverClaudeMd()
+    {
+        File.WriteAllText(Path.Combine(_dir, "AGENTS.md"), "agents rules");
+        File.WriteAllText(Path.Combine(_dir, "CLAUDE.md"), "claude rules");
+
+        Assert.Equal("AGENTS.md", WorkspaceInstructionsLoader.ResolveFileName(_dir));
+    }
+
+    [Fact]
+    public void ResolveFileName_FallsBackToClaudeMd()
+    {
+        File.WriteAllText(Path.Combine(_dir, "CLAUDE.md"), "claude rules");
+
+        Assert.Equal("CLAUDE.md", WorkspaceInstructionsLoader.ResolveFileName(_dir));
+    }
+
+    [Fact]
+    public void ResolveFileName_MissingFileOrWorkspace_ReturnsEmpty()
+    {
+        Assert.Equal(string.Empty, WorkspaceInstructionsLoader.ResolveFileName(_dir));
+        Assert.Equal(string.Empty, WorkspaceInstructionsLoader.ResolveFileName(null));
+    }
+
+    [Fact]
     public void Load_OverlongContent_IsTruncated()
     {
         File.WriteAllText(Path.Combine(_dir, "AGENTS.md"), new string('x', 50_000));
