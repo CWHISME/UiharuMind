@@ -1,0 +1,16 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "RequiresVisionModel": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "Vision",
+      "description": "识图助手：回答与图片有关的问题。当前模型看不了图片时，把识图任务委托给它。"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6
+    }
+  }
+}

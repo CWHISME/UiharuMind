@@ -1,0 +1,10 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "Config": {
+    "PromptConfig": {
+      "name": "None",
+      "description": "No character"
+    }
+  }
+}

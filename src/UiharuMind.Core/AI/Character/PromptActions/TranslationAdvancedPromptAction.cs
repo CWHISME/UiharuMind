@@ -25,6 +25,6 @@ public class TranslationAdvancedPromptAction : PromptActionConvertableBase
     
     public override CharacterData GetCharacterData()
     {
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.TranslatorAdvanced);
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.AdvancedTranslationPrompt);
     }
 }

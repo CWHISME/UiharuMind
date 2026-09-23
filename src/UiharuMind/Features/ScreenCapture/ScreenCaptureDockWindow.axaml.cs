@@ -81,14 +81,14 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     {
         if (!IsValid()) return;
         // ImageOcrPromptAction skill = new ImageOcrPromptAction(GetImageBytes());
-        CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.VisionOcr, GetImageBytes());
+        CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.ImageOcrPrompt, GetImageBytes());
         QuickChatResultWindow.Show("OCR (AI)", "", skill);
     }
 
     private void OnExplainAiBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.AssistantExplain, GetImageBytes());
+        CustomImageSkill skill = new CustomImageSkill(DefaultCharacter.ExplainPrompt, GetImageBytes());
         QuickChatResultWindow.Show(Loc.Text(LangKey.Explain), "", skill);
     }
 

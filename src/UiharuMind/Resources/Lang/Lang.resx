@@ -525,6 +525,12 @@
     <data name="AgentSkillsCreate" xml:space="preserve">
         <value>New skill</value>
     </data>
+    <data name="AgentSkillsModelEnabled" xml:space="preserve">
+        <value>Send skills to the model</value>
+    </data>
+    <data name="AgentSkillsModelEnabledTip" xml:space="preserve">
+        <value>When off, the model cannot see any skills (the roster and load_skill tools are not mounted) and skills are only reachable by explicit invocation. Frees this fixed overhead for small local windows.</value>
+    </data>
     <data name="AgentSkillsUserInvoked" xml:space="preserve">
         <value>user-invoked</value>
     </data>
@@ -2402,6 +2408,9 @@
     <data name="AgentCapabilitySkills" xml:space="preserve">
         <value>Skills</value>
     </data>
+    <data name="AgentCapabilitySkillsDisabled" xml:space="preserve">
+        <value>Skills off — invocation only</value>
+    </data>
     <data name="AgentCapabilityTokenTip" xml:space="preserve">
         <value>The system prompt and tool definitions are re-sent in full on every turn, used or not. Rough estimate.
 
@@ -2505,6 +2514,9 @@ Allow them?</value>
     </data>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>Persona</value>
+    </data>
+    <data name="AgentCapabilityBasePrompt" xml:space="preserve">
+        <value>Base layer</value>
     </data>
     <data name="AgentCapabilityWorkspaceRule" xml:space="preserve">
         <value>Project</value>
@@ -2955,6 +2967,12 @@ Allow them?</value>
     </data>
     <data name="GroupMembersHint" xml:space="preserve">
         <value>In speaking order. Open one to see their own session (read-only): what they received and what they did.</value>
+    </data>
+    <data name="GroupSpeakingNowFormat" xml:space="preserve">
+        <value>{0} is speaking…</value>
+    </data>
+    <data name="GroupRoundRunning" xml:space="preserve">
+        <value>Group round in progress…</value>
     </data>
 
 

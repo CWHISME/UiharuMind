@@ -75,12 +75,12 @@
 一个子智能体角色可以有任意多个子会话。
 
 ⚠️ 子会话**总有一个真角色**：点名的那一种就是子智能体本人；匿名的那一种是内置身份卡
-`GeneralSubAgent`（内部角色，不进角色库）。这张卡**只是身份载体**——
+`AnonymousAgent`（内部角色，不进角色库）。这张卡**只是身份载体**——
 名字与头像归它，提示词现拼、能力直接取派活者那一份，卡上的 Template 与 Tools 都不参与计算
 （Template **必须保持为空**，填了不生效，有不变量测试钉住）。
 不让匿名子会话沿用派活者的角色，是因为那样窗口会顶着派活者的名字，看起来像在跟主代理说话。
 
-⚠️ 「这次委派能不能改东西」由**权限档**回答，不再有独立的只读委派。`ExploreSubAgent` 卡与
+⚠️ 「这次委派能不能改东西」由**权限档**回答，不再有独立的只读委派。`LegacyExploreAgent` 卡与
 `ESubAgentType` 只为**重建存量子会话**保留——真删会让老的只读子会话重建后变成可写、或打不开。
 
 ⚠️ 父会话删除时**级联删除**。盘上只增不减，没有数量上限、没有自动清理——这是明知的欠账。
@@ -208,7 +208,12 @@
 
 决定系统提示、工具集与可用技能的实体。稳定标识是 `CharacterId`，显示名可随意改。
 体现为 `CharacterData`、`CharacterConfig`、`CharacterManager`、`CharacterPromptBuilder`、
-`CharacterPromptRenderer`；内置角色是 `DefaultCharacter` 枚举。
+`CharacterPromptRenderer`。
+
+内置角色分两类：**代码点名卡**（`DefaultCharacter` 枚举，名字即 `CharacterId`）与**内容卡**
+（`Resources/Cards/{Agents,Tools,Characters}/*.json`，文件名即 `CharacterId`，不进枚举）。两类同由
+`DefaultCharacterManager` 扫描 `Cards/`（递归子目录）装载。⚠️ **改枚举名 = 改 `CharacterId`**，
+必须同时补 `BuiltInCharacterId` 旧名映射，否则老会话存档会断。
 
 ### IsAgent（智能体）
 
@@ -245,13 +250,22 @@
 只表示**可见性**：程序按 `DefaultCharacter` 点名取用的技能角色，角色库默认不列、不进选择器候选。
 身份仍由 `IsAgent` 说。
 
+### 内置头像（Built-in Avatar）
+
+角色头像的一种来源：`CharacterData.CharacterIcon` 存 `avares://…/Avatars/<Name>.png` 时，
+`IconUtils` 按当前主题解析成 `Avatars/{Light|Dark}/<Name>.png`。另一来源是 base64（用户上传/导入）。
+
+⚠️ 这个字段因此**二义**：`avares://` 前缀走内置资源，其余按 base64 解——靠前缀区分，不做启发式猜测。
+
 ### 系统提示词的顺序
 
-智能体的整段系统提示由我们自己拼，**人格在最前**：角色人格 → 用户卡 →
-工作目录与工具纪律 → 工作区 `AGENTS.md`，框架 provider 那几段排在以上全部之后。
+智能体的整段系统提示由我们自己拼，**基座恒在最前**：基座（`# 基座`，所有 agent
+角色共用、系统锁定）→ 角色人格 → 用户卡 → 工作目录与工具纪律 → 工作区规矩
+（指针式：模型自读工作目录下的 `AGENTS.md`，正文不内联）。框架 provider 那几段排在
+以上全部之后。
 
-⚠️ `HarnessInstructions` 一律为空串，不要把纪律段塞回去。见
-[ADR 0005](adr/0005-系统提示词的顺序由我们拼，人格在最前.md)。
+⚠️ `HarnessInstructions` 一律为空串，不要把纪律段塞回去。基座层的落地与当前顺序见
+[ADR 0005](adr/0005-系统提示词的顺序由我们拼，人格在最前.md) 的后续记录。
 
 ⚠️ **工作循环属于角色层**（`AgentToolPrompts.AgentWorkLoop`）。见
 [ADR 0004](adr/0004-工作循环指令从框架默认搬到角色提示词.md)。

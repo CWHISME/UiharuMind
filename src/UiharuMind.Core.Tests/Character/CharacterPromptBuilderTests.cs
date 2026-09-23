@@ -16,15 +16,22 @@ public class CharacterPromptBuilderTests
         DefaultCharacterManager.Instance.OnInitialize();
     }
 
-    private static CharacterData Default(DefaultCharacter character)
+    private static CharacterData Default(DefaultCharacter character) =>
+        DefaultCharacterManager.Instance.GetCharacterData(character);
+
+    /// <summary>带用户卡注入的普通角色。测装配规则，不依赖某张具体内置卡</summary>
+    private static CharacterData ChatCharacterWithUserCard() => new()
     {
-        return DefaultCharacterManager.Instance.GetCharacterData(character);
-    }
+        IsAgent = false,
+        InjectUserCard = true,
+        CharacterName = "测试角色",
+        Template = "【角色自身】开头的一段设定",
+    };
 
     [Fact]
     public void ToolCharacter_GetsOnlyItsOwnTemplate()
     {
-        CharacterData translator = Default(DefaultCharacter.Translator);
+        CharacterData translator = Default(DefaultCharacter.TranslationPrompt);
 
         Assert.False(translator.IsAgent); //ADR 0043 之后它是普通角色，不再单列「工具人」档
         Assert.False(translator.InjectUserCard);
@@ -38,46 +45,39 @@ public class CharacterPromptBuilderTests
     }
 
     [Fact]
-    public void RoleplayCharacter_ComposesOwnTemplateThenUserCard()
+    public void ChatCharacter_ComposesOwnTemplateThenUserCard()
     {
-        CharacterData uiharu = Default(DefaultCharacter.UiharuKazari);
+        CharacterData character = ChatCharacterWithUserCard();
 
-        // 脚手架已内联进 Template(所见即所得)，用户卡是开关(单例、活引用)。
-        // 运行期挂载机制已整体退役：跨角色引用只剩用户卡这一处
-        Assert.True(uiharu.IsChat());
-        Assert.True(uiharu.InjectUserCard);
+        Assert.True(character.IsChat());
+        Assert.True(character.InjectUserCard);
 
-        string prompt = CharacterPromptBuilder.Build(uiharu);
+        string prompt = CharacterPromptBuilder.Build(character);
 
+        int ownTemplate = prompt.IndexOf("【角色自身】", StringComparison.Ordinal);
         int userCard = prompt.IndexOf("的个人信息", StringComparison.Ordinal);
-        int scaffold = prompt.IndexOf("第三人称角色扮演系统", StringComparison.Ordinal);
-        int ownTemplate = prompt.IndexOf("初春饰利是《魔法禁书目录》", StringComparison.Ordinal);
 
+        Assert.True(ownTemplate >= 0, "缺少角色自身 Template");
         Assert.True(userCard >= 0, "缺少用户卡注入");
-        Assert.True(scaffold >= 0, "缺少第三人称扮演脚手架(应已内联进 Template)");
-        Assert.True(ownTemplate >= 0, "缺少角色自身的 Template");
-
-        // 顺序：角色自己的设定在最前(先交代"你是谁")，用户卡随后
-        Assert.True(scaffold < ownTemplate, "脚手架应在 Template 开头");
         Assert.True(ownTemplate < userCard, "用户卡应拼在角色自身 Template 之后");
     }
 
     [Fact]
     public void UserCardInjection_ResolvesUserNameNotHostName()
     {
-        CharacterData uiharu = Default(DefaultCharacter.UiharuKazari);
+        CharacterData character = ChatCharacterWithUserCard();
         string userName = CharacterManager.Instance.UserCharacterName;
 
-        string prompt = CharacterPromptBuilder.Build(uiharu);
+        string prompt = CharacterPromptBuilder.Build(character);
 
-        // 用户卡模板用的是 {{$user}}；若误用 {{$char}} 会被替换成宿主角色名(初春)，那是错的
+        // 用户卡模板用的是 {{$user}}；若误用 {{$char}} 会被替换成宿主角色名，那是错的
         Assert.Contains($"{userName}的个人信息", prompt);
     }
 
     [Fact]
     public void Build_DoesNotMutateCallerArguments()
     {
-        CharacterData translator = Default(DefaultCharacter.Translator);
+        CharacterData translator = Default(DefaultCharacter.TranslationPrompt);
         Dictionary<string, object?> custom = new() { ["foo"] = "bar" };
 
         CharacterPromptBuilder.Build(translator, custom);
@@ -91,9 +91,9 @@ public class CharacterPromptBuilderTests
     [Fact]
     public void UnrenderedPlaceholders_AreResolved()
     {
-        CharacterData uiharu = Default(DefaultCharacter.UiharuKazari);
+        CharacterData character = ChatCharacterWithUserCard();
 
-        string prompt = CharacterPromptBuilder.Build(uiharu);
+        string prompt = CharacterPromptBuilder.Build(character);
 
         Assert.DoesNotContain("{{$char}}", prompt);
         Assert.DoesNotContain("{{$user}}", prompt);

@@ -184,7 +184,7 @@ public partial class ConversationPageData : ConversationPageDataBase
             // 普通对话：继承上一个空会话的角色（同类才继承，跨类型不污染），否则回默认角色；
             // 输入框占位是聊天口吻
             conversation.NewSessionCharacterId =
-                InheritCharacterId(EConversationType.Chat, nameof(DefaultCharacter.Empty));
+                InheritCharacterId(EConversationType.Chat, nameof(DefaultCharacter.None));
             conversation.InputPlaceholderKey = LangKey.ChatInputTips;
         }
         else
@@ -193,7 +193,7 @@ public partial class ConversationPageData : ConversationPageDataBase
             // 和已选角色重置掉（此处 Conversation 仍是旧实例，基类赋值在其后，
             // 继承只对空态生效；角色跨档不继承，见 InheritCharacterId）
             conversation.NewSessionCharacterId =
-                InheritCharacterId(EConversationType.Agent, nameof(DefaultCharacter.WorkspaceAgent));
+                InheritCharacterId(EConversationType.Agent, nameof(DefaultCharacter.ChenXiAgent));
             if (Conversation?.Workspace.Path is { } lastPath) conversation.Workspace.Path = lastPath;
         }
 

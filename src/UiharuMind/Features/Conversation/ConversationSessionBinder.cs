@@ -61,9 +61,10 @@ public sealed class ConversationSessionBinder
             PermissionModeIndex = permissionModeIndex,
             SessionModelName = sessionModelName,
         };
-        // 懒建补开场白：与急建（带角色构造）同一语义——角色有 FirstGreeting 就作为旁白写进历史，
-        // 否则首轮发送建出的会话没有开场白、模型第一轮会自我重介绍（见 ADR 0016）
-        if (!string.IsNullOrEmpty(character.FirstGreeting)) created.AddNarration(character);
+        // 懒建补开场白：与急建（带角色构造）同一语义——普通角色有 FirstGreeting 就作为旁白写进历史，
+        // 否则首轮发送建出的会话没有开场白、模型第一轮会自我重介绍（见 ADR 0016）。
+        // agent 不发开场白（ADR 0043 决策 2）：编辑页连字段都藏了，创建入口也要同口径
+        if (!character.IsAgent && !string.IsNullOrEmpty(character.FirstGreeting)) created.AddNarration(character);
         SessionManager.Instance.Add(created);
         WatchBusy(created.Runner); //必须在 AttachAsync 之前,预连就在它里面
         await created.Runner.AttachAsync(created, cancellationToken);

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -11,36 +13,38 @@ namespace UiharuMind.Shared.Utils;
 
 public class IconUtils
 {
+    private const string AvaresScheme = "avares://";
+    private const string AvatarsSegment = "/Avatars/";
+
     // 图标尺寸、最多四张、全进程共用一份。进程级缓存,不 Dispose——
     // 谁把它们释放了,整个进程的头像与托盘图标一起变空白
     private static Bitmap? _defaultIcon;
-    private static Bitmap? _defaultCharIcon;
-    private static Bitmap? _defaultToolCharIcon;
-    private static Bitmap? _defaultUserIcon;
+
+    // 默认头像按主题键化缓存:明暗两套各一张,切主题不会拿错
+    private static readonly Dictionary<string, Bitmap> DefaultAvatars = new();
 
     private static readonly Dictionary<string, CharacterIconEntry> CharacterIcons = new(); //角色自带头像,按角色缓存
 
-    //缓存项连来源 base64 一起存:角色改了头像,来源串跟着变,据此失效
+    //缓存项连来源(已按主题解析)一起存:角色改了头像或切了主题,来源串跟着变,据此失效
     private readonly record struct CharacterIconEntry(string Source, Bitmap Bitmap);
 
     /// <summary>应用图标。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultAppIcon => _defaultIcon ??= LoadDefaultBitmap("Icon.png");
 
-    /// <summary>默认角色头像。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultCharIcon => _defaultCharIcon ??= LoadDefaultBitmap("DefaultCharIcon.png");
+    /// <summary>默认角色头像(按当前主题)。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultCharIcon => DefaultAvatar("DefaultChar.png");
 
-    /// <summary>默认工具人头像。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultToolCharIcon => _defaultToolCharIcon ??= LoadDefaultBitmap("DefaultToolCharIcon.png");
+    /// <summary>默认工具人(智能体)头像(按当前主题)。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultToolCharIcon => DefaultAvatar("DefaultTool.png");
 
     /// <summary>默认用户头像。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultUserIcon => _defaultUserIcon ??= LoadDefaultBitmap("Icon.png");
+    public static Bitmap? DefaultUserIcon => DefaultAppIcon;
 
     /// <summary>
-    /// 取角色头像（<c>CharacterIcon</c> 是 base64 编码的图片），没有则回落到默认头像。
+    /// 取角色头像。三种来源：空串回落默认头像；<c>avares://</c> 走内置头像资源(按主题切 Light/Dark)；
+    /// 其余按 base64 图片数据解。
     ///
-    /// 返回值<b>一律归进程级缓存所有，谁都不得 Dispose</b>：回落时是上面那几张共用的默认图，
-    /// 角色自带头像时是本类按角色缓存的那一张。头像属于规则 2-3 的「小而长寿」一档。
-    /// 角色改了头像下一次调用自动重解，被顶掉的旧图不释放、交给 GC。
+    /// 返回值<b>一律归进程级缓存所有，谁都不得 Dispose</b>。
     /// </summary>
     /// <param name="characterData">角色</param>
     /// <returns>头像位图；加载失败为 null。不得释放</returns>
@@ -55,7 +59,25 @@ public class IconUtils
             return characterData.IsAgent ? DefaultToolCharIcon : DefaultCharIcon;
         }
 
-        return GetOrDecodeCharacterIcon(characterData.CharacterId, source) ?? DefaultCharIcon;
+        return GetOrDecodeCharacterIcon(characterData.CharacterId, ResolveSource(source)) ?? DefaultCharIcon;
+    }
+
+    /// <summary>把内置头像引用按当前主题解析：<c>.../Avatars/&lt;Name&gt;.png</c> → <c>.../Avatars/{Light|Dark}/&lt;Name&gt;.png</c>。
+    /// 已含主题段的引用（切主题 / 重复调用）原样返回，不二次插入</summary>
+    private static string ResolveSource(string source)
+    {
+        if (!source.StartsWith(AvaresScheme, StringComparison.Ordinal)) return source;
+
+        int avatars = source.IndexOf(AvatarsSegment, StringComparison.Ordinal);
+        if (avatars >= 0)
+        {
+            string tail = source[(avatars + AvatarsSegment.Length)..];
+            if (tail.StartsWith("Light/", StringComparison.OrdinalIgnoreCase)
+                || tail.StartsWith("Dark/", StringComparison.OrdinalIgnoreCase))
+                return source;
+        }
+
+        return source.Replace(AvatarsSegment, $"{AvatarsSegment}{ThemeSegment}/", StringComparison.Ordinal);
     }
 
     private static Bitmap? GetOrDecodeCharacterIcon(string characterId, string source)
@@ -77,9 +99,24 @@ public class IconUtils
         }
     }
 
-    //base64 是用户数据,坏串只该回落到默认头像,不该顺着绑定抛上去
+    //来源已按主题解析:avares 路径走资源,其余是 base64 用户数据
     private static Bitmap? DecodeIcon(string source)
     {
+        if (source.StartsWith(AvaresScheme, StringComparison.Ordinal))
+        {
+            try
+            {
+                using Stream stream = AssetLoader.Open(new Uri(source));
+                return new Bitmap(stream);
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Load character avatar asset failed: {e.Message}");
+                return null;
+            }
+        }
+
+        //base64 是用户数据,坏串只该回落到默认头像,不该顺着绑定抛上去
         try
         {
             return source.Base64ToBitmap();
@@ -88,6 +125,23 @@ public class IconUtils
         {
             Log.Error($"Decode character icon failed: {e.Message}");
             return null;
+        }
+    }
+
+    /// <summary>当前主题段:深色 Dark，其余 Light</summary>
+    private static string ThemeSegment =>
+        Application.Current?.RequestedThemeVariant == ThemeVariant.Dark ? "Dark" : "Light";
+
+    /// <summary>默认头像按主题取，进程级缓存不 Dispose</summary>
+    private static Bitmap? DefaultAvatar(string fileName)
+    {
+        string key = $"{ThemeSegment}/{fileName}";
+        lock (DefaultAvatars)
+        {
+            if (DefaultAvatars.TryGetValue(key, out var cached)) return cached;
+            var bitmap = LoadDefaultBitmap($"Avatars/{key}");
+            if (bitmap != null) DefaultAvatars[key] = bitmap;
+            return bitmap;
         }
     }
 
@@ -118,12 +172,10 @@ public class IconUtils
     /// <returns></returns>
     public static Bitmap? LoadDefaultBitmap(string path)
     {
-        var uri = AssetUri(path);
-        var stream = AssetLoader.Open(uri);
         try
         {
-            var bitmap = new Bitmap(stream);
-            return bitmap;
+            using Stream stream = AssetLoader.Open(AssetUri(path));
+            return new Bitmap(stream);
         }
         catch (Exception e)
         {

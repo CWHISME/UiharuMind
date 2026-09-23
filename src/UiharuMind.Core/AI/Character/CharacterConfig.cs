@@ -13,20 +13,8 @@ public sealed class CharacterPromptConfig
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [JsonPropertyName("template_format")]
-    public string TemplateFormat { get; set; } = "semantic-kernel";
-
     [JsonPropertyName("template")]
     public string? Template { get; set; }
-
-    [JsonPropertyName("input_variables")]
-    public List<object> InputVariables { get; set; } = [];
-
-    [JsonPropertyName("execution_settings")]
-    public Dictionary<string, object?> ExecutionSettings { get; set; } = [];
-
-    [JsonPropertyName("allow_dangerously_set_content")]
-    public bool AllowDangerouslySetContent { get; set; }
 }
 
 public class CharacterConfig

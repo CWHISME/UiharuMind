@@ -23,9 +23,10 @@ internal static class AgentInstructionsComposer
 
     /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
-    /// 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩。
+    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩。
     ///
-    /// <b>人格在最前</b>：小模型要先知道自己是谁，再读一大段英文工具纪律。
+    /// <b>基座在人格之前</b>（文档 §7 组装顺序）：基座是「怎么当一个人」的底线，人格是这个人本身。
+    /// 人格仍紧跟在基座之后——小模型要先知道自己是谁，再读一大段英文工具纪律。
     /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段之前，
     /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
     ///
@@ -36,7 +37,9 @@ internal static class AgentInstructionsComposer
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
-    /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段</param>
+    /// <param name="workspaceInstructions">工作区 AGENTS.md 内容;空串则不写该段。
+    /// 主代理与子代理统一只取有无(正文由模型按指针自读,见 <see cref="WorkspacePointerSection"/>);
+    /// 指针方案若出现"没读就编"的 case,截断版正文可经 <see cref="WorkspaceSection"/> 切回</param>
     /// <param name="mcpInstructions">MCP server 自述(已按 server 分节);空串则不写该段</param>
     /// <param name="shellBinary">实际解析出来的 shell 可执行路径;空串则不写那一句</param>
     /// <param name="pythonInterpreter">受管 Python 环境的解释器路径。<b>只作闸门</b>——
@@ -56,6 +59,7 @@ internal static class AgentInstructionsComposer
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
+        AppendSection(sb, AgentBasePrompts.Base, EPromptSection.Base, registry);
         AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
             pythonInterpreter, outputRoomDirectory, memoryDirectory, delegationRoster),
@@ -67,7 +71,7 @@ internal static class AgentInstructionsComposer
 
         if (workspaceInstructions.Length > 0)
         {
-            AppendSection(sb, WorkspaceSection(workspaceInstructions), EPromptSection.Workspace, registry);
+            AppendSection(sb, WorkspacePointerSection(), EPromptSection.Workspace, registry);
         }
 
         segments = registry;
@@ -98,13 +102,59 @@ internal static class AgentInstructionsComposer
     }
 
     /// <summary>
-    /// 工作区规矩段（主代理与子代理逐字共用）
+    /// 工作区规矩段：标题 + 截断后的正文。
+    /// <b>当前无生产调用点</b>（主代理与子代理统一走 <see cref="WorkspacePointerSection"/>）：
+    /// 保留为指针方案失效时的回退实现，截断语义由测试钉住。
     /// </summary>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <returns>整段文本</returns>
     internal static string WorkspaceSection(string workspaceInstructions)
     {
-        return $"{AgentPromptHeadings.Workspace}\n{workspaceInstructions}";
+        return $"{AgentPromptHeadings.Workspace}\n{TruncateWorkspaceInstructions(workspaceInstructions)}";
+    }
+
+    /// <summary>
+    /// 工作区规矩段：只要指针，不要正文（试行）。
+    ///
+    /// 系统提示每轮完整重发，AGENTS.md 全文放这里等于每轮交一次税；
+    /// 模型自己 Read 进来的是历史消息，付一次摊到整个会话（压缩折叠后指针还在，可重读）。
+    /// 主代理与子代理<b>统一走这条</b>（子代理原先的"短会话摊不平、弱模型服从率低"顾虑见
+    /// <c>SubAgentAssembly</c> 注释——若实测出现"没读就编"的 case，整个装配点切回
+    /// <see cref="WorkspaceSection"/> 截断版即可，无第二处要动）。
+    /// </summary>
+    /// <returns>标题 + 指路指针，不含正文</returns>
+    internal static string WorkspacePointerSection()
+    {
+        return $"{AgentPromptHeadings.Workspace}\n"
+               + "本会话的工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。\n"
+               + "动手前先读一遍全文；之后每次提交代码、或拿不准某条规范时，重读相关部分再动手。";
+    }
+
+    /// <summary>
+    /// 工作区说明全文上限。AGENTS.md 是 tenure 最长的固定开销之一（实测本仓 4469 字，
+    /// 占系统提示一半以上），而其中构建命令之外的规范/协作口径并不是每轮都要重读。
+    /// 超限时只取前半、行边界处截断，剩下的给一个指路指针——模型手里有文件工具，
+    /// 提交/规范相关事项前自己去读全文。阈值卡在 2000：本仓恰好留在"无头界面测试"之后
+    /// （"别用 dotnet test"那条每轮高价值规则在界内）；换了别的工作区，它也只是"取正文前两屏"，
+    /// 剩下的由指针兜底。
+    /// </summary>
+    internal const int MaxWorkspaceInstructionsChars = 2000;
+
+    /// <summary>
+    /// 工作区说明截断（纯函数，可单测）。短文本原样返回；超限按行截断并缀指路指针。
+    /// 指路不写绝对路径：工作目录段里已有绝对路径，模型按"工作目录下的 AGENTS.md"能找到。
+    /// </summary>
+    /// <param name="workspaceInstructions">工作区说明文件全文</param>
+    /// <returns>原文或"前半 + 指针"</returns>
+    internal static string TruncateWorkspaceInstructions(string workspaceInstructions)
+    {
+        if (workspaceInstructions.Length <= MaxWorkspaceInstructionsChars) return workspaceInstructions;
+        int cut = workspaceInstructions.LastIndexOf('\n', MaxWorkspaceInstructionsChars);
+        string head = (cut > 0 ? workspaceInstructions[..cut] : workspaceInstructions[..MaxWorkspaceInstructionsChars])
+            .TrimEnd();
+        return head
+               + $"\n\n（工作区说明全文约 {workspaceInstructions.Length} 字，以上只取前 {head.Length} 字。"
+               + "提交代码、改动规范相关事项前，先读工作目录下 AGENTS.md（或 CLAUDE.md）全文。）";
     }
 
     private static void AppendSection(StringBuilder sb, string? section, EPromptSection kind,
@@ -162,15 +212,4 @@ internal static class AgentInstructionsComposer
             ShellBinary = shellBinary,
         });
     }
-
-    /// <summary>
-    /// 解析一个角色挂载的子智能体名单。按身份过滤而非信任存档（名单里的角色可能已翻回普通角色），
-    /// 并排除自己（递归）。
-    ///
-    /// <b>装配与快照必须用同一份</b>：名单连同各自的名字与描述会在装配时固化进子代理工具，
-    /// 而「要不要重建装配」由 <see cref="AgentAssemblyFacts"/> 判定——
-    /// 两处各写一份过滤规则的话，改名单不重建的那类缺陷会静默复发。
-    /// </summary>
-    /// <param name="owner">挂载方角色</param>
-    /// <returns>可用作子智能体的角色</returns>
 }

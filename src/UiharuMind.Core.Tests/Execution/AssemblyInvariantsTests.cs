@@ -169,7 +169,7 @@ public class HistoryAttributionTests
     [Fact]
     public void ParentInterjection_IsOwnedByUs()
     {
-        ChatMessage injection = new(ChatRole.User, "【派活方】先别管性能，把正确性修对");
+        ChatMessage injection = new(ChatRole.User, "【发信人】先别管性能，把正确性修对");
         Assert.False(ChatMessageAnnotations.IsParentInterjection(injection));
 
         ChatMessageAnnotations.MarkParentInterjection(injection);
@@ -247,7 +247,7 @@ public class HistoryAttributionTests
 
 /// <summary>
 /// 不变量之五：<b>整段系统提示由我们按固定顺序拼，人格在最前，不带第二个身份</b>。
-/// 顺序是 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩(见 ADR 0005)。
+/// 顺序是 基座(所有角色共用、系统锁定) → 角色人格(含工作循环) → 用户卡 → 对话模板 → 工具纪律与工作目录 → 工作区规矩(见 ADR 0005)。
 /// 框架对 HarnessInstructions 只做一件事——拼在角色段<b>之前</b>，因此那一层必须留空；
 /// 一旦有人把纪律段或框架默认塞回 HarnessInstructions，症状是小模型先读一大段英文工具纪律、
 /// 角色人格被压在后面，实机极难归因。
@@ -268,6 +268,74 @@ public class HarnessInstructionsCompositionTests
         Assert.True(persona >= 0, "角色人格丢了");
         Assert.True(disciplines > persona, "工具纪律必须排在角色人格之后");
         Assert.DoesNotContain("helpful AI assistant", instructions); //身份只由角色说
+    }
+
+    /// <summary>
+    /// 基座层是 agent 系统提示的<b>固定第一段</b>（文档 §7 组装顺序：基座 → 人格 → 身份 → 场景 → 配置）。
+    /// 它不随角色卡与能力配置而消失——所有 agent 角色共用、系统锁定，只对 agent 档主代理注入
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_PutTheBaseBeforeThePersona()
+    {
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test");
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        int baseAt = instructions.IndexOf(AgentPromptHeadings.Base, StringComparison.Ordinal);
+        int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
+        Assert.True(baseAt >= 0, "基座段必须在场");
+        Assert.True(persona > baseAt, "基座必须排在角色人格之前");
+        // 断正文不断条数:"三条"还是"两条"是作者的家务事,测试只认红线正文真的发给了模型
+        Assert.Contains("不许说话不实", instructions);
+        Assert.Contains("人设有边界，表演没有", instructions);
+    }
+
+    /// <summary>
+    /// 工作区段只要指针不要正文(试行):系统提示每轮重发,全文放这里等于每轮交税;
+    /// 模型自读进历史,付一次摊全场。主代理与子代理同一口径,子代理侧见 SubAgentBoundaryTests。
+    /// </summary>
+    [Fact]
+    public void MainAgentWorkspaceSection_IsPointerOnly()
+    {
+        string body = new string('z', AgentInstructionsComposer.MaxWorkspaceInstructionsChars * 2);
+        string main = BuildAgentOptions("/tmp/uiharu-agent-test",
+            workspaceInstructions: body).ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains("动手前先读一遍全文", main);
+        Assert.DoesNotContain(body[..100], main);
+    }
+
+    /// <summary>
+    /// 技能模型可见性的全局总闸(ADR 0003 例外):关掉后 provider 不挂,
+    /// 广告列表与 load_skill 三个工具一起从模型侧消失;默认开着,
+    /// 点名调用不依赖这一路,关上后照常可用。
+    /// </summary>
+    [Fact]
+    public void AgentSkillsProvider_RespectsGlobalModelSkillsSwitch()
+    {
+        // 默认:agent 档挂技能 provider
+        HarnessAgentOptions enabled = BuildAgentOptions("/tmp/uiharu-agent-test");
+        Assert.False(enabled.DisableAgentSkillsProvider);
+
+        // 全局关闭:provider 不挂
+        HarnessAgentOptions disabled = BuildAgentOptions("/tmp/uiharu-agent-test", disableSkillsProvider: true);
+        Assert.True(disabled.DisableAgentSkillsProvider);
+    }
+
+    /// <summary>
+    /// 全局技能开关进入装配快照:切换后必须重建,否则模型继续按旧装配(挂/不挂)
+    /// 收发消息。与 <c>DisabledSkills</c> 同口径——都属装配输入。
+    /// </summary>
+    [Fact]
+    public void ChangedModelSkillsEnabled_ProduceDifferentSnapshot()
+    {
+        CharacterData character = new() { CharacterId = "agent", IsAgent = true };
+
+        AgentAssemblyFacts on = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, 1, modelSkillsEnabled: true);
+        AgentAssemblyFacts off = AgentAssemblyFacts.Capture(character, "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, 1, modelSkillsEnabled: false);
+
+        Assert.NotEqual(on, off); //开关切换 → 下一次挂接重建装配
     }
 
     /// <summary>
@@ -471,6 +539,7 @@ public class HarnessInstructionsCompositionTests
     /// <summary>
     /// 工作区规矩排在我们这段的最尾(框架 provider 段仍在其后,那不由我们控制)。
     /// 它是"这个项目的特殊规矩"，该压在通用纪律之后。
+    /// 主路现在只要指针不要正文(试行),所以这里钉的是指针的位置,不是正文。
     /// </summary>
     [Fact]
     public void AgentInstructions_PutWorkspaceRulesLast()
@@ -479,7 +548,7 @@ public class HarnessInstructionsCompositionTests
             workspaceInstructions: "never touch the vendor folder");
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.True(instructions.IndexOf("never touch the vendor folder", StringComparison.Ordinal) >
+        Assert.True(instructions.IndexOf("动手前先读一遍全文", StringComparison.Ordinal) >
                     instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal),
             "工作区规矩必须排在工具纪律之后");
     }
@@ -538,6 +607,7 @@ public class HarnessInstructionsCompositionTests
         Assert.Contains(segments, x => x.Section == EPromptSection.Character);
         Assert.Contains(segments, x => x.Section == EPromptSection.ToolDisciplines);
         Assert.Contains(segments, x => x.Section == EPromptSection.Workspace);
+        Assert.Contains(segments, x => x.Section == EPromptSection.Base); //基座恒在册,能力面板要按段报占用
         Assert.DoesNotContain(segments, x => x.Section == EPromptSection.Mcp); //本例没接 MCP
     }
 
@@ -601,16 +671,17 @@ public class HarnessInstructionsCompositionTests
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null,
-        string pythonInterpreter = "", string outputRoom = "", string memoryDirectory = "")
+        string pythonInterpreter = "", string outputRoom = "", string memoryDirectory = "",
+        bool disableSkillsProvider = false)
     {
         return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp,
-            pythonInterpreter, outputRoom, memoryDirectory);
+            pythonInterpreter, outputRoom, memoryDirectory, disableSkillsProvider);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
         string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "",
-        string outputRoom = "", string memoryDirectory = "")
+        string outputRoom = "", string memoryDirectory = "", bool disableSkillsProvider = false)
     {
         CharacterData character = new()
         {
@@ -633,6 +704,7 @@ public class HarnessInstructionsCompositionTests
             WorkingDirectory = workingDirectory,
             WorkspaceInstructions = workspaceInstructions,
             SkillsSource = new AgentFileSkillsSource(skillsDir),
+            DisableSkillsProvider = disableSkillsProvider,
             Mcp = mcp ?? McpToolSet.Empty,
             PythonInterpreterPath = pythonInterpreter,
             PythonOutputDirectory = pythonInterpreter.Length > 0 ? PythonOutputDirectory : string.Empty,
@@ -728,6 +800,40 @@ public class SubAgentBoundaryTests
     {
         Assert.NotNull(options);
         return options!.ChatOptions!.Tools!.OfType<AIFunction>().Select(x => x.Name).ToList();
+    }
+
+    /// <summary>
+    /// 子代理的采样参数跟着输入走:输入给了就进 ChatOptions,不给就保持旧行为(空)。
+    /// 从前 <c>BuildSubAgentOptions</c> 里是裸 <c>new ChatOptions</c>,卡上的 temperature
+    /// 改了也到不了子代理——主代理那条路(Assemble 62 行)一直是对的,只有这条漏了。
+    /// </summary>
+    [Fact]
+    public void SubAgentOptions_CarrySamplingParams_FromInput()
+    {
+        SubAgentAssembly.SubAgentAssemblyInput input = NewInput() with
+        {
+            Sampling = new ChatPromptExecutionSettings
+            {
+                OmitSamplingParams = false, Temperature = 0.7, TopP = 0.8,
+            },
+        };
+
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(input);
+
+        Assert.NotNull(options);
+        Assert.Equal(0.7f, options!.ChatOptions!.Temperature);
+        Assert.Equal(0.8f, options.ChatOptions.TopP);
+    }
+
+    /// <summary>输入没给采样时保持旧行为:ChatOptions 里不带采样参数,不替调用方编值</summary>
+    [Fact]
+    public void SubAgentOptions_OmitSampling_WhenInputHasNone()
+    {
+        HarnessAgentOptions? options = SubAgentAssembly.BuildSubAgentOptions(NewInput());
+
+        Assert.NotNull(options);
+        Assert.Null(options!.ChatOptions!.Temperature);
+        Assert.Null(options.ChatOptions.TopP);
     }
 
     /// <summary>
@@ -847,7 +953,7 @@ public class SubAgentBoundaryTests
     {
         CharacterData character = new()
         {
-            CharacterId = nameof(DefaultCharacter.GeneralSubAgent),
+            CharacterId = nameof(DefaultCharacter.AnonymousAgent),
             IsAgent = true,
             Tools = new AgentToolConfig { EnableShellExecution = false },
         };
@@ -1203,9 +1309,9 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 子代理必须拿到与主代理同一份工作区规矩：它干的正是探查工作区的活，
+    /// 子代理必须拿到与主代理同一份工作区规矩的指针：它干的正是探查工作区的活，
     /// 却会是全场唯一不知道工作区规矩的人。本仓 AGENTS.md 头一条就是
-    /// 「有四层同名目录，用绝对路径别数相对层数」——不知道这条的子代理会直接踩进去。
+    /// 「有四层同名目录，用绝对路径别数相对层数」——拿到指针的子代理才知道去哪读这条。
     /// </summary>
     [Fact]
     public void SubAgentInstructions_InheritWorkspaceInstructions()
@@ -1214,8 +1320,75 @@ public class SubAgentBoundaryTests
         string instructions = SubAgentAssembly
             .BuildSubAgentOptions(NewInput(workspaceInstructions: workspaceRule))!.ChatOptions!.Instructions!;
 
-        Assert.Contains(workspaceRule, instructions);
-        Assert.EndsWith(workspaceRule, instructions); //拼在最尾,权重最高
+        // 与主代理同一口径:只给指针,正文不进系统提示(模型 Read 自读)
+        Assert.Contains("动手前先读一遍全文", instructions);
+        Assert.DoesNotContain(workspaceRule, instructions);
+        Assert.EndsWith("拿不准某条规范时，重读相关部分再动手。", instructions); //工作区规矩仍拼在最尾
+    }
+
+    /// <summary>
+    /// 工作区说明超限时按行截断 + 指路指针,不再全文重发。AGENTS.md 是固定开销里最大的一块
+    /// (本仓 4469 字,过半),而规范/协作口径并不是每轮都要重读——模型手里有文件工具,
+    /// 提交/规范事项前按指针自己去读全文。
+    /// </summary>
+    [Fact]
+    public void WorkspaceInstructions_TruncateBeyondTheLimit_WithAPointer()
+    {
+        string head = "line1\nline2\n";
+        string tail = new string('x', AgentInstructionsComposer.MaxWorkspaceInstructionsChars);
+        string section = AgentInstructionsComposer.WorkspaceSection(head + tail);
+
+        Assert.Contains("line1", section);
+        Assert.Contains("AGENTS.md", section); //指针在,模型找得到全文
+        Assert.DoesNotContain(tail, section);
+    }
+
+    /// <summary>限内短文本原样返回:截断语义的调用侧测试见 SubAgentInstructions_InheritWorkspaceInstructions</summary>
+    [Fact]
+    public void WorkspaceInstructions_ShortTextPassesThrough()
+    {
+        const string rule = "Always use absolute paths in this repo.";
+        Assert.Equal($"{AgentPromptHeadings.Workspace}\n{rule}",
+            AgentInstructionsComposer.WorkspaceSection(rule));
+    }
+
+    /// <summary>截断点落在行边界上,不把一行拦腰砍断</summary>
+    [Fact]
+    public void WorkspaceInstructions_CutFallsOnALineBoundary()
+    {
+        string head = string.Join('\n', Enumerable.Range(0, 100).Select(i => $"rule-{i}"));
+        string section = AgentInstructionsComposer.TruncateWorkspaceInstructions(
+            head + "\n" + new string('y', AgentInstructionsComposer.MaxWorkspaceInstructionsChars));
+
+        Assert.Contains("rule-99", section);
+        Assert.DoesNotContain("rule-99\nrule-99", section); //行完整,无半截
+        Assert.DoesNotContain(new string('y', 100), section);
+    }
+
+    /// <summary>
+    /// 子代理侧与主代理统一走指针:超长正文不进系统提示。
+    /// 截断版实现保留在 AgentInstructionsComposer.WorkspaceSection,供"弱模型没读就编"的 case 切回,
+    /// 其纯函数语义由上方 WorkspaceInstructions_* 一组测试钉住。
+    /// </summary>
+    [Fact]
+    public void SubAgentWorkspaceSection_FollowsPointerLikeMainAgent()
+    {
+        string body = new string('z', AgentInstructionsComposer.MaxWorkspaceInstructionsChars) + "\nTAIL-MARKER";
+        string instructions = SubAgentAssembly
+            .BuildSubAgentOptions(NewInput(workspaceInstructions: body))!.ChatOptions!.Instructions!;
+
+        Assert.Contains("动手前先读一遍全文", instructions);
+        Assert.DoesNotContain(body[..100], instructions); //正文整段不进系统提示
+    }
+
+    /// <summary>指路指针本身够短:它才是每轮重发的那部分</summary>
+    [Fact]
+    public void WorkspacePointerSection_StaysShort()
+    {
+        string section = AgentInstructionsComposer.WorkspacePointerSection();
+
+        Assert.Contains(AgentPromptHeadings.Workspace, section);
+        Assert.True(section.Length < 300, $"指针膨胀到 {section.Length} 字,失去了全摘的意义");
     }
 
     /// <summary>

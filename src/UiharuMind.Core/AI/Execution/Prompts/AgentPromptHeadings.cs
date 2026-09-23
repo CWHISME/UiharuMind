@@ -24,6 +24,9 @@ public static class AgentPromptHeadings
     /// <summary>工具纪律段的父标题。角色段的「# 工作循环」与它同级</summary>
     public const string Tools = "# 工具";
 
+    /// <summary>基座层的标题（与角色段「# 工作循环」同级，恒在它之前）</summary>
+    public const string Base = "# 基座";
+
     /// <summary>工作目录段的标题正文（不含级别前缀，见 <see cref="WorkingDirectory"/>）</summary>
     public const string WorkingDirectoryName = "工作目录";
 

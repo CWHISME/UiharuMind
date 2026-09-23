@@ -1,0 +1,16 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "翻译工具(通用)",
+      "description": "通用翻译，尽量通用。"
+    },
+    "ExecutionSettings": {
+      "temperature": 1,
+      "top_p": 0.5
+    }
+  },
+  "FirstGreeting": ""
+}

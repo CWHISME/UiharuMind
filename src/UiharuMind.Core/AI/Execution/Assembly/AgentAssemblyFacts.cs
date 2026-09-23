@@ -122,6 +122,12 @@ public sealed record AgentAssemblyFacts
     public string DisabledSkills { get; init; } = string.Empty;
 
     /// <summary>
+    /// 技能清单是否发给模型(全局开关,ADR 0003 例外)。关掉后技能 provider 整体不挂,
+    /// 三个技能工具与广告列表一起消失——装配因此必须重建。
+    /// </summary>
+    public bool ModelSkillsEnabled { get; init; } = true;
+
+    /// <summary>
     /// MCP 侧修订号(见 <see cref="McpManager.Revision"/>)。工具集与 server 自述<b>都</b>由它捕获——
     /// 自述随工具同一次取回、同一次自增，故不必再单列一个字段。
     /// 与工作区说明的差别在此：那个是磁盘文件，没有修订号可依，只能把内容本身入账。
@@ -157,7 +163,8 @@ public sealed record AgentAssemblyFacts
             //与装配读的是同一个解析器,过滤规则不会两处漂移
             character.IsAgent ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
             PythonEnvironment.IsReady, profile.OutputFolderName,
-            profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty);
+            profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty,
+            AgentSettingConfig.Current.ModelSkillsEnabled);
     }
 
     /// <summary>
@@ -175,6 +182,7 @@ public sealed record AgentAssemblyFacts
     /// <param name="pythonEnvReady">受管 Python 环境是否已就绪</param>
     /// <param name="outputFolderName">产出目录名</param>
     /// <param name="subAgentKey">子会话身份指纹；主会话传空串</param>
+    /// <param name="modelSkillsEnabled">技能清单是否发给模型(全局开关)</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
@@ -182,7 +190,7 @@ public sealed record AgentAssemblyFacts
         int mcpRevision, string workspaceInstructions = "",
         bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
         bool pythonEnvReady = false, string outputFolderName = "",
-        string subAgentKey = "")
+        string subAgentKey = "", bool modelSkillsEnabled = true)
     {
         // 非智能体不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = character.IsAgent;
@@ -222,6 +230,8 @@ public sealed record AgentAssemblyFacts
             AgentMode = isAgent && config.EnableAgentMode,
             WorkspaceInstructions = isAgent ? workspaceInstructions : string.Empty,
             DisabledSkills = isAgent ? string.Join('\n', config.DisabledSkills) : string.Empty,
+            // 非 agent 不装配工具,归默认值免得全局开关变化引发无谓重建(与 DisabledSkills 同口径)
+            ModelSkillsEnabled = isAgent && modelSkillsEnabled,
             McpRevision = isAgent ? mcpRevision : 0,
             DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
         };

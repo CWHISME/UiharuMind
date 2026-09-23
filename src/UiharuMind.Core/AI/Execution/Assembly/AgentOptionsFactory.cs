@@ -139,6 +139,9 @@ internal static class AgentOptionsFactory
         // 1.16:框架文件工具只随 FileAccessStore 出现;shell 改为普通工具挂在 ChatOptions.Tools
         options.FileAccessStore = null;
         options.AgentSkillsSource = plan.SkillsSource;
+        // 技能模型可见性的全局总闸(ADR 0003 例外):关掉后 provider 不挂,
+        // 清单与 load_skill 等三个工具一起消失;点名调用不依赖这一路
+        options.DisableAgentSkillsProvider = plan.DisableSkillsProvider;
         options.AIContextProviders = contextProviders;
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {

@@ -13,7 +13,7 @@ public class PromptSnippetTests
     public void SeedResource_ParsesWithNameAndText()
     {
         List<PromptSnippet> seed =
-            EmbeddedResourcesUtils.ReadFromJson<List<PromptSnippet>>("PromptSnippets.json");
+            EmbeddedResourcesUtils.ReadFromJson<List<PromptSnippet>>("Snippets.PromptSnippets.json");
 
         Assert.NotEmpty(seed);
         Assert.All(seed, snippet =>
@@ -27,7 +27,7 @@ public class PromptSnippetTests
     public void SeedResource_CarriesTheRoleplayScaffolds()
     {
         List<PromptSnippet> seed =
-            EmbeddedResourcesUtils.ReadFromJson<List<PromptSnippet>>("PromptSnippets.json");
+            EmbeddedResourcesUtils.ReadFromJson<List<PromptSnippet>>("Snippets.PromptSnippets.json");
 
         // 这两段原是 Roleplay_FirstPerson / Roleplay_ThirdPerson 两个内置角色，
         // 退出角色域后必须仍能从片段库拿到，否则新建扮演角色就只剩白纸

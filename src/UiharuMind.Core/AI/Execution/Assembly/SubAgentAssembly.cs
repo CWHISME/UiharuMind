@@ -66,7 +66,7 @@ internal static class SubAgentAssembly
         /// <summary>继承自主代理的权限档,决定可变更工具挂不挂</summary>
         public EAgentPermissionMode PermissionMode { get; init; } = EAgentPermissionMode.ReadOnly;
 
-        /// <summary>工作区说明文件内容(与主代理同一份 AGENTS.md),拼在提示词最尾</summary>
+        /// <summary>工作区说明文件内容(与主代理同一份 AGENTS.md);装配时只取有无——有就给指针</summary>
         public string WorkspaceInstructions { get; init; } = string.Empty;
 
         /// <summary>
@@ -98,6 +98,14 @@ internal static class SubAgentAssembly
 
         /// <summary>派活时给的一句话身份/职业(可选);空串表示未设定。注入子代理的「# 角色」段</summary>
         public string Role { get; init; } = string.Empty;
+
+        /// <summary>
+        /// 采样参数(取子会话自己那张角色卡)。点名的即子智能体本人那张;匿名的即它实际沿用的那张。
+        /// 为 null 时不发采样参数——测试手造输入沿用旧行为,生产路径(<see cref="BuildFromPlan"/>)
+        /// 恒定赋值。从前这里根本没这一项:两处 <c>new ChatOptions</c> 裸建,
+        /// 卡上的 temperature 改了也到不了子代理。
+        /// </summary>
+        public ChatPromptExecutionSettings? Sampling { get; init; }
 
         /// <summary>受管 Python 环境的产出目录(空串=环境未就绪)。子代理继承派活者会话的产出目录,产出直接落那里</summary>
         public string PythonOutputDirectory { get; init; } = string.Empty;
@@ -194,6 +202,7 @@ internal static class SubAgentAssembly
             SessionShellApprovalSource = profile.SessionShellApprovalSource,
             SubAgentProfile = subProfile,
             Role = identity.Role,
+            Sampling = plan.Character.Config.ExecutionSettings,
             PythonOutputDirectory = plan.PythonOutputDirectory,
             OutputFolderName = profile.OutputFolderName,
         };
@@ -205,7 +214,9 @@ internal static class SubAgentAssembly
             // 但它只剩纯对话——能力被裁到零本身就是派活者那边的配置结果
             options = AgentOptionsFactory.CreateSubAgentBaseOptions(plan.Compaction);
             options.Name = identity.AgentName.Length > 0 ? identity.AgentName : "SubAgent";
-            options.ChatOptions = new ChatOptions { Instructions = persona };
+            ChatOptions fallback = input.Sampling?.ToChatOptions() ?? new ChatOptions();
+            fallback.Instructions = persona;
+            options.ChatOptions = fallback;
         }
 
         // 历史落到子会话自己的文件里。<b>没有这一句子会话就等于没跑过</b>——
@@ -379,16 +390,15 @@ internal static class SubAgentAssembly
                 // 子会话沿用派活者的房间(见 AgentBuildProfile),豁免同一间
                 AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName)),
         };
-        options.ChatOptions = new ChatOptions
-        {
-            Instructions = BuildSubAgentInstructions(config, hasWeb, hasVision, hasShell,
-                input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
-                input.WorkingDirectory,
-                AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName),
-                input.WorkspaceInstructions, input.McpInstructions,
-                input.Persona, input.Role),
-            Tools = tools,
-        };
+        ChatOptions subOptions = input.Sampling?.ToChatOptions() ?? new ChatOptions();
+        subOptions.Instructions = BuildSubAgentInstructions(config, hasWeb, hasVision, hasShell,
+            input.ShellBinary ?? string.Empty, canMutate, input.PythonOutputDirectory,
+            input.WorkingDirectory,
+            AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName),
+            input.WorkspaceInstructions, input.McpInstructions,
+            input.Persona, input.Role);
+        subOptions.Tools = tools;
+        options.ChatOptions = subOptions;
         return options;
     }
 
@@ -402,6 +412,8 @@ internal static class SubAgentAssembly
     /// 工作区规矩必须给:子代理干的正是探查工作区的活,却会是全场唯一不知道工作区规矩的人——
     /// 本仓 AGENTS.md 头一条就是"有四层同名目录,用绝对路径别数相对层数",
     /// 拿着 Glob/Read 的子代理不知道这条就会直接踩进去。
+    /// 呈现与主代理同一口径:只给指针、正文由模型 Read 自读;若探索档弱模型实测出现"没读就编"
+    /// 的 case,把装配点切回 AgentInstructionsComposer.WorkspaceSection 的截断版即可。
     ///
     /// 全段由我们写死,不开放给调用方 AI:实测本地模型往自定义提示词里填的是与任务书重复的
     /// 泛泛套话,而固定段里指名的工具由我们保证真实存在(有不变量测试钉住),
@@ -415,7 +427,7 @@ internal static class SubAgentAssembly
     /// <param name="canMutate">是否挂了可变更工具(完全自动档)</param>
     /// <param name="workingDirectory">文件与 shell 工具的根目录</param>
     /// <param name="outputRoomDirectory">草稿目录(派活者会话的房间)绝对路径；空串则不写该段</param>
-    /// <param name="workspaceInstructions">工作区说明文件内容</param>
+    /// <param name="workspaceInstructions">工作区说明文件内容(只取有无,有则给指针,不拼正文)</param>
     /// <param name="mcpInstructions">MCP server 自述（与主代理同一份）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasWeb, bool hasVision, bool hasShell,
@@ -480,7 +492,7 @@ internal static class SubAgentAssembly
         list.Raw(canMutate && mcpInstructions.Length > 0,
             AgentInstructionsComposer.McpSection(mcpInstructions));
         list.Raw(workspaceInstructions.Length > 0,
-            AgentInstructionsComposer.WorkspaceSection(workspaceInstructions));
+            AgentInstructionsComposer.WorkspacePointerSection());
 
         return list.ToString();
     }

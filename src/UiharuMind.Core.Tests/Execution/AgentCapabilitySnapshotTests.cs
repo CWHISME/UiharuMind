@@ -22,7 +22,7 @@ public class AgentCapabilitySnapshotTests
     private static CharacterData RoleplayCharacter()
     {
         DefaultCharacterManager.Instance.OnInitialize();
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.UiharuKazari);
+        return DefaultCharacterManager.Instance.All["Assistant"];
     }
 
     [Fact]

@@ -15,6 +15,6 @@ public class ImageOcrPromptAction : PromptActionVisionBase
 
     public override CharacterData GetCharacterData()
     {
-        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.VisionOcr);
+        return DefaultCharacterManager.Instance.GetCharacterData(DefaultCharacter.ImageOcrPrompt);
     }
 }

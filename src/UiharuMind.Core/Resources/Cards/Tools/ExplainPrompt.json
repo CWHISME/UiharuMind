@@ -1,0 +1,15 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "白猫(解释)",
+      "description": "[快捷工具]：主按钮(解释)功能会调用该对象。"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6
+    }
+  }
+}

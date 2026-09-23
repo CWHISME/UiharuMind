@@ -1,0 +1,16 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "RequiresVisionModel": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "VisionOcr",
+      "description": "[快捷工具]：快捷工具功能中提取图片文字(OCR)所用的模板"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.5,
+      "top_p": 0.6
+    }
+  }
+}

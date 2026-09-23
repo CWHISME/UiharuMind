@@ -54,6 +54,23 @@ public sealed class GroupChatCoordinator
     }
 
     /// <summary>
+    /// 某群此刻正在发言的成员会话；没在跑或还没轮到任何人为 null。
+    /// 界面据此显示「谁在说」（忙碌文案与右栏成员列表的正在说标记）
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    /// <returns>成员会话标识；没有为 null</returns>
+    public string? CurrentSpeakerOf(string groupId)
+    {
+        lock (_locker) return _speakers.GetValueOrDefault(groupId);
+    }
+
+    /// <summary>
+    /// 群当前发言人变了（轮到谁 / 一轮结束）。参数是群壳会话标识。
+    /// ⚠️ <b>可能来自后台线程</b>（成员一轮在无头编排上跑），订阅方自行 marshal。
+    /// </summary>
+    public event Action<string>? SpeakerChanged;
+
+    /// <summary>
     /// 用户往群里发言。群闲着就开跑一圈；正在跑就插进当前发言人的这一轮，
     /// 其余成员轮到时照常收到（插不进去的，当前发言人下一轮也会收到——游标只在投递时前进）
     /// </summary>
@@ -137,14 +154,19 @@ public sealed class GroupChatCoordinator
     {
         bool firstDelivery = member.GroupCursor == 0 && member.History.Count == 0;
         string? delivery;
+        bool announced;
         lock (_locker)
         {
             _injected.TryGetValue(member.SessionId, out HashSet<int>? injected);
             delivery = GroupTranscript.BuildDelivery(group.History, member.GroupCursor, member.SessionId, injected);
             member.GroupCursor = group.History.Count;
             _injected.Remove(member.SessionId);
-            if (delivery != null) _speakers[group.SessionId] = member.SessionId;
+            announced = delivery != null;
+            if (announced) _speakers[group.SessionId] = member.SessionId;
         }
+
+        // 锁外通报：订阅方会回来问 IsRunning/CurrentSpeakerOf，锁内触发会重入
+        if (announced) SpeakerChanged?.Invoke(group.SessionId);
 
         // 工作区以群壳为准,每轮开跑前对齐:右栏改的是群的工作区,成员各存一份就会对不上
         member.WorkspacePath = group.IsAgentGroup && member.CharacterData.IsAgent ? group.WorkspacePath : null;
@@ -171,7 +193,9 @@ public sealed class GroupChatCoordinator
         }
         finally
         {
-            lock (_locker) _speakers.Remove(group.SessionId);
+            bool wasSpeaking;
+            lock (_locker) wasSpeaking = _speakers.Remove(group.SessionId);
+            if (wasSpeaking) SpeakerChanged?.Invoke(group.SessionId);
         }
 
         // 失败或被停：半截输出不算群发言，它留在他自己的会话里

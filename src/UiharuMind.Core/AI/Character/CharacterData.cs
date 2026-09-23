@@ -80,6 +80,16 @@ public class CharacterData
     public bool IsInternal { get; set; }
 
     /// <summary>
+    /// 屏蔽角色：随程序内置、但<b>默认不出现在角色库与任何选择器里</b>，
+    /// 只有开发者用官方网址解锁后才可见（见 <see cref="CharacterVisibility"/>）。
+    ///
+    /// 与 <see cref="IsInternal"/> 的分工：内部角色是「程序点名取用、给用户看只是为了改提示词」，
+    /// 开关是角色库右上角那个「显示内部角色」；屏蔽角色是「内容本身先不给你看」，
+    /// 开关是开发者手段，刻意不给普通入口。
+    /// </summary>
+    public bool IsShielded { get; set; }
+
+    /// <summary>
     /// 注入用户卡：把 <see cref="DefaultCharacter.UserCard"/> 的模板拼进本角色的系统提示。
     /// 是<b>活引用</b>——改了用户卡，所有打开此开关的角色下一轮就跟着变。
     /// 这是运行期<b>唯一</b>一处跨角色引用；其余提示词组合都在编辑期完成(插入片段)。
@@ -254,6 +264,7 @@ public class CharacterData
         MemoryName = snapshot.MemoryName;
         IsDefaultCharacter = snapshot.IsDefaultCharacter;
         IsInternal = snapshot.IsInternal;
+        IsShielded = snapshot.IsShielded;
         InjectUserCard = snapshot.InjectUserCard;
         RequiresVisionModel = snapshot.RequiresVisionModel;
         Tools = snapshot.Tools;

@@ -158,7 +158,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public ChatSessionMeta? CurrentMeta { get; private set; }
 
     /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主代理,聊天页由页面壳指定</summary>
-    public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.WorkspaceAgent);
+    public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.ChenXiAgent);
 
     /// <summary>
     /// 当前会话是否 agent 类型(决定工具行显示模式/权限还是发送身份)。
@@ -477,12 +477,40 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 忙碌提示的文案；不忙时为空串，那一处整块不显示。
     /// 枚举 → 本地化键的映射只此一处——Core 侧不带文案，见 <see cref="ETurnBusy"/>
     /// </summary>
-    public string BusyLabel => Busy switch
+    public string BusyLabel
     {
-        ETurnBusy.ConnectingMcp => Loc.Text(LangKey.AgentMcpConnecting),
-        ETurnBusy.Compacting => Loc.Text(LangKey.HandoffWriting),
-        _ => string.Empty,
-    };
+        get
+        {
+            // 群壳自己那一轮不跑（ADR 0046），忙碌文案单独说：谁在发言。
+            // 空窗（还没轮到任何人）时退到泛化的一句，别让转圈旁边一个字都没有
+            if (CurrentSession is { IsGroup: true } group && GroupChatCoordinator.Instance.IsRunning(group.SessionId))
+            {
+                return CurrentSpeakerName is { } speaker
+                    ? string.Format(Loc.Text(LangKey.GroupSpeakingNowFormat), speaker)
+                    : Loc.Text(LangKey.GroupRoundRunning);
+            }
+
+            return Busy switch
+            {
+                ETurnBusy.ConnectingMcp => Loc.Text(LangKey.AgentMcpConnecting),
+                ETurnBusy.Compacting => Loc.Text(LangKey.HandoffWriting),
+                _ => string.Empty,
+            };
+        }
+    }
+
+    /// <summary>群壳此刻正在发言的成员名；没有（没在跑 / 空窗 / 成员已删）为 null</summary>
+    private string? CurrentSpeakerName
+    {
+        get
+        {
+            if (CurrentSession is not { IsGroup: true } group) return null;
+            string? speakerId = GroupChatCoordinator.Instance.CurrentSpeakerOf(group.SessionId);
+            return speakerId != null && SessionManager.Instance.GetMeta(speakerId) is { } meta
+                ? SessionManager.CharacterOf(meta).CharacterName
+                : null;
+        }
+    }
 
 
     /// <summary>
@@ -537,6 +565,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _driver.StateChanged += OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
+        // 群的发言人变化（轮到谁 / 一轮结束）在后台线程上跑，处理里自行 marshal
+        GroupChatCoordinator.Instance.SpeakerChanged += OnGroupSpeakerChanged;
 
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
         _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
@@ -608,6 +638,21 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             NotifyRunStateChanged();
             NotifyBusyChanged(); //忙碌文案里有"别处正在跑"那一档,它跟着运行态变
+        });
+    }
+
+    /// <summary>
+    /// 群发言人变了（轮到谁 / 一轮结束）。可能来自后台线程——成员一轮在无头编排上跑，
+    /// marshal 之后再动界面属性。只刷当前打开的这一个群，别的一概不理
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    private void OnGroupSpeakerChanged(string groupId)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (CurrentSession is not { IsGroup: true } group || group.SessionId != groupId) return;
+            GroupMembers?.MarkSpeaking(GroupChatCoordinator.Instance.CurrentSpeakerOf(groupId));
+            NotifyBusyChanged();
         });
     }
 
@@ -1071,6 +1116,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _driver.StateChanged -= OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
+        GroupChatCoordinator.Instance.SpeakerChanged -= OnGroupSpeakerChanged;
         DetachSessionSignals();
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
@@ -1933,7 +1979,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnPropertyChanged(nameof(IsComposerVisible));
             OnPropertyChanged(nameof(IsSenderSwitchVisible));
             GroupMembers = body.IsGroup ? new GroupMembersViewData(body) : null;
-            if (body.IsGroup) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
+            if (body.IsGroup)
+            {
+                InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
+                // 装载前这一圈可能已经在跑、发言人已定,SpeakerChanged 的信号早发完了——
+                // 这里补一次,右栏成员列表与忙碌文案才不是"没在跑"的样子
+                GroupMembers?.MarkSpeaking(GroupChatCoordinator.Instance.CurrentSpeakerOf(body.SessionId));
+            }
             OnPropertyChanged(nameof(SessionIdShort)); //编号同理:装载之前 CurrentMeta 还是空的
             OnPropertyChanged(nameof(SessionIdFull));
             // 运行态同理,而且更要紧:装载之前 CurrentMeta 还是空的,绑定算出来的是"没在跑"。

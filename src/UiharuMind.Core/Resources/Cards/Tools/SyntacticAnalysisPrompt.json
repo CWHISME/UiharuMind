@@ -1,0 +1,15 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "语法导师",
+      "description": "用来学习其它语言的语法导师，用于一步步分析解释指定语言的语法。"
+    },
+    "ExecutionSettings": {
+      "temperature": 0.6,
+      "top_p": 0.6
+    }
+  }
+}

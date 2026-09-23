@@ -57,29 +57,10 @@
     </ItemGroup>
 
     <ItemGroup>
-      <EmbeddedResource Include="Resources\Assistant.json" />
-      <EmbeddedResource Include="Resources\AssistantExplain.json" />
-      <EmbeddedResource Include="Resources\AssistantSyntacticAnalysis.json" />
-      <EmbeddedResource Include="Resources\ChainofThought.json" />
-      <EmbeddedResource Include="Resources\Empty.json" />
-      <EmbeddedResource Include="Resources\PromptSnippets.json" />
-      <EmbeddedResource Include="Resources\TranslatorAdvanced.json" />
-      <EmbeddedResource Include="Resources\UserCard.json" />
-      <EmbeddedResource Include="Resources\VisionOcr.json" />
-      <EmbeddedResource Include="Resources\AssistantExpertQuote.json" />
-      <EmbeddedResource Include="Resources\Vision.json" />
-      <None Remove="Resources\UiharuKazari.json" />
-      <EmbeddedResource Include="Resources\AssistantExpert.json" />
-      <EmbeddedResource Include="Resources\UiharuKazari.json" />
-      <None Remove="Resources\WorkspaceAgent.json" />
-      <EmbeddedResource Include="Resources\WorkspaceAgent.json" />
-      <None Remove="Resources\GeneralSubAgent.json" />
-      <EmbeddedResource Include="Resources\GeneralSubAgent.json" />
-      <None Remove="Resources\ExploreSubAgent.json" />
-      <EmbeddedResource Include="Resources\ExploreSubAgent.json" />
-      <None Remove="Resources\Translator.json" />
-      <EmbeddedResource Include="Resources\Translator.json" />
-      <None Remove="Resources\Help*.md" />
+      <!-- 内置角色卡(内容卡与代码点名卡都在这里，按 Agents/Tools/Characters 分子目录)与提示词片段库；Help 在根目录 -->
+      <EmbeddedResource Include="Resources\Cards\**\*.json" />
+      <EmbeddedResource Include="Resources\Cards\**\*.md" />
+      <EmbeddedResource Include="Resources\Snippets\*.json" />
       <EmbeddedResource Include="Resources\Help*.md" />
     </ItemGroup>
 

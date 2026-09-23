@@ -21,6 +21,8 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Image Width="24" Height="24" Source="{Binding Icon}" />
                                 <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                                <!-- 正在说的那一位：蓝点跟着调度器的发言人变化走 -->
+                                <Border Classes="status-dot" Tag="Progress" IsVisible="{Binding IsSpeaking}" />
                             </StackPanel>
                         </Button>
                     </DataTemplate>

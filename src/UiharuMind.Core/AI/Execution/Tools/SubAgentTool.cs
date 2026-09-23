@@ -9,6 +9,7 @@
 
 using System.ComponentModel;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
@@ -107,6 +108,14 @@ public static class SubAgentTool
         + "This decision is disclosed to the user in the run report.";
 
     /// <summary>
+    /// 回执末行 <c>[sub-session: xxx]</c> 的宽容认法：<c>to</c> 里整行原样粘回来也认。
+    /// 会话标识是 <c>Guid.ToString("N")</c>（32 位十六进制），这里多放行 <c>-</c> 与 <c>_</c>
+    /// 只是防复制时带上的变体，不代表系统会发出这种标识。
+    /// </summary>
+    private static readonly Regex SubSessionRef = new(@"\[sub-session:\s*([A-Za-z0-9\-_]+)\]",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
     /// 嵌套审批是否该自动放行：有人守着 + 完全自动档。无人值守不放（没人看着时静默改盘比停下更糟），
     /// 低档位照旧问人（越界写入的例外登记见 ADR 0032）。
     /// </summary>
@@ -165,10 +174,10 @@ public static class SubAgentTool
         // 成员增减就会改工具定义、失效前缀缓存。名单由装配侧拼进系统提示的委派一节
         // (ToolDisciplineSections → AgentToolPrompts.BuildDelegation)。
         return AIFunctionFactory.Create(
-            ([Description(SubAgentToolPrompts.ToParam)]
-                string? to,
-                [Description(SubAgentToolPrompts.ContentParam)]
+            ([Description(SubAgentToolPrompts.ContentParam)]
                 string content,
+                [Description(SubAgentToolPrompts.ToParam)]
+                string? to = "",
                 [Description(SubAgentToolPrompts.RoleParam)]
                 string? role = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
@@ -197,7 +206,7 @@ public static class SubAgentTool
     {
         if (string.IsNullOrWhiteSpace(content)) return Task.FromResult("Error: content must not be empty.");
 
-        string? target = string.IsNullOrWhiteSpace(to) ? null : to.Trim();
+        string? target = NormalizeTo(to);
         if (target == null) return Task.FromResult(Launch(context, content, null, role, model));
 
         // 群成员对全群说话（ADR 0046 决策 4）。排在人名之前：群不是一个人，也不开子会话
@@ -220,6 +229,28 @@ public static class SubAgentTool
     }
 
     /// <summary>
+    /// 收件人规范化：空与纯空白一律落到默认对象，其余名字原样返回（trim 后），由调用方继续分流。
+    ///
+    /// 刻意<b>不</b>为 "default" 之类当名字的字面量开特例：那不是合法的收件人，
+    /// 填了就该走 UnknownRecipient 报错——模型由此学会「留空 = 默认对象」
+    /// （它曾因 schema 把 to 标成必填而被迫瞎填，那个 bug 的根已经修了，见 Create 的默认值）。
+    ///
+    /// 另一条宽容：模型常把回执末行的 <c>[sub-session: xxx]</c> 整行原样粘进 <c>to</c>
+    /// （实测两连错都是这么来的）。这里把方括号里的编号剥出来，后续按会话标识续跑；
+    /// 只传裸编号当然也行，两边等价。
+    /// </summary>
+    /// <param name="to">模型填的收件人</param>
+    /// <returns>默认对象为 null；否则返回规范化后的收件人</returns>
+    internal static string? NormalizeTo(string? to)
+    {
+        string? target = string.IsNullOrWhiteSpace(to) ? null : to.Trim();
+        if (target == null) return null;
+        Match marker = SubSessionRef.Match(target);
+        if (marker.Success) return marker.Groups[1].Value;
+        return target;
+    }
+
+    /// <summary>
     /// 收件人不认识时的回话。<b>两条路都给</b>:模型此刻不知道自己错在"名字拼错"
     /// 还是"把会话标识当人名",只说一条它会在另一条上再错一次。
     /// </summary>
@@ -230,15 +261,16 @@ public static class SubAgentTool
             : $"By name: {string.Join(", ", context.Roster.Select(x => x.Name))} "
               + "(or leave `to` empty for the default helper).";
         return $"Error: no one called '{target}'. {names} "
-               + "To continue an earlier conversation, pass its [sub-session: …] id from the receipt.";
+                + "To continue an earlier conversation, pass the id inside its [sub-session: …] line from the receipt.";
     }
 
     /// <summary>
-    /// 派活方插话的前缀。子代理提示词明确区分「用户在窗口说话」与「派活方追问」，
+    /// 发信人插话的前缀。子代理提示词明确区分「用户在窗口说话」与「给它发消息的会话追问」，
     /// 插话以 user 身份进流时必须自报家门，否则子代理会把它当成用户的话。
-    /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是派活方说的，原样留痕才是实话。
+    /// 跑中注入与排队续跑两分支都用它；落盘带前缀：它本来就是发信人说的，原样留痕才是实话。
+    /// 名字跟随 ADR 0044 的对话心智（委派 = 给对方发消息），不再叫「派活方」
     /// </summary>
-    private const string ParentInterjectionPrefix = "【派活方】";
+    private const string ParentInterjectionPrefix = "【发信人】";
 
     private static string Launch(LaunchContext context, string task, string? agent, string? role = null,
         string? model = null)
@@ -322,8 +354,8 @@ public static class SubAgentTool
             if (injected) return BuildInjectedReceipt(session.SessionId);
         }
 
-        // 没在跑(或注入失败回落到排队续跑):新起一轮。同样自报家门——子代理按【派活方】前缀
-        // 区分派活方与用户,续跑轮不带上它,子代理会把它当成用户的话。
+        // 没在跑(或注入失败回落到排队续跑):新起一轮。同样自报家门——子代理按【发信人】前缀
+        // 区分发信人与用户,续跑轮不带上它,子代理会把它当成用户的话。
         // 只加前缀、不加 MarkParentInterjection:排队续跑的消息就是本轮任务本身,不是 mid-run 插话,
         // 带注记会让报告被错误挂上「additional instructions」跑题提示(见 RunTurnAsync)。
         return DispatchToBackground(context, session, ParentInterjectionPrefix + message);
@@ -570,7 +602,6 @@ public static class SubAgentTool
     /// <param name="Notice">要随回执交代给派活方的那句话；无需交代时为空串</param>
     private readonly record struct ModelChoice(string? Name, string Notice);
 
-    /// <summary>匿名子代理用哪张身份卡</summary>
     /// <summary>
     /// 匿名委派用哪张身份卡。
     ///
@@ -579,7 +610,7 @@ public static class SubAgentTool
     /// 不是活路径。
     /// </summary>
     private static DefaultCharacter AnonymousCharacterOf(ESubAgentType type) =>
-        type == ESubAgentType.Explorer ? DefaultCharacter.ExploreSubAgent : DefaultCharacter.GeneralSubAgent;
+        type == ESubAgentType.Explorer ? DefaultCharacter.LegacyExploreAgent : DefaultCharacter.AnonymousAgent;
 
     /// <summary>子会话标题:有 role 用 role,否则取任务首行,都截 40 字。标题纯显示、落盘、改不了名</summary>
     private static string BuildTitle(string task, string? role = null)

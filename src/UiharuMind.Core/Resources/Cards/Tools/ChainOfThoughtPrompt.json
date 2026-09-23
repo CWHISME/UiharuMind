@@ -1,0 +1,15 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "思考者",
+      "description": "[快捷工具]：思考选项会调用该对象。"
+    },
+    "ExecutionSettings": {
+      "temperature": 1,
+      "top_p": 0.5
+    }
+  }
+}

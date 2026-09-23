@@ -1,0 +1,14 @@
+{
+  "IsAgent": false,
+  "IsUserCard": false,
+  "Config": {
+    "PromptConfig": {
+      "name": "白猫",
+      "description": "通用型AI助手"
+    },
+    "ExecutionSettings": {
+      "temperature": 1,
+      "top_p": 1
+    }
+  }
+}

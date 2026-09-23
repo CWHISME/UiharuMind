@@ -80,7 +80,8 @@
             </Border>
 
             <!-- 以下几块只对智能体:它们描述"这个智能体有什么能力" -->
-            <Border Name="ToolsSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+            <Border Name="ToolsSection" Classes="edit-card" IsVisible="{Binding IsAgent}"
+                    IsEnabled="{Binding !IsDefault}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterToolsTitle}" />
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterToolsDesc}" TextWrapping="Wrap" />
@@ -113,7 +114,8 @@
                 </StackPanel>
             </Border>
 
-            <Border Name="SkillsSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+            <Border Name="SkillsSection" Classes="edit-card" IsVisible="{Binding IsAgent}"
+                    IsEnabled="{Binding !IsDefault}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterSkillsTitle}" />
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsDesc}" TextWrapping="Wrap" />
@@ -150,7 +152,8 @@
                 </StackPanel>
             </Border>
 
-            <Border Name="McpSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
+            <Border Name="McpSection" Classes="edit-card" IsVisible="{Binding IsAgent}"
+                    IsEnabled="{Binding !IsDefault}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterMcpTitle}" />
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpDesc}" TextWrapping="Wrap" />
