@@ -252,8 +252,8 @@
 
 ### 内置头像（Built-in Avatar）
 
-角色头像的一种来源：`CharacterData.CharacterIcon` 存 `avares://…/Avatars/<Name>.png` 时，
-`IconUtils` 按当前主题解析成 `Avatars/{Light|Dark}/<Name>.png`。另一来源是 base64（用户上传/导入）。
+角色头像的一种来源：`CharacterData.CharacterIcon` 存 `avares://…/Avatars/<Name>.png`，
+`IconUtils` 直接按该路径加载（不受主题影响）。另一来源是 base64（用户上传/导入）。
 
 ⚠️ 这个字段因此**二义**：`avares://` 前缀走内置资源，其余按 base64 解——靠前缀区分，不做启发式猜测。
 
