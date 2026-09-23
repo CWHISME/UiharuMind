@@ -49,15 +49,10 @@ public class IconUtils
         var source = characterData.CharacterIcon;
         if (string.IsNullOrEmpty(source))
         {
-            // ADR 0043 合并之后只剩三种投影：用户卡 / 智能体 / 普通角色。
-            // 存量的工具人卡现在投影成普通角色，因此头像从「工具」换成「角色」——
-            // 这是合并的应有之义：它们本来就和扮演角色走同一条装配。
-            return characterData.Kind switch
-            {
-                ECharacterKind.UserCard => DefaultUserIcon,
-                ECharacterKind.Agent => DefaultToolCharIcon,
-                _ => DefaultCharIcon,
-            };
+            // ADR 0043 合并之后只剩三类：用户卡 / 智能体 / 普通角色。
+            // 存量的工具人卡归普通角色，头像从「工具」换成「角色」——它们本来就和扮演角色走同一条装配
+            if (characterData.IsUserCard) return DefaultUserIcon;
+            return characterData.IsAgent ? DefaultToolCharIcon : DefaultCharIcon;
         }
 
         return GetOrDecodeCharacterIcon(characterData.CharacterId, source) ?? DefaultCharIcon;

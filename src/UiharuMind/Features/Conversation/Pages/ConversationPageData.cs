@@ -60,7 +60,7 @@ public partial class ConversationPageData : ConversationPageDataBase
     /// <summary>当前是否为普通对话档（右栏/头像/新建默认角色据此切换）</summary>
     public bool IsChatType => CurrentType == EConversationType.Chat;
 
-    /// <summary>当前是否为智能体档</summary>
+    /// <summary>当前是否为智能体类型</summary>
     public bool IsAgentType => CurrentType == EConversationType.Agent;
 
     /// <summary>普通对话且已有会话：右栏下块显示会话详情（ChatInfoView）</summary>
@@ -181,7 +181,7 @@ public partial class ConversationPageData : ConversationPageDataBase
         ConversationViewModel conversation = new();
         if (CurrentType == EConversationType.Chat)
         {
-            // 普通对话：继承上一个空会话的角色（同档才继承，跨类型不污染），否则回工具人默认；
+            // 普通对话：继承上一个空会话的角色（同类才继承，跨类型不污染），否则回默认角色；
             // 输入框占位是聊天口吻
             conversation.NewSessionCharacterId =
                 InheritCharacterId(EConversationType.Chat, nameof(DefaultCharacter.Empty));
@@ -214,8 +214,8 @@ public partial class ConversationPageData : ConversationPageDataBase
     {
         string? prevId = Conversation?.CurrentMeta?.CharacterId ?? Conversation?.NewSessionCharacterId;
         if (prevId is not { } id) return fallback;
-        ECharacterKind kind = CharacterManager.Instance.GetCharacterData(id).Kind;
-        bool fits = type == EConversationType.Chat ? kind.IsChat() : kind.IsAgent();
+        CharacterData character = CharacterManager.Instance.GetCharacterData(id);
+        bool fits = type == EConversationType.Chat ? character.IsChat() : character.IsAgent;
         return fits ? id : fallback;
     }
 
@@ -227,6 +227,7 @@ public partial class ConversationPageData : ConversationPageDataBase
         // 首轮发送在开跑前就失败这类路径也会走到
         conversation.SessionsChanged += OnAnyConversationSessionsChanged;
         conversation.PropertyChanged += OnConversationPropertyChanged;
+        conversation.OpenSessionRequested += OnOpenSessionRequested;
     }
 
     protected override void OnConversationDiscarding(ConversationViewModel conversation)
@@ -234,7 +235,11 @@ public partial class ConversationPageData : ConversationPageDataBase
         conversation.SessionsChanged -= SessionList.Sync;
         conversation.SessionsChanged -= OnAnyConversationSessionsChanged;
         conversation.PropertyChanged -= OnConversationPropertyChanged;
+        conversation.OpenSessionRequested -= OnOpenSessionRequested;
     }
+
+    /// <summary>会话区请求切到某个会话（建完群）。走列表选中那一条路，与用户点一下完全一样</summary>
+    private void OnOpenSessionRequested(string sessionId) => SessionList.SelectSession(sessionId);
 
     private void OnAnyConversationSessionsChanged()
     {

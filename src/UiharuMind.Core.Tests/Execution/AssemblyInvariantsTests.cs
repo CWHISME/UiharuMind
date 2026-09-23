@@ -19,18 +19,16 @@ namespace UiharuMind.Core.Tests.Agent;
 
 /// <summary>
 /// 钉死装配的三个不变量之一：<b>非智能体档零注入</b>。
-/// 扮演与工具人两档都只渲染提示词：框架的每一项能力都必须关掉、HarnessInstructions 必须为空——
+/// 普通角色只渲染提示词：框架的每一项能力都必须关掉、HarnessInstructions 必须为空——
 /// 任何一项漏关都会向它们的上下文里悄悄注入内容,
 /// 而这种污染在实机上几乎不可见(模型行为变化无法归因)。
 /// </summary>
 public class PromptOnlyZeroInjectionTests
 {
-    [Theory]
-    [InlineData(ECharacterKind.Roleplay)]
-    [InlineData(ECharacterKind.Tool)]
-    public void BuildPromptOnlyOptions_DisablesEveryFrameworkCapability(ECharacterKind kind)
+    [Fact]
+    public void BuildPromptOnlyOptions_DisablesEveryFrameworkCapability()
     {
-        CharacterData character = new() { CharacterId = "rp", IsAgent = kind.IsAgent() };
+        CharacterData character = new() { CharacterId = "rp", IsAgent = false };
         ChatOptions chatOptions = new();
 
         HarnessAgentOptions options = AgentOptionsFactory.BuildPromptOnlyOptions(
@@ -45,7 +43,7 @@ public class PromptOnlyZeroInjectionTests
         Assert.True(options.DisableAgentSkillsProvider);
         Assert.True(options.DisableToolAutoApproval);
         Assert.True(options.DisableOpenTelemetry);
-        Assert.Null(options.ChatOptions!.Tools); //角色扮演不装配任何工具
+        Assert.Null(options.ChatOptions!.Tools); //普通角色不装配任何工具
     }
 
     /// <summary>
@@ -811,6 +809,38 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
+    /// <b>点名的子智能体翻回普通角色后，它的老子会话不能装回工具。</b>
+    ///
+    /// 翻转时 <c>Tools</c> 刻意不清（翻回来不丢配置），而子会话分支从前只看
+    /// <c>profile.SubAgent</c>、不查身份——于是一个陪聊角色会按残留配置挂上 shell，
+    /// 工作目录还是空串（ADR 0043「已定」）。界面锁住了翻转，但老 JSON 与用户改过的内置卡副本绕得过去。
+    /// </summary>
+    [Fact]
+    public async Task SubSession_OfCharacterNoLongerAgent_MountsNoTools()
+    {
+        CharacterData character = new()
+        {
+            CharacterId = "writer",
+            IsAgent = false,
+            Tools = new AgentToolConfig { EnableShellExecution = true, EnableFileAccess = true },
+        };
+        AgentAssemblyPlan plan = new()
+        {
+            Profile = new AgentBuildProfile
+            {
+                Character = character,
+                PermissionMode = EAgentPermissionMode.AutoEdit,
+                SubAgent = new SubAgentIdentity("parent-1", ESubAgentType.General, "Writer"),
+            },
+            WorkingDirectory = TestWorkingDirectory,
+        };
+
+        await using AgentHandle handle = AgentAssembler.Assemble(plan);
+
+        Assert.Null(handle.ChatOptions?.Tools);
+    }
+
+    /// <summary>
     /// 一个子会话的装配计划：匿名通用档，关掉 shell 免得测试真去解析本机 shell。
     /// </summary>
     private static AgentAssemblyPlan NewSubSessionPlan()
@@ -1468,12 +1498,10 @@ public class AssemblySnapshotTests
     }
 
     /// <summary>
-    /// 非智能体档对能力配置免疫：它们本来就不装工具，能力配置怎么改都不该让它们重建装配。
+    /// 普通角色对能力配置免疫：它们本来就不装工具，能力配置怎么改都不该让它们重建装配。
     /// </summary>
-    [Theory]
-    [InlineData(ECharacterKind.Roleplay)]
-    [InlineData(ECharacterKind.Tool)]
-    public void PromptOnlySnapshot_IsImmuneToToolConfigChanges(ECharacterKind kind)
+    [Fact]
+    public void PromptOnlySnapshot_IsImmuneToToolConfigChanges()
     {
         AgentToolConfig configA = new();
         AgentToolConfig configB = new()
@@ -1487,8 +1515,8 @@ public class AssemblySnapshotTests
             EnableSubAgent = false,
         };
 
-        CharacterData a = new() { CharacterId = "rp", IsAgent = kind.IsAgent(), Tools = configA };
-        CharacterData b = new() { CharacterId = "rp", IsAgent = kind.IsAgent(), Tools = configB };
+        CharacterData a = new() { CharacterId = "rp", IsAgent = false, Tools = configA };
+        CharacterData b = new() { CharacterId = "rp", IsAgent = false, Tools = configB };
 
         AgentAssemblyFacts first = AgentAssemblyFacts.Capture(a, "prompt", "/ws",
             EAgentPermissionMode.AutoEdit, null, mcpRevision: 1);

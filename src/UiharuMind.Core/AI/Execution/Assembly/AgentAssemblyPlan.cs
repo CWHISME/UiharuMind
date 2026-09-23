@@ -43,7 +43,7 @@ internal sealed class AgentAssemblyPlan
     /// <summary>调用方给的构建配置（含各路活的钩子）</summary>
     public required AgentBuildProfile Profile { get; init; }
 
-    /// <summary>文件与 shell 工具的根目录：绑定的工作目录，或沙箱目录。非智能体档为空串</summary>
+    /// <summary>文件与 shell 工具的根目录：绑定的工作目录，或沙箱目录。普通角色为空串</summary>
     public string WorkingDirectory { get; init; } = string.Empty;
 
     /// <summary>工作区说明文件内容（AGENTS.md / CLAUDE.md）；无则空串</summary>
@@ -63,7 +63,7 @@ internal sealed class AgentAssemblyPlan
     /// </summary>
     public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
-    /// <summary>技能来源（已按角色的禁用清单过滤）；非智能体档为 null</summary>
+    /// <summary>技能来源（已按角色的禁用清单过滤）；普通角色为 null</summary>
     public AgentSkillsSource? SkillsSource { get; init; }
 
     /// <summary>
@@ -138,7 +138,7 @@ internal sealed class AgentAssemblyPlan
     /// 「有退路」走 <see cref="VisionFallback"/>——界面侧的发图警示与这里同一判据
     /// </summary>
     public bool MountVisionTool =>
-        VisionFallback.HasFallback(Character.Kind, Config) && !ModelSupportsVision;
+        VisionFallback.HasFallback(Character.IsAgent, Config) && !ModelSupportsVision;
 
     /// <summary>
     /// 从构建配置解析出装配所需的全部事实。<b>这是唯一读单例与磁盘的地方</b>。
@@ -154,10 +154,8 @@ internal sealed class AgentAssemblyPlan
         CompactionStrategy compaction =
             HistoryCompaction.Create(() => CurrentModel(profile)?.ContextLength ?? 0, estimate);
 
-        // 非智能体档不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)。
-        // 这里曾写作 == Roleplay:两档时代"非扮演即 agent"成立,
-        // 四档之后工具人与用户卡会掉进 agent 分支,被装上文件/shell/技能与整套 harness
-        if (!profile.Character.Kind.IsAgent())
+        // 非智能体不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)
+        if (!profile.Character.IsAgent)
         {
             return new AgentAssemblyPlan { Profile = profile, Compaction = compaction, InputEstimate = estimate };
         }

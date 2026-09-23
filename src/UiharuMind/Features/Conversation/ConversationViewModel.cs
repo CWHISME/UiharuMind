@@ -36,6 +36,7 @@ using UiharuMind.Core.AI.Character;
 using UiharuMind.Features.Characters;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.History;
@@ -44,6 +45,7 @@ using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Diagnostics;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.Conversation.Composer;
+using UiharuMind.Features.Conversation.Group;
 using UiharuMind.Features.Conversation.Items;
 using UiharuMind.Features.Conversation.SidePanels;
 
@@ -53,7 +55,7 @@ namespace UiharuMind.Features.Conversation;
 /// 一次对话的视图模型，角色扮演与 agent 共用这一个实现。
 /// 阶段 3 之后两者跑的是同一条路：session.Runner.RunAsync() → AIContent 流 → ApplyContent()，
 /// 差异只剩"暴露哪些操作面板"(workspace / 权限档 / todo 侧栏 vs 角色卡 / 参数 / 翻译插件)，
-/// 由角色的 ECharacterKind 控制显隐，因此不需要为此分出子类；
+/// 由角色的 IsAgent 控制显隐，因此不需要为此分出子类；
 /// 原先的 ConversationViewModelBase 只有一个实现，已并入本类。
 /// </summary>
 public partial class ConversationViewModel : ViewModelBase, IConversationItemActionHost, IConversationReconcileHost, IDisposable
@@ -162,7 +164,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 当前会话是否 agent 类型(决定工具行显示模式/权限还是发送身份)。
     /// 尚无会话时按页面的新建默认角色判定,agent 页的空会话也应显示 agent 工具
     /// </summary>
-    public bool IsAgentSession => SessionCharacter.Kind.IsAgent();
+    public bool IsAgentSession => SessionCharacter.IsAgent;
 
     /// <summary>
     /// 本会话的角色。尚无会话时取页面的新建默认角色——工具开关、技能清单、
@@ -326,6 +328,27 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 否则绑定停在初始的 false 上，那个按钮永远不出现
     /// </summary>
     public bool IsSubSession => CurrentSession?.IsSubSession == true;
+
+    /// <summary>
+    /// 本会话是不是群壳（ADR 0046）：输入框发的是群发言，气泡不给编辑/删除/重试（送达即不可改）。
+    /// 与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知
+    /// </summary>
+    public bool IsGroupSession => CurrentSession?.IsGroup == true;
+
+    /// <summary>本会话是不是群成员会话。骨架里只读：私聊与他正在跑的群那一轮怎么交织还没定（ADR 0046 未决）</summary>
+    public bool IsGroupMemberSession => CurrentSession?.IsGroupMember == true;
+
+    /// <summary>输入区是否可见</summary>
+    public bool IsComposerVisible => !IsGroupMemberSession;
+
+    /// <summary>「以角色身份发送」切换是否可见：普通对话才有，群里没有「替谁说话」这回事</summary>
+    public bool IsSenderSwitchVisible => !IsAgentSession && !IsGroupSession;
+
+    /// <summary>群的成员（右栏成员列表）；不是群为 null</summary>
+    [ObservableProperty] private GroupMembersViewData? _groupMembers;
+
+    /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>
+    public event Action<string>? OpenSessionRequested;
 
     /// <summary>
     /// 会话编号的短写（前 8 位）。<c>ContinueSubAgent</c>、日志与 <c>Agent/Workspaces</c> 的
@@ -1192,15 +1215,30 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 创建群聊（P1 占位：方案落地后在这里建群会话、接配置弹窗）。
-    /// 落在 VM 而不是页面：中间空态寄在 ConversationView 的槽里，
-    /// DataContext 是 VM，页面命令在那里不可用
+    /// 建群（ADR 0046）。群的类型跟着当前这一侧：空态下 <see cref="IsAgentSession"/> 与切换器的类型一一对应；
+    /// 智能体群的工作区取右栏卡片上此刻选着的那个。落在 VM 而不是页面：中间空态寄在
+    /// ConversationView 的槽里，DataContext 是 VM，页面命令在那里不可用
     /// </summary>
     [RelayCommand]
     private async Task CreateGroupChatAsync()
     {
-        IMessageService messages = App.Services.GetRequiredService<IMessageService>();
-        await messages.ShowInfoAsync(Loc.Text(LangKey.GroupChatComingSoon));
+        bool isAgentGroup = IsAgentSession;
+        string? workspace = isAgentGroup ? Workspace.Path : null;
+        GroupCreateRequest? request = await GroupCreateWindow.ShowAsync(isAgentGroup, workspace);
+        if (request == null) return;
+
+        ChatSession group = GroupChatSessions.Create(request.Name, isAgentGroup, request.Members, workspace);
+        SessionsChanged?.Invoke();
+        OpenSessionRequested?.Invoke(group.SessionId);
+    }
+
+    /// <summary>不开口也让大家再说一圈（ADR 0046 决策 5）：一圈即停，要接着聊就再点</summary>
+    [RelayCommand]
+    private async Task ContinueGroupRound()
+    {
+        if (CurrentSession is not { IsGroup: true } group) return;
+        ScrollToEnd = true;
+        await GroupChatCoordinator.Instance.RunRoundAsync(group);
     }
 
     /// <summary>
@@ -1290,6 +1328,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     private async Task SendCoreAsync(string text)
     {
+        // 群壳永不跑轮:打的字一律是群发言,交给调度器——闲着就开一圈,跑着就插进当前发言人那一轮。
+        // 排在最前:压缩命令、以角色身份发送、插话这几条路对群壳都不成立
+        if (CurrentSession is { IsGroup: true } group)
+        {
+            ScrollToEnd = true;
+            await GroupChatCoordinator.Instance.PostAsync(group, text);
+            return;
+        }
+
         // 手动压缩:任务的自然边界由你比水位更清楚,在边界上压缩,交接文档质量高得多。
         // 命令后跟的文字作为额外指示随写文档的请求一起交给模型(见 TryParseCompact)
         if (CommandPaletteViewData.TryParseCompact(text, out string? compactExtra))
@@ -1405,6 +1452,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 外驱时要停的是别处那一轮——自己的 driver 根本没在跑。
         // 停止按钮既然显示出来了就必须真能停,否则是个骗人的按钮
         if (IsExternallyDriven) TurnDriver.CancelSession(CurrentMeta?.SessionId);
+        // 群壳的「在跑」是调度器那一圈,停它才停得下当前发言人与后面还没轮到的人
+        if (CurrentSession is { IsGroup: true } group) GroupChatCoordinator.Instance.Stop(group.SessionId);
         _transcript.CancelPendingApprovals();
         _ = CancelPendingInterjectionsAsync(); //停止后待发的插话不该还挂在输入区,也从队列撤掉
     }
@@ -1879,6 +1928,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel?.Detach();
             MemoryPanel = new ConversationMemoryViewData(body);
             OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
+            OnPropertyChanged(nameof(IsGroupSession));
+            OnPropertyChanged(nameof(IsGroupMemberSession));
+            OnPropertyChanged(nameof(IsComposerVisible));
+            OnPropertyChanged(nameof(IsSenderSwitchVisible));
+            GroupMembers = body.IsGroup ? new GroupMembersViewData(body) : null;
+            if (body.IsGroup) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
             OnPropertyChanged(nameof(SessionIdShort)); //编号同理:装载之前 CurrentMeta 还是空的
             OnPropertyChanged(nameof(SessionIdFull));
             // 运行态同理,而且更要紧:装载之前 CurrentMeta 还是空的,绑定算出来的是"没在跑"。
@@ -2028,7 +2083,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         bool liveTail = false)
     {
         List<ConversationItemBase> buffer = new();
-        ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
+        CharacterData? speaker = _currentCharacter; //群流水里每条消息换一次发言人,工厂闭包取的是它
+        ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(speaker),
             renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)Items : null)
         {
             AutoCollapseThinking = IsAutoCollapseThinking,
@@ -2044,6 +2100,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             ChatMessage message = messages[index];
             lastKnown = message.CreatedAt ?? lastKnown;
+            speaker = ChatMessageAnnotations.GroupSpeakerOf(message) is { } speakerId
+                ? CharacterManager.Instance.GetCharacterData(speakerId)
+                : _currentCharacter;
             // 渲染归属只有一份判据:哪些由内容流产出、哪些只能从历史来,
             // 实时流观察那条路问的是同一个函数(见 ConversationMessageOrigin)
             switch (ConversationMessageOrigin.KindOf(message))
@@ -2306,7 +2365,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             int contextLength = (CurrentSession?.ChatModelRunningData
                                  ?? LlmManager.Instance.CurrentRunningModel)?.ContextLength ?? 0;
             // 所有档都报固定开销:agent 报五档,普通对话只报角色提示词段(见
-            // PreviewCapabilitiesAsync 对非智能体档的处理)。以前这里对普通对话传 null,
+            // PreviewCapabilitiesAsync 对普通角色的处理)。以前这里对普通对话传 null,
             // 于是空态一片空白——而恰恰是发送前最该知道"这段对话固定占多少"
             await Capabilities.RefreshAsync(CurrentRunner, SessionCharacter, contextLength,
                 Workspace.Path, PermissionModeIndex);

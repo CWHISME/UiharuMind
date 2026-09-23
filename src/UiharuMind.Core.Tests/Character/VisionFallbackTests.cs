@@ -10,22 +10,25 @@ namespace UiharuMind.Core.Tests.Character;
 public class VisionFallbackTests
 {
     [Theory]
-    [InlineData(ECharacterKind.Roleplay)]
-    [InlineData(ECharacterKind.Tool)]
-    [InlineData(ECharacterKind.UserCard)]
-    public void NonAgentKinds_HaveNoFallback_EvenWithVisionToolEnabled(ECharacterKind kind)
+    [InlineData(false)] //普通角色
+    [InlineData(true)] //用户卡
+    public void NonAgents_HaveNoFallback_EvenWithVisionToolEnabled(bool isUserCard)
     {
-        // 非 agent 档一律不装工具(ADR 0003):开关开着也没用,它根本走不到装配那一步
-        AgentToolConfig tools = new() { EnableVisionTool = true };
+        // 非智能体一律不装工具(ADR 0003):开关开着也没用,它根本走不到装配那一步
+        CharacterData character = new()
+        {
+            IsUserCard = isUserCard,
+            Tools = new AgentToolConfig { EnableVisionTool = true },
+        };
 
-        Assert.False(VisionFallback.HasFallback(kind, tools));
+        Assert.False(VisionFallback.HasFallback(character));
     }
 
     [Fact]
-    public void AgentKind_HasFallbackOnlyWhenVisionToolEnabled()
+    public void Agent_HasFallbackOnlyWhenVisionToolEnabled()
     {
-        Assert.True(VisionFallback.HasFallback(ECharacterKind.Agent, new AgentToolConfig { EnableVisionTool = true }));
-        Assert.False(VisionFallback.HasFallback(ECharacterKind.Agent, new AgentToolConfig { EnableVisionTool = false }));
+        Assert.True(VisionFallback.HasFallback(isAgent: true, new AgentToolConfig { EnableVisionTool = true }));
+        Assert.False(VisionFallback.HasFallback(isAgent: true, new AgentToolConfig { EnableVisionTool = false }));
     }
 
     [Fact]

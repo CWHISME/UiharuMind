@@ -93,4 +93,17 @@ public class ChatSessionMeta
     /// 见 [ADR 0025]。
     /// </summary>
     public bool BackgroundReportPending { get; set; }
+
+    /// <summary>是不是群壳会话（ADR 0046）。列表归类要看它，不必为此加载本体</summary>
+    public bool IsGroup { get; set; }
+
+    /// <summary>群的类型：智能体群为 true。仅群壳有意义，归哪一侧列表由它决定</summary>
+    public bool IsAgentGroup { get; set; }
+
+    /// <summary>所属群壳会话；非空即群成员会话：不进左栏，入口是群的右栏成员列表，随群级联删除</summary>
+    public string? GroupId { get; set; }
+
+    /// <summary>会话是不是群成员会话。算出来的，不入索引（理由同 <see cref="IsSubSession"/>）</summary>
+    [JsonIgnore]
+    public bool IsGroupMember => !string.IsNullOrEmpty(GroupId);
 }

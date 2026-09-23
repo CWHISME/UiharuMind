@@ -114,7 +114,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         // MCP 工具是异步取回的,而快照与装配都从「此刻取得到什么」出发——所以等待必须在采集之前。
         // 放到这里而不是应用启动时:托管 server 的子进程因此只在真要用它的那一刻才起来,
         // 而这个应用还有截图、剪贴板、快捷问答一堆与 MCP 无关的功能(见 McpManager.WarmupAsync)
-        if (profile.Character.Kind.IsAgent())
+        if (profile.Character.IsAgent)
         {
             // 名单与下面 Resolve 用的是同一份:这一轮挂不上的 server 不值得为它起进程、也不值得等。
             // 忙碌态只在真的要等时才亮(回调由 WarmupAsync 决定发不发),否则每次装配都会闪一帧
@@ -158,9 +158,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public async Task SaveStateAsync()
     {
         if (_handle == null || _session == null || _boundSessionId == null) return;
-        // 角色扮演档禁用了 todo/mode/审批等全部有状态提供器,框架 blob 无内容可存;
+        // 普通角色禁用了 todo/mode/审批等全部有状态提供器,框架 blob 无内容可存;
         // 恢复路径找不到该文件时会新建框架会话并重新 Bind,行为不变
-        if (_attachedSession?.CharacterData.Kind.IsAgent() != true) return;
+        if (_attachedSession?.CharacterData.IsAgent != true) return;
 
         await _gate.WaitAsync().ConfigureAwait(false);
         try
@@ -314,9 +314,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public AgentCapabilitySnapshot GetCapabilities()
     {
         AgentCapabilitySnapshot snapshot = _handle?.Capabilities ?? AgentCapabilitySnapshot.Empty;
-        // 纯提示词档(角色扮演/工具人)的 handle 不登记任何提示词段(框架全关),
+        // 普通角色(纯提示词)的 handle 不登记任何提示词段(框架全关),
         // 但角色段是真实的固定开销——与空态预览同口径补上,聊天过程中能力统计不跳成空的
-        if (_attachedSession?.CharacterData is { } character && !character.Kind.IsAgent())
+        if (_attachedSession?.CharacterData is { } character && !character.IsAgent)
         {
             return AgentCapabilitySnapshot.FromRoleplay(character);
         }

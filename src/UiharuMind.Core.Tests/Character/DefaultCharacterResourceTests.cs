@@ -54,7 +54,7 @@ public class DefaultCharacterResourceTests
         CharacterData? data = EmbeddedResourcesUtils.ReadFromJson<CharacterData>(character + ".json");
 
         Assert.NotNull(data);
-        Assert.Equal(ECharacterKind.Agent, data!.Kind);
+        Assert.True(data!.IsAgent);
         Assert.True(data.IsInternal);
     }
 

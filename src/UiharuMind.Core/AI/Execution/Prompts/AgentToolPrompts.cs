@@ -39,7 +39,7 @@ public static class AgentToolPrompts
     /// 智能体的工作循环段：先弄清事实、边做边说、失败换路、收尾总结。弱模型最依赖这几条。
     ///
     /// 这段<b>不进 harness 层</b>，而是作为角色提示词的一部分（内置智能体的存档里就写着它，
-    /// 新建智能体档角色时预填这一段，片段库里也有一份可随时插回）。
+    /// 角色打开智能体能力时预填这一段，片段库里也有一份可随时插回）。
     /// 曾经的做法是把框架的 <see cref="HarnessAgent.DefaultInstructions"/> 拼在 harness 段开头，
     /// 那样有两个毛病：用户在界面上看不到每轮都发出去的这段话；而且框架那段的第一句是
     /// "You are a helpful AI assistant..."，harness 段又排在角色段之前，于是每个智能体的人格

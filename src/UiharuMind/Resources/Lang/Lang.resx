@@ -235,7 +235,16 @@
         <value>Agent</value>
     </data>
     <data name="CharacterKindDesc" xml:space="preserve">
-        <value>A roleplay character has a greeting, sample dialog and the user card. A tool character is a single system prompt doing one job. An agent gets tools, a working directory and a permission mode, and lives on the Agent page.</value>
+        <value>When on, this character gets the tools, skills, MCP and sub-agents below, plus a working directory and a permission mode. Its conversations move to the Agent side, including existing ones, and it no longer sends a greeting.</value>
+    </data>
+    <data name="CharacterAgentCapabilityTitle" xml:space="preserve">
+        <value>Agent capabilities</value>
+    </data>
+    <data name="CharacterEnableAgent" xml:space="preserve">
+        <value>Enable agent capabilities</value>
+    </data>
+    <data name="CharacterAgentLockedTip" xml:space="preserve">
+        <value>{0} conversation(s), including sub-sessions, still belong to this agent. Delete them before turning this off: their tool calls can't be sent without the tools.</value>
     </data>
     <data name="CharacterPickerSearch" xml:space="preserve">
         <value>Search characters…</value>
@@ -351,12 +360,6 @@
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
         <value>General sub-agents do actual modification tasks. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
     </data>
-    <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
-        <value>Explorer sub-agent model</value>
-    </data>
-    <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
-        <value>Explorer sub-agents do lightweight research (surveying files, searching code) and are always read-only. A cheaper model saves cost. Leave empty to fall back to the main agent's model.</value>
-    </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(Not set — falls back to the main agent model)</value>
     </data>
@@ -382,7 +385,7 @@
         <value>Knowledge search tool (KnowledgeSearch)</value>
     </data>
     <data name="AgentSettingCapSubAgent" xml:space="preserve">
-        <value>Sub-agent (RunSubAgent)</value>
+        <value>Sub-agent (SendMessage)</value>
     </data>
     <data name="SubAgentViewActivity" xml:space="preserve">
         <value>View activity</value>
@@ -433,7 +436,7 @@
         <value>Retrieve the knowledge base attached to this session (KnowledgeSearch). When disabled (or the model does not support tool calls), relevant snippets are injected automatically each turn. It searches the documents you provide; the agent's own notes (workspace memory) are a different thing.</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
-        <value>Delegate an investigation to a sub-agent (RunSubAgent) and get back a report, so the raw material never enters the main context. The sub-agent inherits this session's permission mode: under Full auto it gets write and shell tools too, otherwise read-only ones only — it runs headless and cannot stop to ask for approval. Its activity opens in a read-only window from the tool card, and is not saved with the session.</value>
+        <value>Hand a task to a sub-agent with SendMessage; only its report comes back to the main conversation, so the raw material never enters the main context. The sub-agent runs in the background and inherits this session's permission mode. Its work is a real sub-session: open it from the tool card or the Sub-agents panel, keep talking to it, and it is saved with the session.</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>Create scheduled tasks (ScheduleTask) that run headlessly at a later time with pre-authorized shell commands only.</value>
@@ -728,9 +731,6 @@
     </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>SystemPrompt</value>
-    </data>
-    <data name="CharacterFuncType" xml:space="preserve">
-        <value>Character kind</value>
     </data>
     <data name="OptionalPromptParams" xml:space="preserve">
         <value>Optional Prompt Params</value>
@@ -2276,11 +2276,8 @@
     <data name="RemoteModelCopyFromExistingHint" xml:space="preserve">
         <value>Reuses its API key and settings, no need to re-enter.</value>
     </data>
-    <data name="CharacterKindRoleplay" xml:space="preserve">
-        <value>Roleplay</value>
-    </data>
-    <data name="CharacterKindTool" xml:space="preserve">
-        <value>Tool character</value>
+    <data name="CharacterKindChat" xml:space="preserve">
+        <value>Chat</value>
     </data>
     <data name="CharacterInjectUserCard" xml:space="preserve">
         <value>Inject user card</value>
@@ -2334,7 +2331,7 @@
         <value>Delegatable sub-agents</value>
     </data>
     <data name="CharacterSubAgentsDesc" xml:space="preserve">
-        <value>Mounted agents appear in the RunSubAgent roster, so the model can delegate an investigation by name. Its capabilities are the intersection of its own and this agent's — never wider. With an empty roster a general-purpose sub-agent is still available.</value>
+        <value>Mounted agents appear in the delegation roster, so the model can reach one by name with SendMessage. Its capabilities are the intersection of its own and this agent's — never wider. With an empty roster a general-purpose sub-agent is still available.</value>
     </data>
     <data name="CharacterSubAgentsRemove" xml:space="preserve">
         <value>Remove from roster</value>
@@ -2920,10 +2917,46 @@ Allow them?</value>
     <data name="CreateGroupChat" xml:space="preserve">
         <value>Create group chat</value>
     </data>
-
-    <data name="GroupChatComingSoon" xml:space="preserve">
-        <value>Group chat is coming soon</value>
+    <data name="GroupCreateTitle" xml:space="preserve">
+        <value>New group chat</value>
     </data>
+    <data name="GroupCreateAgentHint" xml:space="preserve">
+        <value>Agent group: both kinds of characters can join. Workspace: {0}</value>
+    </data>
+    <data name="GroupCreateNoWorkspace" xml:space="preserve">
+        <value>none selected</value>
+    </data>
+    <data name="GroupCreateChatHint" xml:space="preserve">
+        <value>Chat group: chat characters only. Create the group on the Agent side to include agents.</value>
+    </data>
+    <data name="GroupNameLabel" xml:space="preserve">
+        <value>Group name</value>
+    </data>
+    <data name="GroupNamePlaceholder" xml:space="preserve">
+        <value>e.g. Design review</value>
+    </data>
+    <data name="GroupSpeakingOrderLabel" xml:space="preserve">
+        <value>Speaking order (the order you tick them)</value>
+    </data>
+    <data name="GroupCreateOrderEmpty" xml:space="preserve">
+        <value>Pick at least two members</value>
+    </data>
+    <data name="GroupCreateAction" xml:space="preserve">
+        <value>Create group</value>
+    </data>
+    <data name="GroupContinueRound" xml:space="preserve">
+        <value>Another round</value>
+    </data>
+    <data name="GroupInputTips" xml:space="preserve">
+        <value>Say something to the group… (Ctrl/Meta/Alt+Enter to send, Enter for newline)</value>
+    </data>
+    <data name="GroupMembersTitle" xml:space="preserve">
+        <value>Members</value>
+    </data>
+    <data name="GroupMembersHint" xml:space="preserve">
+        <value>In speaking order. Open one to see their own session (read-only): what they received and what they did.</value>
+    </data>
+
 
 
     <data name="ConversationTypeToggleTip" xml:space="preserve">

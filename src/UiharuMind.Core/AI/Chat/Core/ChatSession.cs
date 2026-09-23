@@ -103,6 +103,37 @@ public class ChatSession
     public string SubAgentRole { get; set; } = string.Empty;
 
     /// <summary>
+    /// 这是一个<b>群壳会话</b>：历史是群流水（用户与成员的群发言，只给人看、<b>永不喂给模型</b>），
+    /// 自己永不跑轮。成员各有一个真会话，群发言投递进他们自己的历史（ADR 0046）。
+    /// </summary>
+    public bool IsGroup { get; set; }
+
+    /// <summary>
+    /// 群的类型，建群时定、之后不变（ADR 0042「已定」）。智能体群绑工作区（就是本会话的
+    /// <see cref="WorkspacePath"/>），可混装普通角色；普通群不绑，只收普通角色。仅群壳有意义。
+    /// </summary>
+    public bool IsAgentGroup { get; set; }
+
+    /// <summary>成员会话标识，顺序即发言顺序。仅群壳有意义</summary>
+    public List<string> GroupMemberSessionIds { get; set; } = [];
+
+    /// <summary>
+    /// 所属群壳会话；非空即<b>群成员会话</b>。刻意不复用 <see cref="ParentSessionId"/>：
+    /// 那会让成员按子代理装配（能力与群壳取交集、不能再开子代理），而成员是 peer（ADR 0046 决策 2）。
+    /// </summary>
+    public string? GroupId { get; set; }
+
+    /// <summary>
+    /// 群流水交到哪儿了：下标在它之前的群发言都已投递给这个成员。仅群成员有意义。
+    /// 必须落盘——重开应用之后要接着投，而不是把整段群流水再塞给他一遍。
+    /// </summary>
+    public int GroupCursor { get; set; }
+
+    /// <summary>会话是不是群成员会话</summary>
+    [JsonIgnore]
+    public bool IsGroupMember => !string.IsNullOrEmpty(GroupId);
+
+    /// <summary>
     /// 这个子会话是<b>后台派出、报告还没交回</b>。仅子会话有意义。
     ///
     /// 必须落盘：进程被杀时它就是「父会话里那条『已派出』永远等不到下文」的唯一线索，
@@ -488,6 +519,9 @@ public class ChatSession
             SubAgentName = SubAgentName,
             BackgroundReportPending = BackgroundReportPending,
             LastRunStartedAt = LastRunStartedAt,
+            IsGroup = IsGroup,
+            IsAgentGroup = IsAgentGroup,
+            GroupId = GroupId,
         };
     }
 
@@ -578,7 +612,7 @@ public class ChatSession
     /// <summary>
     /// 本会话的<b>唯一</b>执行者（惰性创建）。页面、快捷技能、调度等一切入口都必须经它运行，
     /// 一个会话绝不允许有第二个执行者——它内部对同会话的并发请求排队。
-    /// 角色扮演与 agent 共用它，由角色的 <see cref="ECharacterKind"/> 决定装配形态。
+    /// 普通角色与智能体共用它，由角色的 <see cref="CharacterData.IsAgent"/> 决定装配形态。
     /// </summary>
     [JsonIgnore]
     public ICharacterRunner Runner => _runner ??= CharacterRunnerFactory.Instance.CreateRunner();

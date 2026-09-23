@@ -125,28 +125,65 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
-    /// 聊天页的会话（扮演与工具人两档），按最后更新时间倒序。
-    /// 归类由角色实时派生而非存进元数据——角色的档位改变时会话随之换页，不会留下过期副本。
+    /// 普通对话的会话（普通角色），按最后更新时间倒序。
+    /// 归类由角色实时派生而非存进元数据——角色的身份改变时会话随之换侧，不会留下过期副本。
     /// </summary>
     /// <returns>元数据列表</returns>
-    public List<ChatSessionMeta> GetChatSessions() => GetSessions(x => KindOf(x).IsChat());
+    public List<ChatSessionMeta> GetChatSessions() => GetSessions(IsChatSide);
 
     /// <summary>
-    /// 智能体页的会话，按最后更新时间倒序
+    /// 智能体的会话，按最后更新时间倒序
     /// </summary>
     /// <returns>元数据列表</returns>
-    public List<ChatSessionMeta> GetAgentSessions() => GetSessions(x => KindOf(x).IsAgent());
+    public List<ChatSessionMeta> GetAgentSessions() => GetSessions(IsAgentSide);
 
-    // 刻意不提供"传一个档位"的重载:那个形状邀请调用方写 GetSessions(Roleplay),
-    // 四档之后工具人的会话就会两页都不显示(实机踩过)。分区只有上面这两个出口
+    /// <summary>
+    /// 会话归不归智能体一侧。群壳看群类型（建群时定、不变），其余看所属角色的身份——
+    /// 群壳挂的是占位的空角色，按角色判它永远落在普通对话那边
+    /// </summary>
+    /// <param name="meta">会话元数据</param>
+    /// <returns>归智能体一侧为 true</returns>
+    public static bool IsAgentSide(ChatSessionMeta meta) =>
+        meta.IsGroup ? meta.IsAgentGroup : CharacterOf(meta).IsAgent;
+
+    /// <summary>会话归不归普通对话一侧。与 <see cref="IsAgentSide"/> 同一口径，用户卡两边都不归</summary>
+    /// <param name="meta">会话元数据</param>
+    /// <returns>归普通对话一侧为 true</returns>
+    public static bool IsChatSide(ChatSessionMeta meta) =>
+        meta.IsGroup ? !meta.IsAgentGroup : CharacterOf(meta).IsChat();
+
+    /// <summary>
+    /// 某个群的成员会话（无序；发言顺序以群壳上的 <see cref="ChatSession.GroupMemberSessionIds"/> 为准）
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    /// <returns>成员会话元数据</returns>
+    public List<ChatSessionMeta> GetGroupMembers(string groupId)
+    {
+        lock (_locker) return _metas.Values.Where(x => x.GroupId == groupId).ToList();
+    }
+
+    /// <summary>
+    /// 某个角色名下的会话数，<b>含子会话</b>。编辑页据它决定智能体能不能翻回普通角色：
+    /// 名下有会话时翻回去，历史里的工具调用会不挂工具定义原样发出（ADR 0043「已定」）。
+    /// </summary>
+    /// <param name="characterId">角色标识</param>
+    /// <returns>会话数</returns>
+    public int CountSessionsOf(string characterId)
+    {
+        lock (_locker) return _metas.Values.Count(x => x.CharacterId == characterId);
+    }
+
+    // 刻意不提供"传一个判据"的公开重载:那个形状邀请调用方手写 !IsAgent,
+    // 用户卡就会掉进普通对话那边。分区只有上面这两个出口
     private List<ChatSessionMeta> GetSessions(Func<ChatSessionMeta, bool> predicate)
     {
         lock (_locker)
         {
             return _metas.Values
                 // 子会话不进左栏:左栏是跨会话导航,而子会话是会话内的事。
-                // 它仍然在索引里(右栏「子代理」面板按 ParentSessionId 取用),只是不在这两个出口露面
-                .Where(x => !x.IsSubSession)
+                // 它仍然在索引里(右栏「子代理」面板按 ParentSessionId 取用),只是不在这两个出口露面。
+                // 群成员会话同理:入口是群的右栏成员列表
+                .Where(x => !x.IsSubSession && !x.IsGroupMember)
                 .Where(predicate)
                 .OrderByDescending(x => x.UpdatedAt)
                 .ToList();
@@ -154,13 +191,13 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
-    /// 取会话所属角色的种类
+    /// 取会话所属的角色
     /// </summary>
     /// <param name="meta">会话元数据</param>
-    /// <returns>角色种类；角色已被删除时按对话角色处理</returns>
-    public static ECharacterKind KindOf(ChatSessionMeta meta)
+    /// <returns>角色；已被删除时回退到内置的空角色（按普通角色处理）</returns>
+    public static CharacterData CharacterOf(ChatSessionMeta meta)
     {
-        return CharacterManager.Instance.GetCharacterData(meta.CharacterId).Kind;
+        return CharacterManager.Instance.GetCharacterData(meta.CharacterId);
     }
 
     /// <summary>
@@ -548,6 +585,12 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         foreach (ChatSessionMeta child in GetSubSessions(sessionId))
         {
             Delete(child.SessionId);
+        }
+
+        // 群的成员会话同理:入口只在群的右栏,群没了它们就打不开
+        foreach (ChatSessionMeta member in GetGroupMembers(sessionId))
+        {
+            Delete(member.SessionId);
         }
 
         // 附件路径记在本体里,所以要在删文件之前把它读出来

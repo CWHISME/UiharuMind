@@ -10,14 +10,14 @@ namespace UiharuMind.Core.AI.Character;
 public static class VisionFallback
 {
     /// <summary>
-    /// 角色能否在模型看不了图时兜住图片。<b>非 agent 档一律不装工具</b>（ADR 0003），
-    /// 所以扮演、工具人、用户卡三档都没有退路，只有 agent 档且识图开关开着才有。
+    /// 角色能否在模型看不了图时兜住图片。<b>非智能体一律不装工具</b>（ADR 0003），
+    /// 所以普通角色与用户卡都没有退路，只有智能体且识图开关开着才有。
     /// </summary>
-    /// <param name="kind">角色档位</param>
+    /// <param name="isAgent">角色是不是智能体</param>
     /// <param name="tools">角色的能力配置</param>
     /// <returns>有退路则为 true</returns>
-    public static bool HasFallback(ECharacterKind kind, AgentToolConfig tools) =>
-        kind.IsAgent() && tools.EnableVisionTool;
+    public static bool HasFallback(bool isAgent, AgentToolConfig tools) =>
+        isAgent && tools.EnableVisionTool;
 
     /// <summary>
     /// 角色能否兜住图片。角色为 null 时按<b>有退路</b>处理——此刻无从判断，
@@ -26,7 +26,7 @@ public static class VisionFallback
     /// <param name="character">角色；为 null 时返回 true</param>
     /// <returns>有退路则为 true</returns>
     public static bool HasFallback(CharacterData? character) =>
-        character == null || HasFallback(character.Kind, character.Tools);
+        character == null || HasFallback(character.IsAgent, character.Tools);
 
     /// <summary>
     /// 本轮图片会不会白发：有图、生效模型自己看不了、角色又没有识图工具兜底。

@@ -81,6 +81,9 @@ public sealed class ConversationItemActions
     public T Wire<T>(T item, ChatMessage source) where T : ConversationItemBase
     {
         item.SourceMessage = source;
+        // 群发言送达即不可改(ADR 0046 决策 6):改群流水改不到已经交出去的那几份;
+        // 成员会话在骨架里只读。两处都只留来源,不挂任何改写历史的动作
+        if (_host.Session is { IsGroup: true } or { IsGroupMember: true }) return item;
         // 点名调用的气泡显示的是 /技能名 那一行,而消息正文是注入的技能全文;
         // 放开编辑会把正文改写成那一行,当场毁掉注入内容
         if (NamedSkillAnnotations.InputOf(source) == null) item.EditedCallback = OnEdited;

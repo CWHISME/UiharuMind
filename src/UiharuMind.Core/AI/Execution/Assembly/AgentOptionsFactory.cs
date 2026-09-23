@@ -72,7 +72,7 @@ internal static class AgentOptionsFactory
 
     // [MFA绕坑] 绕:框架默认向系统提示注入自身内容 因:无"纯透传"档,只能逐项 Disable 删除条件:框架提供 passthrough 模式
     /// <summary>
-    /// 纯提示词档选项(扮演与工具人,纯函数,不碰单例)。不变量:框架侧一律关闭、HarnessInstructions 为空——
+    /// 普通角色的纯提示词选项(纯函数,不碰单例)。不变量:框架侧一律关闭、HarnessInstructions 为空——
     /// 任何一项漏关都会向角色扮演的上下文里注入内容,该不变量由测试钉住。
     /// </summary>
     /// <param name="character">角色</param>

@@ -16,7 +16,7 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Characters;
 
 /// <summary>
-/// 智能体档的能力面板数据：工具开关 + 技能勾选。<b>直接读写角色身上那份</b>
+/// 智能体的能力面板数据：工具开关 + 技能勾选。<b>直接读写角色身上那份</b>
 /// <see cref="AgentToolConfig"/>，没有中间副本——它曾经是全局设置，现在唯一权威就是角色存档。
 /// 保存由外层编辑窗统一做（改动只落在内存里的角色对象上）。
 /// </summary>

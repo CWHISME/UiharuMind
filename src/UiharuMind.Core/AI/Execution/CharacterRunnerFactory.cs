@@ -88,13 +88,13 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     /// </summary>
     /// <param name="profile">构建配置</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>能力快照；非智能体档为空快照（那些档本就不装配工具）</returns>
+    /// <returns>能力快照；普通角色为空快照（它们本就不装配工具）</returns>
     public async Task<AgentCapabilitySnapshot> PreviewCapabilitiesAsync(AgentBuildProfile profile,
         CancellationToken cancellationToken = default)
     {
-        // 非智能体档（角色扮演/工具人）不装配任何能力,但角色提示词是真实的固定开销——
+        // 普通角色不装配任何能力,但角色提示词是真实的固定开销——
         // 空态一样要能报出「这段会占多少」（agent 档也是这么报角色段的,只是档更多）
-        if (!profile.Character.Kind.IsAgent())
+        if (!profile.Character.IsAgent)
         {
             return AgentCapabilitySnapshot.FromRoleplay(profile.Character, profile.PromptArguments);
         }
@@ -135,7 +135,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     }
 
     /// <summary>
-    /// 解析一个角色挂载的子智能体名单。按档位过滤而非信任存档（旧存档里可能躺着工具人），
+    /// 解析一个角色挂载的子智能体名单。按身份过滤而非信任存档（名单里的角色可能已翻回普通角色），
     /// 并排除自己（递归）。
     ///
     /// <b>装配与快照必须用同一份</b>：名单连同各自的名字与描述会在装配时固化进子代理工具，
@@ -148,7 +148,7 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     {
         return owner.MountAgents
             .Select(id => CharacterManager.Instance.GetCharacterData(id))
-            .Where(x => x.Kind.IsAgent() && x.CharacterId != owner.CharacterId)
+            .Where(x => x.IsAgent && x.CharacterId != owner.CharacterId)
             .ToList();
     }
 

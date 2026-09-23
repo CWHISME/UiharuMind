@@ -28,7 +28,7 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// 因此这一整条路径可以单测，而它原先混在工厂的 110 行 <c>CreateAgent</c> 里，一个测试都没有。
 ///
 /// 角色扮演与 agent 走同一个引擎，差异全部落在 <see cref="HarnessAgentOptions"/> 上：
-/// 角色扮演档把框架的每一项能力都关掉、工具集为空、HarnessInstructions 为空串，
+/// 普通角色把框架的每一项能力都关掉、工具集为空、HarnessInstructions 为空串，
 /// 使框架不向系统提示里添加任何内容——等价于一次纯聊天调用，外加白拿的运行中插话能力。
 ///
 /// 装配是纯同步的内存组装：MCP 工具取 plan 里那份常驻缓存的快照，绝不等待网络。
@@ -48,21 +48,23 @@ internal static class AgentAssembler
 
         // 子会话走子代理那条装配：它的能力是「自己的 ∩ 派活者的」并受只读裁剪，
         // 与主代理那条路产出的形状不同。判据取会话上持久化的身份而非调用方参数——
-        // 重开一个子会话续跑时没人再传参数，走错路就是把不变量违掉（见 ADR 0021）
-        if (profile.SubAgent != null) return SubAgentAssembly.BuildFromPlan(plan);
+        // 重开一个子会话续跑时没人再传参数，走错路就是把不变量违掉（见 ADR 0021）。
+        // 还要查身份：点名的子智能体可能已翻回普通角色，而 Tools 翻转时不清，
+        // 不拦就会按残留配置装回 shell（ADR 0043「已定」）。那时它就是个普通角色的会话
+        if (profile.SubAgent != null && character.IsAgent) return SubAgentAssembly.BuildFromPlan(plan);
 
         IChatClient client = new LazyChatClient(profile.SessionModelSource);
         // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
         SessionChatHistoryProvider history = new();
 
-        // 角色自身的提示词(人格 + 用户卡 + 对话模板)。agent 档随后会在它之后接上工具纪律与
+        // 角色自身的提示词(人格 + 用户卡 + 对话模板)。智能体随后会在它之后接上工具纪律与
         // 工作区规矩(见 AgentOptionsFactory.BuildAgentOptions)——顺序由我们说,不交给框架的分层
         ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();
         chatOptions.Instructions = CharacterPromptBuilder.Build(character, profile.PromptArguments);
 
         List<AIContextProvider> contextProviders = BuildContextProviders(plan);
 
-        if (!character.Kind.IsAgent())
+        if (!character.IsAgent)
         {
             return BuildHandle(client,
                 AgentOptionsFactory.BuildPromptOnlyOptions(character, history, contextProviders, chatOptions,
@@ -99,7 +101,7 @@ internal static class AgentAssembler
         List<AIContextProvider> providers =
         [
             new MemoryContextProvider(hasKnowledgeTool:
-                character.Kind.IsAgent() && plan.Config.EnableKnowledgeSearchTool),
+                character.IsAgent && plan.Config.EnableKnowledgeSearchTool),
         ];
 
         return providers;

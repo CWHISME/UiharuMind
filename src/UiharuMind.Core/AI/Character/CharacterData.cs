@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -24,9 +25,9 @@ public class CharacterData
     /// <summary>
     /// 走不走 agent 装配：工具、工作目录、权限档与框架 harness。
     ///
-    /// <b>这是角色身份的唯一存储轴</b>（ADR 0043）。从前是四档枚举 <c>ECharacterKind</c>，
+    /// <b>这是角色身份的唯一轴</b>（ADR 0043）。从前是四档枚举，
     /// 但那四档里只有一条真的机械分界线——<b>开不开 harness</b>。
-    /// 扮演与工具人之间没有任何装配差异（两档都走 <c>BuildRoleplayOptions</c>），
+    /// 扮演与工具人之间没有任何装配差异（两档都走 <c>AgentOptionsFactory.BuildPromptOnlyOptions</c>），
     /// 它们的区别是<b>这张卡上填了什么</b>（有没有人格与开场白），不是走哪条管线。
     /// </summary>
     public bool IsAgent { get; set; }
@@ -41,35 +42,23 @@ public class CharacterData
     public bool IsUserCard { get; set; }
 
     /// <summary>
-    /// 角色档位的<b>派生视图</b>，只读。留着是为了让既有的
-    /// <c>Kind.IsAgent()</c> / <c>Kind.IsChat()</c> / <c>Kind.CanStartSession()</c> 判定原样成立。
-    ///
-    /// ⚠️ <b>永远不会产出 <see cref="ECharacterKind.Tool"/></b>：扮演与工具人已经合并
-    /// （ADR 0043），存量的工具人卡一律投影成 <see cref="ECharacterKind.Roleplay"/>。
-    /// 这个投影本身是过渡件，ADR 0043 阶段 2 会连同枚举一起删掉。
-    /// </summary>
-    [JsonIgnore]
-    public ECharacterKind Kind => IsUserCard
-        ? ECharacterKind.UserCard
-        : IsAgent
-            ? ECharacterKind.Agent
-            : ECharacterKind.Roleplay;
-
-    /// <summary>
     /// 老存档里的 <c>"Kind"</c> 字段——<b>只读进来，不写出去</b>。
     ///
     /// 它存在的唯一理由是迁移：升级前的角色卡身上是 <c>"Kind": "Agent"|"Roleplay"|"Tool"|"UserCard"</c>，
     /// 没有这个 setter，反序列化会让它们全部落到 <see cref="IsAgent"/> 的默认值 false ——
     /// <b>现存的智能体会静默降级成普通角色</b>。映射进新轴之后就不用任何人手动改卡。
     /// 只有 setter，所以它不参与序列化：新卡写出去的只有 IsAgent / IsUserCard。
+    /// 收 <see cref="JsonElement"/> 而不是字符串：读到意外的形态只当普通角色，不让整张卡读不进来。
     /// </summary>
     [JsonPropertyName("Kind")]
-    public ECharacterKind LegacyKind
+    public JsonElement LegacyKind
     {
         set
         {
-            IsAgent = value == ECharacterKind.Agent;
-            IsUserCard = value == ECharacterKind.UserCard;
+            if (value.ValueKind != JsonValueKind.String) return;
+            string? kind = value.GetString();
+            IsAgent = kind == "Agent";
+            IsUserCard = kind == "UserCard";
         }
     }
 
@@ -103,16 +92,16 @@ public class CharacterData
     public bool RequiresVisionModel { get; set; }
 
     /// <summary>
-    /// 本智能体的能力配置(装哪些工具、禁用哪些技能)。只对 <see cref="ECharacterKind.Agent"/> 有意义；
-    /// 运行时只读这一份，没有全局总闸(见 ADR 0003)。
+    /// 本智能体的能力配置(装哪些工具、禁用哪些技能)。只对智能体(<see cref="IsAgent"/>)有意义；
+    /// 运行时只读这一份，没有全局总闸(见 ADR 0003)。翻回普通角色时刻意不清，翻回来不丢配置。
     /// </summary>
     public AgentToolConfig Tools { get; set; } = new();
 
     /// <summary>
-    /// 可委派的子智能体名单(只对 <see cref="ECharacterKind.Agent"/> 有意义)：
-    /// 名单里每一项是一个智能体档角色，<c>RunAgent</c> 据此让模型挑一个派活；
+    /// 可委派的子智能体名单(只对智能体有意义)：
+    /// 名单里每一项是一个智能体，<c>SendMessage</c> 的收件人据此点名；
     /// 为空则退回内置的通用匿名子代理。
-    /// 装配时按档位过滤而非信任存档——旧存档里这里可能躺着工具人角色。
+    /// 装配时按身份过滤而非信任存档——名单里的角色可能已经翻回普通角色。
     /// </summary>
     public List<string> MountAgents { get; set; } = [];
 

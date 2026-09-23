@@ -23,16 +23,19 @@ namespace UiharuMind.Features.Characters;
 /// </summary>
 public partial class CharacterListViewData : ObservableObject
 {
+    private const int FilterChat = 1; //FilterTags 里「普通角色」的下标
+    private const int FilterAgent = 2; //FilterTags 里「智能体」的下标
+
     public ObservableCollection<CharacterInfoViewData> Characters { get; } = new();
 
     /// <summary>
-    /// 筛选档位：全部 + 三个可建档位。第 0 档为「全部」，其余按
-    /// <see cref="CharacterKindPresentation.CreatableKinds"/> 顺序对齐。
+    /// 筛选类别：全部 / 普通角色 / 智能体，下标即 <see cref="FilterTagIndex"/>。
     /// </summary>
     public string[] FilterTags =
     [
         Loc.Text(LangKey.All),
-        ..CharacterKindPresentation.CreatableKinds.Select(CharacterKindPresentation.NameOf),
+        CharacterKindPresentation.NameOf(isAgent: false),
+        CharacterKindPresentation.NameOf(isAgent: true),
     ];
 
     public string FilterTag
@@ -102,11 +105,10 @@ public partial class CharacterListViewData : ObservableObject
             _characterChacheList.Add(item);
         }
 
-        // 同档内按存档时间倒序,档间普通角色在前、智能体在后(ADR 0043 合并后只有两档,
-        // 不能再按枚举顺序排——那会把扮演与工具人分成两撮,而它们现在是同一撮)
+        // 同类内按存档时间倒序,普通角色在前、智能体在后
         _characterChacheList.Sort((x, y) =>
         {
-            bool xa = x.Kind.IsAgent(), ya = y.Kind.IsAgent();
+            bool xa = x.IsAgent, ya = y.IsAgent;
             if (xa != ya) return xa ? 1 : -1;
             return y.FileDateTime.CompareTo(x.FileDateTime);
         });
@@ -137,13 +139,8 @@ public partial class CharacterListViewData : ObservableObject
     /// <returns>该显示返回 True</returns>
     private bool Matches(CharacterInfoViewData item)
     {
-        // 筛选按两档判据而不是相等比较:「普通角色」要同时收下存量的扮演与工具人(ADR 0043)
-        if (FilterTagIndex > 0)
-        {
-            ECharacterKind wanted = CharacterKindPresentation.CreatableKinds[FilterTagIndex - 1];
-            bool matched = wanted.IsAgent() ? item.Kind.IsAgent() : CharacterKindPresentation.IsPlainCharacter(item.Kind);
-            if (!matched) return false;
-        }
+        if (FilterTagIndex == FilterChat && !item.Data.IsChat()) return false;
+        if (FilterTagIndex == FilterAgent && !item.IsAgent) return false;
         if (item.Data.IsInternal && !IsDisplayAllCharacters) return false;
 
         return string.IsNullOrWhiteSpace(SearchKeyword) ||

@@ -1,8 +1,8 @@
 namespace UiharuMind.Core.AI.Character;
 
 /// <summary>
-/// 一个智能体的能力配置：装哪些工具、禁用哪些技能。<b>只对
-/// <see cref="ECharacterKind.Agent"/> 有意义</b>，其余档位一律不装工具。
+/// 一个智能体的能力配置：装哪些工具、禁用哪些技能。<b>只对智能体
+/// （<see cref="CharacterData.IsAgent"/>）有意义</b>，普通角色一律不装工具。
 ///
 /// 它长在角色身上而不是全局设置里：一个只读的调研智能体与一个能改文件的开发智能体
 /// 该带不同的工具集，而全局开关做不到这件事。运行时<b>只读这一份</b>——刻意不留"全局总闸"，
@@ -30,7 +30,7 @@ public class AgentToolConfig
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>
     public bool EnableKnowledgeSearchTool { get; set; }
 
-    /// <summary>启用子代理工具(RunAgent,把探查委派出去,过程不吃调用方上下文)</summary>
+    /// <summary>启用委派工具(SendMessage,把一件事交出去,过程不吃调用方上下文)</summary>
     public bool EnableSubAgent { get; set; } = true;
 
     /// <summary>启用任务清单(框架 TodoProvider;关闭时对话侧栏的任务清单同步隐藏)</summary>

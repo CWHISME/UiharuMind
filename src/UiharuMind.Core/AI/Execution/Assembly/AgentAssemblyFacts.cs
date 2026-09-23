@@ -35,8 +35,8 @@ public sealed record AgentAssemblyFacts
     /// <summary>角色标识</summary>
     public required string CharacterId { get; init; }
 
-    /// <summary>角色种类(决定装配形态)</summary>
-    public required ECharacterKind Kind { get; init; }
+    /// <summary>是不是智能体(决定装配形态)</summary>
+    public required bool IsAgent { get; init; }
 
     /// <summary>
     /// 子会话身份指纹（`子代理档:点名的子智能体名`）；主会话为空串。
@@ -53,10 +53,10 @@ public sealed record AgentAssemblyFacts
     /// <summary>推理执行参数(温度等)的序列化形态</summary>
     public required string ExecutionSettings { get; init; }
 
-    /// <summary>绑定的工作目录;角色扮演档恒为 null</summary>
+    /// <summary>绑定的工作目录;普通角色恒为 null</summary>
     public string? WorkspacePath { get; init; }
 
-    /// <summary>权限档;角色扮演档恒为默认值</summary>
+    /// <summary>权限档;普通角色恒为默认值</summary>
     public EAgentPermissionMode Permission { get; init; }
 
     /// <summary>无人值守 shell 预授权模式(换行拼接);无则空串</summary>
@@ -150,12 +150,12 @@ public sealed record AgentAssemblyFacts
             profile.PermissionMode,
             profile.PreAuthorizedShellPatterns,
             McpManager.Instance.Revision,
-            character.Kind.IsAgent()
+            character.IsAgent
                 ? WorkspaceInstructionsLoader.Load(profile.WorkspacePath)
                 : string.Empty,
             profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
-            character.Kind.IsAgent() ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
+            character.IsAgent ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
             PythonEnvironment.IsReady, profile.OutputFolderName,
             profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty);
     }
@@ -184,13 +184,13 @@ public sealed record AgentAssemblyFacts
         bool pythonEnvReady = false, string outputFolderName = "",
         string subAgentKey = "")
     {
-        // 非智能体档不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
-        bool isAgent = character.Kind.IsAgent();
+        // 非智能体不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
+        bool isAgent = character.IsAgent;
         AgentToolConfig config = character.Tools;
         return new AgentAssemblyFacts
         {
             CharacterId = character.CharacterId,
-            Kind = character.Kind,
+            IsAgent = character.IsAgent,
             SubAgentKey = subAgentKey,
             Instructions = instructions,
             ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),

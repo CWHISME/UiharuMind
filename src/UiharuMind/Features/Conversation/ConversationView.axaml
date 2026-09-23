@@ -276,7 +276,9 @@
         </Grid>
 
         <!-- composer -->
-        <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder">
+        <!-- 群成员会话在骨架里只读(ADR 0046 未决):输入区整个收起 -->
+        <Border Grid.Row="2" Margin="5" Padding="5" Classes="tool-row" Name="ComposerBorder"
+                IsVisible="{Binding IsComposerVisible}">
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="4">
                 <!-- 附件 chips:附件盘挂在共用 VM 上,粘贴/拖入在本组件内处理,因此 chips 也内置。
                      DataContext 整体切到附件盘,下面模板里的 $parent[ItemsControl] 才拿得到它 -->
@@ -449,9 +451,9 @@
                                           Tag="{Binding SenderModeKey}"
                                           Command="{Binding ChangeSendModeCommand}"
                                           ToolTips="{Binding SenderTooltip}"
-                                          IsVisible="{Binding !IsAgentSession}" />
+                                          IsVisible="{Binding IsSenderSwitchVisible}" />
                         <!-- 垂直分隔线 -->
-                        <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center" IsVisible="{Binding !IsAgentSession}"/>
+                        <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center" IsVisible="{Binding IsSenderSwitchVisible}"/>
 
                         <ThemedIconButton Classes="permission-state"
                                           IconName="shield"
@@ -499,7 +501,9 @@
                                           Tag="{Binding MemoryPanel.MemoryStatusKey}"
                                           Command="{Binding MemoryPanel.MemoryEditorCommand}"
                                           IsVisible="{Binding MemoryPanel, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                        <ThemedIconButton IconName="paperclip" Command="{Binding Tray.AddAttachmentCommand}" />
+                        <!-- 群发言只有文字:附件在群流水里没处放,也投递不到成员那里 -->
+                        <ThemedIconButton IconName="paperclip" Command="{Binding Tray.AddAttachmentCommand}"
+                                          IsVisible="{Binding !IsGroupSession}" />
                         <ThemedIconButton IconName="settings">
                             <ThemedIconButton.Flyout>
                                 <Flyout Placement="Top">
@@ -570,6 +574,12 @@
                         </StackPanel>
                         <!-- 跑着的时候<b>不藏</b>发送按钮:那时它是「插话」。藏了的话中途想说一句
                              就只剩快捷键一条路,而按钮上写的字已经说明了区别 -->
+                        <!-- 群:不开口也让大家再说一圈(一圈即停,ADR 0046 决策 5) -->
+                        <Button CornerRadius="10"
+                                IsVisible="{Binding IsGroupSession}"
+                                IsEnabled="{Binding !IsGenerating}"
+                                Command="{Binding ContinueGroupRoundCommand}"
+                                Content="{loc:Loc GroupContinueRound}" />
                         <Button CornerRadius="10"
                                 IsEnabled="{Binding InputText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                 Command="{Binding SendMessageCommand}"

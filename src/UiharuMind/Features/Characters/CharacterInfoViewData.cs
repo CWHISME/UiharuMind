@@ -38,19 +38,14 @@ public partial class CharacterInfoViewData : ObservableObject
 
     public bool IsDefault => _characterData.IsDefaultCharacter;
 
-    /// <summary>
-    /// 角色档位。这是角色的唯一身份轴，界面的分类、徽章、表单面孔全从它来。
-    /// </summary>
-    public ECharacterKind Kind => _characterData.Kind;
+    /// <summary>是否为智能体（决定「开始对话」切到哪一类）。这是角色身份的唯一轴（ADR 0043）</summary>
+    public bool IsAgent => _characterData.IsAgent;
 
-    /// <summary>是否为智能体档（决定「开始对话」跳哪一页）</summary>
-    public bool IsAgent => Kind.IsAgent();
+    /// <summary>类别显示名(列表徽章)</summary>
+    public string KindName => CharacterKindPresentation.NameOf(_characterData);
 
-    /// <summary>档位显示名(列表徽章)</summary>
-    public string KindName => CharacterKindPresentation.NameOf(Kind);
-
-    /// <summary>档位徽章底色</summary>
-    public IImmutableSolidColorBrush KindColor => CharacterKindPresentation.ColorOf(Kind);
+    /// <summary>类别徽章底色</summary>
+    public IImmutableSolidColorBrush KindColor => CharacterKindPresentation.ColorOf(_characterData);
 
     /// <summary>存档时间，列表排序用</summary>
     public long FileDateTime => _characterData.FileDateTime;
@@ -92,7 +87,6 @@ public partial class CharacterInfoViewData : ObservableObject
         OnPropertyChanged(nameof(Icon));
         OnPropertyChanged(nameof(Description));
         OnPropertyChanged(nameof(Template));
-        OnPropertyChanged(nameof(Kind));
         OnPropertyChanged(nameof(IsAgent));
         OnPropertyChanged(nameof(KindName));
         OnPropertyChanged(nameof(KindColor));
