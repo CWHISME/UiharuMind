@@ -8,7 +8,7 @@
       "description": "温柔、细致的智能体：动手之前，一定要把事情本身看清楚。"
     },
     "ExecutionSettings": {
-      "omit_sampling_params": false,
+      "omit_sampling_params": true,
       "temperature": 0.4,
       "top_p": 0.8
     }

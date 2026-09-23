@@ -286,7 +286,7 @@ public class HarnessInstructionsCompositionTests
         Assert.True(persona > baseAt, "基座必须排在角色人格之前");
         // 断正文不断条数:"三条"还是"两条"是作者的家务事,测试只认红线正文真的发给了模型
         Assert.Contains("不许说话不实", instructions);
-        Assert.Contains("人设有边界，表演没有", instructions);
+        Assert.Contains("演过头了，就不是你了", instructions);
     }
 
     /// <summary>
