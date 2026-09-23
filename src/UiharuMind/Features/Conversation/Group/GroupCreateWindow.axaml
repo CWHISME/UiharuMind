@@ -1,0 +1,70 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+        xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+        mc:Ignorable="d"
+        x:Class="UiharuMind.Features.Conversation.Group.GroupCreateWindow"
+        x:DataType="group:GroupCreateWindowModel"
+        Width="560"
+        Height="560"
+        MinWidth="480"
+        MinHeight="420"
+        Title="{loc:Loc GroupCreateTitle}">
+    <Design.DataContext>
+        <group:GroupCreateWindowModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource SemiGrey0}">
+        <Border Padding="18,15" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="50,*" ColumnSpacing="12">
+                <Border Width="50" Height="50" CornerRadius="8"
+                        Background="{DynamicResource SemiBlue0}">
+                    <controls:ThemedSvgIcon Width="24" Height="24" IconName="users-round" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="{loc:Loc GroupCreateTitle}" FontSize="20" />
+                    <TextBlock Text="{Binding TypeHint}" Classes="muted" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="18" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
+            <TextBlock Grid.Row="0" Text="{loc:Loc GroupNameLabel}" />
+            <TextBox Grid.Row="1" Text="{Binding Name}" PlaceholderText="{loc:Loc GroupNamePlaceholder}" />
+            <Border Grid.Row="2" Margin="0,8,0,0" BorderThickness="1" CornerRadius="8"
+                    BorderBrush="{DynamicResource SemiGrey2}" Padding="6">
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding Candidates}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="group:GroupCandidate">
+                                <CheckBox IsChecked="{Binding IsPicked}" Margin="4,3">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Image Width="24" Height="24" Source="{Binding Icon}" />
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                                        <TextBlock Classes="muted" VerticalAlignment="Center" Text="{Binding KindName}" />
+                                    </StackPanel>
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+            <!-- 勾选顺序即发言顺序:这件事不写出来,用户只会以为是列表顺序 -->
+            <StackPanel Grid.Row="3" Spacing="2">
+                <TextBlock Classes="muted" Text="{loc:Loc GroupSpeakingOrderLabel}" />
+                <TextBlock Text="{Binding SpeakingOrder}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2" Padding="14" BorderBrush="{DynamicResource SemiGrey2}" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="{loc:Loc CancelBtn}" Click="CancelButton_Click" />
+                <Button Classes="Primary" IsEnabled="{Binding CanCreate}" Click="CreateButton_Click"
+                        Content="{loc:Loc GroupCreateAction}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

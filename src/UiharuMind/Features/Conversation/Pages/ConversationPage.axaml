@@ -5,6 +5,7 @@
              xmlns:pages="clr-namespace:UiharuMind.Features.Conversation.Pages"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
@@ -29,7 +30,11 @@
                         CornerRadius="8" Padding="8">
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
                 </Border>
-                <Grid Grid.Row="2">
+                <!-- 群壳：下块换成成员列表。能力/子代理/会话详情讲的都是「一个角色的会话」，群壳挂的是占位角色 -->
+                <Border Grid.Row="2" IsVisible="{Binding Conversation.IsGroupSession}">
+                    <group:GroupMembersPanel DataContext="{Binding Conversation.GroupMembers}" />
+                </Border>
+                <Grid Grid.Row="2" IsVisible="{Binding !Conversation.IsGroupSession}">
                     <panels:AgentSidePanel IsVisible="{Binding IsAgentType}" />
                     <!-- ChatInfoView 构造时把自己的 DataContext 换成 ChatInfoModel 单例,
                          直接绑在它上面的 IsVisible 会被带偏(ChatInfoModel 上没有页面属性,

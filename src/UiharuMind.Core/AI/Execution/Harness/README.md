@@ -29,7 +29,7 @@
 
 | 位置 | 绕的什么 |
 |---|---|
-| `AgentHost.BuildRoleplayOptions` | 角色扮演档必须逐项关闭框架全部能力，漏一项即向上下文注入内容（不变量由 `RoleplayZeroInjectionTests` 钉住） |
+| `AgentOptionsFactory.BuildPromptOnlyOptions` | 普通角色必须逐项关闭框架全部能力，漏一项即向上下文注入内容（不变量由 `PromptOnlyZeroInjectionTests` 钉住） |
 | `Tools/Files/PermissiveFileAccessTools.cs` | 框架 FileAccessProvider 拒绝一切绝对路径且为 internal，只能整套自建文件工具 |
 | `SessionChatHistoryProvider.IsOwnedByUs` | 框架注入消息混进待持久化列表，靠 `_attribution` 标记过滤（`HistoryAttributionTests` 钉住） |
 | `MemoryContextProvider.ProvideAIContextAsync` | 回传 `context.AIContext` 会使消息翻倍、系统提示拼接两次，只能返回自己的净产出 |

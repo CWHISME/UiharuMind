@@ -29,7 +29,7 @@ public readonly record struct TodoSnapshot(string Title, bool IsComplete);
 /// 同一会话的并发请求排队而非交错。会话卸载/删除时由
 /// <see cref="ChatSession.DisposeRunnerAsync"/> 释放。
 ///
-/// 角色扮演与 agent 共用这一个执行者，差异由角色的 <see cref="Character.ECharacterKind"/> 决定。
+/// 普通角色与智能体共用这一个执行者，差异由角色的 <see cref="Character.CharacterData.IsAgent"/> 决定。
 /// 存在的意义同时也是划定编译期边界——Agent Framework 的 preview/alpha 面被 PrivateAssets
 /// 挡在 Core 内，UI 层无法直接引用；框架若发生破坏性变更，需要重写的只有本接口的实现。
 /// </summary>

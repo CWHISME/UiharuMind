@@ -23,7 +23,8 @@ public class SaveUtilityTests
         List<LogIndexEntry> errors = [];
         void Handler(LogIndexEntry entry)
         {
-            if (entry.LogType == ELogType.Error)
+            // 只认这个文件的:日志是全局的,并行跑的别的测试(如 TurnDriver 模拟断连)记的错也会流到这里
+            if (entry.LogType == ELogType.Error && entry.Preview.Contains(Path.GetFileName(path)))
             {
                 lock (errors) errors.Add(entry);
             }

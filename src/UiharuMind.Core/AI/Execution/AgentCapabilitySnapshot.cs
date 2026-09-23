@@ -70,7 +70,7 @@ public sealed class AgentCapabilitySnapshot
         new Dictionary<EAgentCapability, int>();
 
     /// <summary>
-    /// 纯提示词档（角色扮演/工具人）的固定开销快照：只有角色段，框架零注入。
+    /// 普通角色（纯提示词）的固定开销快照：只有角色段，框架零注入。
     /// 与 agent 档同一口径——这段提示词每轮完整重发，正是这个会话最重的固定开销；
     /// 只是它没有工具/工作区那些档可报。空态与发送后都由它（或同构装配）给出
     /// </summary>

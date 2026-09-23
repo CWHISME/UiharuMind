@@ -57,15 +57,14 @@
                 </Grid>
             </Border>
 
+            <!-- 身份轴只有一根(ADR 0043):装不装 agent 那一套。它是下面几张能力卡片的总开关,不是一张档位清单。
+                 打开它角色才会拿到工具、工作目录、权限档,以及代码注入的工作循环与工具纪律段 -->
             <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsDefault}">
                 <StackPanel Spacing="10">
-                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterFuncType}" />
-                    <!-- 身份轴只有一根(ADR 0043):装不装 agent 那一套。
-                         打开它角色才会拿到工具、工作目录、权限档,以及代码注入的工作循环与工具纪律段 -->
+                    <TextBlock Classes="card-title" Text="{loc:Loc CharacterAgentCapabilityTitle}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ToggleSwitch IsChecked="{Binding IsAgent}" MinWidth="0"
-                                      OnContent="{loc:Loc CharacterKindAgent}"
-                                      OffContent="{loc:Loc CharacterKindRoleplay}" />
+                        <ToggleSwitch IsChecked="{Binding IsAgent}" IsEnabled="{Binding !IsAgentLocked}" />
+                        <TextBlock VerticalAlignment="Center" Text="{loc:Loc CharacterEnableAgent}" />
                         <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
                                                 VerticalAlignment="Center">
                             <ToolTip.Tip>
@@ -74,22 +73,13 @@
                             </ToolTip.Tip>
                         </controls:ThemedSvgIcon>
                     </StackPanel>
-                    <!-- 用户卡是单例、活引用:改了用户卡,所有开着这个开关的角色下一轮跟着变 -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsRoleplay}">
-                        <CheckBox IsChecked="{Binding InjectUserCard}"
-                                  Content="{loc:Loc CharacterInjectUserCard}" />
-                        <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
-                                                VerticalAlignment="Center">
-                            <ToolTip.Tip>
-                                <TextBlock Text="{loc:Loc CharacterInjectUserCardDesc}" FontSize="14"
-                                           MaxWidth="360" TextWrapping="Wrap" />
-                            </ToolTip.Tip>
-                        </controls:ThemedSvgIcon>
-                    </StackPanel>
+                    <!-- 锁住的原因留在行上:悬停提示用户未必会去看,而置灰的开关自己说不出为什么 -->
+                    <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding IsAgentLocked}"
+                               Text="{Binding AgentLockedTip}" />
                 </StackPanel>
             </Border>
 
-            <!-- 以下三块只对智能体档:它们描述"这个智能体有什么能力" -->
+            <!-- 以下几块只对智能体:它们描述"这个智能体有什么能力" -->
             <Border Name="ToolsSection" Classes="edit-card" IsVisible="{Binding IsAgent}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterToolsTitle}" />
@@ -247,11 +237,25 @@
             <Border Name="PromptSection" Classes="edit-card">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title"
-                               IsVisible="{Binding IsRoleplay}"
+                               IsVisible="{Binding IsChat}"
                                Text="{loc:Loc CharacterDesc}" />
                     <TextBlock Classes="card-title"
-                               IsVisible="{Binding !IsRoleplay}"
+                               IsVisible="{Binding !IsChat}"
                                Text="{loc:Loc SystemPrompt}" />
+                    <!-- 用户卡是单例、活引用:改了用户卡,所有开着这个开关的角色下一轮跟着变。
+                         它决定提示词里拼不拼进用户卡,所以跟着提示词走;内置角色照旧不许改 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsChat}"
+                                IsEnabled="{Binding !IsDefault}">
+                        <CheckBox IsChecked="{Binding InjectUserCard}"
+                                  Content="{loc:Loc CharacterInjectUserCard}" />
+                        <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"
+                                                VerticalAlignment="Center">
+                            <ToolTip.Tip>
+                                <TextBlock Text="{loc:Loc CharacterInjectUserCardDesc}" FontSize="14"
+                                           MaxWidth="360" TextWrapping="Wrap" />
+                            </ToolTip.Tip>
+                        </controls:ThemedSvgIcon>
+                    </StackPanel>
                     <TextBox Text="{Binding Template}"
                              MinHeight="180"
                              AcceptsReturn="True" />
@@ -277,7 +281,7 @@
                 </StackPanel>
             </Border>
 
-            <Border Name="GreetingSection" Classes="edit-card" IsVisible="{Binding IsRoleplay}">
+            <Border Name="GreetingSection" Classes="edit-card" IsVisible="{Binding IsChat}">
                 <StackPanel Spacing="8">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterFirstGreeting}" />
                     <TextBox Text="{Binding FirstGreeting}"

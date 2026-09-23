@@ -598,7 +598,7 @@ public sealed class TurnDriver : IDisposable
             }
 
             // 委派清单确定性追加在模型那段散文之后:编号只出现在回执与报告里,而那些正是
-            // 压缩要吃掉的东西。少了它,压缩之后 ContinueAgent 就够不着了(见 BuildSubSessionRoster)
+            // 压缩要吃掉的东西。少了它,压缩之后就没法用 SendMessage 续上旧委派了(见 BuildSubSessionRoster)
             string roster = HistoryHandoff.BuildSubSessionRoster(
                 SessionManager.Instance.GetSubSessions(session.SessionId));
             ChatMessage message = HistoryHandoff.CreateNote(roster.Length > 0 ? $"{note}\n{roster}" : note);

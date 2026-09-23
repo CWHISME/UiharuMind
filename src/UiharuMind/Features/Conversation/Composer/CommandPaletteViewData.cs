@@ -84,7 +84,7 @@ public partial class CommandPaletteViewData : ObservableObject
     /// 技能只在 agent 会话有意义(扮演档工具集为空,注入过去只会让模型去调不存在的工具);
     /// 内置命令则各档都有——压缩对角色扮演的长对话同样生效
     /// </summary>
-    private bool IsAgentSession => _character().Kind.IsAgent();
+    private bool IsAgentSession => _character().IsAgent;
 
     /// <summary>
     /// 上下移动候选选择(补全开着时由输入框按键驱动)
@@ -180,7 +180,7 @@ public partial class CommandPaletteViewData : ObservableObject
 
     /// <summary>
     /// 组装点名调用。只在 agent 会话开放——技能正文多在指挥工具,
-    /// 而角色扮演档工具集为空,注入过去只会让模型去调不存在的工具。
+    /// 而普通角色工具集为空,注入过去只会让模型去调不存在的工具。
     /// </summary>
     /// <param name="text">用户输入的整行</param>
     /// <returns>调用产物;不是点名调用、或技能不存在/已禁用时为 null</returns>

@@ -228,7 +228,16 @@
         <value>智能体</value>
     </data>
     <data name="CharacterKindDesc" xml:space="preserve">
-        <value>角色扮演带开场白、示例对话与用户卡；工具人是一段纯提示词只干一件事；智能体会装配工具、工作目录与权限档，出现在智能体页。</value>
+        <value>打开后，这个角色会装配下面的工具、技能、MCP 与子智能体，并拿到工作目录与权限档；它的会话（包括已有的）归到「智能体」一侧，且不再发开场白。</value>
+    </data>
+    <data name="CharacterAgentCapabilityTitle" xml:space="preserve">
+        <value>智能体能力</value>
+    </data>
+    <data name="CharacterEnableAgent" xml:space="preserve">
+        <value>启用智能体能力</value>
+    </data>
+    <data name="CharacterAgentLockedTip" xml:space="preserve">
+        <value>名下还有 {0} 个会话（含子会话），删掉之后才能关闭：历史里的工具调用离开工具就发不出去。</value>
     </data>
     <data name="CharacterPickerSearch" xml:space="preserve">
         <value>搜索角色…</value>
@@ -344,12 +353,6 @@
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
         <value>通用子代理负责实际修改任务。给它指定运行模型；留空则回退到主代理 模型。</value>
     </data>
-    <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
-        <value>探索型子代理模型</value>
-    </data>
-    <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
-        <value>探索子代理做初级调研(通览文件、搜代码)，始终只读。选一个轻量模型可省成本。留空则回退到主代理 模型。</value>
-    </data>
     <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
         <value>(未设置 — 回退到主代理 模型)</value>
     </data>
@@ -375,7 +378,7 @@
         <value>知识库检索工具（KnowledgeSearch）</value>
     </data>
     <data name="AgentSettingCapSubAgent" xml:space="preserve">
-        <value>子代理（RunSubAgent）</value>
+        <value>子代理（SendMessage）</value>
     </data>
     <data name="SubAgentViewActivity" xml:space="preserve">
         <value>查看过程</value>
@@ -426,7 +429,7 @@
         <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记（工作区记忆）是另一回事。</value>
     </data>
     <data name="AgentGateDescSubAgent" xml:space="preserve">
-        <value>把探查委派给子代理（RunSubAgent），只有报告回到主对话，原始材料不进主上下文。子代理继承本会话的权限档：完全自动档下它也拿到写文件与 shell，其余档位下只拿只读工具——它无头运行，没法停下来等审批。它的过程从工具卡片上开一个只读窗口查看，不随会话存档。</value>
+        <value>允许用 SendMessage 把一件事交给子代理，只有它的报告回到主对话，原始材料不进主上下文。子代理在后台跑，继承本会话的权限档；它的过程是一个真的子会话，从工具卡片或右栏「子代理」面板打开，可以接着聊，随会话存档。</value>
     </data>
     <data name="AgentGateDescScheduledTasks" xml:space="preserve">
         <value>创建定时任务（ScheduleTask），到点后在无人值守模式下运行，只允许预授权的 shell 命令。</value>
@@ -721,9 +724,6 @@
     </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>系统提示</value>
-    </data>
-    <data name="CharacterFuncType" xml:space="preserve">
-        <value>角色档位</value>
     </data>
     <data name="OptionalPromptParams" xml:space="preserve">
         <value>可选参数</value>
@@ -2269,11 +2269,8 @@
     <data name="RemoteModelCopyFromExistingHint" xml:space="preserve">
         <value>复用其密钥与配置，无需重新填写。</value>
     </data>
-    <data name="CharacterKindRoleplay" xml:space="preserve">
-        <value>角色扮演</value>
-    </data>
-    <data name="CharacterKindTool" xml:space="preserve">
-        <value>工具人</value>
+    <data name="CharacterKindChat" xml:space="preserve">
+        <value>普通角色</value>
     </data>
     <data name="CharacterInjectUserCard" xml:space="preserve">
         <value>注入用户卡</value>
@@ -2327,7 +2324,7 @@
         <value>可委派的子智能体</value>
     </data>
     <data name="CharacterSubAgentsDesc" xml:space="preserve">
-        <value>挂进来的智能体会出现在 RunSubAgent 的可选名单里，模型可以点名把探查派给它。它的能力取「它自己那份」与本智能体的交集——不会比本智能体更大。名单为空时仍有一个通用子代理可用。</value>
+        <value>挂进来的智能体会出现在委派名单里，模型可以用 SendMessage 点名找它。它的能力取「它自己那份」与本智能体的交集——不会比本智能体更大。名单为空时仍有一个通用子代理可用。</value>
     </data>
     <data name="CharacterSubAgentsRemove" xml:space="preserve">
         <value>移出名单</value>
@@ -2913,10 +2910,46 @@
     <data name="CreateGroupChat" xml:space="preserve">
         <value>创建群聊</value>
     </data>
-
-    <data name="GroupChatComingSoon" xml:space="preserve">
-        <value>群聊功能即将上线</value>
+    <data name="GroupCreateTitle" xml:space="preserve">
+        <value>新建群聊</value>
     </data>
+    <data name="GroupCreateAgentHint" xml:space="preserve">
+        <value>智能体群：两类角色都能进。工作区：{0}</value>
+    </data>
+    <data name="GroupCreateNoWorkspace" xml:space="preserve">
+        <value>未选</value>
+    </data>
+    <data name="GroupCreateChatHint" xml:space="preserve">
+        <value>普通群：只能选普通角色。要拉智能体，请在智能体一侧建群。</value>
+    </data>
+    <data name="GroupNameLabel" xml:space="preserve">
+        <value>群名</value>
+    </data>
+    <data name="GroupNamePlaceholder" xml:space="preserve">
+        <value>比如：方案会审</value>
+    </data>
+    <data name="GroupSpeakingOrderLabel" xml:space="preserve">
+        <value>发言顺序（按勾选先后）</value>
+    </data>
+    <data name="GroupCreateOrderEmpty" xml:space="preserve">
+        <value>至少选两位成员</value>
+    </data>
+    <data name="GroupCreateAction" xml:space="preserve">
+        <value>建群</value>
+    </data>
+    <data name="GroupContinueRound" xml:space="preserve">
+        <value>继续一圈</value>
+    </data>
+    <data name="GroupInputTips" xml:space="preserve">
+        <value>对全群说点什么…（Ctrl/Meta/Alt+Enter 发送，Enter 换行）</value>
+    </data>
+    <data name="GroupMembersTitle" xml:space="preserve">
+        <value>群成员</value>
+    </data>
+    <data name="GroupMembersHint" xml:space="preserve">
+        <value>按发言顺序排列。点开是他自己的会话（只读），看得到他收到了什么、自己干了什么。</value>
+    </data>
+
 
 
     <data name="ConversationTypeToggleTip" xml:space="preserve">

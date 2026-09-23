@@ -5,8 +5,8 @@ using UiharuMind.Core.Core.Utils;
 namespace UiharuMind.Core.Tests.Character;
 
 /// <summary>
-/// 角色档位的序列化往返与内置角色的定档。这是最容易静默失效的一点：
-/// Kind 若解析不出来会退化为默认值 Roleplay，而 Roleplay 档是零工具的，
+/// 身份轴的序列化往返与内置角色的定位。这是最容易静默失效的一点：
+/// IsAgent 若读不出来会退化为 false，而普通角色是零工具的，
 /// 于是智能体会变成一个连文件都读不了的普通聊天角色，且不报任何错。
 /// </summary>
 public class CharacterKindTests
@@ -22,7 +22,7 @@ public class CharacterKindTests
         CharacterData agent = DefaultCharacterManager.Instance
             .GetCharacterData(DefaultCharacter.WorkspaceAgent);
 
-        Assert.Equal(ECharacterKind.Agent, agent.Kind);
+        Assert.True(agent.IsAgent);
         Assert.Equal(nameof(DefaultCharacter.WorkspaceAgent), agent.CharacterId);
         Assert.False(string.IsNullOrWhiteSpace(agent.Template));
     }
@@ -42,15 +42,18 @@ public class CharacterKindTests
     }
 
     [Theory]
-    [InlineData(DefaultCharacter.UiharuKazari, ECharacterKind.Roleplay)]
-    [InlineData(DefaultCharacter.WorkspaceAgent, ECharacterKind.Agent)]
-    [InlineData(DefaultCharacter.UserCard, ECharacterKind.UserCard)]
-    // ADR 0043 合并之后 Kind 是派生投影,永远不会产出 Tool:存量工具人卡一律投影成普通角色
-    [InlineData(DefaultCharacter.Translator, ECharacterKind.Roleplay)]
-    [InlineData(DefaultCharacter.Assistant, ECharacterKind.Roleplay)]
-    public void BuiltInCharacters_LandOnTheirIntendedKind(DefaultCharacter character, ECharacterKind expected)
+    [InlineData(DefaultCharacter.UiharuKazari, false, false)]
+    [InlineData(DefaultCharacter.WorkspaceAgent, true, false)]
+    [InlineData(DefaultCharacter.UserCard, false, true)]
+    // ADR 0043 合并之后存量的工具人卡一律是普通角色
+    [InlineData(DefaultCharacter.Translator, false, false)]
+    [InlineData(DefaultCharacter.Assistant, false, false)]
+    public void BuiltInCharacters_LandOnTheirIntendedAxis(DefaultCharacter character, bool isAgent, bool isUserCard)
     {
-        Assert.Equal(expected, DefaultCharacterManager.Instance.GetCharacterData(character).Kind);
+        CharacterData data = DefaultCharacterManager.Instance.GetCharacterData(character);
+
+        Assert.Equal(isAgent, data.IsAgent);
+        Assert.Equal(isUserCard, data.IsUserCard);
     }
 
     [Fact]
@@ -64,35 +67,23 @@ public class CharacterKindTests
     }
 
     /// <summary>
-    /// 每个能开会话的档位都必须<b>恰好</b>落进一边：聊天页或智能体页。
+    /// 每个能开会话的角色都必须<b>恰好</b>落进一边：普通对话或智能体。
     ///
     /// 这条是实机踩出来的：装配分支曾写作 <c>== Roleplay</c>、聊天页会话列表曾写作
-    /// <c>GetSessions(Roleplay)</c>——两档时代"非扮演即 agent"成立，四档之后工具人两处都漏：
-    /// 翻译/识图角色被装上文件、shell、技能与整套 harness，它们的会话则在两个页面都不显示。
-    /// 加第五档时这条会立刻炸，而不是等实机发现。
+    /// <c>GetSessions(Roleplay)</c>——工具人两处都漏，会话在两边都不显示。
+    /// 现在身份由两个标记组合，四种组合全部过一遍，将来加第三个标记时这条会立刻炸。
     /// </summary>
-    [Fact]
-    public void EveryKind_LandsOnExactlyOneSurface()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void EveryCharacter_LandsOnExactlyOneSurface(bool isAgent, bool isUserCard)
     {
-        foreach (ECharacterKind kind in Enum.GetValues<ECharacterKind>())
-        {
-            if (!kind.CanStartSession()) continue; //用户卡不开会话
+        CharacterData character = new() { IsAgent = isAgent, IsUserCard = isUserCard };
+        if (!character.CanStartSession()) return; //用户卡不开会话
 
-            Assert.True(kind.IsChat() ^ kind.IsAgent(), $"{kind} 没有归页或同时归了两页");
-        }
-    }
-
-    /// <summary>
-    /// 只有智能体档走 agent 装配。工具人是"一段纯提示词干一件事"，
-    /// 给它挂上工具与工作目录就是白吃一大段 harness 前言，还多出一堆它用不到的工具。
-    /// </summary>
-    [Fact]
-    public void OnlyAgentKind_TakesTheAgentAssembly()
-    {
-        Assert.True(ECharacterKind.Agent.IsAgent());
-        Assert.False(ECharacterKind.Tool.IsAgent());
-        Assert.False(ECharacterKind.Roleplay.IsAgent());
-        Assert.False(ECharacterKind.UserCard.IsAgent());
+        Assert.True(character.IsChat() ^ character.IsAgent, $"IsAgent={isAgent} 没有归类或同时归了两类");
     }
 
     /// <summary>
@@ -109,7 +100,7 @@ public class CharacterKindTests
         string json = SaveUtility.SaveToString(original);
 
         Assert.Contains("\"IsAgent\"", json);
-        Assert.DoesNotContain("\"Kind\"", json); //枚举退出存储，只剩派生视图
+        Assert.DoesNotContain("\"Kind\"", json); //旧字段只读不写
         Assert.True(SaveUtility.LoadFromString<CharacterData>(json).IsAgent);
 
         // 老存档：四档枚举字符串仍要能读进来并落到正确的轴上
@@ -117,6 +108,11 @@ public class CharacterKindTests
         Assert.True(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"UserCard\"}").IsUserCard);
         Assert.False(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"Tool\"}").IsAgent);
         Assert.False(SaveUtility.LoadFromString<CharacterData>("{\"Kind\":\"Roleplay\"}").IsAgent);
+
+        // 意外的形态只当普通角色,不能让整张卡读不进来
+        CharacterData odd = SaveUtility.LoadFromString<CharacterData>("{\"Kind\":2,\"CharacterId\":\"x\"}");
+        Assert.False(odd.IsAgent);
+        Assert.Equal("x", odd.CharacterId);
     }
 
     [Fact]

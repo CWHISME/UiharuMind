@@ -28,7 +28,7 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 public class AgentBuildProfile
 {
     /// <summary>
-    /// 驱动整个装配的角色：<see cref="CharacterData.Kind"/> 决定是否装配工具与工作目录，
+    /// 驱动整个装配的角色：<see cref="CharacterData.IsAgent"/> 决定是否装配工具与工作目录，
     /// Template 与对话模板决定系统提示。
     /// </summary>
     public required CharacterData Character { get; init; }

@@ -95,7 +95,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
             if (CharacterDataDictionary.ContainsKey(defCharacter.Value.CharacterId)) continue;
             // 用户卡与 Empty 哨兵不进角色库:前者是"我是谁"的单例(有专属编辑窗),
             // 后者是"没有角色"的占位。两者都仍能经 GetCharacterData 按内置标识取到。
-            if (defCharacter.Value.Kind == ECharacterKind.UserCard) continue;
+            if (defCharacter.Value.IsUserCard) continue;
             if (defCharacter.Key == DefaultCharacter.Empty) continue;
             CharacterDataDictionary.Add(defCharacter.Value.CharacterId, defCharacter.Value);
         }
@@ -183,7 +183,7 @@ public class CharacterManager : Singleton<CharacterManager>, IInitialize
     public void SaveCharacterData(CharacterData characterData)
     {
         SaveUtility.Save(GetSavePath(characterData), characterData);
-        if (characterData.Kind != ECharacterKind.UserCard)
+        if (!characterData.IsUserCard)
             CharacterDataDictionary.TryAdd(characterData.CharacterId, characterData);
     }
 

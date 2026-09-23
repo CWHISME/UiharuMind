@@ -105,6 +105,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
             SessionManager.Instance.OnSessionRemoved += OnSessionRemoved;
             SessionManager.Instance.OnSessionMetaUpdated += OnSessionMetaUpdated;
             SessionManager.Instance.OnSessionDraftChanged += OnSessionDraftChanged;
+            CharacterManager.Instance.OnCharacterUpdated += OnCharacterUpdated;
         }
 
         SessionManager.Instance.Running.StateChanged += OnRunStateChanged;
@@ -292,6 +293,7 @@ public partial class SessionListModel : ObservableObject, IDisposable
         SessionManager.Instance.OnSessionRemoved -= OnSessionRemoved;
         SessionManager.Instance.OnSessionMetaUpdated -= OnSessionMetaUpdated;
         SessionManager.Instance.OnSessionDraftChanged -= OnSessionDraftChanged;
+        CharacterManager.Instance.OnCharacterUpdated -= OnCharacterUpdated;
         SessionManager.Instance.Running.StateChanged -= OnRunStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnRunStateChanged;
         foreach (SessionListItem item in _all) Detach(item);
@@ -329,8 +331,8 @@ public partial class SessionListModel : ObservableObject, IDisposable
 
     private bool BelongsHere(ChatSessionMeta meta)
     {
-        ECharacterKind kind = SessionManager.KindOf(meta);
-        return _type == EConversationType.Chat ? kind.IsChat() : kind.IsAgent();
+        // 与 SessionManager 的两个出口同一口径:群壳按群类型归,其余按角色身份归
+        return _type == EConversationType.Chat ? SessionManager.IsChatSide(meta) : SessionManager.IsAgentSide(meta);
     }
 
     private int IndexOf(string sessionId)
@@ -376,6 +378,18 @@ public partial class SessionListModel : ObservableObject, IDisposable
     {
         // 每轮落盘都到这里(可能在后台线程),而条目是界面绑定的
         _post(Sync);
+    }
+
+    /// <summary>
+    /// 角色改完落盘。身份翻转会让它名下的会话换侧（归属实时读角色、不存进元数据），
+    /// 而那一刻没有任何会话事件——不重新对帐，就要等下一轮落盘或手动拨切换器才挪过去
+    /// </summary>
+    private void OnCharacterUpdated(CharacterData character)
+    {
+        _post(() =>
+        {
+            if (_all.Any(x => x.Meta.CharacterId == character.CharacterId)) Sync();
+        });
     }
 
     private void OnRunStateChanged(string sessionId) =>

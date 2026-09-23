@@ -31,7 +31,7 @@ public partial class CharacterEditView : UserControl
     }
 
     /// <summary>
-    /// 展开前给子智能体选择器换一份数据：只列智能体档，排除自己（防递归）与已挂的。
+    /// 展开前给子智能体选择器换一份数据：只列智能体，排除自己（防递归）与已挂的。
     /// 选中即追加，面板留着不关。
     /// </summary>
     private void OnSubAgentPickerOpening(object? sender, EventArgs e)
@@ -45,7 +45,7 @@ public partial class CharacterEditView : UserControl
                 data.AddSubAgent(character);
                 picker.Exclude(character.CharacterId);
             },
-            filter: character => character.Kind.IsAgent(),
+            filter: character => character.IsAgent,
             excludedIds: data.SubAgentAndSelfIds);
         SubAgentPicker.DataContext = picker;
     }

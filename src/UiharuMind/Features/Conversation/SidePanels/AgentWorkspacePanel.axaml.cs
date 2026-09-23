@@ -47,8 +47,8 @@ public partial class AgentWorkspacePanel : UserControl
                 flyout?.Hide();
             },
             filter: character => data.CurrentType == EConversationType.Chat
-                ? character.Kind.IsChat()
-                : character.Kind.IsAgent(),
+                ? character.IsChat()
+                : character.IsAgent,
             excludedIds: [conversation.ActiveCharacterId]);
     }
 

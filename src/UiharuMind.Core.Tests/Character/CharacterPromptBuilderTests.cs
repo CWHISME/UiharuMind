@@ -44,7 +44,7 @@ public class CharacterPromptBuilderTests
 
         // 脚手架已内联进 Template(所见即所得)，用户卡是开关(单例、活引用)。
         // 运行期挂载机制已整体退役：跨角色引用只剩用户卡这一处
-        Assert.Equal(ECharacterKind.Roleplay, uiharu.Kind);
+        Assert.True(uiharu.IsChat());
         Assert.True(uiharu.InjectUserCard);
 
         string prompt = CharacterPromptBuilder.Build(uiharu);

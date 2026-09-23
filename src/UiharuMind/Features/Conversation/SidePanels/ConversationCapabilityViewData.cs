@@ -99,7 +99,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <b>初值为真</b>：切会话是换一个视图模型实例，这一份是新造的，而算出内容要等一次
     /// 后台预演。初值为假的话，每切一次会话整块都会先消失、几百毫秒后再出现——
     /// 那是最扎眼的一种闪。而它<b>几乎不会真为假</b>：这块只出现在智能体页，
-    /// 智能体档必然带着角色提示与工具。真为空时（能力全关且无技能）刷新后自然收起
+    /// 智能体必然带着角色提示与工具。真为空时（能力全关且无技能）刷新后自然收起
     /// </summary>
     [ObservableProperty] private bool _hasStats = true;
 
@@ -176,12 +176,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         }
 
         // 预告区要读工作区里的 .mcp.json,同样不在 UI 线程上做
-        List<McpPlannedServer> planned = character != null && character.Kind.IsAgent()
+        List<McpPlannedServer> planned = character != null && character.IsAgent
             ? await Task.Run(() => McpManager.Instance.GetPlannedServers(
                 workspacePath, character.Tools.DisabledMcpServers))
             : new List<McpPlannedServer>();
 
-        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && character.Kind.IsAgent()
+        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && character.IsAgent
             ? await SkillCatalog.Instance.GetInvocableEntriesAsync(character.Tools.DisabledSkills)
             : [];
 
@@ -247,7 +247,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// 若在装配后消失，用户就再也看不见「有东西因为没授权而没挂上」。</item>
     /// </list>
     /// </summary>
-    /// <param name="planned">已在后台取好的预告名单（非智能体档为空）</param>
+    /// <param name="planned">已在后台取好的预告名单（普通角色为空）</param>
     /// <param name="mounted">实况区已有的分组数；0 表示还没装配过</param>
     private void RefreshMcpPlanned(List<McpPlannedServer> planned, int mounted)
     {

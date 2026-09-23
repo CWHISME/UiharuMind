@@ -97,7 +97,7 @@ public static class ChatMessageAnnotations
 
     /// <summary>
     /// 派活方插话标记。带此键的 user 消息是<b>派活方（主代理）</b>在子代理运行中经
-    /// <c>ContinueAgent</c> 实时插的话，不是用户在子会话窗口说的话——子代理提示词明确区分这两者。
+    /// <c>SendMessage</c>（写子会话编号）实时插的话，不是用户在子会话窗口说的话——子代理提示词明确区分这两者。
     ///
     /// 它不落在上面任何一轴：消息<b>要落盘、要供给模型</b>（它是子会话历史的一部分），
     /// 只是来源需要被认出来——报告归因据此把「用户插话」与「派活方插话」分开交代。
@@ -118,6 +118,18 @@ public static class ChatMessageAnnotations
     /// 思考字数标记：值为字符数，与 <see cref="ThinkingDurationMs"/> 成对出现。
     /// </summary>
     public const string ThinkingChars = "_thinkingChars";
+
+    /// <summary>
+    /// 群发言的发言人：值为角色标识。只出现在群流水里的 assistant 消息上——
+    /// 群壳挂的是占位的空角色，不标的话整段群流水都画成同一个人的头像（ADR 0046）。
+    /// </summary>
+    public const string GroupSpeaker = "_groupSpeaker";
+
+    /// <summary>
+    /// 群发言出自哪个成员会话：值为会话标识，与 <see cref="GroupSpeaker"/> 成对出现。
+    /// 投递时据此跳过发言人自己的话——那条本来就在他自己的会话里。
+    /// </summary>
+    public const string GroupSpeakerSession = "_groupSpeakerSession";
 
     /// <summary>
     /// 摘掉框架盖上的 <see cref="Attribution"/> 溯源标记。
@@ -177,6 +189,36 @@ public static class ChatMessageAnnotations
     {
         message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         message.AdditionalProperties[ParentInterjection] = true;
+    }
+
+    /// <summary>
+    /// 给一条群发言盖上发言人。就地写：调用方随后把同一引用追加进群流水。
+    /// </summary>
+    /// <param name="message">群发言</param>
+    /// <param name="characterId">发言人的角色标识</param>
+    /// <param name="memberSessionId">发言人的成员会话标识</param>
+    public static void MarkGroupPost(ChatMessage message, string characterId, string memberSessionId)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GroupSpeaker] = characterId;
+        message.AdditionalProperties[GroupSpeakerSession] = memberSessionId;
+    }
+
+    /// <summary>读群发言的发言人角色标识。落盘往返后值是 <c>JsonElement</c>，一律经 <c>ToString</c></summary>
+    /// <param name="message">消息</param>
+    /// <returns>角色标识；不是群发言为 null</returns>
+    public static string? GroupSpeakerOf(ChatMessage message) => ReadString(message, GroupSpeaker);
+
+    /// <summary>读群发言出自哪个成员会话</summary>
+    /// <param name="message">消息</param>
+    /// <returns>成员会话标识；不是成员的群发言（含用户发言）为 null</returns>
+    public static string? GroupSpeakerSessionOf(ChatMessage message) => ReadString(message, GroupSpeakerSession);
+
+    private static string? ReadString(ChatMessage message, string key)
+    {
+        if (message.AdditionalProperties?.TryGetValue(key, out object? raw) != true) return null;
+        string? value = raw?.ToString();
+        return string.IsNullOrEmpty(value) ? null : value;
     }
 
     /// <summary>

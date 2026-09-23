@@ -38,19 +38,14 @@ public partial class CharacterDraft : ObservableObject
     private CharacterData? _origin; //null 表示这是个还没入库的新角色
     private string _baseline; //建草稿那一刻的序列化快照，脏检查用
     private AgentToolViewData? _agentTools;
-
-    /// <summary>
-    /// 角色档位的派生视图，只读。徽章与配色从它来（见 <see cref="KindName"/>）。
-    /// 要改身份请改 <see cref="IsAgent"/>——那才是轴本体。
-    /// </summary>
-    public ECharacterKind Kind => _draft.Kind;
+    private readonly int _sessionCount; //名下会话数(含子会话)，建草稿时取一次
 
     /// <summary>
     /// 装不装 agent 那一套：工具、工作目录、权限档，以及代码注入的工作循环与工具纪律段。
     ///
     /// <b>这是角色身份的唯一轴</b>（ADR 0043）。新建角色一律是普通角色，
-    /// 要让它干活就在这里打开——「装配了工具就是 agent」在界面上就长这样，
-    /// 而不是建角色时先从一张档位清单里挑一个。
+    /// 要让它干活就在这里打开——界面上它是「启用智能体能力」这个总开关，
+    /// 而不是建角色时先从一张档位清单里挑一个。翻回普通角色受 <see cref="IsAgentLocked"/> 限制。
     /// </summary>
     public bool IsAgent
     {
@@ -70,26 +65,35 @@ public partial class CharacterDraft : ObservableObject
             }
 
             OnPropertyChanged();
-            OnPropertyChanged(nameof(IsRoleplay));
-            OnPropertyChanged(nameof(Kind));
+            OnPropertyChanged(nameof(IsChat));
             OnPropertyChanged(nameof(KindName));
             OnPropertyChanged(nameof(KindColor));
         }
     }
 
     /// <summary>
-    /// 是否为<b>普通角色</b>（带开场白与用户卡开关的那一类）。
-    /// 扮演与工具人已合并，所以判据是「不是 agent」而不是与某一档相等（ADR 0043）。
+    /// 智能体能不能翻回普通角色：<b>已存为智能体且名下有会话（含子会话）时不能</b>（ADR 0043「已定」）。
+    /// 会话不存类型、归属实时读角色，翻回去会把名下老会话一起带走，而那些历史里的工具调用
+    /// 会在不挂工具定义的请求里原样发出。反方向不锁：老会话只是落共享 Scratch，不是新坑。
+    /// 判据看入库的那份而不是草稿——没保存的翻转随时能翻回去。
     /// </summary>
-    public bool IsRoleplay => !_draft.IsAgent;
+    public bool IsAgentLocked => _origin is { IsAgent: true } && _sessionCount > 0;
 
-    /// <summary>档位显示名(顶栏徽章)</summary>
-    public string KindName => CharacterKindPresentation.NameOf(Kind);
+    /// <summary>锁住时留在开关下方的原因</summary>
+    public string AgentLockedTip => Loc.Text(LangKey.CharacterAgentLockedTip, _sessionCount);
 
-    /// <summary>档位徽章底色</summary>
-    public IImmutableSolidColorBrush KindColor => CharacterKindPresentation.ColorOf(Kind);
+    /// <summary>
+    /// 是否为<b>普通角色</b>（带开场白与用户卡开关的那一类）。用户卡有专属编辑窗、不走这张表单
+    /// </summary>
+    public bool IsChat => !_draft.IsAgent;
 
-    /// <summary>内置角色不许改档位</summary>
+    /// <summary>类别显示名(顶栏徽章)</summary>
+    public string KindName => CharacterKindPresentation.NameOf(_draft);
+
+    /// <summary>类别徽章底色</summary>
+    public IImmutableSolidColorBrush KindColor => CharacterKindPresentation.ColorOf(_draft);
+
+    /// <summary>内置角色不许改身份</summary>
     public bool IsDefault => _draft.IsDefaultCharacter;
 
     /// <summary>是否为尚未入库的新角色（顶栏据此把「保存」写成「创建」）</summary>
@@ -119,7 +123,7 @@ public partial class CharacterDraft : ObservableObject
     }
 
     /// <summary>
-    /// 智能体的能力面板(工具开关 + 技能勾选)。惰性建:非智能体档的编辑页不显示这块,
+    /// 智能体的能力面板(工具开关 + 技能勾选)。惰性建:普通角色的编辑页不显示这块,
     /// 建它要读盘解析技能包。它直写<b>草稿</b>身上那份能力配置,因此同样受取消保护
     /// </summary>
     public AgentToolViewData AgentTools =>
@@ -215,6 +219,7 @@ public partial class CharacterDraft : ObservableObject
         _origin = origin;
         _draft = draft;
         _baseline = Snapshot();
+        _sessionCount = origin == null ? 0 : SessionManager.Instance.CountSessionsOf(origin.CharacterId);
 
         SubAgents = new ObservableCollection<MountedAgentItem>(
             _draft.MountAgents.Select(MountedAgentItem.FromId));
@@ -235,7 +240,7 @@ public partial class CharacterDraft : ObservableObject
     /// <summary>
     /// 为一个还没入库的新角色开一份草稿
     /// </summary>
-    /// <param name="seed">已定好档位（必要时预填提示词）的空角色</param>
+    /// <param name="seed">空角色（新建一律是普通角色）</param>
     /// <returns>草稿</returns>
     public static CharacterDraft ForNew(CharacterData seed) =>
         new(null, seed, App.Services.GetRequiredService<IMessageService>());
@@ -269,6 +274,7 @@ public partial class CharacterDraft : ObservableObject
 
         _baseline = Snapshot(); //刚提交完,草稿即干净
         OnPropertyChanged(nameof(IsNew));
+        OnPropertyChanged(nameof(IsAgentLocked)); //入库的那份变了,锁跟着它走
         return true;
     }
 
@@ -290,11 +296,11 @@ public partial class CharacterDraft : ObservableObject
     /// <summary>
     /// 把一个智能体挂进可委派名单
     /// </summary>
-    /// <param name="character">要挂的角色;自己、非智能体档、已挂的一律忽略</param>
+    /// <param name="character">要挂的角色;自己、非智能体、已挂的一律忽略</param>
     public void AddSubAgent(CharacterData character)
     {
         if (character.CharacterId == _draft.CharacterId) return; //防递归
-        if (!character.Kind.IsAgent()) return;
+        if (!character.IsAgent) return;
         if (SubAgents.Any(x => x.Id == character.CharacterId)) return;
 
         SubAgents.Add(MountedAgentItem.FromId(character.CharacterId));

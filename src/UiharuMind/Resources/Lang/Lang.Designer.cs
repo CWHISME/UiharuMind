@@ -597,6 +597,24 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
+        public static string CharacterAgentCapabilityTitle {
+            get {
+                return ResourceManager.GetString("CharacterAgentCapabilityTitle", resourceCulture);
+            }
+        }
+        
+        public static string CharacterEnableAgent {
+            get {
+                return ResourceManager.GetString("CharacterEnableAgent", resourceCulture);
+            }
+        }
+        
+        public static string CharacterAgentLockedTip {
+            get {
+                return ResourceManager.GetString("CharacterAgentLockedTip", resourceCulture);
+            }
+        }
+        
         public static string CharacterPickerSearch {
             get {
                 return ResourceManager.GetString("CharacterPickerSearch", resourceCulture);
@@ -894,18 +912,6 @@ namespace UiharuMind.Resources.Lang {
         public static string AgentSettingGeneralSubAgentModelDesc {
             get {
                 return ResourceManager.GetString("AgentSettingGeneralSubAgentModelDesc", resourceCulture);
-            }
-        }
-        
-        public static string AgentSettingExplorerSubAgentModel {
-            get {
-                return ResourceManager.GetString("AgentSettingExplorerSubAgentModel", resourceCulture);
-            }
-        }
-        
-        public static string AgentSettingExplorerSubAgentModelDesc {
-            get {
-                return ResourceManager.GetString("AgentSettingExplorerSubAgentModelDesc", resourceCulture);
             }
         }
         
@@ -1963,12 +1969,6 @@ namespace UiharuMind.Resources.Lang {
         public static string SystemPrompt {
             get {
                 return ResourceManager.GetString("SystemPrompt", resourceCulture);
-            }
-        }
-        
-        public static string CharacterFuncType {
-            get {
-                return ResourceManager.GetString("CharacterFuncType", resourceCulture);
             }
         }
         
@@ -5758,15 +5758,9 @@ namespace UiharuMind.Resources.Lang {
             }
         }
         
-        public static string CharacterKindRoleplay {
+        public static string CharacterKindChat {
             get {
-                return ResourceManager.GetString("CharacterKindRoleplay", resourceCulture);
-            }
-        }
-        
-        public static string CharacterKindTool {
-            get {
-                return ResourceManager.GetString("CharacterKindTool", resourceCulture);
+                return ResourceManager.GetString("CharacterKindChat", resourceCulture);
             }
         }
         
