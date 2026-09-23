@@ -170,6 +170,9 @@ public static class AppPaths
         /// <summary>WebFetch 截断时落盘的网页全文:可再生(重新抓一次即可)、用户可随手删</summary>
         public static readonly string FetchedPages = Path.Combine(Root, "FetchedPages");
 
+        /// <summary>WebFetch 遇到非文本内容时下载的文件:可再生(重新下载即可)、用户可随手删</summary>
+        public static readonly string Downloads = Path.Combine(Root, "Downloads");
+
         /// <summary>
         /// Write 工具覆盖已有文件前的自动备份:按源文件分桶,只留最近若干份。
         /// 归 Cache 而非 Data:它是防手滑的安全网、可随手删,不是用户资产;

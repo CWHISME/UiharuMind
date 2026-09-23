@@ -24,13 +24,17 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
                 <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
-                              IsChecked="{Binding Character.Config.ExecutionSettings.OmitSamplingParams}" />
+                              IsChecked="{Binding Draft.OmitSamplingParams}" />
             </Grid>
             <settingViews:SettingPanelView Padding="10,0"
                                            IsVerticleTitle="True"
                                            IsTitleVisible="False"
-                                           SettingConfig="{Binding Character.Config.ExecutionSettings}"
-                                           IsEnabled="{Binding !Character.Config.ExecutionSettings.OmitSamplingParams}" />
+                                           SettingConfig="{Binding Draft}"
+                                           IsEnabled="{Binding !Draft.OmitSamplingParams}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="10,8,10,10">
+                <Button Content="{loc:Loc CancelBtn}" Command="{Binding CancelCommand}" />
+                <Button Content="{loc:Loc SaveBtn}" Command="{Binding SaveCommand}" />
+            </StackPanel>
         </StackPanel>
     </Border>
 

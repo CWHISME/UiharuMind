@@ -18,9 +18,28 @@ namespace UiharuMind.Core.AI.Execution;
 /// </summary>
 internal static class WorkspaceInstructionsLoader
 {
-    private const int MaxChars = 16_000; //说明文件也占系统提示预算,超长截断
+    private const int MaxChars = 500; //说明文件也占系统提示预算,超长截断
 
     private static readonly string[] FileNames = ["AGENTS.md", "CLAUDE.md"];
+
+    /// <summary>
+    /// 解析工作区根目录下实际存在的说明文件名（AGENTS.md 优先于 CLAUDE.md）。
+    /// 只做存在性判断、不读内容——指针段点名用，比 <see cref="Load"/> 便宜，
+    /// 发消息路径（每轮重拼提示词）上可放心调。
+    /// </summary>
+    /// <param name="workspacePath">工作区根目录;空表示未绑定</param>
+    /// <returns>存在的说明文件名;无则空串</returns>
+    public static string ResolveFileName(string? workspacePath)
+    {
+        if (string.IsNullOrEmpty(workspacePath)) return string.Empty;
+
+        foreach (string name in FileNames)
+        {
+            if (File.Exists(Path.Combine(workspacePath, name))) return name;
+        }
+
+        return string.Empty;
+    }
 
     /// <summary>
     /// 加载工作区说明。按优先级取第一个存在的文件,超长截断。
@@ -31,28 +50,24 @@ internal static class WorkspaceInstructionsLoader
     {
         if (string.IsNullOrEmpty(workspacePath)) return string.Empty;
 
-        foreach (string name in FileNames)
+        string fileName = ResolveFileName(workspacePath);
+        if (fileName.Length == 0) return string.Empty;
+
+        string path = Path.Combine(workspacePath, fileName);
+        try
         {
-            string path = Path.Combine(workspacePath, name);
-            if (!File.Exists(path)) continue;
-
-            try
+            string text = File.ReadAllText(path).Trim();
+            if (text.Length > MaxChars)
             {
-                string text = File.ReadAllText(path).Trim();
-                if (text.Length > MaxChars)
-                {
-                    text = $"{text[..MaxChars]}\n…[workspace instructions truncated]";
-                }
+                text = $"{text[..MaxChars]}\n…[workspace instructions truncated]";
+            }
 
-                return text;
-            }
-            catch (Exception e)
-            {
-                Log.Warning($"Read workspace instructions '{path}' failed: {e.Message}");
-                return string.Empty;
-            }
+            return text;
         }
-
-        return string.Empty;
+        catch (Exception e)
+        {
+            Log.Warning($"Read workspace instructions '{path}' failed: {e.Message}");
+            return string.Empty;
+        }
     }
 }

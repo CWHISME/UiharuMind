@@ -21,6 +21,12 @@ internal static class WebShared
         Timeout = TimeSpan.FromSeconds(15)
     };
 
+    /// <summary>文件下载用的 HttpClient:全局 15s 对慢速大文件不够,单独放宽超时,其余设置一致</summary>
+    internal static readonly HttpClient DownloadHttp = new(Handler)
+    {
+        Timeout = TimeSpan.FromMinutes(30)
+    };
+
     /// <summary>
     /// 所有对搜索引擎/目标网页的请求，统一从这里起手
     /// </summary>

@@ -492,7 +492,8 @@ internal static class SubAgentAssembly
         list.Raw(canMutate && mcpInstructions.Length > 0,
             AgentInstructionsComposer.McpSection(mcpInstructions));
         list.Raw(workspaceInstructions.Length > 0,
-            AgentInstructionsComposer.WorkspacePointerSection());
+            AgentInstructionsComposer.WorkspacePointerSection(
+                WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)));
 
         return list.ToString();
     }

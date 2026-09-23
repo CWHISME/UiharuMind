@@ -9,6 +9,7 @@
 
 using System.Text;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Prompts;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -23,15 +24,16 @@ internal static class AgentInstructionsComposer
 
     /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
-    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩。
+    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩 → 人格 coda(末尾回锚)。
     ///
     /// <b>基座在人格之前</b>（文档 §7 组装顺序）：基座是「怎么当一个人」的底线，人格是这个人本身。
     /// 人格仍紧跟在基座之后——小模型要先知道自己是谁，再读一大段英文工具纪律。
-    /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段之前，
+    /// 这个顺序拿不到手过：框架只会把 <c>HarnessInstructions</c> 拼在角色段<b>之前</b>，
     /// 所以那一层弃用，整段自己拼(见 ADR 0005)。
     ///
     /// MCP 自述紧跟工具纪律：它讲的正是"这批工具怎么用"，与上一段是同一件事的延续；
     /// 而工作区规矩讲的是"这个项目怎么干活"，属于另一个层次，排在最后。
+    /// 人格 coda 钉在更后：它是整段最后一个声音，吃结尾权重（静态版重锚，见提案 v8 §7.4）。
     /// </summary>
     /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
     /// <param name="config">智能体的能力配置(角色自带)</param>
@@ -46,6 +48,8 @@ internal static class AgentInstructionsComposer
     /// 空串则整段不写；非空时正文里也不印它，环境已由 PATH 前置激活</param>
     /// <param name="outputRoomDirectory">草稿目录绝对路径(会话自己的产出房间)；空串则不写该段</param>
     /// <param name="memoryDirectory">记忆目录绝对路径(ADR 0028)；空串则不写该段</param>
+    /// <param name="delegationRoster">可委派名单正文；空串则不写那一节</param>
+    /// <param name="personaCoda">人格 coda（<c>CharacterData.GetPersonaCoda</c> 的产物）；空串则不写该段</param>
     /// <param name="segments">
     /// 各段的分段清单，<b>拼接现场登记</b>。能力面板要按段报占用，而事后对整串按标题反切，
     /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
@@ -55,7 +59,7 @@ internal static class AgentInstructionsComposer
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory, string delegationRoster,
-        out IReadOnlyList<AgentPromptSegment> segments)
+        string personaCoda, out IReadOnlyList<AgentPromptSegment> segments)
     {
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
@@ -71,8 +75,17 @@ internal static class AgentInstructionsComposer
 
         if (workspaceInstructions.Length > 0)
         {
-            AppendSection(sb, WorkspacePointerSection(), EPromptSection.Workspace, registry);
+            // 指针点名装配时实际存在的那个文件：装配方早知道是 AGENTS.md 还是 CLAUDE.md，
+            // 含糊着写会逼模型先 Glob 消歧（还可能扫出嵌套目录里的同名说明文件）。
+            // 工作目录段已给绝对路径，这里只需点名文件名，模型零搜索直接 Read。
+            AppendSection(sb,
+                WorkspacePointerSection(WorkspaceInstructionsLoader.ResolveFileName(workingDirectory)),
+                EPromptSection.Workspace, registry);
         }
+
+        // coda 登记在角色段名下：它就是人格的压缩，能力面板的「角色提示」档理应含它；
+        // 单独开段别要改枚举、文案映射与汇总口径，一句锚点不值这个价
+        AppendSection(sb, personaCoda, EPromptSection.Character, registry);
 
         segments = registry;
         return sb.ToString();
@@ -108,9 +121,9 @@ internal static class AgentInstructionsComposer
     /// </summary>
     /// <param name="workspaceInstructions">工作区说明文件内容</param>
     /// <returns>整段文本</returns>
-    internal static string WorkspaceSection(string workspaceInstructions)
+    internal static string WorkspaceSection(string workspaceInstructions, string fileName = "")
     {
-        return $"{AgentPromptHeadings.Workspace}\n{TruncateWorkspaceInstructions(workspaceInstructions)}";
+        return $"{AgentPromptHeadings.Workspace}\n{TruncateWorkspaceInstructions(workspaceInstructions, fileName)}";
     }
 
     /// <summary>
@@ -122,12 +135,15 @@ internal static class AgentInstructionsComposer
     /// <c>SubAgentAssembly</c> 注释——若实测出现"没读就编"的 case，整个装配点切回
     /// <see cref="WorkspaceSection"/> 截断版即可，无第二处要动）。
     /// </summary>
+    /// <param name="fileName">实际存在的说明文件名（Loader 解析的结果）；空串时退回含糊的「(或 CLAUDE.md)」</param>
     /// <returns>标题 + 指路指针，不含正文</returns>
-    internal static string WorkspacePointerSection()
+    internal static string WorkspacePointerSection(string fileName = "")
     {
-        return $"{AgentPromptHeadings.Workspace}\n"
-               + "本会话的工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。\n"
-               + "动手前先读一遍全文；之后每次提交代码、或拿不准某条规范时，重读相关部分再动手。";
+        string pointer = string.IsNullOrEmpty(fileName)
+            ? "本会话的工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
+            : $"直接使用 Read 工具传入 {fileName} 参数读取项目的协作规矩与禁区。";
+        return $"{AgentPromptHeadings.Workspace}\n{pointer}\n"
+               + "动手前先读一遍全文。";
     }
 
     /// <summary>
@@ -142,19 +158,21 @@ internal static class AgentInstructionsComposer
 
     /// <summary>
     /// 工作区说明截断（纯函数，可单测）。短文本原样返回；超限按行截断并缀指路指针。
-    /// 指路不写绝对路径：工作目录段里已有绝对路径，模型按"工作目录下的 AGENTS.md"能找到。
+    /// 指路不写绝对路径：工作目录段里已有绝对路径，模型按"工作目录下的 {fileName}"能找到。
     /// </summary>
     /// <param name="workspaceInstructions">工作区说明文件全文</param>
+    /// <param name="fileName">实际存在的说明文件名；空串时用含糊的「AGENTS.md（或 CLAUDE.md）」</param>
     /// <returns>原文或"前半 + 指针"</returns>
-    internal static string TruncateWorkspaceInstructions(string workspaceInstructions)
+    internal static string TruncateWorkspaceInstructions(string workspaceInstructions, string fileName = "")
     {
         if (workspaceInstructions.Length <= MaxWorkspaceInstructionsChars) return workspaceInstructions;
         int cut = workspaceInstructions.LastIndexOf('\n', MaxWorkspaceInstructionsChars);
         string head = (cut > 0 ? workspaceInstructions[..cut] : workspaceInstructions[..MaxWorkspaceInstructionsChars])
             .TrimEnd();
+        string name = string.IsNullOrEmpty(fileName) ? "AGENTS.md（或 CLAUDE.md）" : fileName;
         return head
                + $"\n\n（工作区说明全文约 {workspaceInstructions.Length} 字，以上只取前 {head.Length} 字。"
-               + "提交代码、改动规范相关事项前，先读工作目录下 AGENTS.md（或 CLAUDE.md）全文。）";
+               + $"提交代码、改动规范相关事项前，先读工作目录下 {name} 全文。）";
     }
 
     private static void AppendSection(StringBuilder sb, string? section, EPromptSection kind,

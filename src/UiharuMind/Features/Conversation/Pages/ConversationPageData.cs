@@ -266,7 +266,6 @@ public partial class ConversationPageData : ConversationPageDataBase
         {
             case nameof(ConversationViewModel.IsGenerating):
                 // 详情栏讲的是「你正在看的这个会话」：后台会话的起止不该扰动它
-                if (ReferenceEquals(sender, Conversation) && Conversation.IsGenerating) ChatInfo.NotifyChatBegin();
                 // 首轮发送建会话后 CurrentMeta 才就位（CurrentMeta 自身不广播通知），
                 // 空态判定要在此刻刷新，右栏才从新建卡切到「正在聊」
                 if (ReferenceEquals(sender, Conversation)) RefreshRightPaneState();
@@ -287,7 +286,6 @@ public partial class ConversationPageData : ConversationPageDataBase
         SwitchConversation(item?.Meta);
         ChatInfo.SetSession(item);
         SubAgents.Refresh(); //换会话就换一套子代理索引
-        if (Conversation.IsGenerating) ChatInfo.NotifyChatBegin(); // 切到后台跑着的会话时它就是“进行中”
         RefreshRightPaneState();
     }
 

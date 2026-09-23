@@ -170,6 +170,29 @@ public class CharacterData
     public string FirstGreeting { get; set; } = "";
 
     /// <summary>
+    /// 人格 coda：系统提示末尾的一句身份回锚（静态版重锚，见提案 v8 §7.4）。
+    ///
+    /// 人格在提示词开头，工具结果越堆越长时会被淹没（实机见过 43k tokens 的轮次）；
+    /// 模型对开头和结尾最敏感，结尾钉一句身份即吃到 recency 权重。
+    /// 它是静态前缀的一部分，不打碎前缀缓存——这是它相对动态重锚的唯一优势，
+    /// 动态版（每轮贴）仍是治历史漂移的正解，见提案。
+    ///
+    /// <b>全自动，不用填字段</b>：沿用卡片已有的名与描述（描述本就是定位语）。
+    /// 手写锚点确实更准，但那要求每个卡多维护一份、编辑页多一个框；
+    /// 先让所有卡零成本吃到，有人要手调时再加显式字段做 fallback 链。
+    ///
+    /// 措辞用第二人称（<c>你是…</c>）：系统提示全篇都是对模型说话的"你"，
+    /// 结尾换第三人称标签等于换了个声音；"你是"才是训练里标准的角色指派句式。
+    /// </summary>
+    /// <returns>回锚句；无名则为空串（不发）</returns>
+    public string GetPersonaCoda()
+    {
+        if (string.IsNullOrWhiteSpace(CharacterName)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(Description)) return $"你是{CharacterName}。";
+        return $"你是{CharacterName}，{Description}";
+    }
+
+    /// <summary>
     /// 尝试将指定内容的占位内容替换为实际内容
     /// {{$char}} 代表角色名
     /// {{$user}} 代表用户名

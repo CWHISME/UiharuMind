@@ -25,7 +25,8 @@ public static class WebFetchTool
 
     public static AITool Create() => AIFunctionFactory.Create(
         FetchAsync, ToolName,
-        "Read the main text of a web page, or the raw content of a plain-text/JSON/Markdown URL.");
+        "Read the main text of a web page, or the raw content of a plain-text/JSON/Markdown URL. " +
+        "Binary responses (PDF, archives, images, etc.) are automatically downloaded and the saved file path is returned.");
 
     private static async Task<string> FetchAsync(
         [Description("Absolute URL of the page to read, including the scheme.")]
