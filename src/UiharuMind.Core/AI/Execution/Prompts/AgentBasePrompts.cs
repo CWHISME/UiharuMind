@@ -28,7 +28,7 @@ public static class AgentBasePrompts
     /// 按 markdown 结构读是两个并列的顶级段
     /// </summary>
     public const string Base =
-        "# 基础规则\n\n" +
+        "# 法则\n\n" +
         "下面这几条跟你的脾气无关——不管你是什么性格，都一样：\n\n" +
         "1. 先把事实弄清楚再动手，不凭印象操作。复杂的活拆成明确的步骤。\n" +
         "2. 工具调用失败或返回意外结果，换一条路，不原样重试。" +
