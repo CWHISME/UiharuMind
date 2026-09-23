@@ -26,7 +26,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core;
 using SharpHook.Data;
 using UiharuMind.Core.Input;
-using UiharuMind.Resources.Lang;
+using UiharuMind.Generated;
 
 using UiharuMind.Shared.WindowManagement;
 namespace UiharuMind.Features.ScreenCapture;
@@ -478,9 +478,9 @@ public partial class ScreenCaptureWindow : UiharuWindowBase
     }
 
     private static string DrawingHint =>
-        string.Format(Lang.ScreenCaptureHintAdjustEnter, UiharuCoreManager.Instance.IsMacOs ? "⌘" : "Ctrl");
+        Loc.Text(LangKey.ScreenCaptureHintAdjustEnter, UiharuCoreManager.Instance.IsMacOs ? "⌘" : "Ctrl");
 
-    private static string AdjustModeHint => Lang.ScreenCaptureHintAdjustMode;
+    private static string AdjustModeHint => Loc.Text(LangKey.ScreenCaptureHintAdjustMode);
 
     #endregion
 

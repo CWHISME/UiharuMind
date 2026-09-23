@@ -62,30 +62,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <EmbeddedResource Update="Assets\Lang\zh-CN.resx">
-	    <Generator>ResXFileCodeGenerator</Generator>
-	    <LastGenOutput>zh-CN.Designer.cs</LastGenOutput>
-	  </EmbeddedResource>
-	  <EmbeddedResource Update="Assets\Lang\Lang.resx">
-	    <Generator>ResXFileCodeGenerator</Generator>
-	    <LastGenOutput>Lang.Designer.cs</LastGenOutput>
-	  </EmbeddedResource>
-	  <EmbeddedResource Update="Resources\Lang\Lang.resx">
-	    <Generator>PublicResXFileCodeGenerator</Generator>
-	    <LastGenOutput>Lang.Designer.cs</LastGenOutput>
-	  </EmbeddedResource>
+	  <EmbeddedResource Update="Resources\Lang\Lang.resx" />
 	  <EmbeddedResource Update="Resources\Lang\Lang.zh-hans.resx">
 	    <DependentUpon>Lang.resx</DependentUpon>
 	  </EmbeddedResource>
 	  <None Remove="Resources\Characters\GenerateStory.yaml" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Compile Update="Assets\Lang\zh-CN.Designer.cs">
-	    <DesignTime>True</DesignTime>
-	    <AutoGen>True</AutoGen>
-	    <DependentUpon>zh-CN.resx</DependentUpon>
-	  </Compile>
 	</ItemGroup>
 
 	<ItemGroup>

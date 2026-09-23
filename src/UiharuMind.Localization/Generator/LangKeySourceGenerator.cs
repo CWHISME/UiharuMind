@@ -35,11 +35,6 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
         @"\{[A-Za-z_][A-Za-z0-9_]*:Loc\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:,|\})",
         RegexOptions.CultureInvariant);
 
-    // C# Designer 属性引用（过渡期 Lang.X；ResourceManager/Culture 是运行时内部成员，排除）
-    private static readonly Regex DesignerPropertyPattern = new(
-        @"\bLang\.(?!ResourceManager\b|Culture\b)([A-Z][A-Za-z0-9_]*)\b",
-        RegexOptions.CultureInvariant);
-
     // C# 强类型引用: LangKey.Member
     private static readonly Regex EnumUsagePattern = new(
         @"\bLangKey\.\s*([A-Za-z_][A-Za-z0-9_]*)\b",
@@ -267,20 +262,14 @@ public sealed class LangKeySourceGenerator : IIncrementalGenerator
         foreach (var tree in compilation.SyntaxTrees)
         {
             var path = tree.FilePath;
-            // 排除生成文件自身（枚举声明）与 Lang.Designer.cs（声明文件，非消费点）
-            if (path.EndsWith(GeneratedFileMarker, StringComparison.OrdinalIgnoreCase)
-                || path.EndsWith("Lang.Designer.cs", StringComparison.OrdinalIgnoreCase))
+            // 排除生成文件自身（枚举声明，非消费点）
+            if (path.EndsWith(GeneratedFileMarker, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
             var text = tree.GetText().ToString();
             foreach (Match match in EnumUsagePattern.Matches(text))
-            {
-                usedKeys.Add(match.Groups[1].Value);
-            }
-
-            foreach (Match match in DesignerPropertyPattern.Matches(text))
             {
                 usedKeys.Add(match.Groups[1].Value);
             }
