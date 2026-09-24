@@ -36,7 +36,7 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     /// 用于加载点名技能正文里引用的被动技能(见 LoadSkillTool)——给本地小窗口模型
     /// 腾固定开销用的。「没有全局总闸」是 ADR 0003 的决策,本条是它的唯一例外,理由见类注释。
     /// </summary>
-    public bool ModelSkillsEnabled { get; set; } = true;
+    public bool ModelSkillsEnabled { get; set; }
 
     /// <summary>
     /// 最近用过的工作目录(最新在前)。切换工作区是高频操作，每次都重新翻文件选择器太笨。
