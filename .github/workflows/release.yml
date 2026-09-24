@@ -15,7 +15,10 @@ jobs:
     outputs:
       version: ${{ steps.resolve.outputs.version }}
     steps:
+      # ClassicDiagnostics.Avalonia 是 submodule（见 .gitmodules），checkout 要一并拉下来
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -66,7 +69,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
+      # ClassicDiagnostics.Avalonia 是 submodule（见 .gitmodules），checkout 要一并拉下来
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: actions/setup-dotnet@v4
         with:

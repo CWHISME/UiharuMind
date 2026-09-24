@@ -20,7 +20,10 @@ jobs:
         working-directory: src
 
     steps:
+      # ClassicDiagnostics.Avalonia 是 submodule（见 .gitmodules），checkout 要一并拉下来
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       # 仓库 global.json 只选了 MTP 测试 runner（test.runner），没钉 SDK 版本
       - uses: actions/setup-dotnet@v4
