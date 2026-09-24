@@ -26,7 +26,7 @@
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                 <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
                                         ClipToBounds="True" VerticalAlignment="Top">
-                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
                                 </Border>
                                 <StackPanel Grid.Column="1">
                                     <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"

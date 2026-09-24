@@ -43,7 +43,7 @@
                     <Border Width="96" Height="132" CornerRadius="8" ClipToBounds="True"
                             BorderBrush="{DynamicResource SemiGrey2}"
                             BorderThickness="1">
-                        <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
                     </Border>
 
                     <StackPanel Grid.Column="1" Spacing="8">

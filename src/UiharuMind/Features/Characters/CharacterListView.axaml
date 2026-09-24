@@ -88,7 +88,8 @@
                             <Ellipse Width="32" Height="32"
                                      VerticalAlignment="Center"
                                      Stroke="{DynamicResource SemiGrey2}"
-                                     StrokeThickness="1">
+                                     StrokeThickness="1"
+                                     RenderOptions.BitmapInterpolationMode="HighQuality">
                                 <Ellipse.Fill>
                                     <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
                                 </Ellipse.Fill>
