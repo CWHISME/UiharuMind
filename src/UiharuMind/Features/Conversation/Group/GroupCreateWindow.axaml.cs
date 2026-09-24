@@ -32,4 +32,12 @@ public partial class GroupCreateWindow : Window
         if (DataContext is not GroupCreateWindowModel { CanCreate: true } model) return;
         Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked]));
     }
+
+    /// <summary>类别筛选胶囊：Tag 里放的是下标，写回模型由它重筛列表</summary>
+    private void KindFilter_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && int.TryParse(tag, out int index)
+            && DataContext is GroupCreateWindowModel model)
+            model.KindFilterIndex = index;
+    }
 }
