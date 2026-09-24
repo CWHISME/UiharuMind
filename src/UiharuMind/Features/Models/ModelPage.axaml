@@ -57,7 +57,7 @@
                     <Border BorderBrush="{DynamicResource SemiGrey1}" CornerRadius="30" ClipToBounds="True"
                             BorderThickness="1" Padding="5">
                         <DockPanel>
-                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}" BadgeBackground="SpringGreen"
+                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}" BadgeBackground="LimeGreen"
                                                 Margin="0,0,4,0"
                                                 IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
                             <controls:KindBadge Header="{loc:Loc ModelStateVision}" BadgeBackground="Gold"

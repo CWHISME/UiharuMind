@@ -155,8 +155,8 @@ public partial class GroupCandidate : ObservableObject
     /// <summary>类别显示名（普通角色 / 智能体）</summary>
     public string KindName => CharacterKindPresentation.NameOf(Data);
 
-    /// <summary>是不是智能体（徽章底色由 KindBadge 按它自己选）</summary>
-    public bool IsAgent => Data.IsAgent;
+    /// <summary>类别徽章底色</summary>
+    public IBrush KindColor => CharacterKindPresentation.BrushOf(Data);
 
     /// <summary>头像</summary>
     public Bitmap? Icon => IconUtils.GetCharacterBitmapOrDefault(Data);

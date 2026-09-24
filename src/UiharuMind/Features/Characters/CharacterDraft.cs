@@ -89,6 +89,9 @@ public partial class CharacterDraft : ObservableObject
     /// <summary>类别显示名(顶栏徽章)</summary>
     public string KindName => CharacterKindPresentation.NameOf(_draft);
 
+    /// <summary>类别徽章底色</summary>
+    public IBrush KindColor => CharacterKindPresentation.BrushOf(_draft);
+
     /// <summary>内置角色不许改身份</summary>
     public bool IsDefault => _draft.IsDefaultCharacter;
 

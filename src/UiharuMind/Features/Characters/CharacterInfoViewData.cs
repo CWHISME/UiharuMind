@@ -44,6 +44,9 @@ public partial class CharacterInfoViewData : ObservableObject
     /// <summary>类别显示名(列表徽章)</summary>
     public string KindName => CharacterKindPresentation.NameOf(_characterData);
 
+    /// <summary>类别徽章底色</summary>
+    public IBrush KindColor => CharacterKindPresentation.BrushOf(_characterData);
+
     /// <summary>存档时间，列表排序用</summary>
     public long FileDateTime => _characterData.FileDateTime;
 

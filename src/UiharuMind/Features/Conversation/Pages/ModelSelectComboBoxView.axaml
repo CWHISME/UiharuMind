@@ -30,7 +30,7 @@
                                     Spacing="5"
                                     VerticalAlignment="Center">
                             <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                BadgeBackground="SpringGreen"
+                                                BadgeBackground="LimeGreen"
                                                 IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
                             <controls:KindBadge Header="{loc:Loc ModelStateVision}"
                                                 BadgeBackground="Gold"
@@ -57,7 +57,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}">
                             <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                BadgeBackground="SpringGreen"
+                                                BadgeBackground="LimeGreen"
                                                 IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
                             <controls:KindBadge Header="{loc:Loc ModelStateVision}"
                                                 BadgeBackground="Gold"

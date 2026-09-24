@@ -85,7 +85,7 @@
                                                    TextTrimming="CharacterEllipsis" />
                                         <controls:KindBadge Grid.Column="2" VerticalAlignment="Center"
                                                             Header="{Binding KindName}"
-                                                            IsAgent="{Binding IsAgent}" />
+                                                            BadgeBackground="{Binding KindColor}" />
                                     </Grid>
                                 </CheckBox>
                             </DataTemplate>
