@@ -372,7 +372,7 @@
         <value>定时任务</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
-        <value>识图工具（ViewImage）</value>
+        <value>识图工具（AnalyzeImage）</value>
     </data>
     <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
         <value>知识库检索工具（KnowledgeSearch）</value>
@@ -423,7 +423,7 @@
         <value>网络搜索与网页抓取（WebSearch / WebFetch）。填入 API key 后优先走官方搜索接口，未填时使用免费的网页抓取兜底。</value>
     </data>
     <data name="AgentGateDescVisionTool" xml:space="preserve">
-        <value>让不识图的模型把图片问题转交给视觉模型（ViewImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
+        <value>让不识图的模型把图片问题转交给视觉模型（AnalyzeImage）。仅在当前模型自己看不了图时才会挂载。下方提示词告诉 agent 何时使用它。</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
         <value>检索会话挂载的知识库（KnowledgeSearch）。关闭时（或模型不支持工具调用时）改为每轮自动注入相关片段。检索的是你提供的文档；agent 自己的笔记（工作区记忆）是另一回事。</value>
@@ -522,7 +522,7 @@
         <value>把技能清单发给模型</value>
     </data>
     <data name="AgentSkillsModelEnabledTip" xml:space="preserve">
-        <value>关闭后模型看不到任何技能（广告列表与 load_skill 等工具都不挂），只能点名调用。本地小窗口模型靠它省出这块固定开销。</value>
+        <value>关闭后模型看不到技能清单，框架的三个技能工具也不挂，但保留一个只读的 load_skill，用于加载点名技能正文里引用到的技能。其余技能只能点名调用。本地小窗口模型仍能省下这块固定开销的大头。</value>
     </data>
     <data name="AgentSkillsUserInvoked" xml:space="preserve">
         <value>主动技能</value>

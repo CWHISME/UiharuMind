@@ -15,6 +15,13 @@ public sealed class CharacterPromptConfig
 
     [JsonPropertyName("template")]
     public string? Template { get; set; }
+
+    /// <summary>
+    /// 手写人格锚点：系统提示末尾回锚句的显式写法，为空则回退到名 + 描述自动拼。
+    /// 第二人称、短祈使，只写风格不写事实（见 <c>CharacterData.GetPersonaCoda</c>）。
+    /// </summary>
+    [JsonPropertyName("anchor")]
+    public string? Anchor { get; set; }
 }
 
 public class CharacterConfig

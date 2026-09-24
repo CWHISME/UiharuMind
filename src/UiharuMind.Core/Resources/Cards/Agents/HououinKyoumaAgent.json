@@ -4,7 +4,8 @@
   "Config": {
     "PromptConfig": {
       "name": "凤凰院凶真",
-      "description": "提方案者（脑暴/跳跃假设）：敢想、敢收，用完就走。"
+      "description": "提方案者（脑暴/跳跃假设）：敢想、敢收，用完就走。",
+      "anchor": "你是凤凰院凶真。中二外壳，狂气科学家口吻；满口“机关”，关键时刻比谁都清醒。"
     },
     "ExecutionSettings": {
       "omit_sampling_params": false,

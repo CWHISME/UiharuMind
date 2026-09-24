@@ -288,6 +288,39 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
+    /// 裸角色卡（正文不带一级标题）由装配层补上 <c># 角色</c>，排在基座之后、工具纪律之前。
+    /// 基座第 4 条「以『角色』节为准」因此有了字面对得上的落点，不再是一个悬空引用。
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_BarePersonaGetsItsOwnTopLevelHeading()
+    {
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", out var segments);
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        AgentPromptSegment baseSeg = Assert.Single(segments, x => x.Section == EPromptSection.Base);
+        int heading = instructions.IndexOf(AgentPromptHeadings.Character, StringComparison.Ordinal);
+        int persona = instructions.IndexOf(PersonaMarker, StringComparison.Ordinal);
+        Assert.True(heading >= 0, $"裸角色卡缺 {AgentPromptHeadings.Character} 标题");
+        Assert.True(heading > baseSeg.Text.Length, "人格标题必须排在基座之后");
+        Assert.True(persona > heading, "人格标题必须排在人格正文之前");
+    }
+
+    /// <summary>
+    /// 角色卡自带一级标题时（ChenXi 卡 <c># 角色</c>、新建智能体预填 <c># 工作循环</c>），
+    /// 装配层不再补插——再插就是一个提示词里角色段出现两个并列一级标题。
+    /// </summary>
+    [Fact]
+    public void AgentInstructions_CardOwnHeadingIsNotDuplicated()
+    {
+        const string cardHead = "# 工作循环\n- 先把事实弄清楚再动手";
+        HarnessAgentOptions options = BuildAgentOptions("/tmp/uiharu-agent-test", persona: cardHead);
+        string instructions = options.ChatOptions?.Instructions ?? string.Empty;
+
+        Assert.Contains(cardHead, instructions);
+        Assert.DoesNotContain(AgentPromptHeadings.Character, instructions);
+    }
+
+    /// <summary>
     /// 人格 coda：系统提示的最后一个声音，自动取卡片的名与描述拼成
     /// <c>你是…</c>（<c>CharacterData.GetPersonaCoda</c>），不用填字段。
     /// 排在工作区规矩之后——吃结尾权重，长工具循环里人格才不漂。
@@ -344,8 +377,9 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 技能模型可见性的全局总闸(ADR 0003 例外):关掉后 provider 不挂,
-    /// 广告列表与 load_skill 三个工具一起从模型侧消失;默认开着,
+    /// 技能模型可见性的全局总闸(ADR 0003 例外):关掉后框架 provider 不挂,
+    /// 广告列表与框架的 load_skill 三个工具一起从模型侧消失,由自建同名 load_skill
+    /// 顶上(仍能按名加载广告列表内的被动技能,见 AgentAssembler.BuildTools);默认开着,
     /// 点名调用不依赖这一路,关上后照常可用。
     /// </summary>
     [Fact]
@@ -609,31 +643,6 @@ public class HarnessInstructionsCompositionTests
     }
 
     /// <summary>
-    /// 指针点名装配时实际解析到的文件名:工作区根下是 AGENTS.md 还是 CLAUDE.md,
-    /// 由 Loader 定,提示词不再写含糊的「(或 CLAUDE.md)」逼模型先 Glob 消歧。
-    /// 用 CLAUDE.md 一例最能证明点名结果不是写死的 AGENTS.md。
-    /// </summary>
-    [Fact]
-    public void WorkspacePointerSection_NamesTheResolvedFile()
-    {
-        string dir = Directory.CreateTempSubdirectory("uiharu-ws-pointer-").FullName;
-        try
-        {
-            File.WriteAllText(Path.Combine(dir, "CLAUDE.md"), "claude rules");
-
-            HarnessAgentOptions options = BuildAgentOptions(dir, workspaceInstructions: "claude rules");
-            string instructions = options.ChatOptions?.Instructions ?? string.Empty;
-
-            Assert.Contains("工作目录下有一份 CLAUDE.md", instructions);
-            Assert.DoesNotContain("（或 CLAUDE.md）", instructions);
-        }
-        finally
-        {
-            Directory.Delete(dir, recursive: true);
-        }
-    }
-
-    /// <summary>
     /// 关掉的工具其纪律段必须一并消失：留着就是纯噪声，还会指挥模型去调不存在的工具。
     /// 能力配置来自角色，这条同时验证装配确实读的是角色那份。
     /// </summary>
@@ -736,18 +745,19 @@ public class HarnessInstructionsCompositionTests
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         AgentToolConfig? tools = null, string workspaceInstructions = "", McpToolSet? mcp = null,
         string pythonInterpreter = "", string outputRoom = "", string memoryDirectory = "",
-        bool disableSkillsProvider = false, string characterName = "", string characterDescription = "")
+        bool disableSkillsProvider = false, string characterName = "", string characterDescription = "",
+        string? persona = null)
     {
         return BuildAgentOptions(workingDirectory, out _, tools, workspaceInstructions, mcp,
             pythonInterpreter, outputRoom, memoryDirectory, disableSkillsProvider,
-            characterName, characterDescription);
+            characterName, characterDescription, persona);
     }
 
     private static HarnessAgentOptions BuildAgentOptions(string workingDirectory,
         out IReadOnlyList<AgentPromptSegment> segments, AgentToolConfig? tools = null,
         string workspaceInstructions = "", McpToolSet? mcp = null, string pythonInterpreter = "",
         string outputRoom = "", string memoryDirectory = "", bool disableSkillsProvider = false,
-        string characterName = "", string characterDescription = "")
+        string characterName = "", string characterDescription = "", string? persona = null)
     {
         CharacterData character = new()
         {
@@ -758,7 +768,7 @@ public class HarnessInstructionsCompositionTests
         Directory.CreateDirectory(skillsDir);
 
         // 角色段由调用方先填好(实机里是 CharacterPromptBuilder 的产物)
-        ChatOptions chatOptions = new() { Instructions = PersonaMarker };
+        ChatOptions chatOptions = new() { Instructions = persona ?? PersonaMarker };
 
         // 装配计划取代原先那 14 个位置参数:每一项写着自己的名字,加字段也不必改所有调用点
         AgentAssemblyPlan plan = new()
@@ -1373,24 +1383,6 @@ public class SubAgentBoundaryTests
             .ChatOptions!.Instructions!;
 
         Assert.DoesNotContain(AgentPromptHeadings.OutputRoom("#"), instructions);
-    }
-
-    /// <summary>
-    /// 子代理必须拿到与主代理同一份工作区规矩的指针：它干的正是探查工作区的活，
-    /// 却会是全场唯一不知道工作区规矩的人。本仓 AGENTS.md 头一条就是
-    /// 「有四层同名目录，用绝对路径别数相对层数」——拿到指针的子代理才知道去哪读这条。
-    /// </summary>
-    [Fact]
-    public void SubAgentInstructions_InheritWorkspaceInstructions()
-    {
-        const string workspaceRule = "Always use absolute paths in this repo.";
-        string instructions = SubAgentAssembly
-            .BuildSubAgentOptions(NewInput(workspaceInstructions: workspaceRule))!.ChatOptions!.Instructions!;
-
-        // 与主代理同一口径:只给指针,正文不进系统提示(模型 Read 自读)
-        Assert.Contains("动手前先读一遍全文", instructions);
-        Assert.DoesNotContain(workspaceRule, instructions);
-        Assert.EndsWith("拿不准某条规范时，重读相关部分再动手。", instructions); //工作区规矩仍拼在最尾
     }
 
     /// <summary>

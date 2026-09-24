@@ -183,8 +183,9 @@ public class SkillCatalog : Singleton<SkillCatalog>
 
     /// <summary>
     /// 构建供 HarnessAgent 使用的技能来源:只放"启用且参与模型自选"的技能。
-    /// 被滤掉的技能框架 <c>load_skill</c> 同样找不到(广告与加载共用一份列表),
-    /// 所以退出自选的技能只能经点名调用注入——这正是设计的支点,别改成不过滤。
+    /// 被滤掉的技能框架 <c>load_skill</c> 同样找不到(广告与加载共用一份列表),总闸关闭时
+    /// 自建同名 <c>load_skill</c>(LoadSkillTool)捕获的也是这份过滤后的源,行为一致——
+    /// 退出自选的技能只能经点名调用注入,这正是设计的支点,别改成不过滤。
     /// </summary>
     /// <param name="disabledSkills">本智能体禁用的技能名(角色自带,见 AgentToolConfig)</param>
     /// <returns>技能来源</returns>

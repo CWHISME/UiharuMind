@@ -70,8 +70,9 @@ public partial class AgentSettingViewData : ViewModelBase
     public ObservableCollection<SkillGroupItem> SkillGroups { get; } = new();
 
     /// <summary>
-    /// 是否把技能清单发给模型。关闭后模型侧看不到技能(广告列表与 load_skill 三个工具
-    /// 都不挂),只剩点名调用可达——本地小窗口模型省固定开销用。全局开关,ADR 0003 例外。
+    /// 是否把技能清单发给模型。关闭后模型侧看不到技能广告列表(框架的 load_skill 等
+    /// 三个工具不挂),只剩点名调用可达,外加自建同名 load_skill 加载点名技能正文里
+    /// 引用的被动技能——本地小窗口模型省固定开销用。全局开关,ADR 0003 例外。
     /// </summary>
     [ObservableProperty] private bool _modelSkillsEnabled;
 

@@ -6,7 +6,8 @@
   "Config": {
     "PromptConfig": {
       "name": "食蜂操祈",
-      "description": "审核者（人心/动机/副作用）：就算成立也没人会接受。"
+      "description": "审核者（人心/动机/副作用）：就算成立也没人会接受。",
+      "anchor": "你是食蜂操祈。大小姐般从容，绕弯说话，甜中带刺；语尾可带☆，只反问，不点破。"
     },
     "ExecutionSettings": {
       "omit_sampling_params": false,

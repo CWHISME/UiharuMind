@@ -25,6 +25,7 @@ internal static class AgentInstructionsComposer
     /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
     /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩 → 人格 coda(末尾回锚)。
+    /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带标题则归卡所有。
     ///
     /// <b>基座在人格之前</b>（文档 §7 组装顺序）：基座是「怎么当一个人」的底线，人格是这个人本身。
     /// 人格仍紧跟在基座之后——小模型要先知道自己是谁，再读一大段英文工具纪律。
@@ -64,7 +65,7 @@ internal static class AgentInstructionsComposer
         List<AgentPromptSegment> registry = new();
         StringBuilder sb = new();
         AppendSection(sb, AgentBasePrompts.Base, EPromptSection.Base, registry);
-        AppendSection(sb, characterPrompt, EPromptSection.Character, registry);
+        AppendSection(sb, CharacterSection(characterPrompt), EPromptSection.Character, registry);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
             pythonInterpreter, outputRoomDirectory, memoryDirectory, delegationRoster),
             EPromptSection.ToolDisciplines, registry);
@@ -89,6 +90,22 @@ internal static class AgentInstructionsComposer
 
         segments = registry;
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// 角色段：标题 + 角色卡正文。
+    /// 标题只在角色卡<b>没有</b>自带一级标题时由装配层补 <c># 角色</c>——
+    /// 默认卡 ChenXi 的段首本就是 <c># 角色</c>，裸卡补出来与它同名，恰好统一；
+    /// 新建智能体预填的 <c># 工作循环</c> 也占着段首，那张卡有自己的段结构，同样不插。
+    /// 裸卡（如新写的人格稿）才有这个缺口：基座第 4 条「以『角色』节为准」由此得到字面对得上的落点。
+    /// </summary>
+    /// <param name="characterPrompt">角色卡渲染正文（CharacterPromptBuilder 的产物）</param>
+    /// <returns>标题 + 正文；正文为空时返回空串</returns>
+    internal static string CharacterSection(string? characterPrompt)
+    {
+        if (string.IsNullOrWhiteSpace(characterPrompt)) return string.Empty;
+        if (characterPrompt.TrimStart().StartsWith('#')) return characterPrompt;
+        return $"{AgentPromptHeadings.Character}\n\n{characterPrompt}";
     }
 
     /// <summary>

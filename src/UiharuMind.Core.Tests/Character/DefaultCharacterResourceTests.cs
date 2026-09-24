@@ -83,6 +83,30 @@ public class DefaultCharacterResourceTests
     }
 
     /// <summary>
+    /// 配了手写锚点的内置卡，coda 必须原样返回那句锚点而不是自动拼：
+    /// JSON 键名写错会静默回退到自动拼，不加这条看不出来。
+    /// </summary>
+    [Theory]
+    [InlineData("AcceleratorAgent")]
+    [InlineData("ShokuhouMisakiAgent")]
+    [InlineData("KongoMitsukoAgent")]
+    [InlineData("UiharuKazariAgent")]
+    [InlineData("ChenXiAgent")]
+    [InlineData("BaiLuAgent")]
+    [InlineData("ShiraiKurokoAgent")]
+    [InlineData("SenkuAgent")]
+    [InlineData("LelouchAgent")]
+    [InlineData("YagamiLightAgent")]
+    [InlineData("HououinKyoumaAgent")]
+    public void CardWithAnchor_CodaEqualsAnchor(string id)
+    {
+        CharacterData data = DefaultCharacterManager.Instance.All[id];
+
+        Assert.False(string.IsNullOrWhiteSpace(data.PersonaAnchor), $"{id} 的 anchor 丢了");
+        Assert.Equal(data.PersonaAnchor.Trim(), data.GetPersonaCoda());
+    }
+
+    /// <summary>
     /// 身份卡的提示词模板<b>必须保持为空</b>。
     ///
     /// 匿名委派会话的系统提示由 <c>SubAgentAssembly.BuildSubAgentInstructions</c> 现拼，

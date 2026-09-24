@@ -4,12 +4,12 @@ using UiharuMind.Core.Core.Process;
 namespace UiharuMind.Core.AI.Character.PromptActions;
 
 /// <summary>
-/// ocr agent skill
+/// OCR 识图技能（单图）
 /// </summary>
 public class ImageOcrPromptAction : PromptActionVisionBase
 {
     
-    public ImageOcrPromptAction(byte[] imageBytes) : base(imageBytes)
+    public ImageOcrPromptAction(ImageInput image) : base([image])
     {
     }
 

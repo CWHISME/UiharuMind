@@ -29,6 +29,7 @@ public class CharacterDataCopyFromTests
         MountAgents = ["sub-a", "sub-b"],
         CharacterName = "源角色",
         Description = "源描述",
+        PersonaAnchor = "源锚点",
         Template = "源提示词",
         Tools = { EnableShellExecution = true, EnableWebSearch = true },
     };

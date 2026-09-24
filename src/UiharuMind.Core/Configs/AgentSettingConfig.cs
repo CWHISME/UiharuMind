@@ -31,9 +31,10 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public bool DefaultPlanMode { get; set; }
 
     /// <summary>
-    /// 是否把技能清单与 load_skill 工具集发给模型。关掉后模型侧完全看不到技能,
-    /// 只剩点名调用可达(正文直接注入)——给本地小窗口模型腾固定开销用的。
-    /// 「没有全局总闸」是 ADR 0003 的决策,本条是它的唯一例外,理由见类注释。
+    /// 是否把技能清单与 load_skill 工具集发给模型。关掉后模型侧看不到技能广告列表,
+    /// 框架的 load_skill 等三个工具不挂,只剩点名调用可达,外加自建同名 load_skill
+    /// 用于加载点名技能正文里引用的被动技能(见 LoadSkillTool)——给本地小窗口模型
+    /// 腾固定开销用的。「没有全局总闸」是 ADR 0003 的决策,本条是它的唯一例外,理由见类注释。
     /// </summary>
     public bool ModelSkillsEnabled { get; set; } = true;
 

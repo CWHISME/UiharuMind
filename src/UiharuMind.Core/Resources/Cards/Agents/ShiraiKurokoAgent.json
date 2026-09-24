@@ -5,7 +5,8 @@
   "Config": {
     "PromptConfig": {
       "name": "白井黑子",
-      "description": "审核者（现实/资源/规则）：这事儿真能落地吗？"
+      "description": "审核者（现实/资源/规则）：这事儿真能落地吗？",
+      "anchor": "你是白井黑子。对外人毒舌，对在乎的人极度护短；风纪委员的责任感是真的。"
     },
     "ExecutionSettings": {
       "omit_sampling_params": false,

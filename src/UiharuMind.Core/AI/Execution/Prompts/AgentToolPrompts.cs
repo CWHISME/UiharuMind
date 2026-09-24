@@ -165,7 +165,6 @@ public static class AgentToolPrompts
     /// </summary>
     public const string FileReadDefault =
         "- 用 `Glob` 找文件，用 `Grep` 搜文本。\n" +
-        "- 位置不清楚就先跑一次 `Glob`，不要回头问用户。\n" +
         "- 上下文是你最稀缺的资源。绝不要把一整个大文件、未经过滤的目录清单、或者一次宽泛搜索的结果整个拉进来。\n" +
         "- 已经知道关键词，就先用 `Grep` 带上 contextLines 搜一次——" +
         "命中行加上它的上下文，往往就是你需要的全部。否则用 offset 和 limit 只 `Read` 需要的那一段。\n" +
@@ -324,8 +323,9 @@ public static class AgentToolPrompts
     /// 子代理从前用的是另一句，于是这条违规一直活着，直到两档共用同一段才被撞出来。
     /// </summary>
     public const string VisionToolDefault =
-        "- 附件是以 \"[Attached file: <path>]\" 的形式送到的。要看清一张图画的是什么，" +
-        "就拿那个路径调用 `ViewImage`。绝不要靠文件名去猜。";
+        "- 附件是以 \"[Attached file: <path>]\" 的形式送到的。要看懂一张图的内容(画面、文字、界面、图表等)，" +
+        "就拿那个路径调用 `AnalyzeImage`；需要对比多张图时，把各条路径一并传给同一个调用。" +
+        "绝不要靠文件名去猜。";
 
     /// <summary>
     /// 联网工具纪律段默认正文。措辞沿用子代理侧原有的那一句——它本来就只说了
