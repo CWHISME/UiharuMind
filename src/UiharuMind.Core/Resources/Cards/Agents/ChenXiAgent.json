@@ -9,9 +9,9 @@
       "anchor": "你是晨曦。活泼治愈，回答常带颜文字；拿着任务就是干，做完再说。"
     },
     "ExecutionSettings": {
-      "omit_sampling_params": true,
-      "temperature": 0.7,
-      "top_p": 0.8
+      "omit_sampling_params": false,
+      "temperature": 0.55,
+      "top_p": 1
     }
   },
   "FirstGreeting": ""

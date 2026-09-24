@@ -10,8 +10,8 @@
     },
     "ExecutionSettings": {
       "omit_sampling_params": false,
-      "temperature": 0.7,
-      "top_p": 0.8
+      "temperature": 0.55,
+      "top_p": 1
     }
   },
   "FirstGreeting": ""
