@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -5,15 +6,17 @@ using UiharuMind.Shared.Services;
 namespace UiharuMind.Features.Characters;
 
 /// <summary>
-/// 角色类别的界面表述。<b>唯一一处</b>把身份轴翻成文案——
-/// 列表徽章、筛选按钮、编辑页顶栏都从这里取，免得同一类在三处叫三个名字。
-/// 徽章<b>底色</b>由 KindBadge 按 IsAgent 在自己的 axaml 里选（配色是组件私有的，不占全局主题色）。
+/// 角色类别的界面表述。<b>唯一一处</b>把身份轴翻成文案与配色——
+/// 列表徽章、筛选按钮、编辑页顶栏都从这里取，免得同一类在三处叫三个名字、
+/// 同一个身份在徽章上配几种颜色。
 ///
 /// 类别只有三个：普通角色 / 智能体 / 用户卡（ADR 0043）。扮演与工具人之间没有任何装配差异，
 /// 它们的区别是<b>这张卡上填了什么</b>，所以合并成普通角色，存量的工具人卡也按它呈现。
 /// </summary>
 public static class CharacterKindPresentation
 {
+    private static readonly SolidColorBrush s_agentBrush = new(Color.Parse("#D0BCF7")); //智能体薰衣草紫
+
     /// <summary>
     /// 可建的那两类的显示名（用户卡是单例，由专属编辑窗管，不在此列）
     /// </summary>
@@ -29,4 +32,17 @@ public static class CharacterKindPresentation
     /// <returns>本地化名称</returns>
     public static string NameOf(CharacterData character) =>
         character.IsUserCard ? Loc.Text(LangKey.CharacterKindUserCard) : NameOf(character.IsAgent);
+
+    /// <summary>
+    /// 类别徽章底色：普通角色浅绿、智能体薰衣草紫、用户卡浅灰。
+    /// 配色沿用 KindBadge 自绘阶段的默认二态，用户卡补回浅灰（独立类别，不落回普通角色）。
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <returns>徽章底色</returns>
+    public static IBrush BrushOf(CharacterData character)
+    {
+        if (character.IsUserCard) return Brushes.LightGray;
+        if (character.IsAgent) return s_agentBrush;
+        return Brushes.LightGreen;
+    }
 }

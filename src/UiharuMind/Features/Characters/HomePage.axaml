@@ -79,7 +79,7 @@
                                            TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource SemiGrey7}" />
                                 <controls:KindBadge Header="{Binding Editor.KindName}"
-                                                     IsAgent="{Binding Editor.IsAgent}"
+                                                     BadgeBackground="{Binding Editor.KindColor}"
                                                      VerticalAlignment="Center" />
                             </StackPanel>
 

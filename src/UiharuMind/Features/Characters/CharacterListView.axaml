@@ -100,7 +100,7 @@
                                                TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource SemiGrey7}" />
                                     <controls:KindBadge Grid.Column="1" Header="{Binding KindName}"
-                                                         IsAgent="{Binding IsAgent}" />
+                                                         BadgeBackground="{Binding KindColor}" />
                                 </Grid>
                                 <TextBlock Classes="muted"
                                            Text="{Binding Description}"

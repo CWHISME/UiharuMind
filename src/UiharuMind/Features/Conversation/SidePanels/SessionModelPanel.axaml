@@ -32,7 +32,7 @@
                                     VerticalAlignment="Center"
                                     ToolTip.Tip="{Binding DisplayName}">
                             <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
-                                                BadgeBackground="SpringGreen"
+                                                BadgeBackground="LimeGreen"
                                                 IsVisible="{Binding IsRemoteModel, Mode=OneWay}" />
                             <controls:KindBadge Header="{loc:Loc ModelStateVision}"
                                                 BadgeBackground="Gold"
