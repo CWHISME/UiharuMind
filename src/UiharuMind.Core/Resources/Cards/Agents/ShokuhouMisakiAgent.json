@@ -1,6 +1,7 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
+  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/ShokuhouMisaki.png",
   "IsShielded": true,
   "Config": {
     "PromptConfig": {

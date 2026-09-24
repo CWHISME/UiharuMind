@@ -131,7 +131,8 @@
                         <Ellipse Grid.Column="1" Width="38" Height="38" Margin="0,0,10,0"
                                  VerticalAlignment="Center"
                                  Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
-                                 IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}">
+                                 IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}"
+                                 RenderOptions.BitmapInterpolationMode="HighQuality">
                             <Ellipse.Fill>
                                 <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
                             </Ellipse.Fill>

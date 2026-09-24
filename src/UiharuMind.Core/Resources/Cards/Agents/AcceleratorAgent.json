@@ -1,6 +1,7 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
+  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/Accelerator.png",
   "IsShielded": true,
   "Config": {
     "PromptConfig": {

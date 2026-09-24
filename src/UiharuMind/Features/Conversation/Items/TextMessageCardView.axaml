@@ -65,7 +65,8 @@
                  Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
                  VerticalAlignment="Top"
                  IsVisible="{Binding ShowAvatar}"
-                 Grid.Column="{Binding AvatarColumn}">
+                 Grid.Column="{Binding AvatarColumn}"
+                 RenderOptions.BitmapInterpolationMode="HighQuality">
             <Ellipse.Fill>
                 <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
             </Ellipse.Fill>

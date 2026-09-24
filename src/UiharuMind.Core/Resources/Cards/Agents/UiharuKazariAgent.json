@@ -1,6 +1,7 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
+  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/UiharuKazari.png",
   "IsShielded": true,
   "Config": {
     "PromptConfig": {

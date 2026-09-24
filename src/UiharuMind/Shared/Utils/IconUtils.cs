@@ -17,9 +17,6 @@ public class IconUtils
     // 谁把它们释放了,整个进程的头像与托盘图标一起变空白
     private static Bitmap? _defaultIcon;
 
-    // 默认头像进程级缓存,不 Dispose
-    private static readonly Dictionary<string, Bitmap> DefaultAvatars = new();
-
     private static readonly Dictionary<string, CharacterIconEntry> CharacterIcons = new(); //角色自带头像,按角色缓存
 
     //缓存项连来源一起存:角色改了头像,来源串跟着变,据此失效
@@ -28,11 +25,11 @@ public class IconUtils
     /// <summary>应用图标。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultAppIcon => _defaultIcon ??= LoadDefaultBitmap("Icon.png");
 
-    /// <summary>默认角色头像。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultCharIcon => DefaultAvatar("DefaultChar.png");
+    /// <summary>默认角色头像 = 应用图标（花的五瓣图，任何主题下都不违和）。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultCharIcon => DefaultAppIcon;
 
-    /// <summary>默认工具人(智能体)头像。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultToolCharIcon => DefaultAvatar("DefaultTool.png");
+    /// <summary>默认工具人(智能体)头像 = 应用图标，与默认角色头像统一（旧的花环少女图与初春撞脸，不再使用）。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultToolCharIcon => DefaultAppIcon;
 
     /// <summary>默认用户头像。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultUserIcon => DefaultAppIcon;
@@ -109,18 +106,6 @@ public class IconUtils
         {
             Log.Error($"Decode character icon failed: {e.Message}");
             return null;
-        }
-    }
-
-    /// <summary>默认头像，进程级缓存不 Dispose</summary>
-    private static Bitmap? DefaultAvatar(string fileName)
-    {
-        lock (DefaultAvatars)
-        {
-            if (DefaultAvatars.TryGetValue(fileName, out var cached)) return cached;
-            var bitmap = LoadDefaultBitmap($"Avatars/{fileName}");
-            if (bitmap != null) DefaultAvatars[fileName] = bitmap;
-            return bitmap;
         }
     }
 

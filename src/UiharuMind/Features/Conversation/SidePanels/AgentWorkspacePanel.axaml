@@ -57,7 +57,7 @@
                     <Border Width="56" Height="56" CornerRadius="28" HorizontalAlignment="Center"
                             ClipToBounds="True">
                         <Image Source="{Binding Conversation.ActiveCharacterIcon}"
-                               Stretch="UniformToFill" />
+                               Stretch="UniformToFill" RenderOptions.BitmapInterpolationMode="HighQuality" />
                     </Border>
                     <TextBlock FontSize="14" HorizontalAlignment="Center" TextAlignment="Center"
                                Foreground="{DynamicResource SemiGrey7}"
