@@ -58,6 +58,8 @@ public static class LoadSkillTool
         bool hasFileTools, bool hasShell, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(skillName)) return "Error: Skill name cannot be empty.";
+        // null 源是装配错误;显式给出可读文案而不是让 NRE 的 message 漏进返回(测试钉住 unavailable)
+        if (source == null) return "Error: Skill source is unavailable.";
 
         try
         {

@@ -564,7 +564,7 @@ public class HarnessInstructionsCompositionTests
         // 反过来钉:解释器的绝对路径<b>不许</b>出现。环境由 PATH 前置激活,写进提示词就等于
         // 要求模型每次给一个含空格的长路径加引号(见 ADR 0019)
         Assert.DoesNotContain(interpreter, instructions);
-        Assert.Contains("pip install", instructions);
+        Assert.Contains(".py", instructions);
         Assert.True(
             instructions.IndexOf(AgentPromptHeadings.Python, StringComparison.Ordinal) >
             instructions.IndexOf(AgentPromptHeadings.Shell, StringComparison.Ordinal),
@@ -639,7 +639,7 @@ public class HarnessInstructionsCompositionTests
             .ChatOptions?.Instructions ?? string.Empty;
 
         Assert.Contains(AgentPromptHeadings.Python, instructions);
-        Assert.Contains("pip install", instructions);
+        Assert.Contains(".py", instructions);
         Assert.DoesNotContain("写到这个目录", instructions);
         Assert.Equal(roomKnown ? 1 : 0, instructions.Split(roomUri).Length - 1);
     }
@@ -1308,7 +1308,7 @@ public class SubAgentBoundaryTests
         // 房间 id8 恰出现一次：草稿目录段正文里那一次。
         // 子代理那份草稿目录段不再给 markdown 图片语法(它的正文不进用户对话,
         // 交出去的是报告,展示归派活方),于是派生的 file URI 那一次也没有了
-        Assert.Contains("pip install", instructions);
+        Assert.Contains(".py", instructions);
         Assert.Equal(1, instructions.Split("12345678").Length - 1);
         Assert.DoesNotContain("写到这个目录", instructions);
     }
