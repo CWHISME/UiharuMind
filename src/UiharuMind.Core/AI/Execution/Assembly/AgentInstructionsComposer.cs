@@ -177,7 +177,7 @@ internal static class AgentInstructionsComposer
     /// <returns>整段文本</returns>
     internal static string WorkspaceSection(string workspaceInstructions, string fileName = "")
     {
-        return $"{AgentPromptHeadings.Workspace}\n{TruncateWorkspaceInstructions(workspaceInstructions, fileName)}";
+        return $"{AgentPromptHeadings.Workspace}\n\n{TruncateWorkspaceInstructions(workspaceInstructions, fileName)}";
     }
 
     /// <summary>
@@ -196,7 +196,7 @@ internal static class AgentInstructionsComposer
         string pointer = string.IsNullOrEmpty(fileName)
             ? "本会话的工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
             : $"直接使用 Read 工具传入 {fileName} 参数读取项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n{pointer}\n"
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n"
                + "动手前先读一遍全文。";
     }
 

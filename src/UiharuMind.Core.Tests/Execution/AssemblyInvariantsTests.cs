@@ -1444,7 +1444,7 @@ public class SubAgentBoundaryTests
     public void WorkspaceInstructions_ShortTextPassesThrough()
     {
         const string rule = "Always use absolute paths in this repo.";
-        Assert.Equal($"{AgentPromptHeadings.Workspace}\n{rule}",
+        Assert.Equal($"{AgentPromptHeadings.Workspace}\n\n{rule}",
             AgentInstructionsComposer.WorkspaceSection(rule));
     }
 
