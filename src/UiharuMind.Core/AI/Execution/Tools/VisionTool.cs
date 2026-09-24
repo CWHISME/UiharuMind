@@ -42,7 +42,7 @@ public static class VisionTool
                 await AskVisionAsync(workspaceRoot, imagePaths, question, cancellationToken).ConfigureAwait(false),
             ToolName,
             "Analyze one or more image files by delegating to a vision-capable model: identify their content " +
-            "and answer questions about them. Use this when you cannot see images yourself. " +
+            "and answer questions about them. " +
             "Pass multiple paths to compare images side by side.");
     }
 

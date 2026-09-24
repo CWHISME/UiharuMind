@@ -22,7 +22,7 @@ public class AgentToolConfig
     public bool EnableWebSearch { get; set; } = true;
 
     /// <summary>启用定时任务工具(ScheduleTask)</summary>
-    public bool EnableScheduledTasks { get; set; } = true;
+    public bool EnableScheduledTasks { get; set; }
 
     /// <summary>启用识图工具(AnalyzeImage,委托视觉模型答图片问题)</summary>
     public bool EnableVisionTool { get; set; } = true;
