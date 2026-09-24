@@ -728,6 +728,9 @@
     <data name="MessageDeleteTurnConfirmFormat" xml:space="preserve">
         <value>删除这条消息及其关联内容（共 {0} 个条目）？该操作不可撤销。</value>
     </data>
+    <data name="MessageRetryTurnConfirmFormat" xml:space="preserve">
+        <value>重新生成将删除这一条及其后的 {0} 条消息，并从这里重新开始。确定继续吗？</value>
+    </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>系统提示</value>
     </data>

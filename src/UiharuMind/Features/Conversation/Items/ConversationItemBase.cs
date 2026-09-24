@@ -64,9 +64,9 @@ public abstract partial class ConversationItemBase : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanDelete))]
     private Func<ConversationItemBase, Task>? _deleteCallback;
 
-    /// <summary>重试回调(为空则隐藏重试按钮)</summary>
+    /// <summary>重试回调(为空则隐藏重试按钮)。异步:重试可能会弹确认(跨度大时先问)</summary>
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(CanRetry))]
-    private Action<ConversationItemBase>? _retryCallback;
+    private Func<ConversationItemBase, Task>? _retryCallback;
 
     /// <summary>
     /// 分叉回调：从本条消息处复制出一个新对话（为空则隐藏分叉按钮）。
@@ -152,9 +152,9 @@ public abstract partial class ConversationItemBase : ObservableObject
     }
 
     [RelayCommand]
-    private void Retry()
+    private async Task Retry()
     {
-        RetryCallback?.Invoke(this);
+        if (RetryCallback != null) await RetryCallback(this);
     }
 
     [RelayCommand]

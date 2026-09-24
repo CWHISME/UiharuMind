@@ -52,7 +52,7 @@ public class ConversationItemActionsTests
         (TextConversationItem item, List<string> changed) = NewItem();
         Assert.False(item.CanRetry);
 
-        item.RetryCallback = _ => { };
+        item.RetryCallback = _ => System.Threading.Tasks.Task.CompletedTask;
 
         Assert.True(item.CanRetry);
         Assert.Contains(nameof(item.CanRetry), changed);

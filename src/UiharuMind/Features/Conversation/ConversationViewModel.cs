@@ -860,6 +860,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             if (ReferenceEquals(PendingInterjections[i].Message, message))
             {
+                // 完整撤回 = 恢复成「还没发出去」:文字回输入框,附件放回盘上
+                PendingInterjectionViewData pending = PendingInterjections[i];
+                InputText = pending.Text;
+                if (pending.Attachments != null)
+                {
+                    foreach (ConversationAttachment attachment in pending.Attachments) Tray.Attachments.Add(attachment);
+                }
                 PendingInterjections.RemoveAt(i);
                 break;
             }
@@ -880,10 +887,25 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 一次性地把待发的插话全部撤掉（停止/一轮结束时的收尾）。
     /// 只清界面提示、不动队列的旧行为，就是「停止之后插话还遗留在那」的由来；
     /// 队列里那些不撤走，下次再跑会被模型突然消费，连提示都没有就冒出来。
+    ///
+    /// 没被模型消费的话还该属于用户：按原顺序回填输入框（已有内容则追加，不覆盖），
+    /// 附件一并放回盘上——否则主动停止一次，刚打的字就没了。
     /// </summary>
     private async Task CancelPendingInterjectionsAsync()
     {
         if (PendingInterjections.Count == 0) return;
+
+        string restored = string.Join("\n", PendingInterjections.Select(x => x.Text));
+        if (!string.IsNullOrEmpty(restored))
+        {
+            InputText = string.IsNullOrEmpty(InputText) ? restored : $"{InputText}\n{restored}";
+        }
+        foreach (PendingInterjectionViewData pending in PendingInterjections)
+        {
+            if (pending.Attachments == null) continue;
+            foreach (ConversationAttachment attachment in pending.Attachments) Tray.Attachments.Add(attachment);
+        }
+
         ChatMessage[] messages = PendingInterjections.Select(x => x.Message).ToArray();
         PendingInterjections.Clear();
         try
@@ -1160,14 +1182,14 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
-    /// 重新生成最后一条回复:等价于对最后一条可重试的用户消息执行重试
+    /// 重新生成最后一条回复:等价于对最后一条可重试的消息执行重试
     /// </summary>
     [RelayCommand]
-    private void RegenerateLast()
+    private async Task RegenerateLast()
     {
         if (IsGenerating) return;
         ConversationItemBase? target = Items.LastOrDefault(x => x.CanRetry);
-        if (target != null) _itemActions.Retry(target);
+        if (target != null) await _itemActions.Retry(target);
     }
 
     //================= 模式 / 配置 =================
@@ -1423,15 +1445,23 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 等待期间在输入区挂一条待发提示,免得看着像没发出去
         if (IsGenerating)
         {
-            ChatMessage? interjection = CurrentSession?.CreateMessage(ChatRole.User, text);
+            // 插话与正常发送共用同一套组装:附件盘上的图要进消息,不能只发 text
+            List<ConversationAttachment>? interjectionAttachments = Tray.TakePending();
+            ChatMessage? interjection = CurrentSession == null
+                ? null
+                : Tray.BuildUserMessage(text, interjectionAttachments);
             if (interjection != null && CurrentRunner is { } runner && await runner.TryInjectAsync(new[] { interjection }))
             {
-                PendingInterjections.Add(new PendingInterjectionViewData(interjection, text));
+                PendingInterjections.Add(new PendingInterjectionViewData(interjection, text, interjectionAttachments));
                 return;
             }
 
-            // 排不进去(执行者还在装配、或这个执行者不支持注入):把字还给输入框并明说,
+            // 排不进去(执行者还在装配、或这个执行者不支持注入):文字还给输入框、附件放回盘上,
             // 静默吞掉就是"点了没反应"
+            if (interjectionAttachments != null)
+            {
+                foreach (ConversationAttachment attachment in interjectionAttachments) Tray.Attachments.Add(attachment);
+            }
             InputText = text;
             App.Services.GetRequiredService<IMessageService>().ShowNotification(
                 Loc.Text(LangKey.AgentInterjectUnavailable), severity: MessageSeverity.Warning);
@@ -1698,9 +1728,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 装配阶段单独持一个取消源——那时 <see cref="TurnDriver"/> 还没接手，
     /// 而它耗时（要建会话、装配 agent），用户在这期间按停止必须停得下来。
     /// </summary>
-    /// <param name="userMessage">用户消息</param>
+    /// <param name="userMessage">用户消息;为 null 是无输入轮(助手消息重试),模型基于既有历史续写</param>
     /// <param name="titleSeed">新建会话时用来取标题的原文</param>
-    private async Task RunTurnAsync(ChatMessage userMessage, string titleSeed)
+    private async Task RunTurnAsync(ChatMessage? userMessage, string titleSeed)
     {
         _isPreparing = true;
         NotifyRunStateChanged();
@@ -1752,16 +1782,20 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// 装配阶段被取消时把 userMessage 补回历史,避免「发送/重试后立刻停止」丢消息。
     /// 正常轮次的取消由 <see cref="TurnDriver"/> 的 <c>SettleInterruptedTurn</c> 收尾,
     /// 这里只兜它接手之前的那段空窗——那时 userMessage 还没交给框架,没有人会写它。
+    /// 无输入轮(助手消息重试)没有用户消息要补,直接返回。
     /// </summary>
     /// <param name="session">会话;新建会话装配半路取消时为 null(此时无处可写)</param>
-    /// <param name="userMessage">本轮输入</param>
-    internal static void RestoreUserMessageOnAbort(ChatSession? session, ChatMessage userMessage)
+    /// <param name="userMessage">本轮输入;无输入轮为 null</param>
+    internal static void RestoreUserMessageOnAbort(ChatSession? session, ChatMessage? userMessage)
     {
         if (session == null)
         {
             Log.Warning("Turn aborted during session assembly; user message was not persisted.");
             return;
         }
+
+        // 无输入轮(助手消息重试):没有用户消息被删,也就没有要补回的东西
+        if (userMessage == null) return;
 
         // 与 TurnDriver 同口径:重试的原消息带着框架就地盖的 _attribution,
         // 不摘掉持久化会把它当注入消息滤掉(见 RunAsync 开头的 ClearAttribution)
@@ -2269,10 +2303,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     bool IConversationItemActionHost.IsGenerating => IsGenerating;
 
     /// <inheritdoc />
-    void IConversationItemActionHost.Rerun(ChatMessage input)
+    void IConversationItemActionHost.Rerun(ChatMessage? input)
     {
         ScrollToEnd = true;
-        _ = RunTurnAsync(input, ConversationItemFactory.DisplayTextOf(input));
+        _ = RunTurnAsync(input, input == null ? string.Empty : ConversationItemFactory.DisplayTextOf(input));
     }
 
     /// <inheritdoc />
@@ -2509,4 +2543,6 @@ public class TodoDisplayItem
 /// </summary>
 /// <param name="Message">投入注入队列的那个实例（与消费时流出来的是同一个，据此撤掉提示）</param>
 /// <param name="Text">显示文本</param>
-public sealed record PendingInterjectionViewData(ChatMessage Message, string Text);
+/// <param name="Attachments">这条插话携带的附件;撤回时放回盘上,插话才算完整撤回</param>
+public sealed record PendingInterjectionViewData(
+    ChatMessage Message, string Text, List<ConversationAttachment>? Attachments = null);
