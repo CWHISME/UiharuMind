@@ -9,6 +9,9 @@ public class AssistantExpertQuotePromptAction : NormalPromptAction
 {
     private string _quoteStr;
 
+    // 提问与参考拼成一体发出去，模板没声明边界：包了整块会模糊“哪句是问题”，先保持原文
+    protected override bool WrapUserInput => false;
+
     public AssistantExpertQuotePromptAction(string quoteStr) : base(DefaultCharacter.ExpertQuotePrompt)
     {
         // SetParams("quote", quoteStr);
