@@ -2949,6 +2949,9 @@
     <data name="GroupSpeakingOrderLabel" xml:space="preserve">
         <value>发言顺序（按勾选先后）</value>
     </data>
+    <data name="GroupModelFollowGlobal" xml:space="preserve">
+        <value>跟随全局</value>
+    </data>
     <data name="GroupCreateOrderEmpty" xml:space="preserve">
         <value>至少选两位成员</value>
     </data>

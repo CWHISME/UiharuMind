@@ -25,10 +25,11 @@ public static class GroupChatSessions
     /// <param name="isAgentGroup">是不是智能体群（建群时定、之后不变）</param>
     /// <param name="members">成员，顺序即发言顺序</param>
     /// <param name="workspacePath">智能体群的工作区；普通群忽略</param>
+    /// <param name="memberModelNames">成员各自的模型名，顺序与 <paramref name="members"/> 一致；null = 该成员跟随全局</param>
     /// <returns>群壳会话</returns>
     /// <exception cref="ArgumentException">没有成员，或有成员进不了这类群</exception>
     public static ChatSession Create(string name, bool isAgentGroup, IReadOnlyList<CharacterData> members,
-        string? workspacePath)
+        string? workspacePath, IReadOnlyList<string?>? memberModelNames = null)
     {
         if (members.Count == 0) throw new ArgumentException("A group needs at least one member.", nameof(members));
         if (members.FirstOrDefault(x => !CanJoin(x, isAgentGroup)) is { } refused)
@@ -48,13 +49,17 @@ public static class GroupChatSessions
 
         // 不走带角色的构造：那会写入开场白，而在群里开场白是他对着空气自我介绍
         List<ChatSession> sessions = members
-            .Select(character => new ChatSession
+            .Select((character, i) => new ChatSession
             {
                 CharacterId = character.CharacterId,
                 Title = $"{name} · {character.CharacterName}",
                 Description = name,
                 GroupId = group.SessionId,
                 WorkspacePath = character.IsAgent ? groupWorkspace : null,
+                // 建群时按成员逐个钉选模型；没给就当跟随全局
+                SessionModelName = memberModelNames != null && i < memberModelNames.Count
+                    ? memberModelNames[i]
+                    : null,
             })
             .ToList();
         group.GroupMemberSessionIds = sessions.Select(x => x.SessionId).ToList();

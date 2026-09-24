@@ -30,7 +30,7 @@ public partial class GroupCreateWindow : Window
     private void CreateButton_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not GroupCreateWindowModel { CanCreate: true } model) return;
-        Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked]));
+        Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked], [..model.PickedModelNames]));
     }
 
     /// <summary>类别筛选胶囊：Tag 里放的是下标，写回模型由它重筛列表</summary>

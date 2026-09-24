@@ -2956,6 +2956,9 @@ Allow them?</value>
     <data name="GroupSpeakingOrderLabel" xml:space="preserve">
         <value>Speaking order (the order you tick them)</value>
     </data>
+    <data name="GroupModelFollowGlobal" xml:space="preserve">
+        <value>Follow global</value>
+    </data>
     <data name="GroupCreateOrderEmpty" xml:space="preserve">
         <value>Pick at least two members</value>
     </data>
