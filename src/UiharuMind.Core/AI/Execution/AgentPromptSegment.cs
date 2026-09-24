@@ -29,6 +29,9 @@ public enum EPromptSection
 
     /// <summary>工作区规矩（项目的 AGENTS.md / CLAUDE.md）</summary>
     Workspace,
+
+    /// <summary>人格锚点（系统提示末尾的身份回锚，见 <c>CharacterData.GetPersonaCoda</c>）</summary>
+    PersonaAnchor,
 }
 
 /// <summary>

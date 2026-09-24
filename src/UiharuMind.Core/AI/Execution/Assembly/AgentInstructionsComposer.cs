@@ -84,9 +84,9 @@ internal static class AgentInstructionsComposer
                 EPromptSection.Workspace, registry);
         }
 
-        // coda 登记在角色段名下：它就是人格的压缩，能力面板的「角色提示」档理应含它；
-        // 单独开段别要改枚举、文案映射与汇总口径，一句锚点不值这个价
-        AppendSection(sb, personaCoda, EPromptSection.Character, registry);
+        // coda 单独立段：它就是人格的压缩，合计仍归「角色提示」档（见能力面板汇总口径）；
+        // 但明细里不能再叫「角色提示」——首尾两段同名，用户分不清哪个是正文、哪个是末尾回锚
+        AppendSection(sb, PersonaAnchorSection(personaCoda), EPromptSection.PersonaAnchor, registry);
 
         segments = registry;
         return sb.ToString();
@@ -98,14 +98,51 @@ internal static class AgentInstructionsComposer
     /// 默认卡 ChenXi 的段首本就是 <c># 角色</c>，裸卡补出来与它同名，恰好统一；
     /// 新建智能体预填的 <c># 工作循环</c> 也占着段首，那张卡有自己的段结构，同样不插。
     /// 裸卡（如新写的人格稿）才有这个缺口：基座第 4 条「以『角色』节为准」由此得到字面对得上的落点。
+    ///
+    /// 判的是<b>一级</b>标题：<c>##</c> 开头只是子节，代替不了父标题——不补的话，
+    /// 整段按 markdown 结构读会挂到上一节（基座）名下，层级说的是一件与事实不符的事。
     /// </summary>
     /// <param name="characterPrompt">角色卡渲染正文（CharacterPromptBuilder 的产物）</param>
     /// <returns>标题 + 正文；正文为空时返回空串</returns>
     internal static string CharacterSection(string? characterPrompt)
     {
         if (string.IsNullOrWhiteSpace(characterPrompt)) return string.Empty;
-        if (characterPrompt.TrimStart().StartsWith('#')) return characterPrompt;
+        if (StartsWithLevelOneHeading(characterPrompt)) return characterPrompt;
         return $"{AgentPromptHeadings.Character}\n\n{characterPrompt}";
+    }
+
+    /// <summary>
+    /// 人格锚点段：标题 + 回锚句。
+    /// 标题不能省：裸贴在工作区指针后面时，按 markdown 结构读整句成了「工作区规矩」的一节，
+    /// 层级说的是一件与事实不符的事（工具纪律段要求「# 工具」父标题是同一道理）。
+    /// 卡自带一级标题时以卡为准，与 <see cref="CharacterSection"/> 同一口径，不重复插。
+    /// </summary>
+    /// <param name="personaCoda">回锚句（<c>CharacterData.GetPersonaCoda</c> 的产物）；空串则不写该段</param>
+    /// <returns>标题 + 正文；正文为空时返回空串</returns>
+    internal static string PersonaAnchorSection(string? personaCoda)
+    {
+        if (string.IsNullOrWhiteSpace(personaCoda)) return string.Empty;
+        if (StartsWithLevelOneHeading(personaCoda)) return personaCoda;
+        return $"{AgentPromptHeadings.PersonaAnchor}\n\n{personaCoda}";
+    }
+
+    /// <summary>
+    /// 首行是否为一级 ATX 标题（<c># 标题</c>）。<c>##</c> 及更深的只是子节，
+    /// 判成"自带标题"就会漏补父标题——而漏补的那段按 markdown 结构读会挂到上一节名下。
+    /// 无空格的 <c>#foo</c> 按 CommonMark 不是标题，是普通文本，同样不能代替父标题。
+    /// </summary>
+    /// <param name="text">待判文本</param>
+    /// <returns>首行是一级标题返回 true</returns>
+    private static bool StartsWithLevelOneHeading(string text)
+    {
+        string trimmed = text.TrimStart();
+        if (!trimmed.StartsWith('#')) return false;
+        int hashes = 0;
+        while (hashes < trimmed.Length && trimmed[hashes] == '#') hashes++;
+        if (hashes != 1) return false;
+        if (hashes == trimmed.Length) return true;
+        char next = trimmed[hashes];
+        return next == ' ' || next == '\t' || next == '\n' || next == '\r';
     }
 
     /// <summary>

@@ -74,7 +74,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     [ObservableProperty] private bool _isEmpty = true;
 
     /// <summary>
-    /// 系统提示的分段明细（角色段、工具纪律、MCP 自述、工作区规矩），每段可看全文。
+    /// 系统提示的分段明细（角色段、人格锚点、工具纪律、MCP 自述、工作区规矩），每段可看全文。
     /// 这一栏原先只报了工具那一半，而提示词同样每轮完整重发，且通常比工具还大
     /// </summary>
     public ObservableCollection<PromptSegmentItem> PromptSegments { get; } = new();
@@ -287,7 +287,8 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         HasSkillSectionNote = skillsDisabled;
         SkillSectionNote = skillsDisabled ? Loc.Text(LangKey.AgentCapabilitySkillsDisabled) : string.Empty;
 
-        int characterTokens = snapshot.PromptTokensOf(EPromptSection.Character);
+        int characterTokens = snapshot.PromptTokensOf(EPromptSection.Character)
+            + snapshot.PromptTokensOf(EPromptSection.PersonaAnchor);
         int workspaceTokens = snapshot.PromptTokensOf(EPromptSection.Workspace);
         // 工具纪律段并进「工具」这一档:那段正文是按能力开关派生的,关掉文件工具,
         // 纪律里那一节和那几个工具定义一起消失——两者同生同死,拆成两行等于让人看两个数做一个决定
@@ -373,6 +374,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         {
             EPromptSection.Base => LangKey.AgentCapabilityBasePrompt,
             EPromptSection.Character => LangKey.AgentCapabilityCharacterPrompt,
+            EPromptSection.PersonaAnchor => LangKey.AgentCapabilityPersonaAnchor,
             EPromptSection.ToolDisciplines => LangKey.AgentCapabilityToolRules,
             EPromptSection.Mcp => LangKey.AgentCapabilityPromptMcp,
             _ => LangKey.AgentCapabilityWorkspaceRule,

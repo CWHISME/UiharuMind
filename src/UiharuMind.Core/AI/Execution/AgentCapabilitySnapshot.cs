@@ -33,7 +33,7 @@ public sealed class AgentCapabilitySnapshot
     public McpToolSet Mcp { get; init; } = McpToolSet.Empty;
 
     /// <summary>
-    /// 系统提示的分段清单（角色段、工具纪律、MCP 自述、工作区规矩），已带估算占用。
+    /// 系统提示的分段清单（角色段、人格锚点、工具纪律、MCP 自述、工作区规矩），已带估算占用。
     /// 提示词与工具定义一样每轮完整重发，而它通常比工具还大——角色卡加一份 AGENTS.md
     /// 轻松几千 token，这笔账不摆出来，用户只会以为是工具太多
     /// </summary>
