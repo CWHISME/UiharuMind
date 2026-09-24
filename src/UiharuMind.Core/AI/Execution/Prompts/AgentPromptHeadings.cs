@@ -82,6 +82,13 @@ public static class AgentPromptHeadings
     /// <summary>工作区规矩段（主代理与子代理共用）</summary>
     public const string Workspace = "# 工作区规矩（来自项目的 AGENTS.md）";
 
+    /// <summary>
+    /// 人格锚点段（系统提示末尾的身份回锚）。裸贴在工作区指针后面时，按 markdown 结构读
+    /// 整句成了「工作区规矩」的子节——层级说的是一件与事实不符的事，与工具纪律段要求
+    /// 「# 工具」父标题是同一类问题，所以它需要自己的顶级标题。
+    /// </summary>
+    public const string PersonaAnchor = "# 人格锚点";
+
     /// <summary>子代理的身份段</summary>
     public const string SubAgentRole = "# 角色";
 

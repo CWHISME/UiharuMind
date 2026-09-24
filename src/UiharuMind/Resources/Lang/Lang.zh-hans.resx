@@ -2508,6 +2508,9 @@
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>角色提示</value>
     </data>
+    <data name="AgentCapabilityPersonaAnchor" xml:space="preserve">
+        <value>人格锚点</value>
+    </data>
     <data name="AgentCapabilityBasePrompt" xml:space="preserve">
         <value>基座</value>
     </data>

@@ -2515,6 +2515,9 @@ Allow them?</value>
     <data name="AgentCapabilityCharacterPrompt" xml:space="preserve">
         <value>Persona</value>
     </data>
+    <data name="AgentCapabilityPersonaAnchor" xml:space="preserve">
+        <value>Persona anchor</value>
+    </data>
     <data name="AgentCapabilityBasePrompt" xml:space="preserve">
         <value>Base layer</value>
     </data>
