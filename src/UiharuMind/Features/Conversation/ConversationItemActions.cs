@@ -121,8 +121,9 @@ public sealed class ConversationItemActions
 
             // 只在角色一致时配对,不一致说明界面与历史的形状对不上,宁可不提供操作
             ChatRole expected = item.IsUser ? ChatRole.User : ChatRole.Assistant;
-            while (cursor >= 0 && history[cursor].Role != expected) cursor--;
-            if (cursor < 0) break;
+            int candidate = FindPairingCandidate(history, cursor, item, expected);
+            if (candidate < 0) break;
+            cursor = candidate;
 
             // 用户气泡再问一句「正文对得上吗」:形状对不上时宁可不接,接错了编辑/删除会改错消息。
             // 助手气泡不做这一道:正文是流式攒的,与落盘那份未必逐字相同
@@ -139,6 +140,57 @@ public sealed class ConversationItemActions
 
         AttachStreamedSources(history);
         _host.NotifyItemsWired();
+    }
+
+    /// <summary>
+    /// 从 <paramref name="cursor"/> 起往前找能与这只气泡配对的历史消息。
+    ///
+    /// 助手气泡优先认“真有正文”的那条：纯思考收尾的消息也是 <c>Assistant</c>，
+    /// 只看角色会一路摸到尾、把正文气泡指到一条没有正文的消息上——编辑会改错地方，
+    /// 思考卡再按顺序也只能认到前一条，两边一交叉，对账接着就报分歧要求全量重放。
+    /// 实在没有带正文的才回落到只看角色（形状已经对不上了，配上总比空着强）。
+    /// 用户气泡不走这一道：它有正文比对兜底，角色一致即候选。
+    /// </summary>
+    /// <param name="history">当前历史</param>
+    /// <param name="cursor">从这里（含）往前找</param>
+    /// <param name="item">待配对的气泡</param>
+    /// <param name="expected">期望的角色</param>
+    /// <returns>配对消息的下标；找不到为 -1</returns>
+    private static int FindPairingCandidate(IReadOnlyList<ChatMessage> history, int cursor,
+        TextConversationItem item, ChatRole expected)
+    {
+        if (item.IsUser)
+        {
+            while (cursor >= 0 && history[cursor].Role != expected) cursor--;
+            return cursor;
+        }
+
+        int fallback = -1;
+        while (cursor >= 0)
+        {
+            if (history[cursor].Role == expected)
+            {
+                if (fallback < 0) fallback = cursor;
+                if (HasText(history[cursor])) return cursor;
+            }
+
+            cursor--;
+        }
+
+        return fallback;
+    }
+
+    /// <summary>这条历史消息有没有能画成正文气泡的正文</summary>
+    /// <param name="message">历史消息</param>
+    /// <returns>有非空正文则为 true</returns>
+    private static bool HasText(ChatMessage message)
+    {
+        foreach (TextContent text in message.Contents.OfType<TextContent>())
+        {
+            if (!string.IsNullOrWhiteSpace(text.Text)) return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -177,7 +229,108 @@ public sealed class ConversationItemActions
                 continue;
             }
 
+            if (item is ThinkingItem) continue; //思考卡走下面的精确配对，不在这里猜
+
             if (i + 1 < _items.Count) item.SourceMessage = _items[i + 1].SourceMessage;
+        }
+
+        PairStreamedThinking(history);
+    }
+
+    /// <summary>
+    /// 给流式产出的思考卡补上来源消息。
+    ///
+    /// 文本气泡按角色配对、工具卡按 <c>CallId</c> 精确回指，思考卡两样都沾不上：
+    /// 它不是气泡、也没有 <c>CallId</c>。原来只能“回落到后一条”，当一轮以纯思考收尾
+    /// （有推理、无正文、无工具调用）时它正好是尾巴，后面没有可回落的条目，
+    /// 来源永远是空——对账于是把它当成“没画”，按历史又追加一张，
+    /// 同一段思考在界面上出现两次（实机踩到）。
+    ///
+    /// 三阶段认领，每一阶段都不许交叉（显示在前的卡只能认更早或同时的消息）：
+    /// <list type="number">
+    /// <item>先按全文长度精确配对。直播缓冲与落盘文本逐字一致（规整只删空增量、合并碎片，
+    /// 见 <c>ChatContentNormalizer</c>），长度对上就是同一段思考。</item>
+    /// <item>剩下的按顺序配对（尽力而为）；实在没有位置了就跟最近认走的那条抱团——
+    /// 同一条消息本来就会拆出多张卡（思考/正文交替），抱团与回放形状一致。</item>
+    /// <item>历史里根本没有带推理的消息时（如取消打断的半截思考），沿用原来的回落：
+    /// 隔壁条目的来源，至少保证卡片能跟着删。</item>
+    /// </list>
+    ///
+    /// 长度与顺序打架时顺序优先：交叉的归属不仅删错轮次，还会让对账报出假分歧
+    /// （错的两张卡在历史里一前一后）；顺序一致的误配顶多是隔壁两轮抱团，
+    /// 删不错地方。配错的代价 ceiling 都是界面归属——历史侧删哪些由
+    /// <see cref="HistoryEditRange"/> 独立算出（与工具卡的回落同口径）。
+    /// </summary>
+    /// <param name="history">当前历史</param>
+    private void PairStreamedThinking(IReadOnlyList<ChatMessage> history)
+    {
+        List<ThinkingItem> unwired = new();
+        foreach (ConversationItemBase item in _items)
+        {
+            if (item is ThinkingItem thinking && thinking.SourceMessage == null) unwired.Add(thinking);
+        }
+
+        if (unwired.Count == 0) return;
+
+        HashSet<ChatMessage> claimed = new(ReferenceEqualityComparer.Instance);
+        foreach (ConversationItemBase item in _items)
+        {
+            if (item is ThinkingItem thinking && thinking.SourceMessage != null) claimed.Add(thinking.SourceMessage);
+        }
+
+        List<(ChatMessage Message, int Index, int ReasoningLength)> candidates = new();
+        for (int i = 0; i < history.Count; i++)
+        {
+            ChatMessage message = history[i];
+            if (message.Role != ChatRole.Assistant || claimed.Contains(message)) continue;
+            int length = 0;
+            foreach (TextReasoningContent reasoning in message.Contents.OfType<TextReasoningContent>())
+            {
+                length += reasoning.Text?.Length ?? 0;
+            }
+
+            if (length > 0) candidates.Add((message, i, length));
+        }
+
+        int assigned = -1; //已认走的最靠后的历史下标：之后的所有认领都不许越过它回头
+        if (candidates.Count > 0)
+        {
+            foreach (ThinkingItem thinking in unwired)
+            {
+                int length = thinking.FullLength;
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    if (candidates[i].Index < assigned || candidates[i].ReasoningLength != length) continue;
+                    thinking.SourceMessage = candidates[i].Message;
+                    assigned = candidates[i].Index;
+                    candidates.RemoveAt(i);
+                    break;
+                }
+            }
+
+            foreach (ThinkingItem thinking in unwired)
+            {
+                if (thinking.SourceMessage != null) continue;
+                int slot = candidates.FindIndex(x => x.Index >= assigned);
+                if (slot < 0)
+                {
+                    if (assigned < 0) break;
+                    thinking.SourceMessage = history[assigned];
+                    continue;
+                }
+
+                thinking.SourceMessage = candidates[slot].Message;
+                assigned = candidates[slot].Index;
+                candidates.RemoveAt(slot);
+            }
+        }
+
+        // 前两阶段都没认出来：历史里没有可认的推理消息。沿用原来的回落，
+        // 尾巴上后面没有条目时仍是空——老代码同样是空，没有退化。
+        for (int i = _items.Count - 1; i >= 0; i--)
+        {
+            if (_items[i] is not ThinkingItem thinking || thinking.SourceMessage != null) continue;
+            if (i + 1 < _items.Count) thinking.SourceMessage = _items[i + 1].SourceMessage;
         }
     }
 

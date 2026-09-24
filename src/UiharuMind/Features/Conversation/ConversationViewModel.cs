@@ -2309,6 +2309,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         int from, int to) => BuildHistoryItems(history, from, to);
 
     /// <inheritdoc />
+    void IConversationReconcileHost.WireStreamedSources(IReadOnlyList<ChatMessage> history) =>
+        _itemActions.WireStreamed(history);
+
+    /// <inheritdoc />
     void IConversationReconcileHost.RefreshTokenUsage() => RefreshTokenUsageText();
 
     private ChatSession? CurrentSession =>
