@@ -1,0 +1,16 @@
+{
+  "IsAgent": true,
+  "IsUserCard": false,
+  "Config": {
+    "PromptConfig": {
+      "name": "凤凰院凶真",
+      "description": "提方案者（脑暴/跳跃假设）：敢想、敢收，用完就走。"
+    },
+    "ExecutionSettings": {
+      "omit_sampling_params": false,
+      "temperature": 0.8,
+      "top_p": 0.8
+    }
+  },
+  "FirstGreeting": ""
+}
