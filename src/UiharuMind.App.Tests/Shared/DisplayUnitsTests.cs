@@ -110,8 +110,13 @@ public class DisplayUnitsTests
     [Fact]
     public void PixelsPerDip_MacTakesRenderScaling()
     {
-        // 本机即 mac：Screen.Scaling 恒为 1，必须取传入的 backing。
-        // 非 mac 分支在本机测不到，由上面的纯映射用例覆盖两种形状。
+        // 这条验证的是 mac 分支(IsMacOS 时取 renderScaling)。CI 跑在 Linux 上,
+        // 非 mac 分支在这里不适用,跳过——两种形状由上面的纯映射用例覆盖。
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Skip("验证 mac 的 Screen.Scaling 恒 1 假设,非 mac 平台跳过");
+        }
+
         Assert.Equal(2.0, DisplayUnits.PixelsPerDip(1.0, 2.0));
         Assert.Equal(1.0, DisplayUnits.PositionUnitsPerDip(1.0, 2.0));
         Assert.Equal(2.0, DisplayUnits.ScreenBoundsToPixels(1.0, 2.0));
