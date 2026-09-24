@@ -17,7 +17,7 @@ public class WireStreamedUserPairingTests
     {
         public ChatSession? Session => session;
         public bool IsGenerating => false;
-        public void Rerun(ChatMessage input) { }
+        public void Rerun(ChatMessage? input) { }
         public void NotifySessionsChanged() { }
         public void NotifyItemsWired() { }
     }

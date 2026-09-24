@@ -735,6 +735,9 @@
     <data name="MessageDeleteTurnConfirmFormat" xml:space="preserve">
         <value>Delete this message and its related content ({0} items in total)? This cannot be undone.</value>
     </data>
+    <data name="MessageRetryTurnConfirmFormat" xml:space="preserve">
+        <value>Regenerating will delete the {0} messages after this one and start over from here. Continue?</value>
+    </data>
     <data name="SystemPrompt" xml:space="preserve">
         <value>SystemPrompt</value>
     </data>

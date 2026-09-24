@@ -38,8 +38,8 @@ public interface IConversationItemActionHost
     bool IsGenerating { get; }
 
     /// <summary>以某条历史消息为输入重跑一轮</summary>
-    /// <param name="input">用户消息</param>
-    void Rerun(ChatMessage input);
+    /// <param name="input">用户消息;null = 无输入续写(历史停在截断处,让模型接着生成)</param>
+    void Rerun(ChatMessage? input);
 
     /// <summary>会话集合变化(分叉出了新会话)</summary>
     void NotifySessionsChanged();
@@ -422,10 +422,23 @@ public sealed class ConversationItemActions
     }
 
     /// <summary>
-    /// 从某条用户输入起重新生成。也是「重新生成上一条」那个命令的落点
+    /// 一条助手消息重试时,被删掉的条数达到这个值就先弹确认。
+    /// 重试 = 替换它及之后的内容,它后面还有一长串(工具往返/后续对话)时,
+    /// 静默全删就像“聊天丢了”——删得多就该先问一声。
     /// </summary>
-    /// <param name="item">用户条目</param>
-    public void Retry(ConversationItemBase item)
+    private const int RetryConfirmThreshold = 4;
+
+    /// <summary>
+    /// 从某条消息起重新生成。也是「重新生成上一条」那个命令的落点。
+    ///
+    /// 用户消息以自己为锚:删掉它及之后,再以它为输入重跑一轮(提问本体由重跑写回)。
+    /// 助手消息同样以自己为锚:删掉它及之后,历史停在它前面的内容,由无输入轮续写新回复——
+    /// 不再回溯到它前面的提问重跑整轮(那样会把提问和更早的对话一起卷进去,
+    /// 重试一条靠前的回复就退回到整个对话开头)。
+    /// 删掉的条数多时先弹确认。
+    /// </summary>
+    /// <param name="item">条目</param>
+    public async Task Retry(ConversationItemBase item)
     {
         ChatSession? session = _host.Session;
         if (session == null || item.SourceMessage == null || _host.IsGenerating) return;
@@ -433,28 +446,21 @@ public sealed class ConversationItemActions
         int index = session.History.IndexOf(item.SourceMessage);
         if (index < 0) return;
 
-        // 助手消息重试 = 从它对应的提问重跑:锚点回落到它之前最近的用户消息
-        if (item.SourceMessage.Role == ChatRole.Assistant)
+        // 从这条消息起删(含它自己):重试 = 替换它及之后的内容
+        int doomedCount = session.History.Count - index;
+        if (item.SourceMessage.Role == ChatRole.Assistant && doomedCount >= RetryConfirmThreshold)
         {
-            index = FindRetryAnchor(session.History, index);
-            if (index < 0) return;
+            IMessageService messageService = _messageService ?? App.Services.GetRequiredService<IMessageService>();
+            string confirmText = string.Format(Loc.Text(LangKey.MessageRetryTurnConfirmFormat), doomedCount);
+            if (!await messageService.ConfirmAsync(confirmText)) return;
         }
 
-        // 丢弃该条用户输入之后的全部历史,再以它为输入重跑一轮
         ChatMessage input = session.History[index];
-        session.History.RemoveRange(index, session.History.Count - index);
+        session.History.RemoveRange(index, doomedCount);
         session.Save();
 
-        // 界面侧从<b>重试锚点消息的气泡</b>删起:用户消息重试即它自己,助手消息重试要前移到锚点气泡
+        // 界面侧从<b>该条气泡</b>起删:用户与助手都以自己为锚,不需再前移到提问气泡
         int itemIndex = _items.IndexOf(item);
-        if (itemIndex >= 0 && item.SourceMessage.Role == ChatRole.Assistant)
-        {
-            for (int i = itemIndex; i >= 0; i--)
-            {
-                if (ReferenceEquals(_items[i].SourceMessage, input)) { itemIndex = i; break; }
-            }
-        }
-
         if (itemIndex >= 0)
         {
             // 截断的这一段条目不再回来,连它们气泡里的图一起释放(先摘出集合再释放)
@@ -468,27 +474,17 @@ public sealed class ConversationItemActions
             foreach (ConversationItemBase discardedItem in discarded) discardedItem.ReleaseImages();
         }
 
-        _items.Add(Wire(ConversationItemFactory.CreateUser(
-            ConversationItemFactory.DisplayTextOf(input), input), input));
-        _host.Rerun(input);
-    }
-
-    /// <summary>
-    /// 从 <paramref name="fromIndex"/> 起往前找最近的用户消息,作为助手消息重试的锚点。
-    /// 跳过旁白(开场白):它不是提问,"从开场白重新生成"没有意义,还可能把开场白删了重跑。
-    /// </summary>
-    /// <param name="history">历史</param>
-    /// <param name="fromIndex">助手消息下标</param>
-    /// <returns>用户消息下标;找不到为 -1</returns>
-    private static int FindRetryAnchor(List<ChatMessage> history, int fromIndex)
-    {
-        for (int i = fromIndex; i >= 0; i--)
+        if (item.SourceMessage.Role == ChatRole.Assistant)
         {
-            if (history[i].Role != ChatRole.User) continue;
-            if (ChatMessageAnnotations.IsNarration(history[i])) continue;
-            return i;
+            // 无输入续写:提问与更早的对话都留在历史里,模型基于它们直接生成新回复
+            _host.Rerun(null);
         }
-
-        return -1;
+        else
+        {
+            // 用户消息:提问由这轮请求写回(与发送同一条路)
+            _items.Add(Wire(ConversationItemFactory.CreateUser(
+                ConversationItemFactory.DisplayTextOf(input), input), input));
+            _host.Rerun(input);
+        }
     }
 }
