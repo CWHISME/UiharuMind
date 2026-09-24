@@ -25,6 +25,7 @@ using UiharuMind.Core.AI.Runtime.Backends;
 using UiharuMind.Core.AI.Models;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.Models;
 
@@ -183,7 +184,7 @@ public partial class ModelService : ObservableObject
             await Task.Run(LlmManager.Instance.ReloadModelList).ConfigureAwait(false);
 
         // ModelSources 是列表的 ItemsSource,只能在 UI 线程改动
-        await Dispatcher.UIThread.InvokeAsync(() => ApplyModelList(list));
+        await UiDispatcher.InvokeAsync(() => ApplyModelList(list));
     }
 
     private void ApplyModelList(List<ModelRunningData> list)

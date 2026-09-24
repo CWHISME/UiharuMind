@@ -206,7 +206,7 @@ public partial class ServicesPageData : PageDataBase
     //   设备采集要起外部进程(macOS 上 sysctl×2 + vm_stat)
     private async Task RefreshOnEnableAsync()
     {
-        await Dispatcher.UIThread.InvokeAsync(RefreshStatus, DispatcherPriority.Background);
+        await UiDispatcher.InvokeAsync(RefreshStatus, DispatcherPriority.Background);
 
         IReadOnlyList<EmbeddingModelCandidate> candidates =
             await Task.Run(static () => EmbeddingModelService.GetManagedCandidates());

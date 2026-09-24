@@ -18,6 +18,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Core.AI.Memory;
 
 using UiharuMind.Shared.WindowManagement;
+using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.Memory;
 
 public partial class MemoryEditorWindow : Window
@@ -354,7 +355,7 @@ public partial class MemoryEditorWindowModel : ObservableObject
             cancellationToken.ThrowIfCancellationRequested();
             MemorySourceReadResult result = await _memoryData.ValidateTextFileAsync(path, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            await Dispatcher.UIThread.InvokeAsync(() => Files.Add(MemoryFileSourceViewData.From(path, result)));
+            await UiDispatcher.InvokeAsync(() => Files.Add(MemoryFileSourceViewData.From(path, result)));
         }
     }
 

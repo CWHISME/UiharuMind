@@ -6,10 +6,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Avalonia.Threading;
 using UiharuMind.Core;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Core.Core.UiharuScreenCapture;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Features.ScreenCapture.Frames;
 
@@ -97,7 +97,7 @@ public static class ScreenFrameProvider
 
             // X11 教训：位图放 UI 线程构造，各后端统一；
             // 尺寸对不上（抓错屏）TryCreate 内部会拦下返回 null
-            return await Dispatcher.UIThread.InvokeAsync(() => MacScreenFrame.TryCreate(tmp, screen.Bounds));
+            return await UiDispatcher.InvokeAsync(() => MacScreenFrame.TryCreate(tmp, screen.Bounds));
         }
         finally
         {
@@ -127,7 +127,7 @@ public static class ScreenFrameProvider
         if (stream == null) return null;
 
         // new Avalonia.Bitmap 必须在 UI 线程构造，否则 X11 后端触碰 Xlib 崩溃
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await UiDispatcher.InvokeAsync(() =>
         {
             try
             {
@@ -152,7 +152,7 @@ public static class ScreenFrameProvider
 
         // SkiaScreenFrame.TryCreate 内部会 new Avalonia.Bitmap，必须在 UI 线程构造，
         // 否则在 X11 后端下会触碰 Xlib 触发 xcb_xlib_threads_sequence_lost 崩溃
-        return await Dispatcher.UIThread.InvokeAsync(() => SkiaScreenFrame.TryCreate(stream, screen.Bounds));
+        return await UiDispatcher.InvokeAsync(() => SkiaScreenFrame.TryCreate(stream, screen.Bounds));
     }
 
     /// <summary>

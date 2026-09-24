@@ -1946,7 +1946,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
 
         // 分帧:先让"清空旧会话"渲染出去,再构建新会话,把一次长冻结拆成两段短的
-        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
+        await UiDispatcher.InvokeAsync(static () => { }, DispatcherPriority.Background);
         if (Abandoned()) return;
 
         try

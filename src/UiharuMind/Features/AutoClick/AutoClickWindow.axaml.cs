@@ -13,6 +13,7 @@ using UiharuMind.Features.Settings;
 using UiharuMind.Resources.Lang;
 
 using UiharuMind.Shared.WindowManagement;
+using UiharuMind.Shared.Utils;
 namespace UiharuMind.Features.AutoClick;
 
 public partial class AutoClickWindow : UiharuWindowBase
@@ -77,8 +78,8 @@ public partial class AutoClickWindow : UiharuWindowBase
         }
 
         SafeClose();
-        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Render, cancellationToken);
-        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle, cancellationToken);
+        await UiDispatcher.InvokeAsync(() => { }, DispatcherPriority.Render, cancellationToken);
+        await UiDispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle, cancellationToken);
     }
 
     public void UpdatePlaybackIndicator(int current, int total)
