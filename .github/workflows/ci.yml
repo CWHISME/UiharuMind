@@ -16,12 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: UiharuMind
+        # 解决方案与各项目都在 src/ 下，run 步骤以此为工作目录
+        working-directory: src
 
     steps:
       - uses: actions/checkout@v4
 
-      # global.json 钉的是 9.0.0 + rollForward:latestMajor，接受 10.x
+      # 仓库 global.json 只选了 MTP 测试 runner（test.runner），没钉 SDK 版本
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
@@ -40,8 +41,10 @@ jobs:
       - name: 构建
         run: dotnet build UiharuMind.sln --configuration Release --no-restore
 
+      # 本仓测试走 MTP（Microsoft.Testing.Platform），判成败用 dotnet msbuild -t:Test。
+      # 别用 dotnet test —— SDK 10.0.401 下它会静默跑出零个测试；dotnet msbuild 没有 --no-restore
       - name: Core 测试
-        run: dotnet test UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj --configuration Release --no-build
+        run: dotnet msbuild UiharuMind.Core.Tests/UiharuMind.Core.Tests.csproj -t:Test -p:Configuration=Release
 
       - name: App 测试
-        run: dotnet test UiharuMind.App.Tests/UiharuMind.App.Tests.csproj --configuration Release --no-build
+        run: dotnet msbuild UiharuMind.App.Tests/UiharuMind.App.Tests.csproj -t:Test -p:Configuration=Release
