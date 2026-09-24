@@ -23,7 +23,7 @@ jobs:
 
       - id: resolve
         name: 取 <Version> 并校验 tag
-        working-directory: UiharuMind
+        working-directory: src
         shell: bash
         run: |
           set -euo pipefail
