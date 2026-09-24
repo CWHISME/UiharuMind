@@ -5,7 +5,6 @@
              xmlns:services="clr-namespace:UiharuMind.Features.Models"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:common="clr-namespace:UiharuMind.Shared.Controls"
-             xmlns:u="https://irihi.tech/ursa"
               mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
               x:Class="UiharuMind.Features.Conversation.Pages.ModelSelectComboBoxView"
                              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
@@ -30,13 +29,14 @@
                         <StackPanel Orientation="Horizontal"
                                     Spacing="5"
                                     VerticalAlignment="Center">
-                            <u:Badge Header="{loc:Loc ModelStateRemote}"
-                                     Background="SpringGreen"
-                                     IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <u:Badge Header="{loc:Loc ModelStateVision}"
-                                     Background="Gold"
-                                     IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
+                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
+                                                BadgeBackground="SpringGreen"
+                                                IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <controls:KindBadge Header="{loc:Loc ModelStateVision}"
+                                                BadgeBackground="Gold"
+                                                IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <TextBlock Text="{Binding ModelName}"
+                                       Classes="line-tight"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                             <!-- 复制模型名:派活时 model 参数要一字不差,而名字多是长串
@@ -56,13 +56,14 @@
                                     Spacing="5"
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding ., Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <u:Badge Header="{loc:Loc ModelStateRemote}"
-                                     Background="SpringGreen"
-                                     IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
-                            <u:Badge Header="{loc:Loc ModelStateVision}"
-                                     Background="Gold"
-                                     IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
+                            <controls:KindBadge Header="{loc:Loc ModelStateRemote}"
+                                                BadgeBackground="SpringGreen"
+                                                IsVisible="{Binding IsRemoteModel,Mode=OneWay}" />
+                            <controls:KindBadge Header="{loc:Loc ModelStateVision}"
+                                                BadgeBackground="Gold"
+                                                IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <TextBlock Text="{Binding ModelName}"
+                                       Classes="line-tight"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>

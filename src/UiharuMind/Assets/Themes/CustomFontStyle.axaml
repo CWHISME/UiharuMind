@@ -57,6 +57,16 @@
         </Setter>
     </Style>
 
+    <!-- 单行文字在「固定高度容器里要视觉居中」的通用解法(比 title-tweak 更彻底):
+         默认行高≈1.4×字号,字形按 ascent 排在行盒里偏上。让行盒收紧到字号本尊,
+         字形即填满行盒——VerticalAlignment=Center 居中行盒时字形也跟着居中。
+         LineHeight 绑定自身 FontSize,12/13/14 任何字号都各自匹配,不用手算。
+         只对显式挂类的 TextBlock 生效,全局行距(多行正文)一概不动。
+         需要就在 TextBlock 上加 class: line-tight -->
+    <Style Selector=":is(TextBlock).line-tight">
+        <Setter Property="LineHeight" Value="{Binding FontSize, RelativeSource={RelativeSource Self}}" />
+    </Style>
+
     <!-- 图标与旁边文字并排时的垂直微调。与 title-tweak 同因:字形视觉中心天然偏上,
          图标按自己的盒居中时也一样看着偏上——用 RenderTransform 上移 1px 对齐视觉中心。
          纯视觉、不参与布局(不用负 Margin:它参与测量,会把所在行高带偏)。
