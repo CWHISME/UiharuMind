@@ -1,8 +1,8 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
-  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/ShokuhouMisaki.png",
   "IsShielded": true,
+  "CharacterIcon": "avares://UiharuMind/Assets/Avatars/ShokuhouMisaki.png",
   "Config": {
     "PromptConfig": {
       "name": "食蜂操祈",
