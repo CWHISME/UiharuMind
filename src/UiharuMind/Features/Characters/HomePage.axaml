@@ -3,7 +3,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pages="clr-namespace:UiharuMind.Features.Characters"
-             xmlns:u="https://irihi.tech/ursa"
              xmlns:common="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
               mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="720"
@@ -79,9 +78,9 @@
                                            FontSize="16"
                                            TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource SemiGrey7}" />
-                                <u:Badge Header="{Binding Editor.KindName}"
-                                         Background="{Binding Editor.KindColor}"
-                                         VerticalAlignment="Center" />
+                                <controls:KindBadge Header="{Binding Editor.KindName}"
+                                                     IsAgent="{Binding Editor.IsAgent}"
+                                                     VerticalAlignment="Center" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">

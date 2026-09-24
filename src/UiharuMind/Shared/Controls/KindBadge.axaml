@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             x:Class="UiharuMind.Shared.Controls.KindBadge">
+    <!-- 徽章：圆角胶囊 + 文本。配色是徽章自己专属的，收在本文件内部，不占全局主题色。
+         普通角色浅绿、智能体薰衣草紫（信息层级：常态安静、例外才抢眼；紫色也贴 AI 气相）。
+         底色走 ResolvedBackground：外部显式给 BadgeBackground（模型状态标签场景）优先，
+         否则按 IsAgent 二态自动选；前景统一深字，不随类别切换（白字在浅底上反而怪）。 -->
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="KindBadgeChatBackground" Color="#90EE90" /> <!-- 普通角色：浅绿 -->
+        <SolidColorBrush x:Key="KindBadgeAgentBackground" Color="#D0BCF7" /> <!-- 智能体：薰衣草紫 -->
+        <SolidColorBrush x:Key="KindBadgeForeground" Color="#2F4F4F" /> <!-- 深字，浅底上才读得清 -->
+    </UserControl.Resources>
+    <Border Background="{Binding ResolvedBackground, RelativeSource={RelativeSource AncestorType=controls:KindBadge}}"
+            MinHeight="18"
+            MaxHeight="18"
+            CornerRadius="9"
+            Padding="8,0"
+            VerticalAlignment="Center">
+        <TextBlock Text="{Binding Header, RelativeSource={RelativeSource AncestorType=controls:KindBadge}}"
+                   Foreground="{StaticResource KindBadgeForeground}"
+                   FontSize="12"
+                   Classes="line-tight"
+                   VerticalAlignment="Center" />
+    </Border>
+</UserControl>

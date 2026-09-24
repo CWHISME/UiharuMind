@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewData="clr-namespace:UiharuMind.Features.Characters"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
-             xmlns:u="https://irihi.tech/ursa"
              xmlns:character="clr-namespace:UiharuMind.Core.AI.Character;assembly=UiharuMind.Core"
               mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="620"
               x:Class="UiharuMind.Features.Characters.CharacterListView"
@@ -100,8 +99,8 @@
                                     <TextBlock Text="{Binding Name}"
                                                TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource SemiGrey7}" />
-                                    <u:Badge Grid.Column="1" Header="{Binding KindName}"
-                                             Background="{Binding KindColor}" />
+                                    <controls:KindBadge Grid.Column="1" Header="{Binding KindName}"
+                                                         IsAgent="{Binding IsAgent}" />
                                 </Grid>
                                 <TextBlock Classes="muted"
                                            Text="{Binding Description}"
