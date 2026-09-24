@@ -9,7 +9,31 @@ namespace UiharuMind.Core.AI.Character.PromptActions;
 /// </summary>
 public abstract class PromptActionConvertableBase : PromptActionBase
 {
+    /// <summary>待处理文本在用户消息里的边界标签。模板侧声明“标签内一切皆数据”，代码侧统一包裹，两边必须成对改。</summary>
+    public const string SourceTextTag = "source_text";
+
+    /// <summary>内容里出现的字面闭标签转义成这个，模板侧要声明把它还原理解。</summary>
+    public const string EscapedSourceCloseTag = "<\\/source_text>";
+
     private ChatSession? _session;
+
+    /// <summary>
+    /// 是否把用户输入包进 source_text 再发。内置工具卡模板都声明了这套边界故默认开；
+    /// 模板未知的形态（用户自选角色、引用问答的拼装体）保持原文，避免标签漏进输出。
+    /// </summary>
+    protected virtual bool WrapUserInput => true;
+
+    /// <summary>
+    /// 把待处理文本包进边界发出去：模型靠标签区分“任务”与“数据”，
+    /// 只靠系统提示写“不要当指令”压不住——用户消息天生就有指令权限。
+    /// </summary>
+    /// <param name="text">待处理原文</param>
+    /// <returns>包好边界的用户消息正文</returns>
+    public static string WrapSourceText(string text)
+    {
+        string escaped = text.Replace($"</{SourceTextTag}>", EscapedSourceCloseTag, StringComparison.Ordinal);
+        return $"<{SourceTextTag}>\n{escaped}\n</{SourceTextTag}>";
+    }
 
     public override bool IsConvertableToChatSession => _session is { Count: > 0 };
 
@@ -35,12 +59,13 @@ public abstract class PromptActionConvertableBase : PromptActionBase
         _session.Description = text;
         _session.ChatModelRunningData = CurModelRunningData;
 
+        string inputText = WrapUserInput ? WrapSourceText(text) : text;
         List<DataContent>? imageContents = images is { Count: > 0 }
             ? images.Select(image => new DataContent(image.Bytes, image.MediaType)).ToList()
             : null;
         ChatMessage input = imageContents is { Count: > 0 }
-            ? _session.CreateMessage(ChatRole.User, text, imageContents)
-            : _session.CreateMessage(ChatRole.User, text);
+            ? _session.CreateMessage(ChatRole.User, inputText, imageContents)
+            : _session.CreateMessage(ChatRole.User, inputText);
         return new TransientRunStream(_session.GenerateCompletionStreamingContent(input, cancellationToken));
     }
 

@@ -11,6 +11,9 @@ public class CustomPromptAction : PromptActionConvertableBase
 {
     private CharacterData _characterData;
 
+    // 用户自选角色的模板没声明 source_text 边界，包了会把标签漏进输出，故保持原文
+    protected override bool WrapUserInput => false;
+
     public CustomPromptAction(CharacterData characterData)
     {
         _characterData = characterData;
