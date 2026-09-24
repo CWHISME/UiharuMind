@@ -1295,7 +1295,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         GroupCreateRequest? request = await GroupCreateWindow.ShowAsync(isAgentGroup, workspace);
         if (request == null) return;
 
-        ChatSession group = GroupChatSessions.Create(request.Name, isAgentGroup, request.Members, workspace);
+        ChatSession group = GroupChatSessions.Create(request.Name, isAgentGroup, request.Members, workspace,
+            request.MemberModelNames);
         SessionsChanged?.Invoke();
         OpenSessionRequested?.Invoke(group.SessionId);
     }

@@ -133,10 +133,8 @@ public static class AgentToolPrompts
         StringBuilder sb = new();
         sb.AppendLine(
             $"你的记忆目录是 \"{memoryDirectory}\"。这是你在本工作区跨会话保留的笔记：" +
-            "按主题一个 .md 文件（例如 prefs.md、decisions.md），需要时先 `Glob` 再 `Read`，" +
-            "开场是否查看由你自己判断。只记对话里的沉淀（偏好、决策理由、踩坑、进行中的任务状态），" +
-            "不要重复 repo 里已有的内容——代码与文档以文件为准，再抄一份就会两份漂移。");
-
+            "按主题一个 .md 文件，需要时先 `Glob`（或 `Grep`） 再 `Read`，" +
+            "开场是否查看由你自己判断。只记对话里的沉淀（偏好、踩坑、用户给的可复用的重要信息）");
         return sb.ToString().TrimEnd();
     }
 
