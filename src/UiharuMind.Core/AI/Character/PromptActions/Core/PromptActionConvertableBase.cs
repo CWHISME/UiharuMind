@@ -24,18 +24,23 @@ public abstract class PromptActionConvertableBase : PromptActionBase
     /// </summary>
     /// <param name="text">用户输入</param>
     /// <param name="arguments">模板参数</param>
-    /// <param name="imageBytes">可选图片</param>
+    /// <param name="images">可选图片（多张时视觉模型同框看，见 VisionTool）</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>正文增量流（其底层同时持有完整内容流，见 <see cref="RunContentAsync"/>）</returns>
     protected IAsyncEnumerable<string> RunTransientAsync(string text, Dictionary<string, object?>? arguments,
-        byte[]? imageBytes = null, CancellationToken cancellationToken = default)
+        IReadOnlyList<ImageInput>? images = null, CancellationToken cancellationToken = default)
     {
         CharacterData character = GetCharacterData();
         _session = SessionManager.Instance.CreateTransientSession(character.CharacterId, arguments);
         _session.Description = text;
         _session.ChatModelRunningData = CurModelRunningData;
 
-        ChatMessage input = _session.CreateMessage(ChatRole.User, text, imageBytes);
+        List<DataContent>? imageContents = images is { Count: > 0 }
+            ? images.Select(image => new DataContent(image.Bytes, image.MediaType)).ToList()
+            : null;
+        ChatMessage input = imageContents is { Count: > 0 }
+            ? _session.CreateMessage(ChatRole.User, text, imageContents)
+            : _session.CreateMessage(ChatRole.User, text);
         return new TransientRunStream(_session.GenerateCompletionStreamingContent(input, cancellationToken));
     }
 

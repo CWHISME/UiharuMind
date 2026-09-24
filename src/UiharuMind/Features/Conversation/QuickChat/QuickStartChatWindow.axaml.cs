@@ -150,7 +150,8 @@ public partial class QuickStartChatWindow : QuickWindowBase
 
         if (_quoteImage != null)
         {
-            ImageVisionPromptAction skill = new ImageVisionPromptAction(_quoteImage.BitmapToBytes());
+            ImageVisionPromptAction skill = new ImageVisionPromptAction(
+                [new ImageInput(_quoteImage.BitmapToBytes(), "image/png")]); //BitmapToBytes 产出一向是 PNG
             QuickChatResultWindow.Show("Vision (AI)", inputText, skill);
             CloseByAnimation();
             return;

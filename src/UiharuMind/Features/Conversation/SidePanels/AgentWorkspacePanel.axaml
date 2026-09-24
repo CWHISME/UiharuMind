@@ -88,7 +88,6 @@
                  左右各留 8 内收:统计块是"嵌进去的一段账",不与上下行的名字/目录名贴在同一竖线上 -->
             <Button Classes="text-row" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
-                    Padding="4,0,5,0"
                     IsVisible="{Binding Conversation.Capabilities.HasStats}"
                     Command="{Binding ShowCapabilitiesCommand}"
                     ToolTip.Tip="{loc:Loc AgentCapabilityTokenTip}">

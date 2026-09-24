@@ -24,7 +24,7 @@ public class AgentToolConfig
     /// <summary>启用定时任务工具(ScheduleTask)</summary>
     public bool EnableScheduledTasks { get; set; } = true;
 
-    /// <summary>启用识图工具(ViewImage,委托视觉模型答图片问题)</summary>
+    /// <summary>启用识图工具(AnalyzeImage,委托视觉模型答图片问题)</summary>
     public bool EnableVisionTool { get; set; } = true;
 
     /// <summary>启用知识库检索工具(KnowledgeSearch,检索会话挂载的嵌入知识库)</summary>

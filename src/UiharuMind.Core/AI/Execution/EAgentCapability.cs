@@ -40,6 +40,9 @@ public enum EAgentCapability
     /// <summary>子代理</summary>
     SubAgent,
 
+    /// <summary>技能按名加载(仅总闸关闭时由自建 load_skill 挂出,见 LoadSkillTool)</summary>
+    Skills,
+
     /// <summary>MCP server 提供的工具</summary>
     Mcp,
 }

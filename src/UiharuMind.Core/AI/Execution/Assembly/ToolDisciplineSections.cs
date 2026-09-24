@@ -122,8 +122,8 @@ internal static class ToolDisciplineSections
         list.Section(facts.Shell && facts.Python, AgentPromptHeadings.Python,
             () => AgentToolPrompts.BuildPython(facts.FileWrite));
 
-        list.Section(facts.WebAccess, AgentPromptHeadings.WebAccess, AgentToolPrompts.WebAccessDefault);
-        list.Section(facts.Vision, AgentPromptHeadings.Images, AgentToolPrompts.VisionToolDefault);
+        // list.Section(facts.WebAccess, AgentPromptHeadings.WebAccess, AgentToolPrompts.WebAccessDefault);
+        // list.Section(facts.Vision, AgentPromptHeadings.Images, AgentToolPrompts.VisionToolDefault);
         list.Section(facts.KnowledgeBase, AgentPromptHeadings.KnowledgeBase, AgentToolPrompts.KnowledgeSearchDefault);
         list.Section(facts.Delegation, AgentPromptHeadings.Delegation,
             () => AgentToolPrompts.BuildDelegation(facts.DelegationRoster));

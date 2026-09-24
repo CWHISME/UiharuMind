@@ -17,6 +17,7 @@ using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Memory;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
+using UiharuMind.Core.AI.Execution.Tools.Skills;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -132,7 +133,7 @@ internal static class AgentAssembler
             Add(EAgentCapability.Shell, shellExecutor.AsAIFunction(CharacterRunnerFactory.ShellToolName));
         }
 
-        // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,ViewImage 是多余的绕路。
+        // 识图工具只在当前模型自己看不了图时才挂:视觉模型直接收图,AnalyzeImage 是多余的绕路。
         // 该判定进装配快照,切换视觉/非视觉模型时下一次挂接自动重建
         if (plan.MountVisionTool)
         {
@@ -171,6 +172,15 @@ internal static class AgentAssembler
         {
             Add(EAgentCapability.WebSearch, WebSearchTool.Create());
             Add(EAgentCapability.WebSearch, WebFetchTool.Create());
+        }
+
+        // 技能模型可见性总闸关闭时,框架的 load_skill 不挂,由自建同名工具顶上:
+        // 模型仍能按名加载广告列表内的技能(被动技能),主动技能正文引用它们才不落空。
+        // 广告列表仍不注入——省 token 的初衷不破,模型只加载它从正文里得知的技能名
+        if (plan.DisableSkillsProvider && plan.SkillsSource is { } skillsSource)
+        {
+            Add(EAgentCapability.Skills, LoadSkillTool.Create(skillsSource,
+                hasFileTools: config.EnableFileAccess, hasShell: shellExecutor != null));
         }
 
         return tools;

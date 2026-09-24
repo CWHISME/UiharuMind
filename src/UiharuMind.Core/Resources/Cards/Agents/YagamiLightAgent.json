@@ -4,7 +4,8 @@
   "Config": {
     "PromptConfig": {
       "name": "夜神月",
-      "description": "提方案者（多步策划/阻力预判）：分几步、卡在哪、怎么绕。"
+      "description": "提方案者（多步策划/阻力预判）：分几步、卡在哪、怎么绕。",
+      "anchor": "你是夜神月。冷静自信，分几步、卡在哪、怎么绕；信奉“计划通”，不容失控。"
     },
     "ExecutionSettings": {
       "omit_sampling_params": false,

@@ -578,8 +578,27 @@ public class ChatSession
     public ChatMessage CreateMessage(ChatRole role, string message, byte[]? imageBytes = null,
         string imageMediaType = "image/jpeg", DateTimeOffset? createdAt = null)
     {
+        List<DataContent>? images = imageBytes is { Length: > 0 }
+            ? [new DataContent(imageBytes, imageMediaType)]
+            : null;
+        return CreateMessage(role, message, images, createdAt);
+    }
+
+    /// <summary>
+    /// 构造一条消息（不入历史），可带多张图片。
+    /// <b>imageContents 必传</b>（可传 null）：不带默认值是为了不与单图重载在
+    /// 两参调用（role, message）上构成二义。
+    /// </summary>
+    /// <param name="role">角色</param>
+    /// <param name="message">文本</param>
+    /// <param name="imageContents">多张图片的 DataContent；null 则纯文本</param>
+    /// <param name="createdAt">时间戳，默认当前</param>
+    /// <returns>消息</returns>
+    public ChatMessage CreateMessage(ChatRole role, string message, IReadOnlyList<DataContent>? imageContents,
+        DateTimeOffset? createdAt = null)
+    {
         List<AIContent> contents = [];
-        if (imageBytes is { Length: > 0 }) contents.Add(new DataContent(imageBytes, imageMediaType));
+        if (imageContents is { Count: > 0 }) contents.AddRange(imageContents);
         contents.Add(new TextContent(message));
 
         return new ChatMessage(role, contents)

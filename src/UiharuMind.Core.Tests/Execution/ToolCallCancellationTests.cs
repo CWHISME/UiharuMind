@@ -16,7 +16,7 @@ public class ToolCallCancellationTests
     private static ChatMessage Call(params string[] callIds)
     {
         return new ChatMessage(ChatRole.Assistant,
-            callIds.Select(AIContent (x) => new FunctionCallContent(x, "ViewImage", null)).ToList());
+            callIds.Select(AIContent (x) => new FunctionCallContent(x, "AnalyzeImage", null)).ToList());
     }
 
     private static ChatMessage Result(string callId)

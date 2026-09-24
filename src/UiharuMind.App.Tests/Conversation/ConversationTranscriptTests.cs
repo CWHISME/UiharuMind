@@ -704,7 +704,7 @@ public class ConversationTranscriptTests
     public void CancelledToolResult_ShowsAsFailed()
     {
         var (transcript, items) = Create();
-        transcript.Apply(new FunctionCallContent("a", "ViewImage", null));
+        transcript.Apply(new FunctionCallContent("a", "AnalyzeImage", null));
         transcript.Apply(new FunctionResultContent("a", ToolCallCancellation.ResultText));
 
         ToolCallItem call = items.OfType<ToolCallItem>().Single();
@@ -798,7 +798,7 @@ public class ConversationTranscriptTests
     {
         var (transcript, _) = Create();
         transcript.Apply(new TextContent("第一段"));
-        transcript.Apply(new FunctionCallContent("call-1", "ViewImage", null));
+        transcript.Apply(new FunctionCallContent("call-1", "AnalyzeImage", null));
 
         //卡在工具调用上停止:没有任何在流的正文,一个字都不该落库
         Assert.Null(transcript.TakeStreamingText());
@@ -810,7 +810,7 @@ public class ConversationTranscriptTests
         var (transcript, items) = Create();
         transcript.Apply(new FunctionCallContent("done", "run_shell", null));
         transcript.Apply(new FunctionResultContent("done", "ok"));
-        transcript.Apply(new FunctionCallContent("running", "ViewImage", null));
+        transcript.Apply(new FunctionCallContent("running", "AnalyzeImage", null));
 
         transcript.StopRunningToolCalls("已停止");
 

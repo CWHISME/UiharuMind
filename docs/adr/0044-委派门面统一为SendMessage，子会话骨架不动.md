@@ -20,7 +20,7 @@
 ## 背景
 
 群聊方案
-（[`docs/proposals/代理人格化/群聊多角色代理设计方案_v5.md`](../proposals/代理人格化/群聊多角色代理设计方案_v5.md) §6.3）
+（[`docs/proposals/代理人格化/群聊多角色代理设计方案_v6.md`](../proposals/代理人格化/群聊多角色代理设计方案_v6.md) §6.3）
 要取消「子代理」这个说法。读进去会发现，它反对的**不是** `ParentSessionId`，而是工具签名教给模型的心智：
 
 > `RunAgent(agent, task)` 的签名本身就在教模型「agent 是可运行的东西、task 是输入、产出是返回值」——

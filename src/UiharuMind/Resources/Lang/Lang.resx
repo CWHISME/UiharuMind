@@ -379,7 +379,7 @@
         <value>Scheduled tasks</value>
     </data>
     <data name="AgentSettingCapVisionTool" xml:space="preserve">
-        <value>Vision tool (ViewImage)</value>
+        <value>Vision tool (AnalyzeImage)</value>
     </data>
     <data name="AgentSettingCapKnowledgeSearchTool" xml:space="preserve">
         <value>Knowledge search tool (KnowledgeSearch)</value>
@@ -430,7 +430,7 @@
         <value>Web search and page fetching (WebSearch / WebFetch). With an API key the official search API is used first; otherwise free scraping fallbacks are used.</value>
     </data>
     <data name="AgentGateDescVisionTool" xml:space="preserve">
-        <value>Lets a text-only model ask a vision model about image files (ViewImage). Only mounted when the current model cannot see images itself. The prompt below tells the agent when to use it.</value>
+        <value>Lets a text-only model ask a vision model about image files (AnalyzeImage). Only mounted when the current model cannot see images itself. The prompt below tells the agent when to use it.</value>
     </data>
     <data name="AgentGateDescKnowledgeSearch" xml:space="preserve">
         <value>Retrieve the knowledge base attached to this session (KnowledgeSearch). When disabled (or the model does not support tool calls), relevant snippets are injected automatically each turn. It searches the documents you provide; the agent's own notes (workspace memory) are a different thing.</value>
@@ -529,7 +529,7 @@
         <value>Send skills to the model</value>
     </data>
     <data name="AgentSkillsModelEnabledTip" xml:space="preserve">
-        <value>When off, the model cannot see any skills (the roster and load_skill tools are not mounted) and skills are only reachable by explicit invocation. Frees this fixed overhead for small local windows.</value>
+        <value>When off, the model cannot see the skill roster and the framework's three skill tools are not mounted; a read-only `load_skill` stays available for skills referenced by explicitly invoked skills. Skills are otherwise only reachable by explicit invocation. Frees most of this fixed overhead for small local windows.</value>
     </data>
     <data name="AgentSkillsUserInvoked" xml:space="preserve">
         <value>user-invoked</value>

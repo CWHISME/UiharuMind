@@ -27,6 +27,13 @@ public static class AgentPromptHeadings
     /// <summary>基座层的标题（与角色段「# 工作循环」同级，恒在它之前）</summary>
     public const string Base = "# 基座";
 
+    /// <summary>
+    /// 角色段（人格）的父标题。<b>只在角色卡没有自带一级标题时补插</b>——卡自带时
+    /// （默认卡 ChenXi 的 <c># 角色</c>、新建智能体预填的 <c># 工作循环</c>）以卡为准，不重复插。
+    /// 与子代理的 <see cref="SubAgentRole"/> 同字值：这边是人格段的父标题、那边是身份段，各自独立维护。
+    /// </summary>
+    public const string Character = "# 角色";
+
     /// <summary>工作目录段的标题正文（不含级别前缀，见 <see cref="WorkingDirectory"/>）</summary>
     public const string WorkingDirectoryName = "工作目录";
 
