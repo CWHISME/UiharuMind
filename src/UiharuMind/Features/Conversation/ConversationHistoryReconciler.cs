@@ -49,6 +49,14 @@ public interface IConversationReconcileHost
     /// <returns>装配好的条目</returns>
     List<ConversationItemBase> BuildItems(IReadOnlyList<ChatMessage> history, int from, int to);
 
+    /// <summary>
+    /// 把界面上来源还没落定的流式条目与历史配对（幂等）。对账先配对再判定——
+    /// 「没人跑」不等于「都配好了」：轮末配对走后台线程，到这里仍可能是空来源，
+    /// 不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
+    /// </summary>
+    /// <param name="history">当前历史</param>
+    void WireStreamedSources(IReadOnlyList<ChatMessage> history);
+
     /// <summary>用量文案跟着新画出来的条目刷一次</summary>
     void RefreshTokenUsage();
 }
@@ -99,6 +107,11 @@ public sealed class ConversationHistoryReconciler
         // 登记处是“空闲”的唯一可靠定义，先查它（被拦下的对账由「session idle」在轮结束后再来一次）
         if (_host.IsSessionBusy(session.SessionId)) return;
         if (session.LiveTurn.IsTurnRunning) return;
+
+        // 先配对再判定：“没人跑”不等于“都配好了”。轮末配对走后台线程，
+        // 到这里仍可能是空来源——不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
+        // 本方法只在 UI 线程上调用，配对在这里做才是线程安全的。
+        _host.WireStreamedSources(session.History);
 
         if (ConversationOrderCheck.FindDivergence(_items, session.History) is { } divergence)
         {
