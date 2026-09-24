@@ -1,6 +1,7 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
+  "IsShielded": true,
   "CharacterIcon": "avares://UiharuMind/Assets/Avatars/ShiraiKuroko.png",
   "Config": {
     "PromptConfig": {

@@ -1,6 +1,7 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
+  "IsShielded": true,
   "Config": {
     "PromptConfig": {
       "name": "凤凰院凶真",
