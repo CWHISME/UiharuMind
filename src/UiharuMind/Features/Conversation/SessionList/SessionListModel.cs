@@ -325,8 +325,9 @@ public partial class SessionListModel : ObservableObject, IDisposable
     private List<ChatSessionMeta> ListAllSessions()
     {
         if (_source != null) return _source();
-        // 全量但排除子会话:左栏是跨会话导航,子会话是会话内的事（与旧 GetChatSessions/GetAgentSessions 同口径）
-        return SessionManager.Instance.GetSessions().Where(x => !x.IsSubSession).ToList();
+        // 全量但排除子会话与群成员会话:左栏是跨会话导航,子会话是会话内的事,
+        // 群成员会话的入口是群的右栏成员列表——与 SessionManager 的两个出口同口径
+        return SessionManager.Instance.GetSessions().Where(x => !x.IsSubSession && !x.IsGroupMember).ToList();
     }
 
     private bool BelongsHere(ChatSessionMeta meta)

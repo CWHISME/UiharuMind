@@ -177,14 +177,17 @@
                                      描述单独一行——长描述不再跟角色名挤成一团。
                                      角色名的显隐是页面级选择(见 ShowAvatar 的说明),不从标题推——
                                      推过一版,会话一复制标题被加后缀,角色名就冒出来了 -->
-                                <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏 -->
-                                <TextBlock Grid.Row="1"
-                                           Classes="muted"
-                                           Text="{Binding Description}"
-                                           IsVisible="{Binding HasDistinctDescription}"
-                                           TextTrimming="CharacterEllipsis"
-                                           MaxLines="1"
-                                           FontSize="11" />
+                                <!-- 中间行:描述(对话页)。agent 页通常没有描述,这行自动隐藏。
+                                     群壳的描述是成员名单,前面加一个 [群聊] 前缀(黄色加粗),一眼分出群与单聊 -->
+                                <Grid Grid.Row="1" ColumnDefinitions="Auto,*" MinWidth="0"
+                                      IsVisible="{Binding HasDistinctDescription}">
+                                    <TextBlock Grid.Column="0" Classes="muted" FontSize="11" FontWeight="Bold"
+                                               Text="{loc:Loc GroupBadgePrefix}"
+                                               IsVisible="{Binding IsGroup}" />
+                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="11"
+                                               Text="{Binding Description}" TextTrimming="CharacterEllipsis"
+                                               MaxLines="1" />
+                                </Grid>
                                 <!-- 末行:agent 页(不显头像)是「工作区名(项目色) + 时间」,聊天页(显头像)只有时间。
                                      工作区名打头让同角色不同项目一眼分开;角色名已从末行移除
                                      (同工作区多个会话角色不同是常态,身份靠标题与右侧栏呈现)。

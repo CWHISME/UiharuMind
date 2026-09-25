@@ -53,6 +53,9 @@ public partial class SessionListItem : ObservableObject
     /// <summary>会话标识(列表比对用它,不必为此加载本体)</summary>
     public string SessionId => _meta.SessionId;
 
+    /// <summary>会话是不是群壳（左栏据此显示群徽章）</summary>
+    public bool IsGroup => _meta.IsGroup;
+
     /// <summary>
     /// 会话本体，首次访问时按需加载。列表展示所需字段全部取自元数据，
     /// 只有条目级操作(清空/改名/复制/编辑角色)才会触发加载。
@@ -232,6 +235,7 @@ public partial class SessionListItem : ObservableObject
         Name = meta.Title;
         Description = meta.Description;
         TimeString = CalcTimeString();
+        OnPropertyChanged(nameof(IsGroup));
         OnPropertyChanged(nameof(HasDraft));
         OnPropertyChanged(nameof(IsDraftVisible));
     }

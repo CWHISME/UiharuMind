@@ -152,6 +152,10 @@ public sealed class GroupChatCoordinator
 
     private async Task RunMemberAsync(ChatSession group, ChatSession member, CancellationToken cancellationToken)
     {
+        // 成员此刻正在私聊（前台轮占着闸）：这一圈跳过，游标不动，下一圈补投——不丢话
+        using IDisposable? gate = GroupMemberTurnGate.TryEnter(member.SessionId);
+        if (gate == null) return;
+
         bool firstDelivery = member.GroupCursor == 0 && member.History.Count == 0;
         string? delivery;
         bool announced;

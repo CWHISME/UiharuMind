@@ -24,8 +24,26 @@
              形态差异全部由页面数据的开关表达,不再维护三份各自演化的模板 -->
         <DataTemplate x:Key="UnifiedRightPane" x:DataType="pages:ConversationPageData">
             <Grid RowDefinitions="Auto,Auto,*" Margin="12">
-                <panels:AgentWorkspacePanel Grid.Row="0" Margin="0,0,0,10" />
+                <!-- 群壳没有角色:工作区卡(角色行+能力统计)换成群信息卡。两类面板叠在同一格,互斥显示 -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <panels:AgentWorkspacePanel IsVisible="{Binding !Conversation.IsGroupSession}" />
+                    <Border IsVisible="{Binding Conversation.IsGroupSession}"
+                            Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
+                        <StackPanel Spacing="6">
+                            <TextBlock FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       Text="{Binding Conversation.ActiveGroupTitle}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Classes="muted" FontSize="11" Text="{Binding Conversation.GroupTypeName}" />
+                                <TextBlock Classes="muted" FontSize="11" Text="{Binding Conversation.GroupMemberCountText}" />
+                            </StackPanel>
+                            <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+                                       Text="{Binding Conversation.ActiveGroupDescription}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <!-- 上下文占用：群壳没有 token 账本（自己不跑轮），面板恒为无效态，群模式整块收起 -->
                 <Border Grid.Row="1" Margin="0,0,0,10"
+                        IsVisible="{Binding !Conversation.IsGroupSession}"
                         BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}"
                         CornerRadius="8" Padding="8">
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />

@@ -335,11 +335,36 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsGroupSession => CurrentSession?.IsGroup == true;
 
-    /// <summary>本会话是不是群成员会话。骨架里只读：私聊与他正在跑的群那一轮怎么交织还没定（ADR 0046 未决）</summary>
+    /// <summary>群壳的标题（右栏群卡）；不是群为空</summary>
+    public string ActiveGroupTitle => CurrentSession is { IsGroup: true } group ? group.Title : string.Empty;
+
+    /// <summary>群壳的描述（成员名单，右栏群卡）；不是群为空</summary>
+    public string ActiveGroupDescription => CurrentSession is { IsGroup: true } group ? group.Description : string.Empty;
+
+    /// <summary>群的类型显示名（右栏群卡）</summary>
+    public string GroupTypeName => CurrentSession is { IsGroup: true, IsAgentGroup: true }
+        ? Loc.Text(LangKey.GroupTypeAgent)
+        : Loc.Text(LangKey.GroupTypeChat);
+
+    /// <summary>群成员数显示文本（右栏群卡）</summary>
+    public string GroupMemberCountText => string.Format(Loc.Text(LangKey.GroupMemberCountFormat),
+        GroupMembers?.Members.Count ?? 0);
+
+    /// <summary>本会话是不是群成员会话。已解锁私聊：打字过轮次闸门排队，见 <see cref="GroupMemberTurnGate"/>（ADR 0046 未决已落地）</summary>
     public bool IsGroupMemberSession => CurrentSession?.IsGroupMember == true;
 
+    /// <summary>
+    /// 群成员会话正在跑<b>群里那一轮</b>（不是本地私聊轮）。判据取运行态登记处：
+    /// 群轮跑成员时 TurnDriver 把成员会话登记为 busy，而本地 <c>_driver</c> 闲着。
+    /// 此时打字不该走插话——插话的回应会被群轮按「这一轮正文」收成群发言
+    /// </summary>
+    public bool IsGroupMemberRunningGroupTurn =>
+        CurrentSession is { IsGroupMember: true }
+        && SessionManager.Instance.Running.IsBusy(CurrentSession.SessionId)
+        && !_driver.IsRunning;
+
     /// <summary>输入区是否可见</summary>
-    public bool IsComposerVisible => !IsGroupMemberSession;
+    public bool IsComposerVisible => true;
 
     /// <summary>「以角色身份发送」切换是否可见：普通对话才有，群里没有「替谁说话」这回事</summary>
     public bool IsSenderSwitchVisible => !IsAgentSession && !IsGroupSession;
@@ -1446,27 +1471,36 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 等待期间在输入区挂一条待发提示,免得看着像没发出去
         if (IsGenerating)
         {
-            // 插话与正常发送共用同一套组装:附件盘上的图要进消息,不能只发 text
-            List<ConversationAttachment>? interjectionAttachments = Tray.TakePending();
-            ChatMessage? interjection = CurrentSession == null
-                ? null
-                : Tray.BuildUserMessage(text, interjectionAttachments);
-            if (interjection != null && CurrentRunner is { } runner && await runner.TryInjectAsync(new[] { interjection }))
+            // 群成员会话正在跑群里那一轮:打字不该插话——插话的回应会被群轮按「这一轮正文」
+            // 收成群发言,私聊就泄进群里了。掉到正常发送路径,由 RunTurnAsync 过闸排队
+            if (!IsGroupMemberRunningGroupTurn)
             {
-                PendingInterjections.Add(new PendingInterjectionViewData(interjection, text, interjectionAttachments));
+                // 插话与正常发送共用同一套组装:附件盘上的图要进消息,不能只发 text
+                List<ConversationAttachment>? interjectionAttachments = Tray.TakePending();
+                ChatMessage? interjection = CurrentSession == null
+                    ? null
+                    : Tray.BuildUserMessage(text, interjectionAttachments);
+                if (interjection != null && CurrentRunner is { } runner && await runner.TryInjectAsync(new[] { interjection }))
+                {
+                    PendingInterjections.Add(new PendingInterjectionViewData(interjection, text, interjectionAttachments));
+                    return;
+                }
+
+                // 排不进去(执行者还在装配、或这个执行者不支持注入):文字还给输入框、附件放回盘上,
+                // 静默吞掉就是"点了没反应"
+                if (interjectionAttachments != null)
+                {
+                    foreach (ConversationAttachment attachment in interjectionAttachments) Tray.Attachments.Add(attachment);
+                }
+                InputText = text;
+                App.Services.GetRequiredService<IMessageService>().ShowNotification(
+                    Loc.Text(LangKey.AgentInterjectUnavailable), severity: MessageSeverity.Warning);
                 return;
             }
 
-            // 排不进去(执行者还在装配、或这个执行者不支持注入):文字还给输入框、附件放回盘上,
-            // 静默吞掉就是"点了没反应"
-            if (interjectionAttachments != null)
-            {
-                foreach (ConversationAttachment attachment in interjectionAttachments) Tray.Attachments.Add(attachment);
-            }
-            InputText = text;
+            // 他正在群里发言:明说排队,接着走下面的正常发送路径(RunTurnAsync 会等到群轮结束)
             App.Services.GetRequiredService<IMessageService>().ShowNotification(
-                Loc.Text(LangKey.AgentInterjectUnavailable), severity: MessageSeverity.Warning);
-            return;
+                Loc.Text(LangKey.GroupMemberBusyQueueTip), severity: MessageSeverity.Information);
         }
 
         // 以角色身份发送:直接写入一条回复,不触发生成
@@ -1756,6 +1790,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 主会话不过闸（它的后台轮另走 TryBeginRun 抢占）。
             using IDisposable? turnGate = await BackgroundSubAgentDispatcher
                 .EnterSubSessionTurnGateAsync(session.SessionId).ConfigureAwait(false);
+            // 群成员会话的私聊与群轮投递共用同一把闸:排队到群轮结束(它整轮持有),两轮永不重叠
+            using IDisposable memberGate = await GroupMemberTurnGate
+                .EnterAsync(session.SessionId).ConfigureAwait(false);
 
             await _driver.RunAsync(session, session.Runner, userMessage, ResolveApprovalsAsync);
         }
@@ -2013,6 +2050,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnPropertyChanged(nameof(IsGroupMemberSession));
             OnPropertyChanged(nameof(IsComposerVisible));
             OnPropertyChanged(nameof(IsSenderSwitchVisible));
+            OnPropertyChanged(nameof(ActiveGroupTitle));
+            OnPropertyChanged(nameof(ActiveGroupDescription));
+            OnPropertyChanged(nameof(GroupTypeName));
+            OnPropertyChanged(nameof(GroupMemberCountText));
             GroupMembers = body.IsGroup ? new GroupMembersViewData(body) : null;
             if (body.IsGroup)
             {

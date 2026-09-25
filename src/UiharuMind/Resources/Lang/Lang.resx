@@ -2983,6 +2983,24 @@ Allow them?</value>
     <data name="GroupRoundRunning" xml:space="preserve">
         <value>Group round in progress…</value>
     </data>
+    <data name="GroupTypeAgent" xml:space="preserve">
+        <value>Agent group</value>
+    </data>
+    <data name="GroupTypeChat" xml:space="preserve">
+        <value>Chat group</value>
+    </data>
+    <data name="GroupMemberCountFormat" xml:space="preserve">
+        <value>{0} members</value>
+    </data>
+    <data name="GroupBadgePrefix" xml:space="preserve">
+        <value>[Group]</value>
+    </data>
+    <data name="GroupMemberContextTip" xml:space="preserve">
+        <value>Per-turn fixed cost / model context limit</value>
+    </data>
+    <data name="GroupMemberBusyQueueTip" xml:space="preserve">
+        <value>They are speaking in the group. This message is queued and will be sent when their turn ends.</value>
+    </data>
 
 
 
