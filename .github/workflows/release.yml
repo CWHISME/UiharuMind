@@ -55,16 +55,15 @@ jobs:
         include:
           # macos-14 是 arm64。不写 macos-latest —— 它的架构会随 GitHub 换代漂移
           - os: macos-14
-            shell: bash
             script: ./buildMac.sh
             artifact: UiharuMind-${{ needs.version.outputs.version }}-osx-arm64.zip
           - os: ubuntu-latest
-            shell: bash
             script: ./buildLinux.sh
             artifact: UiharuMind-${{ needs.version.outputs.version }}-linux-x64.tar.gz
+          # 不配 shell 字段:step 的 shell 属性不支持 matrix context(会报 Unrecognized named-value)。
+          # 这里依赖各平台默认 shell, windows 的 script 用 cmd /c 明确走 cmd, 行为与原来 shell: cmd 一致
           - os: windows-latest
-            shell: cmd
-            script: buildWin.bat
+            script: cmd /c buildWin.bat
             artifact: UiharuMind-${{ needs.version.outputs.version }}-win-x64.zip
 
     runs-on: ${{ matrix.os }}
@@ -119,10 +118,10 @@ jobs:
           security find-identity -p codesigning "$keychain"
 
       # 打包逻辑（组 .app bundle、填 plist、签名、压包）只在这些脚本里有一份，
-      # 本机和 CI 走的是同一条路
+      # 本机和 CI 走的是同一条路。shell 属性不支持 matrix context, 按平台默认 shell 跑
+      # (mac/linux 是 bash, windows 是 pwsh, 其 script 已用 cmd /c 包一层)
       - name: 构建并打包
         working-directory: src/Build
-        shell: ${{ matrix.shell }}
         env:
           SIGN_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
         run: ${{ matrix.script }}
