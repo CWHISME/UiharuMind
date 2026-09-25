@@ -2995,11 +2995,14 @@ Allow them?</value>
     <data name="GroupBadgePrefix" xml:space="preserve">
         <value>[Group]</value>
     </data>
-    <data name="GroupMemberContextTip" xml:space="preserve">
-        <value>Per-turn fixed cost / model context limit</value>
-    </data>
     <data name="GroupMemberBusyQueueTip" xml:space="preserve">
         <value>They are speaking in the group. This message is queued and will be sent when their turn ends.</value>
+    </data>
+    <data name="GroupMemberSpeaking" xml:space="preserve">
+        <value>Speaking</value>
+    </data>
+    <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
+        <value>Model: {0} · Context {1}</value>
     </data>
 
 

@@ -61,30 +61,46 @@ public sealed partial class GroupMemberItem : ObservableObject
     private int _fixedTokens; //固定开销：预演一次后缓存，不随历史变
     private long _usageTokens; //当前有效占用：最近一次请求输入与固定开销取大
 
-    /// <summary>成员会话实际用的模型名（钉选 → 跟随全局，与顶栏模型标签同口径）</summary>
-    public string ModelLabel
+    /// <summary>角色描述：副标题的主行，空时折叠（不占位）。模型行内不再出现，只进整卡 tooltip</summary>
+    public string Description => _character.Description?.Trim() ?? "";
+
+    /// <summary>有没有可显示的角色描述</summary>
+    public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+    /// <summary>上下文行：占用 / 模型上限（与右栏上下文占用同一形状；上限未知时只给占用；无占用时为空，由 HasUsage 折叠）</summary>
+    public string ContextLine
+    {
+        get
+        {
+            if (_usageTokens <= 0) return "";
+            int contextLength = ResolveModel()?.ContextLength ?? 0;
+            return contextLength > 0
+                ? $"{TurnUsageLedger.Format(_usageTokens)} / {TurnUsageLedger.Format(contextLength)}"
+                : TurnUsageLedger.Format(_usageTokens);
+        }
+    }
+
+    /// <summary>整卡 tooltip：模型名 + 上下文，模型不再占行内一整行</summary>
+    public string CardTip
+    {
+        get
+        {
+            string name = EffectiveModelName;
+            return string.IsNullOrEmpty(ContextLine)
+                ? string.Format(Loc.Text(LangKey.GroupMemberModelTooltipFormat), name, "—")
+                : string.Format(Loc.Text(LangKey.GroupMemberModelTooltipFormat), name, ContextLine);
+        }
+    }
+
+    /// <summary>实际生效的模型名（钉选 → 全局当前 → 首选，不套「跟随全局」包装，专给 tooltip）</summary>
+    private string EffectiveModelName
     {
         get
         {
             if (!string.IsNullOrEmpty(_meta.SessionModelName)) return _meta.SessionModelName;
             string? name = LlmManager.Instance.CurrentRunningModel?.ModelName
                            ?? LlmManager.Instance.GetPreferredModelName(false);
-            return string.IsNullOrEmpty(name)
-                ? "—"
-                : string.Format(Loc.Text(LangKey.SessionModelDefaultFormat), name);
-        }
-    }
-
-    /// <summary>上下文行：占用 / 模型上限（与右栏上下文占用同一形状；上限未知时只给占用）</summary>
-    public string ContextLine
-    {
-        get
-        {
-            if (_usageTokens <= 0) return "—";
-            int contextLength = ResolveModel()?.ContextLength ?? 0;
-            return contextLength > 0
-                ? $"{TurnUsageLedger.Format(_usageTokens)} / {TurnUsageLedger.Format(contextLength)}"
-                : TurnUsageLedger.Format(_usageTokens);
+            return string.IsNullOrEmpty(name) ? "—" : name;
         }
     }
 
@@ -155,6 +171,7 @@ public sealed partial class GroupMemberItem : ObservableObject
         OnPropertyChanged(nameof(ContextLine));
         OnPropertyChanged(nameof(UsagePercent));
         OnPropertyChanged(nameof(HasUsage));
+        OnPropertyChanged(nameof(CardTip));
     }
 
     /// <summary>成员会话标识</summary>

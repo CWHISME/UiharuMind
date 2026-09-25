@@ -2988,11 +2988,14 @@
     <data name="GroupBadgePrefix" xml:space="preserve">
         <value>[群聊]</value>
     </data>
-    <data name="GroupMemberContextTip" xml:space="preserve">
-        <value>该成员每轮固定开销 / 模型上下文上限</value>
-    </data>
     <data name="GroupMemberBusyQueueTip" xml:space="preserve">
         <value>他正在群里发言，这条消息已排队，等这轮结束自动发送</value>
+    </data>
+    <data name="GroupMemberSpeaking" xml:space="preserve">
+        <value>发言中</value>
+    </data>
+    <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
+        <value>模型：{0} · 上下文 {1}</value>
     </data>
 
 
