@@ -179,7 +179,7 @@ public static class ConversationItemFactory
     public static ToolCallItem CreateKnowledgeCard(string snippets) => new()
     {
         ToolName = KnowledgeTool.ToolName,
-        IconGlyph = "🔍",
+        IconName = "book-search",
         IsRunning = false,
         IsSuccess = true,
         ResultText = snippets,

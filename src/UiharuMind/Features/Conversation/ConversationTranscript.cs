@@ -158,7 +158,7 @@ public sealed class ConversationTranscript : ITurnSink
                 {
                     CallId = call.CallId,
                     ToolName = call.Name,
-                    IconGlyph = AgentContentFormatter.GetToolIcon(call.Name),
+                    IconName = AgentContentFormatter.GetToolIconName(call.Name),
                     ArgumentSummary = AgentContentFormatter.SummarizeArguments(call, _workspaceRootSource?.Invoke()),
                     FilePath = AgentContentFormatter.GetFilePath(call),
                     ArgumentsJson = call.Arguments == null

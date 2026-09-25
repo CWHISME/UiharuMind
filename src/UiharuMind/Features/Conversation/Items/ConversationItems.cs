@@ -24,6 +24,8 @@ using UiharuMind.Core.AI.Execution.Files;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.Scheduler;
+using UiharuMind.Core.AI.Execution.Tools.Skills;
+using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Core.Core.Utils;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
@@ -270,8 +272,8 @@ public partial class ToolCallItem : ConversationItemBase
     public string CallId { get; init; } = string.Empty;
     public string ToolName { get; init; } = string.Empty;
 
-    /// <summary>卡片图标(按工具类别)</summary>
-    public string IconGlyph { get; init; } = "🔧";
+    /// <summary>卡片图标(SVG 图标名，按工具类别)</summary>
+    public string IconName { get; init; } = "wrench";
 
     /// <summary>
     /// 本次委派建出来的<b>子会话</b>标识；空串即普通工具调用，卡片上不出现入口。
@@ -788,21 +790,30 @@ public static class AgentContentFormatter
     }
 
     /// <summary>
-    /// 工具图标
+    /// 工具图标：SVG 图标名（ThemedSvgIcon 的 IconName），不是 emoji——
+    /// emoji 走系统回退字体，墨迹经常顶穿行盒被裁（🔧 顶部 clipped），基线也各平台不一。
     /// </summary>
     /// <param name="toolName">工具名</param>
-    /// <returns>图标字符</returns>
-    public static string GetToolIcon(string toolName)
+    /// <returns>图标名</returns>
+    public static string GetToolIconName(string toolName)
     {
-        if (toolName == "run_shell") return "❯";
+        if (toolName == CharacterRunnerFactory.ShellToolName) return "terminal";
         // 曾经认的是 file_access_ 前缀(MFA 自带文件工具的命名),而我们那批工具早就自建改名了,
         // 症状是文件工具的卡片一律显示通用扳手。名字改由 FileToolNames 提供,不再各写字面量
-        if (FileToolNames.All.Contains(toolName)) return "📄";
-        if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script") return "✨";
-        if (toolName == VisionTool.ToolName) return "👁";
-        if (toolName == SchedulerTools.ToolName) return "⏰";
-        if (toolName == SubAgentTool.ToolName) return "🤖";
-        return "🔧";
+        if (toolName == FileToolNames.Read) return "file-text";
+        if (toolName == FileToolNames.Write) return "file-plus-corner";
+        if (toolName == FileToolNames.Edit) return "pencil";
+        if (toolName == FileToolNames.Glob) return "file-search";
+        if (toolName == FileToolNames.Grep) return "search";
+        if (toolName == WebSearchTool.ToolName) return "globe";
+        if (toolName == WebFetchTool.ToolName) return "square-arrow-out-up-right";
+        // 兜底：以后新增文件工具先有个像样的图标，而不是扳手
+        if (FileToolNames.All.Contains(toolName)) return "file-text";
+        if (toolName is "load_skill" or "read_skill_resource" or "run_skill_script" or LoadSkillTool.ToolName) return "sparkles";
+        if (toolName == VisionTool.ToolName) return "eye";
+        if (toolName == SchedulerTools.ToolName) return "clock";
+        if (toolName == SubAgentTool.ToolName) return "bot";
+        return "wrench";
     }
 
     

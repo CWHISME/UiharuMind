@@ -64,8 +64,9 @@
                               BorderThickness="0" IsChecked="{Binding IsExpanded}"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                     <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="13"
-                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <!-- SVG 图标：固定盒 14x14，不存在 emoji 回退字体的裁剪/基线问题 -->
+                        <ThemedSvgIcon Grid.Column="0" IconName="{Binding IconName}" Width="14" Height="14"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
                         <!-- 刻意不给 Foreground:让它继承 ToggleButton 的蓝色。
                              展开变白那个 bug 由上面的 :checked 样式在源头解决 -->
                         <TextBlock Grid.Column="1" FontSize="13"

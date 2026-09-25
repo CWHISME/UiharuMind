@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Files;
+using UiharuMind.Core.AI.Execution.Tools.WebTools;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 
@@ -103,20 +105,22 @@ public class ToolCallSummaryTests
     }
 
     [Theory]
-    [InlineData(FileToolNames.Read)]
-    [InlineData(FileToolNames.Write)]
-    [InlineData(FileToolNames.Edit)]
-    [InlineData(FileToolNames.Glob)]
-    [InlineData(FileToolNames.Grep)]
-    public void FileTools_GetTheFileIcon(string toolName)
+    [InlineData(FileToolNames.Read, "file-text")]
+    [InlineData(FileToolNames.Write, "file-plus-corner")]
+    [InlineData(FileToolNames.Edit, "pencil")]
+    [InlineData(FileToolNames.Glob, "file-search")]
+    [InlineData(FileToolNames.Grep, "search")]
+    public void FileTools_GetTheirOwnIcons(string toolName, string icon)
     {
-        Assert.Equal("📄", AgentContentFormatter.GetToolIcon(toolName));
+        Assert.Equal(icon, AgentContentFormatter.GetToolIconName(toolName));
     }
 
     [Fact]
     public void OtherTools_KeepTheirOwnIcons()
     {
-        Assert.Equal("❯", AgentContentFormatter.GetToolIcon("run_shell"));
-        Assert.Equal("🔧", AgentContentFormatter.GetToolIcon("mystery_tool"));
+        Assert.Equal("terminal", AgentContentFormatter.GetToolIconName(CharacterRunnerFactory.ShellToolName));
+        Assert.Equal("globe", AgentContentFormatter.GetToolIconName(WebSearchTool.ToolName));
+        Assert.Equal("square-arrow-out-up-right", AgentContentFormatter.GetToolIconName(WebFetchTool.ToolName));
+        Assert.Equal("wrench", AgentContentFormatter.GetToolIconName("mystery_tool"));
     }
 }

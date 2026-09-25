@@ -35,8 +35,9 @@
                             <controls:KindBadge Header="{loc:Loc ModelStateVision}"
                                                 BadgeBackground="Gold"
                                                 IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
+                            <!-- 与 18px 徽章光学对齐走 title-tweak；别用 line-tight，它压行盒会裁掉 g/q 下伸部 -->
                             <TextBlock Text="{Binding ModelName}"
-                                       Classes="line-tight"
+                                       Classes="title-tweak"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                             <!-- 复制模型名:派活时 model 参数要一字不差,而名字多是长串
@@ -63,7 +64,7 @@
                                                 BadgeBackground="Gold"
                                                 IsVisible="{Binding IsVisionModel,Mode=OneWay}" />
                             <TextBlock Text="{Binding ModelName}"
-                                       Classes="line-tight"
+                                       Classes="title-tweak"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
