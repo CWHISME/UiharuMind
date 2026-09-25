@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+        xmlns:capture="clr-namespace:UiharuMind.Features.ScreenCapture"
         mc:Ignorable="d" d:DesignWidth="280" d:DesignHeight="40"
         x:Class="UiharuMind.Features.ScreenCapture.ScreenCaptureDockWindow"
         Background="Transparent"
@@ -29,18 +30,23 @@
          这里刻意不加 BoxShadow：窗口按内容收紧、没有留白，投影只会在圆角外被裁成一圈硬边灰块 -->
     <Border Name="PillBorder" CornerRadius="18" Background="{DynamicResource SemiGrey0}"
             BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" Padding="3">
-        <StackPanel Orientation="Horizontal" Spacing="0">
-            <ThemedIconButton Click="OnEditBtnClick" IconName="image-edit" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnEdit}"/>
-            <ThemedIconToggleButton Name="OcrTextBtn" IconName="scan-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnTextSelect}"
-                                    CheckedForeground="{DynamicResource SemiBlue5}"
-                                    IsCheckedChanged="OnOcrTextToggleChanged" />
-            <ThemedIconButton Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick" IconName="refresh-cw" />
-            <ThemedIconButton Click="OnExplainAiBtnClick" IconName="book-search" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnExplain}"/>
-            <ThemedIconButton Click="OnOcrAiBtnClick" IconName="file-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnOcr}"/>
-            <!-- <ThemedIconButton Click="OnVisionAiBtnClick" IconName="message-circle-more" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnVision}"/> -->
-            <ThemedIconButton Click="OnCopyBtnClick" IconName="copy" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnCopy}"/>
-            <ThemedIconButton Click="OnSaveBtnClick" IconName="save" ToolTips="{loc:Loc SaveBtn}"/>
-        </StackPanel>
+        <!-- 浏览/编辑两套按钮集，按贴图窗编辑模式切换；同一颗胶囊，不新开窗口 -->
+        <Panel>
+            <StackPanel Name="BrowsePanel" Orientation="Horizontal" Spacing="0">
+                <ThemedIconButton Click="OnEditBtnClick" IconName="image-edit" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnEdit}"/>
+                <ThemedIconToggleButton Name="OcrTextBtn" IconName="scan-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnTextSelect}"
+                                        CheckedForeground="{DynamicResource SemiBlue5}"
+                                        IsCheckedChanged="OnOcrTextToggleChanged" />
+                <ThemedIconButton Name="ToggleOldNewBtn" Click="OnToggleOldNewBtnClick" IconName="refresh-cw" />
+                <ThemedIconButton Click="OnExplainAiBtnClick" IconName="book-search" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnExplain}"/>
+                <ThemedIconButton Click="OnOcrAiBtnClick" IconName="file-text" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnOcr}"/>
+                <!-- <ThemedIconButton Click="OnVisionAiBtnClick" IconName="message-circle-more" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnVision}"/> -->
+                <ThemedIconButton Click="OnCopyBtnClick" IconName="copy" ToolTips="{loc:Loc ScreenCaptureDockWindow_BtnCopy}"/>
+                <ThemedIconButton Click="OnSaveBtnClick" IconName="save" ToolTips="{loc:Loc SaveBtn}"/>
+            </StackPanel>
+
+            <capture:ScreenCaptureEditToolbar Name="EditToolbar" IsVisible="False" />
+        </Panel>
     </Border>
 
 </Window>

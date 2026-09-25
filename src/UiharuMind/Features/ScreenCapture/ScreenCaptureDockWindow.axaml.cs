@@ -10,8 +10,6 @@
  ****************************************************************************/
 
 using System;
-using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
@@ -22,7 +20,6 @@ using UiharuMind.Shared.Utils;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Character.PromptActions;
-using UiharuMind.Core.Core.Utils;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.QuickChat;
 
@@ -30,6 +27,11 @@ namespace UiharuMind.Features.ScreenCapture;
 
 public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWindow>
 {
+    private bool _dockSizeFixed; //是否已量过编辑工具条尺寸
+    private double _editToolbarWidth; //编辑工具条（含胶囊留白）尺寸，供「先长窗再换面板」用
+    private double _editToolbarHeight;
+    private bool _growPending; //浏览→编辑：等窗口长大后再切面板，避免编辑面板被排进旧尺寸
+
     public ScreenCaptureDockWindow()
     {
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -37,13 +39,20 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         // 这条工具条只是一颗浮在截图上的胶囊，要的是纯透明窗
         this.SetSimpledecorationPureWindow();
         InitializeComponent();
+
+        // 编辑工具条只发事件，这里做薄桥转发给贴图窗（编辑器归贴图窗持有）
+        EditToolbar.ToolChanged += tool => CurrentSnapWindow?.SetEditTool(tool);
+        EditToolbar.ColorChanged += color => CurrentSnapWindow?.SetEditColor(color);
+        EditToolbar.UndoRequested += () => CurrentSnapWindow?.EditUndo();
+        EditToolbar.RedoRequested += () => CurrentSnapWindow?.EditRedo();
+        EditToolbar.SaveRequested += () => CurrentSnapWindow?.SaveEditMode();
+        EditToolbar.CancelRequested += () => CurrentSnapWindow?.CancelEditMode();
     }
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        ToggleOldNewBtn.IsVisible = CurrentSnapWindow?.ImageBackupSource != null;
-        // OcrBtn.IsVisible = PlatformUtils.IsMacOS;
+        RefreshBrowsePanel();
     }
 
     protected override void OnPostShow()
@@ -52,7 +61,115 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
         // 必须压在钉图窗之上：贴图为投影留的那圈透明留白会盖到工具条头上，
         // 同档位时点一下贴图就把工具条压下去了
         OverlayWindowService.ApplyNativeWindowLevel(this, EOverlayWindowLevel.PinnedDock);
-        // 平台隔离：有没有系统 OCR 只问工厂，业务代码不写平台分支
+        RefreshBrowsePanel();
+        MeasureEditToolbarSize();
+    }
+
+    // 两套按钮集宽度差一倍（浏览 ≈ 7 键、编辑 ≈ 6 工具 + 取色 + 撤销重做 + 保存取消）。
+    // 窗口跟随当前面板 SizeToContent，切换模式必然原生 resize，而 resize 是异步回灌的——
+    // 新面板若在 resize 落定前就排进旧尺寸，会「被压扁」一帧。
+    // 处理：编辑→浏览直接换（浏览面板小，放进宽窗立刻是对的）；
+    // 浏览→编辑先把窗口长到编辑尺寸，等 SizeChanged 落定再换面板。这里只量一次编辑尺寸。
+    private void MeasureEditToolbarSize()
+    {
+        if (_dockSizeFixed) return;
+        _dockSizeFixed = true;
+
+        bool editWasVisible = EditToolbar.IsVisible;
+        EditToolbar.IsVisible = true;
+        UpdateLayout();
+        _editToolbarWidth = PillBorder.DesiredSize.Width;
+        _editToolbarHeight = PillBorder.DesiredSize.Height;
+        EditToolbar.IsVisible = editWasVisible;
+    }
+
+    protected override void OnMainWindowChanged(ScreenCapturePreviewWindow? previous, ScreenCapturePreviewWindow? current)
+    {
+        if (previous != null)
+        {
+            previous.EditModeChanged -= OnSnapEditModeChanged;
+            previous.EditUndoRedoChanged -= OnSnapEditUndoRedoChanged;
+        }
+
+        if (current == null) return;
+
+        current.EditModeChanged += OnSnapEditModeChanged;
+        current.EditUndoRedoChanged += OnSnapEditUndoRedoChanged;
+        OnSnapEditModeChanged(current.EditMode); // 初始对齐：复用时直接落在编辑态
+    }
+
+    private void OnSnapEditModeChanged(bool editMode)
+    {
+        Pinned = editMode; // 编辑工具条不能被「鼠标离开组合区域」藏掉，否则画着画着就没了
+
+        if (!editMode)
+        {
+            // 编辑→浏览：浏览面板比编辑小，放进当前窗口立刻就是对的——先换面板，再放开 Min 让窗口缩回
+            SizeChanged -= OnDockSizeChangedWhileGrowing;
+            _growPending = false;
+            MinWidth = 0;
+            MinHeight = 0;
+            ApplyPanelSwap(false);
+            return;
+        }
+
+        // 浏览→编辑：先把窗口长到编辑尺寸；窗口已经够大就直接换，否则等 resize 落定（SizeChanged）再换
+        if (!_dockSizeFixed || _editToolbarWidth <= 0) MeasureEditToolbarSize();
+        if (_editToolbarWidth <= 0 || _editToolbarHeight <= 0)
+        {
+            ApplyPanelSwap(true); // 量不到尺寸（极端时序），退化为直接切换
+            return;
+        }
+
+        MinWidth = _editToolbarWidth;
+        MinHeight = _editToolbarHeight;
+
+        if (ClientSize.Width >= _editToolbarWidth - 1 && ClientSize.Height >= _editToolbarHeight - 1)
+        {
+            ApplyPanelSwap(true);
+            return;
+        }
+
+        _growPending = true;
+        SizeChanged += OnDockSizeChangedWhileGrowing;
+    }
+
+    // 窗口长到编辑尺寸后触发：此时才把面板换成编辑工具条，杜绝「编辑面板排进旧尺寸」的压扁帧
+    private void OnDockSizeChangedWhileGrowing(object? sender, SizeChangedEventArgs e)
+    {
+        SizeChanged -= OnDockSizeChangedWhileGrowing;
+        if (!_growPending) return;
+        _growPending = false;
+        if (CurrentSnapWindow != null) ApplyPanelSwap(CurrentSnapWindow.EditMode);
+    }
+
+    private void ApplyPanelSwap(bool editMode)
+    {
+        BrowsePanel.IsVisible = !editMode;
+        EditToolbar.IsVisible = editMode;
+
+        if (!editMode)
+        {
+            RefreshBrowsePanel();
+            return;
+        }
+
+        if (CurrentSnapWindow == null) return;
+        EditToolbar.SetTool(CurrentSnapWindow.EditTool);
+        EditToolbar.SetColor(CurrentSnapWindow.EditColor);
+        EditToolbar.SetUndoRedo(CurrentSnapWindow.EditCanUndo, CurrentSnapWindow.EditCanRedo);
+    }
+
+    private void OnSnapEditUndoRedoChanged()
+    {
+        if (CurrentSnapWindow == null) return;
+        EditToolbar.SetUndoRedo(CurrentSnapWindow.EditCanUndo, CurrentSnapWindow.EditCanRedo);
+    }
+
+    // 浏览面板的回显集中一处：开关状态跟随贴图窗（OCR 开关、改前/改后按钮、平台 OCR 能力）
+    private void RefreshBrowsePanel()
+    {
+        ToggleOldNewBtn.IsVisible = CurrentSnapWindow?.ImageBackupSource != null;
         OcrTextBtn.IsVisible = ScreenCapturePreviewWindow.OcrSupported;
         OcrTextBtn.IsChecked = CurrentSnapWindow?.OcrMode == true;
     }
@@ -105,34 +222,8 @@ public partial class ScreenCaptureDockWindow : DockWindow<ScreenCapturePreviewWi
     private void OnEditBtnClick(object? sender, RoutedEventArgs e)
     {
         if (!IsValid()) return;
-        Bitmap? backup = CurrentSnapWindow!.ImageOriginSource;
-        Bitmap? curImage = CurrentSnapWindow.ImageSource!;
-        CurrentSnapWindow.ImageSource = null;
-        CurrentSnapWindow!.ImageOriginSource = null;
-        CurrentSnapWindow!.ImageBackupSource = null;
-        var backupPos = CurrentSnapWindow.Position;
-        ScreenCaptureEditWindow window = new ScreenCaptureEditWindow(
-            curImage, backupPos,
-            CurrentSnapWindow.DisplaySize, (bitmap) =>
-            {
-                CurrentSnapWindow.SetImage(bitmap, pos: backupPos);
-                CurrentSnapWindow.ImageOriginSource = CurrentSnapWindow.ImageBackupSource = backup;
-
-                // bitmap 已交给上面的 SetImage(预览窗接管并会释放),剪贴板那份必须是独立的一张
-                Bitmap? forClipboard = bitmap.CloneBitmap();
-                if (forClipboard != null) App.Clipboard.CopyImageToClipboard(forClipboard, true);
-                App.Clipboard.RecordImageToHistory(bitmap);
-                CurrentSnapWindow.Show();
-            });
-        SafeClose();
-        CurrentSnapWindow.Hide();
-        window.Show();
-        // var result = await window.ShowDialog<Bitmap?>(CurrentSnapWindow);
-        // if (result != null)
-        // {
-        //     CurrentSnapWindow?.SetImage(result);
-        //     CurrentSnapWindow?.Show();
-        // }
+        // 合并后编辑直接发生在贴图窗上：进入编辑模式，不再开第二个窗、不再 Hide/Show 贴图窗
+        CurrentSnapWindow!.EnterEditMode();
     }
 
     private void OnToggleOldNewBtnClick(object? sender, RoutedEventArgs e)

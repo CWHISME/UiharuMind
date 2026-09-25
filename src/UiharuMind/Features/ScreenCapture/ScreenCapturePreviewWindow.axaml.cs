@@ -27,6 +27,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Windows;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Features.ScreenCapture.Ocr;
+using UiharuMind.Features.ScreenCapture.Drawing;
 using UiharuMind.Core.Input;
 
 namespace UiharuMind.Features.ScreenCapture;
@@ -68,6 +69,13 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     // 三个字段允许指向同一实例,释放前必须按引用去重。
     // 想把图交给活得比本窗久的东西(缓存窗、气泡),必须先 CloneBitmap 一份
 
+    // 编辑模式（复用 ImageAnnotationEditor 在贴图窗上就地标注）：
+    // 编辑器不接管位图；进入时备份当前图，保存后新合成图按 SafeSetImage 规则接管、原图转备份
+    private bool _editMode;
+    private Bitmap? _editBackup; //进入编辑前那张，保存后作为 ImageBackupSource 续命
+    private DrawingTool _editTool = DrawingTool.Rectangle;
+    private Color _editColor = Colors.Red;
+
     /// <summary>编辑前的原图，供「看改前/改后」来回切；与另两个字段可能是同一实例</summary>
     public Bitmap? ImageBackupSource;
 
@@ -108,6 +116,11 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     /// </summary>
     public Size DisplaySize => _currentSize;
 
+    /// <summary>
+    /// 当前显示缩放（原始尺寸 → 显示尺寸），进入编辑模式时传给编辑器做初始视图。
+    /// </summary>
+    public double DisplayScale => _currentScale;
+
     /// <inheritdoc />
     public event Action? DockAnchorChanged;
 
@@ -127,6 +140,146 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     /// </summary>
     public bool OcrMode => _ocrMode;
 
+    /// <summary>当前是否处于编辑模式（停靠窗按它切换工具条）</summary>
+    public bool EditMode => _editMode;
+
+    /// <summary>编辑模式切换（停靠窗订阅，切换停靠工具条）</summary>
+    public event Action<bool>? EditModeChanged;
+
+    /// <summary>编辑撤销/重做可用性变化（停靠窗刷新工具条按钮）</summary>
+    public event Action? EditUndoRedoChanged;
+
+    /// <summary>当前编辑工具（停靠窗进入编辑态时回显）</summary>
+    public DrawingTool EditTool => _editTool;
+
+    /// <summary>当前编辑颜色（停靠窗进入编辑态时回显）</summary>
+    public Color EditColor => _editColor;
+
+    public bool EditCanUndo => EditEditor.CanUndo;
+
+    public bool EditCanRedo => EditEditor.CanRedo;
+
+    /// <summary>
+    /// 进入编辑模式：编辑器叠加在当前图上（初始视图 = 贴图窗当前缩放），
+    /// 不改动本窗位置与尺寸。位图所有权不变，仍是本窗持有。
+    /// </summary>
+    public void EnterEditMode()
+    {
+        if (_editMode || ImageSource == null) return;
+        _editMode = true;
+        _editBackup = ImageSource;
+        SetOcrMode(false); // 互斥：编辑器接管绘制，OCR 层先让位
+        EditEditor.SetSource(ImageSource, DisplayScale);
+        EditEditor.SetTool(_editTool);
+        EditEditor.SetColor(_editColor);
+        EditEditor.AllowViewZoom = false; // 编辑过程视图固定，画布坐标与视图比例不再变动
+        EditEditor.UndoRedoChanged += OnEditUndoRedoChanged;
+        EditEditor.IsVisible = true;
+        EditModeChanged?.Invoke(true);
+        OnEditUndoRedoChanged();
+    }
+
+    /// <summary>
+    /// 取消编辑：丢弃标注，回到浏览模式。位图与几何均不动。
+    /// </summary>
+    public void CancelEditMode()
+    {
+        if (!_editMode) return;
+        ExitEditModeCore();
+    }
+
+    /// <summary>
+    /// 保存编辑：导出合成图替换当前图，回到浏览模式。
+    /// 合成图经 <see cref="SetImage"/> 接管；编辑前那张转 ImageBackupSource（供「改前/改后」切换）。
+    /// 进入编辑后没有任何标注（含画了又全撤销）时按没编辑处理：不换图、不进剪贴板/历史。
+    /// </summary>
+    public void SaveEditMode()
+    {
+        if (!_editMode) return;
+        // 先渲染：输入中的文字会在这里落栈，否则只打了字没点别处会被误判成没改
+        Bitmap combined = EditEditor.RenderToBitmap();
+        bool modified = EditEditor.CanUndo; // 渲染后命令栈里还有没有真实标注
+        Bitmap? backup = _editBackup;
+
+        ExitEditModeCore();
+
+        if (!modified)
+        {
+            combined.Dispose(); // 白渲的合成图没接住，随手释放
+            return;
+        }
+
+        // 换图前先摘掉三字段引用：旧图由 backup 续命，否则 SafeSetImage 会把它当旧值释放；
+        // 合成图经 SetImage 接管（位置、缩放与编辑前一致，见 scale 参数）
+        ImageSource = null;
+        ImageOriginSource = null;
+        ImageBackupSource = null;
+        SetImage(combined, pos: Position, scale: DisplayScale);
+        ImageOriginSource = backup;
+        ImageBackupSource = backup;
+
+        // 沿用旧编辑流程的收尾：合成图进剪贴板与历史（剪贴板要独立一份，见 ClipboardService 注释）
+        Bitmap? forClipboard = combined.CloneBitmap();
+        if (forClipboard != null) App.Clipboard.CopyImageToClipboard(forClipboard, true);
+        App.Clipboard.RecordImageToHistory(combined);
+    }
+
+    /// <summary>换编辑工具（停靠窗工具条转发）</summary>
+    public void SetEditTool(DrawingTool tool)
+    {
+        _editTool = tool;
+        if (_editMode) EditEditor.SetTool(tool);
+    }
+
+    /// <summary>换编辑颜色（停靠窗工具条转发）</summary>
+    public void SetEditColor(Color color)
+    {
+        _editColor = color;
+        if (_editMode) EditEditor.SetColor(color);
+    }
+
+    /// <summary>撤销（停靠窗工具条转发）</summary>
+    public void EditUndo() => EditEditor.Undo();
+
+    /// <summary>重做（停靠窗工具条转发）</summary>
+    public void EditRedo() => EditEditor.Redo();
+
+    private void ExitEditModeCore()
+    {
+        _editMode = false;
+        EditEditor.UndoRedoChanged -= OnEditUndoRedoChanged;
+        EditEditor.IsVisible = false;
+        EditEditor.ClearSource();
+        EditModeChanged?.Invoke(false);
+    }
+
+    private void OnEditUndoRedoChanged() => EditUndoRedoChanged?.Invoke();
+
+    // 编辑态的撤销/重做快捷键（旧独立编辑窗的 KeyBindings 随窗口删除，这里补回）：
+    // 输入框自身处理的按键优先（e.Handled），否则按标注命令栈撤销/重做
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (_editMode && !e.Handled)
+        {
+            bool command = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+            if (command && e.Key == Key.Z)
+            {
+                EditUndo();
+                e.Handled = true;
+                return;
+            }
+
+            if (command && e.Key == Key.Y)
+            {
+                EditRedo();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        base.OnKeyDown(e);
+    }
+
     /// <summary>
     /// 当前平台是否有可用的系统 OCR。Dock 工具条用它决定显不显示入口。
     /// </summary>
@@ -144,7 +297,8 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     public void SetImage(Bitmap image, Size? size = null, PixelPoint? pos = null,
         HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment verticalAlignment = VerticalAlignment.Top,
-        PixelPoint? anchorMouse = null)
+        PixelPoint? anchorMouse = null,
+        double? scale = null)
     {
         var scaling = App.ScreensService.Scaling;
         _originSize = size ?? DefaultDisplaySize(image);
@@ -162,14 +316,24 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
             MaxHeight = maxWindow.Height;
         }
 
-        SetDisplaySize(_originSize);
-        _currentScale = 1.0; // 换图后缩放归一，否则沿用旧 scale 下一次滚轮会跳变
+        if (scale is { } restoreScale && restoreScale > 0)
+        {
+            // 编辑返回：恢复进入编辑前的缩放状态（编辑窗继承了这个 scale，返回不应还原到原始大小）
+            _currentScale = restoreScale;
+            SetDisplaySize(_originSize.ScaleByWidth(restoreScale, _aspectRatio, MinDisplayLength, MinDisplayLength,
+                _maxDisplaySize.Width, _maxDisplaySize.Height));
+        }
+        else
+        {
+            SetDisplaySize(_originSize);
+            _currentScale = 1.0; // 换图后缩放归一，否则沿用旧 scale 下一次滚轮会跳变
+        }
 
         if (pos == null) AlignImageToMouse(horizontalAlignment, verticalAlignment, anchorMouse);
 
         // 见字段注释：Show 之前的尺寸可能被裁，落位推迟到 OnPostShow
         _pendingFramePosition = Position;
-        _pendingFrameSize = ToWindowSize(_originSize);
+        _pendingFrameSize = ToWindowSize(_currentSize);
     }
 
     protected override void OnInitWindowPosition()
@@ -271,6 +435,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
+        if (_editMode) return; // 编辑态缩放交给编辑器（AllowViewZoom=false 已禁滚轮缩放），本窗不再动几何
         if (e.Delta.Y == 0) return;
 
         var mousePosition = e.GetPosition(ImageContent);
@@ -347,9 +512,17 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
     {
         if (e.ClickCount == 2)
         {
+            if (_editMode)
+            {
+                SaveEditMode(); // 编辑态双击 = 保存退出
+                return;
+            }
+
             SafeClose(0.1f);
             return;
         }
+
+        if (_editMode) return; // 编辑器接管左键绘制，不再拖窗
 
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
@@ -485,6 +658,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         base.OnClosed(e);
         EndDrag();
         ResetOcr();
+        if (_editMode) ExitEditModeCore();
         SafeSetImage(null);
     }
 
@@ -493,6 +667,7 @@ public partial class ScreenCapturePreviewWindow : UiharuWindowBase, IDockedWindo
         base.Hide();
         EndDrag();
         ResetOcr();
+        if (_editMode) ExitEditModeCore();
         SafeSetImage(null);
     }
 }

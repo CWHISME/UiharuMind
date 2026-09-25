@@ -57,6 +57,9 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
     private bool _spanningScreens; //横跨两块屏期间先藏起来，躲开系统重新归属窗口时的花帧
     private bool _hiding; //淡出播放中，此时改贴别的窗口要把它截下来
 
+    /// <summary>钉住跟随窗：鼠标离开组合区域也不隐藏（编辑模式工具条用，见 ScreenCaptureDockWindow）</summary>
+    protected bool Pinned { get; set; }
+
     public override bool IsCacheWindow => true;
     public override bool ContributesToMacRegularMode => false;
 
@@ -124,6 +127,7 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
 
         // Log.Debug($"SetMainWindow {mainWindow} set");
 
+        T? previous = CurrentSnapWindow;
         CurrentSnapWindow = mainWindow;
 
         CurrentSnapWindow.PositionChanged += MainWindow_PositionChanged;
@@ -139,6 +143,16 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
         if (wasOnScreen) PlayReveal(true);
         else _pendingReveal = true;
         // Log.Debug($"SetMainWindow {mainWindow} UpdateFollowerWindowPosition");
+        OnMainWindowChanged(previous, mainWindow);
+    }
+
+    /// <summary>
+    /// 停靠目标切换完成后的钩子（子类订阅目标窗的额外事件、同步工具条状态）。
+    /// </summary>
+    /// <param name="previous">上一个目标窗，可能为 null</param>
+    /// <param name="current">当前目标窗，可能为 null</param>
+    protected virtual void OnMainWindowChanged(T? previous, T? current)
+    {
     }
 
     // 缓存窗的 Show 是 Post 到空闲队列的，出现动画只能等窗口真显示了再播，
@@ -209,6 +223,10 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
     private void MainWindow_OnMouseLeave(object? sender, PointerEventArgs e)
     {
         // Log.Debug($"MainWindow_OnMouseLeave {sender} {e}");
+        if (Pinned) return;
+        // 首秀的 Show 是 Post 到空闲队列的，鼠标可能先一步离开贴图；
+        // 工具条还没露面就不做「离开收回」，否则会把还没落位的首秀打断成一次隐藏
+        if (!IsVisible) return;
         if (!CheckInValidBounds()) SetMainWindow(null);
     }
 
@@ -219,43 +237,32 @@ public class DockWindow<T> : UiharuWindowBase where T : Window, IDockedWindow
     }
 
     /// <summary>
-    /// 是否处于合适区域
+    /// 是否处于合适区域：鼠标仍在贴图窗或工具条自身范围内就保持显示。
+    /// 判定顺序先贴图窗后工具条——从图上往下方工具条移动的途中，
+    /// 不能依赖工具条自己的几何（SizeToContent 的窗口首次 Show 后 Width/Height 才经原生
+    /// resize 回灌，此前是 NaN，用它算矩形恒为退化，鼠标一离图就误收）。
     /// </summary>
-    /// <returns></returns>
+    /// <returns>鼠标在合适区域内返回 true</returns>
     private bool CheckInValidBounds()
     {
         if (CurrentSnapWindow == null) return false;
 
         var mousePos = App.ScreensService.MousePosition;
         var scaling = App.ScreensService.Scaling;
-        //检测是否处于组合区域内
-        double offset = 10f * scaling;
-        var selfWindowBounds = new Rect(this.Position.X + offset, this.Position.Y + offset,
-            this.Width * scaling - offset, this.Height * scaling - offset);
-        var targetWindowBounds = new Rect(CurrentSnapWindow.Position.X + offset, CurrentSnapWindow.Position.Y + offset,
-            CurrentSnapWindow.Width * scaling - offset, CurrentSnapWindow.Height * scaling - offset);
-        // 计算组合区域，包括两个窗口之间的间距
-        var combinedBounds = selfWindowBounds.Union(targetWindowBounds);
-        if (!combinedBounds.Contains(new Point(mousePos.X, mousePos.Y))) return false;
+        var mouse = new Point(mousePos.X, mousePos.Y);
 
-        // Log.Debug(
-        //     $" mousePos:{mousePos} targetWindowBounds:{targetWindowBounds.Right}  selfWindowBounds：{selfWindowBounds.Right}");
+        // 位于贴图窗范围内（含阴影留白区）即保持；拖动时 Position 回灌滞后约 110ms，
+        // 但只要鼠标还在图上，这条就会兜住，不会把正在靠近工具条的鼠标判成离开
+        var targetWindowBounds = new Rect(CurrentSnapWindow.Position.X, CurrentSnapWindow.Position.Y,
+            CurrentSnapWindow.Width * scaling, CurrentSnapWindow.Height * scaling);
+        if (targetWindowBounds.Contains(mouse)) return true;
 
-        // 根据高度决定检测 mainWindowBounds 还是 bottomWindowBounds 的宽度
-        //注：靠下才这样额外检测
-        if (mousePos.Y < (targetWindowBounds.Bottom - offset) && mousePos.X < (targetWindowBounds.Right - offset))
-        {
-            // 位于目标(上方)窗口高度内，且处于其宽度内
-            return true;
-        }
-
-        //位于底部窗口高度内，且处于其宽度内
-        if (mousePos.Y < (selfWindowBounds.Bottom - offset) && mousePos.X < (selfWindowBounds.Right - offset))
-        {
-            return true;
-        }
-
-        return false;
+        // 位于工具条自身范围内也保持；尺寸未就绪（首次 NaN）时退回 ClientSize（Show 内已落盘）
+        double selfWidth = double.IsNaN(this.Width) || this.Width <= 0 ? this.ClientSize.Width : this.Width;
+        double selfHeight = double.IsNaN(this.Height) || this.Height <= 0 ? this.ClientSize.Height : this.Height;
+        var selfWindowBounds = new Rect(this.Position.X, this.Position.Y,
+            selfWidth * scaling, selfHeight * scaling);
+        return selfWindowBounds.Contains(mouse);
     }
 
     private void UpdateFollowerWindowPosition()

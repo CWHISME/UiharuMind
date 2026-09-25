@@ -11,6 +11,9 @@ public class ArrowLineControl : Control
     private Point _endPoint;
     private readonly Color _color;
 
+    /// <summary>线宽（原始像素单位），默认 2</summary>
+    public double StrokeThickness { get; set; } = 2;
+
     public ArrowLineControl(Point startPoint, Point endPoint, Color color)
     {
         _startPoint = startPoint;
@@ -29,7 +32,7 @@ public class ArrowLineControl : Control
         base.Render(context);
 
         // 绘制主线条
-        var pen = new Pen(new SolidColorBrush(_color), 2);
+        var pen = new Pen(new SolidColorBrush(_color), StrokeThickness);
         context.DrawLine(pen, _startPoint, _endPoint);
 
         // 绘制箭头
@@ -38,8 +41,10 @@ public class ArrowLineControl : Control
 
     private void DrawArrow(DrawingContext context, Point start, Point end, Pen pen)
     {
-        const double arrowLength = 10;
         const double arrowAngle = Math.PI / 6;
+
+        // 箭头长度跟线宽联动：线宽变细时箭头不至于突兀（原写死 10 是按线宽 2 配的）
+        double arrowLength = Math.Max(6, StrokeThickness * 5);
 
         var dx = end.X - start.X;
         var dy = end.Y - start.Y;
