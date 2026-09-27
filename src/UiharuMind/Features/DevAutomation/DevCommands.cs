@@ -26,9 +26,8 @@ namespace UiharuMind.Features.DevAutomation;
 /// <summary>
 /// 开发脚本能用的那几步。
 ///
-/// 刻意<b>只有读与导航</b>：看一眼现在什么样、跳到哪一页、打开哪个会话。
-/// 没有「发一句话给模型」——那一步要花钱、要有模型在线，且一旦有了它，
-/// 这份脚本就从「复现界面状态」变成「替用户说话」，是另一件事，该单独议。
+/// 这里<b>只有读与导航</b>：看一眼现在什么样、跳到哪一页、打开哪个会话。
+/// 「发一句话给模型」要花钱、要有模型在线，是另一件事——只有群聊冒烟那几步做了，见 <see cref="GroupDevCommands"/>。
 /// </summary>
 internal static class DevCommandRegistry
 {
@@ -42,6 +41,7 @@ internal static class DevCommandRegistry
         new OpenSessionCommand(),
         new MemoryStatsCommand(),
         new FontDiagnosticsCommand(),
+        ..GroupDevCommands.CreateAll(),
     ];
 
     /// <summary>取当前显示的那一页（不是会话页时为 null）</summary>

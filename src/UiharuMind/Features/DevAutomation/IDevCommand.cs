@@ -7,7 +7,9 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace UiharuMind.Features.DevAutomation;
 
@@ -33,4 +35,19 @@ public interface IDevCommand
     /// <param name="args">脚本里的 <c>args</c>；没带时为 <c>undefined</c></param>
     /// <returns>写进报告的结果，可为 null</returns>
     object? Execute(JsonElement args);
+}
+
+/// <summary>
+/// 要等一阵才有结果的一步（等群跑完、等会话装载）。同样在 UI 线程上执行，执行器会等它的任务结束
+/// </summary>
+public interface IAsyncDevCommand : IDevCommand
+{
+    object? IDevCommand.Execute(JsonElement args) => throw new NotSupportedException($"'{Name}' is async");
+
+    /// <summary>
+    /// 执行一步
+    /// </summary>
+    /// <param name="args">脚本里的 <c>args</c>；没带时为 <c>undefined</c></param>
+    /// <returns>写进报告的结果，可为 null</returns>
+    Task<object?> ExecuteAsync(JsonElement args);
 }

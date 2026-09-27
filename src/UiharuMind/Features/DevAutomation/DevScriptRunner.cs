@@ -92,6 +92,7 @@ public static class DevScriptRunner
 
                 (object entry, bool stop) = await RunStepAsync(i + 1, line, commands).ConfigureAwait(true);
                 report.Add(entry);
+                await WriteReportAsync(reportPath, report).ConfigureAwait(true); //逐步落盘：长脚本（跑真模型）中途就能看进度
                 if (stop)
                 {
                     quit = true;
@@ -150,7 +151,9 @@ public static class DevScriptRunner
             }
 
             // 界面的活归界面线程。脚本是从后台任务里推进的,不搬过去就会在第一处属性赋值上炸
-            object? result = await UiDispatcher.InvokeAsync(() => command.Execute(args));
+            object? result = command is IAsyncDevCommand asyncCommand
+                ? await Dispatcher.UIThread.InvokeAsync(() => asyncCommand.ExecuteAsync(args))
+                : await UiDispatcher.InvokeAsync(() => command.Execute(args));
 
             // 先读表再落位:落位等待是执行器自己加的,算进耗时里每一步都是 250ms 打底,
             // 报告就再也看不出「切一个长会话到底花了多久」

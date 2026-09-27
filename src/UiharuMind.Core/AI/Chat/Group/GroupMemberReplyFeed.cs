@@ -19,6 +19,7 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     private readonly ChatSession _group;
     private readonly ChatSession _member;
     private readonly Func<string, Task?> _post;
+    private readonly object _historyLock; //群流水的写锁（与 Append 同一把）：别的成员可能正并发往里追加
     private readonly object _sync = new();
     private readonly List<Task> _posted = [];
     private int _scanned; //成员历史里已看过的位置
@@ -32,11 +33,14 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     /// <param name="member">成员会话</param>
     /// <param name="groupCursor">这一轮开始时的群流水长度</param>
     /// <param name="post">把一段正文记成群发言（剥前缀、追加、广播）；没记为 null</param>
-    public GroupMemberReplyFeed(ChatSession group, ChatSession member, int groupCursor, Func<string, Task?> post)
+    /// <param name="historyLock">群流水的写锁：读群流水时与追加对齐</param>
+    public GroupMemberReplyFeed(ChatSession group, ChatSession member, int groupCursor, Func<string, Task?> post,
+        object historyLock)
     {
         _group = group;
         _member = member;
         _post = post;
+        _historyLock = historyLock;
         _scanned = member.History.Count;
         _segmentStart = groupCursor;
         member.ServiceCallPersisted += OnServiceCallPersisted;
@@ -78,7 +82,8 @@ internal sealed class GroupMemberReplyFeed : IDisposable
             {
                 if (!IsFinishedReply(history[_scanned], out string text)) continue;
 
-                bool sentViaTool = GroupTranscript.PostedSince(_group.History, _segmentStart, _member.SessionId);
+                bool sentViaTool;
+                lock (_historyLock) sentViaTool = GroupTranscript.PostedSince(_group.History, _segmentStart, _member.SessionId);
                 // 回「[跳过]」就是这次不接话：不进群，也就不广播、不叫醒谁
                 bool pass = GroupTranscript.IsPass(GroupTranscript.StripSpeakerPrefix(text, _member.CharacterData.CharacterName));
                 if (!sentViaTool && !pass && _post(text) is { } posted)
@@ -87,7 +92,8 @@ internal sealed class GroupMemberReplyFeed : IDisposable
                     ChatMessageAnnotations.MarkPostedToGroup(history[_scanned]);
                     _marked = true;
                 }
-                _segmentStart = _group.History.Count;
+                // 必须在 _post 之后取：下一段从他刚贴的这条之后算起，否则下一段会把这条认成「已用工具发过」而吞掉
+                lock (_historyLock) _segmentStart = _group.History.Count;
             }
         }
     }

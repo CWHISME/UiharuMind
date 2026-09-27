@@ -73,9 +73,9 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
             if (_closed || _run.Token.IsCancellationRequested) return;
             if (_causes.TryGetValue(wake.MemberSessionId, out EGroupWakeCause current))
             {
-                // 跑着的时候被点到：那句会插进他这一轮，他接下来说的话按那一跳算——
-                // 被成员点到之后再说的，保守档下不再叫醒、不再插给别人
-                if (wake.Cause > current) _causes[wake.MemberSessionId] = wake.Cause;
+                // 跑着的时候被点到：那句会插进他这一轮，他接下来说的话按最近这一跳算——
+                // 被成员点到之后再说的是第二跳，保守档下不再叫醒人；被主持人点名之后再说的按主持人叫醒算
+                _causes[wake.MemberSessionId] = wake.Cause;
 
                 if (!_rewakes.TryGetValue(wake.MemberSessionId, out var pending))
                 {
@@ -121,7 +121,11 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
         catch (Exception e)
         {
             Log.Error($"Group member {memberId} failed in parallel run: {e}");
-            lock (_sync) _causes.Remove(memberId);
+            lock (_sync)
+            {
+                _causes.Remove(memberId);
+                _rewakes.Remove(memberId); //待补叫的一并丢：他这一轮已经没了，留着会让下次叫醒带上过期的来由
+            }
         }
         finally
         {

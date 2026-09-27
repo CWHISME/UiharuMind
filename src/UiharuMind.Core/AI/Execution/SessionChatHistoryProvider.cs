@@ -31,6 +31,17 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
 {
     private const string SessionIdKey = "UiharuSessionId";
 
+    private readonly bool _promptOnly; //装配侧配置而非会话状态：普通对话形态不挂工具，历史里的工具内容不供给
+
+    /// <summary>
+    /// 构造
+    /// </summary>
+    /// <param name="promptOnly">是不是普通对话形态（不挂工具）。是则供给时去掉工具调用与结果，见 <see cref="PromptOnlyHistory"/></param>
+    public SessionChatHistoryProvider(bool promptOnly = false)
+    {
+        _promptOnly = promptOnly;
+    }
+
     /// <summary>
     /// 把框架会话与项目会话绑定。必须在首次运行前调用。
     /// </summary>
@@ -79,6 +90,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             .Skip(start)
             .Where(x => !ChatMessageAnnotations.IsKnowledge(x))
             .ToList();
+        if (_promptOnly) supplied = PromptOnlyHistory.StripToolContents(supplied);
 
         // 其余开窗交给框架的在环压缩(ADR 0006):按当前模型的上下文动态定预算,先折叠老的工具结果、
         // 必要时才截断,组边界由 CompactionMessageIndex 保证不会产生孤儿工具结果。

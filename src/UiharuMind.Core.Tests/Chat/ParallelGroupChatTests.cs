@@ -202,6 +202,58 @@ public class ParallelGroupChatTests
         Assert.Equal(1, _runner.CallsOf(_carol)); //Alice 被 Bob 点到之后的 @Carol 不再叫醒她
     }
 
+    /// <summary>
+    /// 跑着时被主持人点名：他接下来说的按主持人叫醒算（与被成员点到降成第二跳对称，按最近一跳）。
+    /// Alice 先被 Bob 叫醒（第二跳），跑着时 Carol（主持人）又点了她，她说完 @Bob 就还叫得醒
+    /// </summary>
+    [Fact]
+    public async Task Conservative_NamedByHostWhileSpeaking_HerNextWordsCountAsHostWoken()
+    {
+        _group.GroupHostSessionId = _carol.SessionId;
+        TaskCompletionSource carolGate = new();
+        TaskCompletionSource aliceGate = new();
+        _runner.During[_carol.SessionId] = () =>
+        {
+            Assert.True(_coordinator.TryPostFromMember(_carol.SessionId, "@Bob 你先说"));
+            return carolGate.Task;
+        };
+        _runner.During[_alice.SessionId] = () => aliceGate.Task;
+        _runner.Replies[_bob.SessionId] = n => n == 1 ? "@Alice 你看看" : "补完了";
+        _runner.Replies[_alice.SessionId] = _ => "@Bob 你再补一句";
+
+        Task posting = _coordinator.PostAsync(_group, "这个方案怎么样");
+        await WaitUntil(() => _runner.CallsOf(_alice) == 1);
+        Assert.True(_coordinator.TryPostFromMember(_carol.SessionId, "@Alice 展开讲讲"));
+        await WaitUntil(() => _runner.Injected.Any(x => x.Member == _alice && x.Text.Contains("展开讲讲")));
+        aliceGate.SetResult();
+        carolGate.SetResult();
+        await posting;
+
+        Assert.Equal(2, _runner.CallsOf(_bob));
+    }
+
+    /// <summary>
+    /// 开跑后中途抛出（这里是订阅方）：这一轮也得摘掉。不摘的话他在这一波里一直算「在说」，
+    /// 之后每条广播都插进一个已经没人消费的轮次，他下一轮开跑时连同新投递一起冒出来
+    /// </summary>
+    [Fact]
+    public async Task TurnThatThrowsAfterBegin_IsEnded_AndGetsNoMoreBroadcasts()
+    {
+        _group.GroupMemberSessionIds = [_alice.SessionId, _bob.SessionId, _carol.SessionId];
+        bool thrown = false;
+        _coordinator.SpeakerChanged += _ =>
+        {
+            if (thrown) return;
+            thrown = true;
+            throw new InvalidOperationException("boom");
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.Equal(0, _runner.CallsOf(_alice)); //第一个开口的是她，通报时就抛了
+        Assert.DoesNotContain(_runner.Injected, x => x.Member == _alice);
+    }
+
     [Fact]
     public async Task PassReply_IsNotPostedToTheGroup()
     {

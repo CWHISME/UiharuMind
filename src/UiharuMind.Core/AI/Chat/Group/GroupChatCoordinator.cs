@@ -149,40 +149,62 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             }
         }
 
-        // 锁外通报：订阅方会回来问 IsRunning/SpeakersOf
-        if (turn != null) SpeakerChanged?.Invoke(group.SessionId);
+        if (turn == null)
+        {
+            AlignWithGroup(member, group);
+            return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
+        }
 
-        // 工作区以群壳为准，每轮开跑前对齐：右栏改的是群的工作区，成员各存一份就会对不上。
-        // 成员只在其会话是 agent 形态时才领工作区（ADR 0050：普通群的 agent 卡以 chat 形态加入，不绑）
+        bool closed = false;
+        try
+        {
+            // 锁外通报：订阅方会回来问 IsRunning/SpeakersOf
+            SpeakerChanged?.Invoke(group.SessionId);
+            AlignWithGroup(member, group);
+
+            string input = ComposeInput(run, member, delivery!, deliveredFrom);
+            // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
+            using GroupMemberReplyFeed replies = new(group, member, turn.Cursor, text => PostFromMember(group, member, text),
+                _locker);
+            // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
+            ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
+            bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
+            replies.Finish(completed);
+            if (!completed)
+            {
+                lock (_locker) _interrupted.Add(member.SessionId);
+            }
+
+            IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
+            closed = true;
+            lock (_locker)
+            {
+                if (consumedNow.Count > 0) _consumed[member.SessionId] = [..consumedNow];
+            }
+
+            if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
+            await replies.WhenPostedAsync();
+
+            // 失败或被停：已经说完的几段照常算，没说完的半截留在他自己的会话里
+            return new GroupTurnOutcome(completed, consumedNow);
+        }
+        finally
+        {
+            // 兜中途抛出：登记了「在说」就一定摘掉，否则这一波里他一直算在说、广播还往一个没人消费的轮次里插。
+            // 已插进去的先撤回（它们没被消费，游标之后照常投递），不然他下一轮会连同新投递一起冒出来
+            if (!closed) await turn.CloseAsync(_runner);
+            if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
+        }
+    }
+
+    // 工作区以群壳为准，每轮开跑前对齐：右栏改的是群的工作区，成员各存一份就会对不上。
+    // 成员只在其会话是 agent 形态时才领工作区（ADR 0050：普通群的 agent 卡以 chat 形态加入，不绑）。
+    // 权限档同理跟群走：群聊的权限只在群视图一处设
+    private static void AlignWithGroup(ChatSession member, ChatSession group)
+    {
         member.WorkspacePath = member.IsAgentForm is true ? group.WorkspacePath : null;
-        // 权限档同理跟群走：群聊的权限只在群视图一处设
         member.PermissionModeIndex = group.PermissionModeIndex;
         member.SaveMeta(touchUpdatedAt: false);
-        if (turn == null) return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
-
-        string input = ComposeInput(run, member, delivery!, deliveredFrom);
-        // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
-        using GroupMemberReplyFeed replies = new(group, member, turn.Cursor, text => PostFromMember(group, member, text));
-        // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
-        ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
-        bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
-        replies.Finish(completed);
-        if (!completed)
-        {
-            lock (_locker) _interrupted.Add(member.SessionId);
-        }
-
-        IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
-        lock (_locker)
-        {
-            if (consumedNow.Count > 0) _consumed[member.SessionId] = [..consumedNow];
-        }
-
-        if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
-        await replies.WhenPostedAsync();
-
-        // 失败或被停：已经说完的几段照常算，没说完的半截留在他自己的会话里
-        return new GroupTurnOutcome(completed, consumedNow);
     }
 
     bool IGroupTurnHost.HasNewLines(ChatSession group, string memberSessionId)
@@ -251,9 +273,13 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     private string ComposeInput(GroupRun run, ChatSession member, string delivery, int deliveredFrom)
     {
         // 主持人位只在并行里起作用：串行本来就人人轮到，点名是多余的
-        bool coldStart = run.Mode == EGroupScheduleMode.Parallel
-                         && member.SessionId == run.Group.GroupHostSessionId
-                         && GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, RosterOf(run.Group));
+        bool coldStart = false;
+        if (run.Mode == EGroupScheduleMode.Parallel && member.SessionId == run.Group.GroupHostSessionId)
+        {
+            IReadOnlyList<GroupRosterEntry> roster = RosterOf(run.Group);
+            // 群流水此刻可能正被别的成员追加：遍历与 Append 同一把锁
+            lock (_locker) coldStart = GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, roster);
+        }
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
         return coldStart ? input + "\n\n" + GroupTranscript.HostColdStartHint : input;
     }

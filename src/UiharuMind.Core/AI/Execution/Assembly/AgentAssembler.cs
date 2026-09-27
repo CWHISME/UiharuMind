@@ -56,9 +56,6 @@ internal static class AgentAssembler
         if (profile.SubAgent != null && character.IsAgent) return SubAgentAssembly.BuildFromPlan(plan);
 
         IChatClient client = new LazyChatClient(profile.SessionModelSource);
-        // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
-        SessionChatHistoryProvider history = new();
-
         // 角色自身的提示词(人格 + 用户卡 + 对话模板)。智能体随后会在它之后接上工具纪律与
         // 工作区规矩(见 AgentOptionsFactory.BuildAgentOptions)——顺序由我们说,不交给框架的分层
         ChatOptions chatOptions = character.Config.ExecutionSettings.ToChatOptions();
@@ -74,7 +71,8 @@ internal static class AgentAssembler
             chatOptions.Instructions = AgentInstructionsComposer.AppendScene(chatOptions.Instructions,
                 profile.GroupScene);
             return BuildHandle(client,
-                AgentOptionsFactory.BuildPromptOnlyOptions(character, history, contextProviders, chatOptions,
+                AgentOptionsFactory.BuildPromptOnlyOptions(character, new SessionChatHistoryProvider(promptOnly: true),
+                    contextProviders, chatOptions,
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
         }
 
@@ -90,7 +88,8 @@ internal static class AgentAssembler
         // 宁可不说,也不能告诉模型一个错的 shell
         string shellBinary = shellExecutor?.ResolvedShellBinary ?? string.Empty;
 
-        HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan, history, contextProviders,
+        // 历史落到自有会话文件,框架 blob 里只剩 todos/mode/审批与一个会话标识指针
+        HarnessAgentOptions options = AgentOptionsFactory.BuildAgentOptions(plan, new SessionChatHistoryProvider(), contextProviders,
             chatOptions, shellBinary, out IReadOnlyList<AgentPromptSegment> promptSegments);
         return BuildHandle(client, options, shellExecutor, plan.Mcp, toolEntries, promptSegments,
             plan.InputEstimate);

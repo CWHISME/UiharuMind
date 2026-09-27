@@ -8,6 +8,8 @@
  ****************************************************************************/
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia.Media;
@@ -144,11 +146,19 @@ public partial class SessionListItem : ObservableObject
         {
             if (_iconResolved) return _icon;
             _iconResolved = true;
-            _icon = IconUtils.GetCharacterBitmapOrDefault(
-                CharacterManager.Instance.GetCharacterData(_meta.CharacterId));
+            _icon = _meta.IsGroup
+                ? GroupAvatarComposer.Compose(GroupMemberCharacters())
+                : IconUtils.GetCharacterBitmapOrDefault(CharacterManager.Instance.GetCharacterData(_meta.CharacterId));
             return _icon;
         }
     }
+
+    // 群壳挂的是占位角色，头像改用成员拼图。索引里的成员无序，按创建先后近似发言顺序（建群时逐个建出）
+    private IReadOnlyList<CharacterData> GroupMemberCharacters() =>
+        SessionManager.Instance.GetGroupMembers(_meta.SessionId)
+            .OrderBy(x => x.CreatedAt)
+            .Select(SessionManager.CharacterOf)
+            .ToList();
 
     /// <summary>本会话有未发送的输入草稿（列表据此显示小标记）</summary>
     public bool HasDraft => _meta.HasComposerDraft;

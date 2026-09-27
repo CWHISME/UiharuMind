@@ -2,7 +2,8 @@ namespace UiharuMind.Core.AI.Chat.Group;
 
 /// <summary>
 /// 成员这一轮是被谁叫醒的。保守档的一跳防护按它判断（ADR 0049 决策 6）。
-/// 数值越小越「强」：同时有多个来由时取最小的
+/// 数值越小越「强」。两处取法不同：说完后补叫时，攒下的几条来由取最小的（最强）；
+/// 跑着时又被点到，则按最近这一跳算（被成员点到降为第二跳，被主持人点名升为主持人叫醒），见 <see cref="ParallelGroupScheduler"/>
 /// </summary>
 public enum EGroupWakeCause
 {

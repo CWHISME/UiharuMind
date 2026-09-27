@@ -462,10 +462,8 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="composer:CompletionCandidate">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="2">
-                                    <Border Width="24" Height="24" CornerRadius="12" ClipToBounds="True"
-                                            VerticalAlignment="Center" IsVisible="{Binding HasIcon}">
-                                        <Image Width="24" Height="24" Source="{Binding Icon}" Stretch="UniformToFill" />
-                                    </Border>
+                                    <controls:CircleAvatar Width="24" Height="24" VerticalAlignment="Center"
+                                                           Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
                                     <StackPanel Grid.Column="1" Spacing="1">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="{Binding Label}" />
