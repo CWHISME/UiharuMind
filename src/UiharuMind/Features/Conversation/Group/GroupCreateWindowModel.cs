@@ -72,7 +72,10 @@ public partial class GroupCreateWindowModel : ObservableObject
     /// </summary>
     /// <param name="isAgentGroup">是不是智能体群</param>
     /// <param name="workspacePath">智能体群的工作区；普通群为 null</param>
-    public GroupCreateWindowModel(bool isAgentGroup, string? workspacePath)
+    /// <param name="preselected">预先勾上的成员（从单聊开群时是原单聊的角色）；没有为 null</param>
+    /// <param name="name">预填的群名；没有为 null</param>
+    public GroupCreateWindowModel(bool isAgentGroup, string? workspacePath,
+        IReadOnlyList<CharacterData>? preselected = null, string? name = null)
     {
         IsAgentGroup = isAgentGroup;
         TypeHint = isAgentGroup
@@ -104,7 +107,9 @@ public partial class GroupCreateWindowModel : ObservableObject
         // agent 卡进普通群以 chat 形态加入（不带工具，ADR 0050 决策 3）
         SessionModelOption followGlobal = ModelOptions[0];
         _allCandidates = CharacterManager.Instance.CharacterDataDictionary.Values
-            .Where(x => !x.IsInternal && CharacterVisibility.PassesShield(x) && GroupChatSessions.CanJoin(x))
+            // 预选的是用户正在聊的那一位，屏蔽了也照样列出（他本来就看得见），不然预选会静默落空
+            .Where(x => !x.IsInternal && GroupChatSessions.CanJoin(x)
+                        && (CharacterVisibility.PassesShield(x) || preselected?.Any(p => p.CharacterId == x.CharacterId) == true))
             .OrderBy(x => x.IsAgent)
             .ThenBy(x => x.CharacterName, StringComparer.CurrentCulture)
             .Select(x => new GroupCandidate(x, OnCandidateToggled, ModelOptions)
@@ -115,6 +120,13 @@ public partial class GroupCreateWindowModel : ObservableObject
         HostOptions.Add(GroupHostOption.None);
         SelectedHost = GroupHostOption.None;
         ApplyFilter();
+
+        Name = name ?? string.Empty;
+        foreach (CharacterData member in preselected ?? [])
+        {
+            if (_allCandidates.FirstOrDefault(x => x.Data.CharacterId == member.CharacterId) is { } candidate)
+                candidate.IsPicked = true;
+        }
     }
 
     /// <summary>是不是智能体群</summary>

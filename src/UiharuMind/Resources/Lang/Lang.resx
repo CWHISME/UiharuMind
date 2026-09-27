@@ -3079,6 +3079,15 @@ Allow them?</value>
     <data name="GroupTotalCostFormat" xml:space="preserve">
         <value>Group total {0}</value>
     </data>
+    <data name="GroupFromChatTip" xml:space="preserve">
+        <value>Start a group from here: bring other characters into a new group; a summary of this chat is put into the group's input box, and this chat stays as it is</value>
+    </data>
+    <data name="GroupFromChatSummarizing" xml:space="preserve">
+        <value>Summarizing the chat with {0}; the group opens once it is done…</value>
+    </data>
+    <data name="GroupFromChatSummaryFailed" xml:space="preserve">
+        <value>Could not summarize this chat. The group is created; add some background yourself before sending</value>
+    </data>
     <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
         <value>Model: {0} · Context {1}</value>
     </data>

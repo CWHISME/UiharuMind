@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Features.Conversation.Group;
@@ -18,10 +20,16 @@ public partial class GroupCreateWindow : Window
     /// </summary>
     /// <param name="isAgentGroup">是不是智能体群（跟着切换器那一侧）</param>
     /// <param name="workspacePath">智能体群的工作区；普通群为 null</param>
+    /// <param name="preselected">预先勾上的成员；没有为 null</param>
+    /// <param name="name">预填的群名；没有为 null</param>
     /// <returns>建群请求；取消为 null</returns>
-    public static Task<GroupCreateRequest?> ShowAsync(bool isAgentGroup, string? workspacePath)
+    public static Task<GroupCreateRequest?> ShowAsync(bool isAgentGroup, string? workspacePath,
+        IReadOnlyList<CharacterData>? preselected = null, string? name = null)
     {
-        GroupCreateWindow window = new() { DataContext = new GroupCreateWindowModel(isAgentGroup, workspacePath) };
+        GroupCreateWindow window = new()
+        {
+            DataContext = new GroupCreateWindowModel(isAgentGroup, workspacePath, preselected, name),
+        };
         return window.ShowDialog<GroupCreateRequest?>(UIManager.GetFocusWindow());
     }
 

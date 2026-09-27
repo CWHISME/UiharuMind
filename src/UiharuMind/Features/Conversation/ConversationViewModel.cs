@@ -375,6 +375,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsGroupSession => CurrentSession?.IsGroup == true;
 
+    /// <summary>能不能「从这里建群」：普通的单聊才行。与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知</summary>
+    public bool CanCreateGroupFromHere => GroupFromChat.CanStartFrom(CurrentMeta);
+
     /// <summary>群壳的标题（右栏群卡）；不是群为空</summary>
     public string ActiveGroupTitle => CurrentSession is { IsGroup: true } group ? group.Title : string.Empty;
 
@@ -1513,6 +1516,19 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>
+    /// 从这里建群（方案 v6 §6.6b 规则 5 的轻量落地）：另开一个群、带上这段单聊的背景，原单聊不动，见 <see cref="GroupFromChat"/>
+    /// </summary>
+    [RelayCommand]
+    private async Task CreateGroupFromHereAsync()
+    {
+        if (CurrentSession is not { } source || !CanCreateGroupFromHere) return;
+        ChatSession? group = await GroupFromChat.CreateAsync(source, Workspace.Path);
+        if (group == null) return;
+        SessionsChanged?.Invoke();
+        OpenSessionRequested?.Invoke(group.SessionId);
+    }
+
+    /// <summary>
     /// 工作目录变化：写回会话头字段。装载会话期间不写——那是读取，不是用户改动
     /// </summary>
     /// <param name="value">新工作目录</param>
@@ -2244,6 +2260,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel = new ConversationMemoryViewData(body);
             OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
             OnPropertyChanged(nameof(IsGroupSession));
+            OnPropertyChanged(nameof(CanCreateGroupFromHere));
             OnPropertyChanged(nameof(IsGroupMemberSession));
             OnPropertyChanged(nameof(IsPermissionEditable));
             OnPropertyChanged(nameof(PermissionTooltip));

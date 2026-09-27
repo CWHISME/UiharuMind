@@ -3072,6 +3072,15 @@
     <data name="GroupTotalCostFormat" xml:space="preserve">
         <value>本群累计 {0}</value>
     </data>
+    <data name="GroupFromChatTip" xml:space="preserve">
+        <value>从这里建群：拉别的角色进来另开一个群，这段对话的摘要会填进群的输入框，原对话不动</value>
+    </data>
+    <data name="GroupFromChatSummarizing" xml:space="preserve">
+        <value>正在整理与{0}的对话，整理好就开群…</value>
+    </data>
+    <data name="GroupFromChatSummaryFailed" xml:space="preserve">
+        <value>没能整理出这段对话的背景，群已建好，可以自己补一句背景再发</value>
+    </data>
     <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
         <value>模型：{0} · 上下文 {1}</value>
     </data>
