@@ -415,6 +415,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>群的待审批条；不是群为 null</summary>
     [ObservableProperty] private GroupApprovalsViewData? _groupApprovals;
 
+    /// <summary>群的产物区（右栏成员列表下面）；不是群时为 null</summary>
+    [ObservableProperty] private GroupArtifactsViewData? _groupArtifacts;
+
     /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>
     public event Action<string>? OpenSessionRequested;
 
@@ -1330,6 +1333,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         SessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
         GroupChatSessions.PermissionApplied -= OnGroupPermissionApplied;
         GroupApprovals?.Dispose();
+        GroupArtifacts?.Dispose();
         _driver.StateChanged -= OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
@@ -2252,6 +2256,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             GroupMembers = body.IsGroup ? new GroupMembersViewData(body) : null;
             GroupApprovals?.Dispose();
             GroupApprovals = body.IsGroup ? new GroupApprovalsViewData(body) : null;
+            GroupArtifacts?.Dispose();
+            GroupArtifacts = body.IsGroup ? new GroupArtifactsViewData(body) : null;
             if (body.IsGroup)
             {
                 InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务

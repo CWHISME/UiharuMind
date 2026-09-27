@@ -40,4 +40,20 @@ public static class FileToolNames
 
     /// <summary>全部五个（界面按它给文件类工具配图标）</summary>
     public static readonly string[] All = [Read, Write, Edit, Glob, Grep];
+
+    /// <summary>Write 成功时回给模型的开头（<c>Saved '路径' …</c>）</summary>
+    public const string WriteSucceededPrefix = "Saved '";
+
+    /// <summary>Edit 成功时回给模型的开头（<c>Applied N edit(s) to '路径'</c>）</summary>
+    public const string EditSucceededPrefix = "Applied ";
+
+    /// <summary>
+    /// 这条工具结果是不是一次真正落了盘的写入。失败、被拒、被取消的回的都是别的话——
+    /// 群产物区据此只收真写进去的文件，与工具实现共用这两个开头，改措辞不会静默失配
+    /// </summary>
+    /// <param name="result">工具结果正文</param>
+    /// <returns>落了盘为 true</returns>
+    public static bool IsSuccessfulWrite(string? result) =>
+        result != null && (result.StartsWith(WriteSucceededPrefix, StringComparison.Ordinal)
+                           || result.StartsWith(EditSucceededPrefix, StringComparison.Ordinal));
 }

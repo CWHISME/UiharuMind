@@ -499,8 +499,8 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, envelope, envelope.ConvertNewLines(content), ct).ConfigureAwait(false);
             int lines = content.Split('\n').Length;
             return backupPath is null
-                ? $"Saved '{filePath}' ({lines} lines)."
-                : $"Saved '{filePath}' ({lines} lines). Previous version backed up to '{backupPath}'.";
+                ? $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines)."
+                : $"{FileToolNames.WriteSucceededPrefix}{filePath}' ({lines} lines). Previous version backed up to '{backupPath}'.";
         }
         finally
         {
@@ -535,7 +535,7 @@ internal sealed class PermissiveFileAccessTools
             await SaveAsync(full, plan.Envelope, plan.NewText, ct).ConfigureAwait(false);
 
             string diff = FileEditPlanner.RenderDiff(plan.Diff, MaxEditDiffLines, MaxEditDiffLineChars);
-            return $"Applied {edits.Count} edit(s) to '{filePath}'.\n{diff}";
+            return $"{FileToolNames.EditSucceededPrefix}{edits.Count} edit(s) to '{filePath}'.\n{diff}";
         }
         finally
         {

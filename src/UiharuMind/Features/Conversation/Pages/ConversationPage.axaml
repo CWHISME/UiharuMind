@@ -49,9 +49,14 @@
                     <panels:ContextUsagePanel DataContext="{Binding Conversation.ContextUsage}" />
                 </Border>
                 <!-- 群壳：下块换成成员列表。能力/子代理/会话详情讲的都是「一个角色的会话」，群壳挂的是占位角色 -->
-                <Border Grid.Row="2" IsVisible="{Binding Conversation.IsGroupSession}">
-                    <group:GroupMembersPanel DataContext="{Binding Conversation.GroupMembers}" />
-                </Border>
+                <ScrollViewer Grid.Row="2" IsVisible="{Binding Conversation.IsGroupSession}"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="10">
+                        <group:GroupMembersPanel DataContext="{Binding Conversation.GroupMembers}" />
+                        <!-- 本群产物：群到底落了哪些盘（方案 v6 §1.4 产出锚点） -->
+                        <group:GroupArtifactsPanel DataContext="{Binding Conversation.GroupArtifacts}" />
+                    </StackPanel>
+                </ScrollViewer>
                 <Grid Grid.Row="2" IsVisible="{Binding !Conversation.IsGroupSession}">
                     <panels:AgentSidePanel IsVisible="{Binding IsAgentType}" />
                     <!-- ChatInfoView 构造时把自己的 DataContext 换成 ChatInfoModel 单例,

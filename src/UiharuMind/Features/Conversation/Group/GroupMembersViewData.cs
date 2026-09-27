@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -24,7 +25,7 @@ namespace UiharuMind.Features.Conversation.Group;
 /// 顶上是调度设置与主持人，改了即写回群壳：调度下一波起生效（ADR 0049 决策 1），
 /// 主持人写在各成员的系统提示场景段里，各自下一轮开跑时重建装配生效（ADR 0048）
 /// </summary>
-public sealed class GroupMembersViewData
+public sealed class GroupMembersViewData : ObservableObject
 {
     private readonly ChatSession _group;
     private GroupHostChoice _selectedHost;
@@ -39,6 +40,7 @@ public sealed class GroupMembersViewData
         Members = SessionManager.MemberMetasOf(group)
             .Select(meta => new GroupMemberItem(meta, meta.SessionId == group.GroupHostSessionId))
             .ToList();
+        foreach (GroupMemberItem member in Members) member.PropertyChanged += OnMemberPropertyChanged;
         HostOptions = [new GroupHostChoice(null, Loc.Text(LangKey.GroupHostNone)),
             ..Members.Select(x => new GroupHostChoice(x.SessionId, x.Name))];
         _selectedHost = HostOptions.FirstOrDefault(x => x.SessionId == group.GroupHostSessionId) ?? HostOptions[0];
@@ -55,6 +57,19 @@ public sealed class GroupMembersViewData
 
     /// <summary>调度设置</summary>
     public GroupScheduleViewData Schedule { get; }
+
+    /// <summary>全群累计 token（各成员会话累计输入 + 输出之和，方案 v6 §3.4 成本可见）；没花过为空</summary>
+    public string TotalCostLine
+    {
+        get
+        {
+            long total = Members.Sum(x => x.SpentTokens);
+            return total > 0 ? string.Format(Loc.Text(LangKey.GroupTotalCostFormat), TurnUsageLedger.Format(total)) : "";
+        }
+    }
+
+    /// <summary>有没有累计可显示</summary>
+    public bool HasTotalCost => Members.Any(x => x.SpentTokens > 0);
 
     /// <summary>主持人可选项：「无」+ 各成员</summary>
     public IReadOnlyList<GroupHostChoice> HostOptions { get; }
@@ -112,6 +127,13 @@ public sealed class GroupMembersViewData
     /// <param name="sessionId">会话标识</param>
     /// <returns>是成员为 true</returns>
     public bool Contains(string sessionId) => Members.Any(x => x.SessionId == sessionId);
+
+    private void OnMemberPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(GroupMemberItem.SpentTokens)) return;
+        OnPropertyChanged(nameof(TotalCostLine));
+        OnPropertyChanged(nameof(HasTotalCost));
+    }
 }
 
 /// <summary>成员列表里的一项</summary>
@@ -121,6 +143,8 @@ public sealed partial class GroupMemberItem : ObservableObject
     private readonly CharacterData _character;
     private int _fixedTokens; //固定开销：预演一次后缓存，不随历史变
     private long _usageTokens; //当前有效占用：最近一次请求输入与固定开销取大
+    private long _inputTokens; //会话累计输入
+    private long _outputTokens; //会话累计输出
 
     /// <summary>角色描述：副标题的主行，空时折叠（不占位）。模型行内不再出现，只进整卡 tooltip</summary>
     public string Description => _character.Description?.Trim() ?? "";
@@ -141,15 +165,27 @@ public sealed partial class GroupMemberItem : ObservableObject
         }
     }
 
-    /// <summary>整卡 tooltip：模型名 + 上下文，模型不再占行内一整行</summary>
+    /// <summary>累计花费：会话累计输入 + 输出（成本视角，一轮多次工具往返逐次相加）</summary>
+    public long SpentTokens => _inputTokens + _outputTokens;
+
+    /// <summary>累计行：与占用同一行靠右；没花过为空，由 HasCost 折叠</summary>
+    public string CostLine => HasCost
+        ? string.Format(Loc.Text(LangKey.GroupMemberCostFormat), TurnUsageLedger.Format(SpentTokens))
+        : "";
+
+    /// <summary>有没有累计可显示</summary>
+    public bool HasCost => SpentTokens > 0;
+
+    /// <summary>整卡 tooltip：模型名 + 上下文，花过的再补一行输入 / 输出拆分</summary>
     public string CardTip
     {
         get
         {
-            string name = EffectiveModelName;
-            return string.IsNullOrEmpty(ContextLine)
-                ? string.Format(Loc.Text(LangKey.GroupMemberModelTooltipFormat), name, "—")
-                : string.Format(Loc.Text(LangKey.GroupMemberModelTooltipFormat), name, ContextLine);
+            string tip = string.Format(Loc.Text(LangKey.GroupMemberModelTooltipFormat), EffectiveModelName,
+                string.IsNullOrEmpty(ContextLine) ? "—" : ContextLine);
+            if (!HasCost) return tip;
+            return tip + "\n" + string.Format(Loc.Text(LangKey.GroupMemberCostTooltipFormat),
+                TurnUsageLedger.Format(_inputTokens), TurnUsageLedger.Format(_outputTokens));
         }
     }
 
@@ -231,12 +267,17 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <summary>
     /// 取成员会话本体的真实占用（<see cref="ChatSession.LastInputTokens"/>，最近一次请求的输入 token），
     /// 与固定开销取大——固定开销是「每轮最低要吃掉多少」，请求输入是服务端报的实际占用，
-    /// 两个口径各管一截（见 ADR 0009 的有效占用）。会话未跑过时以固定开销为准
+    /// 两个口径各管一截（见 ADR 0009 的有效占用）。会话未跑过时以固定开销为准。累计花费同一处取
     /// </summary>
     public void RefreshUsage()
     {
         ChatSession? session = SessionManager.Instance.Load(SessionId);
         _usageTokens = Math.Max(session?.LastInputTokens ?? 0, _fixedTokens);
+        _inputTokens = session?.TotalInputTokens ?? 0;
+        _outputTokens = session?.TotalOutputTokens ?? 0;
+        OnPropertyChanged(nameof(SpentTokens));
+        OnPropertyChanged(nameof(CostLine));
+        OnPropertyChanged(nameof(HasCost));
         OnPropertyChanged(nameof(ContextLine));
         OnPropertyChanged(nameof(UsagePercent));
         OnPropertyChanged(nameof(HasUsage));

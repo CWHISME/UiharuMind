@@ -128,15 +128,9 @@
 
                         <!-- 间距给在头像自己的 Margin 上而不是 ColumnSpacing:
                              隐藏时它整体退出布局,列宽归零,不会留下一道空白缩进 -->
-                        <Ellipse Grid.Column="1" Width="38" Height="38" Margin="0,0,10,0"
-                                 VerticalAlignment="Center"
-                                 Stroke="{DynamicResource SemiGrey2}" StrokeThickness="1"
-                                 IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}"
-                                 RenderOptions.BitmapInterpolationMode="HighQuality">
-                            <Ellipse.Fill>
-                                <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
-                            </Ellipse.Fill>
-                        </Ellipse>
+                        <controls:CircleAvatar Grid.Column="1" Width="38" Height="38" Margin="0,0,10,0"
+                                               VerticalAlignment="Center" Source="{Binding Icon}"
+                                               IsVisible="{Binding $parent[sessions:SessionListView].ShowAvatar}" />
 
                         <!-- 指示器与「标题+描述」并列,而不是塞进标题那一行:
                              塞进去的话标题会被指示器那一列推右、描述不动,两行左边就对不齐,

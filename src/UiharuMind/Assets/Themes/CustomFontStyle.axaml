@@ -26,6 +26,14 @@
         <Setter Property="FontFamily" Value="{StaticResource MainFont}" />
     </Style>
     
+    <!-- 提示框掐断继承:MaxLines / TextTrimming / TextWrapping 是可继承属性,ToolTip 的逻辑父级是挂它的控件,
+         挂在「单行 + 省略号」的 TextBlock 上时整段提示也被截成一行,宽度只剩屏幕右侧那点空间 -->
+    <Style Selector="ToolTip">
+        <Setter Property="TextBlock.MaxLines" Value="0" />
+        <Setter Property="TextBlock.TextTrimming" Value="None" />
+        <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
+    </Style>
+
     <!-- 淡淡的灰色字体 -->
     <Style Selector=":is(TextBlock).muted">
         <Setter Property="FontSize" Value="12" />

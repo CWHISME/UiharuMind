@@ -84,15 +84,7 @@
                         </Border.ContextMenu>
 
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                            <Ellipse Width="32" Height="32"
-                                     VerticalAlignment="Center"
-                                     Stroke="{DynamicResource SemiGrey2}"
-                                     StrokeThickness="1"
-                                     RenderOptions.BitmapInterpolationMode="HighQuality">
-                                <Ellipse.Fill>
-                                    <ImageBrush Source="{Binding Icon}" Stretch="UniformToFill" />
-                                </Ellipse.Fill>
-                            </Ellipse>
+                            <controls:CircleAvatar Width="32" Height="32" VerticalAlignment="Center" Source="{Binding Icon}" />
 
                             <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">

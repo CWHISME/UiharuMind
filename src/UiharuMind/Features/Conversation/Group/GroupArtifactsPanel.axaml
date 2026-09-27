@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
+             x:Class="UiharuMind.Features.Conversation.Group.GroupArtifactsPanel"
+             x:DataType="group:GroupArtifactsViewData">
+
+    <!-- 本群产物：群到底落了哪些盘。点开看文件，右键在文件夹中显示 -->
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Text="{loc:Loc GroupArtifactsTitle}" />
+                <Button Grid.Column="1" Classes="Tertiary" Padding="6,2" FontSize="11"
+                        Content="{loc:Loc GroupArtifactsOpenRoom}" ToolTip.Tip="{Binding DraftRoom}"
+                        Command="{Binding OpenDraftRoomCommand}" />
+            </Grid>
+            <TextBlock Classes="muted" Text="{loc:Loc GroupArtifactsHint}" TextWrapping="Wrap" />
+            <TextBlock Classes="muted" FontSize="11" IsVisible="{Binding IsEmpty}"
+                       Text="{loc:Loc GroupArtifactsEmpty}" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="group:GroupArtifactItem">
+                        <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                Margin="0,1" Padding="6,4" Command="{Binding OpenCommand}"
+                                ToolTip.Tip="{Binding FullPath}">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{loc:Loc GroupArtifactOpen}" Command="{Binding OpenCommand}" />
+                                    <MenuItem Header="{loc:Loc GroupArtifactReveal}" Command="{Binding RevealCommand}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                            <!-- 两行：文件名 + 来源 | 路径与谁、什么时候。名字列用 Grid 约束宽度，省略号才算得准 -->
+                            <StackPanel Spacing="1" MinWidth="0">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <controls:KindBadge Grid.Column="1" Header="{loc:Loc GroupArtifactDraftBadge}"
+                                                        BadgeBackground="{DynamicResource SemiGrey5}"
+                                                        VerticalAlignment="Center" IsVisible="{Binding IsDraft}" />
+                                    <controls:KindBadge Grid.Column="1" Header="{loc:Loc GroupArtifactWorkspaceBadge}"
+                                                        BadgeBackground="{DynamicResource SemiOrange5}"
+                                                        VerticalAlignment="Center" IsVisible="{Binding !IsDraft}" />
+                                </Grid>
+                                <TextBlock Classes="muted" FontSize="10" Text="{Binding DisplayPath}"
+                                           TextTrimming="PrefixCharacterEllipsis" MaxLines="1" />
+                                <TextBlock Classes="muted" FontSize="10" Text="{Binding MetaText}"
+                                           TextTrimming="CharacterEllipsis" MaxLines="1" />
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</UserControl>

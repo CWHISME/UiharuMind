@@ -19,7 +19,12 @@
     <!-- 群的成员:按发言顺序,点开是他自己的会话(可看可聊)。那里看得到他收到了什么、自己干了什么 -->
     <Border BorderThickness="1" BorderBrush="{DynamicResource SemiGrey2}" CornerRadius="8" Padding="8">
         <StackPanel Spacing="8">
-            <TextBlock FontSize="15" FontWeight="SemiBold" Text="{loc:Loc GroupMembersTitle}" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock FontSize="15" FontWeight="SemiBold" Text="{loc:Loc GroupMembersTitle}" />
+                <!-- 全群累计：看得到这个群一共烧了多少，只是仪表，不做任何自动干预（方案 v6 §3.4） -->
+                <TextBlock Grid.Column="1" Classes="muted" FontSize="11" VerticalAlignment="Center"
+                           Text="{Binding TotalCostLine}" IsVisible="{Binding HasTotalCost}" />
+            </Grid>
             <TextBlock Classes="muted" Text="{loc:Loc GroupMembersHint}" TextWrapping="Wrap" />
             <!-- 调度设置：改了下一波起生效，正在跑的这一波不打断 -->
             <group:GroupScheduleSelector DataContext="{Binding Schedule}" />
@@ -41,37 +46,43 @@
                         <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Margin="0,2" Command="{Binding OpenCommand}"
                                 ToolTip.Tip="{Binding CardTip}">
-                            <!-- 三列：头像 | 名字与描述 | 发言状态。状态单起一列，不跟名字、主持人徽标挤一行——
-                                 窄栏里挤在一起会把后面的截掉。名字列用 Grid 约束宽度，省略号才算得准 -->
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                                <Image Grid.Column="0" Width="32" Height="32" Source="{Binding Icon}" VerticalAlignment="Top" Margin="0,2,0,0" />
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1" MinWidth="0">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" HorizontalAlignment="Left">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        <controls:KindBadge Grid.Column="1" Header="{loc:Loc GroupHostLabel}"
-                                                            BadgeBackground="{DynamicResource SemiOrange5}"
-                                                            VerticalAlignment="Center"
-                                                            IsVisible="{Binding IsHost}" />
-                                    </Grid>
-                                    <!-- 角色描述为主行；模型彻底收进整卡 tooltip，行内不再出现 -->
-                                    <TextBlock Classes="muted" FontSize="11" Text="{Binding Description}"
-                                               ToolTip.Tip="{Binding Description}"
-                                               TextTrimming="CharacterEllipsis" MaxLines="1"
-                                               IsVisible="{Binding HasDescription}" />
-                                    <!-- 真实占用 / 模型上限：与右栏上下文占用同一形状，随每圈落盘刷新 -->
+                            <!-- 头像跨满四行；发言状态只占第一行最右，只跟名字争宽——描述、占用、进度条都跨到最右，
+                                 状态出现时不再把下面几行挤成省略号。名字列用 Grid 约束宽度，省略号才算得准 -->
+                            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto"
+                                  ColumnSpacing="8" RowSpacing="1">
+                                <controls:CircleAvatar Grid.RowSpan="4" Width="32" Height="32" Source="{Binding Icon}"
+                                                       VerticalAlignment="Top" Margin="0,2,0,0" />
+                                <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6" HorizontalAlignment="Left">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <controls:KindBadge Grid.Column="1" Header="{loc:Loc GroupHostLabel}"
+                                                        BadgeBackground="{DynamicResource SemiOrange5}"
+                                                        VerticalAlignment="Center"
+                                                        IsVisible="{Binding IsHost}" />
+                                </Grid>
+                                <!-- 角色描述为主行；模型彻底收进整卡 tooltip，行内不再出现 -->
+                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                           Classes="muted" FontSize="11" Text="{Binding Description}"
+                                           ToolTip.Tip="{Binding Description}"
+                                           TextTrimming="CharacterEllipsis" MaxLines="1"
+                                           IsVisible="{Binding HasDescription}" />
+                                <!-- 左：真实占用 / 模型上限（与右栏上下文占用同一形状）；右：累计花费。随每次用量上报刷新 -->
+                                <Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                     <TextBlock Classes="muted" FontSize="10" Text="{Binding ContextLine}"
-                                               IsVisible="{Binding HasUsage}" />
-                                    <!-- 占用进度条：一眼看出离上限还有多远 -->
-                                    <ProgressBar Classes="member-usage" Minimum="0" Maximum="100"
-                                                 Value="{Binding UsagePercent}" Height="4" CornerRadius="2"
-                                                 MinWidth="0" Margin="0,3,0,2"
-                                                 Background="{DynamicResource SemiGrey3}"
-                                                 IsVisible="{Binding HasUsage}" />
-                                </StackPanel>
+                                               TextTrimming="CharacterEllipsis" IsVisible="{Binding HasUsage}" />
+                                    <TextBlock Grid.Column="1" Classes="muted" FontSize="10" Text="{Binding CostLine}"
+                                               IsVisible="{Binding HasCost}" />
+                                </Grid>
+                                <!-- 占用进度条：一眼看出离上限还有多远 -->
+                                <ProgressBar Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
+                                             Classes="member-usage" Minimum="0" Maximum="100"
+                                             Value="{Binding UsagePercent}" Height="4" CornerRadius="2"
+                                             MinWidth="0" Margin="0,3,0,2"
+                                             Background="{DynamicResource SemiGrey3}"
+                                             IsVisible="{Binding HasUsage}" />
                                 <!-- 正在说的那一位（并行时可能几位）：蓝点 + 文字，跟着调度器的发言人变化走 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
-                                            VerticalAlignment="Top" Margin="0,4,0,0"
+                                            VerticalAlignment="Center"
                                             IsVisible="{Binding ShowsSpeaking}">
                                     <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
                                     <TextBlock FontSize="10" VerticalAlignment="Center"
@@ -80,7 +91,7 @@
                                 </StackPanel>
                                 <!-- 在他自己的窗口里私聊：跑着，但回复不进群 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
-                                            VerticalAlignment="Top" Margin="0,4,0,0"
+                                            VerticalAlignment="Center"
                                             IsVisible="{Binding ShowsPrivateChat}">
                                     <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
                                     <TextBlock FontSize="10" VerticalAlignment="Center"
@@ -89,7 +100,7 @@
                                 </StackPanel>
                                 <!-- 他这一轮停着等审批：批在群输入框上方那条，或点开他的会话 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
-                                            VerticalAlignment="Top" Margin="0,4,0,0"
+                                            VerticalAlignment="Center"
                                             IsVisible="{Binding IsAwaitingApproval}">
                                     <Border Classes="status-dot" Tag="Warning" VerticalAlignment="Center" />
                                     <TextBlock FontSize="10" VerticalAlignment="Center"

@@ -78,11 +78,8 @@
                                               HorizontalContentAlignment="Stretch">
                                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10"
                                               VerticalAlignment="Center">
-                                            <Border Width="32" Height="32" CornerRadius="16"
-                                                    ClipToBounds="True" VerticalAlignment="Center">
-                                                <Image Width="32" Height="32" Source="{Binding Icon}"
-                                                       Stretch="UniformToFill" />
-                                            </Border>
+                                            <controls:CircleAvatar Width="32" Height="32" Source="{Binding Icon}"
+                                                                   VerticalAlignment="Center" />
                                             <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
                                                 <!-- 名字占剩余宽度截断，徽章贴名字右边 -->
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">

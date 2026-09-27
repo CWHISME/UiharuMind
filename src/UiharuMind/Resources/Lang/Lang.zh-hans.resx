@@ -3033,11 +3033,44 @@
     <data name="GroupMemberPermissionFollowFormat" xml:space="preserve">
         <value>跟随群聊（在群视图里改）。{0}</value>
     </data>
+    <data name="GroupArtifactsTitle" xml:space="preserve">
+        <value>本群产物</value>
+    </data>
+    <data name="GroupArtifactsHint" xml:space="preserve">
+        <value>群里落了盘的东西：草稿目录里的文件，和成员改过的工作区文件。点开看，右键在文件夹中显示。</value>
+    </data>
+    <data name="GroupArtifactsEmpty" xml:space="preserve">
+        <value>盘上还没有东西。</value>
+    </data>
+    <data name="GroupArtifactsOpenRoom" xml:space="preserve">
+        <value>草稿目录</value>
+    </data>
+    <data name="GroupArtifactOpen" xml:space="preserve">
+        <value>打开</value>
+    </data>
+    <data name="GroupArtifactReveal" xml:space="preserve">
+        <value>在文件夹中显示</value>
+    </data>
+    <data name="GroupArtifactDraftBadge" xml:space="preserve">
+        <value>草稿</value>
+    </data>
+    <data name="GroupArtifactWorkspaceBadge" xml:space="preserve">
+        <value>工作区</value>
+    </data>
     <data name="GroupMemberPrivateChat" xml:space="preserve">
         <value>私聊中</value>
     </data>
     <data name="GroupMemberSpeaking" xml:space="preserve">
         <value>发言中</value>
+    </data>
+    <data name="GroupMemberCostFormat" xml:space="preserve">
+        <value>累计 {0}</value>
+    </data>
+    <data name="GroupMemberCostTooltipFormat" xml:space="preserve">
+        <value>累计：输入 {0} · 输出 {1}</value>
+    </data>
+    <data name="GroupTotalCostFormat" xml:space="preserve">
+        <value>本群累计 {0}</value>
     </data>
     <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
         <value>模型：{0} · 上下文 {1}</value>
