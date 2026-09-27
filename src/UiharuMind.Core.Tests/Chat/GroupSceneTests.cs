@@ -25,6 +25,7 @@ public class GroupSceneTests
         Assert.Contains("不要自己加「[名字]:」前缀", scene);
         Assert.DoesNotContain("主持人", scene);
         Assert.DoesNotContain("SendMessage", scene); //没这个工具就不提
+        Assert.Contains("一次两三句", scene);
     }
 
     [Theory]
@@ -47,6 +48,7 @@ public class GroupSceneTests
 
         Assert.Equal(shares, scene.Contains("草稿目录是全群共用的"));
         Assert.Equal(shares, scene.Contains("方案由用户拍板")); //动得了工作区的人才需要这条
+        Assert.Equal(shares, scene.Contains("写成草稿目录里的文件")); //长材料有地方放，才让他挪出去
     }
 
     /// <summary>群成员的产出落群壳那一间：一起干的活在一处，不必从各人目录里拼</summary>

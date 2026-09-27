@@ -22,6 +22,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     private readonly object _locker = new();
     private readonly Dictionary<string, Episode> _episodes = new(); //群 → 正在跑的那一波
     private readonly Dictionary<string, HashSet<int>> _consumed = new(); //成员会话 → 插话插给他且已被消费的群流水下标
+    private readonly HashSet<string> _interrupted = new(); //群里那一轮被停或失败的成员：投递已交给他，没新话也要能接着做
 
     /// <summary>应用里的那一个：成员用无头编排跑，会话经会话管理器取</summary>
     public static GroupChatCoordinator Instance { get; } =
@@ -137,6 +138,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         {
             _consumed.Remove(member.SessionId, out HashSet<int>? consumed);
             delivery = GroupTranscript.BuildDelivery(group.History, member.GroupCursor, member.SessionId, consumed);
+            // 被打断的人游标早推过去了，没新话时交一句「接着做」；有新话就照常投，那一段历史他自己看得见
+            if (_interrupted.Remove(member.SessionId)) delivery ??= GroupTranscript.ResumeNote;
             images = GroupTranscript.DeliveryImages(group.History, member.GroupCursor, member.SessionId, consumed);
             member.GroupCursor = group.History.Count;
             if (delivery != null)
@@ -164,6 +167,10 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
         bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
         replies.Finish(completed);
+        if (!completed)
+        {
+            lock (_locker) _interrupted.Add(member.SessionId);
+        }
 
         IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
         lock (_locker)
@@ -184,6 +191,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
 
         lock (_locker)
         {
+            if (_interrupted.Contains(memberSessionId)) return true; //「继续」要叫得醒被打断的人
             _consumed.TryGetValue(memberSessionId, out HashSet<int>? consumed);
             return GroupTranscript.BuildDelivery(group.History, member.GroupCursor, memberSessionId, consumed) != null;
         }
@@ -246,7 +254,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         bool coldStart = run.Mode == EGroupScheduleMode.Parallel
                          && member.SessionId == run.Group.GroupHostSessionId
                          && GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, RosterOf(run.Group));
-        return coldStart ? delivery + "\n\n" + GroupTranscript.HostColdStartHint : delivery;
+        string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
+        return coldStart ? input + "\n\n" + GroupTranscript.HostColdStartHint : input;
     }
 
     private async Task<bool> RunTurnAsync(ChatSession member, ChatMessage delivery, CancellationToken cancellationToken)

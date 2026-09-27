@@ -59,7 +59,53 @@ public class GroupChatCoordinatorTests
         Assert.Contains("[Bob]: Bob 的第 1 次发言", aliceInput);
         Assert.DoesNotContain("大家好", aliceInput);
         Assert.DoesNotContain("[Alice]", aliceInput);
-        Assert.Equal("[Alice]: Alice 的第 2 次发言", _runner.Calls[1].Input);
+        Assert.StartsWith("[Alice]: Alice 的第 2 次发言\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[1].Input);
+    }
+
+    /// <summary>
+    /// 群轮被停或失败的成员：投递已交给过他、游标早推过去，没新话也要能被「继续」叫起来接着做；做完就不再叫
+    /// </summary>
+    [Fact]
+    public async Task Serial_InterruptedMember_ResumesOnContinue_EvenWithNothingNew()
+    {
+        _runner.Fail.Add(_alice.SessionId);
+        _runner.Silent = true; //别人不发言：她醒来时没有新话可接
+        await _coordinator.PostAsync(_group, "大家好");
+        _runner.Fail.Clear();
+        _runner.ClearCalls();
+
+        await _coordinator.ContinueAsync(_group);
+
+        (ChatSession member, string input) = Assert.Single(_runner.Calls);
+        Assert.Same(_alice, member);
+        Assert.StartsWith(GroupTranscript.ResumeNote, input);
+
+        _runner.ClearCalls();
+        await _coordinator.ContinueAsync(_group);
+        Assert.Empty(_runner.Calls);
+    }
+
+    /// <summary>
+    /// 每轮重锚：投递末尾贴的是<b>本人</b>的口吻（系统提示末尾那句离开口处太远，长群聊里拉不住）
+    /// </summary>
+    [Fact]
+    public async Task EachDelivery_EndsWithTheMembersOwnVoice()
+    {
+        _alice.CharacterData.PersonaAnchor = "你是Alice。说话短。";
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.EndsWith(GroupTranscript.VoiceReminder("你是Alice。说话短。"), _runner.Calls[0].Input);
+        Assert.EndsWith(GroupTranscript.VoiceReminder("你是Bob。"), _runner.Calls[1].Input); //没写锚点的回退到名字
+    }
+
+    [Theory]
+    [InlineData("你是Alice。", "（说话前记着：你是Alice。群里说话像聊天，平常两三句。）")]
+    [InlineData("你是Alice，爱查证", "（说话前记着：你是Alice，爱查证。群里说话像聊天，平常两三句。）")]
+    [InlineData("", "（说话前记着：群里说话像聊天，平常两三句。）")]
+    public void VoiceReminder_JoinsTheAnchorAndTheGroupScale(string coda, string expected)
+    {
+        Assert.Equal(expected, GroupTranscript.VoiceReminder(coda));
     }
 
     /// <summary>权限档跟群走：成员各存一份时，群看着是自动编辑，某位成员却在完全自动档下跑 shell</summary>
@@ -101,7 +147,7 @@ public class GroupChatCoordinatorTests
         await _coordinator.PostAsync(_group, "大家好");
 
         Assert.DoesNotContain("群聊「会审」", _runner.Calls[0].Input);
-        Assert.EndsWith(": 大家好", _runner.Calls[0].Input);
+        Assert.StartsWith("[黑猫]: 大家好\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[0].Input);
     }
 
     [Fact]
@@ -421,10 +467,11 @@ public class GroupChatCoordinatorTests
     }
 
     [Fact]
-    public void SplitDelivery_SplitsBySpeaker_AndKeepsSceneAndHostHintApart()
+    public void SplitDelivery_SplitsBySpeaker_KeepsSceneAndHostHintApart_AndHidesTheReminder()
     {
         string delivery = "（这是群聊「会审」。）\n\n[用户]: 大家好\n\n[Alice]: 第一行\n\n第二段\n[重要]: 不是发言人\n\n"
-                          + "[Bob]: 嗯。\n\n" + GroupTranscript.HostColdStartHint;
+                          + "[Bob]: 嗯。\n\n" + GroupTranscript.VoiceReminder("你是Carol。") + "\n\n"
+                          + GroupTranscript.HostColdStartHint;
 
         IReadOnlyList<GroupDeliverySegment> segments =
             GroupTranscript.SplitDelivery(delivery, ["用户", "Alice", "Bob"]);

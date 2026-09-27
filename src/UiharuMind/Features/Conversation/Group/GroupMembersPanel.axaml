@@ -78,6 +78,15 @@
                                                Foreground="{DynamicResource MessageStatusInfoBrush}"
                                                Text="{loc:Loc GroupMemberSpeaking}" />
                                 </StackPanel>
+                                <!-- 在他自己的窗口里私聊：跑着，但回复不进群 -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Top" Margin="0,4,0,0"
+                                            IsVisible="{Binding ShowsPrivateChat}">
+                                    <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
+                                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource MessageStatusInfoBrush}"
+                                               Text="{loc:Loc GroupMemberPrivateChat}" />
+                                </StackPanel>
                                 <!-- 他这一轮停着等审批：批在群输入框上方那条，或点开他的会话 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                             VerticalAlignment="Top" Margin="0,4,0,0"

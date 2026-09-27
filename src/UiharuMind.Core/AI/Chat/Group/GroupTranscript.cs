@@ -204,6 +204,29 @@ public static class GroupTranscript
         "（你是本群主持人。上面用户那句没有 @ 任何人：先用 @名字 点名最合适的一两位来回应，不要自己直接回答。）";
 
     /// <summary>
+    /// 群里那一轮被停或失败后，再被叫醒又没有新话时交给他的一句。他可能已在私聊里接着做完了——
+    /// 那份结果群里没人看见，所以请他说一句
+    /// </summary>
+    public const string ResumeNote = "（你上一轮在群里被打断了：接着做完；要是已经做完了，把结果跟大家说一句。）";
+
+    /// <summary>每轮重锚的开头：界面据此认出它、不画出来</summary>
+    public const string VoiceReminderOpening = "（说话前记着：";
+
+    /// <summary>
+    /// 每轮重锚（提案 v8 §7.4）：投递末尾贴一句本人的口吻。系统提示末尾的人格锚点到了长群聊里，
+    /// 离开口处隔着几十条群友的长发言，拉不住口吻，人人滑成同一种报告腔；贴在投递里紧挨着开口处。
+    /// 随投递落盘、之后不再改，前缀缓存不受影响；每次唤醒只多一行
+    /// </summary>
+    /// <param name="personaCoda">人格锚点（<c>CharacterData.GetPersonaCoda</c>）；空串时只提群里的说话尺度</param>
+    /// <returns>重锚句</returns>
+    public static string VoiceReminder(string personaCoda)
+    {
+        string coda = personaCoda.Trim();
+        if (coda.Length > 0 && !"。！？.!?".Contains(coda[^1])) coda += "。";
+        return $"{VoiceReminderOpening}{coda}群里说话像聊天，平常两三句。）";
+    }
+
+    /// <summary>
     /// 私聊说明：用户在成员会话里直接发的话，发给模型时前面带这一句——否则模型分不清这句是私聊还是群里说的，
     /// 会照群聊口吻回（实测会 @ 人）。界面显示时摘掉
     /// </summary>
@@ -238,19 +261,24 @@ public static class GroupTranscript
         else if (scene.HostName != null)
             text.Append($"\n本群主持人是{scene.HostName}。");
 
-        text.Append("\n\n群里的发言会按「[名字]: 内容」的格式交给你；你每次说完的回复正文，就是你在群里说的话——" +
-                    "直接说，不要自己加「[名字]:」前缀。想请某位成员接话，在发言里写 @名字。" +
-                    "\n调用工具时顺手写的话（比如「先查一下」）只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
+        // 规矩一条一行：挤成长句连排时，前缀、@、过程话几条缠在一起，分不出主次
+        text.Append("\n\n- 群里的发言会按「[名字]: 内容」的格式交给你；你每次说完的回复正文，就是你在群里说的话——" +
+                    "直接说，不要自己加「[名字]:」前缀。想请某位成员接话，在发言里写 @名字。");
+        // 不给尺度，群里的话会被当成交付物写，一人写长报告、别人跟着学
+        text.Append("\n- 群里说话就像平常聊天：一次两三句，说你自己的看法，不写成报告。");
+        if (scene.SharesDraftRoom)
+            text.Append("要摆的材料长（清单、对比、摘录），写成草稿目录里的文件，群里只说结论、附上文件路径。");
+        text.Append("\n- 调用工具时顺手写的话（比如「先查一下」）只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.CanPostMidTurn)
             text.Append("想在这一轮中途先对大家说一句，可以调用 SendMessage，to 写 group；用过它，这一轮最后的正文就只留在你这里，不再贴到群里。");
-        text.Append($"\n没什么要补充、不用接话时，只回复「{PassReply}」：这句不会发到群里。不必为表态「收到」「我也等着」专门说一句。");
-        text.Append("\n用户也会单独找你私聊，那种消息开头标着「私聊」，回复只有用户看得到。");
+        text.Append($"\n- 没什么要补充、不用接话时，只回复「{PassReply}」：这句不会发到群里。不必为表态「收到」「我也等着」专门说一句。");
+        text.Append("\n- 用户也会单独找你私聊，那种消息开头标着「私聊」，回复只有用户看得到。");
         if (scene.SharesDraftRoom)
         {
             // 讨论 → 拍板 → 开工（方案 v6 §2.6⑤），拍板归用户。系统不解析用户那句话，判断交给模型
-            text.Append("\n方案由用户拍板：用户明确说定（比如「就这么做」「开始吧」）或点名让你去做之前，只讨论、查证，" +
+            text.Append("\n- 方案由用户拍板：用户明确说定（比如「就这么做」「开始吧」）或点名让你去做之前，只讨论、查证，" +
                         "草稿写在草稿目录里，不改工作区的文件、不跑会改东西的命令。拿不准用户是不是已经拍板，就问一句。");
-            text.Append("\n你的草稿目录是全群共用的，别的成员也往里写：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");
+            text.Append("\n- 你的草稿目录是全群共用的，别的成员也往里写：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");
         }
         return text.ToString();
     }
@@ -258,7 +286,8 @@ public static class GroupTranscript
     /// <summary>
     /// 把一条投递拆回各人的发言（呈现用；存储与供给仍是合成的一条）。
     /// 只认 <paramref name="speakerNames"/> 里的名字开头的 <c>[名字]: </c> 行——正文里别的中括号不会被误拆。
-    /// 第一个发言人之前的（旧数据首次投递开头的场景说明）与末尾的主持人提示拆成无发言人的一段
+    /// 第一个发言人之前的（旧数据首次投递开头的场景说明）与末尾的主持人提示拆成无发言人的一段；
+    /// 每轮重锚是说给模型的，不拆出来
     /// </summary>
     /// <param name="text">投递正文</param>
     /// <param name="speakerNames">可能出现的发言人（成员与用户）</param>
@@ -272,6 +301,9 @@ public static class GroupTranscript
             body = body[..^HostColdStartHint.Length].TrimEnd();
             tail = HostColdStartHint;
         }
+
+        int reminder = body.LastIndexOf("\n\n" + VoiceReminderOpening, StringComparison.Ordinal);
+        if (reminder >= 0 && body.EndsWith('）')) body = body[..reminder];
 
         List<GroupDeliverySegment> segments = [];
         string? speaker = null;

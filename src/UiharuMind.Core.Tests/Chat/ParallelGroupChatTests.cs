@@ -44,6 +44,29 @@ public class ParallelGroupChatTests
         Assert.False(_coordinator.IsRunning(_group.SessionId));
     }
 
+    /// <summary>
+    /// 群轮被停或失败的成员：投递已交给过他、游标早推过去，没新话也要能被「继续」叫起来接着做；做完就不再叫
+    /// </summary>
+    [Fact]
+    public async Task InterruptedMember_ResumesOnContinue_EvenWithNothingNew()
+    {
+        _runner.Fail.Add(_alice.SessionId);
+        _runner.Silent = true; //别人不发言：她醒来时没有新话可接
+        await _coordinator.PostAsync(_group, "大家好"); //没主持人：全员都叫醒、都听过了
+        _runner.Fail.Clear();
+        _runner.ClearCalls();
+
+        await _coordinator.ContinueAsync(_group);
+
+        (ChatSession member, string input) = Assert.Single(_runner.Calls);
+        Assert.Same(_alice, member);
+        Assert.StartsWith(GroupTranscript.ResumeNote, input);
+
+        _runner.ClearCalls();
+        await _coordinator.ContinueAsync(_group);
+        Assert.Empty(_runner.Calls);
+    }
+
     [Fact]
     public async Task UserMention_WakesOnlyTheMentioned()
     {
@@ -150,10 +173,12 @@ public class ParallelGroupChatTests
         _runner.During[_alice.SessionId] = () => aliceGate.Task;
 
         Task posting = _coordinator.PostAsync(_group, "大家好");
-        await WaitUntil(() => _runner.Injected.Any(x => x.Member == _alice && x.Text.Contains("[Bob]:")));
+        // 两句都插到了再放她说完：只等 Bob 那句，Carol 的可能落在她说完之后，那就不是插话了
+        await WaitUntil(() => _runner.Injected.Count(x => x.Member == _alice) >= 2);
         aliceGate.SetResult();
         await posting;
 
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text.Contains("[Bob]:"));
         Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text.Contains("[Carol]:"));
         Assert.Equal(1, _runner.CallsOf(_bob)); //闲聊不叫醒人：Bob、Carol 各说一次就停
         Assert.Equal(1, _runner.CallsOf(_carol));

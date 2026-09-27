@@ -24,15 +24,15 @@ public static class AgentPromptHeadings
     /// <summary>工具纪律段的父标题。角色段的「# 工作循环」与它同级</summary>
     public const string Tools = "# 工具";
 
-    /// <summary>基座层的标题（与角色段「# 工作循环」同级，恒在它之前）</summary>
-    public const string Base = "# 基座";
+    /// <summary>基座层的标题（与角色段同级，恒在它之前）</summary>
+    public const string Base = "# 法则";
 
     /// <summary>
     /// 角色段（人格）的父标题。<b>只在角色卡没有自带一级标题时补插</b>——卡自带时
     /// （默认卡 ChenXi 的 <c># 角色</c>、新建智能体预填的 <c># 工作循环</c>）以卡为准，不重复插。
-    /// 与子代理的 <see cref="SubAgentRole"/> 同字值：这边是人格段的父标题、那边是身份段，各自独立维护。
+    /// 不叫「人格」：工程标签读起来像「下面是你的人格配置」，把模型往「扮演一套设定」推（ADR 0048 修订 10）。
     /// </summary>
-    public const string Character = "# 人格";
+    public const string Character = "# 你是谁";
 
     /// <summary>工作目录段的标题正文（不含级别前缀，见 <see cref="WorkingDirectory"/>）</summary>
     public const string WorkingDirectoryName = "工作目录";
@@ -88,9 +88,9 @@ public static class AgentPromptHeadings
     /// <summary>
     /// 人格锚点段（系统提示末尾的身份回锚）。裸贴在工作区指针后面时，按 markdown 结构读
     /// 整句成了「工作区规矩」的子节——层级说的是一件与事实不符的事，与工具纪律段要求
-    /// 「# 工具」父标题是同一类问题，所以它需要自己的顶级标题。
+    /// 「# 工具」父标题是同一类问题，所以它需要自己的顶级标题。不叫「人格锚点」，理由同 <see cref="Character"/>。
     /// </summary>
-    public const string PersonaAnchor = "# 人格锚点";
+    public const string PersonaAnchor = "# 记着";
 
     /// <summary>子代理的身份段</summary>
     public const string SubAgentRole = "# 角色";
