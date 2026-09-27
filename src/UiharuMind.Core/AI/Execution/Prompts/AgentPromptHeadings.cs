@@ -76,6 +76,9 @@ public static class AgentPromptHeadings
     /// <summary>委派纪律段</summary>
     public const string Delegation = "## 委派";
 
+    /// <summary>群场景段（ADR 0048）：群成员才有，紧跟人格段</summary>
+    public const string Scene = "# 场景";
+
     /// <summary>MCP server 自述段（主代理与子代理共用）</summary>
     public const string Mcp = "# MCP 服务器";
 

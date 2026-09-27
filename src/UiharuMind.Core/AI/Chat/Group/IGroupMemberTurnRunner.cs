@@ -24,4 +24,12 @@ public interface IGroupMemberTurnRunner
     /// <param name="message">插进去的消息</param>
     /// <returns>排进去了为 true</returns>
     Task<bool> TryInjectAsync(ChatSession member, ChatMessage message);
+
+    /// <summary>
+    /// 把还没被消费的插话从他的注入队列里撤回来（一轮收尾时调）
+    /// </summary>
+    /// <param name="member">成员会话</param>
+    /// <param name="messages">这一轮插进去的消息</param>
+    /// <returns>确实撤回来了的那些</returns>
+    Task<IReadOnlyCollection<ChatMessage>> WithdrawAsync(ChatSession member, IReadOnlyCollection<ChatMessage> messages);
 }

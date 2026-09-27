@@ -32,6 +32,13 @@ public class ChatSessionMeta
     /// <summary>所属角色标识</summary>
     public string CharacterId { get; set; } = nameof(DefaultCharacter.None);
 
+    /// <summary>
+    /// 会话形态：是否为 agent 形态（ADR 0050）。<c>null</c> = 老数据未定格（路由时跟身份派生）；
+    /// 装载索引/本体时按当前身份补写（定格），之后身份翻转不再挪已有会话。
+    /// 群壳看 <see cref="IsAgentGroup"/>，此字段仅非群会话有意义。
+    /// </summary>
+    public bool? IsAgentForm { get; set; }
+
     /// <summary>记忆库名</summary>
     public string MemoryName { get; set; } = string.Empty;
 

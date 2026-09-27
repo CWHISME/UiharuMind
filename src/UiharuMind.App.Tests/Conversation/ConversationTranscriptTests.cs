@@ -105,7 +105,7 @@ public class ConversationTranscriptTests
         List<ConversationItemBase> items = new();
         ConversationTranscript transcript = new(items, () => new TextConversationItem(false) { IsDone = false },
             renderedBefore: renderedBefore,
-            createUserItem: message => new TextConversationItem(true) { Message = message.Text, SourceMessage = message });
+            createUserItems: message => [new TextConversationItem(true) { Message = message.Text, SourceMessage = message }]);
         return (transcript, items);
     }
 

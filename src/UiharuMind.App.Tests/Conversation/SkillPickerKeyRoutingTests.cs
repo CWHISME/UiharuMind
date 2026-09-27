@@ -25,7 +25,7 @@ public class SkillPickerKeyRoutingTests
 
         // 补全成完整技能名并留一个空格等参数,而不是把 "/dem" 发出去
         Assert.Equal("/demo-skill ", vm.InputText);
-        Assert.False(vm.Palette.IsSkillPickerOpen);
+        Assert.False(vm.Palette.IsPickerOpen);
         Assert.Empty(vm.Items);
     }
 
@@ -42,34 +42,35 @@ public class SkillPickerKeyRoutingTests
     }
 
     [Fact]
-    public void AcceptSkillCandidate_DoesNothingWhenPickerIsClosed()
+    public void AcceptCandidate_DoesNothingWhenPickerIsClosed()
     {
         ConversationViewModel vm = new() { InputText = "普通消息" };
 
-        Assert.False(vm.AcceptSkillCandidate()); //返回 false,调用方据此照常发送
+        Assert.False(vm.AcceptCandidate()); //返回 false,调用方据此照常发送
         Assert.Equal("普通消息", vm.InputText);
     }
 
     [Fact]
-    public void AcceptSkillCandidate_RaisesEventSoHostCanRestoreCaret()
+    public void AcceptCandidate_RaisesEventSoHostCanRestoreCaret()
     {
         ConversationViewModel vm = CreateViewModelWithOpenPicker("/dem");
-        int raised = 0;
-        vm.Palette.SkillCandidateAccepted += () => raised++;
+        int raised = -1;
+        vm.Palette.CandidateAccepted += caret => raised = caret;
 
-        Assert.True(vm.AcceptSkillCandidate());
-        Assert.Equal(1, raised);
+        Assert.True(vm.AcceptCandidate());
+        Assert.Equal("/demo-skill ".Length, raised); //光标落在补进去的那段之后
     }
 
     /// <summary>
     /// 摆出"补全开着"的状态。次序要紧:写 InputText 会触发 OnInputTextChanged,
-    /// 它在非 agent 会话下会 CloseSkillPicker 并清空候选,所以必须先写输入再摆候选。
+    /// 它在非 agent 会话下会 ClosePicker 并清空候选,所以必须先写输入再摆候选。
     /// </summary>
     /// <param name="typed">已敲进输入框的内容</param>
     /// <returns>视图模型</returns>
     private static ConversationViewModel CreateViewModelWithOpenPicker(string typed)
     {
         ConversationViewModel vm = new() { InputText = typed };
+        vm.Palette.RefreshAsync(typed, typed.Length).GetAwaiter().GetResult(); //记下这次匹配（整行）
         OpenPickerWithDemoSkill(vm.Palette);
         return vm;
     }
@@ -80,9 +81,10 @@ public class SkillPickerKeyRoutingTests
     /// <param name="palette">命令面板</param>
     private static void OpenPickerWithDemoSkill(CommandPaletteViewData palette)
     {
-        palette.SkillCandidates.Add(new SkillCatalogEntry { Name = "demo-skill", Description = "d" });
-        palette.SkillCandidateIndex = 0;
-        palette.IsSkillPickerOpen = true;
+        palette.Candidates.Clear();
+        palette.Candidates.Add(SkillCompletionSource.ToCandidate(new SkillCatalogEntry { Name = "demo-skill", Description = "d" }));
+        palette.CandidateIndex = 0;
+        palette.IsPickerOpen = true;
     }
 }
 
@@ -97,19 +99,19 @@ public class CommandPaletteViewDataTests
     {
         string written = string.Empty;
         CommandPaletteViewData palette = CreatePalette(text => written = text);
-        palette.SkillCandidates.Add(new SkillCatalogEntry { Name = "demo-skill", Description = "d" });
-        palette.SkillCandidateIndex = 0;
-        palette.IsSkillPickerOpen = true;
+        palette.Candidates.Add(SkillCompletionSource.ToCandidate(new SkillCatalogEntry { Name = "demo-skill", Description = "d" }));
+        palette.CandidateIndex = 0;
+        palette.IsPickerOpen = true;
 
-        Assert.True(palette.AcceptSkillCandidate());
+        Assert.True(palette.AcceptCandidate());
         Assert.Equal("/demo-skill ", written); //补全后留一个空格等参数
-        Assert.False(palette.IsSkillPickerOpen);
-        Assert.Empty(palette.SkillCandidates);
+        Assert.False(palette.IsPickerOpen);
+        Assert.Empty(palette.Candidates);
     }
 
     /// <summary>
     /// 上下移动在两端环绕。候选只有一条时任意方向都停在它自己身上——
-    /// 取模写错会算出负下标,而 AcceptSkillCandidate 的下标检查会把它静默吞掉
+    /// 取模写错会算出负下标,而 AcceptCandidate 的下标检查会把它静默吞掉
     /// </summary>
     [Fact]
     public void MoveSelection_WrapsAroundInBothDirections()
@@ -117,24 +119,25 @@ public class CommandPaletteViewDataTests
         CommandPaletteViewData palette = CreatePalette(_ => { });
         foreach (string name in new[] { "a", "b", "c" })
         {
-            palette.SkillCandidates.Add(new SkillCatalogEntry { Name = name, Description = "d" });
+            palette.Candidates.Add(new CompletionCandidate { Label = name, Insertion = name });
         }
 
-        palette.IsSkillPickerOpen = true;
-        palette.SkillCandidateIndex = 0;
+        palette.IsPickerOpen = true;
+        palette.CandidateIndex = 0;
 
-        palette.MoveSkillSelection(-1);
-        Assert.Equal(2, palette.SkillCandidateIndex); //往上越过头部,绕到末尾
+        palette.MoveSelection(-1);
+        Assert.Equal(2, palette.CandidateIndex); //往上越过头部,绕到末尾
 
-        palette.MoveSkillSelection(1);
-        Assert.Equal(0, palette.SkillCandidateIndex); //往下越过末尾,绕回头部
+        palette.MoveSelection(1);
+        Assert.Equal(0, palette.CandidateIndex); //往下越过末尾,绕回头部
     }
 
     /// <param name="setInputText">输入框写回</param>
     /// <returns>命令面板</returns>
     private static CommandPaletteViewData CreatePalette(Action<string> setInputText)
     {
-        // 角色只在读技能目录时才用到,上面两条都不碰目录,给一个空角色即可
-        return new CommandPaletteViewData(setInputText, () => new CharacterData());
+        // 角色只在读技能目录时才用到,上面两条都不碰目录,给一个空角色即可;
+        // agent 形态开关按测试需要传
+        return new CommandPaletteViewData((text, _) => setInputText(text), () => new CharacterData(), () => true);
     }
 }

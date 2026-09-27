@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="300"
              x:Class="UiharuMind.Features.Conversation.Group.GroupMembersPanel"
              x:DataType="group:GroupMembersViewData">
@@ -20,25 +21,39 @@
         <StackPanel Spacing="8">
             <TextBlock FontSize="15" FontWeight="SemiBold" Text="{loc:Loc GroupMembersTitle}" />
             <TextBlock Classes="muted" Text="{loc:Loc GroupMembersHint}" TextWrapping="Wrap" />
+            <!-- 调度设置：改了下一波起生效，正在跑的这一波不打断 -->
+            <group:GroupScheduleSelector DataContext="{Binding Schedule}" />
+            <!-- 主持人：改了各成员下一轮开口时生效（写在他们系统提示的场景段里） -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" ToolTip.Tip="{loc:Loc GroupHostHint}">
+                <TextBlock Classes="muted" VerticalAlignment="Center" Text="{loc:Loc GroupHostLabel}" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding HostOptions}" SelectedItem="{Binding SelectedHost}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="group:GroupHostChoice">
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
             <ItemsControl ItemsSource="{Binding Members}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="group:GroupMemberItem">
                         <Button Classes="Tertiary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Margin="0,2" Command="{Binding OpenCommand}"
                                 ToolTip.Tip="{Binding CardTip}">
-                            <!-- Grid 定列：横向 StackPanel 给不了文本列宽度约束，省略号会算不准、 half 切 -->
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <!-- 三列：头像 | 名字与描述 | 发言状态。状态单起一列，不跟名字、主持人徽标挤一行——
+                                 窄栏里挤在一起会把后面的截掉。名字列用 Grid 约束宽度，省略号才算得准 -->
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                 <Image Grid.Column="0" Width="32" Height="32" Source="{Binding Icon}" VerticalAlignment="Top" Margin="0,2,0,0" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1" MinWidth="0">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
-                                        <!-- 正在说的那一位：蓝点 + 文字，跟着调度器的发言人变化走 -->
-                                        <Border Classes="status-dot" Tag="Progress" IsVisible="{Binding IsSpeaking}" />
-                                        <TextBlock FontSize="10" IsVisible="{Binding IsSpeaking}"
-                                                   Foreground="{DynamicResource MessageStatusInfoBrush}"
-                                                   VerticalAlignment="Center"
-                                                   Text="{loc:Loc GroupMemberSpeaking}" />
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <controls:KindBadge Grid.Column="1" Header="{loc:Loc GroupHostLabel}"
+                                                            BadgeBackground="{DynamicResource SemiOrange5}"
+                                                            VerticalAlignment="Center"
+                                                            IsVisible="{Binding IsHost}" />
+                                    </Grid>
                                     <!-- 角色描述为主行；模型彻底收进整卡 tooltip，行内不再出现 -->
                                     <TextBlock Classes="muted" FontSize="11" Text="{Binding Description}"
                                                ToolTip.Tip="{Binding Description}"
@@ -53,6 +68,15 @@
                                                  MinWidth="0" Margin="0,3,0,2"
                                                  Background="{DynamicResource SemiGrey3}"
                                                  IsVisible="{Binding HasUsage}" />
+                                </StackPanel>
+                                <!-- 正在说的那一位（并行时可能几位）：蓝点 + 文字，跟着调度器的发言人变化走 -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Top" Margin="0,4,0,0"
+                                            IsVisible="{Binding IsSpeaking}">
+                                    <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
+                                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource MessageStatusInfoBrush}"
+                                               Text="{loc:Loc GroupMemberSpeaking}" />
                                 </StackPanel>
                             </Grid>
                         </Button>

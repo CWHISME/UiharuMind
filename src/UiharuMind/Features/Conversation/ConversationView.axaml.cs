@@ -107,25 +107,26 @@ public partial class ConversationView : UserControl
         // 补全开着时由下面的回车分支兜底采纳候选
         ComposerBorder.AddHandler(KeyDownEvent, OnComposerKeyDown, RoutingStrategies.Tunnel);
         SkillPicker.PointerReleased += OnSkillPickerPointerReleased;
+        InputBox.PropertyChanged += OnInputBoxPropertyChanged; //@ 补全要知道光标在哪
     }
 
     private void OnComposerKeyDown(object? sender, KeyEventArgs e)
     {
-        if (DataContext is not ConversationViewModel vm || !vm.Palette.IsSkillPickerOpen) return;
+        if (DataContext is not ConversationViewModel vm || !vm.Palette.IsPickerOpen) return;
 
         switch (e.Key)
         {
             case Key.Down:
-                vm.Palette.MoveSkillSelection(1);
+                vm.Palette.MoveSelection(1);
                 break;
             case Key.Up:
-                vm.Palette.MoveSkillSelection(-1);
+                vm.Palette.MoveSelection(-1);
                 break;
             case Key.Escape:
-                vm.Palette.CloseSkillPicker();
+                vm.Palette.Dismiss();
                 break;
             case Key.Enter:
-                if (!vm.AcceptSkillCandidate()) return;
+                if (!vm.AcceptCandidate()) return;
                 break;
             default:
                 return;
@@ -137,14 +138,22 @@ public partial class ConversationView : UserControl
     private void OnSkillPickerPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         // 选中在 PointerPressed 阶段已经落到 SelectedIndex,这里直接采纳
-        if (DataContext is ConversationViewModel vm) vm.AcceptSkillCandidate();
+        if (DataContext is ConversationViewModel vm) vm.AcceptCandidate();
     }
 
-    /// <summary>采纳补全后把焦点与光标交还输入框末尾,否则用户得自己点一下才能接着写参数</summary>
-    private void OnSkillCandidateAccepted()
+    /// <summary>采纳补全后把焦点与光标交还输入框（落在补进去的那段之后），否则用户得自己点一下才能接着写</summary>
+    private void OnCandidateAccepted(int caret)
     {
         InputBox.Focus();
-        InputBox.CaretIndex = InputBox.Text?.Length ?? 0;
+        InputBox.CaretIndex = Math.Clamp(caret, 0, InputBox.Text?.Length ?? 0);
+    }
+
+    private void OnInputBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == TextBox.CaretIndexProperty && DataContext is ConversationViewModel vm)
+        {
+            vm.OnComposerCaretChanged(InputBox.CaretIndex);
+        }
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -152,7 +161,7 @@ public partial class ConversationView : UserControl
         if (_viewModel != null)
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _viewModel.Palette.SkillCandidateAccepted -= OnSkillCandidateAccepted;
+            _viewModel.Palette.CandidateAccepted -= OnCandidateAccepted;
             _viewModel.IsStuckToBottomSource = null;
         }
 
@@ -160,7 +169,7 @@ public partial class ConversationView : UserControl
         if (_viewModel != null)
         {
             _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-            _viewModel.Palette.SkillCandidateAccepted += OnSkillCandidateAccepted;
+            _viewModel.Palette.CandidateAccepted += OnCandidateAccepted;
             // 滚动状态只有本视图知道,而运行期裁剪要靠它决定能不能裁(见 ConversationItemWindowTrimmer)
             _viewModel.IsStuckToBottomSource = () => _autoScrollHolder.IsStuckToBottom;
 

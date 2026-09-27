@@ -35,7 +35,7 @@ public sealed record AgentAssemblyFacts
     /// <summary>角色标识</summary>
     public required string CharacterId { get; init; }
 
-    /// <summary>是不是智能体(决定装配形态)</summary>
+    /// <summary>会话形态（ADR 0050）：agent 形态才装配工具；未定格的老数据跟角色身份</summary>
     public required bool IsAgent { get; init; }
 
     /// <summary>
@@ -49,6 +49,9 @@ public sealed record AgentAssemblyFacts
 
     /// <summary>重算好的系统提示词(角色模板+会话参数),角色卡与参数的变化经此显形</summary>
     public required string Instructions { get; init; }
+
+    /// <summary>群场景段正文（ADR 0048 决策 4）；改群名、名单、主持人经此触发重建。不是群成员为空串</summary>
+    public string GroupScene { get; init; } = string.Empty;
 
     /// <summary>推理执行参数(温度等)的序列化形态</summary>
     public required string ExecutionSettings { get; init; }
@@ -156,15 +159,16 @@ public sealed record AgentAssemblyFacts
             profile.PermissionMode,
             profile.PreAuthorizedShellPatterns,
             McpManager.Instance.Revision,
-            character.IsAgent
+            profile.EffectiveIsAgentForm
                 ? WorkspaceInstructionsLoader.Load(profile.WorkspacePath)
                 : string.Empty,
             profile.ResolveCurrentModel()?.IsVisionModel == true,
             //与装配读的是同一个解析器,过滤规则不会两处漂移
-            character.IsAgent ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
+            profile.EffectiveIsAgentForm ? CharacterRunnerFactory.ResolveMountedAgents(character) : null,
             PythonEnvironment.IsReady, profile.OutputFolderName,
             profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty,
-            AgentSettingConfig.Current.ModelSkillsEnabled);
+            AgentSettingConfig.Current.ModelSkillsEnabled,
+            profile.EffectiveIsAgentForm, profile.GroupScene);
     }
 
     /// <summary>
@@ -183,6 +187,8 @@ public sealed record AgentAssemblyFacts
     /// <param name="outputFolderName">产出目录名</param>
     /// <param name="subAgentKey">子会话身份指纹；主会话传空串</param>
     /// <param name="modelSkillsEnabled">技能清单是否发给模型(全局开关)</param>
+    /// <param name="isAgentForm">会话形态；null = 跟角色身份（ADR 0050）</param>
+    /// <param name="groupScene">群场景段正文；不是群成员传空串</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
@@ -190,17 +196,19 @@ public sealed record AgentAssemblyFacts
         int mcpRevision, string workspaceInstructions = "",
         bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
         bool pythonEnvReady = false, string outputFolderName = "",
-        string subAgentKey = "", bool modelSkillsEnabled = true)
+        string subAgentKey = "", bool modelSkillsEnabled = true, bool? isAgentForm = null,
+        string groupScene = "")
     {
-        // 非智能体不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
-        bool isAgent = character.IsAgent;
+        // 非 agent 形态不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
+        bool isAgent = isAgentForm ?? character.IsAgent;
         AgentToolConfig config = character.Tools;
         return new AgentAssemblyFacts
         {
             CharacterId = character.CharacterId,
-            IsAgent = character.IsAgent,
+            IsAgent = isAgent,
             SubAgentKey = subAgentKey,
             Instructions = instructions,
+            GroupScene = groupScene,
             ExecutionSettings = JsonSerializer.Serialize(character.Config.ExecutionSettings),
             WorkspacePath = isAgent ? workspacePath : null,
             Permission = isAgent ? permission : default,

@@ -13,6 +13,7 @@ using System.Threading.Channels;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -53,6 +54,18 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public ETurnBusy Busy => _busy;
 
     public Action? BusyChanged { get; set; }
+
+    /// <inheritdoc />
+    public IReadOnlyList<ChatMessage> PendingInjections
+    {
+        get
+        {
+            lock (_injectedGate) return _injected.ToList();
+        }
+    }
+
+    /// <inheritdoc />
+    public event Action? PendingInjectionsChanged;
 
     private void SetBusy(ETurnBusy value)
     {
@@ -314,11 +327,13 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public AgentCapabilitySnapshot GetCapabilities()
     {
         AgentCapabilitySnapshot snapshot = _handle?.Capabilities ?? AgentCapabilitySnapshot.Empty;
-        // 普通角色(纯提示词)的 handle 不登记任何提示词段(框架全关),
-        // 但角色段是真实的固定开销——与空态预览同口径补上,聊天过程中能力统计不跳成空的
-        if (_attachedSession?.CharacterData is { } character && !character.IsAgent)
+        // 纯提示词档的 handle 不登记任何提示词段(框架全关),
+        // 但角色段是真实的固定开销——与空态预览同口径补上,聊天过程中能力统计不跳成空的。
+        // 判形态而非卡身份(ADR 0050):普通群里的 agent 卡也是纯提示词档
+        if (_attachedSession is { } session && !(session.IsAgentForm ?? session.CharacterData.IsAgent))
         {
-            return AgentCapabilitySnapshot.FromRoleplay(character);
+            return AgentCapabilitySnapshot.FromRoleplay(session.CharacterData, session.CustomParams,
+                GroupSceneSource.For(session));
         }
 
         return snapshot;
@@ -348,14 +363,16 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
         List<ChatMessage> list = messages.ToList();
         lock (_injectedGate) _injected.AddRange(list);
         await _handle.MessageInjector.EnqueueMessagesAsync(_session, list).ConfigureAwait(false);
+        PendingInjectionsChanged?.Invoke();
         return true;
     }
 
     /// <inheritdoc />
-    public async Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages)
+    public async Task<IReadOnlyCollection<ChatMessage>> CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages)
     {
-        if (_handle?.MessageInjector == null || _session == null || messages.Count == 0) return;
+        if (_handle?.MessageInjector == null || _session == null || messages.Count == 0) return [];
 
+        List<ChatMessage> withdrawn = [];
         foreach (ChatMessage message in messages)
         {
             // 仍在队列里 = 未消费,可以安全撤回:从队列摘掉,并把登记表里那条也移除——
@@ -367,8 +384,12 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             if (removed)
             {
                 lock (_injectedGate) _injected.Remove(message);
+                withdrawn.Add(message);
             }
         }
+
+        if (withdrawn.Count > 0) PendingInjectionsChanged?.Invoke();
+        return withdrawn;
     }
 
     /// <summary>
@@ -404,6 +425,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
             lock (_injectedGate) _injected.Remove(message);
             channel.Writer.TryWrite(new UserMessageContent(message, isInterjection: true));
+            PendingInjectionsChanged?.Invoke();
         }
     }
 

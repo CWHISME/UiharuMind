@@ -153,10 +153,12 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// <param name="contextLength">当前模型的上下文上限；0 表示未知，此时不给分母也不告警</param>
     /// <param name="workspacePath">会话绑定的工作区；预告区据此读项目级 <c>.mcp.json</c></param>
     /// <param name="permissionModeIndex">权限档序号；会话还不存在时预演装配要用</param>
+    /// <param name="isAgentForm">会话形态（ADR 0050）；null = 跟角色身份</param>
     public async Task RefreshAsync(ICharacterRunner? runner, CharacterData? character, int contextLength,
-        string? workspacePath = null, int permissionModeIndex = 0)
+        string? workspacePath = null, int permissionModeIndex = 0, bool? isAgentForm = null)
     {
         int version = ++_refreshVersion;
+        bool agent = isAgentForm ?? character?.IsAgent == true;
 
         // 切快照要为每个工具的 schema 分词,放后台——与输入框那个字数统计同样的处置。
         // 没有执行者即会话还不存在(智能体页懒建):预演一次装配,首轮发送前也报得出
@@ -175,7 +177,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
             if (version != _refreshVersion) return;
 
             snapshot = await Task.Run(() => CharacterRunnerFactory.Instance.PreviewCapabilitiesAsync(
-                AgentBuildProfile.FromDraft(character, workspacePath, permissionModeIndex)));
+                AgentBuildProfile.FromDraft(character, workspacePath, permissionModeIndex, isAgentForm)));
         }
         else
         {
@@ -183,14 +185,14 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         }
 
         // 预告区要读工作区里的 .mcp.json,同样不在 UI 线程上做
-        List<McpPlannedServer> planned = character != null && character.IsAgent
+        List<McpPlannedServer> planned = character != null && agent
             ? await Task.Run(() => McpManager.Instance.GetPlannedServers(
                 workspacePath, character.Tools.DisabledMcpServers))
             : new List<McpPlannedServer>();
 
         // 全局关闭模型可见性时不取:模型侧看不到技能,列表与统计一起归零
         bool modelSkillsEnabled = AgentSettingConfig.Current.ModelSkillsEnabled;
-        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && character.IsAgent && modelSkillsEnabled
+        IReadOnlyList<SkillCatalogEntry> skillEntries = character != null && agent && modelSkillsEnabled
             ? await SkillCatalog.Instance.GetInvocableEntriesAsync(character.Tools.DisabledSkills)
             : [];
 
@@ -287,8 +289,10 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         HasSkillSectionNote = skillsDisabled;
         SkillSectionNote = skillsDisabled ? Loc.Text(LangKey.AgentCapabilitySkillsDisabled) : string.Empty;
 
+        // 群场景段并进角色这一档：它说的是「我是谁、在哪、有谁在」，明细里单列
         int characterTokens = snapshot.PromptTokensOf(EPromptSection.Character)
-            + snapshot.PromptTokensOf(EPromptSection.PersonaAnchor);
+            + snapshot.PromptTokensOf(EPromptSection.PersonaAnchor)
+            + snapshot.PromptTokensOf(EPromptSection.Scene);
         int workspaceTokens = snapshot.PromptTokensOf(EPromptSection.Workspace);
         // 工具纪律段并进「工具」这一档:那段正文是按能力开关派生的,关掉文件工具,
         // 纪律里那一节和那几个工具定义一起消失——两者同生同死,拆成两行等于让人看两个数做一个决定
@@ -375,6 +379,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
             EPromptSection.Base => LangKey.AgentCapabilityBasePrompt,
             EPromptSection.Character => LangKey.AgentCapabilityCharacterPrompt,
             EPromptSection.PersonaAnchor => LangKey.AgentCapabilityPersonaAnchor,
+            EPromptSection.Scene => LangKey.AgentCapabilityScenePrompt,
             EPromptSection.ToolDisciplines => LangKey.AgentCapabilityToolRules,
             EPromptSection.Mcp => LangKey.AgentCapabilityPromptMcp,
             _ => LangKey.AgentCapabilityWorkspaceRule,

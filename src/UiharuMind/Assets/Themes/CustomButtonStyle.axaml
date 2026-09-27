@@ -11,6 +11,24 @@
     <!-- pointerover 之类的效果想修改必须通过设置模板实现 -->
     <!-- https://github.com/AvaloniaUI/Avalonia/discussions/8382 -->
 
+    <!-- filter-pill：单选胶囊（类别筛选、群调度设置）。选中态由模型投影（Classes.selected），
+         颜色沿导航栏的 SemiBlue1 高亮 -->
+    <Style Selector="Button.filter-pill">
+        <Setter Property="Padding" Value="10,3" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="CornerRadius" Value="13" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiGrey2}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.filter-pill.selected">
+        <Setter Property="Background" Value="{DynamicResource SemiBlue1}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SemiBlue1}" />
+        <Setter Property="Foreground" Value="{DynamicResource SemiGrey7}" />
+    </Style>
+
     <!-- SimpleSolidButton：单纯的按钮，无任何效果 -->
     <!-- 移除 Button 的悬停效果 -->
     <Style Selector="Button.SimpleSolidButton:pointerover /template/ContentPresenter">

@@ -65,8 +65,13 @@ internal static class AgentAssembler
 
         List<AIContextProvider> contextProviders = BuildContextProviders(plan);
 
-        if (!character.IsAgent)
+        if (!plan.IsAgentForm || !character.IsAgent)
         {
+            // 分叉看<b>会话形态</b>而非角色身份（ADR 0050）：agent 卡开成普通对话形态也走 prompt-only。
+            // 再查一次身份是 ADR 0043 的防线——agent 形态会话按构造不变量必是智能体，
+            // 老数据万一不一致，宁可退回纯聊也不要按残留工具配置装回 shell
+            chatOptions.Instructions = AgentInstructionsComposer.AppendScene(chatOptions.Instructions,
+                profile.GroupScene);
             return BuildHandle(client,
                 AgentOptionsFactory.BuildPromptOnlyOptions(character, history, contextProviders, chatOptions,
                     plan.Compaction), null, inputEstimate: plan.InputEstimate);
@@ -102,7 +107,7 @@ internal static class AgentAssembler
         List<AIContextProvider> providers =
         [
             new MemoryContextProvider(hasKnowledgeTool:
-                character.IsAgent && plan.Config.EnableKnowledgeSearchTool),
+                plan.IsAgentForm && plan.Config.EnableKnowledgeSearchTool),
         ];
 
         return providers;

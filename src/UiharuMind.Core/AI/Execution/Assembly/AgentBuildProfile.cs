@@ -10,6 +10,7 @@
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Memory;
 using UiharuMind.Core.Configs;
 using Microsoft.Extensions.AI;
@@ -29,9 +30,19 @@ public class AgentBuildProfile
 {
     /// <summary>
     /// 驱动整个装配的角色：<see cref="CharacterData.IsAgent"/> 决定是否装配工具与工作目录，
-    /// Template 与对话模板决定系统提示。
+    /// Template 与对话模板决定系统提示。装配形态由 <see cref="EffectiveIsAgentForm"/> 决定。
     /// </summary>
     public required CharacterData Character { get; init; }
+
+    /// <summary>
+    /// 会话形态：是否为 agent 形态（ADR 0050）。<c>null</c> = 未定格，跟角色身份。
+    /// 从普通对话侧发起的会话可显式为 <c>false</c>——agent 卡开成普通对话 = 走 prompt-only 管线，
+    /// 不装配任何工具与工作目录。
+    /// </summary>
+    public bool? IsAgentForm { get; init; }
+
+    /// <summary>有效形态：未定格时跟角色身份</summary>
+    public bool EffectiveIsAgentForm => IsAgentForm ?? Character.IsAgent;
 
     /// <summary>
     /// 这次装配服务的会话标识；无会话（能力预览）时为空串。
@@ -56,6 +67,12 @@ public class AgentBuildProfile
 
     /// <summary>预授权 shell 命令模式(定时任务无人值守用)</summary>
     public IReadOnlyList<string>? PreAuthorizedShellPatterns { get; init; }
+
+    /// <summary>
+    /// 群场景段正文（ADR 0048）；不是群成员为空串。两种形态都有：场景是「我在哪、有谁在」，
+    /// 与装不装工具无关。它随群名、名单、主持人变，所以也进装配快照
+    /// </summary>
+    public string GroupScene { get; init; } = string.Empty;
 
     /// <summary>额外的提示词模板参数(会话的 CustomParams)</summary>
     public IReadOnlyDictionary<string, object?>? PromptArguments { get; init; }
@@ -135,6 +152,7 @@ public class AgentBuildProfile
         {
             Character = session.CharacterData,
             SessionId = session.SessionId,
+            IsAgentForm = session.IsAgentForm,
             WorkspacePath = session.WorkspacePath,
             SubAgent = session.IsSubSession
                 ? new SubAgentIdentity(session.ParentSessionId!, session.SubAgentType, session.SubAgentName, session.SubAgentRole)
@@ -142,6 +160,7 @@ public class AgentBuildProfile
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
+            GroupScene = GroupSceneSource.For(session),
             // 子会话的产出目录跟随派活者:派活时把主代理的目录名固化在子会话上,
             // 于是子代理的产出直接落主代理会话的目录(见 ChatSession.ParentOutputFolderName)。
             // 旧存档没有这个值,回退子会话自己的目录
@@ -160,22 +179,26 @@ public class AgentBuildProfile
     /// 从<b>尚不存在的会话</b>构造：智能体页的会话是懒建的，首轮发送前没有 <see cref="ChatSession"/>，
     /// 但界面此时就要回答「这个会话会挂上什么、占多少」。
     ///
-    /// 只有角色、工作区、权限档三项——它们正是<see cref="FromSession"/>里
+    /// 只有角色、工作区、权限档与形态四项——它们正是<see cref="FromSession"/>里
     /// 会影响装配产物的那几项；其余（自定义模板参数、会话级模型/知识库、过程上报口）
     /// 要么此刻还不存在，要么只影响运行不影响挂了什么。
     /// </summary>
     /// <param name="character">将要使用的角色</param>
     /// <param name="workspacePath">将要绑定的工作目录</param>
     /// <param name="permissionModeIndex">权限档序号（越界自动收进合法范围，同 <see cref="FromSession"/>）</param>
+    /// <param name="isAgentForm">会话形态；null = 跟角色身份</param>
+    /// <param name="groupScene">群场景段正文（群成员预估占用时带上）；否则空串</param>
     /// <returns>构建配置</returns>
     public static AgentBuildProfile FromDraft(CharacterData character, string? workspacePath,
-        int permissionModeIndex)
+        int permissionModeIndex, bool? isAgentForm = null, string groupScene = "")
     {
         return new AgentBuildProfile
         {
             Character = character,
             WorkspacePath = workspacePath,
             PermissionMode = (EAgentPermissionMode)Math.Clamp(permissionModeIndex, 0, 2),
+            IsAgentForm = isAgentForm,
+            GroupScene = groupScene,
         };
     }
 }

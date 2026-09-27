@@ -63,6 +63,9 @@
     <data name="AgentInterjectionPending" xml:space="preserve">
         <value>Waiting to interject…</value>
     </data>
+    <data name="GroupInjectionPendingFormat" xml:space="preserve">
+        <value>{0} new in the group, waiting to be read… Latest: {1}</value>
+    </data>
     <data name="AgentInterjectUnavailable" xml:space="preserve">
         <value>Cannot interject right now; the agent is still starting up. Try again in a moment.</value>
     </data>
@@ -244,7 +247,7 @@
         <value>Enable agent capabilities</value>
     </data>
     <data name="CharacterAgentLockedTip" xml:space="preserve">
-        <value>{0} conversation(s), including sub-sessions, still belong to this agent. Delete them before turning this off: their tool calls can't be sent without the tools.</value>
+        <value>{0} agent session(s), including sub-sessions, still belong to this agent. Delete them before turning this off: their tool calls can't be sent without the tools.</value>
     </data>
     <data name="CharacterPickerSearch" xml:space="preserve">
         <value>Search characters…</value>
@@ -2521,6 +2524,9 @@ Allow them?</value>
     <data name="AgentCapabilityPersonaAnchor" xml:space="preserve">
         <value>Persona anchor</value>
     </data>
+    <data name="AgentCapabilityScenePrompt" xml:space="preserve">
+        <value>Group scene</value>
+    </data>
     <data name="AgentCapabilityBasePrompt" xml:space="preserve">
         <value>Base layer</value>
     </data>
@@ -2945,7 +2951,7 @@ Allow them?</value>
         <value>none selected</value>
     </data>
     <data name="GroupCreateChatHint" xml:space="preserve">
-        <value>Chat group: chat characters only. Create the group on the Agent side to include agents.</value>
+        <value>Chat group: no workspace; all members join as chat conversations — agents join without tools.</value>
     </data>
     <data name="GroupNameLabel" xml:space="preserve">
         <value>Group name</value>
@@ -3003,6 +3009,48 @@ Allow them?</value>
     </data>
     <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
         <value>Model: {0} · Context {1}</value>
+    </data>
+    <data name="GroupContinueParallel" xml:space="preserve">
+        <value>Continue</value>
+    </data>
+    <data name="GroupSpeakerSeparator" xml:space="preserve">
+        <value>, </value>
+    </data>
+    <data name="GroupScheduleLabel" xml:space="preserve">
+        <value>Scheduling</value>
+    </data>
+    <data name="GroupModeSerial" xml:space="preserve">
+        <value>Serial</value>
+    </data>
+    <data name="GroupModeParallel" xml:space="preserve">
+        <value>Parallel</value>
+    </data>
+    <data name="GroupModeSerialHint" xml:space="preserve">
+        <value>Members take turns in order and stop after one round.</value>
+    </data>
+    <data name="GroupModeParallelHint" xml:space="preserve">
+        <value>Woken members speak at the same time, and each message reaches whoever is still speaking. Use @name to call on someone.</value>
+    </data>
+    <data name="GroupStopConservative" xml:space="preserve">
+        <value>Conservative</value>
+    </data>
+    <data name="GroupStopAggressive" xml:space="preserve">
+        <value>Aggressive</value>
+    </data>
+    <data name="GroupStopConservativeHint" xml:space="preserve">
+        <value>A member called on by another member won't call on anyone else, so the chat settles by itself.</value>
+    </data>
+    <data name="GroupStopAggressiveHint" xml:space="preserve">
+        <value>No automatic brakes: members keep calling on each other until they stop naturally or you press Stop.</value>
+    </data>
+    <data name="GroupHostLabel" xml:space="preserve">
+        <value>Host</value>
+    </data>
+    <data name="GroupHostNone" xml:space="preserve">
+        <value>None</value>
+    </data>
+    <data name="GroupHostHint" xml:space="preserve">
+        <value>In parallel mode, a message without @ wakes only the host, who calls on the right members. Changes take effect the next time each member speaks.</value>
     </data>
 
 

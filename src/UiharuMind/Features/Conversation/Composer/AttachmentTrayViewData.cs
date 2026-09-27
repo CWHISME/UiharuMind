@@ -39,18 +39,18 @@ namespace UiharuMind.Features.Conversation.Composer;
 public partial class AttachmentTrayViewData : ObservableObject
 {
     private readonly Func<ChatSession?> _session;
-    private readonly Func<CharacterData?> _character;
+    private readonly Func<bool> _hasVisionFallback;
     private readonly List<string> _pendingOwnedFiles = new();
 
     /// <summary>附件集合(文件路径或内存字节),由输入框上方区域展示</summary>
     public ObservableCollection<ConversationAttachment> Attachments { get; } = new();
 
     /// <param name="session">取当前会话；尚未创建时为 null</param>
-    /// <param name="character">取本会话的角色；用于判断发图有没有退路</param>
-    public AttachmentTrayViewData(Func<ChatSession?> session, Func<CharacterData?> character)
+    /// <param name="hasVisionFallback">当前会话发图有没有识图工具兜底（按会话形态判，见 ADR 0050）</param>
+    public AttachmentTrayViewData(Func<ChatSession?> session, Func<bool> hasVisionFallback)
     {
         _session = session;
-        _character = character;
+        _hasVisionFallback = hasVisionFallback;
         // 加图/删图都会翻转警示,集合自己报就够;模型与角色变了要外部叫一声(见 NotifyVisionStateChanged)
         Attachments.CollectionChanged += (_, _) => NotifyVisionStateChanged();
     }
@@ -72,7 +72,7 @@ public partial class AttachmentTrayViewData : ObservableObject
             if (model == null) return false;
 
             return VisionFallback.WillDropImages(Attachments.Any(x => x.IsImage), model.IsVisionModel,
-                VisionFallback.HasFallback(_character()));
+                _hasVisionFallback());
         }
     }
 

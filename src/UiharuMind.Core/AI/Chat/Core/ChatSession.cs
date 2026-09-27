@@ -15,6 +15,7 @@ using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Memory;
@@ -53,6 +54,19 @@ public class ChatSession
     /// 所属角色的标识（<see cref="CharacterData.CharacterId"/>）。角色改名不会断开该引用。
     /// </summary>
     public string CharacterId { get; set; } = nameof(DefaultCharacter.None);
+
+    /// <summary>
+    /// 会话形态：是否为 agent 形态（ADR 0050）。<c>null</c> = 老数据未定格，路由时跟角色身份派生；
+    /// 建会话时默认跟身份，从普通对话侧发起（或在普通群里）可显式为 <c>false</c>——
+    /// agent 卡开成普通对话形态 = 走 prompt-only 管线，无 harness、无工具、无工作区，只借人格文本。
+    /// 定格：存量迁移按当前身份补写，之后身份翻转不再挪已有会话。群壳看 <see cref="IsAgentGroup"/>。
+    /// </summary>
+    public bool? IsAgentForm { get; set; }
+
+    /// <summary>有效形态：未定格时跟角色身份。列表归类与装配分叉的唯一判据（经 <c>SessionManager</c>）</summary>
+    [JsonIgnore]
+    public bool EffectiveIsAgentForm => IsAgentForm ?? CharacterData.IsAgent;
+
 
     /// <summary>记忆库名</summary>
     public string MemoryName { get; set; } = "";
@@ -116,6 +130,18 @@ public class ChatSession
 
     /// <summary>成员会话标识，顺序即发言顺序。仅群壳有意义</summary>
     public List<string> GroupMemberSessionIds { get; set; } = [];
+
+    /// <summary>群的调度模式（ADR 0049 决策 1）。运行中可切换，下一波起生效。仅群壳有意义</summary>
+    public EGroupScheduleMode GroupScheduleMode { get; set; }
+
+    /// <summary>并行群聊的停止条件（ADR 0049 决策 6）。仅群壳有意义</summary>
+    public EGroupStopPolicy GroupStopPolicy { get; set; }
+
+    /// <summary>
+    /// 主持人的成员会话标识；null 为无主持人（ADR 0049 决策 4）。可改：身份写在各成员系统提示的场景段里，
+    /// 改了各自下一轮开跑时重建装配（ADR 0048）。仅群壳有意义
+    /// </summary>
+    public string? GroupHostSessionId { get; set; }
 
     /// <summary>
     /// 所属群壳会话；非空即<b>群成员会话</b>。刻意不复用 <see cref="ParentSessionId"/>：
@@ -393,6 +419,8 @@ public class ChatSession
     /// <summary>
     /// 换绑角色。<b>不要只改 <see cref="CharacterId"/></b>——角色本体与记忆库都有缓存字段，
     /// 漏清就会出现"系统提示已经换了人、记忆库还挂在旧角色上"这种半换状态。
+    /// 会话形态<b>不动</b>：换的是人格，不是运行方式（ADR 0050）——
+    /// 普通对话形态的会话换成 agent 卡仍是普通对话，反过来亦然。
     ///
     /// 执行者不在此处重挂：装配快照含角色标识与重算的系统提示，
     /// 下一轮发送时挂接会自然重建，因此生成中换角色不会打断当前这一轮。
@@ -488,6 +516,8 @@ public class ChatSession
         _characterData = characterData;
         CharacterId = characterData.CharacterId;
         Title = title;
+        // 建会话默认跟角色身份（ADR 0050）；从普通对话侧发起时由调用方显式覆写
+        IsAgentForm = characterData.IsAgent;
         // agent 不发开场白（ADR 0043 决策 2，见 0016）：开场白是普通角色的人格旁白，
         // 智能体带着工具与工作循环，不需要自我介绍。副标题与历史同口径，否则列表副行
         // 显示开场白、历史里却没有——同一份数据两处对不上
@@ -509,6 +539,7 @@ public class ChatSession
             Description = Description,
             CharacterId = CharacterId,
             MemoryName = MemoryName,
+            IsAgentForm = IsAgentForm,
             WorkspacePath = WorkspacePath,
             PermissionModeIndex = PermissionModeIndex,
             SessionModelName = SessionModelName,

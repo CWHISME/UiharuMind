@@ -47,24 +47,27 @@ public sealed class ConversationSessionBinder
     /// <param name="permissionModeIndex">界面当前的权限档</param>
     /// <param name="cancellationToken">取消标记</param>
     /// <param name="sessionModelName">空态草稿的覆写模型名；为空即默认跟随全局</param>
+    /// <param name="isAgentForm">会话形态（ADR 0050）：agent 卡开成普通对话时传 false，
+    /// 走 prompt-only 管线、不绑工作区；传 true 则装配 agent 那一套</param>
     /// <returns>已挂接的会话本体</returns>
     public async Task<ChatSession> CreateAsync(CharacterData character, string titleSeed,
         string? workspacePath, int permissionModeIndex, CancellationToken cancellationToken,
-        string? sessionModelName = null)
+        string? sessionModelName = null, bool isAgentForm = true)
     {
         ChatSession created = new()
         {
             CharacterId = character.CharacterId,
             Title = TitleFrom(titleSeed),
             Description = string.Empty,
+            IsAgentForm = isAgentForm,
             WorkspacePath = workspacePath,
             PermissionModeIndex = permissionModeIndex,
             SessionModelName = sessionModelName,
         };
-        // 懒建补开场白：与急建（带角色构造）同一语义——普通角色有 FirstGreeting 就作为旁白写进历史，
-        // 否则首轮发送建出的会话没有开场白、模型第一轮会自我重介绍（见 ADR 0016）。
-        // agent 不发开场白（ADR 0043 决策 2）：编辑页连字段都藏了，创建入口也要同口径
-        if (!character.IsAgent && !string.IsNullOrEmpty(character.FirstGreeting)) created.AddNarration(character);
+        // 懒建补开场白：与急建（带角色构造）同一语义——普通对话形态且有 FirstGreeting 就作为旁白
+        // 写进历史，否则首轮发送建出的会话没有开场白、模型第一轮会自我重介绍（见 ADR 0016）。
+        // agent 形态不发开场白（ADR 0043 决策 2）：编辑页连字段都藏了，创建入口也要同口径
+        if (!isAgentForm && !string.IsNullOrEmpty(character.FirstGreeting)) created.AddNarration(character);
         SessionManager.Instance.Add(created);
         WatchBusy(created.Runner); //必须在 AttachAsync 之前,预连就在它里面
         await created.Runner.AttachAsync(created, cancellationToken);

@@ -120,7 +120,8 @@ internal static class AgentOptionsFactory
         string delegationRoster = config.EnableSubAgent && plan.MountedAgents.Count > 0
             ? string.Join('\n', plan.MountedAgents.Select(x => $"- {x.CharacterName}: {x.Description}"))
             : string.Empty;
-        chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions, config,
+        chatOptions.Instructions = AgentInstructionsComposer.Compose(chatOptions.Instructions,
+            plan.Profile.GroupScene, config,
             plan.MountVisionTool, plan.WorkingDirectory, plan.WorkspaceInstructions, plan.Mcp.Instructions,
             shellBinary, plan.PythonInterpreterPath, plan.OutputRoomDirectory, plan.MemoryDirectory,
             delegationRoster, character.GetPersonaCoda(), out promptSegments);

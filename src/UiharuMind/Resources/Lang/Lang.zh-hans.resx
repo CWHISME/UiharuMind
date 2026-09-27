@@ -56,6 +56,9 @@
     <data name="AgentInterjectionPending" xml:space="preserve">
         <value>等待插话…</value>
     </data>
+    <data name="GroupInjectionPendingFormat" xml:space="preserve">
+        <value>群里新话 {0} 条，等他接收… 最新：{1}</value>
+    </data>
     <data name="AgentInterjectUnavailable" xml:space="preserve">
         <value>现在插不进去：执行者还在启动中，稍后再试。</value>
     </data>
@@ -237,7 +240,7 @@
         <value>启用智能体能力</value>
     </data>
     <data name="CharacterAgentLockedTip" xml:space="preserve">
-        <value>名下还有 {0} 个会话（含子会话），删掉之后才能关闭：历史里的工具调用离开工具就发不出去。</value>
+        <value>名下还有 {0} 个智能体会话（含子会话），删掉之后才能关闭：历史里的工具调用离开工具就发不出去。</value>
     </data>
     <data name="CharacterPickerSearch" xml:space="preserve">
         <value>搜索角色…</value>
@@ -2514,6 +2517,9 @@
     <data name="AgentCapabilityPersonaAnchor" xml:space="preserve">
         <value>人格锚点</value>
     </data>
+    <data name="AgentCapabilityScenePrompt" xml:space="preserve">
+        <value>群场景</value>
+    </data>
     <data name="AgentCapabilityBasePrompt" xml:space="preserve">
         <value>基座</value>
     </data>
@@ -2938,7 +2944,7 @@
         <value>未选</value>
     </data>
     <data name="GroupCreateChatHint" xml:space="preserve">
-        <value>普通群：只能选普通角色。要拉智能体，请在智能体一侧建群。</value>
+        <value>普通群：不绑工作区，成员一律以普通对话形态参与——智能体加入也不带工具。</value>
     </data>
     <data name="GroupNameLabel" xml:space="preserve">
         <value>群名</value>
@@ -2996,6 +3002,48 @@
     </data>
     <data name="GroupMemberModelTooltipFormat" xml:space="preserve">
         <value>模型：{0} · 上下文 {1}</value>
+    </data>
+    <data name="GroupContinueParallel" xml:space="preserve">
+        <value>继续</value>
+    </data>
+    <data name="GroupSpeakerSeparator" xml:space="preserve">
+        <value>、</value>
+    </data>
+    <data name="GroupScheduleLabel" xml:space="preserve">
+        <value>调度</value>
+    </data>
+    <data name="GroupModeSerial" xml:space="preserve">
+        <value>串行</value>
+    </data>
+    <data name="GroupModeParallel" xml:space="preserve">
+        <value>并行</value>
+    </data>
+    <data name="GroupModeSerialHint" xml:space="preserve">
+        <value>成员按顺序一人一轮，一圈即停。</value>
+    </data>
+    <data name="GroupModeParallelHint" xml:space="preserve">
+        <value>被叫醒的成员同时开口，每条发言即时传给还在说的人；用 @名字 点名。</value>
+    </data>
+    <data name="GroupStopConservative" xml:space="preserve">
+        <value>保守</value>
+    </data>
+    <data name="GroupStopAggressive" xml:space="preserve">
+        <value>激进</value>
+    </data>
+    <data name="GroupStopConservativeHint" xml:space="preserve">
+        <value>被别的成员点名的人说完不再点别人，聊完自动停下。</value>
+    </data>
+    <data name="GroupStopAggressiveHint" xml:space="preserve">
+        <value>不自动刹车：成员可以一直互相点名，直到自然停下或你点停止。</value>
+    </data>
+    <data name="GroupHostLabel" xml:space="preserve">
+        <value>主持人</value>
+    </data>
+    <data name="GroupHostNone" xml:space="preserve">
+        <value>无</value>
+    </data>
+    <data name="GroupHostHint" xml:space="preserve">
+        <value>并行时用户没 @ 人，只叫醒主持人，由他点名合适的成员。改了之后，各成员下一次开口时生效。</value>
     </data>
 
 

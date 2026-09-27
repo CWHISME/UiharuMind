@@ -21,7 +21,8 @@ using UiharuMind.Core.AI.Execution.Skills;
 namespace UiharuMind.Features.Conversation.Composer;
 
 /// <summary>
-/// 输入框的 <c>/</c> 命令面板：点名调用技能的补全候选与内置命令。
+/// 输入框的补全面板：<c>/</c> 点名调用技能与内置命令、群里的 <c>@</c> 成员。
+/// 每种补全是一个 <see cref="ICompletionSource"/>，列表、键盘导航与写回在这里统一做。
 ///
 /// 采纳候选要改写输入框，因此持一个写回委托而不是反向持有对话视图模型——
 /// 反向持有会让整套补全逻辑离不开一个真的 ConversationViewModel（原先的测试就得那么写）。
@@ -57,109 +58,130 @@ public partial class CommandPaletteViewData : ObservableObject
         return true;
     }
 
-    private readonly Action<string> _setInputText;
+    private readonly Action<string, int> _setInputText;
     private readonly Func<CharacterData> _character;
+    private readonly Func<bool> _isAgentSession;
+    private readonly IReadOnlyList<ICompletionSource> _sources; //按顺序试，先认出的那一种生效
+    private string _text = string.Empty; //最近一次刷新时的输入与匹配：采纳按它们改写
+    private CompletionMatch _match;
+    private int _version;
+    private string? _dismissed; //Esc 收起时的输入：文字没变之前光标怎么挪都不再弹
 
-    private List<SkillCatalogEntry>? _skillCandidateCache; //一次点名期间复用,不每敲一个字读盘
-    private int _skillPickerVersion;
+    /// <summary>当前补全的候选（<c>/</c> 技能与内置命令，或群里的 <c>@</c> 成员）</summary>
+    public ObservableCollection<CompletionCandidate> Candidates { get; } = new();
 
-    /// <summary>/ 补全的候选技能;敲空格进入参数后收起</summary>
-    public ObservableCollection<SkillCatalogEntry> SkillCandidates { get; } = new();
+    /// <summary>补全采纳后触发，参数是采纳后光标该落的位置。本类不碰控件，由宿主把焦点与光标交还输入框</summary>
+    public event Action<int>? CandidateAccepted;
 
-    /// <summary>补全采纳后触发。本类不碰控件,由宿主把焦点与光标交还输入框末尾</summary>
-    public event Action? SkillCandidateAccepted;
+    [ObservableProperty] private bool _isPickerOpen;
+    [ObservableProperty] private int _candidateIndex;
 
-    [ObservableProperty] private bool _isSkillPickerOpen;
-    [ObservableProperty] private int _skillCandidateIndex;
-
-    /// <param name="setInputText">把输入框内容替换成给定文本</param>
+    /// <param name="setInputText">把输入框内容替换成给定文本，并告知光标该落在哪（先记光标再写文本，免得写文本触发的刷新拿旧光标又弹出来）</param>
     /// <param name="character">取当前会话的角色(尚无会话时是新建会话将使用的那个)</param>
-    public CommandPaletteViewData(Action<string> setInputText, Func<CharacterData> character)
+    /// <param name="isAgentSession">当前会话是否 agent 形态（ADR 0050：chat 形态即使挂着 agent 卡也没有技能）</param>
+    /// <param name="groupMembers">当前群的成员（<c>@</c> 补全用）；不是群为空，省略即不开 @ 补全</param>
+    public CommandPaletteViewData(Action<string, int> setInputText, Func<CharacterData> character,
+        Func<bool> isAgentSession, Func<IEnumerable<MentionTarget>>? groupMembers = null)
     {
         _setInputText = setInputText;
         _character = character;
+        _isAgentSession = isAgentSession;
+        List<ICompletionSource> sources = [new SkillCompletionSource(character, isAgentSession)];
+        if (groupMembers != null) sources.Add(new MentionCompletionSource(groupMembers));
+        _sources = sources;
     }
 
     /// <summary>
     /// 技能只在 agent 会话有意义(扮演档工具集为空,注入过去只会让模型去调不存在的工具);
     /// 内置命令则各档都有——压缩对角色扮演的长对话同样生效
     /// </summary>
-    private bool IsAgentSession => _character().IsAgent;
+    private bool IsAgentSession => _isAgentSession();
 
     /// <summary>
     /// 上下移动候选选择(补全开着时由输入框按键驱动)
     /// </summary>
     /// <param name="delta">移动量,可为负</param>
-    public void MoveSkillSelection(int delta)
+    public void MoveSelection(int delta)
     {
-        if (!IsSkillPickerOpen || SkillCandidates.Count == 0) return;
-        int count = SkillCandidates.Count;
-        SkillCandidateIndex = (SkillCandidateIndex + delta % count + count) % count;
+        if (!IsPickerOpen || Candidates.Count == 0) return;
+        int count = Candidates.Count;
+        CandidateIndex = (CandidateIndex + delta % count + count) % count;
     }
 
     /// <summary>
-    /// 采纳当前候选:把输入补成 "/技能名 ",随即进入写参数状态
+    /// 采纳当前候选：把匹配到的那一段换成候选的写回文字（技能换整行，@ 只换光标前那半个名字）
     /// </summary>
     /// <returns>是否采纳了候选(未开启或无候选时为 false,调用方据此决定是否改走原本的行为)</returns>
-    public bool AcceptSkillCandidate()
+    public bool AcceptCandidate()
     {
-        if (!IsSkillPickerOpen) return false;
-        if (SkillCandidateIndex < 0 || SkillCandidateIndex >= SkillCandidates.Count) return false;
+        if (!IsPickerOpen) return false;
+        if (CandidateIndex < 0 || CandidateIndex >= Candidates.Count) return false;
 
-        _setInputText($"/{SkillCandidates[SkillCandidateIndex].Name} ");
-        CloseSkillPicker();
-        SkillCandidateAccepted?.Invoke();
+        string insertion = Candidates[CandidateIndex].Insertion;
+        int start = Math.Clamp(_match.Start, 0, _text.Length);
+        int end = Math.Clamp(_match.End, start, _text.Length);
+        string text = _text[..start] + insertion + _text[end..];
+        int caret = start + insertion.Length;
+        ClosePicker();
+        _setInputText(text, caret);
+        CandidateAccepted?.Invoke(caret);
         return true;
     }
 
     /// <summary>收起补全</summary>
-    public void CloseSkillPicker()
+    public void ClosePicker()
     {
-        _skillPickerVersion++;
-        _skillCandidateCache = null;
-        IsSkillPickerOpen = false;
-        SkillCandidates.Clear();
+        _version++;
+        foreach (ICompletionSource source in _sources) source.Reset();
+        IsPickerOpen = false;
+        Candidates.Clear();
+    }
+
+    /// <summary>用户按 Esc 收起：同一段输入里不再自动弹出，直到文字变了</summary>
+    public void Dismiss()
+    {
+        _dismissed = _text;
+        ClosePicker();
     }
 
     /// <summary>
-    /// 按输入内容刷新候选:仅在整行以 / 开头且技能名未写完时弹出
+    /// 按输入与光标刷新候选：第一种认得出的补全生效，都认不出就收起
     /// </summary>
     /// <param name="value">输入框当前内容</param>
-    public async Task RefreshSkillCandidatesAsync(string value)
+    /// <param name="caret">光标位置；不知道时传内容长度（视为在末尾）</param>
+    public async Task RefreshAsync(string value, int caret)
     {
-        if (!SkillInvocation.TryParsePrefix(value, out string prefix))
+        if (_dismissed != null)
         {
-            if (IsSkillPickerOpen) CloseSkillPicker();
+            if (value == _dismissed) return;
+            _dismissed = null;
+        }
+
+        ICompletionSource? source = null;
+        CompletionMatch match = default;
+        foreach (ICompletionSource candidate in _sources)
+        {
+            if (!candidate.TryMatch(value, caret, out match)) continue;
+            source = candidate;
+            break;
+        }
+
+        if (source == null)
+        {
+            if (IsPickerOpen) ClosePicker();
             return;
         }
 
-        int version = ++_skillPickerVersion;
-        List<SkillCatalogEntry> all = [];
-        if (IsAgentSession)
-        {
-            all = _skillCandidateCache ??
-                  await SkillCatalog.Instance.GetInvocableEntriesAsync(_character().Tools.DisabledSkills);
-            if (version != _skillPickerVersion) return; //读盘期间输入又变了,丢弃本次结果
-            _skillCandidateCache = all;
-        }
+        int version = ++_version;
+        IReadOnlyList<CompletionCandidate> candidates = await source.GetCandidatesAsync(match.Query);
+        if (version != _version) return; //读盘期间输入又变了,丢弃本次结果
 
-        SkillCandidates.Clear();
-        // 内置命令排在最前:它们数量少且固定,混在技能里按字典序排会找不着
-        foreach (SkillCatalogEntry command in BuiltInCommands
-                     .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-        {
-            SkillCandidates.Add(command);
-        }
-
-        foreach (SkillCatalogEntry entry in all
-                     .Where(x => x.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(x => x.Name, StringComparer.Ordinal))
-        {
-            SkillCandidates.Add(entry);
-        }
-
-        SkillCandidateIndex = 0;
-        IsSkillPickerOpen = SkillCandidates.Count > 0;
+        _text = value;
+        _match = match;
+        Candidates.Clear();
+        foreach (CompletionCandidate candidate in candidates) Candidates.Add(candidate);
+        CandidateIndex = 0;
+        IsPickerOpen = Candidates.Count > 0;
     }
 
     /// <summary>
@@ -169,7 +191,7 @@ public partial class CommandPaletteViewData : ObservableObject
     /// 因此同名技能会被内置命令遮蔽，不会同时出现两条路。
     /// </summary>
     //每次现取而不是缓存成静态字段:描述要跟着语言切换走,而静态初始化只跑一次
-    private static IReadOnlyList<SkillCatalogEntry> BuiltInCommands =>
+    internal static IReadOnlyList<SkillCatalogEntry> BuiltInCommands =>
     [
         new()
         {

@@ -139,15 +139,19 @@ internal sealed class AgentAssemblyPlan
 
     public CharacterData Character => Profile.Character;
 
+    /// <summary>会话形态（ADR 0050）：agent 形态才装配工具与工作目录，Chat 形态一律 prompt-only</summary>
+    public bool IsAgentForm => Profile.EffectiveIsAgentForm;
+
+
     /// <summary>能力配置。没有全局总闸，运行时只有角色自带这一份在说话（ADR 0003）</summary>
     public AgentToolConfig Config => Profile.Character.Tools;
 
     /// <summary>
-    /// 识图工具是否该挂：角色有退路（agent 档 + 开关开着），且当前模型自己看不了图。
+    /// 识图工具是否该挂：会话是 agent 形态且有退路（识图开关开着），且当前模型自己看不了图。
     /// 「有退路」走 <see cref="VisionFallback"/>——界面侧的发图警示与这里同一判据
     /// </summary>
     public bool MountVisionTool =>
-        VisionFallback.HasFallback(Character.IsAgent, Config) && !ModelSupportsVision;
+        VisionFallback.HasFallback(IsAgentForm, Config) && !ModelSupportsVision;
 
     /// <summary>
     /// 从构建配置解析出装配所需的全部事实。<b>这是唯一读单例与磁盘的地方</b>。
@@ -163,8 +167,9 @@ internal sealed class AgentAssemblyPlan
         CompactionStrategy compaction =
             HistoryCompaction.Create(() => CurrentModel(profile)?.ContextLength ?? 0, estimate);
 
-        // 非智能体不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)
-        if (!profile.Character.IsAgent)
+        // 非 agent 形态不装配任何工具:下面这些解析既用不上,又带副作用(建沙箱目录、读盘)
+        // （ADR 0050：agent 卡开成普通对话形态同样走这里）
+        if (!profile.EffectiveIsAgentForm)
         {
             return new AgentAssemblyPlan { Profile = profile, Compaction = compaction, InputEstimate = estimate };
         }

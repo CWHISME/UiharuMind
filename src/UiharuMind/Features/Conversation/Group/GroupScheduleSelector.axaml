@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
+             xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
+             mc:Ignorable="d" d:DesignWidth="360"
+             x:Class="UiharuMind.Features.Conversation.Group.GroupScheduleSelector"
+             x:DataType="group:GroupScheduleViewData">
+    <!-- 调度：串行/并行；并行时再选停止条件。说明跟着选择变，别让用户猜两档差在哪 -->
+    <StackPanel Spacing="4">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button Classes="filter-pill" Classes.selected="{Binding IsSerial}"
+                    Content="{loc:Loc GroupModeSerial}" Command="{Binding UseSerialCommand}" />
+            <Button Classes="filter-pill" Classes.selected="{Binding IsParallel}"
+                    Content="{loc:Loc GroupModeParallel}" Command="{Binding UseParallelCommand}" />
+        </StackPanel>
+        <!-- 停止条件是并行的下一级，单起一行，别跟模式挤在一排看不出层级 -->
+        <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsParallel}">
+            <Button Classes="filter-pill" Classes.selected="{Binding IsConservative}"
+                    Content="{loc:Loc GroupStopConservative}" Command="{Binding UseConservativeCommand}" />
+            <Button Classes="filter-pill" Classes.selected="{Binding IsAggressive}"
+                    Content="{loc:Loc GroupStopAggressive}" Command="{Binding UseAggressiveCommand}" />
+        </StackPanel>
+        <TextBlock Classes="muted" FontSize="11" Text="{Binding Hint}" TextWrapping="Wrap" />
+    </StackPanel>
+</UserControl>

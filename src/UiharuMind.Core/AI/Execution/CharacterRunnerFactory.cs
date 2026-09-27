@@ -92,11 +92,13 @@ public class CharacterRunnerFactory : Singleton<CharacterRunnerFactory>, IInitia
     public async Task<AgentCapabilitySnapshot> PreviewCapabilitiesAsync(AgentBuildProfile profile,
         CancellationToken cancellationToken = default)
     {
-        // 普通角色不装配任何能力,但角色提示词是真实的固定开销——
+        // 非 agent 形态不装配任何能力,但角色提示词是真实的固定开销——
         // 空态一样要能报出「这段会占多少」（agent 档也是这么报角色段的,只是档更多）
-        if (!profile.Character.IsAgent)
+        // （ADR 0050：agent 卡开成普通对话形态同样走这里）
+        if (!profile.EffectiveIsAgentForm)
         {
-            return AgentCapabilitySnapshot.FromRoleplay(profile.Character, profile.PromptArguments);
+            return AgentCapabilitySnapshot.FromRoleplay(profile.Character, profile.PromptArguments,
+                profile.GroupScene);
         }
 
         // 名单与装配用的是同一份,理由同 HarnessCharacterRunner.EnsureHandleAsync

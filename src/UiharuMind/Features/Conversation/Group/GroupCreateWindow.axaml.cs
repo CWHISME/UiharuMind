@@ -5,7 +5,7 @@ using UiharuMind.Shared.WindowManagement;
 
 namespace UiharuMind.Features.Conversation.Group;
 
-/// <summary>建群弹窗：挑名字与成员。建群本身在 <c>GroupChatSessions.Create</c></summary>
+/// <summary>建群弹窗：挑名字、成员与调度设置。建群本身在 <c>GroupChatSessions.Create</c></summary>
 public partial class GroupCreateWindow : Window
 {
     public GroupCreateWindow()
@@ -30,7 +30,8 @@ public partial class GroupCreateWindow : Window
     private void CreateButton_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not GroupCreateWindowModel { CanCreate: true } model) return;
-        Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked], [..model.PickedModelNames]));
+        Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked], [..model.PickedModelNames],
+            model.PickedSchedule));
     }
 
     /// <summary>类别筛选胶囊：Tag 里放的是下标，写回模型由它重筛列表</summary>

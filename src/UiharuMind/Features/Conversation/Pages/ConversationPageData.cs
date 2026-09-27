@@ -182,9 +182,10 @@ public partial class ConversationPageData : ConversationPageDataBase
         if (CurrentType == EConversationType.Chat)
         {
             // 普通对话：继承上一个空会话的角色（同类才继承，跨类型不污染），否则回默认角色；
-            // 输入框占位是聊天口吻
+            // 输入框占位是聊天口吻。形态恒为 Chat——即使预选了 agent 卡，开出的也是普通对话
             conversation.NewSessionCharacterId =
                 InheritCharacterId(EConversationType.Chat, nameof(DefaultCharacter.None));
+            conversation.NewSessionIsAgentForm = false;
             conversation.InputPlaceholderKey = LangKey.ChatInputTips;
         }
         else
@@ -194,6 +195,7 @@ public partial class ConversationPageData : ConversationPageDataBase
             // 继承只对空态生效；角色跨档不继承，见 InheritCharacterId）
             conversation.NewSessionCharacterId =
                 InheritCharacterId(EConversationType.Agent, nameof(DefaultCharacter.ChenXiAgent));
+            conversation.NewSessionIsAgentForm = true;
             if (Conversation?.Workspace.Path is { } lastPath) conversation.Workspace.Path = lastPath;
         }
 
@@ -201,8 +203,9 @@ public partial class ConversationPageData : ConversationPageDataBase
     }
 
     /// <summary>
-    /// 新空会话继承上一个会话的角色。只认同档：切类型时旧会话的角色可能是另一档的
-    /// （普通对话的扮演角色不能成为智能体的默认），对不上就回该类型的默认角色。
+    /// 新空会话继承上一个会话的角色。只认<b>同形态</b>：切类型时旧会话的角色可能是另一形态的
+    /// （普通对话的扮演角色不能成为智能体的默认；反过来 agent 卡开成普通对话后，
+    /// 普通对话侧也要能继承它），对不上就回该形态的默认角色。
     /// 继承源优先取当前<b>展示会话实际用的角色</b>（切到已有会话时 NewSessionCharacterId
     /// 从未被装载逻辑更新，只读它会落回默认——见用户报告的「角色被重置」）；
     /// 还在空态（没建过会话）才看新建默认值
@@ -215,7 +218,9 @@ public partial class ConversationPageData : ConversationPageDataBase
         string? prevId = Conversation?.CurrentMeta?.CharacterId ?? Conversation?.NewSessionCharacterId;
         if (prevId is not { } id) return fallback;
         CharacterData character = CharacterManager.Instance.GetCharacterData(id);
-        bool fits = type == EConversationType.Chat ? character.IsChat() : character.IsAgent;
+        // Chat 形态的候选是<b>所有非用户卡</b>（agent 卡也行，开成普通对话，见 ADR 0050）；
+        // Agent 形态仍只收 agent 卡
+        bool fits = type == EConversationType.Chat ? character.CanStartSession() : character.IsAgent;
         return fits ? id : fallback;
     }
 

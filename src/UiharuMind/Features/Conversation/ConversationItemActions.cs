@@ -119,6 +119,19 @@ public sealed class ConversationItemActions
             if (_items[i] is not TextConversationItem item) continue;
             if (item.SourceMessage is { } source && persisted.Contains(source)) break; //再往前都是配好的
 
+            // 群投递一条拆成几只气泡（成员的在左、旁白居中），角色对不上 User，按角色配会配到别的消息上。
+            // 按正文找落盘的那份，整组一起改指
+            if (item.SourceMessage is { } stale && ChatMessageAnnotations.IsGroupDelivery(stale))
+            {
+                int landed = FindUserMessageByText(history, cursor, stale.Text);
+                if (landed < 0) break;
+
+                for (; i >= 0 && ReferenceEquals(_items[i].SourceMessage, stale); i--) Wire(_items[i], history[landed]);
+                i++;
+                cursor = landed - 1;
+                continue;
+            }
+
             // 只在角色一致时配对,不一致说明界面与历史的形状对不上,宁可不提供操作
             ChatRole expected = item.IsUser ? ChatRole.User : ChatRole.Assistant;
             int candidate = FindPairingCandidate(history, cursor, item, expected);
@@ -140,6 +153,16 @@ public sealed class ConversationItemActions
 
         AttachStreamedSources(history);
         _host.NotifyItemsWired();
+    }
+
+    private static int FindUserMessageByText(IReadOnlyList<ChatMessage> history, int cursor, string text)
+    {
+        for (int i = cursor; i >= 0; i--)
+        {
+            if (history[i].Role == ChatRole.User && string.Equals(history[i].Text, text, StringComparison.Ordinal)) return i;
+        }
+
+        return -1;
     }
 
     /// <summary>

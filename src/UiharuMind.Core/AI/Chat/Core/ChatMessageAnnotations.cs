@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.Json;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace UiharuMind.Core.AI.Chat;
@@ -132,6 +133,19 @@ public static class ChatMessageAnnotations
     public const string GroupSpeakerSession = "_groupSpeakerSession";
 
     /// <summary>
+    /// 群投递标记：成员会话里这条 user 消息是群里别人的发言（投递或插话），不是用户私聊说的话。
+    /// 呈现轴：存储与供给仍是合成的一条，渲染按 <c>[名字]: </c> 拆成各发言人的气泡。
+    /// 带它之前落盘的旧投递没有标记，渲染侧另有兜底
+    /// </summary>
+    public const string GroupDelivery = "_groupDelivery";
+
+    /// <summary>
+    /// 群成员私聊标记：成员会话里这条 user 消息是用户单独对他说的，发给模型的正文前带一句私聊说明
+    /// （<c>GroupTranscript.PrivateNote</c>），界面显示时摘掉
+    /// </summary>
+    public const string GroupPrivate = "_groupPrivate";
+
+    /// <summary>
     /// 摘掉框架盖上的 <see cref="Attribution"/> 溯源标记。
     ///
     /// 框架把供给出去的历史消息<b>就地</b>盖章（我们交出去的是同一批实例），
@@ -202,6 +216,76 @@ public static class ChatMessageAnnotations
         message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
         message.AdditionalProperties[GroupSpeaker] = characterId;
         message.AdditionalProperties[GroupSpeakerSession] = memberSessionId;
+    }
+
+    /// <summary>给一条投递进成员会话的群发言盖上标记。就地写：调用方随后交出去的是同一引用</summary>
+    /// <param name="message">投递或插话</param>
+    public static void MarkGroupDelivery(ChatMessage message)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GroupDelivery] = true;
+    }
+
+    /// <summary>是不是投递进成员会话的群发言</summary>
+    /// <param name="message">消息</param>
+    /// <returns>是为 true</returns>
+    public static bool IsGroupDelivery(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(GroupDelivery) == true;
+
+    /// <summary>给一条群成员私聊盖上标记。就地写</summary>
+    /// <param name="message">私聊消息</param>
+    public static void MarkGroupPrivate(ChatMessage message)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GroupPrivate] = true;
+    }
+
+    /// <summary>是不是群成员私聊</summary>
+    /// <param name="message">消息</param>
+    /// <returns>是为 true</returns>
+    public static bool IsGroupPrivate(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(GroupPrivate) == true;
+
+    /// <summary>
+    /// 这条消息身上的 <see cref="Attribution"/> 是不是框架<b>回灌历史</b>时盖的（来源 = 历史提供器）。
+    ///
+    /// 框架把历史交给模型时，会往<b>已有附加属性字典</b>的消息上就地盖来源——写进的是我们历史里的同一个对象，
+    /// 整份重存时还会落盘。于是凡是带了自家标记的消息（点名调用、群投递、私聊…）都会被盖上，
+    /// 而它们本来就是我们的历史，不是框架注入的。真正的注入（todo 快照、模式通知、记忆片段）来源是上下文提供器
+    /// </summary>
+    /// <param name="message">消息</param>
+    /// <returns>是历史回灌盖的为 true</returns>
+    public static bool IsHistoryEcho(ChatMessage message)
+    {
+        if (message.AdditionalProperties?.TryGetValue(Attribution, out object? raw) != true) return false;
+
+        return raw switch
+        {
+            AgentRequestMessageSourceAttribution attribution =>
+                attribution.SourceType == AgentRequestMessageSourceType.ChatHistory,
+            // 落盘往返之后是 {"sourceType":{"value":"ChatHistory"},"sourceId":...}
+            JsonElement { ValueKind: JsonValueKind.Object } element =>
+                SourceTypeOf(element) == AgentRequestMessageSourceType.ChatHistory.Value,
+            _ => false,
+        };
+    }
+
+    private static string? SourceTypeOf(JsonElement attribution)
+    {
+        foreach (JsonProperty property in attribution.EnumerateObject())
+        {
+            if (!string.Equals(property.Name, "sourceType", StringComparison.OrdinalIgnoreCase)) continue;
+
+            JsonElement type = property.Value;
+            if (type.ValueKind == JsonValueKind.String) return type.GetString();
+            if (type.ValueKind != JsonValueKind.Object) return null;
+            foreach (JsonProperty inner in type.EnumerateObject())
+            {
+                if (string.Equals(inner.Name, "value", StringComparison.OrdinalIgnoreCase)) return inner.Value.GetString();
+            }
+        }
+
+        return null;
     }
 
     /// <summary>读群发言的发言人角色标识。落盘往返后值是 <c>JsonElement</c>，一律经 <c>ToString</c></summary>

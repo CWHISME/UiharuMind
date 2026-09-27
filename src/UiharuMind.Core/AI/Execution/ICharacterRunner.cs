@@ -152,7 +152,24 @@ public interface ICharacterRunner : IAsyncDisposable
     /// 已被消费（正在那一轮里）的消息静默忽略——它已经画进时间轴，撤不回来了。
     /// </summary>
     /// <param name="messages">要撤回的插话</param>
-    Task CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages);
+    /// <returns>确实撤回来了的那些（此前还没被消费）</returns>
+    Task<IReadOnlyCollection<ChatMessage>> CancelInjectionsAsync(IReadOnlyCollection<ChatMessage> messages);
+
+    /// <summary>
+    /// 已投入注入队列、模型还没消费的插话（不论谁插的：用户、群里的广播）。
+    /// 界面据此显示「有话在等他」——群广播不经界面插进来，界面自己记不到
+    /// </summary>
+    IReadOnlyList<ChatMessage> PendingInjections => [];
+
+    /// <summary>
+    /// <see cref="PendingInjections"/> 变了（入队、被消费、被撤回）。<b>可能在后台线程上触发</b>，订阅方自行切回 UI 线程。
+    /// 用事件而不是 <see cref="BusyChanged"/> 那种单委托：同一会话可能同时开在主窗与浮窗里
+    /// </summary>
+    event Action? PendingInjectionsChanged
+    {
+        add { }
+        remove { }
+    }
 }
 
 /// <summary>

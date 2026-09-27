@@ -29,9 +29,9 @@ public partial class AgentWorkspacePanel : UserControl
     /// <summary>
     /// 展开前给角色选择器换一份数据：角色可能刚被新建/删除/改名，
     /// 而当前角色应当从候选里排除（选中自己是空操作）。
-    /// 候选按页面当前类型过滤：agent 档的工具、权限档、文件记忆装配只对 agent 档生效，
-    /// 在这里选中一个角色扮演角色，得到的会是个没工具却带扮演脚手架的东西——
-    /// 普通对话同理反过来。两类统一懒建后这张卡两边都在用，过滤必须跟类型走。
+    /// 候选按<b>会话形态</b>过滤（ADR 0050）：agent 形态只收 agent 卡；普通对话形态收
+    /// 所有非用户卡——agent 卡选进来也只是换人格、形态不变，开不出 harness。
+    /// 两类统一懒建后这张卡两边都在用，过滤必须跟形态走。
     /// </summary>
     private void OnCharacterPickerOpening(object? sender, EventArgs e)
     {
@@ -46,9 +46,9 @@ public partial class AgentWorkspacePanel : UserControl
                 conversation.ChangeCharacter(character);
                 flyout?.Hide();
             },
-            filter: character => data.CurrentType == EConversationType.Chat
-                ? character.IsChat()
-                : character.IsAgent,
+            filter: character => conversation.IsAgentSession
+                ? character.IsAgent
+                : character.CanStartSession(),
             excludedIds: [conversation.ActiveCharacterId]);
     }
 

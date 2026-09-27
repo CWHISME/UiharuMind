@@ -16,6 +16,7 @@ using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Conversation.Composer;
 
@@ -42,7 +43,11 @@ public static class ConversationItemFactory
     /// <param name="message">消息</param>
     /// <returns>显示文本</returns>
     public static string DisplayTextOf(ChatMessage message) =>
-        NamedSkillAnnotations.InputOf(message) ?? message.Text;
+        NamedSkillAnnotations.InputOf(message) ?? PlainTextOf(message);
+
+    // 群成员私聊发给模型时前面带一句私聊说明,显示的是用户打的原话
+    private static string PlainTextOf(ChatMessage message) =>
+        ChatMessageAnnotations.IsGroupPrivate(message) ? GroupTranscript.StripPrivateNote(message.Text) : message.Text;
 
     /// <summary>
     /// 用户气泡的显示文本。以来源消息为准：点名调用取用户敲的那一行，其余取消息正文
@@ -57,7 +62,7 @@ public static class ConversationItemFactory
     {
         if (source == null) return typedText;
         if (NamedSkillAnnotations.InputOf(source) is { } typedLine) return typedLine;
-        return source.Text ?? typedText;
+        return source.Text == null ? typedText : PlainTextOf(source);
     }
 
     /// <summary>
@@ -165,7 +170,10 @@ public static class ConversationItemFactory
     {
         // 点名调用是用 _namedSkill 兜底的(见 NamedSkillAnnotations.Mark),不受 _attribution 屏蔽
         if (NamedSkillAnnotations.InputOf(message) != null) return false;
-        if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true) return true;
+        // 带自家标记的消息(群投递、私聊…)会被框架回灌历史时就地盖上「来源 = 历史」的 _attribution,
+        // 它们本来就是我们的历史;按键在不在判的话,下一轮一跑、对账一重放就被当成注入消息藏掉
+        if (message.AdditionalProperties?.ContainsKey(ChatMessageAnnotations.Attribution) == true)
+            return !ChatMessageAnnotations.IsHistoryEcho(message);
         return message.Contents.Any(x => x is ToolApprovalResponseContent);
     }
 

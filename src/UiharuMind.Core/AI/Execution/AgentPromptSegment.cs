@@ -21,6 +21,9 @@ public enum EPromptSection
     /// <summary>角色段（人格 + 用户卡 + 对话模板）</summary>
     Character,
 
+    /// <summary>群场景段（ADR 0048）：群名、在场名单、主持人与群里的说话规矩；只有群成员有</summary>
+    Scene,
+
     /// <summary>工具纪律段（含工作目录那一小节）</summary>
     ToolDisciplines,
 

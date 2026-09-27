@@ -24,7 +24,7 @@ internal static class AgentInstructionsComposer
 
     /// <summary>
     /// 按固定顺序拼出 agent 档的整段系统提示：
-    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩 → 人格 coda(末尾回锚)。
+    /// 基座(所有角色共用、系统锁定) → 角色段(人格 + 用户卡 + 对话模板) → 群场景(群成员才有) → 工具纪律与工作目录 → MCP server 自述 → 工作区规矩 → 人格 coda(末尾回锚)。
     /// 角色段(人格)标题由装配层在卡无自带标题时补上（见 CharacterSection）；卡自带标题则归卡所有。
     ///
     /// <b>基座在人格之前</b>（文档 §7 组装顺序）：基座是「怎么当一个人」的底线，人格是这个人本身。
@@ -37,6 +37,7 @@ internal static class AgentInstructionsComposer
     /// 人格 coda 钉在更后：它是整段最后一个声音，吃结尾权重（静态版重锚，见提案 v8 §7.4）。
     /// </summary>
     /// <param name="characterPrompt">角色段(CharacterPromptBuilder 的产物)</param>
+    /// <param name="groupScene">群场景段正文（不含标题）；空串则不写该段</param>
     /// <param name="config">智能体的能力配置(角色自带)</param>
     /// <param name="visionToolMounted">识图工具是否已装配</param>
     /// <param name="workingDirectory">工作目录绝对路径;空串则不写该段</param>
@@ -56,7 +57,7 @@ internal static class AgentInstructionsComposer
     /// 本方法一改标题那边就静默错。空段不入册（它本来也没发出去）
     /// </param>
     /// <returns>整段系统提示</returns>
-    internal static string Compose(string? characterPrompt, AgentToolConfig config,
+    internal static string Compose(string? characterPrompt, string groupScene, AgentToolConfig config,
         bool visionToolMounted, string workingDirectory, string workspaceInstructions,
         string mcpInstructions, string shellBinary, string pythonInterpreter,
         string outputRoomDirectory, string memoryDirectory, string delegationRoster,
@@ -66,6 +67,8 @@ internal static class AgentInstructionsComposer
         StringBuilder sb = new();
         AppendSection(sb, AgentBasePrompts.Base, EPromptSection.Base, registry);
         AppendSection(sb, CharacterSection(characterPrompt), EPromptSection.Character, registry);
+        // 场景紧跟人格：先知道自己是谁，再知道自己在哪、有谁在，然后才是工具
+        AppendSection(sb, SceneSection(groupScene), EPromptSection.Scene, registry);
         AppendSection(sb, BuildToolDisciplines(config, visionToolMounted, workingDirectory, shellBinary,
             pythonInterpreter, outputRoomDirectory, memoryDirectory, delegationRoster),
             EPromptSection.ToolDisciplines, registry);
@@ -109,6 +112,32 @@ internal static class AgentInstructionsComposer
         if (string.IsNullOrWhiteSpace(characterPrompt)) return string.Empty;
         if (StartsWithLevelOneHeading(characterPrompt)) return characterPrompt;
         return $"{AgentPromptHeadings.Character}\n\n{characterPrompt}";
+    }
+
+    /// <summary>
+    /// 群场景段：标题 + 正文（ADR 0048）。两种形态共用：agent 档由 <see cref="Compose"/> 插在人格之后，
+    /// 纯提示词档经 <see cref="AppendScene"/> 接在角色提示末尾
+    /// </summary>
+    /// <param name="groupScene">场景段正文（<c>GroupTranscript.BuildScene</c> 的产物）</param>
+    /// <returns>标题 + 正文；正文为空时返回空串</returns>
+    internal static string SceneSection(string? groupScene)
+    {
+        if (string.IsNullOrWhiteSpace(groupScene)) return string.Empty;
+        return $"{AgentPromptHeadings.Scene}\n\n{groupScene.TrimEnd()}";
+    }
+
+    /// <summary>
+    /// 纯提示词档的系统提示：角色提示 + 群场景段。普通角色不走 <see cref="Compose"/>——
+    /// 那会把它没有的基座与工具纪律一起带出来（ADR 0048 决策 3）
+    /// </summary>
+    /// <param name="characterPrompt">角色提示（CharacterPromptBuilder 的产物）</param>
+    /// <param name="groupScene">场景段正文；空串原样返回角色提示</param>
+    /// <returns>整段系统提示</returns>
+    internal static string AppendScene(string? characterPrompt, string groupScene)
+    {
+        string scene = SceneSection(groupScene);
+        if (scene.Length == 0) return characterPrompt ?? string.Empty;
+        return string.IsNullOrWhiteSpace(characterPrompt) ? scene : $"{characterPrompt.TrimEnd()}\n\n{scene}";
     }
 
     /// <summary>

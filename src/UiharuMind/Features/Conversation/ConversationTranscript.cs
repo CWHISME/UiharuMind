@@ -42,7 +42,7 @@ public sealed class ConversationTranscript : ITurnSink
     private readonly IList<ConversationItemBase> _target;
     private readonly IReadOnlyList<ConversationItemBase>? _renderedBefore; //更早已渲染出去的条目(增量装配时用于跨批配对)
     private readonly Func<TextConversationItem> _createAssistantItem;
-    private readonly Func<ChatMessage, TextConversationItem?> _createUserItem;
+    private readonly Func<ChatMessage, IReadOnlyList<TextConversationItem>> _createUserItems;
     private readonly Action<string>? _rememberShellPattern;
     private readonly Func<string?>? _workspaceRootSource; //审批卡片预演 diff 要用它解析相对路径
     private readonly ThinkTagStreamParser _thinkParser = new();
@@ -89,8 +89,9 @@ public sealed class ConversationTranscript : ITurnSink
 
     /// <param name="target">条目落点：实时流直写界面集合，回放写入构建缓冲</param>
     /// <param name="createAssistantItem">助手气泡工厂（名字与头像取自当前会话角色）</param>
-    /// <param name="createUserItem">
-    /// 用户气泡工厂（消息 → 已接好来源的条目；返回 null 表示这条不画，比如框架注入的空消息）。
+    /// <param name="createUserItems">
+    /// 用户气泡工厂（消息 → 已接好来源的条目；返回空表示这条不画，比如框架注入的空消息；
+    /// 成员会话里的群投递会拆成几个发言人的气泡）。
     /// 省略则不画用户消息——回放缓冲不需要，历史里的用户消息由调用方按种类自己画
     /// </param>
     /// <param name="rememberShellPattern">「本会话放行同类命令」的落点</param>
@@ -106,13 +107,13 @@ public sealed class ConversationTranscript : ITurnSink
         Action<string>? rememberShellPattern = null,
         Func<string?>? workspaceRootSource = null,
         IReadOnlyList<ConversationItemBase>? renderedBefore = null,
-        Func<ChatMessage, TextConversationItem?>? createUserItem = null)
+        Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null)
     {
         _target = target;
         _renderedBefore = renderedBefore;
         _isUiBound = target is INotifyCollectionChanged;
         _createAssistantItem = createAssistantItem;
-        _createUserItem = createUserItem ?? (_ => null);
+        _createUserItems = createUserItems ?? (_ => []);
         _rememberShellPattern = rememberShellPattern;
         _workspaceRootSource = workspaceRootSource;
     }
@@ -225,16 +226,17 @@ public sealed class ConversationTranscript : ITurnSink
         if (HasUserItemFor(message)) return;
 
         CloseSegment();
-        if (_createUserItem(message) is not { } item) return;
+        IReadOnlyList<TextConversationItem> items = _createUserItems(message);
+        if (items.Count == 0) return;
 
-        _target.Add(item);
+        foreach (TextConversationItem item in items) _target.Add(item);
         UserMessageRendered?.Invoke(message);
     }
 
     private bool HasUserItemFor(ChatMessage message)
     {
         return _target.Concat(_renderedBefore ?? [])
-            .Any(x => x is TextConversationItem { IsUser: true } && ReferenceEquals(x.SourceMessage, message));
+            .Any(x => x is TextConversationItem && ReferenceEquals(x.SourceMessage, message)); //群投递拆出的成员气泡不是 IsUser
     }
 
     /// <summary>

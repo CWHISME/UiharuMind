@@ -9,14 +9,16 @@ namespace UiharuMind.Core.AI.Chat.Group;
 public static class GroupChatSessions
 {
     /// <summary>
-    /// 这个角色能不能进这类群：智能体群两类都收，普通群只收普通角色（ADR 0042「已定」）。
-    /// 普通群不绑工作区，智能体进去了写的文件没处落
+    /// 这个角色能不能进这类群：两类群都收<b>所有非用户卡</b>（ADR 0050 决策 3）。
+    /// 智能体群绑工作区，agent 成员跑 agent 形态、普通成员跑 chat 形态；
+    /// 普通群不绑工作区，全员以 chat 形态加入——agent 卡进普通群也不写文件，
+    /// ADR 0042「普通群只收普通角色」的排除理由在 chat 形态下失效。
+    /// 群类型只影响加入后的形态、不影响能不能进，所以这里不接群类型。
     /// </summary>
     /// <param name="character">角色</param>
-    /// <param name="isAgentGroup">是不是智能体群</param>
     /// <returns>能进为 true</returns>
-    public static bool CanJoin(CharacterData character, bool isAgentGroup) =>
-        character.CanStartSession() && (isAgentGroup || character.IsChat());
+    public static bool CanJoin(CharacterData character) =>
+        character.CanStartSession();
 
     /// <summary>
     /// 建一个群并落盘。成员会话先入库、群壳最后入库：列表见到群的那一刻，成员已经齐了
@@ -26,13 +28,14 @@ public static class GroupChatSessions
     /// <param name="members">成员，顺序即发言顺序</param>
     /// <param name="workspacePath">智能体群的工作区；普通群忽略</param>
     /// <param name="memberModelNames">成员各自的模型名，顺序与 <paramref name="members"/> 一致；null = 该成员跟随全局</param>
+    /// <param name="schedule">调度设置；null 为串行、无主持人</param>
     /// <returns>群壳会话</returns>
     /// <exception cref="ArgumentException">没有成员，或有成员进不了这类群</exception>
     public static ChatSession Create(string name, bool isAgentGroup, IReadOnlyList<CharacterData> members,
-        string? workspacePath, IReadOnlyList<string?>? memberModelNames = null)
+        string? workspacePath, IReadOnlyList<string?>? memberModelNames = null, GroupSchedule? schedule = null)
     {
         if (members.Count == 0) throw new ArgumentException("A group needs at least one member.", nameof(members));
-        if (members.FirstOrDefault(x => !CanJoin(x, isAgentGroup)) is { } refused)
+        if (members.FirstOrDefault(x => !CanJoin(x)) is { } refused)
         {
             throw new ArgumentException($"'{refused.CharacterName}' cannot join this kind of group.", nameof(members));
         }
@@ -45,6 +48,8 @@ public static class GroupChatSessions
             IsGroup = true,
             IsAgentGroup = isAgentGroup,
             WorkspacePath = groupWorkspace,
+            GroupScheduleMode = schedule?.Mode ?? EGroupScheduleMode.Serial,
+            GroupStopPolicy = schedule?.StopPolicy ?? EGroupStopPolicy.Conservative,
         };
 
         // 不走带角色的构造：那会写入开场白，而在群里开场白是他对着空气自我介绍
@@ -55,6 +60,9 @@ public static class GroupChatSessions
                 Title = $"{name} · {character.CharacterName}",
                 Description = name,
                 GroupId = group.SessionId,
+                // 成员形态由群类型 × 成员身份决定，不由成员自由选（ADR 0050 决策 3）：
+                // 智能体群的 agent 成员跑 agent 形态；普通群全员 chat 形态（agent 卡也不带工具）
+                IsAgentForm = isAgentGroup && character.IsAgent,
                 WorkspacePath = character.IsAgent ? groupWorkspace : null,
                 // 建群时按成员逐个钉选模型；没给就当跟随全局
                 SessionModelName = memberModelNames != null && i < memberModelNames.Count
@@ -63,9 +71,19 @@ public static class GroupChatSessions
             })
             .ToList();
         group.GroupMemberSessionIds = sessions.Select(x => x.SessionId).ToList();
+        if (schedule?.HostIndex is { } host && host >= 0 && host < sessions.Count)
+        {
+            group.GroupHostSessionId = sessions[host].SessionId;
+        }
 
         foreach (ChatSession member in sessions) SessionManager.Instance.Add(member);
         SessionManager.Instance.Add(group);
         return group;
     }
 }
+
+/// <summary>建群时的调度设置（ADR 0049）</summary>
+/// <param name="Mode">调度模式</param>
+/// <param name="StopPolicy">并行的停止条件</param>
+/// <param name="HostIndex">主持人在成员里的下标；-1 为无主持人</param>
+public sealed record GroupSchedule(EGroupScheduleMode Mode, EGroupStopPolicy StopPolicy, int HostIndex);

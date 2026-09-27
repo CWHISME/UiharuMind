@@ -110,7 +110,11 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
 
             foreach (ChatSessionMeta meta in index)
             {
-                if (!string.IsNullOrEmpty(meta.SessionId)) _metas[meta.SessionId] = meta;
+                if (!string.IsNullOrEmpty(meta.SessionId))
+                {
+                    FreezeForm(meta);
+                    _metas[meta.SessionId] = meta;
+                }
             }
         }
     }
@@ -125,8 +129,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
-    /// 普通对话的会话（普通角色），按最后更新时间倒序。
-    /// 归类由角色实时派生而非存进元数据——角色的身份改变时会话随之换侧，不会留下过期副本。
+    /// 普通对话的会话（普通对话形态），按最后更新时间倒序。
+    /// 归类看<b>会话自身形态</b>（默认跟角色身份，见 ADR 0050）而非实时派生：
+    /// 形态在创建/迁移时定格，角色身份改变不再让老会话换侧。
     /// </summary>
     /// <returns>元数据列表</returns>
     public List<ChatSessionMeta> GetChatSessions() => GetSessions(IsChatSide);
@@ -138,19 +143,30 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public List<ChatSessionMeta> GetAgentSessions() => GetSessions(IsAgentSide);
 
     /// <summary>
-    /// 会话归不归智能体一侧。群壳看群类型（建群时定、不变），其余看所属角色的身份——
-    /// 群壳挂的是占位的空角色，按角色判它永远落在普通对话那边
+    /// 会话归不归智能体一侧。群壳看群类型（建群时定、不变），其余看<b>会话自身形态</b>——
+    /// 没存形态的老数据（迁移期）跟所属角色的身份。群壳挂的是占位的空角色，按角色判它永远落在
+    /// 普通对话那边，故必须先看群类型
     /// </summary>
     /// <param name="meta">会话元数据</param>
     /// <returns>归智能体一侧为 true</returns>
     public static bool IsAgentSide(ChatSessionMeta meta) =>
-        meta.IsGroup ? meta.IsAgentGroup : CharacterOf(meta).IsAgent;
+        meta.IsGroup ? meta.IsAgentGroup : (meta.IsAgentForm ?? CharacterOf(meta).IsAgent);
 
     /// <summary>会话归不归普通对话一侧。与 <see cref="IsAgentSide"/> 同一口径，用户卡两边都不归</summary>
     /// <param name="meta">会话元数据</param>
     /// <returns>归普通对话一侧为 true</returns>
     public static bool IsChatSide(ChatSessionMeta meta) =>
-        meta.IsGroup ? !meta.IsAgentGroup : CharacterOf(meta).IsChat();
+        meta.IsGroup ? !meta.IsAgentGroup : !IsAgentSide(meta) && !CharacterOf(meta).IsUserCard;
+
+    /// <summary>
+    /// 老数据定格（ADR 0050 决策 4）：没存形态的会话按<b>当前</b>身份补写。
+    /// 只发生在装载那一刻；此后身份翻转不再挪已有会话。
+    /// 调用方须持有 <c>_locker</c> 或该会话不可能被并发改动。
+    /// </summary>
+    private static void FreezeForm(ChatSessionMeta meta)
+    {
+        if (meta.IsAgentForm == null) meta.IsAgentForm = CharacterOf(meta).IsAgent;
+    }
 
     /// <summary>
     /// 某个群的成员会话（无序；发言顺序以群壳上的 <see cref="ChatSession.GroupMemberSessionIds"/> 为准）
@@ -163,14 +179,33 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
-    /// 某个角色名下的会话数，<b>含子会话</b>。编辑页据它决定智能体能不能翻回普通角色：
-    /// 名下有会话时翻回去，历史里的工具调用会不挂工具定义原样发出（ADR 0043「已定」）。
+    /// 一个群壳的成员会话元数据，按发言顺序（<see cref="ChatSession.GroupMemberSessionIds"/>），
+    /// 已删的成员会话跳过。右栏成员列表、群场景段、投递渲染共用这一份名单，别各写各的解引用
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <returns>成员元数据，发言顺序；不是群壳为空</returns>
+    public static IReadOnlyList<ChatSessionMeta> MemberMetasOf(ChatSession group)
+    {
+        if (!group.IsGroup) return [];
+        List<ChatSessionMeta> metas = [];
+        foreach (string id in group.GroupMemberSessionIds)
+        {
+            if (Instance.GetMeta(id) is { } meta) metas.Add(meta);
+        }
+        return metas;
+    }
+
+    /// <summary>
+    /// 某个角色名下的 <b>agent 形态</b> 会话数，<b>含子会话</b>。
+    /// 编辑页据它决定智能体能不能翻回普通角色：名下还有 agent 形态会话时翻回去，
+    /// 那些历史里的工具调用会不挂工具定义原样发出（ADR 0043「已定」）。
+    /// 普通对话形态的会话不拦——它们本来就在聊天侧，翻回去不受影响（ADR 0050 决策 5）。
     /// </summary>
     /// <param name="characterId">角色标识</param>
-    /// <returns>会话数</returns>
+    /// <returns>agent 形态会话数</returns>
     public int CountSessionsOf(string characterId)
     {
-        lock (_locker) return _metas.Values.Count(x => x.CharacterId == characterId);
+        lock (_locker) return _metas.Values.Count(x => x.CharacterId == characterId && IsAgentSide(x));
     }
 
     // 刻意不提供"传一个判据"的公开重载:那个形状邀请调用方手写 !IsAgent,
@@ -269,6 +304,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
             }
 
             session.SessionId = sessionId;
+            // 老数据定格：没存形态的会话按当前身份补写（ADR 0050）。此后身份翻转不再挪已有会话
+            if (session.IsAgentForm == null) session.IsAgentForm = session.CharacterData.IsAgent;
             TrackHistory(session);
             session.History = LoadHistory(sessionId);
             // 进程级中断(崩溃/强杀)时当场补的代码跑不到,孤儿 tool_call 留在盘上——
@@ -691,6 +728,8 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
                 if (session == null) continue;
 
                 session.SessionId = Path.GetFileName(file)[..^MetaSuffix.Length];
+                // 老数据定格（ADR 0050）：没存形态的会话按当前身份补写，与 OnInitialize 同口径
+                if (session.IsAgentForm == null) session.IsAgentForm = session.CharacterData.IsAgent;
                 _metas[session.SessionId] = session.ToMeta();
             }
 

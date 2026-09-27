@@ -40,6 +40,11 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     public Task<bool> TryInjectAsync(ChatSession member, ChatMessage message) =>
         member.Runner.TryInjectAsync([message]);
 
+    /// <inheritdoc />
+    public Task<IReadOnlyCollection<ChatMessage>> WithdrawAsync(ChatSession member,
+        IReadOnlyCollection<ChatMessage> messages) =>
+        member.Runner.CancelInjectionsAsync(messages);
+
     private static ApprovalResolver DenyAll(ChatSession member)
     {
         int round = 0;

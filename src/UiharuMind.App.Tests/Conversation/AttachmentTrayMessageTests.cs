@@ -50,7 +50,7 @@ public class AttachmentTrayMessageTests
     [Fact]
     public void BuildUserMessage_NonVision_JoinsReferencesIntoOneText()
     {
-        AttachmentTrayViewData tray = new(() => null, () => null);
+        AttachmentTrayViewData tray = new(() => null, () => false);
         tray.AddAttachmentPath("/tmp/a.txt"); //非图片 → 走路径引用
         List<ConversationAttachment>? attachments = tray.TakePending();
 
@@ -70,7 +70,7 @@ public class AttachmentTrayMessageTests
         Directory.CreateDirectory(dir);
         try
         {
-            AttachmentTrayViewData tray = new(() => null, () => null);
+            AttachmentTrayViewData tray = new(() => null, () => false);
             tray.AddAttachmentPath(dir);
 
             Assert.Empty(tray.Attachments);

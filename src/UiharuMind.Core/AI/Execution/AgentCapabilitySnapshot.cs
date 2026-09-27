@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 
@@ -76,21 +77,27 @@ public sealed class AgentCapabilitySnapshot
     /// </summary>
     /// <param name="character">角色</param>
     /// <param name="promptArguments">角色的模板参数；null 用角色公共参数</param>
-    /// <returns>只有角色段的快照</returns>
+    /// <param name="groupScene">群场景段正文；不是群成员传空串（有则多报一段，见 ADR 0048）</param>
+    /// <returns>角色段（群成员再加场景段）的快照</returns>
     public static AgentCapabilitySnapshot FromRoleplay(CharacterData character,
-        IReadOnlyDictionary<string, object?>? promptArguments = null)
+        IReadOnlyDictionary<string, object?>? promptArguments = null, string groupScene = "")
     {
         string rolePrompt = CharacterPromptBuilder.Build(character, promptArguments);
-        return new AgentCapabilitySnapshot
+        List<AgentPromptSegment> segments =
+        [
+            new(EPromptSection.Character, rolePrompt) { EstimatedTokens = ToolTokenEstimator.EstimateText(rolePrompt) },
+        ];
+        // 与 AgentInstructionsComposer.AppendScene 发出去的那段逐字相同
+        string scene = AgentInstructionsComposer.SceneSection(groupScene);
+        if (scene.Length > 0)
         {
-            PromptSegments =
-            [
-                new AgentPromptSegment(EPromptSection.Character, rolePrompt)
-                {
-                    EstimatedTokens = ToolTokenEstimator.EstimateText(rolePrompt),
-                },
-            ],
-        };
+            segments.Add(new AgentPromptSegment(EPromptSection.Scene, scene)
+            {
+                EstimatedTokens = ToolTokenEstimator.EstimateText(scene),
+            });
+        }
+
+        return new AgentCapabilitySnapshot { PromptSegments = segments };
     }
 
     /// <summary>

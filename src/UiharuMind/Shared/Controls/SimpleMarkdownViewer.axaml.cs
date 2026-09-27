@@ -23,6 +23,7 @@ using LiveMarkdown.Avalonia;
 using TextMateSharp.Grammars;
 using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Shared.Controls;
 
@@ -66,6 +67,7 @@ public partial class SimpleMarkdownViewer : UserControl
     private Rect _lastViewport; //最近一次视口矩形(自身坐标系);切档时据此判断"现在看得见吗"
 
     private ObservableStringBuilder _markdownBuilder = new ObservableStringBuilder();
+    private string _plainText = ""; //原文：纯文本块显示它；渲染器拿的是转义过的那份
 
     /// 纯文本块此刻是否顶在前面:纯文本档，或 markdown 档但渲染器还没接上
     private bool IsPlainTextShown => _isPlaintextCache || !_isRealized;
@@ -201,7 +203,7 @@ public partial class SimpleMarkdownViewer : UserControl
         bool plain = IsPlainTextShown;
         PlainTextBlock.IsVisible = plain;
         MarkdownTextRender.IsVisible = !plain;
-        if (plain) PlainTextBlock.Text = _markdownBuilder.ToString();
+        if (plain) PlainTextBlock.Text = _plainText;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -327,17 +329,20 @@ public partial class SimpleMarkdownViewer : UserControl
         FileOpener.Open(path);
     }
 
-    public void ForceSetText(string text)
+    public void ForceSetText(string raw)
     {
-        text ??= "";
+        raw ??= "";
+        _plainText = raw;
+        // 喂给渲染器的是防误吞那一份(行首 [名字]: 会被当链接引用定义整行吞掉),纯文本块显示原文
+        string text = MarkdownDefinitionGuard.Escape(raw);
 
         // 以 _markdownBuilder 的实际内容为准,不另外维护一份镜像字符串——
         // 该控件有 ForceSetText 与 AppendText 两个写入口,任何镜像状态都要求两处同步维护,
-        // 漏一处就会静默失效(曾表现为新会话清不掉上一次的内容)。
+        // 漏一处就会静默失效(曾表现为新会话清不掉上一次的内容)。_plainText 只给纯文本块显示,不参与增量判断
         string current = _markdownBuilder.ToString();
         if (text == current)
         {
-            if (IsPlainTextShown) PlainTextBlock.Text = text;
+            if (IsPlainTextShown) PlainTextBlock.Text = raw;
             return;
         }
 
@@ -354,14 +359,15 @@ public partial class SimpleMarkdownViewer : UserControl
             _markdownBuilder.Append(text);
         }
 
-        if (IsPlainTextShown) PlainTextBlock.Text = text;
+        if (IsPlainTextShown) PlainTextBlock.Text = raw;
     }
 
     public void AppendText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
         _markdownBuilder.Append(text);
-        if (IsPlainTextShown) PlainTextBlock.Text = _markdownBuilder.ToString();
+        _plainText += text;
+        if (IsPlainTextShown) PlainTextBlock.Text = _plainText;
     }
 
     public void Clear()

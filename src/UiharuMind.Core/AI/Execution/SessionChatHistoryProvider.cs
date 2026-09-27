@@ -10,6 +10,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -137,7 +138,18 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         if (session.TakeKnowledgeSnippets() is { Length: > 0 } snippets)
             session.History.Add(CreateKnowledgeMessage(snippets, storedAt));
 
-        if (context.ResponseMessages != null) AppendOwned(session, context.ResponseMessages, storedAt);
+        if (context.ResponseMessages != null)
+        {
+            // 群成员照着投递格式给自己加的 [名字]: 前缀,落盘前剥掉:留着的话他下一轮在自己历史里看到,
+            // 学得更起劲;气泡里行首那样写还会被 markdown 当链接引用定义吞掉
+            if (session.IsGroupMember)
+            {
+                foreach (ChatMessage message in context.ResponseMessages)
+                    GroupTranscript.StripOwnPrefix(message, session.CharacterData.CharacterName);
+            }
+
+            AppendOwned(session, context.ResponseMessages, storedAt);
+        }
         session.TurnStartedAt = null; //一次性凭据,用过即弃
 
         // 常规轮次只追加新消息,落盘成本与会话长度无关
