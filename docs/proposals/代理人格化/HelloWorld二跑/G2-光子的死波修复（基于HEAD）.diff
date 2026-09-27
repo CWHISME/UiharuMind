@@ -1,0 +1,430 @@
+diff --git a/src/UiharuMind.Core/AI/Chat/Group/GroupChatCoordinator.cs bsrc/UiharuMind.Core/AI/Chat/Group/GroupChatCoordinator.cs
+index 194c1913..fa8e910c 100644
+--- a/src/UiharuMind.Core/AI/Chat/Group/GroupChatCoordinator.cs
++++ bsrc/UiharuMind.Core/AI/Chat/Group/GroupChatCoordinator.cs
+@@ -80,16 +80,16 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+         ChatMessage post = group.CreateMessage(ChatRole.User, text, images);
+         int index = Append(group, post);
+ 
+-        if (EpisodeOf(group.SessionId) is { } running)
++        // 撞上还在跑的波：广播并唤醒；撞上刚收场、还没从名单摘掉的波：重开一波，别把这句丢了
++        while (true)
+         {
+-            await OnAppendedAsync(running, post, index, null);
+-            return;
+-        }
++            if (EpisodeOf(group.SessionId) is { } running)
++            {
++                if (await OnAppendedAsync(running, post, index, null)) return;
++                continue; //那一波恰好收场，广播已空转：这句没人接，重开
++            }
+ 
+-        // 开波落空说明恰好别处先开了一波：按插进那一波处理，别把这句丢了
+-        if (!await RunEpisodeAsync(group, new GroupKickoff(index)) && EpisodeOf(group.SessionId) is { } raced)
+-        {
+-            await OnAppendedAsync(raced, post, index, null);
++            if (await RunEpisodeAsync(group, new GroupKickoff(index))) return;
+         }
+     }
+ 
+@@ -149,62 +149,40 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+             }
+         }
+ 
+-        if (turn == null)
+-        {
+-            AlignWithGroup(member, group);
+-            return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
+-        }
++        // 锁外通报：订阅方会回来问 IsRunning/SpeakersOf
++        if (turn != null) SpeakerChanged?.Invoke(group.SessionId);
+ 
+-        bool closed = false;
+-        try
++        // 工作区以群壳为准，每轮开跑前对齐：右栏改的是群的工作区，成员各存一份就会对不上。
++        // 成员只在其会话是 agent 形态时才领工作区（ADR 0050：普通群的 agent 卡以 chat 形态加入，不绑）
++        member.WorkspacePath = member.IsAgentForm is true ? group.WorkspacePath : null;
++        // 权限档同理跟群走：群聊的权限只在群视图一处设
++        member.PermissionModeIndex = group.PermissionModeIndex;
++        member.SaveMeta(touchUpdatedAt: false);
++        if (turn == null) return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
++
++        string input = ComposeInput(run, member, delivery!, deliveredFrom);
++        // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
++        using GroupMemberReplyFeed replies = new(group, member, turn.Cursor, text => PostFromMember(group, member, text));
++        // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
++        ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
++        bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
++        replies.Finish(completed);
++        if (!completed)
+         {
+-            // 锁外通报：订阅方会回来问 IsRunning/SpeakersOf
+-            SpeakerChanged?.Invoke(group.SessionId);
+-            AlignWithGroup(member, group);
+-
+-            string input = ComposeInput(run, member, delivery!, deliveredFrom);
+-            // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
+-            using GroupMemberReplyFeed replies = new(group, member, turn.Cursor, text => PostFromMember(group, member, text),
+-                _locker);
+-            // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
+-            ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
+-            bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
+-            replies.Finish(completed);
+-            if (!completed)
+-            {
+-                lock (_locker) _interrupted.Add(member.SessionId);
+-            }
+-
+-            IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
+-            closed = true;
+-            lock (_locker)
+-            {
+-                if (consumedNow.Count > 0) _consumed[member.SessionId] = [..consumedNow];
+-            }
+-
+-            if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
+-            await replies.WhenPostedAsync();
+-
+-            // 失败或被停：已经说完的几段照常算，没说完的半截留在他自己的会话里
+-            return new GroupTurnOutcome(completed, consumedNow);
++            lock (_locker) _interrupted.Add(member.SessionId);
+         }
+-        finally
++
++        IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
++        lock (_locker)
+         {
+-            // 兜中途抛出：登记了「在说」就一定摘掉，否则这一波里他一直算在说、广播还往一个没人消费的轮次里插。
+-            // 已插进去的先撤回（它们没被消费，游标之后照常投递），不然他下一轮会连同新投递一起冒出来
+-            if (!closed) await turn.CloseAsync(_runner);
+-            if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
++            if (consumedNow.Count > 0) _consumed[member.SessionId] = [..consumedNow];
+         }
+-    }
+ 
+-    // 工作区以群壳为准，每轮开跑前对齐：右栏改的是群的工作区，成员各存一份就会对不上。
+-    // 成员只在其会话是 agent 形态时才领工作区（ADR 0050：普通群的 agent 卡以 chat 形态加入，不绑）。
+-    // 权限档同理跟群走：群聊的权限只在群视图一处设
+-    private static void AlignWithGroup(ChatSession member, ChatSession group)
+-    {
+-        member.WorkspacePath = member.IsAgentForm is true ? group.WorkspacePath : null;
+-        member.PermissionModeIndex = group.PermissionModeIndex;
+-        member.SaveMeta(touchUpdatedAt: false);
++        if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
++        await replies.WhenPostedAsync();
++
++        // 失败或被停：已经说完的几段照常算，没说完的半截留在他自己的会话里
++        return new GroupTurnOutcome(completed, consumedNow);
+     }
+ 
+     bool IGroupTurnHost.HasNewLines(ChatSession group, string memberSessionId)
+@@ -238,7 +216,12 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+         Episode episode;
+         lock (_locker)
+         {
+-            if (_episodes.ContainsKey(group.SessionId)) return false;
++            // 已收场还赖着没摘的波（摘除兜底）：让位重开，新波才接得住这句
++            if (_episodes.TryGetValue(group.SessionId, out Episode? existing))
++            {
++                if (!existing.Closed) return false;
++                _episodes.Remove(group.SessionId);
++            }
+ 
+             GroupRun run = new(group);
+             IGroupScheduler scheduler = run.Mode == EGroupScheduleMode.Parallel
+@@ -257,7 +240,13 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+         }
+         finally
+         {
+-            lock (_locker) _episodes.Remove(group.SessionId);
++            lock (_locker)
++            {
++                // 引用安全：只摘自己这一波；若已在收场回调里被摘掉，别碰后来开的新波
++                if (_episodes.TryGetValue(group.SessionId, out Episode? e) && ReferenceEquals(e, episode))
++                    _episodes.Remove(group.SessionId);
++            }
++
+             episode.Run.Dispose();
+         }
+ 
+@@ -266,20 +255,33 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+ 
+     private Episode? EpisodeOf(string groupId)
+     {
+-        lock (_locker) return _episodes.GetValueOrDefault(groupId);
++        lock (_locker)
++        {
++            Episode? episode = _episodes.GetValueOrDefault(groupId);
++            return episode is { Closed: false } ? episode : null; //已收场的波对写入方不可见：该开新波了
++        }
++    }
++
++    void IGroupTurnHost.OnEpisodeClosed(GroupRun run)
++    {
++        lock (_locker)
++        {
++            // 只闭自己这一波；若已被别处收掉，不碰后来开的新波
++            if (_episodes.TryGetValue(run.Group.SessionId, out Episode? episode) && ReferenceEquals(episode.Run, run))
++            {
++                episode.Closed = true;
++                _episodes.Remove(run.Group.SessionId);
++            }
++        }
+     }
+ 
+     // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西
+     private string ComposeInput(GroupRun run, ChatSession member, string delivery, int deliveredFrom)
+     {
+         // 主持人位只在并行里起作用：串行本来就人人轮到，点名是多余的
+-        bool coldStart = false;
+-        if (run.Mode == EGroupScheduleMode.Parallel && member.SessionId == run.Group.GroupHostSessionId)
+-        {
+-            IReadOnlyList<GroupRosterEntry> roster = RosterOf(run.Group);
+-            // 群流水此刻可能正被别的成员追加：遍历与 Append 同一把锁
+-            lock (_locker) coldStart = GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, roster);
+-        }
++        bool coldStart = run.Mode == EGroupScheduleMode.Parallel
++                         && member.SessionId == run.Group.GroupHostSessionId
++                         && GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, RosterOf(run.Group));
+         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
+         return coldStart ? input + "\n\n" + GroupTranscript.HostColdStartHint : input;
+     }
+@@ -323,11 +325,11 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+             : Task.CompletedTask;
+     }
+ 
+-    private async Task OnAppendedAsync(Episode episode, ChatMessage post, int index, string? authorSessionId)
++    private async Task<bool> OnAppendedAsync(Episode episode, ChatMessage post, int index, string? authorSessionId)
+     {
+         GroupPostEvent posted = new(index, authorSessionId, post.Text);
+         Task broadcast = episode.Run.EnqueueBroadcast(() => BroadcastAsync(episode, post, posted));
+-        episode.Scheduler.OnPosted(posted);
++        bool accepted = episode.Scheduler.OnPosted(posted); //false：波已收场，这句没人接
+         try
+         {
+             await broadcast;
+@@ -336,6 +338,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+         {
+             Log.Warning($"Group broadcast failed: {e.Message}");
+         }
++
++        return accepted;
+     }
+ 
+     private async Task BroadcastAsync(Episode episode, ChatMessage post, GroupPostEvent posted)
+@@ -365,5 +369,9 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
+         }
+     }
+ 
+-    private sealed record Episode(GroupRun Run, IGroupScheduler Scheduler);
++    private sealed record Episode(GroupRun Run, IGroupScheduler Scheduler)
++    {
++        /// <summary>已判定收场（并行空闲 / 串行跑完）：不再接受唤醒，等宿主摘除</summary>
++        public bool Closed { get; set; }
++    }
+ }
+diff --git a/src/UiharuMind.Core/AI/Chat/Group/ParallelGroupScheduler.cs bsrc/UiharuMind.Core/AI/Chat/Group/ParallelGroupScheduler.cs
+index 27eb9982..5adef2e9 100644
+--- a/src/UiharuMind.Core/AI/Chat/Group/ParallelGroupScheduler.cs
++++ bsrc/UiharuMind.Core/AI/Chat/Group/ParallelGroupScheduler.cs
+@@ -45,12 +45,25 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
+         return _idle.Task;
+     }
+ 
+-    public void OnPosted(GroupPostEvent post)
++    public bool OnPosted(GroupPostEvent post)
+     {
+-        IReadOnlyList<GroupWake> wakes = post.AuthorSessionId == null
+-            ? WakesForUserPost(post.Text)
+-            : WakesForMemberPost(post.AuthorSessionId, post.Text);
+-        foreach (GroupWake wake in wakes) Wake(wake, post.Index);
++        List<(GroupWake Wake, int PostIndex)> toStart = [];
++        lock (_sync)
++        {
++            // 波已收场：这句没人接，写入方另开一波。判定与登记同锁，才不会把话交给刚闭的波
++            if (_closed) return false;
++
++            IReadOnlyList<GroupWake> wakes = post.AuthorSessionId == null
++                ? WakesForUserPost(post.Text)
++                : WakesForMemberPost(post.AuthorSessionId, post.Text);
++            foreach (GroupWake wake in wakes)
++            {
++                if (RegisterWakeLocked(wake, post.Index)) toStart.Add((wake, post.Index));
++            }
++        }
++
++        foreach ((GroupWake wake, int postIndex) in toStart) _ = LoopAsync(wake.MemberSessionId, wake.Cause);
++        return true;
+     }
+ 
+     private IReadOnlyList<GroupWake> WakesForMemberPost(string authorSessionId, string text)
+@@ -68,30 +81,38 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
+ 
+     private void Wake(GroupWake wake, int postIndex)
+     {
++        bool start;
+         lock (_sync)
+         {
+             if (_closed || _run.Token.IsCancellationRequested) return;
+-            if (_causes.TryGetValue(wake.MemberSessionId, out EGroupWakeCause current))
+-            {
+-                // 跑着的时候被点到：那句会插进他这一轮，他接下来说的话按最近这一跳算——
+-                // 被成员点到之后再说的是第二跳，保守档下不再叫醒人；被主持人点名之后再说的按主持人叫醒算
+-                _causes[wake.MemberSessionId] = wake.Cause;
++            start = RegisterWakeLocked(wake, postIndex);
++        }
+ 
+-                if (!_rewakes.TryGetValue(wake.MemberSessionId, out var pending))
+-                {
+-                    pending = [];
+-                    _rewakes[wake.MemberSessionId] = pending;
+-                }
++        if (start) _ = LoopAsync(wake.MemberSessionId, wake.Cause);
++    }
++
++    /// <summary>登记一次唤醒（须在 <see cref="_sync"/> 锁内调用）。新登记返回 true（去启动那一轮）；已在跑/被拒返回 false</summary>
++    private bool RegisterWakeLocked(GroupWake wake, int postIndex)
++    {
++        if (_causes.TryGetValue(wake.MemberSessionId, out EGroupWakeCause current))
++        {
++            // 跑着的时候被点到：那句会插进他这一轮，他接下来说的话按那一跳算——
++            // 被成员点到之后再说的，保守档下不再叫醒、不再插给别人
++            if (wake.Cause > current) _causes[wake.MemberSessionId] = wake.Cause;
+ 
+-                pending.Add((postIndex, wake.Cause));
+-                return;
++            if (!_rewakes.TryGetValue(wake.MemberSessionId, out var pending))
++            {
++                pending = [];
++                _rewakes[wake.MemberSessionId] = pending;
+             }
+ 
+-            _causes[wake.MemberSessionId] = wake.Cause;
+-            _active++;
++            pending.Add((postIndex, wake.Cause));
++            return false;
+         }
+ 
+-        _ = LoopAsync(wake.MemberSessionId, wake.Cause);
++        _causes[wake.MemberSessionId] = wake.Cause;
++        _active++;
++        return true;
+     }
+ 
+     private async Task LoopAsync(string memberId, EGroupWakeCause cause)
+@@ -121,11 +142,7 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
+         catch (Exception e)
+         {
+             Log.Error($"Group member {memberId} failed in parallel run: {e}");
+-            lock (_sync)
+-            {
+-                _causes.Remove(memberId);
+-                _rewakes.Remove(memberId); //待补叫的一并丢：他这一轮已经没了，留着会让下次叫醒带上过期的来由
+-            }
++            lock (_sync) _causes.Remove(memberId);
+         }
+         finally
+         {
+@@ -139,7 +156,12 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
+         lock (_sync)
+         {
+             idle = --_active == 0;
+-            if (idle) _closed = true;
++            if (idle)
++            {
++                _closed = true;
++                // 闭波与摘除在同一把锁里：这一刻起新发言看见「没波」，自然去开新波
++                _host.OnEpisodeClosed(_run);
++            }
+         }
+ 
+         if (idle) _idle.TrySetResult();
+diff --git a/src/UiharuMind.Core/AI/Chat/Group/SerialGroupScheduler.cs bsrc/UiharuMind.Core/AI/Chat/Group/SerialGroupScheduler.cs
+index 07a108c3..29f5668f 100644
+--- a/src/UiharuMind.Core/AI/Chat/Group/SerialGroupScheduler.cs
++++ bsrc/UiharuMind.Core/AI/Chat/Group/SerialGroupScheduler.cs
+@@ -8,6 +8,8 @@ internal sealed class SerialGroupScheduler : IGroupScheduler
+ {
+     private readonly IGroupTurnHost _host;
+     private readonly GroupRun _run;
++    private readonly object _sync = new();
++    private bool _finished; //一圈跑完：之后的发言不再有人接，写入方去开新波
+ 
+     /// <summary>
+     /// 构造
+@@ -22,14 +24,31 @@ internal sealed class SerialGroupScheduler : IGroupScheduler
+ 
+     public async Task RunAsync(GroupKickoff kickoff)
+     {
+-        foreach (string memberId in _run.Group.GroupMemberSessionIds.ToList())
++        try
+         {
+-            if (_run.Token.IsCancellationRequested) break;
+-            await _host.RunMemberAsync(_run, memberId, EGroupWakeCause.User);
++            foreach (string memberId in _run.Group.GroupMemberSessionIds.ToList())
++            {
++                if (_run.Token.IsCancellationRequested) break;
++                await _host.RunMemberAsync(_run, memberId, EGroupWakeCause.User);
++            }
++        }
++        finally
++        {
++            lock (_sync)
++            {
++                _finished = true;
++                _host.OnEpisodeClosed(_run); //跑完即摘：别赖在「在跑」名单里吞掉这之后的发言
++            }
+         }
+     }
+ 
+-    public void OnPosted(GroupPostEvent post)
++    /// <summary>
++    /// 波还在跑就接住。已知限制：最后一位收尾的瞬间进来的发言，广播可能空转（读 <see cref="_finished"/>
++    /// 与收尾之间的微秒级竞态）。别用「广播后重查 _finished」修——会把插进最后一轮、随后收尾的
++    /// 误判成没接住，重开双响。为一个微秒级竞态动 TurnState 接口不值
++    /// </summary>
++    public bool OnPosted(GroupPostEvent post)
+     {
++        lock (_sync) return !_finished;
+     }
+ }
+diff --git a/src/UiharuMind.Core/AI/Chat/Group/IGroupScheduler.cs bsrc/UiharuMind.Core/AI/Chat/Group/IGroupScheduler.cs
+index 7af1817e..bd520855 100644
+--- a/src/UiharuMind.Core/AI/Chat/Group/IGroupScheduler.cs
++++ bsrc/UiharuMind.Core/AI/Chat/Group/IGroupScheduler.cs
+@@ -46,6 +46,13 @@ internal interface IGroupTurnHost
+     /// <param name="group">群壳会话</param>
+     /// <returns>名单，发言顺序</returns>
+     IReadOnlyList<GroupRosterEntry> RosterOf(ChatSession group);
++
++    /// <summary>
++    /// 这一波判定收场（并行空闲 / 串行跑完）时由调度器回调：宿主把自己从「在跑」名单摘掉。
++    /// 要与调度器的收场判定原子完成，否则新发言会撞进已收场的波里，白广播一场、没人接
++    /// </summary>
++    /// <param name="run">收场的这一波</param>
++    void OnEpisodeClosed(GroupRun run);
+ }
+ 
+ /// <summary>
+@@ -62,5 +69,6 @@ internal interface IGroupScheduler
+     /// 由写入方同步调用，实现里不要阻塞
+     /// </summary>
+     /// <param name="post">新发言</param>
+-    void OnPosted(GroupPostEvent post);
++    /// <returns>这一波还接受这条发言（唤醒已按策略处理）为 true；已收场没人接为 false，写入方应另开一波</returns>
++    bool OnPosted(GroupPostEvent post);
+ }
+diff --git a/src/UiharuMind.Core/AI/Chat/Group/GroupWakePolicy.cs bsrc/UiharuMind.Core/AI/Chat/Group/GroupWakePolicy.cs
+index c0cb4374..de022730 100644
+--- a/src/UiharuMind.Core/AI/Chat/Group/GroupWakePolicy.cs
++++ bsrc/UiharuMind.Core/AI/Chat/Group/GroupWakePolicy.cs
+@@ -34,7 +34,8 @@ public static class GroupWakePolicy
+ 
+     /// <summary>
+     /// 成员发言叫醒谁：@ 了谁叫谁；没 @ 时小群叫另一位（必答一次），大群不叫任何人。
+-    /// 保守档下，被别的成员叫醒的人说完不再叫醒任何人（一跳防护）；主持人点名算主持人叫醒，不受这条限制
++    /// 保守档下，来由是 Member 的发言说完不再叫醒任何人（一跳防护，连同 @ 与点名一并吞掉）；
++    /// 主持人自己那轮来由非 Member（被用户或「继续」叫醒）时，他点名算主持人叫醒，不受这条限制
+     /// </summary>
+     /// <param name="members">成员会话标识，发言顺序</param>
+     /// <param name="hostSessionId">主持人；没有为 null</param>

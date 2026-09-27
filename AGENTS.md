@@ -88,7 +88,8 @@ UIHARU_HOME=/tmp/uiharu-scratch \
 ```
 
 脚本一行一步（`page.jump` / `session.open` / `ui.snapshot` / `diag.memory` / `wait` / `quit`），
-报告里每步带耗时与结果。实现见 `Features/DevAutomation/`。两条口径：
+报告里每步带耗时与结果，逐步落盘。群聊冒烟另有 `group.create` / `group.post` / `group.continue` /
+`group.wait` / `group.dump`（会真的花钱跑模型；`group.wait` 顺带按参数点掉审批）。实现见 `Features/DevAutomation/`。两条口径：
 **不带 `--dev-script` 就一行都不跑**；每一步只许走公开的视图模型面，
 不为自动化单开特权入口——否则测出来的就不是用户那条路。
 
