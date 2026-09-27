@@ -222,6 +222,9 @@ public class ChatSession
     /// <param name="reload">重载入口</param>
     internal void SetHistoryReload(Func<List<ChatMessage>> reload) => _historyReload = reload;
 
+    /// <summary>历史此刻在不在内存里。问它不会触发重载（读 <see cref="History"/> 会）</summary>
+    internal bool IsHistoryResident => _history != null;
+
     /// <summary>
     /// 把历史从内存里卸掉（下次访问按需重载）。会话本体<b>不换实例</b>，
     /// 于是所有持有它的人都不受影响；受影响的只有持有 <see cref="ChatMessage"/>

@@ -96,6 +96,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private readonly ConcurrentDictionary<string, DateTime> _resident = new(); //历史仍在内存的会话及其最后访问时刻;不共用 _locker,卸载重载回调可能撞进任何持锁代码
     private readonly ConcurrentDictionary<string, int> _pins = new(); //被钉住的会话(界面壳挂着、条目还指着消息实例),钉住期间不卸历史
 
+    /// <summary>驻留记账用的时钟。测试拨它越过冷却，别处不该动</summary>
+    internal Func<DateTime> UtcClock { get; set; } = () => DateTime.UtcNow;
+
     /// <summary>已加载的会话本体数（含历史已卸载的那些）。诊断用</summary>
     public int LoadedSessionCount
     {
@@ -317,7 +320,9 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
         {
             if (_loaded.TryGetValue(sessionId, out ChatSession? cached))
             {
-                Touch(sessionId);
+                // 历史已卸掉的只是取本体(标题、成员名单),不算访问历史:记回驻留表的话,
+                // 下次清扫会为了卸它先把整份历史读回来再写一遍盘
+                if (cached.IsHistoryResident) Touch(sessionId);
                 return cached;
             }
 
@@ -358,7 +363,7 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public IDisposable Pin(string? sessionId) => new PinScope(this, sessionId);
 
     /// <summary>记一次访问。卸载只挑最冷的那几个，这里就是「冷」的判据</summary>
-    private void Touch(string sessionId) => _resident[sessionId] = DateTime.UtcNow;
+    private void Touch(string sessionId) => _resident[sessionId] = UtcClock();
 
     /// <summary>
     /// 交代这个会话的历史怎么卸、怎么取回来。<b>只给落盘过的会话</b>——
@@ -384,13 +389,15 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     private void UnloadColdHistories()
     {
         IReadOnlyList<string> doomed =
-            SessionResidencyPolicy.SelectForUnload(_resident, CanUnloadHistory, DateTime.UtcNow);
+            SessionResidencyPolicy.SelectForUnload(_resident, CanUnloadHistory, UtcClock());
 
         foreach (string sessionId in doomed)
         {
             ChatSession? session;
             lock (_locker) _loaded.TryGetValue(sessionId, out session);
-            if (session == null)
+            // 历史已经不在内存(驻留表里是一笔过期的记账)就只销账。下面读 History 会触发重载——
+            // 为了卸载先加载,等于白白整读整写一遍
+            if (session is not { IsHistoryResident: true })
             {
                 _resident.TryRemove(sessionId, out _);
                 continue;

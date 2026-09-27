@@ -40,7 +40,7 @@ public sealed class GroupArtifactsTests : IDisposable
         List<ChatMessage> uiharu = [];
         AddWrite(uiharu, "a", FileToolNames.Write, note, "Saved '171-挂点核对.md' (12 lines).");
 
-        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace, [("初春饰利", uiharu)]);
+        IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace, [("初春饰利", Written(uiharu))]);
 
         Assert.Equal(["171-挂点核对.md", "chart.png"], artifacts.Select(x => x.DisplayPath).Order());
         Assert.All(artifacts, x => Assert.Equal(EGroupArtifactSource.DraftRoom, x.Source));
@@ -65,7 +65,7 @@ public sealed class GroupArtifactsTests : IDisposable
         AddWrite(mitsuko, "6", FileToolNames.Edit, code, "Applied 1 edit(s) to 'A.cpp'.");
 
         IReadOnlyList<GroupArtifact> artifacts = GroupArtifacts.Collect(_room, _workspace,
-            [("婚后光子", mitsuko), ("一方通行", accelerator)]);
+            [("婚后光子", Written(mitsuko)), ("一方通行", Written(accelerator))]);
 
         Assert.Equal([Path.Combine("Code", "A.cpp"), Path.Combine("Design", "spec.md")],
             artifacts.Select(x => x.DisplayPath).Order());
@@ -91,6 +91,8 @@ public sealed class GroupArtifactsTests : IDisposable
     {
         Assert.Empty(GroupArtifacts.Collect(Path.Combine(_root, "nope"), null, []));
     }
+
+    private IReadOnlyList<string> Written(List<ChatMessage> history) => GroupArtifacts.WrittenPaths(history, _workspace);
 
     private static string Touch(string root, string relative)
     {

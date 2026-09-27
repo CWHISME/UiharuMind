@@ -147,12 +147,12 @@ public sealed partial class GroupArtifactsViewData : ObservableObject, IDisposab
 
     private IReadOnlyList<GroupArtifact> Collect()
     {
-        List<(string, IReadOnlyList<ChatMessage>)> members = [];
+        List<(string, IReadOnlyList<string>)> members = [];
         foreach (string id in _group.GroupMemberSessionIds)
         {
             if (SessionManager.Instance.Load(id) is not { } member) continue;
-            // 历史可能正被执行线程追加：取一份快照再读
-            members.Add((member.CharacterData.CharacterName, member.History.ToList()));
+            // 历史已卸掉的成员用缓存，不为这一张清单把整份历史读回来
+            members.Add((member.CharacterData.CharacterName, GroupWrittenPaths.Of(member, _group.WorkspacePath)));
         }
 
         return GroupArtifacts.Collect(DraftRoom, _group.WorkspacePath, members);

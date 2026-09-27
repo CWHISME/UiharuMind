@@ -52,15 +52,15 @@ public static class GroupArtifacts
     /// </summary>
     /// <param name="draftRoom">草稿目录绝对路径</param>
     /// <param name="workspace">群的工作区；没绑为 null</param>
-    /// <param name="members">各成员的名字与会话历史，按成员顺序</param>
+    /// <param name="members">各成员的名字与写过的文件（<see cref="WrittenPaths"/>，界面经 <see cref="GroupWrittenPaths"/> 取），按成员顺序</param>
     /// <returns>产物；盘上已不存在的不列</returns>
     public static IReadOnlyList<GroupArtifact> Collect(string draftRoom, string? workspace,
-        IEnumerable<(string Name, IReadOnlyList<ChatMessage> History)> members)
+        IEnumerable<(string Name, IReadOnlyList<string> Written)> members)
     {
         Dictionary<string, List<string>> authors = new(PathComparer);
-        foreach ((string name, IReadOnlyList<ChatMessage> history) in members)
+        foreach ((string name, IReadOnlyList<string> written) in members)
         {
-            foreach (string path in WrittenPaths(history, workspace))
+            foreach (string path in written)
             {
                 if (!authors.TryGetValue(path, out List<string>? list)) authors[path] = list = [];
                 if (!list.Contains(name)) list.Add(name);
