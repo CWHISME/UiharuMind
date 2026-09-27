@@ -80,16 +80,18 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         ChatMessage post = group.CreateMessage(ChatRole.User, text, images);
         int index = Append(group, post);
 
-        if (EpisodeOf(group.SessionId) is { } running)
+        while (true)
         {
-            await OnAppendedAsync(running, post, index, null);
-            return;
-        }
+            if (EpisodeOf(group.SessionId) is { } running)
+            {
+                if (await OnAppendedAsync(running, post, index, null)) return;
+                // 那一波已收场、只是还没摘：它接不住这句。等它摘掉，由这句开一波
+                await running.Removed.Task;
+                continue;
+            }
 
-        // 开波落空说明恰好别处先开了一波：按插进那一波处理，别把这句丢了
-        if (!await RunEpisodeAsync(group, new GroupKickoff(index)) && EpisodeOf(group.SessionId) is { } raced)
-        {
-            await OnAppendedAsync(raced, post, index, null);
+            // 开波落空说明恰好别处先开了一波：回到上面，按插进那一波处理
+            if (await RunEpisodeAsync(group, new GroupKickoff(index))) return;
         }
     }
 
@@ -97,7 +99,15 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// 不开口也让大家接着说：串行再跑一圈；并行叫醒所有还有新话没听的成员。一个群同时只跑一波，重复调用是空操作
     /// </summary>
     /// <param name="group">群壳会话</param>
-    public Task ContinueAsync(ChatSession group) => RunEpisodeAsync(group, new GroupKickoff(null));
+    public async Task ContinueAsync(ChatSession group)
+    {
+        while (!await RunEpisodeAsync(group, new GroupKickoff(null)))
+        {
+            if (EpisodeOf(group.SessionId) is not { } running) continue;
+            if (!running.Scheduler.IsFinished) return; //还在跑：重复调用
+            await running.Removed.Task; //已收场、只是还没摘：等它摘掉再开，不然这一下「继续」就静默落空
+        }
+    }
 
     /// <summary>停下这个群正在跑的那一波（连同所有正在说的成员）</summary>
     /// <param name="groupId">群壳会话标识</param>
@@ -259,6 +269,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         {
             lock (_locker) _episodes.Remove(group.SessionId);
             episode.Run.Dispose();
+            episode.Removed.TrySetResult();
         }
 
         return true;
@@ -323,11 +334,12 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             : Task.CompletedTask;
     }
 
-    private async Task OnAppendedAsync(Episode episode, ChatMessage post, int index, string? authorSessionId)
+    // 返回这一波接没接住：已收场的波接不住，用户发言由调用方另开一波；成员发言照旧只落盘（没有波时也是如此）
+    private async Task<bool> OnAppendedAsync(Episode episode, ChatMessage post, int index, string? authorSessionId)
     {
         GroupPostEvent posted = new(index, authorSessionId, post.Text);
         Task broadcast = episode.Run.EnqueueBroadcast(() => BroadcastAsync(episode, post, posted));
-        episode.Scheduler.OnPosted(posted);
+        bool accepted = episode.Scheduler.OnPosted(posted);
         try
         {
             await broadcast;
@@ -336,6 +348,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         {
             Log.Warning($"Group broadcast failed: {e.Message}");
         }
+
+        return accepted;
     }
 
     private async Task BroadcastAsync(Episode episode, ChatMessage post, GroupPostEvent posted)
@@ -365,5 +379,9 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         }
     }
 
-    private sealed record Episode(GroupRun Run, IGroupScheduler Scheduler);
+    private sealed record Episode(GroupRun Run, IGroupScheduler Scheduler)
+    {
+        /// <summary>这一波已从登记处摘掉：等它的人（撞上已收场的波）此后可以另开一波</summary>
+        public TaskCompletionSource Removed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
 }

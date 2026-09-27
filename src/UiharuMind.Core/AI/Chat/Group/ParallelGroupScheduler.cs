@@ -45,12 +45,36 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
         return _idle.Task;
     }
 
-    public void OnPosted(GroupPostEvent post)
+    public bool IsFinished
     {
-        IReadOnlyList<GroupWake> wakes = post.AuthorSessionId == null
-            ? WakesForUserPost(post.Text)
-            : WakesForMemberPost(post.AuthorSessionId, post.Text);
-        foreach (GroupWake wake in wakes) Wake(wake, post.Index);
+        get
+        {
+            lock (_sync) return _closed;
+        }
+    }
+
+    public bool OnPosted(GroupPostEvent post)
+    {
+        // 先占一份：算唤醒、叫醒人的这段时间里，这一波不许被判定为空闲——否则判完空闲才叫醒的人会被拒，这句就没人接
+        lock (_sync)
+        {
+            if (_closed) return false;
+            _active++;
+        }
+
+        try
+        {
+            IReadOnlyList<GroupWake> wakes = post.AuthorSessionId == null
+                ? WakesForUserPost(post.Text)
+                : WakesForMemberPost(post.AuthorSessionId, post.Text);
+            foreach (GroupWake wake in wakes) Wake(wake, post.Index);
+        }
+        finally
+        {
+            Release();
+        }
+
+        return true;
     }
 
     private IReadOnlyList<GroupWake> WakesForMemberPost(string authorSessionId, string text)

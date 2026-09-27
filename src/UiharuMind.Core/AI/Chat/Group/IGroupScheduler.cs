@@ -58,9 +58,15 @@ internal interface IGroupScheduler
     Task RunAsync(GroupKickoff kickoff);
 
     /// <summary>
+    /// 这一波已经收场（之后只剩宿主把它摘掉）。收场与摘除之间来的发言它接不住，宿主要另开一波
+    /// </summary>
+    bool IsFinished { get; }
+
+    /// <summary>
     /// 这一波里有一条新发言进了群流水（已经广播给正在跑的人）。
     /// 由写入方同步调用，实现里不要阻塞
     /// </summary>
     /// <param name="post">新发言</param>
-    void OnPosted(GroupPostEvent post);
+    /// <returns>这一波接住了为 true；已收场为 false，由宿主另开一波</returns>
+    bool OnPosted(GroupPostEvent post);
 }
