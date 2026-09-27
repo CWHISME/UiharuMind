@@ -147,7 +147,8 @@ internal static class AgentOptionsFactory
         options.AIContextProviders = contextProviders;
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
-            AutoApprovalRules = ApprovalModeMapper.BuildRules(plan.Profile.PermissionMode,
+            AutoApprovalRules = ApprovalModeMapper.BuildRules(
+                plan.Profile.PermissionModeSource ?? (() => plan.Profile.PermissionMode),
                 plan.WorkingDirectory, plan.Profile.PreAuthorizedShellPatterns,
                 plan.Profile.SessionShellApprovalSource,
                 // 会话自己的产出房间视为界内:测试脚本与中间文件有地方去,就不必为它们弹审批

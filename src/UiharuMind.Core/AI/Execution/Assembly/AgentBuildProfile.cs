@@ -95,6 +95,11 @@ public class AgentBuildProfile
     public Func<IReadOnlyList<string>?>? SessionShellApprovalSource { get; init; }
 
     /// <summary>
+    /// 权限档来源（审批规则每次判断时现取；中途改档下一条调用即生效）。为 null 时用 <see cref="PermissionMode"/>
+    /// </summary>
+    public Func<EAgentPermissionMode>? PermissionModeSource { get; init; }
+
+    /// <summary>
     /// 一次委派开始时把子会话标识交给界面（参数为工具调用标识与子会话标识）。
     /// 为空表示没有界面在看——见 <see cref="ToolCall.SubSessionStartedContent"/>。
     /// </summary>
@@ -158,15 +163,17 @@ public class AgentBuildProfile
                 ? new SubAgentIdentity(session.ParentSessionId!, session.SubAgentType, session.SubAgentName, session.SubAgentRole)
                 : null,
             PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
+            PermissionModeSource = () => (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
             GroupScene = GroupSceneSource.For(session),
             // 子会话的产出目录跟随派活者:派活时把主代理的目录名固化在子会话上,
             // 于是子代理的产出直接落主代理会话的目录(见 ChatSession.ParentOutputFolderName)。
-            // 旧存档没有这个值,回退子会话自己的目录
+            // 旧存档没有这个值,回退子会话自己的目录。
+            // 群成员共用群壳那一间:一起干的活落在一处,产物不必从五个目录里拼;群删了房间随之删
             OutputFolderName = session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
                 ? session.ParentOutputFolderName
-                : AgentOutputLayout.GetFolderName(session.WorkspacePath, session.SessionId),
+                : AgentOutputLayout.GetFolderName(session.WorkspacePath, session.GroupId ?? session.SessionId),
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,

@@ -42,6 +42,21 @@ public class PermissionModeApprovalTests
         Assert.False(await ApprovedAsync(EAgentPermissionMode.ReadOnly, Shell("ls")));
     }
 
+    /// <summary>档位现取：跑到一半调严，下一条调用就按新档审批，不等下一轮重新装配</summary>
+    [Fact]
+    public async Task ChangingTheMode_TakesEffectOnTheNextCall()
+    {
+        EAgentPermissionMode mode = EAgentPermissionMode.FullAuto;
+        var rules = ApprovalModeMapper.BuildRules(() => mode, Root);
+
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(rules, Shell("dotnet build")));
+        mode = EAgentPermissionMode.AutoEdit;
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, Shell("dotnet build")));
+        Assert.True(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit($"{Root}/src/A.cs")));
+        mode = EAgentPermissionMode.ReadOnly;
+        Assert.False(await ApprovalRuleProbe.IsApprovedAsync(rules, Edit($"{Root}/src/A.cs")));
+    }
+
     [Fact]
     public async Task FullAuto_ApprovesShellAndInsideWorkspaceWrites()
     {
@@ -64,18 +79,29 @@ public class PermissionModeApprovalTests
         Assert.False(await ApprovedAsync(mode, Edit($"{Root}/../outside/A.cs"))); //回溯出去也算越界
     }
 
-    /// <summary>判据保守：无从判定时一律要审批，不能让畸形参数悄悄越界落盘</summary>
+    /// <summary>判据保守：没有工作目录可比、无从判定时一律要审批，不能让畸形参数悄悄越界落盘</summary>
     [Theory]
     [InlineData(EAgentPermissionMode.AutoEdit)]
     [InlineData(EAgentPermissionMode.FullAuto)]
     public async Task UnjudgeableWrite_IsNeverAutoApproved(EAgentPermissionMode mode)
     {
-        FunctionCallContent noPath = new("c3", "Edit", new Dictionary<string, object?>());
-        Assert.False(await ApprovedAsync(mode, noPath));
-
-        // 没有工作目录可比 → 同样无从判定
         Assert.False(await ApprovalRuleProbe.IsApprovedAsync(
             ApprovalModeMapper.BuildRules(mode), Edit("/etc/hosts")));
+    }
+
+    /// <summary>
+    /// 没有路径的写调用什么都写不了（filePath 必填，绑定当场失败）：框架解析不了参数 JSON 时交来的就是它。
+    /// 拦下只会弹空卡、批了照样报错，放行让模型立刻拿到报错
+    /// </summary>
+    [Theory]
+    [InlineData(EAgentPermissionMode.AutoEdit)]
+    [InlineData(EAgentPermissionMode.FullAuto)]
+    public async Task WriteWithoutAPath_IsNotHeldForApproval(EAgentPermissionMode mode)
+    {
+        Assert.True(await ApprovedAsync(mode, new FunctionCallContent("c3", "Edit", null)));
+        Assert.True(await ApprovedAsync(mode, new FunctionCallContent("c5", "Edit",
+            new Dictionary<string, object?> { ["edits"] = "[]" })));
+        Assert.False(await ApprovedAsync(EAgentPermissionMode.ReadOnly, new FunctionCallContent("c6", "Edit", null)));
     }
 
     /// <summary>越界判定只认写工具：读工具压根没包审批，不该被这条规则连带影响</summary>

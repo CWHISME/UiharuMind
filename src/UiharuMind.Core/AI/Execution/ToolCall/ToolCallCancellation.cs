@@ -52,22 +52,21 @@ public static class ToolCallCancellation
         + " This tool call never ran: its approval request was not answered before the turn ended.";
 
     /// <summary>
-    /// 审批<b>明确被拒</b>（用户拒绝、超时按拒绝收口）时补写的结果正文。与
-    /// <see cref="ApprovalUnansweredResultText"/> 的差别在语义：那边是「等到轮次结束也没人答」，
-    /// 这边是「答案给出来了：不行」——都共用 <c>[cancelled]</c> 标记，卡片按失败显示，
-    /// 下次打开该会话也不会把这条当成功的结果读。
+    /// 框架给被拒调用写的结果正文开头：MEAI 拿到拒绝回应，下一轮开头就地转成
+    /// 「Tool call invocation rejected. 原因」这条工具结果，随本轮落盘（ADR 0032 修订）
     /// </summary>
-    public const string DeniedResultText = Marker
-        + " This tool call never ran: its approval was denied before execution.";
+    private const string FrameworkRejectionPrefix = "Tool call invocation rejected";
 
     /// <summary>
-    /// 判断一条工具结果是否为取消补写的
+    /// 判断一条工具结果是否表示「这次调用没跑」：取消补写的，或审批被拒由框架写的
     /// </summary>
     /// <param name="result">工具结果</param>
-    /// <returns>是否取消</returns>
+    /// <returns>没跑为 true</returns>
     public static bool IsCancelled(FunctionResultContent result)
     {
-        return result.Result?.ToString()?.StartsWith(Marker, StringComparison.Ordinal) == true;
+        string? text = result.Result?.ToString();
+        return text != null && (text.StartsWith(Marker, StringComparison.Ordinal)
+                                || text.StartsWith(FrameworkRejectionPrefix, StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -141,95 +140,52 @@ public static class ToolCallCancellation
     }
 
     /// <summary>
-    /// 审批回环拿到<b>明确拒绝</b>的决定后，把对应调用补上「被拒」结果并落盘。
-    ///
-    /// 为什么需要它：被拒的调用在 MFA 审批闸上不执行，永远不会有 <see cref="FunctionResultContent"/>，
-    /// 拒绝响应只是作为下一轮模型输入——历史里于是留下孤儿 tool_call（OpenAI/Anthropic 都要求配对，
-    /// 严格服务端直接 400，这个会话从此发不出话）。<see cref="CloseUnansweredAtTail"/> 只补末尾，
-    /// 夹在中间的孤儿（模型被拒后继续跑别的调用）只有这里收。会话重放时卡片也因此显示
-    /// 「被拒」而不是「历史里没有这次调用的结果」。
-    ///
-    /// 插入位置跟在该调用所在助手消息之后、同批已落盘结果之后——此刻下一轮尚未开始，
-    /// 那批结果之后就是安全插入点。
+    /// 去掉同一调用的多余结果并落盘。每个调用只许有一条结果，多了严格服务端整条请求 400，
+    /// 这个会话从此发不出话。旧版在审批被拒后自己补一条 <c>[cancelled]</c>，框架又写一条被拒结果，
+    /// 两条并存（ADR 0032 修订）；读取时修掉，下次打开就能接着发
     /// </summary>
-    /// <param name="session">当前会话</param>
-    /// <param name="requests">本轮审批请求</param>
-    /// <param name="decisions">审批决定，与 <paramref name="requests"/> 一一对应</param>
-    /// <returns>补写的条数</returns>
-    public static int CloseDeniedCalls(ChatSession session,
-        IReadOnlyList<ToolApprovalRequestContent> requests,
-        IReadOnlyList<ChatMessage> decisions)
+    /// <param name="session">会话</param>
+    /// <returns>去掉的条数</returns>
+    public static int DropDuplicateResults(ChatSession session)
     {
-        int inserted = AppendDeniedCallResults(session.History, requests, decisions);
-        if (inserted > 0) session.Save();
-        return inserted;
+        int dropped = DropDuplicateResults(session.History);
+        if (dropped == 0) return 0;
+
+        session.Save();
+        Log.Warning($"Dropped {dropped} duplicate tool result(s) in session '{session.SessionId}'.");
+        return dropped;
     }
 
-    /// <summary>纯历史操作，供 <see cref="CloseDeniedCalls"/> 调用与单测</summary>
-    internal static int AppendDeniedCallResults(List<ChatMessage> history,
-        IReadOnlyList<ToolApprovalRequestContent> requests,
-        IReadOnlyList<ChatMessage> decisions)
+    /// <summary>纯历史操作，供 <see cref="DropDuplicateResults(ChatSession)"/> 调用与单测。
+    /// 留哪条：有真结果（不带 <c>[cancelled]</c>）就留第一条真结果，否则留第一条</summary>
+    internal static int DropDuplicateResults(List<ChatMessage> history)
     {
-        if (requests.Count == 0) return 0;
-        if (requests.Count != decisions.Count)
+        Dictionary<string, List<(ChatMessage Message, FunctionResultContent Result)>> byCall = new();
+        foreach (ChatMessage message in history)
         {
-            // 按位置配对的前提不成立（认不到的请求会少一条）。宁可整体不动也别按错位去补：
-            // 但那批调用会留下孤儿 tool_call，日志点名便于后续按 CallId 关联时回溯
-            Log.Warning($"CloseDeniedCalls: {requests.Count} request(s) vs {decisions.Count} decision(s); " +
-                        "denied-result patching skipped for this round.");
-            return 0;
+            foreach (FunctionResultContent result in message.Contents.OfType<FunctionResultContent>())
+            {
+                if (!byCall.TryGetValue(result.CallId, out var list)) byCall[result.CallId] = list = [];
+                list.Add((message, result));
+            }
         }
 
-        int inserted = 0;
-        for (int i = 0; i < requests.Count; i++)
+        int dropped = 0;
+        foreach (var results in byCall.Values.Where(x => x.Count > 1))
         {
-            // 只收「明确拒绝」：批准与「本会话总是允许」（AlwaysApprove 包装）都不能判成拒绝——
-            // 前者真执行了（会有结果）；后者是框架 wrapper、会被 OfType 滤掉，空序列 All(...) 判真，
-            // 会把已批准即将执行的调用误写成 denied（实机踩过）。
-            List<ToolApprovalResponseContent> responses = decisions[i].Contents
-                .OfType<ToolApprovalResponseContent>()
-                .ToList();
-            bool explicitlyDenied = responses.Count > 0 && responses.All(x => !x.Approved);
-            if (!explicitlyDenied) continue;
-
-            if (requests[i].ToolCall is not FunctionCallContent call) continue;
-            string callId = call.CallId;
-            if (history.Any(m => m.Contents.OfType<FunctionResultContent>()
-                    .Any(r => r.CallId == callId))) continue;
-
-            int assistantIndex = -1;
-            for (int j = history.Count - 1; j >= 0; j--)
+            var keep = results.FirstOrDefault(x => !IsPlaceholder(x.Result));
+            if (keep.Result == null) keep = results[0];
+            foreach (var (message, result) in results.Where(x => !ReferenceEquals(x.Result, keep.Result)))
             {
-                if (history[j].Contents.OfType<FunctionCallContent>().Any(c => c.CallId == callId))
-                {
-                    assistantIndex = j;
-                    break;
-                }
+                message.Contents.Remove(result);
+                dropped++;
             }
-
-            ChatMessage resultMessage = new(ChatRole.Tool,
-                [new FunctionResultContent(callId, DeniedResultText)])
-            {
-                CreatedAt = DateTimeOffset.Now,
-            };
-            if (assistantIndex < 0)
-            {
-                // 找不到（历史还没写到那一步的极端情况）：退化为追加到末尾，至少配对存在
-                history.Add(resultMessage);
-            }
-            else
-            {
-                // 该调用所在助手消息之后，跳过同批已落盘的结果，找到插入点
-                int insertAt = assistantIndex + 1;
-                while (insertAt < history.Count
-                       && history[insertAt].Contents.OfType<FunctionResultContent>().Any())
-                {
-                    insertAt++;
-                }
-                history.Insert(insertAt, resultMessage);
-            }
-            inserted++;
         }
-        return inserted;
+
+        if (dropped > 0) history.RemoveAll(x => x.Contents.Count == 0);
+        return dropped;
     }
+
+    private static bool IsPlaceholder(FunctionResultContent result) =>
+        result.Result?.ToString()?.StartsWith(Marker, StringComparison.Ordinal) == true;
 }

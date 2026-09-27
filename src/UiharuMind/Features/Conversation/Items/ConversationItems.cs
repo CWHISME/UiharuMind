@@ -522,10 +522,33 @@ public partial class ApprovalRequestItem : ConversationItemBase
             "deny" => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Deny, "User denied"),
             _ => ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Once, "User approved"),
         };
-        ResolvedText = decision;
+        ResolvedText = ResolvedLabel(decision);
         IsResolved = true;
         _completion.TrySetResult(new ChatMessage(ChatRole.User, new[] { response }));
     }
+
+    /// <summary>
+    /// 这次审批已在别处决出（同一次审批画在好几处，先点的那张算数）：收起按钮、显示那个决定
+    /// </summary>
+    /// <param name="response">最终的回应消息</param>
+    public void MarkDecidedElsewhere(ChatMessage response)
+    {
+        if (IsResolved) return;
+        // 「本会话总是允许」是框架的包装类型，认不出 ToolApprovalResponseContent 的就是它
+        ToolApprovalResponseContent? plain = response.Contents.OfType<ToolApprovalResponseContent>().FirstOrDefault();
+        ResolvedText = ResolvedLabel(plain == null ? "session" : plain.Approved ? "once" : "deny");
+        IsResolved = true;
+        _completion.TrySetResult(response);
+    }
+
+    /// 决定代号 → 卡片收起后那一行的文案（从前直接显示代号 once / deny）
+    private static string ResolvedLabel(string decision) => Loc.Text(decision switch
+    {
+        "session" => LangKey.AgentApprovalResolvedSession,
+        "session-command" => LangKey.AgentApprovalResolvedSessionCommand,
+        "deny" => LangKey.AgentApprovalResolvedDenied,
+        _ => LangKey.AgentApprovalResolvedOnce,
+    });
 
     /// <summary>
     /// 外部取消(停止运行时):按拒绝处理
@@ -534,7 +557,7 @@ public partial class ApprovalRequestItem : ConversationItemBase
     {
         if (IsResolved) return;
         IsResolved = true;
-        ResolvedText = "deny";
+        ResolvedText = ResolvedLabel("deny");
         _completion.TrySetResult(new ChatMessage(ChatRole.User,
             new[] { ToolApprovalResponseFactory.Create(_request, EApprovalDecision.Deny, "Run stopped") }));
     }

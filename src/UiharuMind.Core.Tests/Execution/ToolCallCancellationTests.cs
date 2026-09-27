@@ -141,101 +141,49 @@ public class ToolCallCancellationTests
         Assert.Equal(2, session.History.Count);
     }
 
-    //================= 审批拒绝的调用也要闭环(CloseDeniedCalls) =================
+    //================= 同一调用只许一条结果(ADR 0032 修订) =================
 
-    private static ToolApprovalRequestContent Approval(string callId) =>
-        new(callId, new FunctionCallContent(callId, "Write", null));
-
-    private static ChatMessage Deny(ToolApprovalRequestContent request) =>
-        new(ChatRole.User, [ToolApprovalResponseFactory.Create(request, EApprovalDecision.Deny, "denied")]);
-
-    private static ChatMessage Approve(ToolApprovalRequestContent request) =>
-        new(ChatRole.User, [ToolApprovalResponseFactory.Create(request, EApprovalDecision.Once, "ok")]);
-
-    private static ChatMessage ApproveSession(ToolApprovalRequestContent request) =>
-        new(ChatRole.User, [ToolApprovalResponseFactory.Create(request, EApprovalDecision.AlwaysInSession, "always")]);
+    private static ChatMessage ResultOf(string callId, string text) =>
+        new(ChatRole.Tool, [new FunctionResultContent(callId, text)]);
 
     [Fact]
-    public void DeniedCall_GetsResultRightAfterItsBatch()
+    public void DuplicateResults_KeepTheRealOne()
     {
-        // a 被拒、b 已执行:补写的 a 必须落在同批结果之后,不能插进调用与结果之间
-        List<ChatMessage> history = [new(ChatRole.User, "开工"), Call("a", "b"), Result("b")];
+        // 实机:旧版被拒后补 [cancelled],框架又写一条被拒结果,再带上同批另一个调用的真结果
+        const string rejected = "Tool call invocation rejected. Nobody can approve.";
+        List<ChatMessage> history =
+        [
+            new(ChatRole.User, "开工"), Call("a", "b"),
+            ResultOf("a", "[cancelled] This tool call never ran: its approval was denied before execution."),
+            ResultOf("a", rejected), Result("b"),
+        ];
 
-        int inserted = ToolCallCancellation.AppendDeniedCallResults(
-            history, [Approval("a")], [Deny(Approval("a"))]);
+        int dropped = ToolCallCancellation.DropDuplicateResults(history);
 
-        Assert.Equal(1, inserted);
-        Assert.Equal([ChatRole.User, ChatRole.Assistant, ChatRole.Tool, ChatRole.Tool],
-            history.Select(m => m.Role).ToArray());
-        Assert.Equal("a",
-            Assert.IsType<FunctionResultContent>(Assert.Single(history[3].Contents)).CallId);
+        Assert.Equal(1, dropped);
+        Assert.Equal(4, history.Count); //空了的那条消息一并去掉
+        FunctionResultContent kept = history.SelectMany(x => x.Contents).OfType<FunctionResultContent>()
+            .Single(x => x.CallId == "a");
+        Assert.Equal(rejected, kept.Result);
+        Assert.True(ToolCallCancellation.IsCancelled(kept)); //卡片仍按没跑显示
     }
 
     [Fact]
-    public void ApprovedCall_IsNotTouched()
+    public void DuplicatePlaceholders_KeepTheFirst()
     {
-        List<ChatMessage> history = [new(ChatRole.User, "开工"), Call("a")];
+        List<ChatMessage> history = [Call("a"), ResultOf("a", "[cancelled] one"), ResultOf("a", "[cancelled] two")];
 
-        int inserted = ToolCallCancellation.AppendDeniedCallResults(
-            history, [Approval("a")], [Approve(Approval("a"))]);
-
-        Assert.Equal(0, inserted);
-        Assert.Equal(2, history.Count);
+        Assert.Equal(1, ToolCallCancellation.DropDuplicateResults(history));
+        Assert.Equal("[cancelled] one",
+            Assert.IsType<FunctionResultContent>(Assert.Single(history[1].Contents)).Result);
     }
 
     [Fact]
-    public void AlwaysApproveDecision_IsNotTreatedAsDenied()
+    public void PairedHistory_IsLeftAlone()
     {
-        // 回归：用户点「本会话总是允许」时回应是框架的 AlwaysApprove 包装（不是
-        // ToolApprovalResponseContent）。旧实现 .OfType(...).All(...) 空序列判真，会把已批准
-        // （且即将执行）的调用误写成 denied——实机踩到，钉住
-        List<ChatMessage> history = [new(ChatRole.User, "开工"), Call("a")];
+        List<ChatMessage> history = [Call("a", "b"), Result("a"), Result("b")];
 
-        int inserted = ToolCallCancellation.AppendDeniedCallResults(
-            history, [Approval("a")], [ApproveSession(Approval("a"))]);
-
-        Assert.Equal(0, inserted);
-        Assert.Equal(2, history.Count);
-    }
-
-    [Fact]
-    public void DeniedCall_WithExistingResult_IsSkipped()
-    {
-        List<ChatMessage> history = [new(ChatRole.User, "开工"), Call("a"), Result("a")];
-
-        int inserted = ToolCallCancellation.AppendDeniedCallResults(
-            history, [Approval("a")], [Deny(Approval("a"))]);
-
-        Assert.Equal(0, inserted);
-    }
-
-    [Fact]
-    public void DeniedCall_WithoutAnAnchorMessage_AppendsAtTail()
-    {
-        //历史还没写到那一步(极端情况):退化为追加到末尾,至少配对存在
-        List<ChatMessage> history = [new(ChatRole.User, "开工")];
-
-        int inserted = ToolCallCancellation.AppendDeniedCallResults(
-            history, [Approval("a")], [Deny(Approval("a"))]);
-
-        Assert.Equal(1, inserted);
-        Assert.Equal(ChatRole.Tool, history[^1].Role);
-    }
-
-    [Fact]
-    public void CloseDeniedCalls_SavesWhenItWrites()
-    {
-        //整写落盘只发生在真有补写时;transient 会话持久化短路,这里验证的是调用链不断
-        ChatSession session = NewSession();
-        session.History.Add(new(ChatRole.User, "开工"));
-        session.History.Add(Call("a"));
-
-        int closed = ToolCallCancellation.CloseDeniedCalls(
-            session, [Approval("a")], [Deny(Approval("a"))]);
-
-        Assert.Equal(1, closed);
-        Assert.Equal(3, session.History.Count);
-        Assert.Equal(ToolCallCancellation.DeniedResultText,
-            Assert.IsType<FunctionResultContent>(Assert.Single(session.History[2].Contents)).Result);
+        Assert.Equal(0, ToolCallCancellation.DropDuplicateResults(history));
+        Assert.Equal(3, history.Count);
     }
 }

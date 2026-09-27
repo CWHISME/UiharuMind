@@ -56,6 +56,15 @@
     <data name="AgentInterjectionPending" xml:space="preserve">
         <value>等待插话…</value>
     </data>
+    <data name="GroupApprovalOpen" xml:space="preserve">
+        <value>查看</value>
+    </data>
+    <data name="GroupApprovalWaitingFormat" xml:space="preserve">
+        <value>{0} 在群「{1}」里等你批准</value>
+    </data>
+    <data name="GroupApprovalWaitingTip" xml:space="preserve">
+        <value>到群输入框上方处理。十分钟无人应答按拒绝收口。</value>
+    </data>
     <data name="GroupInjectionPendingFormat" xml:space="preserve">
         <value>群里新话 {0} 条，等他接收… 最新：{1}</value>
     </data>
@@ -169,6 +178,18 @@
     </data>
     <data name="AgentApprovalTitle" xml:space="preserve">
         <value>需要审批</value>
+    </data>
+    <data name="AgentApprovalResolvedOnce" xml:space="preserve">
+        <value>已允许（本次）</value>
+    </data>
+    <data name="AgentApprovalResolvedSession" xml:space="preserve">
+        <value>已允许（本会话）</value>
+    </data>
+    <data name="AgentApprovalResolvedSessionCommand" xml:space="preserve">
+        <value>已放行同类命令（本会话）</value>
+    </data>
+    <data name="AgentApprovalResolvedDenied" xml:space="preserve">
+        <value>已拒绝</value>
     </data>
     <data name="AgentApproveOnce" xml:space="preserve">
         <value>本次允许</value>
@@ -2996,6 +3017,15 @@
     </data>
     <data name="GroupMemberBusyQueueTip" xml:space="preserve">
         <value>他正在群里发言，这条消息已排队，等这轮结束自动发送</value>
+    </data>
+    <data name="GroupMemberAwaitingApproval" xml:space="preserve">
+        <value>等审批</value>
+    </data>
+    <data name="GroupPostedTag" xml:space="preserve">
+        <value>已发到群</value>
+    </data>
+    <data name="GroupMemberPermissionFollowFormat" xml:space="preserve">
+        <value>跟随群聊（在群视图里改）。{0}</value>
     </data>
     <data name="GroupMemberSpeaking" xml:space="preserve">
         <value>发言中</value>

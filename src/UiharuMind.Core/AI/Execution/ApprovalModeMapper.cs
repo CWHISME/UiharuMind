@@ -67,6 +67,25 @@ public static class ApprovalModeMapper
         EAgentPermissionMode mode, string workspaceRoot = "",
         IReadOnlyList<string>? preAuthorizedShellPatterns = null,
         Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
+        string approvedWriteRoot = "", string memoryWriteRoot = "") =>
+        BuildRules(() => mode, workspaceRoot, preAuthorizedShellPatterns, sessionShellApprovalSource,
+            approvedWriteRoot, memoryWriteRoot);
+
+    /// <summary>
+    /// 同上，但档位每次判断时现取：用户中途改档（或群改档推给成员），下一条调用就按新档来，
+    /// 不必等下一轮重新装配——跑到一半调严却还按旧档放行，界面与实际就对不上了
+    /// </summary>
+    /// <param name="modeSource">当前权限档来源</param>
+    /// <param name="workspaceRoot">工作目录绝对路径</param>
+    /// <param name="preAuthorizedShellPatterns">预授权的 shell 命令 glob 模式,可空</param>
+    /// <param name="sessionShellApprovalSource">会话级放行的 shell 命令模式来源,可空</param>
+    /// <param name="approvedWriteRoot">会话自己的产出房间绝对路径</param>
+    /// <param name="memoryWriteRoot">记忆目录绝对路径</param>
+    /// <returns>规则列表</returns>
+    public static List<Func<ToolAutoApprovalRuleContext, ValueTask<bool>>> BuildRules(
+        Func<EAgentPermissionMode> modeSource, string workspaceRoot = "",
+        IReadOnlyList<string>? preAuthorizedShellPatterns = null,
+        Func<IReadOnlyList<string>?>? sessionShellApprovalSource = null,
         string approvedWriteRoot = "", string memoryWriteRoot = "")
     {
         string root = string.IsNullOrWhiteSpace(workspaceRoot) ? string.Empty : Path.GetFullPath(workspaceRoot);
@@ -85,24 +104,19 @@ public static class ApprovalModeMapper
             AgentSkillsProvider.ReadOnlyToolsAutoApprovalRule,
         };
 
-        switch (mode)
-        {
-            case EAgentPermissionMode.FullAuto:
-                // 全放行,但越界写入除外——定时任务是代码写死的档位,用户没机会为它选,
-                // 而无人值守下越界写入没人拦就真的没人拦了
-                rules.Add(context =>
-                    new ValueTask<bool>(!IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
-                break;
+        // 全放行,但越界写入除外——定时任务是代码写死的档位,用户没机会为它选,
+        // 而无人值守下越界写入没人拦就真的没人拦了
+        rules.Add(context => new ValueTask<bool>(
+            modeSource() == EAgentPermissionMode.FullAuto &&
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
 
-            case EAgentPermissionMode.AutoEdit:
-                // 这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:枚举注释写着
-                // "文件读写自动放行",实际每次编辑都弹卡。更要命的是定时任务写死用这一档而
-                // 无头执行一律拒绝审批,净效果是定时任务所有文件写入都被拒
-                rules.Add(context => new ValueTask<bool>(
-                    IsMutatingFileTool(context.FunctionCallContent) &&
-                    !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
-                break;
-        }
+        // 自动编辑:工作区内的写入放行。这一档曾经<b>一条规则都不加</b>,于是与只读档行为完全一致:
+        // 枚举注释写着"文件读写自动放行",实际每次编辑都弹卡。更要命的是定时任务写死用这一档而
+        // 无头执行一律拒绝审批,净效果是定时任务所有文件写入都被拒
+        rules.Add(context => new ValueTask<bool>(
+            modeSource() == EAgentPermissionMode.AutoEdit &&
+            IsMutatingFileTool(context.FunctionCallContent) &&
+            !IsOutOfWorkspaceWrite(context.FunctionCallContent, root, room)));
 
         // 记忆目录:任何权限档可写(ADR 0028)——记忆是 agent 的工作台,只读/计划档也得能记笔记。
         // 范围只认 Memory/ 这一格;删除不在这里,走 shell 由命令行审批纪律兜。
@@ -191,8 +205,12 @@ public static class ApprovalModeMapper
     /// <summary>
     /// 这次调用是否是「工作区外的写入」。
     ///
-    /// 判据故意保守:是写工具、但<b>取不到路径或无从判定</b>时也算越界——宁可多问一次,
+    /// 判据故意保守:是写工具、但路径<b>无从判定</b>(非法字符、过长)时也算越界——宁可多问一次,
     /// 也不能让一个畸形参数悄悄越界落盘。
+    ///
+    /// 例外是<b>根本没有路径</b>:<c>filePath</c> 是两个写工具的必填参数,缺了参数绑定当场失败,
+    /// 这次调用什么都写不了。框架解析不了参数 JSON(太长被截断、转义写坏)时交来的正是这种空参数调用,
+    /// 拦下来只会弹一张空卡,批了也还是报错——不如直接放行,让模型立刻拿到报错重发。
     ///
     /// 只比较规范化后的路径,<b>不解析符号链接</b>:工作区里一个指向外部的软链能绕过这条判据。
     /// 接受这个缺口,因为能这么干的模型同样能直接用 shell,而真正的边界是"用户点了那一下"——
@@ -206,7 +224,7 @@ public static class ApprovalModeMapper
         if (workspaceRoot.Length == 0) return true;
 
         string? path = ExtractFilePath(functionCall.Arguments);
-        if (string.IsNullOrWhiteSpace(path)) return true;
+        if (path == null) return false;
 
         string full;
         try

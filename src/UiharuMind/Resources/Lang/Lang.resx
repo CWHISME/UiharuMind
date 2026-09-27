@@ -63,6 +63,15 @@
     <data name="AgentInterjectionPending" xml:space="preserve">
         <value>Waiting to interject…</value>
     </data>
+    <data name="GroupApprovalOpen" xml:space="preserve">
+        <value>View</value>
+    </data>
+    <data name="GroupApprovalWaitingFormat" xml:space="preserve">
+        <value>{0} needs your approval in group “{1}”</value>
+    </data>
+    <data name="GroupApprovalWaitingTip" xml:space="preserve">
+        <value>Decide above the group input box. Denied automatically after 10 minutes without an answer.</value>
+    </data>
     <data name="GroupInjectionPendingFormat" xml:space="preserve">
         <value>{0} new in the group, waiting to be read… Latest: {1}</value>
     </data>
@@ -176,6 +185,18 @@
     </data>
     <data name="AgentApprovalTitle" xml:space="preserve">
         <value>Approval required</value>
+    </data>
+    <data name="AgentApprovalResolvedOnce" xml:space="preserve">
+        <value>Approved (this time)</value>
+    </data>
+    <data name="AgentApprovalResolvedSession" xml:space="preserve">
+        <value>Approved for this session</value>
+    </data>
+    <data name="AgentApprovalResolvedSessionCommand" xml:space="preserve">
+        <value>Approved similar commands for this session</value>
+    </data>
+    <data name="AgentApprovalResolvedDenied" xml:space="preserve">
+        <value>Denied</value>
     </data>
     <data name="AgentApproveOnce" xml:space="preserve">
         <value>Allow once</value>
@@ -3003,6 +3024,15 @@ Allow them?</value>
     </data>
     <data name="GroupMemberBusyQueueTip" xml:space="preserve">
         <value>They are speaking in the group. This message is queued and will be sent when their turn ends.</value>
+    </data>
+    <data name="GroupMemberAwaitingApproval" xml:space="preserve">
+        <value>Awaiting approval</value>
+    </data>
+    <data name="GroupPostedTag" xml:space="preserve">
+        <value>Posted to group</value>
+    </data>
+    <data name="GroupMemberPermissionFollowFormat" xml:space="preserve">
+        <value>Follows the group (change it in the group view). {0}</value>
     </data>
     <data name="GroupMemberSpeaking" xml:space="preserve">
         <value>Speaking</value>
