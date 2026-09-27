@@ -104,12 +104,12 @@ public sealed class GroupShellViewData : IDisposable
     }
 
     /// <summary>
-    /// 某个会话刚报了一次用量。是本群成员就刷右栏那一行。只在 UI 线程上调
+    /// 某个会话刚报了一次用量（可能来自执行线程）。是本群成员就刷右栏那一行
     /// </summary>
     /// <param name="sessionId">报用量的会话</param>
     public void OnSessionUsageReported(string sessionId)
     {
-        if (Members.Contains(sessionId)) Members.RefreshUsageOf(sessionId);
+        if (Members.Contains(sessionId)) Dispatcher.UIThread.Post(() => Members.RefreshUsageOf(sessionId));
     }
 
     /// <summary>摘掉订阅并弃用待审批条与产物区</summary>

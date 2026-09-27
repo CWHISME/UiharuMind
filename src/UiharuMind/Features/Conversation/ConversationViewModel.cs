@@ -591,14 +591,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>
     /// 某个会话刚报了一次用量（来自执行线程）。两处要跟：群的成员列表那一行；
-    /// 以及本窗口正旁观着别处跑的那一轮（群轮、子代理）——自己跑的那一轮由逐块通知刷，不走这里
+    /// 以及本窗口正旁观着别处跑的那一轮（群轮、子代理）——自己跑的那一轮由逐块通知刷，不走这里。
+    /// 归属在执行线程上先认：报用量是高频事件，缓存着的每个实例都收得到，不相干的不该排进 UI 线程
     /// </summary>
     private void OnSessionUsageReported(string sessionId)
     {
+        Group?.OnSessionUsageReported(sessionId);
+        if (sessionId != CurrentMeta?.SessionId) return;
+
         Dispatcher.UIThread.Post(() =>
         {
-            Group?.OnSessionUsageReported(sessionId);
-            if (sessionId != CurrentMeta?.SessionId || _driver.IsRunning || CurrentSession is not { } session) return;
+            if (_driver.IsRunning || CurrentSession is not { } session) return;
 
             _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
                 session.TotalReasoningTokens);
@@ -613,10 +616,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <param name="sessionId">状态变化的会话</param>
     private void OnSessionRunStateChanged(string sessionId)
     {
-        // 别人的运行态也要看一眼:派出去的子会话卡在审批上时,派活那张卡要挂出提示
+        // 别人的运行态也要看一眼:派出去的子会话卡在审批上时,派活那张卡要挂出提示。
+        // 只认自己名下的:并行群聊里成员运行态抖得很勤,缓存着的每个实例都收得到
         if (sessionId != CurrentMeta?.SessionId)
         {
-            RefreshSubSessionApprovalWait(sessionId);
+            if (IsOwnSubSession(sessionId)) RefreshSubSessionApprovalWait(sessionId);
             Group?.OnSessionRunStateChanged(sessionId);
             return;
         }
@@ -717,6 +721,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             NotifySubAgentStatusChanged();
         });
     }
+
+    /// <summary>这个会话是不是本会话派出去的子会话。只读索引，后台线程上也可调</summary>
+    private bool IsOwnSubSession(string sessionId) =>
+        CurrentMeta?.SessionId is { } self && SessionManager.Instance.GetMeta(sessionId)?.ParentSessionId == self;
 
     /// <summary>历史里的某一条被别处原地换掉了（后续报告替换了上一份），见 <see cref="ConversationHistoryRenderer.Replace"/></summary>
     /// <param name="index">被替换的下标</param>
@@ -1016,7 +1024,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentMeta != null && character.CharacterId != CurrentMeta.CharacterId)
         {
             CurrentMeta.CharacterId = character.CharacterId;
-            SessionManager.Instance.Load(CurrentMeta.SessionId)?.ChangeCharacter(character);
+            CurrentSession?.ChangeCharacter(character);
             ConversationSessionBinder.PersistSettings(CurrentMeta);
         }
 
@@ -1688,11 +1696,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
+        // 本体在这里读进缓存,此后 CurrentSession 只查缓存(见 SessionManager.GetLoaded)
+        ChatSession? loaded = meta == null ? null : SessionManager.Instance.Load(meta.SessionId);
         // 群壳这一份必须在第一个 await 之前就位:页面先调装载、再换绑实例,绑定在这之后立刻求值,
         // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
-        Group = meta is { IsGroup: true } && SessionManager.Instance.Load(meta.SessionId) is { } shell
-            ? new GroupShellViewData(shell)
-            : null;
+        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));
@@ -1962,8 +1970,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <inheritdoc />
     void IConversationReconcileHost.RefreshTokenUsage() => RefreshTokenUsageText();
 
+    /// <summary>
+    /// 当前会话本体。只查已加载缓存而不走 <c>Load</c>：这里是高频路径（绑定 getter、事件回调），
+    /// <c>Load</c> 顺带的冷历史卸载可能同步写盘。本体在装载 / 新建时已进缓存，会话被删后为 null
+    /// </summary>
     private ChatSession? CurrentSession =>
-        CurrentMeta == null ? null : SessionManager.Instance.Load(CurrentMeta.SessionId);
+        CurrentMeta == null ? null : SessionManager.Instance.GetLoaded(CurrentMeta.SessionId);
 
     /// <summary>当前会话的执行者(会话本体持有);无会话为 null</summary>
     private ICharacterRunner? CurrentRunner => CurrentSession?.Runner;

@@ -293,6 +293,19 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
+    /// 只取已加载的本体：不读盘、不刷新访问时刻、不触发冷历史卸载。
+    /// 给高频读取自己那一份的持有者用（界面壳的属性 getter、事件回调）——<see cref="Load"/> 顺带的卸载
+    /// 可能同步写盘，不该跟着一次绑定求值跑。本体实例一经加载就不换（ADR 0036），被删除后这里返回 null
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>已加载的本体；没加载过或已删除为 null</returns>
+    public ChatSession? GetLoaded(string sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return null;
+        lock (_locker) return _loaded.GetValueOrDefault(sessionId);
+    }
+
+    /// <summary>
     /// 取本体，缓存没有就读盘。<b>整段在锁内</b>：两个线程同时首次加载同一会话，
     /// 否则会各持一份本体，历史被写坏。
     /// </summary>
