@@ -31,13 +31,13 @@
                             Background="{DynamicResource SemiGrey1}" CornerRadius="10" Padding="10">
                         <StackPanel Spacing="6">
                             <TextBlock FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                       Text="{Binding Conversation.ActiveGroupTitle}" />
+                                       Text="{Binding Conversation.Group.Title}" />
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Classes="muted" FontSize="11" Text="{Binding Conversation.GroupTypeName}" />
-                                <TextBlock Classes="muted" FontSize="11" Text="{Binding Conversation.GroupMemberCountText}" />
+                                <TextBlock Classes="muted" FontSize="11" Text="{Binding Conversation.Group.TypeName}" />
+                                <TextBlock Classes="muted" FontSize="11" Text="{Binding Conversation.Group.MemberCountText}" />
                             </StackPanel>
                             <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-                                       Text="{Binding Conversation.ActiveGroupDescription}" />
+                                       Text="{Binding Conversation.Group.Description}" />
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -52,9 +52,9 @@
                 <ScrollViewer Grid.Row="2" IsVisible="{Binding Conversation.IsGroupSession}"
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Spacing="10">
-                        <group:GroupMembersPanel DataContext="{Binding Conversation.GroupMembers}" />
+                        <group:GroupMembersPanel DataContext="{Binding Conversation.Group.Members}" />
                         <!-- 本群产物：群到底落了哪些盘（方案 v6 §1.4 产出锚点） -->
-                        <group:GroupArtifactsPanel DataContext="{Binding Conversation.GroupArtifacts}" />
+                        <group:GroupArtifactsPanel DataContext="{Binding Conversation.Group.Artifacts}" />
                     </StackPanel>
                 </ScrollViewer>
                 <Grid Grid.Row="2" IsVisible="{Binding !Conversation.IsGroupSession}">

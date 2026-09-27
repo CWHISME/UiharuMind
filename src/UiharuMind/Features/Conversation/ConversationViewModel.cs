@@ -78,8 +78,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string _inputText = string.Empty;
     [ObservableProperty] private string _inputPlaceholder = string.Empty;
-    [ObservableProperty] private string _groupPendingText = string.Empty; //群里广播进来、他还没接收的：合成一行
-    [ObservableProperty] private string _groupPendingTip = string.Empty; //那几条的全文
     [ObservableProperty] private bool _scrollToEnd;
     [ObservableProperty] private SendMode _senderMode = SendMode.User;
     [ObservableProperty] private bool _isPlaintext;
@@ -253,8 +251,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>权限档悬停提示</summary>
     public string PermissionTooltip => IsGroupMemberSession
-        ? string.Format(Loc.Text(LangKey.GroupMemberPermissionFollowFormat),
-            ConversationModeLabels.PermissionTooltip(PermissionModeIndex))
+        ? GroupMemberSessionViewData.PermissionTooltip(ConversationModeLabels.PermissionTooltip(PermissionModeIndex))
         : ConversationModeLabels.PermissionTooltip(PermissionModeIndex);
 
     /// <summary>权限档能不能在这里改：群成员跟群走，只在群视图设</summary>
@@ -289,16 +286,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     private bool _isLoadingSession; //加载会话期间抑制设置写回(加载是读,不是用户改动)
     private int _inputCountVersion; //输入估算版本号,后台计数只采纳最新一次
     private int _composerCaret = -1; //输入框光标（视图报上来）；-1 表示不知道，按末尾算
-    private GroupDeliveryRenderer? _deliveryRenderer; //成员会话的群投递拆段，按会话缓存
     private CancellationTokenSource? _tokenRefreshDebounce; //打字时合并刷新,避免每个字符都触发 ToolTip 重排
     private CancellationTokenSource? _usageRefreshDebounce; //流式期合并 UsageObserved 刷新,避免每个 chunk 都重排 ToolTip
 
     private readonly ConversationItemActions _itemActions; //气泡上的编辑/删除/分叉/重试
+    private readonly ConversationHistoryRenderer _history; //把历史画进 Items(回放、续窗、落盘补渲染)
+    private readonly RegisteredApprovalAdopter _approvalAdopter; //子会话/群成员认领登记在册的审批卡
     private readonly ConversationSessionBinder _binder; //建/装会话并挂执行者
     private readonly ConversationTranscript _transcript; //实时流装配器,落点即 Items
     private readonly TurnDriver _driver; //一轮对话的编排,与定时任务共用同一份
     private ChatSession? _signalSession; //已挂上历史变更信号的会话
-    private ICharacterRunner? _signalRunner; //盯着待发插话的那个执行者（群广播不经本视图插进来，得问它）
     private IDisposable? _sessionPin; //挂着期间钉住它的历史,不许被驻留策略卸掉
     private IDisposable? _liveObservation; //挂在会话实时内容流上的订阅(别人驱动那一轮时靠它逐 token)
     private readonly ITurnSink _liveObserverSink; //实时流的落点:同一个转录器,外面包一层 UI 线程 marshal
@@ -345,23 +342,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool HasPendingWork => IsGenerating
                                   || BackgroundSubAgentDispatcher.HasPendingWork(CurrentMeta?.SessionId);
 
-    /// <summary>
-    /// 已投入注入队列、模型还没消费的插话。它们不在时间轴上——位置要等消费那一刻才定——
-    /// 所以在输入区上方列出来，免得看着像没发出去。
-    /// </summary>
-    public ObservableCollection<PendingInterjectionViewData> PendingInterjections { get; } = new();
+    /// <summary>输入区上方待发的插话（已入注入队列、模型还没消费）</summary>
+    public InterjectionQueueViewData Interjections { get; }
 
-    /// <summary>有没有群里广播进来、他还没接收的发言（输入区上方那一行据此显隐）</summary>
-    public bool HasGroupPending => GroupPendingText.Length > 0;
-
-    /// <summary>
-    /// 本会话这一轮是<b>别处</b>在驱动的（子代理跑着、定时任务无人值守跑着、
-    /// 或者同一个会话在另一个界面壳里跑着）。
-    ///
-    /// 判据只能取运行态登记处：自己的 <see cref="_driver"/> 闲着并不代表会话空闲。
-    /// 认错的后果不是显示不好看——用户打的字会走「发下一轮」而不是「插话」，
-    /// 排进了队列却什么都不说（见 ADR 0021 的外驱条目）。
-    /// </summary>
     /// <summary>
     /// 本会话是不是一个子会话（决定要不要显示「交回主代理」）。
     /// 会话是异步装载的，所以<b>装载完成时必须发一次变更通知</b>，
@@ -369,42 +352,27 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     public bool IsSubSession => CurrentSession?.IsSubSession == true;
 
+    /// <summary>群壳那一份（右栏群卡、成员、产物、待审批条）；打开的不是群壳为 null</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsGroupSession), nameof(IsSenderSwitchVisible))]
+    private GroupShellViewData? _group;
+
+    /// <summary>群成员会话那一份（待接收的群发言、群投递渲染、权限跟群）；打开的不是成员会话为 null</summary>
+    [ObservableProperty] private GroupMemberSessionViewData? _groupMember;
+
     /// <summary>
-    /// 本会话是不是群壳（ADR 0046）：输入框发的是群发言，气泡不给编辑/删除/重试（送达即不可改）。
-    /// 与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知
+    /// 本会话是不是群壳（ADR 0046）：输入框发的是群发言，气泡不给编辑/删除/重试（送达即不可改）
     /// </summary>
-    public bool IsGroupSession => CurrentSession?.IsGroup == true;
+    public bool IsGroupSession => Group != null;
 
     /// <summary>能不能「从这里建群」：普通的单聊才行。与 <see cref="IsSubSession"/> 一样在会话装载完成时发变更通知</summary>
     public bool CanCreateGroupFromHere => GroupFromChat.CanStartFrom(CurrentMeta);
 
-    /// <summary>群壳的标题（右栏群卡）；不是群为空</summary>
-    public string ActiveGroupTitle => CurrentSession is { IsGroup: true } group ? group.Title : string.Empty;
-
-    /// <summary>群壳的描述（成员名单，右栏群卡）；不是群为空</summary>
-    public string ActiveGroupDescription => CurrentSession is { IsGroup: true } group ? group.Description : string.Empty;
-
-    /// <summary>群的类型显示名（右栏群卡）</summary>
-    public string GroupTypeName => CurrentSession is { IsGroup: true, IsAgentGroup: true }
-        ? Loc.Text(LangKey.GroupTypeAgent)
-        : Loc.Text(LangKey.GroupTypeChat);
-
-    /// <summary>群成员数显示文本（右栏群卡）</summary>
-    public string GroupMemberCountText => string.Format(Loc.Text(LangKey.GroupMemberCountFormat),
-        GroupMembers?.Members.Count ?? 0);
-
-    /// <summary>本会话是不是群成员会话。已解锁私聊：打字过轮次闸门排队，见 <see cref="GroupMemberTurnGate"/>（ADR 0046 未决已落地）</summary>
-    public bool IsGroupMemberSession => CurrentSession?.IsGroupMember == true;
-
     /// <summary>
-    /// 群成员会话正在跑<b>群里那一轮</b>（不是本地私聊轮）。判据取运行态登记处：
-    /// 群轮跑成员时 TurnDriver 把成员会话登记为 busy，而本地 <c>_driver</c> 闲着。
-    /// 此时打字不该走插话——插话的回应会被群轮按「这一轮正文」收成群发言
+    /// 本会话是不是群成员会话。已解锁私聊：打字过轮次闸门排队，见 <see cref="GroupMemberTurnGate"/>（ADR 0046 未决已落地）。
+    /// 看会话头而不是 <see cref="GroupMember"/>：后者挂接之后才建，而权限档的可改与否在装载一开始就要对
     /// </summary>
-    public bool IsGroupMemberRunningGroupTurn =>
-        CurrentSession is { IsGroupMember: true }
-        && SessionManager.Instance.Running.IsBusy(CurrentSession.SessionId)
-        && !_driver.IsRunning;
+    public bool IsGroupMemberSession => CurrentMeta?.IsGroupMember == true;
 
     /// <summary>输入区是否可见</summary>
     public bool IsComposerVisible => true;
@@ -412,14 +380,21 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>「以角色身份发送」切换是否可见：普通对话才有，群里没有「替谁说话」这回事</summary>
     public bool IsSenderSwitchVisible => !IsAgentSession && !IsGroupSession;
 
-    /// <summary>群的成员（右栏成员列表）；不是群为 null</summary>
-    [ObservableProperty] private GroupMembersViewData? _groupMembers;
+    partial void OnGroupChanged(GroupShellViewData? oldValue, GroupShellViewData? newValue)
+    {
+        if (oldValue != null)
+        {
+            oldValue.SpeakersChanged -= NotifyBusyChanged;
+            oldValue.Dispose();
+        }
 
-    /// <summary>群的待审批条；不是群为 null</summary>
-    [ObservableProperty] private GroupApprovalsViewData? _groupApprovals;
+        if (newValue != null) newValue.SpeakersChanged += NotifyBusyChanged;
+    }
 
-    /// <summary>群的产物区（右栏成员列表下面）；不是群时为 null</summary>
-    [ObservableProperty] private GroupArtifactsViewData? _groupArtifacts;
+    partial void OnGroupMemberChanged(GroupMemberSessionViewData? oldValue, GroupMemberSessionViewData? newValue)
+    {
+        oldValue?.Dispose();
+    }
 
     /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>
     public event Action<string>? OpenSessionRequested;
@@ -447,10 +422,17 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         App.Clipboard.CopyToClipboard(SessionIdFull, true, true);
     }
 
+    /// <summary>
+    /// 本会话这一轮是<b>别处</b>在驱动的（子代理跑着、定时任务无人值守跑着、
+    /// 或者同一个会话在另一个界面壳里跑着）。
+    ///
+    /// 判据只能取运行态登记处：自己的 <see cref="_driver"/> 闲着并不代表会话空闲。
+    /// 认错的后果不是显示不好看——用户打的字会走「发下一轮」而不是「插话」，
+    /// 排进了队列却什么都不说（见 ADR 0021 的外驱条目）。
+    /// </summary>
     public bool IsExternallyDriven =>
         !_driver.IsRunning && SessionManager.Instance.Running.IsBusy(CurrentMeta?.SessionId);
 
-    /// <summary>运行态指示点的配色键（status-dot 样式按 Tag 选色）</summary>
     /// <summary>
     /// 状态点配色键。三档而不是两档：本会话闲着、但名下还有后台子代理没交回报告，
     /// 既不是「在跑」也不是「空」——用户此刻要知道的正是这一档（见 CONTEXT.md「未了结的工作」）
@@ -460,81 +442,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>本会话这一轮没在跑，但名下还有后台子代理没交回报告</summary>
     public bool HasBackgroundWorkOnly => !IsGenerating && HasPendingWork;
 
-    /// <summary>
-    /// 名下有几个后台子代理卡在审批上等人点选。
-    ///
-    /// 这是<b>报警</b>，所以它的载体是输入区上方那条<b>位置固定</b>的横幅：滚多少轮都在、
-    /// 点一下直达、没有在等的就整条消失。从前挂在工具卡上，而那张卡跑几十轮就滚没了
-    /// ——通知又只停留一会儿。见 ADR 0025。
-    /// </summary>
-    public int ApprovalWaitingCount =>
-        BackgroundSubAgentDispatcher.ApprovalWaiting(CurrentMeta?.SessionId).Count;
+    /// <summary>输入区上方的子代理状态行（等审批 / 在跑 / 压着等交回）</summary>
+    public SubAgentStatusBarViewData SubAgentStatuses { get; } = new();
 
-    /// <summary>有没有子代理在等审批（横幅据此显隐）</summary>
-    public bool HasApprovalWaiting => ApprovalWaitingCount > 0;
-
-    /// <summary>
-    /// 输入区上方的<b>子代理状态</b>：等审批、在跑、跑完了压着等交回，各占一行。
-    ///
-    /// 三档同源同规则（见 <see cref="SubAgentStatusViewData"/>），所以合成一个列表由
-    /// 界面照样画，而不是三段各写各的显隐。位置固定是它们共同的存在理由：
-    /// 通知会飘走、工具卡跑几十轮就滚没了，而这条随时在。
-    /// </summary>
-    public ObservableCollection<SubAgentStatusViewData> SubAgentStatuses { get; } = new();
-
-    /// <summary>
-    /// 点开这一行对应的第一个子会话。
-    ///
-    /// 只开第一个而不是列出全部：用户要的是「马上看一眼/处理掉一个」，
-    /// 处理完这一行自己会指向下一个。
-    /// </summary>
-    /// <param name="status">被点的那一行</param>
-    [RelayCommand]
-    private void OpenSubAgentStatus(SubAgentStatusViewData? status)
-    {
-        if (status is { Count: > 0 }) SubSessionWindowOpener.Open(status.SubSessionIds[0]);
-    }
-
-    /// <summary>
-    /// 打开第一个在等审批的子会话。
-    ///
-    /// 只开第一个而不是列出全部：等审批是有时限的（到期按拒绝收口），
-    /// 用户要的是「马上处理掉一个」，处理完横幅自己会指向下一个。
-    /// </summary>
-    [RelayCommand]
-    private void OpenApprovalWaiting()
-    {
-        IReadOnlyList<string> waiting = BackgroundSubAgentDispatcher.ApprovalWaiting(CurrentMeta?.SessionId);
-        if (waiting.Count > 0) SubSessionWindowOpener.Open(waiting[0]);
-    }
-
-    /// <summary>名下子代理的处境变了：横幅与那几个计数一起刷。只在 UI 线程上调</summary>
-    private void NotifyApprovalWaitingChanged()
-    {
-        OnPropertyChanged(nameof(ApprovalWaitingCount));
-        OnPropertyChanged(nameof(HasApprovalWaiting));
-        RefreshSubAgentStatuses();
-    }
-
-    /// <summary>
-    /// 重建状态行。整份重建而不是逐行增删：至多三行，而「哪一档有几个」是现取的快照，
-    /// 比对着改反而要把同一份判据再写一遍
-    /// </summary>
-    /// <param name="force">内容没变也重建（换语言时文案要重算）</param>
-    private void RefreshSubAgentStatuses(bool force = false)
-    {
-        List<SubAgentStatusViewData> fresh = SubAgentStatusViewData.Collect(CurrentMeta?.SessionId);
-        if (fresh.Count == 0 && SubAgentStatuses.Count == 0) return;
-        //一字未变就别动集合:每次运行态抖动都重建一遍会让那几行跟着闪
-        if (!force && fresh.Count == SubAgentStatuses.Count &&
-            !fresh.Where((x, i) => !x.Equals(SubAgentStatuses[i])).Any())
-        {
-            return;
-        }
-
-        SubAgentStatuses.Clear();
-        foreach (SubAgentStatusViewData status in fresh) SubAgentStatuses.Add(status);
-    }
+    /// <summary>名下子代理的处境变了：状态行跟着刷。只在 UI 线程上调</summary>
+    private void NotifySubAgentStatusChanged() => SubAgentStatuses.Refresh(CurrentMeta?.SessionId);
 
     /// <summary>
     /// 本会话此刻卡在什么具名的事情上。两个来源合并成一处：整理交接文档在驱动那一层，
@@ -555,15 +467,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         get
         {
-            // 群壳自己那一轮不跑（ADR 0046），忙碌文案单独说：谁在发言。
-            // 空窗（还没轮到任何人）时退到泛化的一句，别让转圈旁边一个字都没有
-            if (CurrentSession is { IsGroup: true } group && GroupChatCoordinator.Instance.IsRunning(group.SessionId))
-            {
-                string speakers = CurrentSpeakerNames;
-                return speakers.Length > 0
-                    ? string.Format(Loc.Text(LangKey.GroupSpeakingNowFormat), speakers)
-                    : Loc.Text(LangKey.GroupRoundRunning);
-            }
+            // 群壳自己那一轮不跑（ADR 0046），忙碌文案单独说：谁在发言
+            if (Group?.BusyLabel() is { } groupBusy) return groupBusy;
 
             return Busy switch
             {
@@ -573,21 +478,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             };
         }
     }
-
-    /// <summary>群壳此刻正在发言的成员名（并行时可能几位）；没有（没在跑 / 空窗 / 成员已删）为空串</summary>
-    private string CurrentSpeakerNames
-    {
-        get
-        {
-            if (CurrentSession is not { IsGroup: true } group) return string.Empty;
-            IEnumerable<string> names = GroupChatCoordinator.Instance.SpeakersOf(group.SessionId)
-                .Select(id => SessionManager.Instance.GetMeta(id))
-                .OfType<ChatSessionMeta>()
-                .Select(meta => SessionManager.CharacterOf(meta).CharacterName);
-            return string.Join(Loc.Text(LangKey.GroupSpeakerSeparator), names);
-        }
-    }
-
 
     /// <summary>
     /// 发送按钮的文案。跑着的时候它是<b>插话</b>：消息进注入队列，agent 下一次机会消费。
@@ -609,10 +499,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 InputText = text;
             }, () => SessionCharacter,
             () => IsAgentSession, //技能只在 agent 形态会话开放（ADR 0050）
-            () => GroupMembers?.Members.Select(x => new MentionTarget(x.Name, x.Description, x.Icon))
-                  ?? []); //@ 补全只在群里有成员可点
+            () => Group?.MentionTargets ?? []); //@ 补全只在群里有成员可点
+        Interjections = new InterjectionQueueViewData(() => CurrentRunner, () => InputText, text => InputText = text,
+            Tray.Attachments);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
         _itemActions = new ConversationItemActions(Items, this);
+        _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
+            () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer);
         _trimmer = new ConversationItemWindowTrimmer(Items, _historyWindow,
             () => CurrentRunner?.GetHistory() ?? [],
             // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
@@ -633,27 +526,22 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
             () => CurrentSession?.WorkspacePath,
-            createUserItems: CreateUserItems);
+            createUserItems: _history.CreateUserItems);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
-        _transcript.UserMessageRendered += OnUserMessageRendered;
-        _transcript.ApprovalRequestCreated += OnApprovalRequestCreated;
+        _transcript.UserMessageRendered += Interjections.OnRendered;
+        _approvalAdopter = new RegisteredApprovalAdopter(_transcript, () => CurrentMeta?.SessionId, () => CurrentSession);
         _transcript.SubSessionAttached += RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached += OnMessageBoundaryReached;
-        // 登记与画卡在两个线程上各走各的,谁先都有可能——登记侧也喊一声,让已经画出来的卡回头认领
-        SessionApprovalRegistry.Instance.PendingAdded += OnNestedApprovalsPending;
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
-        // 子会话才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
-        _liveObserverSink = new LiveObserverSink(_transcript, AllowObservedApproval);
+        // 登记在册的才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
+        _liveObserverSink = new LiveObserverSink(_transcript, _approvalAdopter.AllowsObservedApproval);
         _driver.StateChanged += OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
         SessionManager.Instance.SessionUsageReported += OnSessionUsageReported;
-        // 群的发言人变化（轮到谁 / 一轮结束）在后台线程上跑，处理里自行 marshal
-        GroupChatCoordinator.Instance.SpeakerChanged += OnGroupSpeakerChanged;
-        GroupChatSessions.PermissionApplied += OnGroupPermissionApplied;
 
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
         _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
@@ -672,14 +560,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         InputPlaceholder = Loc.Text(_inputPlaceholderKey);
     }
 
-    /// <summary>
-    /// 运行态或忙碌态变化。运行侧不认识绑定，属性变更由这里代它抛出。
-    /// </summary>
-    /// <summary>
-    /// 运行态登记处变了。<b>可能来自后台线程</b>（无头执行与子代理都不在 UI 线程上），
-    /// 所以 marshal 之后再动界面属性
-    /// </summary>
-    /// <param name="sessionId">状态变化的会话</param>
     /// <summary>
     /// 把本子会话最新的结论交回派活者。
     ///
@@ -717,7 +597,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (GroupMembers is { } members && members.Contains(sessionId)) members.RefreshUsageOf(sessionId);
+            Group?.OnSessionUsageReported(sessionId);
             if (sessionId != CurrentMeta?.SessionId || _driver.IsRunning || CurrentSession is not { } session) return;
 
             _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
@@ -726,15 +606,18 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         });
     }
 
+    /// <summary>
+    /// 运行态登记处变了。<b>可能来自后台线程</b>（无头执行与子代理都不在 UI 线程上），
+    /// 所以 marshal 之后再动界面属性
+    /// </summary>
+    /// <param name="sessionId">状态变化的会话</param>
     private void OnSessionRunStateChanged(string sessionId)
     {
         // 别人的运行态也要看一眼:派出去的子会话卡在审批上时,派活那张卡要挂出提示
         if (sessionId != CurrentMeta?.SessionId)
         {
             RefreshSubSessionApprovalWait(sessionId);
-            // 群里某位成员开跑、卡上 / 放开审批、跑完:右栏成员列表跟着标
-            if (GroupMembers is { } members && members.Contains(sessionId))
-                Dispatcher.UIThread.Post(members.RefreshRunStates);
+            Group?.OnSessionRunStateChanged(sessionId);
             return;
         }
 
@@ -748,41 +631,18 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         });
     }
 
-    /// <summary>
-    /// 群改了权限档并推给了成员：这里开着的若是其中一位，按他会话上的新档刷新显示。
-    /// 只刷显示、不写回（成员跟群走，写回由群那边做过了）
-    /// </summary>
-    /// <param name="groupId">群壳会话标识</param>
-    private void OnGroupPermissionApplied(string groupId)
+    /// <summary>群改了权限档（成员跟群走）：只刷显示、不写回，写回由群那边做过了</summary>
+    private void ApplyGroupPermission(int permissionModeIndex)
     {
-        Dispatcher.UIThread.Post(() =>
+        _isLoadingSession = true;
+        try
         {
-            if (CurrentSession is not { IsGroupMember: true } member || member.GroupId != groupId) return;
-            _isLoadingSession = true;
-            try
-            {
-                PermissionModeIndex = member.PermissionModeIndex;
-            }
-            finally
-            {
-                _isLoadingSession = false;
-            }
-        });
-    }
-
-    /// <summary>
-    /// 群发言人变了（轮到谁 / 一轮结束）。可能来自后台线程——成员一轮在无头编排上跑，
-    /// marshal 之后再动界面属性。只刷当前打开的这一个群，别的一概不理
-    /// </summary>
-    /// <param name="groupId">群壳会话标识</param>
-    private void OnGroupSpeakerChanged(string groupId)
-    {
-        Dispatcher.UIThread.Post(() =>
+            PermissionModeIndex = permissionModeIndex;
+        }
+        finally
         {
-            if (CurrentSession is not { IsGroup: true } group || group.SessionId != groupId) return;
-            GroupMembers?.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(groupId));
-            NotifyBusyChanged();
-        });
+            _isLoadingSession = false;
+        }
     }
 
     /// <summary>
@@ -806,33 +666,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             IReadOnlyList<ChatMessage> history = session.History;
             if (fromIndex < 0 || fromIndex >= history.Count) return;
 
-            if (ownTurn) AppendHandedBackReports(history, fromIndex);
-            else if (streaming) AppendAlongsideStream(history, fromIndex);
-            else AppendWholeSlice(history, fromIndex);
-
+            _history.AppendPersisted(history, fromIndex, ownTurn, streaming);
             if (!ownTurn) RefreshTokenUsageText(); //本轮的用量由 UsageObserved 逐块刷,这里重复一次只会抖
         });
-    }
-
-    /// <summary>
-    /// 自己那一轮正跑着的时候落的盘：本轮的东西全由实时流渲染过了，这里<b>只补后续报告</b>。
-    ///
-    /// 它是唯一可能在本轮进行中从别处插进来的一类——子会话交回报告要等派活者空闲
-    /// （见 <c>SubAgentReportHandoff</c>），而「登记处已空闲」与「本实例的 IsRunning 归零」
-    /// 之间有一瞬的错位。整段丢掉的话那条报告就要等重开会话才看得见，用户看到的是「交回丢了」。
-    /// 其余几类（检索卡、旁白、交接文档）本轮自有渲染路径，补在这里会画成两条。
-    /// </summary>
-    private void AppendHandedBackReports(IReadOnlyList<ChatMessage> history, int fromIndex)
-    {
-        for (int i = fromIndex; i < history.Count; i++)
-        {
-            if (ConversationMessageOrigin.KindOf(history[i]) != EHistoryItemKind.SubAgentReport) continue;
-
-            foreach (ConversationItemBase item in BuildHistoryItems(history, i, i + 1, liveTail: true))
-            {
-                Items.Add(item);
-            }
-        }
     }
 
     /// <summary>
@@ -857,170 +693,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             _transcript.CancelPendingApprovals();
             _reconciler.Reconcile("observed turn ended");
             // 群成员那一轮的进群标记是落盘之后才盖的，接来源那一刻可能还没有：轮末补读一遍
-            if (CurrentSession.IsGroupMember)
+            if (IsGroupMemberSession)
             {
                 foreach (ConversationItemBase item in Items) item.RefreshFromSource();
             }
         });
     }
 
-    /// <summary>没有实时流时：整段照回放渲染</summary>
-    private void AppendWholeSlice(IReadOnlyList<ChatMessage> history, int fromIndex)
-    {
-        foreach (ConversationItemBase item in BuildHistoryItems(history, fromIndex, history.Count, liveTail: true))
-        {
-            // 交接文档可能在落盘渲染入队之前已被别的路径画过(HandoffWritten 兜底、对账追加),
-            // 按来源引用去重——否则同一条 note 会出两张卡
-            if (item is HandoffItem && Items.Any(x => ReferenceEquals(x.SourceMessage, item.SourceMessage))) continue;
-            Items.Add(item);
-        }
-    }
-
-    /// <summary>
-    /// 一轮正往界面流内容时落的盘：<b>内容流产出的那几类已经渲染过了</b>（助手正文、思考段、
-    /// 工具卡、被消费的用户消息），这里只补它产不出的（检索卡、旁白、交接文档、后续报告），
-    /// 再把流式条目与消息配对。归属判据只有一份（<see cref="ConversationMessageOrigin"/>），两条路都问它。
-    /// </summary>
-    private void AppendAlongsideStream(IReadOnlyList<ChatMessage> history, int fromIndex)
-    {
-        for (int i = fromIndex; i < history.Count; i++)
-        {
-            ChatMessage message = history[i];
-            if (ConversationMessageOrigin.IsProducedByContentStream(ConversationMessageOrigin.KindOf(message)))
-                continue;
-
-            foreach (ConversationItemBase item in BuildHistoryItems(history, i, i + 1, liveTail: true))
-            {
-                // 同上:通知/兜底可能先画过交接文档,posted 的渲染不能再来一张
-                if (item is HandoffItem && Items.Any(x => ReferenceEquals(x.SourceMessage, item.SourceMessage))) continue;
-                Items.Add(item);
-            }
-        }
-
-        // 流式条目此刻才能与落了盘的消息配对,配上了才有编辑/删除/分叉
-        _itemActions.WireStreamed(history);
-    }
-
-    /// <summary>
-    /// 用户消息 → 已接好来源的气泡。回放与实时（<see cref="UserMessageContent"/>）共用这一份，
-    /// 两边因此对同一条消息画出同一个样子；框架注入的、空白无图的不画。
-    /// 成员会话里的群投递拆成各发言人的气泡，所以是一组
-    /// </summary>
-    /// <param name="message">用户消息</param>
-    /// <returns>气泡；这条不该显示则为空</returns>
-    private IReadOnlyList<TextConversationItem> CreateUserItems(ChatMessage message)
-    {
-        string text = ConversationItemFactory.DisplayTextOf(message);
-        if (ConversationItemFactory.IsFrameworkInjected(message)) return [];
-        if (string.IsNullOrWhiteSpace(text) && !ConversationItemFactory.HasImage(message)) return [];
-
-        if (DeliveryRenderer is { } renderer && renderer.IsDelivery(message))
-        {
-            return renderer.Render(message).Select(x => _itemActions.Wire(x, message)).ToList();
-        }
-
-        return [_itemActions.Wire(ConversationItemFactory.CreateUser(text, message), message)];
-    }
-
-    /// <summary>当前会话是群成员会话时的投递渲染器（按会话缓存：成员名单建群后不变）</summary>
-    private GroupDeliveryRenderer? DeliveryRenderer
-    {
-        get
-        {
-            if (CurrentSession is not { IsGroupMember: true } session) return null;
-            if (_deliveryRenderer?.SessionId != session.SessionId) _deliveryRenderer = GroupDeliveryRenderer.For(session);
-            return _deliveryRenderer;
-        }
-    }
-
-    /// <summary>执行者的待发插话变了（可能在后台线程上）：切回 UI 线程再对一遍群广播那几条</summary>
-    private void OnPendingInjectionsChanged() => Dispatcher.UIThread.Post(SyncGroupPendingInjections);
-
-    /// <summary>
-    /// 群广播进来、他还没接收的发言合成输入区上方的<b>一行</b>（条数 + 最新一条，全文进提示）：
-    /// 群轮不经本视图插话，不显示的话他正说着的时候，群里的新话在他会话里一点影子都没有；
-    /// 逐条列又会在插话多时把会话区挤没。被消费或被群轮撤回时执行者都会通知，这里跟着对掉
-    /// </summary>
-    private void SyncGroupPendingInjections()
-    {
-        List<string> posts = CurrentSession is { IsGroupMember: true } && CurrentRunner is { } runner
-            ? runner.PendingInjections.Where(ChatMessageAnnotations.IsGroupDelivery).Select(PendingPostText).ToList()
-            : [];
-
-        GroupPendingText = posts.Count == 0
-            ? string.Empty
-            : string.Format(Loc.Text(LangKey.GroupInjectionPendingFormat), posts.Count, posts[^1]);
-        GroupPendingTip = string.Join("\n", posts);
-        OnPropertyChanged(nameof(HasGroupPending));
-    }
-
-    private static string PendingPostText(ChatMessage message)
-    {
-        GroupDeliverySegment post = GroupTranscript.ParsePost(message.Text);
-        return post.Speaker == null ? post.Body : $"{post.Speaker}：{post.Body}";
-    }
-
-    /// <summary>插的那句话被模型消费、画进时间轴了：待发提示撤掉</summary>
-    private void OnUserMessageRendered(ChatMessage message)
-    {
-        for (int i = PendingInterjections.Count - 1; i >= 0; i--)
-        {
-            if (ReferenceEquals(PendingInterjections[i].Message, message)) PendingInterjections.RemoveAt(i);
-        }
-    }
-
-    /// <summary>
-    /// 画出了一张审批卡：子会话窗口认领嵌套审批，把卡的回应接到登记项上。
-    /// 父会话自己的卡认不到登记（没人登记过），原样走父轮次的回应口。
-    /// </summary>
-    private void OnApprovalRequestCreated(ApprovalRequestItem item)
-    {
-        if (CurrentSession is not { } session || !AdoptsRegisteredApprovals(session)) return;
-        AdoptRegisteredApproval(session.SessionId, item);
-    }
-
-    /// 审批登记在册、要由会话窗口认领的：子会话（嵌套审批）与群成员（他在群里那一轮）
-    private static bool AdoptsRegisteredApprovals(ChatSession session) => session.IsSubSession || session.IsGroupMember;
-
-    /// 认领一张登记在册的审批卡，并跟着那次审批的最终结果走：别处（群的待审批条）先点了，
-    /// 或窗口打开前就已经批过了，这张卡都收起按钮、显示那个决定——不然它一直挂着像还在等，
-    /// 轮末还会被按拒绝收视觉，把批准过的显示成拒绝
-    private static void AdoptRegisteredApproval(string sessionId, ApprovalRequestItem item)
-    {
-        // 先取结果再认领：已经决出的（晚打开的窗口补画出来的卡）认领不到，但结果查得到
-        if (SessionApprovalRegistry.Instance.DecisionOf(sessionId, item.Request) is not { } decision) return;
-        SessionApprovalRegistry.Instance.TryAdopt(sessionId, item.Request, item.Response);
-        decision.ContinueWith(done => Dispatcher.UIThread.Post(() => item.MarkDecidedElsewhere(done.Result)),
-            CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
-    }
-
-    /// <summary>
-    /// 有嵌套审批登记进来了：把本窗口已经画出来的待决卡片再认领一遍。
-    ///
-    /// 认领两头都要做——卡片可能先于登记诞生（内容流转发到界面是 Post 出去的），
-    /// 也可能后于登记诞生（晚开的窗口从流回放里拿到同一批请求）。重复认领无害：
-    /// 决定先到先得。<b>可能来自后台线程</b>，所以 marshal 之后再动界面。
-    /// </summary>
-    /// <param name="sessionId">登记进来的那个子会话</param>
-    private void OnNestedApprovalsPending(string sessionId)
-    {
-        if (sessionId != CurrentMeta?.SessionId) return;
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (CurrentSession is not { } session || !AdoptsRegisteredApprovals(session)) return;
-            foreach (ApprovalRequestItem item in _transcript.PendingApprovals.ToList())
-            {
-                AdoptRegisteredApproval(session.SessionId, item);
-            }
-        });
-    }
-
-    /// <summary>
-    /// 刷新「派出去的子会话正在等审批」提示。状态取自运行态登记处——
-    /// 子代理那一轮的审批等待本来就登记在册（<c>TurnDriver</c> 的 <c>BeginApprovalWait</c>），
-    /// 不必另铺一条通知链路。
-    /// </summary>
-    /// <param name="subSessionId">子会话标识</param>
     /// <summary>
     /// 名下某个子会话的状态变了。
     ///
@@ -1035,89 +714,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         Dispatcher.UIThread.Post(() =>
         {
             _transcript.RefreshSubSessionPending();
-            NotifyApprovalWaitingChanged();
+            NotifySubAgentStatusChanged();
         });
     }
 
-    /// <summary>
-    /// 撤掉一条待发的插话：提示条先拿掉（不管队列里撤没撤成），再从注入队列里摘走——
-    /// 撤不回来（已被模型消费）的那条此刻已经画进时间轴，提示条本也会由
-    /// <see cref="OnUserMessageRendered"/> 撤，这里幂等
-    /// </summary>
-    [RelayCommand]
-    private async Task RemoveInterjection(ChatMessage? message)
-    {
-        if (message == null) return;
-
-        for (int i = PendingInterjections.Count - 1; i >= 0; i--)
-        {
-            if (ReferenceEquals(PendingInterjections[i].Message, message))
-            {
-                // 完整撤回 = 恢复成「还没发出去」:文字回输入框,附件放回盘上
-                PendingInterjectionViewData pending = PendingInterjections[i];
-                InputText = pending.Text;
-                if (pending.Attachments != null)
-                {
-                    foreach (ConversationAttachment attachment in pending.Attachments) Tray.Attachments.Add(attachment);
-                }
-                PendingInterjections.RemoveAt(i);
-                break;
-            }
-        }
-
-        try
-        {
-            if (CurrentRunner is { } runner) await runner.CancelInjectionsAsync(new[] { message });
-        }
-        catch (Exception e)
-        {
-            // 队列访问反射失败等:界面提示已撤,模型之后仍可能收到这句——最低限度是不能再让 UI 崩
-            Log.Warning($"撤销插话失败: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// 一次性地把待发的插话全部撤掉（停止/一轮结束时的收尾）。
-    /// 只清界面提示、不动队列的旧行为，就是「停止之后插话还遗留在那」的由来；
-    /// 队列里那些不撤走，下次再跑会被模型突然消费，连提示都没有就冒出来。
-    ///
-    /// 没被模型消费的话还该属于用户：按原顺序回填输入框（已有内容则追加，不覆盖），
-    /// 附件一并放回盘上——否则主动停止一次，刚打的字就没了。
-    /// </summary>
-    private async Task CancelPendingInterjectionsAsync()
-    {
-        if (PendingInterjections.Count == 0) return;
-
-        string restored = string.Join("\n", PendingInterjections.Select(x => x.Text));
-        if (!string.IsNullOrEmpty(restored))
-        {
-            InputText = string.IsNullOrEmpty(InputText) ? restored : $"{InputText}\n{restored}";
-        }
-        foreach (PendingInterjectionViewData pending in PendingInterjections)
-        {
-            if (pending.Attachments == null) continue;
-            foreach (ConversationAttachment attachment in pending.Attachments) Tray.Attachments.Add(attachment);
-        }
-
-        ChatMessage[] messages = PendingInterjections.Select(x => x.Message).ToArray();
-        PendingInterjections.Clear();
-        try
-        {
-            if (CurrentRunner is { } runner) await runner.CancelInjectionsAsync(messages);
-        }
-        catch (Exception e)
-        {
-            Log.Warning($"撤销待发插话失败: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// 历史里的某一条被别处原地换掉了（后续报告替换了上一份）。
-    ///
-    /// <b>只重建那一条产出的条目</b>，不整份回放：markdown 是按条目、进视口才逐帧启用渲染器的
-    /// （见 <c>SimpleMarkdownViewer</c>），清空重建等于让满屏气泡一起退回纯文本再一条条转回来
-    /// ——用户看到的就是整个窗口闪一下。
-    /// </summary>
+    /// <summary>历史里的某一条被别处原地换掉了（后续报告替换了上一份），见 <see cref="ConversationHistoryRenderer.Replace"/></summary>
     /// <param name="index">被替换的下标</param>
     /// <param name="replaced">被换掉的那一条（界面靠它认回自己渲染出的条目）</param>
     private void OnSessionHistoryReplaced(int index, ChatMessage replaced)
@@ -1130,55 +731,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             IReadOnlyList<ChatMessage> history = session.History;
             if (index < 0 || index >= history.Count) return;
 
-            // 旧那条产出的条目可能不止一个(工具卡、思考卡…),按来源整组认出来
-            List<int> slots = new();
-            for (int i = 0; i < Items.Count; i++)
-            {
-                if (ReferenceEquals(Items[i].SourceMessage, replaced)) slots.Add(i);
-            }
-
-            // 那一条落在历史开窗之外(没渲染过),此刻也不该凭空补出来
-            if (slots.Count == 0) return;
-
-            List<ConversationItemBase> rebuilt = BuildHistoryItems(history, index, index + 1);
-
-            // 后续报告就是一条文本:能原地改就别动集合。摘掉再插回去会重建那一处的
-            // markdown 渲染器(它按条目、进视口才启用),内容一字没变也要闪一下
-            if (slots.Count == 1 && rebuilt is [TextConversationItem fresh] &&
-                Items[slots[0]] is TextConversationItem existing)
-            {
-                fresh.Flush();
-                existing.Message = fresh.Message;
-                existing.Timestamp = fresh.Timestamp;
-                _itemActions.Wire(existing, history[index]); //来源换人了,编辑/删除得指向新那条
-                return;
-            }
-
-            for (int i = slots.Count - 1; i >= 0; i--)
-            {
-                Items.RemoveAt(slots[i]);
-            }
-
-            for (int i = 0; i < rebuilt.Count; i++)
-            {
-                Items.Insert(slots[0] + i, rebuilt[i]);
-            }
+            _history.Replace(history, index, replaced);
         });
-    }
-
-    /// <summary>
-    /// 观察别人驱动的那一轮时，审批卡放不放行。
-    ///
-    /// 两种情形要放：子会话窗口（嵌套审批，见 ADR 0021），以及本会话的<b>唤醒轮</b>
-    /// ——那一轮由后台驱动，回应口就登记在本壳上（见 <see cref="WakeApprovalHosts"/>）。
-    /// 其余普通会话的观察窗照旧丢弃：那张卡画出来也按不动，还会一直挂在待决清单上。
-    /// </summary>
-    private bool AllowObservedApproval()
-    {
-        ChatSession? session = CurrentSession;
-        if (session == null) return false;
-        // 群成员同理：他在群里那一轮的审批登记在册，这里画出来的卡认领后有人听（见 GroupApprovalsViewData）
-        return AdoptsRegisteredApprovals(session) || WakeApprovalHosts.HasHost(session.SessionId);
     }
 
     /// <summary>挂上「别处改了这个会话的历史」的两个信号。重复挂接先摘再挂，不攒订阅</summary>
@@ -1197,9 +751,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 这一轮跑到一半才挂上来也补得齐(尚未落盘的那一段会当场补发)
         _liveObservation = session.LiveTurn.Observe(_liveObserverSink, _transcript);
         session.LiveTurn.TurnEnded += OnObservedTurnEnded;
-        _signalRunner = session.Runner;
-        _signalRunner.PendingInjectionsChanged += OnPendingInjectionsChanged;
-        OnPendingInjectionsChanged(); //挂上来时可能已经有话在排队
     }
 
     /// <summary>摘掉订阅。会话比本视图活得久，不摘就是一路泄漏到已销毁的视图上</summary>
@@ -1210,8 +761,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         previous.HistoryAppended -= OnSessionHistoryAppended;
         previous.HistoryMessageReplaced -= OnSessionHistoryReplaced;
         previous.LiveTurn.TurnEnded -= OnObservedTurnEnded;
-        if (_signalRunner != null) _signalRunner.PendingInjectionsChanged -= OnPendingInjectionsChanged;
-        _signalRunner = null;
         _liveObservation?.Dispose();
         _liveObservation = null;
         _sessionPin?.Dispose();
@@ -1247,7 +796,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnPropertyChanged(nameof(HasPendingWork));
             OnPropertyChanged(nameof(HasBackgroundWorkOnly));
             OnPropertyChanged(nameof(RunStatusKey));
-            NotifyApprovalWaitingChanged();
+            NotifySubAgentStatusChanged();
             // 流里那几张委派卡也要跟着改档:工具调用早返回了,光看结果它们全是「成功」
             _transcript.RefreshSubSessionPending();
 
@@ -1303,7 +852,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OnPropertyChanged(nameof(PermissionTooltip));
         OnPropertyChanged(nameof(SenderTooltip));
         RefreshTokenUsageText(); //压缩水位那句提示是在 C# 里拼的,不会自己跟着语言变
-        RefreshSubAgentStatuses(force: true); //同上:那几行的文案也是取一次存一次
+        SubAgentStatuses.Refresh(CurrentMeta?.SessionId, force: true); //同上:那几行的文案也是取一次存一次
     }
 
     /// <summary>
@@ -1330,18 +879,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         SessionModel.Dispose();
         LocalizationManager.Instance.LanguageChanged -= OnLanguageChanged;
         if (Application.Current is { } app) app.ActualThemeVariantChanged -= OnWorkspaceThemeVariantChanged;
-        _transcript.ApprovalRequestCreated -= OnApprovalRequestCreated;
         _transcript.SubSessionAttached -= RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached -= OnMessageBoundaryReached;
-        SessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
-        GroupChatSessions.PermissionApplied -= OnGroupPermissionApplied;
-        GroupApprovals?.Dispose();
-        GroupArtifacts?.Dispose();
+        _approvalAdopter.Dispose();
+        Group?.Dispose();
+        GroupMember?.Dispose();
         _driver.StateChanged -= OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
         SessionManager.Instance.SessionUsageReported -= OnSessionUsageReported;
-        GroupChatCoordinator.Instance.SpeakerChanged -= OnGroupSpeakerChanged;
         DetachSessionSignals();
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
         if (CurrentRunner is { } runner) runner.BusyChanged = null;
@@ -1504,15 +1050,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         OpenSessionRequested?.Invoke(group.SessionId);
     }
 
-    /// <summary>
-    /// 不开口也让大家接着说：串行再说一圈（ADR 0046 决策 5），并行叫醒还有新话没听的人（ADR 0049 决策 6 的手动兜底）
-    /// </summary>
+    /// <summary>不开口也让大家接着说，见 <see cref="GroupShellViewData.ContinueAsync"/></summary>
     [RelayCommand]
     private async Task ContinueGroupRound()
     {
-        if (CurrentSession is not { IsGroup: true } group) return;
+        if (Group is not { } group) return;
         ScrollToEnd = true;
-        await GroupChatCoordinator.Instance.ContinueAsync(group);
+        await group.ContinueAsync();
     }
 
     /// <summary>
@@ -1617,12 +1161,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         // 群壳永不跑轮:打的字一律是群发言,交给调度器——闲着就开一圈,跑着就插进当前发言人那一轮。
         // 排在最前:压缩命令、以角色身份发送、插话这几条路对群壳都不成立
-        if (CurrentSession is { IsGroup: true } group)
+        if (Group is { } group)
         {
             (string postText, List<DataContent>? images) = Tray.BuildGroupPost(text, Tray.TakePending());
             Tray.FlushOwnedFiles(); //粘贴图落的盘归群壳：删群时一并删
             ScrollToEnd = true;
-            await GroupChatCoordinator.Instance.PostAsync(group, postText, images);
+            await group.PostAsync(postText, images);
             return;
         }
 
@@ -1668,26 +1212,16 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             // 群成员会话正在跑群里那一轮:打字不该插话——插话的回应会被群轮按「这一轮正文」
             // 收成群发言,私聊就泄进群里了。掉到正常发送路径,由 RunTurnAsync 过闸排队
-            if (!IsGroupMemberRunningGroupTurn)
+            if (GroupMember?.IsRunningGroupTurn(_driver.IsRunning) != true)
             {
                 // 插话与正常发送共用同一套组装:附件盘上的图要进消息,不能只发 text
                 List<ConversationAttachment>? interjectionAttachments = Tray.TakePending();
                 ChatMessage? interjection = CurrentSession == null
                     ? null
                     : BuildOutgoingMessage(text, interjectionAttachments);
-                if (interjection != null && CurrentRunner is { } runner && await runner.TryInjectAsync(new[] { interjection }))
-                {
-                    PendingInterjections.Add(new PendingInterjectionViewData(interjection, text, interjectionAttachments));
-                    return;
-                }
+                if (await Interjections.TryInjectAsync(interjection, text, interjectionAttachments)) return;
 
-                // 排不进去(执行者还在装配、或这个执行者不支持注入):文字还给输入框、附件放回盘上,
-                // 静默吞掉就是"点了没反应"
-                if (interjectionAttachments != null)
-                {
-                    foreach (ConversationAttachment attachment in interjectionAttachments) Tray.Attachments.Add(attachment);
-                }
-                InputText = text;
+                // 排不进去(执行者还在装配、或这个执行者不支持注入):字和附件已还回去,明说一声
                 App.Services.GetRequiredService<IMessageService>().ShowNotification(
                     Loc.Text(LangKey.AgentInterjectUnavailable), severity: MessageSeverity.Warning);
                 return;
@@ -1722,18 +1256,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         await RunTurnAsync(userMessage, text);
     }
 
-    /// <summary>
-    /// 组装要发出去的用户消息。群成员会话里用户直接打的话是私聊：正文前带一句私聊说明交给模型
-    /// （不然它分不清这句是私聊还是群里说的，照群聊口吻回），界面照样显示原话
-    /// </summary>
-    private ChatMessage BuildOutgoingMessage(string text, List<ConversationAttachment>? attachments)
-    {
-        if (CurrentSession is not { IsGroupMember: true }) return Tray.BuildUserMessage(text, attachments);
-
-        ChatMessage message = Tray.BuildUserMessage(GroupTranscript.WithPrivateNote(text), attachments);
-        ChatMessageAnnotations.MarkGroupPrivate(message);
-        return message;
-    }
+    /// <summary>组装要发出去的用户消息。群成员会话里用户直接打的话是私聊，见 <see cref="GroupMemberSessionViewData.BuildPrivateMessage"/></summary>
+    private ChatMessage BuildOutgoingMessage(string text, List<ConversationAttachment>? attachments) =>
+        IsGroupMemberSession
+            ? GroupMemberSessionViewData.BuildPrivateMessage(text, body => Tray.BuildUserMessage(body, attachments))
+            : Tray.BuildUserMessage(text, attachments);
 
     /// <summary>
     /// 以角色身份写入一条回复(角色扮演的"替角色说话"),写入历史并立即持久化
@@ -1772,9 +1299,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 停止按钮既然显示出来了就必须真能停,否则是个骗人的按钮
         if (IsExternallyDriven) TurnDriver.CancelSession(CurrentMeta?.SessionId);
         // 群壳的「在跑」是调度器那一圈,停它才停得下当前发言人与后面还没轮到的人
-        if (CurrentSession is { IsGroup: true } group) GroupChatCoordinator.Instance.Stop(group.SessionId);
+        Group?.Stop();
         _transcript.CancelPendingApprovals();
-        _ = CancelPendingInterjectionsAsync(); //停止后待发的插话不该还挂在输入区,也从队列撤掉
+        _ = Interjections.CancelAllAsync(); //停止后待发的插话不该还挂在输入区,也从队列撤掉
     }
 
     /// <summary>
@@ -1862,7 +1389,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 // 不能等下一个事件或防抖窗口——否则最后一个数要拖 250ms 才上屏
                 DebouncedRefreshTokenUsage(force: true);
                 // 这轮结束还没消费的插话不会再有机会被这轮消费,留着只会让下一轮莫名收到旧话
-                _ = CancelPendingInterjectionsAsync();
+                _ = Interjections.CancelAllAsync();
                 break;
 
             case ETurnNotice.Failed:
@@ -1888,7 +1415,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.HandoffWritten:
                 RemoveHandoffWritingItem();
-                // 卡片默认由落盘/回放路径渲染(BuildHistoryItems 的 HandoffNote 分支),这里只收掉占位;
+                // 卡片默认由落盘/回放路径渲染(ConversationHistoryRenderer.Build 的 HandoffNote 分支),这里只收掉占位;
                 // 通知自己再 Add 一张会与落盘渲染各画一遍,同一条交接文档就出两张卡。
                 // 只在自己那一轮正跑时补画:落盘路径走 AppendHandedBackReports 不画交接文档,
                 // 只有通知这一条路。外部驱动者的轮(streaming)由 AppendAlongsideStream 画、
@@ -1896,7 +1423,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 // (Ensure 同步 Add 后,posted 的落盘渲染没有去重)
                 if (_driver.IsRunning)
                 {
-                    EnsureHandoffCardRendered();
+                    if (CurrentSession is { } session) _history.EnsureHandoffCard(session.History);
                 }
                 break;
 
@@ -1934,24 +1461,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (_handoffWritingItem is not { } item) return;
         _handoffWritingItem = null;
         if (Items.Remove(item)) ScrollToEnd = true;
-    }
-
-    /// <summary>
-    /// 并发场景的交接卡兜底:压缩期间用户发了新消息,落盘路径不画交接文档,
-    /// 只有这里补画。与 BuildHistoryItems 的 HandoffNote 分支同源,不另写一份渲染逻辑。
-    /// </summary>
-    private void EnsureHandoffCardRendered()
-    {
-        if (CurrentSession is not { } session) return;
-        int index = HistoryHandoff.SupplyStartIndex(session.History);
-        if (index < 0 || index >= session.History.Count) return;
-        ChatMessage note = session.History[index];
-        if (!HistoryHandoff.IsNote(note)) return; //没有交接文档时的兜底:SupplyStartIndex 无 note 返回 0
-        if (Items.Any(x => ReferenceEquals(x.SourceMessage, note))) return; //已经画过就不再画
-        foreach (ConversationItemBase item in BuildHistoryItems(session.History, index, index + 1, liveTail: true))
-        {
-            Items.Add(item);
-        }
     }
 
     /// <summary>
@@ -2179,6 +1688,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         CurrentMeta = meta;
         Title = meta?.Title ?? string.Empty;
         _currentCharacter = meta == null ? null : CharacterManager.Instance.GetCharacterData(meta.CharacterId);
+        // 群壳这一份必须在第一个 await 之前就位:页面先调装载、再换绑实例,绑定在这之后立刻求值,
+        // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
+        Group = meta is { IsGroup: true } && SessionManager.Instance.Load(meta.SessionId) is { } shell
+            ? new GroupShellViewData(shell)
+            : null;
+        if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
+        OnPropertyChanged(nameof(IsGroupMemberSession));
+        OnPropertyChanged(nameof(IsPermissionEditable));
+        OnPropertyChanged(nameof(PermissionTooltip));
         NotifyCharacterKindChanged();
         OnPropertyChanged(nameof(SessionModelLabel));
         SessionModel.Refresh();
@@ -2190,6 +1708,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             IsSessionLoading = false;
             MemoryPanel?.Detach();
             MemoryPanel = null;
+            GroupMember = null;
             RefreshTokenUsageText();
             // 空态也要刷一次能力面板。这里曾经直接返回,于是新会话在首轮发送之前
             // 整个「能力」页签一片空白——而恰恰是这个时候用户最需要知道
@@ -2259,30 +1778,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             MemoryPanel?.Detach();
             MemoryPanel = new ConversationMemoryViewData(body);
             OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
-            OnPropertyChanged(nameof(IsGroupSession));
             OnPropertyChanged(nameof(CanCreateGroupFromHere));
-            OnPropertyChanged(nameof(IsGroupMemberSession));
-            OnPropertyChanged(nameof(IsPermissionEditable));
-            OnPropertyChanged(nameof(PermissionTooltip));
-            OnPropertyChanged(nameof(IsComposerVisible));
             OnPropertyChanged(nameof(IsSenderSwitchVisible));
-            OnPropertyChanged(nameof(ActiveGroupTitle));
-            OnPropertyChanged(nameof(ActiveGroupDescription));
-            OnPropertyChanged(nameof(GroupTypeName));
-            OnPropertyChanged(nameof(GroupMemberCountText));
-            GroupMembers = body.IsGroup ? new GroupMembersViewData(body) : null;
-            GroupApprovals?.Dispose();
-            GroupApprovals = body.IsGroup ? new GroupApprovalsViewData(body) : null;
-            GroupArtifacts?.Dispose();
-            GroupArtifacts = body.IsGroup ? new GroupArtifactsViewData(body) : null;
-            if (body.IsGroup)
-            {
-                InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
-                // 装载前这一圈可能已经在跑、发言人已定,SpeakerChanged 的信号早发完了——
-                // 这里补一次,右栏成员列表与忙碌文案才不是"没在跑"的样子
-                GroupMembers?.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(body.SessionId));
-                GroupMembers?.RefreshRunStates();
-            }
+            // 成员这一份挂执行者的待发插话,留到挂接之后建:提前取 Runner 会把执行者的惰性创建挤进切会话的同步窗口
+            GroupMember = body.IsGroupMember ? new GroupMemberSessionViewData(body, ApplyGroupPermission) : null;
             OnPropertyChanged(nameof(SessionIdShort)); //编号同理:装载之前 CurrentMeta 还是空的
             OnPropertyChanged(nameof(SessionIdFull));
             // 运行态同理,而且更要紧:装载之前 CurrentMeta 还是空的,绑定算出来的是"没在跑"。
@@ -2292,7 +1791,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             NotifyRunStateChanged();
             NotifyBusyChanged();
             //名下子代理的处境同理:它们多半在装载之前就成立了,登记处的信号早发完了
-            NotifyApprovalWaitingChanged();
+            NotifySubAgentStatusChanged();
 
             // 切回会话时恢复输入框草稿
             InputText = body.ComposerDraft;
@@ -2348,10 +1847,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 有一轮正跑着的时候,历史末尾那次工具调用的结果多半正在路上(它是下一次服务调用的
         // 请求消息,随那次落盘,而实时流这就会把它送来)。按"历史里没有结果"收掉它就是谎报
         bool live = CurrentSession?.LiveTurn.IsTurnRunning == true;
-        foreach (ConversationItemBase item in BuildHistoryItems(messages, from, to, liveTail: live))
-        {
-            Items.Add(item);
-        }
+        _history.Append(messages, from, to, live);
 
         // 会话累计用量从本体恢复(响应 usage 不随消息持久化)
         if (CurrentSession is { } session)
@@ -2406,154 +1902,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>把一段历史前插到条目集合头部</summary>
     private void PrependHistory(IReadOnlyList<ChatMessage> history, (int From, int To) range)
     {
-        List<ConversationItemBase> buffer = BuildHistoryItems(history, range.From, range.To);
-        for (int i = 0; i < buffer.Count; i++)
-        {
-            Items.Insert(i, buffer[i]);
-        }
-
+        _history.Prepend(history, range);
         HasEarlierMessages = _historyWindow.HasEarlier;
-    }
-
-    /// <summary>
-    /// 回放一段历史到独立缓冲：用一个不订阅用量的转录器实例装配，
-    /// 因此不会污染本轮/累计计数（累计口径由 <see cref="ReplayMessages"/> 从会话本体恢复）。
-    /// </summary>
-    /// <param name="messages">历史</param>
-    /// <param name="from">起始下标</param>
-    /// <param name="to">结束下标（不含）</param>
-    /// <param name="liveTail">
-    /// 这一段是<b>还在长的尾巴</b>（外驱会话每次服务调用补渲染一段）而不是定格的历史。
-    /// 此时：结果要能配回更早那批里的工具卡（调用与结果落在不同批），
-    /// 且尚无结果的调用得继续转圈——按"历史里没有结果"收掉它就是谎报，
-    /// 而下一批真把结果送来时卡片早已定格。
-    /// </param>
-    private List<ConversationItemBase> BuildHistoryItems(IReadOnlyList<ChatMessage> messages, int from, int to,
-        bool liveTail = false)
-    {
-        List<ConversationItemBase> buffer = new();
-        CharacterData? speaker = _currentCharacter; //群流水里每条消息换一次发言人,工厂闭包取的是它
-        ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(speaker),
-            renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)Items : null)
-        {
-            AutoCollapseThinking = IsAutoCollapseThinking,
-        };
-
-        // 回放时最近见过的时间戳。助手气泡的工厂给不出时间(它只造壳,拿不到源消息),
-        // 默认填的是"现在"——重开会话时整段历史因此显示当前时刻。
-        // 旧存档里框架产出的消息本就没有时间戳,那种回落到同一轮的用户消息,
-        // 误差在一轮之内,总好过一个每次打开都变的假时间
-        DateTimeOffset? lastKnown = null;
-
-        for (int index = from; index < to; index++)
-        {
-            ChatMessage message = messages[index];
-            lastKnown = message.CreatedAt ?? lastKnown;
-            speaker = ChatMessageAnnotations.GroupSpeakerOf(message) is { } speakerId
-                ? CharacterManager.Instance.GetCharacterData(speakerId)
-                : _currentCharacter;
-            // 渲染归属只有一份判据:哪些由内容流产出、哪些只能从历史来,
-            // 实时流观察那条路问的是同一个函数(见 ConversationMessageOrigin)
-            switch (ConversationMessageOrigin.KindOf(message))
-            {
-                // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡
-                case EHistoryItemKind.HandoffNote:
-                    buffer.Add(new HandoffItem
-                    {
-                        Message = HistoryHandoff.NoteBody(ConversationItemFactory.DisplayTextOf(message)),
-                        SourceMessage = message,
-                    });
-                    continue;
-
-                // 开场白是 assistant 消息(要供给模型,否则首轮又自我介绍一遍),但画成居中旁白
-                case EHistoryItemKind.Narration:
-                {
-                    TextConversationItem narration = _itemActions.Wire(
-                        ConversationItemFactory.CreateNarration(message), message);
-                    if (lastKnown is { } narrationStamp)
-                        narration.Timestamp = ConversationItemFactory.TimestampText(narrationStamp);
-                    buffer.Add(narration);
-                    continue;
-                }
-
-                // 检索片段同样是「落盘但不是对话」:它的角色是 Tool,
-                // 落进助手那一档会被当成工具结果去配对一个不存在的调用
-                case EHistoryItemKind.Knowledge:
-                {
-                    ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(message.Text);
-                    knowledgeCard.SourceMessage = message;
-                    buffer.Add(knowledgeCard);
-                    continue;
-                }
-
-                // 子会话的后续报告:角色是 User(它要供给模型),但<b>不是用户说的话</b>——
-                // 画成用户气泡等于把子代理的结论安到用户头上。借旁白那套呈现:
-                // 居中、无头像无名字,表示"这条不归对话双方任何一方"
-                case EHistoryItemKind.SubAgentReport:
-                {
-                    TextConversationItem reportItem = _itemActions.Wire(
-                        ConversationItemFactory.CreateNarration(message), message);
-                    if (lastKnown is { } reportStamp)
-                        reportItem.Timestamp = ConversationItemFactory.TimestampText(reportStamp);
-                    buffer.Add(reportItem);
-                    continue;
-                }
-
-                case EHistoryItemKind.UserInput:
-                {
-                    foreach (TextConversationItem userItem in CreateUserItems(message))
-                    {
-                        if (lastKnown is { } userStamp)
-                            userItem.Timestamp = ConversationItemFactory.TimestampText(userStamp);
-                        buffer.Add(userItem);
-                    }
-
-                    continue;
-                }
-
-                case EHistoryItemKind.StreamContents:
-                    break; //落到下面交给转录器按内容装配
-
-                default:
-                    // 种类加了一项却没在这里表态。抛出来而不是默默画错:
-                    // 静默的重复或缺失查起来要命,而这条路一跑就炸
-                    throw new ArgumentOutOfRangeException(nameof(message),
-                        $"Unhandled history item kind for message role '{message.Role}'.");
-            }
-
-            int before = buffer.Count;
-            foreach (AIContent content in message.Contents)
-            {
-                replay.Apply(content);
-            }
-
-            replay.CloseSegment();
-
-            // 本条消息产出的<b>每一个</b>条目都记下来源:删除是按「来源落在删除集合里」
-            // 摘条目的,漏记的条目会在来源消失后成为删不掉的残留(思考卡、工具卡都没有
-            // 自己的删除按钮)。消息级操作只挂在文本气泡上——只有它有那一行按钮
-            for (int i = before; i < buffer.Count; i++)
-            {
-                buffer[i].SourceMessage = message;
-                // 回放定格：命中存档读存档（冻结真耗时），未命中只留字数——
-                // 重建的 _startedAt 是打开会话那一刻，不定格就是统一 0.1s 的假耗时
-                if (buffer[i] is ThinkingItem thinking) ThinkingItem.FreezeReplayItem(thinking, message);
-                if (buffer[i] is not TextConversationItem textItem) continue;
-
-                _itemActions.Wire(textItem, message);
-                if (lastKnown is { } stamp) textItem.Timestamp = ConversationItemFactory.TimestampText(stamp);
-            }
-        }
-
-        // 调用与它的结果是两条消息,开窗分批完全可能把它们切在两批里:不越过批边界找一次,
-        // 批尾那次调用就会被下面的收尾误判成「历史里没有这次调用的结果」(liveTail 那一批
-        // to 就是历史末尾,这里是空操作)
-        replay.ApplyLaterResults(messages, to);
-
-        if (liveTail) replay.CloseSegment();
-        else replay.FinalizeReplay(Loc.Text(LangKey.AgentToolCallUnfinished));
-
-        return buffer;
     }
 
     //================= IConversationItemActionHost =================
@@ -2603,7 +1953,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <inheritdoc />
     List<ConversationItemBase> IConversationReconcileHost.BuildItems(IReadOnlyList<ChatMessage> history,
-        int from, int to) => BuildHistoryItems(history, from, to);
+        int from, int to) => _history.Build(history, from, to);
 
     /// <inheritdoc />
     void IConversationReconcileHost.WireStreamedSources(IReadOnlyList<ChatMessage> history) =>
@@ -2754,11 +2104,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         }
     }
 
-    /// <summary>条目与标题用的显示文本:点名调用取用户敲的那一行,其余取消息正文</summary>
+    //================= 切换清场 =================
 
-    //================= 条目构造 =================
-
-    /// <summary>助手条目:名字与头像取自当前会话的角色</summary>
+    /// <summary>丢掉上一个会话留在界面上的一切(条目、侧栏、开窗与转录器状态)</summary>
     private void ClearStreamState()
     {
         // 气泡里的图是本会话现解出来的大位图,随条目走;条目被整体丢掉时没人会去释放它们,
@@ -2774,41 +2122,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         HasEarlierMessages = false;
         HasLoadedEarlier = false;
         _historyWindow.Clear();
-        PendingInterjections.Clear(); //待发的插话归属于那个会话的注入队列,切走就不再显示
+        Interjections.Items.Clear(); //待发的插话归属于那个会话的注入队列,切走就不再显示
         _transcript.Reset();
         _usage.Reset();
         // 记忆库面板与 token 文本不在此清空:切会话时先空后填会让工具行闪烁,
         // 由 LoadSessionAsync 在新值就绪时一次性替换
     }
 }
-
-/// <summary>
-/// todo 侧栏显示项
-/// </summary>
-public class TodoDisplayItem
-{
-    /// <summary>内容描述</summary>
-    public string Content { get; }
-
-    /// <summary>状态图形符号</summary>
-    public string StatusGlyph { get; }
-
-    /// <summary>是否已完成(删除线样式)</summary>
-    public bool IsCompleted { get; }
-
-    public TodoDisplayItem(TodoSnapshot todo)
-    {
-        Content = todo.Title;
-        IsCompleted = todo.IsComplete;
-        StatusGlyph = todo.IsComplete ? "✓" : "○";
-    }
-}
-
-/// <summary>
-/// 输入区上方那一条待发的插话
-/// </summary>
-/// <param name="Message">投入注入队列的那个实例（与消费时流出来的是同一个，据此撤掉提示）</param>
-/// <param name="Text">显示文本</param>
-/// <param name="Attachments">这条插话携带的附件;撤回时放回盘上,插话才算完整撤回</param>
-public sealed record PendingInterjectionViewData(
-    ChatMessage Message, string Text, List<ConversationAttachment>? Attachments = null);
