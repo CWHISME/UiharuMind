@@ -1,3 +1,5 @@
+using Microsoft.Agents.AI.Compaction;
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
@@ -90,5 +92,75 @@ public class HistoryCompactionTests
     {
         //固定开销自己就吃光预算:额度为 0,触发条件据此一律不压缩——此时压缩救不了,只会白毁历史
         Assert.Equal(0, HistoryCompaction.HistoryQuotaFor(8192, 100_000));
+    }
+
+    /// <summary>
+    /// 折叠带回差：一旦动手就折到 <see cref="HistoryCompaction.ToolEvictionTarget"/>，之后几次调用前缀逐字不变。
+    /// 只折到刚好不触发的话，每多一条工具结果就再折最老的一组，几乎每次调用都整段不中前缀缓存
+    /// </summary>
+    [Fact]
+    public async Task Folding_LeavesHeadroom_SoTheNextCallsKeepThePrefix()
+    {
+        IChatReducer reducer = HistoryCompaction.Create(() => 20_000, new TurnInputEstimate()).AsChatReducer();
+        List<ChatMessage> history = [new(ChatRole.User, "把这些文件都看一遍")];
+        for (int i = 0; i < 60; i++) AddToolGroup(history, i);
+
+        List<ChatMessage> first = (await reducer.ReduceAsync(history, TestContext.Current.CancellationToken)).ToList();
+        Assert.True(first.Count(x => x.Role == ChatRole.Tool) < 60, "该折的没折");
+        Assert.Equal("把这些文件都看一遍", first[0].Text); //折叠就腾够了地方，没轮到截断
+
+        for (int i = 60; i < 63; i++) AddToolGroup(history, i);
+        List<ChatMessage> next = (await reducer.ReduceAsync(history, TestContext.Current.CancellationToken)).ToList();
+
+        Assert.Equal(first.Select(Signature), next.Take(first.Count).Select(Signature));
+        Assert.Equal(first.Count + 6, next.Count); //新的三组原样接在后面，没有再折
+
+        // 再长过一级台阶（额度 20% ≈ 3.5k token），才一次多折一截
+        for (int i = 63; i < 78; i++) AddToolGroup(history, i);
+        List<ChatMessage> stepped = (await reducer.ReduceAsync(history, TestContext.Current.CancellationToken)).ToList();
+        Assert.True(Folded(stepped) > Folded(first) + 3, $"跨级应多折一截：{Folded(first)} → {Folded(stepped)}");
+    }
+
+    private static int Folded(IEnumerable<ChatMessage> messages) =>
+        messages.Count(x => x.Text.StartsWith(ToolCallFolding.Header, StringComparison.Ordinal));
+
+    private static void AddToolGroup(List<ChatMessage> history, int i)
+    {
+        string callId = $"call-{i}";
+        history.Add(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent(callId, "Read")]));
+        history.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(callId, $"{i}:{new string('x', 1_200)}")]));
+    }
+
+    private static string Signature(ChatMessage message) =>
+        message.Role + "|" + string.Join("|", message.Contents.Select(x => x switch
+        {
+            FunctionCallContent call => "call:" + call.CallId,
+            FunctionResultContent result => "result:" + result.CallId,
+            TextContent text => "text:" + text.Text,
+            _ => x.GetType().Name,
+        }));
+
+    /// <summary>折起来的一组：工具名与参数留着，结果只留开头并注明原长；短结果原样留</summary>
+    [Fact]
+    public void FoldedToolCall_KeepsNameAndArguments_AndOnlyTheHeadOfLongResults()
+    {
+        CompactionMessageGroup group = new CompactionMessageIndex([]).AddGroup(CompactionGroupKind.ToolCall,
+        [
+            new ChatMessage(ChatRole.Assistant,
+            [
+                new FunctionCallContent("a", "Read", new Dictionary<string, object?> { ["filePath"] = "src/A.cs" }),
+                new FunctionCallContent("b", "Glob", new Dictionary<string, object?> { ["pattern"] = "*.md" }),
+            ]),
+            new ChatMessage(ChatRole.Tool,
+                [new FunctionResultContent("a", new string('x', 5_000)), new FunctionResultContent("b", "README.md")]),
+        ]);
+
+        string folded = ToolCallFolding.Format(group);
+
+        Assert.StartsWith(ToolCallFolding.Header, folded);
+        Assert.Contains("Read {\"filePath\":\"src/A.cs\"}", folded);
+        Assert.Contains("（共 5000 字）", folded);
+        Assert.True(folded.Length < 600);
+        Assert.Contains("Glob {\"pattern\":\"*.md\"}：README.md", folded);
     }
 }

@@ -98,8 +98,14 @@
     <data name="ContextSessionLabel" xml:space="preserve">
         <value>累计消耗</value>
     </data>
-    <data name="ContextCompactionHint" xml:space="preserve">
-        <value>折叠工具结果 {0} → 交接文档 {1} → 截断最旧消息 {2}</value>
+    <data name="ContextWatermarkFold" xml:space="preserve">
+        <value>折叠工具结果 {0}</value>
+    </data>
+    <data name="ContextWatermarkHandoff" xml:space="preserve">
+        <value>交接文档 {0}</value>
+    </data>
+    <data name="ContextWatermarkTruncate" xml:space="preserve">
+        <value>截断最旧消息 {0}</value>
     </data>
     <data name="ContextNoModel" xml:space="preserve">
         <value>未选择模型，无法计算上下文占用</value>
@@ -3026,6 +3032,9 @@
     </data>
     <data name="GroupMemberPermissionFollowFormat" xml:space="preserve">
         <value>跟随群聊（在群视图里改）。{0}</value>
+    </data>
+    <data name="GroupMemberPrivateChat" xml:space="preserve">
+        <value>私聊中</value>
     </data>
     <data name="GroupMemberSpeaking" xml:space="preserve">
         <value>发言中</value>

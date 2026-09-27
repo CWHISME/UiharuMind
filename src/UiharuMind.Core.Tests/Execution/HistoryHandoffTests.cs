@@ -85,7 +85,8 @@ public class HistoryHandoffTests
         double handoff = budget * HistoryHandoff.Threshold;
         double truncation = fixedOverhead + quota * HistoryCompaction.TruncationThreshold;
 
-        Assert.True(eviction < handoff, $"折叠 {eviction:0} 必须早于交接 {handoff:0}");
+        // 折叠是轮内缓冲，与交接谁先谁后随固定开销变（界面按数值排序显示）；两者都必须赶在截断之前
+        Assert.True(eviction < truncation, $"折叠 {eviction:0} 必须早于截断 {truncation:0}");
         Assert.True(handoff < truncation, $"交接 {handoff:0} 必须早于截断 {truncation:0}");
         //截断之后请求必须还发得出去,这正是分母改扣固定开销要保证的事
         Assert.True(truncation < context, $"截断水位 {truncation:0} 必须仍在上限 {context} 之内");

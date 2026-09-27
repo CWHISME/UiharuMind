@@ -328,6 +328,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public bool IsCompacting => _driver.Busy == ETurnBusy.Compacting;
 
     /// <summary>
+    /// 此刻有没有<b>本实例自己发起</b>的活在跑（装配、一轮、整理交接文档）。弃用本实例会取消它；
+    /// 旁观别处跑的那一轮（<see cref="IsExternallyDriven"/>）不算，弃了不影响那边。
+    /// 变化随 <see cref="IsGenerating"/> 一起通知
+    /// </summary>
+    public bool IsRunningOwnWork => _isPreparing || _driver.IsRunning || IsCompacting;
+
+    /// <summary>
     /// 本会话名下还有<b>未了结的工作</b>：自己这一轮，或者名下还没交回报告的后台子代理。
     ///
     /// ⚠️ 它<b>不是</b> <see cref="IsGenerating"/>，两者不可合并（见 CONTEXT.md「未了结的工作」）。
@@ -637,6 +644,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _driver.StateChanged += OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged += OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
+        SessionManager.Instance.SessionUsageReported += OnSessionUsageReported;
         // 群的发言人变化（轮到谁 / 一轮结束）在后台线程上跑，处理里自行 marshal
         GroupChatCoordinator.Instance.SpeakerChanged += OnGroupSpeakerChanged;
         GroupChatSessions.PermissionApplied += OnGroupPermissionApplied;
@@ -695,15 +703,32 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>「交回主代理」的结果提示（交回是一次性动作，没有别的反馈渠道）</summary>
     [ObservableProperty] private string _handoffNotice = string.Empty;
 
+    /// <summary>
+    /// 某个会话刚报了一次用量（来自执行线程）。两处要跟：群的成员列表那一行；
+    /// 以及本窗口正旁观着别处跑的那一轮（群轮、子代理）——自己跑的那一轮由逐块通知刷，不走这里
+    /// </summary>
+    private void OnSessionUsageReported(string sessionId)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (GroupMembers is { } members && members.Contains(sessionId)) members.RefreshUsageOf(sessionId);
+            if (sessionId != CurrentMeta?.SessionId || _driver.IsRunning || CurrentSession is not { } session) return;
+
+            _usage.RestoreSession(session.TotalInputTokens, session.TotalOutputTokens, session.LastInputTokens,
+                session.TotalReasoningTokens);
+            RefreshTokenUsageText();
+        });
+    }
+
     private void OnSessionRunStateChanged(string sessionId)
     {
         // 别人的运行态也要看一眼:派出去的子会话卡在审批上时,派活那张卡要挂出提示
         if (sessionId != CurrentMeta?.SessionId)
         {
             RefreshSubSessionApprovalWait(sessionId);
-            // 群里某位成员卡上 / 放开审批:右栏成员列表跟着标
+            // 群里某位成员开跑、卡上 / 放开审批、跑完:右栏成员列表跟着标
             if (GroupMembers is { } members && members.Contains(sessionId))
-                Dispatcher.UIThread.Post(members.RefreshApprovalWaits);
+                Dispatcher.UIThread.Post(members.RefreshRunStates);
             return;
         }
 
@@ -1308,6 +1333,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _driver.StateChanged -= OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
+        SessionManager.Instance.SessionUsageReported -= OnSessionUsageReported;
         GroupChatCoordinator.Instance.SpeakerChanged -= OnGroupSpeakerChanged;
         DetachSessionSignals();
         // 执行者归会话所有、比本视图活得久,回调不摘就是一路泄漏到已销毁的视图上
@@ -2232,7 +2258,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 // 装载前这一圈可能已经在跑、发言人已定,SpeakerChanged 的信号早发完了——
                 // 这里补一次,右栏成员列表与忙碌文案才不是"没在跑"的样子
                 GroupMembers?.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(body.SessionId));
-                GroupMembers?.RefreshApprovalWaits();
+                GroupMembers?.RefreshRunStates();
             }
             OnPropertyChanged(nameof(SessionIdShort)); //编号同理:装载之前 CurrentMeta 还是空的
             OnPropertyChanged(nameof(SessionIdFull));

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Execution;
@@ -159,11 +160,16 @@ public partial class ContextUsageViewData : ObservableObject
         double handoff = budget * HistoryHandoff.Threshold;
         double truncation = ledger.FixedOverhead + quota * HistoryCompaction.TruncationThreshold;
         // 水位按输入预算(总长减预留)算,而进度条整条是总长——所以给绝对 token 数而不是百分比,
-        // 两者的比例对不上。按量级排成一条递进的链,读起来就是"接下来会依次发生什么"
-        ThresholdText = string.Format(Loc.Text(LangKey.ContextCompactionHint),
-            TurnUsageLedger.FormatExact((long)eviction),
-            TurnUsageLedger.FormatExact((long)handoff),
-            TurnUsageLedger.FormatExact((long)truncation));
+        // 两者的比例对不上。按数值排成一条递进的链,读起来就是"接下来会依次发生什么":
+        // 折叠与交接分母不同,固定开销很大时两者会换位,写死顺序就会说错
+        ThresholdText = string.Join(" → ", new[]
+            {
+                (Value: eviction, Key: LangKey.ContextWatermarkFold),
+                (Value: handoff, Key: LangKey.ContextWatermarkHandoff),
+                (Value: truncation, Key: LangKey.ContextWatermarkTruncate),
+            }
+            .OrderBy(x => x.Value)
+            .Select(x => string.Format(Loc.Text(x.Key), TurnUsageLedger.FormatExact((long)x.Value))));
 
         // 配色按「接下来会发生什么」分档,不按水位数量分:
         // 折叠工具结果基本无损,不值得变色;真正该警示的是"要开始丢上下文了"。

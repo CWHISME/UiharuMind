@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Compaction;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
@@ -211,7 +212,7 @@ internal static class AgentAssembler
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-        AIAgent agent = client.AsHarnessAgent(options, loggerFactory, services);
+        AIAgent agent = MoveCompactionToLeaf(client, options).AsHarnessAgent(options, loggerFactory, services);
 
         // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关
         // 打开后回给模型的是"Error: Function failed. Exception: {e.Message}"(实测只有 Message,不含堆栈)。
@@ -229,5 +230,23 @@ internal static class AgentAssembler
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份
         return new AgentHandle(agent, shellExecutor, options.ChatOptions, mcp, toolEntries, promptSegments,
             inputEstimate);
+    }
+
+    // [MFA绕坑] 绕:压缩不交给框架的 CompactionProvider,改在最内层客户端上按 chat reducer 跑 因:Harness 恒开逐次落盘,逐次落盘层给会话写本地哨兵 ConversationId(_agent_local_chat_history),CompactionProvider 见 ConversationId 非空就当成服务端托管、整段跳过——压缩从未生效 删除条件:CompactionProvider 认得本地哨兵
+    /// <summary>
+    /// 把选项里的压缩策略挪到最内层客户端上，并关掉框架那一份。
+    /// 落点与框架原本的位置一致：逐次落盘层之内，每次服务调用拿到的就是「历史 + 本轮」的完整请求；
+    /// 只裁发出去的那份，存下的历史不动。框架那一份关掉，是防它将来修好之后压两遍
+    /// </summary>
+    /// <param name="client">模型客户端</param>
+    /// <param name="options">框架选项（压缩项就地清掉）</param>
+    /// <returns>挂好压缩的客户端；没有压缩策略时原样返回</returns>
+    internal static IChatClient MoveCompactionToLeaf(IChatClient client, HarnessAgentOptions options)
+    {
+        if (options.DisableCompaction || options.CompactionStrategy is not { } compaction) return client;
+
+        options.CompactionStrategy = null;
+        options.DisableCompaction = true;
+        return client.AsBuilder().UseChatReducer(compaction.AsChatReducer()).Build();
     }
 }

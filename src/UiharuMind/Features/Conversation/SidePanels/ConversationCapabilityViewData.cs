@@ -140,6 +140,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     /// 快速切过去的那些会话不会为它们建 agent、拉 MCP 子进程，停下来的那个才算。
     /// </summary>
     private static readonly TimeSpan PreviewDelay = TimeSpan.FromMilliseconds(600);
+    private const double FixedOverheadWarningRatio = 0.5; //固定开销吃掉一半输入预算即告警
 
     /// 本次刷新的序号。切工作区与载入会话会同时触发刷新,而中间有 await——
     /// 靠它把作废的那一次挡在填充之前,否则列表里会出现两份同样的条目
@@ -352,11 +353,10 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     }
 
     /// <summary>
-    /// 固定开销是否已经吃到工具结果折叠的水位。
+    /// 固定开销是否已经吃掉一半输入预算。
     ///
-    /// 判据不自造比例，直接用 <see cref="HistoryCompaction"/> 的那两个常数换算——
-    /// 这个告警要说的是一件真事：<b>一句话还没说，压缩就已经在门口了</b>。
-    /// 同一个应用里讲「什么时候开始丢上下文」，不该有第二把尺子（另一把在 ContextUsageViewData）。
+    /// 这个告警要说的是一件真事：<b>一句话还没说，留给历史的地方就已经不比开销多了</b>。
+    /// 它从前借用折叠水位（当时恰好也是一半）；折叠水位改成轮内缓冲、挪到 0.7 之后，两者不再是一回事，比例单列。
     ///
     /// ⚠️ 这里比的是<b>输入预算</b>而不是历史额度，且这是对的：额度本身就等于预算减去固定开销
     /// （见 <see cref="HistoryCompaction.HistoryQuotaFor"/>），拿开销去比一个由它算出来的数是循环的。
@@ -368,7 +368,7 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
     private static bool ExceedsCompactionWatermark(int tokens, int contextLength)
     {
         if (contextLength <= 0) return false;
-        return tokens >= HistoryCompaction.InputBudgetFor(contextLength) * HistoryCompaction.ToolEvictionThreshold;
+        return tokens >= HistoryCompaction.InputBudgetFor(contextLength) * FixedOverheadWarningRatio;
     }
 
     /// 段别的显示名。段别是 Core 的枚举，文案是 UI 的事，映射只此一处

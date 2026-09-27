@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -29,6 +32,9 @@ public partial class QuickChatViewWindow : QuickWindowBase
 
     private static readonly IApplicationActivationPolicy _activationPolicy =
         ApplicationActivationPolicyFactory.Create();
+
+    // 关窗时自己那一轮还在跑的视图模型：弃用会取消那一轮，所以留到跑完再弃；其间重开同一会话就接回它
+    private static readonly Dictionary<string, ConversationViewModel> _runningInBackground = new();
 
     /// <summary>
     /// 文档型窗口要参与 macOS 的常规模式，否则应用停在附属态，
@@ -95,6 +101,15 @@ public partial class QuickChatViewWindow : QuickWindowBase
         SessionId = chatSession.SessionId;
         Title = chatSession.Title;
 
+        if (_runningInBackground.Remove(chatSession.SessionId, out ConversationViewModel? running))
+        {
+            // 接回关窗时留下的那个：气泡、审批卡、流式状态都在它身上，重载一份就只剩旁观
+            running.PropertyChanged -= OnBackgroundStateChanged;
+            running.IsDisplayed = true;
+            DataContext = running;
+            return;
+        }
+
         ConversationViewModel conversation = new();
         // <b>必须在 LoadSessionAsync 之前</b>:装载途中会检查这一项,false 就把活推迟到
         // 「切回来再说」(那是为页面壳的会话列表设计的闸门)。浮窗没有页面壳替它维护,
@@ -112,8 +127,41 @@ public partial class QuickChatViewWindow : QuickWindowBase
 
     private void DisposeConversation()
     {
-        if (DataContext is ConversationViewModel previous) previous.Dispose();
+        if (DataContext is ConversationViewModel previous)
+        {
+            if (previous.IsRunningOwnWork && SessionId != null) KeepRunning(SessionId, previous);
+            else previous.Dispose();
+        }
+
         SessionId = null;
+    }
+
+    // 窗口是缓存复用的：留下的视图模型要从窗口上摘掉，否则下次装载会把它当「上一个」弃掉
+    private void KeepRunning(string sessionId, ConversationViewModel conversation)
+    {
+        conversation.IsDisplayed = false;
+        conversation.PropertyChanged += OnBackgroundStateChanged;
+        _runningInBackground[sessionId] = conversation;
+        DataContext = null;
+    }
+
+    private static void OnBackgroundStateChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // 排到下一个循环再弃：通知是从运行循环的收尾里抛出来的，当场弃用会打断它自己的收尾
+        if (e.PropertyName == nameof(ConversationViewModel.IsGenerating) && sender is ConversationViewModel conversation)
+            Dispatcher.UIThread.Post(() => ReleaseIfDone(conversation));
+    }
+
+    private static void ReleaseIfDone(ConversationViewModel conversation)
+    {
+        if (conversation.IsRunningOwnWork) return;
+
+        string? sessionId = _runningInBackground.FirstOrDefault(x => ReferenceEquals(x.Value, conversation)).Key;
+        if (sessionId == null) return; //已被重开的窗口接回
+
+        _runningInBackground.Remove(sessionId);
+        conversation.PropertyChanged -= OnBackgroundStateChanged;
+        conversation.Dispose();
     }
 
     public override void Awake()

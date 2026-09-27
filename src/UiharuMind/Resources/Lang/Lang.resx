@@ -105,8 +105,14 @@
     <data name="ContextSessionLabel" xml:space="preserve">
         <value>Total usage</value>
     </data>
-    <data name="ContextCompactionHint" xml:space="preserve">
-        <value>Fold tool results at {0} → handoff at {1} → drop oldest at {2}</value>
+    <data name="ContextWatermarkFold" xml:space="preserve">
+        <value>Fold tool results at {0}</value>
+    </data>
+    <data name="ContextWatermarkHandoff" xml:space="preserve">
+        <value>Handoff at {0}</value>
+    </data>
+    <data name="ContextWatermarkTruncate" xml:space="preserve">
+        <value>Drop oldest at {0}</value>
     </data>
     <data name="ContextNoModel" xml:space="preserve">
         <value>No model selected — context usage is unknown</value>
@@ -3033,6 +3039,9 @@ Allow them?</value>
     </data>
     <data name="GroupMemberPermissionFollowFormat" xml:space="preserve">
         <value>Follows the group (change it in the group view). {0}</value>
+    </data>
+    <data name="GroupMemberPrivateChat" xml:space="preserve">
+        <value>Private chat</value>
     </data>
     <data name="GroupMemberSpeaking" xml:space="preserve">
         <value>Speaking</value>

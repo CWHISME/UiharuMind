@@ -480,6 +480,7 @@ public sealed class TurnDriver : IDisposable
         session.TotalOutputTokens += output;
         session.TotalReasoningTokens += reasoning;
         session.LastInputTokens = _usage.LastInput; //占用随本体持久化,切回会话时不必等下一次响应
+        SessionManager.Instance.NotifyUsageReported(session.SessionId);
         LogUsageRatio(runner);
         _notify?.Invoke(new TurnNotice(ETurnNotice.UsageObserved));
     }
@@ -505,8 +506,8 @@ public sealed class TurnDriver : IDisposable
         Log.Debug($"Usage ratio off: server {_usage.LastInput} / ours {_usage.EstimatedInput} = {ratio:0.00} " +
                   $"(fixed {estimate?.FixedOverhead ?? 0} + history {estimate?.LastHistory ?? 0}); " +
                   (ratio < 1
-                      ? "server under-reports; effective usage falls back to ours"
-                      : "our estimate reads high; handoff may fire early"));
+                      ? "server under-reports (or our estimate reads high: handoff may fire early); effective usage falls back to ours"
+                      : "our estimate reads low; effective usage follows the server"));
     }
 
     /// <summary>

@@ -65,6 +65,19 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     public event Action<ChatSession, ChatSessionMeta>? OnSessionDraftChanged;
 
     /// <summary>
+    /// 某个会话刚收到服务端报的一次用量（<see cref="ChatSession.LastInputTokens"/> 已更新），参数是会话标识。
+    /// 每次服务调用一次。跑这一轮的界面自己有逐块通知；旁观的窗口、群的成员列表靠它跟上，
+    /// 否则要等这一轮结束才对得上。⚠️ 来自执行线程，订阅方自行 marshal
+    /// </summary>
+    public event Action<string>? SessionUsageReported;
+
+    /// <summary>
+    /// 通报一次用量（由跑这一轮的 TurnDriver 调用）
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    public void NotifyUsageReported(string sessionId) => SessionUsageReported?.Invoke(sessionId);
+
+    /// <summary>
     /// 运行态登记处：界面的运行指示器、「跑时禁用删除」都读它，
     /// 界面轮次与无头轮次都往它上面登记
     /// </summary>

@@ -87,16 +87,24 @@ public sealed class GroupMembersViewData
     }
 
     /// <summary>
-    /// 从运行态登记处重读各成员是不是卡在审批上（成员那一轮由 TurnDriver 登记）
+    /// 从运行态登记处重读各成员在不在跑、是不是卡在审批上。群轮与私聊轮都由 TurnDriver 登记，
+    /// 在跑却不在发言人里的，就是在他自己的窗口里私聊
     /// </summary>
-    public void RefreshApprovalWaits()
+    public void RefreshRunStates()
     {
         foreach (GroupMemberItem member in Members)
         {
-            member.IsAwaitingApproval =
-                SessionManager.Instance.Running.StateOf(member.SessionId) == ESessionRunState.AwaitingApproval;
+            ESessionRunState state = SessionManager.Instance.Running.StateOf(member.SessionId);
+            member.IsRunning = state != ESessionRunState.Idle;
+            member.IsAwaitingApproval = state == ESessionRunState.AwaitingApproval;
         }
     }
+
+    /// <summary>
+    /// 某位成员刚报了一次用量：只刷他那一行
+    /// </summary>
+    /// <param name="sessionId">成员会话标识</param>
+    public void RefreshUsageOf(string sessionId) => Members.FirstOrDefault(x => x.SessionId == sessionId)?.RefreshUsage();
 
     /// <summary>
     /// 这个会话是不是本群成员
@@ -250,15 +258,25 @@ public sealed partial class GroupMemberItem : ObservableObject
     /// <summary>此刻是不是群里的发言人（右栏标出正在说的那一位）</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsSpeaking))]
+    [NotifyPropertyChangedFor(nameof(ShowsPrivateChat))]
     private bool _isSpeaking;
 
     /// <summary>他这一轮是不是停着等审批（右栏标「等审批」，点开他的会话能批）</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsSpeaking))]
+    [NotifyPropertyChangedFor(nameof(ShowsPrivateChat))]
     private bool _isAwaitingApproval;
+
+    /// <summary>他的会话此刻有没有轮次在跑（群轮或私聊轮）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsPrivateChat))]
+    private bool _isRunning;
 
     /// <summary>标「发言中」：等审批时让位给「等审批」，两个标不同时挂</summary>
     public bool ShowsSpeaking => IsSpeaking && !IsAwaitingApproval;
+
+    /// <summary>标「私聊中」：在跑，但不是群里这一轮——回复只有用户看得到，不进群</summary>
+    public bool ShowsPrivateChat => IsRunning && !IsSpeaking && !IsAwaitingApproval;
 
     /// <summary>打开他自己的会话：与子会话同一个浮窗，可看可聊</summary>
     [RelayCommand]
