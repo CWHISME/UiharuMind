@@ -43,16 +43,16 @@ internal sealed class GroupMemberTurnState
     /// <param name="runner">成员一轮的跑法</param>
     /// <param name="index">群流水下标</param>
     /// <param name="text">插话正文（已带发言人前缀）</param>
-    public async Task InjectAsync(IGroupMemberTurnRunner runner, int index, string text)
+    /// <param name="images">转交给他的图片；他看不了图时传空</param>
+    public async Task InjectAsync(IGroupMemberTurnRunner runner, int index, string text,
+        IEnumerable<DataContent> images)
     {
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             if (!_accepting || index < Cursor) return;
 
-            // 每人一份新消息：同一实例进了几个人的历史，一处改注解就串到别人那里
-            ChatMessage message = new(ChatRole.User, text);
-            ChatMessageAnnotations.MarkGroupDelivery(message);
+            ChatMessage message = GroupTranscript.DeliveryMessage(text, images);
             if (await runner.TryInjectAsync(Member, message).ConfigureAwait(false)) _injected.Add((index, message));
         }
         finally

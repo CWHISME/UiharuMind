@@ -63,14 +63,4 @@ internal interface IGroupScheduler
     /// </summary>
     /// <param name="post">新发言</param>
     void OnPosted(GroupPostEvent post);
-
-    /// <summary>
-    /// 这条新发言要不要即时插进某位正在跑的成员这一轮。插进去被消费就会多调一次模型、多一句回复，
-    /// 所以它也是一种唤醒，得守同一条停止条件（ADR 0049「实现时定下的」第 12 条）。
-    /// 在广播线程上调用，实现要线程安全
-    /// </summary>
-    /// <param name="post">新发言</param>
-    /// <param name="runningMemberSessionId">正在跑的那位成员</param>
-    /// <returns>插为 true；不插的等他下一轮随投递看到</returns>
-    bool ShouldInject(GroupPostEvent post, string runningMemberSessionId);
 }

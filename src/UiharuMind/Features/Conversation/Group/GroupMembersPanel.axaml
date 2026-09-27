@@ -72,11 +72,20 @@
                                 <!-- 正在说的那一位（并行时可能几位）：蓝点 + 文字，跟着调度器的发言人变化走 -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                             VerticalAlignment="Top" Margin="0,4,0,0"
-                                            IsVisible="{Binding IsSpeaking}">
+                                            IsVisible="{Binding ShowsSpeaking}">
                                     <Border Classes="status-dot" Tag="Progress" VerticalAlignment="Center" />
                                     <TextBlock FontSize="10" VerticalAlignment="Center"
                                                Foreground="{DynamicResource MessageStatusInfoBrush}"
                                                Text="{loc:Loc GroupMemberSpeaking}" />
+                                </StackPanel>
+                                <!-- 他这一轮停着等审批：批在群输入框上方那条，或点开他的会话 -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Top" Margin="0,4,0,0"
+                                            IsVisible="{Binding IsAwaitingApproval}">
+                                    <Border Classes="status-dot" Tag="Warning" VerticalAlignment="Center" />
+                                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SemiOrange5}"
+                                               Text="{loc:Loc GroupMemberAwaitingApproval}" />
                                 </StackPanel>
                             </Grid>
                         </Button>

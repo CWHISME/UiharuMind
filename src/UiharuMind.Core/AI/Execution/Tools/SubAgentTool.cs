@@ -38,7 +38,7 @@ namespace UiharuMind.Core.AI.Execution.Tools;
 /// <see cref="Chat.SubAgentReportHandoff"/> 落进父会话历史,再由一轮<b>没有用户消息</b>的
 /// 唤醒轮交给模型。编排归 <see cref="BackgroundSubAgentDispatcher"/>,本类只管跑那一轮。
 ///
-/// <b>审批通道</b>:请求登记到 <see cref="ToolCall.SubSessionApprovalRegistry"/>,由子会话窗口
+/// <b>审批通道</b>:请求登记到 <see cref="ToolCall.SessionApprovalRegistry"/>,由子会话窗口
 /// 画出卡片。<b>不再先问派活者那一轮</b>——它在子代理开跑前就结束了,恒定接不住。
 /// 于是那条「有审批在等你」的提示是承重的:<see cref="NestedApprovalTimeout"/> 到期按拒绝收口。
 ///
@@ -432,7 +432,7 @@ public static class SubAgentTool
         bool fullAuto = ShouldAutoApproveNestedApprovals(attended, session.PermissionModeIndex);
         List<string> autoApprovedCalls = new();
         ApprovalResolver? resolver = NestedApprovalResolver.Create(attended,
-            session.SessionId, SubSessionApprovalRegistry.Instance, NestedApprovalTimeout,
+            session.SessionId, SessionApprovalRegistry.Instance, NestedApprovalTimeout,
             MaxDeniedApprovalRounds, timeoutSource.Token,
             () => BackgroundSubAgentDispatcher.Notifier?.Invoke(
                 ESubAgentNotice.ApprovalWaiting, session.SessionId),

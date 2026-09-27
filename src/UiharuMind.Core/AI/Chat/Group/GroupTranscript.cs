@@ -26,6 +26,53 @@ public static class GroupTranscript
         IReadOnlySet<int>? injected = null)
     {
         StringBuilder text = new();
+        foreach ((ChatMessage post, string body) in Undelivered(groupLog, cursor, memberSessionId, injected))
+        {
+            if (text.Length > 0) text.Append("\n\n");
+            text.Append(FormatPost(post.AuthorName, body));
+        }
+
+        return text.Length == 0 ? null : text.ToString();
+    }
+
+    /// <summary>
+    /// 与 <see cref="BuildDelivery"/> 同一批发言里带的图片。正文里已有它们的路径引用，
+    /// 图片本身只转交给看得了图的成员（由调度器按人判断）
+    /// </summary>
+    /// <param name="groupLog">群流水</param>
+    /// <param name="cursor">这个成员的游标</param>
+    /// <param name="memberSessionId">成员会话标识</param>
+    /// <param name="injected">已经插话插给他的群流水下标；没有为 null</param>
+    /// <returns>图片，按发言顺序；没有为空</returns>
+    public static IReadOnlyList<DataContent> DeliveryImages(IReadOnlyList<ChatMessage> groupLog, int cursor,
+        string memberSessionId, IReadOnlySet<int>? injected = null) =>
+        Undelivered(groupLog, cursor, memberSessionId, injected).SelectMany(x => ImagesOf(x.Post)).ToList();
+
+    /// <summary>
+    /// 交给成员的一条投递消息：正文在前、图片在后，标上群投递
+    /// </summary>
+    /// <param name="text">投递正文（已带发言人前缀）</param>
+    /// <param name="images">转交给他的图片；他看不了图时传空</param>
+    /// <returns>新消息（每人一份：同一实例进了几个人的历史，一处改注解就串到别人那里）</returns>
+    public static ChatMessage DeliveryMessage(string text, IEnumerable<DataContent> images)
+    {
+        List<AIContent> contents = [new TextContent(text)];
+        contents.AddRange(images);
+        ChatMessage message = new(ChatRole.User, contents);
+        ChatMessageAnnotations.MarkGroupDelivery(message);
+        return message;
+    }
+
+    /// <summary>一条群发言带的图片</summary>
+    /// <param name="post">群发言</param>
+    /// <returns>图片；没有为空</returns>
+    public static IEnumerable<DataContent> ImagesOf(ChatMessage post) =>
+        post.Contents.OfType<DataContent>().Where(x => x.HasTopLevelMediaType("image"));
+
+    // 游标之后、他没听过的群发言：跳过他自己的、已经插话插给他的、剥完前缀没字的
+    private static IEnumerable<(ChatMessage Post, string Body)> Undelivered(IReadOnlyList<ChatMessage> groupLog,
+        int cursor, string memberSessionId, IReadOnlySet<int>? injected)
+    {
         for (int i = Math.Max(0, cursor); i < groupLog.Count; i++)
         {
             ChatMessage post = groupLog[i];
@@ -33,13 +80,8 @@ public static class GroupTranscript
             if (injected?.Contains(i) == true) continue;
 
             string body = StripSpeakerPrefix(post.Text.Trim(), post.AuthorName);
-            if (body.Length == 0) continue;
-
-            if (text.Length > 0) text.Append("\n\n");
-            text.Append(FormatPost(post.AuthorName, body));
+            if (body.Length > 0) yield return (post, body);
         }
-
-        return text.Length == 0 ? null : text.ToString();
     }
 
     /// <summary>
@@ -196,12 +238,20 @@ public static class GroupTranscript
         else if (scene.HostName != null)
             text.Append($"\n本群主持人是{scene.HostName}。");
 
-        text.Append("\n\n群里的发言会按「[名字]: 内容」的格式交给你；你这一轮最后的回复正文，就是你在群里说的话——" +
-                    "直接说，不要自己加「[名字]:」前缀。想请某位成员接话，在发言里写 @名字。");
+        text.Append("\n\n群里的发言会按「[名字]: 内容」的格式交给你；你每次说完的回复正文，就是你在群里说的话——" +
+                    "直接说，不要自己加「[名字]:」前缀。想请某位成员接话，在发言里写 @名字。" +
+                    "\n调用工具时顺手写的话（比如「先查一下」）只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.CanPostMidTurn)
             text.Append("想在这一轮中途先对大家说一句，可以调用 SendMessage，to 写 group；用过它，这一轮最后的正文就只留在你这里，不再贴到群里。");
         text.Append($"\n没什么要补充、不用接话时，只回复「{PassReply}」：这句不会发到群里。不必为表态「收到」「我也等着」专门说一句。");
         text.Append("\n用户也会单独找你私聊，那种消息开头标着「私聊」，回复只有用户看得到。");
+        if (scene.SharesDraftRoom)
+        {
+            // 讨论 → 拍板 → 开工（方案 v6 §2.6⑤），拍板归用户。系统不解析用户那句话，判断交给模型
+            text.Append("\n方案由用户拍板：用户明确说定（比如「就这么做」「开始吧」）或点名让你去做之前，只讨论、查证，" +
+                        "草稿写在草稿目录里，不改工作区的文件、不跑会改东西的命令。拿不准用户是不是已经拍板，就问一句。");
+            text.Append("\n你的草稿目录是全群共用的，别的成员也往里写：文件名起得具体些，新建前先看有没有同名的，别盖掉别人的。");
+        }
         return text.ToString();
     }
 
@@ -313,8 +363,10 @@ public static class GroupTranscript
 /// <param name="UserName">用户的名字</param>
 /// <param name="CanPostMidTurn">他有没有 SendMessage 可用（智能体形态且开着委派）</param>
 /// <param name="HostName">主持人的名字；没有为 null</param>
+/// <param name="SharesDraftRoom">他有没有草稿目录（智能体形态且开着文件或命令行）：有就是全群共用的那一间，
+/// 也说明他动得了工作区，场景段要讲清拍板之前不动手</param>
 public sealed record GroupScene(string GroupName, string SelfName, IReadOnlyList<string> OtherNames,
-    string UserName, bool CanPostMidTurn, string? HostName);
+    string UserName, bool CanPostMidTurn, string? HostName, bool SharesDraftRoom = false);
 
 /// <summary>投递拆回来的一段</summary>
 /// <param name="Speaker">发言人显示名；场景说明、主持人提示等无发言人为 null</param>

@@ -105,6 +105,7 @@ public partial class App : Application, ILogger, IDisposable
         ApplicationThemeManager.InitializeFromConfig();
         UiharuMind.Core.Core.Diagnostics.StartupPhaseProbe.Mark("theme");
         WireBackgroundSubAgents();
+        WireGroupApprovals();
         // 上次退出时还在跑的后台委派:父会话里那条「已派出」永远等不到下文,在这里补上一条中止说明
         UiharuMind.Core.AI.Execution.Tools.BackgroundSubAgentDispatcher.SettleOrphansOnStartup();
         UiharuCoreManager.Instance.Init();
@@ -286,6 +287,25 @@ public partial class App : Application, ILogger, IDisposable
                         break;
                 }
             });
+        };
+    }
+
+    /// <summary>
+    /// 群成员开始等审批时提示用户：人不在群视图里就看不到那条待审批条，十分钟没人应就按拒绝收口
+    /// </summary>
+    private static void WireGroupApprovals()
+    {
+        UiharuMind.Core.AI.Chat.Group.HeadlessGroupMemberTurnRunner.ApprovalWaitingNotifier = member =>
+        {
+            if (Services?.GetService<IMessageService>() is not { } messageService) return;
+
+            string groupTitle = member.GroupId is { } groupId
+                ? UiharuMind.Core.AI.Chat.SessionManager.Instance.GetMeta(groupId)?.Title ?? string.Empty
+                : string.Empty;
+            Dispatcher.UIThread.Post(() => messageService.ShowNotification(Loc.Text(LangKey.GroupApprovalWaitingTip),
+                string.Format(Loc.Text(LangKey.GroupApprovalWaitingFormat), member.CharacterData.CharacterName,
+                    groupTitle),
+                MessageSeverity.Warning, TimeSpan.FromSeconds(20)));
         };
     }
 

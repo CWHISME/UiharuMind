@@ -117,7 +117,7 @@ public class ParallelGroupChatTests
     [Fact]
     public async Task Broadcast_ReachesMembersStillSpeaking_AndIsNotDeliveredAgain()
     {
-        _group.GroupStopPolicy = EGroupStopPolicy.Aggressive; //激进档：闲聊也实时插给在跑的人
+        _group.GroupStopPolicy = EGroupStopPolicy.Aggressive;
         TaskCompletionSource aliceGate = new();
         _runner.During[_alice.SessionId] = () => aliceGate.Task;
 
@@ -140,30 +140,26 @@ public class ParallelGroupChatTests
     }
 
     /// <summary>
-    /// 保守档：没点到她的闲聊不插进她正在跑的这一轮（插进去她就会多回一句，大家互相续下去），
-    /// 等她下一轮随投递看到
+    /// 保守档：没点到她的闲聊照样实时插进她正在跑的这一轮——她得看得到同伴说了什么；
+    /// 没被叫醒的人不会因此开口（叫醒仍按唤醒边界）
     /// </summary>
     [Fact]
-    public async Task Conservative_UnaddressedChatter_IsNotInjected_ButDeliveredLater()
+    public async Task Conservative_UnaddressedChatter_StillReachesTheRunningMember()
     {
         TaskCompletionSource aliceGate = new();
         _runner.During[_alice.SessionId] = () => aliceGate.Task;
 
         Task posting = _coordinator.PostAsync(_group, "大家好");
-        // Bob、Carol 说完，再给广播队列一点时间跑完——要验的是「没插」，只能等一会儿再看
-        await WaitUntil(() => _group.History.Count >= 3);
-        await Task.Delay(50, TestContext.Current.CancellationToken);
-
-        Assert.DoesNotContain(_runner.Injected, x => x.Member == _alice);
+        await WaitUntil(() => _runner.Injected.Any(x => x.Member == _alice && x.Text.Contains("[Bob]:")));
         aliceGate.SetResult();
         await posting;
-        _runner.During.Clear();
 
-        await _coordinator.ContinueAsync(_group);
-        Assert.Contains("[Bob]: Bob 的第 1 次发言", _runner.Calls.Last(x => x.Member == _alice).Input);
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text.Contains("[Carol]:"));
+        Assert.Equal(1, _runner.CallsOf(_bob)); //闲聊不叫醒人：Bob、Carol 各说一次就停
+        Assert.Equal(1, _runner.CallsOf(_carol));
     }
 
-    /// <summary>保守档：点到了她才插；她被成员点到之后再说的话按第二跳算，不再叫醒别人</summary>
+    /// <summary>保守档：她跑着时被成员点到，接下来说的话按第二跳算，不再叫醒别人</summary>
     [Fact]
     public async Task Conservative_MentionReachesTheRunningMember_AndHerNextWordsAreTheSecondHop()
     {
@@ -177,7 +173,7 @@ public class ParallelGroupChatTests
         aliceGate.SetResult();
         await posting;
 
-        Assert.Equal(["[Bob]: @Alice 你怎么看"], _runner.Injected.Where(x => x.Member == _alice).Select(x => x.Text));
+        Assert.Contains(_runner.Injected, x => x.Member == _alice && x.Text == "[Bob]: @Alice 你怎么看");
         Assert.Equal(1, _runner.CallsOf(_carol)); //Alice 被 Bob 点到之后的 @Carol 不再叫醒她
     }
 
@@ -190,6 +186,7 @@ public class ParallelGroupChatTests
 
         Assert.DoesNotContain(_group.History, x => ChatMessageAnnotations.GroupSpeakerSessionOf(x) == _bob.SessionId);
         Assert.Contains(_group.History, x => ChatMessageAnnotations.GroupSpeakerSessionOf(x) == _alice.SessionId);
+        Assert.DoesNotContain(_bob.History, ChatMessageAnnotations.IsPostedToGroup);
     }
 
     [Fact]

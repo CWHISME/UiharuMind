@@ -38,6 +38,32 @@ public class GroupSceneTests
         Assert.Contains("SendMessage", scene);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Scene_TalksAboutTheWorkspace_OnlyWhenHeCanTouchIt(bool shares)
+    {
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", ["Bob"], "我", false, null, shares));
+
+        Assert.Equal(shares, scene.Contains("草稿目录是全群共用的"));
+        Assert.Equal(shares, scene.Contains("方案由用户拍板")); //动得了工作区的人才需要这条
+    }
+
+    /// <summary>群成员的产出落群壳那一间：一起干的活在一处，不必从各人目录里拼</summary>
+    [Fact]
+    public void Members_ShareTheGroupsOutputRoom()
+    {
+        ChatSession Member(string id) => new() { SessionId = id, GroupId = "group123456", WorkspacePath = "/ws", IsTransient = true };
+
+        string alice = AgentBuildProfile.FromSession(Member("alice0001")).OutputFolderName;
+        string bob = AgentBuildProfile.FromSession(Member("bob000001")).OutputFolderName;
+        string solo = AgentBuildProfile.FromSession(new ChatSession { SessionId = "alice0001", WorkspacePath = "/ws" }).OutputFolderName;
+
+        Assert.Equal(AgentOutputLayout.GetFolderName("/ws", "group123456"), alice);
+        Assert.Equal(alice, bob);
+        Assert.Equal(AgentOutputLayout.GetFolderName("/ws", "alice0001"), solo);
+    }
+
     [Fact]
     public void Source_ResolvesTheMembersGroup()
     {

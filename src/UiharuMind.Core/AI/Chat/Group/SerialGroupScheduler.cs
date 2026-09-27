@@ -32,7 +32,4 @@ internal sealed class SerialGroupScheduler : IGroupScheduler
     public void OnPosted(GroupPostEvent post)
     {
     }
-
-    // 串行同一时刻只有一个人在跑，插给他的只有用户的话（他自己的发言本来就不回投）
-    public bool ShouldInject(GroupPostEvent post, string runningMemberSessionId) => true;
 }

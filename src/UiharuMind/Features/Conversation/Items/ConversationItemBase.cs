@@ -115,7 +115,24 @@ public abstract partial class ConversationItemBase : ObservableObject
     /// 本条目对应的历史消息。编辑/删除/重试/分叉都需要据此定位到历史里的那一条；
     /// 为空表示该条目不对应单条消息（如流式进行中的占位、框架注入的内容），此时不提供这些操作。
     /// </summary>
-    public Microsoft.Extensions.AI.ChatMessage? SourceMessage { get; set; }
+    public Microsoft.Extensions.AI.ChatMessage? SourceMessage
+    {
+        get => _sourceMessage;
+        set
+        {
+            _sourceMessage = value;
+            RefreshFromSource();
+        }
+    }
+
+    private Microsoft.Extensions.AI.ChatMessage? _sourceMessage;
+
+    /// <summary>
+    /// 从来源消息重读挂在它身上的标记（接上来源时自动调；标记是事后盖的，由调用方在那之后再刷一次）
+    /// </summary>
+    public virtual void RefreshFromSource()
+    {
+    }
 
     /// <summary>是否可编辑</summary>
     public bool CanEdit => EditedCallback != null;
@@ -186,6 +203,14 @@ public partial class TextConversationItem : ConversationItemBase, IStreamFlushTa
 
     /// <inheritdoc />
     public override bool IsNarration => _isNarration;
+
+    /// <summary>群成员的这条回复已贴进群（时间旁挂「已发到群」）；过程话与私聊回复不挂</summary>
+    [ObservableProperty] private bool _isPostedToGroup;
+
+    /// <inheritdoc />
+    public override void RefreshFromSource() =>
+        IsPostedToGroup = !IsUser && SourceMessage is { } source
+                                  && Core.AI.Chat.ChatMessageAnnotations.IsPostedToGroup(source);
 
     // 旁白类(开场白/子代理后续报告)的截断视图。只对旁白启用:它是静态的"扫一眼"内容,
     // 与工具结果同一语义;用户/助手消息是流式的、正在被阅读,截断会破坏阅读体验。

@@ -62,6 +62,38 @@ public class GroupChatCoordinatorTests
         Assert.Equal("[Alice]: Alice 的第 2 次发言", _runner.Calls[1].Input);
     }
 
+    /// <summary>权限档跟群走：成员各存一份时，群看着是自动编辑，某位成员却在完全自动档下跑 shell</summary>
+    [Fact]
+    public async Task MembersRunWithTheGroupsPermission()
+    {
+        _group.PermissionModeIndex = 0;
+        _alice.PermissionModeIndex = 2;
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.Equal(0, _alice.PermissionModeIndex);
+        Assert.Equal(0, _bob.PermissionModeIndex);
+    }
+
+    /// <summary>群里的图：路径引用人人都有，图片本身只转交给看得了图的成员</summary>
+    [Fact]
+    public async Task PostedImages_ReachOnlyTheMembersWhoCanSeeThem()
+    {
+        GroupChatCoordinator coordinator = new(_runner, id => _sessions.GetValueOrDefault(id),
+            member => member.SessionId == _alice.SessionId);
+        DataContent image = new(new byte[] { 1, 2, 3 }, "image/png");
+
+        await coordinator.PostAsync(_group, "看这张\n\n***\n[Attached file: /tmp/a.png]", [image]);
+
+        Assert.Same(image, Assert.Single(_group.History[0].Contents.OfType<DataContent>()));
+        ChatMessage toAlice = _alice.History[0];
+        ChatMessage toBob = _bob.History[0];
+        Assert.Same(image, Assert.Single(toAlice.Contents.OfType<DataContent>()));
+        Assert.DoesNotContain(toBob.Contents, x => x is DataContent);
+        Assert.Contains("[Attached file: /tmp/a.png]", toBob.Text);
+        Assert.True(ChatMessageAnnotations.IsGroupDelivery(toAlice));
+    }
+
     /// <summary>场景在系统提示里（ADR 0048），首次投递不再带：压缩裁掉开头也丢不了</summary>
     [Fact]
     public async Task FirstDelivery_CarriesNoScene()
@@ -118,6 +150,9 @@ public class GroupChatCoordinatorTests
             .ToList();
         // 带工具调用的那段是边做边说，不算说完
         Assert.Equal(["先回用户一句", "Alice 的第 1 次发言"], alicePosts);
+        // 他自己那边据此分得清：进了群的两条带标记，过程话不带
+        Assert.Equal(["[Alice]: 先回用户一句", "Alice 的第 1 次发言"], _alice.History
+            .Where(ChatMessageAnnotations.IsPostedToGroup).Select(x => x.Text)); //假跑法不走落盘剥前缀那一关
     }
 
     /// <summary>SendMessage 发群只让它所在的那一段正文不再贴，后面几段照常</summary>

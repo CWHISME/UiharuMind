@@ -18,6 +18,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
 {
     private readonly IGroupMemberTurnRunner _runner;
     private readonly Func<string, ChatSession?> _load;
+    private readonly Func<ChatSession, bool> _seesImages; //成员此刻的模型能不能看图：看得了才转交群里的图
     private readonly object _locker = new();
     private readonly Dictionary<string, Episode> _episodes = new(); //群 → 正在跑的那一波
     private readonly Dictionary<string, HashSet<int>> _consumed = new(); //成员会话 → 插话插给他且已被消费的群流水下标
@@ -31,10 +32,13 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// </summary>
     /// <param name="runner">成员一轮的跑法</param>
     /// <param name="load">按标识取会话</param>
-    public GroupChatCoordinator(IGroupMemberTurnRunner runner, Func<string, ChatSession?> load)
+    /// <param name="seesImages">成员的模型能不能看图；null 按会话的有效模型判断</param>
+    public GroupChatCoordinator(IGroupMemberTurnRunner runner, Func<string, ChatSession?> load,
+        Func<ChatSession, bool>? seesImages = null)
     {
         _runner = runner;
         _load = load;
+        _seesImages = seesImages ?? (member => member.ChatModelRunningData?.IsVisionModel == true);
     }
 
     /// <summary>
@@ -68,10 +72,11 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// 用户往群里发言。群闲着就开一波；正在跑就广播给正在跑的成员，并按调度模式决定要不要再叫醒谁
     /// </summary>
     /// <param name="group">群壳会话</param>
-    /// <param name="text">发言</param>
-    public async Task PostAsync(ChatSession group, string text)
+    /// <param name="text">发言（附件的路径引用已拼在正文里）</param>
+    /// <param name="images">随发言发出的图片；没有为 null</param>
+    public async Task PostAsync(ChatSession group, string text, IReadOnlyList<DataContent>? images = null)
     {
-        ChatMessage post = group.CreateMessage(ChatRole.User, text);
+        ChatMessage post = group.CreateMessage(ChatRole.User, text, images);
         int index = Append(group, post);
 
         if (EpisodeOf(group.SessionId) is { } running)
@@ -125,12 +130,14 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
 
         int deliveredFrom = member.GroupCursor;
         string? delivery;
+        IReadOnlyList<DataContent> images;
         GroupMemberTurnState? turn = null;
         // 取投递、推游标、登记在说，与 Append 同一把锁：之后追加的每一条要么在投递里、要么会插给他，不漏不重
         lock (_locker)
         {
             _consumed.Remove(member.SessionId, out HashSet<int>? consumed);
             delivery = GroupTranscript.BuildDelivery(group.History, member.GroupCursor, member.SessionId, consumed);
+            images = GroupTranscript.DeliveryImages(group.History, member.GroupCursor, member.SessionId, consumed);
             member.GroupCursor = group.History.Count;
             if (delivery != null)
             {
@@ -145,13 +152,17 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         // 工作区以群壳为准，每轮开跑前对齐：右栏改的是群的工作区，成员各存一份就会对不上。
         // 成员只在其会话是 agent 形态时才领工作区（ADR 0050：普通群的 agent 卡以 chat 形态加入，不绑）
         member.WorkspacePath = member.IsAgentForm is true ? group.WorkspacePath : null;
+        // 权限档同理跟群走：群聊的权限只在群视图一处设
+        member.PermissionModeIndex = group.PermissionModeIndex;
         member.SaveMeta(touchUpdatedAt: false);
         if (turn == null) return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
 
         string input = ComposeInput(run, member, delivery!, deliveredFrom);
         // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
         using GroupMemberReplyFeed replies = new(group, member, turn.Cursor, text => PostFromMember(group, member, text));
-        bool completed = await RunTurnAsync(member, input, run.Token);
+        // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
+        ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
+        bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
         replies.Finish(completed);
 
         IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
@@ -238,12 +249,10 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         return coldStart ? delivery + "\n\n" + GroupTranscript.HostColdStartHint : delivery;
     }
 
-    private async Task<bool> RunTurnAsync(ChatSession member, string input, CancellationToken cancellationToken)
+    private async Task<bool> RunTurnAsync(ChatSession member, ChatMessage delivery, CancellationToken cancellationToken)
     {
         try
         {
-            ChatMessage delivery = new(ChatRole.User, input);
-            ChatMessageAnnotations.MarkGroupDelivery(delivery);
             return await _runner.RunAsync(member, delivery, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -302,10 +311,11 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         string text = GroupTranscript.FormatPost(post.AuthorName, body);
         foreach (GroupMemberTurnState turn in episode.Run.Turns)
         {
-            if (turn.Member.SessionId == posted.AuthorSessionId) continue; //发言不回投给发送者本人
-            // 插不插由调度定：插进去就是让他多说一句，要守停止条件
-            if (!episode.Scheduler.ShouldInject(posted, turn.Member.SessionId)) continue;
-            await turn.InjectAsync(_runner, posted.Index, text);
+            // 发言不回投给发送者本人。其余在跑的人都插：他们要看得到同伴实时说了什么（ADR 0049 第 12 条已撤）。
+            // 没什么可接的由他回「[跳过]」收住，不靠这里挡
+            if (turn.Member.SessionId == posted.AuthorSessionId) continue;
+            await turn.InjectAsync(_runner, posted.Index, text,
+                _seesImages(turn.Member) ? GroupTranscript.ImagesOf(post) : []);
         }
     }
 

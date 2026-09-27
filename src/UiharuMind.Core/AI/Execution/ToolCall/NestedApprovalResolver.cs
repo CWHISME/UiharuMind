@@ -57,7 +57,7 @@ internal static class NestedApprovalResolver
     /// <param name="onAutoApproved">每次自动放行时调一次（报告点名用）</param>
     /// <returns>审批通道；<paramref name="attended"/> 为 false 时返回 null</returns>
     public static ApprovalResolver? Create(bool attended, string sessionId,
-        SubSessionApprovalRegistry registry, TimeSpan timeout, int maxDeniedRounds,
+        SessionApprovalRegistry registry, TimeSpan timeout, int maxDeniedRounds,
         CancellationToken cancellationToken, Action? onWaiting = null,
         Func<ToolApprovalRequestContent, string?>? autoApprove = null,
         Action<ToolApprovalRequestContent>? onAutoApproved = null)

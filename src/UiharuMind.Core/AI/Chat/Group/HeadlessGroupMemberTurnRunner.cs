@@ -1,6 +1,6 @@
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution;
-using UiharuMind.Core.Core.SimpleLog;
+using UiharuMind.Core.AI.Execution.ToolCall;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -8,16 +8,22 @@ namespace UiharuMind.Core.AI.Chat.Group;
 /// 成员一轮的默认跑法：与定时任务同一条无头编排（<see cref="TurnDriver"/>，没有渲染落点），
 /// 运行态登记、取消收尾、交接文档一并到手。
 ///
-/// 审批<b>一律拒绝</b>：骨架阶段群视图还接不住成员的审批卡（ADR 0046 未决）。
-/// 权限档照常起作用——工作区内的读写在自动编辑档本来就不问，被拒的是 shell 与越界写入。
+/// 审批登记到 <see cref="SessionApprovalRegistry"/> 等人点选（ADR 0046 修订）：群的待审批条与他自己的
+/// 会话窗口都能认领那张卡。只有他这一轮停下来等，其余成员照常说话；没人应就按拒绝收口，
+/// 连着几轮一条都没批准就收掉这一轮，免得模型换着花样一直要。
 /// </summary>
 public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
 {
-    private const int MaxApprovalRounds = 3; //同一轮里被拒到第几次就收口,免得模型换着花样一直要
+    private const int MaxDeniedApprovalRounds = 3; //连着几轮一条都没批准就收口
 
-    private const string DenialReason =
-        "Nobody in this group chat can approve this call right now. Use an approach that needs no approval, " +
-        "or say in the group what you need.";
+    /// <summary>审批无人应时的等待上限：到期按拒绝收口，这一波群聊不至于一直挂着</summary>
+    public static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// 有成员开始等审批（参数为成员会话）。界面据此提示用户——人不在群视图里就看不到那条待审批条。
+    /// 静态口，与后台子代理的提示同形（ADR 0025）。⚠️ 来自后台线程
+    /// </summary>
+    public static Action<ChatSession>? ApprovalWaitingNotifier { get; set; }
 
     /// <inheritdoc />
     public async Task<bool> RunAsync(ChatSession member, ChatMessage input, CancellationToken cancellationToken)
@@ -30,7 +36,19 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
             {
                 if (notice.Kind == ETurnNotice.Failed) failed = true;
             });
-        await driver.RunAsync(member, member.Runner, input, DenyAll(member), cancellationToken, attended: false)
+        ApprovalResolver waitForUser = NestedApprovalResolver.Create(true, member.SessionId,
+            SessionApprovalRegistry.Instance, ApprovalTimeout, MaxDeniedApprovalRounds, cancellationToken,
+            () => ApprovalWaitingNotifier?.Invoke(member))!;
+        // 群本身也挂「等审批」：左栏、导航角标、托盘认的是群那一行，成员会话不进左栏。
+        // 成员自己那份由 TurnDriver 登记（右栏成员列表认它）
+        async Task<IReadOnlyList<ChatMessage>> Resolver(IReadOnlyList<ToolApprovalRequestContent> requests)
+        {
+            using IDisposable waiting = SessionManager.Instance.Running.BeginApprovalWait(member.GroupId);
+            return await waitForUser(requests).ConfigureAwait(false);
+        }
+
+        // 算有人看着：审批有人接（上面那条），他派出的子代理也照有人看着的口径跑
+        await driver.RunAsync(member, member.Runner, input, Resolver, cancellationToken, attended: true)
             .ConfigureAwait(false);
 
         return !failed && !cancellationToken.IsCancellationRequested;
@@ -44,24 +62,4 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     public Task<IReadOnlyCollection<ChatMessage>> WithdrawAsync(ChatSession member,
         IReadOnlyCollection<ChatMessage> messages) =>
         member.Runner.CancelInjectionsAsync(messages);
-
-    private static ApprovalResolver DenyAll(ChatSession member)
-    {
-        int round = 0;
-        return requests =>
-        {
-            if (++round > MaxApprovalRounds) return Task.FromResult<IReadOnlyList<ChatMessage>>([]);
-
-            IReadOnlyList<ChatMessage> denials = requests
-                .Select(request =>
-                {
-                    Log.Warning($"Group member '{member.Title}' ({member.SessionId}) denied " +
-                                $"{(request.ToolCall as FunctionCallContent)?.Name ?? "a tool call"}: nobody to ask.");
-                    return new ChatMessage(ChatRole.User,
-                        new List<AIContent> { request.CreateResponse(approved: false, reason: DenialReason) });
-                })
-                .ToList();
-            return Task.FromResult(denials);
-        };
-    }
 }

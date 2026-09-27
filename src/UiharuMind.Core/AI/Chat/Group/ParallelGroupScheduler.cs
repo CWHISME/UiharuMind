@@ -53,17 +53,6 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
         foreach (GroupWake wake in wakes) Wake(wake, post.Index);
     }
 
-    /// <summary>
-    /// 用户的话、激进档：插给所有正在跑的人。保守档的成员发言只插给唤醒边界点到的人——
-    /// 不然闲聊一插进去，对方被消费后多回一句，这句又插给别人，只要还有两三个人在跑就能一直续下去，
-    /// 一跳防护从插话这条路被绕过（实测五人群里满屏「我也收住」）。没插的等他下一轮随投递看到
-    /// </summary>
-    public bool ShouldInject(GroupPostEvent post, string runningMemberSessionId)
-    {
-        if (post.AuthorSessionId == null || _run.StopPolicy == EGroupStopPolicy.Aggressive) return true;
-        return WakesForMemberPost(post.AuthorSessionId, post.Text).Any(x => x.MemberSessionId == runningMemberSessionId);
-    }
-
     private IReadOnlyList<GroupWake> WakesForMemberPost(string authorSessionId, string text)
     {
         EGroupWakeCause authorCause;

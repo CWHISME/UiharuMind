@@ -197,21 +197,9 @@ public partial class AttachmentTrayViewData : ObservableObject
         foreach (ConversationAttachment attachment in attachments)
         {
             // 仅图片且为视觉模型时内联字节;其余文件一律以路径文本引用
-            if (isVision && attachment.IsImage)
+            if (isVision && attachment.IsImage && TryInline(attachment) is { } inline)
             {
-                try
-                {
-                    byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
-                    // 只缩发出去的那一份:磁盘附件与界面预览仍是原图,AnalyzeImage 拿到的也还是原文件
-                    (byte[] inlineBytes, string inlineType) =
-                        ConversationImageDownscaler.Downscale(data, attachment.MediaType);
-                    contents!.Add(new DataContent(inlineBytes, inlineType));
-                }
-                catch (Exception e)
-                {
-                    Log.Warning($"Attachment load failed '{attachment.FileName}': {e.Message}");
-                    fileReferences.Add(ReferenceOf(attachment));
-                }
+                contents!.Add(inline);
             }
             else
             {
@@ -224,6 +212,46 @@ public partial class AttachmentTrayViewData : ObservableObject
         return isVision
             ? ComposeVisionMessage(contents!, text, fileReferences)
             : new ChatMessage(ChatRole.User, JoinUserTextWithFileReferences(text, fileReferences));
+    }
+
+    /// <summary>
+    /// 群发言的正文与图片。群壳自己不问模型，成员的模型能不能看图又各不相同，所以两样都给：
+    /// 每个附件的路径引用拼进正文（看不了图的成员靠它用识图工具），图片再内联一份
+    /// （群气泡靠它显示，调度器只转交给看得了图的成员）
+    /// </summary>
+    /// <param name="text">用户输入的正文</param>
+    /// <param name="attachments">本条附件；为空时正文原样、没有图片</param>
+    /// <returns>正文与图片</returns>
+    public (string Text, List<DataContent>? Images) BuildGroupPost(string text,
+        List<ConversationAttachment>? attachments)
+    {
+        if (attachments == null || attachments.Count == 0) return (text, null);
+
+        List<DataContent> images = new();
+        List<string> fileReferences = new();
+        foreach (ConversationAttachment attachment in attachments)
+        {
+            fileReferences.Add(ReferenceOf(attachment));
+            if (attachment.IsImage && TryInline(attachment) is { } inline) images.Add(inline);
+        }
+
+        return (JoinUserTextWithFileReferences(text, fileReferences), images.Count > 0 ? images : null);
+    }
+
+    /// 图片读成要发出去的那一份。只缩这一份:磁盘附件与界面预览仍是原图,AnalyzeImage 拿到的也还是原文件
+    private static DataContent? TryInline(ConversationAttachment attachment)
+    {
+        try
+        {
+            byte[] data = attachment.Bytes ?? File.ReadAllBytes(attachment.FilePath!);
+            (byte[] inlineBytes, string inlineType) = ConversationImageDownscaler.Downscale(data, attachment.MediaType);
+            return new DataContent(inlineBytes, inlineType);
+        }
+        catch (Exception e)
+        {
+            Log.Warning($"Attachment load failed '{attachment.FileName}': {e.Message}");
+            return null;
+        }
     }
 
     /// <summary>

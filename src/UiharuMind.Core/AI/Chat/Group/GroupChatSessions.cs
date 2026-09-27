@@ -9,6 +9,12 @@ namespace UiharuMind.Core.AI.Chat.Group;
 public static class GroupChatSessions
 {
     /// <summary>
+    /// 群把权限档推给了成员（参数为群壳会话标识）。打开着的成员窗口据此刷新显示的档位——
+    /// 它只在打开时读一次，不喊一声就一直显示旧档。⚠️ 可能来自任意线程，订阅方自行 marshal
+    /// </summary>
+    public static event Action<string>? PermissionApplied;
+
+    /// <summary>
     /// 这个角色能不能进这类群：两类群都收<b>所有非用户卡</b>（ADR 0050 决策 3）。
     /// 智能体群绑工作区，agent 成员跑 agent 形态、普通成员跑 chat 形态；
     /// 普通群不绑工作区，全员以 chat 形态加入——agent 卡进普通群也不写文件，
@@ -79,6 +85,35 @@ public static class GroupChatSessions
         foreach (ChatSession member in sessions) SessionManager.Instance.Add(member);
         SessionManager.Instance.Add(group);
         return group;
+    }
+
+    /// <summary>
+    /// 成员的有效权限档：一律取群的。群聊的权限只在群视图一处设，成员窗口里不各设一份——
+    /// 各存一份时，用户看着群是「自动编辑」，某位成员却在完全自动档下跑 shell
+    /// </summary>
+    /// <param name="member">会话</param>
+    /// <returns>权限档序号；不是群成员或群已不在时取他自己的</returns>
+    public static int PermissionOf(ChatSession member) =>
+        member.GroupId is { } groupId && SessionManager.Instance.GetMeta(groupId) is { } group
+            ? group.PermissionModeIndex
+            : member.PermissionModeIndex;
+
+    /// <summary>
+    /// 群改了权限档：当场推给各成员。审批规则现取档位，正在跑的那一轮下一条调用就按新档来
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    public static void ApplyPermissionToMembers(ChatSession group)
+    {
+        if (!group.IsGroup) return;
+        foreach (string memberId in group.GroupMemberSessionIds)
+        {
+            if (SessionManager.Instance.Load(memberId) is not { } member) continue;
+            if (member.PermissionModeIndex == group.PermissionModeIndex) continue;
+            member.PermissionModeIndex = group.PermissionModeIndex;
+            member.SaveMeta(touchUpdatedAt: false);
+        }
+
+        PermissionApplied?.Invoke(group.SessionId);
     }
 }
 

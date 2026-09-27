@@ -5,6 +5,7 @@
              xmlns:u="https://irihi.tech/ursa"
              xmlns:composer="clr-namespace:UiharuMind.Features.Conversation.Composer"
              xmlns:conv="clr-namespace:UiharuMind.Features.Conversation"
+             xmlns:group="clr-namespace:UiharuMind.Features.Conversation.Group"
              xmlns:items="clr-namespace:UiharuMind.Features.Conversation.Items"
              xmlns:panels="clr-namespace:UiharuMind.Features.Conversation.SidePanels"
              xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
@@ -363,6 +364,50 @@
                 </ItemsControl>
                 <!-- 待发的插话:已入注入队列、模型还没消费。它们不进时间轴(位置要等消费那一刻才定),
                      不列出来的话看着像没发出去 -->
+                <!-- 群成员在等审批:每条一行(谁 · 工具 · 参数摘要 + 按钮),摘要全文进提示,完整的卡(diff)点「查看」去他的会话看。
+                     只有他那一轮停着等,其余成员照常说话;十分钟没人应按拒绝收口 -->
+                <ScrollViewer MaxHeight="120" HorizontalScrollBarVisibility="Disabled"
+                              IsVisible="{Binding GroupApprovals.Items.Count, FallbackValue=False}">
+                    <ItemsControl ItemsSource="{Binding GroupApprovals.Items}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="group:GroupApprovalViewData">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,0,2,4">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="🔐" FontSize="11" VerticalAlignment="Center" />
+                                        <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                   Text="{Binding MemberName}" />
+                                        <TextBlock Classes="mono" FontSize="11" VerticalAlignment="Center"
+                                                   Text="{Binding Card.ToolName}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Classes="muted mono" FontSize="11" Margin="6,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               Text="{Binding Summary}" ToolTip.Tip="{Binding Card.ArgumentSummary}" />
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                                        <Button Classes="Small" CornerRadius="6"
+                                                Command="{Binding Card.ResolveCommand}" CommandParameter="once"
+                                                Content="{loc:Loc AgentApproveOnce}" />
+                                        <Button Classes="Small" CornerRadius="6"
+                                                IsVisible="{Binding !Card.CanRememberCommandPattern}"
+                                                Command="{Binding Card.ResolveCommand}" CommandParameter="session"
+                                                Content="{loc:Loc AgentApproveSession}" />
+                                        <Button Classes="Small" CornerRadius="6"
+                                                IsVisible="{Binding Card.CanRememberCommandPattern}"
+                                                Command="{Binding Card.ResolveCommand}" CommandParameter="session-command"
+                                                Content="{loc:Loc AgentApproveSessionCommand}"
+                                                ToolTip.Tip="{Binding Card.SuggestedCommandPattern}" />
+                                        <Button Classes="Small" CornerRadius="6" Foreground="IndianRed"
+                                                Command="{Binding Card.ResolveCommand}" CommandParameter="deny"
+                                                Content="{loc:Loc AgentDeny}" />
+                                        <Button Classes="Small" CornerRadius="6"
+                                                Command="{Binding OpenCommand}"
+                                                Content="{loc:Loc GroupApprovalOpen}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
                 <!-- 群里广播进来、他还没接收的:合成一行(条数 + 最新一条),全文进提示。逐条列会在插话多时把会话区挤没 -->
                 <StackPanel Orientation="Horizontal" Spacing="6" Margin="2,0,2,2"
                             IsVisible="{Binding HasGroupPending}" ToolTip.Tip="{Binding GroupPendingTip}">
@@ -471,6 +516,7 @@
                         <!-- 垂直分隔线 -->
                         <Rectangle Width="1" Height="16" Fill="Gray" Margin="4,0" VerticalAlignment="Center" IsVisible="{Binding IsSenderSwitchVisible}"/>
 
+                        <!-- 群成员跟群走：弹出的档位列表只读（只在群视图设），提示里写明 -->
                         <ThemedIconButton Classes="permission-state"
                                           IconName="shield"
                                           Tag="{Binding PermissionModeKey}"
@@ -483,6 +529,7 @@
                                             BorderBrush="{DynamicResource SemiGrey2}"
                                             BorderThickness="1">
                                         <ListBox Classes="option-list"
+                                                 IsEnabled="{Binding IsPermissionEditable}"
                                                  SelectedIndex="{Binding PermissionModeIndex}">
                                             <ListBoxItem>
                                                 <StackPanel>

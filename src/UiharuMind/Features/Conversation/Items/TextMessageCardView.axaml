@@ -82,6 +82,11 @@
                                IsVisible="{Binding ShowSenderName}"
                                Foreground="{DynamicResource SemiGrey7}" />
                     <TextBlock Classes="muted" Text="{Binding Timestamp}" />
+                    <!-- 群成员会话：这条进了群。没挂的是调工具时顺手写的过程话或私聊回复，群里看不到 -->
+                    <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource SemiBlue5}"
+                               IsVisible="{Binding IsPostedToGroup}"
+                               Text="{loc:Loc GroupPostedTag}" />
                 </StackPanel>
 
                 <!-- 多模态消息里的图片(粘贴/附加的图) -->

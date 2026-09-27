@@ -85,6 +85,25 @@ public sealed class GroupMembersViewData
         foreach (GroupMemberItem member in Members) member.IsSpeaking = speakerSessionIds.Contains(member.SessionId);
         foreach (GroupMemberItem member in Members) member.RefreshUsage();
     }
+
+    /// <summary>
+    /// 从运行态登记处重读各成员是不是卡在审批上（成员那一轮由 TurnDriver 登记）
+    /// </summary>
+    public void RefreshApprovalWaits()
+    {
+        foreach (GroupMemberItem member in Members)
+        {
+            member.IsAwaitingApproval =
+                SessionManager.Instance.Running.StateOf(member.SessionId) == ESessionRunState.AwaitingApproval;
+        }
+    }
+
+    /// <summary>
+    /// 这个会话是不是本群成员
+    /// </summary>
+    /// <param name="sessionId">会话标识</param>
+    /// <returns>是成员为 true</returns>
+    public bool Contains(string sessionId) => Members.Any(x => x.SessionId == sessionId);
 }
 
 /// <summary>成员列表里的一项</summary>
@@ -229,7 +248,17 @@ public sealed partial class GroupMemberItem : ObservableObject
     public Bitmap? Icon => IconUtils.GetCharacterBitmapOrDefault(_character);
 
     /// <summary>此刻是不是群里的发言人（右栏标出正在说的那一位）</summary>
-    [ObservableProperty] private bool _isSpeaking;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsSpeaking))]
+    private bool _isSpeaking;
+
+    /// <summary>他这一轮是不是停着等审批（右栏标「等审批」，点开他的会话能批）</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsSpeaking))]
+    private bool _isAwaitingApproval;
+
+    /// <summary>标「发言中」：等审批时让位给「等审批」，两个标不同时挂</summary>
+    public bool ShowsSpeaking => IsSpeaking && !IsAwaitingApproval;
 
     /// <summary>打开他自己的会话：与子会话同一个浮窗，可看可聊</summary>
     [RelayCommand]

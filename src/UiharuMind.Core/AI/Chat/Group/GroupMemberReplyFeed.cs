@@ -11,7 +11,8 @@ namespace UiharuMind.Core.AI.Chat.Group;
 ///
 /// 判据：助手消息有正文、且不带工具调用（带工具调用的是边做边说的旁白，这一步还没说完）。
 /// 每次服务调用落盘即扫一遍，说完立刻进群、立刻广播给还在跑的人；一轮收尾再补扫一遍，兜住没走落盘通知的跑法。
-/// 每一段各自守 0046 决策 4：这一段里用 SendMessage 发过群，这段正文就只留在他自己那里
+/// 每一段各自守 0046 决策 4：这一段里用 SendMessage 发过群，这段正文就只留在他自己那里。
+/// 进了群的那条盖上进群标记，他自己的会话里据此挂「已发到群」
 /// </summary>
 internal sealed class GroupMemberReplyFeed : IDisposable
 {
@@ -22,6 +23,7 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     private readonly List<Task> _posted = [];
     private int _scanned; //成员历史里已看过的位置
     private int _segmentStart; //这一段开始时的群流水长度：之后他自己发过群，这段正文就不再贴
+    private bool _marked; //这一轮有回复盖了进群标记：它们已经落过盘，收尾要整份重存一次
 
     /// <summary>
     /// 开始盯一位成员的这一轮
@@ -48,6 +50,8 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     {
         _member.ServiceCallPersisted -= OnServiceCallPersisted;
         if (completed) Scan();
+        // 进群标记盖在已落盘的消息上，不重存的话重开会话就看不出哪几条进了群
+        if (_marked) _member.Save();
     }
 
     /// <summary>
@@ -77,7 +81,12 @@ internal sealed class GroupMemberReplyFeed : IDisposable
                 bool sentViaTool = GroupTranscript.PostedSince(_group.History, _segmentStart, _member.SessionId);
                 // 回「[跳过]」就是这次不接话：不进群，也就不广播、不叫醒谁
                 bool pass = GroupTranscript.IsPass(GroupTranscript.StripSpeakerPrefix(text, _member.CharacterData.CharacterName));
-                if (!sentViaTool && !pass && _post(text) is { } posted) _posted.Add(posted);
+                if (!sentViaTool && !pass && _post(text) is { } posted)
+                {
+                    _posted.Add(posted);
+                    ChatMessageAnnotations.MarkPostedToGroup(history[_scanned]);
+                    _marked = true;
+                }
                 _segmentStart = _group.History.Count;
             }
         }

@@ -19,7 +19,7 @@ public class NestedApprovalResolverTests
     private static ToolApprovalRequestContent Request(string callId) =>
         new(callId, new FunctionCallContent(callId, "Write", null));
 
-    private static ApprovalResolver Create(SubSessionApprovalRegistry registry,
+    private static ApprovalResolver Create(SessionApprovalRegistry registry,
         int maxDeniedRounds = 2, TimeSpan? timeout = null, Action? onWaiting = null)
     {
         ApprovalResolver? resolver = NestedApprovalResolver.Create(attended: true, SessionId, registry,
@@ -32,14 +32,14 @@ public class NestedApprovalResolverTests
     public void Unattended_MeansNoApprovalRound()
     {
         //没人看着就别去登记处白等一轮超时:上游当场拒绝
-        Assert.Null(NestedApprovalResolver.Create(attended: false, SessionId, new SubSessionApprovalRegistry(),
+        Assert.Null(NestedApprovalResolver.Create(attended: false, SessionId, new SessionApprovalRegistry(),
             TimeSpan.FromSeconds(1), 2, CancellationToken.None));
     }
 
     [Fact]
     public async Task Attended_AlwaysRegistersForUserDecision()
     {
-        SubSessionApprovalRegistry registry = new();
+        SessionApprovalRegistry registry = new();
         ChatMessage decision = new(ChatRole.User, "user clicked");
         ToolApprovalRequestContent request = Request("a");
         registry.PendingAdded += sessionId =>
@@ -59,7 +59,7 @@ public class NestedApprovalResolverTests
     public async Task WaitingForUser_FiresTheNotice()
     {
         int notices = 0;
-        ApprovalResolver resolver = Create(new SubSessionApprovalRegistry(), onWaiting: () => notices++);
+        ApprovalResolver resolver = Create(new SessionApprovalRegistry(), onWaiting: () => notices++);
 
         await resolver([Request("a")]);
 
@@ -70,7 +70,7 @@ public class NestedApprovalResolverTests
     public async Task ConsecutiveDenials_EndTheRun()
     {
         // 无人点选 → 超时按拒绝收口,连续两轮到顶,第三轮返空让轮次正常结束
-        SubSessionApprovalRegistry registry = new();
+        SessionApprovalRegistry registry = new();
         ApprovalResolver resolver = Create(registry);
 
         Assert.Single(await resolver([Request("a")]));
@@ -82,7 +82,7 @@ public class NestedApprovalResolverTests
     public async Task Approval_ResetsTheDeniedCount()
     {
         // 用户老老实实点允许的长任务不该被计数器掐掉:批准一次即清零
-        SubSessionApprovalRegistry registry = new();
+        SessionApprovalRegistry registry = new();
         ApprovalResolver resolver = Create(registry);
 
         Assert.Single(await resolver([Request("a")])); //超时拒绝,计 1
@@ -105,7 +105,7 @@ public class NestedApprovalResolverTests
     [Fact]
     public async Task FullAuto_ApprovesWithoutWaitingForAClick()
     {
-        SubSessionApprovalRegistry registry = new();
+        SessionApprovalRegistry registry = new();
         bool registered = false;
         registry.PendingAdded += _ => registered = true;
         int notices = 0;

@@ -146,6 +146,12 @@ public static class ChatMessageAnnotations
     public const string GroupPrivate = "_groupPrivate";
 
     /// <summary>
+    /// 进群标记：成员会话里这条回复已作为他的发言贴进群里。界面据此挂「已发到群」，
+    /// 与调工具时顺手写的过程话（只留在他那里）分得开
+    /// </summary>
+    public const string GroupPosted = "_groupPosted";
+
+    /// <summary>
     /// 摘掉框架盖上的 <see cref="Attribution"/> 溯源标记。
     ///
     /// 框架把供给出去的历史消息<b>就地</b>盖章（我们交出去的是同一批实例），
@@ -245,6 +251,20 @@ public static class ChatMessageAnnotations
     /// <returns>是为 true</returns>
     public static bool IsGroupPrivate(ChatMessage message) =>
         message.AdditionalProperties?.ContainsKey(GroupPrivate) == true;
+
+    /// <summary>给一条已贴进群的成员回复盖上标记。就地写</summary>
+    /// <param name="message">成员会话里的回复</param>
+    public static void MarkPostedToGroup(ChatMessage message)
+    {
+        message.AdditionalProperties ??= new AdditionalPropertiesDictionary();
+        message.AdditionalProperties[GroupPosted] = true;
+    }
+
+    /// <summary>这条成员回复是不是已贴进群</summary>
+    /// <param name="message">消息</param>
+    /// <returns>是为 true</returns>
+    public static bool IsPostedToGroup(ChatMessage message) =>
+        message.AdditionalProperties?.ContainsKey(GroupPosted) == true;
 
     /// <summary>
     /// 这条消息身上的 <see cref="Attribution"/> 是不是框架<b>回灌历史</b>时盖的（来源 = 历史提供器）。

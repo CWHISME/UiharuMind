@@ -252,7 +252,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     public string PermissionModeKey => ConversationModeLabels.PermissionKey(PermissionModeIndex);
 
     /// <summary>权限档悬停提示</summary>
-    public string PermissionTooltip => ConversationModeLabels.PermissionTooltip(PermissionModeIndex);
+    public string PermissionTooltip => IsGroupMemberSession
+        ? string.Format(Loc.Text(LangKey.GroupMemberPermissionFollowFormat),
+            ConversationModeLabels.PermissionTooltip(PermissionModeIndex))
+        : ConversationModeLabels.PermissionTooltip(PermissionModeIndex);
+
+    /// <summary>权限档能不能在这里改：群成员跟群走，只在群视图设</summary>
+    public bool IsPermissionEditable => !IsGroupMemberSession;
 
     /// <summary>发送身份对应的图标名(user/bot)</summary>
     public string SenderIconName => ConversationModeLabels.SenderIcon(SenderMode == SendMode.User);
@@ -398,6 +404,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     /// <summary>群的成员（右栏成员列表）；不是群为 null</summary>
     [ObservableProperty] private GroupMembersViewData? _groupMembers;
+
+    /// <summary>群的待审批条；不是群为 null</summary>
+    [ObservableProperty] private GroupApprovalsViewData? _groupApprovals;
 
     /// <summary>请页面在列表里选中某个会话（建完群要切过去，而新建不经列表选中）</summary>
     public event Action<string>? OpenSessionRequested;
@@ -620,7 +629,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.SubSessionAttached += RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached += OnMessageBoundaryReached;
         // 登记与画卡在两个线程上各走各的,谁先都有可能——登记侧也喊一声,让已经画出来的卡回头认领
-        SubSessionApprovalRegistry.Instance.PendingAdded += OnNestedApprovalsPending;
+        SessionApprovalRegistry.Instance.PendingAdded += OnNestedApprovalsPending;
         _driver = new TurnDriver(_transcript, _usage, OnTurnNotice);
         // 观察别人驱动的那一轮时用它:内核仍是 _transcript,所以自己驱动时会被去重掉(见 LiveTurnStream)
         // 子会话才放行审批请求——嵌套审批的卡只该在子窗口弹,普通会话的观察窗弹出来也没人听
@@ -630,6 +639,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         SessionManager.Instance.Running.StateChanged += OnSessionRunStateChanged;
         // 群的发言人变化（轮到谁 / 一轮结束）在后台线程上跑，处理里自行 marshal
         GroupChatCoordinator.Instance.SpeakerChanged += OnGroupSpeakerChanged;
+        GroupChatSessions.PermissionApplied += OnGroupPermissionApplied;
 
         _permissionModeIndex = Math.Clamp(agentSetting.DefaultPermissionModeIndex, 0, 2);
         _currentMode = agentSetting.DefaultPlanMode ? EAgentMode.Plan : EAgentMode.Execute;
@@ -691,6 +701,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (sessionId != CurrentMeta?.SessionId)
         {
             RefreshSubSessionApprovalWait(sessionId);
+            // 群里某位成员卡上 / 放开审批:右栏成员列表跟着标
+            if (GroupMembers is { } members && members.Contains(sessionId))
+                Dispatcher.UIThread.Post(members.RefreshApprovalWaits);
             return;
         }
 
@@ -701,6 +714,28 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         {
             NotifyRunStateChanged();
             NotifyBusyChanged(); //忙碌文案里有"别处正在跑"那一档,它跟着运行态变
+        });
+    }
+
+    /// <summary>
+    /// 群改了权限档并推给了成员：这里开着的若是其中一位，按他会话上的新档刷新显示。
+    /// 只刷显示、不写回（成员跟群走，写回由群那边做过了）
+    /// </summary>
+    /// <param name="groupId">群壳会话标识</param>
+    private void OnGroupPermissionApplied(string groupId)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (CurrentSession is not { IsGroupMember: true } member || member.GroupId != groupId) return;
+            _isLoadingSession = true;
+            try
+            {
+                PermissionModeIndex = member.PermissionModeIndex;
+            }
+            finally
+            {
+                _isLoadingSession = false;
+            }
         });
     }
 
@@ -790,6 +825,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             // 按拒绝收视觉。已认领已决出的不受影响（幂等）。
             _transcript.CancelPendingApprovals();
             _reconciler.Reconcile("observed turn ended");
+            // 群成员那一轮的进群标记是落盘之后才盖的，接来源那一刻可能还没有：轮末补读一遍
+            if (CurrentSession.IsGroupMember)
+            {
+                foreach (ConversationItemBase item in Items) item.RefreshFromSource();
+            }
         });
     }
 
@@ -904,8 +944,23 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// </summary>
     private void OnApprovalRequestCreated(ApprovalRequestItem item)
     {
-        if (CurrentSession is not { IsSubSession: true } session) return;
-        SubSessionApprovalRegistry.Instance.TryAdopt(session.SessionId, item.Request, item.Response);
+        if (CurrentSession is not { } session || !AdoptsRegisteredApprovals(session)) return;
+        AdoptRegisteredApproval(session.SessionId, item);
+    }
+
+    /// 审批登记在册、要由会话窗口认领的：子会话（嵌套审批）与群成员（他在群里那一轮）
+    private static bool AdoptsRegisteredApprovals(ChatSession session) => session.IsSubSession || session.IsGroupMember;
+
+    /// 认领一张登记在册的审批卡，并跟着那次审批的最终结果走：别处（群的待审批条）先点了，
+    /// 或窗口打开前就已经批过了，这张卡都收起按钮、显示那个决定——不然它一直挂着像还在等，
+    /// 轮末还会被按拒绝收视觉，把批准过的显示成拒绝
+    private static void AdoptRegisteredApproval(string sessionId, ApprovalRequestItem item)
+    {
+        // 先取结果再认领：已经决出的（晚打开的窗口补画出来的卡）认领不到，但结果查得到
+        if (SessionApprovalRegistry.Instance.DecisionOf(sessionId, item.Request) is not { } decision) return;
+        SessionApprovalRegistry.Instance.TryAdopt(sessionId, item.Request, item.Response);
+        decision.ContinueWith(done => Dispatcher.UIThread.Post(() => item.MarkDecidedElsewhere(done.Result)),
+            CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
     }
 
     /// <summary>
@@ -921,10 +976,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (sessionId != CurrentMeta?.SessionId) return;
         Dispatcher.UIThread.Post(() =>
         {
-            if (CurrentSession is not { IsSubSession: true } session) return;
+            if (CurrentSession is not { } session || !AdoptsRegisteredApprovals(session)) return;
             foreach (ApprovalRequestItem item in _transcript.PendingApprovals.ToList())
             {
-                SubSessionApprovalRegistry.Instance.TryAdopt(session.SessionId, item.Request, item.Response);
+                AdoptRegisteredApproval(session.SessionId, item);
             }
         });
     }
@@ -1091,7 +1146,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     {
         ChatSession? session = CurrentSession;
         if (session == null) return false;
-        return session.IsSubSession || WakeApprovalHosts.HasHost(session.SessionId);
+        // 群成员同理：他在群里那一轮的审批登记在册，这里画出来的卡认领后有人听（见 GroupApprovalsViewData）
+        return AdoptsRegisteredApprovals(session) || WakeApprovalHosts.HasHost(session.SessionId);
     }
 
     /// <summary>挂上「别处改了这个会话的历史」的两个信号。重复挂接先摘再挂，不攒订阅</summary>
@@ -1246,7 +1302,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _transcript.ApprovalRequestCreated -= OnApprovalRequestCreated;
         _transcript.SubSessionAttached -= RefreshSubSessionApprovalWait;
         _transcript.MessageBoundaryReached -= OnMessageBoundaryReached;
-        SubSessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
+        SessionApprovalRegistry.Instance.PendingAdded -= OnNestedApprovalsPending;
+        GroupChatSessions.PermissionApplied -= OnGroupPermissionApplied;
+        GroupApprovals?.Dispose();
         _driver.StateChanged -= OnDriverStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnPendingWorkChanged;
         SessionManager.Instance.Running.StateChanged -= OnSessionRunStateChanged;
@@ -1515,8 +1573,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 排在最前:压缩命令、以角色身份发送、插话这几条路对群壳都不成立
         if (CurrentSession is { IsGroup: true } group)
         {
+            (string postText, List<DataContent>? images) = Tray.BuildGroupPost(text, Tray.TakePending());
+            Tray.FlushOwnedFiles(); //粘贴图落的盘归群壳：删群时一并删
             ScrollToEnd = true;
-            await GroupChatCoordinator.Instance.PostAsync(group, text);
+            await GroupChatCoordinator.Instance.PostAsync(group, postText, images);
             return;
         }
 
@@ -2101,7 +2161,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         try
         {
             Workspace.Path = meta.WorkspacePath;
-            PermissionModeIndex = meta.PermissionModeIndex;
+            // 群成员显示群的那一档：他跟群走（见 GroupChatSessions.PermissionOf）
+            PermissionModeIndex = meta.GroupId is { } groupId && SessionManager.Instance.GetMeta(groupId) is { } group
+                ? group.PermissionModeIndex
+                : meta.PermissionModeIndex;
         }
         finally
         {
@@ -2152,6 +2215,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnPropertyChanged(nameof(IsSubSession)); //会话换了,「交回主代理」的可见性跟着换
             OnPropertyChanged(nameof(IsGroupSession));
             OnPropertyChanged(nameof(IsGroupMemberSession));
+            OnPropertyChanged(nameof(IsPermissionEditable));
+            OnPropertyChanged(nameof(PermissionTooltip));
             OnPropertyChanged(nameof(IsComposerVisible));
             OnPropertyChanged(nameof(IsSenderSwitchVisible));
             OnPropertyChanged(nameof(ActiveGroupTitle));
@@ -2159,12 +2224,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             OnPropertyChanged(nameof(GroupTypeName));
             OnPropertyChanged(nameof(GroupMemberCountText));
             GroupMembers = body.IsGroup ? new GroupMembersViewData(body) : null;
+            GroupApprovals?.Dispose();
+            GroupApprovals = body.IsGroup ? new GroupApprovalsViewData(body) : null;
             if (body.IsGroup)
             {
                 InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
                 // 装载前这一圈可能已经在跑、发言人已定,SpeakerChanged 的信号早发完了——
                 // 这里补一次,右栏成员列表与忙碌文案才不是"没在跑"的样子
                 GroupMembers?.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(body.SessionId));
+                GroupMembers?.RefreshApprovalWaits();
             }
             OnPropertyChanged(nameof(SessionIdShort)); //编号同理:装载之前 CurrentMeta 还是空的
             OnPropertyChanged(nameof(SessionIdFull));
