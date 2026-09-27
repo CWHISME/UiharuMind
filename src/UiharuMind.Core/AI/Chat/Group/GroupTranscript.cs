@@ -271,7 +271,8 @@ public static class GroupTranscript
             text.Append("要摆的材料长（清单、对比、摘录），写成草稿目录里的文件，群里只说结论、附上文件路径。");
         text.Append("\n- 调用工具时顺手写的话（比如「先查一下」）只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.CanPostMidTurn)
-            text.Append("想在这一轮中途先对大家说一句，可以调用 SendMessage，to 写 group；用过它，这一轮最后的正文就只留在你这里，不再贴到群里。");
+            text.Append("想在这一轮中途先对大家说一句，可以调用 SendMessage，to 写 group；发出去的那几条就是你在群里说的话，" +
+                        "同一条回复里的其余正文不会重复贴，之后每次说完的正文照常贴到群里。");
         // 实测（Hello World 首跑）：审查者各交一份几乎一样的清单，没新信息时人人把现状重申一遍
         text.Append("\n- 说过的点不复述，别人说过的、你自己刚说过的都算：你要说的跟已有的差不多，就只说不一样的那一点；认同就一句话带过。");
         text.Append($"\n- 没什么要补充、不用接话时，只回复「{PassReply}」：这句不会发到群里。不必为表态「收到」「我也等着」、" +
@@ -371,21 +372,6 @@ public static class GroupTranscript
             ChatMessage post = groupLog[i];
             if (ChatMessageAnnotations.GroupSpeakerSessionOf(post) != null) continue;
             if (GroupMentions.Parse(post.Text, roster).Count == 0) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>从某个下标起，这个成员有没有自己往群里发过话</summary>
-    /// <param name="groupLog">群流水</param>
-    /// <param name="fromIndex">起点下标</param>
-    /// <param name="memberSessionId">成员会话标识</param>
-    /// <returns>发过为 true</returns>
-    public static bool PostedSince(IReadOnlyList<ChatMessage> groupLog, int fromIndex, string memberSessionId)
-    {
-        for (int i = Math.Max(0, fromIndex); i < groupLog.Count; i++)
-        {
-            if (ChatMessageAnnotations.GroupSpeakerSessionOf(groupLog[i]) == memberSessionId) return true;
         }
 
         return false;

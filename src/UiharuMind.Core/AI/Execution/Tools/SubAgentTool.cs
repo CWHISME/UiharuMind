@@ -213,8 +213,8 @@ public static class SubAgentTool
         if (GroupChatCoordinator.IsGroupAddress(target)
             && GroupChatCoordinator.Instance.TryPostFromMember(context.ParentSessionId, content))
         {
-            return Task.FromResult("Posted to the group. The rest of your reply this turn stays with you " +
-                                   "and will not be posted again.");
+            return Task.FromResult("Posted to the group. The rest of this message is not posted again; " +
+                                   "your next finished reply will be posted as usual.");
         }
 
         SubAgentChoice? named = context.Roster

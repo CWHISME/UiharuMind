@@ -150,8 +150,12 @@ public class GroupChatCoordinatorTests
         Assert.StartsWith("[黑猫]: 大家好\n\n" + GroupTranscript.VoiceReminderOpening, _runner.Calls[0].Input);
     }
 
+    /// <summary>
+    /// SendMessage 发的那条自己就是群发言；它不顶掉这一轮后面的正文——那不是同一句话，
+    /// 是又一次开口。顶掉过一次（实测丢掉智能体成员跑完四分钟压测后的判决书），别再顶
+    /// </summary>
     [Fact]
-    public async Task PostViaSendMessage_ReplacesTheFinalText()
+    public async Task PostViaSendMessage_DoesNotReplaceTheFinalText()
     {
         _runner.During[_alice.SessionId] = () =>
         {
@@ -165,7 +169,7 @@ public class GroupChatCoordinatorTests
             .Where(x => ChatMessageAnnotations.GroupSpeakerSessionOf(x) == _alice.SessionId)
             .Select(x => x.Text)
             .ToList();
-        Assert.Equal(["我先去翻一下代码"], alicePosts);
+        Assert.Equal(["我先去翻一下代码", "Alice 的第 1 次发言"], alicePosts);
     }
 
     /// <summary>
@@ -201,14 +205,19 @@ public class GroupChatCoordinatorTests
             .Where(ChatMessageAnnotations.IsPostedToGroup).Select(x => x.Text)); //假跑法不走落盘剥前缀那一关
     }
 
-    /// <summary>SendMessage 发群只让它所在的那一段正文不再贴，后面几段照常</summary>
+    /// <summary>
+    /// SendMessage 只管它自己所在的那条消息：之后每次说完照常进群。
+    /// 曾经按「本轮发过群就不贴正文」收口，于是中途发过一次群的那一轮，末尾那条判决书群里一个字见不到
+    /// </summary>
     [Fact]
-    public async Task SendMessage_OnlySilencesItsOwnSegment()
+    public async Task SendMessage_DoesNotSilenceTheRepliesAfterIt()
     {
         _runner.During[_alice.SessionId] = () =>
         {
             Assert.True(_coordinator.TryPostFromMember(_alice.SessionId, "中途先说一句"));
-            _alice.History.Add(new ChatMessage(ChatRole.Assistant, "这段只留在我这里"));
+            _alice.History.Add(new ChatMessage(ChatRole.Assistant,
+                [new TextContent("我去跑一下"), new FunctionCallContent("c1", "Shell")]));
+            _alice.History.Add(new ChatMessage(ChatRole.Assistant, "量完了，结论是这样"));
             _alice.NotifyServiceCallPersisted();
             return Task.CompletedTask;
         };
@@ -219,7 +228,8 @@ public class GroupChatCoordinatorTests
             .Where(x => ChatMessageAnnotations.GroupSpeakerSessionOf(x) == _alice.SessionId)
             .Select(x => x.Text)
             .ToList();
-        Assert.Equal(["中途先说一句", "Alice 的第 1 次发言"], alicePosts);
+        // 带工具调用的那句是边做边说，不进群；之后那次说完照进
+        Assert.Equal(["中途先说一句", "量完了，结论是这样", "Alice 的第 1 次发言"], alicePosts);
     }
 
     /// <summary>被停或失败时，已经说完的几段照常算群发言</summary>

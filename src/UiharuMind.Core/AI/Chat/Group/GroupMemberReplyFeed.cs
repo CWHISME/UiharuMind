@@ -11,38 +11,33 @@ namespace UiharuMind.Core.AI.Chat.Group;
 ///
 /// 判据：助手消息有正文、且不带工具调用（带工具调用的是边做边说的旁白，这一步还没说完）。
 /// 每次服务调用落盘即扫一遍，说完立刻进群、立刻广播给还在跑的人；一轮收尾再补扫一遍，兜住没走落盘通知的跑法。
-/// 每一段各自守 0046 决策 4：这一段里用 SendMessage 发过群，这段正文就只留在他自己那里。
 /// 进了群的那条盖上进群标记，他自己的会话里据此挂「已发到群」
+///
+/// <b>不再按「本轮发过群就不贴正文」收口</b>：一条正文不带工具调用的消息按定义不可能自己带
+/// <c>SendMessage</c>，所以跨消息去判「同一句话重复贴」永远判不中同义，只判得中「这一轮前面发过群」——
+/// 于是一轮里只要中途发过一次群，本轮第一个（常常也是唯一一个）说完必被吞掉，而那通常正是结论
+/// （实测：智能体成员发了两次群、中间跑完四分钟压测，末尾那条判决书群里一个字没见着）。
+/// 「不重复贴」由结构本身保证：带 <c>SendMessage</c> 的那条永远不算「说完」，永远不贴。
 /// </summary>
 internal sealed class GroupMemberReplyFeed : IDisposable
 {
-    private readonly ChatSession _group;
     private readonly ChatSession _member;
     private readonly Func<string, Task?> _post;
-    private readonly object _historyLock; //群流水的写锁（与 Append 同一把）：别的成员可能正并发往里追加
     private readonly object _sync = new();
     private readonly List<Task> _posted = [];
     private int _scanned; //成员历史里已看过的位置
-    private int _segmentStart; //这一段开始时的群流水长度：之后他自己发过群，这段正文就不再贴
     private bool _marked; //这一轮有回复盖了进群标记：它们已经落过盘，收尾要整份重存一次
 
     /// <summary>
     /// 开始盯一位成员的这一轮
     /// </summary>
-    /// <param name="group">群壳</param>
     /// <param name="member">成员会话</param>
-    /// <param name="groupCursor">这一轮开始时的群流水长度</param>
     /// <param name="post">把一段正文记成群发言（剥前缀、追加、广播）；没记为 null</param>
-    /// <param name="historyLock">群流水的写锁：读群流水时与追加对齐</param>
-    public GroupMemberReplyFeed(ChatSession group, ChatSession member, int groupCursor, Func<string, Task?> post,
-        object historyLock)
+    public GroupMemberReplyFeed(ChatSession member, Func<string, Task?> post)
     {
-        _group = group;
         _member = member;
         _post = post;
-        _historyLock = historyLock;
         _scanned = member.History.Count;
-        _segmentStart = groupCursor;
         member.ServiceCallPersisted += OnServiceCallPersisted;
     }
 
@@ -82,18 +77,14 @@ internal sealed class GroupMemberReplyFeed : IDisposable
             {
                 if (!IsFinishedReply(history[_scanned], out string text)) continue;
 
-                bool sentViaTool;
-                lock (_historyLock) sentViaTool = GroupTranscript.PostedSince(_group.History, _segmentStart, _member.SessionId);
                 // 回「[跳过]」就是这次不接话：不进群，也就不广播、不叫醒谁
-                bool pass = GroupTranscript.IsPass(GroupTranscript.StripSpeakerPrefix(text, _member.CharacterData.CharacterName));
-                if (!sentViaTool && !pass && _post(text) is { } posted)
-                {
-                    _posted.Add(posted);
-                    ChatMessageAnnotations.MarkPostedToGroup(history[_scanned]);
-                    _marked = true;
-                }
-                // 必须在 _post 之后取：下一段从他刚贴的这条之后算起，否则下一段会把这条认成「已用工具发过」而吞掉
-                lock (_historyLock) _segmentStart = _group.History.Count;
+                string own = GroupTranscript.StripSpeakerPrefix(text, _member.CharacterData.CharacterName);
+                if (GroupTranscript.IsPass(own)) continue;
+                if (_post(text) is not { } posted) continue;
+
+                _posted.Add(posted);
+                ChatMessageAnnotations.MarkPostedToGroup(history[_scanned]);
+                _marked = true;
             }
         }
     }

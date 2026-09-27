@@ -174,8 +174,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
 
             string input = ComposeInput(run, member, delivery!, deliveredFrom);
             // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
-            using GroupMemberReplyFeed replies = new(group, member, turn.Cursor, text => PostFromMember(group, member, text),
-                _locker);
+            using GroupMemberReplyFeed replies = new(member, text => PostFromMember(group, member, text));
             // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
             ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
             bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
