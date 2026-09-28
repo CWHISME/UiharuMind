@@ -257,7 +257,7 @@ public class ParallelGroupChatTests
     [Fact]
     public async Task PassReply_IsNotPostedToTheGroup()
     {
-        _runner.Replies[_bob.SessionId] = _ => "[跳过]";
+        _runner.Replies[_bob.SessionId] = _ => GroupTranscript.PassReply;
 
         await _coordinator.PostAsync(_group, "大家好");
 

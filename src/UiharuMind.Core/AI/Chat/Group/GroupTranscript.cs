@@ -189,7 +189,7 @@ public static class GroupTranscript
     }
 
     /// <summary>成员表示「这次不接话」的回复：不进群（场景段里告诉了他）</summary>
-    public const string PassReply = "[跳过]";
+    public const string PassReply = "[沉默]";
 
     /// <summary>
     /// 这句回复是不是「不接话」。容忍模型常见的几种写法（全角括号、不带括号、末尾句号）
@@ -199,7 +199,7 @@ public static class GroupTranscript
     public static bool IsPass(string text)
     {
         string value = text.Trim().TrimEnd('。', '.', '！', '!');
-        return value is PassReply or "【跳过】" or "跳过";
+        return value is PassReply or "【沉默】" or "沉默";
     }
 
     /// <summary>
