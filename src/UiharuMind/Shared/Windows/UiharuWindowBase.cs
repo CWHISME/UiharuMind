@@ -117,6 +117,12 @@ public abstract class UiharuWindowBase : Window
     {
     }
 
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        OverlayWindowService.PreventTopmostNativeFullScreen(this);
+    }
+
     protected virtual void OnInitWindowPosition()
     {
         this.SetScreenCenterPosition();

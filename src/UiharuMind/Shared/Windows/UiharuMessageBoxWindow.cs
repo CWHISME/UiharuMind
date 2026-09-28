@@ -21,6 +21,7 @@ public class UiharuMessageBoxWindow : MessageBoxWindow
     {
         base.OnOpened(e);
         this.SetScreenCenterPosition();
+        OverlayWindowService.PreventTopmostNativeFullScreen(this);
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

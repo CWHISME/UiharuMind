@@ -21,7 +21,9 @@ namespace UiharuMind.Shared.Services;
 public static class OverlayWindowService
 {
     private const ulong NsWindowCollectionBehaviorCanJoinAllSpaces = 1;
+    private const ulong NsWindowCollectionBehaviorFullScreenPrimary = 1u << 7;
     private const ulong NsWindowCollectionBehaviorFullScreenAuxiliary = 1u << 8;
+    private const ulong NsWindowCollectionBehaviorFullScreenNone = 1u << 9;
 
     /// <summary>
     /// 让窗口不接收鼠标事件（点击穿透到底下的应用）。
@@ -58,6 +60,25 @@ public static class OverlayWindowService
         if (!OperatingSystem.IsMacOS()) return;
         if (!MacNative.TryGetNsWindow(window, out var nsWindow)) return;
         MacNative.SendLong(nsWindow, MacNative.Selector("setLevel:"), (long)level);
+    }
+
+    /// <summary>
+    /// 置顶且带系统标题栏的窗口禁止进 macOS 原生全屏，绿色按钮退化为缩放。
+    /// 置顶窗口在 floating 层，进原生全屏会卡在半途：窗口按整屏尺寸吞掉所有点击（连菜单栏托盘也点不到），
+    /// 画面却停在原大小。在窗口 Show 之后调用。
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    public static void PreventTopmostNativeFullScreen(Window window)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        if (!window.Topmost || !window.CanResize || window.WindowDecorations != WindowDecorations.Full) return;
+        if (!MacNative.TryGetNsWindow(window, out var nsWindow)) return;
+
+        ulong behavior = MacNative.SendULongRet(nsWindow, MacNative.Selector("collectionBehavior"));
+        // 三个全屏位互斥，同时置上 AppKit 会直接抛异常；已是 Auxiliary/None 的本就进不了全屏
+        if ((behavior & (NsWindowCollectionBehaviorFullScreenAuxiliary | NsWindowCollectionBehaviorFullScreenNone)) != 0) return;
+        behavior = (behavior & ~NsWindowCollectionBehaviorFullScreenPrimary) | NsWindowCollectionBehaviorFullScreenNone;
+        MacNative.SendULong(nsWindow, MacNative.Selector("setCollectionBehavior:"), behavior);
     }
 
     /// <summary>

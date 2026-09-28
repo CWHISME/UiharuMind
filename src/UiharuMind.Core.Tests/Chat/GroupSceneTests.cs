@@ -26,6 +26,7 @@ public class GroupSceneTests
         Assert.Contains("不要自己加「[名字]:」前缀", scene);
         Assert.DoesNotContain("主持人", scene);
         Assert.DoesNotContain(GroupPostTool.ToolName, scene); //没这个工具就不提
+        Assert.DoesNotContain("一轮怎么算", scene); //普通形态没工具，「过程话、查完再说」都无从谈起
         Assert.Contains("一次两三句", scene);
     }
 
@@ -38,6 +39,7 @@ public class GroupSceneTests
 
         Assert.Contains(expected, scene);
         Assert.Contains(GroupPostTool.ToolName, scene);
+        Assert.Contains("一轮怎么算", scene);
     }
 
     [Theory]
