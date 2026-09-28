@@ -66,7 +66,10 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     private string _modelName = "";
 
     [ObservableProperty] private string _modelPath = "";
-    [ObservableProperty] private string _modelId = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanConfirm))]
+    [NotifyPropertyChangedFor(nameof(HasModelIdError))]
+    private string _modelId = "";
     [ObservableProperty] private string _modelDescription = "";
     [ObservableProperty] private bool _isVision;
     [ObservableProperty] private bool _omitSamplingParams;
@@ -204,6 +207,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 模型 ID 为空
+    /// </summary>
+    public bool HasModelIdError => string.IsNullOrWhiteSpace(ModelId);
+
+    /// <summary>
     /// ApiKey 为空
     /// </summary>
     public bool HasApiKeyError => string.IsNullOrEmpty(ApiKey);
@@ -235,7 +243,7 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
     /// <summary>
     /// 是否允许确认
     /// </summary>
-    public bool CanConfirm => !HasNameError && !HasDuplicateNameError && !HasApiKeyError &&
+    public bool CanConfirm => !HasNameError && !HasDuplicateNameError && !HasModelIdError && !HasApiKeyError &&
                               !HasContextLengthError && !HasMaxTokensError;
 
     /// <summary>
@@ -372,6 +380,9 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
 
     private void ApplyConfigTraits(BaseRemoteModelConfig config)
     {
+        // 注意:下面的 ModelIdOptions.Clear() 会触发 ItemsSource 的 Reset,控件侧会把
+        // Text 置空并经双向绑定回写 VM(复制模型时源 ID 就是这么丢的)。先留底再重建。
+        var currentId = ModelId;
         IsVisionEditable = ProbeIsVisionWritable(config);
         IsPresetProvider = config.GetType() != typeof(RemoteModelConfig);
         ModelIdOptions.Clear();
@@ -407,9 +418,11 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
 
         HasModelIdOptions = ModelIdOptions.Count > 0;
 
-        // 让下拉框定位到当前 ModelId;创建/复制模式按预设预填默认上下文与视觉
+        // 让下拉框定位到当前 ModelId;创建/复制模式按预设预填默认上下文与视觉。
+        // 重建期间被回写冲掉的文本在这里补回去(见方法头的注释)。
         _suppressModelIdPrefill = true;
-        SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == ModelId);
+        SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == currentId);
+        ModelId = currentId;
         _suppressModelIdPrefill = false;
 
         if (!IsEditMode) ApplyModelIdPreset(SelectedModelIdOption);
@@ -426,6 +439,22 @@ public partial class CreateRemoteLlmModelWindowViewModel : ObservableObject
         ModelId = value.Id;
         _suppressModelIdPrefill = false;
         ApplyModelIdPreset(value);
+    }
+
+    /// <summary>
+    /// 手输/代码改了模型 ID 文本时:把下拉选中项对齐到同一条。
+    /// 可编辑下拉框的 <c>Text</c> 与 <c>SelectedItem</c> 是双向绑定的两条道,
+    /// 两边值一旦不一致(如复制模型先写文本后定选中),控件回写就会把文本冲掉——
+    /// VM 里永远保持两者一致,那次回写写回来的就是同一个值,等于没写。
+    /// 只对齐选中,不碰上下文等预设(手输自定义 ID 不该被预设覆盖)。
+    /// </summary>
+    /// <param name="value">新的模型 ID 文本</param>
+    partial void OnModelIdChanged(string value)
+    {
+        if (_suppressModelIdPrefill) return;
+        _suppressModelIdPrefill = true;
+        SelectedModelIdOption = ModelIdOptions.FirstOrDefault(x => x.Id == value);
+        _suppressModelIdPrefill = false;
     }
 
     private void ApplyModelIdPreset(ModelIdOptionItem? option)

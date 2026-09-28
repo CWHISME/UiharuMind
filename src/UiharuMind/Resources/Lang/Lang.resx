@@ -732,6 +732,9 @@
     <data name="NotInputModelApiKey" xml:space="preserve">
         <value>Please input Api Key!</value>
     </data>
+    <data name="NotInputModelIdTips" xml:space="preserve">
+        <value>Please input Model ID!</value>
+    </data>
     <data name="ClearChatHistory" xml:space="preserve">
         <value>Clear Chat History</value>
     </data>

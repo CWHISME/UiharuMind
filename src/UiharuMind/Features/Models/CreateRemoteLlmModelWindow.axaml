@@ -155,6 +155,8 @@
                                  PlaceholderText="{loc:Loc RemoteModelIdPlaceholder}"
                                  IsVisible="{Binding !HasModelIdOptions}" />
                         <TextBlock Text="{loc:Loc RemoteModelIdHint}" Classes="muted" TextWrapping="Wrap" />
+                        <TextBlock Classes="error" Text="{loc:Loc NotInputModelIdTips}"
+                                   IsVisible="{Binding HasModelIdError}" />
                     </StackPanel>
 
                     <StackPanel Spacing="6">

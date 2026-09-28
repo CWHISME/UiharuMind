@@ -725,6 +725,9 @@
     <data name="NotInputModelApiKey" xml:space="preserve">
         <value>请输入API Key！</value>
     </data>
+    <data name="NotInputModelIdTips" xml:space="preserve">
+        <value>请输入模型 ID！</value>
+    </data>
     <data name="ClearChatHistory" xml:space="preserve">
         <value>清空对话历史</value>
     </data>
