@@ -25,10 +25,6 @@ public partial class GroupCreateWindowModel : ObservableObject
 {
     private const int MinMembers = 2; //一个人的群就是单聊
 
-    private const int KindFilterAll = 0; //类别筛选：全部
-    private const int KindFilterChat = 1; //类别筛选：普通角色
-    private const int KindFilterAgent = 2; //类别筛选：智能体
-
     private readonly List<CharacterData> _picked = []; //勾选顺序即发言顺序
     private readonly List<GroupCandidate> _allCandidates;
 
@@ -36,14 +32,18 @@ public partial class GroupCreateWindowModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanCreate))]
     private string _name = string.Empty;
 
-    /// <summary>类别筛选下标（全部/普通角色/智能体），变了就重筛列表</summary>
+    /// <summary>
+    /// 档位筛选。枚举而非下标：下标那版把同一个值抄在常量、属性与 axaml 的 <c>Tag</c> 三处，
+    /// 漂移不报错。选项由 <see cref="CharacterFilterPresentation"/> 按枚举派生。
+    ///
+    /// <b>只有这一条轴</b>：候选集已经是「所有能进群的卡」，量最大、最需要分组，
+    /// 但两组胶囊并排会出现两个「全部」，比缺一条轴更别扭。来源那一轴在角色库左栏的
+    /// 溢出菜单里（不占版面），挑人时按名字搜定位词也就够定位了。
+    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsKindFilterAll))]
-    [NotifyPropertyChangedFor(nameof(IsKindFilterChat))]
-    [NotifyPropertyChangedFor(nameof(IsKindFilterAgent))]
-    private int _kindFilterIndex;
+    private ECharacterKindFilter _kindFilter;
 
-    /// <summary>搜索词：按名字过滤，空则不过滤</summary>
+    /// <summary>搜索词：按名字与描述过滤（口径同 <see cref="CharacterData.MatchesSearch"/>），空则不过滤</summary>
     [ObservableProperty]
     private string _searchText = string.Empty;
 
@@ -135,20 +135,16 @@ public partial class GroupCreateWindowModel : ObservableObject
     /// <summary>类型说明：智能体群绑哪个工作区；普通群不绑，成员一律以普通对话形态参与</summary>
     public string TypeHint { get; }
 
-    /// <summary>当前筛出来的候选（类别筛选 + 搜索词），勾选与建群仍走全量校验</summary>
+    /// <summary>当前筛出来的候选（档位 + 搜索词），勾选与建群仍走全量校验</summary>
     public ObservableCollection<GroupCandidate> Candidates { get; } = [];
 
     /// <summary>筛空了：列表区显示空提示（同 CharacterPickerView 的 IsEmpty 口径）</summary>
     public bool IsEmpty => Candidates.Count == 0;
 
-    /// <summary>类别筛选：全部</summary>
-    public bool IsKindFilterAll => KindFilterIndex == KindFilterAll;
-
-    /// <summary>类别筛选：普通角色</summary>
-    public bool IsKindFilterChat => KindFilterIndex == KindFilterChat;
-
-    /// <summary>类别筛选：智能体</summary>
-    public bool IsKindFilterAgent => KindFilterIndex == KindFilterAgent;
+    /// <summary>档位轴的胶囊。选中态是快照，切档后重建这一组</summary>
+    public IReadOnlyList<CharacterFilterPill> KindPills =>
+        CharacterFilterPills.Build(CharacterFilterPresentation.KindOptions(), KindFilter,
+            value => KindFilter = value);
 
     /// <summary>已选成员，顺序即发言顺序</summary>
     public IReadOnlyList<CharacterData> Picked => _picked;
@@ -189,22 +185,27 @@ public partial class GroupCreateWindowModel : ObservableObject
         SelectedHost = HostOptions.FirstOrDefault(x => x.Data != null && x.Data == selected?.Data) ?? GroupHostOption.None;
     }
 
-    partial void OnKindFilterIndexChanged(int value) => ApplyFilter();
+    partial void OnKindFilterChanged(ECharacterKindFilter value)
+    {
+        ApplyFilter();
+        OnPropertyChanged(nameof(KindPills));
+    }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
     private void ApplyFilter()
     {
-        string keyword = SearchText.Trim();
         Candidates.Clear();
-        foreach (GroupCandidate c in _allCandidates)
+        foreach (GroupCandidate candidate in _allCandidates)
         {
-            bool kindMatches = KindFilterIndex == KindFilterAll
-                || (KindFilterIndex == KindFilterChat && !c.Data.IsAgent)
-                || (KindFilterIndex == KindFilterAgent && c.Data.IsAgent);
-            bool nameMatches = keyword.Length == 0
-                || c.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase);
-            if (kindMatches && nameMatches) Candidates.Add(c);
+            bool kindMatches = KindFilter switch
+            {
+                ECharacterKindFilter.All => true,
+                ECharacterKindFilter.Chat => !candidate.Data.IsAgent,
+                ECharacterKindFilter.Agent => candidate.Data.IsAgent,
+                _ => true,
+            };
+            if (kindMatches && candidate.Data.MatchesSearch(SearchText)) Candidates.Add(candidate);
         }
         OnPropertyChanged(nameof(IsEmpty));
     }

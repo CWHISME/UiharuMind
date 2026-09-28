@@ -19,7 +19,7 @@ public class CharacterDataCopyFromTests
         CharacterId = "copy-from-source",
         IsAgent = true,
         MemoryName = "memory-a",
-        IsDefaultCharacter = true,
+        IsBuiltIn = true,
         IsInternal = true,
         IsShielded = true,
         InjectUserCard = true,

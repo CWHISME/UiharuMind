@@ -9,6 +9,8 @@
  * Latest Update: 2024.10.07
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
+using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.Configs;
 using UiharuMind.Core.Core.Configs;
 using UiharuMind.Core.Core.Utils;
@@ -159,17 +161,35 @@ public class SettingConfig : TConfigBase<SettingConfig>
         }
     }
 
-    private int _characterFilterIndex;
+    private ECharacterKindFilter _characterKindFilter;
 
     /// <summary>
-    /// 角色列表筛选方式的索引
+    /// 角色列表的档位筛选。
+    ///
+    /// 落盘键沿用旧的 <c>CharacterFilterIndex</c>：那是一个下标数组的下标，
+    /// 数值与 <see cref="ECharacterKindFilter"/> 的成员值一一对应，
+    /// 老配置换个名字继续读，不必迁移、不必做旧值映射。
     /// </summary>
-    public int CharacterFilterIndex
+    [JsonPropertyName("CharacterFilterIndex")]
+    public ECharacterKindFilter CharacterKindFilter
     {
-        get => _characterFilterIndex;
+        get => _characterKindFilter;
         set
         {
-            _characterFilterIndex = value;
+            _characterKindFilter = value;
+            Save();
+        }
+    }
+
+    private ECharacterOriginFilter _characterOriginFilter;
+
+    /// <summary>角色列表的来源筛选（内置 / 我建的），与档位筛选正交、互不影响</summary>
+    public ECharacterOriginFilter CharacterOriginFilter
+    {
+        get => _characterOriginFilter;
+        set
+        {
+            _characterOriginFilter = value;
             Save();
         }
     }

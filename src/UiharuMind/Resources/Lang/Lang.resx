@@ -842,9 +842,6 @@
     <data name="ExtraRequestTextBoxTips" xml:space="preserve">
         <value>Additional Requirement for Translation</value>
     </data>
-    <data name="Filter" xml:space="preserve">
-        <value>Filter</value>
-    </data>
     <data name="Rename" xml:space="preserve">
         <value>Rename</value>
     </data>
@@ -2326,6 +2323,18 @@
     </data>
     <data name="CharacterShowInternal" xml:space="preserve">
         <value>Show internal</value>
+    </data>
+    <data name="CharacterFilterKind" xml:space="preserve">
+        <value>Kind</value>
+    </data>
+    <data name="CharacterFilterOrigin" xml:space="preserve">
+        <value>Origin</value>
+    </data>
+    <data name="CharacterOriginBuiltIn" xml:space="preserve">
+        <value>Built-in</value>
+    </data>
+    <data name="CharacterOriginMine" xml:space="preserve">
+        <value>Mine</value>
     </data>
     <data name="SnippetInsert" xml:space="preserve">
         <value>Insert snippet</value>

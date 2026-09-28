@@ -835,9 +835,6 @@
     <data name="ExtraRequestTextBoxTips" xml:space="preserve">
         <value>描述你对这次翻译的额外需求，例如：要求符合编程字段命名</value>
     </data>
-    <data name="Filter" xml:space="preserve">
-        <value>筛选</value>
-    </data>
     <data name="Rename" xml:space="preserve">
         <value>重命名</value>
     </data>
@@ -2319,6 +2316,18 @@
     </data>
     <data name="CharacterShowInternal" xml:space="preserve">
         <value>显示内部角色</value>
+    </data>
+    <data name="CharacterFilterKind" xml:space="preserve">
+        <value>档位</value>
+    </data>
+    <data name="CharacterFilterOrigin" xml:space="preserve">
+        <value>来源</value>
+    </data>
+    <data name="CharacterOriginBuiltIn" xml:space="preserve">
+        <value>内置</value>
+    </data>
+    <data name="CharacterOriginMine" xml:space="preserve">
+        <value>我建的</value>
     </data>
     <data name="SnippetInsert" xml:space="preserve">
         <value>插入片段</value>

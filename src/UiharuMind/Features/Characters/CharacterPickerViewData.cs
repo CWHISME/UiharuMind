@@ -66,15 +66,8 @@ public partial class CharacterPickerViewData : ObservableObject
             .Where(x => !x.IsInternal)
             .Where(CharacterVisibility.PassesShield)
             .Where(x => !_excludedIds.Contains(x.CharacterId))
-            .Where(x => _filter == null || _filter(x));
-
-        string keyword = SearchText.Trim();
-        if (keyword.Length > 0)
-        {
-            candidates = candidates.Where(x =>
-                x.CharacterName.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                x.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase));
-        }
+            .Where(x => _filter == null || _filter(x))
+            .Where(x => x.MatchesSearch(SearchText));
 
         foreach (CharacterData character in candidates.OrderBy(x => x.CharacterName, StringComparer.CurrentCulture))
         {

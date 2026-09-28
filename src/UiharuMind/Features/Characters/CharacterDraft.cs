@@ -93,8 +93,8 @@ public partial class CharacterDraft : ObservableObject
     /// <summary>类别徽章底色</summary>
     public IBrush KindColor => CharacterKindPresentation.BrushOf(_draft);
 
-    /// <summary>内置角色不许改身份</summary>
-    public bool IsDefault => _draft.IsDefaultCharacter;
+    /// <summary>内置角色不许改身份与能力</summary>
+    public bool IsBuiltIn => _draft.IsBuiltIn;
 
     /// <summary>是否为尚未入库的新角色（顶栏据此把「保存」写成「创建」）</summary>
     public bool IsNew => _origin == null;

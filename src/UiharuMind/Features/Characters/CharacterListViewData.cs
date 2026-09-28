@@ -5,8 +5,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UiharuMind.Resources.Lang;
-using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
 using UiharuMind.Shared.Utils;
 using UiharuMind.Core.AI.Character;
@@ -23,36 +21,36 @@ namespace UiharuMind.Features.Characters;
 /// </summary>
 public partial class CharacterListViewData : ObservableObject
 {
-    private const int FilterChat = 1; //FilterTags 里「普通角色」的下标
-    private const int FilterAgent = 2; //FilterTags 里「智能体」的下标
-
     public ObservableCollection<CharacterInfoViewData> Characters { get; } = new();
 
     /// <summary>
-    /// 筛选类别：全部 / 普通角色 / 智能体，下标即 <see cref="FilterTagIndex"/>。
+    /// 档位筛选（普通角色 / 智能体）。落进设置，重启后仍是这一档。
     /// </summary>
-    public string[] FilterTags =
-    [
-        Loc.Text(LangKey.All),
-        CharacterKindPresentation.NameOf(isAgent: false),
-        CharacterKindPresentation.NameOf(isAgent: true),
-    ];
-
-    public string FilterTag
+    public ECharacterKindFilter KindFilter
     {
-        get => FilterTagIndex < 0 || FilterTagIndex >= FilterTags.Length ? FilterTags[0] : FilterTags[FilterTagIndex];
-        set => FilterTagIndex = Array.IndexOf(FilterTags, value);
-    }
-
-    public int FilterTagIndex
-    {
-        get => ConfigManager.Instance.Setting.CharacterFilterIndex;
+        get => ConfigManager.Instance.Setting.CharacterKindFilter;
         set
         {
-            ConfigManager.Instance.Setting.CharacterFilterIndex = value;
+            if (ConfigManager.Instance.Setting.CharacterKindFilter == value) return;
+            ConfigManager.Instance.Setting.CharacterKindFilter = value;
             LoadCharacters();
             OnPropertyChanged();
-            OnPropertyChanged(nameof(FilterTag));
+        }
+    }
+
+    /// <summary>
+    /// 来源筛选（内置 / 我建的）。与 <see cref="KindFilter"/> 正交——两条轴各筛各的，
+    /// 所以「我的智能体」这种组合仍然选得出来。
+    /// </summary>
+    public ECharacterOriginFilter OriginFilter
+    {
+        get => ConfigManager.Instance.Setting.CharacterOriginFilter;
+        set
+        {
+            if (ConfigManager.Instance.Setting.CharacterOriginFilter == value) return;
+            ConfigManager.Instance.Setting.CharacterOriginFilter = value;
+            LoadCharacters();
+            OnPropertyChanged();
         }
     }
 
@@ -111,7 +109,10 @@ public partial class CharacterListViewData : ObservableObject
         {
             bool xa = x.IsAgent, ya = y.IsAgent;
             if (xa != ya) return xa ? 1 : -1;
-            return y.FileDateTime.CompareTo(x.FileDateTime);
+            // 内置卡没有存档时间(全是 0),不补这一刀它们的先后就取决于资源清单的枚举顺序,
+            // 换个构建顺序可能就变了。按 CharacterId 排 = 按罗马字名字排,稳定且读得懂。
+            int byTime = y.FileDateTime.CompareTo(x.FileDateTime);
+            return byTime != 0 ? byTime : string.CompareOrdinal(x.CharacterId, y.CharacterId);
         });
 
         // 还没入库的新角色不在字典里,重建列表时得自己顶回最前,否则建到一半会被筛没
@@ -133,21 +134,34 @@ public partial class CharacterListViewData : ObservableObject
     }
 
     /// <summary>
-    /// 这一项此刻该不该出现在列表里：档位筛选 + 内部角色开关 + 搜索关键字。
+    /// 这一项此刻该不该出现在列表里：档位 + 来源 + 内部角色开关 + 屏蔽闸门 + 搜索关键字。
     /// 建列表与「改完之后还算不算数」共用同一份判据，两边不会各说各话。
     /// </summary>
     /// <param name="item">列表项</param>
     /// <returns>该显示返回 True</returns>
     private bool Matches(CharacterInfoViewData item)
     {
-        if (FilterTagIndex == FilterChat && !item.Data.IsChat()) return false;
-        if (FilterTagIndex == FilterAgent && !item.IsAgent) return false;
+        if (KindFilter == ECharacterKindFilter.Chat && !item.Data.IsChat()) return false;
+        if (KindFilter == ECharacterKindFilter.Agent && !item.IsAgent) return false;
+        if (!MatchesOrigin(item.IsBuiltIn)) return false;
         if (item.Data.IsInternal && !IsDisplayAllCharacters) return false;
         if (!CharacterVisibility.PassesShield(item.Data)) return false;
 
-        return string.IsNullOrWhiteSpace(SearchKeyword) ||
-               item.SearchText.Contains(SearchKeyword.Trim(), StringComparison.OrdinalIgnoreCase);
+        return item.Data.MatchesSearch(SearchKeyword);
     }
+
+    /// <summary>
+    /// 来源轴的判据：内置卡与用户自己建的卡分开列，免得两类混在一条列表里分不出来。
+    /// 与档位轴正交，内部角色与屏蔽角色两道闸门另算，不归这里管。
+    /// </summary>
+    /// <param name="isBuiltIn">这张卡是否随程序内置</param>
+    /// <returns>该显示返回 True</returns>
+    private bool MatchesOrigin(bool isBuiltIn) => OriginFilter switch
+    {
+        ECharacterOriginFilter.BuiltIn => isBuiltIn,
+        ECharacterOriginFilter.Mine => !isBuiltIn,
+        _ => true,
+    };
 
     partial void OnIsDisplayAllCharactersChanged(bool value)
     {

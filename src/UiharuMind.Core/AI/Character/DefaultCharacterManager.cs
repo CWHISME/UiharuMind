@@ -174,7 +174,7 @@ public class DefaultCharacterManager : Singleton<DefaultCharacterManager>, IInit
         // 覆盖文件优先(现行名 → 旧名)——它自带内联的人格，不需要再读 .md
         CharacterData data = LoadOverride(id) ?? LoadEmbedded(baseName, resourceNames, assemblyPrefix);
 
-        data.IsDefaultCharacter = true;
+        data.IsBuiltIn = true;
         data.CharacterId = id;
         return data;
     }

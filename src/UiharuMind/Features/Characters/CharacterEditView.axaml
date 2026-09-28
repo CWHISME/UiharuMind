@@ -59,7 +59,7 @@
 
             <!-- 身份轴只有一根(ADR 0043):装不装 agent 那一套。它是下面几张能力卡片的总开关,不是一张档位清单。
                  打开它角色才会拿到工具、工作目录、权限档,以及代码注入的工作循环与工具纪律段 -->
-            <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsDefault}">
+            <Border Name="FunctionTypeSection" Classes="edit-card" IsEnabled="{Binding !IsBuiltIn}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterAgentCapabilityTitle}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -81,7 +81,7 @@
 
             <!-- 以下几块只对智能体:它们描述"这个智能体有什么能力" -->
             <Border Name="ToolsSection" Classes="edit-card" IsVisible="{Binding IsAgent}"
-                    IsEnabled="{Binding !IsDefault}">
+                    IsEnabled="{Binding !IsBuiltIn}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterToolsTitle}" />
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterToolsDesc}" TextWrapping="Wrap" />
@@ -115,7 +115,7 @@
             </Border>
 
             <Border Name="SkillsSection" Classes="edit-card" IsVisible="{Binding IsAgent}"
-                    IsEnabled="{Binding !IsDefault}">
+                    IsEnabled="{Binding !IsBuiltIn}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterSkillsTitle}" />
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterSkillsDesc}" TextWrapping="Wrap" />
@@ -153,7 +153,7 @@
             </Border>
 
             <Border Name="McpSection" Classes="edit-card" IsVisible="{Binding IsAgent}"
-                    IsEnabled="{Binding !IsDefault}">
+                    IsEnabled="{Binding !IsBuiltIn}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="card-title" Text="{loc:Loc CharacterMcpTitle}" />
                     <TextBlock Classes="muted" Text="{loc:Loc CharacterMcpDesc}" TextWrapping="Wrap" />
@@ -248,7 +248,7 @@
                     <!-- 用户卡是单例、活引用:改了用户卡,所有开着这个开关的角色下一轮跟着变。
                          它决定提示词里拼不拼进用户卡,所以跟着提示词走;内置角色照旧不许改 -->
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsChat}"
-                                IsEnabled="{Binding !IsDefault}">
+                                IsEnabled="{Binding !IsBuiltIn}">
                         <CheckBox IsChecked="{Binding InjectUserCard}"
                                   Content="{loc:Loc CharacterInjectUserCard}" />
                         <controls:ThemedSvgIcon Width="16" Height="16" IconName="info"

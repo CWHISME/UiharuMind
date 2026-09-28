@@ -55,9 +55,13 @@
             <ThemedIconButton Grid.Column="2" Classes="icon" IconName="ellipsis"
                               ToolTips="{loc:Loc MoreActions}">
                 <ThemedIconButton.Flyout>
-                    <MenuFlyout Placement="BottomEdgeAlignedRight">
-                        <!-- 档位子菜单在代码后置里填:选项来自 FilterTags,且要标出当前选中的那一档 -->
-                        <MenuItem Name="FilterMenuItem" Header="{loc:Loc Filter}" />
+                    <!-- 每次展开现填:选项来自筛选枚举,勾选状态现读视图模型。
+                         填一次就固定住的写法会在改过筛选之后显示过期状态 -->
+                    <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnFilterMenuOpening">
+                        <!-- 两条筛选轴各自一个子菜单:档位与来源正交,合成一张互斥表
+                             就没有「我的智能体」这一格了 -->
+                        <MenuItem Name="KindFilterMenuItem" Header="{loc:Loc CharacterFilterKind}" />
+                        <MenuItem Name="OriginFilterMenuItem" Header="{loc:Loc CharacterFilterOrigin}" />
                         <MenuItem Header="{loc:Loc ImportBtn}" Command="{Binding ImportCharacterCommand}" />
                         <!-- IsChecked 默认是 OneWay,不写 TwoWay 的话勾了也回不到视图模型 -->
                         <MenuItem Header="{loc:Loc CharacterShowInternal}"

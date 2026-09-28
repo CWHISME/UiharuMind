@@ -68,9 +68,15 @@ public class CharacterData
     public string MemoryName { get; set; } = "";
 
     /// <summary>
-    /// 是否是默认角色
+    /// 是否是随程序内置的卡：<c>Resources/Cards/</c> 下那张，或它的覆盖文件。
+    /// 角色库据此把内置卡与用户自己建的卡分列两档筛选（<see cref="ECharacterOriginFilter"/>），
+    /// 编辑页据此锁住身份与能力（内置卡的档位是程序定的，不许改）。
+    ///
+    /// ⚠️ 落盘键仍是 <c>IsDefaultCharacter</c>：改的只是名字，
+    /// 老存档里的同一个键继续读成同一个值，不必迁移。
     /// </summary>
-    public bool IsDefaultCharacter { get; set; }
+    [JsonPropertyName("IsDefaultCharacter")]
+    public bool IsBuiltIn { get; set; }
 
     /// <summary>
     /// 内部角色：程序按 <see cref="DefaultCharacter"/> 点名取用(识图、翻译、解释等技能)。
@@ -206,6 +212,23 @@ public class CharacterData
     }
 
     /// <summary>
+    /// 这张卡是否命中搜索词；空词或纯空白一律命中（调用方不必先判空）。
+    ///
+    /// <b>名字与描述都参与比对</b>：角色的定位与职责基本只写在描述里
+    /// （内置会审班的描述是「审核者（现实/资源/规则）：…」），只比名字的话
+    /// 搜「审核者」一个人都搜不到。三处挑选角色的界面（角色库 / 选择器 / 建群）共用这一份口径。
+    /// </summary>
+    /// <param name="keyword">搜索词</param>
+    /// <returns>命中返回 True</returns>
+    public bool MatchesSearch(string? keyword)
+    {
+        string keywordTrimmed = keyword?.Trim() ?? string.Empty;
+        if (keywordTrimmed.Length == 0) return true;
+        return CharacterName.Contains(keywordTrimmed, StringComparison.OrdinalIgnoreCase) ||
+               Description.Contains(keywordTrimmed, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// 尝试将指定内容的占位内容替换为实际内容
     /// {{$char}} 代表角色名
     /// {{$user}} 代表用户名
@@ -244,7 +267,7 @@ public class CharacterData
         // 主键是 CharacterId,显示名允许重复,因此不再需要靠改名试探唯一性
         var newCharData = DeepCopy();
         newCharData.CharacterId = Guid.NewGuid().ToString("N");
-        newCharData.IsDefaultCharacter = false;
+        newCharData.IsBuiltIn = false;
         newCharData.CharacterName += "_Copy";
         CharacterManager.Instance.TryAddNewCharacterData(newCharData);
     }
@@ -298,7 +321,7 @@ public class CharacterData
         IsAgent = snapshot.IsAgent;
         IsUserCard = snapshot.IsUserCard;
         MemoryName = snapshot.MemoryName;
-        IsDefaultCharacter = snapshot.IsDefaultCharacter;
+        IsBuiltIn = snapshot.IsBuiltIn;
         IsInternal = snapshot.IsInternal;
         IsShielded = snapshot.IsShielded;
         InjectUserCard = snapshot.InjectUserCard;

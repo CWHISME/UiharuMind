@@ -36,7 +36,8 @@ public partial class CharacterInfoViewData : ObservableObject
     /// </summary>
     public string CharacterId => _characterData.CharacterId;
 
-    public bool IsDefault => _characterData.IsDefaultCharacter;
+    /// <summary>是否随程序内置（来源筛选据此把内置卡与用户自己建的卡分列）</summary>
+    public bool IsBuiltIn => _characterData.IsBuiltIn;
 
     /// <summary>是否为智能体（决定「开始对话」切到哪一类）。这是角色身份的唯一轴（ADR 0043）</summary>
     public bool IsAgent => _characterData.IsAgent;
@@ -58,9 +59,6 @@ public partial class CharacterInfoViewData : ObservableObject
 
     /// <summary>提示词正文。用户卡面板要按只读方式回显它</summary>
     public string Template => _characterData.Template;
-
-    /// <summary>搜索用的比对文本（名字 + 描述）</summary>
-    public string SearchText => $"{Name}\n{Description}";
 
     public CharacterInfoViewData() : this(new CharacterData())
     {
@@ -89,7 +87,6 @@ public partial class CharacterInfoViewData : ObservableObject
         OnPropertyChanged(nameof(Template));
         OnPropertyChanged(nameof(IsAgent));
         OnPropertyChanged(nameof(KindName));
-        OnPropertyChanged(nameof(SearchText));
     }
 
     [RelayCommand]

@@ -41,12 +41,4 @@ public partial class GroupCreateWindow : Window
         Close(new GroupCreateRequest(model.Name.Trim(), [..model.Picked], [..model.PickedModelNames],
             model.PickedSchedule));
     }
-
-    /// <summary>类别筛选胶囊：Tag 里放的是下标，写回模型由它重筛列表</summary>
-    private void KindFilter_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button { Tag: string tag } && int.TryParse(tag, out int index)
-            && DataContext is GroupCreateWindowModel model)
-            model.KindFilterIndex = index;
-    }
 }
