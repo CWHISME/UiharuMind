@@ -155,6 +155,12 @@ public class ChatSession
     /// </summary>
     public int GroupCursor { get; set; }
 
+    /// <summary>
+    /// 游标之后、已作为插话被他读过的群流水下标：下一轮投递跳过它们，开投即清。仅群成员有意义。
+    /// 与 <see cref="GroupCursor"/> 同理必须落盘——只放内存的话，重开应用后这几条会随下一轮再投一遍。
+    /// </summary>
+    public HashSet<int> GroupConsumedPosts { get; set; } = [];
+
     /// <summary>会话是不是群成员会话</summary>
     [JsonIgnore]
     public bool IsGroupMember => !string.IsNullOrEmpty(GroupId);

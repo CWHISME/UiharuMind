@@ -22,7 +22,7 @@ namespace UiharuMind.Core.AI.Chat.Group;
 internal sealed class GroupMemberReplyFeed : IDisposable
 {
     private readonly ChatSession _member;
-    private readonly Func<string, Task?> _post;
+    private readonly Func<string, DateTimeOffset?, Task?> _post;
     private readonly object _sync = new();
     private readonly List<Task> _posted = [];
     private int _scanned; //成员历史里已看过的位置
@@ -32,8 +32,9 @@ internal sealed class GroupMemberReplyFeed : IDisposable
     /// 开始盯一位成员的这一轮
     /// </summary>
     /// <param name="member">成员会话</param>
-    /// <param name="post">把一段正文记成群发言（剥前缀、追加、广播）；没记为 null</param>
-    public GroupMemberReplyFeed(ChatSession member, Func<string, Task?> post)
+    /// <param name="post">把一段正文记成群发言（剥前缀、追加、广播）；没记为 null。
+    /// 第二个参数是成员那条消息的时间，群里沿用它——同一句话两边是同一时刻</param>
+    public GroupMemberReplyFeed(ChatSession member, Func<string, DateTimeOffset?, Task?> post)
     {
         _member = member;
         _post = post;
@@ -80,7 +81,7 @@ internal sealed class GroupMemberReplyFeed : IDisposable
                 // 回「[跳过]」就是这次不接话：不进群，也就不广播、不叫醒谁
                 string own = GroupTranscript.StripSpeakerPrefix(text, _member.CharacterData.CharacterName);
                 if (GroupTranscript.IsPass(own)) continue;
-                if (_post(text) is not { } posted) continue;
+                if (_post(text, history[_scanned].CreatedAt) is not { } posted) continue;
 
                 _posted.Add(posted);
                 ChatMessageAnnotations.MarkPostedToGroup(history[_scanned]);

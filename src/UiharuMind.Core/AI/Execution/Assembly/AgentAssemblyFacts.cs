@@ -201,7 +201,7 @@ public sealed record AgentAssemblyFacts
     {
         // 非 agent 形态不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = isAgentForm ?? character.IsAgent;
-        AgentToolConfig config = character.Tools;
+        AgentToolConfig config = AgentBuildProfile.EffectiveTools(character, groupScene);
         return new AgentAssemblyFacts
         {
             CharacterId = character.CharacterId,

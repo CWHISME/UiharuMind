@@ -17,6 +17,20 @@ public class GroupWakePolicyTests
         Assert.All(GroupWakePolicy.ForUserPost(Three, "c", []), x => Assert.Equal(EGroupWakeCause.User, x.Cause));
     }
 
+    /// <summary>补位（ADR 0049 修订）：只激进档；有没看过的发言、这一波没跑成过的不补</summary>
+    [Fact]
+    public void CatchUp_AggressiveOnly_UnreadAndNotUnfinished()
+    {
+        HashSet<string> unread = ["a", "b"];
+        HashSet<string> unfinished = ["b"];
+
+        Assert.Empty(GroupWakePolicy.ForCatchUp(Three, EGroupStopPolicy.Conservative, unread.Contains, unfinished));
+        IReadOnlyList<GroupWake> wakes =
+            GroupWakePolicy.ForCatchUp(Three, EGroupStopPolicy.Aggressive, unread.Contains, unfinished);
+        Assert.Equal(["a"], Targets(wakes));
+        Assert.All(wakes, x => Assert.Equal(EGroupWakeCause.CatchUp, x.Cause));
+    }
+
     [Fact]
     public void UserPost_SmallGroup_WakesEveryone()
     {

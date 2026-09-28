@@ -21,7 +21,6 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     private readonly Func<ChatSession, bool> _seesImages; //成员此刻的模型能不能看图：看得了才转交群里的图
     private readonly object _locker = new();
     private readonly Dictionary<string, Episode> _episodes = new(); //群 → 正在跑的那一波
-    private readonly Dictionary<string, HashSet<int>> _consumed = new(); //成员会话 → 插话插给他且已被消费的群流水下标
     private readonly HashSet<string> _interrupted = new(); //群里那一轮被停或失败的成员：投递已交给他，没新话也要能接着做
 
     /// <summary>应用里的那一个：成员用无头编排跑，会话经会话管理器取</summary>
@@ -47,14 +46,6 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// ⚠️ <b>可能来自后台线程</b>（成员一轮在无头编排上跑），订阅方自行 marshal。
     /// </summary>
     public event Action<string>? SpeakerChanged;
-
-    /// <summary>
-    /// 认不认得出「对全群说」。SendMessage 的 to 写这几个就是发群，不是找某个人
-    /// </summary>
-    /// <param name="to">收件人</param>
-    /// <returns>是发群为 true</returns>
-    public static bool IsGroupAddress(string? to) =>
-        string.Equals(to?.Trim(), "group", StringComparison.OrdinalIgnoreCase) || to?.Trim() is "群" or "全群" or "群里";
 
     /// <summary>这个群此刻是不是在跑一波</summary>
     /// <param name="groupId">群壳会话标识</param>
@@ -146,7 +137,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         // 取投递、推游标、登记在说，与 Append 同一把锁：之后追加的每一条要么在投递里、要么会插给他，不漏不重
         lock (_locker)
         {
-            _consumed.Remove(member.SessionId, out HashSet<int>? consumed);
+            HashSet<int> consumed = member.GroupConsumedPosts;
+            member.GroupConsumedPosts = [];
             delivery = GroupTranscript.BuildDelivery(group.History, member.GroupCursor, member.SessionId, consumed);
             // 被打断的人游标早推过去了，没新话时交一句「接着做」；有新话就照常投，那一段历史他自己看得见
             if (_interrupted.Remove(member.SessionId)) delivery ??= GroupTranscript.ResumeNote;
@@ -172,12 +164,15 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             SpeakerChanged?.Invoke(group.SessionId);
             AlignWithGroup(member, group);
 
-            string input = ComposeInput(run, member, delivery!, deliveredFrom);
+            string input = ComposeInput(run, member, cause, delivery!, deliveredFrom);
             // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
-            using GroupMemberReplyFeed replies = new(member, text => PostFromMember(group, member, text));
+            using GroupMemberReplyFeed replies = new(member, (text, at) => PostFromMember(group, member, text, at));
             // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
             ChatMessage deliveryMessage = GroupTranscript.DeliveryMessage(input, _seesImages(member) ? images : []);
-            bool completed = await RunTurnAsync(member, deliveryMessage, run.Token);
+            // 并行里说完即封口：别人的话不再让他续说一句，要不要再开口交给唤醒边界（ADR 0049 修订）。
+            // 串行不封：本来人人轮到，没有谁一直被续着说
+            Func<Task>? seal = run.Mode == EGroupScheduleMode.Parallel ? () => turn.SealAsync(_runner) : null;
+            bool completed = await RunTurnAsync(member, deliveryMessage, seal, run.Token);
             replies.Finish(completed);
             if (!completed)
             {
@@ -186,10 +181,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
 
             IReadOnlySet<int> consumedNow = await turn.CloseAsync(_runner);
             closed = true;
-            lock (_locker)
-            {
-                if (consumedNow.Count > 0) _consumed[member.SessionId] = [..consumedNow];
-            }
+            lock (_locker) member.GroupConsumedPosts = [..consumedNow];
+            member.SaveMeta(touchUpdatedAt: false);
 
             if (run.End(member.SessionId)) SpeakerChanged?.Invoke(group.SessionId);
             await replies.WhenPostedAsync();
@@ -223,8 +216,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         lock (_locker)
         {
             if (_interrupted.Contains(memberSessionId)) return true; //「继续」要叫得醒被打断的人
-            _consumed.TryGetValue(memberSessionId, out HashSet<int>? consumed);
-            return GroupTranscript.BuildDelivery(group.History, member.GroupCursor, memberSessionId, consumed) != null;
+            return GroupTranscript.BuildDelivery(group.History, member.GroupCursor, memberSessionId,
+                member.GroupConsumedPosts) != null;
         }
     }
 
@@ -280,7 +273,8 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     }
 
     // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西
-    private string ComposeInput(GroupRun run, ChatSession member, string delivery, int deliveredFrom)
+    private string ComposeInput(GroupRun run, ChatSession member, EGroupWakeCause cause, string delivery,
+        int deliveredFrom)
     {
         // 主持人位只在并行里起作用：串行本来就人人轮到，点名是多余的
         bool coldStart = false;
@@ -291,14 +285,16 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             lock (_locker) coldStart = GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, roster);
         }
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
+        if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint;
         return coldStart ? input + "\n\n" + GroupTranscript.HostColdStartHint : input;
     }
 
-    private async Task<bool> RunTurnAsync(ChatSession member, ChatMessage delivery, CancellationToken cancellationToken)
+    private async Task<bool> RunTurnAsync(ChatSession member, ChatMessage delivery, Func<Task>? onReplyFinishing,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await _runner.RunAsync(member, delivery, cancellationToken);
+            return await _runner.RunAsync(member, delivery, onReplyFinishing, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -315,15 +311,18 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     /// 记下一条成员发言，并在这一波里广播、唤醒。
     /// 模型常照着投递格式自加 [名字]: 前缀（场景说明要求不要加，但弱模型不听）：
     /// 不剥就落盘的话，单行发言会被 markdown 当链接引用定义整段吞掉（气泡空白、复制有字），
-    /// 投递给别人时还会再包一层变双前缀。剥空说明他只剩前缀、实质一个字没说，不记这条
+    /// 投递给别人时还会再包一层变双前缀。剥空说明他只剩前缀、实质一个字没说，不记这条。
+    /// 群里这条沿用成员那条消息的时间（回复进群走这条）：同一句话两边是同一时刻，
+    /// 不因「落盘与追加之间隔了几秒」在分钟精度上错开一位
     /// </summary>
     /// <returns>广播与唤醒做完；这条没记为 null</returns>
-    private Task? PostFromMember(ChatSession group, ChatSession member, string text)
+    private Task? PostFromMember(ChatSession group, ChatSession member, string text,
+        DateTimeOffset? createdAt = null)
     {
         string body = GroupTranscript.StripSpeakerPrefix(text.Trim(), member.CharacterData.CharacterName);
         if (string.IsNullOrWhiteSpace(body)) return null;
 
-        ChatMessage post = group.CreateMessage(ChatRole.Assistant, body);
+        ChatMessage post = group.CreateMessage(ChatRole.Assistant, body, createdAt: createdAt);
         post.AuthorName = member.CharacterData.CharacterName;
         ChatMessageAnnotations.MarkGroupPost(post, member.CharacterId, member.SessionId);
         int index = Append(group, post);

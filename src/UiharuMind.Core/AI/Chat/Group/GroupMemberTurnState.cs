@@ -62,6 +62,26 @@ internal sealed class GroupMemberTurnState
     }
 
     /// <summary>
+    /// 封口：他说完了一段，不再接插话，并把队列里还没被消费的撤回来——否则框架见队列非空，
+    /// 会让他为一句没点他名的插话再说一次（ADR 0049 修订）。撤回的由游标在下一轮照常投递；
+    /// 点了他名的由调度器按「没被消费」补叫。封口后这一轮若因用户私聊插话续跑，群里的话也等下一轮
+    /// </summary>
+    /// <param name="runner">成员一轮的跑法</param>
+    public async Task SealAsync(IGroupMemberTurnRunner runner)
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            _accepting = false;
+            await WithdrawPendingAsync(runner).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
     /// 收尾：不再接插话，并把队列里还没被消费的撤回来——它们由游标在下一轮照常投递
     /// </summary>
     /// <param name="runner">成员一轮的跑法</param>
@@ -72,29 +92,33 @@ internal sealed class GroupMemberTurnState
         try
         {
             _accepting = false;
-            if (_injected.Count == 0) return new HashSet<int>();
-
-            IReadOnlyCollection<ChatMessage> withdrawn;
-            try
-            {
-                withdrawn = await runner.WithdrawAsync(Member, _injected.Select(x => x.Message).ToList())
-                    .ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                // 撤不回来就按已消费算：最坏是晚到一次，不会重投
-                Log.Warning($"Group member '{Member.Title}' failed to withdraw interjections: {e.Message}");
-                withdrawn = [];
-            }
-
-            return _injected
-                .Where(x => !withdrawn.Any(w => ReferenceEquals(w, x.Message)))
-                .Select(x => x.Index)
-                .ToHashSet();
+            await WithdrawPendingAsync(runner).ConfigureAwait(false);
+            return _injected.Select(x => x.Index).ToHashSet();
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    // 撤回来的从登记里摘掉，留下的就是被消费了的。须持有闸
+    private async Task WithdrawPendingAsync(IGroupMemberTurnRunner runner)
+    {
+        if (_injected.Count == 0) return;
+
+        IReadOnlyCollection<ChatMessage> withdrawn;
+        try
+        {
+            withdrawn = await runner.WithdrawAsync(Member, _injected.Select(x => x.Message).ToList())
+                .ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            // 撤不回来就按已消费算：最坏是晚到一次，不会重投
+            Log.Warning($"Group member '{Member.Title}' failed to withdraw interjections: {e.Message}");
+            return;
+        }
+
+        _injected.RemoveAll(x => withdrawn.Any(w => ReferenceEquals(w, x.Message)));
     }
 }

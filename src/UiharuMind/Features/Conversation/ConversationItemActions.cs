@@ -126,7 +126,11 @@ public sealed class ConversationItemActions
                 int landed = FindUserMessageByText(history, cursor, stale.Text);
                 if (landed < 0) break;
 
-                for (; i >= 0 && ReferenceEquals(_items[i].SourceMessage, stale); i--) Wire(_items[i], history[landed]);
+                for (; i >= 0 && ReferenceEquals(_items[i].SourceMessage, stale); i--)
+                {
+                    Wire(_items[i], history[landed]);
+                    CalibrateTimestamp(_items[i], history[landed]);
+                }
                 i++;
                 cursor = landed - 1;
                 continue;
@@ -148,11 +152,25 @@ public sealed class ConversationItemActions
             }
 
             Wire(item, history[cursor]);
+            CalibrateTimestamp(item, history[cursor]);
             cursor--;
         }
 
         AttachStreamedSources(history);
         _host.NotifyItemsWired();
+    }
+
+    /// <summary>
+    /// 按落盘的那条消息校准气泡时间。流式产出的壳盖的是首块到达那一刻，
+    /// 落盘（一次服务调用结束）才是这句话说完的时刻——长回复两边能差几分钟，
+    /// 不校的话同一句话在自己窗口与群里显示成两个时间，相对顺序看着像交叉。
+    /// </summary>
+    /// <param name="item">待校准的气泡</param>
+    /// <param name="source">配对到的历史消息</param>
+    private static void CalibrateTimestamp(ConversationItemBase item, ChatMessage source)
+    {
+        if (source.CreatedAt is { } stamp)
+            item.Timestamp = ConversationItemFactory.TimestampText(stamp);
     }
 
     private static int FindUserMessageByText(IReadOnlyList<ChatMessage> history, int cursor, string text)

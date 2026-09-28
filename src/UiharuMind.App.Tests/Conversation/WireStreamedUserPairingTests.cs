@@ -91,4 +91,24 @@ public class WireStreamedUserPairingTests
 
         Assert.Same(landed, reply.SourceMessage);
     }
+
+    /// <summary>
+    /// 配对成功后按历史那条校准时间：流式产出的壳盖的是首块到达那一刻，
+    /// 落盘（一次服务调用结束）才是说完的时刻。长回复两边能差几分钟，
+    /// 不校的话同一句话在自己窗口与群里显示成两个时间
+    /// </summary>
+    [Fact]
+    public void PairedBubblesTakeTheTimestampOfThePersistedMessage()
+    {
+        var (actions, items) = Create();
+        TextConversationItem reply = new(false) { Message = "攒出来的正文", Timestamp = "00:00" };
+        items.Add(reply);
+
+        DateTimeOffset saidAt = new(2026, 9, 28, 14, 58, 0, TimeSpan.FromHours(8));
+        ChatMessage landed = new(ChatRole.Assistant, "落盘的那份正文") { CreatedAt = saidAt };
+        actions.WireStreamed([landed]);
+
+        Assert.Same(landed, reply.SourceMessage);
+        Assert.Equal(ConversationItemFactory.TimestampText(saidAt), reply.Timestamp);
+    }
 }

@@ -153,6 +153,8 @@ internal static class AgentAssembler
             Add(EAgentCapability.SubAgent, sendMessageTool);
         }
 
+        if (plan.Profile.IsGroupMember) Add(EAgentCapability.GroupPost, GroupPostTool.Create(plan.Profile.SessionId));
+
         if (config.EnableKnowledgeSearchTool)
         {
             Add(EAgentCapability.KnowledgeSearch, KnowledgeTool.Create(plan.Profile.SessionKnowledgeSource));
@@ -211,7 +213,8 @@ internal static class AgentAssembler
         // 将插件库内部日志(含工具执行失败的真实异常)转发到 UiharuMind 日志
         MfaLoggerFactory loggerFactory = new();
         IServiceProvider services = new MfaServiceProvider(loggerFactory);
-        AIAgent agent = MoveCompactionToLeaf(client, options).AsHarnessAgent(options, loggerFactory, services);
+        ServiceCallSignalingChatClient serviceCalls = new(MoveCompactionToLeaf(client, options));
+        AIAgent agent = serviceCalls.AsHarnessAgent(options, loggerFactory, services);
 
         // [MFA绕坑] 绕:工具异常只回给模型一句"Error: Function failed." 因:框架管道内部构造 FunctionInvokingChatClient,选项不外露 删除条件:HarnessAgentOptions 暴露该开关
         // 打开后回给模型的是"Error: Function failed. Exception: {e.Message}"(实测只有 Message,不含堆栈)。
@@ -227,8 +230,8 @@ internal static class AgentAssembler
         }
 
         // 选项此刻已装配完毕,记在句柄上供旁路请求(写交接文档)复用同一份
-        return new AgentHandle(agent, shellExecutor, options.ChatOptions, mcp, toolEntries, promptSegments,
-            inputEstimate);
+        return new AgentHandle(agent, serviceCalls, shellExecutor, options.ChatOptions, mcp, toolEntries,
+            promptSegments, inputEstimate);
     }
 
     // [MFA绕坑] 绕:压缩不交给框架的 CompactionProvider,改在最内层客户端上按 chat reducer 跑 因:Harness 恒开逐次落盘,逐次落盘层给会话写本地哨兵 ConversationId(_agent_local_chat_history),CompactionProvider 见 ConversationId 非空就当成服务端托管、整段跳过——压缩从未生效 删除条件:CompactionProvider 认得本地哨兵

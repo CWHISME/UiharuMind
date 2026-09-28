@@ -110,7 +110,6 @@ public class DefaultCharacterResourceTests
     [InlineData("LawlietAgent")]
     [InlineData("HououinKyoumaAgent")]
     [InlineData("MisakaMikotoAgent")]
-    [InlineData("UtsumiSushieAgent")]
     [InlineData("SaizakiSuisuiAgent")]
     [InlineData("TsuchimikadoMotoharuAgent")]
     [InlineData("SatenTeiriAgent")]

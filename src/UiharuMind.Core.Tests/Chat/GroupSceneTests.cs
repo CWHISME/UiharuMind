@@ -4,6 +4,7 @@ using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Prompts;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.Tests.Chat;
 
@@ -24,7 +25,7 @@ public class GroupSceneTests
         Assert.Contains("你是Alice", scene);
         Assert.Contains("不要自己加「[名字]:」前缀", scene);
         Assert.DoesNotContain("主持人", scene);
-        Assert.DoesNotContain("SendMessage", scene); //没这个工具就不提
+        Assert.DoesNotContain(GroupPostTool.ToolName, scene); //没这个工具就不提
         Assert.Contains("一次两三句", scene);
     }
 
@@ -36,7 +37,7 @@ public class GroupSceneTests
         string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", ["Bob"], "我", true, host));
 
         Assert.Contains(expected, scene);
-        Assert.Contains("SendMessage", scene);
+        Assert.Contains(GroupPostTool.ToolName, scene);
     }
 
     [Theory]
@@ -100,6 +101,36 @@ public class GroupSceneTests
 
         Assert.Equal(Capture("主持人是 Bob"), Capture("主持人是 Bob"));
         Assert.NotEqual(Capture("主持人是 Bob"), Capture("主持人是 Carol"));
+    }
+
+    /// <summary>
+    /// 群成员不委派，中途发群走只收正文的专用工具：共用 SendMessage 时收件人一填错
+    /// （写成用户名、留空）就静默派出一个群里看不见、也停不了的子代理
+    /// </summary>
+    [Theory]
+    [InlineData("场景正文", true)]
+    [InlineData("", false)]
+    public async Task GroupMembers_PostToTheGroup_InsteadOfDelegating(string scene, bool isMember)
+    {
+        CharacterData character = new()
+        {
+            CharacterId = "x", IsAgent = true,
+            Tools = new AgentToolConfig { EnableShellExecution = false, EnableFileAccess = false, EnableWebSearch = false },
+        };
+        AgentAssemblyPlan plan = new()
+        {
+            Profile = new AgentBuildProfile { Character = character, SessionId = "member1", GroupScene = scene },
+            WorkingDirectory = Path.GetTempPath(),
+        };
+
+        await using AgentHandle handle = AgentAssembler.Assemble(plan);
+
+        List<string> tools = handle.ChatOptions?.Tools?.Select(x => x.Name).ToList() ?? [];
+        Assert.Equal(isMember, tools.Contains(GroupPostTool.ToolName));
+        Assert.Equal(!isMember, tools.Contains(SubAgentTool.ToolName));
+        Assert.True(character.Tools.EnableSubAgent); //只是这次装配不给，角色卡本身不改
+        Assert.Equal(!isMember, AgentAssemblyFacts.Capture(character, "prompt", "/ws",
+            EAgentPermissionMode.AutoEdit, null, mcpRevision: 1, isAgentForm: true, groupScene: scene).SubAgent);
     }
 
     [Fact]

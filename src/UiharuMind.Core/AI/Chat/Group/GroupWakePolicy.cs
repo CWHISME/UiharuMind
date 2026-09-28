@@ -58,4 +58,23 @@ public static class GroupWakePolicy
 
         return targets.Select(x => new GroupWake(x, cause)).ToList();
     }
+
+    /// <summary>
+    /// 一波静下来之后补位叫醒谁：激进档里还有没看过的发言、这一波没有没跑成过的人各补一次；保守档不补。
+    /// 补位不看他说没说过话——没主持人时人人开头都说过，只补没说过的就谁也补不上（ADR 0049 修订）
+    /// </summary>
+    /// <param name="members">成员会话标识，发言顺序</param>
+    /// <param name="stopPolicy">停止条件</param>
+    /// <param name="hasNewLines">这位成员有没有还没看过的发言</param>
+    /// <param name="unfinished">这一波里没跑成过的成员（失败、被私聊占着）：不自动重跑</param>
+    /// <returns>要叫醒的成员</returns>
+    public static IReadOnlyList<GroupWake> ForCatchUp(IReadOnlyList<string> members, EGroupStopPolicy stopPolicy,
+        Func<string, bool> hasNewLines, IReadOnlySet<string> unfinished)
+    {
+        if (stopPolicy != EGroupStopPolicy.Aggressive) return [];
+
+        return members.Where(x => !unfinished.Contains(x) && hasNewLines(x))
+            .Select(x => new GroupWake(x, EGroupWakeCause.CatchUp))
+            .ToList();
+    }
 }

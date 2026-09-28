@@ -3124,7 +3124,7 @@
         <value>被别的成员点名的人说完不再点别人，聊完自动停下。</value>
     </data>
     <data name="GroupStopAggressiveHint" xml:space="preserve">
-        <value>不自动刹车：成员可以一直互相点名，直到自然停下或你点停止。</value>
+        <value>成员可以一直互相点名；静下来后，没看完全程的人各补一次发言。直到自然停下或你点停止。</value>
     </data>
     <data name="GroupHostLabel" xml:space="preserve">
         <value>主持人</value>

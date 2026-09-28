@@ -9,6 +9,7 @@
 
 using System.Collections.ObjectModel;
 using System.Linq;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using UiharuMind.Shared.Shell;
 using UiharuMind.Shared.Utils;
@@ -50,6 +51,11 @@ public partial class QuickToolSettingViewData : ViewModelBase
             DefaultModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.DefaultModelName);
             DefaultVisionModel = AvailableVisionModels.FirstOrDefault(m => m.ModelName == config.DefaultVisionModelName);
         }
+
+        // 设置窗是缓存复用的，构造只跑一次；模型页后加的模型靠这个通知同步进来。
+        // ViewData 与设置窗同寿命，不退订；设计态 App.ModelService 为空时跳过。
+        if (App.ModelService is { } service)
+            service.ModelListRefreshed += RefreshAvailableModels;
     }
 
     partial void OnDefaultModelChanged(ModelRunningData? value)
@@ -62,6 +68,33 @@ public partial class QuickToolSettingViewData : ViewModelBase
     {
         QuickToolSetting.Current.DefaultVisionModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
+    }
+
+    /// <summary>
+    /// 模型列表刷新后同步两个下拉。已选对象还活着就按名找回，找不到就回到跟随模式；
+    /// 全程包在回填作用域里，不会因为模型被删而把配置重写一遍。
+    /// </summary>
+    public void RefreshAvailableModels()
+    {
+        // 通知在 UI 线程上触发，这里是兜底：未来若有后台调用方也不炸绑定
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RefreshAvailableModels);
+            return;
+        }
+
+        string? textName = DefaultModel?.ModelName ?? QuickToolSetting.Current.DefaultModelName;
+        string? visionName = DefaultVisionModel?.ModelName ?? QuickToolSetting.Current.DefaultVisionModelName;
+        LoadAvailableModels();
+        using (_writeBack.BeginLoad())
+        {
+            DefaultModel = string.IsNullOrEmpty(textName)
+                ? null
+                : AvailableModels.FirstOrDefault(m => m.ModelName == textName);
+            DefaultVisionModel = string.IsNullOrEmpty(visionName)
+                ? null
+                : AvailableVisionModels.FirstOrDefault(m => m.ModelName == visionName);
+        }
     }
 
     /// <summary>

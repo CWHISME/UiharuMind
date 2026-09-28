@@ -160,7 +160,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                     GroupTranscript.StripOwnPrefix(message, session.CharacterData.CharacterName);
             }
 
-            AppendOwned(session, context.ResponseMessages, storedAt);
+            AppendOwned(session, context.ResponseMessages, storedAt, restamp: true);
         }
         session.TurnStartedAt = null; //一次性凭据,用过即弃
 
@@ -172,26 +172,46 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     }
 
     /// <summary>
-    /// 把属于我们的消息追加进历史，并给缺时间戳的补上回落值。
+    /// 把属于我们的消息追加进历史，并保证时间与追加顺序单调一致（不早于历史里上一条）。
     ///
-    /// 框架交给持久化的消息不带 <c>CreatedAt</c>——它连我们在
-    /// <c>ChatSession.CreateMessage</c> 里给用户消息盖的那份也丢了（是重建的副本），
+    /// 请求消息缺时间戳时补回落值：框架交给持久化的是丢了时间戳的重建副本，
     /// 而 <c>ChatSession.LastTime</c> 与气泡上那行时间读的正是它。
+    /// 响应消息<b>一律按落盘时刻</b>重盖：远端模型的 <c>created</c> 是开口时刻而非说完时刻，
+    /// 长思考能差几分钟，群里记的却是说完时刻，同一句话两边就排成两种顺序。
+    ///
+    /// 夹下限是因为中途插话带着注入时刻、却排在消费它之前那次调用的回复后面落盘——
+    /// 不夹的话那次回复按落盘时刻盖章后，插话就比它早，窗口里时间倒流。
+    ///
     /// 就地写而不是克隆消息：克隆得连 <c>AIContent</c> 的多态与 <c>AdditionalProperties</c>
     /// 一起搬，而这个字段框架自己不参与判断，补上没有副作用。
     /// </summary>
     /// <param name="session">目标会话</param>
     /// <param name="messages">待追加的消息</param>
-    /// <param name="fallback">缺时间戳时用的时间</param>
+    /// <param name="stamp">缺时间戳时的回落值；<paramref name="restamp"/> 时直接用它</param>
+    /// <param name="restamp">是否无视消息自带的时间戳</param>
     internal static void AppendOwned(ChatSession session, IEnumerable<ChatMessage> messages,
-        DateTimeOffset fallback)
+        DateTimeOffset stamp, bool restamp = false)
     {
+        DateTimeOffset floor = LastStampOf(session.History);
         foreach (ChatMessage message in messages)
         {
             if (!IsOwnedByUs(message)) continue;
-            message.CreatedAt ??= fallback;
+            DateTimeOffset at = restamp ? stamp : message.CreatedAt ?? stamp;
+            if (at < floor) at = floor;
+            message.CreatedAt = at;
+            floor = at;
             session.History.Add(message);
         }
+    }
+
+    private static DateTimeOffset LastStampOf(IList<ChatMessage> history)
+    {
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            if (history[i].CreatedAt is { } at) return at;
+        }
+
+        return DateTimeOffset.MinValue;
     }
 
     // [MFA绕坑] 绕:框架注入消息混进待持久化列表 因:基类 ChatHistory 过滤挡不住 AIContextProvider 来源,per-service-call 路径下更是全漏 删除条件:框架把注入消息与真实对话分流

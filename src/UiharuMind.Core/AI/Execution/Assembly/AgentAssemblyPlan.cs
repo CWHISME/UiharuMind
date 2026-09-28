@@ -143,8 +143,8 @@ internal sealed class AgentAssemblyPlan
     public bool IsAgentForm => Profile.EffectiveIsAgentForm;
 
 
-    /// <summary>能力配置。没有全局总闸，运行时只有角色自带这一份在说话（ADR 0003）</summary>
-    public AgentToolConfig Config => Profile.Character.Tools;
+    /// <summary>能力配置。没有全局总闸，运行时只有角色自带这一份在说话（ADR 0003），群成员另去掉委派</summary>
+    public AgentToolConfig Config => Profile.Tools;
 
     /// <summary>
     /// 识图工具是否该挂：会话是 agent 形态且有退路（识图开关开着），且当前模型自己看不了图。
@@ -174,7 +174,7 @@ internal sealed class AgentAssemblyPlan
             return new AgentAssemblyPlan { Profile = profile, Compaction = compaction, InputEstimate = estimate };
         }
 
-        AgentToolConfig config = profile.Character.Tools;
+        AgentToolConfig config = profile.Tools;
         return new AgentAssemblyPlan
         {
             Profile = profile,

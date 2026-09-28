@@ -8,6 +8,9 @@ namespace UiharuMind.Core.AI.Chat.Group;
 ///
 /// 在跑的人又被点到：广播已经把那句插给他，他这一轮的回应就算数（决策 7）；
 /// 只有那句没被消费（他已在收尾）时，才在这一轮结束后再叫他一次。
+///
+/// 激进档静下来时先补位一轮（<see cref="GroupWakePolicy.ForCatchUp"/>）再收场；
+/// 每句用户发言补一次，补位里说的话照常按唤醒边界叫人。
 /// </summary>
 internal sealed class ParallelGroupScheduler : IGroupScheduler
 {
@@ -19,6 +22,8 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
     private readonly TaskCompletionSource _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _active = 1; //开头那一份占位：初始唤醒全部排上之前，不许判定为空闲
     private bool _closed; //已判定空闲：这一波结束了，迟到的唤醒不再开跑
+    private bool _caughtUp; //这句用户发言之后已补过位；用户再发言清掉
+    private readonly HashSet<string> _unfinished = []; //这一波里没跑成的（失败、被私聊占着）：补位不自动重跑
 
     /// <summary>
     /// 构造
@@ -60,6 +65,7 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
         {
             if (_closed) return false;
             _active++;
+            if (post.AuthorSessionId == null) _caughtUp = false;
         }
 
         try
@@ -127,6 +133,7 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
                 GroupTurnOutcome outcome = await _host.RunMemberAsync(_run, memberId, cause).ConfigureAwait(false);
                 lock (_sync)
                 {
+                    if (!outcome.Ran) _unfinished.Add(memberId);
                     _rewakes.Remove(memberId, out var pending);
                     List<(int PostIndex, EGroupWakeCause Cause)> unmet = pending?
                         .Where(x => !outcome.ConsumedInjections.Contains(x.PostIndex))
@@ -148,6 +155,7 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
             lock (_sync)
             {
                 _causes.Remove(memberId);
+                _unfinished.Add(memberId);
                 _rewakes.Remove(memberId); //待补叫的一并丢：他这一轮已经没了，留着会让下次叫醒带上过期的来由
             }
         }
@@ -160,12 +168,40 @@ internal sealed class ParallelGroupScheduler : IGroupScheduler
     private void Release()
     {
         bool idle;
+        bool catchUp = false;
         lock (_sync)
         {
             idle = --_active == 0;
+            if (idle && !_caughtUp && _run.StopPolicy == EGroupStopPolicy.Aggressive
+                && !_run.Token.IsCancellationRequested)
+            {
+                // 占一份再去叫人：叫醒的这段时间里不许判定为空闲
+                _caughtUp = true;
+                _active++;
+                catchUp = true;
+                idle = false;
+            }
+
             if (idle) _closed = true;
         }
 
-        if (idle) _idle.TrySetResult();
+        if (catchUp) CatchUp();
+        else if (idle) _idle.TrySetResult();
+    }
+
+    private void CatchUp()
+    {
+        try
+        {
+            HashSet<string> unfinished;
+            lock (_sync) unfinished = [.._unfinished];
+            IReadOnlyList<GroupWake> wakes = GroupWakePolicy.ForCatchUp(_run.Group.GroupMemberSessionIds,
+                _run.StopPolicy, x => _host.HasNewLines(_run.Group, x), unfinished);
+            foreach (GroupWake wake in wakes) Wake(wake, -1);
+        }
+        finally
+        {
+            Release();
+        }
     }
 }

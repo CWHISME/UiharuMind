@@ -57,6 +57,13 @@ public partial class ModelService : ObservableObject
     [ObservableProperty] private float _loadingProgress;
 
     /// <summary>
+    /// 模型列表刷新完成后的单次通知。顶栏直接绑 <see cref="ModelSources"/> 不需要它；
+    /// 设置页那些拷了一份快照的模型下拉（快捷工具/子代理）订阅它做同步。
+    /// 在 UI 线程上触发。
+    /// </summary>
+    public event Action? ModelListRefreshed;
+
+    /// <summary>
     /// 当前是否有运行中的模型
     /// </summary>
     public bool CurIsRunning => CurModelRunningData?.IsRunning ?? false;
@@ -212,6 +219,7 @@ public partial class ModelService : ObservableObject
         }
 
         Refresh();
+        ModelListRefreshed?.Invoke();
     }
 
     private void OnFavoriteModelConfigChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

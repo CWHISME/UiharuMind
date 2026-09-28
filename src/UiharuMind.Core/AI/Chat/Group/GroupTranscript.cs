@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Chat.Group;
 
@@ -49,7 +50,9 @@ public static class GroupTranscript
         Undelivered(groupLog, cursor, memberSessionId, injected).SelectMany(x => ImagesOf(x.Post)).ToList();
 
     /// <summary>
-    /// 交给成员的一条投递消息：正文在前、图片在后，标上群投递
+    /// 交给成员的一条投递消息：正文在前、图片在后，标上群投递。
+    /// 时间盖创建这一刻：不盖的话落盘只能补回落值（一轮开跑或落盘那一刻），
+    /// 中途插话会被标成与实际差几分钟的时间。排序由落盘时夹下限兜底
     /// </summary>
     /// <param name="text">投递正文（已带发言人前缀）</param>
     /// <param name="images">转交给他的图片；他看不了图时传空</param>
@@ -58,7 +61,10 @@ public static class GroupTranscript
     {
         List<AIContent> contents = [new TextContent(text)];
         contents.AddRange(images);
-        ChatMessage message = new(ChatRole.User, contents);
+        ChatMessage message = new(ChatRole.User, contents)
+        {
+            CreatedAt = DateTimeOffset.Now,
+        };
         ChatMessageAnnotations.MarkGroupDelivery(message);
         return message;
     }
@@ -205,6 +211,13 @@ public static class GroupTranscript
         "点完名这一轮就结束，要查的资料留到之后再查，别让大家干等。）";
 
     /// <summary>
+    /// 补位轮的提示（ADR 0049 修订）：激进档一波静下来后，给还有没看过的发言的人各补一次，随投递附在末尾。
+    /// 界面随每轮重锚一并摘掉，不画出来
+    /// </summary>
+    public const string CatchUpHint =
+        $"（这一波大家说完了，上面是你还没看过的。有别人没说到的角度就说；没有，或者只是想再催一次谁，就只回复「{PassReply}」。）";
+
+    /// <summary>
     /// 群里那一轮被停或失败后，再被叫醒又没有新话时交给他的一句。他可能已在私聊里接着做完了——
     /// 那份结果群里没人看见，所以请他说一句
     /// </summary>
@@ -271,10 +284,12 @@ public static class GroupTranscript
             text.Append("要摆的材料长（清单、对比、摘录），写成草稿目录里的文件，群里只说结论、附上文件路径。");
         text.Append("\n- 调用工具时顺手写的话（比如「先查一下」）只留在你这里，群里看不到；要对大家说的，等工具用完再说。");
         if (scene.CanPostMidTurn)
-            text.Append("想在这一轮中途先对大家说一句，可以调用 SendMessage，to 写 group；发出去的那几条就是你在群里说的话，" +
+            text.Append($"想在这一轮中途先对大家说一句，可以调用 {GroupPostTool.ToolName}；发出去的那几条就是你在群里说的话，" +
                         "同一条回复里的其余正文不会重复贴，之后每次说完的正文照常贴到群里。");
         // 实测（Hello World 首跑）：审查者各交一份几乎一样的清单，没新信息时人人把现状重申一遍
         text.Append("\n- 说过的点不复述，别人说过的、你自己刚说过的都算：你要说的跟已有的差不多，就只说不一样的那一点；认同就一句话带过。");
+        // 实测（下一图的方案）：一句问用户的话被五个人轮着在发言末尾再催了七遍
+        text.Append($"\n- 已经有人问了{scene.UserName}、正等着回答的事，别在发言末尾再催一次、换个说法再问一遍——{scene.UserName}看得到。");
         text.Append($"\n- 没什么要补充、不用接话时，只回复「{PassReply}」：这句不会发到群里。不必为表态「收到」「我也等着」、" +
                     "或把大家都知道的现状再说一遍而专门说一句。");
         text.Append("\n- 用户也会单独找你私聊，那种消息开头标着「私聊」，回复只有用户看得到。");
@@ -292,7 +307,7 @@ public static class GroupTranscript
     /// 把一条投递拆回各人的发言（呈现用；存储与供给仍是合成的一条）。
     /// 只认 <paramref name="speakerNames"/> 里的名字开头的 <c>[名字]: </c> 行——正文里别的中括号不会被误拆。
     /// 第一个发言人之前的（旧数据首次投递开头的场景说明）与末尾的主持人提示拆成无发言人的一段；
-    /// 每轮重锚是说给模型的，不拆出来
+    /// 每轮重锚与补位提示是说给模型的，不拆出来
     /// </summary>
     /// <param name="text">投递正文</param>
     /// <param name="speakerNames">可能出现的发言人（成员与用户）</param>
@@ -383,7 +398,7 @@ public static class GroupTranscript
 /// <param name="SelfName">这个成员的名字</param>
 /// <param name="OtherNames">其余成员的名字</param>
 /// <param name="UserName">用户的名字</param>
-/// <param name="CanPostMidTurn">他有没有 SendMessage 可用（智能体形态且开着委派）</param>
+/// <param name="CanPostMidTurn">他有没有群发言工具可用（智能体形态）</param>
 /// <param name="HostName">主持人的名字；没有为 null</param>
 /// <param name="SharesDraftRoom">他有没有草稿目录（智能体形态且开着文件或命令行）：有就是全群共用的那一间，
 /// 也说明他动得了工作区，场景段要讲清拍板之前不动手</param>

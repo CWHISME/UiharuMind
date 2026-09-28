@@ -34,11 +34,7 @@ public static class SubAgentToolPrompts
     /// <b>也刻意不提「只读」那一档</b>：档位差异已经退役，对方能做什么由权限档说了算。
     /// </summary>
     public const string SendMessageDescription =
-        "Send a message to someone and let them work on it. " +
-        "They have the same permissions as you — they can change files and run commands. " +
-        "They can also come back with a question instead of an answer. " +
-        "Reply is not immediate: you get a receipt now and their message arrives later.";
-
+        "Send a message to subagent and let them work on it. ";
     /// <summary>
     /// <c>to</c> 参数说明。一个参数收两种收件人（人 / 一次进行中的委派），
     /// 因为对模型来说这本来就是同一个动作——**给某人发消息**，
@@ -48,9 +44,9 @@ public static class SubAgentToolPrompts
     /// 可找的人列在系统提示的委派一节里。
     /// </summary>
     public const string ToParam =
-        "Who to send it to: a name from the people listed in your instructions, " +
-        "or the id inside the [sub-session: …] line from an earlier receipt to continue that conversation. " +
-        "Leave it empty to reach the default helper.";
+        "Recipient: a name listed in your instructions, " +
+        "or the id in an earlier receipt's [sub-session: …] line to continue that conversation. " +
+        "Leave it empty to start a new conversation with a general-purpose helper.";
 
     /// <summary>
     /// <c>content</c> 参数说明。补一句「写具体」：压缩后
@@ -60,9 +56,8 @@ public static class SubAgentToolPrompts
     /// 对方根本看不懂的引用。
     /// </summary>
     public const string ContentParam =
-        "What you want to say to them. " +
-        "They cannot see your conversation — say enough that it stands on its own. " +
-        "When continuing an earlier one, this is your follow-up: a question, a correction, or just keep going.";
+        "Your message. They cannot see your conversation, so make it self-contained. " +
+        "When continuing, this is your follow-up: a question, a correction, or 'keep going'.";
 
     /// <summary>
     /// <c>role</c> 参数说明（身份/职业）。
@@ -74,13 +69,10 @@ public static class SubAgentToolPrompts
     /// （见 <c>SubAgentPrompts.RoleOverPersona</c>）。
     /// </summary>
     public const string RoleParam =
-        "Optional short role for them (e.g. 'senior C# reviewer', 'devil's advocate', or a name). " +
-        "Used as the session title and injected into their identity. " +
-        "It sets what they attend to and how they judge trade-offs. " +
-        "Works together with a named person: they keep their own persona, " +
-        "and this role is the emphasis for this one. " +
-        "Ignored when continuing an earlier conversation.";
-
+        "Optional short role (e.g. 'senior C# reviewer', 'devil's advocate'). " +
+        "Becomes the session title and their identity, setting what they focus on and how they weigh trade-offs. " +
+        "With a named person, they keep their persona and this adds the emphasis. ";
+    
     /// <summary>
     /// <c>model</c> 参数说明。
     ///
@@ -92,12 +84,12 @@ public static class SubAgentToolPrompts
     /// 名字错了不会炸：解析不到就回退默认，并在回执里说一声。
     /// </summary>
     public const string ModelParam =
-        "Optional exact model name for this one. Ignored when continuing an earlier conversation.";
+        "Optional exact model name.";
 
     /// <summary>
     /// 收件人名单的小标题。<b>这段不再进工具描述</b>，改由装配侧拼进系统提示的委派一节
     /// （ADR 0044 决策 4）：名单进 schema 会让工具定义随成员增减而变，前缀缓存全废。
     /// </summary>
     public const string RosterHeading =
-        "People you can send to (pass the name as `to`, or leave it empty for the default helper):";
+        "People you can message (pass the name as to):";
 }

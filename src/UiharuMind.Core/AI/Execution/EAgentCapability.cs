@@ -12,7 +12,7 @@ using Microsoft.Extensions.AI;
 namespace UiharuMind.Core.AI.Execution;
 
 /// <summary>
-/// 一个工具属于哪一档能力开关。与 <c>AgentToolConfig</c> 的 <c>Enable*</c> 一一对应。
+/// 一个工具属于哪一档能力开关。除 <see cref="GroupPost"/> 外与 <c>AgentToolConfig</c> 的 <c>Enable*</c> 一一对应。
 ///
 /// 存在的理由是<b>把占用算到开关头上</b>：角色编辑页要显示「关掉这一档能省多少 token」，
 /// 而一档能力可能挂好几个工具（文件访问一次挂七个）。
@@ -45,6 +45,9 @@ public enum EAgentCapability
 
     /// <summary>MCP server 提供的工具</summary>
     Mcp,
+
+    /// <summary>群发言(群成员 agent 形态必挂，不对应开关)</summary>
+    GroupPost,
 }
 
 /// <summary>

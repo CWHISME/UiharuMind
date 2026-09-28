@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using UiharuMind.Shared.Services;
@@ -96,9 +97,12 @@ public partial class AgentSettingViewData : ViewModelBase
             DefaultWorkspacePath = config.DefaultWorkspacePath;
             DefaultPlanMode = config.DefaultPlanMode;
             ModelSkillsEnabled = config.ModelSkillsEnabled;
+            LoadAvailableModels();
         }
-
-        LoadAvailableModels();
+        // 设置窗是缓存复用的，构造只跑一次；模型页后加的模型靠这个通知同步进来。
+        // ViewData 与设置窗同寿命，不退订；设计态 App.ModelService 为空时跳过。
+        if (App.ModelService is { } service)
+            service.ModelListRefreshed += RefreshAvailableModels;
         _ = RefreshSkillsAsync(); //技能列表要读盘解析,不阻塞构造
     }
 
@@ -136,19 +140,52 @@ public partial class AgentSettingViewData : ViewModelBase
     }
 
     /// <summary>
+    /// 模型列表刷新后同步下拉。已选还活着就按名找回，找不到就回到跟随主代理模式；
+    /// 全程包在回填作用域里，不会因为模型被删而把配置重写一遍。
+    /// </summary>
+    public void RefreshAvailableModels()
+    {
+        // 通知在 UI 线程上触发，这里是兜底：未来若有后台调用方也不炸绑定
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RefreshAvailableModels);
+            return;
+        }
+
+        string? selectedName = GeneralSubAgentModel?.ModelName
+            ?? AgentSettingConfig.Current.GeneralSubAgentModelName;
+        RebuildAvailableModels();
+        using (_writeBack.BeginLoad())
+        {
+            GeneralSubAgentModel = string.IsNullOrEmpty(selectedName)
+                ? null
+                : AvailableModels.FirstOrDefault(m => m.ModelName == selectedName);
+        }
+    }
+
+    /// <summary>
     /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用子代理模型。
+    /// 调用方需包在回填作用域里（构造里已包），否则回填赋值会误落盘。
     /// </summary>
     private void LoadAvailableModels()
     {
-        AvailableModels.Clear();
-        foreach (ModelRunningData model in LlmManager.Instance.GetModelList())
-            AvailableModels.Add(model);
+        RebuildAvailableModels();
 
         AgentSettingConfig config = AgentSettingConfig.Current;
         if (!string.IsNullOrWhiteSpace(config.GeneralSubAgentModelName))
         {
             GeneralSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.GeneralSubAgentModelName);
         }
+    }
+
+    /// <summary>
+    /// 只重建候选列表，不碰已选。刷新路径用它，避免中间态的回填赋值误落盘。
+    /// </summary>
+    private void RebuildAvailableModels()
+    {
+        AvailableModels.Clear();
+        foreach (ModelRunningData model in LlmManager.Instance.GetModelList())
+            AvailableModels.Add(model);
     }
 
     [RelayCommand]

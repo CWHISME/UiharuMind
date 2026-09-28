@@ -74,6 +74,12 @@ public class AgentBuildProfile
     /// </summary>
     public string GroupScene { get; init; } = string.Empty;
 
+    /// <summary>是不是群成员会话：群场景段只给群成员拼</summary>
+    public bool IsGroupMember => GroupScene.Length > 0;
+
+    /// <summary>本次装配实际生效的能力配置，见 <see cref="EffectiveTools"/></summary>
+    public AgentToolConfig Tools => EffectiveTools(Character, GroupScene);
+
     /// <summary>额外的提示词模板参数(会话的 CustomParams)</summary>
     public IReadOnlyDictionary<string, object?>? PromptArguments { get; init; }
 
@@ -113,6 +119,17 @@ public class AgentBuildProfile
     /// 而"这一轮有没有人看着"每轮由 <c>TurnDriver</c> 交进来。
     /// </summary>
     public Func<bool>? IsAttendedSource { get; init; }
+
+    /// <summary>
+    /// 实际生效的能力配置。群成员不委派（ADR 0046 修订）：群里的话是说给全群的，
+    /// 派出去的子代理群里看不见、群视图停不了，它的报告还会被当成用户的话。
+    /// 快照与装配都经这一处，判据不会两边漂移
+    /// </summary>
+    /// <param name="character">角色</param>
+    /// <param name="groupScene">群场景段；不是群成员为空串</param>
+    /// <returns>能力配置</returns>
+    public static AgentToolConfig EffectiveTools(CharacterData character, string groupScene) =>
+        groupScene.Length > 0 ? character.Tools.WithoutDelegation() : character.Tools;
 
     /// <summary>
     /// 本次装配面对的模型：会话绑定的优先，回落全局当前模型。

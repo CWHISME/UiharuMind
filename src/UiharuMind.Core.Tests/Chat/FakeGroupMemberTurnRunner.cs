@@ -15,7 +15,9 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
     private readonly List<(ChatSession Member, string Input)> _calls = [];
     private readonly List<(ChatSession Member, string Text)> _injected = [];
     private readonly HashSet<string> _replied = []; //这一轮已经说完的成员：之后插进来的，真模型不会再消费
-    private readonly List<ChatMessage> _late = []; //说完之后才插进来的，收尾时撤回
+    private readonly HashSet<string> _generating = []; //正在最后那次调用里的成员：插进来的还在队列里，说完时撤得回
+    private readonly List<ChatMessage> _late = []; //还在队列里的插话（最后那次调用期间或说完之后插进来的）
+    private readonly Dictionary<ChatMessage, string> _pendingOf = new(); //还在队列里的插话 → 插给了谁
 
     /// <summary>跑过的每一轮（成员、输入）</summary>
     public List<(ChatSession Member, string Input)> Calls
@@ -37,6 +39,12 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
 
     /// <summary>成员这一轮中途做的事（在写回答之前）</summary>
     public Dictionary<string, Func<Task>> During { get; } = new();
+
+    /// <summary>
+    /// 成员这一轮最后那次模型调用期间做的事：此时插进来的还在注入队列里。
+    /// 说完时没被撤回的，照框架的行为续一次调用、多说一句
+    /// </summary>
+    public Dictionary<string, Func<Task>> Generating { get; } = new();
 
     /// <summary>成员第 n 次（从 1 起）的回答正文；没给就用编号句</summary>
     public Dictionary<string, Func<int, string>> Replies { get; } = new();
@@ -61,7 +69,8 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
     /// <returns>轮数</returns>
     public int CallsOf(ChatSession member) => Calls.Count(x => x.Member.SessionId == member.SessionId);
 
-    public async Task<bool> RunAsync(ChatSession member, ChatMessage input, CancellationToken cancellationToken)
+    public async Task<bool> RunAsync(ChatSession member, ChatMessage input, Func<Task>? onReplyFinishing,
+        CancellationToken cancellationToken)
     {
         lock (_sync)
         {
@@ -72,8 +81,48 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
 
         if (During.TryGetValue(member.SessionId, out Func<Task>? during)) await during();
         if (Fail.Contains(member.SessionId) || cancellationToken.IsCancellationRequested) return false;
+
+        // 只在给了 Generating 时才有这一段窗口：不给就和从前一样，说完之前插进来的都算被消费
+        if (Generating.TryGetValue(member.SessionId, out Func<Task>? generating))
+        {
+            lock (_sync) _generating.Add(member.SessionId);
+            await generating();
+        }
+
+        if (onReplyFinishing != null) await onReplyFinishing();
+
+        bool continued;
+        lock (_sync)
+        {
+            _generating.Remove(member.SessionId);
+            // 说完时队列里还有没撤走的：框架会续一次调用，把它们消费掉
+            continued = _late.RemoveAll(x => _pendingOf.GetValueOrDefault(x) == member.SessionId) > 0;
+        }
+
         if (Silent) return true;
 
+        Reply(member);
+        if (continued) Reply(member);
+        return true;
+    }
+
+    public Task<bool> TryInjectAsync(ChatSession member, ChatMessage message)
+    {
+        lock (_sync)
+        {
+            _injected.Add((member, message.Text));
+            if (_replied.Contains(member.SessionId) || _generating.Contains(member.SessionId))
+            {
+                _late.Add(message);
+                _pendingOf[message] = member.SessionId;
+            }
+        }
+
+        return Task.FromResult(true);
+    }
+
+    private void Reply(ChatSession member)
+    {
         lock (_sync)
         {
             int count = _spoken.GetValueOrDefault(member.SessionId) + 1;
@@ -84,19 +133,6 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
             member.History.Add(new ChatMessage(ChatRole.Assistant, text));
             _replied.Add(member.SessionId);
         }
-
-        return true;
-    }
-
-    public Task<bool> TryInjectAsync(ChatSession member, ChatMessage message)
-    {
-        lock (_sync)
-        {
-            _injected.Add((member, message.Text));
-            if (_replied.Contains(member.SessionId)) _late.Add(message);
-        }
-
-        return Task.FromResult(true);
     }
 
     public Task<IReadOnlyCollection<ChatMessage>> WithdrawAsync(ChatSession member,
@@ -106,6 +142,7 @@ internal sealed class FakeGroupMemberTurnRunner : IGroupMemberTurnRunner
         lock (_sync)
         {
             IReadOnlyCollection<ChatMessage> late = messages.Where(_late.Contains).ToList();
+            _late.RemoveAll(late.Contains);
             return Task.FromResult(late);
         }
     }

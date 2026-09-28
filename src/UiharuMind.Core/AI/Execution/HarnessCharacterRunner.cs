@@ -56,6 +56,9 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     public Action? BusyChanged { get; set; }
 
     /// <inheritdoc />
+    public Func<CancellationToken, Task>? ReplyFinishing { get; set; }
+
+    /// <inheritdoc />
     public IReadOnlyList<ChatMessage> PendingInjections
     {
         get
@@ -245,6 +248,11 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             Action onPersisted = () => channel.Writer.TryWrite(MessageBoundaryContent.Instance);
             if (attached != null) attached.ServiceCallPersisted += onPersisted;
 
+            // 每次服务调用发出之前问一次"插话被取走了没"(见 ServiceCallSignalingChatClient):
+            // 回调跑在泵自己的执行流里,上一轮的工具结果此刻已写进通道,气泡因此排在它之后、这次调用的产出之前
+            handle.ServiceCalls.Starting = token => EmitConsumedInjectionsAsync(handle, session, channel, token);
+            handle.ServiceCalls.Finishing = token => ReplyFinishing?.Invoke(token) ?? Task.CompletedTask;
+
             // 消费方提前 break(不取消令牌)时用它给泵收尾,否则末尾的 await 会挂死
             CancellationTokenSource pumpSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             Task pump = Task.Run(async () =>
@@ -255,13 +263,6 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
                                        .RunStreamingAsync(messages, session, cancellationToken: pumpSource.Token)
                                        .ConfigureAwait(false))
                     {
-                        // 每条 update 之前问一次"插话被取走了没":框架在每次服务调用发出去之前
-                        // 排空注入队列(MessageInjectingChatClient.DrainInjectedMessagesAsync),
-                        // 所以"已不在队列里"这一刻就是它被消费的那一刻,气泡因此排在
-                        // 这次调用的任何产出之前。没有在途插话时是一次 Count 判断,不加锁不异步
-                        await EmitConsumedInjectionsAsync(handle, session, channel, pumpSource.Token)
-                            .ConfigureAwait(false);
-
                         foreach (AIContent content in update.Contents) channel.Writer.TryWrite(content);
                     }
 
@@ -285,6 +286,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
             finally
             {
                 if (attached != null) attached.ServiceCallPersisted -= onPersisted;
+                handle.ServiceCalls.Starting = null;
+                handle.ServiceCalls.Finishing = null;
                 _activityChannel = null;
                 await pumpSource.CancelAsync().ConfigureAwait(false);
                 await pump.ConfigureAwait(false);
@@ -394,8 +397,8 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
 
     /// <summary>
     /// 登记过的插话里凡是<b>已不在注入队列里</b>的，就是已被框架取走消费的，
-    /// 按被消费的口径发进内容流——由调用方在写这条 update 的内容之前调用，
-    /// 气泡因此排在消费它的那次调用的任何产出之前。
+    /// 按被消费的口径发进内容流——由叶子在每次服务调用发出之前回调，
+    /// 气泡因此排在消费它的那次调用的任何产出之前，也不必等这次调用的首段输出。
     ///
     /// 判据是队列快照而不是落盘边界：框架在每次服务调用发出去之前排空队列
     /// （<c>MessageInjectingChatClient.DrainInjectedMessagesAsync</c>），
@@ -403,7 +406,7 @@ internal sealed class HarnessCharacterRunner : ICharacterRunner
     /// 它可能晚于下一次调用的首条内容到达（上一次工具跑了十分钟时实测晚十几秒），
     /// 照它定位气泡就会插进回复中间。
     ///
-    /// 没有在途插话时只是一次 <c>Count</c> 判断（不加锁、不异步），所以逐条 update 问它不贵。
+    /// 没有在途插话时只是一次 <c>Count</c> 判断（不加锁、不异步）。
     /// </summary>
     private async Task EmitConsumedInjectionsAsync(AgentHandle handle, AgentSession session,
         Channel<AIContent> channel, CancellationToken cancellationToken)

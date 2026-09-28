@@ -20,6 +20,7 @@
 | `MfaLogger.cs` | 框架内部日志（含工具执行失败的真实异常）默认无处可去，只能实现 ILogger 转发到自有日志 | 框架提供直接日志回调 |
 | `MfaLoggerFactory.cs` | 框架经 ILoggerFactory 索取日志器 | 同上 |
 | `MfaServiceProvider.cs` | 框架中间件只认 IServiceProvider，为一个日志器不值得引入完整 DI 容器 | 框架提供轻量注入口 |
+| `ServiceCallSignalingChatClient.cs` | 注入队列被哪次服务调用排空没有通知，插话气泡只能等首段输出才定位；改由叶子在请求发出前报信再问队列。另：注入层说完后见队列非空就续轮、不分插话来源，群轮靠叶子在说完的回复交回之前报信、把群插话撤掉（封口） | 框架提供「注入消息已被消费」回调；框架允许按消息标记「不触发续轮」 |
 
 > `MfaFileEditor.cs`（框架 `FileEditor` 的 replace/replace_lines 逻辑复制品）已删除：
 > 编辑语义改为自持（`FileEditPlanner`，见 ADR 0007），不再等框架把那个类公开——

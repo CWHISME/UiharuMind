@@ -83,4 +83,17 @@ public class AgentToolConfig
                 .Union(other.DisabledMcpServers, StringComparer.OrdinalIgnoreCase).ToList(),
         };
     }
+
+    /// <summary>
+    /// 同一份配置去掉委派。用于群成员：群里的话是说给全群的，派出去的子代理群里看不见、群视图也停不了它
+    /// </summary>
+    /// <returns>新的配置实例</returns>
+    public AgentToolConfig WithoutDelegation()
+    {
+        AgentToolConfig copy = (AgentToolConfig)MemberwiseClone();
+        copy.EnableSubAgent = false;
+        copy.DisabledSkills = [..DisabledSkills];
+        copy.DisabledMcpServers = [..DisabledMcpServers];
+        return copy;
+    }
 }

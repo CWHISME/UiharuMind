@@ -80,4 +80,21 @@ public class SubAgentReportHandoffTests
         Assert.Equal(1, second);
         Assert.True(replaceSecond);
     }
+
+    /// <summary>
+    /// 报告是 user 角色、标题又是任务正文的开头：实测标题以「黑猫，」开头，派活者把它当成用户点头。
+    /// 三种形状都得明说「不是用户的回复」，标题只作任务引用
+    /// </summary>
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(false, "进程退出时它还没跑完")]
+    public void ReportText_SaysItIsNotTheUsersReply(bool supersedes, string? interruption)
+    {
+        string text = SubAgentReportHandoff.BuildText("sub1", "黑猫，提交前给你看账：", "可以提交", supersedes, interruption);
+
+        Assert.Contains("不是用户的回复", text);
+        Assert.Contains("任务开头：「黑猫，提交前给你看账：」", text);
+        Assert.Contains("可以提交", text);
+    }
 }

@@ -313,6 +313,43 @@ public class GroupChatCoordinatorTests
         Assert.Empty(_group.History);
     }
 
+    /// <summary>
+    /// 同一句话两边是同一时刻：群里那条沿用成员消息的时间戳，
+    /// 不因「落盘与追加之间隔了几秒」在分钟精度上错开一位
+    /// </summary>
+    [Fact]
+    public async Task PostedReply_ReusesTheMemberMessageTimestamp()
+    {
+        DateTimeOffset saidAt = new(2026, 9, 28, 14, 58, 0, TimeSpan.FromHours(8));
+        _runner.During[_alice.SessionId] = () =>
+        {
+            _alice.History.Add(new ChatMessage(ChatRole.Assistant, "掐着点的发言") { CreatedAt = saidAt });
+            _alice.NotifyServiceCallPersisted();
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        ChatMessage post = Assert.Single(_group.History, x =>
+            ChatMessageAnnotations.GroupSpeakerSessionOf(x) == _alice.SessionId && x.Text == "掐着点的发言");
+        Assert.Equal(saidAt, post.CreatedAt);
+    }
+
+    /// <summary>
+    /// 投递盖创建这一刻：不盖的话落盘只能回落成一轮开跑或落盘那一刻，
+    /// 中途插话会被标成与实际差几分钟的时间
+    /// </summary>
+    [Fact]
+    public void DeliveryMessage_StampsCreationTime()
+    {
+        DateTimeOffset before = DateTimeOffset.Now;
+        ChatMessage delivery = GroupTranscript.DeliveryMessage("[Alice]: hi", []);
+        DateTimeOffset after = DateTimeOffset.Now;
+
+        Assert.NotNull(delivery.CreatedAt);
+        Assert.InRange(delivery.CreatedAt.Value, before, after);
+    }
+
     [Fact]
     public async Task SelfPrefixedFinalText_IsStoredClean_AndDeliveredOnce()
     {
@@ -359,6 +396,24 @@ public class GroupChatCoordinatorTests
         await _coordinator.ContinueAsync(_group);
 
         Assert.DoesNotContain("插一句", _runner.Calls[0].Input); //插给过 Alice 的不再投一遍
+    }
+
+    /// <summary>
+    /// 插话已被读过这件事要随成员会话落盘：只记在调度器内存里的话，重开应用后那几条会随下一轮再投一遍
+    /// （实测成员回「你俩重贴的两条，我上轮都回了」）。换一个调度器实例就是重开应用
+    /// </summary>
+    [Fact]
+    public async Task ConsumedInterjection_IsNotRedeliveredAfterRestart()
+    {
+        _runner.During[_alice.SessionId] = () => _coordinator.PostAsync(_group, "插一句");
+        await _coordinator.PostAsync(_group, "大家好");
+        _runner.ClearCalls();
+        _runner.During.Clear();
+
+        GroupChatCoordinator restarted = new(_runner, id => _sessions.GetValueOrDefault(id));
+        await restarted.ContinueAsync(_group);
+
+        Assert.DoesNotContain("插一句", _runner.Calls[0].Input);
     }
 
     [Fact]
@@ -453,17 +508,6 @@ public class GroupChatCoordinatorTests
         Assert.Equal(0, fired);
     }
 
-    [Theory]
-    [InlineData("group", true)]
-    [InlineData(" Group ", true)]
-    [InlineData("群", true)]
-    [InlineData("Alice", false)]
-    [InlineData(null, false)]
-    public void GroupAddress_IsRecognized(string? to, bool expected)
-    {
-        Assert.Equal(expected, GroupChatCoordinator.IsGroupAddress(to));
-    }
-
     [Fact]
     public async Task Deliveries_AreMarkedSoTheMemberViewCanSplitThem()
     {
@@ -494,6 +538,18 @@ public class GroupChatCoordinatorTests
             new GroupDeliverySegment("Bob", "嗯。"),
             new GroupDeliverySegment(null, GroupTranscript.HostColdStartHint),
         ], segments);
+    }
+
+    /// <summary>补位提示跟在每轮重锚后面，同是说给模型的：一并不画</summary>
+    [Fact]
+    public void SplitDelivery_HidesTheCatchUpHintWithTheReminder()
+    {
+        string delivery = "[Bob]: 嗯。\n\n" + GroupTranscript.VoiceReminder("你是Carol。") + "\n\n"
+                          + GroupTranscript.CatchUpHint;
+
+        IReadOnlyList<GroupDeliverySegment> segments = GroupTranscript.SplitDelivery(delivery, ["Bob"]);
+
+        Assert.Equal([new GroupDeliverySegment("Bob", "嗯。")], segments);
     }
 
     [Fact]

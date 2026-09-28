@@ -3131,7 +3131,7 @@ Allow them?</value>
         <value>A member called on by another member won't call on anyone else, so the chat settles by itself.</value>
     </data>
     <data name="GroupStopAggressiveHint" xml:space="preserve">
-        <value>No automatic brakes: members keep calling on each other until they stop naturally or you press Stop.</value>
+        <value>Members can keep calling on each other; once it quiets down, anyone who missed part of the chat gets one more turn. Runs until it stops naturally or you press Stop.</value>
     </data>
     <data name="GroupHostLabel" xml:space="preserve">
         <value>Host</value>

@@ -141,6 +141,19 @@ public interface ICharacterRunner : IAsyncDisposable
     }
 
     /// <summary>
+    /// 一轮里模型每给出一段说完的回复（不带要执行的工具调用）、框架据注入队列决定续不续轮之前回调。
+    /// 群轮在这一刻撤掉群插话，别人的发言就不会让说完的人为它多说一句（ADR 0049 修订）。
+    /// 由驱动方在一轮开跑前挂上、收尾后摘掉；群轮整轮持有成员的轮次闸，不会串到私聊那一轮。
+    ///
+    /// 默认不回调：不走 harness 的形态没有注入队列，也就无所谓续轮
+    /// </summary>
+    Func<CancellationToken, Task>? ReplyFinishing
+    {
+        get => null;
+        set { }
+    }
+
+    /// <summary>
     /// 运行中插话：把消息投入注入队列，agent 下一次机会消费
     /// </summary>
     /// <param name="messages">插入的消息</param>

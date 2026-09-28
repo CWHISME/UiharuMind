@@ -10,6 +10,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Tools.Shell;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Harness;
 using UiharuMind.Core.AI.Execution.Mcp;
 
 namespace UiharuMind.Core.AI.Execution.Assembly;
@@ -32,6 +33,9 @@ public sealed class AgentHandle : IAsyncDisposable
 
     /// <summary>运行中插话通道</summary>
     public MessageInjectingChatClient? MessageInjector => Agent.GetService<MessageInjectingChatClient>();
+
+    /// <summary>每次服务调用发出前报信的那一层（插话气泡据此定时机）</summary>
+    internal ServiceCallSignalingChatClient ServiceCalls { get; }
 
     /// <summary>
     /// 本会话装配好的对话选项（系统提示词、工具集与采样参数）。
@@ -83,12 +87,13 @@ public sealed class AgentHandle : IAsyncDisposable
     /// </summary>
     public TurnInputEstimate InputEstimate { get; }
 
-    public AgentHandle(AIAgent agent, ShellExecutor? shellExecutor, ChatOptions? chatOptions = null,
-        McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null,
+    internal AgentHandle(AIAgent agent, ServiceCallSignalingChatClient serviceCalls, ShellExecutor? shellExecutor,
+        ChatOptions? chatOptions = null, McpToolSet? mcp = null, IReadOnlyList<AgentToolEntry>? toolEntries = null,
         IReadOnlyList<AgentPromptSegment>? promptSegments = null,
         TurnInputEstimate? inputEstimate = null)
     {
         Agent = agent;
+        ServiceCalls = serviceCalls;
         _shellExecutor = shellExecutor;
         ChatOptions = chatOptions;
         Mcp = mcp ?? McpToolSet.Empty;

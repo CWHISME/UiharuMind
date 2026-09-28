@@ -1,3 +1,4 @@
+using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
@@ -140,7 +141,6 @@ public class ParallelGroupChatTests
     [Fact]
     public async Task Broadcast_ReachesMembersStillSpeaking_AndIsNotDeliveredAgain()
     {
-        _group.GroupStopPolicy = EGroupStopPolicy.Aggressive;
         TaskCompletionSource aliceGate = new();
         _runner.During[_alice.SessionId] = () => aliceGate.Task;
 
@@ -308,6 +308,107 @@ public class ParallelGroupChatTests
         await _coordinator.PostAsync(_group, "@Alice 再补一句");
         aliceGate.SetResult();
         await posting;
+
+        Assert.Equal(1, _runner.CallsOf(_alice));
+    }
+
+    /// <summary>
+    /// 说完即封口（ADR 0049 修订）：别人在她说最后一句时发言，不会让她为这句没点她名的话再说一次；
+    /// 那句撤回来，下次叫醒她时随投递拿到
+    /// </summary>
+    [Fact]
+    public async Task UnaddressedPost_WhileSheIsFinishing_DoesNotMakeHerSpeakAgain_AndIsDeliveredNextTime()
+    {
+        TaskCompletionSource aliceGate = new();
+        _runner.Generating[_alice.SessionId] = () => aliceGate.Task;
+
+        Task posting = _coordinator.PostAsync(_group, "大家好");
+        await WaitUntil(() => _runner.Injected.Count(x => x.Member == _alice) >= 2);
+        aliceGate.SetResult();
+        await posting;
+
+        Assert.Single(_alice.History, x => x.Role == ChatRole.Assistant);
+        Assert.Equal(1, _runner.CallsOf(_alice));
+
+        _runner.Generating.Clear();
+        await _coordinator.ContinueAsync(_group);
+
+        string next = _runner.Calls.Last(x => x.Member == _alice).Input;
+        Assert.Contains("[Bob]: Bob 的第 1 次发言", next);
+        Assert.Contains("[Carol]: Carol 的第 1 次发言", next);
+    }
+
+    /// <summary>封口撤回的那句点了她名：说完再叫她一次（与「插话没被消费」同一条补叫）</summary>
+    [Fact]
+    public async Task MentionWhileSheIsFinishing_IsWithdrawn_AndWakesHerAgain()
+    {
+        TaskCompletionSource aliceGate = new();
+        _runner.Generating[_alice.SessionId] = () => aliceGate.Task;
+        _runner.Replies[_bob.SessionId] = _ => "@Alice 你怎么看";
+
+        Task posting = _coordinator.PostAsync(_group, "大家好");
+        await WaitUntil(() => _runner.Injected.Any(x => x.Member == _alice && x.Text.Contains("@Alice")));
+        _runner.Generating.Clear();
+        aliceGate.SetResult();
+        await posting;
+
+        Assert.Equal(2, _runner.CallsOf(_alice));
+        Assert.Contains("[Bob]: @Alice 你怎么看", _runner.Calls.Last(x => x.Member == _alice).Input);
+    }
+
+    /// <summary>串行不封口：插话按框架原样续轮（串行本来人人轮到，封口只为治并行里的续说）</summary>
+    [Fact]
+    public async Task Serial_DoesNotSeal()
+    {
+        _group.GroupScheduleMode = EGroupScheduleMode.Serial;
+        TaskCompletionSource aliceGate = new();
+        _runner.Generating[_alice.SessionId] = () => aliceGate.Task;
+
+        Task posting = _coordinator.PostAsync(_group, "大家好");
+        await WaitUntil(() => _coordinator.SpeakersOf(_group.SessionId).Contains(_alice.SessionId));
+        await _coordinator.PostAsync(_group, "补一句");
+        await WaitUntil(() => _runner.Injected.Any(x => x.Member == _alice));
+        aliceGate.SetResult();
+        await posting;
+
+        Assert.Equal(2, _alice.History.Count(x => x.Role == ChatRole.Assistant));
+    }
+
+    /// <summary>
+    /// 激进档的补位轮（ADR 0049 修订）：静下来后，还有没看过的发言的人各补一次，投递末尾带补位提示；
+    /// 补位里说的话让别人又有了新话，也不再补第二轮
+    /// </summary>
+    [Fact]
+    public async Task Aggressive_WhenQuiet_EveryoneWithUnreadCatchesUpOnce()
+    {
+        _group.GroupStopPolicy = EGroupStopPolicy.Aggressive;
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        List<(ChatSession Member, string Input)> catchUps =
+            _runner.Calls.Where(x => x.Input.Contains(GroupTranscript.CatchUpHint)).ToList();
+        Assert.NotEmpty(catchUps);
+        Assert.All(catchUps, x => Assert.Equal(2, _runner.CallsOf(x.Member)));
+        Assert.All(new[] { _alice, _bob, _carol }, x => Assert.True(_runner.CallsOf(x) <= 2));
+        Assert.False(_coordinator.IsRunning(_group.SessionId));
+    }
+
+    [Fact]
+    public async Task Conservative_DoesNotCatchUp()
+    {
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.DoesNotContain(_runner.Calls, x => x.Input.Contains(GroupTranscript.CatchUpHint));
+    }
+
+    /// <summary>这一波没跑成的（这里是失败）不被补位自动重跑：失败多半还会再失败，交给「继续」</summary>
+    [Fact]
+    public async Task Aggressive_CatchUp_SkipsMembersWhoFailed()
+    {
+        _group.GroupStopPolicy = EGroupStopPolicy.Aggressive;
+        _runner.Fail.Add(_alice.SessionId);
+
+        await _coordinator.PostAsync(_group, "大家好");
 
         Assert.Equal(1, _runner.CallsOf(_alice));
     }

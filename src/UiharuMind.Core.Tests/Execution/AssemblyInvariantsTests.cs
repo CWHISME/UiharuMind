@@ -212,7 +212,8 @@ public class HistoryAttributionTests
     /// <summary>
     /// 请求消息回落到<b>本轮开始</b>而非落盘时刻。
     /// 框架交给持久化的请求消息是重建的副本、丢了时间戳，而落盘发生在一轮跑完之后——
-    /// 两者共用落盘时刻的话，长回复跑过一分钟就会让用户消息显示得比模型回复还晚
+    /// 两者共用落盘时刻的话，长回复跑过一分钟就会让用户消息显示得比模型回复还晚。
+    /// 回复反过来<b>一律按落盘时刻</b>：远端模型的 created 是开口时刻而非说完时刻。
     /// </summary>
     [Fact]
     public void RequestMessages_FallBackToTheTurnStart_NotTheStoreTime()
@@ -225,10 +226,45 @@ public class HistoryAttributionTests
         ChatMessage rebuiltUserMessage = new(ChatRole.User, "问题");
         ChatMessage reply = new(ChatRole.Assistant, "回答") { CreatedAt = responseAt };
         SessionChatHistoryProvider.AppendOwned(session, [rebuiltUserMessage], turnStart);
-        SessionChatHistoryProvider.AppendOwned(session, [reply], storedAt);
+        SessionChatHistoryProvider.AppendOwned(session, [reply], storedAt, restamp: true);
 
         Assert.Equal(turnStart, rebuiltUserMessage.CreatedAt);
+        Assert.Equal(storedAt, reply.CreatedAt); //远端开口时刻不沿用
         Assert.True(rebuiltUserMessage.CreatedAt < reply.CreatedAt);
+    }
+
+    /// <summary>
+    /// 实测形状：远端 created（UTC 整秒）是开始生成那一刻，长思考的回复三分钟后才说完、才进群。
+    /// 留着它，成员窗口里这条就排在它之后才进群的发言前面，而群里是反过来的顺序
+    /// </summary>
+    [Fact]
+    public void AssistantResponses_IgnoreTheProviderClock_UseTheStoreTime()
+    {
+        DateTimeOffset serverSaid = new(2026, 9, 28, 6, 58, 52, TimeSpan.Zero);
+        DateTimeOffset storedAt = new(2026, 9, 28, 15, 1, 51, TimeSpan.FromHours(8));
+        ChatSession session = new() { IsTransient = true };
+        ChatMessage reply = new(ChatRole.Assistant, "判决书") { CreatedAt = serverSaid };
+
+        SessionChatHistoryProvider.AppendOwned(session, [reply], storedAt, restamp: true);
+
+        Assert.Equal(storedAt, reply.CreatedAt);
+    }
+
+    /// <summary>
+    /// 中途插话带着注入时刻，却排在它之前那次调用的回复后面落盘：
+    /// 时间要夹到不早于上一条，窗口里才不倒流
+    /// </summary>
+    [Fact]
+    public void AppendedMessages_NeverPrecedeTheLastOneInHistory()
+    {
+        DateTimeOffset replyStored = new(2026, 9, 28, 15, 3, 3, TimeSpan.FromHours(8));
+        ChatSession session = new() { IsTransient = true };
+        session.History.Add(new ChatMessage(ChatRole.Assistant, "上一次调用的回复") { CreatedAt = replyStored });
+        ChatMessage interjection = new(ChatRole.User, "[白露]: 插话") { CreatedAt = replyStored.AddMinutes(-1) };
+
+        SessionChatHistoryProvider.AppendOwned(session, [interjection], replyStored.AddMinutes(-2));
+
+        Assert.Equal(replyStored, interjection.CreatedAt);
     }
 
     /// <summary>

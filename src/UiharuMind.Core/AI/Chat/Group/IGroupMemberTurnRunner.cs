@@ -13,9 +13,12 @@ public interface IGroupMemberTurnRunner
     /// </summary>
     /// <param name="member">成员会话</param>
     /// <param name="input">这一轮的输入（投递正文）</param>
+    /// <param name="onReplyFinishing">模型每说完一段、框架决定续不续轮之前调（见 <see cref="Execution.ICharacterRunner.ReplyFinishing"/>）；
+    /// 不需要为 null</param>
     /// <param name="cancellationToken">用户停止群聊时取消</param>
     /// <returns>正常跑完为 true；失败或被取消为 false——那时的半截输出不算群发言</returns>
-    Task<bool> RunAsync(ChatSession member, ChatMessage input, CancellationToken cancellationToken);
+    Task<bool> RunAsync(ChatSession member, ChatMessage input, Func<Task>? onReplyFinishing,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// 往成员正在跑的那一轮里插一句，在安全点（下一次模型调用前）被消费

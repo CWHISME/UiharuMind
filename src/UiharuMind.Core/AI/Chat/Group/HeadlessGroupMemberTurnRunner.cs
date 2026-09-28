@@ -26,7 +26,8 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
     public static Action<ChatSession>? ApprovalWaitingNotifier { get; set; }
 
     /// <inheritdoc />
-    public async Task<bool> RunAsync(ChatSession member, ChatMessage input, CancellationToken cancellationToken)
+    public async Task<bool> RunAsync(ChatSession member, ChatMessage input, Func<Task>? onReplyFinishing,
+        CancellationToken cancellationToken)
     {
         await member.Runner.AttachAsync(member, cancellationToken).ConfigureAwait(false);
 
@@ -47,9 +48,17 @@ public sealed class HeadlessGroupMemberTurnRunner : IGroupMemberTurnRunner
             return await waitForUser(requests).ConfigureAwait(false);
         }
 
-        // 算有人看着：审批有人接（上面那条），他派出的子代理也照有人看着的口径跑
-        await driver.RunAsync(member, member.Runner, input, Resolver, cancellationToken, attended: true)
-            .ConfigureAwait(false);
+        member.Runner.ReplyFinishing = onReplyFinishing == null ? null : _ => onReplyFinishing();
+        try
+        {
+            // 算有人看着：审批有人接（上面那条），他派出的子代理也照有人看着的口径跑
+            await driver.RunAsync(member, member.Runner, input, Resolver, cancellationToken, attended: true)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            member.Runner.ReplyFinishing = null;
+        }
 
         return !failed && !cancellationToken.IsCancellationRequested;
     }

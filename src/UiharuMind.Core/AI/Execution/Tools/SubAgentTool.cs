@@ -14,7 +14,6 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
-using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Core;
 using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.Configs;
@@ -208,14 +207,6 @@ public static class SubAgentTool
 
         string? target = NormalizeTo(to);
         if (target == null) return Task.FromResult(Launch(context, content, null, role, model));
-
-        // 群成员对全群说话（ADR 0046 决策 4）。排在人名之前：群不是一个人，也不开子会话
-        if (GroupChatCoordinator.IsGroupAddress(target)
-            && GroupChatCoordinator.Instance.TryPostFromMember(context.ParentSessionId, content))
-        {
-            return Task.FromResult("Posted to the group. The rest of this message is not posted again; " +
-                                   "your next finished reply will be posted as usual.");
-        }
 
         SubAgentChoice? named = context.Roster
             .FirstOrDefault(x => string.Equals(x.Name, target, StringComparison.OrdinalIgnoreCase));

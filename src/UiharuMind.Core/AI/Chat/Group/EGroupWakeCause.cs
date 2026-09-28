@@ -15,4 +15,7 @@ public enum EGroupWakeCause
 
     /// <summary>别的成员发言（@ 或小群必答）</summary>
     Member,
+
+    /// <summary>激进档的补位轮：一波静下来后，还有没看过的发言的人各补一次（ADR 0049 修订）</summary>
+    CatchUp,
 }
