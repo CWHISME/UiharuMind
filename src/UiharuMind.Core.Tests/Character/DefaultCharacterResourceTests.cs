@@ -29,8 +29,13 @@ public class DefaultCharacterResourceTests
     }
 
     /// <summary>
-    /// 卡所在子目录必须与它的身份一致：Agents/ = 智能体，Tools/ = 内部技能角色，Characters/ = 普通角色。
-    /// 目录只是分类提示，身份以卡上的 IsAgent / IsInternal 为准——这条钉住两者不许打架。
+    /// 卡所在子目录必须与它的身份一致：<c>Tools/</c> 是内部技能角色、<c>Characters/</c> 是普通角色，
+    /// 各作品目录一律是智能体。目录只是分类提示，身份以卡上的 IsAgent / IsInternal 为准——
+    /// 这条钉住两者不许打架。
+    ///
+    /// 「一个目录一种语义」是这条不变量的用意，所以作品目录<b>显式列出来</b>：
+    /// 列错一个名字（打错字、改名）当场炸，好过它悄悄长出一张错位的卡。
+    /// <b>新增作品目录要在这里加一行。</b>
     /// </summary>
     [Fact]
     public void CardFolder_MatchesItsIdentity()
@@ -42,7 +47,7 @@ public class DefaultCharacterResourceTests
             if (!name.StartsWith(prefix, StringComparison.Ordinal) || !name.EndsWith(suffix, StringComparison.Ordinal))
                 continue;
 
-            string relative = name.Substring(prefix.Length, name.Length - prefix.Length - suffix.Length); // "Agents.ChenXiAgent"
+            string relative = name.Substring(prefix.Length, name.Length - prefix.Length - suffix.Length); // "Toaru.AcceleratorAgent"
             int dot = relative.IndexOf('.');
             string folder = relative.Substring(0, dot);
             string id = relative.Substring(dot + 1);
@@ -50,8 +55,13 @@ public class DefaultCharacterResourceTests
 
             switch (folder)
             {
-                case "Agents":
-                    Assert.True(data.IsAgent, $"{id} 在 Agents/ 下却不是智能体");
+                case "Agents": //非作品的自有角色与委派身份载体
+                case "Toaru":
+                case "DeathNote":
+                case "DrStone":
+                case "CodeGeass":
+                case "Danganronpa":
+                    Assert.True(data.IsAgent, $"{id} 在 {folder}/ 下却不是智能体");
                     break;
                 case "Tools":
                     Assert.True(data.IsInternal && !data.IsAgent, $"{id} 在 Tools/ 下却不是内部技能角色");
@@ -60,7 +70,7 @@ public class DefaultCharacterResourceTests
                     Assert.False(data.IsAgent || data.IsInternal, $"{id} 在 Characters/ 下却是智能体或内部角色");
                     break;
                 default:
-                    Assert.Fail($"未知的卡片目录:{folder}");
+                    Assert.Fail($"未知的卡片目录:{folder}(新增作品目录要先加进这条测试的目录清单)");
                     break;
             }
         }
@@ -97,7 +107,15 @@ public class DefaultCharacterResourceTests
     [InlineData("SenkuAgent")]
     [InlineData("LelouchAgent")]
     [InlineData("YagamiLightAgent")]
+    [InlineData("LawlietAgent")]
     [InlineData("HououinKyoumaAgent")]
+    [InlineData("MisakaMikotoAgent")]
+    [InlineData("UtsumiSushieAgent")]
+    [InlineData("SaizakiSuisuiAgent")]
+    [InlineData("TsuchimikadoMotoharuAgent")]
+    [InlineData("SatenTeiriAgent")]
+    [InlineData("IndexAgent")]
+    [InlineData("RationalAgent")]
     public void CardWithAnchor_CodaEqualsAnchor(string id)
     {
         CharacterData data = DefaultCharacterManager.Instance.All[id];
