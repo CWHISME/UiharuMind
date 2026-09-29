@@ -63,14 +63,25 @@ public partial class ClipboardHistoryView : UserControl
     {
         if ((sender as Control)?.DataContext is not ClipboardItem item) return;
 
+        Control host = (Control)sender;
+        bool openManually = !item.IsTooltipReady; //进入时已就绪的走 Avalonia 自己的 ShowDelay，不必手动开
         _hoverTimer?.Stop();
         _hoverTimer = new DispatcherTimer { Interval = HoverDelay };
-        _hoverTimer.Tick += (_, _) =>
+        _hoverTimer.Tick += async (_, _) =>
         {
             _hoverTimer?.Stop();
-            _ = item.LoadTooltipAsync();
+            await item.LoadTooltipAsync();
+            // 提示框在正文就绪前不自动弹（见 axaml 注释），这里补上：指针还在这一条上才开
+            if (openManually && host.IsPointerOver && ReferenceEquals(host.DataContext, item))
+                ToolTip.SetIsOpen(host, true);
         };
         _hoverTimer.Start();
+    }
+
+    private void Item_OnPointerExited(object? sender, PointerEventArgs e)
+    {
+        _hoverTimer?.Stop();
+        if (sender is Control host) ToolTip.SetIsOpen(host, false);
     }
 
     // private void InputElement_OnPointerPressed(object? sender, PointerPressedEventArgs e)

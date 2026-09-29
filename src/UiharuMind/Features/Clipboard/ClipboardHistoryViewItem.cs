@@ -53,6 +53,13 @@ public partial class ClipboardItem : ObservableObject
     /// <summary>悬停预览的正文，按需加载</summary>
     [ObservableProperty] private string _tooltipText = string.Empty;
 
+    /// <summary>
+    /// 悬停预览是否已就绪。文本条目要等正文取回；图片条目一开始就是就绪的。
+    /// 界面据此决定要不要让提示框自动弹出：正文没到就弹，提示框会先以空内容定下窗口尺寸，
+    /// 正文随后到达再撑开，macOS 原生弹出窗口在这一下 resize 里会被压扁截断
+    /// </summary>
+    [ObservableProperty] private bool _isTooltipReady;
+
     private bool _isTooltipLoaded;
 
     public ClipboardItem(ClipboardHistoryEntry entry)
@@ -64,6 +71,7 @@ public partial class ClipboardItem : ObservableObject
         IsImage = entry.IsImage;
         _preview = entry.Preview;
         _isFavorite = entry.IsFavorite;
+        _isTooltipReady = entry.IsImage;
     }
 
     /// <summary>
@@ -79,6 +87,7 @@ public partial class ClipboardItem : ObservableObject
             ? text[..TooltipLength] + string.Format(
                 Loc.Text(LangKey.ClipboardTooltipMore), text.Length.ToString("N0"))
             : text;
+        IsTooltipReady = true;
     }
 
     /// <summary>把这条重新放回剪贴板，并置顶</summary>

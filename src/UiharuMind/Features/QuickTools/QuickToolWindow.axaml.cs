@@ -20,6 +20,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using SharpHook.Data;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Controls;
@@ -60,9 +61,70 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         _answerString = text;
     }
 
+    /// <summary>
+    /// 悬停期间是否保持窗口原生尺寸不变。macOS 上 Avalonia 在窗口尺寸变化后偶尔不再呈现新帧
+    /// （画面停在被拉伸的旧帧或动画中途，托管布局和点击区域却都是对的，要等下一次尺寸变化才恢复），
+    /// 所以窗口一开始就是展开宽度，展开/收起只动卡片；透明的多出部分靠 <see cref="CardHoverMask"/> 让点击穿透。
+    /// </summary>
+    protected virtual bool UsesFixedWindowWidth => OperatingSystem.IsMacOS();
+
+    // 固定宽度窗口的初始宽度，足够放下各语言的菜单；实际展开更宽时再单向加宽
+    private const double FixedWindowWidth = 480;
+
+    private CardHoverMask? _hoverMask;
+
+    public override void Awake()
+    {
+        base.Awake();
+        if (!UsesFixedWindowWidth) return;
+        SizeToContent = SizeToContent.Height;
+        SetManagedWindowWidth(FixedWindowWidth);
+    }
+
+    protected override void OnPreShow()
+    {
+        base.OnPreShow();
+        if (UsesFixedWindowWidth) ResetMenuState();
+    }
+
+    // 窗口是缓存复用的：上次可能带着展开的菜单关闭，再弹出必须回到收起态
+    private void ResetMenuState()
+    {
+        _menuSlideCts?.Cancel();
+        _menuIsShown = false;
+        MainMenu.IsVisible = false;
+        MainMenu.IsHitTestVisible = false;
+        if (MainMenu.RenderTransform is TranslateTransform transform) transform.X = MenuSlideHiddenOffset;
+        Card.ClearValue(WidthProperty);
+        _cardWidth = double.NaN;
+    }
+
+    protected override void SetWindowPosition()
+    {
+        if (!UsesFixedWindowWidth)
+        {
+            base.SetWindowPosition();
+            return;
+        }
+
+        // 按收起时的卡片宽度定位：窗口是固定宽度的，用它的宽度会让靠近屏幕右缘时整个圆按钮被无谓地左推
+        this.SetWindowToMousePosition(HorizontalAlignment.Right, width: MeasureCardWidth(withMenu: false),
+            offsetX: 15, offsetY: -15);
+    }
+
     protected override void OnPostShow()
     {
         base.OnPostShow();
+        // 无头/未初始化环境（App.ScreensService 未建）没有全局鼠标可跟踪，跳过
+        if (UsesFixedWindowWidth && App.ScreensService != null)
+        {
+            // 位置在 Loaded 才落定，跟踪排在它之后开始；开始前窗口先穿透，别在错误位置上挡点击
+            OverlayWindowService.TrySetNativeMouseEventsIgnored(this, true);
+            _hoverMask ??= new CardHoverMask(this, () => new Size(Card.Bounds.Width, Card.Bounds.Height),
+                inside => PlayAnimation(inside));
+            Dispatcher.UIThread.Post(_hoverMask.Start, DispatcherPriority.Background);
+        }
+
         // 弹出动画：淡入 + 轻微上浮，把「出现了」讲明白（macOS 走原生 alpha，防闪一帧，见 OverlayWindowService）
         if (Content is Control content)
         {
@@ -91,6 +153,25 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         //ignore
     }
 
+    // 固定宽度窗口里进出由 CardHoverMask 管：窗口忽略鼠标事件后收不到 Exited，这里的也可能是过时的
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        if (UsesFixedWindowWidth) return;
+        base.OnPointerExited(e);
+    }
+
+    protected override void OnMouseClicked(MouseEventData obj)
+    {
+        // 点击是否落在窗口上，以卡片为准：窗口本身比卡片宽，IsPointerOver 不可靠
+        if (_hoverMask == null || !UsesFixedWindowWidth)
+        {
+            base.OnMouseClicked(obj);
+            return;
+        }
+
+        if (!_hoverMask.IsInside) SafeClose();
+    }
+
     private void OnMainButtonPointerEntered(object? sender, PointerEventArgs e)
     {
         if (MainMenu.IsVisible && MainMenu.Opacity >= 0.99) return;
@@ -108,8 +189,14 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
     // 菜单项图标固定浅色：背景是固定深色胶囊，跟随主题会在浅色主题下变黑（与文字 #E6FFFFFF 同色）
     private static readonly Color MenuIconColor = Color.Parse("#E6FFFFFF");
 
-    // 收起时窗口要缩回的宽度（展开前记录，就是只有主按钮的宽度）
-    private double _collapsedWindowWidth;
+    // 窗口此刻应有的宽度，NaN 表示还没开始管理。Avalonia 在平台每次上报与当前不同的客户区尺寸时，
+    // 会把 Window.Width 回写成上报值（Window.HandleResized），macOS 上 resize 期间上报的常是过时或过渡的尺寸，
+    // 快速展开/收起时它会把我们刚设好的宽度悄悄改掉——改掉的宽度必须立刻恢复，不然窗口就是一根细条
+    private double _windowWidth = double.NaN;
+
+    // 卡片此刻的逻辑宽度，动画的起点。刻意不读 Bounds：窗口在 macOS 上 resize 期间 Bounds 可能是过渡值，
+    // 鼠标来回晃动会不停打断动画，任何一次读到过渡值都会被当成起点/收起宽度存下来，卡片就被压成一根细条
+    private double _cardWidth = double.NaN;
 
     /// <summary>
     /// 展开菜单：先恢复布局（窗口向右扩、主按钮原地不动），再播滑入动画。
@@ -123,7 +210,6 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
             return;
         }
 
-        _collapsedWindowWidth = Bounds.Width;
         _menuIsShown = true;
         PlayMenuSlide(true, onCompleted);
         ClampWindowToScreenSoon();
@@ -176,40 +262,48 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
                 MainMenu.RenderTransform = transform;
             }
 
-            // 窗口宽度全程手动 + 高度自适应：SizeToContent 来回切换会让 macOS 在 resize 时
-            // 闪一帧拉伸/压扁（展开压扁、收起后抖动就是它）。开始先把当前宽度固化，之后只动画 Width。
-            Width = Bounds.Width;
-            SizeToContent = SizeToContent.Height;
-
             MainMenu.IsHitTestVisible = isShowed;
             if (isShowed) MainMenu.IsVisible = true;
 
-            // 展开目标 = 菜单恢复布局后的内容期望宽度；收起目标 = 展开前宽度
+            // 逐帧动的是卡片自己的宽度（纯布局，窗口是透明的，多出来的那截看不见）。
+            // 固定宽度窗口(macOS)全程不改原生尺寸；否则窗口宽度只在动画两端各改一次：
+            // 展开先一步放到位，收起等动画播完再缩回。
+            // 两端的宽度都由布局量出来，不读 Bounds（见 _cardWidth）
+            double collapsedWidth = MeasureCardWidth(withMenu: false);
+            double expandedWidth = MeasureCardWidth(withMenu: true);
+            double startCardWidth = double.IsNaN(_cardWidth)
+                ? collapsedWidth
+                : Math.Clamp(_cardWidth, collapsedWidth, expandedWidth);
+            double targetCardWidth = isShowed ? expandedWidth : collapsedWidth;
+            Card.Width = startCardWidth;
+            SizeToContent = SizeToContent.Height;
+            // 动画期间窗口一直是展开宽度（收起也是播完才缩回）
+            if (UsesFixedWindowWidth) GrowFixedWindowWidth(expandedWidth);
+            else SetManagedWindowWidth(expandedWidth);
+
             double startX = transform.X;
             double targetX = isShowed ? 0 : MenuSlideHiddenOffset;
-            double startWidth = Bounds.Width;
-            double targetWidth = isShowed ? MeasureExpandedWidth() : _collapsedWindowWidth;
 
-            var startTime = DateTime.UtcNow;
-            while (true)
+            // 跟显示帧走而不是 Task.Delay 循环：模型流式输出、转圈图标都在占 UI 线程，Delay 循环会被拖成隔几帧才动一下
+            await UiAnimationUtils.RunFrameAnimationAsync(this, MenuSlideMilliseconds, progress =>
             {
-                ct.ThrowIfCancellationRequested();
-
-                double elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                double progress = Math.Clamp(elapsed / MenuSlideMilliseconds, 0, 1);
                 double eased = 1 - Math.Pow(1 - progress, 3);
-
                 transform.X = Lerp(startX, targetX, eased);
-                Width = Lerp(startWidth, targetWidth, eased);
+                _cardWidth = Lerp(startCardWidth, targetCardWidth, eased);
+                Card.Width = _cardWidth;
+            }, ct);
 
-                if (progress >= 1) break;
-                await Task.Delay(16, ct);
+            // 播完这一刻可能已被新动画取代：不检查的话旧动画的收尾会把新动画正在用的宽度和窗口尺寸改回去
+            ct.ThrowIfCancellationRequested();
+            transform.X = targetX;
+            _cardWidth = targetCardWidth;
+            if (!isShowed)
+            {
+                MainMenu.IsVisible = false;
+                if (!UsesFixedWindowWidth) SetManagedWindowWidth(collapsedWidth);
             }
 
-            transform.X = targetX;
-            Width = targetWidth;
-            if (!isShowed) MainMenu.IsVisible = false;
-            // 保持 SizeToContent=Height：收起后宽度固定，不再切回 WidthAndHeight 触发布局重算（抖动来源）
+            Card.ClearValue(WidthProperty);
             onCompleted?.Invoke();
         }
         catch (OperationCanceledException)
@@ -217,11 +311,58 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         }
     }
 
-    /// <summary>展开目标宽度：菜单恢复布局后，量卡片内容的期望宽度</summary>
-    private double MeasureExpandedWidth()
+    protected override void OnPreClose()
     {
+        base.OnPreClose();
+        // 动画是一个不依赖窗口生命周期的异步循环：不取消的话，窗口关了它还会继续去改已关闭窗口的宽度
+        _menuSlideCts?.Cancel();
+        _hoverMask?.Dispose();
+        if (!UsesFixedWindowWidth) _windowWidth = double.NaN;
+    }
+
+    // 只加宽不收窄：宽度一变就是一次原生尺寸变化，正是要避开的
+    private void GrowFixedWindowWidth(double neededWidth)
+    {
+        if (neededWidth > _windowWidth) SetManagedWindowWidth(neededWidth);
+    }
+
+    private void SetManagedWindowWidth(double width)
+    {
+        _windowWidth = width;
+        RestoreWindowWidth();
+    }
+
+    private void RestoreWindowWidth()
+    {
+        if (double.IsNaN(_windowWidth)) return;
+        // Width 初始是 NaN（靠 SizeToContent 自适应），NaN 参与比较恒为 false，必须单独判
+        if (double.IsNaN(Width) || Math.Abs(Width - _windowWidth) > 0.5) Width = _windowWidth;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        // 不在属性变更回调里直接改：回写发生在平台 resize 通知的处理途中，排到随后再恢复
+        if (change.Property == WidthProperty && !double.IsNaN(_windowWidth))
+            Dispatcher.UIThread.Post(RestoreWindowWidth, DispatcherPriority.Send);
+    }
+
+    /// <summary>量卡片在菜单展开/折叠两种状态下的期望宽度（同时也是窗口对应的宽度）</summary>
+    private double MeasureCardWidth(bool withMenu)
+    {
+        // 卡片可能正被动画固定着宽度、菜单也可能正显示着：先放开量，量完原样还回去
+        double fixedWidth = Card.Width;
+        bool menuWasVisible = MainMenu.IsVisible;
+        Card.ClearValue(WidthProperty);
+        MainMenu.IsVisible = withMenu;
+        // 必须显式失效：同样的约束(Infinity)连量两次会命中「测量仍有效」而直接返回旧结果。
+        // 菜单原本隐藏、没被测量过，切它的 IsVisible 也不会把失效传到卡片上
+        Card.InvalidateMeasure();
         Card.Measure(Size.Infinity);
-        return Card.DesiredSize.Width;
+        double width = Card.DesiredSize.Width;
+        MainMenu.IsVisible = menuWasVisible;
+        if (!double.IsNaN(fixedWidth)) Card.Width = fixedWidth;
+        return width;
     }
 
     private static double Lerp(double from, double to, double t)
@@ -241,7 +382,9 @@ public partial class QuickToolWindow : QuickFloatingWindowBase
         // 无头/未初始化环境（App.ScreensService 未建）时跳过：钳制只是展开后的兜底，缺了不致命
         var screen = App.ScreensService?.MouseScreen;
         if (screen == null) return;
-        Position = UiUtils.EnsurePositionWithinScreen(screen, Position, Bounds.Size);
+        // 固定宽度窗口比展开后的卡片宽，钳制要按卡片展开后的宽度，不然靠近右缘时被无谓地左推
+        Size size = UsesFixedWindowWidth ? new Size(MeasureCardWidth(withMenu: true), Bounds.Height) : Bounds.Size;
+        Position = UiUtils.EnsurePositionWithinScreen(screen, Position, size);
     }
 
     private void InitFunctionMenu()

@@ -269,10 +269,10 @@ public static class AgentToolPrompts
     {
         StringBuilder sb = new();
 
-        // sb.AppendLine(
-        //     "- 你的 shell 里 python 与 pip 已经指向一个专供你使用的虚拟环境，不是系统 Python。" +
-        //     "直接写 python、pip，不要去找解释器的绝对路径。");
-        // sb.AppendLine("- 缺第三方包就自己装：pip install <包名>。装进的是这个环境，不影响系统。");
+        sb.AppendLine(
+            "- 你的 shell 里 python 与 pip 已经指向一个专供你使用的虚拟环境，不是系统 Python。" +
+            "直接写 python、pip，不要去找解释器的绝对路径。");
+        sb.AppendLine("- 缺第三方包就自己装：pip install <包名>。装进的是这个环境，不影响系统。");
         //
         // // 遮蔽的对冲句。PATH 是静默生效的,这一句拦不住每一次,但至少给了正确写法
         // sb.AppendLine(

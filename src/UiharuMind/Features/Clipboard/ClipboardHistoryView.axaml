@@ -87,7 +87,9 @@
                     <DataTemplate>
                         <Grid Height="80" RowDefinitions="Auto,*,Auto" Background="Transparent"
                               ToolTip.ShowDelay="500"
-                              PointerReleased="InputElement_OnPointerReleased" PointerEntered="Item_OnPointerEntered">
+                              ToolTip.ServiceEnabled="{Binding IsTooltipReady}"
+                              PointerReleased="InputElement_OnPointerReleased" PointerEntered="Item_OnPointerEntered"
+                              PointerExited="Item_OnPointerExited">
                             <Grid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="{loc:Loc Favorite}" Click="MenuItemToggleFavorite_Click" />
@@ -106,7 +108,10 @@
                                  文本:正文不在内存里,由 Item_OnPointerEntered 防抖后按主键现取,
                                  取回来的也只是前若干字——全文塞进 tooltip 是个布局炸弹。
                                  宽高都要封顶:无约束的 TextBlock/Image 在异步内容到达时会把 tooltip 撑开,
-                                 表现为悬停窗突然拉伸;ShowDelay 盖住防抖+读盘也是为此 -->
+                                 表现为悬停窗突然拉伸。
+                                 光靠 ShowDelay 盖住防抖+读盘是赌时间差:读盘慢一次,提示框就带着空内容弹出,
+                                 正文到达时原生弹出窗口 resize 被压扁截断。所以文本条目在 IsTooltipReady 之前
+                                 关掉提示框的自动弹出,就绪后由 Item_OnPointerEntered 里手动打开 -->
                             <ToolTip.Tip>
                                 <Panel MaxWidth="420">
                                     <Image Source="{Binding ImageSource, Converter={StaticResource FilePathToImageConverter}, ConverterParameter=400}"

@@ -44,13 +44,19 @@
     </Window.Styles>
 
     <!-- 卡片式工具条：半透明深底 + 细描边 + 胶囊圆角（与 RadialMenu 同一质感） -->
+    <!-- ClipToBounds：收起时窗口保持宽度、只收窄卡片（见 PlayMenuSlideCoreAsync），
+         不裁的话菜单里的文字和图标会悬在收窄后的卡片外面。
+         HorizontalAlignment=Left：卡片宽度只由自己的内容决定，不取窗口宽度——窗口宽度会被
+         Avalonia 按平台上报的尺寸回写（Window.HandleResized），拿它当卡片宽度就会被带成细条 -->
     <!-- 图标/文字固定浅色：背景不随主题变深色，图标若跟随主题会在浅色主题下变成黑色而看不见 -->
     <Border Name="Card"
             Background="#E02D2D3D"
             BorderBrush="#44FFFFFF"
             BorderThickness="1"
             CornerRadius="21"
-            Padding="3">
+            Padding="3"
+            HorizontalAlignment="Left"
+            ClipToBounds="True">
         <StackPanel Orientation="Horizontal">
             <ThemedIconButton Name="MainButton"
                     Click="OnMainButtonClick"

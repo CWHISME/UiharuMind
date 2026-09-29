@@ -36,6 +36,21 @@ public static class OverlayWindowService
     }
 
     /// <summary>
+    /// 运行中切换窗口是否忽略鼠标事件（仅 macOS 有效）。忽略时点击穿透到底下的应用。
+    /// 用于窗口比可见内容大的透明浮窗：光标不在内容上时让透明区域不挡点击。
+    /// </summary>
+    /// <param name="window">目标窗口</param>
+    /// <param name="ignored">True 为穿透</param>
+    /// <returns>设置成功返回 True；其他平台或取不到句柄返回 False</returns>
+    public static bool TrySetNativeMouseEventsIgnored(Window window, bool ignored)
+    {
+        if (!OperatingSystem.IsMacOS()) return false;
+        if (!MacNative.TryGetNsWindow(window, out var nsWindow)) return false;
+        MacNative.SendBool(nsWindow, MacNative.Selector("setIgnoresMouseEvents:"), ignored);
+        return true;
+    }
+
+    /// <summary>
     /// 全屏截图标注层：macOS 下把窗口抬到菜单栏之上并允许跨 Space
     /// （Topmost 只到 floating 层，盖不住菜单栏）。Windows 下 Topmost 已够，无需处理。
     /// 在窗口 Show 之后调用，Show 之前 native 行为可能被重置。

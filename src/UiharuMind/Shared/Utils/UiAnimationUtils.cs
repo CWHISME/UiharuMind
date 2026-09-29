@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -164,6 +165,71 @@ public static class UiAnimationUtils
     }
 
     /// <summary>
+    /// 跟随显示帧驱动一段动画：每个显示帧在<b>帧回调里同步</b>算一次进度并落下去，最后一次进度必为 1。
+    ///
+    /// 不用「<c>Task.Delay(16)</c> 循环」的原因（实测，同样内容、同样负载）：Delay 在 120Hz 屏上只能隔帧更新，
+    /// 且 UI 线程每帧被占用得越多它越慢（占用 14ms 时更新间隔 17→29ms，单次进度跳变最大 27%）；
+    /// 帧驱动则始终每帧一次（间隔 8.6→10.4ms）。会话流式输出、转圈图标都在抢 UI 线程，动画必须跟帧走。
+    /// 进度必须在帧回调里落，不能 await 之后再落——续体会被排到该帧的布局渲染之后，白白晚一帧。
+    /// </summary>
+    /// <param name="host">承载动画的控件，用它找到 TopLevel；不在界面上时退回 16ms 定时</param>
+    /// <param name="durationMs">总时长</param>
+    /// <param name="onProgress">收到 0~1 的线性进度（缓动由调用方自己套）</param>
+    /// <param name="ct">取消时任务以 OperationCanceledException 结束，不再回调</param>
+    public static Task RunFrameAnimationAsync(Visual host, double durationMs, Action<double> onProgress,
+        CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested) return Task.FromCanceled(ct);
+        if (TopLevel.GetTopLevel(host) is not { } topLevel) return RunTimerAnimationAsync(durationMs, onProgress, ct);
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationTokenRegistration registration = ct.Register(() => completion.TrySetCanceled(ct));
+        long start = Stopwatch.GetTimestamp();
+
+        void Step(TimeSpan _)
+        {
+            if (completion.Task.IsCompleted) return;
+            try
+            {
+                double progress = Math.Clamp(Stopwatch.GetElapsedTime(start).TotalMilliseconds / durationMs, 0, 1);
+                onProgress(progress);
+                if (progress >= 1)
+                {
+                    registration.Dispose();
+                    completion.TrySetResult();
+                    return;
+                }
+            }
+            catch (Exception exception)
+            {
+                registration.Dispose();
+                completion.TrySetException(exception);
+                return;
+            }
+
+            topLevel.RequestAnimationFrame(Step);
+        }
+
+        onProgress(0); // 起点姿态立刻落下，不等第一帧
+        topLevel.RequestAnimationFrame(Step);
+        return completion.Task;
+    }
+
+    private static async Task RunTimerAnimationAsync(double durationMs, Action<double> onProgress,
+        CancellationToken ct)
+    {
+        long start = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            double progress = Math.Clamp(Stopwatch.GetElapsedTime(start).TotalMilliseconds / durationMs, 0, 1);
+            onProgress(progress);
+            if (progress >= 1) return;
+            await Task.Delay(16, ct);
+        }
+    }
+
+    /// <summary>
     /// 停止动画
     /// </summary>
     /// <param name="visual"></param>
@@ -233,13 +299,8 @@ public static class UiAnimationUtils
 
         try
         {
-            var startTime = DateTime.UtcNow;
-            while (true)
+            await RunFrameAnimationAsync(control, durationMs, progress =>
             {
-                cts.Token.ThrowIfCancellationRequested();
-
-                double elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                double progress = Math.Clamp(elapsed / durationMs, 0, 1);
                 double eased = !isShowed && easeInOnHide ? progress * progress : 1 - Math.Pow(1 - progress, 3);
                 // 位移要缓出才跟手，透明度跟着缓出就等于一上来就亮了（前三成时间已到 0.7），
                 // 出现时看着像硬切。出现走线性，消失仍跟随位移的曲线
@@ -248,10 +309,7 @@ public static class UiAnimationUtils
                 ApplyOpacity(control, opacityChannel, Lerp(startOpacity, targetOpacity, opacityEased));
                 transform.X = Lerp(startX, targetX, eased);
                 transform.Y = Lerp(startY, targetY, eased);
-
-                if (progress >= 1) break;
-                await Task.Delay(16, cts.Token);
-            }
+            }, cts.Token);
 
             ApplyOpacity(control, opacityChannel, targetOpacity);
             transform.X = targetX;

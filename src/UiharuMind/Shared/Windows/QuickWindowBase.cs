@@ -54,7 +54,7 @@ public class QuickWindowBase : UiharuWindowBase
         InputManager.Instance.EventOnMouseClicked += OnMouseClicked;
     }
 
-    protected void OnMouseClicked(MouseEventData obj)
+    protected virtual void OnMouseClicked(MouseEventData obj)
     {
         // if (SubMenuComboBox.IsFocused) return;
         // this.CheckMouseOutsideWindow(CloseByAnimation);
