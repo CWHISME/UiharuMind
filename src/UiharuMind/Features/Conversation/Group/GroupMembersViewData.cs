@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
@@ -74,7 +75,7 @@ public sealed class GroupMembersViewData : ObservableObject
     /// <summary>主持人可选项：「无」+ 各成员</summary>
     public IReadOnlyList<GroupHostChoice> HostOptions { get; }
 
-    /// <summary>当前主持人。改了即写回群壳，成员名字旁的徽章跟着挪</summary>
+    /// <summary>当前主持人。改了先确认再写回群壳，成员名字旁的徽章跟着挪</summary>
     public GroupHostChoice? SelectedHost
     {
         get => _selectedHost;
@@ -82,11 +83,40 @@ public sealed class GroupMembersViewData : ObservableObject
         {
             // 下拉重建模板时会先推一次 null，不当成「改成无」
             if (value == null || value == _selectedHost) return;
+            GroupHostChoice previous = _selectedHost;
             _selectedHost = value;
-            _group.GroupHostSessionId = value.SessionId;
-            _group.SaveMeta(touchUpdatedAt: false);
-            foreach (GroupMemberItem member in Members) member.IsHost = member.SessionId == value.SessionId;
+            OnPropertyChanged();
+            // 还没跑过的群没有缓存可失效，直接写回，不弹确认
+            if (!HasTotalCost) ApplyHost(value);
+            else _ = ConfirmHostChangeAsync(previous, value);
         }
+    }
+
+    /// <summary>
+    /// 换主持人要改写全员系统提示，各自下一轮整个上下文按全价重算（前缀缓存失效），所以先确认。
+    /// 下拉绑定是同步的、弹窗是异步的：先让框里显示新值，取消再推回去。
+    /// </summary>
+    private async Task ConfirmHostChangeAsync(GroupHostChoice previous, GroupHostChoice next)
+    {
+        IMessageService messageService = App.Services.GetRequiredService<IMessageService>();
+        bool confirmed = await messageService.ConfirmAsync(Loc.Text(LangKey.GroupHostChangeConfirm, next.Name));
+        // 弹窗期间用户又换了一次：以最新那次为准，这次什么都不做（那次有自己的确认）
+        if (_selectedHost != next) return;
+        if (!confirmed)
+        {
+            _selectedHost = previous;
+            OnPropertyChanged(nameof(SelectedHost));
+            return;
+        }
+
+        ApplyHost(next);
+    }
+
+    private void ApplyHost(GroupHostChoice value)
+    {
+        _group.GroupHostSessionId = value.SessionId;
+        _group.SaveMeta(touchUpdatedAt: false);
+        foreach (GroupMemberItem member in Members) member.IsHost = member.SessionId == value.SessionId;
     }
 
     /// <summary>

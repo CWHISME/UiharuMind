@@ -142,6 +142,16 @@ public class CharacterData
     }
 
     /// <summary>
+    /// 出自哪部作品（单文本）。群场景段按它合并介绍同作品成员，搜索也认它。
+    /// </summary>
+    [JsonIgnore]
+    public string Works
+    {
+        get => Config.PromptConfig.Works ?? "";
+        set => Config.PromptConfig.Works = value;
+    }
+
+    /// <summary>
     /// 角色的指令模板，会作为系统提示词的基础
     /// 参数由 {{$}} 构成，具体含义由具体的模板决定
     /// </summary>
@@ -214,7 +224,7 @@ public class CharacterData
     /// <summary>
     /// 这张卡是否命中搜索词；空词或纯空白一律命中（调用方不必先判空）。
     ///
-    /// <b>名字与描述都参与比对</b>：角色的定位与职责基本只写在描述里
+    /// <b>名字、描述与作品都参与比对</b>：角色的定位与职责基本只写在描述里
     /// （内置会审班的描述是「审核者（现实/资源/规则）：…」），只比名字的话
     /// 搜「审核者」一个人都搜不到。三处挑选角色的界面（角色库 / 选择器 / 建群）共用这一份口径。
     /// </summary>
@@ -225,7 +235,8 @@ public class CharacterData
         string keywordTrimmed = keyword?.Trim() ?? string.Empty;
         if (keywordTrimmed.Length == 0) return true;
         return CharacterName.Contains(keywordTrimmed, StringComparison.OrdinalIgnoreCase) ||
-               Description.Contains(keywordTrimmed, StringComparison.OrdinalIgnoreCase);
+               Description.Contains(keywordTrimmed, StringComparison.OrdinalIgnoreCase) ||
+               Works.Contains(keywordTrimmed, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

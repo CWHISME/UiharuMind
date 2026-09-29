@@ -13,12 +13,17 @@ namespace UiharuMind.Core.Tests.Chat;
 /// </summary>
 public class GroupSceneTests
 {
-    private static readonly Dictionary<string, string> Names = new() { ["a"] = "Alice", ["b"] = "Bob", ["c"] = "Carol" };
+    private static readonly Dictionary<string, CharacterData> Characters = new()
+    {
+        ["a"] = new CharacterData { CharacterName = "Alice" },
+        ["b"] = new CharacterData { CharacterName = "Bob" },
+        ["c"] = new CharacterData { CharacterName = "Carol" },
+    };
 
     [Fact]
     public void Scene_ListsTheRoomAndTheRules()
     {
-        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", ["Bob"], "我", false, null));
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", false, null));
 
         Assert.Contains("群聊「会审」", scene);
         Assert.Contains("我（用户）、Bob", scene);
@@ -35,11 +40,13 @@ public class GroupSceneTests
     [InlineData("Bob", "本群主持人是Bob")]
     public void Scene_TellsWhoTheHostIs(string host, string expected)
     {
-        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", ["Bob"], "我", true, host));
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", true, host));
 
         Assert.Contains(expected, scene);
         Assert.Contains(GroupPostTool.ToolName, scene);
         Assert.Contains("一轮怎么算", scene);
+        if (host == "Alice")
+            Assert.Contains("点完名这一轮就结束", scene); //主持人自己的收尾与查资料规矩只在场景段讲，不再随投递插一句
     }
 
     [Theory]
@@ -47,7 +54,7 @@ public class GroupSceneTests
     [InlineData(false)]
     public void Scene_TalksAboutTheWorkspace_OnlyWhenHeCanTouchIt(bool shares)
     {
-        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", ["Bob"], "我", false, null, shares));
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice", [new GroupMemberPresence("Bob", "")], "我", false, null, shares));
 
         Assert.Equal(shares, scene.Contains("草稿目录是全群共用的"));
         Assert.Equal(shares, scene.Contains("方案由用户拍板")); //动得了工作区的人才需要这条
@@ -70,14 +77,67 @@ public class GroupSceneTests
     }
 
     [Fact]
+    public void Scene_GroupsMembersOfTheSameWorks()
+    {
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice",
+            [new GroupMemberPresence("Bob", "魔法禁书目录"), new GroupMemberPresence("Carol", "魔法禁书目录"),
+                new GroupMemberPresence("Dave", "死亡笔记"), new GroupMemberPresence("Eve", "")],
+            "我", false, null));
+
+        Assert.Contains("我（用户）、Eve、《魔法禁书目录》：Bob、Carol、《死亡笔记》：Dave", scene);
+    }
+
+    /// <summary>
+    /// 裸名（没填作品）必须摆在分组前面：分组没有右边界，跟在后面的裸名会被误读成组里人
+    /// （实测 OP-01 被算进《魔法禁书目录》就是这么来的）。
+    /// </summary>
+    [Fact]
+    public void Scene_BareMemberAfterAGroup_IsNotSwallowedByIt()
+    {
+        string scene = GroupTranscript.BuildScene(new GroupScene("聊天群", "白井黑子",
+            [new GroupMemberPresence("御坂美琴", "魔法禁书目录"), new GroupMemberPresence("佐天泪子", "魔法禁书目录"),
+                new GroupMemberPresence("初春饰利", "魔法禁书目录"), new GroupMemberPresence("OP-01", "")],
+            "黑猫", false, null));
+
+        Assert.Contains("黑猫（用户）、OP-01、《魔法禁书目录》：御坂美琴、佐天泪子、初春饰利", scene);
+        Assert.DoesNotContain("初春饰利、OP-01", scene);
+    }
+
+    [Fact]
+    public void Scene_WithoutWorks_StaysAsBefore()
+    {
+        string scene = GroupTranscript.BuildScene(new GroupScene("会审", "Alice",
+            [new GroupMemberPresence("Bob", ""), new GroupMemberPresence("Carol", " ")], "我", false, null));
+
+        Assert.Contains("我（用户）、Bob、Carol", scene);
+        Assert.DoesNotContain("《", scene.Split('\n')[0]);
+    }
+
+    [Fact]
     public void Source_ResolvesTheMembersGroup()
     {
         (ChatSession group, ChatSession alice) = NewGroup(host: "c");
 
-        string scene = GroupSceneSource.For(alice, group, Names.GetValueOrDefault, "我");
+        string scene = GroupSceneSource.For(alice, group, Characters.GetValueOrDefault, "我");
 
         Assert.Contains("我（用户）、Bob、Carol", scene);
         Assert.Contains("本群主持人是Carol", scene);
+    }
+
+    [Fact]
+    public void Source_GroupsMembersOfTheSameWorks()
+    {
+        (ChatSession group, ChatSession alice) = NewGroup(host: null);
+        Dictionary<string, CharacterData?> characters = new()
+        {
+            ["a"] = alice.CharacterData,
+            ["b"] = new CharacterData { CharacterName = "Bob", Works = "魔法禁书目录" },
+            ["c"] = new CharacterData { CharacterName = "Carol", Works = "魔法禁书目录" },
+        };
+
+        string scene = GroupSceneSource.For(alice, group, characters.GetValueOrDefault, "我");
+
+        Assert.Contains("《魔法禁书目录》：Bob、Carol", scene);
     }
 
     [Fact]
@@ -85,10 +145,10 @@ public class GroupSceneTests
     {
         (ChatSession group, ChatSession alice) = NewGroup(host: null);
 
-        Assert.Equal("", GroupSceneSource.For(new ChatSession { IsTransient = true }, group, Names.GetValueOrDefault, "我"));
-        Assert.Equal("", GroupSceneSource.For(alice, null, Names.GetValueOrDefault, "我"));
+        Assert.Equal("", GroupSceneSource.For(new ChatSession { IsTransient = true }, group, Characters.GetValueOrDefault, "我"));
+        Assert.Equal("", GroupSceneSource.For(alice, null, Characters.GetValueOrDefault, "我"));
         Assert.Equal("", GroupSceneSource.For(alice, new ChatSession { IsGroup = true, IsTransient = true },
-            Names.GetValueOrDefault, "我"));
+            Characters.GetValueOrDefault, "我"));
     }
 
     /// <summary>换主持人 → 场景段变 → 快照不等，下一次挂接重建；两种形态都一样</summary>

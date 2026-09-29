@@ -521,11 +521,10 @@ public class GroupChatCoordinatorTests
     }
 
     [Fact]
-    public void SplitDelivery_SplitsBySpeaker_KeepsSceneAndHostHintApart_AndHidesTheReminder()
+    public void SplitDelivery_SplitsBySpeaker_AndHidesTheReminder()
     {
         string delivery = "（这是群聊「会审」。）\n\n[用户]: 大家好\n\n[Alice]: 第一行\n\n第二段\n[重要]: 不是发言人\n\n"
-                          + "[Bob]: 嗯。\n\n" + GroupTranscript.VoiceReminder("你是Carol。") + "\n\n"
-                          + GroupTranscript.HostColdStartHint;
+                           + "[Bob]: 嗯。\n\n" + GroupTranscript.VoiceReminder("你是Carol。");
 
         IReadOnlyList<GroupDeliverySegment> segments =
             GroupTranscript.SplitDelivery(delivery, ["用户", "Alice", "Bob"]);
@@ -536,7 +535,6 @@ public class GroupChatCoordinatorTests
             new GroupDeliverySegment("用户", "大家好"),
             new GroupDeliverySegment("Alice", "第一行\n\n第二段\n[重要]: 不是发言人"),
             new GroupDeliverySegment("Bob", "嗯。"),
-            new GroupDeliverySegment(null, GroupTranscript.HostColdStartHint),
         ], segments);
     }
 

@@ -79,7 +79,7 @@ public class ParallelGroupChatTests
     }
 
     [Fact]
-    public async Task Host_IsTheOnlyOneWoken_GetsTheHint_AndIsNotWokenAgainAfterNaming()
+    public async Task Host_IsTheOnlyOneWoken_AndIsNotWokenAgainAfterNaming()
     {
         _group.GroupHostSessionId = _carol.SessionId;
         _runner.Replies[_carol.SessionId] = _ => "@Alice 你先说说";
@@ -87,10 +87,7 @@ public class ParallelGroupChatTests
         await _coordinator.PostAsync(_group, "这个方案怎么样");
 
         Assert.Equal(1, _runner.CallsOf(_carol));
-        Assert.Contains(GroupTranscript.HostColdStartHint, _runner.Calls[0].Input);
-        Assert.Contains("你是本群主持人", _runner.Calls[0].Input);
         Assert.Equal(1, _runner.CallsOf(_alice)); //被点名
-        Assert.DoesNotContain(GroupTranscript.HostColdStartHint, _runner.Calls[1].Input);
         Assert.Equal(0, _runner.CallsOf(_bob));
     }
 

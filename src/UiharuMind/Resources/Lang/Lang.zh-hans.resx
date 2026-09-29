@@ -1591,6 +1591,9 @@
     <data name="CharacterName" xml:space="preserve">
         <value>角色名称</value>
     </data>
+    <data name="CharacterWorks" xml:space="preserve">
+        <value>出自作品（同一作品的成员会在群聊里被放在一起介绍）</value>
+    </data>
     <data name="ImportCharacter" xml:space="preserve">
         <value>导入角色</value>
     </data>
@@ -3137,6 +3140,9 @@
     </data>
     <data name="GroupHostHint" xml:space="preserve">
         <value>并行时用户没 @ 人，只叫醒主持人，由他点名合适的成员。改了之后，各成员下一次开口时生效。</value>
+    </data>
+    <data name="GroupHostChangeConfirm" xml:space="preserve">
+        <value>更换主持人会改写所有成员的系统提示，各自下一轮整个上下文按全价重算一遍（前缀缓存失效），之后恢复正常。换成“{0}”吗？</value>
     </data>
 
 

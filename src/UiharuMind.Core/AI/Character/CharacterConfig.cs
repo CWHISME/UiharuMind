@@ -13,6 +13,13 @@ public sealed class CharacterPromptConfig
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
+    /// <summary>
+    /// 出自哪部作品（单文本，不带书名号，渲染时再加）。
+    /// 群场景段按它把同作品成员合并介绍；角色搜索也认它。
+    /// </summary>
+    [JsonPropertyName("works")]
+    public string? Works { get; set; }
+
     [JsonPropertyName("template")]
     public string? Template { get; set; }
 

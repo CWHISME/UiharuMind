@@ -1598,6 +1598,9 @@
     <data name="CharacterName" xml:space="preserve">
         <value>Character name</value>
     </data>
+    <data name="CharacterWorks" xml:space="preserve">
+        <value>Source work (e.g. A Certain Magical Index)</value>
+    </data>
     <data name="ImportCharacter" xml:space="preserve">
         <value>Import Character</value>
     </data>
@@ -3144,6 +3147,9 @@ Allow them?</value>
     </data>
     <data name="GroupHostHint" xml:space="preserve">
         <value>In parallel mode, a message without @ wakes only the host, who calls on the right members. Changes take effect the next time each member speaks.</value>
+    </data>
+    <data name="GroupHostChangeConfirm" xml:space="preserve">
+        <value>Switching host rewrites every member's system prompt, so each member's next round recomputes the full context at full price (prefix cache miss), then caching resumes. Switch to "{0}"?</value>
     </data>
 
 

@@ -69,12 +69,12 @@ public class CharacterListFilterTests
 
     /// <summary>
     /// 搜索词空着或纯空白一律命中（调用方不必先判空），
-    /// 有词时名字与描述都比、大小写不敏感。
+    /// 有词时名字、描述与作品都比、大小写不敏感。
     /// </summary>
     [Fact]
     public void MatchesSearch_HitsOnNameOrDescription_CaseInsensitively()
     {
-        CharacterData card = new() { CharacterName = "一方通行", Description = "审核者（逻辑/可行性）" };
+        CharacterData card = new() { CharacterName = "一方通行", Description = "审核者（逻辑/可行性）", Works = "魔法禁书目录" };
 
         Assert.True(card.MatchesSearch(null));
         Assert.True(card.MatchesSearch(""));
@@ -83,6 +83,8 @@ public class CharacterListFilterTests
         Assert.True(card.MatchesSearch("审核者")); //只在描述里
         Assert.True(card.MatchesSearch("审核者（逻辑"));
         Assert.True(card.MatchesSearch("通行".ToUpperInvariant()));
+        Assert.True(card.MatchesSearch("禁书")); //只在作品里
+        Assert.True(card.MatchesSearch("魔法禁书目录"));
         Assert.False(card.MatchesSearch("食蜂"));
     }
 }

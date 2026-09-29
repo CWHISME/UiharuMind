@@ -203,14 +203,6 @@ public static class GroupTranscript
     }
 
     /// <summary>
-    /// 主持人的冷启动提示（ADR 0049 决策 4）：用户这句没 @ 任何人时，随投递附在末尾。
-    /// 放在投递里而不是系统提示——它只在这一刻成立，是动态状态
-    /// </summary>
-    public const string HostColdStartHint =
-        "（你是本群主持人。上面用户那句没有 @ 任何人：先用 @名字 点名最合适的一两位来回应，不要自己直接回答；" +
-        "点完名这一轮就结束，要查的资料留到之后再查，别让大家干等。）";
-
-    /// <summary>
     /// 补位轮的提示（ADR 0049 修订）：激进档一波静下来后，给还有没看过的发言的人各补一次，随投递附在末尾。
     /// 界面随每轮重锚一并摘掉，不画出来
     /// </summary>
@@ -267,11 +259,11 @@ public static class GroupTranscript
     /// <returns>场景段正文</returns>
     public static string BuildScene(GroupScene scene)
     {
-        string others = scene.OtherNames.Count == 0 ? "" : "、" + string.Join("、", scene.OtherNames);
         StringBuilder text = new();
-        text.Append($"你在群聊「{scene.GroupName}」里。在场的有：{scene.UserName}（用户）{others}。你是{scene.SelfName}。");
+        text.Append($"你在群聊「{scene.GroupName}」里。在场的有：{BuildRoster(scene.UserName, scene.Others)}。你是{scene.SelfName}。");
         if (scene.HostName == scene.SelfName)
-            text.Append("\n你是本群主持人：用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应，而不是自己直接回答。");
+            text.Append("\n你是本群主持人：用户没有 @ 任何人时，先用 @名字 点名最合适的一两位来回应，而不是自己直接回答；" +
+                        "点完名这一轮就结束，要查的资料留到之后再查，别让大家干等。");
         else if (scene.HostName != null)
             text.Append($"\n本群主持人是{scene.HostName}。");
 
@@ -301,9 +293,42 @@ public static class GroupTranscript
     }
 
     /// <summary>
+    /// 在场名单：没填作品的先摆（紧跟用户），同作品的再合并成段（首次出现的顺序）。
+    /// 这个顺序是故意的：分组没有右边界，裸名跟在后面会被误读成组里人；
+    /// 裸名在前则永远出现在任何 <c>《》</c> 之前，不可能被吞。没人填作品时退化成旧样子。
+    /// </summary>
+    private static string BuildRoster(string userName, IReadOnlyList<GroupMemberPresence> others)
+    {
+        List<string> bare = [];
+        List<(string Works, List<string> Names)> groups = [];
+        Dictionary<string, int> indexOf = new(StringComparer.Ordinal);
+        foreach (GroupMemberPresence member in others)
+        {
+            string works = member.Works.Trim();
+            if (works.Length == 0)
+            {
+                bare.Add(member.Name);
+            }
+            else if (indexOf.TryGetValue(works, out int index))
+            {
+                groups[index].Names.Add(member.Name);
+            }
+            else
+            {
+                indexOf[works] = groups.Count;
+                groups.Add((works, [member.Name]));
+            }
+        }
+
+        List<string> segments = [.. bare];
+        segments.AddRange(groups.Select(x => $"《{x.Works}》：" + string.Join("、", x.Names)));
+        return segments.Count == 0 ? $"{userName}（用户）" : $"{userName}（用户）、" + string.Join("、", segments);
+    }
+
+    /// <summary>
     /// 把一条投递拆回各人的发言（呈现用；存储与供给仍是合成的一条）。
     /// 只认 <paramref name="speakerNames"/> 里的名字开头的 <c>[名字]: </c> 行——正文里别的中括号不会被误拆。
-    /// 第一个发言人之前的（旧数据首次投递开头的场景说明）与末尾的主持人提示拆成无发言人的一段；
+    /// 第一个发言人之前的（旧数据首次投递开头的场景说明）拆成无发言人的一段；
     /// 每轮重锚与补位提示是说给模型的，不拆出来
     /// </summary>
     /// <param name="text">投递正文</param>
@@ -312,12 +337,6 @@ public static class GroupTranscript
     public static IReadOnlyList<GroupDeliverySegment> SplitDelivery(string text, IReadOnlyCollection<string> speakerNames)
     {
         string body = text;
-        string? tail = null;
-        if (body.EndsWith(HostColdStartHint, StringComparison.Ordinal))
-        {
-            body = body[..^HostColdStartHint.Length].TrimEnd();
-            tail = HostColdStartHint;
-        }
 
         int reminder = body.LastIndexOf("\n\n" + VoiceReminderOpening, StringComparison.Ordinal);
         if (reminder >= 0 && body.EndsWith('）')) body = body[..reminder];
@@ -340,7 +359,6 @@ public static class GroupTranscript
         }
 
         Flush();
-        if (tail != null) segments.Add(new GroupDeliverySegment(null, tail));
         return segments;
 
         void Flush()
@@ -368,38 +386,23 @@ public static class GroupTranscript
         rest = line[(close + 3)..];
         return true;
     }
-
-    /// <summary>
-    /// 从某个下标起，有没有一句用户发言没 @ 任何成员——主持人据此决定要不要先点名
-    /// </summary>
-    /// <param name="groupLog">群流水</param>
-    /// <param name="fromIndex">起点下标</param>
-    /// <param name="roster">成员名单</param>
-    /// <returns>有为 true</returns>
-    public static bool HasUnaddressedUserPost(IReadOnlyList<ChatMessage> groupLog, int fromIndex,
-        IReadOnlyList<GroupRosterEntry> roster)
-    {
-        for (int i = Math.Max(0, fromIndex); i < groupLog.Count; i++)
-        {
-            ChatMessage post = groupLog[i];
-            if (ChatMessageAnnotations.GroupSpeakerSessionOf(post) != null) continue;
-            if (GroupMentions.Parse(post.Text, roster).Count == 0) return true;
-        }
-
-        return false;
-    }
 }
+
+/// <summary>群场景段里的一位在场成员</summary>
+/// <param name="Name">显示名</param>
+/// <param name="Works">出自哪部作品；没填为空串，名单里裸列</param>
+public sealed record GroupMemberPresence(string Name, string Works);
 
 /// <summary>群场景段的要素</summary>
 /// <param name="GroupName">群名</param>
 /// <param name="SelfName">这个成员的名字</param>
-/// <param name="OtherNames">其余成员的名字</param>
+/// <param name="Others">其余在场成员（名字 + 作品，同作品的介绍时合并）</param>
 /// <param name="UserName">用户的名字</param>
 /// <param name="CanPostMidTurn">他有没有群发言工具可用（智能体形态）</param>
 /// <param name="HostName">主持人的名字；没有为 null</param>
 /// <param name="SharesDraftRoom">他有没有草稿目录（智能体形态且开着文件或命令行）：有就是全群共用的那一间，
 /// 也说明他动得了工作区，场景段要讲清拍板之前不动手</param>
-public sealed record GroupScene(string GroupName, string SelfName, IReadOnlyList<string> OtherNames,
+public sealed record GroupScene(string GroupName, string SelfName, IReadOnlyList<GroupMemberPresence> Others,
     string UserName, bool CanPostMidTurn, string? HostName, bool SharesDraftRoom = false);
 
 /// <summary>投递拆回来的一段</summary>

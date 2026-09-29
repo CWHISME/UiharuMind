@@ -130,7 +130,6 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         using IDisposable? gate = GroupMemberTurnGate.TryEnter(member.SessionId);
         if (gate == null) return GroupTurnOutcome.Skipped;
 
-        int deliveredFrom = member.GroupCursor;
         string? delivery;
         IReadOnlyList<DataContent> images;
         GroupMemberTurnState? turn = null;
@@ -164,7 +163,7 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             SpeakerChanged?.Invoke(group.SessionId);
             AlignWithGroup(member, group);
 
-            string input = ComposeInput(run, member, cause, delivery!, deliveredFrom);
+            string input = ComposeInput(member, cause, delivery!);
             // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
             using GroupMemberReplyFeed replies = new(member, (text, at) => PostFromMember(group, member, text, at));
             // 图的路径引用在正文里，看不了图的成员靠它用识图工具；看得了的直接给图
@@ -273,20 +272,11 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     }
 
     // 场景与规矩在系统提示里（ADR 0048，见 GroupSceneSource），投递只带这一刻才成立的东西
-    private string ComposeInput(GroupRun run, ChatSession member, EGroupWakeCause cause, string delivery,
-        int deliveredFrom)
+    private string ComposeInput(ChatSession member, EGroupWakeCause cause, string delivery)
     {
-        // 主持人位只在并行里起作用：串行本来就人人轮到，点名是多余的
-        bool coldStart = false;
-        if (run.Mode == EGroupScheduleMode.Parallel && member.SessionId == run.Group.GroupHostSessionId)
-        {
-            IReadOnlyList<GroupRosterEntry> roster = RosterOf(run.Group);
-            // 群流水此刻可能正被别的成员追加：遍历与 Append 同一把锁
-            lock (_locker) coldStart = GroupTranscript.HasUnaddressedUserPost(run.Group.History, deliveredFrom, roster);
-        }
         string input = delivery + "\n\n" + GroupTranscript.VoiceReminder(member.CharacterData.GetPersonaCoda());
         if (cause == EGroupWakeCause.CatchUp) input += "\n\n" + GroupTranscript.CatchUpHint;
-        return coldStart ? input + "\n\n" + GroupTranscript.HostColdStartHint : input;
+        return input;
     }
 
     private async Task<bool> RunTurnAsync(ChatSession member, ChatMessage delivery, Func<Task>? onReplyFinishing,

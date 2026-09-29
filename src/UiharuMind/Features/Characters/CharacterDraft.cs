@@ -173,6 +173,16 @@ public partial class CharacterDraft : ObservableObject
         }
     }
 
+    public string Works
+    {
+        get => _draft.Works;
+        set
+        {
+            _draft.Works = value;
+            OnPropertyChanged();
+        }
+    }
+
     public string Template
     {
         get => _draft.Template;

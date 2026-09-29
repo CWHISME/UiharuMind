@@ -17,34 +17,36 @@ public static class GroupSceneSource
     {
         if (!member.IsGroupMember) return string.Empty;
         return For(member, SessionManager.Instance.Load(member.GroupId!),
-            MemberNameOf, CharacterManager.Instance.UserCharacterName);
+            MemberCharacterOf, CharacterManager.Instance.UserCharacterName);
     }
 
-    /// <summary>按成员会话标识取显示名；取不到为 null（那位不列）。与右栏成员列表同一份名单口径</summary>
-    private static string? MemberNameOf(string id) =>
-        SessionManager.Instance.GetMeta(id) is { } meta ? SessionManager.CharacterOf(meta).CharacterName : null;
+    /// <summary>按成员会话标识取角色卡；取不到为 null（那位不列）。与右栏成员列表同一份名单口径</summary>
+    private static CharacterData? MemberCharacterOf(string id) =>
+        SessionManager.Instance.GetMeta(id) is { } meta ? SessionManager.CharacterOf(meta) : null;
 
     /// <summary>
     /// 取成员会话的群场景段正文（显式入参，可单测）
     /// </summary>
     /// <param name="member">成员会话</param>
     /// <param name="group">他所在的群壳；为 null 视为群已不在</param>
-    /// <param name="nameOf">按成员会话标识取显示名；取不到为 null（那位不列）</param>
+    /// <param name="characterOf">按成员会话标识取角色卡；取不到为 null（那位不列）</param>
     /// <param name="userName">用户的名字</param>
     /// <returns>场景段正文；不是这个群的成员为空串</returns>
-    public static string For(ChatSession member, ChatSession? group, Func<string, string?> nameOf, string userName)
+    public static string For(ChatSession member, ChatSession? group, Func<string, CharacterData?> characterOf, string userName)
     {
         if (group is not { IsGroup: true } || member.GroupId != group.SessionId) return string.Empty;
 
-        List<string> others = group.GroupMemberSessionIds
+        List<GroupMemberPresence> others = group.GroupMemberSessionIds
             .Where(x => x != member.SessionId)
-            .Select(nameOf)
-            .OfType<string>()
+            .Select(characterOf)
+            .OfType<CharacterData>()
+            .Where(x => !string.IsNullOrWhiteSpace(x.CharacterName))
+            .Select(x => new GroupMemberPresence(x.CharacterName, x.Works))
             .ToList();
         CharacterData self = member.CharacterData;
         string? hostName = group.GroupHostSessionId == member.SessionId
             ? self.CharacterName
-            : group.GroupHostSessionId is { } hostId ? nameOf(hostId) : null;
+            : group.GroupHostSessionId is { } hostId ? characterOf(hostId)?.CharacterName : null;
         // 群发言工具随 agent 形态必挂（AgentAssembler），看会话形态而非卡身份（ADR 0050）：chat 形态的 agent 卡不装工具
         bool agentForm = member.IsAgentForm is true;
         // 与装配给不给草稿目录段同一判据（AgentAssemblyFacts.OutputFolderName）
