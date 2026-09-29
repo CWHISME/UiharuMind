@@ -70,7 +70,7 @@
                             <!-- 已派出 / 结果待回:工具调用早就返回了(后台化,见 ADR 0025),
                                  但这次委派还没交回报告。少了这一档,卡片在派出后一秒就显示成功 -->
                             <TextBlock FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SpinnerRunningBrush}"
+                                       Foreground="{DynamicResource SemiBlue5}"
                                        Text="{loc:Loc ToolCallAwaitingReport}"
                                        IsVisible="{Binding IsAwaitingReport}" />
                             <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center"

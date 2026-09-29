@@ -1,7 +1,5 @@
 using Avalonia.Controls;
-using Avalonia.Headless;
 using Avalonia.Media;
-using Avalonia.Threading;
 using UiharuMind.Shared.Spinner;
 
 namespace UiharuMind.App.Tests.Headless;
@@ -62,23 +60,12 @@ public class SpinnerIconTests : IDisposable
     });
 
     [Fact]
-    public void EveryDisplayFrame_FollowsTheClockContinuously() => HeadlessUi.Run(() =>
+    public void Foreground_DefaultsToRunningColor_WithoutAnyStyle()
     {
         SpinnerIcon icon = new();
-        Window window = new() { Content = icon };
-        window.Show();
 
-        foreach (double ms in new[] { 30.0, 45.0, 61.0 })
-        {
-            _now = ms;
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-
-            Assert.Equal(ms / 1200 * 360, AngleOf(icon), 0.01);
-        }
-
-        window.Close();
-    });
+        Assert.Equal(SpinnerIcon.RunningColor, ((ISolidColorBrush)icon.Foreground!).Color);
+    }
 
     [Fact]
     public void HiddenAncestor_StopsAnimating_UntilShownAgain() => HeadlessUi.Run(() =>

@@ -18,7 +18,6 @@
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#F7F8FA</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#1D2129</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusInfoBrush'>#1769E0</SolidColorBrush>
-                    <SolidColorBrush x:Key='SpinnerRunningBrush'>#E8559A</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#067647</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#B54708</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#D92D20</SolidColorBrush>
@@ -40,7 +39,6 @@
                     <SolidColorBrush x:Key='UiBackgroundBrush'>#1D2129</SolidColorBrush>
                     <SolidColorBrush x:Key='UiForegroundBrush'>#F2F3F5</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusInfoBrush'>#84ADFF</SolidColorBrush>
-                    <SolidColorBrush x:Key='SpinnerRunningBrush'>#FF8CBB</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusSuccessBrush'>#75E0A7</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusWarningBrush'>#FEC84B</SolidColorBrush>
                     <SolidColorBrush x:Key='MessageStatusErrorBrush'>#FDA29B</SolidColorBrush>

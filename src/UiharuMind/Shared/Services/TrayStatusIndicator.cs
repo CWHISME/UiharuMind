@@ -54,11 +54,11 @@ public enum ETrayStatus
 ///   素图是纯黑剪影 + alpha，正好满足 template 素材要求。状态用动画表达：
 ///   Idle 静态纯花，Running 旋转（12 帧），AwaitingApproval 晃动（左右摆）。
 /// - Windows 没有反色机制，黑剪影在深色任务栏会看不见，保留彩色底图 +
-///   右下角白环彩点（粉=运行 / 橙=待审批）。
+///   右下角白环彩点（蓝=运行 / 橙=待审批）。
 /// </summary>
 public sealed class TrayStatusIndicator : IDisposable
 {
-    private static readonly SKColor RunningColor = new(0xE8, 0x55, 0x9A);
+    private static readonly SKColor RunningColor = new(SpinnerIcon.RunningColor.R, SpinnerIcon.RunningColor.G, SpinnerIcon.RunningColor.B);
     private static readonly SKColor ApprovalColor = new(0xF2, 0x99, 0x3D);
 
     private readonly TrayIcon? _trayIcon;
