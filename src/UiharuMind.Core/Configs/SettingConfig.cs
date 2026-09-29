@@ -68,14 +68,14 @@ public class SettingConfig : TConfigBase<SettingConfig>
     }
 
     /// <summary>
-    /// 应用主题模式：Default / Light / Dark / Aquatic / Desert / Dusk / NightSky
+    /// 应用主题模式：Default / Light / Dark
     /// </summary>
     public string ThemeMode
     {
         get => _themeMode;
         set
         {
-            _themeMode = value is "Light" or "Dark" or "Aquatic" or "Desert" or "Dusk" or "NightSky"
+            _themeMode = value is "Light" or "Dark"
                 ? value
                 : "Default";
             OnPropertyChanged();

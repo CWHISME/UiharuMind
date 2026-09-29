@@ -183,10 +183,6 @@ public partial class GeneralSettingViewModel : ViewModelBase
         {
             ApplicationThemeManager.LightThemeMode => LangKey.ThemeModeLight,
             ApplicationThemeManager.DarkThemeMode => LangKey.ThemeModeDark,
-            ApplicationThemeManager.AquaticThemeMode => LangKey.ThemeModeAquatic,
-            ApplicationThemeManager.DesertThemeMode => LangKey.ThemeModeDesert,
-            ApplicationThemeManager.DuskThemeMode => LangKey.ThemeModeDusk,
-            ApplicationThemeManager.NightSkyThemeMode => LangKey.ThemeModeNightSky,
             _ => LangKey.ThemeModeDefault,
         };
 
