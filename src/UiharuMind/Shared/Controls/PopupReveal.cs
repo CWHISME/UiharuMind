@@ -3,14 +3,13 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
 namespace UiharuMind.Shared.Controls;
 
 /// <summary>
-/// 弹出层（下拉框、菜单、Flyout、提示）的出现动画：淡入加轻微下滑。
+/// 弹出层（下拉框、菜单、Flyout、提示）的出现动画：淡入。
 ///
 /// 不用 Semi 自带的 <c>SemiPopupAnimations</c>：它是关键帧动画，时钟从样式生效那一刻起算，
 /// 而首次展开要建弹出层、套模板、生成下拉项，这段耗时（实测约 80ms）就把 100ms 的动画吃光了，
@@ -18,12 +17,15 @@ namespace UiharuMind.Shared.Controls;
 ///
 /// 这里挂载时同步压到隐藏态（首帧不会以满透明度闪一下），推迟到首次布局完成之后才开始计时。
 /// 只做出现，不做消失：弹出层关闭时宿主随即移除，消失动画没有可播放的地方。
+///
+/// <b>只动透明度，不动任何变换。</b>承载层是 <c>LayoutTransformControl</c>，对它写位移会落进参与布局的
+/// LayoutTransform；而弹出层在 macOS 上是尺寸恰好等于内容的原生窗口，位移既可能干扰窗口按内容定尺寸
+/// （提示框曾出现被压扁截断），也会让内容被窗口边缘裁掉一截。淡入没有这类几何风险。
 /// 由 Assets/Themes/CustomPopupStyle.axaml 挂到所有弹出层的内容承载层上。
 /// </summary>
 public static class PopupReveal
 {
     private const int DurationMilliseconds = 120;
-    private const double HiddenOffsetY = -6;
 
     /// <summary>是否启用出现动画</summary>
     public static readonly AttachedProperty<bool> IsEnabledProperty =
@@ -74,7 +76,6 @@ public static class PopupReveal
         {
             // 动画层撤掉后会回落到本地值（0），必须显式放回 1，否则弹出层播完就消失
             target.Opacity = 1;
-            target.RenderTransform = null;
         }
     }
 
@@ -90,20 +91,12 @@ public static class PopupReveal
                 new KeyFrame
                 {
                     Cue = new Cue(0),
-                    Setters =
-                    {
-                        new Setter(Visual.OpacityProperty, 0d),
-                        new Setter(TranslateTransform.YProperty, HiddenOffsetY),
-                    },
+                    Setters = { new Setter(Visual.OpacityProperty, 0d) },
                 },
                 new KeyFrame
                 {
                     Cue = new Cue(1),
-                    Setters =
-                    {
-                        new Setter(Visual.OpacityProperty, 1d),
-                        new Setter(TranslateTransform.YProperty, 0d),
-                    },
+                    Setters = { new Setter(Visual.OpacityProperty, 1d) },
                 },
             },
         };
