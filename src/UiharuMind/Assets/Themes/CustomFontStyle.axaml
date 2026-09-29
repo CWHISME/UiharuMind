@@ -65,6 +65,16 @@
         </Setter>
     </Style>
 
+    <!-- title-tweak 的小字号版:11px 文字与 12px 图标并排时,视觉偏差只有约 1px,
+         套 title-tweak 的 2px 会矫枉过正、让图标显得偏上(见待发插话行) -->
+    <Style Selector="TextBlock.title-tweak-sm">
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TranslateTransform Y="1" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- 单行文字在「固定高度容器里要视觉居中」的通用解法(比 title-tweak 更彻底):
          默认行高≈1.4×字号,字形按 ascent 排在行盒里偏上。让行盒收紧到字号本尊,
          字形即填满行盒——VerticalAlignment=Center 居中行盒时字形也跟着居中。

@@ -240,7 +240,7 @@
                                 BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,4,0,4">
                             <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                 <SpinnerIcon VerticalAlignment="Center" />
-                                <TextBlock Classes="muted" Text="{Binding Message}" VerticalAlignment="Center" />
+                                <TextBlock Classes="muted title-tweak" Text="{Binding Message}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
                     </DataTemplate>
@@ -360,9 +360,9 @@
                                                  IsVisible="{Binding IsSpinning}" />
                                     <Border Classes="status-dot" Tag="{Binding DotTag}"
                                             IsVisible="{Binding !IsSpinning}" />
-                                    <TextBlock FontSize="11" VerticalAlignment="Center"
+                                    <TextBlock Classes="title-tweak-sm" FontSize="11" VerticalAlignment="Center"
                                                Text="{Binding Text}" />
-                                    <TextBlock FontSize="11" VerticalAlignment="Center"
+                                    <TextBlock Classes="title-tweak-sm" FontSize="11" VerticalAlignment="Center"
                                                Text="{Binding Count}" />
                                 </StackPanel>
                             </Button>
@@ -420,7 +420,7 @@
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="2,0,2,2"
                       IsVisible="{Binding GroupMember.HasPending, FallbackValue=False}" ToolTip.Tip="{Binding GroupMember.PendingTip}">
                     <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" FontSize="11" VerticalAlignment="Center" MaxLines="1"
+                    <TextBlock Grid.Column="1" Classes="title-tweak-sm" FontSize="11" VerticalAlignment="Center" MaxLines="1"
                                TextTrimming="CharacterEllipsis" Text="{Binding GroupMember.PendingText}" />
                 </Grid>
                 <!-- 用户自己的待发插话逐条列(各带撤回),高度封顶约四行,再多就滚动,不挤会话区 -->
@@ -431,9 +431,9 @@
                         <DataTemplate x:DataType="composer:PendingInterjectionViewData">
                             <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6" Margin="2,0,2,2">
                                 <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Classes="muted" FontSize="11" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="1" Classes="muted title-tweak-sm" FontSize="11" VerticalAlignment="Center"
                                            Text="{loc:Loc AgentInterjectionPending}" />
-                                <TextBlock Grid.Column="2" FontSize="11" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="2" Classes="title-tweak-sm" FontSize="11" VerticalAlignment="Center"
                                            MaxLines="1" TextTrimming="CharacterEllipsis"
                                            Text="{Binding Text}" ToolTip.Tip="{Binding Text}" />
                                 <!-- 撤回这条插话:提示条与注入队列一起撤掉,见 InterjectionQueueViewData.Remove -->
@@ -613,8 +613,7 @@
                              紧贴窗口右缘,面板宽放不下时自动翻转到左侧,正好盖在光标底下→PointerExited→
                              面板关→PointerEntered→面板开,开开关键循环就是"hover 上一直闪"。
                              改成固定 Left,面板锚在文本自身、不随光标重叠,规避该循环(Avalonia #15486/#20980) -->
-                        <!-- Margin 上 2:数字的字形重心比行框中心高约 2px,不补的话与旁边的图标、按钮文字对不齐 -->
-                        <TextBlock Classes="muted" VerticalAlignment="Center" Margin="0,2,0,0"
+                        <TextBlock Classes="muted title-tweak" VerticalAlignment="Center"
                                    Text="{Binding TokenUsageText}"
                                    ToolTip.Placement="Left"
                                    IsVisible="{Binding TokenUsageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -627,7 +626,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                     IsVisible="{Binding BusyLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                             <SpinnerIcon />
-                            <TextBlock Classes="muted" VerticalAlignment="Center" Margin="0,2,0,0"
+                            <TextBlock Classes="muted title-tweak" VerticalAlignment="Center"
                                        Text="{Binding BusyLabel}" />
                         </StackPanel>
                         <StackPanel IsVisible="{Binding IsGenerating}" Orientation="Horizontal" Spacing="6"
