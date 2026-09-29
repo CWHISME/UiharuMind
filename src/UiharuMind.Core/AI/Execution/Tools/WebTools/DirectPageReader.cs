@@ -26,7 +26,7 @@ internal sealed partial class DirectPageReader : IPageReader
     /// <summary>
     /// 原始正文读入上限。GitHub 这类页面渲染出的 HTML 常有几 MB,
     /// 512KB 太小会让正常页面整体失败;超限不报废,按流结束截断返回已读部分,
-    /// 交给 WebFetchTool 层统一做 64KB 头尾骨架(见 <see cref="WebFetchTruncation"/>)。
+    /// 交给 WebFetchTool 层统一做 64KB 头尾骨架(见 <see cref="ToolOutputTruncation"/>)。
     /// </summary>
     private const long ResponseSizeCap = 4 * 1024 * 1024;
 

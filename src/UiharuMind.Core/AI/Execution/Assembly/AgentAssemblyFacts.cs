@@ -141,6 +141,13 @@ public sealed record AgentAssemblyFacts
     public string DisabledMcpServers { get; init; } = string.Empty;
 
     /// <summary>
+    /// 按需 MCP server 的名单签名（名字 + 说明，见 <see cref="McpManager.DescribeOnDemand"/>）。
+    /// 系统提示里那份名单与元工具的挂载都由它决定，所以必须入账。
+    /// 只含配置信息，因此按需 server 的连接起落不会让它变——这正是缓存前缀稳定的来源。
+    /// </summary>
+    public string McpOnDemand { get; init; } = string.Empty;
+
+    /// <summary>
     /// 从构建配置捕获事实（装配输入的常规入口）。
     /// 系统提示词在此重算——角色卡与会话参数的编辑因此天然被捕获。
     ///
@@ -168,7 +175,10 @@ public sealed record AgentAssemblyFacts
             PythonEnvironment.IsReady, profile.OutputFolderName,
             profile.SubAgent is { } sub ? $"{sub.Type}:{sub.AgentName}" : string.Empty,
             AgentSettingConfig.Current.ModelSkillsEnabled,
-            profile.EffectiveIsAgentForm, profile.GroupScene);
+            profile.EffectiveIsAgentForm, profile.GroupScene,
+            profile.EffectiveIsAgentForm
+                ? McpManager.Instance.DescribeOnDemand(profile.WorkspacePath, profile.Tools.DisabledMcpServers)
+                : string.Empty);
     }
 
     /// <summary>
@@ -189,6 +199,7 @@ public sealed record AgentAssemblyFacts
     /// <param name="modelSkillsEnabled">技能清单是否发给模型(全局开关)</param>
     /// <param name="isAgentForm">会话形态；null = 跟角色身份（ADR 0050）</param>
     /// <param name="groupScene">群场景段正文；不是群成员传空串</param>
+    /// <param name="mcpOnDemand">按需 MCP 名单签名（<see cref="McpManager.DescribeOnDemand"/>）</param>
     /// <returns>快照</returns>
     public static AgentAssemblyFacts Capture(CharacterData character,
         string instructions, string? workspacePath,
@@ -197,7 +208,7 @@ public sealed record AgentAssemblyFacts
         bool modelSupportsVision = false, IReadOnlyList<CharacterData>? mountedAgents = null,
         bool pythonEnvReady = false, string outputFolderName = "",
         string subAgentKey = "", bool modelSkillsEnabled = true, bool? isAgentForm = null,
-        string groupScene = "")
+        string groupScene = "", string mcpOnDemand = "")
     {
         // 非 agent 形态不装配工具,工具相关输入一律归零——能力配置变化不连累它们重建
         bool isAgent = isAgentForm ?? character.IsAgent;
@@ -242,6 +253,7 @@ public sealed record AgentAssemblyFacts
             ModelSkillsEnabled = isAgent && modelSkillsEnabled,
             McpRevision = isAgent ? mcpRevision : 0,
             DisabledMcpServers = isAgent ? string.Join('\n', config.DisabledMcpServers) : string.Empty,
+            McpOnDemand = isAgent ? mcpOnDemand : string.Empty,
         };
     }
 }

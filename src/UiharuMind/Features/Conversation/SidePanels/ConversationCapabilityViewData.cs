@@ -306,7 +306,8 @@ public sealed partial class ConversationCapabilityViewData : ObservableObject
         // token,而本地模型的窗口常常只有 32K。此时卡片上写着「合计 1.6k」等于在撒谎:
         // 四万 token 的东西正等着在你按下发送的那一刻挂上去。
         // 顺带让下面那条压缩水位告警在首轮之前就能亮——那正是它最该亮的时候。
-        int mcpTokens = McpServers.Sum(x => x.TotalEstimatedTokens);
+        // 取自快照而不是把分组加起来:按需模式的固定开销（元工具定义 + 名单）挂在工具集上、不属于任何分组
+        int mcpTokens = snapshot.Mcp.EstimatedTokens + snapshot.Mcp.Groups.Sum(x => x.InstructionsEstimatedTokens);
         bool mcpIsForecast = false;
         if (mcpTokens == 0)
         {
@@ -467,7 +468,10 @@ public sealed class McpServerGroupItem
         InstructionsInjected = group.InstructionsInjected;
         HasRenamedTools = group.Tools.Any(x => x.IsRenamed);
         TotalEstimatedTokens = group.TotalEstimatedTokens;
-        SummaryText = $"{status.State} · {group.Tools.Count} tools · ~{group.TotalEstimatedTokens} tok";
+        // 按需的组没有工具明细，「0 tools」会被读成这个 server 坏了；它的账在工具集的固定开销里
+        SummaryText = group.MountMode == EMcpMountMode.OnDemand
+            ? string.Format(Loc.Text(LangKey.AgentCapabilityMcpOnDemandSummary), status.State)
+            : $"{status.State} · {group.Tools.Count} tools · ~{group.TotalEstimatedTokens} tok";
     }
 
     /// 改过名的把原名一并写出来:否则用户在 server 文档里按原名找不到对应项
@@ -521,7 +525,10 @@ public sealed class McpPlannedServerItem
         CommandLine = server.CommandLine;
         NeedsApproval = server.NeedsApproval;
         IsShadowed = server.IsShadowed;
-        ForecastTokens = server.WillBeMounted ? server.EstimatedTokens ?? 0 : 0;
+        // 按需的工具定义不进请求，预告里不计（它的固定开销由工具集统一报）
+        ForecastTokens = server.WillBeMounted && server.MountMode == EMcpMountMode.Direct
+            ? server.EstimatedTokens ?? 0
+            : 0;
         OriginText = server.IsWorkspaceScoped
             ? string.Format(Loc.Text(LangKey.AgentCapabilityMcpFromProject),
                 Path.GetFileName(server.WorkspacePath!.TrimEnd(Path.DirectorySeparatorChar)))
@@ -540,6 +547,11 @@ public sealed class McpPlannedServerItem
         if (server.NeedsApproval) return loc.GetString("AgentCapabilityMcpNeedsApproval");
         if (server.IsHostingOff) return loc.GetString("AgentCapabilityMcpHostingOff");
         if (server.IsDisabledByCharacter) return loc.GetString("AgentCapabilityMcpDisabledByCharacter");
+
+        if (server.MountMode == EMcpMountMode.OnDemand)
+        {
+            return string.Format(loc.GetString("AgentCapabilityMcpOnDemandSummary"), server.State);
+        }
 
         // 连过又断开的报「上次的账」而不是 0:回收之后显示 0 个工具会被读成"这个 server 坏了"
         if (server.State != EMcpConnectionState.Connected && server.LastToolCount.HasValue)

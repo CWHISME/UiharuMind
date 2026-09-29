@@ -31,7 +31,7 @@ namespace UiharuMind.Core.AI.Execution.Mcp;
 /// 于是每次都触发后台补连），既磨进程又让用户只感到"卡"。现在失败会留下时间戳与错误原文，
 /// 前者管住重试节奏，后者摆到 UI 上——"为什么没工具"必须能当场看见。
 /// </summary>
-public class McpManager : Singleton<McpManager>, IInitialize
+public partial class McpManager : Singleton<McpManager>, IInitialize
 {
     /// <summary>标准配置文件的完整路径。设置页展示它,用户可直接编辑或整段替换</summary>
     public static string ConfigFilePath => AppPaths.Config.McpServers;
@@ -72,13 +72,18 @@ public class McpManager : Singleton<McpManager>, IInitialize
     private readonly List<McpServerConfig> _servers = new(); //全局作用域那一份(McpServers.json)
     private readonly Dictionary<McpServerKey, McpServerRuntime> _runtimes = new(); //按(作用域,名字)索引
     private readonly McpTrustStore _trust = new(); //项目级配置的安全授权账本,自带锁
+    private readonly McpWorkspaceMountStore _mounts = new(); //项目级 server 的送达方式,自带锁
+    private readonly McpToolCatalogStore _catalogs = new(); //按需 server 的工具清单磁盘缓存
     private readonly Dictionary<string, int> _leases = new(StringComparer.Ordinal); //在途租约,键同索引键的作用域那一半
     private CancellationTokenSource? _reclaimCancellation; //空闲回收循环,首次连上时惰性启动
     private int _revision; //工具集修订号
 
     /// <summary>
-    /// 工具集修订号：配置增删改与后台取回工具都会使其自增，
+    /// 装配相关的修订号：配置增删改，以及<b>直挂</b> server 的工具集变化（取回、回收、命令被改）都会使其自增，
     /// 装配快照据此感知 MCP 侧的变化（工具集与 server 自述都算在内）。
+    ///
+    /// <b>按需 server 的连接事件不计入</b>：它们不进 <c>tools</c>，连上、断开、重连都不该改前缀。
+    /// 按需名单本身的变化由 <see cref="DescribeOnDemand"/> 单独入账。
     /// </summary>
     public int Revision
     {
@@ -105,6 +110,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
     public void Reload()
     {
         _trust.Reload();
+        _mounts.Reload();
         McpServersFile file = SaveUtility.Load<McpServersFile>(AppPaths.Config.McpServers) ?? new McpServersFile();
         Dictionary<string, McpServerLocalState> states =
             SaveUtility.Load<Dictionary<string, McpServerLocalState>>(AppPaths.Config.McpServerStates) ?? new();
@@ -216,16 +222,34 @@ public class McpManager : Singleton<McpManager>, IInitialize
     /// 空表示未绑定工作区，只有全局 server 参与。
     /// </param>
     /// <param name="disabledServers">本角色禁用的 server 名单（能力层，见 ADR 0008）</param>
+    /// <param name="spillDirectory">
+    /// 按需 server 的超限结果落盘目录（会话自己的产出房间）；无会话时为空，退到缓存下的草稿目录
+    /// </param>
     /// <returns>工具集、分组明细与自述</returns>
-    public McpToolSet Resolve(string? workspacePath = null, IEnumerable<string>? disabledServers = null)
+    public McpToolSet Resolve(string? workspacePath = null, IEnumerable<string>? disabledServers = null,
+        string spillDirectory = "")
     {
-        List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledServers));
+        List<string> disabledList = disabledServers?.ToList() ?? [];
+        List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledList));
 
         List<ResolvedMcpServer> resolved = new();
+        List<McpOnDemandServer> onDemand = new();
         lock (_lock)
         {
             foreach (McpServerConfig server in inPlay)
             {
+                // 按需 server 不进 tools:既不用为它取工具,也不用为它起后台连接——用到时才连
+                if (server.IsOnDemand)
+                {
+                    onDemand.Add(new McpOnDemandServer
+                    {
+                        Name = server.Name,
+                        WorkspacePath = server.WorkspacePath,
+                        Description = server.Description,
+                    });
+                    continue;
+                }
+
                 McpServerRuntime runtime = GetRuntimeLocked(McpServerKey.Of(server));
                 if (runtime.Tools == null)
                 {
@@ -237,7 +261,11 @@ public class McpManager : Singleton<McpManager>, IInitialize
             }
         }
 
-        return McpToolSetBuilder.Build(resolved);
+        string spill = spillDirectory.Length > 0 ? spillDirectory : AppPaths.Cache.Scratch;
+        IReadOnlyList<AIFunction>? metaTools = onDemand.Count == 0
+            ? null
+            : McpMetaTools.Create(new McpBridge(this, workspacePath, disabledList, spill));
+        return McpToolSetBuilder.Build(resolved, onDemand, metaTools, spill);
     }
 
     /// <summary>
@@ -273,7 +301,9 @@ public class McpManager : Singleton<McpManager>, IInitialize
         Action<bool>? waiting = null,
         CancellationToken cancellationToken = default)
     {
-        List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledServers));
+        // 只等直挂的:按需 server 不进第一轮的 tools,没有"缺工具"可言,用到时才连
+        List<McpServerConfig> inPlay = InPlayServers(workspacePath, DisabledSet(disabledServers))
+            .Where(x => !x.IsOnDemand).ToList();
 
         List<Task> pending = new();
         lock (_lock)
@@ -357,6 +387,12 @@ public class McpManager : Singleton<McpManager>, IInitialize
     public List<EffectiveMcpServer> GetEffectiveServers(string? workspacePath)
     {
         List<McpServerConfig> workspaceServers = McpWorkspaceConfigLoader.Load(workspacePath);
+        // 项目级配置不带本机状态,送达方式从本机账本补上
+        foreach (McpServerConfig workspaceServer in workspaceServers)
+        {
+            workspaceServer.MountMode = _mounts.Get(workspaceServer.WorkspacePath, workspaceServer.Name);
+        }
+
         List<McpServerConfig> globalServers;
         lock (_lock)
         {
@@ -541,7 +577,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
                 runtime.Tools = null; //连接没了,工具就调不动了——留着等于给模型一批坏工具
                 runtime.Instructions = string.Empty;
                 runtime.State = EMcpConnectionState.Disconnected;
-                _revision++;
+                if (runtime.AffectsAssembly) _revision++;
                 Log.Debug($"MCP '{key}' reclaimed after {IdleTimeout.TotalMinutes:0} min idle");
             }
         }
@@ -585,8 +621,9 @@ public class McpManager : Singleton<McpManager>, IInitialize
                     LastToolCount = runtime.LastToolCount,
                     EstimatedTokens = runtime.EstimatedTokens,
                     LastUsedUtc = DateTime.UtcNow,
+                    AffectsAssembly = !server.IsOnDemand,
                 };
-                _revision++;
+                if (!server.IsOnDemand) _revision++;
                 Log.Debug($"MCP '{key}' config changed; connection dropped and awaiting reconnect");
             }
         }
@@ -669,6 +706,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
             WorkspacePath = server.WorkspacePath,
             CommandLine = DescribeCommand(server),
             IsShadowed = isShadowed,
+            MountMode = server.MountMode,
             IsHostingOff = !server.IsEnabled,
             IsDisabledByCharacter = disabled.Contains(server.Name),
             NeedsApproval = !trusted,
@@ -838,6 +876,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
             //手动路径进来时标记还没置上;后台路径由 KickRefreshLocked 置好,这里是幂等补一次
             McpServerRuntime runtime = GetRuntimeLocked(key);
             runtime.Refreshing = true;
+            runtime.AffectsAssembly = !server.IsOnDemand;
             if (runtime.Fingerprint.Length == 0) runtime.Fingerprint = fingerprint;
         }
 
@@ -848,6 +887,7 @@ public class McpManager : Singleton<McpManager>, IInitialize
                 .ListAgentToolsWithTasksAsync(options: null, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             bool stale = false;
+            McpToolCatalog? catalog = null;
             lock (_lock)
             {
                 McpServerRuntime runtime = GetRuntimeLocked(key);
@@ -871,9 +911,23 @@ public class McpManager : Singleton<McpManager>, IInitialize
                     runtime.Error = null;
                     runtime.FailureCount = 0;
                     runtime.NextAttemptUtc = DateTime.MinValue;
-                    _revision++;
+                    if (runtime.AffectsAssembly) _revision++;
+
+                    // 按需 server 离线时 McpHelp 读的就是这份;直挂的用不上
+                    if (server.IsOnDemand)
+                    {
+                        catalog = new McpToolCatalog
+                        {
+                            Fingerprint = fingerprint,
+                            Instructions = runtime.Instructions,
+                            Tools = tools.Select(McpToolDescriptor.From).ToList(),
+                            CapturedUtc = DateTime.UtcNow,
+                        };
+                    }
                 }
             }
+
+            if (catalog != null) _catalogs.Save(key, catalog);
 
             if (stale)
             {
@@ -906,21 +960,6 @@ public class McpManager : Singleton<McpManager>, IInitialize
         }
     }
 
-    /// 连接本身要 await,不能在锁里做;同一 server 的并发由 Refreshing 标记挡在门外
-    /// <summary>
-    /// 握手时报给 server 的客户端身份。<b>必须显式给</b>：不给的话 SDK 会拿当前进程的信息顶上，
-    /// 于是同一个应用从桌面端连过去叫 <c>UiharuMind.Desktop</c>、从命令行连过去叫 <c>UiharuMind.CLI</c>，
-    /// server 那边看到的是两个客户端。这个名字会进 server 日志，是排查问题时的第一个线索。
-    /// </summary>
-    private static readonly McpClientOptions ClientOptions = new()
-    {
-        ClientInfo = new Implementation
-        {
-            Name = AppInfo.Name,
-            Version = AppInfo.Version.ToString(),
-        },
-    };
-
     private async Task<McpClient> ConnectAsync(McpServerConfig server, CancellationToken cancellationToken)
     {
         McpServerKey key = McpServerKey.Of(server);
@@ -934,21 +973,8 @@ public class McpManager : Singleton<McpManager>, IInitialize
 
         if (existing != null) return existing;
 
-        // 先按官方 SDK transport（Streamable HTTP）连；若引擎只实现纯 POST（对 GET/SSE 回 405/411），
-        // 则退级到纯 POST transport 重建。判断见 IsPostOnlyRejection。
-        McpClient client;
-        try
-        {
-            client = await McpClient
-                .CreateAsync(CreateTransport(server), ClientOptions, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception e) when (IsPostOnlyRejection(e))
-        {
-            client = await McpClient
-                .CreateAsync(CreatePostOnlyTransport(server), ClientOptions, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-        }
+        McpClient client = await McpTransportFactory.CreateClientAsync(server, cancellationToken)
+            .ConfigureAwait(false);
 
         McpClient? raced = null;
         lock (_lock)
@@ -962,62 +988,6 @@ public class McpManager : Singleton<McpManager>, IInitialize
 
         if (raced != null) _ = raced.DisposeAsync();
         return client;
-    }
-
-    private static IClientTransport CreateTransport(McpServerConfig server)
-    {
-        if (server.TransportType == EMcpTransportType.Http)
-        {
-            return new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = new Uri(server.Url),
-                Name = server.Name,
-                AdditionalHeaders = server.Headers.Count > 0
-                    ? new Dictionary<string, string>(server.Headers)
-                    : null,
-            });
-        }
-
-        return new StdioClientTransport(new StdioClientTransportOptions
-        {
-            Name = server.Name,
-            Command = server.Command,
-            // 逐项存放,不再 Split(' '):含空格的路径与带引号的参数曾在这里被静默拆坏
-            Arguments = server.Args.Count > 0 ? server.Args.ToArray() : null,
-            EnvironmentVariables = server.EnvironmentVariables.Count > 0
-                ? server.EnvironmentVariables.ToDictionary(x => x.Key, string? (x) => x.Value)
-                : null,
-        });
-    }
-
-    /// <summary>
-    /// 引擎只实现了纯 POST（Streamable HTTP 握手里的 GET/SSE 被回 405、或 POST 没带 Content-Length 回 411）
-    /// 时，改用纯 POST transport 连接。
-    /// </summary>
-    private static IClientTransport CreatePostOnlyTransport(McpServerConfig server)
-    {
-        return new PostOnlyClientTransport(server.Name, new Uri(server.Url),
-            new HttpClient(), server.Headers.Count > 0 ? server.Headers : null);
-    }
-
-    /// <summary>
-    /// 判断连接失败是否源于「server 只认 POST」：SDK 把 405/411 包在 HttpRequestException 里。
-    /// 是则值得回退到纯 POST transport 重试一次，否则不必（是其它真错）。
-    /// </summary>
-    private static bool IsPostOnlyRejection(Exception e)
-    {
-        for (Exception? cur = e; cur != null; cur = cur.InnerException)
-        {
-            if (cur is HttpRequestException)
-            {
-                string msg = cur.Message;
-                if (msg.Contains("405") || msg.Contains("MethodNotAllowed") ||
-                    msg.Contains("411") || msg.Contains("LengthRequired"))
-                    return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>
@@ -1076,6 +1046,12 @@ public class McpManager : Singleton<McpManager>, IInitialize
         public int FailureCount { get; set; }
         public DateTime NextAttemptUtc { get; set; }
 
+        /// <summary>
+        /// 这份运行态上的连接事件是否会改变装配产物：直挂的会（工具进 tools），按需的不会。
+        /// 决定要不要为它自增修订号。由最近一次刷新按当时的送达方式标定。
+        /// </summary>
+        public bool AffectsAssembly { get; set; } = true;
+
         /// 建立这份运行态时那条配置的可执行面指纹;变了就得整条作废(见 SyncFingerprints)
         public string Fingerprint { get; set; } = string.Empty;
 
@@ -1089,102 +1065,4 @@ public class McpManager : Singleton<McpManager>, IInitialize
         public int? LastToolCount { get; set; }
     }
 
-}
-
-/// <summary>
-/// 预告名单里的一条：这个会话<b>将会</b>（或本该、却没能）接入的一个 server。
-///
-/// 与 <see cref="McpServerToolGroup"/> 的分工：那个是<b>实况</b>（装配之后真挂上了什么），
-/// 这个是<b>预告</b>（装配之前的预测）。两者不合并，界面上也分区呈现。
-/// </summary>
-public sealed class McpPlannedServer
-{
-    /// <summary>server 名</summary>
-    public required string Name { get; init; }
-
-    /// <summary>来源工作区；<c>null</c> 即全局配置</summary>
-    public string? WorkspacePath { get; init; }
-
-    /// <summary>是否来自项目级 <c>.mcp.json</c></summary>
-    public bool IsWorkspaceScoped => WorkspacePath != null;
-
-    /// <summary>将要执行的命令（stdio）或将要连接的地址（http）</summary>
-    public string CommandLine { get; init; } = string.Empty;
-
-    /// <summary>
-    /// 本条是被项目级同名配置<b>顶掉</b>的那个全局 server。
-    /// 界面要灰显并写明原因——否则用户不知道自己全局那个被吃掉了。
-    /// </summary>
-    public bool IsShadowed { get; init; }
-
-    /// <summary>连接层关着（<c>IsEnabled</c> 为 false，见 ADR 0008）</summary>
-    public bool IsHostingOff { get; init; }
-
-    /// <summary>被本角色的黑名单禁用（能力层，见 ADR 0008）</summary>
-    public bool IsDisabledByCharacter { get; init; }
-
-    /// <summary>项目级配置尚未通过安全确认</summary>
-    public bool NeedsApproval { get; init; }
-
-    /// <summary>此刻的连接状态</summary>
-    public required EMcpConnectionState State { get; init; }
-
-    /// <summary>上次连上时的工具数；从未连过为 null</summary>
-    public int? LastToolCount { get; init; }
-
-    /// <summary>上次算出的工具定义估算 token；从未连过为 null</summary>
-    public int? EstimatedTokens { get; init; }
-
-    /// <summary>这一轮真的会挂上去（三道闸门都过了，且已连上）</summary>
-    public bool WillBeMounted => !IsShadowed && !IsHostingOff && !IsDisabledByCharacter && !NeedsApproval;
-}
-
-/// <summary>
-/// 一条待用户确认的项目级 server。确认框上要摆的就是这三样：
-/// 谁、来自哪个项目、<b>将要执行什么</b>。
-/// </summary>
-public sealed class McpApprovalRequest
-{
-    /// <summary>server 名</summary>
-    public required string Name { get; init; }
-
-    /// <summary>来源工作区</summary>
-    public required string WorkspacePath { get; init; }
-
-    /// <summary>将要执行的命令（stdio）或将要连接的地址（http）</summary>
-    public required string CommandLine { get; init; }
-
-    /// <summary>
-    /// 之前授权过、这次是<b>命令被改了</b>。界面要把它与"新增的一条"分开说——
-    /// 前者更值得警惕：那意味着仓库里有人动过将在你机器上执行的东西。
-    /// </summary>
-    public bool IsChanged { get; init; }
-}
-
-/// <summary>
-/// 一个 server 的状态快照（UI 展示用）
-/// </summary>
-public sealed class McpServerStatus
-{
-    /// <summary>连接状态</summary>
-    public EMcpConnectionState State { get; init; }
-
-    /// <summary>此刻已取回、真正可调用的工具数</summary>
-    public int ToolCount { get; init; }
-
-    /// <summary>
-    /// 上次连上时的工具数；空闲回收或配置变更后仍保留。
-    /// 界面据此显示「已断开（上次 12 个工具）」——回收之后报 0 是在撒谎，
-    /// 用户会以为这个 server 坏了。从未连过时为 null（那是「不知道」）。
-    /// </summary>
-    public int? LastToolCount { get; init; }
-
-    /// <summary>工具定义的估算 token 数；尚未取回工具时为 null（那是「不知道」，不是 0）</summary>
-    public int? EstimatedTokens { get; init; }
-
-    /// <summary>失败原因；成功或未连接时为 null</summary>
-    public string? Error { get; init; }
-
-    /// <summary>server 是否给了自述</summary>
-    public bool HasInstructions { get; init; }
 }

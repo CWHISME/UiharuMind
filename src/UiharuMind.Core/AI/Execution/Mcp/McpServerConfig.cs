@@ -74,6 +74,28 @@ public class McpServerConfig
     /// 那段文本长度由 server 决定，本地小模型的窗口吃不消时可单独关掉而仍保留它的工具。
     /// </summary>
     public bool InjectInstructions { get; set; } = true;
+
+    /// <summary>
+    /// 送达方式（直挂 / 按需），第三个与托管、可用正交的问题，见 ADR 0051。
+    /// 本机偏好：全局 server 存在本机状态文件里，项目级 server 存在 <see cref="McpWorkspaceMountStore"/>。
+    /// </summary>
+    public EMcpMountMode MountMode { get; set; } = EMcpMountMode.OnDemand;
+
+    /// <summary>
+    /// 一句话说明，按需模式下写进系统提示，让模型知道什么时候该去查这个 server。
+    /// 只有全局 server 有：项目级配置是入库共享的标准形状，不带本机状态。
+    /// </summary>
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>是否按需送达</summary>
+    public bool IsOnDemand => MountMode == EMcpMountMode.OnDemand;
+
+    /// <summary>
+    /// 浅拷贝一份。集合成员（参数、环境变量、请求头）与原对象共享，
+    /// 只适用于"改标量字段后换掉原对象"的场景。
+    /// </summary>
+    /// <returns>新实例</returns>
+    public McpServerConfig Clone() => (McpServerConfig)MemberwiseClone();
 }
 
 /// <summary>

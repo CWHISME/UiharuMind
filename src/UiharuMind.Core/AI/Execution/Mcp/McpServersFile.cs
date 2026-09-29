@@ -62,6 +62,8 @@ internal sealed class McpServersFile
             {
                 IsEnabled = config.IsEnabled,
                 InjectInstructions = config.InjectInstructions,
+                MountMode = config.MountMode,
+                Description = config.Description,
             };
         }
 
@@ -103,6 +105,8 @@ internal sealed class McpServerEntry
             Headers = Headers ?? new Dictionary<string, string>(),
             IsEnabled = state.IsEnabled,
             InjectInstructions = state.InjectInstructions,
+            MountMode = state.MountMode,
+            Description = state.Description,
         };
     }
 
@@ -138,7 +142,7 @@ internal sealed class McpServerEntry
 }
 
 /// <summary>
-/// 本项目特有、不进标准配置文件的那两项。按 server 名与 <see cref="McpServersFile"/> 对帐，
+/// 本项目特有、不进标准配置文件的那几项。按 server 名与 <see cref="McpServersFile"/> 对帐，
 /// 缺项即取本类的默认值——所以直接手贴一份标准配置进来也能立刻用。
 /// </summary>
 public sealed class McpServerLocalState
@@ -146,6 +150,12 @@ public sealed class McpServerLocalState
     /// <summary>是否托管此 server</summary>
     public bool IsEnabled { get; set; } = true;
 
-    /// <summary>是否注入 server 自述</summary>
+    /// <summary>是否注入 server 自述（直挂模式才有意义；按需模式的自述由 McpHelp 返回）</summary>
     public bool InjectInstructions { get; set; } = true;
+
+    /// <summary>送达方式；缺项即按需，老配置不迁移（见 ADR 0051）</summary>
+    public EMcpMountMode MountMode { get; set; } = EMcpMountMode.OnDemand;
+
+    /// <summary>一句话说明，按需模式下写进系统提示</summary>
+    public string Description { get; set; } = string.Empty;
 }

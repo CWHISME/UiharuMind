@@ -175,6 +175,10 @@ internal sealed class AgentAssemblyPlan
         }
 
         AgentToolConfig config = profile.Tools;
+        // 草稿目录(会话自己的产出房间):既是 OutputRoomDirectory,也是按需 MCP 超限结果的落盘处,取一次
+        string outputRoom = profile.OutputFolderName.Length > 0
+            ? EnsureDirectory(AgentOutputLayout.GetRoomAbsolutePath(profile.OutputFolderName))
+            : string.Empty;
         return new AgentAssemblyPlan
         {
             Profile = profile,
@@ -196,9 +200,7 @@ internal sealed class AgentAssemblyPlan
                 : string.Empty,
             // 草稿目录不随 Python 起落:文件工具独占时测试脚本照样有地方去。
             // 建好它(shell 重定向不像 Write 那样按需建父目录)
-            OutputRoomDirectory = profile.OutputFolderName.Length > 0
-                ? EnsureDirectory(AgentOutputLayout.GetRoomAbsolutePath(profile.OutputFolderName))
-                : string.Empty,
+            OutputRoomDirectory = outputRoom,
             // 读宿主 PATH 属于"读外部世界",只能在这里做——AgentAssembler 是不碰单例的纯函数
             ShellEnvironment = config.EnableShellExecution && PythonEnvironment.IsReady
                 ? PythonEnvironment.BuildActivationEnvironment()
@@ -209,7 +211,7 @@ internal sealed class AgentAssemblyPlan
             MountedAgents = config.EnableSubAgent
                 ? CharacterRunnerFactory.ResolveMountedAgents(profile.Character)
                 : [],
-            Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers),
+            Mcp = McpManager.Instance.Resolve(profile.WorkspacePath, config.DisabledMcpServers, outputRoom),
             SkillsSource = SkillCatalog.Instance.BuildSkillsSource(config.DisabledSkills),
             // 全局开关在装配时固化:关掉后技能 provider(广告列表 + 三个工具)整体消失,
             // 由 AgentAssemblyFacts 入账触发重建

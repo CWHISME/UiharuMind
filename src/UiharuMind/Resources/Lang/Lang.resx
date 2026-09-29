@@ -2414,6 +2414,39 @@
     <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
         <value>Servers may ship a usage guide describing how their tools work together. It costs context — turn this off to keep the tools but drop the guide.</value>
     </data>
+    <data name="AgentMcpMountMode" xml:space="preserve">
+        <value>Delivery</value>
+    </data>
+    <data name="AgentMcpMountModeOnDemand" xml:space="preserve">
+        <value>On demand (recommended)</value>
+    </data>
+    <data name="AgentMcpMountModeDirect" xml:space="preserve">
+        <value>Direct</value>
+    </data>
+    <data name="AgentMcpMountModeTip" xml:space="preserve">
+        <value>How this server's tools reach the model. On demand: tool definitions stay out of the request; the model looks them up with McpHelp and runs them with McpCall, so connecting or disconnecting never invalidates the prompt cache. Direct: every tool definition is sent with every request — best for a few tools used constantly.</value>
+    </data>
+    <data name="AgentMcpDescription" xml:space="preserve">
+        <value>Description</value>
+    </data>
+    <data name="AgentMcpDescriptionTip" xml:space="preserve">
+        <value>One line shown to the model in the system prompt for on-demand servers, so it knows when to look this server up.</value>
+    </data>
+    <data name="AgentMcpDescriptionPlaceholder" xml:space="preserve">
+        <value>e.g. GitHub issues and pull requests</value>
+    </data>
+    <data name="AgentMcpWorkspaceServersTip" xml:space="preserve">
+        <value>Project servers come from the project's .mcp.json. Delivery is a per-machine preference and is not written back to that file.</value>
+    </data>
+    <data name="AgentMcpWorkspaceDirectTip" xml:space="preserve">
+        <value>Send this server's tools directly with every request instead of looking them up on demand.</value>
+    </data>
+    <data name="AgentCapabilityMcpOnDemand" xml:space="preserve">
+        <value>On demand</value>
+    </data>
+    <data name="AgentCapabilityMcpOnDemandSummary" xml:space="preserve">
+        <value>On demand · {0} · tools are looked up when used</value>
+    </data>
     <data name="AgentMcpAdvancedTitle" xml:space="preserve">
         <value>Config file and project-level permissions</value>
     </data>

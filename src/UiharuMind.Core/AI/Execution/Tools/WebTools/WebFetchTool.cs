@@ -36,12 +36,12 @@ public static class WebFetchTool
         try
         {
             string text = await Reader.ReadAsync(url, ct);
-            if (Encoding.UTF8.GetByteCount(text) <= WebFetchTruncation.MaxBytes) return text;
+            if (Encoding.UTF8.GetByteCount(text) <= ToolOutputTruncation.MaxBytes) return text;
 
             // 超限:全文落盘 + 返回头尾骨架。路径喂给 Read,行号锚点让它不用从头重灌。
             // 说清截掉了多少:只丢一句 [Truncated],模型无从判断自己错过的是 5% 还是 95%
             string savedPath = WebFetchCacheSink.Save(text, url);
-            return WebFetchTruncation.Format(text, savedPath);
+            return ToolOutputTruncation.Format(text, savedPath);
         }
         catch (OperationCanceledException)
         {

@@ -90,13 +90,27 @@
                                  PlaceholderText="Authorization=Bearer xxxx" />
                     </StackPanel>
 
+                    <!-- 送达方式：第三个与「托管、可用」正交的问题（ADR 0051） -->
+                    <TextBlock Classes="field-label" Margin="0,10,0,0" Text="{loc:Loc AgentMcpMountMode}"
+                               ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}" />
+                    <ComboBox SelectedIndex="{Binding MountModeIndex}" MinWidth="160"
+                              ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}">
+                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeOnDemand}" />
+                        <ComboBoxItem Content="{loc:Loc AgentMcpMountModeDirect}" />
+                    </ComboBox>
+
+                    <TextBlock Classes="field-label" Text="{loc:Loc AgentMcpDescription}"
+                               ToolTip.Tip="{loc:Loc AgentMcpDescriptionTip}" />
+                    <TextBox Text="{Binding SelectedServer.Description}"
+                             PlaceholderText="{loc:Loc AgentMcpDescriptionPlaceholder}" />
+
                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
                         <ToggleSwitch IsChecked="{Binding SelectedServer.IsEnabled}" />
                         <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpEnabled}"
                                    ToolTip.Tip="{loc:Loc AgentMcpEnabledTip}" />
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsDirectMount}">
                         <ToggleSwitch IsChecked="{Binding SelectedServer.InjectInstructions}" />
                         <TextBlock VerticalAlignment="Center" Text="{loc:Loc AgentMcpInjectInstructions}"
                                    ToolTip.Tip="{loc:Loc AgentMcpInjectInstructionsTip}" />
@@ -166,6 +180,7 @@
                     <ItemsControl ItemsSource="{Binding TrustedWorkspaces}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="settings:McpTrustedWorkspaceItem">
+                              <StackPanel>
                                 <!-- 名字与撤销钉在两端,路径吃掉中间:路径长度差别很大,
                                      用 StackPanel 排的话撤销按钮的横向位置会跟着路径长度乱跳 -->
                                 <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,3,0,0">
@@ -178,6 +193,26 @@
                                             Content="{loc:Loc AgentMcpTrustRevoke}"
                                             Command="{Binding RevokeCommand}" />
                                 </Grid>
+                                <!-- 该项目 .mcp.json 里的 server：送达方式只在这里改（面板是只读的） -->
+                                <ItemsControl ItemsSource="{Binding Servers}" IsVisible="{Binding HasServers}"
+                                              Margin="12,0,0,0"
+                                              ToolTip.Tip="{loc:Loc AgentMcpWorkspaceServersTip}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="settings:McpWorkspaceServerItem">
+                                            <!-- 开关自己的两个状态就是当前的送达方式（关 = 按需，开 = 直挂），
+                                                 不在旁边另放固定文字——固定的「直挂」会在开关关着时读成"当前是直挂" -->
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <ToggleSwitch IsChecked="{Binding IsDirect}"
+                                                              OnContent="{loc:Loc AgentMcpMountModeDirect}"
+                                                              OffContent="{loc:Loc AgentCapabilityMcpOnDemand}"
+                                                              ToolTip.Tip="{loc:Loc AgentMcpWorkspaceDirectTip}" />
+                                                <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                           Text="{Binding Name}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                              </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

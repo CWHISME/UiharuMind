@@ -1,15 +1,16 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
 namespace UiharuMind.Core.Tests.Execution;
 
 /// <summary>
-/// 钉死 WebFetch 超限的截断形态:UTF-8 字节预算(与 Read/Grep 同口径)、
+/// 钉死工具输出超限的截断形态:UTF-8 字节预算(与 Read/Grep 同口径)、
 /// 头尾骨架带行号锚点、多字节字符不劈开、极长行退化只返头。
 /// Format 是纯函数,落盘(save)与真实抓取不在这一层测。
 /// </summary>
-public class WebFetchTruncationTests
+public class ToolOutputTruncationTests
 {
     private const string SavedPath = "/cache/FetchedPages/example_abc123.txt";
 
@@ -17,7 +18,7 @@ public class WebFetchTruncationTests
     public void Format_UnderBudget_ReturnsTextUnchanged()
     {
         string text = "short page body";
-        Assert.Equal(text, WebFetchTruncation.Format(text, SavedPath));
+        Assert.Equal(text, ToolOutputTruncation.Format(text, SavedPath));
     }
 
     [Fact]
@@ -27,7 +28,7 @@ public class WebFetchTruncationTests
         string[] lines = Enumerable.Range(1, 1200).Select(i => $"line {i:D4} " + new string('中', 35)).ToArray();
         string text = string.Join('\n', lines);
 
-        string result = WebFetchTruncation.Format(text, SavedPath);
+        string result = ToolOutputTruncation.Format(text, SavedPath);
 
         Assert.Contains("[TAIL — ", result);
         Assert.Contains($"full content saved to {SavedPath}", result);
@@ -48,9 +49,9 @@ public class WebFetchTruncationTests
         int tailMarker = result.LastIndexOf("[TAIL — ", StringComparison.Ordinal);
         string tailPart = result[(tailMarker + "[TAIL — ".Length)..];
         tailPart = tailPart[(tailPart.IndexOf('\n') + 1)..];
-        Assert.True(Encoding.UTF8.GetByteCount(headPart) <= WebFetchTruncation.HeadBudgetBytes,
+        Assert.True(Encoding.UTF8.GetByteCount(headPart) <= ToolOutputTruncation.HeadBudgetBytes,
             $"头超预算:{Encoding.UTF8.GetByteCount(headPart)}");
-        Assert.True(Encoding.UTF8.GetByteCount(tailPart) <= WebFetchTruncation.TailBudgetBytes,
+        Assert.True(Encoding.UTF8.GetByteCount(tailPart) <= ToolOutputTruncation.TailBudgetBytes,
             $"尾超预算:{Encoding.UTF8.GetByteCount(tailPart)}");
     }
 
@@ -63,12 +64,12 @@ public class WebFetchTruncationTests
     {
         string text = new string('a', 100_000);
 
-        string result = WebFetchTruncation.Format(text, SavedPath);
+        string result = ToolOutputTruncation.Format(text, SavedPath);
 
         Assert.Contains("tail omitted", result);
         Assert.DoesNotContain("[TAIL — ", result);
         Assert.StartsWith("aaaa", result);
-        Assert.True(Encoding.UTF8.GetByteCount(result) <= WebFetchTruncation.MaxBytes,
+        Assert.True(Encoding.UTF8.GetByteCount(result) <= ToolOutputTruncation.MaxBytes,
             "退化返回仍应压在总量预算内");
     }
 
@@ -78,7 +79,7 @@ public class WebFetchTruncationTests
         // 每个汉字 3 字节;预算 100 不是 3 的倍数,应回退到 99 字节 = 33 个完整汉字
         string text = new string('中', 100);
 
-        string head = WebFetchTruncation.TakeHeadBytes(text, 100);
+        string head = ToolOutputTruncation.TakeHeadBytes(text, 100);
 
         Assert.Equal(99, Encoding.UTF8.GetByteCount(head));
         Assert.DoesNotContain("\uFFFD", head);
@@ -89,7 +90,7 @@ public class WebFetchTruncationTests
     {
         string text = new string('中', 100);
 
-        string tail = WebFetchTruncation.TakeTailBytes(text, 100);
+        string tail = ToolOutputTruncation.TakeTailBytes(text, 100);
 
         Assert.Equal(99, Encoding.UTF8.GetByteCount(tail));
         Assert.DoesNotContain("\uFFFD", tail);

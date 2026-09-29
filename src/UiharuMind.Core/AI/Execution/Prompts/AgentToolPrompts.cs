@@ -9,6 +9,7 @@
 
 using System.Text;
 using Microsoft.Agents.AI;
+using UiharuMind.Core.AI.Execution.Mcp;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.AI.Execution.Tools.WebTools;
 
@@ -337,6 +338,33 @@ public static class AgentToolPrompts
         "- 要在用户挂给本次会话的文档里查东西，调用 `" +
         KnowledgeTool.ToolName + "`，给一个简短聚焦的查询——它是向量检索，关键词比整句话管用。\n" +
         "- 它返回若干段落，或者告诉你没有挂载知识库。没有挂载就直说，不要靠猜。";
+
+    /// <summary>
+    /// 按需 MCP server 名单（拼在「# MCP 服务器」段里，直挂 server 的自述之后）。
+    ///
+    /// ⚠️ <b>只放配置里就有的东西</b>：名字与用户填的一句话说明，<b>不写工具数、不写工具名</b>。
+    /// 后两者是运行时信息，写进来的话 server 第一次连上，系统提示就变一次，缓存前缀白白失效。
+    /// 想知道有哪些工具，模型自己调 <c>McpHelp</c>。
+    /// </summary>
+    /// <param name="servers">按需 server：名字与说明（说明可空）</param>
+    /// <returns>段落正文</returns>
+    public static string BuildMcpOnDemand(IReadOnlyList<(string Name, string Description)> servers)
+    {
+        StringBuilder sb = new();
+        sb.Append("以下 MCP server 的工具不在你的工具列表里。要用时先调 `").Append(McpMetaTools.HelpName)
+            .Append("` 查看用法（只给 server 是列出它的工具，再给 tool 是看该工具的参数），")
+            .Append("再调 `").Append(McpMetaTools.CallName).Append("` 执行；连不上会在工具结果里说明。\n")
+            .Append("可调用的工具以 `").Append(McpMetaTools.HelpName)
+            .Append("` 列出的为准：server 自带的「列出工具」之类的工具，返回的名单可能包含没开放、调不了的。\n");
+        foreach ((string name, string description) in servers)
+        {
+            sb.Append("- ").Append(name);
+            if (!string.IsNullOrWhiteSpace(description)) sb.Append("：").Append(description.Trim());
+            sb.Append('\n');
+        }
+
+        return sb.ToString().TrimEnd();
+    }
 
     /// <summary>
     /// 委派纪律段正文。<b>唯一的通信原语是 <see cref="SubAgentTool.ToolName"/></b>。

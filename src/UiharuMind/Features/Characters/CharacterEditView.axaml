@@ -171,7 +171,13 @@
                                             <TextBlock Text="{Binding Name}" />
                                             <TextBlock FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource SemiGrey5}"
+                                                       IsVisible="{Binding !IsOnDemand}"
                                                        Text="{Binding ToolCount, StringFormat='{}{0} tools'}" />
+                                            <TextBlock FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SemiBlue5}"
+                                                       IsVisible="{Binding IsOnDemand}"
+                                                       Text="{loc:Loc AgentCapabilityMcpOnDemand}"
+                                                       ToolTip.Tip="{loc:Loc AgentMcpMountModeTip}" />
                                             <TextBlock Classes="muted" FontSize="11" VerticalAlignment="Center"
                                                        Text="{Binding TokenText}"
                                                        ToolTip.Tip="{loc:Loc CharacterCapabilityTokenTip}" />

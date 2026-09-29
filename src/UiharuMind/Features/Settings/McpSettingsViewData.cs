@@ -36,6 +36,9 @@ public partial class McpSettingsViewData : ViewModelBase
 
     [ObservableProperty] private McpServerConfig? _selectedServer;
     [ObservableProperty] private int _transportIndex;
+
+    /// <summary>送达方式的下拉序号：0 按需、1 直挂（与 <see cref="EMcpMountMode"/> 的取值一致）</summary>
+    [ObservableProperty] private int _mountModeIndex;
     [ObservableProperty] private string _statusText = string.Empty;
 
     /// <summary>连接失败的原因原文；成功或未连接时为空串</summary>
@@ -55,6 +58,9 @@ public partial class McpSettingsViewData : ViewModelBase
 
     /// <summary>选中的是 HTTP（地址与请求头据此显隐）</summary>
     public bool IsHttp => TransportIndex != 0;
+
+    /// <summary>选中的是直挂（server 自述开关据此显隐：按需模式的自述由 McpHelp 返回，与它无关）</summary>
+    public bool IsDirectMount => MountModeIndex == (int)EMcpMountMode.Direct;
 
     /// <summary>标准配置文件路径（可直接编辑或整段替换）</summary>
     public string ConfigFilePath => McpManager.ConfigFilePath;
@@ -91,15 +97,27 @@ public partial class McpSettingsViewData : ViewModelBase
         foreach (string path in McpManager.Instance.GetTrustedWorkspaces().OrderBy(x => x, StringComparer.Ordinal))
         {
             TrustedWorkspaces.Add(new McpTrustedWorkspaceItem(path,
-                new RelayCommand(() => RevokeWorkspace(path))));
+                new RelayCommand(() => RevokeWorkspace(path)), LoadWorkspaceServers(path)));
         }
 
         HasTrustedWorkspaces = TrustedWorkspaces.Count > 0;
     }
 
+    /// 某个已授权工作区的 .mcp.json 里有哪些项目级 server（送达方式的唯一编辑处）
+    private static List<McpWorkspaceServerItem> LoadWorkspaceServers(string workspacePath)
+    {
+        return McpManager.Instance.GetEffectiveServers(workspacePath)
+            .Select(x => x.Config)
+            .Where(x => x.IsWorkspaceScoped)
+            .OrderBy(x => x.Name, StringComparer.Ordinal)
+            .Select(x => new McpWorkspaceServerItem(x))
+            .ToList();
+    }
+
     partial void OnSelectedServerChanged(McpServerConfig? value)
     {
         TransportIndex = value == null ? 0 : (int)value.TransportType;
+        MountModeIndex = value == null ? (int)EMcpMountMode.OnDemand : (int)value.MountMode;
         ArgsText = value == null ? string.Empty : string.Join('\n', value.Args);
         EnvText = FormatPairs(value?.EnvironmentVariables);
         HeadersText = FormatPairs(value?.Headers);
@@ -110,6 +128,11 @@ public partial class McpSettingsViewData : ViewModelBase
     {
         OnPropertyChanged(nameof(IsStdio));
         OnPropertyChanged(nameof(IsHttp));
+    }
+
+    partial void OnMountModeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsDirectMount));
     }
 
     [RelayCommand]
@@ -177,6 +200,7 @@ public partial class McpSettingsViewData : ViewModelBase
         if (SelectedServer == null) return false;
 
         SelectedServer.TransportType = (EMcpTransportType)Math.Clamp(TransportIndex, 0, 1);
+        SelectedServer.MountMode = (EMcpMountMode)Math.Clamp(MountModeIndex, 0, 1);
         SelectedServer.Args = ParseLines(ArgsText);
         SelectedServer.EnvironmentVariables = ParsePairs(EnvText);
         SelectedServer.Headers = ParsePairs(HeadersText);
@@ -254,11 +278,44 @@ public partial class McpSettingsViewData : ViewModelBase
 /// </summary>
 /// <param name="Path">工作区绝对路径</param>
 /// <param name="RevokeCommand">撤销这个工作区的授权</param>
-public sealed record McpTrustedWorkspaceItem(string Path, IRelayCommand RevokeCommand)
+/// <param name="Servers">这个工作区 .mcp.json 里的项目级 server</param>
+public sealed record McpTrustedWorkspaceItem(string Path, IRelayCommand RevokeCommand,
+    IReadOnlyList<McpWorkspaceServerItem> Servers)
 {
+    /// <summary>该工作区是否有项目级 server 可切换送达方式</summary>
+    public bool HasServers => Servers.Count > 0;
+
     /// <summary>目录名（主行）</summary>
     public string Name => WorkspaceDisplay.NameOf(Path);
 
     /// <summary>父路径（副行，已折叠 home 前缀）</summary>
     public string Parent => WorkspaceDisplay.ParentOf(Path);
+}
+
+/// <summary>
+/// 一个项目级 MCP server 的送达方式开关。项目级配置是入库共享的 <c>.mcp.json</c>，
+/// 送达方式属于这台机器的偏好，所以存本机账本（<c>McpWorkspaceMountStore</c>），改动立即生效、不写回项目。
+/// </summary>
+public sealed partial class McpWorkspaceServerItem : ObservableObject
+{
+    private readonly string _workspacePath;
+
+    /// <summary>server 名</summary>
+    public string Name { get; }
+
+    /// <summary>直挂（关闭即按需，默认）</summary>
+    [ObservableProperty] private bool _isDirect;
+
+    public McpWorkspaceServerItem(McpServerConfig config)
+    {
+        Name = config.Name;
+        _workspacePath = config.WorkspacePath!;
+        // 直接写字段：构造期赋初值不该被当成一次用户改动而回写账本
+        _isDirect = config.MountMode == EMcpMountMode.Direct;
+    }
+
+    partial void OnIsDirectChanged(bool value)
+    {
+        McpManager.Instance.SetMountMode(Name, _workspacePath, value ? EMcpMountMode.Direct : EMcpMountMode.OnDemand);
+    }
 }

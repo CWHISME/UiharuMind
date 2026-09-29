@@ -2407,6 +2407,39 @@
     <data name="AgentMcpInjectInstructionsTip" xml:space="preserve">
         <value>server 可以附一段说明，讲它那套工具该怎么配合使用。这段要占上下文——关掉则保留工具、不要说明。</value>
     </data>
+    <data name="AgentMcpMountMode" xml:space="preserve">
+        <value>送达方式</value>
+    </data>
+    <data name="AgentMcpMountModeOnDemand" xml:space="preserve">
+        <value>按需（推荐）</value>
+    </data>
+    <data name="AgentMcpMountModeDirect" xml:space="preserve">
+        <value>直挂</value>
+    </data>
+    <data name="AgentMcpMountModeTip" xml:space="preserve">
+        <value>这个 server 的工具怎么送到模型手里。按需：工具定义不进请求，模型用 McpHelp 查、用 McpCall 调，中途连上或断开都不会让提示缓存失效。直挂：每个工具定义随每次请求发送——适合工具少而天天用的 server。</value>
+    </data>
+    <data name="AgentMcpDescription" xml:space="preserve">
+        <value>一句话说明</value>
+    </data>
+    <data name="AgentMcpDescriptionTip" xml:space="preserve">
+        <value>按需模式下写进系统提示的一行说明，让模型知道什么时候该去查这个 server。</value>
+    </data>
+    <data name="AgentMcpDescriptionPlaceholder" xml:space="preserve">
+        <value>例如：GitHub 的 issue 与 PR</value>
+    </data>
+    <data name="AgentMcpWorkspaceServersTip" xml:space="preserve">
+        <value>项目级 server 来自项目里的 .mcp.json。送达方式是这台机器的偏好，不会写回那个文件。</value>
+    </data>
+    <data name="AgentMcpWorkspaceDirectTip" xml:space="preserve">
+        <value>让这个 server 的工具随每次请求直接发送，而不是按需查找。</value>
+    </data>
+    <data name="AgentCapabilityMcpOnDemand" xml:space="preserve">
+        <value>按需</value>
+    </data>
+    <data name="AgentCapabilityMcpOnDemandSummary" xml:space="preserve">
+        <value>按需 · {0} · 用到时才查工具</value>
+    </data>
     <data name="AgentMcpAdvancedTitle" xml:space="preserve">
         <value>配置文件与项目级授权</value>
     </data>

@@ -254,13 +254,20 @@ public sealed class AgentMcpServerToggle : AgentBlacklistToggle
     /// <summary>已取回的工具数;未连上时为 0</summary>
     public int ToolCount { get; }
 
+    /// <summary>按需送达（工具不进 tools，占用只剩名单里的一行）；界面据此换掉「N tools」</summary>
+    public bool IsOnDemand { get; }
+
     public AgentMcpServerToggle(McpServerConfig server, McpServerStatus status, AgentToolConfig tools)
         : base(server.Name, DescribeTransport(server), tools.DisabledMcpServers)
     {
         IsHosted = server.IsEnabled;
         ToolCount = status.ToolCount;
-        // 没连上就算不出:schema 才是占用的主体,而 schema 得连上才有。此时显示「—」而不是 0
-        EstimatedTokens = status.EstimatedTokens;
+        IsOnDemand = server.IsOnDemand;
+        // 直挂:没连上就算不出——schema 才是占用的主体,而 schema 得连上才有。此时显示「—」而不是 0。
+        // 按需:工具定义不进 tools,常驻的只有系统提示名单里那一行(名字 + 说明),与技能广告行同口径
+        EstimatedTokens = server.IsOnDemand
+            ? ToolTokenEstimator.EstimateText(server.Name) + ToolTokenEstimator.EstimateText(server.Description)
+            : status.EstimatedTokens;
     }
 
     private static string DescribeTransport(McpServerConfig server)

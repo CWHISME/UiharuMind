@@ -9,6 +9,7 @@
 
 using System.Text;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Execution.Prompts;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Core.Core.SimpleLog;
 
@@ -39,11 +40,20 @@ internal static class McpToolSetBuilder
     /// 只改一边的话，"没被改的那个"是哪一个取决于遍历顺序，等于把不确定性藏得更深。
     /// 归属靠分组记账，不靠名字，所以不撞名时没有任何理由动它。
     /// </summary>
-    /// <param name="resolved">已取到工具的 server</param>
+    /// <param name="resolved">已取到工具的直挂 server</param>
+    /// <param name="onDemand">按需 server（只含配置信息）；非空时挂上元工具并写入名单</param>
+    /// <param name="metaTools">元工具（McpHelp / McpCall）；仅在 <paramref name="onDemand"/> 非空时使用</param>
+    /// <param name="spillDirectory">
+    /// 直挂工具结果的落盘目录；给了就给每个直挂工具套上结果整形（解包 CallToolResult、超限落盘），
+    /// null 则原样挂（纯函数单测用）
+    /// </param>
     /// <returns>工具集、分组明细与拼好的自述</returns>
-    public static McpToolSet Build(IReadOnlyList<ResolvedMcpServer> resolved)
+    public static McpToolSet Build(IReadOnlyList<ResolvedMcpServer> resolved,
+        IReadOnlyList<McpOnDemandServer>? onDemand = null, IReadOnlyList<AIFunction>? metaTools = null,
+        string? spillDirectory = null)
     {
-        if (resolved.Count == 0) return McpToolSet.Empty;
+        onDemand ??= [];
+        if (resolved.Count == 0 && onDemand.Count == 0) return McpToolSet.Empty;
 
         // 先统计原名分布:只在跨 server 重复时才动名字
         Dictionary<string, int> nameOwners = new(StringComparer.Ordinal);
@@ -70,6 +80,7 @@ internal static class McpToolSetBuilder
                 bool collides = nameOwners.GetValueOrDefault(tool.Name) > 1;
                 string finalName = collides ? $"{SanitizePrefix(server.Config.Name)}_{tool.Name}" : tool.Name;
                 AIFunction mounted = collides ? new RenamedMcpFunction(tool, finalName) : tool;
+                if (spillDirectory != null) mounted = new McpResultFunction(mounted, spillDirectory, server.Config.Name);
 
                 ToolTokenBreakdown parts = ToolTokenEstimator.Breakdown(mounted);
                 groupParts = new ToolTokenBreakdown(groupParts.Name + parts.Name,
@@ -109,13 +120,53 @@ internal static class McpToolSetBuilder
             });
         }
 
+        totalTokens += AppendOnDemand(onDemand, metaTools, tools, groups, instructions);
+
         return new McpToolSet
         {
             Tools = tools,
+            OnDemandServers = onDemand,
             Groups = groups,
             Instructions = instructions.ToString(),
             EstimatedTokens = totalTokens,
         };
+    }
+
+    /// <summary>
+    /// 并入按需部分：元工具、系统提示里的名单、每个 server 一条无工具明细的分组。
+    /// 返回它带来的固定开销（元工具定义 + 名单文本），计入总占用——按需省的是工具定义，
+    /// 但这笔恒定的开销也得让用户看见。
+    /// </summary>
+    private static int AppendOnDemand(IReadOnlyList<McpOnDemandServer> onDemand, IReadOnlyList<AIFunction>? metaTools,
+        List<AITool> tools, List<McpServerToolGroup> groups, StringBuilder instructions)
+    {
+        if (onDemand.Count == 0) return 0;
+
+        int overhead = 0;
+        if (metaTools != null)
+        {
+            tools.AddRange(metaTools);
+            overhead += ToolTokenEstimator.Estimate(metaTools);
+        }
+
+        string roster = AgentToolPrompts.BuildMcpOnDemand(
+            onDemand.Select(x => (x.Name, x.Description)).ToList());
+        if (instructions.Length > 0) instructions.Append("\n\n");
+        instructions.Append(roster);
+        overhead += ToolTokenEstimator.EstimateText(roster);
+
+        foreach (McpOnDemandServer server in onDemand)
+        {
+            groups.Add(new McpServerToolGroup
+            {
+                ServerName = server.Name,
+                WorkspacePath = server.WorkspacePath,
+                MountMode = EMcpMountMode.OnDemand,
+                Tools = [],
+            });
+        }
+
+        return overhead;
     }
 
     /// <summary>
