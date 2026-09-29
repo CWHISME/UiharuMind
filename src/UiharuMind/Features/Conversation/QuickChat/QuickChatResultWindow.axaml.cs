@@ -97,7 +97,6 @@ public partial class QuickChatResultWindow : QuickWindowBase
         private set
         {
             InAnswerPanel.IsVisible = !value;
-            LoadingEffect.IsLoading = !value;
             RegenerateButton.IsVisible = value;
             ToolPanel.IsVisible = value;
             ResultTextBlock.IsPlaintext =

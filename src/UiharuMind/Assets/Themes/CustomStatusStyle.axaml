@@ -10,6 +10,11 @@
         颜色、直径、暗色主题下的表现却各不相同。统一收在这里。
     -->
 
+    <!-- 忙碌转圈。颜色取自 ThemeColors，明暗主题各有一套 -->
+    <Style Selector="SpinnerIcon">
+        <Setter Property="Foreground" Value="{DynamicResource SpinnerRunningBrush}" />
+    </Style>
+
     <!-- 状态圆点。颜色走 Tag，语义色取自 ThemeColors，明暗主题各有一套 -->
     <Style Selector="Border.status-dot">
         <Setter Property="Width" Value="8" />

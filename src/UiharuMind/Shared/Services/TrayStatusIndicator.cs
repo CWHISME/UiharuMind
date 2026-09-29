@@ -23,6 +23,7 @@ using UiharuMind.Core.Core.SimpleLog;
 using UiharuMind.Resources.Lang;
 using UiharuMind.Generated;
 using UiharuMind.Shared.Services;
+using UiharuMind.Shared.Spinner;
 using UiharuMind.Shared.Utils;
 
 namespace UiharuMind.Shared.Services;
@@ -53,15 +54,11 @@ public enum ETrayStatus
 ///   素图是纯黑剪影 + alpha，正好满足 template 素材要求。状态用动画表达：
 ///   Idle 静态纯花，Running 旋转（12 帧），AwaitingApproval 晃动（左右摆）。
 /// - Windows 没有反色机制，黑剪影在深色任务栏会看不见，保留彩色底图 +
-///   右下角白环彩点（蓝=运行 / 橙=待审批）。
+///   右下角白环彩点（粉=运行 / 橙=待审批）。
 /// </summary>
 public sealed class TrayStatusIndicator : IDisposable
 {
-    // 动画帧率与帧数。10fps 已是「在转」，再高只烧
-    private const int RotationFrameCount = 12;
-    private const int AnimIntervalMs = 100;
-
-    private static readonly SKColor RunningColor = new(0x4C, 0x8D, 0xF6);
+    private static readonly SKColor RunningColor = new(0xE8, 0x55, 0x9A);
     private static readonly SKColor ApprovalColor = new(0xF2, 0x99, 0x3D);
 
     private readonly TrayIcon? _trayIcon;
@@ -75,8 +72,8 @@ public sealed class TrayStatusIndicator : IDisposable
     private WindowIcon?[] _macRunningFrames = [];
     private WindowIcon?[] _macAlertFrames = [];
     private WindowIcon?[] _activeFrames = []; //当前在播的帧序列,OnAnimTick 只认它
-    private readonly DispatcherTimer? _animTimer;
-    private int _animIndex;
+    private bool _clockSubscribed; //是否已订阅 SpinClock;托盘与应用内转圈共用它,两边才转得一致
+    private long _shownFrame = -1; //当前托盘上显示的帧号;轮询比帧时长短,同一帧不重复换图
 
     private ETrayStatus _current = (ETrayStatus)(-1); //哨兵:首次 Refresh 必然不同,强制把图标落上去
     private bool _disposed;
@@ -101,10 +98,8 @@ public sealed class TrayStatusIndicator : IDisposable
                 // 三态统一用纯花(镂空):Idle 静态,动画帧绕质心旋转/摆动
                 _macIdle = IconUtils.LoadWindowIconFromAsset("TrayFlowerIdle.png");
                 using SKBitmap flower = TrayFrameBuilder.DecodeAsset("TrayFlowerIdle.png");
-                _macRunningFrames = TrayFrameBuilder.BuildRotationFrames(flower, RotationFrameCount);
+                _macRunningFrames = TrayFrameBuilder.BuildRotationFrames(flower, SpinClock.FrameCount);
                 _macAlertFrames = TrayFrameBuilder.BuildWobbleFrames(flower);
-                _animTimer = new DispatcherTimer(
-                    TimeSpan.FromMilliseconds(AnimIntervalMs), DispatcherPriority.Normal, OnAnimTick);
             }
             else
             {
@@ -130,7 +125,7 @@ public sealed class TrayStatusIndicator : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _animTimer?.Stop();
+        SetClockSubscribed(false);
         SessionManager.Instance.Running.StateChanged -= OnStateChanged;
         BackgroundSubAgentDispatcher.PendingWorkChanged -= OnStateChanged;
     }
@@ -186,16 +181,27 @@ public sealed class TrayStatusIndicator : IDisposable
             ETrayStatus.AwaitingApproval => _macAlertFrames,
             _ => [],
         };
-        _animIndex = 0;
-        _trayIcon.Icon = _activeFrames.Length > 0 ? _activeFrames[0] : _macIdle;
-        if (_activeFrames.Length > 0) _animTimer?.Start(); else _animTimer?.Stop();
+        _shownFrame = SpinClock.Frame;
+        _trayIcon.Icon = _activeFrames.Length > 0 ? FrameAt(_shownFrame) : _macIdle;
+        SetClockSubscribed(_activeFrames.Length > 0);
     }
 
-    private void OnAnimTick(object? sender, EventArgs e)
+    private void SetClockSubscribed(bool subscribed)
     {
-        if (_trayIcon == null) return; //timer 仅在 macOS 分支创建,彼时图标必然已就位
-        if (_activeFrames.Length == 0) return;
-        _animIndex = (_animIndex + 1) % _activeFrames.Length;
-        if (_activeFrames[_animIndex] is { } icon) _trayIcon.Icon = icon;
+        if (subscribed == _clockSubscribed) return;
+        _clockSubscribed = subscribed;
+        if (subscribed) SpinClock.Ticked += OnAnimTick; else SpinClock.Ticked -= OnAnimTick;
+    }
+
+    // 帧号取自共用时钟而不是自己数:这样应用内转圈图标与本图标永远同相
+    private WindowIcon? FrameAt(long frame) => _activeFrames[(int)(frame % _activeFrames.Length)];
+
+    private void OnAnimTick()
+    {
+        long frame = SpinClock.Frame;
+        if (_trayIcon == null || _activeFrames.Length == 0 || frame == _shownFrame) return;
+
+        _shownFrame = frame;
+        if (FrameAt(frame) is { } icon) _trayIcon.Icon = icon;
     }
 }

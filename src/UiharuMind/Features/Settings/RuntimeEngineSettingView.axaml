@@ -69,7 +69,7 @@
                                 Content="{loc:Loc CheckUpdate}"
                                 Command="{Binding UpdateRemoteVersionsCommand}" />
                         <StackPanel Grid.Column="4" Orientation="Horizontal" IsVisible="{Binding IsCheckingForUpdate}">
-                            <u:LoadingIcon />
+                            <SpinnerIcon VerticalAlignment="Center" Margin="0,0,6,0" />
                             <TextBlock Text="{loc:Loc CheckingForUpdates}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>

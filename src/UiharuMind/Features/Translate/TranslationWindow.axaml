@@ -21,7 +21,7 @@
                     <TextBlock Text="{loc:Loc Translation}" FontSize="20" Margin="0,4.5,5,0"
                                TextAlignment="Center" />
                     <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
-                        <u:LoadingIcon Name="LoadingEffect" />
+                        <SpinnerIcon VerticalAlignment="Center" />
                         <!-- <Button Content="🛑" Classes="SimpleSolidButton" Foreground="Red" -->
                         <!--         Click="OnStopButtonClick" /> -->
                         <ThemedIconButton Classes="SimpleSolidButton" Click="OnStopButtonClick" IconName="stop"  CurrentColor="Red"/>

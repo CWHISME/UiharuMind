@@ -101,7 +101,6 @@ public partial class TranslationWindow : UiharuWindowBase
         private set
         {
             InAnswerPanel.IsVisible = !value;
-            LoadingEffect.IsLoading = !value;
             RegenerateButton.IsVisible = value;
         }
     }

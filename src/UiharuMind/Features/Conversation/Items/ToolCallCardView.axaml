@@ -14,20 +14,6 @@
          复制一份的结果就是两边观感不一致。样式随组件走,复制不出去也就飘不了。 -->
     <UserControl.Styles>
         <!-- result-panel 已提到 Assets/Themes/CustomStatusStyle.axaml，全局共用 -->
-        <!-- 选择器带 .running:IsVisible=false 只是不画,动画仍在每帧写 RotateTransform.Angle,
-             而一条长会话里跑完的工具卡片会累积到几十张。类不在时样式整条不命中,动画也就不存在 -->
-        <Style Selector="Border.spin.running">
-            <Style.Animations>
-                <Animation Duration="0:0:1.2" IterationCount="INFINITE">
-                    <KeyFrame Cue="0%">
-                        <Setter Property="RotateTransform.Angle" Value="0" />
-                    </KeyFrame>
-                    <KeyFrame Cue="100%">
-                        <Setter Property="RotateTransform.Angle" Value="360" />
-                    </KeyFrame>
-                </Animation>
-            </Style.Animations>
-        </Style>
         <Style Selector="SelectableTextBlock.muted">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource SemiGrey5}" />
@@ -84,19 +70,13 @@
                             <!-- 已派出 / 结果待回:工具调用早就返回了(后台化,见 ADR 0025),
                                  但这次委派还没交回报告。少了这一档,卡片在派出后一秒就显示成功 -->
                             <TextBlock FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SemiBlue5}"
+                                       Foreground="{DynamicResource SpinnerRunningBrush}"
                                        Text="{loc:Loc ToolCallAwaitingReport}"
                                        IsVisible="{Binding IsAwaitingReport}" />
-                            <Border Classes="spin" Classes.running="{Binding IsRunning}"
-                                    Width="12" Height="12" IsVisible="{Binding IsRunning}">
-                                <TextBlock Text="◠" FontSize="11"
-                                           Foreground="{DynamicResource SemiBlue5}" />
-                            </Border>
-                            <Border Classes="spin" Classes.running="{Binding IsAwaitingReport}"
-                                    Width="12" Height="12" IsVisible="{Binding IsAwaitingReport}">
-                                <TextBlock Text="◠" FontSize="11"
-                                           Foreground="{DynamicResource SemiBlue5}" />
-                            </Border>
+                            <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center"
+                                         IsVisible="{Binding IsRunning}" />
+                            <SpinnerIcon Width="12" Height="12" VerticalAlignment="Center"
+                                         IsVisible="{Binding IsAwaitingReport}" />
                             <Border Classes="status-dot" Tag="Ready">
                                 <Border.IsVisible>
                                     <MultiBinding Converter="{x:Static BoolConverters.And}">

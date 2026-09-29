@@ -20,7 +20,7 @@
             <DockPanel LastChildFill="False">
                 <TextBlock Name="TitleTextBlock" FontSize="20" Margin="0,4.5,5,0" TextAlignment="Center" />
                 <StackPanel Name="InAnswerPanel" Orientation="Horizontal">
-                    <u:LoadingIcon Name="LoadingEffect" />
+                    <SpinnerIcon VerticalAlignment="Center" />
                     <ThemedIconButton Classes="SimpleSolidButton" Click="OnStopButtonClick" IconName="stop"  CurrentColor="Red"/>
                 </StackPanel>
                 <ThemedIconButton Name="RegenerateButton" Click="OnRegenerateButtonClick" Classes="CircleButton" IconName="repeat" />
