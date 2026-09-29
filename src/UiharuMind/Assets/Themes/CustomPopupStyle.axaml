@@ -1,0 +1,13 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
+
+    <!--
+        弹出层出现动画。选择器与 Semi 的 SemiPopupAnimations 相同(Popup 内的 PART_LayoutTransform)，
+        它在 PopupRoot 与 OverlayPopupHost 两套模板里都存在，下拉框、菜单、Flyout、提示因此一并覆盖。
+        为什么不直接用 SemiPopupAnimations 见 PopupReveal 的注释。
+    -->
+    <Style Selector="Popup LayoutTransformControl#PART_LayoutTransform">
+        <Setter Property="controls:PopupReveal.IsEnabled" Value="True" />
+    </Style>
+</Styles>
