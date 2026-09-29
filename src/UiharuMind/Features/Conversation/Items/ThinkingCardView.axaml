@@ -30,7 +30,7 @@
             MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
             Converter={x:Static AddConverter.Instance},
             ConverterParameter=-10}">
-        <StackPanel Spacing="6">
+        <StackPanel>
             <Grid ColumnDefinitions="*,Auto">
                 <!-- 预览截断后的「查看全文」入口。截断显示的是头部,想看最新与全量开全文窗。
                      与 ToolCallCardView 同结构:按钮与 ToggleButton 是兄弟,点了不会切换折叠 -->
@@ -67,8 +67,10 @@
                     </Grid>
                 </ToggleButton>
             </Grid>
-            <SelectableTextBlock Classes="muted" IsVisible="{Binding IsExpanded}"
-                                 Text="{Binding Message}" TextWrapping="Wrap" />
+            <ExpandReveal IsOpen="{Binding IsExpanded}">
+                <SelectableTextBlock Classes="muted" Margin="0,6,0,0"
+                                     Text="{Binding Message}" TextWrapping="Wrap" />
+            </ExpandReveal>
         </StackPanel>
     </Border>
 

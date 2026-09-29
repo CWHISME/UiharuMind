@@ -205,7 +205,7 @@
                                 MaxWidth="{Binding $parent[ItemsControl].Bounds.Width,
                                 Converter={x:Static AddConverter.Instance},
                                 ConverterParameter=-10}">
-                            <StackPanel Spacing="6">
+                            <StackPanel>
                                 <ToggleButton Classes="NoneStyle" Cursor="Hand" MaxHeight="32"
                                               Background="Transparent" Padding="0"
                                               BorderThickness="0" IsChecked="{Binding IsExpanded}"
@@ -226,8 +226,10 @@
                                         </ThemedSvgIcon>
                                     </Grid>
                                 </ToggleButton>
-                                <SelectableTextBlock Classes="muted" IsVisible="{Binding IsExpanded}"
-                                                     Text="{Binding Message}" TextWrapping="Wrap" />
+                                <ExpandReveal IsOpen="{Binding IsExpanded}">
+                                    <SelectableTextBlock Classes="muted" Margin="0,6,0,0"
+                                                         Text="{Binding Message}" TextWrapping="Wrap" />
+                                </ExpandReveal>
                             </StackPanel>
                         </Border>
                     </DataTemplate>
