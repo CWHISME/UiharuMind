@@ -28,15 +28,13 @@ public partial class GroupAddMembersWindowModel : ObservableObject
     /// <param name="preselected">预先勾上的角色（从「已退出」点加回时是他）；没有为 null</param>
     public GroupAddMembersWindowModel(ChatSession group, CharacterData? preselected = null)
     {
-        HashSet<string> present = SessionManager.MemberMetasOf(group).Select(x => x.CharacterId).ToHashSet();
-        Dictionary<string, string?> formerModels = GroupMembership.FormerMetasOf(group)
-            .GroupBy(x => x.CharacterId)
-            .ToDictionary(x => x.Key, x => x.First().SessionModelName);
+        GroupRoster roster = GroupRoster.Of(group);
+        HashSet<string> present = roster.Present.Select(x => x.Meta.CharacterId).ToHashSet();
+        Dictionary<string, string?> formerModels = roster.Former
+            .GroupBy(x => x.Meta.CharacterId)
+            .ToDictionary(x => x.Key, x => x.First().Meta.SessionModelName);
         // 退群的人照样列出，哪怕后来被屏蔽了：他就在这个群的历史里
-        List<CharacterData> formerCharacters = formerModels.Keys
-            .Select(id => CharacterManager.Instance.GetCharacterData(id))
-            .OfType<CharacterData>()
-            .ToList();
+        List<CharacterData> formerCharacters = roster.Former.Select(x => x.Character).ToList();
         Picker = new GroupCandidatePicker(formerCharacters, present, formerModels.Keys.ToHashSet());
         Picker.PickedChanged += () => OnPropertyChanged(nameof(CanAdd));
         // 加回的人默认沿用他原来钉的模型

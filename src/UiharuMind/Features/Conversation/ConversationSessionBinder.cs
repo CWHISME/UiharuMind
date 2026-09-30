@@ -90,9 +90,12 @@ public sealed class ConversationSessionBinder
         ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
         if (session == null) return null;
 
-        session.WorkspacePath = workspacePath;
-        // 群成员的权限档跟群走，不认界面上这一份（成员窗口里那颗按钮只读）
-        session.PermissionModeIndex = session.IsGroupMember ? GroupChatSessions.PermissionOf(session) : permissionModeIndex;
+        // 群成员的工作区与权限档跟群走、装配时现取（GroupChatSessions.WorkspaceOf / PermissionOf），不认界面上这一份
+        if (!session.IsGroupMember)
+        {
+            session.WorkspacePath = workspacePath;
+            session.PermissionModeIndex = permissionModeIndex;
+        }
         // 回调要在 AttachAsync **之前**挂上:装配就发生在它里面,预连也在那儿,
         // 挂在后面的话第一次等待(恰好是唯一会等满十秒的那次)一声不响
         WatchBusy(session.Runner);
@@ -108,14 +111,15 @@ public sealed class ConversationSessionBinder
     {
         ChatSession? session = SessionManager.Instance.Load(meta.SessionId);
         if (session == null) return;
-        session.WorkspacePath = meta.WorkspacePath;
-        if (!session.IsGroupMember) session.PermissionModeIndex = meta.PermissionModeIndex; //成员跟群走
+        if (!session.IsGroupMember) //成员跟群走，不存副本
+        {
+            session.WorkspacePath = meta.WorkspacePath;
+            session.PermissionModeIndex = meta.PermissionModeIndex;
+        }
         session.SessionModelName = meta.SessionModelName;
         session.SaveMeta(); //只动头字段,不必重写整份历史
-        // 群改了权限档：当场推给成员，正在跑的那一轮下一条调用就按新档审批；工作区同理
-        if (!session.IsGroup) return;
-        GroupChatSessions.ApplyPermissionToMembers(session);
-        GroupChatSessions.ApplyWorkspaceToMembers(session);
+        // 群改了权限档：成员现取，正在跑的那一轮下一条调用就按新档审批；只需让打开着的成员窗口刷新显示
+        GroupChatSessions.NotifyPermissionChanged(session);
     }
 
     /// <summary>

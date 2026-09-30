@@ -185,30 +185,13 @@ public class SessionManager : Singleton<SessionManager>, IInitialize
     }
 
     /// <summary>
-    /// 某个群的成员会话（无序；发言顺序以群壳上的 <see cref="ChatSession.GroupMemberSessionIds"/> 为准）
+    /// 某个群的成员会话，含已退群的（无序）。要「谁在群里」问 <see cref="Group.GroupRoster"/>，别在这上面自己筛
     /// </summary>
     /// <param name="groupId">群壳会话标识</param>
     /// <returns>成员会话元数据</returns>
     public List<ChatSessionMeta> GetGroupMembers(string groupId)
     {
         lock (_locker) return _metas.Values.Where(x => x.GroupId == groupId).ToList();
-    }
-
-    /// <summary>
-    /// 一个群壳的成员会话元数据，按发言顺序（<see cref="ChatSession.GroupMemberSessionIds"/>），
-    /// 已删的成员会话跳过。右栏成员列表、群场景段、投递渲染共用这一份名单，别各写各的解引用
-    /// </summary>
-    /// <param name="group">群壳会话</param>
-    /// <returns>成员元数据，发言顺序；不是群壳为空</returns>
-    public static IReadOnlyList<ChatSessionMeta> MemberMetasOf(ChatSession group)
-    {
-        if (!group.IsGroup) return [];
-        List<ChatSessionMeta> metas = [];
-        foreach (string id in group.GroupMemberSessionIds)
-        {
-            if (Instance.GetMeta(id) is { } meta) metas.Add(meta);
-        }
-        return metas;
     }
 
     /// <summary>

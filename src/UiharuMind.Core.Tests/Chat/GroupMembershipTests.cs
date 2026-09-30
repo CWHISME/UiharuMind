@@ -33,7 +33,7 @@ public class GroupMembershipTests
     {
         _group.GroupHostSessionId = _bob.SessionId;
 
-        Assert.True(GroupMembership.Remove(_group, _bob, Load));
+        Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Remove(_group, _bob, _coordinator));
 
         Assert.Equal([_alice.SessionId], _group.GroupMemberSessionIds);
         Assert.Null(_group.GroupHostSessionId);
@@ -48,15 +48,34 @@ public class GroupMembershipTests
     [Fact]
     public void Remove_RefusesTheLastMember()
     {
-        Assert.True(GroupMembership.Remove(_group, _bob, Load));
-        Assert.False(GroupMembership.Remove(_group, _alice, Load));
+        Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Remove(_group, _bob, _coordinator));
+        Assert.Equal(EGroupRosterEdit.Refused, GroupMembership.Remove(_group, _alice, _coordinator));
         Assert.Equal([_alice.SessionId], _group.GroupMemberSessionIds);
+    }
+
+    /// <summary>名单的判断与修改在开波那把锁里：跑着一波时改不动，名单原样</summary>
+    [Fact]
+    public async Task Edit_WhileAWaveIsRunning_IsRefusedAsBusy()
+    {
+        EGroupRosterEdit? during = null;
+        _runner.During[_alice.SessionId] = () =>
+        {
+            during = GroupMembership.Remove(_group, _bob, _coordinator);
+            return Task.CompletedTask;
+        };
+
+        await _coordinator.PostAsync(_group, "大家好");
+
+        Assert.Equal(EGroupRosterEdit.Busy, during);
+        Assert.Equal([_alice.SessionId, _bob.SessionId], _group.GroupMemberSessionIds);
+        Assert.False(_bob.HasLeftGroup);
+        Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Remove(_group, _bob, _coordinator)); //停下来就能改
     }
 
     [Fact]
     public async Task RemovedMember_IsNotScheduled_AndCannotPost()
     {
-        GroupMembership.Remove(_group, _bob, Load);
+        GroupMembership.Remove(_group, _bob, _coordinator);
 
         await _coordinator.PostAsync(_group, "大家好");
 
@@ -68,11 +87,11 @@ public class GroupMembershipTests
     public async Task Rejoin_Full_DeliversWhatHeMissed()
     {
         await _coordinator.PostAsync(_group, "第一句");
-        GroupMembership.Remove(_group, _bob, Load);
+        GroupMembership.Remove(_group, _bob, _coordinator);
         await _coordinator.PostAsync(_group, "他不在时说的");
         _runner.ClearCalls();
 
-        GroupMembership.Admit(_group, _bob, GroupBackfill.Full, Load);
+        GroupMembership.Admit(_group, _bob, GroupBackfill.Full, _coordinator);
         await _coordinator.ContinueAsync(_group);
 
         Assert.False(_bob.HasLeftGroup);
@@ -86,10 +105,10 @@ public class GroupMembershipTests
     public async Task Rejoin_None_StartsFromNow()
     {
         await _coordinator.PostAsync(_group, "第一句");
-        GroupMembership.Remove(_group, _bob, Load);
+        GroupMembership.Remove(_group, _bob, _coordinator);
         await _coordinator.PostAsync(_group, "他不在时说的");
 
-        GroupMembership.Admit(_group, _bob, GroupBackfill.None, Load);
+        GroupMembership.Admit(_group, _bob, GroupBackfill.None, _coordinator);
 
         Assert.Equal(_group.History.Count, _bob.GroupCursor);
     }
@@ -101,7 +120,7 @@ public class GroupMembershipTests
         ChatSession carol = Member("Carol");
         // 写摘要的人只听到了第一句之前那一截：之后的原文照常投递
         int briefedUpTo = 1;
-        GroupMembership.Admit(_group, carol, new GroupBackfill(EGroupBackfill.Summary, "（摘要）要定评审口径", briefedUpTo), Load);
+        GroupMembership.Admit(_group, carol, new GroupBackfill(EGroupBackfill.Summary, "（摘要）要定评审口径", briefedUpTo), _coordinator);
         _runner.ClearCalls();
 
         await _coordinator.ContinueAsync(_group);
@@ -123,7 +142,7 @@ public class GroupMembershipTests
         _group.History.Add(new ChatMessage(ChatRole.User, "第一句"));
         ChatSession carol = Member("Carol");
 
-        GroupMembership.Admit(_group, carol, new GroupBackfill(EGroupBackfill.Summary), Load);
+        GroupMembership.Admit(_group, carol, new GroupBackfill(EGroupBackfill.Summary), _coordinator);
 
         Assert.Equal(1, carol.GroupCursor);
         Assert.Null(carol.GroupBriefing);

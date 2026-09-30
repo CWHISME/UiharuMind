@@ -52,11 +52,9 @@ public sealed class GroupDeliveryRenderer
 
         Dictionary<string, CharacterData> speakers = new();
         // 退群的人也算：他之前的发言还在投递里
-        foreach (string id in GroupMembership.EveryMemberIdOf(group))
+        foreach (GroupRosterMember member in GroupRoster.Of(group).Everyone)
         {
-            if (SessionManager.Instance.GetMeta(id) is not { } meta) continue;
-            CharacterData character = SessionManager.CharacterOf(meta);
-            speakers.TryAdd(character.CharacterName, character);
+            speakers.TryAdd(member.Name, member.Character);
         }
 
         CharacterData user = CharacterManager.Instance.UserCharacterData;

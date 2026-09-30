@@ -6,6 +6,7 @@ using UiharuMind.Features.Conversation.Group;
 namespace UiharuMind.App.Tests.Group;
 
 /// <summary>建群之后加人的弹窗：已在群里的不列，退群的挂徽章、从「加回」进来时预先勾上</summary>
+[Collection(CharacterLibraryCollection.Name)]
 public class GroupAddMembersWindowModelTests
 {
     [Fact]
@@ -23,7 +24,7 @@ public class GroupAddMembersWindowModelTests
             ChatSession leaving = SessionManager.Instance.GetGroupMembers(group.SessionId)
                 .Select(x => SessionManager.Instance.Load(x.SessionId)!)
                 .First(x => x.CharacterId == cards[2].CharacterId);
-            Assert.True(GroupMembership.Remove(group, leaving));
+            Assert.Equal(EGroupRosterEdit.Done, GroupMembership.Remove(group, leaving));
 
             GroupAddMembersWindowModel model = new(group, cards[2]);
 

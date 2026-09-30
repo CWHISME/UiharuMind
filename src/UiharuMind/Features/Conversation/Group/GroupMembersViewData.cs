@@ -24,29 +24,28 @@ namespace UiharuMind.Features.Conversation.Group;
 /// 装载后由 <see cref="MarkSpeaking"/> 跟着调度器的发言人变化刷新，不重建实例。
 /// 顶上是调度设置与主持人，改了即写回群壳：调度下一波起生效（ADR 0049 决策 1），
 /// 主持人写在各成员的系统提示场景段里，各自下一轮开跑时重建装配生效（ADR 0048）。
-/// 名单也能改：加人、移出、加回（ADR 0046 修订「建群之后增删成员」），改完整块重建
+/// 名单也能改：加人、移出、加回（ADR 0046 修订「建群之后增删成员」）。名单是构造时的快照，
+/// 改了由群视图按 <see cref="GroupMembership.RosterChanged"/> 换一份新的
 /// </summary>
 public sealed partial class GroupMembersViewData : ObservableObject
 {
     private readonly ChatSession _group;
-    private readonly Action _rosterChanged; //名单变了：群卡、成员列表、@ 补全整块重建
     private GroupHostChoice _selectedHost;
 
     /// <summary>
     /// 构造
     /// </summary>
     /// <param name="group">群壳会话</param>
-    /// <param name="rosterChanged">名单变了之后调用（重建群视图）</param>
-    public GroupMembersViewData(ChatSession group, Action rosterChanged)
+    public GroupMembersViewData(ChatSession group)
     {
         _group = group;
-        _rosterChanged = rosterChanged;
-        Members = SessionManager.MemberMetasOf(group)
-            .Select(meta => new GroupMemberItem(meta, meta.SessionId == group.GroupHostSessionId,
+        GroupRoster roster = GroupRoster.Of(group);
+        Members = roster.Present
+            .Select(x => new GroupMemberItem(x.Meta, x.SessionId == group.GroupHostSessionId,
                 item => _ = RemoveAsync(item)))
             .ToList();
-        FormerMembers = GroupMembership.FormerMetasOf(group)
-            .Select(meta => new GroupFormerMemberItem(meta, character => _ = AddAsync(character)))
+        FormerMembers = roster.Former
+            .Select(x => new GroupFormerMemberItem(x.Meta, character => _ = AddAsync(character)))
             .ToList();
         foreach (GroupMemberItem member in Members) member.PropertyChanged += OnMemberPropertyChanged;
         HostOptions = [new GroupHostChoice(null, Loc.Text(LangKey.GroupHostNone)),
@@ -152,10 +151,11 @@ public sealed partial class GroupMembersViewData : ObservableObject
                 GroupChangePrompts.WithCacheNote(true, Loc.Text(LangKey.GroupAddConfirmFormat, names))))
             return;
 
+        GroupRoster roster = GroupRoster.Of(_group);
         List<(CharacterData Character, string? ModelName, ChatSession? Former)> picks = request.Members
             .Select((character, i) => (character, request.ModelNames[i],
-                GroupMembership.FormerOf(_group, character.CharacterId) is { } meta
-                    ? SessionManager.Instance.Load(meta.SessionId)
+                roster.FormerOf(character.CharacterId) is { } former
+                    ? SessionManager.Instance.Load(former.SessionId)
                     : null))
             .ToList();
         GroupBackfill joiner = request.Backfill == EGroupBackfill.Full ? GroupBackfill.Full : GroupBackfill.None;
@@ -166,22 +166,21 @@ public sealed partial class GroupMembersViewData : ObservableObject
             if (picks.Any(x => x.Former != null)) returner = await WriteBriefingAsync(returning: true);
         }
 
-        // 写摘要要等几秒，期间群可能又跑起来了
+        // 写摘要要等几秒，期间群可能又跑起来了：先问一声，真正的把关在改名单那把锁里，撞上了就停在已加进去的那几位
         if (!GroupChangePrompts.EnsureIdle(_group)) return;
+        bool allSeated = true;
         foreach ((CharacterData character, string? modelName, ChatSession? former) in picks)
         {
-            if (former != null)
-            {
-                former.SessionModelName = modelName;
-                GroupMembership.Admit(_group, former, returner);
-            }
-            else
-            {
-                GroupMembership.Join(_group, character, modelName, joiner);
-            }
+            if (former != null) former.SessionModelName = modelName;
+            bool seated = former != null
+                ? GroupMembership.Admit(_group, former, returner)
+                : GroupMembership.Join(_group, character, modelName, joiner) != null;
+            if (seated) continue;
+            allSeated = false;
+            break;
         }
 
-        _rosterChanged();
+        if (!allSeated) GroupChangePrompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
     }
 
     private async Task<GroupBackfill> WriteBriefingAsync(bool returning)
@@ -212,7 +211,8 @@ public sealed partial class GroupMembersViewData : ObservableObject
         if (!GroupChangePrompts.EnsureIdle(_group)) return;
         if (SessionManager.Instance.Load(item.SessionId) is not { } member) return;
 
-        if (GroupMembership.Remove(_group, member)) _rosterChanged();
+        if (GroupMembership.Remove(_group, member) == EGroupRosterEdit.Busy)
+            GroupChangePrompts.Notify(Loc.Text(LangKey.GroupEditBusy), MessageSeverity.Warning);
     }
 
     /// <summary>
@@ -380,7 +380,7 @@ public sealed partial class GroupMemberItem : ObservableObject
                     ? GroupSceneSource.For(session)
                     : string.Empty;
                 return CharacterRunnerFactory.Instance.PreviewCapabilitiesAsync(
-                    AgentBuildProfile.FromDraft(_character, _meta.WorkspacePath, _meta.PermissionModeIndex,
+                    AgentBuildProfile.FromDraft(_character, GroupChatSessions.WorkspaceOf(_meta), GroupChatSessions.PermissionOf(_meta),
                         SessionManager.IsAgentSide(_meta), scene));
             });
             _fixedTokens = snapshot.EstimatedTokens;

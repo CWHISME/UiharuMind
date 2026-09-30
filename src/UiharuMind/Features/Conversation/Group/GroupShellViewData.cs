@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
 using UiharuMind.Core.AI.Chat.Group;
@@ -15,40 +16,48 @@ namespace UiharuMind.Features.Conversation.Group;
 /// <summary>
 /// 群壳会话（ADR 0046）才有的那一份：右栏群卡、成员列表、产物区、待审批条，以及发言/继续/停止这几件
 /// 交给调度器的事。对话视图模型只在打开的是群壳时持有它（否则为 null），群相关的判断因此收成一次判空。
-/// 群壳自己不跑轮，所以这里不碰执行者
+/// 群壳自己不跑轮，所以这里不碰执行者。名单或工作区变了，成员列表与产物区就地换一份新的，不重装整个会话
 /// </summary>
-public sealed class GroupShellViewData : IDisposable
+public sealed class GroupShellViewData : ObservableObject, IDisposable
 {
     private readonly ChatSession _group;
+    private GroupMembersViewData _members;
+    private GroupArtifactsViewData _artifacts;
 
     /// <summary>
     /// 构造并挂上发言人变化的通知。装载前这一圈可能已经在跑、信号早发完了，所以构造时先补标一次
     /// </summary>
     /// <param name="group">群壳会话</param>
-    /// <param name="reload">名单变了之后重建群视图</param>
-    public GroupShellViewData(ChatSession group, Action reload)
+    public GroupShellViewData(ChatSession group)
     {
         _group = group;
-        Members = new GroupMembersViewData(group, reload);
+        _members = CreateMembers();
+        _artifacts = new GroupArtifactsViewData(group);
         Approvals = new GroupApprovalsViewData(group);
-        Artifacts = new GroupArtifactsViewData(group);
-        Members.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(group.SessionId));
-        Members.RefreshRunStates();
-        // 发言人变化（轮到谁 / 一轮结束）在后台线程上跑，处理里自行 marshal
+        // 发言人变化（轮到谁 / 一轮结束）与名单变化都可能来自后台线程，处理里自行 marshal
         GroupChatCoordinator.Instance.SpeakerChanged += OnSpeakerChanged;
+        GroupMembership.RosterChanged += OnRosterChanged;
     }
 
     /// <summary>发言人变了（已在 UI 线程上）：忙碌文案要跟着换</summary>
     public event Action? SpeakersChanged;
 
     /// <summary>右栏成员列表</summary>
-    public GroupMembersViewData Members { get; }
+    public GroupMembersViewData Members
+    {
+        get => _members;
+        private set => SetProperty(ref _members, value);
+    }
 
     /// <summary>输入区上方的待审批条</summary>
     public GroupApprovalsViewData Approvals { get; }
 
     /// <summary>右栏产物区</summary>
-    public GroupArtifactsViewData Artifacts { get; }
+    public GroupArtifactsViewData Artifacts
+    {
+        get => _artifacts;
+        private set => SetProperty(ref _artifacts, value);
+    }
 
     /// <summary>群名（右栏群卡）</summary>
     public string Title => _group.Title;
@@ -133,12 +142,44 @@ public sealed class GroupShellViewData : IDisposable
         if (Members.Contains(sessionId)) Dispatcher.UIThread.Post(() => Members.RefreshUsageOf(sessionId));
     }
 
+    /// <summary>
+    /// 群换了工作区：草稿目录跟着换（产物区重建），成员列表的装配预演也跟着工作区走
+    /// </summary>
+    public void OnWorkspaceChanged()
+    {
+        Artifacts.Dispose();
+        Artifacts = new GroupArtifactsViewData(_group);
+        Members = CreateMembers();
+    }
+
     /// <summary>摘掉订阅并弃用待审批条与产物区</summary>
     public void Dispose()
     {
         GroupChatCoordinator.Instance.SpeakerChanged -= OnSpeakerChanged;
+        GroupMembership.RosterChanged -= OnRosterChanged;
         Approvals.Dispose();
         Artifacts.Dispose();
+    }
+
+    private GroupMembersViewData CreateMembers()
+    {
+        GroupMembersViewData members = new(_group);
+        members.MarkSpeaking(GroupChatCoordinator.Instance.SpeakersOf(_group.SessionId));
+        members.RefreshRunStates();
+        return members;
+    }
+
+    // 名单变了：成员列表换新，群卡的描述与人数跟着变；退群的人写过的文件也要重新归属
+    private void OnRosterChanged(string groupId)
+    {
+        if (groupId != _group.SessionId) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Members = CreateMembers();
+            OnPropertyChanged(nameof(Description));
+            OnPropertyChanged(nameof(MemberCountText));
+            Artifacts.RefreshCommand.Execute(null);
+        });
     }
 
     private void OnSpeakerChanged(string groupId)

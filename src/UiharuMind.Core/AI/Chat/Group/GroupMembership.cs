@@ -13,8 +13,14 @@ public static class GroupMembership
     public const int MinMembers = 1;
 
     /// <summary>
+    /// 某个群的名单变了（参数为群壳会话标识）：群视图就地换新。⚠️ 可能来自任意线程，订阅方自行 marshal
+    /// </summary>
+    public static event Action<string>? RosterChanged;
+
+    /// <summary>
     /// 此刻能不能改名单或工作区：群没在跑一波，成员也没在私聊。
-    /// 调度会边跑边读名单，而一轮中途被撤要处理投递、审批被他占着，不值得
+    /// 一轮中途被撤要处理投递、审批被他占着，不值得。这是给界面先问一声的；
+    /// 名单真正的把关在 <see cref="GroupChatCoordinator.TryEditRoster"/>（判断与修改同一把锁）
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <returns>能改为 true</returns>
@@ -23,53 +29,30 @@ public static class GroupMembership
         && group.GroupMemberSessionIds.All(id => SessionManager.Instance.Running.StateOf(id) == ESessionRunState.Idle);
 
     /// <summary>
-    /// 本群已退出的成员，按入群先后
-    /// </summary>
-    /// <param name="group">群壳会话</param>
-    /// <returns>退群成员的元数据</returns>
-    public static IReadOnlyList<ChatSessionMeta> FormerMetasOf(ChatSession group) =>
-        SessionManager.Instance.GetGroupMembers(group.SessionId)
-            .Where(x => x.HasLeftGroup)
-            .OrderBy(x => x.CreatedAt)
-            .ToList();
-
-    /// <summary>
-    /// 在群里说过话的所有人：名单（发言顺序）在前，退群的在后。
-    /// 拆投递、列产物这类回看历史的地方用它——退群前说的话、写的文件还在
-    /// </summary>
-    /// <param name="group">群壳会话</param>
-    /// <returns>成员会话标识</returns>
-    public static IReadOnlyList<string> EveryMemberIdOf(ChatSession group) =>
-        [..group.GroupMemberSessionIds, ..FormerMetasOf(group).Select(x => x.SessionId)];
-
-    /// <summary>
-    /// 这个角色在本群有没有退群的会话：有就恢复那一份，同一个角色在一个群里只有一份成员会话
-    /// </summary>
-    /// <param name="group">群壳会话</param>
-    /// <param name="characterId">角色标识</param>
-    /// <returns>退群成员的元数据；没有为 null</returns>
-    public static ChatSessionMeta? FormerOf(ChatSession group, string characterId) =>
-        FormerMetasOf(group).FirstOrDefault(x => x.CharacterId == characterId);
-
-    /// <summary>
     /// 移出一位成员：摘出名单、标退群，会话留着。移掉的是主持人就改成无主持人
     /// </summary>
     /// <param name="group">群壳会话</param>
     /// <param name="member">成员会话</param>
-    /// <param name="load">按标识取会话；null 走会话管理器</param>
-    /// <returns>移出了为 true；不在名单里或只剩最后一位为 false</returns>
-    public static bool Remove(ChatSession group, ChatSession member, Func<string, ChatSession?>? load = null)
+    /// <param name="coordinator">群聊调度器（改名单要拿它的锁）；null 用应用里那一个</param>
+    /// <returns>结果；不在名单里或只剩最后一位为 <see cref="EGroupRosterEdit.Refused"/></returns>
+    public static EGroupRosterEdit Remove(ChatSession group, ChatSession member, GroupChatCoordinator? coordinator = null)
     {
-        if (group.GroupMemberSessionIds.Count <= MinMembers) return false;
-        if (!group.GroupMemberSessionIds.Remove(member.SessionId)) return false;
+        coordinator ??= GroupChatCoordinator.Instance;
+        EGroupRosterEdit result = EGroupRosterEdit.Refused;
+        bool edited = coordinator.TryEditRoster(group, () =>
+        {
+            if (group.GroupMemberSessionIds.Count <= MinMembers) return;
+            if (!group.GroupMemberSessionIds.Contains(member.SessionId)) return;
 
-        if (group.GroupHostSessionId == member.SessionId) group.GroupHostSessionId = null;
-        member.HasLeftGroup = true;
-        GroupChatCoordinator.Instance.ForgetMember(member.SessionId);
-        SyncDescription(group, load);
-        member.SaveMeta(touchUpdatedAt: false);
-        group.SaveMeta(touchUpdatedAt: false);
-        return true;
+            group.GroupMemberSessionIds = [..group.GroupMemberSessionIds.Where(x => x != member.SessionId)];
+            if (group.GroupHostSessionId == member.SessionId) group.GroupHostSessionId = null;
+            member.HasLeftGroup = true;
+            coordinator.ForgetMember(member.SessionId);
+            Save(group, member, coordinator);
+            result = EGroupRosterEdit.Done;
+        });
+        if (result == EGroupRosterEdit.Done) RosterChanged?.Invoke(group.SessionId);
+        return edited ? result : EGroupRosterEdit.Busy;
     }
 
     /// <summary>
@@ -79,16 +62,24 @@ public static class GroupMembership
     /// <param name="character">角色（须能进群，见 <see cref="GroupChatSessions.CanJoin"/>）</param>
     /// <param name="modelName">钉选的模型名；null 跟随全局</param>
     /// <param name="backfill">补历史的方式</param>
-    /// <returns>新成员会话</returns>
+    /// <param name="coordinator">群聊调度器；null 用应用里那一个</param>
+    /// <returns>新成员会话；群正在跑一波为 null（什么都没建）</returns>
     /// <exception cref="ArgumentException">角色进不了群</exception>
-    public static ChatSession Join(ChatSession group, CharacterData character, string? modelName, GroupBackfill backfill)
+    public static ChatSession? Join(ChatSession group, CharacterData character, string? modelName, GroupBackfill backfill,
+        GroupChatCoordinator? coordinator = null)
     {
         if (!GroupChatSessions.CanJoin(character))
             throw new ArgumentException($"'{character.CharacterName}' cannot join a group.", nameof(character));
 
+        coordinator ??= GroupChatCoordinator.Instance;
         ChatSession member = GroupChatSessions.NewMember(group, character, modelName);
-        SessionManager.Instance.Add(member);
-        Admit(group, member, backfill);
+        bool edited = coordinator.TryEditRoster(group, () =>
+        {
+            SessionManager.Instance.Add(member);
+            Seat(group, member, backfill, coordinator);
+        });
+        if (!edited) return null;
+        RosterChanged?.Invoke(group.SessionId);
         return member;
     }
 
@@ -100,41 +91,16 @@ public static class GroupMembership
     /// <param name="group">群壳会话</param>
     /// <param name="member">成员会话（<see cref="ChatSession.GroupId"/> 已指向本群）</param>
     /// <param name="backfill">补历史的方式</param>
-    /// <param name="load">按标识取会话；null 走会话管理器</param>
-    public static void Admit(ChatSession group, ChatSession member, GroupBackfill backfill,
-        Func<string, ChatSession?>? load = null)
+    /// <param name="coordinator">群聊调度器；null 用应用里那一个</param>
+    /// <returns>放进去了为 true；群正在跑一波为 false</returns>
+    public static bool Admit(ChatSession group, ChatSession member, GroupBackfill backfill,
+        GroupChatCoordinator? coordinator = null)
     {
-        switch (backfill.Mode)
-        {
-            case EGroupBackfill.Full:
-                break;
-            case EGroupBackfill.Summary when backfill.Briefing != null:
-                member.GroupCursor = Math.Max(member.GroupCursor, Math.Clamp(backfill.BriefedUpTo, 0, group.History.Count));
-                member.GroupBriefing = backfill.Briefing;
-                break;
-            default:
-                member.GroupCursor = group.History.Count;
-                break;
-        }
-
-        // 插话读过的下标只在游标之后才有意义
-        int cursor = member.GroupCursor;
-        member.GroupConsumedPosts = [..member.GroupConsumedPosts.Where(x => x >= cursor)];
-        member.HasLeftGroup = false;
-        if (!group.GroupMemberSessionIds.Contains(member.SessionId)) group.GroupMemberSessionIds.Add(member.SessionId);
-        SyncDescription(group, load);
-        member.SaveMeta(touchUpdatedAt: false);
-        group.SaveMeta(touchUpdatedAt: false);
+        coordinator ??= GroupChatCoordinator.Instance;
+        if (!coordinator.TryEditRoster(group, () => Seat(group, member, backfill, coordinator))) return false;
+        RosterChanged?.Invoke(group.SessionId);
+        return true;
     }
-
-    /// <summary>
-    /// 选全部补发时要交给他多少条群流水（弹窗里写明，一次投递压缩裁不了）
-    /// </summary>
-    /// <param name="group">群壳会话</param>
-    /// <param name="former">加回的退群成员；新成员为 null</param>
-    /// <returns>条数</returns>
-    public static int FullBackfillCount(ChatSession group, ChatSession? former) =>
-        Math.Max(0, group.History.Count - (former?.GroupCursor ?? 0));
 
     /// <summary>
     /// 挑一位写入群摘要：主持人 → 最近在群里发过言的 → 名单里第一位有历史的。都没有为 null
@@ -183,14 +149,37 @@ public static class GroupMembership
             GroupBackground.ComposeBriefing(writerName, summary, returning), writer.GroupCursor, writerName);
     }
 
-    // 群描述就是成员名单（右栏群卡与左栏副标题），名单变了跟着改
-    private static void SyncDescription(ChatSession group, Func<string, ChatSession?>? load)
+    // 已在调度器的锁里
+    private static void Seat(ChatSession group, ChatSession member, GroupBackfill backfill, GroupChatCoordinator coordinator)
     {
-        load ??= id => SessionManager.Instance.Load(id);
-        group.Description = string.Join("、", group.GroupMemberSessionIds
-            .Select(load)
-            .OfType<ChatSession>()
-            .Select(x => x.CharacterData.CharacterName));
+        switch (backfill.Mode)
+        {
+            case EGroupBackfill.Full:
+                break;
+            case EGroupBackfill.Summary when backfill.Briefing != null:
+                member.GroupCursor = Math.Max(member.GroupCursor, Math.Clamp(backfill.BriefedUpTo, 0, group.History.Count));
+                member.GroupBriefing = backfill.Briefing;
+                break;
+            default:
+                member.GroupCursor = group.History.Count;
+                break;
+        }
+
+        // 插话读过的下标只在游标之后才有意义
+        int cursor = member.GroupCursor;
+        member.GroupConsumedPosts = [..member.GroupConsumedPosts.Where(x => x >= cursor)];
+        member.HasLeftGroup = false;
+        if (!group.GroupMemberSessionIds.Contains(member.SessionId))
+            group.GroupMemberSessionIds = [..group.GroupMemberSessionIds, member.SessionId];
+        Save(group, member, coordinator);
+    }
+
+    // 群描述就是成员名单（右栏群卡与左栏副标题），名单变了跟着改
+    private static void Save(ChatSession group, ChatSession member, GroupChatCoordinator coordinator)
+    {
+        group.Description = string.Join("、", coordinator.RosterOf(group).Select(x => x.Name));
+        member.SaveMeta(touchUpdatedAt: false);
+        group.SaveMeta(touchUpdatedAt: false);
     }
 }
 
@@ -205,6 +194,19 @@ public enum EGroupBackfill
 
     /// <summary>全部补发：下一轮一次交完</summary>
     Full,
+}
+
+/// <summary>改名单的结果</summary>
+public enum EGroupRosterEdit
+{
+    /// <summary>改了</summary>
+    Done,
+
+    /// <summary>群正在跑一波，没改</summary>
+    Busy,
+
+    /// <summary>不许改（只剩最后一位、不在名单里）</summary>
+    Refused,
 }
 
 /// <summary>补历史的做法</summary>

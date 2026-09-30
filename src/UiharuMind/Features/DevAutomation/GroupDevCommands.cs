@@ -231,9 +231,8 @@ internal sealed class GroupDumpCommand : IDevCommand
     {
         ChatSession group = GroupDevCommands.RequireGroup(args);
         string path = DevCommandRegistry.RequireString(args, "path");
-        IReadOnlyList<ChatSessionMeta> metas = SessionManager.MemberMetasOf(group);
-        List<(string Name, ChatSession? Session)> members = metas
-            .Select(meta => (SessionManager.CharacterOf(meta).CharacterName, SessionManager.Instance.Load(meta.SessionId)))
+        List<(string Name, ChatSession? Session)> members = GroupRoster.Of(group).Present
+            .Select(member => (member.Name, SessionManager.Instance.Load(member.SessionId)))
             .ToList();
 
         StringBuilder text = new();

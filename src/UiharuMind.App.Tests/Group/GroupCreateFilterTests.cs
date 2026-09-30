@@ -11,6 +11,7 @@ namespace UiharuMind.App.Tests.Group;
 /// 候选与胶囊的选项都是枚举派生的，这里顺带钉住「选项跟着枚举走」：档位一改，
 /// 胶囊的选中项也要跟着换，否则界面会停在一个已经筛不出来的档上。
 /// </summary>
+[Collection(CharacterLibraryCollection.Name)]
 public class GroupCreateFilterTests
 {
     private const string TempAgentId = "test-group-search-agent";

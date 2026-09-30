@@ -101,6 +101,23 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     }
 
     /// <summary>
+    /// 改名单：与开波同一把锁，群在跑一波就不改。调度边跑边读名单，
+    /// 「先查空闲、再改」两步之间可能恰好被一句发言开出一波，所以判断与修改必须在一把锁里做完
+    /// </summary>
+    /// <param name="group">群壳会话</param>
+    /// <param name="edit">改名单（整份替换 <see cref="ChatSession.GroupMemberSessionIds"/>）及随之的落盘</param>
+    /// <returns>改了为 true；群正在跑一波为 false</returns>
+    public bool TryEditRoster(ChatSession group, Action edit)
+    {
+        lock (_locker)
+        {
+            if (_episodes.ContainsKey(group.SessionId)) return false;
+            edit();
+            return true;
+        }
+    }
+
+    /// <summary>
     /// 成员退群：忘掉他「被打断待续」的记号，不然加回来后第一轮会先收到一句「接着做」
     /// </summary>
     /// <param name="memberSessionId">成员会话标识</param>
@@ -166,18 +183,13 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
             }
         }
 
-        if (turn == null)
-        {
-            AlignWithGroup(member, group);
-            return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
-        }
+        if (turn == null) return GroupTurnOutcome.Skipped; //没有新话可接，这次他不开口
 
         bool closed = false;
         try
         {
             // 锁外通报：订阅方会回来问 IsRunning/SpeakersOf
             SpeakerChanged?.Invoke(group.SessionId);
-            AlignWithGroup(member, group);
 
             string input = ComposeInput(member, cause, delivery!);
             // 插话会让一轮说好几次话，每次说完都进群，而不是只取最后一条
@@ -214,16 +226,6 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
         }
     }
 
-    // 工作区以群壳为准，每轮开跑前对齐：右栏改的是群的工作区，成员各存一份就会对不上。
-    // 成员只在其会话是 agent 形态时才领工作区（ADR 0050：普通群的 agent 卡以 chat 形态加入，不绑）。
-    // 权限档同理跟群走：群聊的权限只在群视图一处设
-    private static void AlignWithGroup(ChatSession member, ChatSession group)
-    {
-        member.WorkspacePath = member.IsAgentForm is true ? group.WorkspacePath : null;
-        member.PermissionModeIndex = group.PermissionModeIndex;
-        member.SaveMeta(touchUpdatedAt: false);
-    }
-
     bool IGroupTurnHost.HasNewLines(ChatSession group, string memberSessionId)
     {
         if (_load(memberSessionId) is not { } member) return false;
@@ -237,18 +239,9 @@ public sealed class GroupChatCoordinator : IGroupTurnHost
     }
 
     /// <inheritdoc cref="IGroupTurnHost.RosterOf" />
-    /// 名单形状与 <see cref="SessionManager.MemberMetasOf"/> 同源；这里走注入的 <c>_load</c>
-    /// （测试拿 fake 会话喂），不能换成全局单例，所以不直接调共享助手
-    public IReadOnlyList<GroupRosterEntry> RosterOf(ChatSession group)
-    {
-        List<GroupRosterEntry> roster = [];
-        foreach (string id in group.GroupMemberSessionIds)
-        {
-            if (_load(id) is { } member) roster.Add(new GroupRosterEntry(id, member.CharacterData.CharacterName));
-        }
-
-        return roster;
-    }
+    /// 走注入的 <c>_load</c>（测试拿临时会话喂，它们不在索引里）
+    public IReadOnlyList<GroupRosterEntry> RosterOf(ChatSession group) =>
+        GroupRoster.Of(group, _load).Present.Select(x => new GroupRosterEntry(x.SessionId, x.Name)).ToList();
 
     private async Task<bool> RunEpisodeAsync(ChatSession group, GroupKickoff kickoff)
     {

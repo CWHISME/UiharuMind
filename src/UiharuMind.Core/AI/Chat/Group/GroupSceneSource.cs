@@ -16,13 +16,12 @@ public static class GroupSceneSource
     public static string For(ChatSession member)
     {
         if (!member.IsGroupMember) return string.Empty;
-        return For(member, SessionManager.Instance.Load(member.GroupId!),
-            MemberCharacterOf, CharacterManager.Instance.UserCharacterName);
+        if (SessionManager.Instance.Load(member.GroupId!) is not { IsGroup: true } group) return string.Empty;
+        // 与右栏成员列表同一份名单口径
+        GroupRoster roster = GroupRoster.Of(group);
+        return For(member, group, id => roster.Present.FirstOrDefault(x => x.SessionId == id)?.Character,
+            CharacterManager.Instance.UserCharacterName);
     }
-
-    /// <summary>按成员会话标识取角色卡；取不到为 null（那位不列）。与右栏成员列表同一份名单口径</summary>
-    private static CharacterData? MemberCharacterOf(string id) =>
-        SessionManager.Instance.GetMeta(id) is { } meta ? SessionManager.CharacterOf(meta) : null;
 
     /// <summary>
     /// 取成员会话的群场景段正文（显式入参，可单测）

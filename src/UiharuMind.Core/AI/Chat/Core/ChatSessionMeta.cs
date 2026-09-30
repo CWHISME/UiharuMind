@@ -107,6 +107,12 @@ public class ChatSessionMeta
     /// <summary>群的类型：智能体群为 true。仅群壳有意义，归哪一侧列表由它决定</summary>
     public bool IsAgentGroup { get; set; }
 
+    /// <summary>
+    /// 群的在场成员会话标识，发言顺序（群壳本体那一份的冗余）。仅群壳有意义：左栏头像拼图这类只读索引的地方
+    /// 据此按真实顺序取名单，不必加载群壳。旧索引没有这一项时为空，见 <see cref="Group.GroupRoster.Of(ChatSessionMeta)"/>
+    /// </summary>
+    public IReadOnlyList<string> GroupMemberSessionIds { get; set; } = [];
+
     /// <summary>所属群壳会话；非空即群成员会话：不进左栏，入口是群的右栏成员列表，随群级联删除</summary>
     public string? GroupId { get; set; }
 

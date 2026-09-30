@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.ToolCall;
 using UiharuMind.Features.Conversation.Items;
 
@@ -90,7 +91,7 @@ public sealed partial class GroupApprovalViewData
     {
         MemberSessionId = member.SessionId;
         MemberName = member.CharacterData.CharacterName;
-        Card = new ApprovalRequestItem(request, member.WorkspacePath)
+        Card = new ApprovalRequestItem(request, GroupChatSessions.WorkspaceOf(member))
         {
             RememberShellPatternCallback = member.AddSessionApprovedShellPattern,
         };

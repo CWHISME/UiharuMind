@@ -391,13 +391,6 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (newValue != null) newValue.SpeakersChanged += NotifyBusyChanged;
     }
 
-    // 群的名单或工作区改了：按索引里那份新元数据重装一遍，群卡、成员列表、产物区、@ 补全一起换新
-    private void ReloadGroup()
-    {
-        if (CurrentMeta is { IsGroup: true } meta && SessionManager.Instance.GetMeta(meta.SessionId) is { } fresh)
-            _ = LoadSessionAsync(fresh);
-    }
-
     partial void OnGroupMemberChanged(GroupMemberSessionViewData? oldValue, GroupMemberSessionViewData? newValue)
     {
         oldValue?.Dispose();
@@ -534,7 +527,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         _transcript = new ConversationTranscript(Items, () => ConversationItemFactory.CreateAssistant(_currentCharacter),
             pattern => CurrentSession?.AddSessionApprovedShellPattern(pattern),
-            () => CurrentSession?.WorkspacePath,
+            () => CurrentSession is { } session ? GroupChatSessions.WorkspaceOf(session) : null,
             createUserItems: _history.CreateUserItems);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
@@ -1101,8 +1094,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         if (CurrentMeta == null || _isLoadingSession) return;
         CurrentMeta.WorkspacePath = value;
         ConversationSessionBinder.PersistSettings(CurrentMeta);
-        // 群的草稿目录、成员预演都跟着工作区走：整块重建
-        if (Group != null) ReloadGroup();
+        // 群的草稿目录、成员预演都跟着工作区走
+        Group?.OnWorkspaceChanged();
     }
 
     /// 换了工作区:先把该项目的授权要到手,再无条件刷一次面板。
@@ -1711,7 +1704,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         ChatSession? loaded = meta == null ? null : SessionManager.Instance.Load(meta.SessionId);
         // 群壳这一份必须在第一个 await 之前就位:页面先调装载、再换绑实例,绑定在这之后立刻求值,
         // 晚一步右栏就先按单聊画出群壳的占位角色,再跳成群卡
-        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded, ReloadGroup) : null;
+        Group = loaded is { IsGroup: true } ? new GroupShellViewData(loaded) : null;
         if (Group != null) InputPlaceholderKey = LangKey.GroupInputTips; //群里是对全群说话,不是给谁派任务
         OnPropertyChanged(nameof(IsGroupMemberSession));
         OnPropertyChanged(nameof(IsPermissionEditable));
@@ -1744,11 +1737,9 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _isLoadingSession = true;
         try
         {
-            Workspace.Path = meta.WorkspacePath;
-            // 群成员显示群的那一档：他跟群走（见 GroupChatSessions.PermissionOf）
-            PermissionModeIndex = meta.GroupId is { } groupId && SessionManager.Instance.GetMeta(groupId) is { } group
-                ? group.PermissionModeIndex
-                : meta.PermissionModeIndex;
+            // 群成员显示群的那一份：他跟群走、不存副本
+            Workspace.Path = GroupChatSessions.WorkspaceOf(meta);
+            PermissionModeIndex = GroupChatSessions.PermissionOf(meta);
         }
         finally
         {

@@ -5,6 +5,7 @@ using UiharuMind.Features.Conversation.Group;
 namespace UiharuMind.App.Tests.Group;
 
 /// <summary>从单聊开群时，建群弹窗预先勾上原单聊的角色、填好群名</summary>
+[Collection(CharacterLibraryCollection.Name)]
 public class GroupCreateWindowModelTests
 {
     /// <summary>原单聊的角色是屏蔽卡时也照样预选：用户正在跟他聊，本来就看得见</summary>

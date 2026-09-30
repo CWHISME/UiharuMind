@@ -19,6 +19,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Tools;
 using UiharuMind.Features.Characters;
@@ -153,13 +154,9 @@ public partial class SessionListItem : ObservableObject
         }
     }
 
-    // 群壳挂的是占位角色，头像改用成员拼图。索引里的成员无序，按创建先后近似发言顺序（建群时逐个建出）
+    // 群壳挂的是占位角色，头像改用在场成员按发言顺序拼图
     private IReadOnlyList<CharacterData> GroupMemberCharacters() =>
-        SessionManager.Instance.GetGroupMembers(_meta.SessionId)
-            .Where(x => !x.HasLeftGroup)
-            .OrderBy(x => x.CreatedAt)
-            .Select(SessionManager.CharacterOf)
-            .ToList();
+        GroupRoster.Of(_meta).Present.Select(x => x.Character).ToList();
 
     /// <summary>本会话有未发送的输入草稿（列表据此显示小标记）</summary>
     public bool HasDraft => _meta.HasComposerDraft;
@@ -223,8 +220,8 @@ public partial class SessionListItem : ObservableObject
     {
         //换过角色的会话要重取头像与角色名,它们是按角色标识惰性解析的
         bool characterChanged = !string.Equals(_meta.CharacterId, meta.CharacterId, StringComparison.Ordinal)
-                                // 群的描述就是成员名单：变了说明有人进出，拼图要重拼
-                                || (meta.IsGroup && !string.Equals(_meta.Description, meta.Description, StringComparison.Ordinal));
+                                // 群的名单变了（有人进出），拼图要重拼
+                                || (meta.IsGroup && !_meta.GroupMemberSessionIds.SequenceEqual(meta.GroupMemberSessionIds));
         bool workspaceChanged = !string.Equals(_meta.WorkspacePath, meta.WorkspacePath, StringComparison.Ordinal);
         _meta = meta;
         if (characterChanged)

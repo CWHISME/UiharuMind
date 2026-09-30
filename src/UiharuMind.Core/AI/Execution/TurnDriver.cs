@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Core.AI.Chat.Group;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.History;
 using UiharuMind.Core.AI.Execution.Mcp;
@@ -201,7 +202,7 @@ public sealed class TurnDriver : IDisposable
             // MCP 连接的租约:这一轮期间该工作区的连接不会被空闲回收。
             // 子进程是进程级共享资源,而「有没有一轮正在跑」是它是否在被占用的唯一诚实答案——
             // 按「会话切走就断」实现会掐掉正在后台跑的那一轮(定时任务的无头轮次也走这里)
-            using IDisposable mcpLease = McpManager.Instance.AcquireLease(session.WorkspacePath);
+            using IDisposable mcpLease = McpManager.Instance.AcquireLease(GroupChatSessions.WorkspaceOf(session));
 
             // 开跑就算一次活动:刷新 UpdatedAt,让会话此刻就浮到列表顶部。
             // 否则要等一轮跑完(历史落盘才更新时间戳),界面上是回复结束后突然跳位

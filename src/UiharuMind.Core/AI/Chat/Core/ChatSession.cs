@@ -128,8 +128,12 @@ public class ChatSession
     /// </summary>
     public bool IsAgentGroup { get; set; }
 
-    /// <summary>成员会话标识，顺序即发言顺序。仅群壳有意义</summary>
-    public List<string> GroupMemberSessionIds { get; set; } = [];
+    /// <summary>
+    /// 成员会话标识，顺序即发言顺序。仅群壳有意义。
+    /// ⚠️ 只整份替换、不原地改：调度与成员发群在后台线程边跑边读，替换引用让读的一方永远拿到完整的一份。
+    /// 建群之后改名单一律经 <see cref="Group.GroupChatCoordinator.TryEditRoster"/>
+    /// </summary>
+    public IReadOnlyList<string> GroupMemberSessionIds { get; set; } = [];
 
     /// <summary>群的调度模式（ADR 0049 决策 1）。运行中可切换，下一波起生效。仅群壳有意义</summary>
     public EGroupScheduleMode GroupScheduleMode { get; set; }
@@ -576,6 +580,7 @@ public class ChatSession
             IsAgentGroup = IsAgentGroup,
             GroupId = GroupId,
             HasLeftGroup = HasLeftGroup,
+            GroupMemberSessionIds = GroupMemberSessionIds,
         };
     }
 

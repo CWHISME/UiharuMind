@@ -108,19 +108,6 @@ public class GroupChatCoordinatorTests
         Assert.Equal(expected, GroupTranscript.VoiceReminder(coda));
     }
 
-    /// <summary>权限档跟群走：成员各存一份时，群看着是自动编辑，某位成员却在完全自动档下跑 shell</summary>
-    [Fact]
-    public async Task MembersRunWithTheGroupsPermission()
-    {
-        _group.PermissionModeIndex = 0;
-        _alice.PermissionModeIndex = 2;
-
-        await _coordinator.PostAsync(_group, "大家好");
-
-        Assert.Equal(0, _alice.PermissionModeIndex);
-        Assert.Equal(0, _bob.PermissionModeIndex);
-    }
-
     /// <summary>群里的图：路径引用人人都有，图片本身只转交给看得了图的成员</summary>
     [Fact]
     public async Task PostedImages_ReachOnlyTheMembersWhoCanSeeThem()

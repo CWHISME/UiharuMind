@@ -175,12 +175,13 @@ public class AgentBuildProfile
             Character = session.CharacterData,
             SessionId = session.SessionId,
             IsAgentForm = session.IsAgentForm,
-            WorkspacePath = session.WorkspacePath,
+            // 群成员的工作区与权限档跟群走，现取、不存副本（GroupChatSessions.WorkspaceOf / PermissionOf）
+            WorkspacePath = GroupChatSessions.WorkspaceOf(session),
             SubAgent = session.IsSubSession
                 ? new SubAgentIdentity(session.ParentSessionId!, session.SubAgentType, session.SubAgentName, session.SubAgentRole)
                 : null,
-            PermissionMode = (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
-            PermissionModeSource = () => (EAgentPermissionMode)Math.Clamp(session.PermissionModeIndex, 0, 2),
+            PermissionMode = (EAgentPermissionMode)Math.Clamp(GroupChatSessions.PermissionOf(session), 0, 2),
+            PermissionModeSource = () => (EAgentPermissionMode)Math.Clamp(GroupChatSessions.PermissionOf(session), 0, 2),
             PreAuthorizedShellPatterns = session.PreAuthorizedShellPatterns,
             PromptArguments = session.CustomParams,
             GroupScene = GroupSceneSource.For(session),
@@ -190,7 +191,7 @@ public class AgentBuildProfile
             // 群成员共用群壳那一间:一起干的活落在一处,产物不必从五个目录里拼;群删了房间随之删
             OutputFolderName = session.IsSubSession && session.ParentOutputFolderName is { Length: > 0 }
                 ? session.ParentOutputFolderName
-                : AgentOutputLayout.GetFolderName(session.WorkspacePath, session.GroupId ?? session.SessionId),
+                : AgentOutputLayout.GetFolderName(GroupChatSessions.WorkspaceOf(session), session.GroupId ?? session.SessionId),
             SessionModelSource = sessionModelSource,
             SessionKnowledgeSource = sessionKnowledgeSource,
             SessionShellApprovalSource = sessionShellApprovalSource,

@@ -37,7 +37,7 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
         _applyPermission = applyPermission;
         _runner = session.Runner;
         _runner.PendingInjectionsChanged += OnPendingInjectionsChanged;
-        GroupChatSessions.PermissionApplied += OnPermissionApplied;
+        GroupChatSessions.PermissionChanged += OnPermissionChanged;
         OnPendingInjectionsChanged(); //挂上来时可能已经有话在排队
     }
 
@@ -82,7 +82,7 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
     public void Dispose()
     {
         _runner.PendingInjectionsChanged -= OnPendingInjectionsChanged;
-        GroupChatSessions.PermissionApplied -= OnPermissionApplied;
+        GroupChatSessions.PermissionChanged -= OnPermissionChanged;
     }
 
     partial void OnPendingTextChanged(string value) => OnPropertyChanged(nameof(HasPending));
@@ -115,12 +115,11 @@ public sealed partial class GroupMemberSessionViewData : ObservableObject, IDisp
     }
 
     /// <summary>
-    /// 群改了权限档并推给了成员：是本群就按成员会话上的新档刷新显示。
-    /// 只刷显示、不写回（成员跟群走，写回由群那边做过了）
+    /// 群改了权限档：是本群就按群的新档刷新显示。只刷显示、不写回（成员跟群走、不存副本）
     /// </summary>
-    private void OnPermissionApplied(string groupId)
+    private void OnPermissionChanged(string groupId)
     {
         if (groupId != _session.GroupId) return;
-        Dispatcher.UIThread.Post(() => _applyPermission(_session.PermissionModeIndex));
+        Dispatcher.UIThread.Post(() => _applyPermission(GroupChatSessions.PermissionOf(_session)));
     }
 }
