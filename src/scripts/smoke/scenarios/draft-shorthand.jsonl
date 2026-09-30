@@ -1,0 +1,10 @@
+{"op":"page.jump","args":{"page":"agent"}}
+{"op":"session.new","args":{"character":"ShiraiKurokoAgent","workspace":"{{WS_REPO}}"}}
+{"op":"session.post","args":{"text":"帮我写个临时 Python 脚本，算 1 到 100 里所有质数的和，跑一下给我结果。脚本别放进项目里，最后告诉我脚本放在哪。"}}
+{"op":"session.wait","args":{"timeoutMinutes":10,"approvals":"once"}}
+{"op":"session.dump","args":{"path":"{{OUT}}/solo-draft.md"}}
+{"op":"group.create","args":{"name":"草稿冒烟","members":["ShiraiKurokoAgent","UiharuKazariAgent"],"workspace":"{{WS_EMPTY}}","mode":"serial"}}
+{"op":"group.post","args":{"group":"草稿冒烟","text":"帮我整理一份 Python 和 C# 异常处理的对比清单，至少十条。"}}
+{"op":"group.wait","args":{"groups":["草稿冒烟"],"timeoutMinutes":10,"approvals":"once"}}
+{"op":"group.dump","args":{"group":"草稿冒烟","path":"{{OUT}}/group-draft.md"}}
+{"op":"quit"}
