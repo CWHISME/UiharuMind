@@ -213,7 +213,8 @@ public static class AgentToolPrompts
 
         // 工具名写在这条无条件的里:下两条会被文件工具缺席时整块跳过,
         // 而一节讲命令行的纪律却一次都不提 `Shell` 是说不通的
-        sb.AppendLine("- 用 `Shell` 跑命令。命令在工作目录下执行，路径同样按相对工作目录给。");
+        // 路径默认口径只在工作目录段表态一次(见 CONTEXT.md),这里只说命令的 cwd
+        sb.AppendLine("- 用 `Shell` 跑命令，命令在工作目录下执行。");
         
         // 这两条讲的是"这件事该归 Shell 还是归文件工具",没有文件工具时它们无从谈起,
         // 而且会指名 Read/Edit/Write —— 那三个只随 EnableFileAccess 出现。
@@ -331,11 +332,10 @@ public static class AgentToolPrompts
         $"- 查网上的资料用 `{WebSearchTool.ToolName}`，" +
         $"再对看着有戏的结果用 `{WebFetchTool.ToolName}` 取正文。";
 
-    /// <summary>知识库检索工具纪律段默认正文</summary>
+    /// <summary>知识库检索工具纪律段默认正文。查询怎么写归参数说明，这里只管何时查、查不到怎么办</summary>
     public const string KnowledgeSearchDefault =
-        "- 要在用户挂给本次会话的文档里查东西，调用 `" +
-        KnowledgeTool.ToolName + "`，给一个简短聚焦的查询——它是向量检索，关键词比整句话管用。\n" +
-        "- 它返回若干段落，或者告诉你没有挂载知识库。没有挂载就直说，不要靠猜。";
+        "- 要在用户挂给本次会话的文档里查东西，调用 `" + KnowledgeTool.ToolName + "`。\n" +
+        "- 没有挂载知识库时它会直说；这时如实告诉用户，不要靠猜。";
 
     /// <summary>
     /// 按需 MCP server 名单（拼在「# MCP 服务器」段里，直挂 server 的自述之后）。

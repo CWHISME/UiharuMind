@@ -35,14 +35,14 @@ public static class KnowledgeTool
     public static AITool Create(Func<MemoryData?>? knowledgeSource)
     {
         return AIFunctionFactory.Create(
-            async ([Description("A focused query describing what to look up in the knowledge base.")]
+            async ([Description("A short, focused query, not the user's raw message. " +
+                                "It is a vector search: key terms work better than a full sentence.")]
                     string query,
                     CancellationToken cancellationToken = default) =>
                 await SearchAsync(knowledgeSource, query).ConfigureAwait(false),
             ToolName,
-            "Search the knowledge base attached to this session for passages relevant to the query. " +
-            "Use a focused query, not the user's raw message. " +
-            "This searches the user's document collection, not your own notes.");
+            "Search the knowledge base attached to this session (the user's documents, not your own notes) " +
+            "for passages relevant to the query.");
     }
 
     private static async Task<string> SearchAsync(Func<MemoryData?>? knowledgeSource, string query)
