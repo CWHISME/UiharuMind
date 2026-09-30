@@ -12,7 +12,6 @@ public class GroupAddMembersWindowModelTests
     [Fact]
     public void ListsFormerButNotPresent_AndRejoinIsPreselected()
     {
-        CharacterManager.Instance.OnInitialize();
         List<CharacterData> cards = CharacterManager.Instance.CharacterDataDictionary.Values
             .Where(x => !x.IsInternal && GroupChatSessions.CanJoin(x) && CharacterVisibility.PassesShield(x))
             .Take(3)

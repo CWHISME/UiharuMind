@@ -12,7 +12,6 @@ public class GroupCreateWindowModelTests
     [Fact]
     public void Preselected_IsPickedFirst_AndNameIsFilled_EvenWhenShielded()
     {
-        CharacterManager.Instance.OnInitialize();
         CharacterData source = CharacterManager.Instance.CharacterDataDictionary.Values
             .First(x => x.IsShielded && !x.IsInternal && GroupChatSessions.CanJoin(x));
         Assert.False(CharacterVisibility.ShowShielded); //测试数据目录没有解锁标记

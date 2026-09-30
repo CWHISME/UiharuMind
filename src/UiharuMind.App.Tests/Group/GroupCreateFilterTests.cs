@@ -17,11 +17,6 @@ public class GroupCreateFilterTests
     private const string TempAgentId = "test-group-search-agent";
     private const string TempAgentDescription = "试卡专属的定位词-zh";
 
-    public GroupCreateFilterTests()
-    {
-        CharacterManager.Instance.OnInitialize();
-    }
-
     /// <summary>造一张用户自己建的卡，用完删掉，不留在测试数据目录里</summary>
     private static CharacterData AddTempUserAgent()
     {
