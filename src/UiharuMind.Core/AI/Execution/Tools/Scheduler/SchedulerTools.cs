@@ -32,26 +32,27 @@ public static class SchedulerTools
     /// <returns>需审批的工具实例</returns>
     public static AITool CreateScheduledTaskTool(string? workspacePath)
     {
+        // 二选一的时间参数与预授权都必须带默认值:无默认值的参数框架按必填处理,
+        // 模型只给 delayMinutes 时会直接抛"缺少必填参数 fireAtIso"
         AIFunction function = AIFunctionFactory.Create(
             (
                 [Description("Short human readable task name.")]
                 string displayName,
                 [Description("Task instruction for the agent to execute when fired.")]
                 string prompt,
-                [Description("Fire after N minutes from now. Ignored when fireAtIso is provided.")]
-                double? delayMinutes,
+                [Description("Fire after N minutes from now.")]
+                double? delayMinutes = null,
                 [Description("Absolute fire time (ISO 8601). Overrides delayMinutes.")]
-                string? fireAtIso,
-                [Description("Shell command glob patterns the task is pre-authorized to run unattended, " +
-                             "e.g. [\"git add*\", \"git commit*\"]. Anything else will be denied at run time.")]
-                string[]? preAuthorizedCommands
+                string? fireAtIso = null,
+                [Description("Shell command glob patterns the task may run unattended, " +
+                             "e.g. [\"git add*\", \"git commit*\"]. List every command it will need: " +
+                             "anything else is denied at run time.")]
+                string[]? preAuthorizedCommands = null
             ) => CreateTaskAsync(workspacePath, displayName, prompt, delayMinutes, fireAtIso, preAuthorizedCommands),
             // 宽容口径:preAuthorizedCommands 也是 string[],模型给标量字符串时照收(见 ToolJson)
             ToolJson.CreateFactoryOptions(ToolName,
                 "Schedule an agent task to run automatically at a future time " +
-                "(e.g. 'commit the repo in 30 minutes'). List every shell command pattern " +
-                "the task will need in preAuthorizedCommands - unattended execution denies " +
-                "everything else."));
+                "(e.g. 'commit the repo in 30 minutes')."));
 
         return new ApprovalRequiredAIFunction(function);
     }
