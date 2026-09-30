@@ -19,6 +19,11 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// </summary>
 internal static class AgentInstructionsComposer
 {
+    /// <summary>
+    /// 工作区规矩指针的「何时读」。「动手前」实测被读成「改文件前」：模型先列目录、读别的文件，改文件前也没读它
+    /// </summary>
+    internal const string ReadWorkspaceRulesFirst = "本会话第一次调用工具之前，先 `Read` 它读完全文；读过就不用再读。";
+
     // 标题一律取自 AgentPromptHeadings：工作区规矩段与 MCP 自述段主代理与子代理逐字共用
     // ——子代理干的正是探查工作区的活、拿的是同一份 MCP 工具，不该是全场唯一不知道规矩的人。
 
@@ -223,10 +228,9 @@ internal static class AgentInstructionsComposer
     internal static string WorkspacePointerSection(string fileName = "")
     {
         string pointer = string.IsNullOrEmpty(fileName)
-            ? "本会话的工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
-            : $"直接使用 Read 工具传入 {fileName} 参数读取项目的协作规矩与禁区。";
-        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n"
-               + "动手前先读一遍全文。";
+            ? "工作目录下有一份 AGENTS.md（或 CLAUDE.md），写着这个项目的协作规矩与禁区。"
+            : $"工作目录下的 {fileName} 写着这个项目的协作规矩与禁区。";
+        return $"{AgentPromptHeadings.Workspace}\n\n{pointer}\n" + ReadWorkspaceRulesFirst;
     }
 
     /// <summary>

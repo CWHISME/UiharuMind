@@ -136,8 +136,7 @@ internal sealed class PermissiveFileAccessTools
 
         // 宽容口径:fileGlobs 是 string[],而模型常给一个标量字符串,
         // 从前那会死在反序列化上并回一句它看不懂的框架异常(见 ToolJson)
-        static AIFunctionFactoryOptions ToolOptions(string name) =>
-            new() { Name = name, SerializerOptions = ToolJson.Lenient };
+        static AIFunctionFactoryOptions ToolOptions(string name) => ToolJson.CreateFactoryOptions(name);
     }
 
     [Description("Find files by glob pattern.")]

@@ -443,7 +443,7 @@ public class HarnessInstructionsCompositionTests
         string main = BuildAgentOptions("/tmp/uiharu-agent-test",
             workspaceInstructions: body).ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.Contains("动手前先读一遍全文", main);
+        Assert.Contains(AgentInstructionsComposer.ReadWorkspaceRulesFirst, main);
         Assert.DoesNotContain(body[..100], main);
     }
 
@@ -692,7 +692,7 @@ public class HarnessInstructionsCompositionTests
             workspaceInstructions: "never touch the vendor folder");
         string instructions = options.ChatOptions?.Instructions ?? string.Empty;
 
-        Assert.True(instructions.IndexOf("动手前先读一遍全文", StringComparison.Ordinal) >
+        Assert.True(instructions.IndexOf(AgentInstructionsComposer.ReadWorkspaceRulesFirst, StringComparison.Ordinal) >
                     instructions.IndexOf(AgentPromptHeadings.FileOperations, StringComparison.Ordinal),
             "工作区规矩必须排在工具纪律之后");
     }
@@ -1509,7 +1509,7 @@ public class SubAgentBoundaryTests
         string instructions = SubAgentAssembly
             .BuildSubAgentOptions(NewInput(workspaceInstructions: body))!.ChatOptions!.Instructions!;
 
-        Assert.Contains("动手前先读一遍全文", instructions);
+        Assert.Contains(AgentInstructionsComposer.ReadWorkspaceRulesFirst, instructions);
         Assert.DoesNotContain(body[..100], instructions); //正文整段不进系统提示
     }
 

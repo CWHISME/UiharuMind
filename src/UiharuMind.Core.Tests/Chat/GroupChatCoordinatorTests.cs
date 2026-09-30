@@ -279,6 +279,10 @@ public class GroupChatCoordinatorTests
     [InlineData("[alice]: hi", "Alice", "[alice]: hi")] //大小写不一致不算自加前缀，只认原样
     [InlineData("[Alice] 你好", "Alice", "[Alice] 你好")] //中括号无冒号不剥
     [InlineData("[Alice]:", "Alice", "")] //只剩前缀，剥空
+    [InlineData("[黑子]: 这可不行呢", "白井黑子", "这可不行呢")] //括号里写的是自称（全名的一段），实测白井黑子这么加
+    [InlineData("【初春】：那个……", "初春饰利", "那个……")]
+    [InlineData("[子]: 单字不算", "白井黑子", "[子]: 单字不算")]
+    [InlineData("黑子：裸名式只认全名", "白井黑子", "黑子：裸名式只认全名")]
     public void StripSpeakerPrefix_StripsOnlyOwnPrefix(string body, string speaker, string expected)
     {
         Assert.Equal(expected, GroupTranscript.StripSpeakerPrefix(body, speaker));

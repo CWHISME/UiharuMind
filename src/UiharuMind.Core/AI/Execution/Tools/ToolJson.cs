@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Files;
@@ -195,6 +196,43 @@ public static class ToolJson
 {
     /// <summary>宽容口径：数组参数也接受标量字符串。其余行为与框架默认完全一致</summary>
     public static JsonSerializerOptions Lenient { get; } = CreateLenient();
+
+    /// <summary>
+    /// 工具参数的 schema 口径。挂了自定义转换器的类型 schema 生成器推不出结构，只会给无类型的空 schema
+    /// （实机：Edit 的 edits 丢了 array/items，模型连 newString 都不知道），这里对这些类型改用框架默认口径推一遍。
+    /// </summary>
+    public static AIJsonSchemaCreateOptions Schema { get; } = new() { TransformSchemaNode = RestoreConvertedSchema };
+
+    /// <summary>
+    /// 工具工厂选项：参数解析走 <see cref="Lenient"/>，schema 走 <see cref="Schema"/>。两者必须成对，只挂前者会吞掉 schema
+    /// </summary>
+    /// <param name="name">工具名</param>
+    /// <param name="description">工具说明；为空时取方法上的 Description</param>
+    /// <returns>新的工厂选项</returns>
+    public static AIFunctionFactoryOptions CreateFactoryOptions(string name, string? description = null) => new()
+    {
+        Name = name,
+        Description = description,
+        SerializerOptions = Lenient,
+        JsonSchemaCreateOptions = Schema,
+    };
+
+    private static JsonNode RestoreConvertedSchema(AIJsonSchemaCreateContext context, JsonNode node)
+    {
+        Type type = context.TypeInfo.Type;
+        if (node is not JsonObject original || !Lenient.Converters.Any(c => c.Type == type)) return node;
+
+        JsonElement inferred = AIJsonUtilities.CreateJsonSchema(type, serializerOptions: AIJsonUtilities.DefaultOptions);
+        if (JsonNode.Parse(inferred.GetRawText()) is not JsonObject restored) return node;
+
+        // 参数自己的 description/default 留在原节点上，推出来的结构里没有
+        foreach ((string key, JsonNode? value) in original)
+        {
+            if (!restored.ContainsKey(key)) restored[key] = value?.DeepClone();
+        }
+
+        return restored;
+    }
 
     private static JsonSerializerOptions CreateLenient()
     {

@@ -138,4 +138,28 @@ public class DefaultCharacterResourceTests
 
         Assert.True(string.IsNullOrEmpty(data.Config.PromptConfig.Template));
     }
+
+    /// <summary>
+    /// 智能体卡的人格正文不许假设「有别人在场」（人格稿 v8 §7.1）：同一份人格单聊群聊共用，
+    /// 单聊里压根没有「别人」。实测白井黑子单聊开场把「不替人核数字」「别人刚说过的结论」
+    /// 这类分工话原样念给了用户。群聊专属的说法归场景段。
+    /// </summary>
+    [Fact]
+    public void AgentCardPersona_DoesNotAssumeOthersPresent()
+    {
+        string[] groupPhrases =
+        [
+            "别人的活", "别人的事", "别人盯着", "另有人干", "那两位", "你们", "有人说", "一行人",
+            "大家说", "大家查", "几个人的话", "资历最老", "别人讲", "别人给出", "别人刚说", "别人已经说", "别人从仓库",
+        ];
+        List<string> hits = [];
+        foreach (CharacterData data in DefaultCharacterManager.Instance.All.Values)
+        {
+            if (!data.IsAgent || data.IsInternal) continue;
+            string template = data.Config.PromptConfig.Template;
+            hits.AddRange(groupPhrases.Where(template.Contains).Select(p => $"{data.CharacterId}:「{p}」"));
+        }
+
+        Assert.True(hits.Count == 0, string.Join("\n", hits));
+    }
 }

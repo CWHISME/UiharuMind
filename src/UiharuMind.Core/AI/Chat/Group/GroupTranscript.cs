@@ -167,7 +167,7 @@ public static class GroupTranscript
         {
             char close = text[0] == '[' ? ']' : '】';
             int end = text.IndexOf(close);
-            if (end > 1 && string.Equals(text.Substring(1, end - 1).Trim(), name, StringComparison.Ordinal))
+            if (end > 1 && IsOwnBracketName(text.Substring(1, end - 1).Trim(), name))
             {
                 string after = text.Substring(end + 1).TrimStart();
                 if (after.Length > 0 && (after[0] == ':' || after[0] == '：'))
@@ -187,6 +187,12 @@ public static class GroupTranscript
 
         return null;
     }
+
+    // 括号里是全名，或全名中连续的一段（两字起）：原作角色常拿自称当前缀，如白井黑子写「[黑子]:」。
+    // 裸名式不放宽：「黑子：」在句首更可能是在对人说话
+    private static bool IsOwnBracketName(string token, string name) =>
+        string.Equals(token, name, StringComparison.Ordinal) ||
+        (token.Length >= 2 && name.Contains(token, StringComparison.Ordinal));
 
     /// <summary>成员表示「这次不接话」的回复：不进群（场景段里告诉了他）</summary>
     public const string PassReply = "[沉默]";
