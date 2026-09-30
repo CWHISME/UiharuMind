@@ -72,6 +72,11 @@ internal sealed class PermissiveFileAccessTools
     /// <summary>Edit diff 单行长度上限（minified JSON 一行可达几十 KB，行数上限拦不住）</summary>
     internal const int MaxEditDiffLineChars = FileEditPlanner.DefaultMaxDiffLineChars;
 
+    private const string SearchPathDescription = //Glob 与 Grep 的 path 参数共用
+        "Omit to search the whole working directory. "
+        + "Pass a subdirectory or a single file only to narrow the search; relative or absolute. "
+        + "Returned paths are relative to the working directory.";
+
     /// <summary>
     /// 落盘的"读→计划→写"关键区不原子：<c>AllowConcurrentInvocation=true</c> 时同一轮
     /// 消息里两个工具调用并发执行，两个 Edit/Write 打同一文件就会 lost-update（后写覆盖前写），
@@ -142,12 +147,7 @@ internal sealed class PermissiveFileAccessTools
     [Description("Find files by glob pattern.")]
     private async Task<GlobToolResult> Glob(
         [Description("Glob pattern, e.g. \"**/*.cs\".")] string pattern,
-        [Description("Where to search: a directory (search under it, e.g. \"Design/spec\") "
-                     + "or a single file (match only that file, e.g. \"Design/spec/04-世界层.md\"). "
-                     + "Omit it to search the whole working directory. "
-                     + "Relative or absolute. Returned paths are relative to the working directory either way, "
-                     + "so you can pass them straight to `Read`.")]
-        string? path = null)
+        [Description(SearchPathDescription)] string? path = null)
     {
         GlobOutcome outcome = await _glob.SearchAsync(pattern, path).ConfigureAwait(false);
 
@@ -200,7 +200,8 @@ internal sealed class PermissiveFileAccessTools
             : null;
     }
 
-    [Description("Search file contents. Respects .gitignore. If hits are too many, returns a hit map instead of inline lines: then narrow with path/fileGlobs or Read the listed files — never re-search with a broader term.")]
+    // 命中过多时怎么办只由地图的 Notice 说:它就贴在触发那一刻,描述里再写一遍是每轮白付
+    [Description("Search file contents. Respects .gitignore.")]
     internal async Task<GrepToolResult> Grep(
         [Description("Search pattern (ripgrep syntax).")] string pattern,
         [Description("Treat the pattern as a regular expression. "
@@ -210,18 +211,11 @@ internal sealed class PermissiveFileAccessTools
         [Description("Case-sensitive search.")] bool caseSensitive = false,
         [Description("How many lines of context to show around each match.")] int contextLines = 0,
         [Description("Maximum directory depth to walk (null means no limit).")] int? maxDepth = null,
-        [Description("Only search files whose name matches one of these globs, e.g. \"*.cs\". "
-                     + "Only the file name is matched - do NOT include a path or '**/' prefix "
-                     + "(e.g. not \"**/*.cs\"); to scope the search use the 'path' argument. "
-                     + "Ignored when path points to a single file. "
-                     + "A leading '**/' or path in a glob is stripped to the bare file name.")]
+        // 带路径或 **/ 前缀的 glob 在搜索器里已剥成裸文件名,不必再警告模型别这么写
+        [Description("File-name globs, e.g. [\"*.cs\"]. Matched against the file name only; "
+                     + "scope by folder with path.")]
         string[]? fileGlobs = null,
-        [Description("Where to search: a directory (search under it, e.g. \"Design/spec\"), "
-                     + "a single file (search only that file, e.g. \"Design/spec/04-世界层.md\"), "
-                     + "or omit it to search the whole working directory. "
-                     + "Relative or absolute. Returned paths are relative to the working directory either way, "
-                     + "so you can pass them straight to `Read`.")]
-        string? path = null,
+        [Description(SearchPathDescription)] string? path = null,
         CancellationToken ct = default)
     {
         GrepOutcome outcome = await _grepper
@@ -405,21 +399,13 @@ internal sealed class PermissiveFileAccessTools
         return text.Length <= maxChars ? text : text[..maxChars] + " …[truncated]";
     }
 
-    [Description("""
-                 Read a file's raw content.
-                 - Lines are separated by newlines. The first line of your mental model is line 1.
-                 - By default at most 2000 lines or 32KB are returned per call, whichever comes first;
-                   a trailing notice tells you the offset to continue from.
-                 - Pass limit=-1 to read the entire file in one call, bypassing the byte cap.
-                   Use this when you need to understand the whole file for refactoring.
-                 - When you only need part of a large file, locate the interesting lines with Grep first,
-                   then read a slice with offset/limit — don't pull the whole file for a detail.
-                 """)]
+    // 描述只写契约;何时读全文、何时先 Grep 再切片是策略,归文件纪律段(AgentToolPrompts.FileReadDefault)
+    [Description("Read a file's raw content. By default returns at most 2000 lines or 32KB per call, "
+                 + "whichever comes first; a trailing notice gives the offset to continue from.")]
     internal Task<string> Read(
         [Description("File path, absolute or relative to the working directory.")] string filePath,
         [Description("1-based starting line.")] int offset = 1,
-        [Description("Max lines to return. Pass -1 to read the entire file (bypasses the 32KB byte cap). " +
-                     "When omitted, defaults to 2000 lines.")] int? limit = null,
+        [Description("Max lines to return. Pass -1 to read the whole file (no byte cap).")] int? limit = null,
         CancellationToken cancellationToken = default)
     {
         string full = ResolvePath(filePath);
@@ -511,16 +497,15 @@ internal sealed class PermissiveFileAccessTools
     [Description("""
                  Change an existing file by exact text replacement.
                  - Put every change to one file in a single call, as multiple entries in `edits`.
-                 - Every edits[].oldString is matched against the file as it is now, not against
-                   your earlier entries in the same call, and must match exactly one place.
-                 - Entries must not overlap. Merge nearby changes into one entry instead.
+                 - Every oldString is matched against the file as it is now, not against
+                   your earlier entries in the same call.
+                 - Entries must not overlap: merge nearby changes into one entry, keep distant ones separate.
                  - Nothing is written unless every entry applies; the error tells you what to fix.
                  """)]
     internal async Task<string> Edit(
         [Description("File path, absolute or relative to the working directory.")]
         string filePath,
-        [Description("The replacements to make, all matched against the current file content.")]
-        List<FileEdit> edits,
+        [Description("The replacements to apply.")] List<FileEdit> edits,
         CancellationToken ct = default)
     {
         // 写目标解析 symlink:锁与落盘都对着真实路径(否则链接被替换成普通文件)

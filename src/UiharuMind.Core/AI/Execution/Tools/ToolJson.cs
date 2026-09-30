@@ -231,6 +231,14 @@ public static class ToolJson
             if (!restored.ContainsKey(key)) restored[key] = value?.DeepClone();
         }
 
+        // 可空性挂在参数上，按裸类型推出来的结构带不过来；默认值是 null 却不许 null，schema 就自相矛盾了
+        if (original.TryGetPropertyValue("default", out JsonNode? defaultValue) && defaultValue is null
+            && restored["type"] is JsonValue typeValue && typeValue.TryGetValue(out string? typeName)
+            && typeName != "null")
+        {
+            restored["type"] = new JsonArray(typeName, "null");
+        }
+
         return restored;
     }
 

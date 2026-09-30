@@ -20,8 +20,8 @@ namespace UiharuMind.Core.AI.Execution.Files;
 public sealed class FileEdit
 {
     /// <summary>被替换的原文，必须在文件中唯一出现，且不得与同一次调用的其他编辑重叠</summary>
-    [Description("Exact text to replace. Must occur exactly once in the file, and must not overlap "
-                 + "another entry in the same call. Keep it as small as it can be while still unique.")]
+    [Description("Exact text to replace; must occur exactly once in the file. "
+                 + "Keep it as small as it can be while still unique.")]
     public string OldString { get; set; } = string.Empty;
 
     /// <summary>替换后的文本（空串表示删掉这段）</summary>

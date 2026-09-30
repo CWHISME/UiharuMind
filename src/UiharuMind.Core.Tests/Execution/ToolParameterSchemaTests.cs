@@ -54,6 +54,15 @@ public class ToolParameterSchemaTests : IDisposable
         Assert.True(fileGlobs.TryGetProperty("description", out _));
     }
 
+    [Fact]
+    public void GrepTool_FileGlobsParameter_AdmitsNullLikeItsDefault()
+    {
+        JsonElement fileGlobs = Parameter(FileToolNames.Grep, "fileGlobs");
+
+        Assert.True(HasType(fileGlobs, "null"), fileGlobs.GetRawText());
+        Assert.Equal(JsonValueKind.Null, fileGlobs.GetProperty("default").ValueKind);
+    }
+
     private JsonElement Parameter(string toolName, string parameterName)
     {
         AIFunction function = _tools.OfType<AIFunction>().Single(t => t.Name == toolName);
